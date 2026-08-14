@@ -17,6 +17,8 @@
  * @packageDocumentation
  */
 
+import { cssEscape } from '@adapters/shared/selectorUtil';
+
 /** Attribute stamped on every element a layer covers. */
 export const MARK_ATTRIBUTE = 'data-maidr-observable';
 
@@ -39,7 +41,10 @@ export function stampLayer(
 ): string {
   for (const element of elements)
     element.setAttribute(MARK_ATTRIBUTE, token);
-  return `#${containerId} [${MARK_ATTRIBUTE}="${token}"]`;
+  // Escaped: the id is usually one this adapter generated, but
+  // `ensureContainerId` keeps an id the page already put there, and a `.` or a
+  // `:` in that one would end the selector early and match nothing.
+  return `#${cssEscape(containerId)} [${MARK_ATTRIBUTE}="${token}"]`;
 }
 
 /**

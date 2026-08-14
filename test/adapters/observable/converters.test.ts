@@ -499,3 +499,93 @@ describe('an axis whose span dwarfs its smallest values', () => {
     ]);
   });
 });
+
+describe('a stack the drawn rects cannot be laid out as a grid', () => {
+  it('reads a stack with both a zero segment and a gap as plain bars', () => {
+    // A stacked layer's data is a rectangular grid — every series, every
+    // category — and MAIDR pairs it with the elements by position. Plot draws
+    // neither a rect for a combination that has no row nor a distinguishable
+    // one for a zero, and when a chart has both, the two cancel out: the counts
+    // agree, so nothing looks wrong, while every cell past the first gap is
+    // announced against the wrong bar. Announced as plain bars each element
+    // carries its own value and the pairing is exact.
+    const { document, element } = mountFixture('zeroAndGappyStack');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const data = layer?.data as BarPoint[];
+
+    expect(layer?.type).toBe(TraceType.BAR);
+    expect(data.map(point => [point.x, point.y])).toEqual([
+      ['Feb', 7],
+      ['Feb', 2],
+      ['Jan', 0],
+      ['Jan', 4],
+      ['Mar', 5],
+    ]);
+    expect(document.querySelectorAll(layer?.selectors as string)).toHaveLength(data.length);
+  });
+});
+
+describe('histograms binned down an axis that also runs backwards', () => {
+  it('bins along the axis the bars stand on, not the one they grow along', () => {
+    // The orientation of a binned rect was taken from which axis its bars were
+    // longer on, which a reversed axis inverts: the bins were read off the
+    // frequency axis and every bar reported the same made-up interval. Deciding
+    // from the baseline the bars stand on holds either way round.
+    const layer = onlyLayer('reversedHorizontalHistogram');
+    const data = layer.data as HistogramPoint[];
+
+    expect(layer.type).toBe(TraceType.HISTOGRAM);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([
+      [0, 2],
+      [2, 4],
+      [4, 6],
+      [6, 8],
+      [8, 10],
+    ]);
+    expect(data.map(bin => bin.y)).toEqual([8, 8, 8, 8, 8]);
+  });
+
+  it('splits a horizontal histogram into series the same way a vertical one splits', () => {
+    const { element } = mountFixture('stackedHorizontalHistogram');
+    const subplot = observablePlotToMaidr(element)?.subplots[0][0];
+    const layer = subplot?.layers[0];
+    const series = layer?.data as SegmentedPoint[][];
+
+    expect(layer?.type).toBe(TraceType.STACKED);
+    expect(layer?.orientation).toBe(Orientation.HORIZONTAL);
+    expect(subplot?.legend).toHaveLength(2);
+    expect(series[0].map(point => point.x)).toEqual([1, 3, 5, 7, 9]);
+    expect(series.flat().map(point => point.y)).toEqual(Array.from({ length: 10 }, () => 4));
+  });
+});
+
+describe('dot marks Plot did not draw as circles', () => {
+  it('orders a dot plot by its categories whatever shape the points are', () => {
+    // `symbol` makes Plot draw each point as a `<path>` instead of a `<circle>`,
+    // which changes nothing about what the mark means. A reader moving along
+    // the axis expects the categories in the axis's order, and the elements
+    // have to be moved to match or the highlight trails the announcement.
+    const { document, element } = mountFixture('symbolDots');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const data = layer?.data as BarPoint[];
+
+    expect(data.map(point => [point.x, point.y])).toEqual([['a', 5], ['b', 4], ['c', 3]]);
+    // Plot drew them c, a, b — the order the rows arrived in — so the pixels
+    // the selector resolves to say whether the elements followed the data.
+    const matched = Array.from(document.querySelectorAll(layer?.selectors as string));
+    const centres = matched.map(node => node.getAttribute('transform'));
+    expect(centres).toEqual(['translate(137,20)', 'translate(330,195)', 'translate(523,370)']);
+  });
+
+  it('keeps every point of a scatter Plot split by colour', () => {
+    // A colour channel splits one dot mark into one group per series. Reading
+    // only the first group drops the rest of the chart silently.
+    const { document, element } = mountFixture('seriesDots');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const data = layer?.data as ScatterPoint[];
+
+    expect(data.map(point => [point.x, point.y])).toEqual([[1, 2], [2, 3], [1, 5], [2, 1]]);
+    expect(document.querySelectorAll(layer?.selectors as string)).toHaveLength(4);
+  });
+});

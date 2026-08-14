@@ -454,15 +454,19 @@ export function deriveScale(svg: Element, axis: 'x' | 'y' | 'fx' | 'fy'): PlotSc
     return undefined;
 
   const numeric = ticks.map(t => ({ ...t, value: parseTickNumber(t.label) }));
+  // Plot's own signal, and only it. Labels that happen to parse as numbers say
+  // nothing: a band axis of years is labelled 2020, 2021, 2022, and fitting a
+  // line through those turns a bar chart's categories into a continuous axis —
+  // which leaves the mark with no categorical axis at all, so it is dropped and
+  // the chart never binds.
   const quantitative = group.getAttribute('font-variant') === 'tabular-nums';
 
-  // A quantitative axis whose labels cannot all be read back is a dead end: the
-  // pixel-to-value mapping is exactly what is missing, and there is nothing
-  // else in the DOM that carries it.
-  if (quantitative && !numeric.every(t => t.value !== null))
-    return undefined;
-
-  if (quantitative || numeric.every(t => t.value !== null)) {
+  if (quantitative) {
+    // A quantitative axis whose labels cannot all be read back is a dead end:
+    // the pixel-to-value mapping is exactly what is missing, and there is
+    // nothing else in the DOM that carries it.
+    if (!numeric.every(t => t.value !== null))
+      return undefined;
     const points = numeric as { pixel: number; value: number }[];
     const first = points[0];
     const last = points[points.length - 1];
@@ -534,7 +538,14 @@ function translateOf(element: Element, axis: 'x' | 'y'): number | null {
  * @returns The number, or `null` when the label is not numeric.
  */
 function parseTickNumber(label: string): number | null {
-  const cleaned = label.replace(/[\s,]/g, '').replace(/\u2212/g, '-');
+  // A comma is a thousands separator only where it groups three digits. In a
+  // locale that writes a decimal comma, `1,5` is one and a half, and dropping
+  // the comma would read it as fifteen — a wrong number where refusing to read
+  // the axis at all is the right answer.
+  const grouped = label.replace(/\s/g, '');
+  if (grouped.includes(',') && !/^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(grouped.replace(/\u2212/g, '-')))
+    return null;
+  const cleaned = grouped.replace(/,/g, '').replace(/\u2212/g, '-');
   const match = /^(-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)([yzafpn\u00B5mkMGTPEZY]?)$/.exec(cleaned);
   if (!match)
     return null;

@@ -93,15 +93,19 @@ export interface ObservablePlotOptions {
   };
   /**
    * Forces the MAIDR trace type of a mark, keyed by the mark's Plot
-   * `aria-label` (`'bar'`, `'dot'`, `'line'`, `'area'`, `'cell'`, `'rect'`).
+   * `aria-label`.
    *
-   * The adapter infers a type from the mark and its scales — a `rect` mark on
-   * a continuous x axis reads as a histogram, on a band axis as a bar chart —
-   * and that inference is right for the marks Plot's own examples produce. A
-   * `rect` used for something else entirely is what this is for.
+   * Only `rect` is read today, and only to say `TraceType.HISTOGRAM`: a `rect`
+   * mark is otherwise taken for a histogram when both axes are continuous and
+   * for a bar chart when one is categorical, which is right for the marks
+   * Plot's own examples produce. A binned rect drawn against a categorical axis
+   * is the case that needs telling.
+   *
+   * Other keys are accepted and ignored, so a future release can honour them
+   * without breaking a caller that set one.
    *
    * @example
-   * markTypes: { rect: TraceType.BAR }
+   * markTypes: { rect: TraceType.HISTOGRAM }
    */
   markTypes?: Record<string, string>;
   /**

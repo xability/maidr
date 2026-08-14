@@ -437,7 +437,7 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
   // the same baseline on the value axis and tile along the binned one. Read the
   // wrong way round, a horizontal histogram becomes a set of identical bars
   // whose value is the width of a bin.
-  const binned = binnedOrientation(facet.elements);
+  const binned = binnedOrientation(facet.elements, scales);
   const binScale = binned === Orientation.VERTICAL ? scales.x : scales.y;
 
   const bins = facet.elements
@@ -486,27 +486,63 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
 /**
  * Which axis a binned rect mark's bins run along.
  *
- * A histogram's bars all start at the same place on the value axis — the
- * baseline the counts grow from — and are spread out along the binned one. So
- * the axis whose starting coordinate every bar shares is the value axis, and
- * the other one carries the bins.
+ * `binX` and `binY` both draw a `rect`, and nothing in the DOM says which was
+ * used. What distinguishes them is the baseline: counts grow from zero, so on
+ * the value axis every bar has an edge exactly where the scale puts zero, while
+ * on the binned axis at most the one bin that happens to begin there does.
+ *
+ * That holds whether or not a `fill` channel stacked the bars — a stack's first
+ * segment still sits on the baseline — which the geometry alone cannot settle,
+ * because bins tile their axis and so do the stack positions.
  *
  * @param elements - The mark's rects.
- * @returns The orientation, defaulting to vertical for a single bar, where
- *          there is nothing to tell the two apart.
+ * @param scales   - The plot's scales, which say where zero is.
+ * @returns The orientation, defaulting to vertical when nothing distinguishes
+ *          the two.
  */
-function binnedOrientation(elements: readonly Element[]): Orientation {
-  const xs = new Set<number>();
-  const ys = new Set<number>();
+function binnedOrientation(elements: readonly Element[], scales: PlotScales): Orientation {
+  const onX = countTouching(elements, ['x', 'width'], baselinePixel(scales.x));
+  const onY = countTouching(elements, ['y', 'height'], baselinePixel(scales.y));
+  return onX > onY ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+}
+
+/**
+ * Where a scale draws zero, which is where a count's bars start.
+ *
+ * @param scale - The scale to ask.
+ * @returns The pixel, or `null` when the scale cannot place zero.
+ */
+function baselinePixel(scale: PlotScale | undefined): number | null {
+  if (!scale || typeof scale.apply !== 'function' || !isContinuous(scale))
+    return null;
+  return toNumber(scale.apply(0));
+}
+
+/**
+ * How many rects have an edge on a given pixel along one axis.
+ *
+ * @param elements   - The mark's rects.
+ * @param attributes - The start and extent attributes for that axis.
+ * @param baseline   - The pixel to look for.
+ * @returns The count, or `0` when there is no baseline to look for.
+ */
+function countTouching(
+  elements: readonly Element[],
+  attributes: readonly [string, string],
+  baseline: number | null,
+): number {
+  if (baseline === null)
+    return 0;
+  let count = 0;
   for (const element of elements) {
-    const x = attributeNumber(element, 'x');
-    const y = attributeNumber(element, 'y');
-    if (x !== null)
-      xs.add(x);
-    if (y !== null)
-      ys.add(y);
+    const start = attributeNumber(element, attributes[0]);
+    const extent = attributeNumber(element, attributes[1]);
+    if (start === null || extent === null)
+      continue;
+    if (Math.abs(start - baseline) <= 1 || Math.abs(start + extent - baseline) <= 1)
+      count++;
   }
-  return xs.size === 1 && ys.size > 1 ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+  return count;
 }
 
 /**
@@ -822,17 +858,27 @@ function buildBarLayer(
   const seriesNames = uniqueInOrder(
     data.map(datum => datum.series).filter((name): name is string => name !== undefined),
   );
-  const grid = seriesNames.length > 1 ? stackedGrid(data, seriesNames, orientation) : null;
+  // Only bars stack. A dot mark split by colour is a Cleveland dot plot with
+  // groups, and typing it `stacked_bar` both announces it as the wrong chart
+  // and loses its highlight — a segmented layer resolves its marks as rects or
+  // paths, and a dot draws neither.
+  const grid = plainType === TraceType.BAR && seriesNames.length > 1
+    ? stackedGrid(data, seriesNames, orientation)
+    : null;
 
   if (!grid) {
-    const points: BarPoint[] = data.map(datum => ({ x: datum.x, y: datum.y }));
+    // Along the axis rather than in the order Plot drew them, so the arrow keys
+    // sweep the chart the way it looks. Plot draws in data order, which a
+    // `sort` option makes something else entirely.
+    const ordered = orderAlongAxis(data, orientation);
+    const points: BarPoint[] = ordered.map(datum => ({ x: datum.x, y: datum.y }));
     return {
       legend: [],
       layer: {
         id: token,
         type: plainType,
         orientation,
-        selectors: stampLayer(data.map(datum => datum.element), context.containerId, token),
+        selectors: stampLayer(ordered.map(datum => datum.element), context.containerId, token),
         axes: axisConfig(context),
         data: points,
       },
@@ -896,24 +942,117 @@ function stackedGrid(
     seen.add(key);
   }
 
+  // Reading this as a stack means moving its segments into the grid's order,
+  // and moving a sibling changes what is painted over what. A real stack's
+  // segments meet without overlapping, so a mark whose segments do overlap is
+  // not one, and is left to the plain bar path — which keeps draw order and
+  // repaints nothing.
+  if (anyOverlap(data.map(datum => datum.element)))
+    return null;
+
   const rows: SegmentedPoint[][] = [];
   const elements: Element[] = [];
+  let missing = false;
+  let drawnZero = false;
   for (const name of seriesNames) {
     const row: SegmentedPoint[] = [];
     for (const category of categories) {
       const match = data.find(datum => datum.series === name && datum.x === category);
       row.push({ x: category, y: match?.y ?? 0, z: name });
-      if (match)
+      if (match) {
         elements.push(match.element);
+        drawnZero ||= match.y === 0;
+      } else {
+        missing = true;
+      }
     }
     rows.push(row);
   }
+
+  // A cell with no segment is written as zero, which is the same thing a
+  // segment whose value *is* zero says — and Plot draws a flat rect for that
+  // one. A segmented layer skips zero-valued cells when it has fewer elements
+  // than cells, so with both kinds present it skips one too many and every
+  // later highlight slides along by one. A plain bar layer has no such
+  // ambiguity: it announces exactly the segments that were drawn.
+  if (missing && drawnZero)
+    return null;
+
   return { rows, elements };
 }
 
 /**
- * The categories of a split mark, ordered along the axis rather than by when
- * they were drawn.
+ * Puts a mark's data in the order a reader arrows through it, moving the
+ * elements to match.
+ *
+ * Reordering is skipped when any two of the mark's elements overlap: moving a
+ * sibling changes what is painted over what, which is invisible for marks that
+ * tile — bars, bins, a Cleveland dot plot — and is not for ones that do not.
+ * The data then stays in draw order, where it still lines up with the elements.
+ *
+ * @param data        - The mark's data, in draw order.
+ * @param orientation - Which axis carries the categories.
+ * @returns The data, ordered along the axis where that is safe.
+ */
+function orderAlongAxis(data: MarkDatum[], orientation: Orientation): MarkDatum[] {
+  if (data.length < 2 || anyOverlap(data.map(datum => datum.element)))
+    return data;
+
+  const ordered = [...data].sort((a, b) =>
+    markPosition(a.element, orientation) - markPosition(b.element, orientation));
+  orderElements(ordered.map(datum => datum.element));
+  return ordered;
+}
+
+/**
+ * Whether any two of a mark's elements overlap on screen.
+ *
+ * @param elements - The mark's elements.
+ * @returns True when two rectangles intersect.
+ */
+function anyOverlap(elements: readonly Element[]): boolean {
+  const boxes = elements.map(bounds).filter((box): box is Bounds => box !== null);
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (boxes[i].x1 > boxes[j].x0 && boxes[j].x1 > boxes[i].x0
+        && boxes[i].y1 > boxes[j].y0 && boxes[j].y1 > boxes[i].y0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** A drawn element's bounding box. */
+interface Bounds {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * A rect's bounding box, or `null` for anything else.
+ *
+ * Only rects are measured: they are the marks whose paint order the reordering
+ * could change, and the only ones whose extent is readable without a layout.
+ *
+ * @param element - The element to measure.
+ * @returns Its box, or `null`.
+ */
+function bounds(element: Element): Bounds | null {
+  const x = attributeNumber(element, 'x');
+  const y = attributeNumber(element, 'y');
+  const width = attributeNumber(element, 'width');
+  const height = attributeNumber(element, 'height');
+  if (x === null || y === null || width === null || height === null)
+    return null;
+  return { x0: x, y0: y, x1: x + width, y1: y + height };
+}
+
+/**
+ * The categories of a split mark, ordered the way a reader arrows through them
+ * rather than by when they were drawn.
  *
  * @param data        - The mark's segments, as read.
  * @param orientation - Which axis carries the categories.
@@ -930,9 +1069,15 @@ function categoriesAlongAxis(
     if (known === undefined || pixel < known)
       positions.set(datum.x, pixel);
   }
-  return [...positions.entries()]
-    .sort((a, b) => a[1] - b[1])
-    .map(([category]) => category);
+  const entries = [...positions.entries()];
+  // Numeric categories are bins, and bins read low to high whichever way the
+  // axis points. A horizontal chart draws its first band at the top, so
+  // ordering those by pixel would announce the largest bin first.
+  if (entries.every(([category]) => typeof category === 'number'))
+    entries.sort((a, b) => (a[0] as number) - (b[0] as number));
+  else
+    entries.sort((a, b) => a[1] - b[1]);
+  return entries.map(([category]) => category);
 }
 
 /**
@@ -946,10 +1091,18 @@ function categoriesAlongAxis(
  * @returns Its position in pixels along that axis.
  */
 function markPosition(element: Element, orientation: Orientation): number {
-  const names = orientation === Orientation.VERTICAL
-    ? (['x', 'cx'] as const)
-    : (['y', 'cy'] as const);
-  return attributeNumber(element, names[0]) ?? attributeNumber(element, names[1]) ?? 0;
+  const vertical = orientation === Orientation.VERTICAL;
+  const names = vertical ? (['x', 'cx'] as const) : (['y', 'cy'] as const);
+  const attribute = attributeNumber(element, names[0]) ?? attributeNumber(element, names[1]);
+  if (attribute !== null)
+    return attribute;
+  // Plot draws a dot as a `<circle>` only for the default symbol; every other
+  // one is a `<path>` put in place by a transform. Reading zero for those would
+  // collapse every category to the same position and fall back to draw order.
+  const centre = dotCentre(element);
+  if (centre)
+    return vertical ? centre.x : centre.y;
+  return 0;
 }
 
 /**
