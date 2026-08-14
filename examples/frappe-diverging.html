@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frappe Charts Diverging Bar - MAIDR Example</title>
+    <!-- Frappe Charts v1.6.2 - the adapter's CSS selectors are specific to this
+         version. If upgrading, verify SVG class names match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/frappe-charts@1.6.2/dist/frappe-charts.min.umd.js"
+      integrity="sha384-JQa9VKO4+ZAEaRWDOmQM5LPHQTv8t9B4y8kBn36iar33TxUZByrYAa3o+PsU7hYk"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + Frappe Charts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/frappe.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>Frappe Charts Diverging Bar Chart with MAIDR</h1>
+      <p id="error" hidden>
+        Failed to load Frappe Charts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart"></div>
+    </main>
+
+    <script>
+      // Surface an error if Frappe Charts failed to load from CDN; otherwise
+      // build the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof frappe === 'undefined') {
+        if (errorEl) {
+          errorEl.hidden = false;
+        }
+      } else {
+        // Two datasets with opposite signs, drawn either side of Frappe's zero
+        // line. The downward series is NEGATIVE and is emitted that way: MAIDR
+        // takes the magnitude for the pitch and names the side, so stripping the
+        // sign would leave it nothing to name the sides with.
+        //
+        // Do NOT set barOptions.stacked here - Frappe cumulates raw values, so it
+        // would stack the negative series onto the positive one.
+        const data = {
+          labels: ['0-14', '15-29', '30-44', '45-59', '60-74', '75+'],
+          datasets: [
+            {
+              name: 'Men',
+              values: [-1200, -1150, -1080, -990, -720, -310],
+            },
+            {
+              name: 'Women',
+              values: [1140, 1100, 1060, 1010, 830, 520],
+            },
+          ],
+        };
+
+        // Frappe has no horizontal bars, so the classic back-to-back population
+        // pyramid is not drawable - only this vertical up/down form.
+        const chart = new frappe.Chart('#chart', {
+          title: 'Population by Age Band',
+          data: data,
+          type: 'bar',
+          height: 420,
+          colors: ['#4c72b0', '#c44e52'],
+        });
+
+        // The adapter validates the shape and throws unless the chart really is
+        // two sides, rather than announce sides that are not there. `axes.z`
+        // names what the two series vary along.
+        //
+        // Frappe runs an entrance animation and re-creates the SVG nodes once it
+        // finishes. Wait until the chart DOM stops mutating before handing it to
+        // MAIDR, so MAIDR captures the final, stable elements for highlighting.
+        activateMaidrWhenSettled(document.querySelector('#chart'), {
+          chartType: 'diverging',
+          title: 'Population by Age Band',
+          axes: { x: 'Age band', y: 'People, thousands', z: 'Sex' },
+        });
+
+        function activateMaidrWhenSettled(container, options) {
+          if (!container.querySelector('svg.frappe-chart')) {
+            requestAnimationFrame(() => activateMaidrWhenSettled(container, options));
+            return;
+          }
+          let settleTimer;
+          const observer = new MutationObserver(scheduleSettle);
+          function scheduleSettle() {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(finish, 300);
+          }
+          function finish() {
+            observer.disconnect();
+            const maidr = maidrFrappe.createMaidrFromFrappeChart(chart, container, options);
+            container.setAttribute('maidr', JSON.stringify(maidr));
+          }
+          observer.observe(container, { childList: true, subtree: true, attributes: true });
+          scheduleSettle();
+        }
+      }
+    </script>
+  </body>
+</html>

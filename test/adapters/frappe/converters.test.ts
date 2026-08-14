@@ -1,7 +1,8 @@
-import type { FrappeChart, FrappePanel } from '@adapters/frappe/types';
-import type { BarPoint, MaidrLayer, PiePoint } from '@type/grammar';
+import type { FrappeChart, FrappeChartType, FrappePanel } from '@adapters/frappe/types';
+import type { BarPoint, LinePoint, MaidrLayer, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { createMaidrFromFrappeChart, createMaidrFromFrappeCharts } from '@adapters/frappe/converters';
-import { TraceType } from '@type/grammar';
+import { afterAll, beforeEach, jest } from '@jest/globals';
+import { Orientation, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 /** A minimal chart stub — the adapter only reads `chart.data`. */
@@ -26,6 +27,26 @@ function makeDom(count: number): { wrapper: HTMLElement; containers: HTMLElement
     containers.push(container);
   }
   return { wrapper, containers };
+}
+
+/**
+ * Converts one chart and returns its only layer, with the container id pinned
+ * to `chart` so the expected selector strings can be written out in full.
+ */
+function onlyLayer(
+  chart: FrappeChart,
+  chartType: FrappeChartType,
+  axes?: { x?: string; y?: string; z?: string },
+): MaidrLayer {
+  const { containers } = makeDom(1);
+  containers[0].id = 'chart';
+  const maidr = createMaidrFromFrappeChart(chart, containers[0], {
+    chartType,
+    ...(axes ? { axes } : {}),
+  });
+  const layers = maidr.subplots[0][0].layers;
+  expect(layers).toHaveLength(1);
+  return layers[0];
 }
 
 function panel(container: HTMLElement, title?: string, values?: number[]): FrappePanel {
@@ -80,6 +101,301 @@ describe('createMaidrFromFrappeChart (single chart)', () => {
     expect(maidr.id).toBe(container.id);
     expect(maidr.subplots[0][0].layers[0].selectors)
       .toBe(`#${container.id} svg.frappe-chart .dataset-units.dataset-bars.dataset-0 rect.bar`);
+  });
+});
+
+describe('createMaidrFromFrappeChart (area)', () => {
+  /** Two series over the same months, as an overlapping area chart is built. */
+  const twoSeries: FrappeChart = {
+    data: {
+      labels: ['Jan', 'Feb'],
+      datasets: [
+        { name: 'Product A', values: [18, 40] },
+        { name: 'Product B', values: [36, 20] },
+      ],
+    },
+  };
+
+  it('emits an area layer whose selector matches the line group dots', () => {
+    const layer = onlyLayer(makeChart(), 'area', { x: 'Month', y: 'Revenue' });
+
+    expect(layer.type).toBe(TraceType.AREA);
+    // The region fill is one <path> for the whole series, so the highlight
+    // targets the per-point dots exactly as a line layer does.
+    expect(layer.selectors)
+      .toEqual(['#chart svg.frappe-chart .dataset-units.dataset-line circle']);
+    expect(layer.axes).toEqual({ x: { label: 'Month' }, y: { label: 'Revenue' } });
+    expect(layer.data as LinePoint[][]).toEqual([[
+      { x: 'A', y: 10, z: 'Series' },
+      { x: 'B', y: 20, z: 'Series' },
+      { x: 'C', y: 30, z: 'Series' },
+    ]]);
+  });
+
+  it('reads regionFill off the chart instance, so a line chart cannot be mislabelled', () => {
+    const layer = onlyLayer({ ...makeChart(), lineOptions: { regionFill: 1 } }, 'line');
+
+    expect(layer.type).toBe(TraceType.AREA);
+  });
+
+  it('stays a line layer when the instance does not fill the region', () => {
+    const layer = onlyLayer({ ...makeChart(), lineOptions: {} }, 'line');
+
+    expect(layer.type).toBe(TraceType.LINE);
+  });
+
+  it('scopes one selector per series and emits a legend for overlapping bands', () => {
+    const { containers } = makeDom(1);
+    containers[0].id = 'chart';
+
+    const maidr = createMaidrFromFrappeChart(twoSeries, containers[0], { chartType: 'area' });
+    const subplot = maidr.subplots[0][0];
+
+    // Plain AREA bands overlap rather than stack, so the two series are read
+    // independently — the multi-line treatment, not a STACKED_AREA one.
+    expect(subplot.legend).toEqual(['Product A', 'Product B']);
+    expect(subplot.layers[0].selectors).toEqual([
+      '#chart svg.frappe-chart .dataset-units.dataset-line.dataset-0 circle',
+      '#chart svg.frappe-chart .dataset-units.dataset-line.dataset-1 circle',
+    ]);
+  });
+});
+
+describe('createMaidrFromFrappeChart (bump)', () => {
+  /** A three-period table of ranks, 1 = best, as Frappe would be handed it. */
+  const ranks: FrappeChart = {
+    data: {
+      labels: ['Week 1', 'Week 2', 'Week 3'],
+      datasets: [
+        { name: 'Alpha', values: [1, 2, 1] },
+        { name: 'Beta', values: [2, 1, 3] },
+        { name: 'Gamma', values: [3, 3, 2] },
+      ],
+    },
+  };
+
+  it('emits a bump layer with one selector per competitor', () => {
+    const { containers } = makeDom(1);
+    containers[0].id = 'chart';
+
+    const maidr = createMaidrFromFrappeChart(ranks, containers[0], {
+      chartType: 'bump',
+      axes: { x: 'Week', y: 'Rank' },
+    });
+    const subplot = maidr.subplots[0][0];
+    const layer = subplot.layers[0];
+
+    expect(layer.type).toBe(TraceType.BUMP);
+    expect(subplot.legend).toEqual(['Alpha', 'Beta', 'Gamma']);
+    expect(layer.selectors).toEqual([
+      '#chart svg.frappe-chart .dataset-units.dataset-line.dataset-0 circle',
+      '#chart svg.frappe-chart .dataset-units.dataset-line.dataset-1 circle',
+      '#chart svg.frappe-chart .dataset-units.dataset-line.dataset-2 circle',
+    ]);
+  });
+
+  it('emits the true rank, leaving the inversion to the trace', () => {
+    const layer = onlyLayer(ranks, 'bump');
+
+    // Frappe cannot reverse an axis, so a rank chart it draws puts rank 1 at
+    // the bottom. The values must still be the ranks themselves: BumpTrace
+    // inverts the pitch, and pre-inverted values would announce wrong ranks.
+    expect((layer.data as LinePoint[][])[1]).toEqual([
+      { x: 'Week 1', y: 2, z: 'Beta' },
+      { x: 'Week 2', y: 1, z: 'Beta' },
+      { x: 'Week 3', y: 3, z: 'Beta' },
+    ]);
+  });
+});
+
+describe('createMaidrFromFrappeChart (dot)', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  beforeEach(() => {
+    warn.mockClear();
+  });
+
+  afterAll(() => {
+    warn.mockRestore();
+  });
+
+  it('emits a category/value dot layer highlighting the first dataset\'s dots', () => {
+    const layer = onlyLayer(makeChart(), 'dot', { x: 'Region', y: 'Sales' });
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.orientation).toBe(Orientation.VERTICAL);
+    expect(layer.selectors)
+      .toBe('#chart svg.frappe-chart .dataset-units.dataset-line.dataset-0 circle');
+    expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Sales' } });
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'A', y: 10 },
+      { x: 'B', y: 20 },
+      { x: 'C', y: 30 },
+    ]);
+  });
+
+  it('converts a scatter over category labels as a dot plot instead', () => {
+    const layer = onlyLayer(makeChart(), 'scatter');
+
+    // `Number('A')` is NaN, so a scatter layer built from these labels would
+    // have no x values at all — and Frappe spaces the marks evenly anyway.
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'A', y: 10 },
+      { x: 'B', y: 20 },
+      { x: 'C', y: 30 },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a scatter over numeric labels a scatter plot', () => {
+    const layer = onlyLayer(
+      { data: { labels: [10, 20, 30], datasets: [{ name: 'Temp', values: [22, 25, 28] }] } },
+      'scatter',
+    );
+
+    expect(layer.type).toBe(TraceType.SCATTER);
+    expect(layer.data as ScatterPoint[]).toEqual([
+      { x: 10, y: 22 },
+      { x: 20, y: 25 },
+      { x: 30, y: 28 },
+    ]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('treats a blank label as a category rather than as zero', () => {
+    const layer = onlyLayer(
+      { data: { labels: ['1', ' ', '3'], datasets: [{ values: [4, 5, 6] }] } },
+      'scatter',
+    );
+
+    expect(layer.type).toBe(TraceType.DOT);
+  });
+
+  it('warns that only the first dataset of a multi-series dot plot is converted', () => {
+    onlyLayer(
+      {
+        data: {
+          labels: ['A', 'B'],
+          datasets: [{ name: 'One', values: [1, 2] }, { name: 'Two', values: [3, 4] }],
+        },
+      },
+      'dot',
+    );
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('2 datasets');
+  });
+});
+
+describe('createMaidrFromFrappeChart (diverging)', () => {
+  /** Men drawn below the zero line, women above, as Frappe renders them. */
+  const pyramid: FrappeChart = {
+    data: {
+      labels: ['0-14', '15-29'],
+      datasets: [
+        { name: 'Men', values: [-1200, -1150] },
+        { name: 'Women', values: [1140, 1100] },
+      ],
+    },
+  };
+
+  it('emits both sides as one segmented layer, signed as the chart draws them', () => {
+    const layer = onlyLayer(pyramid, 'diverging', {
+      x: 'Age band',
+      y: 'People, thousands',
+      z: 'Sex',
+    });
+
+    expect(layer.type).toBe(TraceType.DIVERGING);
+    expect(layer.orientation).toBe(Orientation.VERTICAL);
+    expect(layer.axes).toEqual({
+      x: { label: 'Age band' },
+      y: { label: 'People, thousands' },
+      z: { label: 'Sex' },
+    });
+    // The sign is a direction, not a magnitude: DivergingTrace takes the size
+    // for the pitch and names the side, so stripping it here would leave it
+    // nothing to name the sides with.
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [
+        { x: '0-14', y: -1200, z: 'Men' },
+        { x: '15-29', y: -1150, z: 'Men' },
+      ],
+      [
+        { x: '0-14', y: 1140, z: 'Women' },
+        { x: '15-29', y: 1100, z: 'Women' },
+      ],
+    ]);
+  });
+
+  it('maps one broad selector across both dataset groups in series-major order', () => {
+    const layer = onlyLayer(pyramid, 'diverging');
+
+    // A segmented trace takes ONE selector and splits the match itself, so
+    // this is the all-groups selector; Frappe appends dataset 0's rects and
+    // then dataset 1's, which is what `order: 'row'` names.
+    expect(layer.selectors)
+      .toBe('#chart svg.frappe-chart .dataset-units.dataset-bars rect.bar');
+    expect(layer.domMapping).toEqual({ order: 'row' });
+  });
+
+  it('names an unnamed side by its position so the two stay tellable apart', () => {
+    const layer = onlyLayer(
+      { data: { labels: ['A'], datasets: [{ values: [-1] }, { values: [2] }] } },
+      'diverging',
+    );
+
+    expect((layer.data as SegmentedPoint[][]).map(side => side[0].z))
+      .toEqual(['Series 1', 'Series 2']);
+  });
+
+  it('ignores zeros and gaps when reading which side a series is on', () => {
+    const layer = onlyLayer(
+      {
+        data: {
+          labels: ['A', 'B'],
+          datasets: [
+            { name: 'Down', values: [0, -5] },
+            { name: 'Up', values: [3, 0] },
+          ],
+        },
+      },
+      'diverging',
+    );
+
+    expect(layer.type).toBe(TraceType.DIVERGING);
+  });
+
+  it('refuses a chart that is not two sided', () => {
+    expect(() => onlyLayer(makeChart(), 'diverging')).toThrow('exactly two datasets');
+  });
+
+  it('refuses two series that grow the same way', () => {
+    expect(() => onlyLayer(
+      {
+        data: {
+          labels: ['A'],
+          datasets: [{ name: 'One', values: [1] }, { name: 'Two', values: [2] }],
+        },
+      },
+      'diverging',
+    )).toThrow('opposite signs');
+  });
+
+  it('refuses a series that crosses the zero line, which has no side', () => {
+    expect(() => onlyLayer(
+      {
+        data: {
+          labels: ['A', 'B'],
+          datasets: [
+            { name: 'Mixed', values: [-1, 2] },
+            { name: 'Up', values: [3, 4] },
+          ],
+        },
+      },
+      'diverging',
+    )).toThrow('opposite signs');
   });
 });
 
