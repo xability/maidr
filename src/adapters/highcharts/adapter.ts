@@ -2392,10 +2392,11 @@ function convertGanttSeries(
   const laneSources: HighchartsPoint[][] = [];
   const laneOf = (point: HighchartsPoint): number =>
     (typeof point.y === 'number' ? Math.round(point.y) : -1);
-  const laneCount = Math.max(
+  // Reduced rather than spread into Math.max: a long enough series would
+  // overflow the argument list and throw before the chart could be read.
+  const laneCount = series.data.reduce(
+    (highest, point) => Math.max(highest, laneOf(point) + 1),
     categories.length,
-    ...series.data.map(point => laneOf(point) + 1),
-    0,
   );
   for (let lane = 0; lane < laneCount; lane++) {
     laneSources.push(series.data.filter(point => laneOf(point) === lane));
