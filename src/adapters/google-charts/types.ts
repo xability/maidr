@@ -158,6 +158,16 @@ export interface GoogleGaugeOptions {
 export type GoogleChartType
   = | 'AreaChart'
     | 'BarChart'
+    /**
+     * A `LineChart` of ranks, drawn with `vAxis: {direction: -1}` so rank 1
+     * sits at the top — a bump chart.
+     *
+     * Not a Google class: the table is any multi-series line chart's, and the
+     * axis direction that gives it away lives in the draw options. Naming it
+     * is what inverts the pitch, so that a competitor climbing the table is
+     * heard climbing.
+     */
+    | 'BumpChart'
     | 'CandlestickChart'
     | 'ColumnChart'
     /**
@@ -182,6 +192,17 @@ export type GoogleChartType
      * and a line chart are the same class over the same table.
      */
     | 'DotChart'
+    /**
+     * Two values compared at each category, drawn as a dot at each end of a
+     * segment — either Google's intervals recipe (a series with
+     * `lineWidth: 0` and two `role: 'interval'` columns rendered with
+     * `intervals: {style: 'sticks'}`) or a plain `[category, start, end]`
+     * table.
+     *
+     * Not a Google class: there is no dumbbell in the gallery, and the
+     * styling that makes one lives entirely in the draw options.
+     */
+    | 'DumbbellChart'
     /**
      * An ordered `BarChart` of stage counts.
      *
@@ -214,12 +235,30 @@ export type GoogleChartType
      */
     | 'LollipopChart'
     /**
+     * A `ScatterChart` with one series per chromosome — the standard recipe
+     * for a Manhattan plot's alternating-colour banding.
+     *
+     * Not a Google class: the series are ordinary data columns, and only the
+     * caller knows they are regions of one genome rather than separate
+     * measures. See {@link GoogleChartAdapterOptions.thresholdOptions}, which
+     * is what makes the significant points reachable.
+     */
+    | 'ManhattanChart'
+    /**
      * An `AreaChart` drawn with `isStacked: 'percent'`.
      *
      * Not a Google class: the adapter never sees the draw options, so a
      * percent-stacked area has to be named by the caller.
      */
     | 'NormalizedAreaChart'
+    /**
+     * `google.visualization.OrgChart`, from the `orgchart` package — nodes
+     * joined by parent pointers, read as a network of links.
+     *
+     * An OrgChart renders an HTML `<table>` rather than SVG and draws no
+     * element per link, so this reading carries no highlighting.
+     */
+    | 'OrgChart'
     /** Also covers doughnuts, which Google draws as a `PieChart` with a `pieHole`. */
     | 'PieChart'
     /** `google.visualization.Sankey`, from the `sankey` package. */
@@ -229,10 +268,28 @@ export type GoogleChartType
     | 'StackedAreaChart'
     | 'StackedBarChart'
     | 'StackedColumnChart'
+    /**
+     * A `SteppedAreaChart` drawn with `areaOpacity: 0` — Google's way of
+     * drawing a step line — carrying a Kaplan-Meier curve, optionally with
+     * `role: 'interval'` columns for the confidence band and a boolean
+     * column marking the censored times.
+     *
+     * Not a Google class: a survival curve is a step chart of probabilities,
+     * and only the caller knows that is what the steps are.
+     */
+    | 'SurvivalChart'
     /** `google.visualization.Timeline`, from the `timeline` package. */
     | 'Timeline'
     /** `google.visualization.TreeMap`, from the `treemap` package. */
     | 'TreeMap'
+    /**
+     * A `ScatterChart` of effect size against significance — a volcano plot.
+     *
+     * Not a Google class: a volcano *is* a scatter, and what separates the
+     * two readings is the threshold, which lives nowhere in a DataTable. See
+     * {@link GoogleChartAdapterOptions.thresholdOptions}.
+     */
+    | 'VolcanoChart'
     /**
      * A `CandlestickChart` used as floating bars — low set to open and high to
      * close, so the wick collapses onto the body and each step is drawn

@@ -22,6 +22,11 @@
  *                         — an object, not an array
  *   GaugePoint          = { value, min, max, label?, bands? }
  *                         — an object, not an array, and one layer per dial
+ *   DumbbellData        = { points: [{ x, start, end }, ...], startLabel?, endLabel? }
+ *                         — an object, not an array
+ *   SurvivalPoint[][]   = [[{ x, y, censored?, yMin?, yMax? }, ...], ...]
+ *   VolcanoPoint[]      = [{ x, y, label?, group? }, ...]  (also manhattan)
+ *   NetworkPoint[]      = [{ source, target }, ...]
  */
 
 import type {
@@ -31,6 +36,8 @@ import type {
   CandlestickSelector,
   CandlestickTrend,
   ChoroplethPoint,
+  DumbbellData,
+  DumbbellPoint,
   ErrorBarPoint,
   FlowPoint,
   GanttData,
@@ -41,10 +48,15 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  NetworkPoint,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
+  SurvivalPoint,
+  ThresholdOptions,
   TreemapPoint,
+  VolcanoPoint,
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
@@ -159,6 +171,28 @@ export interface GoogleChartReadingOptions {
    * number with nothing to sit against.
    */
   gaugeOptions?: GoogleGaugeOptions;
+  /**
+   * Where a `'SurvivalChart'` jumps between samples — `'hv'` for a curve that
+   * holds its value until the next event, which is what a Kaplan-Meier
+   * estimate does.
+   *
+   * Omit it when you are not sure: MAIDR substitutes no default, so the
+   * description stays silent about the convention rather than naming one the
+   * chart never authored.
+   */
+  stepDirection?: StepDirection;
+  /**
+   * The cutoffs a `'VolcanoChart'` or `'ManhattanChart'` is read through —
+   * the significance line, which side of it counts, and the effect size.
+   *
+   * These charts carry tens of thousands of points of which a few dozen
+   * matter, and the thresholds are what make those few reachable: they drive
+   * the summary on entry and the rotor filter that jumps between the hits.
+   * They live in the plotted reference lines and in the analysis, never in
+   * the DataTable, and MAIDR guesses none — a line at the wrong place would
+   * sort every point on the figure onto the wrong side of it, silently.
+   */
+  thresholdOptions?: ThresholdOptions;
   /**
    * Which rows of a `'WaterfallChart'` restate the running total rather than
    * changing it — the opening and closing bars, and any subtotal drawn along
@@ -618,6 +652,11 @@ function buildLayer(
       return buildBarOrSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL);
     case 'LineChart':
       return buildLineLayer(chart, dt, container, TraceType.LINE);
+    // A bump chart is a line chart of ranks. Everything that makes it read as
+    // one — the inverted pitch, the places gained on every move — is decided
+    // by the declared type, so the conversion is a line chart's.
+    case 'BumpChart':
+      return buildLineLayer(chart, dt, container, TraceType.BUMP);
     case 'AreaChart':
       return buildLineLayer(chart, dt, container, TraceType.AREA);
     case 'StackedAreaChart':
@@ -630,6 +669,12 @@ function buildLayer(
       return buildPieLayer(dt, container);
     case 'ScatterChart':
       return buildScatterLayer(chart, dt, container);
+    // Both are scatters read through a threshold, and one class reads them:
+    // they differ in what the x axis means and in nothing a reader navigates.
+    case 'VolcanoChart':
+      return buildVolcanoLayer(chart, dt, container, TraceType.VOLCANO, reading.thresholdOptions);
+    case 'ManhattanChart':
+      return buildVolcanoLayer(chart, dt, container, TraceType.MANHATTAN, reading.thresholdOptions);
     case 'StackedColumnChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.STACKED);
     case 'StackedBarChart':
@@ -657,6 +702,10 @@ function buildLayer(
       return buildBarLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.FUNNEL);
     case 'WaterfallChart':
       return buildWaterfallLayer(dt, container, reading.waterfallTotals);
+    case 'DumbbellChart':
+      return buildDumbbellLayer(chart, dt, container);
+    case 'SurvivalChart':
+      return buildSurvivalLayer(chart, dt, container, reading.stepDirection);
     // The packages below draw without a `getChartLayoutInterface()`, so their
     // builders take no `chart` — there is no bounding box to ask for.
     case 'Sankey':
@@ -665,6 +714,8 @@ function buildLayer(
       return buildTreemapLayer(dt, container);
     case 'GeoChart':
       return buildChoroplethLayer(dt);
+    case 'OrgChart':
+      return buildNetworkLayer(dt);
     case 'Gantt':
       return buildGanttLayer(dt, container, 'Gantt');
     case 'Timeline':
@@ -672,11 +723,12 @@ function buildLayer(
     default:
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
-        + 'Supported types: AreaChart, BarChart, CandlestickChart, ColumnChart, '
+        + 'Supported types: AreaChart, BarChart, BumpChart, CandlestickChart, ColumnChart, '
         + 'DivergingBarChart, DivergingColumnChart, DodgedBarChart, DodgedColumnChart, '
-        + 'DotChart, FunnelChart, Gantt, Gauge, GeoChart, LineChart, LollipopChart, '
-        + 'NormalizedAreaChart, PieChart, Sankey, ScatterChart, StackedAreaChart, '
-        + 'StackedBarChart, StackedColumnChart, Timeline, TreeMap, WaterfallChart.',
+        + 'DotChart, DumbbellChart, FunnelChart, Gantt, Gauge, GeoChart, LineChart, '
+        + 'LollipopChart, ManhattanChart, NormalizedAreaChart, OrgChart, PieChart, Sankey, '
+        + 'ScatterChart, StackedAreaChart, StackedBarChart, StackedColumnChart, '
+        + 'SurvivalChart, Timeline, TreeMap, VolcanoChart, WaterfallChart.',
       );
   }
 }
@@ -868,16 +920,22 @@ function buildSegmentedLayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a line layer, or one of the three area layers, from the same
- * DataTable shape.
+ * Builds a line layer, one of the three area layers, or a bump layer, from
+ * the same DataTable shape.
  *
  * An `AreaChart`'s DataTable is a `LineChart`'s — domain in column 0, one
- * non-role column per series — and MAIDR reads both as `LinePoint[][]`, so
- * the only difference between the four is the declared trace type. Which of
+ * non-role column per series — and MAIDR reads them all as `LinePoint[][]`,
+ * so the only difference between them is the declared trace type. Which of
  * the three area readings applies is decided by `isStacked`, which lives in
  * the draw options the adapter never receives, so the caller names it with
  * `'StackedAreaChart'` / `'NormalizedAreaChart'` — the same convention
  * `'StackedColumnChart'` already follows.
+ *
+ * A bump chart is here for the same reason and with more riding on it: its
+ * table is any multi-series line chart's, and the `vAxis: {direction: -1}`
+ * that reveals the y values are **ranks** is a draw option. Named, the model
+ * inverts the pitch so rank 1 is the highest note and announces the places
+ * gained on every move; unnamed, a team climbing the table is heard falling.
  *
  * The per-series values go out raw in every variant. `AreaTrace` derives the
  * running total and each band's share of it itself, so a stacked layer must
@@ -886,14 +944,19 @@ function buildSegmentedLayer(
  * @param chart      - The Google Chart instance
  * @param dt         - The DataTable the chart was drawn from
  * @param container  - The DOM container element
- * @param traceType  - Which of the four readings the caller asked for
+ * @param traceType  - Which of the five readings the caller asked for
  * @returns The MAIDR layer
  */
 function buildLineLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
-  traceType: TraceType.LINE | TraceType.AREA | TraceType.STACKED_AREA | TraceType.NORMALIZED_AREA,
+  traceType:
+    | TraceType.LINE
+    | TraceType.AREA
+    | TraceType.STACKED_AREA
+    | TraceType.NORMALIZED_AREA
+    | TraceType.BUMP,
 ): MaidrLayer {
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
@@ -962,6 +1025,149 @@ function buildScatterLayer(
     },
     data,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Volcano / Manhattan
+// ---------------------------------------------------------------------------
+
+/**
+ * Column roles Google lets a row carry its own name in.
+ *
+ * A volcano's or a Manhattan's payload is the identity of the point — the
+ * gene, the SNP — and neither role is drawn as a data value, so a chart
+ * carrying one has said what its points are called without adding a series.
+ */
+const IDENTITY_ROLES = new Set(['annotation', 'tooltip']);
+
+/**
+ * Builds a volcano or Manhattan layer from a Google Charts ScatterChart.
+ *
+ * Both are scatters read almost entirely through a **threshold**: a volcano
+ * puts effect size against significance, a Manhattan genomic position against
+ * it, and each carries tens of thousands of points of which a few dozen
+ * matter. So two things this builder does are the whole reading.
+ *
+ * **The identity travels.** A reader told "x is 2.3, y is 14.1" has the two
+ * numbers the axes already describe and not the one thing they came for,
+ * which is *which gene that is*. Google carries it in a `role: 'annotation'`
+ * or `role: 'tooltip'` column — one the plain scatter builder skips — and it
+ * becomes {@link VolcanoPoint.label}.
+ *
+ * **Every series is read, not just the first.** The banding recipe for a
+ * Manhattan is one data column per chromosome, each null outside its own
+ * region, so a builder that stopped at column 1 would read one chromosome and
+ * call it the genome. The columns are flattened into the single flat list the
+ * schema fixes, each point tagged with its column's label as
+ * {@link VolcanoPoint.group}, and the null cells are dropped — they are the
+ * recipe's way of leaving a row out of a series, not a missing measurement.
+ *
+ * A single-series chart gets **no** `group`: with one column its label names
+ * the y axis rather than a region, and announcing "Region: -log10(p)" on
+ * every point would be inventing a split the chart does not have.
+ *
+ * @param chart      - The Google Chart instance
+ * @param dt         - The DataTable the chart was drawn from
+ * @param container  - The DOM container element
+ * @param traceType  - Which of the two readings the caller asked for
+ * @param thresholds - The cutoffs, when the caller declared them
+ * @returns The MAIDR layer
+ */
+function buildVolcanoLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  traceType: TraceType.VOLCANO | TraceType.MANHATTAN,
+  thresholds?: ThresholdOptions,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const columns = dataColumns(dt);
+
+  const data: VolcanoPoint[] = [];
+  const marks: PointMark[] = [];
+
+  columns.forEach((col, series) => {
+    const group = columns.length > 1 ? dt.getColumnLabel(col) : '';
+    const identityCol = identityColumnFor(dt, col);
+
+    for (let r = 0; r < rows; r++) {
+      const y = numericValue(dt, r, col);
+      if (!Number.isFinite(y)) {
+        continue;
+      }
+
+      const point: VolcanoPoint = { x: numericValue(dt, r, 0), y };
+      if (identityCol !== undefined) {
+        const label = formatCellValue(dt, r, identityCol);
+        if (label) {
+          point.label = label;
+        }
+      }
+      if (group) {
+        point.group = group;
+      }
+
+      data.push(point);
+      // The mark list is built alongside the points rather than from the row
+      // count: `ScatterTrace` pairs the resolved elements with the points by
+      // index, so a dropped null cell has to drop its marker too.
+      marks.push({ series, row: r });
+    }
+  });
+
+  const selector = markSeriesPointElements(
+    chart,
+    container,
+    marks,
+    'data-maidr-hit',
+    traceType === TraceType.MANHATTAN ? 'Manhattan point' : 'Volcano point',
+  );
+
+  return {
+    id: nextId('layer'),
+    type: traceType,
+    ...(selector ? { selectors: selector } : {}),
+    ...(thresholds ? { thresholdOptions: thresholds } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      // Only a single-series chart has a column that names the y axis. On a
+      // banded Manhattan the columns are chromosomes, and calling the
+      // significance axis "chr1" would be worse than leaving it unnamed.
+      y: { label: columns.length === 1 ? dt.getColumnLabel(columns[0]) || undefined : undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Finds the column carrying a point's own name.
+ *
+ * Google admits the identity in either of two places, and both are ordinary
+ * on these charts: attached to the **series**, as the role columns that
+ * follow its data column, or attached to the **domain**, which is what the
+ * per-chromosome recipe needs — a SNP's name belongs to the row rather than
+ * to whichever chromosome column happens to be non-null there.
+ *
+ * @param dt      - The DataTable to inspect
+ * @param dataCol - The series being read
+ * @returns The identity column, or undefined when the chart names no points
+ */
+function identityColumnFor(dt: GoogleDataTable, dataCol: number): number | undefined {
+  for (let c = dataCol + 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      break;
+    }
+    if (IDENTITY_ROLES.has(dt.getColumnRole?.(c) ?? '')) {
+      return c;
+    }
+  }
+
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (isRoleColumn(dt, c) && IDENTITY_ROLES.has(dt.getColumnRole?.(c) ?? '')) {
+      return c;
+    }
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -1357,6 +1563,256 @@ function intervalGroups(dt: GoogleDataTable): IntervalGroup[] {
 }
 
 // ---------------------------------------------------------------------------
+// Dumbbell
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a dumbbell layer from a chart drawn as a pair of values per category.
+ *
+ * Google has no dumbbell either, and two recipes draw one: a series with
+ * `lineWidth: 0` whose two `role: 'interval'` columns are rendered with
+ * `intervals: {style: 'sticks'}`, and a plain `[category, start, end]` table.
+ * Both carry the same two numbers, so both are read here.
+ *
+ * The payload is the {@link DumbbellData} **object** rather than a bare array,
+ * because the names of the two ends belong to the chart and not to any one
+ * row. Those names are the content of the comparison: "1990" against "2020"
+ * tells a reader which dot they are on, which is exactly what the legend gives
+ * a sighted reader for free, and they come from the two value columns' own
+ * labels.
+ *
+ * The change between the ends is deliberately **not** emitted. A drawn segment
+ * cannot disagree with the dots it joins, so `DumbbellTrace` derives it and
+ * there is one source of truth for it.
+ *
+ * @param chart     - The Google Chart instance
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @returns The MAIDR layer
+ */
+function buildDumbbellLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const { startCol, endCol } = dumbbellColumns(dt);
+
+  const points: DumbbellPoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    points.push({
+      x: formatCellValue(dt, r, 0),
+      start: numericValue(dt, r, startCol),
+      end: numericValue(dt, r, endCol),
+    });
+  }
+
+  // An interval column carries no label of its own, and the trace's own
+  // "start" / "end" fallback says more than an empty string would.
+  const startLabel = dt.getColumnLabel(startCol);
+  const endLabel = dt.getColumnLabel(endCol);
+  const data: DumbbellData = {
+    points,
+    ...(startLabel ? { startLabel } : {}),
+    ...(endLabel ? { endLabel } : {}),
+  };
+
+  // One drawn marker per row, which is the shape `DumbbellTrace` asks for: it
+  // highlights the same element at both ends of a row, since a chart draws one
+  // connector per category rather than an element per dot. A chart drawn with
+  // no point markers gets no highlight, which is the honest answer.
+  const selector = markPointMarkerElements(
+    chart,
+    container,
+    rows,
+    'data-maidr-pair',
+    'Dumbbell point',
+  );
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.DUMBBELL,
+    orientation: Orientation.VERTICAL,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      // No `y`: the two value columns are named after the *ends* being
+      // compared, and they travel as `startLabel` / `endLabel`. Taking either
+      // as the axis name would announce the quantity as one of its own ends.
+    },
+    data,
+  };
+}
+
+/**
+ * Locates the two columns a dumbbell's ends are read from.
+ *
+ * The intervals recipe hides its estimate (`lineWidth: 0`) and draws the pair
+ * as intervals, so the two ends are the interval columns there; the plain
+ * table puts them in the first two data columns. A table that carries neither
+ * pair falls through to columns 1 and 2, which reads whatever is there rather
+ * than failing silently on a chart that is nearly a dumbbell.
+ *
+ * @param dt - The DataTable to inspect
+ * @returns The columns the segment runs between
+ */
+function dumbbellColumns(dt: GoogleDataTable): { startCol: number; endCol: number } {
+  const groups = intervalGroups(dt);
+  const intervals = groups.length === 1 ? groups[0].intervalCols : [];
+  const columns = intervals.length >= 2 ? intervals : dataColumns(dt);
+
+  const startCol = columns[0] ?? 1;
+  const endCol = columns[1] ?? startCol + 1;
+  return { startCol, endCol };
+}
+
+// ---------------------------------------------------------------------------
+// Survival (Kaplan-Meier)
+// ---------------------------------------------------------------------------
+
+/**
+ * One arm of a survival figure: its estimate, its band, and its censoring.
+ */
+interface SurvivalArm {
+  /** The column carrying the survival probability. */
+  dataCol: number;
+  /** The `role: 'interval'` columns drawing its confidence band. */
+  intervalCols: number[];
+  /** The boolean column marking the times a subject was censored. */
+  censorCol?: number;
+}
+
+/**
+ * Builds a survival layer from a chart drawn as a Kaplan-Meier curve.
+ *
+ * Google draws a step line as a `SteppedAreaChart` with `areaOpacity: 0`, and
+ * the table is a step chart's: times in column 0, one probability column per
+ * arm. What a survival figure carries that a step chart does not is the two
+ * things it is actually read for.
+ *
+ * **The confidence band**, from the arm's `role: 'interval'` columns — the
+ * same columns an error bar chart declares, and read the same way, outermost
+ * pair first. Both bounds or neither: a lone interval column is half a band,
+ * and emitting it twice would announce a band of zero width at every time.
+ *
+ * **Censoring**, from a boolean column attached to the arm. A censored time is
+ * a subject who left the study without the event happening, so the curve does
+ * not step there — which is exactly why nothing else in the announcement
+ * distinguishes it, and why a reader without it cannot tell a flat tail backed
+ * by two hundred subjects from one backed by three. A boolean column is never
+ * read as an arm, whether or not it declares a role: no survival curve is
+ * drawn from true and false.
+ *
+ * Times go out **numeric** when the column is, rather than as formatted
+ * strings: median survival and the separation between arms are read off the
+ * time axis, and a categorical x is answered with silence.
+ *
+ * @param chart         - The Google Chart instance
+ * @param dt            - The DataTable the chart was drawn from
+ * @param container     - The DOM container element
+ * @param stepDirection - Where the curve jumps, when the caller declared it
+ * @returns The MAIDR layer
+ */
+function buildSurvivalLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  stepDirection?: StepDirection,
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const arms = survivalArms(dt);
+  const numericTime = dt.getColumnType(0) === 'number';
+
+  const data: SurvivalPoint[][] = arms.map((arm) => {
+    const name = dt.getColumnLabel(arm.dataCol);
+    const curve: SurvivalPoint[] = [];
+
+    for (let r = 0; r < rows; r++) {
+      const point: SurvivalPoint = {
+        x: numericTime ? numericValue(dt, r, 0) : formatCellValue(dt, r, 0),
+        y: numericValue(dt, r, arm.dataCol),
+        ...(name ? { z: name } : {}),
+      };
+
+      const bounds = arm.intervalCols
+        .map(c => numericValue(dt, r, c))
+        .filter(bound => Number.isFinite(bound));
+      if (bounds.length > 1) {
+        point.yMin = Math.min(...bounds);
+        point.yMax = Math.max(...bounds);
+      }
+
+      if (arm.censorCol !== undefined && dt.getValue(r, arm.censorCol) === true) {
+        point.censored = true;
+      }
+
+      curve.push(point);
+    }
+    return curve;
+  });
+
+  // The line family's marking path: one `fill="none"` outline per arm, whose
+  // `d` is the step polyline `StepTrace` knows how to read back. A curve drawn
+  // as a filled band and nothing else has no outline, and gets no highlight
+  // rather than a highlight placed on the band's baseline corners.
+  const selectors = markLinePointElements(chart, container, rows, arms.length);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.SURVIVAL,
+    ...(selectors && selectors.length > 0 ? { selectors } : {}),
+    ...(stepDirection ? { stepDirection } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      // Only a one-armed figure has a column naming what is being estimated.
+      // With two arms the labels are the arms, and calling the probability
+      // axis "Treatment" would name the wrong thing.
+      y: { label: arms.length === 1 ? dt.getColumnLabel(arms[0].dataCol) || undefined : undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Splits a survival table into its arms.
+ *
+ * Positional in the same way {@link intervalGroups} is — an interval belongs
+ * to the data column it follows — with one addition: a **boolean** column is
+ * the censoring flag of the arm before it rather than an arm of its own,
+ * whether it declares a role (Google's `certainty`) or not. Read as an arm it
+ * would sonify true and false as 1 and 0 and draw a second curve that is not
+ * in the chart.
+ *
+ * @param dt - The DataTable to inspect
+ * @returns One entry per arm, in DataTable order
+ */
+function survivalArms(dt: GoogleDataTable): SurvivalArm[] {
+  const arms: SurvivalArm[] = [];
+
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    const arm = arms[arms.length - 1];
+
+    if (dt.getColumnType(c) === 'boolean') {
+      if (arm && arm.censorCol === undefined) {
+        arm.censorCol = c;
+      }
+      continue;
+    }
+
+    if (isRoleColumn(dt, c)) {
+      if (dt.getColumnRole?.(c) === 'interval') {
+        arm?.intervalCols.push(c);
+      }
+      continue;
+    }
+
+    arms.push({ dataCol: c, intervalCols: [] });
+  }
+
+  return arms;
+}
+
+// ---------------------------------------------------------------------------
 // Sankey
 // ---------------------------------------------------------------------------
 
@@ -1567,6 +2023,63 @@ function buildChoroplethLayer(dt: GoogleDataTable): MaidrLayer {
       // coordinate table would call the region axis "Lat".
       x: { label: nameCol === undefined ? undefined : dt.getColumnLabel(nameCol) || undefined },
       y: { label: dt.getColumnLabel(valueCol) || undefined },
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Network (OrgChart)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a network layer from a Google Charts OrgChart.
+ *
+ * The DataTable is `[node id (+ optional formatted name), parent id, tooltip]`
+ * and it maps straight onto {@link NetworkPoint}: one link per row that names
+ * a parent, from the parent to the node. No node list is emitted —
+ * `NetworkTrace` derives the nodes and their degrees from the links, exactly
+ * as `FlowTrace` does, and a second list would be a second source of truth for
+ * them.
+ *
+ * Identity comes from the **raw** cell rather than the formatted one, because
+ * a parent pointer has to match the id it names: an OrgChart routinely puts
+ * markup in the formatted value (`{v: 'Mike', f: 'Mike<div>President</div>'}`)
+ * and matching on that would leave every node a root.
+ *
+ * A row whose parent is empty is the tree's root and contributes no link,
+ * which is right rather than lossy: it reaches the graph as the source of its
+ * children's links.
+ *
+ * **No highlighting.** An OrgChart renders an HTML `<table>` rather than SVG,
+ * and draws no element per link at all — the connectors are cell borders. The
+ * selectors are typed for SVG elements throughout the model, so there is
+ * nothing here to point at; audio, text and braille carry the whole graph.
+ *
+ * @param dt - The DataTable the chart was drawn from
+ * @returns The MAIDR layer
+ */
+function buildNetworkLayer(dt: GoogleDataTable): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const data: NetworkPoint[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    const parent = dt.getValue(r, 1);
+    if (parent === null || parent === undefined || parent === '') {
+      continue;
+    }
+    data.push({ source: String(parent), target: rawKey(dt, r, 0) });
+  }
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.NETWORK,
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      // A network has no second axis, and the trace announces the node's
+      // **degree** under this label on every move. "Links: 3" is what that
+      // number is; the schema's fallback would call it "Y".
+      y: { label: 'Links' },
     },
     data,
   };
@@ -2679,18 +3192,26 @@ function markGaugeDialElements(
 }
 
 /**
+ * One drawn point marker: which series drew it, and which row it stands for.
+ *
+ * The pair is what the layout API is addressed by (`point#series#row`), and
+ * the position in the list is the index of the data point it belongs to — the
+ * two are not the same on a chart whose series skip rows.
+ */
+interface PointMark {
+  /** The series that drew the marker, in DataTable column order. */
+  series: number;
+  /** The DataTable row it stands for. */
+  row: number;
+}
+
+/**
  * Marks the point markers of the first series and returns a selector for them.
  *
- * Two charts highlight a row through its drawn point rather than through a
+ * Three charts highlight a row through its drawn point rather than through a
  * bar: an interval chart, where `ErrorBarTrace` puts a single mark on the
- * sample whichever bound the cursor is on, and a dot plot, whose mark is the
- * point and nothing else. Both locate them through the layout API the way
- * scatter points are.
- *
- * All or nothing: a chart drawn without visible point markers (`pointSize: 0`,
- * which is a LineChart's default) has nothing to mark, and a partial match
- * would leave the trace with a list that does not line up with the rows, which
- * it discards anyway. Audio, text and braille are unaffected either way.
+ * sample whichever bound the cursor is on; a dot plot, whose mark is the point
+ * and nothing else; and a dumbbell, which highlights its row at both ends.
  *
  * @param chart     - The Google Chart instance
  * @param container - The DOM container element
@@ -2704,6 +3225,44 @@ function markPointMarkerElements(
   chart: GoogleChart,
   container: HTMLElement,
   rowCount: number,
+  attribute: string,
+  what: string,
+): string | undefined {
+  const marks = Array.from({ length: rowCount }, (_, row) => ({ series: 0, row }));
+  return markSeriesPointElements(chart, container, marks, attribute, what);
+}
+
+/**
+ * Marks one drawn point marker per data point and returns a selector for them.
+ *
+ * The markers are located through the layout API the way scatter points are,
+ * one `point#series#row` box at a time, so a chart drawing several series
+ * (a banded Manhattan plot) is marked in the order its points were flattened
+ * into the layer's data.
+ *
+ * All or nothing: a chart drawn without visible point markers (`pointSize: 0`,
+ * which is a LineChart's default) has nothing to mark, and a partial match
+ * would leave the trace with a list that does not line up with the data, which
+ * it discards anyway. Audio, text and braille are unaffected either way.
+ *
+ * The **document order** is verified rather than assumed. A single attribute
+ * selector is resolved by the browser in document order while the marks are
+ * made in data order, so a chart that emitted its circles in some other order
+ * would highlight a point belonging to a different row on every move —
+ * silently, and only in the highlight.
+ *
+ * @param chart     - The Google Chart instance
+ * @param container - The DOM container element
+ * @param marks     - The marker to find per data point, in data order
+ * @param attribute - The marking attribute to set
+ * @param what      - What the points are, for the mismatch warning
+ * @returns CSS selector for the marked circles, or undefined when the chart
+ *          drew none the data could be matched to
+ */
+function markSeriesPointElements(
+  chart: GoogleChart,
+  container: HTMLElement,
+  marks: readonly PointMark[],
   attribute: string,
   what: string,
 ): string | undefined {
@@ -2725,31 +3284,45 @@ function markPointMarkerElements(
   // Clear any existing marks from previous initializations
   allCircles.forEach(circle => circle.removeAttribute(attribute));
 
+  const withdraw = (): undefined => {
+    // A partial or out-of-order match is withdrawn rather than shipped: the
+    // marks left behind would resolve to a list that does not line up with the
+    // data, and the next chart drawn into this container would inherit them.
+    allCircles.forEach(circle => circle.removeAttribute(attribute));
+    return undefined;
+  };
+
   let markedCount = 0;
-  for (let r = 0; r < rowCount; r++) {
-    const bbox = layout.getBoundingBox(`point#0#${r}`);
+  marks.forEach((mark, index) => {
+    const bbox = layout.getBoundingBox(`point#${mark.series}#${mark.row}`);
     if (!bbox) {
-      continue;
+      return;
     }
     const circle = findCircleByBoundingBox(allCircles, bbox);
     if (circle && !circle.hasAttribute(attribute)) {
-      circle.setAttribute(attribute, `${r}`);
+      circle.setAttribute(attribute, `${index}`);
       markedCount++;
     }
-  }
+  });
 
-  if (markedCount !== rowCount) {
-    // A partial match is withdrawn rather than shipped: the marks left behind
-    // would resolve to a shorter list than the rows, and the next chart drawn
-    // into this container would inherit them.
-    allCircles.forEach(circle => circle.removeAttribute(attribute));
+  if (markedCount !== marks.length) {
     if (markedCount > 0) {
       console.warn(
-        `[MAIDR] ${what} count mismatch: expected ${rowCount}, marked ${markedCount}. `
+        `[MAIDR] ${what} count mismatch: expected ${marks.length}, marked ${markedCount}. `
         + 'Visual highlighting is disabled for this chart.',
       );
     }
-    return undefined;
+    return withdraw();
+  }
+
+  const drawn = Array.from(svg.querySelectorAll(`circle[${attribute}]`));
+  if (drawn.some((circle, index) => circle.getAttribute(attribute) !== `${index}`)) {
+    console.warn(
+      `[MAIDR] ${what} order mismatch: the chart drew its markers in an order other than `
+      + 'the data\'s, so a highlight would sit on a different point from the one being '
+      + 'announced. Visual highlighting is disabled for this chart.',
+    );
+    return withdraw();
   }
 
   return `#${container.id} svg circle[${attribute}]`;
