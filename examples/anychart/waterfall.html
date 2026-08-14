@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Waterfall Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 720px; height: 440px; margin-bottom: 1rem; }
+      p { max-width: 720px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). The waterfall ships as an extension module on
+         top of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-waterfall.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.waterfall();
+
+        // AnyChart's default dataMode is "diff": each value is the step's own
+        // contribution, and the running total is accumulated across the rows.
+        // Set dataMode('absolute') and the same column of numbers means the
+        // totals instead. Either way MAIDR announces both, because a waterfall
+        // is read for both.
+        chart.waterfall([
+          { x: 'Opening', value: 1200 },
+          { x: 'Marketing', value: -250 },
+          { x: 'Sales', value: 480 },
+          { x: 'Support', value: -70 },
+          { x: 'Closing', value: 0, isTotal: true },
+        ]);
+
+        chart.title('Budget bridge');
+        chart.xAxis().title('Step');
+        chart.yAxis().title('Amount (thousands)');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, { id: 'anychart-waterfall' });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Waterfall Chart</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to walk the
+      steps. Each step announces its contribution — what the bar's height
+      actually is — alongside the running total it produced, which is where the
+      bar sits. A bar chart would conflate the two, and answering only one of
+      them answers half the question a waterfall is drawn for. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <p>
+      A row marked <code>isTotal: true</code> restates the running total rather
+      than changing it: it sits on the baseline and is announced as a total. The
+      first step is read as one too, whether or not it says so — nothing is
+      carried into it.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

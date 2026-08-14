@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Funnel Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 460px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). Funnel and pyramid ship as one extension
+         module on top of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-pyramid-funnel.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.funnel([
+          ['Visited the site', 24000],
+          ['Viewed a product', 9800],
+          ['Added to cart', 2400],
+          ['Started checkout', 1150],
+          ['Paid', 310],
+        ]);
+
+        chart.title('Checkout funnel');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-funnel',
+          // A funnel is bound to no axis, so there is no axis title to
+          // extract. These name what each dimension holds; drop them and the
+          // adapter falls back to "Stage" and "Count".
+          axes: { x: 'Stage', y: 'Visitors' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Funnel Chart</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to move between
+      stages — a funnel is a single row, so up and down are out of bounds. Each
+      stage announces its count, what share of the population that entered
+      reached it, and how much of the previous stage survived. The pitch
+      carries the retention rather than the count: on a raw scale the worst
+      stage in a funnel is routinely not the biggest fall, and a listener
+      hearing absolute heights would hear the two the wrong way round. Press
+      <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <p>
+      <code>anychart.pyramid()</code> is read the same way — AnyChart draws
+      both from one class, and only which end tapers differs.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

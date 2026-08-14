@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Lollipop Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 720px; height: 440px; margin-bottom: 1rem; }
+      p { max-width: 720px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). A stick series ships in anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // AnyChart's `stick` series is the lollipop: a stroke from the baseline
+        // to the value. The adapter enables its markers, which is both what
+        // gives the chart its dots and the only element per point there is to
+        // highlight — the stick itself is too thin and too tall for the
+        // marker filter to accept.
+        const chart = anychart.column();
+        chart.stick([
+          ['Rust', 87],
+          ['TypeScript', 72],
+          ['Python', 68],
+          ['Go', 61],
+          ['Java', 44],
+        ]);
+
+        chart.title('Language satisfaction');
+        chart.xAxis().title('Language');
+        chart.yAxis().title('Satisfied (%)');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, { id: 'anychart-lollipop' });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Lollipop Chart</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to walk the
+      categories. A lollipop carries one magnitude per category, exactly as a
+      bar chart does — the stem is what the mark looks like, not a second
+      number. Press <kbd>B</kbd> for braille, <kbd>T</kbd> for text
+      descriptions, and <kbd>S</kbd> to toggle sonification.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

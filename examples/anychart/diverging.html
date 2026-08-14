@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Diverging Bar Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 720px; height: 480px; margin-bottom: 1rem; }
+      p { max-width: 720px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). A stacked bar chart ships in anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // A population pyramid: a stacked bar chart whose two series straddle
+        // zero. AnyChart has no diverging chart type — this is the idiom — so
+        // the reading has to be declared rather than detected.
+        const chart = anychart.bar();
+        chart.yScale().stackMode('value');
+
+        chart.bar([
+          ['0-14', -1240000], ['15-29', -1180000],
+          ['30-44', -1090000], ['45-59', -980000], ['60+', -720000],
+        ]).name('Male');
+        chart.bar([
+          ['0-14', 1185000], ['15-29', 1142000],
+          ['30-44', 1076000], ['45-59', 1015000], ['60+', 910000],
+        ]).name('Female');
+
+        chart.title('Population by age band');
+        chart.xAxis().title('Age band');
+        chart.yAxis().title('People');
+        chart.container('container');
+        chart.draw();
+
+        // Opt in. Nothing in AnyChart distinguishes this from a stacked bar
+        // chart that merely contains negative values, and a diverging trace
+        // replaces the sign in every announcement with the name of a side —
+        // which is the one clue a reader would have that a guess was wrong.
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-diverging',
+          diverging: true,
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Diverging Bar Chart</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to walk the age
+      bands, and the up and down arrow keys to move between the two sides and
+      the balance between them. The pitch takes the size of a bar and the
+      announcement names its side, which is how a sighted reader takes it in —
+      length from the bar, side from which way it points. Press <kbd>B</kbd> for
+      braille, <kbd>T</kbd> for text descriptions, and <kbd>S</kbd> to toggle
+      sonification.
+    </p>
+    <p>
+      Without <code>diverging: true</code> the same chart is read as two
+      ordinary bar layers, which is the honest default: the sign then stays in
+      the announcement, where a reader can hear it.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

@@ -88,6 +88,33 @@ export interface AnyChartAxis {
   labels: () => AnyChartAxisLabels;
 }
 
+/**
+ * A scale bound to one of a Cartesian chart's axes.
+ *
+ * Only the stacking mode is read. Stacking is a property of the SCALE rather
+ * than of a series — AnyChart reports every area series as `'area'` whether or
+ * not the chart sums them — so the series API cannot answer whether the bands
+ * sit on one another.
+ */
+export interface AnyChartScale {
+  /**
+   * `'none'` on an ordinary scale, `'value'` when series are summed, and
+   * `'percent'` when they are drawn as shares of a common total. Absent on
+   * scale types that cannot stack (an ordinal x scale, a colour scale).
+   */
+  stackMode?: () => string;
+
+  /**
+   * The scale's own kind: `'ordinal'`, `'linear'`, `'log'`, `'date-time'`.
+   *
+   * Read on the X scale only, and only to answer one question: whether the
+   * categories are named or measured. A `marker` series on an ordinal x scale
+   * is a Cleveland dot plot rather than a scatter, and nothing on the series
+   * itself says so.
+   */
+  getType?: () => string;
+}
+
 /** Rendering stage / container element. */
 export interface AnyChartStage {
   container: () => HTMLElement | null;
@@ -125,8 +152,37 @@ export interface AnyChartInstance {
   /** Y-axis accessor (Cartesian charts). Returns null for non-Cartesian. */
   yAxis?: (index?: number) => AnyChartAxis | null;
 
+  /**
+   * Y-scale accessor (Cartesian charts). Carries the chart's stacking mode,
+   * which is what tells an area series apart from a stacked one — see
+   * {@link AnyChartScale}. Absent on chart types with no Cartesian scales.
+   */
+  yScale?: () => AnyChartScale | null;
+
+  /**
+   * X-scale accessor (Cartesian charts). Only its {@link AnyChartScale.getType}
+   * is read, to tell a dot plot's named categories from a scatter's measured
+   * ones. Absent on chart types with no Cartesian scales.
+   */
+  xScale?: () => AnyChartScale | null;
+
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;
+
+  /**
+   * How a waterfall chart reads its series values (`'diff'` by default, or
+   * `'absolute'`). In diff mode a row's `value` IS the step's contribution; in
+   * absolute mode it is the running total the step arrives at. Present only on
+   * a waterfall chart.
+   */
+  dataMode?: () => string;
+
+  /**
+   * Whether a waterfall draws a step marked `isTotal` at its own value rather
+   * than at the running total it arrived at. Off by default, and present only
+   * on a waterfall chart.
+   */
+  drawTotalsAsAbsolute?: () => boolean;
 
   /**
    * Chart-level data accessor. Present on single-dataset chart types such
@@ -163,6 +219,24 @@ export interface AnyChartBinderOptions {
     x?: string;
     y?: string;
   };
+
+  /**
+   * Read this chart's bar series as the two sides of a diverging bar chart —
+   * a tornado chart, or a population pyramid.
+   *
+   * Opt-in rather than inferred, because AnyChart has no diverging chart type
+   * to detect. The idiom is an ordinary stacked `anychart.bar()` whose two
+   * series straddle zero, and nothing distinguishes that from a stacked bar
+   * chart that merely contains negative values — so guessing would rename an
+   * ordinary chart, and a diverging trace announces a **side** in place of the
+   * sign, which is exactly the clue a reader would need to catch the mistake.
+   *
+   * The sides are emitted signed, in declared order, as the chart draws them:
+   * MAIDR takes the magnitude for the pitch and the sign for the side.
+   *
+   * @defaultValue false
+   */
+  diverging?: boolean;
 
   /**
    * CSS selector overrides for SVG element highlighting.

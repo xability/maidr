@@ -64,18 +64,31 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 
 ## Supported Chart Types
 
-| MAIDR Type | AnyChart Series | Example |
+| MAIDR Type | AnyChart Series / Chart | Example |
 |-----------|----------------|---------|
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
-| Line | `line`, `spline`, `area`, `spline-area` | [Line chart](examples.html) |
+| Line | `line`, `spline` | [Line chart](examples.html) |
+| Area | `area`, `spline-area` | [Area chart](examples.html) |
+| Stacked / Normalized Area | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
 | Step | `step-line`, `step-area` | [Step plot](examples.html) |
 | Scatter | `scatter`, `marker`, `bubble` | [Scatter plot](examples.html) |
+| Dot Plot | `marker`, on a chart whose x scale is ordinal | [Dot plot](examples.html) |
+| Lollipop | `stick` | [Lollipop chart](examples.html) |
+| Dumbbell | `range-column`, `range-bar` | [Dumbbell chart](examples.html) |
+| Diverging Bar | two or more `bar` / `column` series, with `diverging: true` | [Diverging bars](examples.html) |
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
 | Pie | `pie` (a doughnut is a pie with `innerRadius()`) | [Pie chart](examples.html) |
+| Funnel | `anychart.funnel()`, `anychart.pyramid()` | [Funnel chart](examples.html) |
+| Word Cloud | `anychart.tagCloud()` | [Tag cloud](examples.html) |
+| Sankey | `anychart.sankey()` | [Sankey diagram](examples.html) |
+| Waterfall | `anychart.waterfall()` | [Waterfall chart](examples.html) |
+| Radar | `anychart.radar()`, and a polar `line` / `marker` series | [Radar chart](examples.html) |
+| Polar Area | `anychart.polar()` with a `column` / `area` series | [Radar chart](examples.html) |
+| Mosaic | `anychart.mekko()`, `anychart.mosaic()`, `anychart.barmekko()` | [Marimekko chart](examples.html) |
 
-Area series are represented as line traces — the filled-area visual is lost in the accessible representation. A console warning is emitted when this downgrade occurs. `step-area` downgrades to a step trace rather than a line one, so it still warns about the lost fill.
+`step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
 **Notes on chart-type detection:**
 
@@ -83,7 +96,28 @@ Area series are represented as line traces — the filled-area visual is lost in
 
 - **Heatmap** charts use AnyChart's separate `anychart-heatmap.min.js` module and expose a chart-level data API (no `getSeriesCount()`). The adapter detects them via `chart.getType()` returning `'heatmap'` or `'heat'`, with a defensive fallback when `getType()` is unavailable.
 - **Candlestick** support also covers OHLC series. Both come from AnyChart's financial / stock module (`anychart-stock.min.js`). Each row is `[x, open, high, low, close]`; outlier and volume fields are not extracted by AnyChart's iterator API.
+- **Area** series are read as the filled bands they are drawn as, rather than downgraded to lines. Whether the bands are stacked is a property of the chart's y **scale**, not of any series — AnyChart reports every one of them as `area` either way — so the adapter reads `chart.yScale().stackMode()` once per chart: `'value'` promotes them to a stacked area, `'percent'` to a normalized one. A stacked chart's bands are merged into **one** layer, because the running total a stacked area draws is only computable across the whole set; each band still carries its own value, never the accumulated edge.
+
 - **Pie** charts are the other single-dataset type: like the heatmap they hold their data on `chart.data()` rather than on a series, and `getType()` reports `'pie'` for a doughnut too (AnyChart draws one by giving an ordinary pie an inner radius), so both read identically. A pie is bound to no axis, so its axis labels fall back to `Label` and `Value` unless `options.axes` names them. Slices with no numeric value are dropped — AnyChart draws no wedge for one, and keeping it would slide every later slice's highlight onto its neighbour.
+
+- **Funnel** and **pyramid** charts come from AnyChart's `anychart-pyramid-funnel.min.js` module and are the same single-dataset shape as a pie. `getType()` reports `'funnel'` or `'pyramid'`, and both are read as a funnel — only which end tapers differs. Their default data mapping is `name` / `value` rather than the pie's `x` / `value`. Axis labels fall back to `Stage` and `Count`. MAIDR sonifies the **retention** from the previous stage rather than the raw count, because that ratio is what a funnel is read for and what a listener cannot compute by ear.
+- **Sankey** diagrams come from `anychart-sankey.min.js` and are single-dataset too: `getType()` reports `'sankey'` and the flows live on `chart.data()` as `from` / `to` / `weight` rows. Only the edges are emitted — a flow names both of its ends, so MAIDR derives the nodes and their columns from the edges exactly as the chart does. A row whose `to` is absent is AnyChart's "dropoff", drawn as a ribbon leaving the node and going nowhere; it names no target, so it is not a flow. Axis labels fall back to `Node` and `Flow`.
+
+- **Waterfall** charts come from `anychart-waterfall.min.js`. `WaterfallPoint` fixes `start` and `end` as absolute positions on the value axis, so the adapter accumulates the running total itself and honours `chart.dataMode()`: in AnyChart's default `'diff'` mode a row's `value` is the step's contribution, and in `'absolute'` mode it is the total the step arrives at. A row marked `isTotal` restates the running total rather than changing it, and the first step is read as a total too — nothing is carried into it. A waterfall drawn from several series stacks them within each category, so the series are summed into **one** bridge: that is what the chart draws, and there is no series dimension in the reading to spend the breakdown on.
+
+- **Marimekko** charts (`anychart-mekko.min.js`) are stacked columns whose WIDTHS carry data too, and the width is the one number the rows do not hold — AnyChart derives it from the table, so the adapter does the same: each column's total over the grand total, carried on every cell of the column as the grammar requires. All of the chart's `mekko` series are merged into **one** layer, because a column's width is only computable across the whole set. `count` is deliberately not emitted: a marimekko is usually drawn from a contingency table, but AnyChart accepts any measure, and declaring one would announce "Count" for a chart of revenue.
+
+- **Radar** and **polar** charts are the one family that cannot be recognised from a series at all. Their series report `seriesType()` as plain `'line'`, `'area'`, `'marker'` or `'column'`, so without the chart-level check a radar reads as an ordinary line chart — a mis-description rather than a gap. The adapter therefore asks `chart.getType()`: everything on a radar is read as a radar, and on a polar chart the wedge-drawn series (`column`, `area`, `polygon`) become a polar area while its lines and markers stay a radar. Both share MAIDR's radar trace and the same points; what changes is the announcement and the panning, which follows each spoke's angle around the circle. A polar `rangeColumn` series is skipped: its rows carry `low` / `high` and no `value`.
+
+- **Dot plots** are the one reading a series cannot declare. A Cleveland dot plot is a `marker` series — the same series a scatter draws — and what separates the two is the scale beneath it: AnyChart gives a Cartesian chart an ordinal x scale and a scatter chart a linear one. So the adapter reads `chart.xScale().getType()` once per chart and promotes a `marker` series to a dot plot when it answers `'ordinal'`. Both are announced and navigated as bar charts are; the mark differs, and what a reader navigates does not. A `bubble` series is deliberately left alone: its rows carry a size, and a dot plot has nowhere to put one.
+
+- **Lollipop** charts are AnyChart's `stick` series: a stroke from the baseline to the value. The adapter enables the series' markers, which is both what gives the chart its dots and the only element per point it can highlight — a stick is a tall thin stroke, and the geometric filter that finds line and scatter markers rejects it for exactly that shape.
+
+- **Dumbbell** charts come from the `range-column` and `range-bar` series, whose rows carry `low` / `high` rather than `value`. AnyChart draws the pair as one floating bar rather than as two dots joined by a segment, so the mark is not the one the trace type is named after — but the reading is: two values per category, with the gap between them announced alongside each end. The ends are named `Low` and `High`, AnyChart's own names for the fields, because a range series records which value is the smaller and never what the pair is a comparison **of**; a caller who has better names sets `startLabel` / `endLabel` on the emitted layer. A row missing either end is dropped, since AnyChart draws no bar for one. The `hilo` series carries the same two fields and is **not** read: it is drawn as a bare stroke, which no lookup here can tell from a grid line, so it would announce correctly and never highlight.
+
+- **Diverging bars** — a tornado chart, or a population pyramid — are **opt-in** via `bindAnyChart(chart, { diverging: true })`. AnyChart has no diverging chart type: the idiom is a stacked `anychart.bar()` whose two series straddle zero, and nothing distinguishes that from a stacked bar chart that happens to contain negative values. Guessing would not merely rename an ordinary chart — a diverging trace replaces the sign in every announcement with the name of a side, which is the one clue a reader would have that the reading was wrong. When declared, every bar series is merged into **one** layer, because the balance MAIDR announces is a difference read down a column of one grid; the values are emitted signed, exactly as the chart draws them, and each side is named by its series. A chart with fewer than two bar series keeps its ordinary bar layers and says why.
+
+- **Tag clouds** come from `anychart-tag-cloud.min.js` and report `getType()` as `'tag-cloud'`. Axis labels fall back to `Term` and `Weight`. Highlighting pairs each term with its own `<text>` element by matching the rendered text rather than by counting DOM order: a cloud writes its words in packing order, which has no relation to the order they were declared in, so counting them off would announce one term while highlighting another. A term that does not match exactly one rendered word disables highlighting for the whole chart rather than placing a guess.
 
 ## Code Examples
 
@@ -388,12 +422,20 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 
 | Chart type | Attribute | Value format |
 |------------|-----------|--------------|
-| Bar / column | `data-maidr-anychart-bar` | `"<seriesIndex>-<pointIndex>"` |
-| Line / area / spline | `data-maidr-anychart-line-point` | `"<seriesIndex>-<pointIndex>"` |
-| Scatter / marker / bubble | `data-maidr-anychart-scatter-point` | `"<seriesIndex>-<pointIndex>"` |
+| Bar / column / diverging | `data-maidr-anychart-bar` | `"<seriesIndex>-<pointIndex>"` |
+| Line / area / spline / step / stick | `data-maidr-anychart-line-point` | `"<seriesIndex>-<pointIndex>"` |
+| Scatter / marker / bubble / dot plot | `data-maidr-anychart-scatter-point` | `"<seriesIndex>-<pointIndex>"` |
+| Dumbbell (`range-column` / `range-bar`) | `data-maidr-anychart-pair` | `"<seriesIndex>-<pairIndex>"` |
 | Box plot | `data-maidr-anychart-box` | `"<seriesIndex>-<pointIndex>"` |
 | Heatmap | `data-maidr-anychart-heatmap-cell` | `"<rowIndex>-<colIndex>"` |
 | Candlestick / OHLC | `data-maidr-anychart-candlestick-cell` | `"<seriesIndex>-<pointIndex>"` |
+| Pie | `data-maidr-anychart-pie-slice` | `"<seriesIndex>-<sliceIndex>"` |
+| Funnel / pyramid | `data-maidr-anychart-funnel-stage` | `"<seriesIndex>-<stageIndex>"` |
+| Tag cloud | `data-maidr-anychart-word` | `"<seriesIndex>-<termIndex>"` |
+| Sankey | `data-maidr-anychart-flow` | `"<seriesIndex>-<flowIndex>"` |
+| Waterfall | `data-maidr-anychart-waterfall-step` | `"<seriesIndex>-<stepIndex>"` |
+| Radar / polar | `data-maidr-anychart-spoke` | `"<seriesIndex>-<spokeIndex>"` |
+| Marimekko | `data-maidr-anychart-tile` | `"<seriesIndex>-<categoryIndex>"` |
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
@@ -433,7 +475,7 @@ For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
 | Data source | Manual JSON schema | Manual JSON schema | Auto-extracted from AnyChart series |
 | SVG selectors | Manual CSS selectors | Manual CSS selectors | Optional `selectors` option |
 | Configuration | Required | Required | Minimal — id, title, axes only |
-| Chart types | All MAIDR types | All MAIDR types | 6 AnyChart families |
+| Chart types | All MAIDR types | All MAIDR types | 14 AnyChart families |
 | Dynamic charts | Manual init | React lifecycle | Re-call `bindAnyChart()` after redraw |
 
 ## npm Installation (Optional)

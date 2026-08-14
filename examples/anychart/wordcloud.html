@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Tag Cloud Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 700px; height: 420px; margin-bottom: 1rem; }
+      p { max-width: 700px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). The tag cloud is an extension module on top
+         of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-tag-cloud.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.tagCloud([
+          { x: 'accessibility', value: 142 },
+          { x: 'sonification', value: 118 },
+          { x: 'braille', value: 96 },
+          { x: 'screen reader', value: 88 },
+          { x: 'navigation', value: 71 },
+          { x: 'description', value: 64 },
+          { x: 'highlight', value: 47 },
+          { x: 'keyboard', value: 39 },
+          { x: 'contrast', value: 25 },
+          { x: 'focus', value: 18 },
+        ]);
+
+        chart.title('Terms in the issue tracker');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-wordcloud',
+          // A cloud draws its magnitude as a font size rather than against a
+          // scale, so there is no axis title to extract. Drop these and the
+          // adapter falls back to "Term" and "Weight".
+          axes: { x: 'Term', y: 'Mentions' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Tag Cloud</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to move between
+      terms — a cloud is a single row, so up and down are out of bounds. The
+      terms are walked heaviest first, which is the reading a cloud is drawn
+      for and which its packing spiral does not give in any traversable order.
+      Press <kbd>B</kbd> for braille, <kbd>T</kbd> for text descriptions, and
+      <kbd>S</kbd> to toggle sonification.
+    </p>
+    <p>
+      Highlighting pairs each term with its own word by matching the rendered
+      text, not by counting glyphs: a cloud writes its words to the SVG in
+      packing order, which has no relation to the order they were declared in.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>
