@@ -40,6 +40,31 @@ const CONTINUOUS_TYPES = new Set([
 ]);
 
 /**
+ * The SI prefixes d3's default number format abbreviates with, so a tick
+ * reading `1k` is recovered as 1000 rather than refused.
+ *
+ * Case matters, as it does in SI: `m` is milli and `M` is mega.
+ */
+const SI_SUFFIXES: Record<string, number> = {
+  y: 1e-24,
+  z: 1e-21,
+  a: 1e-18,
+  f: 1e-15,
+  p: 1e-12,
+  n: 1e-9,
+  µ: 1e-6,
+  m: 1e-3,
+  k: 1e3,
+  M: 1e6,
+  G: 1e9,
+  T: 1e12,
+  P: 1e15,
+  E: 1e18,
+  Z: 1e21,
+  Y: 1e24,
+};
+
+/**
  * Finds the node carrying Plot's `scale` function.
  *
  * `Plot.plot()` attaches `scale` to whatever it returns. That is the `<svg>`
@@ -105,6 +130,42 @@ export function isDiscrete(scale: PlotScale | undefined): boolean {
 }
 
 /**
+ * Whether a scale's domain is dates rather than numbers.
+ *
+ * A temporal axis inverts to a `Date`, which no MAIDR trace can carry: the
+ * point types are typed `number` because the value has to drive sonification
+ * and the min/max range. The adapter therefore carries epoch milliseconds and
+ * declares `format: { type: 'date' }` on the axis, which is what turns the
+ * number back into a date in the announcement.
+ *
+ * @param scale - The scale to test.
+ * @returns True for Plot's `utc` and `time` scales.
+ */
+export function isTemporal(scale: PlotScale | undefined): boolean {
+  return !!scale && (scale.type === 'utc' || scale.type === 'time');
+}
+
+/**
+ * Whether a scale's domain contains zero.
+ *
+ * Only then can an inverted pixel legitimately be snapped to zero — on an axis
+ * that runs from 1 to a billion, a value smaller than a billionth of the span
+ * is an ordinary small value and not a bar's baseline.
+ *
+ * @param scale - The scale to test.
+ * @returns True when zero lies between the domain's endpoints.
+ */
+function domainIncludesZero(scale: PlotScale | undefined): boolean {
+  if (!scale || !Array.isArray(scale.domain) || scale.domain.length < 2)
+    return false;
+  const lo = toNumber(scale.domain[0]);
+  const hi = toNumber(scale.domain[scale.domain.length - 1]);
+  if (lo === null || hi === null)
+    return false;
+  return Math.min(lo, hi) <= 0 && Math.max(lo, hi) >= 0;
+}
+
+/**
  * The magnitude a continuous scale's domain spans, used to size rounding.
  *
  * @param scale - The scale to measure.
@@ -130,26 +191,72 @@ export function scaleSpan(scale: PlotScale | undefined): number {
  * leading digit, which is far more precision than any plot's pixel resolution
  * can encode and far less than the noise floor.
  *
- * Values within a billionth of the span of zero snap to zero, which is what a
- * bar's baseline inverts to.
- *
  * @param value - The inverted value.
  * @param span  - The domain span from {@link scaleSpan}.
  * @returns The cleaned value.
  *
  * @example
  * cleanNumber(3.141589999999974, 1246.8); // => 3.14159
- * cleanNumber(-1.652e-13, 1246.8);        // => 0
  */
 export function cleanNumber(value: number, span: number): number {
   if (!Number.isFinite(value))
     return value;
-  if (span > 0 && Math.abs(value) < span * 1e-9)
-    return 0;
   const magnitude = Math.abs(span) || Math.abs(value) || 1;
   const decimals = Math.min(15, Math.max(0, 10 - Math.floor(Math.log10(magnitude))));
   const rounded = Number(value.toFixed(decimals));
   return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+/**
+ * Rounds a value to the precision the drawn geometry can actually carry.
+ *
+ * A line's vertices are read back out of its `d` attribute, and the path
+ * serializer writes each coordinate to a fixed number of decimal places — so
+ * unlike a rect's `x` and `y`, the number is quantised before the adapter ever
+ * sees it. On a chart spanning thousands of units that quantisation is worth
+ * more than a unit of data, and reporting the inverted figure in full would
+ * dress a rounded pixel up as an exact measurement.
+ *
+ * So the value is rounded to the granularity the pixel quantum buys, and no
+ * finer. On an ordinary chart the quantum is worth far less than the last
+ * decimal of the data, and the value comes back exact.
+ *
+ * @param value      - The inverted value.
+ * @param scale      - The scale it was inverted through.
+ * @param pixelError - Half the pixel quantum the coordinate was written at.
+ * @returns The value, rounded to the precision the geometry supports.
+ */
+export function cleanToGeometry(
+  value: number,
+  scale: PlotScale | undefined,
+  pixelError: number,
+): number {
+  const span = scaleSpan(scale);
+  const pixels = rangePixels(scale);
+  if (!Number.isFinite(value) || span <= 0 || pixels <= 0 || pixelError <= 0)
+    return cleanNumber(value, span);
+
+  const dataError = pixelError * span / pixels;
+  const decimals = Math.min(15, Math.max(0, -Math.floor(Math.log10(dataError))));
+  const rounded = Number(value.toFixed(decimals));
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+/**
+ * How many pixels a scale's range covers.
+ *
+ * @param scale - The scale to measure.
+ * @returns The width in pixels, or `0` when the range is not numeric.
+ */
+function rangePixels(scale: PlotScale | undefined): number {
+  const range = scale?.range;
+  if (!Array.isArray(range) || range.length < 2)
+    return 0;
+  const lo = toNumber(range[0]);
+  const hi = toNumber(range[range.length - 1]);
+  if (lo === null || hi === null)
+    return 0;
+  return Math.abs(hi - lo);
 }
 
 /**
@@ -209,6 +316,10 @@ export function bandIntervals(
 /**
  * Maps a pixel coordinate back to the value the scale drew there.
  *
+ * A temporal scale inverts to a `Date` and comes back as epoch milliseconds,
+ * for the reason given on {@link isTemporal}. A band scale comes back as its
+ * category.
+ *
  * @param scale - The scale that positioned the mark.
  * @param pixel - The pixel coordinate read off the element.
  * @returns The domain value, or `null` when the scale cannot invert it.
@@ -238,10 +349,21 @@ export function valueAtPixel(
     return null;
 
   const inverted = invert(pixel);
-  if (inverted instanceof Date)
-    return inverted.toISOString();
   const numeric = toNumber(inverted);
-  return numeric === null ? null : cleanNumber(numeric, scaleSpan(scale));
+  if (numeric === null)
+    return null;
+  // Milliseconds, unrounded: a date's precision is its own, and the span of a
+  // year's worth of them would otherwise round the time of day away.
+  if (inverted instanceof Date)
+    return Math.round(numeric);
+
+  const span = scaleSpan(scale);
+  // A bar's baseline inverts to a few parts in 1e13 of the span rather than to
+  // zero. Snapping is only safe where zero is a value the axis actually draws:
+  // on a log axis running to a billion, a millionth is an ordinary number.
+  if (span > 0 && Math.abs(numeric) < span * 1e-12 && domainIncludesZero(scale))
+    return 0;
+  return cleanNumber(numeric, span);
 }
 
 /**
@@ -290,12 +412,21 @@ export function valueAtColor(
  * use, so a numeric axis can be recovered from two ticks and a categorical one
  * from all of them.
  *
+ * Which of the two an axis is has to be read off the axis rather than guessed
+ * from its labels, because guessing is how a chart gets transposed: an axis
+ * labelled `10, 100, 1k, 10k` has labels that mostly do not parse as numbers,
+ * and reading it as a set of categories turns a scatter plot into a horizontal
+ * dot plot whose x values are the y axis's tick text. Plot sets
+ * `font-variant="tabular-nums"` on a quantitative axis's labels and not on a
+ * categorical one's, which settles it.
+ *
  * The result is deliberately shaped like a real {@link PlotScale} so the rest
  * of the adapter cannot tell the difference.
  *
  * @param svg  - The plot's `<svg>`.
  * @param axis - Which axis to fit, matching Plot's `aria-label` prefix.
- * @returns The fitted scale, or `undefined` when the axis has too few ticks.
+ * @returns The fitted scale, or `undefined` when the axis cannot be recovered
+ *          faithfully — which leaves the chart unbound rather than wrong.
  */
 export function deriveScale(svg: Element, axis: 'x' | 'y' | 'fx' | 'fy'): PlotScale | undefined {
   const group = svg.querySelector(`g[aria-label="${axis}-axis tick label"]`);
@@ -314,21 +445,46 @@ export function deriveScale(svg: Element, axis: 'x' | 'y' | 'fx' | 'fy'): PlotSc
     return undefined;
 
   const numeric = ticks.map(t => ({ ...t, value: parseTickNumber(t.label) }));
-  if (numeric.every(t => t.value !== null)) {
-    const first = numeric[0] as { pixel: number; value: number };
-    const last = numeric[numeric.length - 1] as { pixel: number; value: number };
+  const quantitative = group.getAttribute('font-variant') === 'tabular-nums';
+
+  // A quantitative axis whose labels cannot all be read back is a dead end: the
+  // pixel-to-value mapping is exactly what is missing, and there is nothing
+  // else in the DOM that carries it.
+  if (quantitative && !numeric.every(t => t.value !== null))
+    return undefined;
+
+  if (quantitative || numeric.every(t => t.value !== null)) {
+    const points = numeric as { pixel: number; value: number }[];
+    const first = points[0];
+    const last = points[points.length - 1];
     if (first.pixel === last.pixel || first.value === last.value)
       return undefined;
     const slope = (last.value - first.value) / (last.pixel - first.pixel);
+    const invert = (pixel: unknown): number =>
+      first.value + ((toNumber(pixel) ?? first.pixel) - first.pixel) * slope;
+
+    // The straight line through the outermost ticks only describes a linear
+    // axis. A log axis puts its ticks at 1, 10, 100 and the same line would
+    // read every mark between them as a different number entirely — so the fit
+    // is checked against every tick it did not come from, and a scale that
+    // fails is not offered at all. The chart is then left unbound, which is the
+    // right outcome: no announcement beats a confident wrong one.
+    const tolerance = Math.abs(last.value - first.value) * 1e-6;
+    for (const point of points.slice(1, -1)) {
+      if (Math.abs(invert(point.pixel) - point.value) > tolerance)
+        return undefined;
+    }
+
     return {
       type: 'linear',
       domain: [first.value, last.value],
       range: [first.pixel, last.pixel],
       apply: value => first.pixel + ((toNumber(value) ?? first.value) - first.value) / slope,
-      invert: pixel => first.value + ((toNumber(pixel) ?? 0) - first.pixel) * slope,
+      invert,
     };
   }
 
+  // Not quantitative: the labels are the categories, whatever they look like.
   const step = Math.abs(ticks[1].pixel - ticks[0].pixel);
   const positions = new Map(ticks.map(t => [t.label, t.pixel]));
   return {
@@ -370,17 +526,36 @@ function translateOf(element: Element, axis: 'x' | 'y'): number | null {
  */
 function parseTickNumber(label: string): number | null {
   const cleaned = label.replace(/[\s,]/g, '').replace(/\u2212/g, '-');
-  if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(cleaned))
+  const match = /^(-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)([yzafpn\u00B5mkMGTPEZY]?)$/.exec(cleaned);
+  if (!match)
     return null;
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
+  const parsed = Number.parseFloat(match[1]);
+  if (!Number.isFinite(parsed))
+    return null;
+  const suffix = match[2];
+  return suffix ? parsed * (SI_SUFFIXES[suffix] ?? 1) : parsed;
 }
 
-/** Coerces a value to a finite number, or `null`. */
+/**
+ * Coerces a value to a finite number, or `null`.
+ *
+ * Strings are converted whole rather than parsed from the front. The
+ * difference matters: `Number.parseFloat` reads an ISO timestamp as the year,
+ * so a date reaching a numeric field would be announced as `2024` — a
+ * plausible-looking number that was never in the chart. Refusing it lets the
+ * caller fall back or drop the point instead.
+ *
+ * @param value - The value to coerce.
+ * @returns The number, or `null` when the value is not entirely one.
+ */
 export function toNumber(value: unknown): number | null {
   if (value instanceof Date)
-    return value.getTime();
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(value.getTime()) ? value.getTime() : null;
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string' || value.trim() === '')
+    return null;
+  const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 

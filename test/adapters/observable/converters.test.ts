@@ -233,3 +233,86 @@ describe('caller overrides', () => {
     });
   });
 });
+
+describe('values the drawn geometry cannot state exactly', () => {
+  it('carries a date axis as milliseconds and says it is a date', () => {
+    // A temporal axis inverts to a Date, and every trace's point type is
+    // numeric because the value drives sonification and the min/max range.
+    // Parsing the date's text into that numeric field is the trap: an ISO
+    // timestamp read as a number is its *year*, so a scatter drawn across five
+    // months would announce both points as 2024.
+    const layer = onlyLayer('timeScatter');
+    const data = layer.data as ScatterPoint[];
+
+    expect(data.map(point => point.x)).toEqual([
+      Date.UTC(2024, 0, 15),
+      Date.UTC(2024, 5, 1),
+    ]);
+    expect(layer.axes?.x?.format).toEqual({ type: 'date' });
+  });
+
+  it('rounds a line to the precision its path was written at', () => {
+    // A line's vertices come back out of the `d` attribute, where the
+    // serializer has already rounded them. Over a span of thousands that
+    // quantum is worth more than a unit of data, so reporting the inverted
+    // figure in full would present a rounded pixel as an exact measurement.
+    const layer = onlyLayer('preciseLine');
+    const [series] = layer.data as LinePoint[][];
+
+    expect(series.map(point => point.y)).toEqual([1234.57, 9876.54, 4321.14]);
+  });
+
+  it('refuses a log axis it can only fit a straight line to', () => {
+    // The tick-derived fallback fits a line through the outermost ticks, which
+    // describes a linear axis and not a log one. Left to guess, it did worse
+    // than fit badly: this axis is labelled 10, 100, 1k, 10k, most of which do
+    // not parse as numbers, so the axis was taken for a set of *categories* and
+    // the chart came back transposed — a horizontal dot plot whose x values
+    // were the y axis's tick text. Better unbound than either.
+    const { element } = mountFixture('logAxis', false);
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('reads a log axis correctly when Plot\'s own scale is there', () => {
+    const { element } = mountFixture('logAxis');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect((layer?.data as ScatterPoint[]).map(point => point.y)).toEqual([10, 1000]);
+  });
+});
+
+describe('binned marks that are not plain histograms', () => {
+  it('reads a stacked histogram as a stacked bar, not as double the bins', () => {
+    // binX with a fill draws each bin as one rect per series. Counted as a bin
+    // apiece that is twice as many bins, each with half the count — a chart
+    // that reads as plausible and is wrong throughout.
+    const { element } = mountFixture('stackedHistogram');
+    const subplot = observablePlotToMaidr(element)?.subplots[0][0];
+    const layer = subplot?.layers[0];
+
+    expect(layer?.type).toBe(TraceType.STACKED);
+    expect(subplot?.legend).toHaveLength(2);
+    const series = layer?.data as SegmentedPoint[][];
+    expect(series).toHaveLength(2);
+    // Five bins of four per series: forty points split evenly.
+    expect(series[0].map(point => point.x)).toEqual([1, 3, 5, 7, 9]);
+    expect(series[0].map(point => point.y)).toEqual([4, 4, 4, 4, 4]);
+  });
+
+  it('orders a reversed axis\'s bin bounds low to high', () => {
+    // A reversed axis draws the interval's larger value at the smaller pixel,
+    // and states its domain high-to-low. Read literally the bin reports a
+    // minimum above its maximum, which is an empty range.
+    const layer = onlyLayer('reversedHistogram');
+    const data = layer.data as HistogramPoint[];
+
+    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([
+      [0, 2],
+      [2, 4],
+      [4, 6],
+      [6, 8],
+      [8, 10],
+    ]);
+  });
+});

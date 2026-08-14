@@ -66,7 +66,7 @@ filters:
   - maidr
 ```
 
-The filter injects the same two scripts. It takes one option, `maidr-version`, pinning which release to load:
+The filter injects the same two scripts. `maidr-version` pins which release to load, and `maidr-base-url` points at your own copies instead of the CDN:
 
 ```yaml
 filters:
@@ -125,6 +125,7 @@ That is why the adapter needs no configuration and works on charts written befor
 | `barY` / `barX` | Bar | Orientation comes from which axis is categorical |
 | `barY` / `barX` with `fill` | Stacked bar | One series per fill colour, with a legend |
 | `rectY` / `rectX` with `binX` / `binY` | Histogram | Bin edges are reconstructed exactly |
+| `rectY` / `rectX` with `binX` and a `fill` | Stacked bar | A stacked histogram, read over its bins |
 | `rectY` / `rectX` on a categorical axis | Bar | |
 | `dot` on two continuous axes | Scatter | |
 | `dot` on a categorical axis | Dot plot | Navigated as a bar chart |
@@ -134,6 +135,8 @@ That is why the adapter needs no configuration and works on charts written befor
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
 
+A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
+
 ## What it does not read
 
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
@@ -142,9 +145,16 @@ Titles, subtitles, captions, and axis labels are taken from what Plot rendered. 
 
 A chart whose marks are all unread is left alone; other charts on the page are unaffected.
 
-Two more things worth knowing:
+## Precision
+
+A bar, a dot, and a rect are positioned by attributes the adapter reads directly, so inverting them recovers the datum exactly: a bar drawn for `3.14159` is announced as `3.14159`, not as `3.141589999999809`.
+
+A **line or area** is different. Its vertices come back out of the path's `d` attribute, where the serializer has already rounded each coordinate, so the value is only good to the quantum that rounding left. The adapter rounds to that precision and no finer — on an ordinary chart the quantum is worth far less than the last decimal of the data and the value comes back exact, but a line spanning tens of thousands of units will be announced to the nearest hundredth or so. Reporting the inverted figure in full would present a rounded pixel as an exact measurement.
+
+Three more things worth knowing:
 
 - **Draw order is data order.** Plot draws marks in the order the data arrived, which is not the visual order when a mark is given `sort`. Navigation follows that same order, so the highlight always matches what was announced, but on a sorted chart the arrow keys will not sweep strictly left to right.
+- **A chart the adapter cannot read faithfully is left unbound.** When Plot's `scale` function is missing — a chart revived from saved HTML rather than drawn on the page — the scales are fitted from the rendered axis ticks. That fit describes a linear axis, so a log axis is refused rather than approximated, and a quantitative axis whose labels cannot be read back is refused too. No announcement beats a confident wrong one.
 - **Plot 0.6.3 or later.** The adapter reads the separate axis groups Plot has emitted since 0.6.3. Quarto currently bundles Plot 0.6.11.
 
 ## Manual binding

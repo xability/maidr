@@ -11,8 +11,8 @@
  * ## What is recovered, and how exactly
  *
  * Inverting a pixel is exact to within float noise, which {@link cleanNumber}
- * removes, so a bar drawn for `3.14159` is announced as `3.14159`. Two things
- * are not recovered exactly and are therefore not claimed:
+ * removes, so a bar drawn for `3.14159` is announced as `3.14159`. Three things
+ * are less exact than that, and none of them is presented as though it were:
  *
  * - **Marks whose value lives in a colour.** A `cell` mark encodes its
  *   magnitude as an 8-bit fill, so several distinct values render as one
@@ -23,6 +23,10 @@
  *   adapter detects the mismatch — Plot binds the datum indices to the path,
  *   so the expected count is known — and skips the mark instead of announcing
  *   the control polygon.
+ * - **Every line and area, a little.** Their vertices are read back out of the
+ *   path's `d` attribute, where the serializer already rounded each
+ *   coordinate, so the value is rounded to the precision that quantum buys and
+ *   no finer. On an ordinary chart it comes back exact.
  *
  * @packageDocumentation
  */
@@ -46,9 +50,11 @@ import { findMarkGroups, readAxisLabel, readTitles, resolveSvg, splitFacets } fr
 import {
   bandIntervals,
   cleanNumber,
+  cleanToGeometry,
   deriveScale,
   isContinuous,
   isDiscrete,
+  isTemporal,
   readScales,
   toNumber,
   valueAtColor,
@@ -71,6 +77,8 @@ interface ConversionContext {
   axes: { x?: string; y?: string; z?: string };
   /** Caller-supplied trace-type overrides, keyed by Plot's mark label. */
   markTypes: Record<string, string>;
+  /** Which axes carry dates, and so need a date format on the announcement. */
+  temporal: { x: boolean; y: boolean };
   /** Running count of emitted layers, used to make selector tokens unique. */
   layerCount: number;
 }
@@ -103,6 +111,7 @@ export function observablePlotToMaidr(
       z: options.axes?.z,
     },
     markTypes: options.markTypes ?? {},
+    temporal: { x: isTemporal(scales.x), y: isTemporal(scales.y) },
     layerCount: 0,
   };
 
@@ -415,7 +424,24 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
   if (bins.length === 0)
     return null;
 
+  // A binned rect given a `fill` channel is a *stacked* histogram: each bin is
+  // drawn as several rects, one per series. Read as one bin apiece it would
+  // double the bin count and halve every count, so it becomes a stacked bar
+  // over the bins instead — which is what it is, and keeps the series split
+  // that the fill was added to show.
+  if (hasStackedBins(bins)) {
+    const columns = distinctBins(bins);
+    const edges = uniformBinEdges(columns, scales.x);
+    return buildBarLayer(
+      bins.map(bin => binAsCategory(bin, columns, edges)),
+      context,
+      Orientation.VERTICAL,
+      TraceType.BAR,
+    );
+  }
+
   const data = toHistogramPoints(bins, scales.x);
+  const ordered = orderedByBin(bins);
   const token = `L${context.layerCount++}`;
 
   return {
@@ -423,11 +449,97 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
     layer: {
       id: token,
       type: TraceType.HISTOGRAM,
-      selectors: stampLayer(facet.elements.slice(0, data.length), context.containerId, token),
+      selectors: stampLayer(ordered.map(bin => bin.element), context.containerId, token),
       axes: axisConfig(context),
       data,
     },
   };
+}
+
+/**
+ * The interval of the x axis a rect covers, ordered low to high.
+ *
+ * @param scales - The plot's scales.
+ * @param x      - The rect's left edge in pixels.
+ * @param width  - The rect's width in pixels.
+ * @returns The bin's bounds in data units.
+ */
+function binEdges(scales: PlotScales, x: number, width: number): { xMin: number; xMax: number } {
+  const near = toNumber(valueAtPixel(scales.x, x)) ?? 0;
+  const far = toNumber(valueAtPixel(scales.x, x + width)) ?? 0;
+  return { xMin: Math.min(near, far), xMax: Math.max(near, far) };
+}
+
+/**
+ * Whether the rects of a binned mark stack, rather than tiling the axis.
+ *
+ * @param bins - The mark's rects, as read.
+ * @returns True when two rects cover the same interval of the x axis.
+ */
+function hasStackedBins(bins: MarkDatum[]): boolean {
+  const seen = new Set<string>();
+  for (const bin of bins) {
+    const key = `${bin.xMin}:${bin.xMax}`;
+    if (seen.has(key))
+      return true;
+    seen.add(key);
+  }
+  return false;
+}
+
+/**
+ * The distinct intervals a stacked histogram's rects cover, ordered along the
+ * axis.
+ *
+ * @param bins - The mark's rects, as read.
+ * @returns One entry per bin, with the duplicates each series contributed
+ *          collapsed.
+ */
+function distinctBins(bins: MarkDatum[]): MarkDatum[] {
+  const seen = new Map<string, MarkDatum>();
+  for (const bin of bins) {
+    const key = `${bin.xMin}:${bin.xMax}`;
+    if (!seen.has(key))
+      seen.set(key, bin);
+  }
+  return [...seen.values()].sort((a, b) => (a.xMin ?? 0) - (b.xMin ?? 0));
+}
+
+/**
+ * Re-labels a bin by its midpoint, so a stacked histogram reads as a bar chart.
+ *
+ * The midpoint comes from the reconstructed edges where they could be
+ * recovered, so a stacked histogram's categories read as `1` and `3` rather
+ * than as the inset-shifted `1.0086` the rect was measured at.
+ *
+ * @param bin     - The bin.
+ * @param columns - The distinct bins, ordered along the axis.
+ * @param edges   - Reconstructed bin edges, or `null` when they could not be.
+ * @returns The same datum with a numeric category on `x`.
+ */
+function binAsCategory(
+  bin: MarkDatum,
+  columns: MarkDatum[],
+  edges: number[] | null,
+): MarkDatum {
+  const index = columns.findIndex(one => one.xMin === bin.xMin && one.xMax === bin.xMax);
+  if (edges && index >= 0)
+    return { ...bin, x: (edges[index] + edges[index + 1]) / 2 };
+  return { ...bin, x: ((bin.xMin ?? 0) + (bin.xMax ?? 0)) / 2 };
+}
+
+/**
+ * Orders a mark's rects along the axis, matching {@link toHistogramPoints}.
+ *
+ * The points are sorted so a chart drawn out of order still reads left to
+ * right, and the elements have to be stamped in that same order or the
+ * highlight lands on a different bar from the one being announced.
+ *
+ * @param bins - The mark's rects, as read.
+ * @returns The same rects, ordered by bin start.
+ */
+function orderedByBin(bins: MarkDatum[]): MarkDatum[] {
+  return [...bins].sort((a, b) => (a.xMin ?? 0) - (b.xMin ?? 0));
 }
 
 /**
@@ -479,12 +591,18 @@ function toHistogramPoints(bins: MarkDatum[], scale: PlotScale | undefined): His
  *          spaced across the domain and so cannot be reconstructed.
  */
 function uniformBinEdges(bins: MarkDatum[], scale: PlotScale | undefined): number[] | null {
-  if (!scale || !Array.isArray(scale.domain) || scale.domain.length < 2)
+  if (!scale || !Array.isArray(scale.domain) || scale.domain.length < 2 || bins.length === 0)
     return null;
-  const start = toNumber(scale.domain[0]);
-  const end = toNumber(scale.domain[scale.domain.length - 1]);
-  if (start === null || end === null || end <= start)
+  const first = toNumber(scale.domain[0]);
+  const last = toNumber(scale.domain[scale.domain.length - 1]);
+  if (first === null || last === null || first === last)
     return null;
+  // A reversed axis states its domain high-to-low. The bins still run low to
+  // high along the data, so the endpoints are ordered rather than taken as
+  // given — read literally, a reversed axis looks like an empty domain and
+  // every bin keeps the inset-shifted edge it was measured at.
+  const start = Math.min(first, last);
+  const end = Math.max(first, last);
 
   const width = (end - start) / bins.length;
   // The measured left edges are all displaced by the same inset, so their
@@ -588,14 +706,18 @@ function convertLine(
       continue;
 
     const name = valueAtColor(scales.color, strokeOrFill(element));
-    const vertices = parsePathVertices(element, type === TraceType.AREA);
-    if (vertices === null)
+    const path = parsePathVertices(element, type === TraceType.AREA);
+    if (path === null)
       continue;
 
     const points: LinePoint[] = [];
-    for (const vertex of vertices) {
-      const x = valueAtPixel(scales.x, vertex.x);
-      const y = toNumber(valueAtPixel(scales.y, vertex.y));
+    for (const vertex of path.vertices) {
+      // Unlike a rect's x and y, a path's coordinates were rounded on the way
+      // into the `d` attribute, so the inverted value is only good to the
+      // quantum that rounding left. Reporting it in full would dress a rounded
+      // pixel up as an exact measurement.
+      const x = pathValue(scales.x, vertex.x, path.pixelError);
+      const y = toNumber(pathValue(scales.y, vertex.y, path.pixelError));
       if (x === null || y === null)
         continue;
       points.push({ x, y, ...(name !== null ? { z: String(name) } : {}) });
@@ -757,12 +879,10 @@ function readRectDatum(
       y: signedMagnitude(upper, lower),
       yMin: Math.min(upper, lower),
       yMax: Math.max(upper, lower),
-      ...(categorical
-        ? {}
-        : {
-            xMin: toNumber(valueAtPixel(scales.x, x)) ?? 0,
-            xMax: toNumber(valueAtPixel(scales.x, x + width)) ?? 0,
-          }),
+      // Ordered rather than left-then-right: a reversed x axis draws the
+      // interval's larger value at the smaller pixel, and a bin that reports a
+      // minimum above its maximum reads as an empty range.
+      ...(categorical ? {} : binEdges(scales, x, width)),
       ...seriesField,
     };
   }
@@ -891,20 +1011,23 @@ function dotCentre(element: Element): { x: number; y: number } | null {
 function parsePathVertices(
   element: Element,
   isArea: boolean,
-): { x: number; y: number }[] | null {
+): ParsedPath | null {
   const d = element.getAttribute('d');
   if (!d)
     return null;
 
   const vertices: { x: number; y: number }[] = [];
+  let decimals = 0;
   // Each drawing command ends at a coordinate pair; for M and L that pair is
   // the whole command, and for C it is the last of three.
   const commands = d.match(/[MLC][^MLCZ]*/gi) ?? [];
   for (const command of commands) {
-    const numbers = (command.slice(1).match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi) ?? [])
-      .map(Number.parseFloat);
+    const written = command.slice(1).match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi) ?? [];
+    const numbers = written.map(Number.parseFloat);
     if (numbers.length < 2)
       continue;
+    for (const text of written)
+      decimals = Math.max(decimals, (text.split('.')[1] ?? '').length);
     const x = numbers[numbers.length - 2];
     const y = numbers[numbers.length - 1];
     if (Number.isFinite(x) && Number.isFinite(y))
@@ -913,6 +1036,9 @@ function parsePathVertices(
   if (vertices.length === 0)
     return null;
 
+  // Half the smallest step the coordinates were written at: the most the
+  // serializer can have moved a point when it rounded it.
+  const pixelError = 0.5 * 10 ** -decimals;
   const data = (element as Element & { __data__?: unknown }).__data__;
   const expected = Array.isArray(data) ? data.length : null;
 
@@ -922,10 +1048,39 @@ function parsePathVertices(
     // baseline starts where the series ended) makes it odd; drop it first.
     const usable = vertices.length % 2 === 0 ? vertices : vertices.slice(0, -1);
     const half = usable.slice(0, usable.length / 2);
-    return expected !== null && half.length !== expected ? null : half;
+    return expected !== null && half.length !== expected ? null : { vertices: half, pixelError };
   }
 
-  return expected !== null && vertices.length !== expected ? null : vertices;
+  return expected !== null && vertices.length !== expected
+    ? null
+    : { vertices, pixelError };
+}
+
+/** A parsed line or area path: where it goes, and how precisely it says so. */
+interface ParsedPath {
+  /** The path's vertices, in drawing order. */
+  vertices: { x: number; y: number }[];
+  /** Half the pixel quantum the coordinates were rounded to. */
+  pixelError: number;
+}
+
+/**
+ * Inverts a path coordinate, rounded to the precision the path can carry.
+ *
+ * @param scale      - The scale that positioned the path.
+ * @param pixel      - The coordinate read out of the `d` attribute.
+ * @param pixelError - Half the quantum the coordinate was written at.
+ * @returns The value, or `null` when the scale cannot invert it.
+ */
+function pathValue(
+  scale: PlotScale | undefined,
+  pixel: number,
+  pixelError: number,
+): string | number | null {
+  const value = valueAtPixel(scale, pixel);
+  if (typeof value !== 'number' || isTemporal(scale))
+    return value;
+  return cleanToGeometry(value, scale, pixelError);
 }
 
 /** The colour a mark was drawn in, whichever channel carries it. */
@@ -956,14 +1111,31 @@ function uniqueInOrder<T>(values: T[]): T[] {
   return seen;
 }
 
-/** Builds a layer's axis configuration from the resolved labels. */
+/**
+ * Builds a layer's axis configuration from the resolved labels.
+ *
+ * A temporal axis also carries `format: { type: 'date' }`. Its values travel as
+ * epoch milliseconds — a trace's point types are numeric because the value has
+ * to drive sonification and the min/max range — and the format is what turns
+ * them back into dates when they are announced.
+ *
+ * @param context - The conversion context.
+ * @returns The axes object, or `undefined` when nothing is known about them.
+ */
 function axisConfig(context: ConversionContext): MaidrLayer['axes'] {
   const { x, y, z } = context.axes;
-  if (!x && !y && !z)
+  const dateFormat = { type: 'date' } as const;
+  const xAxis = x || context.temporal.x
+    ? { ...(x ? { label: x } : {}), ...(context.temporal.x ? { format: dateFormat } : {}) }
+    : undefined;
+  const yAxis = y || context.temporal.y
+    ? { ...(y ? { label: y } : {}), ...(context.temporal.y ? { format: dateFormat } : {}) }
+    : undefined;
+  if (!xAxis && !yAxis && !z)
     return undefined;
   return {
-    ...(x ? { x: { label: x } } : {}),
-    ...(y ? { y: { label: y } } : {}),
+    ...(xAxis ? { x: xAxis } : {}),
+    ...(yAxis ? { y: yAxis } : {}),
     ...(z ? { z: { label: z } } : {}),
   };
 }

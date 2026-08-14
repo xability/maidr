@@ -94,8 +94,34 @@ function buildScale(spec: FixtureScaleSpec): Record<string, unknown> {
     return scale;
   }
 
-  const [d0, d1] = spec.domain as number[];
   const [r0, r1] = spec.range as number[];
+
+  // A temporal scale's domain serialises as ISO strings and inverts to a Date,
+  // which is the shape the adapter checks for.
+  if (spec.type === 'utc' || spec.type === 'time') {
+    const d0 = new Date(spec.domain[0] as string).getTime();
+    const d1 = new Date(spec.domain[spec.domain.length - 1] as string).getTime();
+    scale.domain = [new Date(d0), new Date(d1)];
+    scale.apply = (value: unknown) => r0 + (Number(value) - d0) / (d1 - d0) * (r1 - r0);
+    scale.invert = (pixel: unknown) =>
+      new Date(d0 + ((pixel as number) - r0) / (r1 - r0) * (d1 - d0));
+    return scale;
+  }
+
+  const [d0, d1] = spec.domain as number[];
+
+  // A log scale interpolates in the exponent, which is exactly what the
+  // adapter's tick-derived fallback cannot do — so building it faithfully here
+  // is what lets a test tell the two paths apart.
+  if (spec.type === 'log') {
+    const l0 = Math.log(d0);
+    const l1 = Math.log(d1);
+    scale.apply = (value: unknown) => r0 + (Math.log(Number(value)) - l0) / (l1 - l0) * (r1 - r0);
+    scale.invert = (pixel: unknown) =>
+      Math.exp(l0 + ((pixel as number) - r0) / (r1 - r0) * (l1 - l0));
+    return scale;
+  }
+
   scale.apply = (value: unknown) => r0 + ((value as number) - d0) / (d1 - d0) * (r1 - r0);
   scale.invert = (pixel: unknown) => d0 + ((pixel as number) - r0) / (r1 - r0) * (d1 - d0);
   return scale;
