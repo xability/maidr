@@ -156,6 +156,127 @@ export function wordCloudSelector(containerId: string, seriesIndex: number): str
 }
 
 /**
+ * Generates a CSS selector for the ribbons of a sankey, dependency wheel or
+ * arc diagram series.
+ *
+ * These series draw twice: `SankeySeries#drawPoints` runs the column
+ * point-drawing pass over `series.points` (the links) and then again over
+ * `series.nodes`, so the series group holds both, and a `.highcharts-point`
+ * selector would return links plus nodes. `SankeyPoint#getClassName` marks
+ * which is which — every link carries `highcharts-link` and every node
+ * `highcharts-node` — so matching the link class alone returns exactly one
+ * element per flow, in `series.data` order.
+ *
+ * MAIDR's `FlowTrace` wants precisely that: its selector list is one entry per
+ * flow, and the nodes highlight through the ribbons they touch rather than
+ * through marks of their own.
+ */
+export function flowSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-link`;
+}
+
+/**
+ * Generates a CSS selector for the links of a networkgraph series.
+ *
+ * A network graph draws its nodes as ordinary markers and its links as bare
+ * `<path>` elements (`NetworkgraphPoint#renderLink`), and unlike the sankey
+ * family it gives the links no class of their own — both end up carrying only
+ * `highcharts-point`. The nodes are the ones Highcharts marks, via the
+ * `highcharts-node` class it puts on every node it creates, so the links are
+ * what is left once those are excluded.
+ *
+ * Excluding by class rather than relying on document order is deliberate:
+ * nodes render into `series.markerGroup` and links into `series.group`, two
+ * sibling elements that both carry `highcharts-series-N`, so which of them a
+ * query reaches first is a fact about group creation rather than about the
+ * data.
+ */
+export function networkSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not(.highcharts-node)`;
+}
+
+/**
+ * Generates per-node CSS selectors for a treemap or sunburst series.
+ *
+ * MAIDR's `TreemapTrace` indexes its selector list by the order the nodes were
+ * declared, but neither series draws in that order: `TreemapSeries#drawPoints`
+ * files each rectangle into a `level-group-N` container whose `zIndex` is the
+ * negated depth, so the DOM is grouped by depth and the deepest level comes
+ * first. Document order therefore says nothing about declaration order, which
+ * is why the adapter stamps `data-maidr-node-index="N"` onto each rendered
+ * node (see `stampTreeIndices` in adapter.ts) and these selectors address the
+ * stamp.
+ *
+ * A node Highcharts did not draw — one hidden below the current root, or a
+ * point it found no room for — has no element to stamp, so its selector
+ * matches nothing and `TreemapTrace` withdraws the layer's highlighting
+ * rather than pairing the remaining nodes with the wrong rectangles.
+ */
+export function treemapSelectors(
+  containerId: string,
+  seriesIndex: number,
+  nodeCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < nodeCount; i++) {
+    selectors.push(`${base} [data-maidr-node-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
+ * Generates a CSS selector for the needle of a `gauge` series.
+ *
+ * A dial is the one mark in this adapter that carries no point class at all:
+ * `GaugeSeries#drawPoints` builds it with `addClass('highcharts-dial')` and
+ * never runs the shared point-drawing pass, so `.highcharts-point` matches
+ * nothing on a gauge. The pivot the needle turns on is a separate
+ * `.highcharts-pivot` circle that repeats no value, so the needle alone is
+ * what MAIDR highlights.
+ */
+export function gaugeSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-dial`;
+}
+
+/**
+ * Generates a CSS selector for the arc of a `solidgauge` series.
+ *
+ * A solid gauge draws the reading as a filled arc rather than a needle, and
+ * that arc is an ordinary point: `SolidGaugeSeries#drawPoints` adds
+ * `point.getClassName()` to it, so the point class is there.
+ */
+export function solidGaugeSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for the measure bar of a `bullet` series.
+ *
+ * A bullet series extends column, so the bar is a plain point — but each bar
+ * also gets a target marker drawn with `point.getClassName() +
+ * ' highcharts-bullet-target'`, which means the point class appears twice per
+ * datum. The target is announced as the gauge point's `target` rather than
+ * highlighted, so it is excluded here and the bar is what the cursor lands on.
+ */
+export function bulletSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not(.highcharts-bullet-target)`;
+}
+
+/**
+ * Generates a CSS selector for the floating bars of a `waterfall` series.
+ *
+ * A waterfall extends column, so each step is one `.highcharts-point` in
+ * `series.data` order. The dashed connectors Highcharts strings between the
+ * bars are a single `path.highcharts-graph` carrying no point class, so they
+ * are already excluded — which is what MAIDR wants, since a connector only
+ * repeats the running total the two bars it joins already announce.
+ */
+export function waterfallSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
  * Generates a CSS selector for the wedges of a pie (or doughnut) series.
  *
  * Highcharts draws each slice as a `<path class="highcharts-point">` inside

@@ -126,11 +126,30 @@ export interface HighchartsPoint {
   /** Percentage of total when stacking is 'percent'. */
   percentage?: number;
   /**
-   * Word cloud term weight. The wordcloud series declares
-   * `pointArrayMap: ['weight']`, so a term's magnitude arrives here rather
-   * than in `y`.
+   * Magnitude for the series that declare `pointArrayMap: ['weight']` rather
+   * than a `y` — a word cloud term's weight, and a sankey / dependency wheel /
+   * arc diagram link's flow.
    */
   weight?: number;
+  /** Sankey-family and network link source node id. */
+  from?: string | number;
+  /** Sankey-family and network link target node id. */
+  to?: string | number;
+  /** Treemap / sunburst node id, referenced by a child's `parent`. */
+  id?: string;
+  /** Treemap / sunburst id of this node's parent, empty at the top level. */
+  parent?: string;
+  /**
+   * Treemap / sunburst magnitude. Those series declare
+   * `pointArrayMap: ['value']`, so the number is here rather than in `y`.
+   */
+  value?: number;
+  /** The marker a bullet chart draws beside its bar. */
+  target?: number;
+  /** Waterfall step that restates the total of every step so far. */
+  isSum?: boolean;
+  /** Waterfall step that restates the total since the previous subtotal. */
+  isIntermediateSum?: boolean;
   options?: Record<string, unknown>;
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };
@@ -157,5 +176,16 @@ export interface HighchartsAxis {
   options: {
     title?: { text?: string };
     type?: string;
+    /**
+     * Qualitative bands drawn behind the axis — the shaded zones of a gauge
+     * or a bullet chart. Highcharts names one only in styled mode (via
+     * `className`) or through a `label`, so both are read.
+     */
+    plotBands?: {
+      from?: number;
+      to?: number;
+      label?: { text?: string };
+      className?: string;
+    }[];
   };
 }

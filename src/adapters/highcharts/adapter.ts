@@ -20,16 +20,23 @@ import type {
   BoxPoint,
   CandlestickPoint,
   CandlestickTrend,
+  FlowPoint,
+  GaugeBand,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  NetworkPoint,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  TreemapPoint,
+  WaterfallKind,
+  WaterfallPoint,
   WordCloudPoint,
 } from '../../type/grammar';
 import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
@@ -37,16 +44,23 @@ import { Orientation, TraceType } from '../../type/grammar';
 import {
   barSelector,
   boxplotSelectors,
+  bulletSelector,
   candlestickSelectors,
   ensureContainerId,
+  flowSelector,
   funnelSelector,
+  gaugeSelector,
   heatmapSelectors,
   histogramSelector,
   lineSelectors,
   lollipopSelector,
+  networkSelector,
   pieSelector,
   scatterSelector,
   seriesGroupSelector,
+  solidGaugeSelector,
+  treemapSelectors,
+  waterfallSelector,
   wordCloudSelector,
 } from './selectors';
 
@@ -68,6 +82,13 @@ let chartCounter = 0;
  * - `lollipop` → {@link TraceType.LOLLIPOP}
  * - `funnel`, `pyramid` → {@link TraceType.FUNNEL}
  * - `wordcloud` → {@link TraceType.WORD_CLOUD}
+ * - `sankey`, `arcdiagram` → {@link TraceType.SANKEY}
+ * - `dependencywheel` → {@link TraceType.CHORD}
+ * - `networkgraph` → {@link TraceType.NETWORK}
+ * - `treemap` → {@link TraceType.TREEMAP}
+ * - `sunburst` → {@link TraceType.SUNBURST}
+ * - `gauge`, `solidgauge`, `bullet` → {@link TraceType.GAUGE}
+ * - `waterfall` → {@link TraceType.WATERFALL}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
  * - `histogram` → {@link TraceType.HISTOGRAM}
@@ -759,6 +780,29 @@ function convertSeries(
       return convertFunnelSeries(series, containerId);
     case 'wordcloud':
       return convertWordCloudSeries(series, containerId);
+    // An arc diagram is a sankey laid along one axis rather than across
+    // stages, and a dependency wheel is the same weighted graph bent into a
+    // circle — one converter for all three, differing only in what the chart
+    // announces itself as.
+    case 'sankey':
+    case 'arcdiagram':
+      return convertFlowSeries(series, containerId, TraceType.SANKEY);
+    case 'dependencywheel':
+      return convertFlowSeries(series, containerId, TraceType.CHORD);
+    case 'networkgraph':
+      return convertNetworkSeries(series, containerId);
+    // A sunburst is a treemap's tree drawn as rings, declared with the same
+    // `id`/`parent`/`value` points, so it shares the converter.
+    case 'treemap':
+      return convertTreeSeries(series, containerId, TraceType.TREEMAP);
+    case 'sunburst':
+      return convertTreeSeries(series, containerId, TraceType.SUNBURST);
+    case 'gauge':
+    case 'solidgauge':
+    case 'bullet':
+      return convertGaugeSeries(series, containerId, seriesType);
+    case 'waterfall':
+      return convertWaterfallSeries(series, containerId);
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
@@ -1089,6 +1133,418 @@ function convertWordCloudSeries(
     axes: {
       x: { label: WORD_CLOUD_TERM_AXIS },
       y: { label: WORD_CLOUD_WEIGHT_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a flow diagram's two dimensions are called. A sankey, a dependency
+ * wheel and an arc diagram are all bound to no axis, and `weight` is the
+ * option Highcharts declares a link's magnitude with.
+ */
+const FLOW_NODE_AXIS = 'Node';
+const FLOW_WEIGHT_AXIS = 'Weight';
+
+/**
+ * Converts a `sankey`, `dependencywheel` or `arcdiagram` series into a flow
+ * layer.
+ *
+ * All three are the same weighted graph — `DependencyWheelSeries` and
+ * `ArcDiagramSeries` both extend `SankeySeries` — declared as one point per
+ * link carrying `from`, `to` and `weight`. Only the emitted trace type
+ * differs, so the chart announces itself as the form the author drew; MAIDR
+ * reads all of them with `FlowTrace`.
+ *
+ * The nodes are deliberately not read off `series.nodes`. MAIDR derives them
+ * from the links by design, and a second list would be a second source of
+ * truth for something the links already say.
+ *
+ * A link Highcharts draws no ribbon for is dropped rather than carried as a
+ * gap, the same call the pie and funnel converters make: `SankeySeries#translate`
+ * skips a link whose weight is zero or falsy (#12453), so keeping it would
+ * slide every later ribbon's highlight onto its neighbour.
+ */
+function convertFlowSeries(
+  series: HighchartsSeries,
+  containerId: string,
+  traceType: TraceType.SANKEY | TraceType.CHORD,
+): MaidrLayer {
+  const data: FlowPoint[] = series.data
+    .filter(p => p.from != null && p.to != null && Boolean(p.weight))
+    .map(p => ({
+      source: p.from as string | number,
+      target: p.to as string | number,
+      value: p.weight as number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: traceType,
+    title: series.name || undefined,
+    selectors: flowSelector(containerId, series.index),
+    axes: {
+      x: { label: FLOW_NODE_AXIS },
+      y: { label: FLOW_WEIGHT_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a network's two dimensions are called. A force-directed graph is bound
+ * to no axis either, and what a reader is after at a node is its degree.
+ */
+const NETWORK_NODE_AXIS = 'Node';
+const NETWORK_LINK_AXIS = 'Links';
+
+/**
+ * Converts a `networkgraph` series into a network layer.
+ *
+ * A network graph declares its links exactly as a sankey does minus the
+ * weight — `pointArrayMap: ['from', 'to']` — and that pair is the whole
+ * payload. Where the force solver dropped each node is deliberately not
+ * carried: the position is a fact about the solver's seed rather than about
+ * the data, and MAIDR's `NetworkPoint` has nowhere to put it for that reason.
+ *
+ * A link naming a node that was never declared is still a link: Highcharts
+ * creates the missing node from the reference, so only a link missing an end
+ * entirely is dropped.
+ */
+function convertNetworkSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: NetworkPoint[] = series.data
+    .filter(p => p.from != null && p.to != null)
+    .map(p => ({
+      source: p.from as string | number,
+      target: p.to as string | number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: TraceType.NETWORK,
+    title: series.name || undefined,
+    selectors: networkSelector(containerId, series.index),
+    axes: {
+      x: { label: NETWORK_NODE_AXIS },
+      y: { label: NETWORK_LINK_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a hierarchy's two dimensions are called — a treemap and a sunburst are
+ * bound to no axis, so `getAxisLabel`'s `'X'` / `'Y'` fallback would name them
+ * after coordinates neither chart has.
+ */
+const TREE_NODE_AXIS = 'Node';
+const TREE_VALUE_AXIS = 'Value';
+
+/**
+ * What a treemap or sunburst node is called.
+ *
+ * Highcharts separates identity (`id`, referenced by a child's `parent`) from
+ * display (`name`), and MAIDR's tree is addressed by the displayed name, so
+ * that is what is emitted — falling back to the id, then to the point's
+ * position, for a leaf declared with neither.
+ */
+function treeNodeLabel(point: HighchartsPoint): string | number {
+  return point.name ?? point.id ?? point.index;
+}
+
+/**
+ * Converts a `treemap` or `sunburst` series into a hierarchy layer.
+ *
+ * Highcharts declares the tree with `id` / `parent` pointers on each node,
+ * while MAIDR declares it as a path — a node's ancestors, root first, itself
+ * excluded — so the converter walks each node's `parent` chain upward and
+ * materialises it. The walk stops at a parent id that was never declared,
+ * which Highcharts tolerates by attaching the node to the root, and refuses to
+ * revisit a node it has already passed so a cyclic `parent` cannot loop.
+ *
+ * Interior nodes are emitted with whatever value they declared, or with none
+ * at all: `TreemapTrace` derives an undeclared interior total from the
+ * children the paths give it, and keeps a declared one that disagrees, since a
+ * parent may carry mass no child accounts for.
+ */
+function convertTreeSeries(
+  series: HighchartsSeries,
+  containerId: string,
+  traceType: TraceType.TREEMAP | TraceType.SUNBURST,
+): MaidrLayer {
+  const byId = new Map<string, HighchartsPoint>();
+  for (const point of series.data) {
+    if (point.id !== undefined) {
+      byId.set(point.id, point);
+    }
+  }
+
+  const data: TreemapPoint[] = series.data.map(point => ({
+    x: treeNodeLabel(point),
+    ...(typeof point.value === 'number' ? { y: point.value } : {}),
+    path: ancestorsOf(point, byId, series.name),
+  }));
+
+  // Stamp each rendered node so the per-node selectors can address it. The
+  // rectangles are filed into one group per depth, ordered by z-index rather
+  // than by declaration, so document order cannot be indexed into.
+  stampTreeIndices(series);
+
+  return {
+    id: String(series.index),
+    type: traceType,
+    title: series.name || undefined,
+    selectors: treemapSelectors(containerId, series.index, data.length),
+    axes: {
+      x: { label: TREE_NODE_AXIS },
+      y: { label: TREE_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * The names of a node's ancestors, root first and the node itself excluded.
+ *
+ * @param point - The node to trace back from
+ * @param byId - Every declared node, keyed by its Highcharts id
+ * @param seriesName - The owning series, for the cycle warning
+ * @returns The path MAIDR addresses the node by, empty at the top level
+ */
+function ancestorsOf(
+  point: HighchartsPoint,
+  byId: Map<string, HighchartsPoint>,
+  seriesName: string,
+): (string | number)[] {
+  const path: (string | number)[] = [];
+  // Seeded with the node itself so a point declaring itself as its own parent
+  // stops here rather than naming itself as its own ancestor.
+  const seen = new Set<string>(point.id === undefined ? [] : [point.id]);
+
+  let at = point;
+  while (at.parent) {
+    if (seen.has(at.parent)) {
+      console.warn(
+        `[MAIDR Highcharts] Series "${seriesName}": node "${treeNodeLabel(point)}" `
+        + `has a cyclic parent chain; its path stops at "${at.parent}".`,
+      );
+      break;
+    }
+    seen.add(at.parent);
+    const parent = byId.get(at.parent);
+    if (!parent) {
+      // Highcharts attaches a node whose parent was never declared to the
+      // root, so the path ends here rather than naming a node that does not
+      // exist.
+      break;
+    }
+    path.unshift(treeNodeLabel(parent));
+    at = parent;
+  }
+
+  return path;
+}
+
+/**
+ * Stamps each rendered treemap or sunburst node with `data-maidr-node-index`,
+ * the node's position in `series.data`.
+ *
+ * `TreemapSeries#drawPoints` files every rectangle into a `level-group-N`
+ * container whose `zIndex` is the negated depth, so the DOM is grouped by
+ * depth with the deepest level first — document order carries no information
+ * about declaration order, which is what the selectors have to be indexed by.
+ *
+ * Nodes without a rendered `graphic` (hidden below the current root, or drawn
+ * away by a drilldown) are skipped; `TreemapTrace` then finds fewer elements
+ * than nodes and withdraws the layer's highlighting rather than pairing
+ * announcements with the wrong rectangles.
+ *
+ * Idempotent: re-stamping overwrites existing attributes.
+ */
+function stampTreeIndices(series: HighchartsSeries): void {
+  series.data.forEach((point, index) => {
+    point.graphic?.element.setAttribute('data-maidr-node-index', String(index));
+  });
+}
+
+/**
+ * What a gauge's category dimension is called. The measure has a value axis
+ * and reads its title from there, but the name of the thing being measured is
+ * the series' own and belongs to no axis.
+ */
+const GAUGE_MEASURE_AXIS = 'Measure';
+
+/**
+ * Converts a `gauge`, `solidgauge` or `bullet` series into a gauge layer.
+ *
+ * The payload is a single object rather than an array, because the chart draws
+ * exactly one measure. The reading alone is not the announcement: the dial's
+ * ends come from the value axis' extremes, a bullet's target marker from the
+ * point, and the qualitative bands from the axis' plot bands — none of which
+ * a reader can recover from the number.
+ *
+ * A series carrying several dials is read as its first: MAIDR's gauge is one
+ * measure against one range, and there is no shape here for a second.
+ */
+function convertGaugeSeries(
+  series: HighchartsSeries,
+  containerId: string,
+  seriesType: string,
+): MaidrLayer | null {
+  const readings = series.data.filter(p => typeof p.y === 'number');
+  const point = readings[0];
+  if (!point) {
+    console.warn(
+      `[MAIDR Highcharts] Gauge series "${series.name}" has no numeric value; skipping.`,
+    );
+    return null;
+  }
+  if (readings.length > 1) {
+    console.warn(
+      `[MAIDR Highcharts] Gauge series "${series.name}" declares ${readings.length} `
+      + `dials; reading the first. A gauge layer carries one measure.`,
+    );
+  }
+
+  const { min, max } = series.yAxis?.getExtremes() ?? { min: 0, max: 0 };
+  const bands = gaugeBands(series.yAxis);
+
+  const data: GaugePoint = {
+    value: point.y as number,
+    min,
+    max,
+    ...(series.name ? { label: series.name } : {}),
+    ...(typeof point.target === 'number' ? { target: point.target } : {}),
+    ...(bands.length > 0 ? { bands } : {}),
+  };
+
+  return {
+    id: String(series.index),
+    type: TraceType.GAUGE,
+    title: series.name || undefined,
+    selectors: gaugeSelectorFor(seriesType, containerId, series.index),
+    axes: {
+      x: { label: GAUGE_MEASURE_AXIS },
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * The selector for a gauge's own mark, which differs by how the chart draws
+ * the reading: a needle, a filled arc, or a bar beside a target.
+ */
+function gaugeSelectorFor(
+  seriesType: string,
+  containerId: string,
+  seriesIndex: number,
+): string {
+  if (seriesType === 'solidgauge') {
+    return solidGaugeSelector(containerId, seriesIndex);
+  }
+  if (seriesType === 'bullet') {
+    return bulletSelector(containerId, seriesIndex);
+  }
+  return gaugeSelector(containerId, seriesIndex);
+}
+
+/**
+ * Reads a value axis' plot bands as MAIDR's qualitative gauge bands.
+ *
+ * MAIDR carries only each band's upper edge, so the bands are sorted
+ * ascending: a band starts where the previous one ended, and an unsorted list
+ * would describe a partition the chart does not draw. A band Highcharts leaves
+ * open-ended has no edge to carry and is dropped.
+ *
+ * Highcharts bands are usually drawn in colour and named nowhere, so a band
+ * with neither a label nor a styled-mode class name is numbered by its
+ * position. That says where in the partition the reading landed, which is what
+ * the band is read for, without inventing a meaning the chart never gave it.
+ */
+function gaugeBands(axis: HighchartsAxis | undefined): GaugeBand[] {
+  const plotBands = axis?.options?.plotBands ?? [];
+  return plotBands
+    .filter(band => typeof band.to === 'number')
+    .sort((a, b) => (a.to as number) - (b.to as number))
+    .map((band, index) => ({
+      to: band.to as number,
+      label: band.label?.text ?? band.className ?? `Band ${index + 1}`,
+    }));
+}
+
+/**
+ * Converts a `waterfall` series into a waterfall layer.
+ *
+ * Highcharts declares only what each step contributes; MAIDR's step carries
+ * the absolute positions the bar floats between as well, so the converter
+ * accumulates the running total as it walks the series — the same job
+ * `WaterfallSeries#processData` does to place the bars.
+ *
+ * The two kinds of restating bar are placed the way Highcharts draws them
+ * rather than uniformly. A `isSum` step is drawn from the baseline up to the
+ * running total, so that is its span; an `isIntermediateSum` step is drawn
+ * from the previous subtotal's edge to the current running total, which is why
+ * the converter tracks that edge separately. Both are `total` steps: they
+ * restate a number rather than contribute one, and `WaterfallTrace` leaves
+ * them out of "largest contribution" for that reason.
+ *
+ * A step Highcharts draws no bar for — neither a number nor a sum — is dropped
+ * rather than carried as a gap, since keeping it would slide every later
+ * step's highlight onto its neighbour.
+ */
+function convertWaterfallSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: WaterfallPoint[] = [];
+
+  // Where the chart has got to, and where the last subtotal bar's far edge
+  // sits — the two baselines a waterfall's bars are drawn from.
+  let running = 0;
+  let subtotalEdge = 0;
+
+  for (const p of series.data) {
+    const isTotal = p.isSum === true || p.isIntermediateSum === true;
+    if (!isTotal && typeof p.y !== 'number') {
+      continue;
+    }
+
+    let start: number;
+    let kind: WaterfallKind;
+    if (p.isSum === true) {
+      start = 0;
+      kind = 'total';
+    } else if (p.isIntermediateSum === true) {
+      start = subtotalEdge;
+      subtotalEdge = running;
+      kind = 'total';
+    } else {
+      start = running;
+      running += p.y as number;
+      kind = (p.y as number) >= 0 ? 'increase' : 'decrease';
+    }
+
+    data.push({
+      x: pointLabel(p),
+      start,
+      end: running,
+      delta: running - start,
+      kind,
+    });
+  }
+
+  return {
+    id: String(series.index),
+    type: TraceType.WATERFALL,
+    title: series.name || undefined,
+    selectors: waterfallSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
     },
     data,
   };

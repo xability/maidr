@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Sunburst - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- sunburst.js ships the treemap series it builds on. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/sunburst.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Sunburst</h1>
+    <p>
+      A Highcharts sunburst made accessible by the MAIDR Highcharts adapter.
+      It carries the same hierarchy as a treemap, drawn as rings around a
+      centre, so it is navigated the same way — Up to the parent, Down into the
+      first child, Left and Right between siblings — with one thing of its own:
+      the rings are angular, so the sound is panned around the dial.
+    </p>
+
+    <div id="sunburst-chart" style="width: 700px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('sunburst-chart', {
+        title: { text: 'Global Energy Supply by Source' },
+        series: [{
+          type: 'sunburst',
+          name: 'Energy',
+          allowTraversingTree: false,
+          levels: [{ level: 2, dataLabels: { enabled: true } }],
+          data: [
+            { id: 'fossil', name: 'Fossil' },
+            { id: 'renewable', name: 'Renewable' },
+            { id: 'nuclear', name: 'Nuclear', value: 10 },
+            { name: 'Coal', parent: 'fossil', value: 27 },
+            { name: 'Oil', parent: 'fossil', value: 31 },
+            { name: 'Gas', parent: 'fossil', value: 23 },
+            { name: 'Hydro', parent: 'renewable', value: 7 },
+            { name: 'Wind', parent: 'renewable', value: 3 },
+            { name: 'Solar', parent: 'renewable', value: 2 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'sunburst-chart' });
+      document.getElementById('sunburst-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

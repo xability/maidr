@@ -114,6 +114,13 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Lollipop | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](highcharts-lollipop.html) |
 | Funnel | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](highcharts-funnel.html) |
 | Word Cloud | `wordcloud` (requires `modules/wordcloud.js`) | [highcharts-wordcloud.html](highcharts-wordcloud.html) |
+| Sankey | `sankey` (requires `modules/sankey.js`), `arcdiagram` (requires `modules/sankey.js` and `modules/arc-diagram.js`) | [highcharts-sankey.html](highcharts-sankey.html) |
+| Chord | `dependencywheel` (requires `modules/sankey.js` and `modules/dependency-wheel.js`) | [highcharts-chord.html](highcharts-chord.html) |
+| Network | `networkgraph` (requires `modules/networkgraph.js`) | [highcharts-network.html](highcharts-network.html) |
+| Treemap | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](highcharts-treemap.html) |
+| Sunburst | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](highcharts-sunburst.html) |
+| Gauge | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](highcharts-gauge.html) |
+| Waterfall | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](highcharts-waterfall.html) |
 | Box Plot | `boxplot` | [highcharts-box.html](highcharts-box.html) |
 | Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](highcharts-heatmap.html) |
 | Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](highcharts-histogram.html) |
@@ -130,6 +137,14 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 > **Dot plot note:** a scatter drawn against a category axis is a Cleveland dot plot, and is emitted as one. MAIDR's scatter payload takes a strictly numeric `x`, so reading such a series as a scatter would announce the bare tick index instead of the category the chart prints.
 
 > **Word cloud note:** Highcharts lays a cloud out heaviest word first, so the adapter emits its terms in that order to keep each announcement matched with the glyph it highlights. A word Highcharts could not fit into the playing field is not drawn at all; MAIDR then reports the terms and their weights but disables highlighting for that layer, rather than pairing announcements with the wrong glyphs.
+
+> **Flow note:** a sankey, dependency wheel and arc diagram are the same weighted graph — the latter two extend the sankey series — declared as one point per link with `from`, `to` and `weight`. MAIDR derives the nodes from those links, so `series.nodes` is deliberately not read: a second node list would be a second source of truth for something the links already say. Only the announced chart type differs between the three, so the chart names itself as the form the author drew. A link whose weight is zero is dropped, because Highcharts renders no ribbon for it. A network graph is the same shape without the weight, and carries no node positions: where a force solver drops a node is a fact about its seed rather than about the data.
+
+> **Hierarchy note:** Highcharts declares a treemap or sunburst with `id`/`parent` pointers, and MAIDR declares one as a path — a node's ancestors, root first, itself excluded — so the adapter walks each node's parent chain to build it. A parent id that was never declared ends the path there, matching how Highcharts attaches such a node to the root, and a cyclic chain is broken with a warning rather than followed. Interior nodes keep whatever value they declared and are otherwise left valueless, since MAIDR derives an interior total from the children the paths give it. Both series file their marks into one DOM group per depth ordered by z-index, so document order says nothing about declaration order; the adapter stamps `data-maidr-node-index` onto each rendered node and the selectors address the stamp. A node Highcharts did not draw leaves MAIDR with fewer elements than nodes, and highlighting is withdrawn for that layer rather than paired with the wrong rectangles.
+
+> **Gauge note:** a gauge layer's data is a single object rather than an array, because the chart draws exactly one measure; a series declaring several dials is read as its first. The dial's ends come from the value axis' extremes, a bullet chart's target from the point, and the qualitative bands from the axis' `plotBands`, sorted ascending because MAIDR carries only each band's upper edge. Highcharts bands are usually drawn in colour and named nowhere, so a band with neither a `label.text` nor a styled-mode `className` is numbered by its position in the partition. The three series draw the reading differently — a needle carrying no point class, an arc that is an ordinary point, a bar beside a target marker that also carries the point class — so each has its own highlight selector.
+
+> **Waterfall note:** Highcharts declares only what each step contributes, while MAIDR's step also carries the absolute positions its bar floats between, so the adapter accumulates the running total as it walks the series. The two kinds of restating bar are placed the way Highcharts draws them: an `isSum` step spans the baseline to the running total, an `isIntermediateSum` step spans the previous subtotal's edge to the current running total. Both are announced as `total` steps and are left out of "largest contribution", since they restate a number rather than contribute one.
 
 ## Multi-Panel Charts
 

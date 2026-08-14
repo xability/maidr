@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Waterfall Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships the waterfall series. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Waterfall Chart</h1>
+    <p>
+      A Highcharts waterfall chart made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to walk the
+      steps. Each bar floats between the running total before it and the
+      running total after it, so both numbers are announced: the pitch carries
+      the contribution, which is what a waterfall is read to find, and the
+      total travels alongside it.
+    </p>
+
+    <div id="waterfall-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('waterfall-chart', {
+        chart: { type: 'waterfall' },
+        title: { text: 'Company Profit' },
+        legend: { enabled: false },
+        xAxis: { type: 'category' },
+        yAxis: { title: { text: 'USD (thousands)' } },
+        series: [{
+          name: 'Cash',
+          data: [
+            { name: 'Start', y: 120 },
+            { name: 'Product Revenue', y: 569 },
+            { name: 'Service Revenue', y: 231 },
+            { name: 'Positive Balance', isIntermediateSum: true },
+            { name: 'Fixed Costs', y: -342 },
+            { name: 'Variable Costs', y: -233 },
+            { name: 'Balance', isSum: true },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'waterfall-chart' });
+      document.getElementById('waterfall-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

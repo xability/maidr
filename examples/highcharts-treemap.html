@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Treemap - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/treemap.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Treemap</h1>
+    <p>
+      A Highcharts treemap made accessible by the MAIDR Highcharts adapter.
+      A treemap is a hierarchy rather than a flat grid, so the arrow keys move
+      through the tree: Up goes to the parent, Down into the first child, and
+      Left and Right between siblings. Each node announces its path, so you
+      always know which branch you are in.
+    </p>
+
+    <div id="treemap-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('treemap-chart', {
+        title: { text: 'Population by Region (millions)' },
+        series: [{
+          type: 'treemap',
+          name: 'Population',
+          layoutAlgorithm: 'squarified',
+          allowTraversingTree: false,
+          levels: [{ level: 1, dataLabels: { enabled: true } }],
+          data: [
+            { id: 'europe', name: 'Europe' },
+            { id: 'asia', name: 'Asia' },
+            { id: 'americas', name: 'Americas' },
+            { name: 'Germany', parent: 'europe', value: 83 },
+            { name: 'France', parent: 'europe', value: 67 },
+            { name: 'Spain', parent: 'europe', value: 47 },
+            { name: 'China', parent: 'asia', value: 1412 },
+            { name: 'India', parent: 'asia', value: 1408 },
+            { name: 'Japan', parent: 'asia', value: 125 },
+            { name: 'United States', parent: 'americas', value: 332 },
+            { name: 'Brazil', parent: 'americas', value: 214 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'treemap-chart' });
+      document.getElementById('treemap-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Network Graph - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/networkgraph.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Network Graph</h1>
+    <p>
+      A Highcharts network graph made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use the arrow keys to walk the graph
+      node by node; each node announces its degree, which is what a node-link
+      diagram is read for. Where the force solver dropped a node is a fact
+      about its seed rather than about the data, so no position is announced.
+    </p>
+
+    <div id="network-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('network-chart', {
+        chart: { type: 'networkgraph' },
+        title: { text: 'Who Worked With Whom' },
+        plotOptions: {
+          networkgraph: {
+            layoutAlgorithm: { enableSimulation: false },
+            dataLabels: { enabled: true, linkFormat: '' },
+          },
+        },
+        series: [{
+          name: 'Collaborations',
+          data: [
+            ['Ada', 'Grace'],
+            ['Ada', 'Alan'],
+            ['Grace', 'Alan'],
+            ['Grace', 'Katherine'],
+            ['Alan', 'Claude'],
+            ['Katherine', 'Claude'],
+            ['Claude', 'Edsger'],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'network-chart' });
+      document.getElementById('network-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

@@ -88,6 +88,18 @@ export function fakeChart(input: FakeChartInput): HighchartsChart {
   } as HighchartsChart;
 }
 
+/**
+ * A stand-in for the `point.graphic` reference Highcharts sets during render.
+ *
+ * The adapter stamps index attributes onto that element for the trace types
+ * whose DOM order does not match declaration order (heatmap cells, treemap and
+ * sunburst nodes), so a test that covers stamping needs a real element to
+ * inspect afterwards.
+ */
+export function fakeGraphic(): { element: SVGElement } {
+  return { element: doc.createElementNS('http://www.w3.org/2000/svg', 'rect') as SVGElement };
+}
+
 /** Points for a simple category bar/column series. */
 export function categoryPoints(values: number[], categories: string[]): Partial<HighchartsPoint>[] {
   return values.map((y, i) => ({ x: i, y, category: categories[i] }));
