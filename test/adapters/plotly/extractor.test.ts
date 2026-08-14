@@ -2570,7 +2570,7 @@ describe('plotly extractor', () => {
       // this four-candle chart:
       //
       //   .trace.boxes .box                                     8   ** the copy
-      //   .subplot.xy .boxlayer > .trace.boxes:nth-child(1) …   4
+      //   .subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) …   4
       //
       // The duplicate sits under `g.rangeslider-rangeplot.xy`, which carries
       // the `xy` class but not `subplot` — so the prefix is what excludes it.
@@ -2583,7 +2583,7 @@ describe('plotly extractor', () => {
 
       expect(layer.type).toBe(TraceType.CANDLESTICK);
       expect(layer.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
       );
     });
 
@@ -2602,7 +2602,7 @@ describe('plotly extractor', () => {
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
       expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(2) path.box',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2) path.box',
       );
     });
 
@@ -2620,7 +2620,7 @@ describe('plotly extractor', () => {
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
       expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
       );
     });
 
@@ -2641,7 +2641,7 @@ describe('plotly extractor', () => {
 
       const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
       expect(candlestick?.selectors).toBe(
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
       );
     });
 
@@ -2673,7 +2673,7 @@ describe('plotly extractor', () => {
       }));
 
       expect(layer.selectors).toBe(
-        '.subplot.xy .ohlclayer > .trace.ohlc:nth-child(1) > path',
+        '.subplot.xy .ohlclayer > .trace.ohlc:nth-of-type(1) > path',
       );
     });
 
@@ -2695,9 +2695,32 @@ describe('plotly extractor', () => {
         .map(l => l.selectors);
 
       expect(selectors).toEqual([
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(2) path.box',
-        '.subplot.xy .ohlclayer > .trace.ohlc:nth-child(1) > path',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(2) path.box',
+        '.subplot.xy .ohlclayer > .trace.ohlc:nth-of-type(1) > path',
       ]);
+    });
+
+    it('does not count a hidden trace, which draws no group', () => {
+      // A `visible: false` or `'legendonly'` trace gets no `<g>` in
+      // `boxlayer` at all — measured in Chromium, the layer has a single
+      // child for the candlestick. Counting it would put this trace at the
+      // second slot of a one-child layer, so the selector would match
+      // nothing: the audio, braille and text stay correct and the highlight
+      // just stops appearing, with nothing to say why.
+      for (const hidden of [false, 'legendonly'] as const) {
+        const layers = layersOf(createGraphDiv({
+          traces: [
+            { type: 'box', y: [1, 2, 3, 4], name: 'spread', visible: hidden },
+            candlestickTrace(),
+          ],
+          layout: SINGLE_PANEL,
+        }));
+
+        const candlestick = layers.find(l => l.type === TraceType.CANDLESTICK);
+        expect(candlestick?.selectors).toBe(
+          '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+        );
+      }
     });
 
     it('scopes a candlestick on a second panel to that panel', () => {
@@ -2724,8 +2747,8 @@ describe('plotly extractor', () => {
         .flatMap(subplot => subplot.layers.map(layer => layer.selectors));
 
       expect(selectors).toEqual([
-        '.subplot.xy .boxlayer > .trace.boxes:nth-child(1) path.box',
-        '.subplot.x2y2 .boxlayer > .trace.boxes:nth-child(1) path.box',
+        '.subplot.xy .boxlayer > .trace.boxes:nth-of-type(1) path.box',
+        '.subplot.x2y2 .boxlayer > .trace.boxes:nth-of-type(1) path.box',
       ]);
     });
   });
