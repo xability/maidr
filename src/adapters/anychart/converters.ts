@@ -25,6 +25,8 @@ import type {
   BoxSelector,
   CandlestickPoint,
   CandlestickTrend,
+  DumbbellData,
+  DumbbellPoint,
   FlowPoint,
   HeatmapData,
   LinePoint,
@@ -34,6 +36,7 @@ import type {
   MosaicPoint,
   PiePoint,
   ScatterPoint,
+  SegmentedPoint,
   WaterfallKind,
   WaterfallPoint,
   WordCloudPoint,
@@ -75,11 +78,14 @@ const FILL_LOSING_TYPES = new Set(['step-area']);
  */
 type AnyChartTraceType
   = | TraceType.BAR
+    | TraceType.DOT
+    | TraceType.LOLLIPOP
     | TraceType.LINE
     | TraceType.AREA
     | TraceType.SCATTER
     | TraceType.STEP
     | TraceType.BOX
+    | TraceType.DUMBBELL
     | TraceType.HEATMAP
     | TraceType.CANDLESTICK
     | TraceType.PIE;
@@ -106,6 +112,18 @@ type AnyChartTraceType
  * - The step-drawn types (`step-line`, `step-area`) map to
  *   {@link TraceType.STEP} so they are announced and navigated as the
  *   piecewise-constant series they are, rather than as interpolated lines.
+ * - `stick` is AnyChart's lollipop: a stroke from the baseline to the value,
+ *   usually with a marker on its end. It carries the same `x` / `value` pair a
+ *   bar does and is read as {@link TraceType.LOLLIPOP} — one category, one
+ *   magnitude, announced as the chart the author drew.
+ * - `range-column` and `range-bar` carry `low` / `high` rather than `value`,
+ *   which is the pair {@link TraceType.DUMBBELL} is for. AnyChart draws them
+ *   as floating bars rather than as two dots joined by a segment, so the mark
+ *   differs; what a reader navigates does not.
+ * - `marker` maps to {@link TraceType.SCATTER} here, but a marker series on an
+ *   ordinal x scale is a Cleveland dot plot rather than a point cloud. That is
+ *   a question about the chart's scale rather than about the series, so
+ *   {@link resolveMarkerVariant} asks it and promotes the layer.
  * - `"pie"` covers doughnuts too: AnyChart draws one with `chart.innerRadius()`
  *   on an ordinary pie, so both report the same type and read identically.
  *   A pie chart has no series API of its own, so this branch only fires for
@@ -131,6 +149,11 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'scatter': TraceType.SCATTER,
     'marker': TraceType.SCATTER,
     'bubble': TraceType.SCATTER,
+    // A stroke from the baseline to the value, with a marker on its end.
+    'stick': TraceType.LOLLIPOP,
+    // The two range series that carry a `low` / `high` pair per category.
+    'range-column': TraceType.DUMBBELL,
+    'range-bar': TraceType.DUMBBELL,
     'box': TraceType.BOX,
     'heatmap': TraceType.HEATMAP,
     'heat': TraceType.HEATMAP,
@@ -327,6 +350,55 @@ function resolveAreaVariant(
 }
 
 /**
+ * Whether the chart's categories are named rather than measured.
+ *
+ * AnyChart gives a Cartesian chart an ordinal x scale and a scatter chart a
+ * linear one, which is the whole difference between a dot plot and a point
+ * cloud — the series is a `marker` either way. Anything other than `'ordinal'`
+ * (and a chart with no x scale at all) answers no, so a chart that cannot be
+ * asked keeps the reading it has today.
+ *
+ * @param chart - The chart to inspect
+ * @returns True when its x scale is ordinal
+ */
+function hasOrdinalXScale(chart: AnyChartInstance): boolean {
+  try {
+    return chart.xScale?.()?.getType?.() === 'ordinal';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Which point-drawn variant this chart's `marker` series belong to.
+ *
+ * A marker series against named categories is a Cleveland dot plot: one
+ * magnitude per category, read exactly as a bar chart is. Against a measured x
+ * axis the same series is a scatter, and its `x` is half the datum.
+ *
+ * The distinction matters beyond the announcement. {@link buildScatterLayer}
+ * forces both coordinates numeric, so a dot plot read as a scatter has every
+ * one of its category labels coerced to `0` — a chart whose x axis is a single
+ * repeated value.
+ *
+ * `bubble` is deliberately left alone: its rows carry a size as well, and
+ * reading one as a dot plot would drop it.
+ *
+ * @param chart - The chart the series belongs to
+ * @param seriesType - The series' own AnyChart type
+ * @returns The trace type to read it as, or `null` when it is not a marker
+ * series
+ */
+function resolveMarkerVariant(
+  chart: AnyChartInstance,
+  seriesType: string,
+): TraceType.SCATTER | TraceType.DOT | null {
+  if (seriesType !== 'marker')
+    return null;
+  return hasOrdinalXScale(chart) ? TraceType.DOT : TraceType.SCATTER;
+}
+
+/**
  * Walk an AnyChart iterator and collect every field the adapter reads.
  *
  * Shared by {@link extractRawRows} (series-backed charts) and the chart-level
@@ -349,7 +421,8 @@ function readRows(iterator: AnyChartIterator): Array<Record<string, unknown>> {
       'median',
       'q3',
       'highest',
-      // Candlestick/OHLC fields
+      // Candlestick/OHLC fields. `high` / `low` also carry the pair a
+      // range-column / range-bar series draws its floating bar between.
       'open',
       'high',
       'low',
@@ -398,6 +471,13 @@ const LINE_ATTR = 'data-maidr-anychart-line-point';
  * not navigable, so its points still need markers — and the step variants
  * because a staircase is one too. {@link resolveSelector} gives AREA and STEP
  * the same attribute selector as LINE for exactly that reason.
+ *
+ * `stick` is here for the same reason and gains the most from it: AnyChart
+ * groups it with the line series in its own theme, and a stick is a tall thin
+ * stroke that {@link collectLineMarkerCandidates}' aspect-ratio filter rejects
+ * outright — so the marker on its end is the only element a lollipop has to
+ * highlight. Enabling markers is also what makes it look like the lollipop it
+ * is read as.
  */
 const LINE_LIKE_SERIES_TYPES = new Set([
   'line',
@@ -406,7 +486,35 @@ const LINE_LIKE_SERIES_TYPES = new Set([
   'area',
   'step-area',
   'spline-area',
+  'stick',
 ]);
+
+/**
+ * The AnyChart series drawn as one floating bar per category, from a `low` to
+ * a `high` — the pair {@link TraceType.DUMBBELL} reads.
+ *
+ * `hilo` is deliberately absent even though it carries the same two fields.
+ * AnyChart draws it as a bare stroke (`fill="none"`), so the filled-mark
+ * lookup every stamper here is built on cannot find it, and the only shapes
+ * left to tell it apart from the grid lines and axis strokes are stroked paths
+ * too. It would announce correctly and never highlight.
+ */
+const RANGE_SERIES_TYPES = new Set(['range-column', 'range-bar']);
+
+/**
+ * The bar series a diverging chart is drawn from.
+ *
+ * Both orientations, because which one AnyChart calls a `bar` is a fact about
+ * the axis rather than about the chart: a tornado chart is drawn with
+ * `anychart.bar()` and a population pyramid sometimes with `anychart.column()`.
+ */
+const DIVERGING_SERIES_TYPES = new Set(['bar', 'column']);
+
+/** The one series type a waterfall chart draws its bridge from. */
+const WATERFALL_SERIES_TYPES = new Set(['waterfall']);
+
+/** The one series type a marimekko draws its tiles from. */
+const MOSAIC_SERIES_TYPES = new Set(['mekko']);
 
 /**
  * The series types a radar or polar chart draws that this adapter can read.
@@ -533,6 +641,15 @@ const MOSAIC_ATTR = 'data-maidr-anychart-tile';
 const RADAR_ATTR = 'data-maidr-anychart-spoke';
 
 /**
+ * Attribute name stamped onto each floating bar of a range series by
+ * {@link stampDumbbellAttributes}. The value encodes
+ * `<seriesIndex>-<pairIndex>`. One element carries a whole pair: AnyChart
+ * draws the two ends as one bar, which is also how `DumbbellTrace` resolves
+ * them — both ends of a row highlight the same element.
+ */
+const DUMBBELL_ATTR = 'data-maidr-anychart-pair';
+
+/**
  * Attribute name stamped onto each panel's own `<svg>` root by
  * {@link bindAnyCharts}. Its value is the panel token
  * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
@@ -640,12 +757,21 @@ function resolveSelector(
       return `${scope}[${BAR_ATTR}^="${stamp}${seriesIndex}-"]`;
     // AREA shares the line's markers, and so its selector: an area series is
     // a stroked polyline with a fill under it, and the fill is not navigable.
+    // A lollipop's stick is rejected by the marker filter for being long and
+    // thin, so the marker on its end is what it highlights — the line's
+    // element again.
     case TraceType.LINE:
     case TraceType.STEP:
     case TraceType.AREA:
+    case TraceType.LOLLIPOP:
       return `${scope}[${LINE_ATTR}^="${stamp}${seriesIndex}-"]`;
+    // A dot plot IS a marker series, drawn by the same code and stamped by the
+    // same pass — only the scale under it differs.
     case TraceType.SCATTER:
+    case TraceType.DOT:
       return `${scope}[${POINT_ATTR}^="${stamp}${seriesIndex}-"]`;
+    case TraceType.DUMBBELL:
+      return `${scope}[${DUMBBELL_ATTR}^="${stamp}${seriesIndex}-"]`;
     case TraceType.PIE:
       return `${scope}[${PIE_ATTR}^="${stamp}${seriesIndex}-"]`;
     // Heatmaps are single-series (no series-index prefix); the chart-level
@@ -2365,6 +2491,7 @@ function resolveStampers(
     ['candlestick', stampCandlestickAttributes],
     ['waterfall', stampWaterfallAttributes],
     ['marimekko', stampMosaicAttributes],
+    ['dumbbell', stampDumbbellAttributes],
   ];
 }
 
@@ -3045,6 +3172,119 @@ function stampRadarAttributes(
 }
 
 // ---------------------------------------------------------------------------
+// Dumbbell attribute stamping
+// ---------------------------------------------------------------------------
+
+/**
+ * The chart's series of one AnyChart type, with their chart-wide indices.
+ *
+ * The same walk {@link collectWaterfallSeries} and {@link collectMosaicSeries}
+ * make, over a set of type names rather than one — a diverging chart is drawn
+ * from `bar` OR `column` series, and a chart may carry several range series.
+ *
+ * @param chart - The chart to inspect
+ * @param types - The AnyChart series types to keep
+ * @returns The matching series, in chart order
+ */
+function collectSeriesOfType(
+  chart: AnyChartInstance,
+  types: ReadonlySet<string>,
+): Array<{ series: AnyChartSeries; index: number }> {
+  const entries: Array<{ series: AnyChartSeries; index: number }> = [];
+  let seriesCount = 0;
+  try {
+    seriesCount = chart.getSeriesCount();
+  } catch {
+    return entries;
+  }
+
+  for (let i = 0; i < seriesCount; i++) {
+    const series = chart.getSeriesAt(i);
+    if (!series)
+      continue;
+    try {
+      if (types.has(series.seriesType()))
+        entries.push({ series, index: i });
+    } catch {
+      // A series that cannot name its type is not one this reads.
+    }
+  }
+  return entries;
+}
+
+/**
+ * Whether a data row is one AnyChart draws a floating bar for.
+ *
+ * A row missing either end has no bar to draw, so it is dropped — and the
+ * stamper counts rows through this same predicate for the reason
+ * {@link isDrawnDatum} explains: counting raw rows instead would turn a chart
+ * carrying one null into a warning and lose the highlight for all of it.
+ */
+function isDrawnPair(row: Record<string, unknown>): boolean {
+  return Number.isFinite(Number(row.low)) && Number.isFinite(Number(row.high));
+}
+
+/**
+ * Stamp `data-maidr-anychart-pair="<seriesIndex>-<pairIndex>"` on every
+ * floating bar of an AnyChart range-column / range-bar series.
+ *
+ * AnyChart draws each pair as ONE filled path spanning its two ends, which is
+ * also how `DumbbellTrace` resolves them: it asks for one element per row and
+ * highlights the same one from both ends, because that is what the chart drew.
+ *
+ * The marimekko's lookup rather than the funnel's: a chart may carry several
+ * range series, each rendering into a layer of its own, so the reading needs
+ * every filled path at once and pairs them with the rows series-major — the
+ * order AnyChart renders in, and the same assumption {@link stampBarAttributes}
+ * makes for a multi-series bar chart.
+ *
+ * Nothing is stamped unless the counts agree exactly. `DumbbellTrace` drops the
+ * highlight for the whole layer on any shortfall, so a partial stamp buys
+ * nothing and leaves a DOM that looks like it worked — and the disagreement is
+ * exactly what a chart mixing a range series with other filled marks produces,
+ * where the extra paths this collects belong to another series entirely.
+ *
+ * On a chart with no range series this is a no-op.
+ */
+function stampDumbbellAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  const entries = collectSeriesOfType(chart, RANGE_SERIES_TYPES);
+  if (entries.length === 0)
+    return;
+
+  const drawn: Array<{ series: number; pair: number }> = [];
+  entries.forEach(({ series, index }) => {
+    extractRawRows(series)
+      .filter(isDrawnPair)
+      .forEach((_, pair) => drawn.push({ series: index, pair }));
+  });
+  if (drawn.length === 0)
+    return;
+
+  const candidates = collectFilledDataPaths(svg).filter(
+    // Idempotency — skip bars stamped on a prior bind.
+    path => !path.hasAttribute(DUMBBELL_ATTR),
+  );
+
+  if (candidates.length !== drawn.length) {
+    console.warn(
+      `[maidr/anychart] Expected ${drawn.length} range bars but found `
+      + `${candidates.length} after filtering. Highlighting is disabled for `
+      + 'this chart; pass an explicit `selectors` entry to override.',
+    );
+    return;
+  }
+
+  candidates.forEach((bar, i) => {
+    const { series, pair } = drawn[i];
+    bar.setAttribute(DUMBBELL_ATTR, `${stampPrefix}${series}-${pair}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Layer builders – one per MAIDR trace type
 // ---------------------------------------------------------------------------
 
@@ -3061,6 +3301,70 @@ function buildBarLayer(
   return {
     id: String(seriesIndex),
     type: TraceType.BAR,
+    ...(selectors ? { selectors } : {}),
+    data,
+  };
+}
+
+/**
+ * Build a DOT or LOLLIPOP layer from an AnyChart `marker` / `stick` series.
+ *
+ * The points are a bar's, unchanged: `BarTrace` serves all three, because a
+ * reader navigates one category and one magnitude whichever mark the chart
+ * draws — a bar, a point, or a point on a stem. What the type buys is an
+ * announcement that names the chart the author drew.
+ *
+ * @param series - The AnyChart series to convert
+ * @param seriesIndex - Index of the series within its chart, used as the layer id
+ * @param variant - {@link TraceType.DOT} or {@link TraceType.LOLLIPOP}
+ * @param selectors - CSS selectors for highlighting, when resolvable
+ * @returns The MAIDR dot / lollipop layer
+ */
+function buildDotLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  variant: TraceType.DOT | TraceType.LOLLIPOP,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  return { ...buildBarLayer(series, seriesIndex, selectors), type: variant };
+}
+
+/**
+ * Build a DUMBBELL layer from an AnyChart `range-column` / `range-bar` series.
+ *
+ * The two ends are named `Low` and `High` — AnyChart's own names for the two
+ * fields the row carries. `DumbbellTrace` announces the end the cursor is on,
+ * and its own fallback is "start" / "end", which on a range series says less
+ * than the chart already knows. Nothing better is available: AnyChart draws
+ * one bar from the smaller value to the larger and never records what the pair
+ * is a comparison OF, so a chart of life expectancy in 1990 against 2020
+ * cannot name its years here. `options.axes` cannot supply them either; a
+ * caller who has the names post-processes the emitted layer.
+ *
+ * A row missing either end is dropped: AnyChart draws no bar for one, and
+ * keeping it would slide every later row's highlight onto its neighbour.
+ *
+ * @param series - The AnyChart series to convert
+ * @param seriesIndex - Index of the series within its chart, used as the layer id
+ * @param selectors - CSS selectors for highlighting, when resolvable
+ * @returns The MAIDR dumbbell layer
+ */
+function buildDumbbellLayer(
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+): MaidrLayer {
+  const points: DumbbellPoint[] = extractRawRows(series)
+    .filter(isDrawnPair)
+    .map(r => ({
+      x: r.x !== undefined ? (typeof r.x === 'number' ? r.x : String(r.x)) : asNumber(r._index),
+      start: asNumber(r.low),
+      end: asNumber(r.high),
+    }));
+  const data: DumbbellData = { points, startLabel: 'Low', endLabel: 'High' };
+  return {
+    id: String(seriesIndex),
+    type: TraceType.DUMBBELL,
     ...(selectors ? { selectors } : {}),
     data,
   };
@@ -3644,26 +3948,7 @@ interface WaterfallStep {
 function collectWaterfallSeries(
   chart: AnyChartInstance,
 ): Array<{ series: AnyChartSeries; index: number }> {
-  const entries: Array<{ series: AnyChartSeries; index: number }> = [];
-  let seriesCount = 0;
-  try {
-    seriesCount = chart.getSeriesCount();
-  } catch {
-    return entries;
-  }
-
-  for (let i = 0; i < seriesCount; i++) {
-    const series = chart.getSeriesAt(i);
-    if (!series)
-      continue;
-    try {
-      if (series.seriesType() === 'waterfall')
-        entries.push({ series, index: i });
-    } catch {
-      // A series that cannot name its type is not one this reads.
-    }
-  }
-  return entries;
+  return collectSeriesOfType(chart, WATERFALL_SERIES_TYPES);
 }
 
 /**
@@ -3798,26 +4083,7 @@ interface MosaicTable {
 function collectMosaicSeries(
   chart: AnyChartInstance,
 ): Array<{ series: AnyChartSeries; index: number }> {
-  const entries: Array<{ series: AnyChartSeries; index: number }> = [];
-  let seriesCount = 0;
-  try {
-    seriesCount = chart.getSeriesCount();
-  } catch {
-    return entries;
-  }
-
-  for (let i = 0; i < seriesCount; i++) {
-    const series = chart.getSeriesAt(i);
-    if (!series)
-      continue;
-    try {
-      if (series.seriesType() === 'mekko')
-        entries.push({ series, index: i });
-    } catch {
-      // A series that cannot name its type is not one this reads.
-    }
-  }
-  return entries;
+  return collectSeriesOfType(chart, MOSAIC_SERIES_TYPES);
 }
 
 /**
@@ -3916,6 +4182,99 @@ function buildMosaicLayer(
 }
 
 /**
+ * The chart's bar series, when the caller has declared it a diverging chart.
+ *
+ * Declared rather than detected. AnyChart has no diverging chart type: the
+ * idiom is a stacked `anychart.bar()` whose two series straddle zero, which is
+ * indistinguishable from a stacked bar chart that happens to contain negative
+ * values. A diverging trace replaces the sign in every announcement with the
+ * name of a side, so a wrong guess would not merely rename the chart — it
+ * would remove the one clue a reader has that the reading is wrong.
+ *
+ * Two sides are required, because that is what the reading is: the balance
+ * MAIDR announces is a difference between exactly two. A chart with fewer
+ * keeps its ordinary bar layers and says why.
+ *
+ * @param chart - The chart to inspect
+ * @param options - Binder options, consulted for the opt-in
+ * @returns Its bar series, in chart order, or nothing when the chart is not
+ * the two-sided one this reading assumes
+ */
+function collectDivergingSeries(
+  chart: AnyChartInstance,
+  options?: AnyChartBinderOptions,
+): Array<{ series: AnyChartSeries; index: number }> {
+  if (options?.diverging !== true)
+    return [];
+
+  const entries = collectSeriesOfType(chart, DIVERGING_SERIES_TYPES);
+  if (entries.length >= 2)
+    return entries;
+
+  console.warn(
+    `[maidr/anychart] \`diverging\` was requested but this chart draws ${entries.length} `
+    + 'bar series, and a diverging chart is two sides read against each other. '
+    + 'Reading it as an ordinary bar chart instead.',
+  );
+  return [];
+}
+
+/**
+ * Build ONE diverging layer from the bar series that straddle zero.
+ *
+ * A layer per series would lose the whole reading: `DivergingTrace` extends
+ * the segmented bar, so the sides are its rows and the categories its columns,
+ * and the balance between them — which side is ahead at each category, and by
+ * how much — is computed down a column of that grid. Split across layers there
+ * is no column to compute it from.
+ *
+ * The values are emitted SIGNED, exactly as the chart draws them. That is the
+ * one thing this trace type needs that a stacked bar does not: the pitch takes
+ * the magnitude and the announcement names the side, so a cohort of two
+ * million on the left sounds bigger than one of ten thousand on the right
+ * rather than lower.
+ *
+ * Each point carries its series' name in `z`, which is what the announcement
+ * calls the side. An unnamed series carries the empty string, leaving
+ * `DivergingTrace`'s own "left" / "right" fallback in charge — the one place
+ * that decision is already made.
+ *
+ * @param entries - The chart's bar series, with their chart-wide indices
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The single MAIDR layer holding both sides
+ */
+function buildDivergingLayer(
+  entries: Array<{ series: AnyChartSeries; index: number }>,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const data: SegmentedPoint[][] = entries.map(({ series }) => {
+    const name = readSeriesName(series) ?? '';
+    return extractRawRows(series).map(r => ({
+      x: asString(r.x ?? r.name ?? r._index),
+      y: asNumber(r.value ?? r.y),
+      z: name,
+    }));
+  });
+
+  const defaultSelector = `${panelScope(panel)}[${BAR_ATTR}]`;
+  return {
+    id: String(entries[0].index),
+    type: TraceType.DIVERGING,
+    selectors: selectors ?? defaultSelector,
+    data,
+    // `stampBarAttributes` walks the bars series-major, which is the order
+    // AnyChart renders them in, and the sides are declared left first — the
+    // order a producer naturally writes them and the one `DivergingTrace`
+    // already defaults to. Both are said out loud here rather than relied on:
+    // the failure is silent and visual-only, since audio, text and braille
+    // never go through the element mapping.
+    domMapping: { order: 'row', groupDirection: 'forward' },
+  };
+}
+
+/**
  * Build a RADAR or POLAR_AREA layer from one series of a radial chart.
  *
  * The points are a line's, unchanged: `RadarTrace` extends `LineTrace` and
@@ -3979,6 +4338,11 @@ function buildLayer(
   switch (traceType) {
     case TraceType.BAR:
       return buildBarLayer(series, seriesIndex, selectors);
+    case TraceType.DOT:
+    case TraceType.LOLLIPOP:
+      return buildDotLayer(series, seriesIndex, traceType, selectors);
+    case TraceType.DUMBBELL:
+      return buildDumbbellLayer(series, seriesIndex, selectors);
     case TraceType.LINE:
       return buildLineLayer(series, seriesIndex, selectors);
     case TraceType.AREA:
@@ -4231,9 +4595,20 @@ function buildSubplot(
   // chart exists to show — only exist across the whole set.
   const mosaics: Array<{ series: AnyChartSeries; index: number }> = [];
 
+  // A diverging chart's two sides are collected as well, because the balance
+  // between them is read down a column of one grid. Unlike everything else
+  // here this is declared rather than detected — see
+  // {@link collectDivergingSeries} — so the set is resolved up front and the
+  // loop skips whatever is in it.
+  const divergings = collectDivergingSeries(chart, options);
+  const divergingIndices = new Set(divergings.map(({ index }) => index));
+
   for (let i = 0; i < seriesCount; i++) {
     const series = chart.getSeriesAt(i);
     if (!series)
+      continue;
+
+    if (divergingIndices.has(i))
       continue;
 
     const anyChartType = series.seriesType();
@@ -4269,7 +4644,12 @@ function buildSubplot(
       }
     }
 
-    const traceType = mapSeriesType(anyChartType);
+    // Whether a marker series is a dot plot or a point cloud is a question
+    // about the chart's x scale, not about the series — the same shape as the
+    // radial check above — so it is asked before the table, which can only
+    // answer one of the two.
+    const traceType = resolveMarkerVariant(chart, anyChartType)
+      ?? mapSeriesType(anyChartType);
     if (!traceType) {
       console.warn(
         `[maidr/anychart] Unsupported AnyChart series type "${anyChartType}". Skipping series ${i}.`,
@@ -4316,6 +4696,18 @@ function buildSubplot(
     const layer = buildMosaicLayer(mosaics, mosaicSelector, panel);
     // A table with no column is not a chart to bind.
     if ((layer.data as MosaicPoint[][])[0]?.length > 0) {
+      attachAxes(layer);
+      layers.push(layer);
+    }
+  }
+
+  if (divergings.length > 0) {
+    const divergingSelector = hasSelectorOverrides
+      ? resolveSelector(divergings[0].index, TraceType.BAR, options, panel)
+      : undefined;
+    const layer = buildDivergingLayer(divergings, divergingSelector, panel);
+    // A side with no category is not a chart to bind.
+    if ((layer.data as SegmentedPoint[][])[0]?.length > 0) {
       attachAxes(layer);
       layers.push(layer);
     }

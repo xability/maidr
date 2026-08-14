@@ -103,6 +103,16 @@ export interface AnyChartScale {
    * scale types that cannot stack (an ordinal x scale, a colour scale).
    */
   stackMode?: () => string;
+
+  /**
+   * The scale's own kind: `'ordinal'`, `'linear'`, `'log'`, `'date-time'`.
+   *
+   * Read on the X scale only, and only to answer one question: whether the
+   * categories are named or measured. A `marker` series on an ordinal x scale
+   * is a Cleveland dot plot rather than a scatter, and nothing on the series
+   * itself says so.
+   */
+  getType?: () => string;
 }
 
 /** Rendering stage / container element. */
@@ -148,6 +158,13 @@ export interface AnyChartInstance {
    * {@link AnyChartScale}. Absent on chart types with no Cartesian scales.
    */
   yScale?: () => AnyChartScale | null;
+
+  /**
+   * X-scale accessor (Cartesian charts). Only its {@link AnyChartScale.getType}
+   * is read, to tell a dot plot's named categories from a scatter's measured
+   * ones. Absent on chart types with no Cartesian scales.
+   */
+  xScale?: () => AnyChartScale | null;
 
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;
@@ -202,6 +219,24 @@ export interface AnyChartBinderOptions {
     x?: string;
     y?: string;
   };
+
+  /**
+   * Read this chart's bar series as the two sides of a diverging bar chart —
+   * a tornado chart, or a population pyramid.
+   *
+   * Opt-in rather than inferred, because AnyChart has no diverging chart type
+   * to detect. The idiom is an ordinary stacked `anychart.bar()` whose two
+   * series straddle zero, and nothing distinguishes that from a stacked bar
+   * chart that merely contains negative values — so guessing would rename an
+   * ordinary chart, and a diverging trace announces a **side** in place of the
+   * sign, which is exactly the clue a reader would need to catch the mistake.
+   *
+   * The sides are emitted signed, in declared order, as the chart draws them:
+   * MAIDR takes the magnitude for the pitch and the sign for the side.
+   *
+   * @defaultValue false
+   */
+  diverging?: boolean;
 
   /**
    * CSS selector overrides for SVG element highlighting.

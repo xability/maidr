@@ -7,6 +7,7 @@ import type {
 import type {
   BarPoint,
   BoxSelector,
+  DumbbellData,
   FlowPoint,
   LinePoint,
   MaidrLayer,
@@ -414,6 +415,61 @@ function appendMosaicTiles(container: HTMLElement, levels: number[]): SVGElement
 }
 
 /**
+ * A drawn AnyChart chart carrying one `range-column` series: a `low` / `high`
+ * pair per category, which AnyChart draws as one floating bar each.
+ */
+function createRangeChart(
+  title: string,
+  pairs: Array<[string, number | null, number | null]>,
+  extra: { container?: HTMLElement; seriesType?: string } = {},
+): AnyChartInstance {
+  const rows = pairs.map(([x, low, high]) => ({ x, low, high }));
+  return createChart({
+    title,
+    container: extra.container,
+    xScaleType: 'ordinal',
+    series: [createSeries(extra.seriesType ?? 'range-column', rows)],
+  });
+}
+
+/**
+ * Append rendered range bars to a container's `<svg>`: one layer of `count`
+ * filled bars, plus the unfilled hatch twin AnyChart draws over each one and
+ * a stroke-only grid line — neither of which is a bar.
+ */
+function appendRangeBars(container: HTMLElement, count: number): SVGElement[] {
+  const svg = container.querySelector('svg') as unknown as SVGElement;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.id = 'ac_layer_1';
+  layer.setAttribute('clip-path', 'url(#ac_clip_1)');
+  svg.appendChild(layer);
+
+  const grid = document.createElementNS(SVG_NS, 'path');
+  grid.id = 'ac_path_grid';
+  grid.setAttribute('d', 'M 0 40 L 300 40');
+  grid.setAttribute('fill', 'none');
+  layer.appendChild(grid);
+
+  const bars: SVGElement[] = [];
+  for (let i = 0; i < count; i++) {
+    const bar = document.createElementNS(SVG_NS, 'path');
+    bar.id = `ac_path_${i}`;
+    bar.setAttribute('d', 'M 10 20 L 40 20 L 40 90 L 10 90 Z');
+    bar.setAttribute('fill', '#64b5f6');
+    layer.appendChild(bar);
+    bars.push(bar);
+
+    const hatch = document.createElementNS(SVG_NS, 'path');
+    hatch.id = `ac_path_${i}_hatch`;
+    hatch.setAttribute('d', 'M 10 20 L 40 20 L 40 90 L 10 90 Z');
+    hatch.setAttribute('fill', 'none');
+    layer.appendChild(hatch);
+  }
+
+  return bars;
+}
+
+/**
  * A drawn AnyChart radar or polar chart. Both expose the series API, and their
  * series report themselves as plain `line` / `area` / `marker` / `column` —
  * which is exactly why only `getType()` can say the categories are arranged
@@ -548,6 +604,12 @@ interface MockChartConfig {
    * at all, which is how every non-Cartesian chart answers.
    */
   stackMode?: string;
+  /**
+   * The x scale's kind. Omit for a chart that exposes no x scale, which is how
+   * every build the adapter cannot ask answers — a marker series then keeps
+   * the scatter reading it has always had.
+   */
+  xScaleType?: string;
 }
 
 function createChart(config: MockChartConfig): AnyChartInstance {
@@ -557,6 +619,7 @@ function createChart(config: MockChartConfig): AnyChartInstance {
   const xTitle = config.xTitle;
   const yTitle = config.yTitle;
   const stackMode = config.stackMode;
+  const xScaleType = config.xScaleType;
   return {
     title: () => config.title ?? '',
     container: () => config.container ?? '',
@@ -564,6 +627,7 @@ function createChart(config: MockChartConfig): AnyChartInstance {
     getSeriesAt: (i: number) => series[i] ?? null,
     ...(chartType ? { getType: () => chartType } : {}),
     ...(stackMode ? { yScale: () => ({ stackMode: () => stackMode }) } : {}),
+    ...(xScaleType ? { xScale: () => ({ getType: () => xScaleType }) } : {}),
     ...(dataRows
       ? { data: () => ({ getIterator: () => createIterator(dataRows) }) }
       : {}),
@@ -1740,6 +1804,302 @@ describe('bindAnyChart (radar stamping)', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Dot plots and lollipops (a bar's reading, drawn as a point)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (dot plot)', () => {
+  it('reads a marker series against named categories as a dot plot', () => {
+    // The labels used to be coerced to 0 by the scatter builder, which turned
+    // a dot plot into a chart whose x axis was a single repeated value.
+    const chart = createChart({
+      title: 'Sales per rep',
+      xScaleType: 'ordinal',
+      series: [createSeries('marker', [
+        { x: 'Ada', value: 12 },
+        { x: 'Grace', value: 19 },
+      ])],
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Ada', y: 12 },
+      { x: 'Grace', y: 19 },
+    ]);
+    // A dot plot IS a marker series, stamped by the same pass a scatter is.
+    expect(layer.selectors).toBe('[data-maidr-anychart-point^="0-"]');
+  });
+
+  it('leaves a marker series on a measured x axis a scatter', () => {
+    // The x value is half the datum on one of these, and reading it as a
+    // category would throw it away.
+    const chart = createChart({
+      title: 'Height against weight',
+      xScaleType: 'linear',
+      series: [createSeries('marker', [{ x: 3, value: 12 }, { x: 5, value: 19 }])],
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.SCATTER);
+    expect(layer.data).toEqual([{ x: 3, y: 12 }, { x: 5, y: 19 }]);
+  });
+
+  it('keeps the scatter reading for a build that exposes no x scale', () => {
+    const chart = createChart({
+      title: 'Height against weight',
+      series: [createSeries('marker', [{ x: 3, value: 12 }])],
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.SCATTER);
+  });
+
+  it('leaves a bubble series alone on an ordinal axis', () => {
+    // Its rows carry a size as well, and a dot plot has nowhere to put one.
+    const chart = createChart({
+      title: 'Sales',
+      xScaleType: 'ordinal',
+      series: [createSeries('bubble', [{ x: 'Ada', value: 12 }])],
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.SCATTER);
+  });
+});
+
+describe('anyChartToMaidr (lollipop)', () => {
+  it('reads a stick series as a lollipop and highlights its marker', () => {
+    const chart = createChart({
+      title: 'Votes',
+      series: [createSeries('stick', [
+        { x: 'Yes', value: 42 },
+        { x: 'No', value: 17 },
+      ])],
+    });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.LOLLIPOP);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'Yes', y: 42 },
+      { x: 'No', y: 17 },
+    ]);
+    // The stick itself is a tall thin stroke the marker filter rejects, so the
+    // marker on its end is the element it highlights — the line's attribute.
+    expect(layer.selectors).toBe('[data-maidr-anychart-line-point^="0-"]');
+  });
+
+  it('enables the markers a lollipop has nothing else to highlight', () => {
+    const container = createContainerWithSvg('lollipop-markers');
+    const enabled = jest.fn();
+    const series = {
+      ...createSeries('stick', [{ x: 'Yes', value: 42 }]),
+      markers: () => ({ enabled: (...args: [boolean?]) => {
+        enabled(...args);
+        return false as never;
+      } }),
+    } as unknown as AnyChartSeries;
+    const chart = createChart({ title: 'Votes', container, series: [series] });
+
+    bindAnyChart(chart);
+
+    expect(enabled).toHaveBeenCalledWith(true);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dumbbells (a range series' two ends, read as a pair)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (dumbbell chart)', () => {
+  it('reads a range series as pairs named by the fields they came from', () => {
+    const chart = createRangeChart('Temperature', [
+      ['Mon', 4, 12],
+      ['Tue', 6, 15],
+    ]);
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.DUMBBELL);
+    // An object, not an array: the two ends belong to the chart rather than to
+    // any one row.
+    expect(layer.data).toEqual({
+      points: [
+        { x: 'Mon', start: 4, end: 12 },
+        { x: 'Tue', start: 6, end: 15 },
+      ],
+      startLabel: 'Low',
+      endLabel: 'High',
+    });
+    expect(layer.selectors).toBe('[data-maidr-anychart-pair^="0-"]');
+  });
+
+  it('reads a range-bar series the same way', () => {
+    const chart = createRangeChart('Temperature', [['Mon', 4, 12]], {
+      seriesType: 'range-bar',
+    });
+
+    expect(anyChartToMaidr(chart)!.subplots[0][0].layers[0].type)
+      .toBe(TraceType.DUMBBELL);
+  });
+
+  it('drops a row missing one of its two ends', () => {
+    // AnyChart draws no bar for one, and keeping it would slide every later
+    // row's highlight onto its neighbour.
+    const chart = createRangeChart('Temperature', [
+      ['Mon', 4, 12],
+      ['Tue', null, 15],
+      ['Wed', 6, 14],
+    ]);
+
+    const data = anyChartToMaidr(chart)!.subplots[0][0].layers[0].data as DumbbellData;
+
+    expect(data.points).toEqual([
+      { x: 'Mon', start: 4, end: 12 },
+      { x: 'Wed', start: 6, end: 14 },
+    ]);
+  });
+});
+
+describe('bindAnyChart (dumbbell stamping)', () => {
+  it('stamps one attribute per pair, skipping the hatch twin and the grid', () => {
+    const container = createContainerWithSvg('dumbbell-bind');
+    const bars = appendRangeBars(container, 3);
+    const chart = createRangeChart(
+      'Temperature',
+      [['Mon', 4, 12], ['Tue', 6, 15], ['Wed', 5, 13]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(bars.map(b => b.getAttribute('data-maidr-anychart-pair')))
+      .toEqual(['0-0', '0-1', '0-2']);
+    expect(container.querySelector('#ac_path_0_hatch')
+      ?.getAttribute('data-maidr-anychart-pair')).toBeNull();
+    expect(container.querySelector('#ac_path_grid')
+      ?.getAttribute('data-maidr-anychart-pair')).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('counts the drawn pairs, not the declared rows', () => {
+    // A row missing an end is dropped from the layer, so counting raw rows
+    // here would report a disagreement and lose the highlight for all of it.
+    const container = createContainerWithSvg('dumbbell-gap');
+    const bars = appendRangeBars(container, 2);
+    const chart = createRangeChart(
+      'Temperature',
+      [['Mon', 4, 12], ['Tue', null, 15], ['Wed', 5, 13]],
+      { container },
+    );
+
+    bindAnyChart(chart);
+
+    expect(bars.map(b => b.getAttribute('data-maidr-anychart-pair')))
+      .toEqual(['0-0', '0-1']);
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+
+  it('stamps nothing when the bar count disagrees with the pair count', () => {
+    const container = createContainerWithSvg('dumbbell-mismatch');
+    appendRangeBars(container, 4);
+    const chart = createRangeChart(
+      'Temperature',
+      [['Mon', 4, 12], ['Tue', 6, 15]],
+      { container },
+    );
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    bindAnyChart(chart);
+
+    expect(container.querySelectorAll('[data-maidr-anychart-pair]')).toHaveLength(0);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('Expected 2 range bars but found 4');
+
+    container.closest('[data-maidr-anychart-host]')?.remove();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Diverging bars (declared, never inferred)
+// ---------------------------------------------------------------------------
+
+describe('anyChartToMaidr (diverging chart)', () => {
+  /**
+   * A stacked bar chart whose two series straddle zero — AnyChart's own
+   * tornado / population-pyramid idiom, and indistinguishable from an ordinary
+   * stacked bar chart that happens to carry negative values.
+   * @returns A mock chart instance carrying both sides
+   */
+  function createTornadoChart(): AnyChartInstance {
+    return createChart({
+      title: 'Population',
+      stackMode: 'value',
+      series: [
+        { ...createSeries('bar', [{ x: '0-9', value: -120 }, { x: '10-19', value: -90 }]), name: () => 'Male' },
+        { ...createSeries('bar', [{ x: '0-9', value: 115 }, { x: '10-19', value: 95 }]), name: () => 'Female' },
+      ],
+    });
+  }
+
+  it('merges both sides into one signed layer when asked', () => {
+    const layer = anyChartToMaidr(createTornadoChart(), { diverging: true })!
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.type).toBe(TraceType.DIVERGING);
+    // Signed as the chart draws them: MAIDR takes the magnitude for the pitch
+    // and the sign for the side.
+    expect(layer.data).toEqual([
+      [{ x: '0-9', y: -120, z: 'Male' }, { x: '10-19', y: -90, z: 'Male' }],
+      [{ x: '0-9', y: 115, z: 'Female' }, { x: '10-19', y: 95, z: 'Female' }],
+    ]);
+    expect(layer.selectors).toBe('[data-maidr-anychart-bar]');
+    expect(layer.domMapping).toEqual({ order: 'row', groupDirection: 'forward' });
+  });
+
+  it('emits one layer, not one per side', () => {
+    // The balance is read down a column of one grid; split across layers there
+    // is no column to compute it from.
+    expect(anyChartToMaidr(createTornadoChart(), { diverging: true })!
+      .subplots[0][0].layers).toHaveLength(1);
+  });
+
+  it('reads the same chart as ordinary bars when nothing asks otherwise', () => {
+    // There is no library-level flag for this, so a chart that is not declared
+    // diverging must never be renamed one.
+    const layers = anyChartToMaidr(createTornadoChart())!.subplots[0][0].layers;
+
+    expect(layers).toHaveLength(2);
+    expect(layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.BAR]);
+  });
+
+  it('declines a chart with only one side, and says why', () => {
+    const chart = createChart({
+      title: 'Population',
+      series: [createSeries('bar', [{ x: '0-9', value: -120 }])],
+    });
+    const warnSpy = jest.spyOn(console, 'warn');
+
+    const layers = anyChartToMaidr(chart, { diverging: true })!
+      .subplots[0][0]
+      .layers;
+
+    expect(layers.map(l => l.type)).toEqual([TraceType.BAR]);
+    expect(warnSpy.mock.calls.flat().join(' '))
+      .toContain('this chart draws 1 bar series');
+  });
+});
+
 describe('bindAnyChart (candlestick stamping)', () => {
   it('stamps one attribute per candle, in point order', () => {
     const container = createContainerWithSvg('candle-bind');
@@ -2241,6 +2601,21 @@ describe('mapSeriesType', () => {
     // line chart — the fill is the whole visual difference between the two.
     expect(mapSeriesType('area')).toBe(TraceType.AREA);
     expect(mapSeriesType('spline-area')).toBe(TraceType.AREA);
+  });
+
+  it('reads the point-drawn bar series as the marks they are', () => {
+    // Both share MAIDR's bar trace: a reader navigates one category and one
+    // magnitude whichever mark the chart draws.
+    expect(mapSeriesType('stick')).toBe(TraceType.LOLLIPOP);
+  });
+
+  it('reads the two-ended range series as dumbbells', () => {
+    expect(mapSeriesType('range-column')).toBe(TraceType.DUMBBELL);
+    expect(mapSeriesType('range-bar')).toBe(TraceType.DUMBBELL);
+    // `hilo` carries the same two fields but is drawn as a bare stroke, which
+    // no stamper here can tell from a grid line — it would announce correctly
+    // and never highlight.
+    expect(mapSeriesType('hilo')).toBeNull();
   });
 
   it('normalises the series name before looking it up', () => {
