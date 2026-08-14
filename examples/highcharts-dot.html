@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Dot Plot - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Dot Plot</h1>
+    <p>
+      A Cleveland dot plot — a Highcharts <code>scatter</code> series drawn
+      against a category axis — made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to move
+      between occupations; each dot announces its category and its value.
+    </p>
+
+    <div id="dot-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('dot-chart', {
+        chart: { type: 'scatter' },
+        title: { text: 'Median Annual Pay by Occupation' },
+        legend: { enabled: false },
+        xAxis: {
+          categories: ['Nurse', 'Teacher', 'Driver', 'Chef', 'Electrician'],
+          title: { text: 'Occupation' },
+        },
+        yAxis: { title: { text: 'Median pay ($000)' } },
+        series: [{ name: 'Median pay', data: [61, 54, 42, 39, 57] }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'dot-chart' });
+      document.getElementById('dot-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

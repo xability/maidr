@@ -104,9 +104,16 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | MAIDR Type | Highcharts series type(s) | Example |
 |------------|---------------------------|---------|
 | Bar | `bar`, `column` | [highcharts-bar.html](highcharts-bar.html) |
-| Line | `line`, `spline`, `area`, `areaspline` | [highcharts-line.html](highcharts-line.html) |
-| Step | `line`, `spline`, `area`, `areaspline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](highcharts-line.html) |
-| Scatter | `scatter` | [highcharts-scatter.html](highcharts-scatter.html) |
+| Line | `line`, `spline` | [highcharts-line.html](highcharts-line.html) |
+| Step | `line`, `spline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](highcharts-line.html) |
+| Area | `area`, `areaspline` | [highcharts-area.html](highcharts-area.html) |
+| Stacked Area | `area`/`areaspline` + `stacking: 'normal'` | [highcharts-area.html](highcharts-area.html) |
+| Normalized Area | `area`/`areaspline` + `stacking: 'percent'` | [highcharts-area.html](highcharts-area.html) |
+| Scatter | `scatter` on numeric axes | [highcharts-scatter.html](highcharts-scatter.html) |
+| Dot Plot | `scatter` on a category x axis | [highcharts-dot.html](highcharts-dot.html) |
+| Lollipop | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](highcharts-lollipop.html) |
+| Funnel | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](highcharts-funnel.html) |
+| Word Cloud | `wordcloud` (requires `modules/wordcloud.js`) | [highcharts-wordcloud.html](highcharts-wordcloud.html) |
 | Box Plot | `boxplot` | [highcharts-box.html](highcharts-box.html) |
 | Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](highcharts-heatmap.html) |
 | Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](highcharts-histogram.html) |
@@ -116,7 +123,13 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](highcharts-normalized.html) |
 | Pie | `pie` (a doughnut is a `pie` with an `innerSize`) | [highcharts-pie.html](highcharts-pie.html) |
 
-> **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration.
+> **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration. The same holds for funnel and word cloud layers, whose dimensions are named `Stage`/`Count` and `Term`/`Weight`.
+
+> **Area note:** every `area`/`areaspline` series in one panel becomes a single area layer, because a stacked band's running total only exists when all the bands share a layer. A stacked area is read as such — each point announces its own height alongside the total it sits in — and a percent stack carries the shares Highcharts computed, which is what the chart draws. `step` is not carried through on an area series: a layer holds one trace type, and announcing a stacked area as a step layer would drop the totals.
+
+> **Dot plot note:** a scatter drawn against a category axis is a Cleveland dot plot, and is emitted as one. MAIDR's scatter payload takes a strictly numeric `x`, so reading such a series as a scatter would announce the bare tick index instead of the category the chart prints.
+
+> **Word cloud note:** Highcharts lays a cloud out heaviest word first, so the adapter emits its terms in that order to keep each announcement matched with the glyph it highlights. A word Highcharts could not fit into the playing field is not drawn at all; MAIDR then reports the terms and their weights but disables highlighting for that layer, rather than pairing announcements with the wrong glyphs.
 
 ## Multi-Panel Charts
 

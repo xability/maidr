@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Word Cloud - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/wordcloud.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Word Cloud</h1>
+    <p>
+      A Highcharts word cloud made accessible by the MAIDR Highcharts adapter.
+      A cloud encodes each term's weight as glyph size and prints it nowhere,
+      so MAIDR reads out the number: click on the chart and use left and right
+      arrow keys to walk the terms in descending weight order — the order the
+      chart is drawn and read in, not the order it was declared in.
+    </p>
+
+    <div id="wordcloud-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('wordcloud-chart', {
+        chart: { type: 'wordcloud' },
+        title: { text: 'Most Common Words in the Corpus' },
+        series: [{
+          name: 'Occurrences',
+          type: 'wordcloud',
+          data: [
+            { name: 'accessibility', weight: 42 },
+            { name: 'sonification', weight: 31 },
+            { name: 'braille', weight: 27 },
+            { name: 'navigation', weight: 24 },
+            { name: 'chart', weight: 19 },
+            { name: 'audio', weight: 16 },
+            { name: 'keyboard', weight: 12 },
+            { name: 'highlight', weight: 9 },
+            { name: 'adapter', weight: 6 },
+            { name: 'grammar', weight: 4 },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'wordcloud-chart' });
+      document.getElementById('wordcloud-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

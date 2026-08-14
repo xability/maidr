@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Area Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Area Chart</h1>
+    <p>
+      A Highcharts stacked area chart made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to move
+      along a band, up and down to move between bands; each point announces its
+      own value alongside the running total of the stack it sits in.
+    </p>
+
+    <div id="area-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('area-chart', {
+        chart: { type: 'area' },
+        title: { text: 'World Population by Region' },
+        xAxis: {
+          categories: ['1750', '1800', '1850', '1900', '1950', '2000'],
+          title: { text: 'Year' },
+        },
+        yAxis: { title: { text: 'Population (millions)' } },
+        plotOptions: { area: { stacking: 'normal' } },
+        series: [
+          { name: 'Asia', data: [502, 635, 809, 947, 1402, 3634] },
+          { name: 'Africa', data: [106, 107, 111, 133, 221, 767] },
+          { name: 'Europe', data: [163, 203, 276, 408, 547, 729] },
+          { name: 'America', data: [18, 31, 54, 156, 339, 818] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'area-chart' });
+      document.getElementById('area-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

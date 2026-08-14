@@ -69,6 +69,7 @@ export interface FakeChartInput {
   renderToId?: string;
   xAxis?: HighchartsAxis[];
   yAxis?: HighchartsAxis[];
+  plotOptions?: HighchartsChart['options']['plotOptions'];
 }
 
 export function fakeChart(input: FakeChartInput): HighchartsChart {
@@ -83,7 +84,7 @@ export function fakeChart(input: FakeChartInput): HighchartsChart {
     title: { textStr: input.title },
     container: renderTo,
     renderTo,
-    options: { chart: { type: input.type } },
+    options: { chart: { type: input.type }, plotOptions: input.plotOptions },
   } as HighchartsChart;
 }
 

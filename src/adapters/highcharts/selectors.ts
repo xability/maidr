@@ -114,6 +114,48 @@ export function scatterSelector(containerId: string, seriesIndex: number): strin
 }
 
 /**
+ * Generates a CSS selector for the markers of a lollipop series.
+ *
+ * Highcharts draws each lollipop as two elements: the marker, rendered by
+ * `Series#drawPoints` with the `highcharts-point` class, and the stem down to
+ * the baseline — a `<path class="highcharts-lollipop-stem">` that carries no
+ * point class and is therefore already excluded. The stem only repeats the
+ * value its marker already sits at, so MAIDR highlights the marker alone.
+ *
+ * The markers come from the same `Series#drawPoints` path as scatter markers,
+ * so the hidden hit-detection duplicates documented on {@link scatterSelector}
+ * apply here too and are filtered out the same way.
+ */
+export function lollipopSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point:not([visibility="hidden"])`;
+}
+
+/**
+ * Generates a CSS selector for the stages of a funnel (or pyramid) series.
+ *
+ * A funnel series extends the pie series, so each stage is drawn as a
+ * `<path class="highcharts-point">` inside the series group in `series.data`
+ * order — stage *k* is segment *k*, with no reordering to undo.
+ */
+export function funnelSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
+ * Generates a CSS selector for the terms of a wordcloud series.
+ *
+ * Each term is a `<text class="highcharts-point">` inside the series group.
+ * Highcharts appends them heaviest first rather than in `series.data` order,
+ * so document order here is weight order; the adapter emits its terms in that
+ * same order (see `convertWordCloudSeries`) and this selector only has to find
+ * them. The sizing probe Highcharts adds while laying the cloud out is
+ * destroyed before the render finishes and never carries the point class.
+ */
+export function wordCloudSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
+}
+
+/**
  * Generates a CSS selector for the wedges of a pie (or doughnut) series.
  *
  * Highcharts draws each slice as a `<path class="highcharts-point">` inside

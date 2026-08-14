@@ -64,6 +64,8 @@ export interface HighchartsChart {
       series?: { stacking?: string };
       column?: { stacking?: string };
       bar?: { stacking?: string };
+      area?: { stacking?: string };
+      areaspline?: { stacking?: string };
     };
   };
   tooltip?: {
@@ -123,6 +125,12 @@ export interface HighchartsPoint {
   close?: number;
   /** Percentage of total when stacking is 'percent'. */
   percentage?: number;
+  /**
+   * Word cloud term weight. The wordcloud series declares
+   * `pointArrayMap: ['weight']`, so a term's magnitude arrives here rather
+   * than in `y`.
+   */
+  weight?: number;
   options?: Record<string, unknown>;
   /** Reference to the SVG element for this point (may be undefined if not rendered). */
   graphic?: { element: SVGElement };

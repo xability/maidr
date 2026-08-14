@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Funnel Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/funnel.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Funnel Chart</h1>
+    <p>
+      A Highcharts funnel chart made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to move
+      through the stages. The pitch carries the <em>retention</em> between
+      adjacent stages rather than the raw count, because the drop-off is what a
+      funnel is read for; the counts are announced alongside it.
+    </p>
+
+    <div id="funnel-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('funnel-chart', {
+        chart: { type: 'funnel' },
+        title: { text: 'Sales Funnel' },
+        legend: { enabled: false },
+        series: [{
+          name: 'Unique users',
+          data: [
+            ['Website visits', 15654],
+            ['Downloads', 4064],
+            ['Requested price list', 1987],
+            ['Invoice sent', 976],
+            ['Finalized', 846],
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'funnel-chart' });
+      document.getElementById('funnel-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

@@ -30,6 +30,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
+  WordCloudPoint,
 } from '../../type/grammar';
 import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -38,12 +39,15 @@ import {
   boxplotSelectors,
   candlestickSelectors,
   ensureContainerId,
+  funnelSelector,
   heatmapSelectors,
   histogramSelector,
   lineSelectors,
+  lollipopSelector,
   pieSelector,
   scatterSelector,
   seriesGroupSelector,
+  wordCloudSelector,
 } from './selectors';
 
 let chartCounter = 0;
@@ -56,9 +60,14 @@ let chartCounter = 0;
  *
  * Supported Highcharts series types:
  * - `bar`, `column` → {@link TraceType.BAR}
- * - `line`, `spline`, `area`, `areaspline` → {@link TraceType.LINE}, or
- *   {@link TraceType.STEP} when the series sets `step`
- * - `scatter` → {@link TraceType.SCATTER}
+ * - `line`, `spline` → {@link TraceType.LINE}, or {@link TraceType.STEP} when
+ *   the series sets `step`
+ * - `area`, `areaspline` → {@link TraceType.AREA}
+ * - `scatter` → {@link TraceType.SCATTER}, or {@link TraceType.DOT} on a
+ *   category axis (a Cleveland dot plot)
+ * - `lollipop` → {@link TraceType.LOLLIPOP}
+ * - `funnel`, `pyramid` → {@link TraceType.FUNNEL}
+ * - `wordcloud` → {@link TraceType.WORD_CLOUD}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
  * - `histogram` → {@link TraceType.HISTOGRAM}
@@ -68,6 +77,8 @@ let chartCounter = 0;
  * - Stacked `column`/`bar` → {@link TraceType.STACKED}
  * - Grouped (dodged) `column`/`bar` → {@link TraceType.DODGED}
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
+ * - Stacked `area`/`areaspline` → {@link TraceType.STACKED_AREA}
+ * - Percent-stacked `area`/`areaspline` → {@link TraceType.NORMALIZED_AREA}
  *
  * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
  * bands, e.g. the Highstock price + volume pattern) are detected from the
@@ -142,8 +153,9 @@ export function buildSubplotGrid(
  * Converts a list of Highcharts series into one MAIDR subplot.
  *
  * Bar/column series are grouped into a single stacked/dodged/normalized
- * layer, line-like series merge into one multi-line layer, and every other
- * supported series becomes its own layer.
+ * layer, area series into a single (optionally stacked) area layer, line-like
+ * series merge into one multi-line layer, and every other supported series
+ * becomes its own layer.
  *
  * @internal
  */
@@ -152,15 +164,21 @@ export function buildSubplot(
   chart: HighchartsChart,
   containerId: string,
 ): MaidrSubplot {
-  // Categorize series by how they need to be converted.
-  const lineTypes = new Set(['line', 'spline', 'area', 'areaspline']);
+  // Categorize series by how they need to be converted. Areas are their own
+  // bucket rather than part of the line one: a filled band is a different
+  // chart to announce, and a stacked band draws a second magnitude that a
+  // line layer has nowhere to carry.
+  const lineTypes = new Set(['line', 'spline']);
+  const areaTypes = new Set(['area', 'areaspline']);
   const barTypes = new Set(['bar', 'column']);
 
   const lineSeries = seriesToConvert.filter(s => lineTypes.has(resolveSeriesType(s, chart)));
+  const areaSeries = seriesToConvert.filter(s => areaTypes.has(resolveSeriesType(s, chart)));
   const barSeries = seriesToConvert.filter(s => barTypes.has(resolveSeriesType(s, chart)));
-  const otherSeries = seriesToConvert.filter(
-    s => !lineTypes.has(resolveSeriesType(s, chart)) && !barTypes.has(resolveSeriesType(s, chart)),
-  );
+  const otherSeries = seriesToConvert.filter((s) => {
+    const type = resolveSeriesType(s, chart);
+    return !lineTypes.has(type) && !areaTypes.has(type) && !barTypes.has(type);
+  });
 
   const layers: MaidrLayer[] = [];
 
@@ -169,7 +187,16 @@ export function buildSubplot(
     layers.push(...convertBarGroup(barSeries, chart, containerId));
   }
 
-  // Convert non-line/non-bar series individually.
+  // Convert area series as one layer. Stacking is why they cannot be split:
+  // a band's running total only exists when every band is in the same layer.
+  if (areaSeries.length > 0) {
+    const layer = convertAreaSeries(areaSeries, chart, containerId);
+    if (layer) {
+      layers.push(layer);
+    }
+  }
+
+  // Convert non-line/non-area/non-bar series individually.
   for (const series of otherSeries) {
     const layer = convertSeries(series, chart, containerId);
     if (layer) {
@@ -298,6 +325,15 @@ function pointLabel(point: HighchartsPoint): string | number {
 }
 
 /**
+ * The `plotOptions` keys a stacking mode can be declared under, per series
+ * type. Highcharts merges `plotOptions[type]` into `series.options` before it
+ * renders, so these only matter for the partially built chart objects the
+ * adapter is sometimes handed — but a stacked chart read as unstacked
+ * announces one magnitude where two are drawn, so they are checked anyway.
+ */
+const STACKABLE_PLOT_OPTIONS = ['column', 'bar', 'area', 'areaspline'] as const;
+
+/**
  * Determines the stacking mode for a series by checking series-level then chart-level options.
  */
 function getStackingMode(series: HighchartsSeries, chart: HighchartsChart): string | undefined {
@@ -306,16 +342,33 @@ function getStackingMode(series: HighchartsSeries, chart: HighchartsChart): stri
     return series.options.stacking;
   }
 
-  // Chart-level plotOptions.
-  const seriesType = resolveSeriesType(series, chart);
+  // Chart-level plotOptions, keyed by the series' own type then by `series`.
   const plotOptions = chart.options.plotOptions;
-  if (seriesType === 'column' && plotOptions?.column?.stacking) {
-    return plotOptions.column.stacking;
+  const seriesType = resolveSeriesType(series, chart);
+  const typeKey = STACKABLE_PLOT_OPTIONS.find(key => key === seriesType);
+  return (typeKey && plotOptions?.[typeKey]?.stacking) || plotOptions?.series?.stacking;
+}
+
+/**
+ * The stacking mode a group of series is drawn with.
+ *
+ * A layer carries one stacking mode for all of its series, so a group whose
+ * series disagree has to settle on one: the first series' mode is used and the
+ * disagreement is reported rather than resolved silently.
+ */
+function resolveGroupStacking(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+): string | undefined {
+  const stackingModes = seriesList.map(s => getStackingMode(s, chart));
+  const uniqueModes = [...new Set(stackingModes)];
+  if (uniqueModes.length > 1) {
+    console.warn(
+      `[MAIDR Highcharts] Inconsistent stacking modes across series: ${
+        JSON.stringify(uniqueModes)}. Using mode from first series.`,
+    );
   }
-  if (seriesType === 'bar' && plotOptions?.bar?.stacking) {
-    return plotOptions.bar.stacking;
-  }
-  return plotOptions?.series?.stacking;
+  return stackingModes[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -480,17 +533,7 @@ function convertBarGroup(
     return [];
 
   const first = barSeries[0];
-
-  // Check stacking mode across all series and warn on inconsistencies.
-  const stackingModes = barSeries.map(s => getStackingMode(s, chart));
-  const uniqueModes = [...new Set(stackingModes)];
-  if (uniqueModes.length > 1) {
-    console.warn(
-      `[MAIDR Highcharts] Inconsistent stacking modes across bar series: ${
-        JSON.stringify(uniqueModes)}. Using mode from first series.`,
-    );
-  }
-  const stacking = stackingModes[0];
+  const stacking = resolveGroupStacking(barSeries, chart);
 
   const isInverted = chart.options.chart?.inverted === true;
   const seriesType = resolveSeriesType(first, chart);
@@ -705,7 +748,17 @@ function convertSeries(
 
   switch (seriesType) {
     case 'scatter':
-      return convertScatterSeries(series, containerId);
+      // A scatter pinned to category ticks is a dot plot, and reads as one.
+      return isCategoryScatter(series)
+        ? convertDotSeries(series, containerId)
+        : convertScatterSeries(series, containerId);
+    case 'lollipop':
+      return convertLollipopSeries(series, containerId);
+    case 'funnel':
+    case 'pyramid':
+      return convertFunnelSeries(series, containerId);
+    case 'wordcloud':
+      return convertWordCloudSeries(series, containerId);
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
@@ -792,6 +845,251 @@ function convertLineSeries(
       y: getAxisLabel(first, 'y'),
     },
     ...(stepDirection ? { stepDirection } : {}),
+    data,
+  };
+}
+
+/**
+ * Converts area-family series into one layer.
+ *
+ * An unstacked area is a line whose region down to the baseline is filled, so
+ * the payload is the line's own — one row per series, read independently of
+ * one another. Stacking is what makes this a converter of its own: stacked
+ * bands draw TWO magnitudes per sample (a band's own height and the running
+ * total at that x), and `AreaTrace` recovers the second only when the layer
+ * declares it is stacked, and only when every band shares the layer.
+ *
+ * Rows are emitted as each series authored them rather than padded to a common
+ * length. `AreaTrace` keys its column totals by the x value, so a band that
+ * starts late contributes nothing to the columns it does not cover — whereas
+ * padding it with zeros would announce a sample the chart never drew.
+ *
+ * `step` is deliberately not carried through. A layer holds one trace type,
+ * and the fill is the more consequential half of a stepped area: reading a
+ * stacked one as a step layer would drop the totals entirely.
+ */
+function convertAreaSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer | null {
+  if (seriesList.length === 0)
+    return null;
+
+  // A lone band has nothing to stack on, so it reads as a plain area whatever
+  // the chart's stacking option says — the same call `convertBarGroup` makes
+  // for a single bar series.
+  const stacking = seriesList.length === 1
+    ? undefined
+    : resolveGroupStacking(seriesList, chart);
+  const isNormalized = stacking === 'percent';
+  const traceType = isNormalized
+    ? TraceType.NORMALIZED_AREA
+    : (stacking === 'normal' ? TraceType.STACKED_AREA : TraceType.AREA);
+
+  const data: LinePoint[][] = seriesList.map(series =>
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({
+        x: pointLabel(p),
+        // A band's OWN value, never the accumulated edge — `AreaTrace` sums
+        // the rows itself. On a percent stack Highcharts has already reduced
+        // each point to its share, which is the magnitude the chart draws.
+        y: (isNormalized ? p.percentage ?? p.y : p.y) as number,
+        z: series.name || undefined,
+      })),
+  );
+
+  const first = seriesList[0];
+
+  // Use a combined title for multi-band layers so all series are represented.
+  const layerTitle = seriesList.length === 1
+    ? first.name || undefined
+    : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
+
+  return {
+    id: seriesList.map(s => String(s.index)).join('-'),
+    type: traceType,
+    title: layerTitle,
+    // An area series still renders the `path.highcharts-graph` its top edge
+    // traces, alongside the `path.highcharts-area` fill; `AreaTrace` inherits
+    // `LineTrace`'s path parsing, so the graph is what it needs.
+    selectors: lineSelectors(containerId, seriesList.map(s => s.index)),
+    axes: {
+      x: getAxisLabel(first, 'x'),
+      y: getAxisLabel(first, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Whether a scatter series is plotted against category ticks — a Cleveland dot
+ * plot rather than a scatter of two continuous variables.
+ *
+ * The distinction decides which trace type reads it honestly. A
+ * {@link ScatterPoint} carries a strictly numeric `x`, so a category-axis
+ * scatter converted as SCATTER announces the tick INDEX and drops the label
+ * the chart prints beneath it; {@link TraceType.DOT} carries
+ * {@link BarPoint}s, whose `x` is that label.
+ */
+function isCategoryScatter(series: HighchartsSeries): boolean {
+  return (series.xAxis?.categories?.length ?? 0) > 0;
+}
+
+/**
+ * Converts a category-axis `scatter` series into a dot-plot layer.
+ *
+ * A dot plot is a bar chart drawn with a point where the bar would end, so the
+ * payload is the {@link BarPoint}s {@link convertSingleBar} builds — the
+ * category and its value — and MAIDR reads it with the same trace.
+ */
+function convertDotSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: BarPoint[] = series.data
+    .filter(p => p.y !== null)
+    .map(p => ({
+      x: pointLabel(p),
+      y: p.y as number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: TraceType.DOT,
+    title: series.name || undefined,
+    // The marks are ordinary scatter markers, hidden tracker twins included.
+    selectors: scatterSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts a `lollipop` series into a lollipop layer.
+ *
+ * A lollipop is a bar thinned to a stem with a marker at its value, so the
+ * payload is again {@link convertSingleBar}'s: the stem is what the mark looks
+ * like, not a second magnitude.
+ */
+function convertLollipopSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: BarPoint[] = series.data
+    .filter(p => p.y !== null)
+    .map(p => ({
+      x: pointLabel(p),
+      y: p.y as number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: TraceType.LOLLIPOP,
+    title: series.name || undefined,
+    selectors: lollipopSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * What a funnel's two dimensions are called. Like a pie, a funnel series is
+ * bound to no axis, so {@link getAxisLabel}'s `'X'` / `'Y'` fallback would
+ * name them after coordinates the chart does not have.
+ */
+const FUNNEL_STAGE_AXIS = 'Stage';
+const FUNNEL_COUNT_AXIS = 'Count';
+
+/**
+ * Converts a `funnel` or `pyramid` series into a funnel layer.
+ *
+ * A pyramid is the same series drawn without a neck and flipped, so it carries
+ * the same stages in the same declared order and reads the same way.
+ *
+ * The adapter supplies stage/count pairs and nothing else: the retention
+ * between adjacent stages — the number a funnel is actually read for — is
+ * arithmetic `FunnelTrace` does itself, so declared order is the whole of what
+ * it needs from here. Highcharts draws the segments in `series.data` order,
+ * so stage *k* is segment *k*; a valueless point is dropped rather than kept
+ * as a gap, because no segment is drawn for it and keeping it would slide
+ * every later stage's highlight onto its neighbour.
+ */
+function convertFunnelSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: BarPoint[] = series.data
+    .filter(p => p.y != null)
+    .map(p => ({
+      x: pointLabel(p),
+      y: p.y as number,
+    }));
+
+  return {
+    id: String(series.index),
+    type: TraceType.FUNNEL,
+    title: series.name || undefined,
+    selectors: funnelSelector(containerId, series.index),
+    axes: {
+      x: { label: FUNNEL_STAGE_AXIS },
+      y: { label: FUNNEL_COUNT_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a word cloud's two dimensions are called — it is bound to no axis
+ * either, and `weight` is the option Highcharts names the magnitude with.
+ */
+const WORD_CLOUD_TERM_AXIS = 'Term';
+const WORD_CLOUD_WEIGHT_AXIS = 'Weight';
+
+/**
+ * Converts a `wordcloud` series into a word cloud layer.
+ *
+ * Terms are emitted heaviest first, and that ordering is load-bearing rather
+ * than cosmetic. `WordcloudSeries#drawPoints` sorts a copy of its points by
+ * descending weight before drawing, so the glyphs land in the DOM in weight
+ * order — while `WordCloudTrace` pairs the glyph at document position *i* with
+ * the term authored at index *i*. Emitting the terms as the chart declared
+ * them would therefore announce one word and highlight another, with the
+ * audio, text and braille all still correct. Sorting here with the comparator
+ * Highcharts uses (both sorts are stable, so ties agree too) makes the two
+ * orders the same one.
+ *
+ * The weight lives in `point.weight` because the series declares
+ * `pointArrayMap: ['weight']`; `y` is the fallback for a hand-built point.
+ */
+function convertWordCloudSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: WordCloudPoint[] = series.data
+    .filter(p => (p.weight ?? p.y) !== null)
+    .map(p => ({
+      x: String(pointLabel(p)),
+      y: (p.weight ?? p.y) as number,
+    }))
+    .sort((a, b) => Number(b.y) - Number(a.y));
+
+  return {
+    id: String(series.index),
+    type: TraceType.WORD_CLOUD,
+    title: series.name || undefined,
+    selectors: wordCloudSelector(containerId, series.index),
+    axes: {
+      x: { label: WORD_CLOUD_TERM_AXIS },
+      y: { label: WORD_CLOUD_WEIGHT_AXIS },
+    },
     data,
   };
 }
