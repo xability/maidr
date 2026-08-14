@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Google Charts Gauge & GeoChart Example</title>
+
+    <!-- 1. Load Google Charts -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+    <!--
+      2. Load MAIDR core and Google Charts adapter.
+         For bundled projects, import from 'maidr/google-charts' instead.
+    -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/google-charts.js"></script>
+
+    <script>
+      // Neither package is corechart, and neither exposes a chart layout
+      // interface. A GeoChart also fetches Google's geo data at draw time, so
+      // this page needs a network connection.
+      google.charts.load('current', { packages: ['gauge', 'geochart'] });
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawGauge();
+        drawRegions();
+        drawMarkers();
+      }
+
+      // Helper: wire up a Google Charts chart with MAIDR.
+      function bindMaidr(chart, data, container, options) {
+        google.visualization.events.addListener(chart, 'ready', function () {
+          // Use the UMD global: maidrGoogleCharts
+          var maidr = maidrGoogleCharts.createMaidrFromGoogleChart(chart, data, container, options);
+          container.setAttribute('maidr', JSON.stringify(maidr));
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Gauge — one dial per DataTable row.
+      //
+      // The range and the coloured bands are the whole reading of a dial and
+      // they live in the draw options, which the adapter never receives — so
+      // the SAME options object is handed over as `gaugeOptions`. Without it
+      // the dials fall back to Google's defaults of 0 to 100 and no bands.
+      // ---------------------------------------------------------------
+      function drawGauge() {
+        var data = google.visualization.arrayToDataTable([
+          ['Label', 'Value'],
+          ['Memory', 80],
+          ['CPU', 55],
+          ['Network', 68],
+        ]);
+
+        var gaugeOptions = {
+          min: 0,
+          max: 100,
+          redFrom: 90,
+          redTo: 100,
+          yellowFrom: 75,
+          yellowTo: 90,
+          minorTicks: 5,
+        };
+
+        var container = document.getElementById('gauge-chart');
+        var chart = new google.visualization.Gauge(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'Gauge',
+          title: 'Server Health',
+          gaugeOptions: gaugeOptions,
+        });
+
+        chart.draw(data, gaugeOptions);
+      }
+
+      // ---------------------------------------------------------------
+      // GeoChart, regions mode — a region name and the value it is shaded by.
+      //
+      // Google resolves a region name inside its own geo data and exposes no
+      // centroid for it, so this map is read as its region list in declared
+      // order. The markers chart below is the one that gets the spatial walk.
+      // ---------------------------------------------------------------
+      function drawRegions() {
+        var data = google.visualization.arrayToDataTable([
+          ['Country', 'Popularity'],
+          ['Germany', 200],
+          ['United States', 300],
+          ['Brazil', 400],
+          ['Canada', 500],
+          ['France', 600],
+          ['Russia', 700],
+        ]);
+
+        var container = document.getElementById('regions-chart');
+        var chart = new google.visualization.GeoChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'GeoChart',
+          title: 'Popularity by Country',
+        });
+
+        chart.draw(data, {});
+      }
+
+      // ---------------------------------------------------------------
+      // GeoChart, markers mode drawn from coordinates.
+      //
+      // A latitude and a longitude in columns 0 and 1 give MAIDR the centroids
+      // it needs, and the arrows then walk the map itself: up is north, left
+      // is west.
+      // ---------------------------------------------------------------
+      function drawMarkers() {
+        var data = google.visualization.arrayToDataTable([
+          ['Lat', 'Long', 'City', 'Population'],
+          [40.71, -74.01, 'New York', 8336817],
+          [34.05, -118.24, 'Los Angeles', 3979576],
+          [41.88, -87.63, 'Chicago', 2693976],
+          [29.76, -95.37, 'Houston', 2320268],
+          [33.45, -112.07, 'Phoenix', 1680992],
+          [47.61, -122.33, 'Seattle', 753675],
+        ]);
+
+        var container = document.getElementById('markers-chart');
+        var chart = new google.visualization.GeoChart(container);
+
+        bindMaidr(chart, data, container, {
+          chartType: 'GeoChart',
+          title: 'US City Populations',
+        });
+
+        chart.draw(data, {
+          region: 'US',
+          displayMode: 'markers',
+          colorAxis: { colors: ['#e7711c', '#4374e0'] },
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart-container { margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>MAIDR + Google Charts: Gauges and Maps</h1>
+    <p>
+      Click on a chart and use the arrow keys to explore it through audio,
+      text, and braille.
+    </p>
+
+    <h2>Gauge</h2>
+    <p>
+      One layer per dial — Page Up and Page Down move between them. Each dial
+      announces its value against the range it sits in, and the band it lands
+      in.
+    </p>
+    <div id="gauge-chart" class="chart-container"></div>
+
+    <h2>Choropleth (regions)</h2>
+    <p>
+      Read as a region list in declared order: a regions table carries no
+      centroids, so there is nothing to walk the map by.
+    </p>
+    <div id="regions-chart" class="chart-container"></div>
+
+    <h2>Choropleth (markers, from coordinates)</h2>
+    <p>
+      With a latitude and a longitude the arrows move across the map — up is
+      north, down is south, left is west, right is east.
+    </p>
+    <div id="markers-chart" class="chart-container"></div>
+  </body>
+</html>

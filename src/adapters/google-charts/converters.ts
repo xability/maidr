@@ -16,8 +16,12 @@
  *   ErrorBarPoint[]     = [{ x, y, yMin?, yMax? }, ...]
  *   FlowPoint[]         = [{ source, target, value }, ...]  (sankey)
  *   TreemapPoint[]      = [{ x, y?, path? }, ...]
+ *   WaterfallPoint[]    = [{ x, start, end, delta, kind }, ...]
+ *   ChoroplethPoint[]   = [{ x, y, lon?, lat? }, ...]
  *   GanttData           = { points: [[{ x, start, end, label? }, ...], ...], ... }
  *                         — an object, not an array
+ *   GaugePoint          = { value, min, max, label?, bands? }
+ *                         — an object, not an array, and one layer per dial
  */
 
 import type {
@@ -26,10 +30,13 @@ import type {
   CandlestickPoint,
   CandlestickSelector,
   CandlestickTrend,
+  ChoroplethPoint,
   ErrorBarPoint,
   FlowPoint,
   GanttData,
   GanttPoint,
+  GaugeBand,
+  GaugePoint,
   LinePoint,
   Maidr,
   MaidrLayer,
@@ -38,8 +45,17 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   TreemapPoint,
+  WaterfallKind,
+  WaterfallPoint,
 } from '@type/grammar';
-import type { GoogleBoundingBox, GoogleChart, GoogleChartType, GoogleDataTable, GoogleEvents } from './types';
+import type {
+  GoogleBoundingBox,
+  GoogleChart,
+  GoogleChartType,
+  GoogleDataTable,
+  GoogleEvents,
+  GoogleGaugeOptions,
+} from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
 
@@ -107,14 +123,58 @@ const MS_PER_DAY = 86_400_000;
  */
 const GANTT_HOURLY_MAX_SPAN = 2 * MS_PER_DAY;
 
+/** Google's own defaults for a gauge that names neither end of its dial. */
+const GAUGE_DEFAULT_MIN = 0;
+const GAUGE_DEFAULT_MAX = 100;
+
+/**
+ * What the stretch of a dial the author flagged with no colour is called.
+ *
+ * {@link GaugeBand}s partition the range — each starts where the previous one
+ * ended — while Google's bands are free-standing spans that routinely leave
+ * the bottom of the dial uncoloured (`redFrom: 90, yellowFrom: 75` and nothing
+ * below 75 is the commonest configuration there is). Emitting only the two
+ * coloured bands would put every low value in the yellow one, so the gaps are
+ * filled with a band that says exactly what it is and judges nothing.
+ */
+const GAUGE_UNBANDED = 'unbanded';
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
+ * The facts a chart's reading needs that live in the draw options rather than
+ * in the DataTable, and so have to be handed to the adapter separately.
+ *
+ * Shared by the single-chart and multi-panel entry points, since a panel of a
+ * faceted figure may be any of the chart types that need them.
+ */
+export interface GoogleChartReadingOptions {
+  /**
+   * The `Gauge` draw options — the same object passed to `chart.draw(…)`.
+   *
+   * A dial's range and its coloured bands live there and nowhere else, and
+   * they are most of what a gauge means: without them the reading is a bare
+   * number with nothing to sit against.
+   */
+  gaugeOptions?: GoogleGaugeOptions;
+  /**
+   * Which rows of a `'WaterfallChart'` restate the running total rather than
+   * changing it — the opening and closing bars, and any subtotal drawn along
+   * the way, by DataTable row index.
+   *
+   * Cannot be inferred: a subtotal's start and end are ordinary numbers, and
+   * a reader told a subtotal "rose by 950" hears a contribution the chart
+   * never made.
+   */
+  waterfallTotals?: readonly number[];
+}
+
+/**
  * Options accepted by {@link createMaidrFromGoogleChart}.
  */
-export interface GoogleChartAdapterOptions {
+export interface GoogleChartAdapterOptions extends GoogleChartReadingOptions {
   /** Unique ID for the MAIDR instance. Defaults to the container element's `id`. */
   id?: string;
   /** Chart title. Extracted from chart options when omitted. */
@@ -127,7 +187,9 @@ export interface GoogleChartAdapterOptions {
    * adapter type strings — `'StackedColumnChart'`, `'DodgedColumnChart'`,
    * `'StackedAreaChart'`, `'NormalizedAreaChart'`. Google draws those with
    * the same class as their plain counterpart and the difference lives in the
-   * draw options, which the adapter never sees.
+   * draw options, which the adapter never sees. The same goes for the marks
+   * Google has no class for at all — `'DotChart'`, `'LollipopChart'`,
+   * `'FunnelChart'`, `'WaterfallChart'`, `'DivergingBarChart'`.
    */
   chartType: GoogleChartType;
 }
@@ -187,9 +249,9 @@ export function createMaidrFromGoogleChart(
   const id = options.id ?? container.id ?? nextId('maidr-gc');
   const title = options.title ?? '';
 
-  const layer = buildLayer(chart, dataTable, container, options.chartType);
+  const layers = buildLayers(chart, dataTable, container, options.chartType, options);
 
-  const subplot: MaidrSubplot = { layers: [layer] };
+  const subplot: MaidrSubplot = { layers };
 
   return {
     id,
@@ -207,7 +269,7 @@ export function createMaidrFromGoogleChart(
  * chartType) tuple {@link createMaidrFromGoogleChart} takes, plus an optional
  * panel title announced during subplot navigation.
  */
-export interface GoogleChartPanel {
+export interface GoogleChartPanel extends GoogleChartReadingOptions {
   /** The rendered Google Charts chart instance for this panel. */
   chart: GoogleChart;
   /** The DataTable (or DataView) the panel was drawn from. */
@@ -307,12 +369,21 @@ export function createMaidrFromGoogleCharts(
 
   const subplots: MaidrSubplot[][] = grid.map(row => row.map((panel) => {
     ensureContainerId(panel.container);
-    const layer = buildLayer(panel.chart, panel.dataTable, panel.container, panel.chartType);
-    if (panel.title) {
-      layer.title = panel.title;
+    const layers = buildLayers(
+      panel.chart,
+      panel.dataTable,
+      panel.container,
+      panel.chartType,
+      panel,
+    );
+    if (panel.title && layers.length > 0) {
+      // The panel's name belongs to the panel, so it goes on the layer the
+      // subplot reads its title from rather than on every layer of a chart
+      // that drew more than one.
+      layers[0].title = panel.title;
     }
     return {
-      layers: [layer],
+      layers,
       selector: `#${panel.container.id} svg`,
     };
   }));
@@ -488,11 +559,44 @@ function validatePanelContainers(grid: GoogleChartPanel[][], root: HTMLElement):
 // Layer builders — one per supported chart type
 // ---------------------------------------------------------------------------
 
-function buildLayer(
+/**
+ * Converts one chart into the layers MAIDR reads it as.
+ *
+ * All but one chart type is a single layer. A `Gauge` is the exception: its
+ * DataTable holds one row per dial and {@link GaugePoint} is a single object
+ * rather than an array, so a three-dial gauge is three layers a reader pages
+ * between — which is what Google drew.
+ *
+ * @param chart     - The Google Chart instance
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param chartType - The chart type string the caller supplied
+ * @param reading   - The facts that live in the draw options
+ * @returns One or more MAIDR layers, in the order they are drawn
+ * @throws When `chartType` names a type the adapter cannot convert
+ */
+function buildLayers(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
   chartType: GoogleChartType,
+  reading: GoogleChartReadingOptions,
+): MaidrLayer[] {
+  // A gauge is the one chart drawn as several traces at once, so it is
+  // answered before the single-layer switch rather than inside it.
+  if (chartType === 'Gauge') {
+    return buildGaugeLayers(dt, container, reading.gaugeOptions);
+  }
+
+  return [buildLayer(chart, dt, container, chartType, reading)];
+}
+
+function buildLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  chartType: Exclude<GoogleChartType, 'Gauge'>,
+  reading: GoogleChartReadingOptions,
 ): MaidrLayer {
   // Intervals are the one reading model the DataTable itself decides: a
   // `role: 'interval'` column is visible to the adapter in a way `isStacked`
@@ -534,14 +638,33 @@ function buildLayer(
       return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.DODGED);
     case 'DodgedBarChart':
       return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.DODGED);
+    case 'DivergingColumnChart':
+      return buildSegmentedLayer(chart, dt, container, Orientation.VERTICAL, TraceType.DIVERGING);
+    case 'DivergingBarChart':
+      return buildSegmentedLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.DIVERGING);
     case 'CandlestickChart':
       return buildCandlestickLayer(chart, dt, container);
+    // The three marks MAIDR reads exactly as a bar chart. A dot plot and a
+    // lollipop differ from a column in what is drawn rather than in what is
+    // navigated, and a funnel adds the retention the model derives itself.
+    case 'DotChart':
+      return buildBarLayer(chart, dt, container, Orientation.VERTICAL, TraceType.DOT);
+    case 'LollipopChart':
+      return buildBarLayer(chart, dt, container, Orientation.VERTICAL, TraceType.LOLLIPOP);
+    case 'FunnelChart':
+      // Horizontal, which is how a funnel is drawn: the stages run down the
+      // page and the counts along it.
+      return buildBarLayer(chart, dt, container, Orientation.HORIZONTAL, TraceType.FUNNEL);
+    case 'WaterfallChart':
+      return buildWaterfallLayer(dt, container, reading.waterfallTotals);
     // The packages below draw without a `getChartLayoutInterface()`, so their
     // builders take no `chart` — there is no bounding box to ask for.
     case 'Sankey':
       return buildFlowLayer(dt, container);
     case 'TreeMap':
       return buildTreemapLayer(dt, container);
+    case 'GeoChart':
+      return buildChoroplethLayer(dt);
     case 'Gantt':
       return buildGanttLayer(dt, container, 'Gantt');
     case 'Timeline':
@@ -550,9 +673,10 @@ function buildLayer(
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
         + 'Supported types: AreaChart, BarChart, CandlestickChart, ColumnChart, '
-        + 'DodgedBarChart, DodgedColumnChart, Gantt, LineChart, NormalizedAreaChart, '
-        + 'PieChart, Sankey, ScatterChart, StackedAreaChart, StackedBarChart, '
-        + 'StackedColumnChart, Timeline, TreeMap.',
+        + 'DivergingBarChart, DivergingColumnChart, DodgedBarChart, DodgedColumnChart, '
+        + 'DotChart, FunnelChart, Gantt, Gauge, GeoChart, LineChart, LollipopChart, '
+        + 'NormalizedAreaChart, PieChart, Sankey, ScatterChart, StackedAreaChart, '
+        + 'StackedBarChart, StackedColumnChart, Timeline, TreeMap, WaterfallChart.',
       );
   }
 }
@@ -579,15 +703,36 @@ function buildBarOrSegmentedLayer(
   return buildBarLayer(chart, dt, container, orientation);
 }
 
+/**
+ * Builds a bar layer, or one of the three other marks MAIDR navigates exactly
+ * as a bar.
+ *
+ * A dot plot, a lollipop and a funnel are all a category and a magnitude —
+ * `BarPoint[]`, one row per category — and the trace factory routes DOT and
+ * LOLLIPOP straight to `BarTrace` while `FunnelTrace` extends it. So the four
+ * differ only in the declared type, which is what makes the chart announce
+ * itself as the chart the author drew, and in which element carries the
+ * highlight.
+ *
+ * @param chart       - The Google Chart instance
+ * @param dt          - The DataTable the chart was drawn from
+ * @param container   - The DOM container element
+ * @param orientation - Which axis carries the values
+ * @param traceType   - Which of the four readings the caller asked for
+ * @returns The MAIDR layer
+ */
 function buildBarLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
   orientation: Orientation,
+  traceType: TraceType.BAR | TraceType.DOT | TraceType.LOLLIPOP | TraceType.FUNNEL = TraceType.BAR,
 ): MaidrLayer {
   const data: BarPoint[] = [];
   const rows = dt.getNumberOfRows();
-  const dataCol = firstDataColumn(dt);
+  const dataCol = traceType === TraceType.FUNNEL
+    ? funnelValueColumn(dt)
+    : firstDataColumn(dt);
 
   for (let r = 0; r < rows; r++) {
     const label = formatCellValue(dt, r, 0);
@@ -595,12 +740,15 @@ function buildBarLayer(
     data.push({ x: label, y: value });
   }
 
-  // Use chart API to find and mark the correct SVG rect elements
-  const selector = markBarElements(chart, container, rows, 1);
+  // A dot plot draws its values as point markers and everything else as rects
+  // — a lollipop's stem is a thin bar series, and a funnel's stage is a bar.
+  const selector = traceType === TraceType.DOT
+    ? markPointMarkerElements(chart, container, rows, 'data-maidr-dot', 'Dot plot point')
+    : markBarElements(chart, container, rows, 1);
 
   return {
     id: nextId('layer'),
-    type: TraceType.BAR,
+    type: traceType,
     orientation,
     ...(selector ? { selectors: selector } : {}),
     axes: {
@@ -611,16 +759,59 @@ function buildBarLayer(
   };
 }
 
+/**
+ * Picks the column of a funnel table that carries the stage counts.
+ *
+ * A funnel has no Google class, and the recipe that draws the trapezoid look
+ * stacks a **transparent padding series** under the counts to centre each bar.
+ * That padding is `(widest - count) / 2`, so it grows exactly as the counts
+ * fall — and read as the stages it would announce a funnel that widens.
+ *
+ * A funnel's counts are non-increasing by definition, which tells the two
+ * apart with no option to pass: the first non-increasing data column is the
+ * counts. A table with one data column takes that column either way, and a
+ * table where no column is non-increasing is not a funnel, so the first data
+ * column is left to be read as authored.
+ *
+ * @param dt - The DataTable to inspect
+ * @returns The column to read the stage counts from
+ */
+function funnelValueColumn(dt: GoogleDataTable): number {
+  const columns = dataColumns(dt);
+  const rows = dt.getNumberOfRows();
+
+  const falling = columns.find((c) => {
+    for (let r = 1; r < rows; r++) {
+      if (numericValue(dt, r, c) > numericValue(dt, r - 1, c)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  return falling ?? columns[0] ?? 1;
+}
+
 // ---------------------------------------------------------------------------
 // Segmented bars (stacked, dodged / grouped, normalized)
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a stacked, dodged or diverging layer from the same DataTable shape.
+ *
+ * A diverging chart is the segmented bar's navigation with one difference that
+ * lives entirely in the data: the values arrive **signed**, because the sign
+ * is which side of the baseline the bar grows towards. So nothing is stripped
+ * or normalised here — `DivergingTrace` pitches the magnitude and announces
+ * the side, and a producer that sent absolute values would draw a pyramid with
+ * both halves on the right.
+ */
 function buildSegmentedLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
   orientation: Orientation,
-  traceType: TraceType.STACKED | TraceType.DODGED,
+  traceType: TraceType.STACKED | TraceType.DODGED | TraceType.DIVERGING,
 ): MaidrLayer {
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
@@ -939,6 +1130,78 @@ function buildCandlestickLayer(
 }
 
 // ---------------------------------------------------------------------------
+// Waterfall
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a waterfall layer from a chart drawn as floating bars.
+ *
+ * Google has no waterfall in its gallery, and the recipe that draws one is a
+ * `CandlestickChart` with the wick collapsed onto the body: low and open both
+ * set to the running total before the step, high and close both to the total
+ * after. That is exactly the floating bar a waterfall needs, and it is why
+ * this reads the candlestick's five-column table as well as the plain
+ * `[label, start, end]` one — the two carry the same two numbers.
+ *
+ * `start` and `end` go out **absolute**, which is what {@link WaterfallPoint}
+ * fixes, and `delta` is carried rather than left to be derived: a producer may
+ * round the two totals for display, and a delta recomputed from rounded ends
+ * is not the number the chart's own label shows.
+ *
+ * Which rows are totals cannot be inferred — an opening bar's start and end
+ * are ordinary numbers — so they are named by the caller. A row that is not
+ * named is an increase or a decrease according to its sign, and a step that
+ * moved nothing is an increase of zero rather than a total, since calling it
+ * one would claim the chart restated its running value there.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param totals    - Row indices that restate the running total
+ * @returns The MAIDR layer
+ */
+function buildWaterfallLayer(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  totals: readonly number[] = [],
+): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const columns = dataColumns(dt);
+
+  // Google's candlestick column order is Low, Open, Close, High, so the two
+  // ends of a collapsed wick are the middle pair. A three-column table names
+  // them directly.
+  const isCandlestick = columns.length >= 4;
+  const startCol = isCandlestick ? columns[1] : columns[0];
+  const endCol = isCandlestick ? columns[2] : columns[1];
+
+  const restated = new Set(totals);
+  const data: WaterfallPoint[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    const start = numericValue(dt, r, startCol);
+    const end = numericValue(dt, r, endCol);
+    const kind: WaterfallKind = restated.has(r)
+      ? 'total'
+      : (end < start ? 'decrease' : 'increase');
+
+    data.push({ x: formatCellValue(dt, r, 0), start, end, delta: end - start, kind });
+  }
+
+  const selector = markFloatingBarElements(container, rows);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.WATERFALL,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(0) || undefined },
+      y: { label: dt.getColumnLabel(endCol) || undefined },
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Error bars / intervals
 // ---------------------------------------------------------------------------
 
@@ -1010,7 +1273,13 @@ function buildErrorBarLayer(
     data.push(point);
   }
 
-  const selector = markErrorBarElements(chart, container, rows);
+  const selector = markPointMarkerElements(
+    chart,
+    container,
+    rows,
+    'data-maidr-interval',
+    'Interval point',
+  );
 
   return {
     id: nextId('layer'),
@@ -1227,6 +1496,194 @@ function ancestorsOf(id: string, parentOf: Map<string, string>): string[] {
     at = parentOf.get(at);
   }
   return path;
+}
+
+// ---------------------------------------------------------------------------
+// Choropleth (GeoChart)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a choropleth layer from a Google Charts GeoChart.
+ *
+ * A GeoChart takes either of two DataTable shapes, and the columns say which:
+ * a **regions** table names a place in column 0 and shades it by column 1,
+ * while a **markers** table drawn from coordinates puts a latitude in column 0
+ * and a longitude in column 1, with the name and the value after them. Only
+ * the second gives MAIDR the centroids, and those are what turn the reading
+ * from a list of places into a walk across the map — up is north, left is
+ * west — so they are taken whenever the table carries them.
+ *
+ * A regions table cannot supply them: Google resolves a region name to a
+ * drawn shape inside its own geo data and exposes no centroid for it. The
+ * schema is explicit that a layer declaring none is read in declared order
+ * instead, which is the poorer reading the data supports rather than a set of
+ * positions invented for it. `neighbors` is not recoverable either way.
+ *
+ * **No highlighting.** A GeoChart paints every region of the chosen
+ * resolution, not only the rows it was given, and its paths carry no class or
+ * id — so even a chart whose row count matched the drawn shapes exactly would
+ * be matched in Google's own geographic order rather than the DataTable's, and
+ * the highlight would sit on a different country from the one being announced.
+ * That is worse than none, which is the rule the pie wedges already follow.
+ *
+ * @param dt - The DataTable the chart was drawn from
+ * @returns The MAIDR layer
+ */
+function buildChoroplethLayer(dt: GoogleDataTable): MaidrLayer {
+  const rows = dt.getNumberOfRows();
+  const placed = dt.getNumberOfColumns() > 1
+    && dt.getColumnType(0) === 'number'
+    && dt.getColumnType(1) === 'number';
+
+  // In a coordinate table the region's own name is the first string column
+  // after the pair, and the value the first number column after it.
+  const nameCol = placed ? stringColumn(dt, 2) : 0;
+  const valueCol = placed ? (numberColumn(dt, 2) ?? 2) : firstDataColumn(dt);
+
+  const data: ChoroplethPoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    const point: ChoroplethPoint = {
+      x: nameCol === undefined
+        // A marker table need not name its markers. The coordinate pair is
+        // then the only identity the row has, and it is a truthful one.
+        ? `${formatCellValue(dt, r, 0)}, ${formatCellValue(dt, r, 1)}`
+        : formatCellValue(dt, r, nameCol),
+      y: numericValue(dt, r, valueCol),
+    };
+
+    if (placed) {
+      point.lat = numericValue(dt, r, 0);
+      point.lon = numericValue(dt, r, 1);
+    }
+
+    data.push(point);
+  }
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.CHOROPLETH,
+    axes: {
+      // Only when a column names the regions. Falling back to column 0 on a
+      // coordinate table would call the region axis "Lat".
+      x: { label: nameCol === undefined ? undefined : dt.getColumnLabel(nameCol) || undefined },
+      y: { label: dt.getColumnLabel(valueCol) || undefined },
+    },
+    data,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gauge
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds one layer per dial of a Google Charts Gauge.
+ *
+ * The DataTable is `[Label, Value]` rows and Google draws one dial for each,
+ * side by side in a single container. {@link GaugePoint} is a single object
+ * rather than an array — a gauge draws exactly one measure — so a three-row
+ * table becomes three layers a reader pages between, which is the shape the
+ * chart actually has.
+ *
+ * The dial's range and its coloured bands are **not in the DataTable**. They
+ * live in the draw options, which the adapter never receives, so the caller
+ * hands them over as {@link GoogleChartAdapterOptions.gaugeOptions}. Without
+ * them the dial falls back to Google's own defaults of 0 to 100 and no bands,
+ * which is a correct reading of a gauge drawn with the defaults and a wrong
+ * one of any other — so pass them.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @param options   - The gauge draw options, when the caller supplied them
+ * @returns One MAIDR layer per dial, in DataTable row order
+ */
+function buildGaugeLayers(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+  options: GoogleGaugeOptions = {},
+): MaidrLayer[] {
+  const rows = dt.getNumberOfRows();
+  const valueCol = firstDataColumn(dt);
+
+  const min = options.min ?? GAUGE_DEFAULT_MIN;
+  const max = options.max ?? GAUGE_DEFAULT_MAX;
+  const bands = gaugeBands(options, min);
+
+  const selectors = markGaugeDialElements(container, rows);
+
+  const layers: MaidrLayer[] = [];
+  for (let r = 0; r < rows; r++) {
+    const label = formatCellValue(dt, r, 0);
+    const data: GaugePoint = {
+      value: numericValue(dt, r, valueCol),
+      min,
+      max,
+      ...(label ? { label } : {}),
+      ...(bands ? { bands } : {}),
+    };
+
+    layers.push({
+      id: nextId('layer'),
+      type: TraceType.GAUGE,
+      // Every dial is a gauge, so the trace type cannot tell two of them
+      // apart on a layer switch. The measure's own name can.
+      ...(label ? { name: label } : {}),
+      ...(selectors ? { selectors: selectors[r] } : {}),
+      axes: {
+        x: { label: dt.getColumnLabel(0) || undefined },
+        y: { label: dt.getColumnLabel(valueCol) || undefined },
+      },
+      data,
+    });
+  }
+
+  return layers;
+}
+
+/**
+ * Turns Google's coloured spans into the ascending bands MAIDR reads.
+ *
+ * The two models differ in a way that matters: a {@link GaugeBand} carries
+ * only its upper edge, because bands partition the range and each starts where
+ * the previous one ended, while Google's `greenFrom`/`greenTo` triples are
+ * free-standing spans that may leave stretches of the dial uncoloured. The
+ * commonest configuration of all — a red band at the top, a yellow one under
+ * it, nothing below — leaves most of the dial bare, and emitting the two
+ * coloured bands alone would report every low value as yellow.
+ *
+ * So the gaps are filled: wherever the next declared span starts above where
+ * the last one ended, a {@link GAUGE_UNBANDED} band covers the difference. A
+ * gap left at the *top* needs nothing, since a value above every band is
+ * already reported as belonging to none.
+ *
+ * @param options - The gauge draw options
+ * @param min     - The dial's lower end, where the first band starts
+ * @returns The bands in ascending order, or undefined when none were declared
+ */
+function gaugeBands(options: GoogleGaugeOptions, min: number): GaugeBand[] | undefined {
+  const declared = [
+    { label: 'green', from: options.greenFrom, to: options.greenTo },
+    { label: 'yellow', from: options.yellowFrom, to: options.yellowTo },
+    { label: 'red', from: options.redFrom, to: options.redTo },
+  ]
+    .filter((band): band is { label: string; from: number; to: number } =>
+      typeof band.from === 'number' && typeof band.to === 'number')
+    .sort((a, b) => a.from - b.from);
+
+  if (declared.length === 0) {
+    return undefined;
+  }
+
+  const bands: GaugeBand[] = [];
+  let edge = min;
+  for (const band of declared) {
+    if (band.from > edge) {
+      bands.push({ to: band.from, label: GAUGE_UNBANDED });
+    }
+    bands.push({ to: band.to, label: band.label });
+    edge = band.to;
+  }
+  return bands;
 }
 
 // ---------------------------------------------------------------------------
@@ -1569,15 +2026,59 @@ function isGroupedByLane(laneOfRow: readonly number[]): boolean {
 }
 
 /**
+ * Lists the non-role data columns (excluding the domain/label column 0), in
+ * DataTable order.
+ *
+ * The fixed-shape readings need the columns as a list rather than one at a
+ * time: a waterfall's two ends are the second and third of them, and a
+ * funnel's counts are whichever one falls.
+ */
+function dataColumns(dt: GoogleDataTable): number[] {
+  const columns: number[] = [];
+  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c)) {
+      columns.push(c);
+    }
+  }
+  return columns;
+}
+
+/**
  * Counts non-role data columns (excluding the domain/label column 0).
  */
 function countDataColumns(dt: GoogleDataTable): number {
-  let count = 0;
-  for (let c = 1; c < dt.getNumberOfColumns(); c++) {
-    if (!isRoleColumn(dt, c))
-      count++;
+  return dataColumns(dt).length;
+}
+
+/**
+ * Returns the first non-role column at or after `from` of the given type, or
+ * `undefined` when there is none.
+ *
+ * A GeoChart's marker table is positional but optional past its coordinate
+ * pair — the name and the value may each be absent — so the two are found by
+ * type rather than counted off.
+ */
+function typedColumn(
+  dt: GoogleDataTable,
+  from: number,
+  type: 'string' | 'number',
+): number | undefined {
+  for (let c = from; c < dt.getNumberOfColumns(); c++) {
+    if (!isRoleColumn(dt, c) && dt.getColumnType(c) === type) {
+      return c;
+    }
   }
-  return count;
+  return undefined;
+}
+
+/** The first string column at or after `from`. See {@link typedColumn}. */
+function stringColumn(dt: GoogleDataTable, from: number): number | undefined {
+  return typedColumn(dt, from, 'string');
+}
+
+/** The first number column at or after `from`. See {@link typedColumn}. */
+function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
+  return typedColumn(dt, from, 'number');
 }
 
 // ---------------------------------------------------------------------------
@@ -1981,52 +2482,12 @@ function markCandlestickElements(
     rect.removeAttribute('data-maidr-candle-wick');
   });
 
-  // Get all rects inside clip-path (data elements, not axis/legend)
-  const allRects = svg.querySelectorAll('g[clip-path] rect');
-  if (allRects.length === 0) {
-    return undefined;
-  }
-
-  // Separate bodies from wicks based on width thresholds
-  const bodies: SVGRectElement[] = [];
-  const wicks: SVGRectElement[] = [];
-
-  for (const rect of allRects) {
-    const width = Number.parseFloat(rect.getAttribute('width') || '0');
-    const height = Number.parseFloat(rect.getAttribute('height') || '0');
-
-    // Skip grid lines (very thin horizontal or vertical lines)
-    if (width <= CANDLESTICK_GRID_MAX_WIDTH || height <= CANDLESTICK_GRID_MAX_WIDTH) {
-      continue;
-    }
-
-    // Classify by width: wicks are narrow, bodies are wider
-    if (width <= CANDLESTICK_WICK_MAX_WIDTH) {
-      wicks.push(rect as SVGRectElement);
-    } else if (width > CANDLESTICK_BODY_MIN_WIDTH) {
-      bodies.push(rect as SVGRectElement);
-    }
-    // Note: Elements with widths between WICK_MAX and BODY_MIN are skipped
-    // (typically chart decorations, not data elements)
-  }
+  const { bodies, wicks } = floatingBarRects(svg);
 
   // We expect equal numbers of bodies and wicks
   if (bodies.length === 0) {
     return undefined;
   }
-
-  // Sort by x-position to ensure correct order
-  bodies.sort((a, b) => {
-    const ax = Number.parseFloat(a.getAttribute('x') || '0');
-    const bx = Number.parseFloat(b.getAttribute('x') || '0');
-    return ax - bx;
-  });
-
-  wicks.sort((a, b) => {
-    const ax = Number.parseFloat(a.getAttribute('x') || '0');
-    const bx = Number.parseFloat(b.getAttribute('x') || '0');
-    return ax - bx;
-  });
 
   // Warn if element counts don't match expected row count (aids debugging)
   if (bodies.length !== rowCount) {
@@ -2066,30 +2527,185 @@ function markCandlestickElements(
 }
 
 /**
- * Marks the data-point circles of an interval chart and returns a selector
- * for them.
+ * Splits the data rects of a floating-bar chart into bodies and wicks, left to
+ * right.
  *
- * `ErrorBarTrace` highlights one element per **sample** — the whip is a
- * single mark whichever bound the cursor is on — so the estimate's own point
- * marker is what gets marked, located through the layout API the way scatter
- * points are.
+ * Google draws a candlestick — and so a waterfall, which is a candlestick with
+ * the wick collapsed onto the body — as plain `<rect>`s with no class or id,
+ * alongside the gridline rects. Width is what tells the three apart: a
+ * gridline is a hairline, a wick a few pixels, a body the width of a bar.
+ * Rects between the wick and body thresholds are chart decoration and belong
+ * to neither list.
+ *
+ * @param svg - The chart's SVG root
+ * @returns The bodies and the wicks, each sorted by x
+ */
+function floatingBarRects(svg: SVGSVGElement): {
+  bodies: SVGRectElement[];
+  wicks: SVGRectElement[];
+} {
+  const bodies: SVGRectElement[] = [];
+  const wicks: SVGRectElement[] = [];
+
+  // Rects inside the clip-path group are the data elements, not axis/legend.
+  for (const rect of svg.querySelectorAll<SVGRectElement>('g[clip-path] rect')) {
+    const width = Number.parseFloat(rect.getAttribute('width') || '0');
+    const height = Number.parseFloat(rect.getAttribute('height') || '0');
+
+    // Skip grid lines (very thin horizontal or vertical lines)
+    if (width <= CANDLESTICK_GRID_MAX_WIDTH || height <= CANDLESTICK_GRID_MAX_WIDTH) {
+      continue;
+    }
+
+    if (width <= CANDLESTICK_WICK_MAX_WIDTH) {
+      wicks.push(rect);
+    } else if (width > CANDLESTICK_BODY_MIN_WIDTH) {
+      bodies.push(rect);
+    }
+  }
+
+  const byX = (a: SVGRectElement, b: SVGRectElement): number =>
+    Number.parseFloat(a.getAttribute('x') || '0') - Number.parseFloat(b.getAttribute('x') || '0');
+
+  return { bodies: bodies.sort(byX), wicks: wicks.sort(byX) };
+}
+
+/**
+ * Marks the floating bars of a waterfall and returns a selector for them.
+ *
+ * `WaterfallTrace` wants one element per step in step order, which is left to
+ * right. The bar is the body of the candlestick the chart is drawn as; the
+ * wick sits behind it at the same extent and is not a second mark, so only the
+ * bodies are marked.
+ *
+ * All or nothing, and for a stricter reason than the count guards elsewhere:
+ * `WaterfallTrace.mapToSvgElements` discards a list whose length is not the
+ * step count, so a partial match would leave the marks in the DOM and the
+ * highlight off anyway.
+ *
+ * One selector **per step** rather than one attribute selector for all of
+ * them, because the steps are ordered by the x the bars were drawn at and a
+ * single selector would be resolved in document order instead. The two agree
+ * for a chart Google emits left to right and part company for anything else,
+ * silently and only in the highlight.
+ *
+ * @param container - The DOM container element
+ * @param stepCount - Number of data rows (one per step)
+ * @returns One CSS selector per step in step order, or undefined when the bars
+ *          could not be identified with confidence
+ */
+function markFloatingBarElements(
+  container: HTMLElement,
+  stepCount: number,
+): string[] | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  // Clear any existing marks from previous initializations
+  svg.querySelectorAll('rect[data-maidr-step]')
+    .forEach(rect => rect.removeAttribute('data-maidr-step'));
+
+  const { bodies } = floatingBarRects(svg);
+  if (bodies.length === 0) {
+    return undefined;
+  }
+
+  if (bodies.length !== stepCount) {
+    console.warn(
+      `[MAIDR] Waterfall step count mismatch: expected ${stepCount}, found ${bodies.length}. `
+      + 'Visual highlighting is disabled for this chart. A step that moved nothing draws '
+      + 'a bar too short to tell from a gridline.',
+    );
+    return undefined;
+  }
+
+  bodies.forEach((body, index) => body.setAttribute('data-maidr-step', `${index}`));
+
+  return bodies.map((_, index) => `#${container.id} svg rect[data-maidr-step="${index}"]`);
+}
+
+/**
+ * Marks the dials of a gauge and returns one selector per dial.
+ *
+ * The gauge package exposes no `getChartLayoutInterface()`, so the dials are
+ * matched by count and by the order Google draws them in, which is DataTable
+ * row order. Two DOM shapes are tried, most specific first: the dial face is a
+ * `<circle>` when the package draws one per gauge, and otherwise each dial has
+ * an `<svg>` of its own, which highlights the whole face rather than the
+ * needle but still points at the right measure.
+ *
+ * The counts must match exactly. A gauge that draws a needle hub as a second
+ * circle would otherwise have every dial matched to the wrong measure, and a
+ * highlight on the wrong dial tells a sighted collaborator something the audio
+ * is not saying.
+ *
+ * NOTE: written from the package's documented structure rather than from a
+ * real render, so the failure mode is deliberately "no highlight and a
+ * warning" rather than a guess.
+ *
+ * @param container - The DOM container element
+ * @param dialCount - Number of data rows (one per dial)
+ * @returns One CSS selector per dial in row order, or undefined when the dials
+ *          could not be identified with confidence
+ */
+function markGaugeDialElements(
+  container: HTMLElement,
+  dialCount: number,
+): string[] | undefined {
+  // Clear any existing marks from previous initializations
+  container.querySelectorAll('[data-maidr-dial]')
+    .forEach(element => element.removeAttribute('data-maidr-dial'));
+
+  const faces = Array.from(container.querySelectorAll('circle'));
+  const roots = Array.from(container.querySelectorAll('svg'));
+  const dials = faces.length === dialCount
+    ? faces
+    : (roots.length === dialCount ? roots : undefined);
+
+  if (!dials) {
+    console.warn(
+      `[MAIDR] Gauge dial count mismatch: expected ${dialCount}, found `
+      + `${faces.length} dial faces and ${roots.length} dial roots. `
+      + 'Visual highlighting is disabled for this chart.',
+    );
+    return undefined;
+  }
+
+  dials.forEach((dial, index) => dial.setAttribute('data-maidr-dial', `${index}`));
+
+  return dials.map((_, index) => `#${container.id} [data-maidr-dial="${index}"]`);
+}
+
+/**
+ * Marks the point markers of the first series and returns a selector for them.
+ *
+ * Two charts highlight a row through its drawn point rather than through a
+ * bar: an interval chart, where `ErrorBarTrace` puts a single mark on the
+ * sample whichever bound the cursor is on, and a dot plot, whose mark is the
+ * point and nothing else. Both locate them through the layout API the way
+ * scatter points are.
  *
  * All or nothing: a chart drawn without visible point markers (`pointSize: 0`,
  * which is a LineChart's default) has nothing to mark, and a partial match
- * would leave `ErrorBarTrace` with a list that does not line up with the
- * samples, which it discards anyway. Audio, text and braille are unaffected
- * either way.
+ * would leave the trace with a list that does not line up with the rows, which
+ * it discards anyway. Audio, text and braille are unaffected either way.
  *
  * @param chart     - The Google Chart instance
  * @param container - The DOM container element
- * @param rowCount  - Number of samples
+ * @param rowCount  - Number of rows, one point each
+ * @param attribute - The marking attribute to set
+ * @param what      - What the points are, for the mismatch warning
  * @returns CSS selector for the marked circles, or undefined when the chart
- *          drew none the samples could be matched to
+ *          drew none the rows could be matched to
  */
-function markErrorBarElements(
+function markPointMarkerElements(
   chart: GoogleChart,
   container: HTMLElement,
   rowCount: number,
+  attribute: string,
+  what: string,
 ): string | undefined {
   const svg = container.querySelector('svg');
   if (!svg) {
@@ -2107,7 +2723,7 @@ function markErrorBarElements(
   }
 
   // Clear any existing marks from previous initializations
-  allCircles.forEach(circle => circle.removeAttribute('data-maidr-interval'));
+  allCircles.forEach(circle => circle.removeAttribute(attribute));
 
   let markedCount = 0;
   for (let r = 0; r < rowCount; r++) {
@@ -2116,27 +2732,27 @@ function markErrorBarElements(
       continue;
     }
     const circle = findCircleByBoundingBox(allCircles, bbox);
-    if (circle && !circle.hasAttribute('data-maidr-interval')) {
-      circle.setAttribute('data-maidr-interval', `${r}`);
+    if (circle && !circle.hasAttribute(attribute)) {
+      circle.setAttribute(attribute, `${r}`);
       markedCount++;
     }
   }
 
   if (markedCount !== rowCount) {
     // A partial match is withdrawn rather than shipped: the marks left behind
-    // would resolve to a shorter list than the samples, and the next chart
-    // drawn into this container would inherit them.
-    allCircles.forEach(circle => circle.removeAttribute('data-maidr-interval'));
+    // would resolve to a shorter list than the rows, and the next chart drawn
+    // into this container would inherit them.
+    allCircles.forEach(circle => circle.removeAttribute(attribute));
     if (markedCount > 0) {
       console.warn(
-        `[MAIDR] Interval point count mismatch: expected ${rowCount}, marked ${markedCount}. `
+        `[MAIDR] ${what} count mismatch: expected ${rowCount}, marked ${markedCount}. `
         + 'Visual highlighting is disabled for this chart.',
       );
     }
     return undefined;
   }
 
-  return `#${container.id} svg circle[data-maidr-interval]`;
+  return `#${container.id} svg circle[${attribute}]`;
 }
 
 /**

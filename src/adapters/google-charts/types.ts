@@ -123,6 +123,36 @@ export interface GoogleEvents {
 }
 
 /**
+ * The subset of `google.visualization.Gauge`'s draw options that decide what
+ * a dial *means* rather than what it looks like.
+ *
+ * The adapter is handed the chart, the DataTable and the container, never the
+ * options, and a gauge keeps its whole scale in the options: without them a
+ * dial's value has no range to sit in and no band to land in, which is the
+ * entire reading. Pass the same object given to `chart.draw(…)`.
+ *
+ * @see https://developers.google.com/chart/interactive/docs/gallery/gauge#configuration-options
+ */
+export interface GoogleGaugeOptions {
+  /** Lower end of every dial. Google's own default is 0. */
+  min?: number;
+  /** Upper end of every dial. Google's own default is 100. */
+  max?: number;
+  /** Lower edge of the green band. */
+  greenFrom?: number;
+  /** Upper edge of the green band. */
+  greenTo?: number;
+  /** Lower edge of the yellow band. */
+  yellowFrom?: number;
+  /** Upper edge of the yellow band. */
+  yellowTo?: number;
+  /** Lower edge of the red band. */
+  redFrom?: number;
+  /** Upper edge of the red band. */
+  redTo?: number;
+}
+
+/**
  * Supported Google Charts chart type strings that the adapter can convert.
  */
 export type GoogleChartType
@@ -130,11 +160,59 @@ export type GoogleChartType
     | 'BarChart'
     | 'CandlestickChart'
     | 'ColumnChart'
+    /**
+     * A `BarChart` whose two series are drawn back to back, one of them
+     * negated — a population pyramid, or a Likert scale split around a
+     * neutral midpoint.
+     *
+     * Not a Google class: the sign in the DataTable is the only thing that
+     * distinguishes it from a stacked bar, and a stacked bar may legitimately
+     * carry negative values too.
+     */
+    | 'DivergingBarChart'
+    /** A `ColumnChart` drawn back to back. See `DivergingBarChart`. */
+    | 'DivergingColumnChart'
     | 'DodgedBarChart'
     | 'DodgedColumnChart'
+    /**
+     * A `LineChart` drawn with `lineWidth: 0` and a `pointSize` — Google's
+     * recipe for a Cleveland dot plot.
+     *
+     * Not a Google class: `lineWidth` lives in the draw options, so a dot plot
+     * and a line chart are the same class over the same table.
+     */
+    | 'DotChart'
+    /**
+     * An ordered `BarChart` of stage counts.
+     *
+     * Not a Google class at all: a funnel is a recipe. The adapter reads the
+     * stages and lets `FunnelTrace` derive the retention between them.
+     */
+    | 'FunnelChart'
     /** `google.charts.Gantt`, from the `gantt` package. */
     | 'Gantt'
+    /**
+     * `google.visualization.Gauge`, from the `gauge` package.
+     *
+     * Pass the draw options as {@link GoogleChartAdapterOptions.gaugeOptions};
+     * a dial's range and bands live there and nowhere else.
+     */
+    | 'Gauge'
+    /**
+     * `google.visualization.GeoChart`, from the `geochart` package, in either
+     * of its modes — shaded regions or placed markers.
+     */
+    | 'GeoChart'
     | 'LineChart'
+    /**
+     * A `ComboChart` drawing a thin bar series and a large-point line series
+     * over the same values.
+     *
+     * Not a Google class: the recipe duplicates the value column so the stems
+     * and the dots can be styled apart, which the generic path would read as
+     * two series.
+     */
+    | 'LollipopChart'
     /**
      * An `AreaChart` drawn with `isStacked: 'percent'`.
      *
@@ -154,4 +232,14 @@ export type GoogleChartType
     /** `google.visualization.Timeline`, from the `timeline` package. */
     | 'Timeline'
     /** `google.visualization.TreeMap`, from the `treemap` package. */
-    | 'TreeMap';
+    | 'TreeMap'
+    /**
+     * A `CandlestickChart` used as floating bars — low set to open and high to
+     * close, so the wick collapses onto the body and each step is drawn
+     * between its running total before and after.
+     *
+     * Not a Google class: there is no waterfall in the gallery. Name the
+     * opening, closing and subtotal rows with
+     * {@link GoogleChartAdapterOptions.waterfallTotals}.
+     */
+    | 'WaterfallChart';
