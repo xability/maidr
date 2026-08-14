@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Vega-Lite Choropleth Example</title>
+    <!-- Vega-Lite and its dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <!-- MAIDR Vega-Lite adapter (bundles MAIDR core) -->
+    <script src="../dist/vegalite.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Vega-Lite Choropleth</h1>
+    <p>
+      Click on the chart and use the arrow keys to move across the map: up is
+      north, down is south, left is west and right is east. Each region
+      announces its name and the value shading it. Press 'b' for braille, 't'
+      for text descriptions.
+    </p>
+    <p>
+      The rates below are illustrative figures made up for this demo, not real
+      unemployment data.
+    </p>
+    <div
+      id="choropleth-chart"
+      aria-label="Choropleth map loading"
+      style="min-height: 420px"
+    ></div>
+
+    <script>
+      // The values joined onto the geometry, plus each region's centroid in
+      // DEGREES. The centroids are what turn a list of regions read in
+      // declared order into a walk across the map — they are the one thing
+      // that settles whether a rising value means north or south, and no
+      // amount of inspecting the drawn SVG recovers them.
+      const states = [
+        { id: 53, state: 'Washington', rate: 4.9, lon: -120.4, lat: 47.4 },
+        { id: 41, state: 'Oregon', rate: 4.6, lon: -120.6, lat: 43.9 },
+        { id: 6, state: 'California', rate: 5.3, lon: -119.7, lat: 37.2 },
+        { id: 32, state: 'Nevada', rate: 5.8, lon: -116.6, lat: 39.3 },
+        { id: 16, state: 'Idaho', rate: 3.2, lon: -114.6, lat: 44.4 },
+        { id: 30, state: 'Montana', rate: 3.0, lon: -109.6, lat: 47.0 },
+        { id: 56, state: 'Wyoming', rate: 3.4, lon: -107.6, lat: 43.0 },
+        { id: 49, state: 'Utah', rate: 2.7, lon: -111.7, lat: 39.3 },
+        { id: 8, state: 'Colorado', rate: 3.6, lon: -105.5, lat: 39.0 },
+        { id: 4, state: 'Arizona', rate: 4.4, lon: -111.7, lat: 34.3 },
+        { id: 35, state: 'New Mexico', rate: 4.8, lon: -106.1, lat: 34.4 },
+      ];
+
+      // A choropleth is the one Vega-Lite mark that names itself: `geoshape`
+      // draws geography and nothing else compiles to it, so MAIDR recognises
+      // the map with no annotation at all — the `lookup` transform's join key
+      // names the regions and the `color` field shades them.
+      //
+      // The `usermeta.maidr` block below is Vega-Lite's own slot for
+      // third-party metadata, and it is worth writing here for one reason:
+      // this map joins on the numeric FIPS `id`, so the undeclared reading
+      // would announce "6" rather than "California". Naming `region` fixes
+      // that. `lon` and `lat` need no declaring — they default to the columns
+      // of those names, which the join has already brought in.
+      const spec = {
+        $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+        width: 640,
+        height: 400,
+        title: 'Unemployment rate, western states (illustrative)',
+        data: {
+          url: 'https://cdn.jsdelivr.net/npm/vega-datasets@2/data/us-10m.json',
+          format: { type: 'topojson', feature: 'states' },
+        },
+        transform: [
+          {
+            lookup: 'id',
+            from: {
+              data: { values: states },
+              key: 'id',
+              fields: ['state', 'rate', 'lon', 'lat'],
+            },
+          },
+          // Keep only the states the table covers. Geometry the join left
+          // unmatched carries no value to announce, so MAIDR drops it — and
+          // once the regions no longer line up one-to-one with the drawn
+          // shapes, the layer loses its highlighting.
+          { filter: 'isValid(datum.rate)' },
+        ],
+        projection: { type: 'albersUsa' },
+        mark: 'geoshape',
+        encoding: {
+          color: {
+            field: 'rate',
+            type: 'quantitative',
+            title: 'Unemployment rate (%)',
+          },
+          tooltip: [
+            { field: 'state', type: 'nominal', title: 'State' },
+            { field: 'rate', type: 'quantitative', title: 'Rate (%)' },
+          ],
+        },
+        usermeta: {
+          maidr: { type: 'choropleth', region: 'state' },
+        },
+      };
+
+      // === MAIDR Integration ===
+      // maidrVegaLite.embed() runs vegaEmbed() internally and mounts the
+      // accessible MAIDR UI on the rendered SVG once it's ready.
+      maidrVegaLite
+        .embed('#choropleth-chart', spec, { id: 'western-states-choropleth' })
+        .catch((err) => console.error('[vegalite-choropleth]', err));
+    </script>
+  </body>
+</html>

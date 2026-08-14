@@ -9,6 +9,8 @@
  * @see https://vega.github.io/vega-lite/
  */
 
+import type { MaidrTraceDeclaration } from '@type/declaration';
+
 /**
  * Minimal subset of a Vega `View` that the adapter needs at runtime.
  *
@@ -89,6 +91,17 @@ export type VegaLiteRepeatDef = string[] | { row?: string[]; column?: string[] }
  * `encoding.column` shorthand), and repeated (`repeat`) specs.
  */
 export interface VegaLiteSpec {
+  /**
+   * Vega-Lite's own sanctioned slot for third-party metadata, and the only
+   * home a JSON-authored or Altair-produced spec has for one.
+   *
+   * `usermeta.maidr` carries a {@link MaidrTraceDeclaration} — what the chart
+   * means, where the drawing does not say. It belongs on the spec node that
+   * becomes **one MAIDR layer**: a single-view spec, a `layer[i]` child, a
+   * concat or facet leaf. A block on a composite parent names no one layer
+   * and is ignored with a warning.
+   */
+  usermeta?: { maidr?: MaidrTraceDeclaration };
   $schema?: string;
   title?: string | { text?: string; subtitle?: string };
   description?: string;
@@ -185,6 +198,16 @@ export interface VegaLiteEncoding {
    * the rows.
    */
   detail?: VegaLiteChannelDef;
+  /**
+   * What a sighted reader is shown on hover, as one channel or a list of
+   * them.
+   *
+   * Read for one chart only: a `geoshape` map has no positional channel, so
+   * the tooltip is often the only place its spec names the regions it draws.
+   * Everywhere else the positional channels already say what a point is, and
+   * the tooltip repeats them.
+   */
+  tooltip?: VegaLiteChannelDef | VegaLiteChannelDef[];
   row?: VegaLiteChannelDef;
   column?: VegaLiteChannelDef;
 }
@@ -269,6 +292,16 @@ export interface VegaLiteTransform {
    * mark says "parallel coordinates"; the fold does.
    */
   fold?: string[];
+  /**
+   * The field on the primary data a `lookup` transform joins on.
+   *
+   * That field is what identifies a region on a choropleth: the geometry
+   * carries a name or a code, the values arrive from a second dataset keyed
+   * by it, and the join is the only place a `geoshape` spec writes the pair
+   * down. Vega resolves it as a field accessor, so a dotted name
+   * (`properties.name`) reaches into the feature's own properties.
+   */
+  lookup?: string;
   /** The field a `density` transform estimates a distribution over. */
   density?: string;
   /** The grouping keys of a `density` or `aggregate` transform. */
