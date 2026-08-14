@@ -87,6 +87,8 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Radar | `anychart.radar()`, and a polar `line` / `marker` series | [Radar chart](examples.html) |
 | Polar Area | `anychart.polar()` with a `column` / `area` series | [Radar chart](examples.html) |
 | Mosaic | `anychart.mekko()`, `anychart.mosaic()`, `anychart.barmekko()` | [Marimekko chart](examples.html) |
+| Choropleth | a `choropleth` series on `anychart.map()` | [Choropleth map](examples.html) |
+| Gantt | `anychart.ganttProject()`, `anychart.ganttResource()` | [Gantt chart](examples.html) |
 
 `step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
@@ -118,6 +120,16 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 - **Diverging bars** — a tornado chart, or a population pyramid — are **opt-in** via `bindAnyChart(chart, { diverging: true })`. AnyChart has no diverging chart type: the idiom is a stacked `anychart.bar()` whose two series straddle zero, and nothing distinguishes that from a stacked bar chart that happens to contain negative values. Guessing would not merely rename an ordinary chart — a diverging trace replaces the sign in every announcement with the name of a side, which is the one clue a reader would have that the reading was wrong. When declared, every bar series is merged into **one** layer, because the balance MAIDR announces is a difference read down a column of one grid; the values are emitted signed, exactly as the chart draws them, and each side is named by its series. A chart with fewer than two bar series keeps its ordinary bar layers and says why.
 
 - **Tag clouds** come from `anychart-tag-cloud.min.js` and report `getType()` as `'tag-cloud'`. Axis labels fall back to `Term` and `Weight`. Highlighting pairs each term with its own `<text>` element by matching the rendered text rather than by counting DOM order: a cloud writes its words in packing order, which has no relation to the order they were declared in, so counting them off would announce one term while highlighting another. A term that does not match exactly one rendered word disables highlighting for the whole chart rather than placing a guess.
+
+- **Choropleth** maps come from `anychart-map.min.js` plus a geodata file, and the `choropleth` series is what carries the data — `marker`, `bubble` and `connector` draw *over* a map rather than colouring it. The **series' own type is the whole detection**: `chart.getType()` is deliberately not required, because it answers `''` on a build without it and on a chart that has not been drawn, and gating on it would drop working maps. A row names a region by the id the geodata declared (`US.NV`) and never by name, so the name is read from the bound geo feature — `point.getFeatureProp()` where the build offers it, and the geodata's own `properties` matched by id otherwise. A region nothing names keeps its id, which is a poor name but a true one. Axis labels fall back to `Region` and `Value`.
+
+  `lon` and `lat` are **deliberately omitted**. MAIDR's centroids are degrees east and north; what AnyChart has are its features' `middle-x` / `middle-y`, normalised coordinates in the map's own projection, which cannot be turned into degrees without inverting a projection the chart does not name. Passing them through would tell a reader that one region lies north of another when the map says nothing of the kind, so the map is read as a region list in declared order — the poorer reading the schema explicitly sanctions. `neighbors` is not derivable from AnyChart either and stays absent.
+
+- **Gantt** charts come from `anychart-gantt.min.js`. `anychart.ganttProject()` and `anychart.ganttResource()` report `'gantt-project'` and `'gantt-resource'`, and the type name is corroborated structurally before anything is read: a gantt has no series API at all and its `chart.data()` hands back an `anychart.data.Tree` of tasks rather than a data view, so a chart naming itself a gantt with no tree behind it is bound as nothing rather than as an empty schedule. The tree is flattened depth-first — parents before their children, the order the chart stacks its rows in — into one lane per row. A parent task states no dates of its own, so the pair AnyChart derived for it (`autoStart` / `autoEnd`) is read instead; a task with a start and no end is a milestone and is emitted as the zero-length interval it is; a resource chart's `periods` array becomes several intervals in one lane. A task with no dates at all becomes an **empty lane** that still carries its name, which is what MAIDR's nested gantt shape exists to express. Axis labels fall back to `Date` and `Task` (`Resource` on a resource chart).
+
+  The ends are restated in whole days — or hours, on a schedule spanning less than two days — and the unit is named alongside them, because a gantt is read for how long its intervals run and epoch milliseconds announce as an unreadable nine-digit figure. This is read rather than guessed: a gantt's timeline is a date-time scale, so what the tree holds is instants. The x axis carries a formatter that turns a position back into a date, so each end is still announced as one.
+
+  `anychart.timeline()` is **not** read. It is a third constructor with a series API of its own whose `moment` series are instants rather than intervals, and announcing one as a schedule would describe work the chart never drew; it binds as nothing instead.
 
 ## Code Examples
 
@@ -436,6 +448,8 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 | Waterfall | `data-maidr-anychart-waterfall-step` | `"<seriesIndex>-<stepIndex>"` |
 | Radar / polar | `data-maidr-anychart-spoke` | `"<seriesIndex>-<spokeIndex>"` |
 | Marimekko | `data-maidr-anychart-tile` | `"<seriesIndex>-<categoryIndex>"` |
+| Choropleth | `data-maidr-anychart-region` | `"<seriesIndex>-<regionIndex>"` |
+| Gantt | `data-maidr-anychart-task-bar` | `"<laneIndex>-<intervalIndex>"` |
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
@@ -447,6 +461,11 @@ The adapter uses this `clip-path` presence as the primary discriminator when pic
 
 - Paths with `fill-opacity < 1` (hover / selection overlays).
 - Degenerate paths whose `d` attribute contains a single SVG command (clip-path boundary sentinels).
+
+Two families cannot be found by counting at all:
+
+- A **choropleth** is *located* rather than counted. AnyChart paints every feature of the bound geodata — all fifty states for a table naming six — in the geodata's order rather than the data's, and the paths carry no id, so counting them off would put California's highlight on Alabama's shape. Each region is instead matched to the shape whose own box is the one `point.getFeatureBounds()` says the chart drew it at. A region matching no shape, or more than one, disables highlighting for the whole map.
+- A **gantt** is picked out by count, but from more filled shapes than any other chart here: the row stripes behind both halves of the split widget, the header, and the progress fill inside a bar that has one. When the whole SVG holds exactly as many filled paths as the schedule has intervals they are the bars; otherwise the search narrows to the `<g>` layer holding exactly that many. Two layers answering to the same count — the stripes behind a one-interval-per-row project chart are exactly that — are separated by the one property a schedule has and a backdrop does not: its bars begin and end in different places. Anything still ambiguous is left unstamped and said out loud.
 
 If you want to bypass auto-stamping entirely, pass explicit `selectors` — they always take precedence over the generated `data-maidr-anychart-*` selectors.
 
