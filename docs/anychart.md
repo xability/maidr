@@ -422,9 +422,10 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 
 | Chart type | Attribute | Value format |
 |------------|-----------|--------------|
-| Bar / column | `data-maidr-anychart-bar` | `"<seriesIndex>-<pointIndex>"` |
-| Line / area / spline | `data-maidr-anychart-line-point` | `"<seriesIndex>-<pointIndex>"` |
-| Scatter / marker / bubble | `data-maidr-anychart-scatter-point` | `"<seriesIndex>-<pointIndex>"` |
+| Bar / column / diverging | `data-maidr-anychart-bar` | `"<seriesIndex>-<pointIndex>"` |
+| Line / area / spline / step / stick | `data-maidr-anychart-line-point` | `"<seriesIndex>-<pointIndex>"` |
+| Scatter / marker / bubble / dot plot | `data-maidr-anychart-scatter-point` | `"<seriesIndex>-<pointIndex>"` |
+| Dumbbell (`range-column` / `range-bar`) | `data-maidr-anychart-pair` | `"<seriesIndex>-<pairIndex>"` |
 | Box plot | `data-maidr-anychart-box` | `"<seriesIndex>-<pointIndex>"` |
 | Heatmap | `data-maidr-anychart-heatmap-cell` | `"<rowIndex>-<colIndex>"` |
 | Candlestick / OHLC | `data-maidr-anychart-candlestick-cell` | `"<seriesIndex>-<pointIndex>"` |
