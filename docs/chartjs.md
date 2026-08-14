@@ -72,15 +72,36 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Bar | `'bar'` (one dataset) | — | [Bar chart](examples.html) |
 | Stacked Bar | `'bar'` with `scales.x.stacked` / `scales.y.stacked` | — | [Stacked bar](examples.html) |
 | Dodged Bar | `'bar'` with multiple datasets (no stacking) | — | [Dodged bar](examples.html) |
+| Diverging Bar | stacked `'bar'` with one series negated | — | [Diverging bar](examples.html) |
+| Gantt / Range Bar | `'bar'` with `[start, end]` data | — | [Gantt chart](examples.html) |
+| Waterfall | `'bar'` with chained `[start, end]` data | — | [Waterfall](examples.html) |
 | Line | `'line'` | — | [Line chart](examples.html) |
 | Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
+| Area | `'line'` with `fill` | — | [Line chart](examples.html) |
+| Stacked Area | `'line'` with `fill` and a stacked value scale | — | [Line chart](examples.html) |
+| Normalized Area | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
+| Bump | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
 | Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
+| Radar | `'radar'` | — | [Radar chart](examples.html) |
+| Polar Area | `'polarArea'` | — | [Radar chart](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
+
+> **Radar note:** a radar and a polar area are drawn against a single radial `r` scale, so `axes.y` reads `scales.r.title.text` and `axes.x` defaults to `Category` — set `plugins.maidr.axes` to name what the spokes and their magnitudes mean. Both are read as a multi-series layer, one row per dataset and one column per spoke, with each spoke's stereo position following its angle rather than its index.
+
+### Charts Chart.js Does Not Declare
+
+Chart.js has no configuration for a waterfall, a bump chart, a normalized area or a diverging bar — each is a recipe built out of a plain bar or line chart — so MAIDR reads them off the **values**. Each test is deliberately strict, because announcing a chart as something it is not is worse than announcing it plainly:
+
+- **Waterfall** — one series of `[start, end]` bars on the default vertical index axis where each step begins where the previous one ended. Bars that sit on the baseline (`start` of `0`) are read as the opening, closing or a subtotal. Unchained intervals are read as a gantt instead.
+- **Gantt** — any other `[start, end]` bar chart. `indexAxis: 'y'` is the ordinary schedule, one lane per label; several datasets put several intervals in the same lane, each named by its dataset label. A lane whose entry is `null` stays a navigable row with nothing booked. Bounds may be numbers or `Date`s; on a `type: 'time'` scale MAIDR announces both ends as dates and measures lengths in milliseconds, so set `plugins.maidr.unit` when the schedule reads in days or sprints.
+- **Normalized area** — two or more stacked, filled line datasets whose every category totals the same whole (100 or 1, within half a percent so rounded shares still count).
+- **Bump** — a line chart with `scales.y.reverse` whose values at every period are a permutation of `1..N` across the series. The reversed axis alone is not enough; the permutation is what makes the rank reading safe.
+- **Diverging bar** — a stacked bar chart whose datasets each sit wholly on one side of the baseline, with both sides occupied. The values stay signed: MAIDR pitches the magnitude and announces the side.
 
 ## Code Examples
 

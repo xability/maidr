@@ -458,10 +458,10 @@ describe('chart.js extractor', () => {
     });
 
     it('still throws for unsupported chart types', () => {
-      // 'radar', not 'pie' — a pie is supported now, and a supported type here
-      // would assert nothing about the unsupported path.
+      // 'treemap', not 'radar' — a radar is supported now, and a supported
+      // type here would assert nothing about the unsupported path.
       const chart = createChart({
-        type: 'radar',
+        type: 'treemap',
         data: { datasets: [{ data: [1, 2] }] },
         options: {
           scales: { x: {}, y: { stack: 'demo' }, y2: { stack: 'demo' } },

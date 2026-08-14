@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Gantt Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Gantt Chart</h1>
+    <p>Click on the chart and use arrow keys to navigate. Up and Down move between lanes, Left and Right between the intervals booked in one lane. Pitch carries how long an interval runs; stereo position carries when it starts, so two lanes whose work lines up sound like they line up.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="gantt-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // A Chart.js floating bar: each datum is [start, end] rather than a
+      // magnitude from the baseline, and `indexAxis: 'y'` puts the lanes on
+      // the category axis with the schedule running left to right.
+      new Chart(document.getElementById('gantt-chart'), {
+        type: 'bar',
+        data: {
+          labels: ['Research', 'Design', 'Build', 'Review', 'Ship'],
+          datasets: [
+            {
+              label: 'Phase',
+              data: [[0, 10], [8, 20], [18, 45], [42, 52], [52, 56]],
+              backgroundColor: '#4682b4',
+            },
+          ],
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            title: { display: true, text: 'Project Schedule' },
+            // Chart.js states nowhere what one step of the axis measures, so
+            // a schedule read in days has to say so.
+            maidr: { unit: 'days' },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Day of project' }, min: 0 },
+            y: { title: { display: true, text: 'Phase' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

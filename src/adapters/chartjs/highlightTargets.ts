@@ -8,10 +8,10 @@
  * highlight resolution O(1) and aligned with the original chart elements.
  */
 
-import type { HeatmapData, MaidrLayer } from '../../type/grammar';
-import type { ChartJsActiveElement, ChartJsChart, ChartJsDataValue } from './types';
+import type { GanttData, HeatmapData, MaidrLayer } from '../../type/grammar';
+import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
-import { isMatrixValue, isPointValue, toFiniteNumber } from './extractor';
+import { isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -31,10 +31,17 @@ export interface TargetMaps {
   barLineIndices: Map<string, number[][]>;
   /** Heatmap: `heatmapIndices[layerId]` maps `"x\0y"` to the flat Chart.js element index. */
   heatmapIndices: Map<string, Map<string, number>>;
+  /** Gantt: `ganttTargets[layerId][lane][interval]` is the element drawing it. */
+  ganttTargets: Map<string, ChartJsActiveElement[][]>;
 }
 
 function isSegmentedType(type: string): boolean {
-  return type === TraceType.STACKED || type === TraceType.DODGED || type === TraceType.NORMALIZED;
+  return type === TraceType.STACKED
+    || type === TraceType.DODGED
+    || type === TraceType.NORMALIZED
+    // A diverging chart is a stacked one whose sides carry opposite signs, so
+    // it is drawn from the same grid of elements and indexes identically.
+    || type === TraceType.DIVERGING;
 }
 
 /**
@@ -49,6 +56,51 @@ function finiteIndices(data: ChartJsDataValue[]): number[] {
       indices.push(i);
   });
   return indices;
+}
+
+/**
+ * Original indices of a dataset's floating-bar entries, in dataset order.
+ * The same job {@link finiteIndices} does for a magnitude: a `[start, end]`
+ * pair is not a number, so the gap-skipping test has to be its own.
+ */
+function rangeIndices(data: ChartJsDataValue[]): number[] {
+  const indices: number[] = [];
+  data.forEach((value, i) => {
+    if (isRangeValue(value))
+      indices.push(i);
+  });
+  return indices;
+}
+
+/**
+ * Mirror the gantt extractor's lane walk to map a MAIDR (lane, interval)
+ * position onto the Chart.js element drawing it.
+ *
+ * A gantt is the one layer whose grid is transposed against Chart.js's own:
+ * MAIDR's row is the *category* (Chart.js's element index) and its column is
+ * which dataset booked that lane, so neither axis of the usual bar/line
+ * lookup applies and the pair is carried whole.
+ *
+ * @param datasets - The chart's datasets
+ * @param dsIndices - The dataset indices backing the layer, in chart order
+ * @param laneCount - How many lanes the emitted payload holds
+ * @returns One element per interval, lanes x intervals
+ */
+function buildGanttTargets(
+  datasets: ChartJsDataset[],
+  dsIndices: number[],
+  laneCount: number,
+): ChartJsActiveElement[][] {
+  const lanes: ChartJsActiveElement[][] = [];
+  for (let lane = 0; lane < laneCount; lane++) {
+    const intervals: ChartJsActiveElement[] = [];
+    for (const datasetIndex of dsIndices) {
+      if (isRangeValue(datasets[datasetIndex]?.data[lane] ?? null))
+        intervals.push({ datasetIndex, index: lane });
+    }
+    lanes.push(intervals);
+  }
+  return lanes;
 }
 
 /**
@@ -124,6 +176,7 @@ export function computeTargetMaps(
   const scatterBuckets = new Map<string, number[][]>();
   const barLineIndices = new Map<string, number[][]>();
   const heatmapIndices = new Map<string, Map<string, number>>();
+  const ganttTargets = new Map<string, ChartJsActiveElement[][]>();
   const datasets = chart.data.datasets;
 
   for (const layer of layers) {
@@ -142,13 +195,35 @@ export function computeTargetMaps(
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
       }
+      case TraceType.WATERFALL: {
+        // One series of floating bars: a single MAIDR row whose columns are
+        // the steps. Their entries are `[start, end]` pairs, so the finite
+        // test a magnitude uses would skip every one of them.
+        const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
+        barLineIndices.set(layer.id, [rangeIndices(datasets[dsIdx]?.data ?? [])]);
+        break;
+      }
+      case TraceType.GANTT: {
+        // Lanes come from the payload rather than the datasets so an empty
+        // lane keeps its row — the extractor emits one per category.
+        const lanes = (layer.data as GanttData).points.length;
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        ganttTargets.set(layer.id, buildGanttTargets(datasets, dsIndices, lanes));
+        break;
+      }
       // A filled band is drawn from the same dataset a line is, one per
       // series, so it indexes identically — the fill changes the mark, not
-      // where a point lives. A staircase is the same again.
+      // where a point lives. A staircase is the same again, and so are the
+      // spokes of a radar and the ranks of a bump chart: one row per series,
+      // one column per position along it.
       case TraceType.LINE:
       case TraceType.AREA:
       case TraceType.STACKED_AREA:
-      case TraceType.STEP: {
+      case TraceType.NORMALIZED_AREA:
+      case TraceType.STEP:
+      case TraceType.BUMP:
+      case TraceType.RADAR:
+      case TraceType.POLAR_AREA: {
         // One MAIDR row per backing dataset, in MAIDR row order.
         const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
         barLineIndices.set(
@@ -167,7 +242,7 @@ export function computeTargetMaps(
     }
   }
 
-  return { scatterBuckets, barLineIndices, heatmapIndices };
+  return { scatterBuckets, barLineIndices, heatmapIndices, ganttTargets };
 }
 
 /**
@@ -202,6 +277,13 @@ export function resolveActiveTargets(
     return buckets[col].map(index => ({ datasetIndex, index }));
   }
 
+  // Gantt: MAIDR row = lane (the Chart.js element index), col = which dataset
+  // booked that lane. Both halves come from the prebuilt pair.
+  if (layer.type === TraceType.GANTT) {
+    const target = maps.ganttTargets.get(layer.id)?.[row]?.[col];
+    return target ? [target] : [];
+  }
+
   // Candlestick / OHLC: a single dataset of candles. MAIDR `col` selects the
   // candle; MAIDR `row` picks the OHLC field (volatility/open/high/low/close)
   // for audio/text and does NOT change which element to highlight.
@@ -224,8 +306,9 @@ export function resolveActiveTargets(
     return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index: flatIndex }];
   }
 
-  // Bar / line / pie: MAIDR row = dataset (always 0 for a pie, whose slices are
-  // one row), col = point (into the gap-skipped list). Map col back to the
+  // Bar / line / pie / waterfall: MAIDR row = dataset (always 0 for a pie,
+  // whose slices are one row, and for a waterfall's single chain of steps),
+  // col = point (into the gap-skipped list). Map col back to the
   // original Chart.js element index so highlights stay aligned when the dataset
   // contains gap markers.
   const indexMap = maps.barLineIndices.get(layer.id);

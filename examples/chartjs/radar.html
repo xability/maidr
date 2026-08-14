@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Radar Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Radar and Polar Area</h1>
+    <p>Click on a chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. A spoke's stereo position follows its angle, so sweeping a series goes out and comes back.</p>
+
+    <div style="width: 500px; height: 400px">
+      <canvas id="radar-chart"></canvas>
+    </div>
+
+    <div style="width: 500px; height: 400px">
+      <canvas id="polar-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('radar-chart'), {
+        type: 'radar',
+        data: {
+          labels: ['Speed', 'Handling', 'Range', 'Comfort', 'Economy'],
+          datasets: [
+            {
+              label: 'Model A',
+              data: [82, 74, 60, 91, 55],
+              borderColor: '#2ca02c',
+              backgroundColor: 'rgba(44, 160, 44, 0.2)',
+            },
+            {
+              label: 'Model B',
+              data: [61, 88, 79, 66, 84],
+              borderColor: '#1f77b4',
+              backgroundColor: 'rgba(31, 119, 180, 0.2)',
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Model Comparison' },
+            // A radar has no x or y scale, so name what the spokes and their
+            // magnitudes mean rather than letting MAIDR announce 'Category'.
+            maidr: { axes: { x: 'Attribute', y: 'Score' } },
+          },
+          scales: {
+            r: { title: { display: true, text: 'Score' }, min: 0, max: 100 },
+          },
+        },
+      });
+
+      new Chart(document.getElementById('polar-chart'), {
+        type: 'polarArea',
+        data: {
+          labels: ['North', 'East', 'South', 'West'],
+          datasets: [
+            {
+              label: 'Deliveries',
+              data: [42, 67, 31, 55],
+              backgroundColor: ['#4682b4', '#d2691e', '#6b8e23', '#8b4789'],
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Deliveries by Region' },
+            maidr: { axes: { x: 'Region', y: 'Deliveries' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

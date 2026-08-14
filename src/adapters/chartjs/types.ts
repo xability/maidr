@@ -7,12 +7,29 @@
  */
 
 /**
+ * One end of a floating bar.
+ *
+ * A number on a linear scale; a `Date` when the bar is drawn against a time
+ * scale, which is how Chart.js's own gantt and range-bar recipes write them.
+ * ISO date *strings* are also accepted by Chart.js there and are deliberately
+ * not read here — parsing one means guessing a calendar for a value that may
+ * equally be a category label.
+ */
+export type ChartJsRangeBound = number | Date;
+
+/**
  * Union of data value shapes found in Chart.js datasets.
  * Covers native chart types and popular plugins (boxplot, financial, matrix).
  */
 export type ChartJsDataValue
   = | number
     | null
+    /**
+     * A floating bar: `[start, end]` rather than a magnitude from the
+     * baseline. Chart.js draws gantt lanes, range bars and waterfall steps
+     * this way.
+     */
+    | [ChartJsRangeBound, ChartJsRangeBound]
     | { x: number; y: number; r?: number }
     | { x: number | string; o: number; h: number; l: number; c: number }
     | {
@@ -114,6 +131,14 @@ export interface ChartJsScale {
   title?: { text?: string; display?: boolean };
   type?: string;
   stacked?: boolean;
+  /**
+   * Whether the scale runs the other way (largest value at the origin end).
+   * A rank axis is the case that matters here: a bump chart reverses y so
+   * rank 1 sits at the top.
+   */
+  reverse?: boolean;
+  /** Time-scale options; `unit` names what one step of the axis measures. */
+  time?: { unit?: string };
   /** Which axis this scale belongs to; defaults from the scale id's first letter. */
   axis?: 'x' | 'y';
   /**
@@ -196,6 +221,17 @@ export interface MaidrPluginOptions {
   title?: string;
   /** Override axis labels. */
   axes?: { x?: string; y?: string; z?: string };
+  /**
+   * What one unit of a gantt chart's interval axis measures — "days",
+   * "sprints", "hours".
+   *
+   * The length of an interval is the fact a schedule is drawn to carry, and
+   * Chart.js states the unit nowhere: a linear axis is bare numbers, and a
+   * time axis is parsed to epoch milliseconds whatever `time.unit` displays.
+   * Absent, MAIDR announces a length without naming a unit rather than
+   * inventing one.
+   */
+  unit?: string;
   /**
    * Outline color used for the DOM highlight overlay drawn on top of the
    * canvas during MAIDR navigation. Accepts any CSS color string.
