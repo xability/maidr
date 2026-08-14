@@ -1,9 +1,11 @@
 import type { MaidrTraceDeclaration } from '@type/declaration';
 import {
   FIELD_REF_FALLBACKS,
-  isCensoredValue,
+  isFlagValue,
+  readDeclarationSlot,
   resolveFieldRef,
   validateDeclaration,
+  warnUnresolvedRef,
 } from '@adapters/shared/traceDeclaration';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { Orientation, TraceType } from '@type/grammar';
@@ -33,7 +35,7 @@ describe('resolveFieldRef — an explicit ref is used verbatim', () => {
   test('an explicit ref that misses resolves to nothing, with NO fallback', () => {
     // `lower` is a `yMin` fallback and the row carries it, but the author
     // named `ciLow`. Papering over the miss would announce a bound the author
-    // did not point at; the caller warns about it instead.
+    // did not point at; `warnUnresolvedRef` reports it instead.
     expect(resolveFieldRef({ lower: 3 }, 'ciLow', 'yMin')).toBeUndefined();
   });
 
@@ -81,7 +83,7 @@ describe('resolveFieldRef — the defaulted path walks the fallback chain', () =
 
   test('an array is a row, so a d3-hexbin bin reads its own length as the count', () => {
     const bin = Object.assign([{ x: 1 }, { x: 2 }, { x: 3 }], { x: 1, y: 2 });
-    expect(resolveFieldRef(bin as unknown as Record<string, unknown>, undefined, 'count')).toBe(3);
+    expect(resolveFieldRef(bin, undefined, 'count')).toBe(3);
   });
 
   test.each([
@@ -90,20 +92,42 @@ describe('resolveFieldRef — the defaulted path walks the fallback chain', () =
     ['a string', 'not a row'],
     ['a number', 7],
   ])('%s is not a row and resolves to undefined', (_label, row) => {
-    const notARow = row as unknown as Record<string, unknown> | undefined;
-    expect(resolveFieldRef(notARow, undefined, 'yMin')).toBeUndefined();
-    expect(resolveFieldRef(notARow, 'yMin', 'yMin')).toBeUndefined();
+    // The parameter is `unknown` because that is how the amCharts data
+    // context, the Plotly customdatum and the Vega-Lite datum all arrive; an
+    // adapter that had to assert its way in would be asserting past the guard
+    // below rather than being served by it.
+    expect(resolveFieldRef(row, undefined, 'yMin')).toBeUndefined();
+    expect(resolveFieldRef(row, 'yMin', 'yMin')).toBeUndefined();
   });
 });
 
-describe('isCensoredValue — the truth table, read strictly', () => {
+describe('warnUnresolvedRef — an explicit name that misses is reported', () => {
+  test('the message names the field, the canonical it filled and the series', () => {
+    warnUnresolvedRef(CONTEXT, 'cens', 'censored');
+
+    expect(warnings).toEqual([
+      '[MAIDR Highcharts] maidr declaration on series "sales" names "cens" for '
+      + 'censored, which no row carries; censored is left out.',
+    ]);
+  });
+
+  test('the sentence is the module\'s, so eight adapters print one of them', () => {
+    warnUnresolvedRef({ adapter: 'Chart.js', seriesRef: 'dataset 2' }, 'wgt', 'weight');
+    expect(warnings[0]).toBe(
+      '[MAIDR Chart.js] maidr declaration on dataset 2 names "wgt" for weight, '
+      + 'which no row carries; weight is left out.',
+    );
+  });
+});
+
+describe('isFlagValue — the truth table, read strictly', () => {
   test.each([
     ['the boolean true', true],
     ['the number 1', 1],
     ['the string "1"', '1'],
     ['the string "true"', 'true'],
-  ])('%s marks a censored observation', (_label, value) => {
-    expect(isCensoredValue(value)).toBe(true);
+  ])('%s raises the flag', (_label, value) => {
+    expect(isFlagValue(value)).toBe(true);
   });
 
   test.each([
@@ -120,7 +144,14 @@ describe('isCensoredValue — the truth table, read strictly', () => {
     ['null', null],
     ['an object', {}],
   ])('%s does not', (_label, value) => {
-    expect(isCensoredValue(value)).toBe(false);
+    expect(isFlagValue(value)).toBe(false);
+  });
+
+  test('one table decides both flags, so `pooled` cannot drift from `censored`', () => {
+    // A `pooled` read by truthiness marks every study as the summary the
+    // moment a CSV hands over `'0'`, which empties the evidence.
+    expect(isFlagValue('0')).toBe(false);
+    expect(isFlagValue(1)).toBe(true);
   });
 });
 
@@ -201,6 +232,7 @@ const FULL_DECLARATIONS: readonly MaidrTraceDeclaration[] = [
     stepDirection: 'hv',
     censoredSeries: 'ticks',
     bandSeries: 'band',
+    merge: true,
   },
   {
     type: TraceType.ERROR_BAR,
@@ -309,6 +341,15 @@ describe('validateDeclaration — a valid block passes through untouched', () =>
   test('all thirteen variants are covered by the fixtures above', () => {
     expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(13);
   });
+
+  test('a survival curve may say its siblings are further arms of it', () => {
+    // Chart.js already folds every line dataset of a survival figure into one
+    // layer of arms; `merge` is how the other adapters say the same thing.
+    expect(validateDeclaration({ type: TraceType.SURVIVAL, merge: false }, CONTEXT))
+      .not
+      .toBeNull();
+    expect(warnings).toEqual([]);
+  });
 });
 
 describe('validateDeclaration — the key set of a variant is closed', () => {
@@ -370,12 +411,241 @@ describe('validateDeclaration — the key set of a variant is closed', () => {
   });
 });
 
+describe('validateDeclaration — a value of the wrong kind is dropped, not passed on', () => {
+  test('a direction spelt in title case would invert the finding set', () => {
+    // `volcano.ts` reads anything that is not exactly `'below'` as above, so
+    // `'Below'` on a raw-p axis would announce precisely the points that
+    // failed to reach significance as the result.
+    const block = { type: TraceType.VOLCANO, significance: 0.05, significanceDirection: 'Below' };
+    const declaration = validateDeclaration(block, CONTEXT);
+
+    expect(warnings).toEqual([
+      '[MAIDR Highcharts] maidr declaration for "volcano" on series "sales" has '
+      + 'significanceDirection "Below"; expected "above" or "below"; ignored.',
+    ]);
+    expect(declaration).toEqual({ type: TraceType.VOLCANO, significance: 0.05 });
+  });
+
+  test('the author\'s own object is never mutated', () => {
+    const block = { type: TraceType.VOLCANO, significanceDirection: 'Below' };
+    const declaration = validateDeclaration(block, CONTEXT);
+
+    expect(declaration).not.toBe(block);
+    expect(block.significanceDirection).toBe('Below');
+  });
+
+  test('the words an author writes for an orientation are not the grammar\'s values', () => {
+    // `Orientation.HORIZONTAL` is `'horz'`. Left in place, `'horizontal'` is
+    // non-nullish and never equal to it, so a horizontal forest plot would
+    // navigate and highlight as a vertical one for good.
+    const declaration = validateDeclaration(
+      { type: TraceType.FOREST, orientation: 'horizontal' },
+      CONTEXT,
+    );
+
+    expect(warnings).toEqual([
+      '[MAIDR Highcharts] maidr declaration for "forest" on series "sales" has '
+      + 'orientation "horizontal"; expected "horz" or "vert"; ignored.',
+    ]);
+    expect(declaration).toEqual({ type: TraceType.FOREST });
+  });
+
+  /** One wrong-kinded value per value kind the key sets use. */
+  const WRONG_VALUES: readonly [string, MaidrTraceDeclaration['type'], string, unknown][] = [
+    ['a step direction in caps', TraceType.SURVIVAL, 'stepDirection', 'HV'],
+    ['a merge flag as a string', TraceType.SURVIVAL, 'merge', 'false'],
+    ['a field ref that is a boolean', TraceType.SURVIVAL, 'censored', true],
+    ['an empty field ref', TraceType.SURVIVAL, 'censored', ''],
+    ['a series ref that is a number', TraceType.SURVIVAL, 'bandSeries', 2],
+    ['a title that is not a string', TraceType.ALLUVIAL, 'title', 7],
+    ['an orientation given as a boolean', TraceType.BOXEN, 'orientation', true],
+    ['a null value as a string', TraceType.FOREST, 'nullValue', '1'],
+    ['a row index as a string', TraceType.FOREST, 'pooledIndex', '2'],
+    ['a negative row index', TraceType.FOREST, 'pooledIndex', -1],
+    ['a fractional row index', TraceType.FOREST, 'pooledIndex', 2.5],
+    ['a significance that is not finite', TraceType.MANHATTAN, 'significance', Number.NaN],
+    ['an effect given as a string', TraceType.MANHATTAN, 'effect', '1.5'],
+  ];
+
+  test.each(WRONG_VALUES)('%s is warned about and left out', (_label, type, key, value) => {
+    const declaration = validateDeclaration({ type, [key]: value }, CONTEXT);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(`has ${key} `);
+    expect(declaration).toEqual({ type });
+  });
+
+  test('a field ref that is `true` does not quietly walk the fallback chain', () => {
+    // `censored: true` reads as "this series is censored data" to its author.
+    // Left in place it would mean "go and find a `censor` column", so an
+    // unrelated column would decide which times are announced as censored.
+    const declaration = validateDeclaration({ type: TraceType.SURVIVAL, censored: true }, CONTEXT);
+
+    expect(warnings[0]).toContain('expected a field name; ignored.');
+    expect(declaration).toEqual({ type: TraceType.SURVIVAL });
+  });
+
+  test.each([
+    ['undefined', undefined],
+    ['null', null],
+  ])('a key written as %s is "not given" rather than an error', (_label, value) => {
+    const declaration = validateDeclaration({ type: TraceType.SURVIVAL, censored: value }, CONTEXT);
+
+    expect(warnings).toEqual([]);
+    expect(declaration).not.toBeNull();
+  });
+
+  test('a wrong value on one key leaves the rest of the declaration standing', () => {
+    const declaration = validateDeclaration(
+      { type: TraceType.FOREST, nullValue: 1, pooledIndex: '2', weight: 'w' },
+      CONTEXT,
+    );
+
+    expect(warnings).toHaveLength(1);
+    expect(declaration).toEqual({ type: TraceType.FOREST, nullValue: 1, weight: 'w' });
+  });
+});
+
+describe('validateDeclaration — a variant without its required key is rejected', () => {
+  test('a parallel plot with no dimensions is refused rather than typed as if it had them', () => {
+    // `dimensions` is non-optional on the type, so a block returned without it
+    // makes `declaration.dimensions.map(…)` compile and throw — out of a
+    // binder, which takes the host page down.
+    expect(validateDeclaration({ type: TraceType.PARALLEL, label: 'model' }, CONTEXT)).toBeNull();
+    expect(warnings).toEqual([
+      '[MAIDR Highcharts] maidr declaration for "parallel_coordinates" on series '
+      + '"sales" is missing required key "dimensions"; reading it as the undeclared chart.',
+    ]);
+  });
+
+  test('a misspelt required key is reported twice: as unknown, and as missing', () => {
+    expect(validateDeclaration({ type: TraceType.PARALLEL, dimensons: ['mpg'] }, CONTEXT))
+      .toBeNull();
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain('unknown key "dimensons"');
+    expect(warnings[1]).toContain('missing required key "dimensions"');
+  });
+
+  test('a ridgeline with no group is refused, since one curve is a different chart', () => {
+    expect(validateDeclaration({ type: TraceType.RIDGELINE, value: 'temp' }, CONTEXT)).toBeNull();
+    expect(warnings[0]).toContain('missing required key "group"');
+  });
+
+  test('a required key whose value is wrong is dropped and then missing', () => {
+    expect(validateDeclaration({ type: TraceType.RIDGELINE, group: 3 }, CONTEXT)).toBeNull();
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain('has group 3; expected a field name; ignored.');
+    expect(warnings[1]).toContain('missing required key "group"');
+  });
+
+  test('the narrowed declaration carries the field the type promises', () => {
+    const declaration = validateDeclaration(
+      { type: TraceType.PARALLEL, dimensions: ['mpg', { key: 'wt' }] },
+      CONTEXT,
+    );
+
+    expect(declaration).not.toBeNull();
+    if (declaration?.type === TraceType.PARALLEL) {
+      // The line eight adapters will write. It type-checks, so it must not
+      // throw.
+      expect(declaration.dimensions).toHaveLength(2);
+    }
+  });
+});
+
+describe('validateDeclaration — the axes of a parallel plot are checked one by one', () => {
+  test.each<[string, unknown]>([
+    ['a comma-separated string', 'mpg,hp'],
+    ['an empty list', []],
+    ['an object', { 0: 'mpg' }],
+  ])('%s is not a list of axes', (_label, dimensions) => {
+    expect(validateDeclaration({ type: TraceType.PARALLEL, dimensions }, CONTEXT)).toBeNull();
+    expect(warnings[0]).toContain('expected a non-empty list of axes; ignored.');
+  });
+
+  test('an axis object spelt the Recharts way is named by its index', () => {
+    expect(
+      validateDeclaration(
+        { type: TraceType.PARALLEL, dimensions: ['mpg', { label: 'Weight', dataKey: 'wt' }] },
+        CONTEXT,
+      ),
+    ).toBeNull();
+
+    expect(warnings[0]).toContain('has dimensions[1] with unknown key "dataKey"; ignored.');
+    expect(warnings[1]).toContain('has dimensions[1] naming no field');
+    expect(warnings[2]).toContain('missing required key "dimensions"');
+  });
+
+  test.each<[string, unknown]>([
+    ['a number', 3],
+    ['null', null],
+    ['an empty string', ''],
+    ['an object with no key', { label: 'Weight' }],
+  ])('an axis given as %s names no field', (_label, entry) => {
+    expect(validateDeclaration({ type: TraceType.PARALLEL, dimensions: [entry] }, CONTEXT))
+      .toBeNull();
+    expect(warnings[0]).toContain('has dimensions[0] naming no field');
+  });
+
+  test('an axis label that is not a string refuses the list rather than the type', () => {
+    // The label is what a reader hears for that axis, and a declaration typed
+    // as if it were a string is the lie this check exists to stop.
+    expect(
+      validateDeclaration(
+        { type: TraceType.PARALLEL, dimensions: [{ label: 7, key: 'wt' }] },
+        CONTEXT,
+      ),
+    ).toBeNull();
+    expect(warnings[0]).toContain('has dimensions[0] with label 7; expected a string.');
+  });
+
+  test('the object form is accepted with both of its keys', () => {
+    expect(
+      validateDeclaration(
+        { type: TraceType.PARALLEL, dimensions: [{ label: 'Weight (lb)', key: 'wt' }] },
+        CONTEXT,
+      ),
+    ).not.toBeNull();
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe('readDeclarationSlot — the container is narrowed once, here', () => {
+  test('a slot carrying a declaration reads it', () => {
+    const declaration = { type: TraceType.SURVIVAL, censored: 'cens' };
+    expect(readDeclarationSlot({ maidr: declaration }, CONTEXT)).toBe(declaration);
+    expect(warnings).toEqual([]);
+  });
+
+  test.each([
+    ['undefined', undefined],
+    ['null', null],
+    // Plotly's `meta` is very often a plain string that has nothing to do
+    // with MAIDR.
+    ['a string', 'quarterly'],
+    ['a number', 3],
+    ['an object with no maidr key', { legend: 'right' }],
+  ])('%s is no declaration and passes quietly', (_label, container) => {
+    expect(readDeclarationSlot(container, CONTEXT)).toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  test('a maidr key that is not a declaration is still reported', () => {
+    expect(readDeclarationSlot({ maidr: 'survival' }, CONTEXT)).toBeNull();
+    expect(warnings).toEqual([
+      '[MAIDR Highcharts] maidr declaration on series "sales" is not an object; ignored.',
+    ]);
+  });
+});
+
 describe('validateDeclaration — a binder that throws takes the page down', () => {
   test.each([
     ['a prototype-less block', Object.assign(Object.create(null), { type: TraceType.ALLUVIAL })],
     ['a block whose type is an object', { type: {} }],
     ['a block whose type is null', { type: null }],
     ['an empty block', {}],
+    ['a block whose keys hold functions', { type: TraceType.FOREST, weight: (): number => 1 }],
+    ['a block whose dimensions hold themselves', { type: TraceType.PARALLEL, dimensions: [[]] }],
   ])('%s is handled rather than thrown on', (_label, raw) => {
     expect(() => validateDeclaration(raw, CONTEXT)).not.toThrow();
   });

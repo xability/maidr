@@ -40,7 +40,8 @@
  * for `censored`); a `FieldRef` that is given is used verbatim, because an
  * explicit name that misses is a mistake worth reporting rather than papering
  * over. The fallback lists live in `src/adapters/shared/traceDeclaration.ts`
- * so a column that works in one adapter works in all of them.
+ * so a column that works in one adapter reading this block works in all of
+ * them.
  *
  * ## What a declaration is worth
  *
@@ -122,8 +123,12 @@ export interface DeclarationBase {
  * is `'parallel_coordinates'`.
  *
  * The key set of each variant is **closed**, and adapters check it at read
- * time: a plain-JS author who writes `significanse: 7.3` is told so, which is
- * the only defence available outside TypeScript.
+ * time — the key names, the shape of each value, and the presence of the few
+ * fields a variant cannot be read without. A plain-JS author who writes
+ * `significanse: 7.3`, or `significanceDirection: 'Below'`, is told so, which
+ * is the only defence available outside TypeScript. A value that is not what
+ * its key takes is dropped rather than passed on, so the grammar's own default
+ * applies instead of a wrong reading.
  */
 export type MaidrTraceDeclaration
   = | SurvivalDeclaration
@@ -162,7 +167,8 @@ export interface SurvivalDeclaration extends DeclarationBase {
    * `true`, `1`, `'1'` and `'true'` count as censored; anything else does
    * not — the flag arrives as a boolean, as a 0/1 indicator or as the string
    * one of those was parsed from, and `'0'` is truthy in every one of those
-   * readings but censors nobody.
+   * readings but censors nobody. The same table decides
+   * {@link ForestDeclaration.pooled}.
    *
    * Deliberately **not** aliased to `event`, which most survival datasets
    * carry with the opposite meaning: a 1 there is the event happening, which
@@ -206,6 +212,23 @@ export interface SurvivalDeclaration extends DeclarationBase {
   censoredSeries?: SeriesRef;
   /** Companion series drawing the confidence band, merged in by x as above. */
   bandSeries?: SeriesRef;
+  /**
+   * Absorb *following* sibling series of the same drawn kind into this layer
+   * as further **arms** of the same curve, as
+   * {@link ManhattanDeclaration.merge} absorbs further points into one cloud.
+   *
+   * On by default, because a survival figure is one figure whose arms belong
+   * together: treated and control are read against each other, and two arms
+   * split into two layers is a reader switching layers to compare the two
+   * numbers the chart exists to compare. `SurvivalTrace` carries an arm per
+   * row, so the arms stay individually navigable either way.
+   *
+   * Set `false` for the rare figure whose curves are genuinely separate
+   * charts. A second arm needs no declaration block of its own.
+   *
+   * @default true
+   */
+  merge?: boolean;
 }
 
 /**
@@ -244,6 +267,13 @@ export interface ErrorBarDeclaration extends DeclarationBase {
    * a Recharts `<ErrorBar dataKey>` or a matplotlib `yerr` points at. A number
    * is a symmetric offset; a `[lower, upper]` pair is an asymmetric one.
    *
+   * Both forms are **positive magnitudes**, as `yerr` is: the bounds are
+   * `estimate - lower` and `estimate + upper`, so an interval given as
+   * `[0.2, 0.3]` around 1.4 is 1.2 to 1.7. Signed offsets are not a second
+   * accepted spelling — read that way the same pair would give 1.6 to 1.7, and
+   * neither reading is detectable downstream once the absolute bounds are
+   * emitted. A negative entry is left out rather than flipped.
+   *
    * Normalised to absolute bounds on the way into the payload. Loses to
    * `yMin`/`yMax` where both are declared, since those need no arithmetic.
    */
@@ -256,7 +286,13 @@ export interface ErrorBarDeclaration extends DeclarationBase {
    * own.
    */
   intervalSeries?: SeriesRef;
-  /** Which axis the estimate runs along. Maps to `MaidrLayer.orientation`. */
+  /**
+   * Which axis the estimate runs along. Maps to `MaidrLayer.orientation`.
+   *
+   * The `Orientation` values, which are **`'horz'` and `'vert'`** — not the
+   * words they abbreviate. `'horizontal'` is not accepted, and a declaration
+   * carrying it is warned about and read without the key.
+   */
   orientation?: Orientation;
 }
 
@@ -282,6 +318,12 @@ export interface ForestDeclaration extends Omit<ErrorBarDeclaration, 'type'> {
    * the payload when nothing resolves — a forest plot without weights is a
    * real chart.
    *
+   * A **fraction of one**, not a percentage. Meta-analysis software reports
+   * this column as a percentage — `12.5` for one study in eight — and that is
+   * the number the default chain will find. A resolved weight above 1 is left
+   * out rather than rescaled: dividing by 100 guesses that the column sums to
+   * 100, and announcing it untouched says "weight 1250%".
+   *
    * @default 'weight', falling back to `w` or `share`
    */
   weight?: FieldRef;
@@ -293,6 +335,12 @@ export interface ForestDeclaration extends Omit<ErrorBarDeclaration, 'type'> {
    * evidence came to — and announcing it as one more study invites a reader to
    * count it among them.
    *
+   * Read on the same strict table as
+   * {@link SurvivalDeclaration.censored}: `true`, `1`, `'1'` and `'true'` mark
+   * the pooled row and nothing else does. Read by truthiness instead, a CSV's
+   * `'0'` marks every study as the summary and empties the evidence the trace
+   * counts and compares.
+   *
    * @default 'pooled', falling back to `isPooled` or `summary`
    */
   pooled?: FieldRef;
@@ -300,6 +348,12 @@ export interface ForestDeclaration extends Omit<ErrorBarDeclaration, 'type'> {
    * Row index of the pooled summary, for data that carries no flag column. A
    * meta-analysis draws the pooled row last, so this is usually the last
    * index.
+   *
+   * Counts **the declaring series' own rows, as authored**, from zero —
+   * including any row an adapter goes on to drop for want of a finite value,
+   * since that is the only sequence an author can see. It is resolved before
+   * any {@link ForestDeclaration.pooledSeries} is absorbed, so it never
+   * addresses a row that arrived from the companion.
    */
   pooledIndex?: number;
   /**
@@ -444,7 +498,19 @@ export interface ScatterDeclaration extends DeclarationBase {
    */
   type: TraceType.SCATTER;
   /**
-   * Field holding what each point *is*, announced alongside its coordinates.
+   * Field holding what each point *is*, announced alongside its coordinates
+   * wherever the emitted point carries a name.
+   *
+   * `ScatterPoint` has no label field today, so a plain `point` layer has
+   * nowhere to put one: declare `volcano` or `manhattan` where identity is the
+   * payload, which is where the grammar carries it. The key is accepted here
+   * rather than reported as unknown because it is the field's obvious home,
+   * and warning about a spelling the declaration documents would send an
+   * author looking for a typo they did not make.
+   *
+   * The default chain is the genomics one, so a row carrying an `id` or a
+   * `name` column resolves to it. Where those are chart plumbing rather than
+   * the point's identity, name the field explicitly.
    *
    * @default 'label', falling back to `snp`, `id`, `name`, `gene` or `probe`
    */
@@ -529,6 +595,11 @@ export interface ChoroplethDeclaration extends DeclarationBase {
    * Field holding the value the region is shaded by. Maps to
    * `ChoroplethPoint.y`.
    *
+   * The fallback chain is shared with {@link RidgelineDeclaration.value},
+   * where `x` genuinely is the position on the value axis. On a map whose rows
+   * put the region name in an `x` column, that chain would resolve the name as
+   * the value — so name the field, on any row shaped that way.
+   *
    * @default 'value', falling back to `x`, `t` or `position`
    */
   value?: FieldRef;
@@ -589,6 +660,10 @@ export interface ParallelDeclaration extends DeclarationBase {
   dimensions: (string | { label?: string; key: FieldRef })[];
   /**
    * Field holding the observation's name, announced as its series name.
+   *
+   * The default chain is the genomics one, so a row carrying an `id` or a
+   * `name` column resolves to it. Where that column is chart plumbing rather
+   * than the observation's name, name the field explicitly.
    *
    * @default 'label', falling back to `snp`, `id`, `name`, `gene` or `probe`
    */
@@ -722,6 +797,11 @@ export interface BoxenDeclaration extends DeclarationBase {
   lowerOutliers?: FieldRef;
   /** Field holding the values above the deepest rung. Maps to `BoxenPoint.upperOutliers`. */
   upperOutliers?: FieldRef;
-  /** Which axis the distributions run along. Maps to `MaidrLayer.orientation`. */
+  /**
+   * Which axis the distributions run along. Maps to `MaidrLayer.orientation`.
+   *
+   * The `Orientation` values, which are **`'horz'` and `'vert'`** — not the
+   * words they abbreviate, exactly as {@link ErrorBarDeclaration.orientation}.
+   */
   orientation?: Orientation;
 }

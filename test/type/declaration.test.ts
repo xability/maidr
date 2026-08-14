@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /** The declaration union, whose `type` values are what authors type. */
 const DECLARATION = join(__dirname, '..', '..', 'src', 'type', 'declaration.ts');
@@ -40,5 +40,15 @@ describe('the declaration union is keyed on TraceType string values', () => {
     expect(TraceType.SCATTER).toBe('point');
     expect(members).toContain('PARALLEL');
     expect(TraceType.PARALLEL).toBe('parallel_coordinates');
+  });
+
+  test('an orientation is written the grammar\'s way, not the word\'s', () => {
+    // A plain-JS author has no enum, no autocomplete and no type error, and
+    // will write `orientation: 'horizontal'`. It is warned about and dropped,
+    // and both values are named on the two fields that carry them, so the
+    // abbreviations are documented where they are written.
+    expect(Orientation.HORIZONTAL).toBe('horz');
+    expect(Orientation.VERTICAL).toBe('vert');
+    expect(source).toContain('`\'horz\'` and `\'vert\'`');
   });
 });
