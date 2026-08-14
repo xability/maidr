@@ -46,7 +46,14 @@ import type { MarkFacet } from './introspect';
 import type { MarkDatum, ObservablePlotOptions, PlotScale, PlotScales } from './types';
 import { ensureContainerId, nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
-import { findMarkGroups, readAxisLabel, readTitles, resolveSvg, splitFacets } from './introspect';
+import {
+  boxCompositeGroups,
+  findMarkGroups,
+  readAxisLabel,
+  readTitles,
+  resolveSvg,
+  splitFacets,
+} from './introspect';
 import {
   bandIntervals,
   cleanNumber,
@@ -60,7 +67,7 @@ import {
   valueAtColor,
   valueAtPixel,
 } from './scales';
-import { stampLayer, stampSeries } from './selectors';
+import { orderElements, stampLayer, stampSeries } from './selectors';
 
 /** Prefix for generated element ids and the log prefix for adapter warnings. */
 const PREFIX = 'maidr-observable';
@@ -177,8 +184,15 @@ interface FacetCell {
  */
 function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[] {
   const cells = new Map<string, FacetCell>();
+  const groups = findMarkGroups(svg);
+  // A box plot is four marks that only mean anything together, and this adapter
+  // reads none of them; left in, its interquartile box would be announced as an
+  // ordinary bar whose value is a height nobody plotted.
+  const composite = boxCompositeGroups(groups);
 
-  for (const { label, group } of findMarkGroups(svg)) {
+  for (const [index, { label, group }] of groups.entries()) {
+    if (composite.has(index))
+      continue;
     for (const facet of splitFacets(group)) {
       const converted = convertMark(label, facet, context);
       if (!converted)
@@ -440,8 +454,12 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
     );
   }
 
-  const data = toHistogramPoints(bins, scales.x);
   const ordered = orderedByBin(bins);
+  const data = toHistogramPoints(ordered, scales.x);
+  // The bins are announced left to right, so the elements are moved to match:
+  // a selector resolves in document order, and Plot draws pre-binned intervals
+  // in whatever order the author's rows arrived in.
+  orderElements(ordered.map(bin => bin.element));
   const token = `L${context.layerCount++}`;
 
   return {
@@ -529,11 +547,11 @@ function binAsCategory(
 }
 
 /**
- * Orders a mark's rects along the axis, matching {@link toHistogramPoints}.
+ * Orders a mark's rects along the axis.
  *
- * The points are sorted so a chart drawn out of order still reads left to
- * right, and the elements have to be stamped in that same order or the
- * highlight lands on a different bar from the one being announced.
+ * A chart drawn out of order still reads left to right, and the elements are
+ * moved to match so the highlight follows — stamping alone would not, since a
+ * selector resolves in document order.
  *
  * @param bins - The mark's rects, as read.
  * @returns The same rects, ordered by bin start.
@@ -559,15 +577,14 @@ function orderedByBin(bins: MarkDatum[]): MarkDatum[] {
  * fails that check and keeps its measured edges rather than being forced onto
  * a grid it was never drawn on.
  *
- * @param bins  - The bins, in draw order.
+ * @param bins  - The bins, already ordered along the axis.
  * @param scale - The x scale, whose domain bounds the bins.
- * @returns One histogram point per bin, ordered along the axis.
+ * @returns One histogram point per bin, in the same order.
  */
 function toHistogramPoints(bins: MarkDatum[], scale: PlotScale | undefined): HistogramPoint[] {
-  const sorted = [...bins].sort((a, b) => (a.xMin ?? 0) - (b.xMin ?? 0));
-  const edges = uniformBinEdges(sorted, scale);
+  const edges = uniformBinEdges(bins, scale);
 
-  return sorted.map((bin, index) => {
+  return bins.map((bin, index) => {
     const xMin = edges ? edges[index] : (bin.xMin ?? 0);
     const xMax = edges ? edges[index + 1] : (bin.xMax ?? 0);
 
@@ -763,13 +780,12 @@ function buildBarLayer(
   plainType: TraceType.BAR | TraceType.DOT,
 ): ConvertedMark {
   const token = `L${context.layerCount++}`;
-  const categories = uniqueInOrder(data.map(datum => datum.x));
   const seriesNames = uniqueInOrder(
     data.map(datum => datum.series).filter((name): name is string => name !== undefined),
   );
-  const stacked = seriesNames.length > 1 && data.length > categories.length;
+  const grid = seriesNames.length > 1 ? stackedGrid(data, seriesNames, orientation) : null;
 
-  if (!stacked) {
+  if (!grid) {
     const points: BarPoint[] = data.map(datum => ({ x: datum.x, y: datum.y }));
     return {
       legend: [],
@@ -784,13 +800,10 @@ function buildBarLayer(
     };
   }
 
-  const grid: SegmentedPoint[][] = seriesNames.map(name =>
-    categories.map((category) => {
-      const match = data.find(datum => datum.series === name && datum.x === category);
-      return { x: category, y: match?.y ?? 0, z: name };
-    }));
-
-  const order = domOrder(data, seriesNames);
+  // Document order now runs series by series across the categories, which is
+  // what `order: 'row'` names — and it is true by construction rather than by
+  // inspection, so there is no draw order Plot can produce that this misreads.
+  orderElements(grid.elements);
 
   return {
     legend: seriesNames,
@@ -798,43 +811,106 @@ function buildBarLayer(
       id: token,
       type: TraceType.STACKED,
       orientation,
-      selectors: stampLayer(data.map(datum => datum.element), context.containerId, token),
-      domMapping: {
-        order,
-        // Within a category Plot draws the stack from the baseline outwards, so
-        // the first segment is the first series. MAIDR's default is the other
-        // way round — most producers draw a stack top-down — and the series
-        // order here is itself read from the order the segments appear, so the
-        // two agree by construction and saying so keeps them aligned.
-        ...(order === 'column' ? { groupDirection: 'forward' as const } : {}),
-      },
+      selectors: stampLayer(grid.elements, context.containerId, token),
+      domMapping: { order: 'row' },
       axes: axisConfig(context),
-      data: grid,
+      data: grid.rows,
     },
   };
 }
 
 /**
- * Works out whether a stack was drawn series by series or category by category.
+ * Arranges a split mark's segments into MAIDR's series-by-category grid.
  *
- * MAIDR pairs a segmented layer's single selector with its data by walking the
- * matched elements in document order, so it has to be told which way that
- * order runs. Plot draws in the order the data arrived, and tidy data comes
- * both ways round, so the answer is read off the elements rather than assumed.
+ * Two orders have to agree here, and neither can be assumed. The categories are
+ * ordered along the axis, because that is the order a reader arrows through
+ * them — Plot draws in the order the data arrived, which for a stack out of a
+ * database is whatever the rows were sorted by. The elements are then listed in
+ * the order the grid reads, so the caller can move the DOM to match; a cell
+ * with no segment contributes a zero and no element, which is the shape
+ * `domMapping` already describes.
  *
- * @param data        - The mark's data, in draw order.
+ * @param data        - The mark's segments, as read.
  * @param seriesNames - The series, in first-drawn order.
- * @returns `'row'` for series-major order, `'column'` for category-major.
+ * @param orientation - Which axis carries the categories.
+ * @returns The grid and the elements it describes, or `null` when the segments
+ *          do not form one — which is not an error, only a plain bar chart.
  */
-function domOrder(data: MarkDatum[], seriesNames: string[]): 'row' | 'column' {
-  let seriesChanges = 0;
-  for (let index = 1; index < data.length; index++) {
-    if (data[index].series !== data[index - 1].series)
-      seriesChanges++;
+function stackedGrid(
+  data: MarkDatum[],
+  seriesNames: string[],
+  orientation: Orientation,
+): { rows: SegmentedPoint[][]; elements: Element[] } | null {
+  const categories = categoriesAlongAxis(data, orientation);
+  if (data.length <= categories.length)
+    return null;
+
+  // Two segments sharing a category and a series are two rows of the author's
+  // data that the stack transform did not aggregate. The grid has one cell for
+  // them and the mark has two rects, so the counts diverge and every later
+  // highlight shifts by one. A plain bar layer reads all of them, in order.
+  const seen = new Set<string>();
+  for (const datum of data) {
+    const key = `${String(datum.series)}\u0000${String(datum.x)}`;
+    if (seen.has(key))
+      return null;
+    seen.add(key);
   }
-  // Series-major order changes series once per series boundary; category-major
-  // changes it on nearly every element.
-  return seriesChanges <= seriesNames.length ? 'row' : 'column';
+
+  const rows: SegmentedPoint[][] = [];
+  const elements: Element[] = [];
+  for (const name of seriesNames) {
+    const row: SegmentedPoint[] = [];
+    for (const category of categories) {
+      const match = data.find(datum => datum.series === name && datum.x === category);
+      row.push({ x: category, y: match?.y ?? 0, z: name });
+      if (match)
+        elements.push(match.element);
+    }
+    rows.push(row);
+  }
+  return { rows, elements };
+}
+
+/**
+ * The categories of a split mark, ordered along the axis rather than by when
+ * they were drawn.
+ *
+ * @param data        - The mark's segments, as read.
+ * @param orientation - Which axis carries the categories.
+ * @returns Each distinct category once, in axis order.
+ */
+function categoriesAlongAxis(
+  data: MarkDatum[],
+  orientation: Orientation,
+): (string | number)[] {
+  const positions = new Map<string | number, number>();
+  for (const datum of data) {
+    const pixel = markPosition(datum.element, orientation);
+    const known = positions.get(datum.x);
+    if (known === undefined || pixel < known)
+      positions.set(datum.x, pixel);
+  }
+  return [...positions.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([category]) => category);
+}
+
+/**
+ * Where a mark's element sits along the axis its categories run on.
+ *
+ * A vertical bar's categories are spaced across x and a horizontal bar's down
+ * y, so reading the wrong one would order every category by its *value*.
+ *
+ * @param element     - The mark's element.
+ * @param orientation - Which axis carries the categories.
+ * @returns Its position in pixels along that axis.
+ */
+function markPosition(element: Element, orientation: Orientation): number {
+  const names = orientation === Orientation.VERTICAL
+    ? (['x', 'cx'] as const)
+    : (['y', 'cy'] as const);
+  return attributeNumber(element, names[0]) ?? attributeNumber(element, names[1]) ?? 0;
 }
 
 /**

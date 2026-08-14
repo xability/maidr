@@ -78,12 +78,30 @@ export function bindObservablePlot(
     element: svg,
   };
 
+  // Memoised either way. The watcher decides what to bind by asking what it has
+  // not bound yet, so a chart converted with `autoApply: false` that is never
+  // recorded is converted again on every mutation the page makes, forever.
+  bound.add(svg);
   if (options.autoApply === false)
     return result;
 
-  bound.add(svg);
   svg.setAttribute('maidr-data', JSON.stringify(maidr));
+  // Read before the dispatch. The runtime mounts synchronously and replaces the
+  // chart with a wrapper of its own, so by the time the event returns the
+  // element has been lifted out of the cell and can no longer name it.
+  const cell = cellOf(svg);
+  // Dispatched on the element so it bubbles to the runtime's listener — which
+  // needs the element to be in the document. A chart bound before it is
+  // inserted would be announced to nobody, and would look bound.
+  if (!svg.isConnected) {
+    console.warn(
+      `${LOG_PREFIX} the chart is not in the document yet; `
+      + 'insert it before binding, or MAIDR will not pick it up.',
+    );
+  }
   svg.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
+  if (cell)
+    claimCell(cell, svg);
   return result;
 }
 
@@ -171,6 +189,58 @@ export function autoInitQuartoObservable(): (() => void) | null {
   }
 
   return initQuartoObservable();
+}
+
+/**
+ * The chart currently bound in each output cell.
+ *
+ * An OJS cell re-runs whenever an input it depends on changes, and the runtime
+ * replaces the cell's output with a freshly drawn chart. The chart it replaced
+ * is gone from the page but not from MAIDR, which still holds the mounted
+ * instance and everything that instance registered — so a reader dragging a
+ * slider accumulates one whole chart per frame.
+ *
+ * Keyed by the cell rather than derived from the DOM, because the DOM cannot
+ * answer the question. Binding a chart *moves* it — the runtime replaces it
+ * with a wrapper and adopts it into React's tree, on React's schedule — so a
+ * chart observed leaving the document may equally be one in the middle of
+ * being mounted, and tearing that one down destroys the chart just bound.
+ * Which chart a cell holds is not ambiguous in that way.
+ */
+const occupant = new WeakMap<Element, Element>();
+
+/**
+ * The output cell a chart was drawn into, read before anything moves it.
+ *
+ * Quarto gives every `{ojs}` cell a container of its own and fills it at
+ * runtime; that container is the one thing about a chart's position that does
+ * not change when the chart is bound or redrawn. A chart outside one — a plain
+ * page that happens to load this adapter — has no such anchor, and is left
+ * alone rather than guessed at.
+ *
+ * @param svg - The chart's `<svg>`, still where the runtime put it.
+ * @returns The cell, or `null` when the chart is not in one.
+ */
+function cellOf(svg: Element): Element | null {
+  return svg.closest('[id^="ojs-cell-"]');
+}
+
+/**
+ * Records a chart as its cell's occupant, tearing down the one it replaced.
+ *
+ * @param cell - The cell the chart was drawn into.
+ * @param svg  - The chart just bound.
+ */
+function claimCell(cell: Element, svg: Element): void {
+  const previous = occupant.get(cell);
+  occupant.set(cell, svg);
+  if (!previous || previous === svg || !bound.has(previous))
+    return;
+
+  bound.delete(previous);
+  // On `document`, with the element in `detail`: the superseded chart is
+  // detached by now, so an event fired on it would reach no listener.
+  document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: previous }));
 }
 
 /**

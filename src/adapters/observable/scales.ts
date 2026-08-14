@@ -202,7 +202,13 @@ export function cleanNumber(value: number, span: number): number {
   if (!Number.isFinite(value))
     return value;
   const magnitude = Math.abs(span) || Math.abs(value) || 1;
-  const decimals = Math.min(15, Math.max(0, 10 - Math.floor(Math.log10(magnitude))));
+  const fromSpan = 10 - Math.floor(Math.log10(magnitude));
+  // A value far below the span's own scale still deserves its digits: on a log
+  // axis running to a billion, the span sets `fromSpan` to 1 and a millionth
+  // would round to nothing. Keeping ten significant figures of the value itself
+  // costs nothing on an ordinary axis, where it is the smaller of the two.
+  const fromValue = value === 0 ? 0 : 10 - Math.floor(Math.log10(Math.abs(value)));
+  const decimals = Math.min(15, Math.max(0, fromSpan, fromValue));
   const rounded = Number(value.toFixed(decimals));
   return Object.is(rounded, -0) ? 0 : rounded;
 }
@@ -237,7 +243,10 @@ export function cleanToGeometry(
     return cleanNumber(value, span);
 
   const dataError = pixelError * span / pixels;
-  const decimals = Math.min(15, Math.max(0, -Math.floor(Math.log10(dataError))));
+  // `floor(-log10 e)`, not `-floor(log10 e)`: the second is `ceil(-log10 e)`,
+  // which keeps one digit finer than the uncertainty it is meant to cap and so
+  // leaves a digit of pure pixel noise on the end of every value.
+  const decimals = Math.min(15, Math.max(0, Math.floor(-Math.log10(dataError))));
   const rounded = Number(value.toFixed(decimals));
   return Object.is(rounded, -0) ? 0 : rounded;
 }

@@ -138,6 +138,55 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
 }
 
 /**
+ * Finds the mark groups that make up a box plot, so they can be left alone.
+ *
+ * `Plot.boxY` is not a mark but four of them — a `rule` for the whiskers, a
+ * `bar` for the interquartile box, a `tick` for the median, and a `dot` for the
+ * outliers — and nothing in the DOM says they belong together. Read
+ * individually they are worse than unreadable: the `bar` is a perfectly
+ * ordinary bar mark whose height is `q3 - q1`, so a reader is told a number
+ * that appears nowhere in the data and never hears the median or the whiskers
+ * at all.
+ *
+ * The composite is recognised by its parts arriving together with one element
+ * each per distribution. A baseline `ruleY([0])` alongside a bar chart draws a
+ * single line however many bars there are, so it does not match.
+ *
+ * @param groups - The plot's mark groups, in draw order.
+ * @returns Indices of the groups that form box plots.
+ */
+export function boxCompositeGroups(
+  groups: readonly { label: string; group: Element }[],
+): Set<number> {
+  const skip = new Set<number>();
+  const find = (label: string): number => groups.findIndex((entry, index) =>
+    entry.label === label && !skip.has(index));
+
+  const rule = find('rule');
+  const bar = find('bar');
+  const tick = find('tick');
+  if (rule < 0 || bar < 0 || tick < 0)
+    return skip;
+
+  const count = groups[bar].group.children.length;
+  if (count === 0
+    || groups[rule].group.children.length !== count
+    || groups[tick].group.children.length !== count) {
+    return skip;
+  }
+
+  skip.add(rule).add(bar).add(tick);
+  // The outliers, when the data has any: a dot mark drawn after the box with
+  // one element per distribution. A scatter of its own would not sit here.
+  const dot = groups.findIndex((entry, index) =>
+    entry.label === 'dot' && index > tick && entry.group.children.length === count);
+  if (dot >= 0)
+    skip.add(dot);
+
+  return skip;
+}
+
+/**
  * One facet's share of a mark, and where on the canvas it was drawn.
  *
  * A faceted plot nests each facet's elements in a translated `<g>` inside the

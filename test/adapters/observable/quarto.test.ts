@@ -160,3 +160,71 @@ describe('watching a Quarto document', () => {
     }
   });
 });
+
+describe('charts a reactive cell replaces', () => {
+  it('tears down the chart a re-run superseded', async () => {
+    // An OJS cell re-runs on every input change and the runtime replaces its
+    // output. The chart it replaced is gone from the page but not from MAIDR,
+    // which still holds the mounted instance and everything that instance
+    // registered — so a reader dragging a slider accumulates one whole chart
+    // per frame unless the adapter says the old one is finished.
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html;
+      await settle();
+      const first = cell?.querySelector('svg');
+
+      cell!.innerHTML = FIXTURES.scatter.html;
+      await settle();
+
+      expect(released).toEqual([first]);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+
+  it('does not tear down a chart that was only moved', async () => {
+    // Binding a chart moves it: the runtime replaces it with a wrapper and
+    // adopts it into React's tree. Treating that as a removal would tear down
+    // the chart that was just bound, which is why supersession is keyed on the
+    // cell rather than inferred from the chart leaving the DOM.
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html;
+      await settle();
+
+      // What the runtime's mount does to the element it binds.
+      const chart = cell!.querySelector('svg')!;
+      const wrapper = document.createElement('div');
+      chart.parentNode!.replaceChild(wrapper, chart);
+      wrapper.append(chart);
+      await settle();
+
+      expect(released).toEqual([]);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+});

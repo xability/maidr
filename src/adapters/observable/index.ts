@@ -27,7 +27,12 @@
  * distinct values render as the same pixel and no inversion can separate them.
  * Announcing an approximation to a reader who cannot check it against the
  * picture is worse than announcing nothing, so those marks are skipped.
- * Composite marks (`boxY`, `boxX`) are skipped for now as well.
+ *
+ * Box plots are skipped too, and for the same reason. `Plot.boxY` is not one
+ * mark but four, and nothing in the DOM says they belong together: read
+ * individually its interquartile box is an ordinary bar whose height is
+ * `q3 - q1`, a number that appears nowhere in the data, while the median and
+ * the whiskers go unannounced.
  *
  * @example
  * ```html

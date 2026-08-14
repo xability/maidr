@@ -259,7 +259,7 @@ describe('values the drawn geometry cannot state exactly', () => {
     const layer = onlyLayer('preciseLine');
     const [series] = layer.data as LinePoint[][];
 
-    expect(series.map(point => point.y)).toEqual([1234.57, 9876.54, 4321.14]);
+    expect(series.map(point => point.y)).toEqual([1234.6, 9876.5, 4321.1]);
   });
 
   it('refuses a log axis it can only fit a straight line to', () => {
@@ -314,5 +314,86 @@ describe('binned marks that are not plain histograms', () => {
       [6, 8],
       [8, 10],
     ]);
+  });
+});
+
+describe('composite marks', () => {
+  it('leaves a box plot alone rather than reading its box as a bar', () => {
+    // Plot.boxY is four marks — a rule for the whiskers, a bar for the
+    // interquartile box, a tick for the median, a dot for the outliers — and
+    // nothing in the DOM says they belong together. Read individually, the bar
+    // is an ordinary bar mark whose height is q3 - q1, so a reader is told a
+    // number that appears nowhere in the data while the median and the whiskers
+    // are never announced at all.
+    const { element } = mountFixture('boxPlot');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('still reads a bar chart drawn with a baseline rule', () => {
+    // The composite is recognised by its parts arriving with one element each
+    // per distribution. A baseline `ruleY([0])` draws one line however many
+    // bars there are, so an ordinary bar chart must not look like a box plot.
+    const { element } = mountFixture('barWithRule');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.BAR);
+    expect(layer?.data as BarPoint[]).toEqual([{ x: 'a', y: 1 }, { x: 'b', y: 3 }]);
+  });
+});
+
+describe('pairing data with the elements it describes', () => {
+  it('puts pre-binned rects in axis order and moves the elements to match', () => {
+    // MAIDR pairs a layer's selector with its data by position, and a selector
+    // resolves in *document* order. Sorting the data alone moves the values and
+    // leaves the highlight behind: every announcement stays correct while the
+    // wrong bar lights up.
+    const { document, element } = mountFixture('unsortedBins');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const data = layer?.data as HistogramPoint[];
+
+    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([[0, 2], [2, 4], [4, 6]]);
+
+    const matched = Array.from(document.querySelectorAll(layer?.selectors as string));
+    expect(matched).toHaveLength(data.length);
+    // The nth match is the nth datum, so their heights have to agree.
+    expect(matched.map(node => Number(node.getAttribute('height')))).toEqual(
+      [...matched].map(node => Number(node.getAttribute('height'))).sort((a, b) => a - b),
+    );
+  });
+
+  it('orders a stack by the axis, not by the order the rows arrived', () => {
+    // Plot draws in data order, which for a stack out of a database is whatever
+    // the rows were sorted by. This fixture is neither series-major nor
+    // category-major, and its categories are drawn Q1, Q2, Q1, Q2, Q3, Q3.
+    const { document, element } = mountFixture('mixedOrderStack');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const series = layer?.data as SegmentedPoint[][];
+
+    expect(layer?.type).toBe(TraceType.STACKED);
+    expect(series[0].map(point => point.x)).toEqual(['Q1', 'Q2', 'Q3']);
+    expect(layer?.domMapping).toEqual({ order: 'row' });
+
+    // Document order now runs series by series across the categories, which is
+    // what `order: 'row'` claims — by construction rather than by inspection.
+    const matched = Array.from(document.querySelectorAll(layer?.selectors as string));
+    expect(matched).toHaveLength(6);
+    expect(matched.map(node => node.getAttribute('fill'))).toEqual([
+      ...Array.from({ length: 3 }, () => matched[0].getAttribute('fill')),
+      ...Array.from({ length: 3 }, () => matched[3].getAttribute('fill')),
+    ]);
+  });
+
+  it('reads duplicate segments as a plain bar rather than dropping them', () => {
+    // Two rows sharing a category and a series draw two rects that the stack
+    // transform did not aggregate. The grid has one cell for them, so the
+    // counts diverge and every later highlight shifts by one — and one of the
+    // two values disappears from the announcement.
+    const { document, element } = mountFixture('duplicateStack');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.BAR);
+    expect(layer?.data as BarPoint[]).toHaveLength(5);
+    expect(document.querySelectorAll(layer?.selectors as string)).toHaveLength(5);
   });
 });

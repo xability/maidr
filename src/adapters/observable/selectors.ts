@@ -43,6 +43,29 @@ export function stampLayer(
 }
 
 /**
+ * Puts a mark's elements into the order its data will be announced in.
+ *
+ * MAIDR pairs a layer's single selector with its data by position — the nth
+ * match is the nth datum — and a selector resolves through
+ * `document.querySelectorAll`, which answers in *document* order no matter what
+ * order the elements were stamped in. Sorting the data alone therefore does
+ * nothing: it moves the values and leaves the highlight behind, so every
+ * announcement stays correct while the wrong bar lights up.
+ *
+ * Plot draws in the order the data arrived, which for a stack or a set of
+ * pre-binned intervals is whatever order the author's rows were in. Rather than
+ * guess at that order, the elements are moved to match the data. Reordering
+ * siblings only changes paint order, and the marks this is used for — bars and
+ * bins — tile rather than overlap, so nothing about the picture changes.
+ *
+ * @param elements - The mark's elements, in the order the data describes them.
+ */
+export function orderElements(elements: readonly Element[]): void {
+  for (const element of elements)
+    element.parentNode?.appendChild(element);
+}
+
+/**
  * Stamps each series of a multi-series layer separately.
  *
  * A line layer's data is one array per series and its selectors are one string

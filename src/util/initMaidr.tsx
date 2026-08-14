@@ -155,3 +155,39 @@ export function initMaidrOnElement(maidr: Maidr, plot: Element): void {
 
   rootRegistry.set(plot, { root, container });
 }
+
+/**
+ * Tears down the MAIDR instance mounted on a plot element.
+ *
+ * The re-init path above handles a chart whose *data* changed, because the same
+ * element is bound again. A chart the host page **discarded** never comes back,
+ * so nothing triggers that path: the React root stays mounted on a detached
+ * container, its effects never clean up, and whatever they registered — a live
+ * data entry, hotkeys, an audio context — is retained for the life of the page.
+ *
+ * That is the ordinary case for a reactive document rather than an unusual one.
+ * An Observable JS cell re-runs whenever an input it depends on changes, and
+ * the runtime replaces the cell's output node each time, so a reader dragging a
+ * slider discards one chart per frame.
+ *
+ * Idempotent, and safe to call for an element that was never bound.
+ *
+ * @param plot - The element the chart was bound on.
+ * @returns True when there was an instance to tear down.
+ */
+export function disposeMaidrOnElement(plot: Element): boolean {
+  const existing = rootRegistry.get(plot);
+  if (!existing) {
+    return false;
+  }
+
+  existing.root.unmount();
+  // Only when the container is still in the page: a chart discarded by the host
+  // took its container with it, and putting the plot back would resurrect the
+  // very node the page removed.
+  if (existing.container.parentNode) {
+    existing.container.parentNode.replaceChild(plot, existing.container);
+  }
+  rootRegistry.delete(plot);
+  return true;
+}

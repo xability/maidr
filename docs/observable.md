@@ -141,7 +141,8 @@ A **date axis** works: values travel as epoch milliseconds — every trace's poi
 
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
 - **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`).
-- **Lines drawn with a non-interpolating curve** — `curveBasis`, `curveBundle` — whose path passes through control points that are not data points. The adapter detects this and skips the mark rather than announcing the control polygon. Interpolating curves (`curveLinear`, the default, and `curveCatmullRom`, `curveMonotoneX`, `curveNatural`, `curveStep`) are read normally.
+- **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points, and the step curves (`curveStep`, `curveStepAfter`, `curveStepBefore`) draw a corner between every pair of points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the corners. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally.
+- **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.
 
 A chart whose marks are all unread is left alone; other charts on the page are unaffected.
 
@@ -159,7 +160,12 @@ Three more things worth knowing:
 
 ## Manual binding
 
-Auto-binding covers the Quarto case and most others. When you want the schema instead — to edit it, or to hand it to the `<Maidr>` React component — call the adapter yourself.
+Auto-binding covers the Quarto case and most others. When you want the schema instead — to edit it, or to hand it to the `<Maidr>` React component — call the adapter yourself, and turn the watcher off first so it does not bind the chart behind you.
+
+```js
+// Before the bundle loads, if you are loading it with a script tag.
+window.maidrObservableAutoInit = false;
+```
 
 ```js
 import { bindObservablePlot, observablePlotToMaidr } from 'maidr/observable';
@@ -173,9 +179,11 @@ const { maidr } = bindObservablePlot(chart, {
   axes: { x: 'Day', y: 'Visitors' },
 });
 
-// Or build the schema without touching the DOM.
-const schema = observablePlotToMaidr(chart, { autoApply: false });
+// Or get the schema without handing it to the runtime.
+const { maidr: schema } = bindObservablePlot(chart, { autoApply: false });
 ```
+
+Both of them read the chart in place and write to it: the selectors they generate point at an id and at attributes the adapter stamps on the marks, so the chart has to be in the document and will not come back untouched. What `autoApply: false` skips is the last step — writing `maidr-data` and telling the runtime — not the stamping. `observablePlotToMaidr` is the conversion on its own and never takes that step, so it ignores the option entirely.
 
 Script-tag users get the same functions on `window.maidrObservable`.
 
