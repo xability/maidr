@@ -83,7 +83,7 @@ import { bindD3Parallel } from './binders/parallel';
 import { bindD3Pie, bindD3PolarArea } from './binders/pie';
 import { bindD3Ridgeline } from './binders/ridgeline';
 import { bindD3Manhattan, bindD3Scatter, bindD3Volcano } from './binders/scatter';
-import { bindD3Mosaic, bindD3Segmented } from './binders/segmented';
+import { bindD3Diverging, bindD3Mosaic, bindD3Segmented } from './binders/segmented';
 import { bindD3Smooth } from './binders/smooth';
 import { bindD3Facets, bindD3Subplots } from './binders/subplots';
 import { bindD3Survival } from './binders/survival';
@@ -148,6 +148,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Chord(svg, { ...spec.config, autoApply: false });
     case 'contour':
       return bindD3Contour(svg, { ...spec.config, autoApply: false });
+    case 'diverging':
+      return bindD3Diverging(svg, { ...spec.config, autoApply: false });
     case 'dot':
       return bindD3Dot(svg, { ...spec.config, autoApply: false });
     case 'dumbbell':
@@ -241,6 +243,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'chord':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'contour':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'diverging':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'dot':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

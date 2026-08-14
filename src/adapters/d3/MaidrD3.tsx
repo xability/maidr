@@ -164,6 +164,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'chord', config: props.config };
     case 'contour':
       return { chartType: 'contour', config: props.config };
+    case 'diverging':
+      return { chartType: 'diverging', config: props.config };
     case 'dot':
       return { chartType: 'dot', config: props.config };
     case 'dumbbell':

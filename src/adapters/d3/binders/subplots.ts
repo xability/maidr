@@ -264,6 +264,8 @@ function buildPanelLayer(root: Element, spec: D3PanelChartSpec, panel: D3PanelSc
       return buildFlowLayer(root, spec.config, panel, TraceType.CHORD);
     case 'contour':
       return buildContourLayer(root, spec.config, panel);
+    case 'diverging':
+      return buildSegmentedLayer(root, { ...spec.config, type: TraceType.DIVERGING }, panel);
     case 'dot':
       return buildBarLayer(root, spec.config, panel, TraceType.DOT);
     case 'dumbbell':

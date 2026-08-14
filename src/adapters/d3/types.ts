@@ -1472,6 +1472,7 @@ export type D3PanelChartSpec
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
     | { chartType: 'chord'; config: D3FlowConfig }
     | { chartType: 'contour'; config: D3ContourConfig }
+    | { chartType: 'diverging'; config: D3SegmentedConfig }
     | { chartType: 'dot'; config: D3BarConfig }
     | { chartType: 'dumbbell'; config: D3DumbbellConfig }
     | { chartType: 'errorBar'; config: D3ErrorBarConfig }
