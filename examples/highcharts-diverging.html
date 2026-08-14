@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Population Pyramid - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Population Pyramid</h1>
+    <p>
+      A Highcharts population pyramid made accessible by the MAIDR Highcharts
+      adapter. Highcharts has no diverging series type — a pyramid is two
+      stacked bar series with one side's values negated — so the adapter
+      recognises the chart from its data. The sign is a direction rather than a
+      magnitude: the pitch takes the size of a cohort and the announcement
+      names its side, and the summary row reports which side is ahead. Click on
+      the chart and use the arrow keys.
+    </p>
+
+    <div id="diverging-chart" style="width: 800px; height: 600px"></div>
+
+    <script>
+      const chart = Highcharts.chart('diverging-chart', {
+        chart: { type: 'bar' },
+        title: { text: 'Population by Age Band' },
+        xAxis: { categories: ['0-9', '10-19', '20-29', '30-39', '40-49', '50-59', '60+'] },
+        yAxis: {
+          title: { text: 'Population (thousands)' },
+          labels: { formatter() { return Math.abs(this.value); } },
+        },
+        plotOptions: { series: { stacking: 'normal' } },
+        series: [
+          { name: 'Men', data: [-2100, -1980, -2050, -1875, -1640, -1420, -1980] },
+          { name: 'Women', data: [2000, 1890, 1975, 1830, 1620, 1450, 2320] },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'diverging-chart' });
+      document.getElementById('diverging-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

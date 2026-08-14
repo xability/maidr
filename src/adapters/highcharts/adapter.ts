@@ -20,7 +20,12 @@ import type {
   BoxPoint,
   CandlestickPoint,
   CandlestickTrend,
+  DumbbellData,
+  DumbbellPoint,
+  ErrorBarPoint,
   FlowPoint,
+  GanttData,
+  GanttPoint,
   GaugeBand,
   GaugePoint,
   HeatmapData,
@@ -46,9 +51,12 @@ import {
   boxplotSelectors,
   bulletSelector,
   candlestickSelectors,
+  dumbbellSelector,
   ensureContainerId,
+  errorBarSelector,
   flowSelector,
   funnelSelector,
+  ganttSelectors,
   gaugeSelector,
   heatmapSelectors,
   histogramSelector,
@@ -56,6 +64,7 @@ import {
   lollipopSelector,
   networkSelector,
   pieSelector,
+  polarAreaSelectors,
   scatterSelector,
   seriesGroupSelector,
   solidGaugeSelector,
@@ -89,6 +98,10 @@ let chartCounter = 0;
  * - `sunburst` → {@link TraceType.SUNBURST}
  * - `gauge`, `solidgauge`, `bullet` → {@link TraceType.GAUGE}
  * - `waterfall` → {@link TraceType.WATERFALL}
+ * - `errorbar` → {@link TraceType.ERROR_BAR}, taking its estimates from the
+ *   series it is linked to
+ * - `dumbbell` → {@link TraceType.DUMBBELL}
+ * - `gantt`, `xrange` → {@link TraceType.GANTT}
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
  * - `histogram` → {@link TraceType.HISTOGRAM}
@@ -100,6 +113,14 @@ let chartCounter = 0;
  * - Percent-stacked `column`/`bar` → {@link TraceType.NORMALIZED}
  * - Stacked `area`/`areaspline` → {@link TraceType.STACKED_AREA}
  * - Percent-stacked `area`/`areaspline` → {@link TraceType.NORMALIZED_AREA}
+ * - Two stacked `column`/`bar` series growing opposite ways →
+ *   {@link TraceType.DIVERGING}
+ *
+ * Two chart-wide drawing modes override the series types above, because they
+ * change what a series means without changing what it is called:
+ * - `chart.polar` → {@link TraceType.RADAR} for `line`/`spline`/`area`
+ *   series, {@link TraceType.POLAR_AREA} for `column`/`bar` ones
+ * - `chart.parallelCoordinates` → {@link TraceType.PARALLEL}
  *
  * Multi-pane charts (multiple `yAxis`/`xAxis` entries laid out as separate
  * bands, e.g. the Highstock price + volume pattern) are detected from the
@@ -129,7 +150,7 @@ export function highchartsToMaidr(
     title,
     subtitle,
     caption,
-    subplots: buildSubplotGrid(seriesToConvert, chart, containerId),
+    subplots: buildSubplotGrid(seriesToConvert, chart, containerId, options),
   };
 }
 
@@ -143,6 +164,7 @@ export function buildSubplotGrid(
   seriesList: HighchartsSeries[],
   chart: HighchartsChart,
   containerId: string,
+  options?: HighchartsAdapterOptions,
 ): MaidrSubplot[][] {
   const paneGrid = detectPaneGrid(seriesList);
 
@@ -152,7 +174,7 @@ export function buildSubplotGrid(
     const rows = paneGrid
       .map(row => row
         .map((group) => {
-          const subplot = buildSubplot(group, chart, containerId);
+          const subplot = buildSubplot(group, chart, containerId, options);
           applyPaneTitleFallback(subplot, group);
           return subplot;
         })
@@ -167,7 +189,7 @@ export function buildSubplotGrid(
     // single-subplot path so the output matches a plain chart exactly.
   }
 
-  return [[buildSubplot(seriesList, chart, containerId)]];
+  return [[buildSubplot(seriesList, chart, containerId, options)]];
 }
 
 /**
@@ -184,28 +206,56 @@ export function buildSubplot(
   seriesToConvert: HighchartsSeries[],
   chart: HighchartsChart,
   containerId: string,
+  options?: HighchartsAdapterOptions,
 ): MaidrSubplot {
+  // A radial chart is drawn from the same series types as a cartesian one:
+  // a radar's spokes are `line` series, a wind rose's wedges are `column`
+  // ones, and a parallel coordinates plot's observations are `line` series
+  // too. Only the chart-wide flag says which chart was drawn, so it is read
+  // here — a series that reached the buckets below would be merged into an
+  // ordinary line or bar layer announcing the wrong chart.
+  const radialType = radialLineType(chart);
+  const isPolar = chart.options.chart?.polar === true;
+
+  // An error bar carries only the interval; its estimate lives in the series
+  // it is linked to. That series is therefore read THROUGH the error bar
+  // layer rather than as a bar of its own, so it is dropped here.
+  const absorbed = seriesReadAsErrorBars(seriesToConvert, chart);
+  const convertible = seriesToConvert.filter(series => !absorbed.has(series));
+
   // Categorize series by how they need to be converted. Areas are their own
   // bucket rather than part of the line one: a filled band is a different
   // chart to announce, and a stacked band draws a second magnitude that a
-  // line layer has nowhere to carry.
-  const lineTypes = new Set(['line', 'spline']);
-  const areaTypes = new Set(['area', 'areaspline']);
+  // line layer has nowhere to carry. Under a radial mode that distinction
+  // disappears — an area series is one more outline around the spokes, with
+  // no baseline to fill down to — so the two buckets become one.
+  const lineTypes = new Set(radialType
+    ? ['line', 'spline', 'area', 'areaspline']
+    : ['line', 'spline']);
+  const areaTypes = new Set(radialType ? [] : ['area', 'areaspline']);
   const barTypes = new Set(['bar', 'column']);
 
-  const lineSeries = seriesToConvert.filter(s => lineTypes.has(resolveSeriesType(s, chart)));
-  const areaSeries = seriesToConvert.filter(s => areaTypes.has(resolveSeriesType(s, chart)));
-  const barSeries = seriesToConvert.filter(s => barTypes.has(resolveSeriesType(s, chart)));
-  const otherSeries = seriesToConvert.filter((s) => {
+  const lineSeries = convertible.filter(s => lineTypes.has(resolveSeriesType(s, chart)));
+  const areaSeries = convertible.filter(s => areaTypes.has(resolveSeriesType(s, chart)));
+  const barSeries = convertible.filter(s => barTypes.has(resolveSeriesType(s, chart)));
+  const otherSeries = convertible.filter((s) => {
     const type = resolveSeriesType(s, chart);
     return !lineTypes.has(type) && !areaTypes.has(type) && !barTypes.has(type);
   });
 
   const layers: MaidrLayer[] = [];
 
-  // Convert bar/column series — may be stacked, dodged, or normalized.
+  // Convert bar/column series — may be stacked, dodged, normalized or, on a
+  // polar chart, the wedges of a wind rose.
   if (barSeries.length > 0) {
-    layers.push(...convertBarGroup(barSeries, chart, containerId));
+    if (isPolar) {
+      const layer = convertRadialSeries(barSeries, chart, containerId, TraceType.POLAR_AREA);
+      if (layer) {
+        layers.push(layer);
+      }
+    } else {
+      layers.push(...convertBarGroup(barSeries, chart, containerId));
+    }
   }
 
   // Convert area series as one layer. Stacking is why they cannot be split:
@@ -219,10 +269,23 @@ export function buildSubplot(
 
   // Convert non-line/non-area/non-bar series individually.
   for (const series of otherSeries) {
-    const layer = convertSeries(series, chart, containerId);
+    const layer = convertSeries(series, chart, containerId, options);
     if (layer) {
       layers.push(layer);
     }
+  }
+
+  // Under a radial mode the whole line bucket is one layer — one outline per
+  // series around the shared spokes — and `step` has no meaning there, since
+  // there is no interpolation to make piecewise constant.
+  if (radialType) {
+    const layer = radialType === TraceType.PARALLEL
+      ? convertParallelSeries(lineSeries, chart, containerId)
+      : convertRadialSeries(lineSeries, chart, containerId, TraceType.RADAR);
+    if (layer) {
+      layers.push(layer);
+    }
+    return finishSubplot(layers, seriesToConvert, containerId);
   }
 
   // Convert line series together as a single multi-line layer (MAIDR expects
@@ -259,6 +322,23 @@ export function buildSubplot(
     }
   }
 
+  return finishSubplot(layers, seriesToConvert, containerId);
+}
+
+/**
+ * Wraps a converted subplot's layers with the panel geometry and the legend
+ * MAIDR reads them through.
+ *
+ * @param layers - The layers converted for this panel
+ * @param seriesToConvert - The panel's series, for the geometry selector
+ * @param containerId - The chart's render-target id
+ * @returns The finished subplot
+ */
+function finishSubplot(
+  layers: MaidrLayer[],
+  seriesToConvert: HighchartsSeries[],
+  containerId: string,
+): MaidrSubplot {
   const subplot: MaidrSubplot = { layers };
 
   // Point the subplot at its own panel geometry (the first series' rendered
@@ -333,6 +413,34 @@ function filterSeries(
 
 function resolveSeriesType(series: HighchartsSeries, chart: HighchartsChart): string {
   return series.type || series.options.type || chart.options.chart?.type || 'line';
+}
+
+/**
+ * How a chart's line-family series should be read, when a chart-wide drawing
+ * mode overrides the series type.
+ *
+ * Highcharts expresses both of these modes as a flag on the chart rather than
+ * as a series type: a radar and a parallel coordinates plot are alike made of
+ * plain `line` series, and only the flag distinguishes them from an ordinary
+ * line chart. Parallel coordinates wins when a chart declares both — a star
+ * plot is parallel coordinates bent around a circle, and every column is still
+ * a different quantity, which is the fact that decides how it has to be
+ * pitched.
+ *
+ * @param chart - The chart to inspect
+ * @returns The trace type its line series carry, or undefined for a plain
+ * cartesian chart
+ */
+function radialLineType(
+  chart: HighchartsChart,
+): TraceType.RADAR | TraceType.PARALLEL | undefined {
+  if (chart.options.chart?.parallelCoordinates === true) {
+    return TraceType.PARALLEL;
+  }
+  if (chart.options.chart?.polar === true) {
+    return TraceType.RADAR;
+  }
+  return undefined;
 }
 
 function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): AxisConfig {
@@ -570,7 +678,12 @@ function convertBarGroup(
 
   // Multiple series with stacking.
   if (stacking === 'normal') {
-    return [convertStackedBar(barSeries, containerId, orientation, TraceType.STACKED)];
+    // Two stacked series that never share a side of the baseline are drawn
+    // back to back rather than on top of one another — a population pyramid,
+    // or a Likert scale split around a neutral midpoint.
+    return [isDivergingPair(barSeries)
+      ? convertDivergingBar(barSeries, containerId, orientation)
+      : convertStackedBar(barSeries, containerId, orientation, TraceType.STACKED)];
   }
   if (stacking === 'percent') {
     return [convertStackedBar(barSeries, containerId, orientation, TraceType.NORMALIZED)];
@@ -756,6 +869,103 @@ function convertDodgedBar(
   };
 }
 
+/**
+ * Which side of the baseline a series is drawn on, or `mixed` when it crosses.
+ *
+ * Zeros and gaps count for neither side: a category a series does not reach is
+ * not evidence about which way it grows, and a pyramid whose top age band is
+ * empty on one side is still a pyramid.
+ *
+ * @param series - The series to inspect
+ * @returns The side it stays on, or `mixed`
+ */
+function baselineSideOf(series: HighchartsSeries): 'positive' | 'negative' | 'mixed' {
+  let positive = false;
+  let negative = false;
+  for (const point of series.data) {
+    if (typeof point.y !== 'number' || point.y === 0) {
+      continue;
+    }
+    if (point.y > 0) {
+      positive = true;
+    } else {
+      negative = true;
+    }
+  }
+  if (positive && !negative) {
+    return 'positive';
+  }
+  if (negative && !positive) {
+    return 'negative';
+  }
+  return 'mixed';
+}
+
+/**
+ * Whether a stacked bar group is really two sides of a shared baseline.
+ *
+ * Highcharts has no diverging series type — a population pyramid is two
+ * stacked `bar` series with one side's values negated — so the chart has to be
+ * recognised from the data. Two series, one entirely at or below zero and the
+ * other entirely at or above it, is the shape, and it is a narrow one: a
+ * genuine stack puts its segments on the same side of the baseline so they
+ * accumulate, which is exactly what this rules out.
+ *
+ * The reading it selects is also the safer one where the two overlap. A
+ * segmented layer pitches a signed value directly, so a two-million cohort
+ * drawn to the left would sound smaller than a ten-thousand cohort drawn to
+ * the right; a diverging layer pitches the magnitude and names the side.
+ *
+ * @param barSeries - The stacked group
+ * @returns True when the group is two-sided
+ */
+function isDivergingPair(barSeries: HighchartsSeries[]): boolean {
+  if (barSeries.length !== 2) {
+    return false;
+  }
+  const [first, second] = barSeries.map(baselineSideOf);
+  return (first === 'positive' && second === 'negative')
+    || (first === 'negative' && second === 'positive');
+}
+
+/**
+ * Converts two back-to-back bar/column series into a MAIDR diverging layer.
+ *
+ * The payload is the segmented bar's — `DivergingTrace` extends
+ * `SegmentedTrace`, and the category navigation is the same — with the one
+ * difference that decides whether it reads correctly: the values keep their
+ * SIGN. The sign is what tells the trace which side a bar points to, and it is
+ * also what it deliberately does not announce, pitching the magnitude instead.
+ */
+function convertDivergingBar(
+  seriesList: HighchartsSeries[],
+  containerId: string,
+  orientation: Orientation,
+): MaidrLayer {
+  const data = buildSegmentedRows(seriesList, orientation, TraceType.DIVERGING);
+
+  const first = seriesList[0];
+  const selectors = seriesList
+    .map(s => barSelector(containerId, s.index))
+    .join(', ');
+
+  return {
+    id: String(first.index),
+    type: TraceType.DIVERGING,
+    title: first.name || undefined,
+    orientation,
+    selectors,
+    // Highcharts lays one series group out after another, so the elements the
+    // selector list resolves to run series by series. `SegmentedTrace` assumes
+    // the opposite for `<rect>` marks (the shape Highcharts draws whenever a
+    // bar has square corners), and would pair the first side's announcements
+    // with alternating bars from both sides.
+    domMapping: { order: 'row' },
+    axes: barAxes(first, orientation === Orientation.HORIZONTAL),
+    data,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Individual series converters
 // ---------------------------------------------------------------------------
@@ -764,6 +974,7 @@ function convertSeries(
   series: HighchartsSeries,
   chart: HighchartsChart,
   containerId: string,
+  options?: HighchartsAdapterOptions,
 ): MaidrLayer | null {
   const seriesType = resolveSeriesType(series, chart);
 
@@ -803,6 +1014,16 @@ function convertSeries(
       return convertGaugeSeries(series, containerId, seriesType);
     case 'waterfall':
       return convertWaterfallSeries(series, containerId);
+    case 'errorbar':
+      return convertErrorBarSeries(series, chart, containerId);
+    case 'dumbbell':
+      return convertDumbbellSeries(series, containerId, options);
+    // A gantt series is an xrange with dates and lanes — `GanttSeries` extends
+    // `XRangeSeries` and aliases `start`/`end` onto the `x`/`x2` an xrange
+    // already carries — so both read as the same schedule of intervals.
+    case 'gantt':
+    case 'xrange':
+      return convertGanttSeries(series, containerId);
     case 'boxplot':
       return convertBoxSeries(series, chart, containerId);
     case 'heatmap':
@@ -962,6 +1183,151 @@ function convertAreaSeries(
     axes: {
       x: getAxisLabel(first, 'x'),
       y: getAxisLabel(first, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts a polar chart's series into one radar or polar area layer.
+ *
+ * The payload is a multi-line layer's — a row per series, a column per spoke —
+ * because that is what the chart is: `RadarTrace` extends `LineTrace` and
+ * navigates it identically. What the circle adds is where each spoke sits, and
+ * the trace derives that from the column count rather than from the data, so
+ * the adapter has nothing extra to supply.
+ *
+ * The two trace types differ only in the mark. A radar joins the values into a
+ * closed outline (`line`, `spline`, or an `area` whose fill is one more way of
+ * drawing the same outline); a polar area draws each as a wedge whose radius
+ * is the value. That difference is entirely in the selectors — an outline is
+ * one path per series, a wind rose one arc per spoke — and in what the chart
+ * announces itself as.
+ */
+function convertRadialSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+  traceType: TraceType.RADAR | TraceType.POLAR_AREA,
+): MaidrLayer | null {
+  if (seriesList.length === 0)
+    return null;
+
+  const data: LinePoint[][] = seriesList.map(series =>
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({
+        x: pointLabel(p),
+        y: p.y as number,
+        z: series.name || undefined,
+      })),
+  );
+
+  const first = seriesList[0];
+  const indices = seriesList.map(s => s.index);
+
+  const layerTitle = seriesList.length === 1
+    ? first.name || undefined
+    : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
+
+  return {
+    id: indices.map(String).join('-'),
+    type: traceType,
+    title: layerTitle,
+    selectors: traceType === TraceType.POLAR_AREA
+      ? polarAreaSelectors(containerId, indices)
+      : lineSelectors(containerId, indices),
+    axes: {
+      x: getAxisLabel(first, 'x'),
+      y: getAxisLabel(first, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * What a parallel coordinates plot's two dimensions are called.
+ *
+ * Neither is an axis of the chart. The columns ARE the axes — one per variable
+ * — so `axes.x` names what a column is rather than naming one of them, and
+ * there is no single value axis to read `axes.y` from: every column is
+ * measured in its own units, which is the whole point of the chart.
+ */
+const PARALLEL_AXIS_AXIS = 'Axis';
+const PARALLEL_VALUE_AXIS = 'Value';
+
+/**
+ * What a parallel coordinates column is called.
+ *
+ * Highcharts draws these names as the x axis' category labels — its own
+ * documentation says so: "visually the parallel coordinates titles are done
+ * through `xAxis.categories`" — so the label is already on the point, and the
+ * per-axis `title.text` defaults to the empty string. An author who titled the
+ * axes instead is honoured through the fallback, and a chart that named them
+ * nowhere falls back to the column's position.
+ *
+ * @param point - The value being named
+ * @param chart - The chart, for its per-variable y axes
+ * @returns The column's name
+ */
+function parallelColumnLabel(
+  point: HighchartsPoint,
+  chart: HighchartsChart,
+): string | number {
+  if (point.category !== undefined) {
+    return point.category;
+  }
+  const axisTitle = chart.yAxis?.[Math.round(point.x)]?.options?.title?.text;
+  return axisTitle || pointLabel(point);
+}
+
+/**
+ * Converts a parallel coordinates chart's series into one layer.
+ *
+ * In this mode Highcharts binds every series to the same axis pair and plots
+ * each point against `chart.yAxis[i]` instead — one axis per variable, one
+ * series per observation. So the payload is the multi-line one again, a row
+ * per observation and a column per variable, and `ParallelTrace` (a
+ * `LineTrace` too) navigates it the same way.
+ *
+ * Nothing is normalised here. The trace computes each column's extent itself
+ * and pitches a value against its OWN axis, which is what makes the chart
+ * audible: scaled against one range for the layer, a reader would hear which
+ * variable uses bigger numbers rather than where an observation sits.
+ */
+function convertParallelSeries(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer | null {
+  if (seriesList.length === 0)
+    return null;
+
+  const data: LinePoint[][] = seriesList.map(series =>
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({
+        x: parallelColumnLabel(p, chart),
+        y: p.y as number,
+        z: series.name || undefined,
+      })),
+  );
+
+  const first = seriesList[0];
+  const indices = seriesList.map(s => s.index);
+
+  const layerTitle = seriesList.length === 1
+    ? first.name || undefined
+    : seriesList.map(s => s.name).filter(Boolean).join(', ') || undefined;
+
+  return {
+    id: indices.map(String).join('-'),
+    type: TraceType.PARALLEL,
+    title: layerTitle,
+    selectors: lineSelectors(containerId, indices),
+    axes: {
+      x: { label: PARALLEL_AXIS_AXIS },
+      y: { label: PARALLEL_VALUE_AXIS },
     },
     data,
   };
@@ -1548,6 +1914,330 @@ function convertWaterfallSeries(
     },
     data,
   };
+}
+
+/**
+ * The series an error bar takes its estimates from, when it names one.
+ *
+ * Highcharts resolves `linkedTo` into `series.linkedParent` before it renders,
+ * so that is read first; the option itself is the fallback for the partially
+ * built chart objects the adapter is sometimes handed, and supports both forms
+ * Highcharts accepts — `':previous'` and another series' `id`.
+ *
+ * @param series - The error bar series
+ * @param chart - The chart holding the candidates
+ * @returns The parent series, or undefined for an unlinked error bar
+ */
+function linkedParentOf(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+): HighchartsSeries | undefined {
+  if (series.linkedParent) {
+    return series.linkedParent;
+  }
+  const linkedTo = series.options.linkedTo;
+  if (typeof linkedTo !== 'string') {
+    return undefined;
+  }
+  return linkedTo === ':previous'
+    ? chart.series[series.index - 1]
+    : chart.series.find(candidate => candidate.options.id === linkedTo);
+}
+
+/**
+ * The series whose values an error bar layer already announces.
+ *
+ * A linked error bar and its parent draw one thing between them: the parent
+ * places the estimate and the error bar draws the interval around it, and
+ * MAIDR's `ErrorBarPoint` carries both. Emitting the parent as a bar layer as
+ * well would announce the same estimates twice, in a layer that has lost the
+ * interval — so it is dropped, but ONLY when the error bar covers every sample
+ * it drew. A parent with samples the error bar skips keeps its own layer, so
+ * that no sample goes unannounced.
+ *
+ * @param seriesList - The panel's series
+ * @param chart - The chart, for resolving `linkedTo`
+ * @returns The parents to leave out of the other buckets
+ */
+function seriesReadAsErrorBars(
+  seriesList: HighchartsSeries[],
+  chart: HighchartsChart,
+): Set<HighchartsSeries> {
+  const parents = new Set<HighchartsSeries>();
+  for (const series of seriesList) {
+    if (resolveSeriesType(series, chart) !== 'errorbar') {
+      continue;
+    }
+    const parent = linkedParentOf(series, chart);
+    if (!parent) {
+      continue;
+    }
+    const measured = new Set(series.data.filter(isDrawnErrorBar).map(p => p.x));
+    const covered = parent.data.every(p => typeof p.y !== 'number' || measured.has(p.x));
+    if (covered) {
+      parents.add(parent);
+    }
+  }
+  return parents;
+}
+
+/**
+ * Whether Highcharts draws a whip for an error bar point.
+ *
+ * `ErrorBarSeries` declares `pointValKey: 'high'`, so the upper bound is what
+ * places the point: without it there is no `plotY`, `BoxPlotSeries#drawPoints`
+ * skips the point entirely, and no element is rendered.
+ *
+ * @param point - The error bar point
+ * @returns True when the chart drew it
+ */
+function isDrawnErrorBar(point: HighchartsPoint): boolean {
+  return typeof point.high === 'number';
+}
+
+/**
+ * Converts an `errorbar` series into an error bar layer.
+ *
+ * The two halves of the reading come from two different series. Highcharts
+ * puts the interval on the error bar (`low` and `high`, absolute positions on
+ * the value axis, which is the form MAIDR wants) and leaves the ESTIMATE in
+ * the series the error bar is linked to — normally the column or scatter it is
+ * drawn over. So the converter resolves that parent and zips the two together
+ * by `x`, which is what makes one layer carrying all three magnitudes.
+ *
+ * An unlinked error bar still reads: the midpoint of the interval is where the
+ * chart puts the estimate visually, so that is what is announced, and a reader
+ * hears the same three numbers the chart drew. What is lost is only an
+ * estimate placed off-centre, which an unlinked series never showed.
+ *
+ * A point Highcharts drew no whip for is dropped rather than carried as a gap,
+ * for the reason the pie and funnel converters drop one: keeping it would
+ * slide every later whip's highlight onto its neighbour.
+ */
+function convertErrorBarSeries(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer {
+  const parent = linkedParentOf(series, chart);
+  const estimates = new Map<number, number>();
+  for (const point of parent?.data ?? []) {
+    if (typeof point.y === 'number') {
+      estimates.set(point.x, point.y);
+    }
+  }
+
+  const data: ErrorBarPoint[] = series.data
+    .filter(isDrawnErrorBar)
+    .map((p) => {
+      const high = p.high as number;
+      const low = typeof p.low === 'number' ? p.low : undefined;
+      return {
+        x: pointLabel(p),
+        y: estimates.get(p.x) ?? (low === undefined ? high : (low + high) / 2),
+        ...(low === undefined ? {} : { yMin: low }),
+        yMax: high,
+      };
+    });
+
+  return {
+    id: String(series.index),
+    type: TraceType.ERROR_BAR,
+    title: series.name || parent?.name || undefined,
+    ...(chart.options.chart?.inverted === true
+      ? { orientation: Orientation.HORIZONTAL }
+      : {}),
+    selectors: errorBarSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts a `dumbbell` series into a dumbbell layer.
+ *
+ * The payload is a single object rather than an array, because the names of
+ * the two ends belong to the chart and not to any one row. Highcharts names
+ * them nowhere — a dumbbell point declares a `low` and a `high` and nothing
+ * that says what either one is — so they come from the adapter's own options,
+ * and MAIDR falls back to "start" and "end" when they are not supplied.
+ *
+ * `low` is the start: it is the first value in a dumbbell's `[x, low, high]`
+ * tuple, and the reference end a chart of change is read from. Which of the
+ * two is larger is not fixed and is not assumed anywhere — a dumbbell showing
+ * a decline draws its end below its start.
+ *
+ * The change between the two ends is deliberately not computed here.
+ * `DumbbellTrace` derives it from the pair, so an authored one would be a
+ * second source of truth for a number the segment already draws.
+ *
+ * A row missing either end is dropped, since neither `start` nor `end` has
+ * anywhere to be absent. Highcharts still draws that row's connector — it
+ * creates one per declared point, with or without a path — so MAIDR then finds
+ * more connectors than rows and withdraws the layer's highlighting rather than
+ * pairing announcements with the wrong segments.
+ */
+function convertDumbbellSeries(
+  series: HighchartsSeries,
+  containerId: string,
+  options?: HighchartsAdapterOptions,
+): MaidrLayer {
+  const points: DumbbellPoint[] = series.data
+    .filter(p => typeof p.low === 'number' && typeof p.high === 'number')
+    .map(p => ({
+      x: pointLabel(p),
+      start: p.low as number,
+      end: p.high as number,
+    }));
+
+  const { start, end } = options?.dumbbellLabels ?? {};
+  const data: DumbbellData = {
+    points,
+    ...(start ? { startLabel: start } : {}),
+    ...(end ? { endLabel: end } : {}),
+  };
+
+  return {
+    id: String(series.index),
+    type: TraceType.DUMBBELL,
+    title: series.name || undefined,
+    selectors: dumbbellSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * What MAIDR calls a unit of a datetime axis.
+ *
+ * A Highcharts datetime axis counts milliseconds, and an interval's length is
+ * a difference along it, so that is the unit — announced rather than converted
+ * because `start` and `end` have to stay in the axis' own numbers for the
+ * panning to place them where the chart draws them.
+ */
+const GANTT_DATETIME_UNIT = 'ms';
+
+/**
+ * Converts a `gantt` or `xrange` series into a gantt layer.
+ *
+ * The payload is nested by lane, and that nesting is the reason the shape is
+ * an object rather than a flat list: a lane with nothing booked is a real
+ * statement about a schedule, and only a nested list can make it. Highcharts
+ * draws the intervals in `series.data` order, which interleaves lanes freely,
+ * so the converter regroups them — and stamps the DOM in the regrouped order,
+ * since MAIDR slices its selector list lane by lane.
+ *
+ * The lanes come from the y axis' categories, which both series types supply:
+ * an xrange declares them outright, and a Gantt chart's tree grid axis builds
+ * them from the tasks. Failing that they are numbered, so a chart drawn
+ * against a bare numeric axis still navigates.
+ *
+ * A milestone has no end — Highcharts draws it as a diamond rather than a bar
+ * — so it becomes a zero-length interval at its own instant, which is what the
+ * chart shows.
+ */
+function convertGanttSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const categories = series.yAxis?.categories ?? [];
+
+  // Group the intervals by lane, keeping the order each lane declared them in.
+  const laneSources: HighchartsPoint[][] = [];
+  const laneOf = (point: HighchartsPoint): number =>
+    (typeof point.y === 'number' ? Math.round(point.y) : -1);
+  const laneCount = Math.max(
+    categories.length,
+    ...series.data.map(point => laneOf(point) + 1),
+    0,
+  );
+  for (let lane = 0; lane < laneCount; lane++) {
+    laneSources.push(series.data.filter(point => laneOf(point) === lane));
+  }
+
+  const lanes: (string | number)[] = Array.from(
+    { length: laneCount },
+    (_, lane) => categories[lane] ?? lane,
+  );
+
+  const data: GanttData = {
+    points: laneSources.map((lane, index) => lane.map(point => ({
+      x: lanes[index],
+      start: point.x,
+      end: point.x2 ?? point.x,
+      ...(point.name ? { label: point.name } : {}),
+    } satisfies GanttPoint))),
+    lanes,
+    ...(isDatetimeAxis(series.xAxis) ? { unit: GANTT_DATETIME_UNIT } : {}),
+  };
+
+  stampGanttIndices(laneSources);
+
+  return {
+    id: String(series.index),
+    type: TraceType.GANTT,
+    title: series.name || undefined,
+    // A gantt runs its bars along x with its lanes down y, which is the
+    // opposite of MAIDR's default, so the axis labels have to be swapped back.
+    orientation: Orientation.HORIZONTAL,
+    selectors: ganttSelectors(containerId, series.index, laneSources.flat().length),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Whether an axis counts time rather than plain numbers.
+ *
+ * Highcharts Gantt forces `type: 'datetime'` onto its x axes; an xrange may or
+ * may not, so both the runtime flag and the declared option are read.
+ *
+ * @param axis - The axis to inspect
+ * @returns True when its values are timestamps
+ */
+function isDatetimeAxis(axis: HighchartsAxis | undefined): boolean {
+  return axis?.isDatetimeAxis === true || axis?.options?.type === 'datetime';
+}
+
+/**
+ * Stamps each rendered gantt or xrange interval with `data-maidr-task-index`,
+ * its position in the lane-major order MAIDR reads the lanes in.
+ *
+ * Highcharts draws the intervals in `series.data` order, so a chart whose
+ * tasks were declared by date rather than by lane puts them in the DOM
+ * interleaved — and `GanttTrace` slices its elements lane by lane. Document
+ * order therefore cannot be indexed into, exactly as it cannot for a treemap.
+ *
+ * Stamping the point's own `graphic` also spans the two shapes the series draw
+ * with: an ordinary task is a `<g>` wrapping a `<rect>` that repeats its
+ * class, a milestone is a bare `<path>`, and the `graphic` is the outermost
+ * element in both cases.
+ *
+ * An interval Highcharts did not draw has no element to stamp, so its selector
+ * matches nothing and the layer's highlighting is withdrawn rather than
+ * shifted onto its neighbours.
+ *
+ * Idempotent: re-stamping overwrites existing attributes.
+ *
+ * @param laneSources - The Highcharts points, grouped by lane
+ */
+function stampGanttIndices(laneSources: HighchartsPoint[][]): void {
+  let index = 0;
+  for (const lane of laneSources) {
+    for (const point of lane) {
+      point.graphic?.element.setAttribute('data-maidr-task-index', String(index));
+      index++;
+    }
+  }
 }
 
 function convertScatterSeries(

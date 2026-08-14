@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Gantt Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- modules/gantt.js adds the gantt series and Highcharts.ganttChart. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/gantt.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Gantt Chart</h1>
+    <p>
+      A Highcharts Gantt chart made accessible by the MAIDR Highcharts adapter.
+      An interval has two numbers and no baseline, so the two are split across
+      two channels: the pitch carries each task's length, and its stereo
+      position carries where it starts along the axis — so a lane whose work
+      happens late sounds late, and two lanes whose tasks line up sound like
+      they line up. Click on the chart, use up and down arrow keys to move
+      between lanes and left and right to walk a lane's tasks.
+    </p>
+
+    <div id="gantt-chart" style="width: 800px; height: 500px"></div>
+
+    <script>
+      const day = 24 * 36e5;
+      const start = Date.UTC(2024, 0, 1);
+
+      const chart = Highcharts.ganttChart('gantt-chart', {
+        title: { text: 'Release Plan' },
+        xAxis: { title: { text: 'Date' } },
+        yAxis: { title: { text: 'Task' }, categories: ['Design', 'Develop', 'Test', 'Ship'] },
+        series: [{
+          name: 'Project',
+          data: [
+            { name: 'Wireframes', y: 0, start, end: start + 4 * day },
+            { name: 'Revisions', y: 0, start: start + 10 * day, end: start + 12 * day },
+            { name: 'API', y: 1, start: start + 3 * day, end: start + 14 * day },
+            { name: 'Front end', y: 1, start: start + 8 * day, end: start + 18 * day },
+            { name: 'Regression', y: 2, start: start + 16 * day, end: start + 21 * day },
+            { name: 'Go live', y: 3, start: start + 22 * day, milestone: true },
+          ],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'gantt-chart' });
+      document.getElementById('gantt-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

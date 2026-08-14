@@ -16,6 +16,22 @@ export interface HighchartsAdapterOptions {
   title?: string;
   /** Convert only specific series by index. Default: all visible series. */
   seriesIndices?: number[];
+  /**
+   * What a dumbbell chart's two ends are called — "1990" and "2020",
+   * "before" and "after".
+   *
+   * Supplied here because Highcharts names them nowhere: a dumbbell series
+   * declares a `low` and a `high` and nothing that says what either one is,
+   * so the names a legend gives a sighted reader have no field to be read
+   * from. Omitted, MAIDR announces them as "start" and "end", which says
+   * which dot the cursor is on but not which year it is.
+   */
+  dumbbellLabels?: {
+    /** What the `low` end is called. */
+    start?: string;
+    /** What the `high` end is called. */
+    end?: string;
+  };
 }
 
 /**
@@ -59,7 +75,23 @@ export interface HighchartsChart {
   /** The user-provided render target element. */
   renderTo: HTMLElement;
   options: {
-    chart?: { type?: string; inverted?: boolean };
+    chart?: {
+      type?: string;
+      inverted?: boolean;
+      /**
+       * Draws the cartesian plane wrapped around a circle — a radar, a spider
+       * chart, or a wind rose. The series keep calling themselves `line` and
+       * `column`, so this flag is the only thing that says which chart was
+       * drawn.
+       */
+      polar?: boolean;
+      /**
+       * Draws one axis per variable side by side, with one series per
+       * observation. Like `polar`, the series are still `line` series, so the
+       * flag is what distinguishes the chart.
+       */
+      parallelCoordinates?: boolean;
+    };
     plotOptions?: {
       series?: { stacking?: string };
       column?: { stacking?: string };
@@ -85,8 +117,21 @@ export interface HighchartsSeries {
   yAxis: HighchartsAxis;
   index: number;
   visible: boolean;
+  /**
+   * The series this one is drawn against, resolved by Highcharts from
+   * `options.linkedTo` before it renders. An error bar's estimate lives here:
+   * the whip carries only the interval.
+   */
+  linkedParent?: HighchartsSeries;
   options: {
     type?: string;
+    /** Identifier another series' `linkedTo` can name. */
+    id?: string;
+    /**
+     * Binds this series to another one, either by its `id` or as `':previous'`.
+     * Highcharts resolves it into {@link HighchartsSeries.linkedParent}.
+     */
+    linkedTo?: string;
     stacking?: string;
     /**
      * Where a line series' staircase rises, when it draws one. Highcharts
@@ -109,9 +154,15 @@ export interface HighchartsPoint {
   y: number | null;
   category?: string;
   name?: string;
-  /** Boxplot / candlestick high value. */
+  /**
+   * The far end of an interval — a gantt task's finish, an xrange bar's right
+   * edge. Highcharts aliases a gantt point's `end` onto it, so both series
+   * read the same way.
+   */
+  x2?: number;
+  /** Boxplot / candlestick high value, error bar upper bound, dumbbell high. */
   high?: number;
-  /** Boxplot / candlestick low value. */
+  /** Boxplot / candlestick low value, error bar lower bound, dumbbell low. */
   low?: number;
   /** Boxplot first quartile. */
   q1?: number;

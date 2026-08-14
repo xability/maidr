@@ -131,6 +131,94 @@ export function lollipopSelector(containerId: string, seriesIndex: number): stri
 }
 
 /**
+ * Generates a CSS selector for the connectors of a `dumbbell` series.
+ *
+ * A dumbbell draws three elements per row: the two dots, which
+ * `AreaRangeSeries#drawPoints` renders as ordinary markers carrying the point
+ * class (plus `highcharts-lollipop-low` / `-high`), and the segment between
+ * them, a `<path class="highcharts-lollipop-stem">` that `drawConnector` adds
+ * for every row. A `.highcharts-point` selector would therefore return two
+ * elements per row, which is one too many: MAIDR's `DumbbellTrace` wants one
+ * element per row and highlights the same one from both ends, since the chart
+ * draws one connector per row and not one element per dot.
+ *
+ * The connector is also the more dependable of the two. Highcharts drops the
+ * markers when the points get dense enough to overlap
+ * (`marker.enabledThreshold`), while `drawConnector` runs unconditionally.
+ */
+export function dumbbellSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} path.highcharts-lollipop-stem`;
+}
+
+/**
+ * Generates a CSS selector for the whips of an `errorbar` series.
+ *
+ * An error bar is a box plot without the quartiles — `ErrorBarSeries` extends
+ * `BoxPlotSeries` with `doQuartiles: false` — so each sample is drawn as a
+ * `<g class="highcharts-point">` holding the stem, the two caps and the
+ * median mark. The group is the whole whip and is what MAIDR highlights: the
+ * lower bound, the estimate and the upper bound are three magnitudes read off
+ * one drawn element, so all three highlight it.
+ *
+ * Matching `g.highcharts-point` rather than the bare class is what keeps the
+ * count right on the linked series a chart usually pairs an error bar with —
+ * the group is the only element inside the series carrying the point class.
+ */
+export function errorBarSelector(containerId: string, seriesIndex: number): string {
+  return `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} g.highcharts-point`;
+}
+
+/**
+ * Generates per-series CSS selectors for the wedges of a polar `column` series
+ * — a wind rose or coxcomb.
+ *
+ * MAIDR reads a polar area with `RadarTrace`, which inherits `LineTrace`'s
+ * selector handling: one entry per series, each resolving to that series' own
+ * marks. A polar column draws one arc per spoke carrying the point class, so
+ * the count matches the row's values and `LineTrace` highlights the arcs
+ * directly rather than falling back to parsing a path.
+ *
+ * A radar drawn with `line` or `area` series uses {@link lineSelectors}
+ * instead: those series draw an outline rather than one mark per spoke.
+ */
+export function polarAreaSelectors(containerId: string, seriesIndices: number[]): string[] {
+  return seriesIndices.map(
+    i => `#${containerId} .highcharts-series-group .highcharts-series-${i} .highcharts-point`,
+  );
+}
+
+/**
+ * Generates per-interval CSS selectors for a `gantt` or `xrange` series.
+ *
+ * MAIDR's `GanttTrace` reads its selector list **grouped by lane** — the flat
+ * list is sliced lane by lane — while Highcharts draws the intervals in
+ * `series.data` order, which interleaves lanes freely. Document order
+ * therefore says nothing about lane membership, so the adapter stamps
+ * `data-maidr-task-index="N"` onto each rendered interval in the lane-major
+ * order MAIDR expects (see `stampGanttIndices` in adapter.ts) and these
+ * selectors address the stamp.
+ *
+ * Stamping also side-steps how `XRangeSeries#drawPoint` nests its marks: an
+ * ordinary task is a `<g class="highcharts-point">` wrapping a
+ * `<rect class="highcharts-point highcharts-partfill-original">`, so the point
+ * class appears twice per interval, while a gantt milestone is a single
+ * `<path class="highcharts-point">` with no wrapper. The stamp lands on the
+ * one element Highcharts records as the point's `graphic` in both cases.
+ */
+export function ganttSelectors(
+  containerId: string,
+  seriesIndex: number,
+  taskCount: number,
+): string[] {
+  const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex}`;
+  const selectors: string[] = [];
+  for (let i = 0; i < taskCount; i++) {
+    selectors.push(`${base} [data-maidr-task-index="${i}"]`);
+  }
+  return selectors;
+}
+
+/**
  * Generates a CSS selector for the stages of a funnel (or pyramid) series.
  *
  * A funnel series extends the pie series, so each stage is drawn as a

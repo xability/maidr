@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Radar and Wind Rose - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <!-- highcharts-more.js ships the polar drawing mode. -->
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts-more.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Radar and Polar Area Charts</h1>
+    <p>
+      Two Highcharts polar charts made accessible by the MAIDR Highcharts
+      adapter. Both are declared with ordinary <code>line</code> and
+      <code>column</code> series and only <code>chart.polar</code> says which
+      chart was drawn. Click on a chart and use left and right arrow keys to
+      walk the spokes: a spoke's stereo position follows its angle rather than
+      its index, so a sweep goes out and comes back.
+    </p>
+
+    <h2>Radar</h2>
+    <div id="radar-chart" style="width: 700px; height: 500px"></div>
+
+    <h2>Polar area (wind rose)</h2>
+    <div id="windrose-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const radar = Highcharts.chart('radar-chart', {
+        chart: { polar: true, type: 'line' },
+        title: { text: 'Budget vs Spending' },
+        xAxis: {
+          categories: ['Sales', 'Marketing', 'Development', 'Customer Support', 'IT', 'Administration'],
+          tickmarkPlacement: 'on',
+        },
+        yAxis: { title: { text: 'USD' } },
+        series: [
+          { name: 'Allocated Budget', data: [43000, 19000, 60000, 35000, 17000, 10000] },
+          { name: 'Actual Spending', data: [50000, 39000, 42000, 31000, 26000, 14000] },
+        ],
+      });
+
+      const windRose = Highcharts.chart('windrose-chart', {
+        chart: { polar: true, type: 'column' },
+        title: { text: 'Wind Frequency by Direction' },
+        legend: { enabled: false },
+        xAxis: { categories: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], tickmarkPlacement: 'on' },
+        yAxis: { title: { text: 'Frequency (%)' } },
+        series: [{
+          name: 'Frequency',
+          data: [3.2, 5.1, 9.4, 12.8, 7.6, 4.3, 2.9, 1.8],
+        }],
+      });
+
+      for (const [chart, id] of [[radar, 'radar-chart'], [windRose, 'windrose-chart']]) {
+        const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id });
+        document.getElementById(id).setAttribute('maidr-data', JSON.stringify(maidrData));
+        maidrHighcharts.createHighchartsSync(chart);
+      }
+    </script>
+  </body>
+</html>
