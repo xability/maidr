@@ -19,11 +19,123 @@
  *   The element-based approach in LineTrace picks up individual dots directly
  *   (similar to how BarTrace uses individual rect elements).
  *
+ * AreaChart:
+ *   g.recharts-area > g.recharts-area-dots > circle.recharts-area-dot
+ *   [target: .recharts-area-dots .recharts-area-dot]
+ *
+ * RadarChart:
+ *   g.recharts-radar > g.recharts-radar-dots > circle.recharts-radar-dot
+ *   [target: .recharts-radar-dots .recharts-radar-dot]
+ *
+ *   Areas and radars carry the line's caveat, because they share its `Dots`
+ *   component: it renders nothing unless the consumer sets `dot` on the
+ *   `<Area>`/`<Radar>` (the sole exception being a series of exactly one
+ *   point). The filled band and the polygon outline are single paths with no
+ *   per-sample element to highlight, so the dots are the only index-aligned
+ *   marks either chart has.
+ *
+ * Floating BarChart (waterfall, gantt, dumbbell, icicle):
+ *   g.recharts-bar-rectangle > path.recharts-rectangle
+ *   [target: .recharts-bar-rectangle .recharts-rectangle]
+ *
+ *   None of the four is a Recharts primitive, and all four draw the same
+ *   thing: a bar that does not start at the baseline. Recharts renders one
+ *   for a `<Bar>` whose `dataKey` returns a `[start, end]` pair, which gives
+ *   exactly one rectangle per row — the waterfall's floating step, the gantt's
+ *   interval, the dumbbell's connector, the icicle's band — so the ordinary
+ *   bar selector already fits.
+ *
+ *   An icicle carries the one extra condition, since its rows are a flattened
+ *   tree rather than the chart's own data: they must be flattened in the same
+ *   depth-first pre-order the adapter emits its nodes in, so that row i is
+ *   node i. A chart built the other obvious way — one stacked `<Bar>` per
+ *   depth level — draws its rectangles series-major instead, which is not that
+ *   order, and needs `selectorOverride`.
+ *
+ *   The other recipe for all of them is a transparent offset `<Bar>` stacked
+ *   under a visible one, and it does NOT work: two `<Bar>`s draw two
+ *   rectangles per row, and this selector matches the invisible one as well.
+ *   Such a chart puts a `className` on the visible `<Bar>` and passes the
+ *   narrowed selector as `selectorOverride`.
+ *
+ * RadialBarChart (gauge):
+ *   g.recharts-radial-bar-sectors > g > path.recharts-radial-bar-sector
+ *   [target: .recharts-radial-bar-sectors .recharts-radial-bar-sector]
+ *
+ *   A gauge draws exactly one measure, so one sector is what the trace wants.
+ *
+ * Treemap:
+ *   g.recharts-treemap-depth-N > g.recharts-layer > g > path.recharts-rectangle
+ *   [target: the same, for every depth EXCEPT 0]
+ *
+ *   Recharts wraps the `data` array in a synthetic root node and draws it as a
+ *   full-plot rectangle at depth 0, which is one more rectangle than the
+ *   layer declares nodes — and `TreemapTrace` withdraws highlighting entirely
+ *   on a count mismatch. Hence the `:not(.recharts-treemap-depth-0)`. The
+ *   remaining rectangles come out in document order, which for a tree drawn
+ *   as nested `<Layer>`s is depth-first pre-order: the same order the adapter
+ *   flattens the nested data in.
+ *
+ *   The `> g > g >` chain picks a node's OWN rectangle rather than its
+ *   descendants', since a child's `<Layer>` is a sibling of its parent's
+ *   rectangle. A `<Treemap type="nest">` or one given a custom `content`
+ *   draws something else and needs `selectorOverride`.
+ *
+ * SunburstChart:
+ *   g.recharts-sunburst > g > path.recharts-sector
+ *   [target: .recharts-sunburst .recharts-sector]
+ *
+ *   One sector per node in depth-first pre-order, and no sector for the root:
+ *   `SunburstChart` renders `data.children`. That is why the adapter is given
+ *   those children rather than the root — the declared nodes are then exactly
+ *   the drawn ones.
+ *
  * ScatterChart:
  *   g.recharts-scatter > g.recharts-scatter-symbol > path.recharts-symbols
  *   [target: .recharts-scatter-symbol .recharts-symbols]
  *
- * PieChart:
+ *   A Cleveland dot plot is a `<Scatter>` against a category axis, and a
+ *   lollipop is a `<Scatter>` head over a thin `<Bar>` stem, so both target
+ *   the symbols. The head is highlighted rather than the stem: it is where
+ *   the value is read off, and a lollipop drawn without one (a custom `<Bar>`
+ *   shape carrying its own dot) needs `selectorOverride` anyway.
+ *
+ * FunnelChart:
+ *   g.recharts-trapezoids > g.recharts-funnel-trapezoid > g > path.recharts-trapezoid
+ *   [target: .recharts-funnel-trapezoid .recharts-trapezoid]
+ *
+ *   One trapezoid per stage, in the order the stages are declared, so the
+ *   funnel's drawn order and its data order are the same thing.
+ *
+ * ErrorBar (inside a Bar/Line/Scatter):
+ *   g.recharts-errorBars > g.recharts-errorBar > line
+ *   [target: .recharts-errorBars .recharts-errorBar]
+ *
+ *   The whiskers rather than the host mark: an `<ErrorBar>` is the only
+ *   element the adapter knows a chart of this type draws, since the estimate
+ *   itself may be a bar, a line dot or a scatter symbol depending on what the
+ *   author nested it in. A chart that would rather highlight its host mark
+ *   passes that selector as `selectorOverride`.
+ *
+ *   Recharts renders NO whisker for a sample whose error value is zero or
+ *   missing (`ErrorBar.js` returns null before drawing). The trace sees fewer
+ *   elements than samples and turns highlighting off for the layer rather
+ *   than mis-aligning it, the same way a zero-value pie slice behaves.
+ *
+ *   A forest plot is drawn as a `<ScatterChart>` with `<ErrorBar direction="x">`,
+ *   so its marks are the scatter symbols — the square whose area carries the
+ *   study's weight — and it targets those instead.
+ *
+ * Sankey (alluvial, sankey):
+ *   g.recharts-sankey-links > path.recharts-sankey-link
+ *   [target: .recharts-sankey-links .recharts-sankey-link]
+ *
+ *   One path per link in declared order, which is the order a flow layer's
+ *   selectors have to be in: the trace sorts its edge lists by value the
+ *   moment it builds them, and carries each edge's declared position with it.
+ *   Both types are drawn by the same component, so both target the same links.
+ *
+ * PieChart (pie, polar area):
  *   g.recharts-pie > g.recharts-pie-sector > path.recharts-sector
  *   [target: .recharts-pie-sector .recharts-sector]
  *
@@ -32,6 +144,10 @@
  *   data. The `.recharts-pie-sector` parent scope matters here: the pie's
  *   label lines (`<path class="recharts-curve">`) and, in an active-shape
  *   chart, the enlarged active sector live under `.recharts-pie` too.
+ *
+ *   A coxcomb is a `<Pie>` whose slices are all the same angle and whose
+ *   `outerRadius` is a function of the datum, so its wedges are these same
+ *   sectors, one per spoke.
  *
  *   One exception is out of the adapter's hands: Recharts renders no sector at
  *   all for a zero-value slice (`Pie.js` drops sectors whose start and end
@@ -144,17 +260,57 @@ export function getRechartsSelector(
  */
 function baseRechartsSelector(chartType: RechartsChartType): string | undefined {
   switch (chartType) {
+    // A waterfall step, a gantt interval, a dumbbell connector and an icicle
+    // band are drawn by a `<Bar>` too — one floating rectangle per row.
     case 'bar':
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
+    case 'diverging_bar':
     case 'histogram':
+    case 'waterfall':
+    case 'gantt':
+    case 'dumbbell':
+    case 'icicle':
       return '.recharts-bar-rectangle .recharts-rectangle';
+    case 'gauge':
+      return '.recharts-radial-bar-sectors .recharts-radial-bar-sector';
+    case 'treemap':
+      return 'g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle';
+    case 'sunburst':
+      return '.recharts-sunburst .recharts-sector';
+    // A bump chart is a <LineChart> of ranks and a survival curve a
+    // <LineChart> of step segments, so both draw line dots.
     case 'line':
+    case 'bump':
+    case 'survival':
       return '.recharts-line-dots .recharts-line-dot';
+    case 'area':
+    case 'stacked_area':
+    case 'normalized_area':
+      return '.recharts-area-dots .recharts-area-dot';
+    case 'radar':
+      return '.recharts-radar-dots .recharts-radar-dot';
+    // A volcano and a Manhattan plot are literally scatters, and a forest plot
+    // is a <ScatterChart> whose symbols carry the study weights.
     case 'scatter':
+    case 'dot':
+    case 'lollipop':
+    case 'volcano':
+    case 'manhattan':
+    case 'forest':
       return '.recharts-scatter-symbol .recharts-symbols';
+    case 'funnel':
+      return '.recharts-funnel-trapezoid .recharts-trapezoid';
+    case 'error_bar':
+      return '.recharts-errorBars .recharts-errorBar';
+    // Both are a `<Sankey>`, so both highlight its ribbons.
+    case 'alluvial':
+    case 'sankey':
+      return '.recharts-sankey-links .recharts-sankey-link';
+    // A coxcomb is a `<Pie>` of equal-angle slices, so its wedges are sectors.
     case 'pie':
+    case 'polar_area':
       return '.recharts-pie-sector .recharts-sector';
   }
 }

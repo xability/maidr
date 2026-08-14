@@ -4,9 +4,33 @@ import { BarChartExample } from './examples/BarChartExample';
 import { StackedBarExample } from './examples/StackedBarExample';
 import { DodgedBarExample } from './examples/DodgedBarExample';
 import { NormalizedBarExample } from './examples/NormalizedBarExample';
+import { DivergingBarExample } from './examples/DivergingBarExample';
+import { WaterfallExample } from './examples/WaterfallExample';
+import { DumbbellExample } from './examples/DumbbellExample';
+import { GanttExample } from './examples/GanttExample';
+import { GaugeExample } from './examples/GaugeExample';
+import { DotPlotExample } from './examples/DotPlotExample';
+import { LollipopExample } from './examples/LollipopExample';
+import { FunnelChartExample } from './examples/FunnelChartExample';
 import { HistogramExample } from './examples/HistogramExample';
 import { LineChartExample } from './examples/LineChartExample';
+import { AreaChartExample } from './examples/AreaChartExample';
+import { StackedAreaExample } from './examples/StackedAreaExample';
+import { NormalizedAreaExample } from './examples/NormalizedAreaExample';
+import { RadarChartExample } from './examples/RadarChartExample';
+import { PolarAreaExample } from './examples/PolarAreaExample';
+import { BumpChartExample } from './examples/BumpChartExample';
+import { SurvivalCurveExample } from './examples/SurvivalCurveExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
+import { VolcanoPlotExample } from './examples/VolcanoPlotExample';
+import { ManhattanPlotExample } from './examples/ManhattanPlotExample';
+import { ErrorBarExample } from './examples/ErrorBarExample';
+import { ForestPlotExample } from './examples/ForestPlotExample';
+import { AlluvialExample } from './examples/AlluvialExample';
+import { SankeyExample } from './examples/SankeyExample';
+import { TreemapExample } from './examples/TreemapExample';
+import { SunburstExample } from './examples/SunburstExample';
+import { IcicleExample } from './examples/IcicleExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
 import { FacetExample } from './examples/FacetExample';
 
@@ -15,9 +39,33 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Bar', component: StackedBarExample },
   { name: 'Dodged Bar', component: DodgedBarExample },
   { name: 'Normalized Bar', component: NormalizedBarExample },
+  { name: 'Diverging Bar', component: DivergingBarExample },
+  { name: 'Waterfall', component: WaterfallExample },
+  { name: 'Dumbbell', component: DumbbellExample },
+  { name: 'Gantt', component: GanttExample },
+  { name: 'Gauge', component: GaugeExample },
+  { name: 'Dot Plot', component: DotPlotExample },
+  { name: 'Lollipop', component: LollipopExample },
+  { name: 'Funnel', component: FunnelChartExample },
   { name: 'Histogram', component: HistogramExample },
   { name: 'Line Chart', component: LineChartExample },
+  { name: 'Area Chart', component: AreaChartExample },
+  { name: 'Stacked Area', component: StackedAreaExample },
+  { name: 'Normalized Area', component: NormalizedAreaExample },
+  { name: 'Radar Chart', component: RadarChartExample },
+  { name: 'Polar Area', component: PolarAreaExample },
+  { name: 'Bump Chart', component: BumpChartExample },
+  { name: 'Survival Curve', component: SurvivalCurveExample },
   { name: 'Scatter Chart', component: ScatterChartExample },
+  { name: 'Volcano Plot', component: VolcanoPlotExample },
+  { name: 'Manhattan Plot', component: ManhattanPlotExample },
+  { name: 'Error Bars', component: ErrorBarExample },
+  { name: 'Forest Plot', component: ForestPlotExample },
+  { name: 'Alluvial', component: AlluvialExample },
+  { name: 'Sankey', component: SankeyExample },
+  { name: 'Treemap', component: TreemapExample },
+  { name: 'Sunburst', component: SunburstExample },
+  { name: 'Icicle', component: IcicleExample },
   { name: 'Composed Chart', component: ComposedChartExample },
   { name: 'Faceted (Multi-Panel)', component: FacetExample },
 ];

@@ -1,5 +1,5 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -199,6 +199,575 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('diverging bar chart', () => {
+    const pyramidConfig: RechartsAdapterConfig = {
+      id: 'pyramid',
+      title: 'Population by Age Band',
+      data: [
+        { band: '0-9', men: -2100, women: 2000 },
+        { band: '10-19', men: -1900, women: 1850 },
+      ],
+      chartType: 'diverging_bar',
+      xKey: 'band',
+      yKeys: ['men', 'women'],
+      fillKeys: ['Men', 'Women'],
+      orientation: Orientation.HORIZONTAL,
+      xLabel: 'Age band',
+      yLabel: 'People',
+    };
+
+    it('produces DIVERGING trace type with the bar selector', () => {
+      const result = convertRechartsToMaidr(pyramidConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.DIVERGING);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      expect(layer.selectors).toBe('#maidr-article-pyramid .recharts-bar-rectangle .recharts-rectangle');
+    });
+
+    it('keeps the sides in declaration order, signs and all', () => {
+      const result = convertRechartsToMaidr(pyramidConfig);
+
+      // DivergingTrace reads the sides in DECLARATION order rather than the
+      // reversed stacking order, and reads the sign as the SIDE — so the left
+      // side must stay first and stay negative.
+      const data = result.subplots[0][0].layers[0].data as SegmentedPoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0][0]).toEqual({ x: '0-9', y: -2100, z: 'Men' });
+      expect(data[1][0]).toEqual({ x: '0-9', y: 2000, z: 'Women' });
+    });
+
+    it('falls back to BAR type when only one side is declared', () => {
+      const result = convertRechartsToMaidr({
+        ...pyramidConfig,
+        yKeys: ['men'],
+        fillKeys: undefined,
+      });
+
+      expect(result.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    });
+  });
+
+  describe('waterfall chart', () => {
+    const bridgeConfig: RechartsAdapterConfig = {
+      id: 'bridge',
+      title: 'Revenue Bridge',
+      data: [
+        { step: 'Opening', change: 1200, restates: true },
+        { step: 'New sales', change: 450 },
+        { step: 'Churn', change: -180 },
+        { step: 'Closing', restates: true },
+      ],
+      chartType: 'waterfall',
+      xKey: 'step',
+      yKeys: ['change'],
+      waterfallConfig: { totalKey: 'restates' },
+      xLabel: 'Step',
+      yLabel: 'Revenue',
+    };
+
+    it('accumulates the running totals into absolute positions', () => {
+      const result = convertRechartsToMaidr(bridgeConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.WATERFALL);
+      expect(layer.selectors).toBe('#maidr-article-bridge .recharts-bar-rectangle .recharts-rectangle');
+
+      const data = layer.data as WaterfallPoint[];
+      expect(data[1]).toEqual({ x: 'New sales', start: 1200, end: 1650, delta: 450, kind: 'increase' });
+      expect(data[2]).toEqual({ x: 'Churn', start: 1650, end: 1470, delta: -180, kind: 'decrease' });
+    });
+
+    it('sits a restating step on the baseline', () => {
+      const result = convertRechartsToMaidr(bridgeConfig);
+      const data = result.subplots[0][0].layers[0].data as WaterfallPoint[];
+
+      // The opening declares its own total; the closing carries no number and
+      // restates what the steps came to.
+      expect(data[0]).toEqual({ x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' });
+      expect(data[3]).toEqual({ x: 'Closing', start: 0, end: 1470, delta: 1470, kind: 'total' });
+    });
+
+    it('marks restating steps by index when the data carries no flag', () => {
+      const result = convertRechartsToMaidr({
+        ...bridgeConfig,
+        data: [
+          { step: 'Opening', change: 1200 },
+          { step: 'New sales', change: 450 },
+        ],
+        waterfallConfig: { totalIndices: [0] },
+      });
+
+      const data = result.subplots[0][0].layers[0].data as WaterfallPoint[];
+      expect(data[0].kind).toBe('total');
+      expect(data[1].kind).toBe('increase');
+    });
+
+    it('reads the kind outright when the data names it', () => {
+      const result = convertRechartsToMaidr({
+        ...bridgeConfig,
+        data: [
+          { step: 'Opening', change: 1200, how: 'total' },
+          { step: 'Rebate', change: 0, how: 'decrease' },
+        ],
+        waterfallConfig: { kindKey: 'how' },
+      });
+
+      const data = result.subplots[0][0].layers[0].data as WaterfallPoint[];
+      expect(data[0].kind).toBe('total');
+      // A zero-width step reads from the sign as an increase; the declared
+      // kind is what the chart drew.
+      expect(data[1].kind).toBe('decrease');
+    });
+
+    it('carries no orientation', () => {
+      const result = convertRechartsToMaidr({
+        ...bridgeConfig,
+        orientation: Orientation.HORIZONTAL,
+      });
+
+      expect(result.subplots[0][0].layers[0].orientation).toBeUndefined();
+    });
+  });
+
+  describe('dumbbell chart', () => {
+    const dumbbellConfig: RechartsAdapterConfig = {
+      id: 'life',
+      title: 'Life Expectancy',
+      data: [
+        { country: 'Japan', then: 78.9, now: 84.6 },
+        { country: 'Russia', then: 69.2, now: 68.9 },
+      ],
+      chartType: 'dumbbell',
+      xKey: 'country',
+      yKeys: ['then', 'now'],
+      fillKeys: ['1990', '2020'],
+      xLabel: 'Country',
+      yLabel: 'Years',
+    };
+
+    it('produces a DumbbellData object rather than an array', () => {
+      const result = convertRechartsToMaidr(dumbbellConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.DUMBBELL);
+      expect(layer.selectors).toBe('#maidr-article-life .recharts-bar-rectangle .recharts-rectangle');
+
+      const data = layer.data as DumbbellData;
+      expect(Array.isArray(data)).toBe(false);
+      expect(data.points).toHaveLength(2);
+      // Both directions in one chart: Russia's end sits below its start.
+      expect(data.points[0]).toEqual({ x: 'Japan', start: 78.9, end: 84.6 });
+      expect(data.points[1]).toEqual({ x: 'Russia', start: 69.2, end: 68.9 });
+    });
+
+    it('names the two ends from fillKeys', () => {
+      const result = convertRechartsToMaidr(dumbbellConfig);
+      const data = result.subplots[0][0].layers[0].data as DumbbellData;
+
+      expect(data.startLabel).toBe('1990');
+      expect(data.endLabel).toBe('2020');
+    });
+
+    it('leaves the ends unnamed when fillKeys is omitted', () => {
+      const result = convertRechartsToMaidr({ ...dumbbellConfig, fillKeys: undefined });
+      const data = result.subplots[0][0].layers[0].data as DumbbellData;
+
+      expect(data.startLabel).toBeUndefined();
+      expect(data.endLabel).toBeUndefined();
+    });
+
+    it('throws when only one end is declared', () => {
+      expect(() => convertRechartsToMaidr({
+        ...dumbbellConfig,
+        yKeys: ['then'],
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('gantt chart', () => {
+    const planConfig: RechartsAdapterConfig = {
+      id: 'plan',
+      title: 'Release Plan',
+      data: [
+        { task: 'Design', from: 0, to: 5, phase: 'Wireframes' },
+        { task: 'Build', from: 3, to: 12, phase: 'Alpha' },
+        { task: 'Build', from: 14, to: 18, phase: 'Beta' },
+      ],
+      chartType: 'gantt',
+      xKey: 'task',
+      yKeys: ['from', 'to'],
+      ganttConfig: { lanes: ['Design', 'Build', 'Launch'], labelKey: 'phase', unit: 'days' },
+      xLabel: 'Task',
+      yLabel: 'Day',
+    };
+
+    it('nests the intervals by lane and keeps the empty lane', () => {
+      const result = convertRechartsToMaidr(planConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.GANTT);
+      // A gantt's bars run left to right, which puts the lanes on y.
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+
+      const data = layer.data as GanttData;
+      expect(data.points).toHaveLength(3);
+      expect(data.points[0]).toEqual([{ x: 'Design', start: 0, end: 5, label: 'Wireframes' }]);
+      expect(data.points[1]).toHaveLength(2);
+      // Nothing booked in Launch — the row exists so the schedule can say so.
+      expect(data.points[2]).toEqual([]);
+      expect(data.lanes).toEqual(['Design', 'Build', 'Launch']);
+      expect(data.unit).toBe('days');
+    });
+
+    it('highlights when the rows are already grouped by lane', () => {
+      const result = convertRechartsToMaidr(planConfig);
+
+      expect(result.subplots[0][0].layers[0].selectors)
+        .toBe('#maidr-article-plan .recharts-bar-rectangle .recharts-rectangle');
+    });
+
+    it('drops the selector when the rows interleave lanes', () => {
+      // Recharts draws one rectangle per ROW while GanttTrace walks its
+      // selectors lane by lane, so interleaved rows would highlight the wrong
+      // task rather than none.
+      const result = convertRechartsToMaidr({
+        ...planConfig,
+        data: [
+          { task: 'Design', from: 0, to: 5 },
+          { task: 'Build', from: 3, to: 12 },
+          { task: 'Design', from: 8, to: 9 },
+        ],
+      });
+
+      expect(result.subplots[0][0].layers[0].selectors).toBeUndefined();
+    });
+
+    it('derives the lanes from the data when none are declared', () => {
+      const result = convertRechartsToMaidr({
+        ...planConfig,
+        ganttConfig: undefined,
+      });
+
+      const data = result.subplots[0][0].layers[0].data as GanttData;
+      expect(data.lanes).toEqual(['Design', 'Build']);
+      expect(data.unit).toBeUndefined();
+      expect(data.points[0][0].label).toBeUndefined();
+    });
+
+    it('appends a lane the data names but the config omits', () => {
+      const result = convertRechartsToMaidr({
+        ...planConfig,
+        ganttConfig: { lanes: ['Design'] },
+      });
+
+      const data = result.subplots[0][0].layers[0].data as GanttData;
+      expect(data.lanes).toEqual(['Design', 'Build']);
+      expect(data.points[1]).toHaveLength(2);
+    });
+
+    it('throws when only one end of the interval is declared', () => {
+      expect(() => convertRechartsToMaidr({
+        ...planConfig,
+        yKeys: ['from'],
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('gauge chart', () => {
+    const gaugeConfig: RechartsAdapterConfig = {
+      id: 'nps',
+      title: 'Net Promoter Score',
+      data: [{ measure: 'NPS', score: 73 }],
+      chartType: 'gauge',
+      xKey: 'measure',
+      yKeys: ['score'],
+      gaugeConfig: {
+        min: 0,
+        max: 100,
+        target: 80,
+        bands: [{ to: 40, label: 'poor' }, { to: 70, label: 'ok' }, { to: 100, label: 'good' }],
+      },
+    };
+
+    it('produces a single GaugePoint object with its range', () => {
+      const result = convertRechartsToMaidr(gaugeConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.GAUGE);
+      expect(layer.selectors)
+        .toBe('#maidr-article-nps .recharts-radial-bar-sectors .recharts-radial-bar-sector');
+      expect(layer.orientation).toBeUndefined();
+
+      const data = layer.data as GaugePoint;
+      expect(Array.isArray(data)).toBe(false);
+      expect(data).toEqual({
+        value: 73,
+        min: 0,
+        max: 100,
+        label: 'NPS',
+        target: 80,
+        bands: [{ to: 40, label: 'poor' }, { to: 70, label: 'ok' }, { to: 100, label: 'good' }],
+      });
+    });
+
+    it('omits the target and bands the chart does not declare', () => {
+      const result = convertRechartsToMaidr({
+        ...gaugeConfig,
+        gaugeConfig: { min: 0, max: 100 },
+      });
+
+      const data = result.subplots[0][0].layers[0].data as GaugePoint;
+      expect(data.target).toBeUndefined();
+      expect(data.bands).toBeUndefined();
+    });
+
+    it('prefers a declared label over the xKey value', () => {
+      const result = convertRechartsToMaidr({
+        ...gaugeConfig,
+        gaugeConfig: { min: 0, max: 100, label: 'Promoter score' },
+      });
+
+      const data = result.subplots[0][0].layers[0].data as GaugePoint;
+      expect(data.label).toBe('Promoter score');
+    });
+
+    it('throws when the range is not declared', () => {
+      expect(() => convertRechartsToMaidr({
+        ...gaugeConfig,
+        gaugeConfig: undefined,
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('treemap, sunburst and icicle', () => {
+    const hierarchyConfig: RechartsAdapterConfig = {
+      id: 'regions',
+      title: 'Population by Region',
+      data: [
+        {
+          name: 'Europe',
+          people: 999,
+          children: [{ name: 'France', people: 67.4 }, { name: 'Spain', people: 47.4 }],
+        },
+        { name: 'Oceania', children: [{ name: 'Fiji', people: 0.9 }] },
+      ],
+      chartType: 'treemap',
+      xKey: 'name',
+      yKeys: ['people'],
+    };
+
+    it('flattens the hierarchy depth-first, ancestors named', () => {
+      const result = convertRechartsToMaidr(hierarchyConfig);
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.TREEMAP);
+
+      const data = layer.data as TreemapPoint[];
+      expect(data).toEqual([
+        { x: 'Europe' },
+        { x: 'France', path: ['Europe'], y: 67.4 },
+        { x: 'Spain', path: ['Europe'], y: 47.4 },
+        { x: 'Oceania' },
+        { x: 'Fiji', path: ['Oceania'], y: 0.9 },
+      ]);
+    });
+
+    it('drops an interior node\'s declared value', () => {
+      // Recharts computes an interior node's value as the sum of its children
+      // and ignores any value declared on it, so passing Europe's 999 through
+      // would announce a magnitude the chart never drew.
+      const result = convertRechartsToMaidr(hierarchyConfig);
+      const data = result.subplots[0][0].layers[0].data as TreemapPoint[];
+
+      expect(data[0].y).toBeUndefined();
+    });
+
+    it('targets the treemap rectangles below the synthetic root', () => {
+      const result = convertRechartsToMaidr(hierarchyConfig);
+
+      expect(result.subplots[0][0].layers[0].selectors).toBe(
+        '#maidr-article-regions g[class*="recharts-treemap-depth-"]:not(.recharts-treemap-depth-0) > g > g > path.recharts-rectangle',
+      );
+    });
+
+    it('reads a sunburst as the same hierarchy, drawn as sectors', () => {
+      const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'sunburst' });
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.SUNBURST);
+      expect(layer.selectors).toBe('#maidr-article-regions .recharts-sunburst .recharts-sector');
+      expect(layer.data).toEqual(
+        convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
+      );
+    });
+
+    it('reads an icicle as the same hierarchy, drawn as floating bands', () => {
+      const result = convertRechartsToMaidr({ ...hierarchyConfig, chartType: 'icicle' });
+
+      const layer = result.subplots[0][0].layers[0];
+      expect(layer.type).toBe(TraceType.ICICLE);
+      // Recharts draws no icicle, so the bands are floating `<Bar>`
+      // rectangles — one per row, the same recipe a gantt uses.
+      expect(layer.selectors).toBe(
+        '#maidr-article-regions .recharts-bar-rectangle .recharts-rectangle',
+      );
+      expect(layer.data).toEqual(
+        convertRechartsToMaidr(hierarchyConfig).subplots[0][0].layers[0].data,
+      );
+    });
+
+    it('never orients an icicle, however its bands happen to run', () => {
+      const layer = convertRechartsToMaidr({
+        ...hierarchyConfig,
+        chartType: 'icicle',
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // The bars are the layout the tree was given, not an axis a reader
+      // walks: an icicle is navigated as the hierarchy it is.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
+  describe('dot plot', () => {
+    const dotConfig: RechartsAdapterConfig = {
+      id: 'dot',
+      title: 'Median Pay by Role',
+      data: [
+        { role: 'Nurse', pay: 62 },
+        { role: 'Teacher', pay: 54 },
+      ],
+      chartType: 'dot',
+      xKey: 'role',
+      yKeys: ['pay'],
+      xLabel: 'Role',
+      yLabel: 'Median pay ($k)',
+    };
+
+    it('converts dot data to BarPoint[] with the category x kept as a string', () => {
+      const layer = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.DOT);
+
+      // BarPoint, not ScatterPoint: a Cleveland dot plot's x is a category
+      // label, which the scatter converter would coerce to 0.
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Nurse', y: 62 },
+        { x: 'Teacher', y: 54 },
+      ]);
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-dot .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+
+    it('emits an orientation, defaulting to vertical', () => {
+      const vertical = convertRechartsToMaidr(dotConfig).subplots[0][0].layers[0];
+      expect(vertical.orientation).toBe(Orientation.VERTICAL);
+
+      const horizontal = convertRechartsToMaidr({
+        ...dotConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+      expect(horizontal.orientation).toBe(Orientation.HORIZONTAL);
+    });
+  });
+
+  describe('lollipop chart', () => {
+    const lollipopConfig: RechartsAdapterConfig = {
+      id: 'lollipop',
+      data: [
+        { country: 'Japan', share: 12 },
+        { country: 'Brazil', share: 8 },
+      ],
+      chartType: 'lollipop',
+      xKey: 'country',
+      yKeys: ['share'],
+    };
+
+    it('converts lollipop data to BarPoint[]', () => {
+      const layer = convertRechartsToMaidr(lollipopConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.LOLLIPOP);
+      expect(layer.orientation).toBe(Orientation.VERTICAL);
+
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Japan', y: 12 },
+        { x: 'Brazil', y: 8 },
+      ]);
+    });
+
+    it('targets the scatter head rather than the bar stem', () => {
+      const layer = convertRechartsToMaidr(lollipopConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-lollipop .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
+  describe('funnel chart', () => {
+    const funnelConfig: RechartsAdapterConfig = {
+      id: 'funnel',
+      title: 'Signup Funnel',
+      data: [
+        { stage: 'Visited', users: 10000 },
+        { stage: 'Signed up', users: 2400 },
+        { stage: 'Activated', users: 2300 },
+        { stage: 'Paid', users: 100 },
+      ],
+      chartType: 'funnel',
+      xKey: 'stage',
+      yKeys: ['users'],
+      xLabel: 'Stage',
+      yLabel: 'Users',
+    };
+
+    it('converts the stage counts to BarPoint[] in draw order', () => {
+      const layer = convertRechartsToMaidr(funnelConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.FUNNEL);
+
+      // The counts, untouched: FunnelTrace computes the retention and the
+      // share it announces from them, so a pre-computed ratio here would be
+      // a second source of truth for the same numbers.
+      const data = layer.data as BarPoint[];
+      expect(data).toEqual([
+        { x: 'Visited', y: 10000 },
+        { x: 'Signed up', y: 2400 },
+        { x: 'Activated', y: 2300 },
+        { x: 'Paid', y: 100 },
+      ]);
+    });
+
+    it('targets the funnel trapezoids', () => {
+      const layer = convertRechartsToMaidr(funnelConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-funnel .recharts-funnel-trapezoid .recharts-trapezoid',
+      );
+    });
+
+    it('never emits an orientation, even when the config declares one', () => {
+      const layer = convertRechartsToMaidr({
+        ...funnelConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // FunnelTrace is a BarTrace, and a horizontal bar reads its category
+      // off `y`. The stage label is always emitted as `x`, so a leaked
+      // HORIZONTAL would have every stage announced by its count.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
   describe('histogram', () => {
     it('converts histogram data with bin config', () => {
       const config: RechartsAdapterConfig = {
@@ -345,6 +914,367 @@ describe('convertRechartsToMaidr', () => {
     });
   });
 
+  describe('area chart', () => {
+    const areaConfig: RechartsAdapterConfig = {
+      id: 'area',
+      title: 'Rainfall',
+      data: [
+        { month: 'Jan', mm: 80 },
+        { month: 'Feb', mm: 65 },
+      ],
+      chartType: 'area',
+      xKey: 'month',
+      yKeys: ['mm'],
+      xLabel: 'Month',
+      yLabel: 'Rainfall (mm)',
+    };
+
+    it('converts single series area data to LinePoint[][]', () => {
+      const layer = convertRechartsToMaidr(areaConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([[
+        { x: 'Jan', y: 80 },
+        { x: 'Feb', y: 65 },
+      ]]);
+    });
+
+    it('targets the area dots, as a string[] like every line-family layer', () => {
+      const layer = convertRechartsToMaidr(areaConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-area .recharts-area-dots .recharts-area-dot',
+      ]);
+    });
+
+    it('converts multi-series area data to one row per series', () => {
+      const layer = convertRechartsToMaidr({
+        ...areaConfig,
+        data: [{ month: 'Jan', organic: 40, paid: 20 }],
+        yKeys: ['organic', 'paid'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Jan', y: 40, z: 'organic' }],
+        [{ x: 'Jan', y: 20, z: 'paid' }],
+      ]);
+    });
+  });
+
+  describe('stacked area chart', () => {
+    const stackedAreaConfig: RechartsAdapterConfig = {
+      id: 'stacked-area',
+      data: [
+        { month: 'Jan', organic: 40, paid: 20 },
+        { month: 'Feb', organic: 55, paid: 15 },
+      ],
+      chartType: 'stacked_area',
+      xKey: 'month',
+      yKeys: ['organic', 'paid'],
+    };
+
+    it('passes each band\'s own value, never the accumulated edge', () => {
+      const layer = convertRechartsToMaidr(stackedAreaConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.STACKED_AREA);
+
+      // AreaTrace sums the series itself, so the second band carries 20/15
+      // rather than the 60/70 the chart draws its top edge at.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Jan', y: 40, z: 'organic' }, { x: 'Feb', y: 55, z: 'organic' }],
+        [{ x: 'Jan', y: 20, z: 'paid' }, { x: 'Feb', y: 15, z: 'paid' }],
+      ]);
+    });
+
+    it('produces NORMALIZED_AREA for a 100% stacked area', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        chartType: 'normalized_area',
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.NORMALIZED_AREA);
+
+      // Raw values, not the expanded fractions Recharts renders.
+      const data = layer.data as LinePoint[][];
+      expect(data[0][0]).toEqual({ x: 'Jan', y: 40, z: 'organic' });
+    });
+
+    it('falls back to AREA when a stacked area has a single yKey', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        yKeys: ['organic'],
+      }).subplots[0][0].layers[0];
+
+      // One band is not stacked against anything: as STACKED_AREA every point
+      // would announce a total equal to its own value and a 100% share.
+      expect(layer.type).toBe(TraceType.AREA);
+    });
+
+    it('falls back to AREA when a normalized area has a single yKey', () => {
+      const layer = convertRechartsToMaidr({
+        ...stackedAreaConfig,
+        chartType: 'normalized_area',
+        yKeys: ['organic'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.AREA);
+    });
+  });
+
+  describe('radar chart', () => {
+    const radarConfig: RechartsAdapterConfig = {
+      id: 'radar',
+      title: 'Player Attributes',
+      data: [
+        { attribute: 'Speed', alice: 90, bob: 70 },
+        { attribute: 'Power', alice: 60, bob: 85 },
+      ],
+      chartType: 'radar',
+      xKey: 'attribute',
+      yKeys: ['alice', 'bob'],
+    };
+
+    it('converts radar data to one row per series and one column per spoke', () => {
+      const layer = convertRechartsToMaidr(radarConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.RADAR);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 'Speed', y: 90, z: 'alice' }, { x: 'Power', y: 60, z: 'alice' }],
+        [{ x: 'Speed', y: 70, z: 'bob' }, { x: 'Power', y: 85, z: 'bob' }],
+      ]);
+    });
+
+    it('targets the radar dots for a single series', () => {
+      const layer = convertRechartsToMaidr({
+        ...radarConfig,
+        yKeys: ['alice'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-radar .recharts-radar-dots .recharts-radar-dot',
+      ]);
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...radarConfig,
+        yKeys: ['alice'],
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // Spokes sit around a circle, not along an axis — same as a pie.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
+  describe('polar area chart', () => {
+    const polarConfig: RechartsAdapterConfig = {
+      id: 'nightingale',
+      title: 'Deaths by Month',
+      data: [
+        { month: 'Jan', deaths: 120 },
+        { month: 'Feb', deaths: 84 },
+        { month: 'Mar', deaths: 61 },
+      ],
+      chartType: 'polar_area',
+      xKey: 'month',
+      yKeys: ['deaths'],
+      xLabel: 'Month',
+      yLabel: 'Deaths',
+    };
+
+    it('converts a coxcomb to a radar\'s payload — one value per spoke', () => {
+      const layer = convertRechartsToMaidr(polarConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.POLAR_AREA);
+
+      // Wedges rather than an outline is what the chart looks like; a reader
+      // navigates the same spokes either way, so the data is a line's.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([[
+        { x: 'Jan', y: 120 },
+        { x: 'Feb', y: 84 },
+        { x: 'Mar', y: 61 },
+      ]]);
+    });
+
+    it('targets the pie sectors that draw the wedges', () => {
+      const layer = convertRechartsToMaidr(polarConfig).subplots[0][0].layers[0];
+
+      // A `RadarTrace` is a `LineTrace`, so the selector is a list even for
+      // the single series a coxcomb draws.
+      expect(layer.selectors).toEqual([
+        '#maidr-article-nightingale .recharts-pie-sector .recharts-sector',
+      ]);
+    });
+
+    it('never emits an orientation, even when the config sets one', () => {
+      const layer = convertRechartsToMaidr({
+        ...polarConfig,
+        orientation: Orientation.HORIZONTAL,
+      }).subplots[0][0].layers[0];
+
+      // Wedges sit around a circle, not along an axis — same as a radar.
+      expect(layer.orientation).toBeUndefined();
+    });
+  });
+
+  describe('bump chart', () => {
+    const bumpConfig: RechartsAdapterConfig = {
+      id: 'bump',
+      title: 'League Position by Matchday',
+      data: [
+        { matchday: 1, arsenal: 3, chelsea: 1 },
+        { matchday: 2, arsenal: 1, chelsea: 2 },
+      ],
+      chartType: 'bump',
+      xKey: 'matchday',
+      yKeys: ['arsenal', 'chelsea'],
+      xLabel: 'Matchday',
+      yLabel: 'Position',
+    };
+
+    it('passes the ranks through verbatim, one row per competitor', () => {
+      const layer = convertRechartsToMaidr(bumpConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.BUMP);
+
+      // BumpTrace derives the best/worst rank and the per-period moves from
+      // these numbers, so the adapter must not pre-compute either.
+      const data = layer.data as LinePoint[][];
+      expect(data).toEqual([
+        [{ x: 1, y: 3, z: 'arsenal' }, { x: 2, y: 1, z: 'arsenal' }],
+        [{ x: 1, y: 1, z: 'chelsea' }, { x: 2, y: 2, z: 'chelsea' }],
+      ]);
+    });
+
+    it('targets the line dots for a single series', () => {
+      const layer = convertRechartsToMaidr({
+        ...bumpConfig,
+        yKeys: ['arsenal'],
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '#maidr-article-bump .recharts-line-dots .recharts-line-dot',
+      ]);
+    });
+
+    it('omits selectors for a multi-series bump chart', () => {
+      const layer = convertRechartsToMaidr(bumpConfig).subplots[0][0].layers[0];
+
+      // The line-family limitation: CSS cannot pick one competitor's dots
+      // out of the surface, so highlighting degrades rather than misaligns.
+      expect(layer.selectors).toBeUndefined();
+    });
+  });
+
+  describe('survival curve', () => {
+    const survivalConfig: RechartsAdapterConfig = {
+      id: 'km',
+      title: 'Overall Survival',
+      data: [
+        { months: 0, treated: 1, control: 1, treatedCensored: false },
+        { months: 6, treated: 0.88, control: 0.74, treatedCensored: true },
+        { months: 12, treated: 0.71, control: 0.52, treatedCensored: false },
+      ],
+      chartType: 'survival',
+      xKey: 'months',
+      yKeys: ['treated'],
+      survivalConfig: { censoredKeys: ['treatedCensored'] },
+      xLabel: 'Months',
+      yLabel: 'Survival probability',
+    };
+
+    it('marks only the censored times', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.SURVIVAL);
+
+      // An ordinary time carries no flag at all: `censored: false` on every
+      // other point is a claim the data never made.
+      const data = layer.data as SurvivalPoint[][];
+      expect(data).toEqual([[
+        { x: 0, y: 1 },
+        { x: 6, y: 0.88, censored: true },
+        { x: 12, y: 0.71 },
+      ]]);
+    });
+
+    it('carries the confidence band as absolute bounds', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        data: [
+          { months: 0, treated: 1, lo: 1, hi: 1 },
+          { months: 6, treated: 0.88, lo: 0.79, hi: 0.97 },
+        ],
+        survivalConfig: { yMinKeys: ['lo'], yMaxKeys: ['hi'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as SurvivalPoint[][];
+      expect(data[0][1]).toEqual({ x: 6, y: 0.88, yMin: 0.79, yMax: 0.97 });
+    });
+
+    it('declares the step direction Recharts draws', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      // <Line type="stepAfter"> holds the value until the next time, then
+      // jumps — which is exactly what a Kaplan-Meier curve means.
+      expect(layer.stepDirection).toBe('hv');
+
+      const stepBefore = convertRechartsToMaidr({
+        ...survivalConfig,
+        survivalConfig: { stepDirection: 'vh' },
+      }).subplots[0][0].layers[0];
+      expect(stepBefore.stepDirection).toBe('vh');
+    });
+
+    it('targets the line dots for a single arm', () => {
+      const layer = convertRechartsToMaidr(survivalConfig).subplots[0][0].layers[0];
+
+      // A SurvivalTrace is a LineTrace: selectors are a string[], one per arm.
+      expect(layer.selectors).toEqual([
+        '#maidr-article-km .recharts-line-dots .recharts-line-dot',
+      ]);
+    });
+
+    it('builds one row per arm, named, with highlighting off', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        yKeys: ['treated', 'control'],
+        fillKeys: ['Treatment', 'Control'],
+        survivalConfig: { censoredKeys: ['treatedCensored'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as SurvivalPoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0][1]).toEqual({ x: 6, y: 0.88, z: 'Treatment', censored: true });
+      // The second arm declares no censoring key of its own, so it gets none.
+      expect(data[1][1]).toEqual({ x: 6, y: 0.74, z: 'Control' });
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('splats a selectorOverride across the arms', () => {
+      const layer = convertRechartsToMaidr({
+        ...survivalConfig,
+        yKeys: ['treated', 'control'],
+        selectorOverride: '.km .recharts-line-dot',
+      }).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toEqual([
+        '.km .recharts-line-dot',
+        '.km .recharts-line-dot',
+      ]);
+    });
+  });
+
   describe('scatter chart', () => {
     it('converts scatter data to ScatterPoint[]', () => {
       const config: RechartsAdapterConfig = {
@@ -366,6 +1296,358 @@ describe('convertRechartsToMaidr', () => {
       const data = layer.data as ScatterPoint[];
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({ x: 1, y: 10 });
+    });
+  });
+
+  describe('volcano plot', () => {
+    const volcanoConfig: RechartsAdapterConfig = {
+      id: 'volcano',
+      title: 'Differential Expression',
+      data: [
+        { gene: 'TP53', log2fc: 2.4, negLog10P: 14.1 },
+        { gene: 'MYC', log2fc: -0.3, negLog10P: 0.8 },
+      ],
+      chartType: 'volcano',
+      xKey: 'log2fc',
+      yKeys: ['negLog10P'],
+      volcanoConfig: { labelKey: 'gene', significance: 1.3, effect: 1 },
+      xLabel: 'log2 fold change',
+      yLabel: '-log10(p)',
+    };
+
+    it('carries the point labels alongside the coordinates', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.VOLCANO);
+
+      const data = layer.data as VolcanoPoint[];
+      expect(data).toEqual([
+        { x: 2.4, y: 14.1, label: 'TP53' },
+        { x: -0.3, y: 0.8, label: 'MYC' },
+      ]);
+    });
+
+    it('emits the declared cutoffs as thresholdOptions', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.thresholdOptions).toEqual({ significance: 1.3, effect: 1 });
+    });
+
+    it('omits thresholdOptions entirely when no cutoff is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...volcanoConfig,
+        volcanoConfig: { labelKey: 'gene' },
+      }).subplots[0][0].layers[0];
+
+      // A guessed cutoff sorts every point onto the wrong side silently, so
+      // an undeclared one stays undeclared.
+      expect(layer.thresholdOptions).toBeUndefined();
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(volcanoConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-volcano .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
+  describe('manhattan plot', () => {
+    const manhattanConfig: RechartsAdapterConfig = {
+      id: 'gwas',
+      title: 'Genome-Wide Association',
+      data: [
+        { snp: 'rs1234', chr: '1', bp: 154_300, cumulative: 154_300, negLog10P: 9.2 },
+        { snp: 'rs5678', chr: '2', bp: 88_120, cumulative: 249_388_120, negLog10P: 3.1 },
+      ],
+      chartType: 'manhattan',
+      // The per-chromosome position, NOT the cumulative offset the chart
+      // plots: "position 249,388,120" answers nothing a reader asked.
+      xKey: 'bp',
+      yKeys: ['negLog10P'],
+      volcanoConfig: { labelKey: 'snp', groupKey: 'chr', significance: 7.3 },
+      xLabel: 'Position',
+      yLabel: '-log10(p)',
+    };
+
+    it('carries the SNP and its chromosome', () => {
+      const layer = convertRechartsToMaidr(manhattanConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.MANHATTAN);
+
+      const data = layer.data as VolcanoPoint[];
+      expect(data).toEqual([
+        { x: 154_300, y: 9.2, label: 'rs1234', group: '1' },
+        { x: 88_120, y: 3.1, label: 'rs5678', group: '2' },
+      ]);
+    });
+
+    it('emits the genome-wide significance line', () => {
+      const layer = convertRechartsToMaidr(manhattanConfig).subplots[0][0].layers[0];
+
+      expect(layer.thresholdOptions?.significance).toBe(7.3);
+    });
+  });
+
+  describe('error bars', () => {
+    const errorConfig: RechartsAdapterConfig = {
+      id: 'yield',
+      title: 'Yield by Treatment',
+      data: [
+        { treatment: 'Control', mean: 4.2, sd: 0.6 },
+        { treatment: 'Nitrogen', mean: 5.5, sd: 0.5 },
+      ],
+      chartType: 'error_bar',
+      xKey: 'treatment',
+      yKeys: ['mean'],
+      errorConfig: { errorKey: 'sd' },
+      xLabel: 'Treatment',
+      yLabel: 'Yield (t/ha)',
+    };
+
+    it('resolves a symmetric offset to absolute bounds', () => {
+      const layer = convertRechartsToMaidr(errorConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.ERROR_BAR);
+
+      // <ErrorBar dataKey="sd"> is an offset; ErrorBarPoint fixes absolute
+      // positions on the value axis, which is the same arithmetic Recharts
+      // does to place the whiskers.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data).toEqual([
+        { x: 'Control', y: 4.2, yMin: 3.6, yMax: 4.8 },
+        { x: 'Nitrogen', y: 5.5, yMin: 5, yMax: 6 },
+      ]);
+    });
+
+    it('reads a [lower, upper] pair as an asymmetric offset', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 10, err: [2, 5] }],
+        errorConfig: { errorKey: 'err' },
+      }).subplots[0][0].layers[0];
+
+      // Recharts reads the field the same way: value - low, value + high.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 10, yMin: 8, yMax: 15 });
+    });
+
+    it('takes absolute bounds straight from the data when declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, lo: 3.1, hi: 5.0 }],
+        errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2, yMin: 3.1, yMax: 5.0 });
+    });
+
+    it('keeps a one-sided interval one-sided', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, hi: 5.0 }],
+        errorConfig: { yMaxKey: 'hi' },
+      }).subplots[0][0].layers[0];
+
+      // An upper bound with no lower is a real chart, and defaulting the
+      // missing half to the estimate would draw an interval nobody measured.
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2, yMax: 5.0 });
+    });
+
+    it('drops both bounds when the interval is missing', () => {
+      const layer = convertRechartsToMaidr({
+        ...errorConfig,
+        data: [{ treatment: 'Control', mean: 4.2, sd: null }],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ErrorBarPoint[];
+      expect(data[0]).toEqual({ x: 'Control', y: 4.2 });
+    });
+
+    it('targets the whiskers', () => {
+      const layer = convertRechartsToMaidr(errorConfig).subplots[0][0].layers[0];
+
+      // The estimate's own mark could be a bar, a line dot or a scatter
+      // symbol depending on what the author nested the <ErrorBar> in; the
+      // whiskers are the one element a chart of this type always draws.
+      expect(layer.selectors).toBe(
+        '#maidr-article-yield .recharts-errorBars .recharts-errorBar',
+      );
+    });
+  });
+
+  describe('forest plot', () => {
+    const forestConfig: RechartsAdapterConfig = {
+      id: 'meta',
+      title: 'Effect of the intervention',
+      data: [
+        { study: 'Silva 2018', or: 0.62, lo: 0.41, hi: 0.94, weight: 0.12 },
+        { study: 'Okafor 2022', or: 1.71, lo: 1.22, hi: 2.40, weight: 0.55 },
+        { study: 'Pooled', or: 1.28, lo: 1.02, hi: 1.61, summary: true },
+      ],
+      chartType: 'forest',
+      xKey: 'study',
+      yKeys: ['or'],
+      orientation: Orientation.HORIZONTAL,
+      errorConfig: { yMinKey: 'lo', yMaxKey: 'hi' },
+      forestConfig: { weightKey: 'weight', pooledKey: 'summary', nullValue: 1 },
+      xLabel: 'Study',
+      yLabel: 'Odds ratio',
+    };
+
+    it('converts the studies with their weights and the pooled row', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.FOREST);
+
+      const data = layer.data as ForestPoint[];
+      expect(data).toEqual([
+        { x: 'Silva 2018', y: 0.62, yMin: 0.41, yMax: 0.94, weight: 0.12 },
+        { x: 'Okafor 2022', y: 1.71, yMin: 1.22, yMax: 2.40, weight: 0.55 },
+        { x: 'Pooled', y: 1.28, yMin: 1.02, yMax: 1.61, pooled: true },
+      ]);
+    });
+
+    it('finds the pooled row by index when the data carries no flag', () => {
+      const layer = convertRechartsToMaidr({
+        ...forestConfig,
+        forestConfig: { weightKey: 'weight', pooledIndex: 2, nullValue: 1 },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ForestPoint[];
+      expect(data[1].pooled).toBeUndefined();
+      expect(data[2].pooled).toBe(true);
+    });
+
+    it('emits the null line and keeps the row axis horizontal', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.forestOptions).toEqual({ nullValue: 1 });
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    });
+
+    it('omits forestOptions when no null value is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...forestConfig,
+        forestConfig: { weightKey: 'weight' },
+      }).subplots[0][0].layers[0];
+
+      // Guessing 0 for a ratio measure reports every study as not crossing,
+      // since odds ratios are all positive.
+      expect(layer.forestOptions).toBeUndefined();
+    });
+
+    it('targets the scatter symbols', () => {
+      const layer = convertRechartsToMaidr(forestConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-meta .recharts-scatter-symbol .recharts-symbols',
+      );
+    });
+  });
+
+  describe('alluvial and sankey diagrams', () => {
+    const nodes = [
+      { name: 'Free' },
+      { name: 'Trial' },
+      { name: 'Paid' },
+      { name: 'Churned' },
+    ];
+
+    const alluvialConfig: RechartsAdapterConfig = {
+      id: 'flow',
+      title: 'Cohort Movement',
+      data: [
+        { source: 0, target: 1, value: 34 },
+        { source: 1, target: 2, value: 21 },
+        { source: 1, target: 3, value: 13 },
+      ],
+      chartType: 'alluvial',
+      xKey: 'source',
+      yKeys: ['value'],
+      flowConfig: { targetKey: 'target', nodes },
+      xLabel: 'Stage',
+      yLabel: 'Users',
+    };
+
+    it('resolves the node indices Recharts links carry into names', () => {
+      const layer = convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.ALLUVIAL);
+
+      // "flow from 1 to 3" names neither end, and the index is a fact about
+      // the nodes array rather than about the data.
+      const data = layer.data as FlowPoint[];
+      expect(data).toEqual([
+        { source: 'Free', target: 'Trial', value: 34 },
+        { source: 'Trial', target: 'Paid', value: 21 },
+        { source: 'Trial', target: 'Churned', value: 13 },
+      ]);
+    });
+
+    it('passes links that already name their ends through untouched', () => {
+      const layer = convertRechartsToMaidr({
+        ...alluvialConfig,
+        data: [{ source: 'Free', target: 'Paid', value: 8 }],
+        flowConfig: { targetKey: 'target' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as FlowPoint[];
+      expect(data).toEqual([{ source: 'Free', target: 'Paid', value: 8 }]);
+    });
+
+    it('keeps an index with no node list behind it as a number', () => {
+      const layer = convertRechartsToMaidr({
+        ...alluvialConfig,
+        flowConfig: { targetKey: 'target' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as FlowPoint[];
+      expect(data[0]).toEqual({ source: 0, target: 1, value: 34 });
+    });
+
+    it('targets the sankey links in declared order', () => {
+      const layer = convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe(
+        '#maidr-article-flow .recharts-sankey-links .recharts-sankey-link',
+      );
+      expect(layer.orientation).toBeUndefined();
+    });
+
+    it('throws when the flow config is missing', () => {
+      expect(() => convertRechartsToMaidr({
+        ...alluvialConfig,
+        flowConfig: undefined,
+      })).toThrow('RechartsAdapter');
+    });
+
+    it('reads a sankey as the same weighted graph, drawn as one budget', () => {
+      const result = convertRechartsToMaidr({ ...alluvialConfig, chartType: 'sankey' });
+
+      const sankey = result.subplots[0][0].layers[0];
+
+      expect(sankey.type).toBe(TraceType.SANKEY);
+      // Whether the node set repeats at each stage is what tells the two
+      // apart, and that is a fact about the data rather than the payload.
+      expect(sankey.data).toEqual(
+        convertRechartsToMaidr(alluvialConfig).subplots[0][0].layers[0].data,
+      );
+      expect(sankey.selectors).toBe(
+        '#maidr-article-flow .recharts-sankey-links .recharts-sankey-link',
+      );
+      expect(sankey.orientation).toBeUndefined();
+    });
+
+    it('throws for a sankey with no flow config either', () => {
+      expect(() => convertRechartsToMaidr({
+        ...alluvialConfig,
+        chartType: 'sankey',
+        flowConfig: undefined,
+      })).toThrow('RechartsAdapter');
     });
   });
 
@@ -452,6 +1734,26 @@ describe('convertRechartsToMaidr', () => {
       expect(layers[0].title).toBe('Revenue');
       expect(layers[1].type).toBe(TraceType.LINE);
       expect(layers[1].title).toBe('Trend');
+    });
+
+    it('wraps an area layer\'s selector in an array, as it does a line\'s', () => {
+      const config: RechartsAdapterConfig = {
+        id: 'composed-area',
+        data: [{ month: 'Jan', revenue: 100, budget: 90 }],
+        xKey: 'month',
+        layers: [
+          { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
+          { yKey: 'budget', chartType: 'area', name: 'Budget' },
+        ],
+      };
+
+      const layers = convertRechartsToMaidr(config).subplots[0][0].layers;
+
+      expect(layers[1].type).toBe(TraceType.AREA);
+      expect(layers[1].selectors).toEqual([
+        '#maidr-article-composed-area .recharts-area-dots .recharts-area-dot',
+      ]);
+      expect(layers[1].data).toEqual([[{ x: 'Jan', y: 90 }]]);
     });
 
     it('returns undefined selectors for multiple same-type layers', () => {

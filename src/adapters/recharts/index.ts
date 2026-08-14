@@ -12,11 +12,19 @@ export { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converte
 export { MaidrRecharts } from './MaidrRecharts';
 export { getPanelClassName, getRechartsSelector } from './selectors';
 export type {
+  ErrorIntervalConfig,
+  FlowLinkConfig,
+  ForestPlotConfig,
+  GanttChartConfig,
+  GaugeDialConfig,
   HistogramBinConfig,
   MaidrRechartsProps,
   RechartsAdapterConfig,
   RechartsChartType,
   RechartsLayerConfig,
   RechartsSubplotConfig,
+  SurvivalCurveConfig,
+  VolcanoPointConfig,
+  WaterfallStepConfig,
 } from './types';
 export { useRechartsAdapter } from './useRechartsAdapter';
