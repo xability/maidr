@@ -5,13 +5,18 @@
 
 import type {
   BarPoint,
+  DumbbellPoint,
+  GanttData,
   HeatmapData,
   HistogramPoint,
   LinePoint,
   PiePoint,
   SegmentedPoint,
+  TreemapPoint,
+  WaterfallKind,
+  WaterfallPoint,
 } from '@type/grammar';
-import type { AmAxis, AmDataItem, AmXYSeries } from './types';
+import type { AmAxis, AmDataItem, AmSprite, AmXYSeries } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,20 +53,139 @@ function hasCategoryY(series: AmXYSeries): boolean {
   return typeof series.get('categoryYField') === 'string';
 }
 
+/**
+ * Determine whether a line series is drawn with the region between it and the
+ * baseline filled in — which is what makes it an area chart.
+ *
+ * amCharts has no area series: an area is a `LineSeries` whose `fills`
+ * template has been made visible (`fills.template.setAll({ visible: true,
+ * fillOpacity: 0.5 })` is the documented recipe), so those settings are the
+ * only runtime signal there is. An explicit `visible: false` settles the
+ * question on its own — a template can carry a fill opacity it never paints
+ * with — and otherwise a declared opacity decides, since a fill at opacity
+ * zero draws nothing whatever it claims to be.
+ */
+function hasVisibleFill(series: AmXYSeries): boolean {
+  const template = series.fills?.template;
+  if (!template || typeof template.get !== 'function')
+    return false;
+
+  const visible = template.get('visible');
+  if (visible === false)
+    return false;
+
+  const opacity = template.get('fillOpacity');
+  if (typeof opacity === 'number')
+    return opacity > 0;
+  return visible === true;
+}
+
+/**
+ * Where a floating column keeps its two ends.
+ *
+ * A column bound to a date axis may carry its ends as `Date`s under the
+ * `dateX` pair rather than as numbers under the `valueX` one, so both are
+ * tried in turn — the first key that holds anything wins.
+ */
+const OPEN_Y_KEYS = ['openValueY'];
+const VALUE_Y_KEYS = ['valueY'];
+const OPEN_X_KEYS = ['openValueX', 'openDateX'];
+const VALUE_X_KEYS = ['valueX', 'dateX'];
+
+/** One floating column: the category it sits at, and the interval it spans. */
+interface Span {
+  /** The live data item, which the highlight path resolves back to. */
+  item: AmDataItem;
+  category: string | number;
+  start: number;
+  end: number;
+}
+
+/**
+ * Read one end of a span, as a number, from the first key that holds a value.
+ *
+ * A date axis stores a `Date` where a value axis stores a number, and the two
+ * are the same position on the same axis — so the date is read as its
+ * timestamp rather than skipped.
+ */
+function readSpanEnd(item: AmDataItem, keys: readonly string[]): number | null {
+  for (const key of keys) {
+    const value = item.get(key);
+    if (value == null)
+      continue;
+    return toNumber(value instanceof Date ? value.getTime() : value);
+  }
+  return null;
+}
+
+/**
+ * Read every floating column of a series as a category and an interval.
+ *
+ * Shared by the three charts amCharts draws with `openValue*` columns — a
+ * waterfall, a dumbbell and a gantt — which differ in what the interval means
+ * and not in how it is stored. Items missing a category or either end are
+ * skipped, exactly as {@link extractBarPoints} skips them, so an index into
+ * the result keeps naming the column it addresses.
+ */
+function readSpans(
+  series: AmXYSeries,
+  categoryKey: string,
+  openKeys: readonly string[],
+  valueKeys: readonly string[],
+): Span[] {
+  const spans: Span[] = [];
+
+  for (const item of series.dataItems) {
+    const category = item.get(categoryKey);
+    const start = readSpanEnd(item, openKeys);
+    const end = readSpanEnd(item, valueKeys);
+
+    if (category == null || start == null || end == null)
+      continue;
+
+    spans.push({ item, category: toStringOrNumber(category), start, end });
+  }
+
+  return spans;
+}
+
+/**
+ * Strip binary floating-point noise from a magnitude obtained by subtraction.
+ *
+ * `MAIDR`'s own gantt trace does the same to the lengths it derives, for the
+ * same reason: `2.3 - 1.1` announces as `1.2000000000000002` otherwise, and a
+ * waterfall's contribution is the number the chart exists to report.
+ */
+function withoutFloatNoise(value: number): number {
+  return Number(value.toPrecision(12));
+}
+
 // ---------------------------------------------------------------------------
 // Column / Bar extraction
 // ---------------------------------------------------------------------------
 
-/**
- * Extract {@link BarPoint} data from a column or bar series.
- */
-export function extractBarPoints(series: AmXYSeries): BarPoint[] {
-  const points: BarPoint[] = [];
+/** One mark of a category-bound series: what it names, and what it measures. */
+interface CategoryValue {
+  category: string | number;
+  value: number;
+}
 
+/**
+ * Read every mark of a category-bound series as a category and a value.
+ *
+ * The pair of fields depends on which way the bars run — amCharts puts the
+ * categories on `categoryY` and the values on `valueX` for a horizontal chart
+ * — and nothing else about the reading does, which is why the bar, the
+ * segmented bar and the diverging-pair test all take it from here. Marks
+ * missing either half are skipped, so an index into the result keeps naming
+ * the mark it addresses.
+ */
+function readCategoryValues(series: AmXYSeries): CategoryValue[] {
   const isHorizontal = hasCategoryY(series);
   const categoryField = isHorizontal ? 'categoryY' : 'categoryX';
   const valueField = isHorizontal ? 'valueX' : 'valueY';
 
+  const marks: CategoryValue[] = [];
   for (const item of series.dataItems) {
     const category = item.get(categoryField);
     const value = item.get(valueField);
@@ -73,13 +197,25 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
     if (numValue == null)
       continue;
 
-    points.push({
-      x: isHorizontal ? numValue : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : numValue,
-    });
+    marks.push({ category: toStringOrNumber(category), value: numValue });
   }
+  return marks;
+}
 
-  return points;
+/**
+ * Extract {@link BarPoint} data from a column or bar series.
+ *
+ * Also serves the two marks MAIDR reads as a bar chart with a different
+ * glyph — a dot plot's point and a lollipop's stem — which carry the same
+ * category and value and differ only in what the chart is called.
+ */
+export function extractBarPoints(series: AmXYSeries): BarPoint[] {
+  const isHorizontal = hasCategoryY(series);
+
+  return readCategoryValues(series).map(mark => ({
+    x: isHorizontal ? mark.value : mark.category,
+    y: isHorizontal ? mark.category : mark.value,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -94,32 +230,54 @@ export function extractBarPoints(series: AmXYSeries): BarPoint[] {
  * ggplot2 convention where `fill` maps a variable to grouped visual encoding.
  */
 export function extractSegmentedPoints(series: AmXYSeries): SegmentedPoint[] {
-  const points: SegmentedPoint[] = [];
   const fill = (series.get('name') as string | undefined) ?? '';
-
   const isHorizontal = hasCategoryY(series);
-  const categoryField = isHorizontal ? 'categoryY' : 'categoryX';
-  const valueField = isHorizontal ? 'valueX' : 'valueY';
 
-  for (const item of series.dataItems) {
-    const category = item.get(categoryField);
-    const value = item.get(valueField);
+  return readCategoryValues(series).map(mark => ({
+    x: isHorizontal ? mark.value : mark.category,
+    y: isHorizontal ? mark.category : mark.value,
+    z: fill,
+  }));
+}
 
-    if (category == null || value == null)
-      continue;
+/**
+ * Whether two column series are drawn back to back across a shared axis — a
+ * population pyramid, or a Likert scale split around a neutral midpoint.
+ *
+ * amCharts has no diverging series: the chart is two ordinary column series
+ * on one category axis with one side's values negated, which is otherwise the
+ * signature of a dodged bar chart. What separates them is the sign — one
+ * series entirely on each side of the baseline, over the same categories in
+ * the same order — and that is a statement about the data rather than about
+ * how it was drawn, so it is decisive where a styling probe would not be.
+ *
+ * Both sides must actually reach their side of the baseline: a pair of series
+ * that are merely non-negative is every dodged bar chart ever drawn.
+ */
+export function isDivergingPair(seriesList: AmXYSeries[]): boolean {
+  if (seriesList.length !== 2)
+    return false;
 
-    const numValue = toNumber(value);
-    if (numValue == null)
-      continue;
+  const [left, right] = seriesList.map(readCategoryValues);
+  if (left.length === 0 || left.length !== right.length)
+    return false;
+  if (left.some((mark, index) => String(mark.category) !== String(right[index].category)))
+    return false;
 
-    points.push({
-      x: isHorizontal ? numValue : toStringOrNumber(category),
-      y: isHorizontal ? toStringOrNumber(category) : numValue,
-      z: fill,
-    });
-  }
+  const leftValues = left.map(mark => mark.value);
+  const rightValues = right.map(mark => mark.value);
+  return (growsNegative(leftValues) && growsPositive(rightValues))
+    || (growsPositive(leftValues) && growsNegative(rightValues));
+}
 
-  return points;
+/** Whether every value sits at or below the baseline, and one below it. */
+function growsNegative(values: number[]): boolean {
+  return values.every(value => value <= 0) && values.some(value => value < 0);
+}
+
+/** Whether every value sits at or above the baseline, and one above it. */
+function growsPositive(values: number[]): boolean {
+  return values.every(value => value >= 0) && values.some(value => value > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +320,248 @@ export function extractHistogramPoints(series: AmXYSeries): HistogramPoint[] {
   }
 
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// Waterfall extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract {@link WaterfallPoint} data from a column series drawn as a bridge.
+ *
+ * The bar floats between the running total before the step and the total after
+ * it, which is the pair amCharts keeps in `openValueY` / `valueY`. Both are
+ * carried, plus the contribution between them: a bar chart would conflate the
+ * two, and "how big was this step" and "where did it leave us" are different
+ * questions.
+ */
+export function extractWaterfallPoints(series: AmXYSeries): WaterfallPoint[] {
+  return readSpans(series, 'categoryX', OPEN_Y_KEYS, VALUE_Y_KEYS).map((span) => {
+    const delta = withoutFloatNoise(span.end - span.start);
+    return {
+      x: span.category,
+      start: span.start,
+      end: span.end,
+      delta,
+      kind: waterfallKind(span.start, delta),
+    };
+  });
+}
+
+/**
+ * Whether a step moves the running total or restates it.
+ *
+ * A bar that sits on the baseline restates it — the opening bar, the closing
+ * bar, and any subtotal drawn along the way — which is the same signature
+ * {@link isWaterfallChain} reads when it decides a series is a bridge at all.
+ */
+function waterfallKind(start: number, delta: number): WaterfallKind {
+  if (start === 0)
+    return 'total';
+  return delta < 0 ? 'decrease' : 'increase';
+}
+
+// ---------------------------------------------------------------------------
+// Dumbbell extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract {@link DumbbellPoint} data from a column series drawn as a barbell.
+ *
+ * The same `openValueY` / `valueY` pair a waterfall uses, read as the two
+ * values compared at one category rather than as a running total: which of the
+ * two is larger is not fixed, and a chart usually holds both directions at
+ * once.
+ *
+ * The two ends are deliberately not named here. amCharts names the series, not
+ * the ends, so anything read off the chart would be a guess; the adapter takes
+ * them from an option instead, and the trace announces "start" and "end" when
+ * it has nothing better.
+ */
+export function extractDumbbellPoints(series: AmXYSeries): DumbbellPoint[] {
+  return readSpans(series, 'categoryX', OPEN_Y_KEYS, VALUE_Y_KEYS).map(span => ({
+    x: span.category,
+    start: span.start,
+    end: span.end,
+  }));
+}
+
+/**
+ * The live data items behind a vertical series of floating columns, in the
+ * order {@link extractWaterfallPoints} and {@link extractDumbbellPoints} emit
+ * them.
+ *
+ * Both skip columns missing a category or either end, so the highlight path
+ * has to skip the same ones — otherwise a single incomplete record shifts
+ * every later highlight onto its neighbour.
+ */
+export function extractSpanItems(series: AmXYSeries): AmDataItem[] {
+  return readSpans(series, 'categoryX', OPEN_Y_KEYS, VALUE_Y_KEYS).map(span => span.item);
+}
+
+// ---------------------------------------------------------------------------
+// Gantt extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * How long one unit of a `DateAxis` base interval lasts, in milliseconds.
+ *
+ * A month and a year have no fixed length; the approximations here are the
+ * ones amCharts uses for its own duration arithmetic. They only ever scale a
+ * length that is then announced with the unit's name, so a schedule measured
+ * in months reads as months rather than as nine-figure millisecond counts.
+ */
+const TIME_UNIT_MS: Record<string, number> = {
+  millisecond: 1,
+  second: 1000,
+  minute: 60_000,
+  hour: 3_600_000,
+  day: 86_400_000,
+  week: 604_800_000,
+  month: 2_592_000_000,
+  year: 31_536_000_000,
+};
+
+/** How a date axis' positions are turned into readable lengths. */
+interface TimeScale {
+  /** Milliseconds per unit. */
+  divisor: number;
+  /** What one unit is called, as {@link GanttData.unit} carries it. */
+  unit: string;
+}
+
+/**
+ * The scale a gantt's axis positions are reported in.
+ *
+ * A `DateAxis` stores positions as epoch milliseconds, and the length of an
+ * interval is the fact a schedule exists to carry — announced in milliseconds
+ * it carries nothing. So the axis' own base interval names the unit, and the
+ * positions are rescaled to it. Its `count` is ignored on purpose: the unit
+ * that travels with the numbers is the time unit's name, and dividing by a
+ * multiple of it would make the two disagree.
+ *
+ * Returns `null` for a value axis, whose numbers are already in whatever unit
+ * the chart's author chose and must be passed through untouched.
+ */
+function readTimeScale(axis: AmAxis | undefined): TimeScale | null {
+  const interval = axis?.get('baseInterval');
+  if (interval == null || typeof interval !== 'object')
+    return null;
+
+  const timeUnit = (interval as { timeUnit?: unknown }).timeUnit;
+  if (typeof timeUnit !== 'string')
+    return null;
+
+  const divisor = TIME_UNIT_MS[timeUnit];
+  return divisor ? { divisor, unit: `${timeUnit}s` } : null;
+}
+
+/**
+ * The lanes a gantt's category axis declares, in axis order.
+ *
+ * Read from the axis rather than from the series so a lane with nothing booked
+ * still exists: an empty lane is a real statement about a schedule, and a lane
+ * list derived from the intervals alone cannot make one.
+ */
+function readLaneNames(axis: AmAxis | undefined): (string | number)[] {
+  const lanes: (string | number)[] = [];
+  for (const item of axis?.dataItems ?? []) {
+    const category = item.get('category');
+    if (category != null)
+      lanes.push(toStringOrNumber(category));
+  }
+  return lanes;
+}
+
+/**
+ * Extract {@link GanttData} from a column series drawn as a schedule.
+ *
+ * amCharts draws a gantt as floating columns on a category axis of lanes and a
+ * date axis of time, which is the pair this reads: one lane per category axis
+ * item, one interval per column, and the unit from the date axis' own base
+ * interval.
+ *
+ * Positions are reported relative to the earliest interval on a date axis, so
+ * a schedule reads as "day 0 to day 30" rather than as two epoch timestamps
+ * thirteen digits long. The absolute dates are dropped by that: what a reader
+ * wants from a schedule is relational — what overlaps what, what hands over to
+ * what — and every one of those questions survives the shift, while none of
+ * them survives a length announced in milliseconds.
+ *
+ * @returns The chart's lanes and intervals, or `null` when no column carries a
+ *   readable interval.
+ */
+export function extractGanttData(series: AmXYSeries): GanttData | null {
+  const grouped = groupGanttSpans(series);
+  if (!grouped)
+    return null;
+
+  const { lanes, spans, scale } = grouped;
+  const origin = scale
+    ? Math.min(...spans.flat().map(span => span.start))
+    : 0;
+  const rescale = (value: number): number =>
+    scale ? withoutFloatNoise((value - origin) / scale.divisor) : value;
+
+  return {
+    points: spans.map(lane => lane.map(span => ({
+      x: span.category,
+      start: rescale(span.start),
+      end: rescale(span.end),
+    }))),
+    lanes,
+    ...(scale ? { unit: scale.unit } : {}),
+  };
+}
+
+/**
+ * The live data items behind a gantt's intervals, lane by lane.
+ *
+ * Grouped by the same pass {@link extractGanttData} emits from, so a MAIDR
+ * `[lane, interval]` position addresses the same column in both — which is
+ * what lets the highlight land on the bar the reader is being told about.
+ */
+export function extractGanttItems(series: AmXYSeries): AmDataItem[][] {
+  const grouped = groupGanttSpans(series);
+  return grouped ? grouped.spans.map(lane => lane.map(span => span.item)) : [];
+}
+
+/** A gantt's intervals, gathered into the lanes the chart draws them in. */
+interface GanttLanes {
+  lanes: (string | number)[];
+  spans: Span[][];
+  scale: TimeScale | null;
+}
+
+/**
+ * Group a gantt series' columns into lanes.
+ *
+ * The category axis supplies the lanes and their order, so a lane with nothing
+ * booked survives; a category the axis does not declare is appended rather
+ * than dropped, which would lose its intervals entirely.
+ */
+function groupGanttSpans(series: AmXYSeries): GanttLanes | null {
+  const columns = readSpans(series, 'categoryY', OPEN_X_KEYS, VALUE_X_KEYS);
+  if (columns.length === 0)
+    return null;
+
+  const lanes = readLaneNames(series.get('yAxis') as AmAxis | undefined);
+  const rowOf = new Map<string, number>(lanes.map((lane, row) => [String(lane), row]));
+  const spans: Span[][] = lanes.map(() => []);
+
+  for (const column of columns) {
+    const key = String(column.category);
+    let row = rowOf.get(key);
+    if (row === undefined) {
+      row = spans.length;
+      rowOf.set(key, row);
+      lanes.push(column.category);
+      spans.push([]);
+    }
+    spans[row].push(column);
+  }
+
+  return { lanes, spans, scale: readTimeScale(series.get('xAxis') as AmAxis | undefined) };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,11 +664,102 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Rank detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Read a setting off anything that answers `get`, without asserting a type.
+ *
+ * The axis a series is bound to, and the renderer that axis draws itself with,
+ * are both reached this way: they are am5 entities the adapter never models,
+ * and every read of one is a single setting deep.
+ */
+function settingOf(entity: unknown, key: string): unknown {
+  if (entity == null || typeof entity !== 'object')
+    return undefined;
+  const get = (entity as { get?: unknown }).get;
+  if (typeof get !== 'function')
+    return undefined;
+  return (get as (k: string) => unknown).call(entity, key);
+}
+
+/**
+ * Whether every line of a layer is plotted against an upside-down value axis.
+ *
+ * A rank axis runs the other way: first place is the smallest number and sits
+ * at the top, which amCharts draws by inverting the axis' renderer. That is the
+ * one thing a bump chart declares about itself, and it is asked of every series
+ * rather than of any — a chart mixing an inversed line with an ordinary one is
+ * not a table of ranks, and reading it as one would invert the pitch of both.
+ *
+ * It is not sufficient on its own. An inversed axis is also how a plain chart
+ * of descending magnitudes is drawn, so {@link holdsRanks} has to agree before
+ * the layer is announced as a bump chart.
+ */
+export function hasRankAxis(seriesList: AmXYSeries[]): boolean {
+  return seriesList.length > 0 && seriesList.every((series) => {
+    const renderer = settingOf(series.get('yAxis'), 'renderer');
+    return settingOf(renderer, 'inversed') === true;
+  });
+}
+
+/**
+ * Whether a group of line series carries ranks rather than magnitudes.
+ *
+ * A rank is a permutation, and that is what makes this decidable from the data
+ * alone: every value is a whole place between first and last, no two
+ * competitors hold the same place in the same period, and somebody comes first.
+ * Counts and magnitudes fail all three the moment there is more than one of
+ * them — two series that ever share a value are not a ranking, and a value
+ * above the number of competitors is not a place any of them can hold.
+ *
+ * Deliberately strict about what it will not read: a chart showing places 3
+ * through 9 of a twenty-strong field is a genuine bump chart this answers `false`
+ * for, and it stays a line chart rather than being sonified against a rank
+ * range that does not include the leader it never draws.
+ */
+export function holdsRanks(seriesList: AmXYSeries[]): boolean {
+  const competitors = seriesList.length;
+  if (competitors === 0)
+    return false;
+
+  const takenAt = new Map<string, Set<number>>();
+  let best = Number.POSITIVE_INFINITY;
+  let ranks = 0;
+
+  for (const series of seriesList) {
+    for (const point of extractLinePoints(series)) {
+      if (!Number.isInteger(point.y) || point.y < 1 || point.y > competitors)
+        return false;
+
+      const period = String(point.x);
+      const taken = takenAt.get(period);
+      if (taken == null)
+        takenAt.set(period, new Set([point.y]));
+      else if (taken.has(point.y))
+        return false;
+      else
+        taken.add(point.y);
+
+      best = Math.min(best, point.y);
+      ranks++;
+    }
+  }
+
+  return ranks > 0 && best === 1;
+}
+
+// ---------------------------------------------------------------------------
 // Pie extraction
 // ---------------------------------------------------------------------------
 
 /**
  * Extract {@link PiePoint} data from an am5percent pie series.
+ *
+ * Also serves an am5percent funnel series and an am5wc word cloud, whose
+ * stages and terms carry the same `category`/`value` pair in the same data
+ * order — a funnel's `BarPoint[]`, a word cloud's `WordCloudPoint[]` and a
+ * pie's `PiePoint[]` are the same `{ x, y }` shape.
  *
  * A pie series is bound to no axis: each data item carries the slice's
  * `category` and its `value`, and the wedges are drawn in data-item order.
@@ -298,6 +789,112 @@ export function extractPiePoints(series: AmXYSeries): PiePoint[] {
   }
 
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// Hierarchy extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * One node of an am5hierarchy series, as the walk reaches it.
+ *
+ * Carries the live data item alongside the values, because the highlight path
+ * needs the node the reader is on and the walk is the only place the two are
+ * known together — an am5hierarchy series keeps only its root in `dataItems`,
+ * and every other node is reachable only by descending from it.
+ */
+export interface AmHierarchyNode {
+  dataItem: AmDataItem;
+  /** What the node is called. */
+  name: string | number;
+  /** Its ancestors' names, outermost first, excluding the node and the root. */
+  path: (string | number)[];
+  /** Levels below the tree root — the row a MAIDR treemap addresses it by. */
+  depth: number;
+  /** Its own declared magnitude, or `null` for a node that has none. */
+  value: number | null;
+}
+
+/**
+ * Walk an am5hierarchy series and return every node below its root, in
+ * depth-first order.
+ *
+ * The root itself is skipped. amCharts hierarchy data is one root object whose
+ * `children` are the branches — commonly a synthetic "Root" the chart is even
+ * configured to hide (`topDepth: 1`) — so keeping it would add a level that
+ * always holds one node worth 100% of the chart, and put every reader one
+ * extra step away from the data.
+ *
+ * Depth-first is what makes the order usable: MAIDR's treemap addresses a node
+ * by `[depth][index within depth]` and takes the index from the order the
+ * nodes were declared in, so a walk that visits each subtree completely gives
+ * every level its left-to-right order.
+ */
+export function extractHierarchyNodes(series: AmXYSeries): AmHierarchyNode[] {
+  const nodes: AmHierarchyNode[] = [];
+
+  const visit = (item: AmDataItem, path: (string | number)[]): void => {
+    const category = item.get('category');
+    const name = category != null ? toStringOrNumber(category) : '';
+    nodes.push({
+      dataItem: item,
+      name,
+      path,
+      depth: path.length,
+      // The node's own value, never the aggregate amCharts keeps in `sum`: a
+      // branch's total is derived from its children by the trace, and reading
+      // the aggregate back would declare a total that cannot then disagree
+      // with the children even when the chart says it does.
+      value: toNumber(item.get('value')),
+    });
+
+    const childPath = [...path, name];
+    for (const child of childItems(item)) {
+      visit(child, childPath);
+    }
+  };
+
+  const roots = series.dataItems;
+  if (roots.length === 1) {
+    // The ordinary case: amCharts takes one root object and treats every other
+    // data item as unreachable, so the root is the container and its children
+    // are the top level.
+    for (const child of childItems(roots[0])) {
+      visit(child, []);
+    }
+  } else {
+    // Several top-level records, which amCharts does not itself lay out. There
+    // is no container root here, so the records ARE the top level; dropping
+    // all but the first would silently lose most of the tree.
+    for (const item of roots) {
+      visit(item, []);
+    }
+  }
+
+  return nodes;
+}
+
+/** A hierarchy data item's child items, or `[]` for a leaf. */
+function childItems(item: AmDataItem): AmDataItem[] {
+  const children = item.get('children');
+  return Array.isArray(children) ? (children as AmDataItem[]) : [];
+}
+
+/**
+ * Convert an am5hierarchy series into {@link TreemapPoint} data.
+ *
+ * Every node is emitted, not only the leaves: the trace derives a branch's
+ * total from its children, but a branch that declares a value of its own may
+ * carry mass no child accounts for, and only a declared value can say so. A
+ * node with no value of its own is emitted without one and totalled from
+ * below, which is the ordinary case for a branch.
+ */
+export function extractHierarchyPoints(series: AmXYSeries): TreemapPoint[] {
+  return extractHierarchyNodes(series).map(node => ({
+    x: node.name,
+    ...(node.value != null ? { y: node.value } : {}),
+    path: node.path,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -336,7 +933,201 @@ const PIE_CLASSES = new Set([
   'PieSeries',
 ]);
 
-export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'pie' | 'unknown';
+/**
+ * Series an am5percent `SlicedChart` draws as ordered stages — a funnel, its
+ * triangular pyramid variant, and the pictorial stack. All three carry one
+ * `category`/`value` pair per stage in data order, which is exactly the
+ * retention reading MAIDR's funnel trace is built on, so all three map to it.
+ */
+const FUNNEL_CLASSES = new Set([
+  'FunnelSeries',
+  'PyramidSeries',
+  'PictorialStackedSeries',
+]);
+
+/**
+ * Series an am5radar `RadarChart` draws around a circle, joined into a closed
+ * outline. Recognising them explicitly is what keeps a radar from being read
+ * as something else: a `RadarChart` extends `XYChart`, so the adapter has
+ * always found it, and {@link classifySeriesKind} answers `'bar'` for anything
+ * it does not know — a radar was therefore announced as a row of bars.
+ */
+const RADAR_LINE_CLASSES = new Set([
+  'RadarLineSeries',
+  'SmoothedRadarLineSeries',
+]);
+
+/**
+ * The same spokes drawn as wedges rather than as an outline — a coxcomb or
+ * rose chart. Read exactly as a radar is; only the mark differs.
+ */
+const RADAR_COLUMN_CLASSES = new Set([
+  'RadarColumnSeries',
+]);
+
+/**
+ * Series that are not inside a chart at all, and what each one draws.
+ *
+ * An am5hierarchy layout and an am5wc word cloud are `am5.Series` pushed
+ * straight into a plain container, with no chart object around them, which is
+ * why the adapter's discovery has to recognise the series itself. `Sunburst`
+ * is deliberately absent — it extends `Partition` but carries its own class
+ * name, so leaving it out keeps it out rather than reading it as an icicle.
+ *
+ * One record rather than one set per module: discovery asks a single question
+ * ("is this series a panel of its own?"), and a per-module set would have to
+ * be unioned back together at every call site to answer it.
+ */
+const STANDALONE_KINDS: Record<string, SeriesKind> = {
+  Treemap: 'treemap',
+  Partition: 'icicle',
+  WordCloud: 'wordcloud',
+};
+
+/** The class names {@link STANDALONE_KINDS} covers, for discovery to probe. */
+export const STANDALONE_SERIES_CLASSES = new Set(Object.keys(STANDALONE_KINDS));
+
+/**
+ * How thin a column has to be before it is read as a lollipop's stem.
+ *
+ * A lollipop is an ordinary column series with its columns narrowed to a
+ * hairline and a bullet put on the end — amCharts has no lollipop series — so
+ * the width is the only signal there is. A few pixels is far below any width a
+ * bar chart is drawn at, and the bullet requirement is what keeps a merely
+ * narrow bar chart out.
+ */
+const LOLLIPOP_MAX_STEM_PX = 6;
+
+/** Whether a series has any bullets configured. */
+function hasBullets(series: AmXYSeries): boolean {
+  return (series.bullets?.values.length ?? 0) > 0;
+}
+
+/**
+ * Read a graphics template's setting as a plain number.
+ *
+ * A `Percent` answers `null` rather than its own value: amCharts accepts one
+ * for every dimension, and a percentage is not a pixel count — a column 50% of
+ * its cell is not a hairline however small the number reads.
+ */
+function numberSetting(template: AmSprite | undefined, key: string): number | null {
+  const value = template?.get?.(key);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Whether a line series is drawn as points alone — a Cleveland dot plot.
+ *
+ * amCharts has no dot or scatter series: the recipe is a `LineSeries` with its
+ * stroke switched off and bullets pushed onto it, so the plot is entirely the
+ * bullets. Both halves are required, because either alone is something else: a
+ * strokeless series with no bullets draws nothing, and a series with bullets
+ * and a stroke is a line chart with markers on it.
+ *
+ * A category axis is required as well. The same drawing on two value axes is a
+ * scatter plot, which MAIDR reads with a trace of its own and this adapter
+ * does not emit — so that case is left reading as a line rather than
+ * announced as a dot plot it is not.
+ */
+function isDotPlot(series: AmXYSeries): boolean {
+  if (!hasCategoryX(series) && !hasCategoryY(series))
+    return false;
+  if (!hasBullets(series))
+    return false;
+
+  const template = series.strokes?.template;
+  const opacity = numberSetting(template, 'strokeOpacity');
+  if (opacity !== null)
+    return opacity <= 0;
+  const width = numberSetting(template, 'strokeWidth');
+  return width !== null && width <= 0;
+}
+
+/**
+ * Whether a column series is drawn as a stem with a dot on the end.
+ *
+ * Measured across the bars rather than along them: a vertical lollipop's stem
+ * is thin in `width` and a horizontal one's in `height`, and reading the wrong
+ * one of the two would answer with the bar's length.
+ */
+function isLollipop(series: AmXYSeries): boolean {
+  if (!hasCategoryX(series) && !hasCategoryY(series))
+    return false;
+  if (!hasBullets(series))
+    return false;
+
+  const thickness = numberSetting(
+    series.columns?.template,
+    hasCategoryY(series) ? 'height' : 'width',
+  );
+  return thickness !== null && thickness <= LOLLIPOP_MAX_STEM_PX;
+}
+
+/** Whether a series binds any of the named open-value settings to a field. */
+function hasOpenField(series: AmXYSeries, ...settings: string[]): boolean {
+  return settings.some(setting => typeof series.get(setting) === 'string');
+}
+
+/**
+ * Whether a series of floating columns is a bridge rather than a barbell.
+ *
+ * A waterfall chains: each step opens where the one before it closed, because
+ * the bars trace a single running total. A dumbbell's pairs are independent —
+ * two values compared at one category — so the chain breaks at the second row
+ * of any real one, which makes it decisive rather than merely suggestive.
+ *
+ * A step that opens on the baseline is not a link in the chain: those are the
+ * opening, closing and subtotal bars, which restate the running total instead
+ * of continuing it, and every real waterfall ends with one.
+ */
+function isWaterfallChain(series: AmXYSeries): boolean {
+  let previousEnd: number | null = null;
+
+  for (const span of readSpans(series, 'categoryX', OPEN_Y_KEYS, VALUE_Y_KEYS)) {
+    if (span.start === 0) {
+      previousEnd = span.end;
+      continue;
+    }
+    if (previousEnd !== null && !nearlyEqual(span.start, previousEnd))
+      return false;
+    previousEnd = span.end;
+  }
+
+  return true;
+}
+
+/**
+ * Whether two axis positions are the same value.
+ *
+ * Compared with a relative tolerance because a running total is commonly
+ * carried through a producer's own arithmetic before it is authored, and a
+ * chain broken by the last bit of a float would read the chart as the wrong
+ * type entirely.
+ */
+function nearlyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+}
+
+export type SeriesKind
+  = | 'bar'
+    | 'dot'
+    | 'lollipop'
+    | 'line'
+    | 'area'
+    | 'step'
+    | 'histogram'
+    | 'heatmap'
+    | 'pie'
+    | 'funnel'
+    | 'radar'
+    | 'polar'
+    | 'waterfall'
+    | 'dumbbell'
+    | 'gantt'
+    | 'treemap'
+    | 'icicle'
+    | 'wordcloud'
+    | 'unknown';
 
 /**
  * Determine the MAIDR trace kind for a given amCharts series.
@@ -344,10 +1135,35 @@ export type SeriesKind = 'bar' | 'line' | 'step' | 'histogram' | 'heatmap' | 'pi
 export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   const className = series.className ?? '';
 
+  // Radar first: its series carry their own class names, and a radar chart is
+  // otherwise indistinguishable from any other XY chart at this level.
+  if (RADAR_LINE_CLASSES.has(className)) {
+    return 'radar';
+  }
+
+  if (RADAR_COLUMN_CLASSES.has(className)) {
+    return 'polar';
+  }
+
+  const standalone = STANDALONE_KINDS[className];
+  if (standalone) {
+    return standalone;
+  }
+
   if (COLUMN_CLASSES.has(className)) {
     // Heatmap: both category X and category Y fields.
     if (hasCategoryX(series) && hasCategoryY(series))
       return 'heatmap';
+
+    // A schedule: lanes on the category axis, and columns that float between
+    // two positions on the time axis rather than rising from a baseline.
+    if (hasCategoryY(series) && hasOpenField(series, 'openValueXField', 'openDateXField'))
+      return 'gantt';
+
+    // A bridge and a barbell share this signature exactly — floating columns
+    // at one category each — so the chain is what separates them.
+    if (hasCategoryX(series) && hasOpenField(series, 'openValueYField'))
+      return isWaterfallChain(series) ? 'waterfall' : 'dumbbell';
 
     // Histogram: value-based X axis with openValueX bin edges.
     if (!hasCategoryX(series) && !hasCategoryY(series)
@@ -355,10 +1171,27 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
       return 'histogram';
     }
 
+    // A bar narrowed to a hairline and finished with a bullet. Read after the
+    // field-based kinds above, which describe what the columns MEAN; this one
+    // only describes what they look like.
+    if (isLollipop(series))
+      return 'lollipop';
+
     return 'bar';
   }
 
   if (LINE_CLASSES.has(className)) {
+    // amCharts draws an area with the line series, so the fill is the only
+    // thing that separates the two. Asked before the stroke, since an area
+    // whose outline is switched off is still an area.
+    if (hasVisibleFill(series))
+      return 'area';
+
+    // The same series with no stroke and bullets on it is a dot plot: what is
+    // drawn is the points alone.
+    if (isDotPlot(series))
+      return 'dot';
+
     // A "line" series with value-only axes (no category) is still a line in MAIDR.
     return 'line';
   }
@@ -369,6 +1202,10 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
 
   if (PIE_CLASSES.has(className)) {
     return 'pie';
+  }
+
+  if (FUNNEL_CLASSES.has(className)) {
+    return 'funnel';
   }
 
   // Default to bar for category-based series.

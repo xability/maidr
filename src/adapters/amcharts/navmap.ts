@@ -12,16 +12,22 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
+import {
+  extractGanttItems,
+  extractHierarchyNodes,
+  extractSpanItems,
+} from './extractor';
 
 /**
  * The am5 entities to highlight for a navigation position.
  * `kind` tells the overlay which geometry to read: a column's box, a line
- * point, or a pie slice's wedge.
+ * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
+ * or the glyph of a word cloud's term.
  */
 export interface NavTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice';
+  kind: 'column' | 'point' | 'slice' | 'label';
 }
 
 /**
@@ -57,16 +63,43 @@ export interface NavMapEntry {
 export interface SeriesGroups {
   /** Single → BAR layer; multiple → one segmented layer. */
   barSeriesList: AmXYSeries[];
-  /** Merged into a single multi-line LINE layer (one entry per line). */
+  /** One DOT layer each, in series order. */
+  dotSeriesList: AmXYSeries[];
+  /** One LOLLIPOP layer each, in series order. */
+  lollipopSeriesList: AmXYSeries[];
+  /**
+   * Merged into a single multi-line layer (one entry per line) — a LINE, or
+   * the BUMP the same lines become when they carry ranks. The two are one
+   * bucket because they are one layer: what differs is how the numbers are
+   * announced, not which mark each position addresses.
+   */
   lineSeriesList: AmXYSeries[];
   /** Merged into a single STEP layer, the staircase counterpart of the above. */
   stepSeriesList: AmXYSeries[];
+  /** Merged into one AREA / STACKED_AREA / NORMALIZED_AREA layer. */
+  areaSeriesList: AmXYSeries[];
+  /** Merged into a single RADAR layer (one entry per closed outline). */
+  radarSeriesList: AmXYSeries[];
+  /** Merged into a single POLAR_AREA layer, the wedge counterpart of the above. */
+  polarSeriesList: AmXYSeries[];
   /** One HISTOGRAM layer each, in series order. */
   histogramSeries: AmXYSeries[];
   /** One HEATMAP layer each, in series order. */
   heatmapSeries: AmXYSeries[];
   /** One PIE layer each, in series order. */
   pieSeriesList: AmXYSeries[];
+  /** One FUNNEL layer each, in series order. */
+  funnelSeriesList: AmXYSeries[];
+  /** One WATERFALL layer each, in series order. */
+  waterfallSeriesList: AmXYSeries[];
+  /** One DUMBBELL layer each, in series order. */
+  dumbbellSeriesList: AmXYSeries[];
+  /** One GANTT layer each, in series order. */
+  ganttSeriesList: AmXYSeries[];
+  /** One TREEMAP or ICICLE layer each, in series order. */
+  hierarchySeriesList: AmXYSeries[];
+  /** One WORD_CLOUD layer each, in series order. */
+  wordCloudSeriesList: AmXYSeries[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -130,7 +163,10 @@ function filterLineItems(series: AmXYSeries): AmDataItem[] {
   return kept;
 }
 
-/** Mirror `extractPiePoints`: keep items with a category and a finite value. */
+/**
+ * Mirror `extractPiePoints`: keep items with a category and a finite value.
+ * Serves funnel stages too, which the extractor reads through the same fields.
+ */
 function filterPieItems(series: AmXYSeries): AmDataItem[] {
   const kept: AmDataItem[] = [];
   for (const item of series.dataItems) {
@@ -143,6 +179,23 @@ function filterPieItems(series: AmXYSeries): AmDataItem[] {
     kept.push(item);
   }
   return kept;
+}
+
+/**
+ * Mirror `WordCloudTrace`: the terms a cloud declares, heaviest first.
+ *
+ * A word cloud is the one layer whose navigation order is not the order it was
+ * declared in. Its arrangement on the page is chosen to pack glyphs and
+ * carries nothing, so MAIDR walks the terms by weight — and the position it
+ * reports is an index into THAT order. Filtering alone would leave every
+ * highlight on whichever term happens to sit at the same rank.
+ *
+ * Sorted with the same comparison the trace uses, on a stable sort, so terms
+ * of equal weight keep their declared order in both.
+ */
+function filterWordCloudItems(series: AmXYSeries): AmDataItem[] {
+  return filterPieItems(series)
+    .sort((a, b) => Number(b.get('value')) - Number(a.get('value')));
 }
 
 /** Mirror `extractHistogramPoints`: keep items with finite valueX and valueY. */
@@ -160,9 +213,56 @@ function filterHistogramItems(series: AmXYSeries): AmDataItem[] {
   return kept;
 }
 
+/**
+ * Pair each series with its gap-filtered items and drop the series left with
+ * none — exactly what the adapter does when it builds the layers, so MAIDR's
+ * row indices keep naming the same series the extractor emitted.
+ */
+function filterSeries(
+  seriesList: AmXYSeries[],
+  keep: (series: AmXYSeries) => AmDataItem[],
+): FilteredSeries[] {
+  return seriesList
+    .map(series => ({ series, items: keep(series) }))
+    .filter(entry => entry.items.length > 0);
+}
+
 function columnTargetFrom(entry: FilteredSeries | undefined, col: number): NavTarget[] {
   const dataItem = entry?.items[col];
   return entry && dataItem ? [{ series: entry.series, dataItem, kind: 'column' }] : [];
+}
+
+/**
+ * Build a resolver for a gantt layer: MAIDR walks lanes by intervals, and so
+ * does the grouping the extractor emitted, so the position indexes it directly.
+ */
+function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
+  const lanes = series ? extractGanttItems(series) : [];
+  return (row, col) => {
+    const dataItem = lanes[row]?.[col];
+    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+  };
+}
+
+/**
+ * Build a resolver for a treemap or icicle layer.
+ *
+ * MAIDR addresses a tree node by depth and by its position within that depth,
+ * taking the position from the order the nodes were declared in — which is the
+ * order the walk emitted them, so gathering the walk by depth rebuilds exactly
+ * the grid the reader is navigating.
+ */
+function buildHierarchyResolver(series: AmXYSeries | undefined): Resolver {
+  const levels: AmDataItem[][] = [];
+  for (const node of series ? extractHierarchyNodes(series) : []) {
+    (levels[node.depth] ??= []).push(node.dataItem);
+  }
+  return (row, col) => {
+    const dataItem = levels[row]?.[col];
+    // A node is drawn as a rectangle, which the overlay measures the same way
+    // it measures a column.
+    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+  };
 }
 
 /**
@@ -229,22 +329,44 @@ function addEntryResolvers(
     items: filterColumnItems(series),
   }));
   const segmentedBars = barItems.filter(entry => entry.items.length > 0);
-  const lineSeries = groups.lineSeriesList
-    .map(series => ({ series, items: filterLineItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const stepSeries = groups.stepSeriesList
-    .map(series => ({ series, items: filterLineItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const histogramSeries = groups.histogramSeries
-    .map(series => ({ series, items: filterHistogramItems(series) }))
-    .filter(entry => entry.items.length > 0);
-  const pieSeries = groups.pieSeriesList
-    .map(series => ({ series, items: filterPieItems(series) }))
-    .filter(entry => entry.items.length > 0);
+  const dotSeries = filterSeries(groups.dotSeriesList, filterColumnItems);
+  const lollipopSeries = filterSeries(groups.lollipopSeriesList, filterColumnItems);
+  const lineSeries = filterSeries(groups.lineSeriesList, filterLineItems);
+  const stepSeries = filterSeries(groups.stepSeriesList, filterLineItems);
+  const areaSeries = filterSeries(groups.areaSeriesList, filterLineItems);
+  const radarSeries = filterSeries(groups.radarSeriesList, filterLineItems);
+  const polarSeries = filterSeries(groups.polarSeriesList, filterLineItems);
+  const histogramSeries = filterSeries(groups.histogramSeries, filterHistogramItems);
+  const pieSeries = filterSeries(groups.pieSeriesList, filterPieItems);
+  const funnelSeries = filterSeries(groups.funnelSeriesList, filterPieItems);
+  const waterfallSeries = filterSeries(groups.waterfallSeriesList, extractSpanItems);
+  const dumbbellSeries = filterSeries(groups.dumbbellSeriesList, extractSpanItems);
+  const wordCloudSeries = filterSeries(groups.wordCloudSeriesList, filterWordCloudItems);
 
+  // Every merged layer indexes its OWN series list — sharing one would
+  // misplace every highlight on a chart carrying two of these at once.
+  const mergedByType: Partial<Record<TraceType, FilteredSeries[]>> = {
+    [TraceType.LINE]: lineSeries,
+    [TraceType.BUMP]: lineSeries,
+    [TraceType.STEP]: stepSeries,
+    [TraceType.AREA]: areaSeries,
+    [TraceType.STACKED_AREA]: areaSeries,
+    [TraceType.NORMALIZED_AREA]: areaSeries,
+    [TraceType.RADAR]: radarSeries,
+    [TraceType.POLAR_AREA]: polarSeries,
+  };
+
+  let dotIdx = 0;
+  let lollipopIdx = 0;
   let histIdx = 0;
   let heatIdx = 0;
   let pieIdx = 0;
+  let funnelIdx = 0;
+  let waterfallIdx = 0;
+  let dumbbellIdx = 0;
+  let ganttIdx = 0;
+  let hierarchyIdx = 0;
+  let wordCloudIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -258,22 +380,56 @@ function addEntryResolvers(
         register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
+      // A diverging pair is two column series read as one layer, exactly as a
+      // dodged one is; only the sign of the values differs.
       case TraceType.STACKED:
       case TraceType.DODGED:
+      case TraceType.DIVERGING:
       case TraceType.NORMALIZED: {
         register(layer.id, (row, col) => columnTargetFrom(segmentedBars[row], col));
         break;
       }
+      case TraceType.DOT: {
+        // The mark is the bullet, not a column, so the overlay measures the
+        // point the bullet sits on.
+        const entry = dotSeries[dotIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'point' }]
+            : [];
+        });
+        break;
+      }
+      case TraceType.LOLLIPOP: {
+        // A stem is still a column, thin as it is, and the box around it is
+        // what puts the highlight on the whole mark rather than on the dot.
+        const entry = lollipopSeries[lollipopIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      // A bump chart is navigated as the multi-line layer it is drawn as, and
+      // its lines were collected with the rest — the rank is what the trace
+      // announces, not a different mark to point at.
       case TraceType.LINE:
-      case TraceType.STEP: {
-        // A step layer holds its own series, so it indexes its own list —
-        // sharing one would misplace every highlight on a chart with both.
-        const seriesList = layer.type === TraceType.STEP ? stepSeries : lineSeries;
+      case TraceType.BUMP:
+      case TraceType.STEP:
+      case TraceType.AREA:
+      case TraceType.STACKED_AREA:
+      case TraceType.NORMALIZED_AREA:
+      case TraceType.RADAR:
+      case TraceType.POLAR_AREA: {
+        const seriesList = mergedByType[layer.type] ?? [];
+        // A polar area draws its values as wedges rather than as points on a
+        // line, so the sprite the overlay measures differs even though the
+        // navigable grid is the same.
+        const kind: NavTarget['kind']
+          = layer.type === TraceType.POLAR_AREA ? 'slice' : 'point';
         register(layer.id, (row, col) => {
           const entry = seriesList[row];
           const dataItem = entry?.items[col];
           return entry && dataItem
-            ? [{ series: entry.series, dataItem, kind: 'point' }]
+            ? [{ series: entry.series, dataItem, kind }]
             : [];
         });
         break;
@@ -290,6 +446,57 @@ function addEntryResolvers(
           const dataItem = entry?.items[col];
           return entry && dataItem
             ? [{ series: entry.series, dataItem, kind: 'slice' }]
+            : [];
+        });
+        break;
+      }
+      case TraceType.FUNNEL: {
+        // A funnel is a single row of stages, so only the column moves.
+        const entry = funnelSeries[funnelIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'slice' }]
+            : [];
+        });
+        break;
+      }
+      case TraceType.WATERFALL: {
+        // A bridge is a single row of steps, so only the column moves.
+        const entry = waterfallSeries[waterfallIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.DUMBBELL: {
+        // Rows are the two ends and columns the categories, but a chart draws
+        // one column per category and not one per dot — so both ends resolve
+        // to the same mark, which is the honest rendering of a highlight that
+        // stays put while the announcement moves between the ends.
+        const entry = dumbbellSeries[dumbbellIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.GANTT: {
+        register(layer.id, buildGanttResolver(groups.ganttSeriesList[ganttIdx++]));
+        break;
+      }
+      case TraceType.TREEMAP:
+      case TraceType.ICICLE: {
+        register(
+          layer.id,
+          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++]),
+        );
+        break;
+      }
+      case TraceType.WORD_CLOUD: {
+        // A cloud is a single row of terms, so only the column moves — and it
+        // indexes them by weight, which `filterWordCloudItems` has already put
+        // the data items in.
+        const entry = wordCloudSeries[wordCloudIdx++];
+        register(layer.id, (_row, col) => {
+          const dataItem = entry?.items[col];
+          return entry && dataItem
+            ? [{ series: entry.series, dataItem, kind: 'label' }]
             : [];
         });
         break;

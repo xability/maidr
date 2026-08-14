@@ -78,7 +78,18 @@ Series are classified by their amCharts class name and field configuration:
 - multiple `ColumnSeries` → **stacked**, **100%-stacked (normalized)**, or **dodged**, detected from each series' `stacked` flag and `valueYShow`/`valueXShow` setting
 - `ColumnSeries` with both X and Y category axes → **heatmap** (heat value read from the `value` field)
 - `ColumnSeries` on a value X axis with `openValueXField` bin edges → **histogram**
-- `LineSeries` (incl. smoothed/step variants) → **line**
+- `LineSeries` (incl. smoothed variants) → **line**, or **area** / **stacked area** / **100% stacked area** when its `fills` are visible
+- `StepLineSeries` → **step**
+- `RadarLineSeries` → **radar**; `RadarColumnSeries` → **polar area**
+- `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
+- `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
+- `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**
+- two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
+- `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
+- `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
+- `am5wc.WordCloud` → **word cloud**
+- `LineSeries` on a value axis whose renderer is `inversed`, carrying a genuine ranking → **bump** (rank over time); the `bump` option settles the cases the axis cannot
 
 ### Visual Highlighting
 
@@ -92,21 +103,41 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Dodged / Grouped Bar | multiple `ColumnSeries` | no `stacked` flag |
 | Stacked Bar | multiple `ColumnSeries` | `stacked: true` |
 | 100% Stacked (Normalized) | multiple `ColumnSeries` | `stacked: true` + `valueYShow: "valueYTotalPercent"` |
-| Line (single & multi-series) | `LineSeries` | line series class |
+| Line (single & multi-series) | `LineSeries` | line series class, no visible fill |
+| Area | `LineSeries` | visible `fills` template |
+| Stacked Area | multiple `LineSeries` | visible fills + `stacked: true` |
+| 100% Stacked Area | multiple `LineSeries` | visible fills + `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Step (single & multi-series) | `StepLineSeries` | step-line series class |
 | Histogram | `ColumnSeries` | value X axis + `openValueXField` bin edges |
 | Heatmap | `ColumnSeries` | category X **and** category Y axes + `value` field |
 | Pie / Doughnut | `am5percent.PieSeries` | series class (requires `percent.js`) |
+| Funnel / Pyramid | `am5percent.FunnelSeries`, `PyramidSeries`, `PictorialStackedSeries` | series class (requires `percent.js`) |
+| Radar / Spider | `am5radar.RadarLineSeries` | series class (requires `radar.js`) |
+| Polar Area / Coxcomb | `am5radar.RadarColumnSeries` | series class (requires `radar.js`) |
+| Waterfall / Bridge | `ColumnSeries` | category X axis + `openValueYField`, bars chaining end-to-end |
+| Dumbbell / Barbell | `ColumnSeries` | category X axis + `openValueYField`, bars **not** chaining |
+| Gantt / Timeline | `ColumnSeries` | category Y axis + `openValueXField` (or `openDateXField`) |
+| Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
+| Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
+| Diverging Bar / Population Pyramid | two `ColumnSeries` | shared categories, one series entirely negative and the other entirely positive |
+| Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
+| Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
+| Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
+| Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
 A `PieSeries` lives in amCharts' separate `percent.js` module and is bound to no axis, so `axes.x` and `axes.y` default to `Label` and `Value`; the `axisLabels` option overrides both. A doughnut is a `PieChart` with an `innerRadius` and reads identically. Slices with no category or no numeric value are skipped rather than counted as zero.
 
-> Box plots, candlestick, scatter, violin, and smooth/regression layers are **not** supported by the amCharts binder. amCharts 5 has no dedicated scatter or box series, and there is no reliable runtime signal to distinguish a scatter (hidden-stroke `LineSeries`) from a normal line chart.
+A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` rather than a `PieChart`, and is likewise bound to no axis — its dimensions default to `Stage` and `Value`. Its pyramid and pictorial-stack siblings carry the same ordered `category`/`value` stages and are read the same way.
+
+`RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
+
+> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder. Neither is **scatter**: amCharts draws one as a hidden-stroke `LineSeries` with bullets, which is also how it draws a dot plot, and the only thing separating them is the axis — so a hidden-stroke series on a **category** axis is read as a dot plot and the same series on two **value** axes stays a line chart rather than being announced as a scatter MAIDR would then read as a dot plot.
 
 ## Multi-Panel Charts
 
-Every `PieChart` in the root's container is a subplot too, on the same terms as the XYCharts below — a root holding a pie and a doughnut is one MAIDR figure with two panels.
+Every am5percent chart in the root's container — a `PieChart` or a `SlicedChart` — is a subplot too, on the same terms as the XYCharts below: a root holding a pie and a doughnut is one MAIDR figure with two panels.
 
 When one amCharts `Root` contains **multiple XYCharts** — amCharts' native multi-panel pattern (`root.container.set("layout", root.verticalLayout)` plus several `XYChart` children, or a `horizontalLayout`/`GridLayout`) — both `bindAmCharts` and `fromAmCharts` convert **each chart into its own MAIDR subplot**. The same applies to **am5stock `StockChart` panels** (`StockPanel` extends `XYChart`), which the binder finds by walking the root's container tree; scrollbar preview charts (`XYChartScrollbar`) are excluded.
 
@@ -237,6 +268,219 @@ maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Fruit", y: "Units sold" } }
 
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units sold is 30, Percentage is 26.1%".
 
+### Area / Stacked Area
+
+An area chart is a `LineSeries` whose `fills` template has been made visible — amCharts has no area series — so that fill is what the adapter reads. A line with no visible fill stays a line. Add `stacked: true` for a stacked area, and `valueYShow: "valueYTotalPercent"` (with `calculateTotals: true` on the value axis) for a 100% stack. A runnable page is at [`examples/amcharts-area.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-area.html).
+
+```js
+var series = chart.series.push(am5xy.LineSeries.new(root, {
+  name: "Search", xAxis: xAxis, yAxis: yAxis,
+  valueYField: "search", categoryXField: "quarter",
+  stacked: true, // omit for independent (overlapping) bands
+}));
+series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
+```
+
+Every area series of one chart merges into a **single** layer, and the stacking is read across the whole group: amCharts commonly sets `stacked` on the bands that sit *on* another one and leaves it off the bottom band, so splitting the group by that flag would strand the bottom band in a layer of its own. A stacked area announces two magnitudes per sample — the band's own value and the running total its top edge sits at — where a line reading collapses them to one.
+
+### Radar / Polar Area
+
+A `RadarChart` extends `XYChart`, so it is found like any other chart; its series classes are what identify it. `RadarLineSeries` becomes a radar layer (each spoke a column, each series a row), and `RadarColumnSeries` a polar area — the same values drawn as wedges. A spoke's stereo position follows its angle rather than its index, so sweeping the spokes goes out and comes back. A runnable page is at [`examples/amcharts-radar.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-radar.html).
+
+```js
+var chart = root.container.children.push(am5radar.RadarChart.new(root, {}));
+var xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "attribute", renderer: am5radar.AxisRendererCircular.new(root, {}),
+}));
+var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+  renderer: am5radar.AxisRendererRadial.new(root, {}),
+}));
+chart.series.push(am5radar.RadarLineSeries.new(root, {
+  name: "Model A", xAxis: xAxis, yAxis: yAxis,
+  valueYField: "a", categoryXField: "attribute",
+}));
+```
+
+### Funnel / Pyramid
+
+A funnel lives in an `am5percent.SlicedChart`, not a `PieChart`, and takes no axes. The stages stay in data order, which is what the reading depends on: MAIDR pitches each stage against the **retention** from the one before it — the ratio a listener cannot compute from two heights heard one at a time — and announces the counts alongside. A runnable page is at [`examples/amcharts-funnel.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-funnel.html).
+
+```js
+var chart = root.container.children.push(am5percent.SlicedChart.new(root, {}));
+var series = chart.series.push(am5percent.FunnelSeries.new(root, {
+  name: "Checkout", valueField: "people", categoryField: "stage",
+}));
+series.data.setAll([
+  { stage: "Visited", people: 10000 }, { stage: "Signed up", people: 2400 },
+  { stage: "Viewed cart", people: 2300 }, { stage: "Purchased", people: 100 },
+]);
+
+maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Stage", y: "People" } });
+```
+
+### Waterfall / Dumbbell
+
+amCharts draws both with the same construct — a `ColumnSeries` whose bars float between `openValueY` and `valueY` — so the data decides which chart it is. A waterfall **chains**: each bar opens where the one before it closed, because the bars trace a single running total, and the bars that sit on the baseline are the opening, closing and subtotal steps. A dumbbell's pairs are independent, so the chain breaks at the second row of any real one. Both are runnable at [`examples/amcharts-floating-columns.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-floating-columns.html).
+
+```js
+// Waterfall: `open` continues the running total, 0 restates it.
+var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Budget", xAxis: xAxis, yAxis: yAxis,
+  categoryXField: "category", openValueYField: "open", valueYField: "value",
+}));
+series.data.setAll([
+  { category: "Opening", open: 0, value: 1200 },
+  { category: "Marketing", open: 1200, value: 950 },
+  { category: "Closing", open: 0, value: 950 },
+]);
+```
+
+A waterfall announces the contribution and the running total separately, because a bar chart would conflate them; the pitch follows the contribution, whose signed range is what makes the large movers audible.
+
+A dumbbell's finding is the change between the two ends, so it travels with both. amCharts names the *series*, not the two ends, so nothing on the chart says what they stand for — pass `dumbbellLabels` and MAIDR announces "Denmark, 1990 71.2, increase 7.2" instead of "start" and "end":
+
+```js
+maidrAmCharts.bindAmCharts(root, { dumbbellLabels: { start: "1990", end: "2020" } });
+```
+
+### Gantt / Timeline
+
+A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap.
+
+```js
+var yAxis = chart.yAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "category", renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+}));
+// Declare every lane on the axis, including one with nothing booked.
+yAxis.data.setAll([{ category: "Design" }, { category: "Build" }, { category: "Launch" }]);
+
+var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+  baseInterval: { timeUnit: "day", count: 1 }, renderer: am5xy.AxisRendererX.new(root, {}),
+}));
+var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Schedule", xAxis: xAxis, yAxis: yAxis,
+  categoryYField: "category", openValueXField: "start", valueXField: "end",
+}));
+```
+
+The lanes come from the **category axis**, not from the bars, so a lane with nothing booked survives — an empty lane is a real statement about a schedule and the only row a reader can navigate onto and be told nothing by, so MAIDR names it and reports the count up front.
+
+A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
+
+### Treemap / Icicle
+
+An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap and an icicle (amCharts calls it a `Partition`) draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
+
+```js
+var series = root.container.children.push(am5hierarchy.Treemap.new(root, {
+  name: "Population", valueField: "value", categoryField: "name", childDataField: "children",
+}));
+series.data.setAll([{
+  name: "World",
+  children: [
+    { name: "Asia", children: [{ name: "China", value: 1425 }, { name: "India", value: 1428 }] },
+    { name: "Africa", children: [{ name: "Nigeria", value: 224 }] },
+  ],
+}]);
+```
+
+The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
+
+### Diverging Bar / Population Pyramid
+
+A runnable page covering all three of the marks below is at [`examples/amcharts-marks.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-marks.html).
+
+amCharts has no diverging series: the chart is two ordinary `ColumnSeries` on one category axis with one side's values negated, which is otherwise the signature of a dodged bar chart. What separates them is the sign — one series entirely on each side of the baseline, over the same categories in the same order — and that is a statement about the data rather than about how it was drawn.
+
+```js
+var yAxis = chart.yAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "band", renderer: am5xy.AxisRendererY.new(root, {}),
+}));
+// One side negated, which is what draws it to the left of the baseline.
+var data = [{ band: "0-14", men: -1200, women: 1140 }, { band: "15-29", men: -1150, women: 1100 }];
+["men", "women"].forEach(function (field) {
+  var s = chart.series.push(am5xy.ColumnSeries.new(root, {
+    name: field, xAxis: xAxis, yAxis: yAxis, valueXField: field, categoryYField: "band",
+  }));
+  s.data.setAll(data);
+});
+```
+
+The values reach MAIDR **signed**, exactly as the chart drew them. The trace pitches the magnitude and announces the side, so the biggest bar on the left is the loudest note on the left rather than the lowest note on the chart, and the summary row is the balance between the two sides rather than a "sum" that came out negative. A group carrying a `stacked` flag is taken at its word and stays a stacked bar chart — a pyramid's sides sit either side of the baseline rather than on top of one another.
+
+### Dot Plot / Lollipop
+
+amCharts has no dot or lollipop series either. A Cleveland dot plot is a `LineSeries` with its stroke switched off and bullets pushed on; a lollipop is a `ColumnSeries` narrowed to a hairline with a bullet on the end. Both carry one category and one value per mark and are navigated exactly as a bar chart is — the type names the chart the author drew.
+
+```js
+// Dot plot: the line is switched off, so what is drawn is the points alone.
+var dots = chart.series.push(am5xy.LineSeries.new(root, {
+  name: "Response time", xAxis: xAxis, yAxis: yAxis, valueXField: "ms", categoryYField: "endpoint",
+}));
+dots.strokes.template.setAll({ strokeOpacity: 0 });
+dots.bullets.push(function () {
+  return am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius: 5, fill: dots.get("fill") }) });
+});
+
+// Lollipop: a hairline column with a bullet on the end.
+var stems = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Life expectancy", xAxis: xAxis, yAxis: yAxis, valueYField: "years", categoryXField: "country",
+}));
+stems.columns.template.setAll({ width: 2 });
+stems.bullets.push(function () {
+  return am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius: 6, fill: stems.get("fill") }) });
+});
+```
+
+Both probes require the bullets, because either half alone is something else: a strokeless line with no bullets draws nothing, a line with bullets **and** a stroke is a line chart with markers, and a narrow bar chart with no bullets is a narrow bar chart. A stem width declared as a `Percent` is read as an ordinary bar — a column half its cell wide is not a hairline however small the number reads.
+
+### Word Cloud
+
+An `am5wc.WordCloud` is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it, so the adapter recognises the series itself and treats it as one panel. It needs `wc.js` on top of `index.js`. A runnable page is at [`examples/amcharts-wordcloud.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-wordcloud.html).
+
+```js
+var series = root.container.children.push(am5wc.WordCloud.new(root, {
+  categoryField: "tag", valueField: "count",
+}));
+series.data.setAll([
+  { tag: "neural", count: 128 }, { tag: "machine", count: 412 }, { tag: "gradient", count: 57 },
+]);
+```
+
+A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
+
+### Bump (Rank Over Time)
+
+amCharts has no bump series: a rank table is ordinary `LineSeries` on a `ValueAxis` whose renderer is `inversed`, so that first place is drawn at the top. A runnable page is at [`examples/amcharts-bump.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-bump.html).
+
+```js
+var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+  min: 1, max: 4, strictMinMax: true,
+  renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+}));
+["ash", "birch", "cedar", "cyan"].forEach(function (field) {
+  var s = chart.series.push(am5xy.LineSeries.new(root, {
+    name: field, xAxis: xAxis, yAxis: yAxis, valueYField: field, categoryXField: "round",
+  }));
+  s.data.setAll(data); // one place per competitor per round: 1, 2, 3, 4
+});
+```
+
+**A rank is not a magnitude**, and that is the whole of what this type buys. Rank 1 is the best position and the smallest number, so read as a line chart the leader is sonified as the lowest note on the chart and a team climbing the table is heard *falling* — on every move, with nothing to say the reading was upside down. MAIDR's bump trace inverts the pitch so first place is the highest note, announces the places gained or lost alongside the rank (the overtake is what the chart is drawn for, and it is not recoverable from hearing ranks one at a time), and offers rank-gained / rank-lost rotor units that jump between the periods where something moved.
+
+An inversed axis alone does not make a bump chart — it is also how a plain chart counting down is drawn — so the adapter corroborates it against the values, which have to read as a ranking: whole places, no two competitors on the same place in the same period, and somebody in first. A chart drawn from the *middle* of a larger field (places 3 through 9 of twenty) fails that test and stays a line chart rather than being sonified against a rank range it does not carry.
+
+The `bump` option settles what amCharts leaves ambiguous:
+
+```js
+// The axis runs the ordinary way up, but the lines carry places.
+maidrAmCharts.bindAmCharts(root, { bump: true });
+// A chart of small integers that only looks like a ranking.
+maidrAmCharts.bindAmCharts(root, { bump: false });
+```
+
+`true` stands in for the inversed axis and no more: the values still have to read as a ranking, because the option applies to every panel of the figure and must not invert the pitch of a plain line chart in the next one. `false` suppresses the reading outright. A *slope graph* of values is not a bump chart — it is a line layer with two samples, which the line trace already reads correctly.
+
 ## Keyboard Controls
 
 Once a chart is focused, use the standard MAIDR shortcuts:
@@ -271,7 +515,7 @@ const binding = bindAmCharts(root, { title: 'Sales by Day' });
 // later: binding.dispose();
 ```
 
-`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
+`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, `dumbbellLabels: { start, end }`, `bump`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
 
 For the data-only path (no highlighting), use `fromAmCharts(root, options?)` / `fromXYChart(chart, containerEl, options?)`, which return MAIDR JSON for the `maidr` attribute or `<Maidr data={...}>`.
 

@@ -74,7 +74,8 @@ export interface AmEntity {
 
 /**
  * Minimal interface for a chart the adapter can convert: an `XYChart` (or an
- * am5stock `StockPanel`, which extends it) or an am5percent `PieChart`.
+ * am5stock `StockPanel`, which extends it) or an am5percent chart -- a
+ * `PieChart` or the `SlicedChart` a funnel lives in.
  *
  * Both expose their data through a series list. Only an XY chart is bound to
  * axes and owns a plot area, so `xAxes` / `yAxes` / `plotContainer` are
@@ -111,11 +112,37 @@ export type AmXYChart = AmChart;
  */
 export interface AmXYSeries extends AmEntity {
   dataItems: AmDataItem[];
-  columns?: AmListLike<AmSprite>;
+  /**
+   * The per-kind graphics lists, each an am5 `ListTemplate`: the drawn sprites
+   * under `values`, and the template they were all made from under `template`.
+   *
+   * The template is where a chart's styling is declared, and styling is the
+   * only signal amCharts leaves for the marks it has no series class for — a
+   * hairline `columns.template` is a lollipop's stem, and a `strokes.template`
+   * at zero opacity is what makes a line series a dot plot.
+   */
+  columns?: AmListLike<AmSprite> & { template?: AmSprite };
   bullets?: AmListLike<AmBullet>;
-  strokes?: AmListLike<AmSprite>;
+  strokes?: AmListLike<AmSprite> & { template?: AmSprite };
+  /**
+   * The fill graphics of a line series, as an am5 `ListTemplate`.
+   *
+   * amCharts has no area series class — an area chart is a `LineSeries` whose
+   * fills have been made visible — so the template's settings are the only
+   * thing that tells an area from a line.
+   */
+  fills?: { template?: AmSprite };
   /** Converts a series-local point to root-container coordinates. */
   toGlobal?: (point: AmPoint) => AmPoint;
+  /**
+   * The series' own laid-out box, which every am5 series has because a series
+   * is a `Container`. Read only for a standalone series — an am5hierarchy
+   * layout pushed straight into the root container — where the series IS the
+   * panel and there is no `plotContainer` to measure instead.
+   */
+  width?: () => number;
+  height?: () => number;
+  globalBounds?: () => AmBounds;
 }
 
 /**
@@ -195,4 +222,34 @@ export interface AmChartsBinderOptions {
    * Keys are `"x"` or `"y"`.
    */
   axisLabels?: { x?: string; y?: string };
+
+  /**
+   * What a dumbbell chart's two ends are called — "1990" and "2020", "before"
+   * and "after".
+   *
+   * Supplied here because there is nowhere to read them from: amCharts names
+   * the series, not the two ends of its columns, so anything taken off the
+   * chart would be a guess. Left out, MAIDR announces "start" and "end", which
+   * says which dot the cursor is on but not what it stands for.
+   */
+  dumbbellLabels?: { start?: string; end?: string };
+
+  /**
+   * Whether the chart's line series carry ranks — a bump chart — rather than
+   * magnitudes.
+   *
+   * amCharts has no bump series: a rank table is line series on a value axis
+   * whose renderer is inversed, so first place sits at the top. That inversion
+   * is also how a plain chart of descending magnitudes is drawn, which is why
+   * the adapter corroborates it against the values themselves and why this
+   * option exists at all.
+   *
+   * - `true` says the lines are ranks when amCharts was not told to invert the
+   *   axis. The values still have to read as ranks, since the option applies to
+   *   every panel of the figure and must not invert a plain line chart's pitch.
+   * - `false` suppresses the reading entirely, for a chart of small integers
+   *   that happens to look like a ranking.
+   * - Left out, the adapter decides from the axis and the values together.
+   */
+  bump?: boolean;
 }

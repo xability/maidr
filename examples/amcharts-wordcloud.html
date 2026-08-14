@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Word Cloud</title>
+
+    <!-- 1. Load amCharts 5 (core + word cloud). Like a hierarchy layout, a word
+         cloud is not a chart: it is a series pushed straight into the root
+         container. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/wc.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over the chart, so the core maidr.js
+         script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      .chart {
+        width: 640px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Word Cloud</h1>
+    <p>
+      A word cloud is the canonical chart that carries real data while being
+      readable only by eye: each term's weight is drawn as glyph size and
+      written down nowhere on the page. MAIDR announces the number alongside
+      the term.
+    </p>
+    <p>
+      The packing is chosen to fit glyphs into a rectangle and encodes nothing,
+      so the reader walks the terms <strong>heaviest first</strong> rather than
+      in layout order — and the highlight box follows onto the right glyph,
+      rotated words included.
+    </p>
+
+    <div id="wordcloud-chart" class="chart"></div>
+
+    <script>
+      var TERMS = [
+        { tag: "machine", count: 412 },
+        { tag: "tensor", count: 233 },
+        { tag: "neural", count: 128 },
+        { tag: "embedding", count: 96 },
+        { tag: "gradient", count: 57 },
+        { tag: "attention", count: 184 },
+        { tag: "transformer", count: 141 },
+        { tag: "corpus", count: 44 },
+      ];
+
+      var root = am5.Root.new("wordcloud-chart");
+      // The series goes straight into the root container: there is no chart
+      // object, which is why the adapter recognises the series itself and
+      // treats it as one panel.
+      var series = root.container.children.push(
+        am5wc.WordCloud.new(root, {
+          categoryField: "tag",
+          valueField: "count",
+          maxFontSize: am5.percent(20),
+          minFontSize: am5.percent(5),
+        })
+      );
+      series.data.setAll(TERMS);
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         via the `maidrAmCharts` UMD global. In production, prefer listening to
+         the series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      setTimeout(function () {
+        try {
+          maidrAmCharts.bindAmCharts(root, {
+            title: "Terms in the Abstracts",
+            // A cloud is bound to no axis; drop these and the adapter falls
+            // back to "Term" and "Weight".
+            axisLabels: { x: "Term", y: "Occurrences" },
+          });
+        } catch (err) {
+          console.error('MAIDR amCharts bind failed:', err);
+        }
+      }, 1500);
+    </script>
+  </body>
+</html>

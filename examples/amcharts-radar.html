@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Radar and Polar Area Charts</title>
+
+    <!-- 1. Load amCharts 5 (core + XY + radar; a RadarChart extends XYChart) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/radar.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 600px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Radar and Polar Area Charts</h1>
+    <p>
+      A radar puts its categories around a circle rather than along an axis,
+      and MAIDR reads it as a multi-line layer: each spoke is a column, each
+      series a row. What the circle adds is where a spoke <em>sits</em> — the
+      stereo position follows the spoke's angle instead of its index, so
+      sweeping the spokes goes out and comes back.
+    </p>
+    <p>
+      A polar area (coxcomb, rose) draws the same values as wedges instead of
+      an outline. It is read identically; only the mark differs.
+    </p>
+
+    <h2>Radar: model comparison</h2>
+    <div id="radar-chart" class="chart"></div>
+
+    <h2>Polar area: rainfall by month</h2>
+    <div id="polar-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      var MODEL_DATA = [
+        { attribute: "Speed", a: 8, b: 5 },
+        { attribute: "Range", a: 4, b: 7 },
+        { attribute: "Comfort", a: 6, b: 3 },
+        { attribute: "Price", a: 9, b: 2 },
+        { attribute: "Economy", a: 5, b: 8 },
+        { attribute: "Safety", a: 7, b: 6 },
+      ];
+
+      var RAINFALL_DATA = [
+        { month: "Jan", mm: 78 }, { month: "Feb", mm: 61 },
+        { month: "Mar", mm: 55 }, { month: "Apr", mm: 42 },
+        { month: "May", mm: 30 }, { month: "Jun", mm: 18 },
+        { month: "Jul", mm: 12 }, { month: "Aug", mm: 16 },
+        { month: "Sep", mm: 34 }, { month: "Oct", mm: 58 },
+        { month: "Nov", mm: 72 }, { month: "Dec", mm: 85 },
+      ];
+
+      // A RadarChart with a category axis around the circle and a value axis
+      // out along the radius. Both marks below share this setup.
+      function makeRadarChart(elId, title, categoryField, data) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5radar.RadarChart.new(root, { layout: root.verticalLayout })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: categoryField,
+            renderer: am5radar.AxisRendererCircular.new(root, {}),
+          })
+        );
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, {
+            renderer: am5radar.AxisRendererRadial.new(root, {}),
+          })
+        );
+        xAxis.data.setAll(data);
+
+        return { root: root, chart: chart, xAxis: xAxis, yAxis: yAxis };
+      }
+
+      // Radar: one closed outline per model.
+      (function () {
+        var built = makeRadarChart(
+          "radar-chart", "Model Comparison", "attribute", MODEL_DATA
+        );
+        ["a", "b"].forEach(function (field, index) {
+          var series = built.chart.series.push(
+            am5radar.RadarLineSeries.new(built.root, {
+              name: "Model " + (index === 0 ? "A" : "B"),
+              xAxis: built.xAxis,
+              yAxis: built.yAxis,
+              valueYField: field,
+              categoryXField: "attribute",
+            })
+          );
+          series.data.setAll(MODEL_DATA);
+        });
+        register(built.root, {
+          title: "Model Comparison",
+          axisLabels: { x: "Attribute", y: "Score" },
+        });
+      })();
+
+      // Polar area: the same spokes drawn as wedges.
+      (function () {
+        var built = makeRadarChart(
+          "polar-chart", "Rainfall by Month", "month", RAINFALL_DATA
+        );
+        var series = built.chart.series.push(
+          am5radar.RadarColumnSeries.new(built.root, {
+            name: "Rainfall",
+            xAxis: built.xAxis,
+            yAxis: built.yAxis,
+            valueYField: "mm",
+            categoryXField: "month",
+          })
+        );
+        series.data.setAll(RAINFALL_DATA);
+        register(built.root, {
+          title: "Rainfall by Month",
+          axisLabels: { x: "Month", y: "Rainfall, mm" },
+        });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

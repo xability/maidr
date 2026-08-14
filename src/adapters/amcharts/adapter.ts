@@ -2,8 +2,9 @@
  * Main adapter that converts an amCharts 5 chart into a MAIDR data object.
  *
  * Supports single charts and multi-panel roots: every `XYChart` found in the
- * root's container tree (including am5stock `StockPanel`s, which extend
- * `XYChart`) and every am5percent `PieChart` becomes one MAIDR subplot,
+ * root's container tree (including am5stock `StockPanel`s and am5radar
+ * `RadarChart`s, which extend `XYChart`) and every am5percent chart — a
+ * `PieChart` or a funnel's `SlicedChart` — becomes one MAIDR subplot,
  * arranged in a grid mirroring the on-screen layout with rows emitted
  * bottom-first (see {@link computeChartGrid}) so the core's UPWARD = row+1
  * mapping moves visually up.
@@ -24,6 +25,8 @@
 
 import type {
   BarPoint,
+  DumbbellData,
+  GanttData,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -32,6 +35,8 @@ import type {
   MaidrSubplot,
   PiePoint,
   SegmentedPoint,
+  TreemapPoint,
+  WaterfallPoint,
 } from '@type/grammar';
 import type {
   AmChart,
@@ -43,12 +48,20 @@ import { Orientation, TraceType } from '@type/grammar';
 import {
   classifySeriesKind,
   extractBarPoints,
+  extractDumbbellPoints,
+  extractGanttData,
   extractHeatmapData,
+  extractHierarchyPoints,
   extractHistogramPoints,
   extractLinePoints,
   extractPiePoints,
   extractSegmentedPoints,
+  extractWaterfallPoints,
+  hasRankAxis,
+  holdsRanks,
+  isDivergingPair,
   readAxisLabel,
+  STANDALONE_SERIES_CLASSES,
 } from './extractor';
 import { computeChartGrid } from './geometry';
 import {
@@ -83,7 +96,7 @@ export interface AmChartsConversion {
  * Convert an amCharts 5 {@link AmRoot} into a MAIDR data object.
  *
  * The function walks the root's container tree, collects every XY chart
- * (including am5stock `StockPanel`s) and every pie chart, and converts each
+ * (including am5stock `StockPanel`s) and every am5percent chart, and converts each
  * one into a MAIDR subplot. A single chart produces a 1x1 grid; multiple charts are arranged
  * in a grid mirroring their on-screen layout, rows ordered bottom-first so
  * that pressing Up moves to the visually upper panel.
@@ -235,14 +248,23 @@ function buildChartLayers(
   const yLabel = options?.axisLabels?.y ?? readAxisLabel(chart.yAxes?.values[0], 'y');
 
   const layers: MaidrLayer[] = [];
-  // Line and step series each merge into one layer of their own type. The
-  // points are extracted identically — amCharts varies only how it draws
-  // between them — so they differ here only in which bucket they land in.
-  const lineSeries = emptyMergedSeries();
-  const stepSeries = emptyMergedSeries();
+  // Line, step, area and radar series each merge into one layer of their own
+  // type. The points are extracted identically — amCharts varies only how it
+  // draws between them — so they differ here only in which bucket they land in.
+  const merged: Record<MergedKind, MergedSeries> = {
+    line: emptyMergedSeries(),
+    step: emptyMergedSeries(),
+    area: emptyMergedSeries(),
+    radar: emptyMergedSeries(),
+    polar: emptyMergedSeries(),
+  };
 
-  // Collect bar series for grouped handling (stacked/dodged/normalized).
+  // Collect bar series for grouped handling (stacked/dodged/normalized), area
+  // series for the stacking their merged layer's type has to report, and line
+  // series for the question of whether they carry ranks.
   const barSeriesList: AmXYSeries[] = [];
+  const areaSeriesList: AmXYSeries[] = [];
+  const lineSeriesList: AmXYSeries[] = [];
 
   for (const series of chart.series.values) {
     const kind = classifySeriesKind(series);
@@ -250,6 +272,19 @@ function buildChartLayers(
     switch (kind) {
       case 'bar': {
         barSeriesList.push(series);
+        break;
+      }
+      case 'dot':
+      case 'lollipop': {
+        // A dot plot and a lollipop hold a bar chart's categories and values;
+        // only the mark differs, so only the trace type does. They never join
+        // the bar list: a chart drawing both would otherwise have them read as
+        // two groups of one segmented chart.
+        const data = extractBarPoints(series);
+        if (data.length === 0)
+          break;
+        const type = kind === 'dot' ? TraceType.DOT : TraceType.LOLLIPOP;
+        layers.push(buildBarLayer(series, type, data, xLabel, yLabel, containerEl));
         break;
       }
       case 'histogram': {
@@ -267,11 +302,18 @@ function buildChartLayers(
         break;
       }
       case 'line':
-      case 'step': {
+      case 'step':
+      case 'area':
+      case 'radar':
+      case 'polar': {
         const points = extractLinePoints(series);
         if (points.length === 0)
           break;
-        collectSeries(kind === 'step' ? stepSeries : lineSeries, series, points, containerEl);
+        collectSeries(merged[kind], series, points, containerEl);
+        if (kind === 'area')
+          areaSeriesList.push(series);
+        else if (kind === 'line')
+          lineSeriesList.push(series);
         break;
       }
       case 'pie': {
@@ -279,6 +321,53 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildPieLayer(series, data, options));
+        break;
+      }
+      case 'funnel': {
+        // A funnel stage carries the same category/value pair a pie slice
+        // does, so the same extraction serves both.
+        const data = extractPiePoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildFunnelLayer(series, data, options));
+        break;
+      }
+      case 'waterfall': {
+        const data = extractWaterfallPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildWaterfallLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'dumbbell': {
+        const points = extractDumbbellPoints(series);
+        if (points.length === 0)
+          break;
+        layers.push(buildDumbbellLayer(series, points, xLabel, yLabel, containerEl, options));
+        break;
+      }
+      case 'gantt': {
+        const data = extractGanttData(series);
+        if (!data)
+          break;
+        layers.push(buildGanttLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'treemap':
+      case 'icicle': {
+        const data = extractHierarchyPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildHierarchyLayer(series, kind, data, options));
+        break;
+      }
+      case 'wordcloud': {
+        // A term carries the same category/value pair a pie slice does, so the
+        // same extraction serves both.
+        const data = extractPiePoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildWordCloudLayer(series, data, options));
         break;
       }
       default:
@@ -292,7 +381,7 @@ function buildChartLayers(
     const series = barSeriesList[0];
     const data = extractBarPoints(series);
     if (data.length > 0) {
-      layers.push(buildBarLayer(series, data, xLabel, yLabel, containerEl));
+      layers.push(buildBarLayer(series, TraceType.BAR, data, xLabel, yLabel, containerEl));
     }
   } else if (barSeriesList.length > 1) {
     const layer = buildSegmentedLayer(barSeriesList, xLabel, yLabel, containerEl);
@@ -301,24 +390,104 @@ function buildChartLayers(
     }
   }
 
-  // Merge all line series into a single multi-line layer, and likewise the
-  // step series into a step layer of their own.
-  if (lineSeries.data.length > 0) {
-    layers.push(buildLineLayer(lineSeries, TraceType.LINE, xLabel, yLabel));
-  }
-  if (stepSeries.data.length > 0) {
-    layers.push(buildLineLayer(stepSeries, TraceType.STEP, xLabel, yLabel));
-  }
+  // Merge each bucket of point series into a single layer of its own type.
+  // The area bucket is the one that has to name its stacking, read from the
+  // same per-series settings the bar path reads.
+  pushMerged(layers, merged.line, lineTraceType(lineSeriesList, options), xLabel, yLabel);
+  pushMerged(layers, merged.step, TraceType.STEP, xLabel, yLabel);
+  pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
+  pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
+  pushMerged(layers, merged.polar, TraceType.POLAR_AREA, xLabel, yLabel);
 
   return layers;
+}
+
+/** Append the merged layer for one bucket, unless the bucket stayed empty. */
+function pushMerged(
+  layers: MaidrLayer[],
+  merged: MergedSeries,
+  type: MergedTraceType,
+  xLabel: string,
+  yLabel: string,
+): void {
+  if (merged.data.length > 0) {
+    layers.push(buildLineLayer(merged, type, xLabel, yLabel));
+  }
+}
+
+/**
+ * The trace type a line layer reports: a bump chart when its lines carry ranks
+ * rather than magnitudes.
+ *
+ * A rank is not a magnitude — first place is the smallest number — so a bump
+ * chart read as a line chart sonifies the leader as the lowest note it has, and
+ * a team climbing the table is heard falling on every move. Getting this right
+ * is the whole of what the trace type buys, and getting it wrong inverts a
+ * reading that has nothing to say it is upside down, so both halves of the
+ * signature must agree: the axis has to be drawn as a rank axis, and the values
+ * have to be ranks. See {@link hasRankAxis} and {@link holdsRanks}.
+ *
+ * {@link AmChartsBinderOptions.bump} settles the case amCharts leaves
+ * ambiguous, and is asked in the order the two answers deserve — `false`
+ * suppresses the reading outright, while `true` stands in for the axis alone
+ * and still requires the data to be ranks. That asymmetry is deliberate: the
+ * option is figure-wide, so a `true` meant for one panel must not invert the
+ * pitch of a plain line chart in the next one.
+ */
+function lineTraceType(
+  lineSeriesList: AmXYSeries[],
+  options?: AmChartsBinderOptions,
+): MergedTraceType {
+  if (options?.bump === false || !holdsRanks(lineSeriesList))
+    return TraceType.LINE;
+
+  return options?.bump === true || hasRankAxis(lineSeriesList)
+    ? TraceType.BUMP
+    : TraceType.LINE;
+}
+
+/**
+ * The trace type an area layer reports, from how its bands are stacked.
+ *
+ * Every area series of one chart merges into a single layer, so the stacking
+ * is read across the whole group rather than per series: amCharts commonly
+ * sets `stacked` on the bands that sit ON another one and leaves it off the
+ * bottom band, and splitting the group by that flag would strand the bottom
+ * band in an unstacked layer of its own — announcing the one band a reader
+ * would compare the others against as a chart of its own.
+ */
+function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
+  switch (detectStackMode(areaSeriesList)) {
+    case 'normal':
+      return TraceType.STACKED_AREA;
+    case '100%':
+      return TraceType.NORMALIZED_AREA;
+    default:
+      return TraceType.AREA;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Layer builders
 // ---------------------------------------------------------------------------
 
+/**
+ * The trace types a bar chart's reading serves: the bar itself, and the two
+ * marks that hold one category and one value while drawing them differently.
+ */
+type MarkTraceType = TraceType.BAR | TraceType.DOT | TraceType.LOLLIPOP;
+
+/**
+ * Builds the layer for one bar-shaped series — a bar chart, a Cleveland dot
+ * plot, or a lollipop.
+ *
+ * All three carry one category and one value per mark and are navigated
+ * identically; the type names the chart the author drew, which is the whole of
+ * what a reader gains from the distinction.
+ */
 function buildBarLayer(
   series: AmXYSeries,
+  type: MarkTraceType,
   data: BarPoint[],
   xLabel: string,
   yLabel: string,
@@ -329,7 +498,7 @@ function buildBarLayer(
 
   return {
     id: layerId(series),
-    type: TraceType.BAR,
+    type,
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
@@ -355,7 +524,11 @@ function buildSegmentedLayer(
       traceType = TraceType.NORMALIZED;
       break;
     default:
-      traceType = TraceType.DODGED;
+      // Two series drawn back to back rather than side by side. Asked only of
+      // an unstacked group, because the two sides of a pyramid sit either side
+      // of the baseline rather than on top of one another — a stack that says
+      // it is stacked is taken at its word.
+      traceType = isDivergingPair(barSeriesList) ? TraceType.DIVERGING : TraceType.DODGED;
   }
 
   // Each series becomes one group (row) in the SegmentedPoint[][] grid.
@@ -386,6 +559,134 @@ function buildSegmentedLayer(
     ...(combinedSelector ? { selectors: combinedSelector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * Builds the layer for one waterfall series.
+ *
+ * The columns keep the order amCharts drew them in, which is what the reading
+ * depends on: a bridge is a sequence, and each step is announced against the
+ * running total the step before it produced.
+ */
+function buildWaterfallLayer(
+  series: AmXYSeries,
+  data: WaterfallPoint[],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.WATERFALL,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * Builds the layer for one dumbbell series.
+ *
+ * The two ends are named from the binder options when they were supplied —
+ * see {@link AmChartsBinderOptions.dumbbellLabels} for why they cannot come
+ * off the chart.
+ */
+function buildDumbbellLayer(
+  series: AmXYSeries,
+  points: DumbbellData['points'],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+  const labels = options?.dumbbellLabels;
+
+  return {
+    id: layerId(series),
+    type: TraceType.DUMBBELL,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data: {
+      points,
+      ...(labels?.start ? { startLabel: labels.start } : {}),
+      ...(labels?.end ? { endLabel: labels.end } : {}),
+    },
+  };
+}
+
+/**
+ * Builds the layer for one gantt series.
+ *
+ * Always horizontal: amCharts draws a schedule with the lanes on the category
+ * Y axis and time running left to right, which is what the detection matched
+ * on, so the announcement puts the lane on the main axis and the interval on
+ * the cross one.
+ */
+function buildGanttLayer(
+  series: AmXYSeries,
+  data: GanttData,
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.GANTT,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    orientation: Orientation.HORIZONTAL,
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * What a hierarchy's two dimensions are called. A treemap is bound to no axis,
+ * so the chart-level fallback would name them `x` and `y` — after coordinates
+ * a tree does not have.
+ */
+const HIERARCHY_NODE_AXIS = 'Node';
+const HIERARCHY_VALUE_AXIS = 'Value';
+
+/** The trace type each hierarchy layout is announced as. */
+const HIERARCHY_TRACE_TYPES = {
+  treemap: TraceType.TREEMAP,
+  icicle: TraceType.ICICLE,
+} as const;
+
+/**
+ * Builds the layer for one am5hierarchy series — a treemap, or the icicle
+ * amCharts calls a `Partition`.
+ *
+ * The two draw the same tree with different marks, so they differ here only in
+ * which trace type they name; MAIDR navigates both as a tree either way.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the nodes
+ * into a canvas. The binder's overlay highlights the active node's rectangle.
+ */
+function buildHierarchyLayer(
+  series: AmXYSeries,
+  kind: 'treemap' | 'icicle',
+  data: TreemapPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: HIERARCHY_TRACE_TYPES[kind],
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
+      y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
+    },
     data,
   };
 }
@@ -442,6 +743,73 @@ function buildPieLayer(
   };
 }
 
+/**
+ * What a funnel's two dimensions are called. Like a pie, a sliced chart is
+ * bound to no axis, so the chart-level fallback would name them `x` and `y`.
+ */
+const FUNNEL_STAGE_AXIS = 'Stage';
+const FUNNEL_VALUE_AXIS = 'Value';
+
+/**
+ * Builds the layer for one am5percent funnel (or pyramid, or pictorial stack)
+ * series. The stages stay in data order, which is what the funnel's retention
+ * reading depends on: MAIDR pitches each stage against the one before it.
+ *
+ * No `selectors`, for the same reason a pie emits none — amCharts paints the
+ * stages into a canvas. The binder's overlay highlights the active stage.
+ */
+function buildFunnelLayer(
+  series: AmXYSeries,
+  data: BarPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.FUNNEL,
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? FUNNEL_STAGE_AXIS },
+      y: { label: options?.axisLabels?.y ?? FUNNEL_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a word cloud's two dimensions are called. A cloud is bound to no axis —
+ * its layout is chosen to pack glyphs and encodes nothing — so the chart-level
+ * fallback would name them after coordinates that carry no meaning at all.
+ */
+const WORD_CLOUD_TERM_AXIS = 'Term';
+const WORD_CLOUD_WEIGHT_AXIS = 'Weight';
+
+/**
+ * Builds the layer for one am5wc word cloud series.
+ *
+ * The terms stay in data order. MAIDR walks them heaviest first — the order a
+ * cloud is read for, since its arrangement carries nothing — and derives that
+ * from the weights themselves, so the layer declares what the chart declared.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the glyphs
+ * into a canvas. The binder's overlay highlights the active term's label.
+ */
+function buildWordCloudLayer(
+  series: AmXYSeries,
+  data: PiePoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.WORD_CLOUD,
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? WORD_CLOUD_TERM_AXIS },
+      y: { label: options?.axisLabels?.y ?? WORD_CLOUD_WEIGHT_AXIS },
+    },
+    data,
+  };
+}
+
 function buildHeatmapLayer(
   data: HeatmapData,
   xLabel: string,
@@ -454,6 +822,35 @@ function buildHeatmapLayer(
     data,
   };
 }
+
+/**
+ * Series kinds whose points are extracted identically and merged into one
+ * layer per kind — everything MAIDR reads as a grid of series by samples.
+ */
+type MergedKind = 'line' | 'step' | 'area' | 'radar' | 'polar';
+
+/** The trace types those merged layers are emitted as. */
+type MergedTraceType
+  = | TraceType.LINE
+    | TraceType.BUMP
+    | TraceType.STEP
+    | TraceType.AREA
+    | TraceType.STACKED_AREA
+    | TraceType.NORMALIZED_AREA
+    | TraceType.RADAR
+    | TraceType.POLAR_AREA;
+
+/** Layer-id prefix per merged type, so an id still names what it holds. */
+const MERGED_ID_PREFIX: Record<MergedTraceType, string> = {
+  [TraceType.LINE]: 'line',
+  [TraceType.BUMP]: 'bump',
+  [TraceType.STEP]: 'step',
+  [TraceType.AREA]: 'area',
+  [TraceType.STACKED_AREA]: 'area',
+  [TraceType.NORMALIZED_AREA]: 'area',
+  [TraceType.RADAR]: 'radar',
+  [TraceType.POLAR_AREA]: 'polar',
+};
 
 /**
  * Series that merge into one layer, gathered as the chart is walked.
@@ -503,7 +900,7 @@ function collectSeries(
  */
 function buildLineLayer(
   merged: MergedSeries,
-  type: TraceType.LINE | TraceType.STEP,
+  type: MergedTraceType,
   xLabel: string,
   yLabel: string,
 ): MaidrLayer {
@@ -511,7 +908,7 @@ function buildLineLayer(
   const selectors = merged.selectors;
 
   return {
-    id: `${type === TraceType.STEP ? 'step' : 'line'}-${uid()}`,
+    id: `${MERGED_ID_PREFIX[type]}-${uid()}`,
     type,
     ...(title ? { title } : {}),
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
@@ -569,8 +966,13 @@ function collectCharts(node: unknown, found: AmChart[]): void {
       // Never a panel; its child preview XYChart must not be found either.
       continue;
     }
-    if (isXYChartLike(child) || isPieChartLike(child)) {
+    if (isXYChartLike(child) || isPercentChartLike(child)) {
       found.push(child);
+      continue;
+    }
+    const standalone = asStandalonePanel(child);
+    if (standalone) {
+      found.push(standalone);
       continue;
     }
     collectCharts(child, found);
@@ -595,31 +997,80 @@ function isXYChartLike(candidate: unknown): candidate is AmChart {
 }
 
 /**
- * Duck-type check for an am5percent `PieChart`.
+ * Charts of the am5percent module: a `PieChart` and the `SlicedChart` that
+ * carries funnels, pyramids and pictorial stacks. Both are `SerialChart`s with
+ * a series list and no axes.
+ */
+const PERCENT_CHART_CLASSES = new Set([
+  'PieChart',
+  'SlicedChart',
+]);
+
+/**
+ * Duck-type check for an am5percent chart.
  *
- * A pie chart has a series list but no axes, which on its own is too weak a
+ * These charts have a series list but no axes, which on its own is too weak a
  * signature — plenty of am5 containers carry a `series` property of some kind.
  * The class name is what makes it specific, and am5 sets it on every entity.
  */
-function isPieChartLike(candidate: unknown): candidate is AmChart {
+function isPercentChartLike(candidate: unknown): candidate is AmChart {
   if (candidate == null || typeof candidate !== 'object')
     return false;
   const c = candidate as Partial<AmChart>;
-  return c.className === 'PieChart' && Boolean(c.series);
+  return typeof c.className === 'string'
+    && PERCENT_CHART_CLASSES.has(c.className)
+    && Boolean(c.series);
 }
 
 /**
- * Detect the stacking mode from a list of column series.
+ * Wrap a standalone am5 series as the one-series panel it is.
+ *
+ * An am5hierarchy layout and an am5wc word cloud are not charts: each is an
+ * `am5.Series` pushed straight into a container, with no `series` list, no
+ * axes and no plot area, so discovery would recurse past it into its own
+ * nodes. Recognising it by class name and wrapping it gives the rest of the
+ * adapter the shape it works in — one panel, one series — without widening the
+ * chart type for a chart that does not exist.
+ *
+ * The series stands in as its own plot container, which is exactly what it is:
+ * an am5 series IS a `Container`, so the panel it occupies is the box the
+ * series reports. That keeps highlight clipping and multi-panel grid layout
+ * working for it on the same reads every other panel uses.
+ *
+ * @returns The wrapped panel, or `null` for anything that is not one.
+ */
+function asStandalonePanel(candidate: unknown): AmChart | null {
+  if (candidate == null || typeof candidate !== 'object')
+    return null;
+
+  const series = candidate as AmXYSeries;
+  if (typeof series.className !== 'string' || !STANDALONE_SERIES_CLASSES.has(series.className))
+    return null;
+  if (!Array.isArray(series.dataItems))
+    return null;
+
+  return {
+    className: series.className,
+    uid: series.uid,
+    get: key => series.get(key),
+    series: { values: [series] },
+    plotContainer: series,
+  };
+}
+
+/**
+ * Detect the stacking mode from a list of series that share a layer.
  *
  * In amCharts 5, stacking is a per-series setting, not an axis setting:
- * `series.get('stacked')` is `true` for stacked columns, and a 100%
- * (normalized) stack additionally sets `valueYShow` (or `valueXShow` for
+ * `series.get('stacked')` is `true` for a stacked column or area band, and a
+ * 100% (normalized) stack additionally sets `valueYShow` (or `valueXShow` for
  * horizontal columns) to `'valueYTotalPercent'` / `'valueXTotalPercent'`.
- * Series with no `stacked` flag render side-by-side (dodged).
+ * Columns with no `stacked` flag render side-by-side (dodged); area bands with
+ * none are independent overlapping bands.
  */
-function detectStackMode(barSeriesList: AmXYSeries[]): 'none' | 'normal' | '100%' {
+function detectStackMode(seriesList: AmXYSeries[]): 'none' | 'normal' | '100%' {
   let anyStacked = false;
-  for (const series of barSeriesList) {
+  for (const series of seriesList) {
     if (series.get('stacked') !== true)
       continue;
     anyStacked = true;
