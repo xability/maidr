@@ -278,10 +278,15 @@ function intersectRect(rect: OverlayRect, bounds: AmBounds): OverlayRect | null 
 
 /**
  * Resolve the column graphics sprite for a dataItem. amCharts exposes it as
- * the `graphics` (or legacy `column`) data-item property.
+ * the `graphics` (or legacy `column`) data-item property, and an am5hierarchy
+ * node — a treemap block, an icicle bar — as `rectangle`. All three are plain
+ * rectangles laid out with a width and a height, which is what the box read
+ * above needs; only the property they hang on differs.
  */
 function readColumnSprite(target: NavTarget): AmSprite | undefined {
-  const graphics = target.dataItem.get('graphics') ?? target.dataItem.get('column');
+  const graphics = target.dataItem.get('graphics')
+    ?? target.dataItem.get('column')
+    ?? target.dataItem.get('rectangle');
   return graphics as AmSprite | undefined;
 }
 

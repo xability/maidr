@@ -25,6 +25,8 @@
 
 import type {
   BarPoint,
+  DumbbellData,
+  GanttData,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -33,6 +35,8 @@ import type {
   MaidrSubplot,
   PiePoint,
   SegmentedPoint,
+  TreemapPoint,
+  WaterfallPoint,
 } from '@type/grammar';
 import type {
   AmChart,
@@ -44,11 +48,16 @@ import { Orientation, TraceType } from '@type/grammar';
 import {
   classifySeriesKind,
   extractBarPoints,
+  extractDumbbellPoints,
+  extractGanttData,
   extractHeatmapData,
+  extractHierarchyPoints,
   extractHistogramPoints,
   extractLinePoints,
   extractPiePoints,
   extractSegmentedPoints,
+  extractWaterfallPoints,
+  HIERARCHY_CLASSES,
   readAxisLabel,
 } from './extractor';
 import { computeChartGrid } from './geometry';
@@ -303,6 +312,35 @@ function buildChartLayers(
         layers.push(buildFunnelLayer(series, data, options));
         break;
       }
+      case 'waterfall': {
+        const data = extractWaterfallPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildWaterfallLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'dumbbell': {
+        const points = extractDumbbellPoints(series);
+        if (points.length === 0)
+          break;
+        layers.push(buildDumbbellLayer(series, points, xLabel, yLabel, containerEl, options));
+        break;
+      }
+      case 'gantt': {
+        const data = extractGanttData(series);
+        if (!data)
+          break;
+        layers.push(buildGanttLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'treemap':
+      case 'icicle': {
+        const data = extractHierarchyPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildHierarchyLayer(series, kind, data, options));
+        break;
+      }
       default:
         // Skip unsupported series types.
         break;
@@ -442,6 +480,134 @@ function buildSegmentedLayer(
     ...(combinedSelector ? { selectors: combinedSelector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * Builds the layer for one waterfall series.
+ *
+ * The columns keep the order amCharts drew them in, which is what the reading
+ * depends on: a bridge is a sequence, and each step is announced against the
+ * running total the step before it produced.
+ */
+function buildWaterfallLayer(
+  series: AmXYSeries,
+  data: WaterfallPoint[],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.WATERFALL,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * Builds the layer for one dumbbell series.
+ *
+ * The two ends are named from the binder options when they were supplied —
+ * see {@link AmChartsBinderOptions.dumbbellLabels} for why they cannot come
+ * off the chart.
+ */
+function buildDumbbellLayer(
+  series: AmXYSeries,
+  points: DumbbellData['points'],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+  const labels = options?.dumbbellLabels;
+
+  return {
+    id: layerId(series),
+    type: TraceType.DUMBBELL,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data: {
+      points,
+      ...(labels?.start ? { startLabel: labels.start } : {}),
+      ...(labels?.end ? { endLabel: labels.end } : {}),
+    },
+  };
+}
+
+/**
+ * Builds the layer for one gantt series.
+ *
+ * Always horizontal: amCharts draws a schedule with the lanes on the category
+ * Y axis and time running left to right, which is what the detection matched
+ * on, so the announcement puts the lane on the main axis and the interval on
+ * the cross one.
+ */
+function buildGanttLayer(
+  series: AmXYSeries,
+  data: GanttData,
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.GANTT,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    orientation: Orientation.HORIZONTAL,
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * What a hierarchy's two dimensions are called. A treemap is bound to no axis,
+ * so the chart-level fallback would name them `x` and `y` — after coordinates
+ * a tree does not have.
+ */
+const HIERARCHY_NODE_AXIS = 'Node';
+const HIERARCHY_VALUE_AXIS = 'Value';
+
+/** The trace type each hierarchy layout is announced as. */
+const HIERARCHY_TRACE_TYPES = {
+  treemap: TraceType.TREEMAP,
+  icicle: TraceType.ICICLE,
+} as const;
+
+/**
+ * Builds the layer for one am5hierarchy series — a treemap, or the icicle
+ * amCharts calls a `Partition`.
+ *
+ * The two draw the same tree with different marks, so they differ here only in
+ * which trace type they name; MAIDR navigates both as a tree either way.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the nodes
+ * into a canvas. The binder's overlay highlights the active node's rectangle.
+ */
+function buildHierarchyLayer(
+  series: AmXYSeries,
+  kind: 'treemap' | 'icicle',
+  data: TreemapPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: HIERARCHY_TRACE_TYPES[kind],
+    title: seriesName(series),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
+      y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
+    },
     data,
   };
 }
@@ -688,6 +854,11 @@ function collectCharts(node: unknown, found: AmChart[]): void {
       found.push(child);
       continue;
     }
+    const standalone = asStandalonePanel(child);
+    if (standalone) {
+      found.push(standalone);
+      continue;
+    }
     collectCharts(child, found);
   }
 }
@@ -733,6 +904,42 @@ function isPercentChartLike(candidate: unknown): candidate is AmChart {
   return typeof c.className === 'string'
     && PERCENT_CHART_CLASSES.has(c.className)
     && Boolean(c.series);
+}
+
+/**
+ * Wrap a standalone am5 series as the one-series panel it is.
+ *
+ * An am5hierarchy layout is not a chart: it is an `am5.Series` pushed straight
+ * into a container, with no `series` list, no axes and no plot area, so
+ * discovery would recurse past it into its own nodes. Recognising it by class
+ * name and wrapping it gives the rest of the adapter the shape it works in —
+ * one panel, one series — without widening the chart type for a chart that
+ * does not exist.
+ *
+ * The series stands in as its own plot container, which is exactly what it is:
+ * an am5 series IS a `Container`, so the panel it occupies is the box the
+ * series reports. That keeps highlight clipping and multi-panel grid layout
+ * working for it on the same reads every other panel uses.
+ *
+ * @returns The wrapped panel, or `null` for anything that is not one.
+ */
+function asStandalonePanel(candidate: unknown): AmChart | null {
+  if (candidate == null || typeof candidate !== 'object')
+    return null;
+
+  const series = candidate as AmXYSeries;
+  if (typeof series.className !== 'string' || !HIERARCHY_CLASSES.has(series.className))
+    return null;
+  if (!Array.isArray(series.dataItems))
+    return null;
+
+  return {
+    className: series.className,
+    uid: series.uid,
+    get: key => series.get(key),
+    series: { values: [series] },
+    plotContainer: series,
+  };
 }
 
 /**

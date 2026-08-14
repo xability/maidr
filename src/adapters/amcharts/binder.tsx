@@ -196,6 +196,10 @@ function groupSeries(chart: AmChart): SeriesGroups {
     heatmapSeries: [],
     pieSeriesList: [],
     funnelSeriesList: [],
+    waterfallSeriesList: [],
+    dumbbellSeriesList: [],
+    ganttSeriesList: [],
+    hierarchySeriesList: [],
   };
 
   for (const series of chart.series.values) {
@@ -229,6 +233,21 @@ function groupSeries(chart: AmChart): SeriesGroups {
         break;
       case 'funnel':
         groups.funnelSeriesList.push(series);
+        break;
+      case 'waterfall':
+        groups.waterfallSeriesList.push(series);
+        break;
+      case 'dumbbell':
+        groups.dumbbellSeriesList.push(series);
+        break;
+      case 'gantt':
+        groups.ganttSeriesList.push(series);
+        break;
+      // A treemap and an icicle draw one tree two ways; the highlight walks
+      // the same nodes either way, so they share a bucket.
+      case 'treemap':
+      case 'icicle':
+        groups.hierarchySeriesList.push(series);
         break;
       default:
         break;

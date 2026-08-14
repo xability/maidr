@@ -125,6 +125,15 @@ export interface AmXYSeries extends AmEntity {
   fills?: { template?: AmSprite };
   /** Converts a series-local point to root-container coordinates. */
   toGlobal?: (point: AmPoint) => AmPoint;
+  /**
+   * The series' own laid-out box, which every am5 series has because a series
+   * is a `Container`. Read only for a standalone series — an am5hierarchy
+   * layout pushed straight into the root container — where the series IS the
+   * panel and there is no `plotContainer` to measure instead.
+   */
+  width?: () => number;
+  height?: () => number;
+  globalBounds?: () => AmBounds;
 }
 
 /**
@@ -204,4 +213,15 @@ export interface AmChartsBinderOptions {
    * Keys are `"x"` or `"y"`.
    */
   axisLabels?: { x?: string; y?: string };
+
+  /**
+   * What a dumbbell chart's two ends are called — "1990" and "2020", "before"
+   * and "after".
+   *
+   * Supplied here because there is nowhere to read them from: amCharts names
+   * the series, not the two ends of its columns, so anything taken off the
+   * chart would be a guess. Left out, MAIDR announces "start" and "end", which
+   * says which dot the cursor is on but not what it stands for.
+   */
+  dumbbellLabels?: { start?: string; end?: string };
 }

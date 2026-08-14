@@ -10,6 +10,7 @@ import type {
   AmAxis,
   AmBounds,
   AmChart,
+  AmDataItem,
   AmRoot,
   AmXYSeries,
 } from '@adapters/amcharts/types';
@@ -173,6 +174,120 @@ export function fakePieSeries(
     settings: { categoryField: 'category', valueField: 'value' },
     data: slices,
   });
+}
+
+/**
+ * A column series whose bars float between two values on the value axis —
+ * the shape amCharts draws both a waterfall and a dumbbell with. `graphics`
+ * stands in for the column sprite the overlay measures.
+ */
+export function fakeFloatingColumnSeries(
+  name: string,
+  columns: Array<{
+    categoryX: string;
+    openValueY: number | null;
+    valueY: number | null;
+    graphics?: unknown;
+  }>,
+): AmXYSeries {
+  return fakeSeries({
+    className: 'ColumnSeries',
+    name,
+    settings: { categoryXField: 'category', openValueYField: 'open' },
+    data: columns,
+  });
+}
+
+/** A category axis, whose data items name the lanes of a schedule. */
+export function fakeCategoryAxis(categories: string[]): AmAxis {
+  return {
+    className: 'CategoryAxis',
+    get: () => undefined,
+    dataItems: categories.map(category => ({
+      get: (key: string) => (key === 'category' ? category : undefined),
+    })),
+  } as unknown as AmAxis;
+}
+
+/**
+ * A date axis, which reports the unit its positions are measured in through
+ * its base interval. Passing no unit makes it a plain value axis instead.
+ */
+export function fakeTimeAxis(timeUnit?: string): AmAxis {
+  const baseInterval = timeUnit != null ? { timeUnit, count: 1 } : undefined;
+  return {
+    className: timeUnit != null ? 'DateAxis' : 'ValueAxis',
+    get: (key: string) => (key === 'baseInterval' ? baseInterval : undefined),
+    dataItems: [],
+  } as unknown as AmAxis;
+}
+
+/**
+ * An amCharts gantt: floating columns on a category axis of lanes and a date
+ * axis of time. The axes are settings of the series, which is where the
+ * adapter reads the lane names and the unit from.
+ */
+export function fakeGanttSeries(
+  name: string,
+  bars: Array<{
+    categoryY: string;
+    openValueX: number | null;
+    valueX: number | null;
+    graphics?: unknown;
+  }>,
+  config: { lanes?: string[]; timeUnit?: string } = {},
+): AmXYSeries {
+  return fakeSeries({
+    className: 'ColumnSeries',
+    name,
+    settings: {
+      categoryYField: 'category',
+      openValueXField: 'fromDate',
+      xAxis: fakeTimeAxis(config.timeUnit),
+      yAxis: fakeCategoryAxis(config.lanes ?? []),
+    },
+    data: bars,
+  });
+}
+
+/** One node of a fake am5hierarchy tree. */
+export interface FakeNode {
+  category: string;
+  value?: number;
+  children?: FakeNode[];
+  /** Stands in for the rectangle sprite the overlay measures. */
+  rectangle?: unknown;
+}
+
+function fakeHierarchyItem(node: FakeNode): AmDataItem {
+  const children = node.children?.map(fakeHierarchyItem);
+  const settings: Record<string, unknown> = {
+    category: node.category,
+    ...(node.value != null ? { value: node.value } : {}),
+    ...(children != null ? { children } : {}),
+    ...(node.rectangle != null ? { rectangle: node.rectangle } : {}),
+  };
+  return { get: (key: string) => settings[key] } as unknown as AmDataItem;
+}
+
+/**
+ * An am5hierarchy series — a `Treemap`, or the `Partition` amCharts draws an
+ * icicle with. Unlike every other series here it is not inside a chart: it is
+ * pushed straight into a container, and its nodes hang off the single root
+ * data item rather than off the series.
+ */
+export function fakeHierarchySeries(
+  name: string,
+  root: FakeNode,
+  className = 'Treemap',
+): AmXYSeries {
+  const settings: Record<string, unknown> = { name };
+  return {
+    className,
+    uid: nextUid++,
+    get: (key: string) => settings[key],
+    dataItems: [fakeHierarchyItem(root)],
+  } as unknown as AmXYSeries;
 }
 
 /** A step-line series, drawn as a staircase rather than an interpolated line. */

@@ -1,13 +1,26 @@
-import type { BarPoint, LinePoint, MaidrLayer, PiePoint } from '@type/grammar';
+import type { AmXYSeries } from '@adapters/amcharts/types';
+import type {
+  BarPoint,
+  DumbbellData,
+  GanttData,
+  LinePoint,
+  MaidrLayer,
+  PiePoint,
+  TreemapPoint,
+  WaterfallPoint,
+} from '@type/grammar';
 import { findCharts, findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import {
   fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
   fakeContainer,
   fakeContainerEl,
+  fakeFloatingColumnSeries,
   fakeFunnelSeries,
+  fakeGanttSeries,
+  fakeHierarchySeries,
   fakeLineSeries,
   fakePieChart,
   fakePieSeries,
@@ -498,6 +511,233 @@ describe('fromAmCharts (sliced chart)', () => {
 
     expect(result.subplots[0][0].layers[0].axes)
       .toEqual({ x: { label: 'Step' }, y: { label: 'People' } });
+  });
+});
+
+describe('fromAmCharts (waterfall and dumbbell)', () => {
+  // amCharts draws both with the same floating columns; a bridge chains and a
+  // barbell does not, which is the only thing that tells them apart.
+  const BRIDGE = [
+    { categoryX: 'Opening', openValueY: 0, valueY: 1200 },
+    { categoryX: 'Marketing', openValueY: 1200, valueY: 950 },
+    { categoryX: 'Sales', openValueY: 950, valueY: 1430 },
+    { categoryX: 'Closing', openValueY: 0, valueY: 1430 },
+  ];
+  const PAIRS = [
+    { categoryX: 'Denmark', openValueY: 71.2, valueY: 78.4 },
+    { categoryX: 'Latvia', openValueY: 74.6, valueY: 69.5 },
+  ];
+
+  function layerOf(series: AmXYSeries, options?: Parameters<typeof fromAmCharts>[1]): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeChart({ series: [series] })]), options)
+      .subplots[0][0]
+      .layers[0];
+  }
+
+  it('reads chained floating columns as a waterfall, with both ends per step', () => {
+    const layer = layerOf(fakeFloatingColumnSeries('Budget', BRIDGE));
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.title).toBe('Budget');
+    expect(layer.data as WaterfallPoint[]).toEqual([
+      { x: 'Opening', start: 0, end: 1200, delta: 1200, kind: 'total' },
+      { x: 'Marketing', start: 1200, end: 950, delta: -250, kind: 'decrease' },
+      { x: 'Sales', start: 950, end: 1430, delta: 480, kind: 'increase' },
+      { x: 'Closing', start: 0, end: 1430, delta: 1430, kind: 'total' },
+    ]);
+  });
+
+  it('strips float noise from a contribution the chart never rounded', () => {
+    const layer = layerOf(fakeFloatingColumnSeries('Budget', [
+      { categoryX: 'Opening', openValueY: 0, valueY: 1.1 },
+      { categoryX: 'Sales', openValueY: 1.1, valueY: 2.3 },
+    ]));
+
+    expect((layer.data as WaterfallPoint[])[1].delta).toBe(1.2);
+  });
+
+  it('reads independent pairs as a dumbbell, not as a bridge', () => {
+    const layer = layerOf(fakeFloatingColumnSeries('Life expectancy', PAIRS));
+
+    expect(layer.type).toBe(TraceType.DUMBBELL);
+    expect(layer.data as DumbbellData).toEqual({
+      points: [
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+        { x: 'Latvia', start: 74.6, end: 69.5 },
+      ],
+    });
+  });
+
+  it('names a dumbbell\'s two ends from the binder options', () => {
+    const layer = layerOf(
+      fakeFloatingColumnSeries('Life expectancy', PAIRS),
+      { dumbbellLabels: { start: '1990', end: '2020' } },
+    );
+
+    const data = layer.data as DumbbellData;
+    expect(data.startLabel).toBe('1990');
+    expect(data.endLabel).toBe('2020');
+  });
+
+  it('skips columns missing an end, so step k stays the step it names', () => {
+    const layer = layerOf(fakeFloatingColumnSeries('Budget', [
+      { categoryX: 'Opening', openValueY: 0, valueY: 1200 },
+      { categoryX: 'Unknown', openValueY: null, valueY: 950 },
+      { categoryX: 'Sales', openValueY: 1200, valueY: 1430 },
+    ]));
+
+    expect((layer.data as WaterfallPoint[]).map(step => step.x))
+      .toEqual(['Opening', 'Sales']);
+  });
+
+  it('leaves a plain column series a bar chart', () => {
+    const layer = layerOf(fakeBarSeries('Tips', BAR_DATA));
+
+    expect(layer.type).toBe(TraceType.BAR);
+  });
+});
+
+describe('fromAmCharts (gantt chart)', () => {
+  const BARS = [
+    { categoryY: 'Design', openValueX: 0, valueX: 2_592_000_000 },
+    { categoryY: 'Design', openValueX: 5_184_000_000, valueX: 6_480_000_000 },
+    { categoryY: 'Build', openValueX: 2_592_000_000, valueX: 8_640_000_000 },
+  ];
+
+  function ganttLayer(config: { lanes?: string[]; timeUnit?: string }): MaidrLayer {
+    const series = fakeGanttSeries('Schedule', BARS, config);
+    return fromAmCharts(fakeRoot([fakeChart({
+      series: [series],
+      xLabel: 'Day',
+      yLabel: 'Phase',
+    })])).subplots[0][0].layers[0];
+  }
+
+  it('reads floating columns on a lane axis as a schedule, one row per lane', () => {
+    const layer = ganttLayer({ lanes: ['Design', 'Build', 'Launch'], timeUnit: 'day' });
+
+    expect(layer.type).toBe(TraceType.GANTT);
+    // A schedule runs left to right, so the lanes are on the y axis.
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.axes).toEqual({ x: { label: 'Day' }, y: { label: 'Phase' } });
+
+    const data = layer.data as GanttData;
+    // Epoch milliseconds are rescaled to the axis' own unit, measured from the
+    // earliest interval -- a length in milliseconds carries nothing.
+    expect(data.unit).toBe('days');
+    expect(data.points).toEqual([
+      [
+        { x: 'Design', start: 0, end: 30 },
+        { x: 'Design', start: 60, end: 75 },
+      ],
+      [{ x: 'Build', start: 30, end: 100 }],
+      [],
+    ]);
+  });
+
+  it('keeps an empty lane, which a schedule needs to be able to say', () => {
+    const data = ganttLayer({ lanes: ['Design', 'Build', 'Launch'], timeUnit: 'day' })
+      .data as GanttData;
+
+    expect(data.lanes).toEqual(['Design', 'Build', 'Launch']);
+    expect(data.points[2]).toEqual([]);
+  });
+
+  it('appends a lane the category axis never declared rather than dropping it', () => {
+    const data = ganttLayer({ lanes: ['Design'], timeUnit: 'day' }).data as GanttData;
+
+    expect(data.lanes).toEqual(['Design', 'Build']);
+    expect(data.points[1]).toHaveLength(1);
+  });
+
+  it('passes a value axis\' positions through untouched and names no unit', () => {
+    const series = fakeGanttSeries('Schedule', [
+      { categoryY: 'Design', openValueX: 0, valueX: 30 },
+    ], { lanes: ['Design'] });
+
+    const layer = fromAmCharts(fakeRoot([fakeChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0];
+
+    const data = layer.data as GanttData;
+    expect(data.unit).toBeUndefined();
+    expect(data.points[0]).toEqual([{ x: 'Design', start: 0, end: 30 }]);
+  });
+});
+
+describe('fromAmCharts (hierarchy)', () => {
+  const TREE = {
+    category: 'Root',
+    children: [
+      {
+        category: 'Asia',
+        children: [
+          { category: 'China', value: 1425 },
+          { category: 'India', value: 1428 },
+        ],
+      },
+      {
+        category: 'Africa',
+        children: [{ category: 'Nigeria', value: 224 }],
+      },
+    ],
+  };
+
+  it('finds a standalone hierarchy series, which is no chart at all', () => {
+    // An am5hierarchy layout is a bare series in a plain container: no series
+    // list, no axes, nothing the chart-shaped checks recognise.
+    const series = fakeHierarchySeries('Population', TREE);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('converts a treemap into nodes addressed by path, dropping the root', () => {
+    const series = fakeHierarchySeries('Population', TREE);
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.TREEMAP);
+    expect(layer.title).toBe('Population');
+    // A tree is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Value' } });
+    // Depth-first, so each level comes out in its left-to-right order -- and
+    // a branch carries no value of its own, which the trace totals from below.
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: 'Asia', path: [] },
+      { x: 'China', y: 1425, path: ['Asia'] },
+      { x: 'India', y: 1428, path: ['Asia'] },
+      { x: 'Africa', path: [] },
+      { x: 'Nigeria', y: 224, path: ['Africa'] },
+    ]);
+  });
+
+  it('keeps a branch total the chart declared for itself', () => {
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [{ category: 'Asia', value: 3000, children: [{ category: 'China', value: 1425 }] }],
+    });
+
+    const data = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data;
+
+    expect((data as TreemapPoint[])[0]).toEqual({ x: 'Asia', y: 3000, path: [] });
+  });
+
+  it('reads a Partition as an icicle, the same tree drawn another way', () => {
+    const series = fakeHierarchySeries('Population', TREE, 'Partition');
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].type)
+      .toBe(TraceType.ICICLE);
+  });
+
+  it('emits no selectors: amCharts renders the nodes to canvas, not to SVG', () => {
+    const series = fakeHierarchySeries('Population', TREE);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
   });
 });
 

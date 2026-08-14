@@ -7,7 +7,10 @@ import {
   fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
+  fakeFloatingColumnSeries,
   fakeFunnelSeries,
+  fakeGanttSeries,
+  fakeHierarchySeries,
   fakeLineSeries,
   fakePieChart,
   fakePieSeries,
@@ -28,6 +31,10 @@ function emptyGroups(): SeriesGroups {
     heatmapSeries: [],
     pieSeriesList: [],
     funnelSeriesList: [],
+    waterfallSeriesList: [],
+    dumbbellSeriesList: [],
+    ganttSeriesList: [],
+    hierarchySeriesList: [],
   };
 }
 
@@ -203,6 +210,92 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     // col 1 is the SECOND kept stage, i.e. Purchased (the gap is skipped).
     expect(targets[0].dataItem.get('category')).toBe('Purchased');
     expect(targets[0].kind).toBe('slice');
+  });
+
+  it('resolves a waterfall layer to one column per step, skipping partial ones', () => {
+    const series = fakeFloatingColumnSeries('Budget', [
+      { categoryX: 'Opening', openValueY: 0, valueY: 1200 },
+      { categoryX: 'Unknown', openValueY: null, valueY: 950 },
+      { categoryX: 'Sales', openValueY: 1200, valueY: 1430 },
+    ]);
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'bridge', type: TraceType.WATERFALL, data: [] }],
+      groups: { ...emptyGroups(), waterfallSeriesList: [series] },
+    }]);
+
+    const targets = navMap.resolve('bridge', 0, 1);
+    expect(targets).toHaveLength(1);
+    // col 1 is the SECOND kept step, i.e. Sales (the partial column is skipped).
+    expect(targets[0].dataItem.get('categoryX')).toBe('Sales');
+    expect(targets[0].kind).toBe('column');
+  });
+
+  it('resolves both ends of a dumbbell to the one column the chart drew', () => {
+    const series = fakeFloatingColumnSeries('Life expectancy', [
+      { categoryX: 'Denmark', openValueY: 71.2, valueY: 78.4 },
+      { categoryX: 'Latvia', openValueY: 74.6, valueY: 69.5 },
+    ]);
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'pairs', type: TraceType.DUMBBELL, data: [] }],
+      groups: { ...emptyGroups(), dumbbellSeriesList: [series] },
+    }]);
+
+    // Row 0 is the starting end and row 1 the finishing one; a chart draws one
+    // connector per category, so both resolve to the same mark.
+    const start = navMap.resolve('pairs', 0, 1);
+    const end = navMap.resolve('pairs', 1, 1);
+    expect(start[0].dataItem.get('categoryX')).toBe('Latvia');
+    expect(end[0].dataItem).toBe(start[0].dataItem);
+  });
+
+  it('resolves a gantt layer by [lane, interval], the grouping the layer holds', () => {
+    const series = fakeGanttSeries('Schedule', [
+      { categoryY: 'Design', openValueX: 0, valueX: 30 },
+      { categoryY: 'Design', openValueX: 60, valueX: 75 },
+      { categoryY: 'Build', openValueX: 30, valueX: 100 },
+    ], { lanes: ['Design', 'Build', 'Launch'] });
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'schedule', type: TraceType.GANTT, data: [] }],
+      groups: { ...emptyGroups(), ganttSeriesList: [series] },
+    }]);
+
+    const second = navMap.resolve('schedule', 0, 1);
+    expect(second[0].dataItem.get('openValueX')).toBe(60);
+    expect(second[0].kind).toBe('column');
+
+    expect(navMap.resolve('schedule', 1, 0)[0].dataItem.get('valueX')).toBe(100);
+    // A lane with nothing booked is navigable and highlights nothing.
+    expect(navMap.resolve('schedule', 2, 0)).toEqual([]);
+  });
+
+  it('resolves a treemap layer by [depth, index within depth]', () => {
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [
+        { category: 'Asia', children: [{ category: 'China', value: 1425 }] },
+        { category: 'Africa', children: [{ category: 'Nigeria', value: 224 }] },
+      ],
+    });
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'tree', type: TraceType.TREEMAP, data: [] }],
+      groups: { ...emptyGroups(), hierarchySeriesList: [series] },
+    }]);
+
+    // Row 0 is the top level below the (dropped) root.
+    expect(navMap.resolve('tree', 0, 1)[0].dataItem.get('category')).toBe('Africa');
+    // Row 1 holds the leaves, in the order the walk reached them.
+    expect(navMap.resolve('tree', 1, 1)[0].dataItem.get('category')).toBe('Nigeria');
+    // A node is a rectangle, which the overlay measures as it measures a column.
+    expect(navMap.resolve('tree', 1, 1)[0].kind).toBe('column');
+    expect(navMap.resolve('tree', 2, 0)).toEqual([]);
   });
 
   it('resolves line layers to point targets by [row, col]', () => {

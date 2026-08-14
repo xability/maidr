@@ -12,6 +12,11 @@
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
+import {
+  extractGanttItems,
+  extractHierarchyNodes,
+  extractSpanItems,
+} from './extractor';
 
 /**
  * The am5 entities to highlight for a navigation position.
@@ -76,6 +81,14 @@ export interface SeriesGroups {
   pieSeriesList: AmXYSeries[];
   /** One FUNNEL layer each, in series order. */
   funnelSeriesList: AmXYSeries[];
+  /** One WATERFALL layer each, in series order. */
+  waterfallSeriesList: AmXYSeries[];
+  /** One DUMBBELL layer each, in series order. */
+  dumbbellSeriesList: AmXYSeries[];
+  /** One GANTT layer each, in series order. */
+  ganttSeriesList: AmXYSeries[];
+  /** One TREEMAP or ICICLE layer each, in series order. */
+  hierarchySeriesList: AmXYSeries[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -192,6 +205,39 @@ function columnTargetFrom(entry: FilteredSeries | undefined, col: number): NavTa
 }
 
 /**
+ * Build a resolver for a gantt layer: MAIDR walks lanes by intervals, and so
+ * does the grouping the extractor emitted, so the position indexes it directly.
+ */
+function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
+  const lanes = series ? extractGanttItems(series) : [];
+  return (row, col) => {
+    const dataItem = lanes[row]?.[col];
+    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+  };
+}
+
+/**
+ * Build a resolver for a treemap or icicle layer.
+ *
+ * MAIDR addresses a tree node by depth and by its position within that depth,
+ * taking the position from the order the nodes were declared in — which is the
+ * order the walk emitted them, so gathering the walk by depth rebuilds exactly
+ * the grid the reader is navigating.
+ */
+function buildHierarchyResolver(series: AmXYSeries | undefined): Resolver {
+  const levels: AmDataItem[][] = [];
+  for (const node of series ? extractHierarchyNodes(series) : []) {
+    (levels[node.depth] ??= []).push(node.dataItem);
+  }
+  return (row, col) => {
+    const dataItem = levels[row]?.[col];
+    // A node is drawn as a rectangle, which the overlay measures the same way
+    // it measures a column.
+    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+  };
+}
+
+/**
  * Build a resolver for a heatmap layer. amCharts heatmap dataItems are a flat,
  * insertion-ordered list, so we index them by `categoryX`/`categoryY` value.
  * MAIDR's Heatmap model reverses the Y axis (`src/model/heatmap.ts`), so we
@@ -263,6 +309,8 @@ function addEntryResolvers(
   const histogramSeries = filterSeries(groups.histogramSeries, filterHistogramItems);
   const pieSeries = filterSeries(groups.pieSeriesList, filterPieItems);
   const funnelSeries = filterSeries(groups.funnelSeriesList, filterPieItems);
+  const waterfallSeries = filterSeries(groups.waterfallSeriesList, extractSpanItems);
+  const dumbbellSeries = filterSeries(groups.dumbbellSeriesList, extractSpanItems);
 
   // Every merged layer indexes its OWN series list — sharing one would
   // misplace every highlight on a chart carrying two of these at once.
@@ -280,6 +328,10 @@ function addEntryResolvers(
   let heatIdx = 0;
   let pieIdx = 0;
   let funnelIdx = 0;
+  let waterfallIdx = 0;
+  let dumbbellIdx = 0;
+  let ganttIdx = 0;
+  let hierarchyIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -346,6 +398,33 @@ function addEntryResolvers(
             ? [{ series: entry.series, dataItem, kind: 'slice' }]
             : [];
         });
+        break;
+      }
+      case TraceType.WATERFALL: {
+        // A bridge is a single row of steps, so only the column moves.
+        const entry = waterfallSeries[waterfallIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.DUMBBELL: {
+        // Rows are the two ends and columns the categories, but a chart draws
+        // one column per category and not one per dot — so both ends resolve
+        // to the same mark, which is the honest rendering of a highlight that
+        // stays put while the announcement moves between the ends.
+        const entry = dumbbellSeries[dumbbellIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.GANTT: {
+        register(layer.id, buildGanttResolver(groups.ganttSeriesList[ganttIdx++]));
+        break;
+      }
+      case TraceType.TREEMAP:
+      case TraceType.ICICLE: {
+        register(
+          layer.id,
+          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++]),
+        );
         break;
       }
       case TraceType.HEATMAP: {

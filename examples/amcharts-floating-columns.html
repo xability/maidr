@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Floating-Column Charts</title>
+
+    <!-- 1. Load amCharts 5 (core + XY charts) -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 640px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Floating-Column Charts</h1>
+    <p>
+      amCharts draws three different charts with the same construct: a
+      <code>ColumnSeries</code> whose bars float between two values instead of
+      rising from a baseline. What the interval means is what makes them three
+      charts, and MAIDR reads each one as what it is.
+    </p>
+    <ul>
+      <li>
+        A <strong>waterfall</strong> chains — each bar opens where the one
+        before it closed — so it carries a contribution and a running total,
+        and the pitch follows the contribution.
+      </li>
+      <li>
+        A <strong>dumbbell</strong>'s pairs are independent, so the finding is
+        the change between the two ends. Up and Down walk the ends, Left and
+        Right the categories.
+      </li>
+      <li>
+        A <strong>gantt</strong>'s interval is a stretch of time. Pitch carries
+        the length and stereo position carries the start, so two tasks that
+        overlap sound like they overlap.
+      </li>
+    </ul>
+
+    <h2>Waterfall: quarterly budget bridge</h2>
+    <div id="waterfall-chart" class="chart"></div>
+
+    <h2>Dumbbell: life expectancy, 1990 against 2020</h2>
+    <div id="dumbbell-chart" class="chart"></div>
+
+    <h2>Gantt: project schedule</h2>
+    <div id="gantt-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      function makeChart(elId, title) {
+        var root = am5.Root.new(elId);
+        var chart = root.container.children.push(
+          am5xy.XYChart.new(root, { layout: root.verticalLayout })
+        );
+        chart.children.unshift(
+          am5.Label.new(root, { text: title, fontSize: 16, x: am5.p50, centerX: am5.p50 })
+        );
+        return { root: root, chart: chart };
+      }
+
+      // --- Waterfall ------------------------------------------------------
+      // The opening and closing bars sit on the baseline (open: 0); every other
+      // bar opens where the previous one closed. That chain is what tells the
+      // adapter this is a bridge and not a barbell.
+      (function () {
+        var built = makeChart("waterfall-chart", "Quarterly Budget Bridge");
+        var chart = built.chart;
+        var root = built.root;
+
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.children.push(am5.Label.new(root, { text: "Step", x: am5.p50, centerX: am5.p50 }));
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        yAxis.children.unshift(
+          am5.Label.new(root, { text: "Amount (thousands)", rotation: -90, y: am5.p50, centerX: am5.p50 })
+        );
+
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Budget",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            categoryXField: "category",
+            openValueYField: "open",
+            valueYField: "value",
+          })
+        );
+
+        var data = [
+          { category: "Opening", open: 0, value: 1200 },
+          { category: "Marketing", open: 1200, value: 950 },
+          { category: "Sales", open: 950, value: 1430 },
+          { category: "Support", open: 1430, value: 1360 },
+          { category: "Closing", open: 0, value: 1360 },
+        ];
+        xAxis.data.setAll(data);
+        series.data.setAll(data);
+
+        register(root, { title: "Quarterly Budget Bridge" });
+      })();
+
+      // --- Dumbbell -------------------------------------------------------
+      // The same openValueY signature, but the pairs do not chain: row 2 opens
+      // at 74.6 while row 1 closed at 78.4, so this reads as a comparison.
+      (function () {
+        var built = makeChart("dumbbell-chart", "Life Expectancy, 1990 against 2020");
+        var chart = built.chart;
+        var root = built.root;
+
+        var xAxis = chart.xAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.children.push(am5.Label.new(root, { text: "Country", x: am5.p50, centerX: am5.p50 }));
+        var yAxis = chart.yAxes.push(
+          am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) })
+        );
+        yAxis.children.unshift(
+          am5.Label.new(root, { text: "Years", rotation: -90, y: am5.p50, centerX: am5.p50 })
+        );
+
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Life expectancy",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            categoryXField: "category",
+            openValueYField: "from",
+            valueYField: "to",
+          })
+        );
+        series.columns.template.setAll({ width: 3 });
+        // A dot at each end -- the mark that makes it a barbell on screen.
+        series.bullets.push(function () {
+          return am5.Bullet.new(root, {
+            locationY: 0,
+            sprite: am5.Circle.new(root, { radius: 7, fill: am5.color(0x4c72b0) }),
+          });
+        });
+        series.bullets.push(function () {
+          return am5.Bullet.new(root, {
+            locationY: 1,
+            sprite: am5.Circle.new(root, { radius: 7, fill: am5.color(0xc44e52) }),
+          });
+        });
+
+        var data = [
+          { category: "Denmark", from: 71.2, to: 78.4 },
+          { category: "Latvia", from: 74.6, to: 69.5 },
+          { category: "Malta", from: 76.0, to: 76.0 },
+          { category: "Poland", from: 70.9, to: 75.6 },
+        ];
+        xAxis.data.setAll(data);
+        series.data.setAll(data);
+
+        register(root, {
+          title: "Life Expectancy, 1990 against 2020",
+          // amCharts names the series, not the two ends of its columns, so the
+          // years have to be supplied. Drop this and MAIDR announces "start"
+          // and "end" instead.
+          dumbbellLabels: { start: "1990", end: "2020" },
+        });
+      })();
+
+      // --- Gantt ----------------------------------------------------------
+      // Lanes on the category Y axis, time on a DateAxis. The date axis' base
+      // interval is what names the unit MAIDR announces lengths in.
+      (function () {
+        var built = makeChart("gantt-chart", "Project Schedule");
+        var chart = built.chart;
+        var root = built.root;
+
+        var yAxis = chart.yAxes.push(
+          am5xy.CategoryAxis.new(root, {
+            categoryField: "category",
+            renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+          })
+        );
+        // Every lane is declared on the axis, including the one with nothing
+        // booked -- an empty lane is a real statement about a schedule, and
+        // MAIDR reads the lanes from here so it survives.
+        yAxis.data.setAll([
+          { category: "Design" },
+          { category: "Build" },
+          { category: "Review" },
+          { category: "Launch" },
+        ]);
+
+        var xAxis = chart.xAxes.push(
+          am5xy.DateAxis.new(root, {
+            baseInterval: { timeUnit: "day", count: 1 },
+            renderer: am5xy.AxisRendererX.new(root, {}),
+          })
+        );
+        xAxis.children.push(am5.Label.new(root, { text: "Day", x: am5.p50, centerX: am5.p50 }));
+
+        var series = chart.series.push(
+          am5xy.ColumnSeries.new(root, {
+            name: "Schedule",
+            xAxis: xAxis,
+            yAxis: yAxis,
+            categoryYField: "category",
+            openValueXField: "start",
+            valueXField: "end",
+          })
+        );
+        series.data.processor = am5.DataProcessor.new(root, {
+          dateFields: ["start", "end"],
+          dateFormat: "yyyy-MM-dd",
+        });
+        series.data.setAll([
+          { category: "Design", start: "2024-01-01", end: "2024-01-31" },
+          { category: "Design", start: "2024-03-01", end: "2024-03-16" },
+          { category: "Build", start: "2024-01-31", end: "2024-04-10" },
+          { category: "Review", start: "2024-03-16", end: "2024-03-31" },
+        ]);
+
+        register(root, { title: "Project Schedule" });
+      })();
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

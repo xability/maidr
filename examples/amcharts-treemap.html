@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Treemap and Icicle</title>
+
+    <!-- 1. Load amCharts 5 (core + hierarchy charts). A hierarchy layout is not
+         a chart: it is a series pushed straight into the root container. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/hierarchy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 640px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Treemap and Icicle</h1>
+    <p>
+      A treemap and an icicle draw the same tree with different marks — nested
+      rectangles against stacked bands — so MAIDR reads them the same way: as a
+      tree rather than as a grid. Left and Right move between siblings, Down
+      steps into a node's children, and Up returns to its parent.
+    </p>
+    <p>
+      Only the leaves carry a value here. Every branch total is derived from
+      what is under it, so the chart cannot report a parent that disagrees with
+      its own children.
+    </p>
+
+    <h2>Treemap: world population by region</h2>
+    <div id="treemap-chart" class="chart"></div>
+
+    <h2>Icicle: the same tree, drawn as bands</h2>
+    <div id="icicle-chart" class="chart"></div>
+
+    <script>
+      // Collects { root, options } for each chart so the block below can mount
+      // MAIDR once amCharts finishes rendering.
+      window.__amBindings = [];
+
+      function register(root, options) {
+        window.__amBindings.push({ root: root, options: options });
+      }
+
+      // amCharts hierarchy data is ONE root object whose `children` are the
+      // branches. The root is a container for the chart and not a finding, so
+      // MAIDR drops it and starts the reader at the regions.
+      var POPULATION = {
+        name: "World",
+        children: [
+          {
+            name: "Asia",
+            children: [
+              { name: "China", value: 1425 },
+              { name: "India", value: 1428 },
+              { name: "Indonesia", value: 278 },
+              { name: "Japan", value: 124 },
+            ],
+          },
+          {
+            name: "Africa",
+            children: [
+              { name: "Nigeria", value: 224 },
+              { name: "Ethiopia", value: 127 },
+              { name: "Egypt", value: 113 },
+            ],
+          },
+          {
+            name: "Europe",
+            children: [
+              { name: "Russia", value: 144 },
+              { name: "Germany", value: 83 },
+              { name: "France", value: 68 },
+            ],
+          },
+        ],
+      };
+
+      // Build one hierarchy layout into `elId`. `seriesClass` is either
+      // am5hierarchy.Treemap or am5hierarchy.Partition (amCharts' name for the
+      // icicle) — the data, and everything MAIDR reads, are identical.
+      function makeHierarchy(elId, title, seriesClass, extraSettings) {
+        var root = am5.Root.new(elId);
+        var container = root.container.children.push(
+          am5.Container.new(root, {
+            width: am5.percent(100),
+            height: am5.percent(100),
+            layout: root.verticalLayout,
+          })
+        );
+        var settings = {
+          name: "Population",
+          singleBranchOnly: false,
+          downDepth: 2,
+          initialDepth: 2,
+          topDepth: 1,
+          valueField: "value",
+          categoryField: "name",
+          childDataField: "children",
+        };
+        for (var key in (extraSettings || {})) {
+          settings[key] = extraSettings[key];
+        }
+        var series = container.children.push(seriesClass.new(root, settings));
+        series.data.setAll([POPULATION]);
+        series.set("selectedDataItem", series.dataItems[0]);
+
+        register(root, {
+          title: title,
+          // A tree is bound to no axis, so there is no axis title to extract.
+          // Drop these and the adapter falls back to "Node" and "Value".
+          axisLabels: { x: "Region", y: "Population, millions" },
+        });
+      }
+
+      makeHierarchy("treemap-chart", "World Population by Region", am5hierarchy.Treemap);
+      makeHierarchy(
+        "icicle-chart",
+        "World Population by Region, as an Icicle",
+        am5hierarchy.Partition,
+        { orientation: "vertical" }
+      );
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to a series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

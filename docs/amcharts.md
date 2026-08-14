@@ -82,6 +82,9 @@ Series are classified by their amCharts class name and field configuration:
 - `StepLineSeries` → **step**
 - `RadarLineSeries` → **radar**; `RadarColumnSeries` → **polar area**
 - `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
+- `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
+- `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**
 
 ### Visual Highlighting
 
@@ -106,6 +109,11 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Funnel / Pyramid | `am5percent.FunnelSeries`, `PyramidSeries`, `PictorialStackedSeries` | series class (requires `percent.js`) |
 | Radar / Spider | `am5radar.RadarLineSeries` | series class (requires `radar.js`) |
 | Polar Area / Coxcomb | `am5radar.RadarColumnSeries` | series class (requires `radar.js`) |
+| Waterfall / Bridge | `ColumnSeries` | category X axis + `openValueYField`, bars chaining end-to-end |
+| Dumbbell / Barbell | `ColumnSeries` | category X axis + `openValueYField`, bars **not** chaining |
+| Gantt / Timeline | `ColumnSeries` | category Y axis + `openValueXField` (or `openDateXField`) |
+| Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
+| Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -300,6 +308,74 @@ series.data.setAll([
 maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Stage", y: "People" } });
 ```
 
+### Waterfall / Dumbbell
+
+amCharts draws both with the same construct — a `ColumnSeries` whose bars float between `openValueY` and `valueY` — so the data decides which chart it is. A waterfall **chains**: each bar opens where the one before it closed, because the bars trace a single running total, and the bars that sit on the baseline are the opening, closing and subtotal steps. A dumbbell's pairs are independent, so the chain breaks at the second row of any real one. Both are runnable at [`examples/amcharts-floating-columns.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-floating-columns.html).
+
+```js
+// Waterfall: `open` continues the running total, 0 restates it.
+var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Budget", xAxis: xAxis, yAxis: yAxis,
+  categoryXField: "category", openValueYField: "open", valueYField: "value",
+}));
+series.data.setAll([
+  { category: "Opening", open: 0, value: 1200 },
+  { category: "Marketing", open: 1200, value: 950 },
+  { category: "Closing", open: 0, value: 950 },
+]);
+```
+
+A waterfall announces the contribution and the running total separately, because a bar chart would conflate them; the pitch follows the contribution, whose signed range is what makes the large movers audible.
+
+A dumbbell's finding is the change between the two ends, so it travels with both. amCharts names the *series*, not the two ends, so nothing on the chart says what they stand for — pass `dumbbellLabels` and MAIDR announces "Denmark, 1990 71.2, increase 7.2" instead of "start" and "end":
+
+```js
+maidrAmCharts.bindAmCharts(root, { dumbbellLabels: { start: "1990", end: "2020" } });
+```
+
+### Gantt / Timeline
+
+A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap.
+
+```js
+var yAxis = chart.yAxes.push(am5xy.CategoryAxis.new(root, {
+  categoryField: "category", renderer: am5xy.AxisRendererY.new(root, { inversed: true }),
+}));
+// Declare every lane on the axis, including one with nothing booked.
+yAxis.data.setAll([{ category: "Design" }, { category: "Build" }, { category: "Launch" }]);
+
+var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+  baseInterval: { timeUnit: "day", count: 1 }, renderer: am5xy.AxisRendererX.new(root, {}),
+}));
+var series = chart.series.push(am5xy.ColumnSeries.new(root, {
+  name: "Schedule", xAxis: xAxis, yAxis: yAxis,
+  categoryYField: "category", openValueXField: "start", valueXField: "end",
+}));
+```
+
+The lanes come from the **category axis**, not from the bars, so a lane with nothing booked survives — an empty lane is a real statement about a schedule and the only row a reader can navigate onto and be told nothing by, so MAIDR names it and reports the count up front.
+
+A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
+
+### Treemap / Icicle
+
+An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap and an icicle (amCharts calls it a `Partition`) draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
+
+```js
+var series = root.container.children.push(am5hierarchy.Treemap.new(root, {
+  name: "Population", valueField: "value", categoryField: "name", childDataField: "children",
+}));
+series.data.setAll([{
+  name: "World",
+  children: [
+    { name: "Asia", children: [{ name: "China", value: 1425 }, { name: "India", value: 1428 }] },
+    { name: "Africa", children: [{ name: "Nigeria", value: 224 }] },
+  ],
+}]);
+```
+
+The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
+
 ## Keyboard Controls
 
 Once a chart is focused, use the standard MAIDR shortcuts:
@@ -334,7 +410,7 @@ const binding = bindAmCharts(root, { title: 'Sales by Day' });
 // later: binding.dispose();
 ```
 
-`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
+`bindAmCharts(root, options?)` finds every `XYChart` in `root.container` (one subplot per chart — see [Multi-Panel Charts](#multi-panel-charts)); `bindXYChart(chart, root, options?)` takes a chart you already hold. Options accept `title`, `subtitle`, `axisLabels: { x, y }`, `dumbbellLabels: { start, end }`, plus `highlight` (default `true`) and `highlightColor`. Pass `{ highlight: false }` to mount the accessible UI without the overlay.
 
 For the data-only path (no highlighting), use `fromAmCharts(root, options?)` / `fromXYChart(chart, containerEl, options?)`, which return MAIDR JSON for the `maidr` attribute or `<Maidr data={...}>`.
 
