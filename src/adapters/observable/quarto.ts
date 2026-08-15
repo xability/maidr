@@ -74,6 +74,24 @@ const tracked = new Set<Element>();
  */
 const settled = new WeakSet<Element>();
 
+/**
+ * Charts the runtime took out of the page to mount, and has not put back.
+ *
+ * The only thing that makes a detached chart ambiguous is a mount in flight, so
+ * this records whether there is one. The runtime mounts synchronously from the
+ * `maidr:bindchart` dispatch and mounting *removes* the chart — it puts a
+ * wrapper in the chart's place and adopts the chart a React commit later — so
+ * whether the chart still has a parent when the dispatch returns says which of
+ * the two a later parentless sweep is looking at.
+ *
+ * Without it, "parentless" is read as "mounting" for every chart, and a chart
+ * the page threw away before it was ever seen settled would be waited on
+ * forever. That is not the rare case it sounds like: `cell.innerHTML = …` is
+ * how an OJS cell replaces its output, and it leaves the old chart parented to
+ * nothing whenever Plot returned a bare `<svg>` rather than a `<figure>`.
+ */
+const mounting = new WeakSet<Element>();
+
 /** The watcher the automatic start owns, so it can be stopped and not doubled. */
 let autoWatcher: (() => void) | null = null;
 
@@ -145,6 +163,11 @@ export function bindObservablePlot(
     );
   }
   svg.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
+  // Read after the dispatch, because the runtime answers it synchronously: a
+  // chart with no parent now is one the mount has lifted out and will adopt on
+  // its next commit. See {@link mounting}.
+  if (svg.parentNode === null)
+    mounting.add(svg);
   tracked.add(svg);
   return result;
 }
@@ -290,13 +313,12 @@ function sweepDiscarded(): void {
       continue;
     }
 
-    // A chart with no parent at all may be one the runtime is halfway through
-    // mounting: mounting replaces it with a wrapper — which detaches it — and
-    // adopts it a commit later, and between the two it belongs to nothing.
-    // Waiting costs nothing, because React commits into its container whether
-    // or not the page still holds that container, so a chart discarded during
-    // its own mount acquires a parent anyway and is released on the next sweep.
-    if (!settled.has(chart) && chart.parentNode === null)
+    // Parented to nothing, with a mount still in flight: the wrapper has taken
+    // the chart's place and the commit that adopts it has not run. Waiting
+    // costs nothing, because React commits into its container whether or not
+    // the page still holds that container, so a chart discarded during its own
+    // mount acquires a parent anyway and is released on the next sweep.
+    if (!settled.has(chart) && chart.parentNode === null && mounting.has(chart))
       continue;
 
     tracked.delete(chart);

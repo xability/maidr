@@ -242,10 +242,13 @@ describe('charts a reactive cell replaces', () => {
   });
 
   it('tears down a chart discarded before any sweep saw it mounted', async () => {
-    // The case the rule above cannot decide on absence alone: a chart bound and
-    // then discarded without a single sweep ever finding it in the document.
-    // What settles it is the parent — a chart mid-mount belongs to nothing,
-    // while a discarded one went down still inside whatever held it.
+    // The case absence alone cannot decide: a chart bound and then discarded
+    // without a single sweep ever finding it in the document. The `scatter`
+    // fixture is the one that makes it bite — Plot returns a bare `<svg>`
+    // unless the chart has a title or a caption to wrap in a `<figure>`, and
+    // `innerHTML` leaves a bare one parented to nothing, which is also what a
+    // chart mid-mount looks like. Waiting on those would retain a whole chart
+    // per redraw, which on a slider drag is a chart per frame.
     const { dom } = mountFixture('bar');
     const restore = useDom(dom);
     try {
@@ -258,13 +261,15 @@ describe('charts a reactive cell replaces', () => {
       const stop = initQuartoObservable();
 
       const cell = document.querySelector('#ojs-cell-1');
-      cell!.innerHTML = FIXTURES.bar.html;
-      await settle();
-      const first = cell!.querySelector('svg')!;
-
       cell!.innerHTML = FIXTURES.scatter.html;
       await settle();
+      const first = cell!.querySelector('svg')!;
+      expect(first.parentNode).toBe(cell);
 
+      cell!.innerHTML = FIXTURES.bar.html;
+      await settle();
+
+      expect(first.parentNode).toBeNull();
       expect(released).toEqual([first]);
       stop();
     } finally {
@@ -275,8 +280,9 @@ describe('charts a reactive cell replaces', () => {
   it('waits for a chart the runtime has not finished mounting', async () => {
     // Mounting detaches the chart and re-attaches it a React commit later, and
     // in between it has no parent. Releasing it there would tear down a chart
-    // that is about to appear — the reader sees it and has no way into it — so
-    // the parentless state is the one case the sweep leaves alone.
+    // that is about to appear — the reader sees it and has no way into it.
+    // What separates that from the case above is that the runtime takes the
+    // chart synchronously, while the adapter is still binding it.
     const { dom } = mountFixture('bar');
     const restore = useDom(dom);
     try {
@@ -286,17 +292,26 @@ describe('charts a reactive cell replaces', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
+
+      // The runtime's half of the mount, on the event that triggers it: the
+      // wrapper takes the chart's place and the chart waits, parentless, for
+      // the commit that will adopt it.
+      let container: Element | undefined;
+      let chart: Element | undefined;
+      document.addEventListener('maidr:bindchart', (event) => {
+        chart = event.target as Element;
+        container = document.createElement('div');
+        chart.parentNode?.replaceChild(container, chart);
+      });
       const stop = initQuartoObservable();
 
       const cell = document.querySelector('#ojs-cell-1');
-      cell!.innerHTML = FIXTURES.bar.html;
+      cell!.innerHTML = FIXTURES.scatter.html;
       await settle();
+      // The state under test: out of the page, and belonging to nothing.
+      expect(chart?.parentNode).toBeNull();
+      expect(container?.isConnected).toBe(true);
 
-      // The first half of a mount: the wrapper takes the chart's place and the
-      // chart waits, parentless, for the commit that adopts it.
-      const chart = cell!.querySelector('svg')!;
-      const container = document.createElement('div');
-      chart.parentNode!.replaceChild(container, chart);
       // Several passes, none of which may release it.
       for (let frame = 0; frame < 3; frame++) {
         document.body.appendChild(document.createElement('p'));
@@ -305,7 +320,7 @@ describe('charts a reactive cell replaces', () => {
       expect(released).toEqual([]);
 
       // The commit lands and the chart is in the page again.
-      container.append(chart);
+      container?.append(chart!);
       await settle();
 
       expect(released).toEqual([]);
