@@ -68,6 +68,7 @@ import { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/ba
 import { bindD3Box } from './binders/box';
 import { bindD3Boxen } from './binders/boxen';
 import { bindD3Candlestick } from './binders/candlestick';
+import { bindD3Choropleth } from './binders/choropleth';
 import { bindD3Contour } from './binders/contour';
 import { bindD3Dumbbell } from './binders/dumbbell';
 import { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
@@ -146,6 +147,8 @@ function runBinder(svg: Element, spec: D3AdapterSpec): D3BinderResult | D3MultiP
       return bindD3Candlestick(svg, { ...spec.config, autoApply: false });
     case 'chord':
       return bindD3Chord(svg, { ...spec.config, autoApply: false });
+    case 'choropleth':
+      return bindD3Choropleth(svg, { ...spec.config, autoApply: false });
     case 'contour':
       return bindD3Contour(svg, { ...spec.config, autoApply: false });
     case 'diverging':
@@ -241,6 +244,8 @@ function withFacetsAutoApplyOff(cfg: D3FacetsConfig): D3FacetsConfig {
     case 'candlestick':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'chord':
+      return { ...cfg, config: { ...cfg.config, autoApply: false } };
+    case 'choropleth':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };
     case 'contour':
       return { ...cfg, config: { ...cfg.config, autoApply: false } };

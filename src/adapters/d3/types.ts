@@ -1435,6 +1435,69 @@ export interface D3ContourConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 choropleth map.
+ *
+ * A choropleth is `d3.geoPath()` over a projection: one `<path>` per region,
+ * each bound to the GeoJSON feature it was drawn from. So `selector` matches
+ * the region paths, and a **string accessor names a key on the feature or on
+ * its `properties`**, in that order — a feature keeps only `type`, `id`,
+ * `geometry` and `properties` at the top level, so the joined value and the
+ * place name are in `properties` on almost every map. A function accessor is
+ * invoked with the whole feature.
+ *
+ * **`lon` and `lat` are degrees, and the wrong call gives pixels.**
+ * `d3.geoPath().centroid(feature)` returns the centre of the drawn shape in
+ * projected screen coordinates; `d3.geoCentroid(feature)` returns the
+ * unprojected longitude/latitude pair, and that is the one to read:
+ *
+ * ```ts
+ * lon: d => d3.geoCentroid(d)[0],
+ * lat: d => d3.geoCentroid(d)[1],
+ * ```
+ *
+ * Where only a projection is to hand, `projection.invert([px, py])` inverts
+ * the pixels — but `invert` is optional in d3's projection API and several
+ * projections do not implement it. When neither yields degrees, leave both
+ * out: a coordinate outside ±180°/±90° is dropped rather than converted by
+ * guesswork, and the map is then read as a region list in drawn order, which
+ * is the poorer reading the grammar sanctions. A wrong pair is worse, because
+ * it puts regions in directions from one another that the map does not.
+ *
+ * `neighbors` is not read: adjacency is not recoverable from rendered paths,
+ * and deriving it needs shared-border topology this repository has no
+ * dependency for. A layer that declares none keeps the spatial walk.
+ */
+export interface D3ChoroplethConfig extends D3BinderConfig {
+  /** CSS selector for the region paths (e.g. `'path.region'`). One per region. */
+  selector: string;
+  /**
+   * Accessor for the region's name.
+   * @default 'region', falling back to `name`, `NAME`, `name_long`, `admin`,
+   * `state`, `id`, `label` or `x` — on the feature or in its `properties`.
+   */
+  region?: DataAccessor<string | number>;
+  /**
+   * Accessor for the value the region is shaded by. A region this resolves
+   * nothing for is left out of the payload — and out of the highlight
+   * selectors with it — rather than announced as a zero.
+   * @default 'value', falling back to `y`, `rate`, `density` or `count`.
+   */
+  value?: DataAccessor<number>;
+  /**
+   * Accessor for the region's centroid longitude, in **degrees east**.
+   * `d3.geoCentroid(d)[0]`, never `d3.geoPath().centroid(d)[0]`.
+   * @default 'lon', falling back to `longitude` or `long`.
+   */
+  lon?: DataAccessor<number>;
+  /**
+   * Accessor for the region's centroid latitude, in **degrees north**.
+   * `d3.geoCentroid(d)[1]`, never `d3.geoPath().centroid(d)[1]`.
+   * @default 'lat', falling back to `latitude`.
+   */
+  lat?: DataAccessor<number>;
+}
+
+/**
  * Result of a D3 binder function.
  * Contains the complete MAIDR data structure and the generated layer
  * for further customization if needed.
@@ -1471,6 +1534,7 @@ export type D3PanelChartSpec
     | { chartType: 'bump'; config: D3LineConfig }
     | { chartType: 'candlestick'; config: D3CandlestickConfig }
     | { chartType: 'chord'; config: D3FlowConfig }
+    | { chartType: 'choropleth'; config: D3ChoroplethConfig }
     | { chartType: 'contour'; config: D3ContourConfig }
     | { chartType: 'diverging'; config: D3SegmentedConfig }
     | { chartType: 'dot'; config: D3BarConfig }
