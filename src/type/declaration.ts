@@ -859,8 +859,13 @@ export interface BoxenDeclaration extends DeclarationBase {
  * axis is called, so without it a task is announced as "7 long" rather than
  * "7 days".
  *
+ * The variant is the schema an adapter reads a schedule through; no adapter
+ * reads a gantt block yet, so a chart declaring one today is read as the
+ * undeclared chart and told so. Adoption is a per-adapter change.
+ *
  * @example
- * // Highcharts, a schedule whose rows name their ends the ordinary way
+ * // The block a Highcharts adapter reading schedules would take, on a series
+ * // whose rows name their ends the ordinary way
  * { custom: { maidr: { type: 'gantt', x: 'resource', unit: 'days' } } }
  */
 export interface GanttDeclaration extends DeclarationBase {
@@ -898,8 +903,12 @@ export interface GanttDeclaration extends DeclarationBase {
    * declaration shares, which is the Manhattan identifier's (`snp`, `gene`,
    * `probe`) and names nothing on a schedule.
    *
-   * A label that resolves to the lane's own name is dropped rather than
-   * emitted: an interval labelled with its own lane says the same thing twice.
+   * The `x` chain includes `label`, so a row that names its interval but not
+   * its lane resolves both fields to the same word. An adapter adopting this
+   * declaration should drop a label equal to the lane it sits in rather than
+   * emit it — an interval labelled with its own lane says the same thing
+   * twice. {@link resolveFieldRef} resolves the two names independently and
+   * does not compare them, so the drop belongs to the adopting adapter.
    *
    * @default 'label', falling back to `name`, `task`, `title` or `activity`
    */

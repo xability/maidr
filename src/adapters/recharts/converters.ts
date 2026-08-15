@@ -917,9 +917,12 @@ function buildHexbinLayer(
   data.forEach((item, index) => {
     // The hexbin's own chain, so a bin spelling its centre `x0`/`cx` — as a
     // d3-hexbin bin does — is read rather than dropped for want of a centre.
+    // The type is passed on all three reads, `count` included: it has no
+    // hexbin-specific chain today, so this resolves exactly as before, and
+    // adding one later reaches every field rather than two of the three.
     const x = toOptionalNumber(resolveFieldRef(item, binXKey ?? xKey, 'x', TraceType.HEXBIN));
     const y = toOptionalNumber(resolveFieldRef(item, binYKey ?? yKey, 'y', TraceType.HEXBIN));
-    const count = toOptionalNumber(resolveFieldRef(item, countKey, 'count'));
+    const count = toOptionalNumber(resolveFieldRef(item, countKey, 'count', TraceType.HEXBIN));
     // A bin is its centre and its count. Missing any of the three, there is
     // nothing to announce and nowhere to announce it from.
     if (x === undefined || y === undefined || count === undefined) {
