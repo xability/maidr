@@ -10,8 +10,16 @@ const TRANSITION_ROTOR_UNIT: RotorFilterUnit = {
   noun: 'transitions',
 };
 
-/** Spoken description of each step convention, used in the description modal. */
-const STEP_DIRECTION_LABEL: Record<StepDirection, string> = {
+/**
+ * Spoken description of each step convention, used in the description modal.
+ *
+ * Exported because {@link AreaTrace} announces the same fact: `line.shape` and
+ * a fill are independent, so a band can be a staircase too, and a reader needs
+ * the same sentence about what happens between samples whichever way the shape
+ * is filled. One definition rather than two, so the two cannot drift into
+ * describing the same convention differently.
+ */
+export const STEP_DIRECTION_LABEL: Record<StepDirection, string> = {
   hv: 'value holds until the next x value, then jumps',
   vh: 'value jumps at the current x value, then holds',
   mid: 'value jumps midway between x values',

@@ -236,3 +236,78 @@ describe('stacked area', () => {
     expect(text.stack?.share).toBeUndefined();
   });
 });
+
+describe('stepped area (#413)', () => {
+  /**
+   * A filled band whose boundary is a staircase. `line.shape` and a fill are
+   * independent in every library that has both, so this is an ordinary chart
+   * rather than a contrived one -- a stacked step area is the standard way to
+   * draw a cumulative count that changes at discrete events.
+   *
+   * Read as a smoothly interpolated band it tells a reader the wrong thing
+   * about every interval: that the value slid between samples, when it in
+   * fact held and then jumped.
+   * @param type The area variant to build
+   * @param direction The step convention the producer declared
+   * @returns A layer carrying both the fill and the step direction
+   */
+  function steppedLayer(type: TraceType, direction: 'hv' | 'vh' | 'mid'): MaidrLayer {
+    return { ...createAreaLayer(type, [SUBSCRIPTIONS, SERVICES]), stepDirection: direction };
+  }
+
+  test('announces the step direction of a plain area', () => {
+    const trace = TraceFactory.create(steppedLayer(TraceType.AREA, 'hv')) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    const stats = trace.description.stats;
+    expect(stats.map(stat => stat.label)).toContain('Step direction');
+    expect(stats.find(stat => stat.label === 'Step direction')?.value).toBe(
+      'value holds until the next x value, then jumps',
+    );
+  });
+
+  test('announces it for a stacked area too, alongside the totals', () => {
+    const trace = TraceFactory.create(
+      steppedLayer(TraceType.STACKED_AREA, 'vh'),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    const labels = trace.description.stats.map(stat => stat.label);
+    // Both facts, not one instead of the other: the fill and the shape are
+    // orthogonal and a reader needs each.
+    expect(labels).toContain('Step direction');
+    expect(labels).toContain('Minimum total');
+    expect(labels).toContain('Maximum total');
+  });
+
+  test('uses the same wording as a step trace', () => {
+    const trace = TraceFactory.create(steppedLayer(TraceType.AREA, 'mid')) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    expect(
+      trace.description.stats.find(stat => stat.label === 'Step direction')?.value,
+    ).toBe('value jumps midway between x values');
+  });
+
+  test('says nothing when the producer declares no shape', () => {
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    expect(trace.description.stats.map(stat => stat.label)).not.toContain(
+      'Step direction',
+    );
+  });
+
+  test('still reads as an area rather than a step', () => {
+    // The fill is not replaced by the shape. A reader is told it is an area
+    // *and* how it moves between samples.
+    const trace = TraceFactory.create(
+      steppedLayer(TraceType.STACKED_AREA, 'hv'),
+    ) as AreaTrace;
+    trace.moveOnce('UPWARD');
+
+    expect(nonEmptyState(trace).plotType).toBe('stacked area');
+  });
+});

@@ -1,7 +1,8 @@
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, StepDirection } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
 import { LineTrace } from './line';
+import { STEP_DIRECTION_LABEL } from './step';
 
 /** Label the running total is announced under. */
 const TOTAL = 'Total';
@@ -98,6 +99,22 @@ export class AreaTrace extends LineTrace {
   private readonly columnTotals: Map<string, number> | null;
 
   /**
+   * How the boundary moves between samples, when the producer says.
+   *
+   * `line.shape` and a fill are independent in every library that has both,
+   * so a filled band can be a staircase — a stacked step area is the standard
+   * way to draw a cumulative count that changes at discrete events. Read as a
+   * smoothly interpolated band it tells a reader the wrong thing about every
+   * interval: that the value slid between samples when it in fact held and
+   * then jumped.
+   *
+   * Carried alongside the fill rather than replacing it, because the two
+   * facts are orthogonal and a reader needs both. `undefined` for an ordinary
+   * area, which is the shape of every producer that does not say.
+   */
+  private readonly stepDirection?: StepDirection;
+
+  /**
    * Creates a new area trace.
    *
    * @param layer - The MAIDR layer carrying the area data
@@ -107,6 +124,7 @@ export class AreaTrace extends LineTrace {
 
     this.variant = variantOf(layer.type);
     this.columnTotals = this.variant === 'area' ? null : this.computeColumnTotals();
+    this.stepDirection = layer.stepDirection;
   }
 
   /**
@@ -210,22 +228,31 @@ export class AreaTrace extends LineTrace {
    */
   public override get description(): DescriptionState {
     const baseDescription = super.description;
-    if (this.columnTotals === null) {
-      return baseDescription;
+    const stats = [...baseDescription.stats];
+
+    // Announced for every variant, not only a stacked one. How the boundary
+    // moves between samples is a fact about the shape, and an unstacked step
+    // area is as misread without it as a stacked one.
+    if (this.stepDirection !== undefined) {
+      stats.push({
+        label: 'Step direction',
+        value: STEP_DIRECTION_LABEL[this.stepDirection],
+      });
     }
 
-    const totals = [...this.columnTotals.values()].filter(isMeasured);
-    if (totals.length === 0) {
-      return baseDescription;
-    }
-
-    return {
-      ...baseDescription,
-      stats: [
-        ...baseDescription.stats,
+    const totals
+      = this.columnTotals === null
+        ? []
+        : [...this.columnTotals.values()].filter(isMeasured);
+    if (totals.length > 0) {
+      stats.push(
         { label: 'Minimum total', value: Math.min(...totals) },
         { label: 'Maximum total', value: Math.max(...totals) },
-      ],
-    };
+      );
+    }
+
+    return stats.length === baseDescription.stats.length
+      ? baseDescription
+      : { ...baseDescription, stats };
   }
 }
