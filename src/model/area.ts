@@ -41,6 +41,39 @@ function variantOf(type: TraceType): AreaVariant {
 }
 
 /**
+ * Drop a stepped band's return journey along the baseline, if it has one.
+ *
+ * A closed band walks its top edge and then comes back along the baseline,
+ * adding exactly one vertex per sample. So a closed staircase is `3N - 1`
+ * vertices for `hv`/`vh` and `3N` for `mid`, against `2N - 1` and `2N` for a
+ * top edge stroked on its own.
+ *
+ * Matched exactly rather than by "longer than a top edge", which is what this
+ * was and which misread a `mid` band: its `2N` top edge is already longer than
+ * the `2N - 1` an `hv` one has, so the test fired on a path with no baseline
+ * at all and sliced away real samples. Plotly strokes the edge separately —
+ * `path.js-line` carries no baseline — so that case is the common one, not the
+ * exotic one.
+ *
+ * A count matching neither is left whole: {@link stepDataVertices} answers
+ * `null` for it and the caller falls back to interpolation, which is the right
+ * recovery for geometry this does not recognise.
+ *
+ * @param coordinates - Vertices parsed from the path
+ * @param expected - How many samples the series has
+ * @returns The vertices with any baseline removed
+ */
+function withoutBaseline(coordinates: LinePoint[], expected: number): LinePoint[] {
+  if (expected <= 0) {
+    return coordinates;
+  }
+  const closedLengths = [3 * expected - 1, 3 * expected];
+  return closedLengths.includes(coordinates.length)
+    ? coordinates.slice(0, coordinates.length - expected)
+    : coordinates;
+}
+
+/**
  * Whether a magnitude is a real number the totals may include.
  *
  * A gap travels as `NaN`, and `NaN` spreads: summing one into a column total
@@ -144,10 +177,12 @@ export class AreaTrace extends LineTrace {
    * band, the second highlight sat on the held value at the next x rather than
    * on the sample, and every one after it was displaced too.
    *
-   * So the baseline is dropped first, and what remains is handed to the same
-   * {@link stepDataVertices} that `StepTrace` uses. Sharing that rather than
-   * repeating it keeps the two from disagreeing about which vertex is a
-   * sample, which is the failure this method exists to prevent.
+   * So {@link withoutBaseline} drops the return journey first, and what
+   * remains is handed to the same {@link stepDataVertices} that `StepTrace`
+   * uses. Sharing that rather than repeating it keeps the two from disagreeing
+   * about which vertex is a sample, which is the failure this method exists to
+   * prevent — and it is why a band whose edge is stroked on its own, carrying
+   * no baseline to drop, needs no separate handling here.
    *
    * @param coordinates - Vertices parsed from the path, mutated in place
    * @param row - Index of the series these coordinates belong to
@@ -170,12 +205,10 @@ export class AreaTrace extends LineTrace {
     }
 
     const expected = this.points[row]?.length ?? 0;
-    const closed
-      = expected > 0 && coordinates.length > 2 * expected - 1
-        ? coordinates.slice(0, coordinates.length - expected)
-        : coordinates;
-
-    const dataVertices = stepDataVertices(closed, expected);
+    const dataVertices = stepDataVertices(
+      withoutBaseline(coordinates, expected),
+      expected,
+    );
     if (dataVertices !== null) {
       coordinates.length = 0;
       coordinates.push(...dataVertices);

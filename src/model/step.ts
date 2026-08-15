@@ -61,6 +61,93 @@ export function stepDataVertices(
   coordinates: LinePoint[],
   expected: number,
 ): LinePoint[] | null {
+  const direct = matchStepGeometry(coordinates, expected);
+  if (direct !== null) {
+    return direct;
+  }
+
+  // Only reached when the path matches neither shape, so a well-formed
+  // staircase never takes this branch. That ordering is load-bearing: a step
+  // chart holds its value across a run, so a real `2N - 1` path routinely
+  // carries three consecutive vertices on one horizontal line, and collapsing
+  // first would drop the middle one and break a path that was already right.
+  const collapsed = collapseAxisAlignedRuns(coordinates);
+  return collapsed.length === coordinates.length
+    ? null
+    : matchStepGeometry(collapsed, expected);
+}
+
+/**
+ * Whether a vertex only continues a straight axis-aligned run.
+ *
+ * Requires the middle vertex to lie *between* its neighbours, not merely on
+ * their line. Three vertices sharing an x with the middle one outside the
+ * span is a reversal — the pen went out and came back — which `vhv` draws and
+ * which dropping the middle vertex would erase.
+ *
+ * @param previous - The vertex before
+ * @param current - The vertex under test
+ * @param next - The vertex after
+ * @returns True when `current` adds no corner to the path
+ */
+function continuesRun(
+  previous: LinePoint,
+  current: LinePoint,
+  next: LinePoint,
+): boolean {
+  const between = (a: number, b: number, c: number): boolean =>
+    (a <= b && b <= c) || (c <= b && b <= a);
+
+  if (Number(previous.y) === Number(current.y) && Number(current.y) === Number(next.y)) {
+    return between(Number(previous.x), Number(current.x), Number(next.x));
+  }
+  if (Number(previous.x) === Number(current.x) && Number(current.x) === Number(next.x)) {
+    return between(Number(previous.y), Number(current.y), Number(next.y));
+  }
+  return false;
+}
+
+/**
+ * Drop the vertices a renderer added without turning a corner.
+ *
+ * One straight segment may reach the DOM as several commands: Plotly draws an
+ * `hvh` staircase with consecutive same-direction moves — measured,
+ * `…H246.67H370…` with no `V` between them — which puts a vertex in the middle
+ * of a horizontal run that no step of the data corresponds to. Those inflate
+ * the count past every shape {@link stepDataVertices} recognises, so the
+ * staircase falls through to interpolation and every highlight lands wrong.
+ *
+ * @param coordinates - Vertices parsed from the path
+ * @returns A new list holding only the endpoints and the corners
+ */
+function collapseAxisAlignedRuns(coordinates: LinePoint[]): LinePoint[] {
+  if (coordinates.length < 3) {
+    return [...coordinates];
+  }
+
+  // Compared against the last *kept* vertex rather than the raw predecessor,
+  // so a run split into three or more pieces collapses in one pass.
+  const kept: LinePoint[] = [coordinates[0]];
+  for (let i = 1; i < coordinates.length - 1; i++) {
+    if (!continuesRun(kept[kept.length - 1], coordinates[i], coordinates[i + 1])) {
+      kept.push(coordinates[i]);
+    }
+  }
+  kept.push(coordinates[coordinates.length - 1]);
+  return kept;
+}
+
+/**
+ * Read the samples off a vertex list whose length matches a step convention.
+ *
+ * @param coordinates - Vertices parsed from the path
+ * @param expected - How many samples the series has
+ * @returns The data vertices, or `null` when the count matches neither shape
+ */
+function matchStepGeometry(
+  coordinates: LinePoint[],
+  expected: number,
+): LinePoint[] | null {
   if (expected > 1 && coordinates.length === 2 * expected - 1) {
     return coordinates.filter((_, index) => index % 2 === 0);
   }
