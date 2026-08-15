@@ -1,4 +1,4 @@
-import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { AreaTrace } from '@model/area';
@@ -251,7 +251,7 @@ describe('stepped area (#413)', () => {
    * @param direction The step convention the producer declared
    * @returns A layer carrying both the fill and the step direction
    */
-  function steppedLayer(type: TraceType, direction: 'hv' | 'vh' | 'mid'): MaidrLayer {
+  function steppedLayer(type: TraceType, direction: StepDirection): MaidrLayer {
     return { ...createAreaLayer(type, [SUBSCRIPTIONS, SERVICES]), stepDirection: direction };
   }
 

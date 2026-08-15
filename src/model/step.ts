@@ -26,6 +26,70 @@ export const STEP_DIRECTION_LABEL: Record<StepDirection, string> = {
 };
 
 /**
+ * Pick the data vertices out of a rendered step path.
+ *
+ * A step chart is drawn with the corner vertices the steps introduce, so the
+ * rendered path carries more vertices than the series has points — matplotlib
+ * emits `2N - 1` for `hv`/`vh` and `2N` for `mid`. The surplus is *interleaved*
+ * rather than trailing, so it is removed by stride:
+ *
+ * - `2N - 1` vertices (`hv`/`vh`): the even-indexed vertices are exactly the
+ *   data points; the odd-indexed ones are the corners.
+ * - `2N` vertices (`mid`): each data point owns a horizontal pair. The first
+ *   and last runs are half-width — `steps-mid` starts at `x[0]` and ends at
+ *   `x[N-1]` rather than at a midpoint — so those two samples sit at the outer
+ *   end of their run and are read off directly. An interior run spans midpoint
+ *   to midpoint, and its centre is the sample only when the spacing either
+ *   side is equal: in general the centre is `(x[i-1] + 2x[i] + x[i+1]) / 4`,
+ *   off by a quarter of the local second difference. The highlight therefore
+ *   always lands inside the sample's own run — never on a neighbour's — but on
+ *   an irregularly sampled `mid` chart it is not exactly on the sample.
+ *   Recovering `x[i]` exactly would mean iterating `x[i+1] = 2m[i] - x[i]` from
+ *   one end, which is numerically unstable over a long series; a bounded
+ *   sub-run offset is the better trade.
+ *
+ * Shared with {@link AreaTrace}, which meets the same interleaved geometry once
+ * a band is stepped, so the two cannot disagree about which vertex is a sample.
+ *
+ * @param coordinates - Vertices parsed from the path
+ * @param expected - How many samples the series has
+ * @returns The data vertices, or `null` when the count matches neither shape —
+ * a library that simplifies collinear vertices produces neither, and
+ * interpolating along the surviving segments is the right recovery there.
+ */
+export function stepDataVertices(
+  coordinates: LinePoint[],
+  expected: number,
+): LinePoint[] | null {
+  if (expected > 1 && coordinates.length === 2 * expected - 1) {
+    return coordinates.filter((_, index) => index % 2 === 0);
+  }
+
+  if (expected > 0 && coordinates.length === 2 * expected) {
+    const dataVertices = new Array<LinePoint>();
+    for (let i = 0; i < expected; i++) {
+      const left = coordinates[2 * i];
+      const right = coordinates[2 * i + 1];
+      // The outermost runs are half-width, so their sample is at the outer
+      // end rather than the centre; averaging there would offset the first
+      // and last highlight by a quarter of the sample interval.
+      let x: number;
+      if (i === 0) {
+        x = Number(left.x);
+      } else if (i === expected - 1) {
+        x = Number(right.x);
+      } else {
+        x = (Number(left.x) + Number(right.x)) / 2;
+      }
+      dataVertices.push({ x, y: Number(left.y) });
+    }
+    return dataVertices;
+  }
+
+  return null;
+}
+
+/**
  * Trace implementation for step (stairs) charts, where the value is piecewise
  * constant: it is held across an interval and then jumps, rather than being
  * interpolated between samples as a line chart implies.
@@ -214,32 +278,8 @@ export class StepTrace extends LineTrace {
     // be 0 during construction and fall through to the trim-from-the-end
     // branch, silently highlighting the wrong vertices.
     const expected = this.points[row]?.length ?? 0;
-
-    if (expected > 1 && coordinates.length === 2 * expected - 1) {
-      const dataVertices = coordinates.filter((_, index) => index % 2 === 0);
-      coordinates.length = 0;
-      coordinates.push(...dataVertices);
-      return;
-    }
-
-    if (expected > 0 && coordinates.length === 2 * expected) {
-      const dataVertices = new Array<LinePoint>();
-      for (let i = 0; i < expected; i++) {
-        const left = coordinates[2 * i];
-        const right = coordinates[2 * i + 1];
-        // The outermost runs are half-width, so their sample is at the outer
-        // end rather than the centre; averaging there would offset the first
-        // and last highlight by a quarter of the sample interval.
-        let x: number;
-        if (i === 0) {
-          x = Number(left.x);
-        } else if (i === expected - 1) {
-          x = Number(right.x);
-        } else {
-          x = (Number(left.x) + Number(right.x)) / 2;
-        }
-        dataVertices.push({ x, y: Number(left.y) });
-      }
+    const dataVertices = stepDataVertices(coordinates, expected);
+    if (dataVertices !== null) {
       coordinates.length = 0;
       coordinates.push(...dataVertices);
       return;
