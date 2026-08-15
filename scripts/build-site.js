@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
+import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -366,7 +367,19 @@ if (fs.existsSync(highchartsMdPath)) {
 }
 
 // Build examples.html (inline gallery content — no middle iframe)
+//
+// The gallery is read off `examples/` rather than listed here. The list that
+// used to live in this file named 88 of the 199 pages in that directory, and
+// nothing failed when the two drifted apart, so the other 111 shipped with the
+// site and were reachable from nothing on it. See scripts/examplesGallery.js.
 console.log('Building examples.html...');
+const { sections, unclaimed } = buildGallery(listExamplePages(path.join(ROOT, 'examples')));
+for (const page of unclaimed) {
+  console.warn(`Warning: examples/${page} is in no gallery group. Add a group for its directory in scripts/examplesGallery.js.`);
+}
+const gallery = renderGallery(sections);
+console.log(`  ${sections.reduce((n, section) => n + section.items.length, 0)} gallery entries in ${sections.length} groups`);
+
 const examplesContent = `
 <style>
   .examples-gallery { padding: 20px; }
@@ -377,166 +390,7 @@ const examplesContent = `
   <h1>MAIDR Examples</h1>
   <h2>Click on one of the examples below to see a demonstration</h2>
 
-  <h3 id="react-examples">React</h3>
-  <ul>
-    <li><a href="#" onclick="loadReact(); return false;">React Examples (Bar, Line, Smooth, D3 Bar, D3 Scatter)</a></li>
-  </ul>
-  <p>See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types. The D3 examples show how to use <a href="d3.html">the D3 adapter</a> with the <code>&lt;MaidrD3&gt;</code> wrapper.</p>
-
-  <h3>HTML / Vanilla JS</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('barplot.html', 'Barplot'); return false;">Barplot</a></li>
-    <li><a href="#" onclick="loadHTML('candlestick_multilayer.html', 'Candlestick multilayer'); return false;">Candlestick multilayer</a></li>
-    <li><a href="#" onclick="loadHTML('dodged_barplot.html', 'Dodged Barplot'); return false;">Dodged Barplot</a></li>
-    <li><a href="#" onclick="loadHTML('facet_barplot.html', 'Faceted Bar plots'); return false;">Faceted Bar plots</a></li>
-    <li><a href="#" onclick="loadHTML('heatmap.html', 'Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('histogram.html', 'Histogram'); return false;">Histogram</a></li>
-    <li><a href="#" onclick="loadHTML('horizontal-boxplot.html', 'Horizontal box plot'); return false;">Horizontal box plot</a></li>
-    <li><a href="#" onclick="loadHTML('lineplot.html', 'Single Line plot'); return false;">Single Line plot</a></li>
-    <li><a href="#" onclick="loadHTML('multiline_plot.html', 'Multi line plot'); return false;">Multi line plot</a></li>
-    <li><a href="#" onclick="loadHTML('multilayer_plot.html', 'Multi layered plot'); return false;">Multi layered plot</a></li>
-    <li><a href="#" onclick="loadHTML('multipanel.html', 'Multi panel plot'); return false;">Multi panel plot</a></li>
-    <li><a href="#" onclick="loadHTML('scatter_plot.html', 'Scatter plot'); return false;">Scatter plot</a></li>
-    <li><a href="#" onclick="loadHTML('smooth_plot.html', 'Smooth plot'); return false;">Smooth plot</a></li>
-    <li><a href="#" onclick="loadHTML('stacked_bar.html', 'Stacked Bar plot'); return false;">Stacked Bar plot</a></li>
-    <li><a href="#" onclick="loadHTML('stepplot.html', 'Step plot (hypnogram)'); return false;">Step plot (hypnogram)</a></li>
-    <li><a href="#" onclick="loadHTML('vertical-boxplot.html', 'Vertical box plot'); return false;">Vertical box plot</a></li>
-    <li><a href="#" onclick="loadHTML('vertical-candlestick.html', 'Vertical candle stick plot'); return false;">Vertical candle stick plot</a></li>
-    <li><a href="#" onclick="loadHTML('violin.html', 'Violin plot'); return false;">Violin plot</a></li>
-  </ul>
-
-  <h3>Plotly.js</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('plotly-bar.html', 'Plotly Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-scatter.html', 'Plotly Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-line.html', 'Plotly Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-box.html', 'Plotly Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-violin.html', 'Plotly Violin Plot'); return false;">Violin Plot</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-heatmap.html', 'Plotly Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-histogram.html', 'Plotly Histogram'); return false;">Histogram</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-candlestick.html', 'Plotly Candlestick'); return false;">Candlestick</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-grouped-bar.html', 'Plotly Grouped Bar'); return false;">Grouped Bar</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-stacked-bar.html', 'Plotly Stacked Bar'); return false;">Stacked Bar</a></li>
-    <li><a href="#" onclick="loadHTML('plotly-pie.html', 'Plotly Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="plotly.html">Plotly.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>Recharts</h3>
-  <ul>
-    <li><a href="#" onclick="loadRecharts(); return false;">Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)</a></li>
-  </ul>
-  <p>See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
-
-  <h3>Google Charts</h3>
-  <ul>
-    <li><a href="#" onclick="loadGoogleCharts(); return false;">Google Charts Examples (Bar, Line, Scatter, Stacked, Dodged, Candlestick)</a></li>
-    <li><a href="#" onclick="loadHTML('google-charts-pie.html', 'Google Charts Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="google-charts.html">Google Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>Chart.js</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('chartjs/bar.html', 'Chart.js Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/line.html', 'Chart.js Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/scatter.html', 'Chart.js Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/bar-stacked.html', 'Chart.js Stacked Bar'); return false;">Stacked Bar</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/bar-dodged.html', 'Chart.js Dodged Bar'); return false;">Dodged Bar</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/boxplot.html', 'Chart.js Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/candlestick.html', 'Chart.js Candlestick'); return false;">Candlestick</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/heatmap.html', 'Chart.js Heatmap'); return false;">Heatmap (Matrix)</a></li>
-    <li><a href="#" onclick="loadHTML('chartjs/pie.html', 'Chart.js Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="chartjs.html">Chart.js Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>Observable Plot &amp; Quarto</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('observable-plain.html', 'Observable Plot on a plain page'); return false;">Plain page &mdash; bar, scatter, stacked bar, and a chart redrawn on demand</a></li>
-    <li><a href="#" onclick="loadHTML('observable-quarto.html', 'Observable Plot in a Quarto document'); return false;">Quarto OJS cells (bar, scatter, line, histogram, facets)</a></li>
-  </ul>
-  <p>The two differ only in how the scripts reach the page &mdash; the adapter is the same and neither asks you to change the code that draws the chart. See the <a href="observable.html">Observable Plot &amp; Quarto Integration Guide</a> for both, including the Quarto extension.</p>
-
-  <h3>Frappe Charts</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('frappe-bar.html', 'Frappe Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('frappe-line.html', 'Frappe Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('frappe-multiline.html', 'Frappe Multi-Line Chart'); return false;">Multi-Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('frappe-scatter.html', 'Frappe Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('frappe-mixed.html', 'Frappe Mixed Axis Chart'); return false;">Mixed Axis (Bar + Line)</a></li>
-    <li><a href="#" onclick="loadHTML('frappe-pie.html', 'Frappe Pie Chart'); return false;">Pie / Donut</a></li>
-  </ul>
-  <p>See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>D3.js</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('d3-bindbar.html', 'D3 Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindline.html', 'D3 Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindscatter.html', 'D3 Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindbox.html', 'D3 Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindheatmap.html', 'D3 Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindhistogram.html', 'D3 Histogram'); return false;">Histogram</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindcandlestick.html', 'D3 Candlestick'); return false;">Candlestick</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindstacked.html', 'D3 Stacked Bar'); return false;">Stacked Bar</a></li>
-    <li><a href="#" onclick="loadHTML('d3-binddodged.html', 'D3 Dodged Bar'); return false;">Dodged Bar</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindsmooth.html', 'D3 Smooth Curve'); return false;">Smooth Curve</a></li>
-    <li><a href="#" onclick="loadHTML('d3-bindpie.html', 'D3 Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="d3.html">D3.js Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
-
-  <h3>Vega-Lite</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('vegalite-bindbar.html', 'Vega-Lite Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindstacked.html', 'Vega-Lite Stacked Bar'); return false;">Stacked Bar</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-binddodged.html', 'Vega-Lite Dodged Bar'); return false;">Dodged Bar</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindnormalized.html', 'Vega-Lite Normalized Bar'); return false;">Normalized Bar</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindhistogram.html', 'Vega-Lite Histogram'); return false;">Histogram</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindline.html', 'Vega-Lite Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindscatter.html', 'Vega-Lite Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindheatmap.html', 'Vega-Lite Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-bindbox.html', 'Vega-Lite Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('vegalite-pie.html', 'Vega-Lite Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="vegalite.html">Vega-Lite Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>amCharts 5</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('amcharts.html', 'amCharts 5 Examples'); return false;">amCharts 5 Examples (Bar, Dodged, Stacked, Normalized, Line, Histogram, Heatmap)</a></li>
-    <li><a href="#" onclick="loadHTML('amcharts-pie.html', 'amCharts 5 Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="amcharts.html">amCharts 5 Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>Victory</h3>
-  <ul>
-    <li><a href="#" onclick="loadVictory(); return false;">Victory Examples (Bar, Line, Scatter, Stacked, Histogram, Box, Candlestick)</a></li>
-  </ul>
-  <p>See the <a href="victory.html">Victory Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.</p>
-
-  <h3>AnyChart</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('anychart/bar.html', 'AnyChart Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/line.html', 'AnyChart Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/scatter.html', 'AnyChart Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/box.html', 'AnyChart Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/heatmap.html', 'AnyChart Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/candlestick.html', 'AnyChart Candlestick'); return false;">Candlestick</a></li>
-    <li><a href="#" onclick="loadHTML('anychart/pie.html', 'AnyChart Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="anychart.html">AnyChart Integration Guide</a> for setup instructions and code examples for all chart types.</p>
-
-  <h3>Highcharts</h3>
-  <ul>
-    <li><a href="#" onclick="loadHTML('highcharts-bar.html', 'Highcharts Bar Chart'); return false;">Bar Chart</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-line.html', 'Highcharts Line Chart'); return false;">Line Chart</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-scatter.html', 'Highcharts Scatter Plot'); return false;">Scatter Plot</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-box.html', 'Highcharts Box Plot'); return false;">Box Plot</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-heatmap.html', 'Highcharts Heatmap'); return false;">Heatmap</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-histogram.html', 'Highcharts Histogram'); return false;">Histogram</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-candlestick.html', 'Highcharts Candlestick'); return false;">Candlestick</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-stacked.html', 'Highcharts Stacked Bar'); return false;">Stacked Bar</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-dodged.html', 'Highcharts Dodged Bar'); return false;">Dodged Bar</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-normalized.html', 'Highcharts Normalized Bar'); return false;">Normalized Bar</a></li>
-    <li><a href="#" onclick="loadHTML('highcharts-pie.html', 'Highcharts Pie Chart'); return false;">Pie Chart</a></li>
-  </ul>
-  <p>See the <a href="highcharts.html">Highcharts Integration Guide</a> for setup instructions and code examples for all chart types.</p>
+${gallery}
 
   <div id="content" hidden="true">Select an example above.</div>
 </div>
@@ -607,31 +461,6 @@ const examplesContent = `
     iframe.tabIndex = 0;
     iframe.title = 'Victory Examples';
     iframe.setAttribute('aria-label', 'Victory example demonstration');
-
-    var contentDiv = document.getElementById('content');
-    contentDiv.innerHTML = '';
-    contentDiv.appendChild(heading);
-    contentDiv.appendChild(iframe);
-    contentDiv.hidden = false;
-
-    setTimeout(function() { heading.focus(); }, 100);
-  }
-
-  function loadGoogleCharts() {
-    var heading = document.createElement('h2');
-    heading.id = 'example-heading';
-    heading.textContent = 'Google Charts Examples';
-    heading.tabIndex = -1;
-    heading.style.marginTop = '0';
-
-    var iframe = document.createElement('iframe');
-    iframe.src = 'examples/google-charts.html';
-    iframe.style.width = '100%';
-    iframe.style.height = '800px';
-    iframe.style.border = 'none';
-    iframe.tabIndex = 0;
-    iframe.title = 'Google Charts Examples';
-    iframe.setAttribute('aria-label', 'Google Charts example demonstration');
 
     var contentDiv = document.getElementById('content');
     contentDiv.innerHTML = '';
