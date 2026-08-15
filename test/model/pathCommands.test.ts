@@ -259,6 +259,50 @@ describe('svg path command parsing (#907)', () => {
     test('exponent notation parses as one number', () => {
       expect(parse('M 1e2 2e1 L 3 4', 2)).toEqual([{ x: 100, y: 20 }, { x: 3, y: 4 }]);
     });
+
+    test('a smooth cubic contributes its endpoint', () => {
+      // `S x2 y2 x y` — four numbers, the first pair a control point. Reading
+      // the wrong pair would put the highlight off the drawn curve.
+      expect(parse('M 0 0 C 5 20 10 20 15 0 S 25 -20 30 0', 3)).toEqual([
+        { x: 0, y: 0 },
+        { x: 15, y: 0 },
+        { x: 30, y: 0 },
+      ]);
+    });
+
+    test('a smooth quadratic contributes its endpoint', () => {
+      // `T x y` — the control point is implied from the previous command, so
+      // both numbers are the endpoint.
+      expect(parse('M 0 0 Q 5 20 10 0 T 20 0', 3)).toEqual([
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 20, y: 0 },
+      ]);
+    });
+
+    test('an arc is skipped without corrupting the commands around it', () => {
+      // An arc's endpoint cannot be located by a number scan — its flags are
+      // legally written without separators — so it contributes nothing. What
+      // it must not do is contribute something *wrong*: with `A` missing from
+      // the command class its tokens were swept into the preceding `L`'s
+      // argument list and read as further linetos, fabricating `(5,5)`,
+      // `(0,0)` and `(1,20)` here. Raised in review on #908.
+      expect(parse('M 0 0 L 10 10 A 5 5 0 0 1 20 20 L 30 30', 3)).toEqual([
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+        { x: 30, y: 30 },
+      ]);
+    });
+
+    test('an arc with packed flags is skipped just as cleanly', () => {
+      // The compact serialisation the number scan cannot read: `0 0 1` is
+      // written `001`. Whatever it tokenizes to must stay inside the arc.
+      expect(parse('M 0 0 L 10 10 a5 5 0 001 1 L 30 30', 3)).toEqual([
+        { x: 0, y: 0 },
+        { x: 10, y: 10 },
+        { x: 30, y: 30 },
+      ]);
+    });
   });
 });
 

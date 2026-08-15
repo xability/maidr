@@ -14,15 +14,22 @@ const TYPE = 'Group';
 /**
  * Splits a path `d` attribute into commands, each with its argument text.
  *
- * `A`/`a` are deliberately absent. An arc's flag arguments are legally
- * written without separators — `a1 1 0 011 1` is three flags and a coordinate
- * pair — so a plain number scan mis-tokenizes them and would push invented
- * vertices. Line-family geometry never contains an arc, so an unread one is
- * the honest answer; an arc in the middle of a path leaves the current point
- * stale, which is no worse than the whole command being invisible as it was
- * before.
+ * `A`/`a` is listed here but absent from {@link SVG_PATH_ARITY}, so an arc is
+ * recognised and then skipped. Both halves matter. It has to be *recognised*
+ * because the argument group runs to the next command letter: leaving `A` out
+ * of the class would sweep an arc's flags and coordinates into the preceding
+ * command's arguments, where they are consumed as further repetitions of that
+ * command's arity. Measured on `M 0 0 L 10 10 A 5 5 0 0 1 20 20 L 30 30`,
+ * that fabricated three vertices — `(5,5)`, `(0,0)`, `(1,20)` — rather than
+ * leaving the arc merely unread.
+ *
+ * It is then *skipped* because an arc's flag arguments are legally written
+ * without separators — `a1 1 0 011 1` is three flags and a coordinate pair —
+ * so a plain number scan cannot tell where the endpoint starts. That leaves
+ * the current point stale across an arc, which only misplaces a *relative*
+ * command that follows one; line-family geometry contains neither.
  */
-const SVG_PATH_COMMAND_REGEX = /([MLHVCSQTZ])([^MLHVCSQTZ]*)/gi;
+const SVG_PATH_COMMAND_REGEX = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
 
 /** One number of a path argument list, including exponent notation. */
 const SVG_PATH_NUMBER_REGEX = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
@@ -32,6 +39,12 @@ const SVG_PATH_NUMBER_REGEX = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
  *
  * A command may carry several repetitions in one argument list — `L1 2 3 4`
  * is two linetos — so the arity is what the argument list is walked in.
+ *
+ * `Z` and `A` are absent, and an absent entry contributes no vertices: the
+ * walk's bound is `i + arity <= args.length`, and `undefined` makes that
+ * comparison false at once. `Z` is handled before the lookup because it still
+ * moves the pen; `A` is not, for the reason
+ * {@link SVG_PATH_COMMAND_REGEX} gives.
  */
 const SVG_PATH_ARITY: Record<string, number> = {
   M: 2,
