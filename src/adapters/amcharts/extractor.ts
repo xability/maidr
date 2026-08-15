@@ -1027,7 +1027,41 @@ function readFlowValue(item: AmDataItem, series: AmXYSeries): number | null {
  * position onto its neighbour.
  */
 export function extractFlowPoints(series: AmXYSeries): FlowPoint[] {
-  const points: FlowPoint[] = [];
+  return extractFlowLinks(series).map(link => link.point);
+}
+
+/**
+ * One readable link of an am5flow series: the reading MAIDR was given, and the
+ * data item amCharts drew the ribbon from.
+ */
+export interface AmFlowLink {
+  /** The link's data item, which carries the drawn ribbon. */
+  item: AmDataItem;
+  /** The point emitted for it, at the same position in `layer.data`. */
+  point: FlowPoint;
+}
+
+/**
+ * The links of an am5flow series, each paired with the data item it was read
+ * from.
+ *
+ * {@link extractFlowPoints} is this list with the data items dropped, so the
+ * n-th point of a flow layer was read from the n-th entry here **by
+ * construction** rather than by two walks agreeing. That is what lets the
+ * highlight invert an index: `FlowTrace` publishes the ribbon it outlined as a
+ * position in `layer.data`, and the adapter reads that position back off this
+ * list to reach the sprite amCharts drew.
+ *
+ * A parallel walk would have done the same job until one of the two learned
+ * about a link the other kept — the drop rules above are exactly where that
+ * would happen — and the highlight would then sit one ribbon off with nothing
+ * about the announcement looking wrong.
+ *
+ * @param series - The flow series to read.
+ * @returns One entry per readable link, in chart order.
+ */
+export function extractFlowLinks(series: AmXYSeries): AmFlowLink[] {
+  const links: AmFlowLink[] = [];
 
   for (const item of series.dataItems) {
     const source = readFlowEnd(item, series, 'source');
@@ -1039,10 +1073,26 @@ export function extractFlowPoints(series: AmXYSeries): FlowPoint[] {
     if (value == null || value === 0)
       continue;
 
-    points.push({ source, target, value });
+    links.push({ item, point: { source, target, value } });
   }
 
-  return points;
+  return links;
+}
+
+/**
+ * The ribbon amCharts drew for one flow link.
+ *
+ * An am5flow data item keeps its band on `link` — a `SankeyLink`, a
+ * `ChordLink` or the straight `ArcDiagram` line — which is the mark the
+ * overlay measures. Unverifiable without the library, like every other sprite
+ * read here, so an absent one answers `undefined` and the caller clears the
+ * overlay rather than outlining something else.
+ *
+ * @param item - The link's data item.
+ * @returns Its drawn ribbon, or `undefined` when the build keeps none.
+ */
+export function flowRibbonOf(item: AmDataItem): AmSprite | undefined {
+  return item.get('link') as AmSprite | undefined;
 }
 
 /**
@@ -1095,7 +1145,7 @@ export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
   const links: NetworkPoint[] = [];
   const seen = new Set<string>();
   const add = (source: string | number, target: string | number): void => {
-    const key = [String(source), String(target)].sort().join(' ');
+    const key = networkLinkKey(source, target);
     if (seen.has(key))
       return;
     seen.add(key);
@@ -1124,6 +1174,79 @@ export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
   }
 
   return links;
+}
+
+/**
+ * How one undirected link is named, from the two nodes it joins.
+ *
+ * **One expression, two readers.** {@link extractNetworkPoints} keys its
+ * de-duplication with this — two rows naming each other draw one line, so the
+ * pair has to name the same link whichever end it is read from — and
+ * {@link findNetworkLink} matches a drawn line against the emitted payload with
+ * it. A second spelling of "the same pair" is how the highlight would come to
+ * miss exactly the links a `linkWith` authored backwards.
+ *
+ * @param source - One end of the link.
+ * @param target - The other end.
+ * @returns A key equal for both orderings of the pair.
+ */
+export function networkLinkKey(
+  source: string | number,
+  target: string | number,
+): string {
+  return [String(source), String(target)].sort().join(' ');
+}
+
+/**
+ * The line an `am5hierarchy.ForceDirected` drew between two nodes.
+ *
+ * A network is the one reading whose payload is not a walk over data items: its
+ * links are the tree's parent-child edges plus the cross-links the rows named,
+ * and amCharts draws them from a list of its own. So a published index is
+ * inverted against the emitted point — `layer.data[i]` names two nodes — and
+ * the line is then found by asking each drawn link which two nodes it joins,
+ * with {@link networkLinkKey} settling the direction the payload does not
+ * carry.
+ *
+ * `series.links` and a link's `source` / `target` node data items are
+ * unverifiable without the library, like every other sprite read here. A build
+ * that answers with neither leaves every link unfound, the resolver answers
+ * nothing, and the overlay clears — which is what a network did in full before
+ * this existed, rather than a line drawn somewhere plausible.
+ *
+ * @param series - The force-directed series that drew the graph.
+ * @param link - The emitted point naming the two ends.
+ * @returns The drawn line, or `undefined` when none of them joins that pair.
+ */
+export function findNetworkLink(
+  series: AmXYSeries,
+  link: NetworkPoint,
+): AmSprite | undefined {
+  const wanted = networkLinkKey(link.source, link.target);
+  for (const drawn of series.links?.values ?? []) {
+    const source = readLinkEndName(drawn, 'source');
+    const target = readLinkEndName(drawn, 'target');
+    if (source != null && target != null && networkLinkKey(source, target) === wanted) {
+      return drawn;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The name of one end of a drawn hierarchy link.
+ *
+ * The end is a *node data item*, so it is asked for its category — the same
+ * read {@link extractHierarchyNodes} names a node by, which is what makes the
+ * two sides comparable at all.
+ */
+function readLinkEndName(link: AmSprite, end: 'source' | 'target'): string | number | null {
+  const node = link.get?.(end);
+  if (node == null || typeof node !== 'object') {
+    return null;
+  }
+  const get = (node as { get?: (key: string) => unknown }).get;
+  return typeof get === 'function' ? asNodeName(get.call(node, 'category')) : null;
 }
 
 // ---------------------------------------------------------------------------

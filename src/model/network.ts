@@ -1,5 +1,6 @@
 import type { MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { Coordinate, Node } from '@type/movable';
+import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { MathUtil } from '@util/math';
@@ -70,7 +71,7 @@ interface NetworkNode {
  * have equal status, so there is no "the" edge for an arrow to take, unlike a
  * sankey where the widest ribbon is the one an eye follows.
  */
-export class NetworkTrace extends AbstractTrace {
+export class NetworkTrace extends AbstractTrace implements PointCloudHighlightable {
   /**
    * No go-to-extrema dialog. The arrows already reach every node, and the
    * most connected are named in the description; see `extremaContract`.
@@ -526,10 +527,70 @@ export class NetworkTrace extends AbstractTrace {
     // line belonging to somebody else.
     return this.grid.map(row =>
       row.map((node) => {
-        const at = node?.linkAt[0];
-        const element = at === undefined || at < 0 ? undefined : flat[at];
+        const at = NetworkTrace.lineOf(node);
+        const element = at === undefined ? undefined : flat[at];
         return element ?? Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * The one line a node's highlight covers, as its position in the declared
+   * link array.
+   *
+   * **This is the single expression both highlight channels read.** A node
+   * touches every link on it, but the chart is not asked to outline all of
+   * them: `mapToSvgElements` takes one element per cell, and
+   * {@link highlightedPointIndices} names one index. Writing the rule twice is
+   * how the two would come to disagree -- an adapter publishing every link
+   * while the SVG path outlined `linkAt[0]` puts a canvas highlight and an SVG
+   * highlight on different lines for the same trace at the same cursor
+   * position, which reads as correct and is not.
+   *
+   * `linkAt` runs parallel to `links`, which is sorted most-connected first, so
+   * this is the line to the node's biggest neighbour -- and the line the
+   * rotor's first step from here travels. A `-1` marks a neighbour no declared
+   * link was found for, and an isolated node has no entry at all; both mean
+   * "no line", which is honest rather than pointing at somebody else's.
+   *
+   * @param node - The node under the cursor, or null where the grid is empty
+   * @returns Its line's index into the declared links, or undefined when the
+   *   node has no line drawn for it
+   */
+  private static lineOf(node: NetworkNode | null): number | undefined {
+    const at = node?.linkAt[0];
+    return at === undefined || at < 0 ? undefined : at;
+  }
+
+  /**
+   * The line the highlight currently covers, as an index into this layer's
+   * `data` array.
+   *
+   * This is `highlight` answered in a renderer-neutral currency. A network
+   * drawn on a canvas has no SVG elements for `selectors` to reach, and an
+   * adapter that rebuilt the component walk to find the node itself would drift
+   * from {@link findComponents} silently -- so the trace names the line by the
+   * position it occupies in the link array the adapter supplied, and the
+   * adapter inverts that against its own extraction walk.
+   *
+   * Derived from {@link lineOf}, the same expression `mapToSvgElements` indexes
+   * its elements with, so the canvas highlight and the SVG highlight cannot
+   * name different lines.
+   *
+   * Deliberately not gated on SVG availability: a canvas chart has no elements
+   * by definition, and that is the case this exists to serve.
+   *
+   * @returns One index into `layer.data`, or nothing when the cursor is on no
+   *   node or on an isolated one.
+   */
+  public get highlightedPointIndices(): readonly number[] {
+    if (this.isInitialEntry) {
+      // The inherited `highlight` reports out of bounds until the cursor has
+      // entered the trace; an empty array is how this channel says the same
+      // thing, so the two agree at every position including this one.
+      return [];
+    }
+    const at = NetworkTrace.lineOf(this.current);
+    return at === undefined ? [] : [at];
   }
 
   protected findNearestPoint(): NearestPoint | null {

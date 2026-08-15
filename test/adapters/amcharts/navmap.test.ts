@@ -1,7 +1,10 @@
-import type { SeriesGroups } from '@adapters/amcharts/navmap';
+import type { NavTarget, SeriesGroups } from '@adapters/amcharts/navmap';
 import type { AmXYChart, AmXYSeries } from '@adapters/amcharts/types';
 import type { ChoroplethTrace } from '@model/choropleth';
+import type { FlowTrace } from '@model/flow';
+import type { NetworkTrace } from '@model/network';
 import type { MaidrLayer } from '@type/grammar';
+import type { FakeNode } from './helpers';
 import { fromXYChart } from '@adapters/amcharts/adapter';
 import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { dataItemToOverlayRect } from '@adapters/amcharts/overlay';
@@ -20,6 +23,7 @@ import {
   fakeFunnelSeries,
   fakeGanttSeries,
   fakeGaugeChart,
+  fakeHierarchyLink,
   fakeHierarchySeries,
   fakeLineSeries,
   fakeLollipopSeries,
@@ -31,8 +35,11 @@ import {
   fakePolarSeries,
   fakeRadarSeries,
   fakeRankSeries,
+  fakeRibbon,
   fakeSlicedChart,
   fakeWordCloudSeries,
+  itemOf,
+  spriteOf,
 } from './helpers';
 
 function emptyGroups(): SeriesGroups {
@@ -54,6 +61,8 @@ function emptyGroups(): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    flowSeriesList: [],
+    networkSeriesList: [],
     choroplethSeriesList: [],
     declaredList: [],
   };
@@ -103,13 +112,13 @@ describe('buildNavigationMap (multi-panel)', () => {
     const targetsA = navMap.resolve('layer-a', 0, 1);
     expect(targetsA).toHaveLength(1);
     expect(targetsA[0].series).toBe(seriesA);
-    expect(targetsA[0].dataItem.get('valueY')).toBe(76);
+    expect(itemOf(targetsA[0]).get('valueY')).toBe(76);
     expect(targetsA[0].kind).toBe('column');
 
     const targetsB = navMap.resolve('layer-b', 0, 0);
     expect(targetsB).toHaveLength(1);
     expect(targetsB[0].series).toBe(seriesB);
-    expect(targetsB[0].dataItem.get('valueY')).toBe(10);
+    expect(itemOf(targetsB[0]).get('valueY')).toBe(10);
   });
 
   it('records the owning chart per layer', () => {
@@ -136,7 +145,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('bar', 0, 1);
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept item, i.e. category C (the gap is skipped).
-    expect(targets[0].dataItem.get('categoryX')).toBe('C');
+    expect(itemOf(targets[0]).get('categoryX')).toBe('C');
   });
 
   it('resolves a pie layer to slice targets, skipping valueless slices', () => {
@@ -155,7 +164,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('pie', 0, 1);
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept slice, i.e. Cherries (the gap is skipped).
-    expect(targets[0].dataItem.get('category')).toBe('Cherries');
+    expect(itemOf(targets[0]).get('category')).toBe('Cherries');
     expect(targets[0].kind).toBe('slice');
   });
 
@@ -180,7 +189,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('bands', 0, 1);
     expect(targets).toHaveLength(1);
     expect(targets[0].series).toBe(band);
-    expect(targets[0].dataItem.get('valueY')).toBe(14);
+    expect(itemOf(targets[0]).get('valueY')).toBe(14);
     expect(targets[0].kind).toBe('point');
   });
 
@@ -204,7 +213,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     }]);
 
     const spoke = navMap.resolve('radar', 0, 1);
-    expect(spoke[0].dataItem.get('valueY')).toBe(4);
+    expect(itemOf(spoke[0]).get('valueY')).toBe(4);
     expect(spoke[0].kind).toBe('point');
 
     // A polar column is a wedge sprite, so the overlay measures it as one.
@@ -229,7 +238,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('funnel', 0, 1);
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept stage, i.e. Purchased (the gap is skipped).
-    expect(targets[0].dataItem.get('category')).toBe('Purchased');
+    expect(itemOf(targets[0]).get('category')).toBe('Purchased');
     expect(targets[0].kind).toBe('slice');
   });
 
@@ -249,7 +258,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('bridge', 0, 1);
     expect(targets).toHaveLength(1);
     // col 1 is the SECOND kept step, i.e. Sales (the partial column is skipped).
-    expect(targets[0].dataItem.get('categoryX')).toBe('Sales');
+    expect(itemOf(targets[0]).get('categoryX')).toBe('Sales');
     expect(targets[0].kind).toBe('column');
   });
 
@@ -269,8 +278,8 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     // connector per category, so both resolve to the same mark.
     const start = navMap.resolve('pairs', 0, 1);
     const end = navMap.resolve('pairs', 1, 1);
-    expect(start[0].dataItem.get('categoryX')).toBe('Latvia');
-    expect(end[0].dataItem).toBe(start[0].dataItem);
+    expect(itemOf(start[0]).get('categoryX')).toBe('Latvia');
+    expect(itemOf(end[0])).toBe(itemOf(start[0]));
   });
 
   it('resolves a gantt layer by [lane, interval], the grouping the layer holds', () => {
@@ -287,10 +296,10 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     }]);
 
     const second = navMap.resolve('schedule', 0, 1);
-    expect(second[0].dataItem.get('openValueX')).toBe(60);
+    expect(itemOf(second[0]).get('openValueX')).toBe(60);
     expect(second[0].kind).toBe('column');
 
-    expect(navMap.resolve('schedule', 1, 0)[0].dataItem.get('valueX')).toBe(100);
+    expect(itemOf(navMap.resolve('schedule', 1, 0)[0]).get('valueX')).toBe(100);
     // A lane with nothing booked is navigable and highlights nothing.
     expect(navMap.resolve('schedule', 2, 0)).toEqual([]);
   });
@@ -311,9 +320,9 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     }]);
 
     // Row 0 is the top level below the (dropped) root.
-    expect(navMap.resolve('tree', 0, 1)[0].dataItem.get('category')).toBe('Africa');
+    expect(itemOf(navMap.resolve('tree', 0, 1)[0]).get('category')).toBe('Africa');
     // Row 1 holds the leaves, in the order the walk reached them.
-    expect(navMap.resolve('tree', 1, 1)[0].dataItem.get('category')).toBe('Nigeria');
+    expect(itemOf(navMap.resolve('tree', 1, 1)[0]).get('category')).toBe('Nigeria');
     // A node is a rectangle, which the overlay measures as it measures a column.
     expect(navMap.resolve('tree', 1, 1)[0].kind).toBe('column');
     expect(navMap.resolve('tree', 2, 0)).toEqual([]);
@@ -337,8 +346,8 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
       groups: { ...emptyGroups(), hierarchySeriesList: [series] },
     }]);
 
-    expect(navMap.resolve('ring', 0, 1)[0].dataItem.get('category')).toBe('Africa');
-    expect(navMap.resolve('ring', 1, 1)[0].dataItem.get('category')).toBe('Nigeria');
+    expect(itemOf(navMap.resolve('ring', 0, 1)[0]).get('category')).toBe('Africa');
+    expect(itemOf(navMap.resolve('ring', 1, 1)[0]).get('category')).toBe('Nigeria');
     expect(navMap.resolve('ring', 1, 1)[0].kind).toBe('slice');
     expect(navMap.resolve('ring', 2, 0)).toEqual([]);
   });
@@ -385,7 +394,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
 
     const [target] = navMap.resolve('dial', 0, 0);
     expect(target.kind).toBe('column');
-    expect(target.dataItem.get('graphics')).toBe(hand);
+    expect(itemOf(target).get('graphics')).toBe(hand);
     // The overlay reads the hand's own laid-out box, not the whole dial.
     expect(dataItemToOverlayRect(target, null))
       .toEqual({ left: 40, top: 60, width: 12, height: 80 });
@@ -428,7 +437,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
 
     const target = navMap.resolve('pyramid', 1, 1);
     expect(target[0].series).toBe(women);
-    expect(target[0].dataItem.get('valueY')).toBe(1100);
+    expect(itemOf(target[0]).get('valueY')).toBe(1100);
     expect(target[0].kind).toBe('column');
   });
 
@@ -454,7 +463,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     // A dot's mark is the bullet, so the overlay measures a point.
     const dot = navMap.resolve('dots', 0, 1);
     expect(dot[0].series).toBe(dots);
-    expect(dot[0].dataItem.get('valueY')).toBe(318);
+    expect(itemOf(dot[0]).get('valueY')).toBe(318);
     expect(dot[0].kind).toBe('point');
 
     // A stem is still a column, thin as it is.
@@ -480,10 +489,10 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
       groups: { ...emptyGroups(), wordCloudSeriesList: [series] },
     }]);
 
-    expect(navMap.resolve('cloud', 0, 0)[0].dataItem.get('category')).toBe('machine');
-    expect(navMap.resolve('cloud', 0, 1)[0].dataItem.get('category')).toBe('neural');
+    expect(itemOf(navMap.resolve('cloud', 0, 0)[0]).get('category')).toBe('machine');
+    expect(itemOf(navMap.resolve('cloud', 0, 1)[0]).get('category')).toBe('neural');
     // The weightless term is skipped, exactly as the extraction skips it.
-    expect(navMap.resolve('cloud', 0, 2)[0].dataItem.get('category')).toBe('gradient');
+    expect(itemOf(navMap.resolve('cloud', 0, 2)[0]).get('category')).toBe('gradient');
     expect(navMap.resolve('cloud', 0, 3)).toEqual([]);
     // A term is a glyph, which the overlay measures as neither a box nor a wedge.
     expect(navMap.resolve('cloud', 0, 0)[0].kind).toBe('label');
@@ -508,7 +517,7 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('lines', 1, 1);
     expect(targets).toHaveLength(1);
     expect(targets[0].series).toBe(lineB);
-    expect(targets[0].dataItem.get('valueY')).toBe(60);
+    expect(itemOf(targets[0]).get('valueY')).toBe(60);
     expect(targets[0].kind).toBe('point');
     expect(navMap.chartFor('lines')).toBe(chart);
   });
@@ -535,44 +544,275 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     const targets = navMap.resolve('places', 1, 1);
     expect(targets).toHaveLength(1);
     expect(targets[0].series).toBe(birch);
-    expect(targets[0].dataItem.get('valueY')).toBe(1);
+    expect(itemOf(targets[0]).get('valueY')).toBe(1);
     expect(targets[0].kind).toBe('point');
     expect(navMap.resolve('places', 2, 0)).toEqual([]);
   });
 });
 
-describe('buildNavigationMap (flow and network: no highlight, on purpose)', () => {
-  const LINKS = [
-    { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
-    { sourceId: 'Electricity', targetId: 'Homes', value: 40 },
+describe('buildNavigationMap (flow and network)', () => {
+  /**
+   * Five flows through six nodes, declared out of value order, each with the
+   * band amCharts drew for it.
+   *
+   * `Electricity` is the node the whole of #904 turns on: it receives the
+   * chart's widest ribbon (34) and sends two narrower ones, so a resolver
+   * indexing anything other than what the trace published — the first flow
+   * declared, the widest one touching, every one touching — lands somewhere
+   * else. The same five flows the model-side test walks, so the two halves read
+   * together.
+   */
+  const RIBBONS = [0, 1, 2, 3, 4].map(at => fakeRibbon({
+    left: at * 10,
+    top: 0,
+    right: at * 10 + 6,
+    bottom: 20,
+  }));
+
+  const FLOWS = [
+    { sourceId: 'Coal', targetId: 'Losses', value: 8, link: RIBBONS[0] },
+    { sourceId: 'Coal', targetId: 'Electricity', value: 34, link: RIBBONS[1] },
+    { sourceId: 'Coal', targetId: 'Heat', value: 14, link: RIBBONS[2] },
+    { sourceId: 'Electricity', targetId: 'Homes', value: 20, link: RIBBONS[3] },
+    { sourceId: 'Electricity', targetId: 'Industry', value: 14, link: RIBBONS[4] },
   ];
 
   /**
-   * Asserted positively, because the absence is a decision. MAIDR hands a flow
-   * or network layer its BRAILLE position — a stage and an index within it, or
-   * a component and an index within it — and recovering the node from that
-   * would mean reimplementing the model's node ordering together with its
-   * stage layering, which is a derived graph structure rather than an ordering
-   * over data this adapter emitted. So `resolve` answers `[]` and the binder
-   * clears the overlay; a resolver added later without a position that says
-   * which node it means would outline a confidently wrong one, and this is
-   * what would notice.
+   * A hub, its three neighbours, and a node linked only to itself.
+   *
+   * The cross-links are read off the rows, which is where a force-directed
+   * graph keeps everything that is not the tree — and these rows ARE the whole
+   * graph, since amCharts hands the walk one container root whose children are
+   * therefore all top level.
    */
-  it.each([
-    ['a sankey', TraceType.SANKEY],
-    ['a chord', TraceType.CHORD],
-    ['an alluvial', TraceType.ALLUVIAL],
-    ['a network', TraceType.NETWORK],
-  ])('registers no resolver for %s, so the overlay clears', (_name, type) => {
-    const series = fakeFlowSeries('Energy', LINKS);
+  const PEOPLE: FakeNode = {
+    category: 'Root',
+    children: [
+      { category: 'Ada', row: { name: 'Ada', linkWith: ['Edsger', 'Grace', 'Alan'] } },
+      { category: 'Grace', row: { name: 'Grace', linkWith: ['Alan'] } },
+      { category: 'Alan', row: { name: 'Alan' } },
+      { category: 'Edsger', row: { name: 'Edsger' } },
+    ],
+  };
+
+  /** The layer, the map and the chart for one standalone series. */
+  function panelFor(series: AmXYSeries): {
+    navMap: ReturnType<typeof buildNavigationMap>;
+    layer: MaidrLayer;
+  } {
+    const chart = fakeChart({ series: [series] });
+    const layer = fromXYChart(chart, fakeContainerEl()).subplots[0][0].layers[0];
     const navMap = buildNavigationMap([{
-      chart: fakeChart({ series: [series] }),
-      layers: [{ id: 'flow', type, data: [] }],
-      groups: emptyGroups(),
+      chart,
+      layers: [layer],
+      groups: groupSeries(chart),
+    }]);
+    return { navMap, layer };
+  }
+
+  /** What the adapter outlines where the trace's cursor currently sits. */
+  function outlined(
+    navMap: ReturnType<typeof buildNavigationMap>,
+    layer: MaidrLayer,
+    trace: FlowTrace | NetworkTrace,
+  ): NavTarget[] {
+    return navMap.resolve(layer.id, -1, -1, trace.highlightedPointIndices);
+  }
+
+  it('outlines the one ribbon a sankey trace says it highlighted', () => {
+    // The contract, end to end: the real `FlowTrace` walks to a node, publishes
+    // the band it outlined as a position in the data this adapter emitted, and
+    // the adapter inverts it against its own extraction walk. Nothing here
+    // reconstructs the stage layering that put the cursor on Electricity.
+    const { navMap, layer } = panelFor(fakeFlowSeries('Energy', FLOWS));
+    const trace = TraceFactory.create(layer) as FlowTrace;
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    const state = trace.state;
+    if (state.empty) {
+      throw new Error('Expected a non-empty trace state');
+    }
+    expect(state.text.main.value).toBe('Electricity');
+
+    const targets = outlined(navMap, layer, trace);
+
+    // Electricity touches three ribbons. One is outlined — the one the SVG path
+    // would outline — and it is neither the first declared nor the widest.
+    expect(targets).toHaveLength(1);
+    expect(targets[0].kind).toBe('ribbon');
+    expect(spriteOf(targets[0])).toBe(RIBBONS[3]);
+  });
+
+  it('measures the outlined ribbon as the box it reports', () => {
+    const { navMap, layer } = panelFor(fakeFlowSeries('Energy', FLOWS));
+    const trace = TraceFactory.create(layer) as FlowTrace;
+    trace.moveOnce('FORWARD');
+
+    const [target] = outlined(navMap, layer, trace);
+
+    // Coal's widest outgoing flow is Coal-Electricity, drawn by ribbon 1.
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 10, top: 0, width: 6, height: 20 });
+  });
+
+  it('outlines a chord the same way, since it is the same weighted graph', () => {
+    // A `Chord` is announced as its own type but drawn from the same links, so
+    // it shares the bucket a sankey is collected into — and a bucket a type is
+    // missing from is exactly how a highlight silently vanishes.
+    const { navMap, layer } = panelFor(fakeFlowSeries('Trade', FLOWS, 'ChordDirected'));
+    expect(layer.type).toBe(TraceType.CHORD);
+    const trace = TraceFactory.create(layer) as FlowTrace;
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[3]);
+  });
+
+  it('outlines a declared alluvial, which reaches the resolver another way', () => {
+    // An alluvial has no amCharts class: it IS a sankey the author declared as
+    // one, so `planDeclarations` takes the series out of the flow bucket and
+    // into the declared queue. Same series, same ribbons, different route to
+    // the same resolver — and the route is the part that would rot unnoticed.
+    const series = fakeFlowSeries('Budget', FLOWS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+    const { navMap, layer } = panelFor(series);
+    expect(layer.type).toBe(TraceType.ALLUVIAL);
+    const trace = TraceFactory.create(layer) as FlowTrace;
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    expect(spriteOf(outlined(navMap, layer, trace)[0])).toBe(RIBBONS[3]);
+  });
+
+  it('outlines the links it can reach and clears on the ones it cannot', () => {
+    // The sprite read is unverifiable without the library, so a build that
+    // keeps no band answers nothing rather than reaching for a neighbouring
+    // one. Asserted beside a link that does resolve, or the blank would prove
+    // only that the resolver had not been registered at all.
+    const { navMap, layer } = panelFor(fakeFlowSeries('Energy', [
+      { sourceId: 'Coal', targetId: 'Electricity', value: 34, link: RIBBONS[1] },
+      { sourceId: 'Electricity', targetId: 'Homes', value: 20 },
+    ]));
+
+    expect(spriteOf(navMap.resolve(layer.id, -1, -1, [0])[0])).toBe(RIBBONS[1]);
+    expect(navMap.resolve(layer.id, -1, -1, [1])).toEqual([]);
+  });
+
+  it('clears rather than guessing when a flow carries no point indices', () => {
+    // A consumer that has not learned about `pointIndices` sends the -1 pair
+    // through, and a braille position for a flow layer names a stage rather
+    // than a ribbon. Answering nothing keeps the honest blank #903 shipped.
+    const { navMap, layer } = panelFor(fakeFlowSeries('Energy', FLOWS));
+
+    expect(navMap.resolve(layer.id, -1, -1, [3])).toHaveLength(1);
+    expect(navMap.resolve(layer.id, 0, 0)).toEqual([]);
+    expect(navMap.resolve(layer.id, -1, -1)).toEqual([]);
+  });
+
+  it('clears when the drawn links and the layer have drifted apart', () => {
+    // An index only means something if the ribbons and `layer.data` are the
+    // same list. A layer built from a chart that has since changed would
+    // otherwise outline a band picked at random — worse than no outline.
+    const series = fakeFlowSeries('Energy', FLOWS);
+    const chart = fakeChart({ series: [series] });
+    const stale: MaidrLayer = {
+      id: 'stale',
+      type: TraceType.SANKEY,
+      data: [{ source: 'Coal', target: 'Losses', value: 8 }],
+    };
+    const live = fromXYChart(chart, fakeContainerEl()).subplots[0][0].layers[0];
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [live, stale],
+      groups: { ...groupSeries(chart), flowSeriesList: [series, series] },
     }]);
 
-    expect(navMap.resolve('flow', 0, 0)).toEqual([]);
-    expect(navMap.resolve('flow', 1, 1)).toEqual([]);
+    expect(navMap.resolve(live.id, -1, -1, [3])).toHaveLength(1);
+    expect(navMap.resolve('stale', -1, -1, [0])).toEqual([]);
+  });
+
+  it('outlines the line a network trace says it highlighted', () => {
+    // The same inversion with the model's component walk in the place of the
+    // stage layering — and one difference of amCharts': a force-directed
+    // graph's links are not data items, so the payload's two node names are
+    // matched against the lines the series drew. Those are declared here in
+    // another order, and the matching one with its ends the other way round,
+    // so a resolver pairing by ordinal or by direction resolves elsewhere.
+    const drawn = [
+      fakeHierarchyLink({ source: 'Grace', target: 'Alan' }),
+      fakeHierarchyLink({ source: 'Ada', target: 'Alan' }),
+      fakeHierarchyLink({ source: 'Grace', target: 'Ada' }),
+      fakeHierarchyLink({ source: 'Ada', target: 'Edsger' }),
+    ];
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith' },
+      drawn,
+    );
+    const { navMap, layer } = panelFor(series);
+    const trace = TraceFactory.create(layer) as NetworkTrace;
+    trace.moveOnce('FORWARD');
+
+    const state = trace.state;
+    if (state.empty) {
+      throw new Error('Expected a non-empty trace state');
+    }
+    expect(state.text.main.value).toBe('Ada');
+
+    const targets = outlined(navMap, layer, trace);
+
+    // Ada is linked to three people; sorted by degree her first neighbour is
+    // Grace, so one line is outlined and it is the Ada-Grace one.
+    expect(targets).toHaveLength(1);
+    expect(spriteOf(targets[0])).toBe(drawn[2]);
+  });
+
+  it('clears when the graph has changed under a network layer', () => {
+    // The re-extraction is the network's alignment guard: names alone would
+    // happily match an index against a layer built from a different graph, and
+    // the outline would then be one the reader is not standing on.
+    const drawn = [fakeHierarchyLink({ source: 'Ada', target: 'Grace' })];
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith' },
+      drawn,
+    );
+    const chart = fakeChart({ series: [series] });
+    const live = fromXYChart(chart, fakeContainerEl()).subplots[0][0].layers[0];
+    const stale: MaidrLayer = {
+      id: 'stale',
+      type: TraceType.NETWORK,
+      data: [{ source: 'Ada', target: 'Grace' }],
+    };
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [live, stale],
+      groups: { ...groupSeries(chart), networkSeriesList: [series, series] },
+    }]);
+
+    expect(spriteOf(navMap.resolve(live.id, -1, -1, [1])[0])).toBe(drawn[0]);
+    expect(navMap.resolve('stale', -1, -1, [0])).toEqual([]);
+  });
+
+  it('clears on a pair the chart drew no line for', () => {
+    // A build exposing no lines at all — or one short of the pair asked for —
+    // leaves the overlay empty rather than outlining the nearest line it has.
+    const drawn = [fakeHierarchyLink({ source: 'Ada', target: 'Edsger' })];
+    const series = fakeForceDirectedSeries(
+      'People',
+      PEOPLE,
+      { linkWithField: 'linkWith' },
+      drawn,
+    );
+    const { navMap, layer } = panelFor(series);
+
+    // Ada-Edsger is the first link the walk emits, and Ada-Grace the second.
+    expect(spriteOf(navMap.resolve(layer.id, -1, -1, [0])[0])).toBe(drawn[0]);
+    expect(navMap.resolve(layer.id, -1, -1, [1])).toEqual([]);
   });
 });
 
@@ -643,7 +883,7 @@ describe('buildNavigationMap (choropleth)', () => {
         const [target] = navMap.resolve(layer.id, row, col);
         expect(target).toBeDefined();
         expect(target.kind).toBe('region');
-        expect(target.dataItem.get('mapPolygon')).toBe(shapes[boxOf.get(named) as number]);
+        expect(itemOf(target).get('mapPolygon')).toBe(shapes[boxOf.get(named) as number]);
       }
     }
   });
@@ -658,11 +898,11 @@ describe('buildNavigationMap (choropleth)', () => {
     // The two southernmost are Nevada (39.3N) and Oregon (43.9N), read west to
     // east — so Oregon (-120.6) comes before Nevada (-116.6), which is neither
     // their declared order nor their order by latitude.
-    expect(navMap.resolve(layer.id, 0, 0)[0].dataItem.get('mapPolygon')).toBe(shapes[2]);
-    expect(navMap.resolve(layer.id, 0, 1)[0].dataItem.get('mapPolygon')).toBe(shapes[1]);
+    expect(itemOf(navMap.resolve(layer.id, 0, 0)[0]).get('mapPolygon')).toBe(shapes[2]);
+    expect(itemOf(navMap.resolve(layer.id, 0, 1)[0]).get('mapPolygon')).toBe(shapes[1]);
     // Northern band: Washington (-120.5) is west of Idaho (-114.6).
-    expect(navMap.resolve(layer.id, 1, 0)[0].dataItem.get('mapPolygon')).toBe(shapes[0]);
-    expect(navMap.resolve(layer.id, 1, 1)[0].dataItem.get('mapPolygon')).toBe(shapes[3]);
+    expect(itemOf(navMap.resolve(layer.id, 1, 0)[0]).get('mapPolygon')).toBe(shapes[0]);
+    expect(itemOf(navMap.resolve(layer.id, 1, 1)[0]).get('mapPolygon')).toBe(shapes[3]);
   });
 
   it('degenerates to declared order when the map placed no region', () => {
@@ -679,7 +919,7 @@ describe('buildNavigationMap (choropleth)', () => {
     const { navMap, layer } = navMapFor(series);
 
     for (let col = 0; col < STATES.length; col++) {
-      expect(navMap.resolve(layer.id, 0, col)[0].dataItem.get('mapPolygon')).toBe(shapes[col]);
+      expect(itemOf(navMap.resolve(layer.id, 0, col)[0]).get('mapPolygon')).toBe(shapes[col]);
     }
   });
 
@@ -742,12 +982,13 @@ describe('groupSeries (choropleth)', () => {
 });
 
 describe('groupSeries', () => {
-  it('leaves an am5flow series and a force-directed network in no bucket', () => {
-    // Not an oversight, and not a no-op either: `classifySeriesKind` answers
-    // `'bar'` for a class it does not know, so before these classes were named
-    // a sankey landed in `barSeriesList` — where it would have shifted every
-    // real bar layer's resolver index and outlined the wrong column on a chart
-    // carrying both. Recognising them is what puts them in NO bucket.
+  it('buckets an am5flow series and a network by the marks they draw', () => {
+    // `classifySeriesKind` answers `'bar'` for a class it does not know, so
+    // before these classes were named a sankey landed in `barSeriesList` —
+    // where it would have shifted every real bar layer's resolver index and
+    // outlined the wrong column on a chart carrying both. And a series in no
+    // bucket at all is how a type reads correctly with no highlight, which is
+    // what these two shipped with until the traces published their ribbons.
     const sankey = fakeFlowSeries('Energy', [
       { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
     ]);
@@ -758,8 +999,9 @@ describe('groupSeries', () => {
 
     const groups = groupSeries(fakeChart({ series: [sankey, network] }));
 
+    expect(groups.flowSeriesList).toEqual([sankey]);
+    expect(groups.networkSeriesList).toEqual([network]);
     expect(groups.barSeriesList).toEqual([]);
-    expect(Object.values(groups).every(bucket => bucket.length === 0)).toBe(true);
   });
 
   it('buckets a sunburst with the trees it is one of', () => {

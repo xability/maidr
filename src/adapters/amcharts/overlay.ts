@@ -17,7 +17,7 @@
  * navigation.
  */
 
-import type { NavTarget } from './navmap';
+import type { NavItemTarget, NavRibbonTarget, NavTarget } from './navmap';
 import type { AmBounds, AmPoint, AmSprite } from './types';
 import { sliceExtent } from './geometry';
 
@@ -33,6 +33,17 @@ export interface OverlayRect {
 
 /** Side length of the box drawn around a line/scatter point. */
 const POINT_BOX_SIZE = 14;
+
+/**
+ * How thin a ribbon's box is allowed to get before it is padded out.
+ *
+ * A sankey band and a chord ribbon always enclose area, but a network line
+ * between two nodes at the same height reports a box of zero height — real
+ * geometry rather than the degenerate point a `Slice` reports (#774). Left as
+ * it is, `intersectRect` would collapse it and the overlay would clear on a
+ * link that is drawn perfectly straight.
+ */
+const RIBBON_MIN_THICKNESS = 2;
 
 /**
  * Manages DOM rectangles drawn over an amCharts 5 chart to provide
@@ -124,10 +135,10 @@ export class HighlightOverlay {
 }
 
 /**
- * Convert a navigation target (an am5 series + dataItem) into an overlay
- * rectangle in root-container pixels, clipped to the plot area. Returns `null`
- * when geometry is unavailable or fully outside the plot, in which case the
- * caller should clear the overlay.
+ * Convert a navigation target — the mark hanging off an am5 dataItem, or the
+ * sprite a ribbon was resolved to — into an overlay rectangle in root-container
+ * pixels, clipped to the plot area. Returns `null` when geometry is unavailable
+ * or fully outside the plot, in which case the caller should clear the overlay.
  */
 export function dataItemToOverlayRect(
   target: NavTarget,
@@ -153,7 +164,58 @@ function readRect(target: NavTarget): OverlayRect | null {
       return regionRect(target);
     case 'column':
       return columnRect(target);
+    case 'ribbon':
+      return ribbonRect(target);
   }
+}
+
+/**
+ * Rectangle for a ribbon — the band a flow link is drawn as, or the line
+ * between two nodes of a force-directed network.
+ *
+ * The sprite arrives already resolved, because where a link hangs differs by
+ * series family and that is the navigation map's business; here it is only
+ * measured. Measured from the reported box first, for the reason a map region
+ * is: a ribbon is a curved band and a link is a diagonal, and neither fills the
+ * box its local width and height describe, while `globalBounds()` maps all four
+ * corners of the shape as drawn.
+ *
+ * The box is coarse — a sankey's widest band spans most of the chart — but the
+ * overlay draws rectangles onto a canvas that has no path to outline, and a box
+ * hugging the active ribbon still says which way navigation moved.
+ *
+ * A sprite reporting no extent in either direction answers `null` rather than a
+ * mark at its centre: an am5 `Graphics` painted through a draw callback can
+ * report a degenerate point (#774), and a link carries no radius or sweep to be
+ * measured from instead.
+ */
+function ribbonRect(target: NavRibbonTarget): OverlayRect | null {
+  const bounds = target.sprite.globalBounds?.();
+  const reported = bounds ? boundsToRect(bounds) : null;
+  const box = reported && hasExtent(reported) ? reported : spriteBoxRect(target.sprite);
+  if (!box || !hasExtent(box)) {
+    return null;
+  }
+
+  // A straight link has extent along one axis only, and a hairline is what it
+  // is; pad the other so the box survives the clip and stays visible.
+  return {
+    left: box.width > 0 ? box.left : box.left - RIBBON_MIN_THICKNESS / 2,
+    top: box.height > 0 ? box.top : box.top - RIBBON_MIN_THICKNESS / 2,
+    width: Math.max(box.width, RIBBON_MIN_THICKNESS),
+    height: Math.max(box.height, RIBBON_MIN_THICKNESS),
+  };
+}
+
+/**
+ * Whether a box measures anything at all.
+ *
+ * One dimension is enough, which is where a ribbon parts company with a region:
+ * a link drawn horizontally is a real mark with a real length, while a shape
+ * reporting nothing in either direction is the degenerate point of #774.
+ */
+function hasExtent(box: OverlayRect): boolean {
+  return box.width > 0 || box.height > 0;
 }
 
 /**
@@ -173,7 +235,7 @@ function readRect(target: NavTarget): OverlayRect | null {
  * measure a region from instead. The overlay then clears, which says nothing
  * rather than pointing a one-pixel mark at the wrong place.
  */
-function regionRect(target: NavTarget): OverlayRect | null {
+function regionRect(target: NavItemTarget): OverlayRect | null {
   const polygon = target.dataItem.get('mapPolygon') as AmSprite | undefined;
   if (!polygon) {
     return null;
@@ -195,7 +257,7 @@ function regionRect(target: NavTarget): OverlayRect | null {
  * Rectangle for a column-shaped data point (bar / segmented / histogram /
  * heatmap cell), read directly from the column graphics sprite's global box.
  */
-function columnRect(target: NavTarget): OverlayRect | null {
+function columnRect(target: NavItemTarget): OverlayRect | null {
   const sprite = readColumnSprite(target);
   if (!sprite) {
     return null;
@@ -252,7 +314,7 @@ function spriteBoxRect(sprite: AmSprite): OverlayRect | null {
  * {@link sliceExtent} to measure — but it is laid out with a width and a
  * height of its own, which is what the sprite box answers with.
  */
-function sliceRect(target: NavTarget): OverlayRect | null {
+function sliceRect(target: NavItemTarget): OverlayRect | null {
   const slice = (target.dataItem.get('slice') ?? target.dataItem.get('graphics')) as
     | AmSprite
     | undefined;
@@ -281,7 +343,7 @@ function sliceRect(target: NavTarget): OverlayRect | null {
  * glyph however it is turned. The sprite's own corners stay as the fallback
  * for a build that reports no bounds.
  */
-function labelRect(target: NavTarget): OverlayRect | null {
+function labelRect(target: NavItemTarget): OverlayRect | null {
   const label = target.dataItem.get('label') as AmSprite | undefined;
   if (!label) {
     return null;
@@ -302,7 +364,7 @@ function labelRect(target: NavTarget): OverlayRect | null {
 /**
  * Rectangle for a line/scatter point: a small box centered on the point.
  */
-function pointRect(target: NavTarget): OverlayRect | null {
+function pointRect(target: NavItemTarget): OverlayRect | null {
   const center = readPointGlobal(target);
   if (!center) {
     return null;
@@ -352,7 +414,7 @@ function intersectRect(rect: OverlayRect, bounds: AmBounds): OverlayRect | null 
  * rectangles laid out with a width and a height, which is what the box read
  * above needs; only the property they hang on differs.
  */
-function readColumnSprite(target: NavTarget): AmSprite | undefined {
+function readColumnSprite(target: NavItemTarget): AmSprite | undefined {
   const graphics = target.dataItem.get('graphics')
     ?? target.dataItem.get('column')
     ?? target.dataItem.get('rectangle');
@@ -364,7 +426,7 @@ function readColumnSprite(target: NavTarget): AmSprite | undefined {
  * Prefers the first bullet sprite's bounds center, falling back to the
  * dataItem's `point` converted via the series.
  */
-function readPointGlobal(target: NavTarget): AmPoint | null {
+function readPointGlobal(target: NavItemTarget): AmPoint | null {
   // Proven path: the dataItem's series-local point mapped via the series.
   const point = target.dataItem.get('point') as AmPoint | undefined;
   if (point && target.series.toGlobal) {

@@ -9,10 +9,10 @@
  * chart so highlights clip against the correct panel's plot area.
  */
 
-import type { ChoroplethPoint, HeatmapData, MaidrLayer } from '@type/grammar';
+import type { ChoroplethPoint, HeatmapData, MaidrLayer, NetworkPoint } from '@type/grammar';
 import type { AmDeclaredLayer } from './declaration';
 import type { ChoroplethFields } from './extractor';
-import type { AmChart, AmDataItem, AmXYSeries } from './types';
+import type { AmChart, AmDataItem, AmSprite, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 import {
   choroplethFields,
@@ -24,25 +24,49 @@ import {
 } from './declaration';
 import {
   classifySeriesKind,
+  extractFlowLinks,
   extractGanttItems,
   extractHierarchyNodes,
+  extractNetworkPoints,
   extractSpanItems,
   filterChoroplethItems,
   findGaugeHand,
+  findNetworkLink,
+  flowRibbonOf,
   isColumnSeries,
 } from './extractor';
 
 /**
- * The am5 entities to highlight for a navigation position.
+ * A mark reached through the data item it hangs on.
+ *
  * `kind` tells the overlay which geometry to read: a column's box, a line
  * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
  * the glyph of a word cloud's term, or the drawn polygon of a map region.
  */
-export interface NavTarget {
+export interface NavItemTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
   kind: 'column' | 'point' | 'slice' | 'label' | 'region';
 }
+
+/**
+ * A ribbon: the band a sankey, chord or alluvial link is drawn as, or the line
+ * between two nodes of a force-directed network.
+ *
+ * The one target named by its sprite rather than by a data item, because a
+ * network's lines are not data items at all — amCharts derives them from the
+ * tree and keeps them in a list of its own. The resolver has already done the
+ * inversion by the time this is built, so the overlay measures what it is
+ * handed instead of learning where each library hangs a link.
+ */
+export interface NavRibbonTarget {
+  series: AmXYSeries;
+  sprite: AmSprite;
+  kind: 'ribbon';
+}
+
+/** The am5 entities to highlight for a navigation position. */
+export type NavTarget = NavItemTarget | NavRibbonTarget;
 
 /**
  * Resolves a MAIDR navigation position to the am5 targets to highlight.
@@ -52,9 +76,11 @@ export interface NavMap {
    * @param layerId - The layer the position belongs to
    * @param row - The MAIDR row, or `-1` when `pointIndices` is given
    * @param col - The MAIDR column, or `-1` when `pointIndices` is given
-   * @param pointIndices - For a point cloud, the `layer.data` indices to
-   *   outline. A cloud's selection is a set of points that no row/column pair
-   *   can name, so it is addressed by data index instead.
+   * @param pointIndices - For a layer that names its own marks, the
+   *   `layer.data` indices to outline. A cloud's selection is a set of points
+   *   that no row/column pair can name, and a flow or network position names a
+   *   node rather than the ribbon drawn for it, so both are addressed by data
+   *   index instead.
    */
   resolve: (
     layerId: string,
@@ -150,6 +176,18 @@ export interface SeriesGroups {
   hierarchySeriesList: AmXYSeries[];
   /** One WORD_CLOUD layer each, in series order. */
   wordCloudSeriesList: AmXYSeries[];
+  /**
+   * One SANKEY or CHORD layer each, in series order.
+   *
+   * One bucket for both because they are one weighted graph drawn two ways —
+   * the same `extractFlowLinks` walk, the same ribbon per link — and only the
+   * announced type differs. An `ArcDiagram` lands here too, as a sankey. A
+   * declared **alluvial** does not: it is the same am5flow series read a third
+   * way, so it travels in {@link declaredList} with the other declared layers.
+   */
+  flowSeriesList: AmXYSeries[];
+  /** One NETWORK layer each, in series order. */
+  networkSeriesList: AmXYSeries[];
   /**
    * One CHOROPLETH layer each, in series order.
    *
@@ -337,7 +375,7 @@ function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
  */
 function buildHierarchyResolver(
   series: AmXYSeries | undefined,
-  kind: NavTarget['kind'],
+  kind: NavItemTarget['kind'],
 ): Resolver {
   const levels: AmDataItem[][] = [];
   for (const node of series ? extractHierarchyNodes(series) : []) {
@@ -420,7 +458,7 @@ function buildIntervalResolver(declared: AmDeclaredLayer | undefined): Resolver 
   const { items, owners } = declared.declaration.type === TraceType.FOREST
     ? extractForestSamples(declared)
     : extractErrorBarSamples(declared);
-  const kind: NavTarget['kind'] = isColumnSeries(declared.series) ? 'column' : 'point';
+  const kind: NavItemTarget['kind'] = isColumnSeries(declared.series) ? 'column' : 'point';
 
   return (_row, col) => {
     const dataItem = items[col];
@@ -478,6 +516,104 @@ function buildCloudResolver(
       const mark = marks[index];
       if (mark) {
         targets.push({ series: mark.series, dataItem: mark.item, kind: 'point' });
+      }
+    }
+    return targets;
+  };
+}
+
+/**
+ * Build a resolver for a flow layer — a sankey, a chord, or the alluvial an
+ * author declares on the same am5flow series.
+ *
+ * The second family to be addressed by data index rather than by position, and
+ * for the same reason as {@link buildCloudResolver}: what MAIDR hands back for
+ * a flow trace is its *braille* position, `(stage, index within stage)`, and
+ * turning that into a node would mean reimplementing the model's own
+ * first-appearance node ordering together with its longest-path stage layering
+ * here. That is a derived graph structure rather than an ordering over data
+ * this adapter emitted, and a copy of it drifts silently — #895 and #903 both
+ * refused to ship one, and left this unregistered instead.
+ *
+ * `FlowTrace` now publishes the one ribbon it outlined as an index into the
+ * `data` this adapter supplied, so the inversion is a lookup: `layer.data[i]`
+ * was read from `extractFlowLinks(series)[i]` by construction, and that entry
+ * carries the data item amCharts drew the band from. **One ribbon, not every
+ * flow touching the node** — the model publishes exactly what its own
+ * `mapToSvgElements` selects, so this overlay and an SVG renderer outline the
+ * same band at the same cursor position.
+ *
+ * @param series - The am5flow series that drew the ribbons, if one matched.
+ * @param layer - The emitted layer, whose `data` the indices address.
+ * @returns A resolver mapping data indices to the ribbons that drew them.
+ */
+function buildFlowResolver(series: AmXYSeries | undefined, layer: MaidrLayer): Resolver {
+  if (!series || !Array.isArray(layer.data)) {
+    return () => [];
+  }
+  const links = extractFlowLinks(series);
+  // The alignment guard {@link buildCloudResolver} makes: an index only means
+  // anything if this list and `layer.data` are the same list. A mismatch means
+  // the chart moved underneath the extraction, and resolving to nothing then
+  // clears the overlay — the honest blank these four types shipped with, and
+  // strictly better than a band picked by a stale index.
+  if (links.length !== layer.data.length) {
+    return () => [];
+  }
+  return (_row, _col, pointIndices) => {
+    if (!pointIndices) {
+      return [];
+    }
+    const targets: NavTarget[] = [];
+    for (const index of pointIndices) {
+      const link = links[index];
+      const sprite = link ? flowRibbonOf(link.item) : undefined;
+      if (sprite) {
+        targets.push({ series, sprite, kind: 'ribbon' });
+      }
+    }
+    return targets;
+  };
+}
+
+/**
+ * Build a resolver for a force-directed network layer.
+ *
+ * The same inversion as {@link buildFlowResolver}, with the model's connected
+ * component walk in the place of its stage layering, and one difference that
+ * belongs to amCharts rather than to MAIDR: a network's links are not data
+ * items. `ForceDirected` is a *hierarchy* series, so `extractNetworkPoints`
+ * derives the links from the tree and from the rows' `linkWith` columns, and
+ * the drawn lines live in a list of the series' own. A published index
+ * therefore names a point first — two node names — and {@link findNetworkLink}
+ * finds the line joining that pair.
+ *
+ * The re-extraction is the alignment guard: a list of a different length from
+ * `layer.data` means the graph changed under the map, and the resolver then
+ * answers nothing rather than pairing an index with whatever now sits at it.
+ *
+ * @param series - The `ForceDirected` series that drew the graph, if one matched.
+ * @param layer - The emitted layer, whose `data` the indices address.
+ * @returns A resolver mapping data indices to the lines that drew them.
+ */
+function buildNetworkResolver(series: AmXYSeries | undefined, layer: MaidrLayer): Resolver {
+  const points = layer.data as NetworkPoint[];
+  if (!series || !Array.isArray(points)) {
+    return () => [];
+  }
+  if (extractNetworkPoints(series).length !== points.length) {
+    return () => [];
+  }
+  return (_row, _col, pointIndices) => {
+    if (!pointIndices) {
+      return [];
+    }
+    const targets: NavTarget[] = [];
+    for (const index of pointIndices) {
+      const point = points[index];
+      const sprite = point ? findNetworkLink(series, point) : undefined;
+      if (sprite) {
+        targets.push({ series, sprite, kind: 'ribbon' });
       }
     }
     return targets;
@@ -671,6 +807,8 @@ export function groupSeries(chart: AmChart): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    flowSeriesList: [],
+    networkSeriesList: [],
     choroplethSeriesList: [],
     declaredList: [],
   };
@@ -767,23 +905,26 @@ export function groupSeries(chart: AmChart): SeriesGroups {
         groups.wordCloudSeriesList.push(series);
         break;
       // A map region IS addressable — the polygon amCharts drew reports a box
-      // — so unlike the flow family below, a choropleth gets a bucket and a
-      // resolver. The banding the model navigates it by is rebuilt from the
-      // layer's own centroids; see `buildChoroplethResolver`.
+      // — so a choropleth gets a bucket and a resolver. The banding the model
+      // navigates it by is rebuilt from the layer's own centroids; see
+      // `buildChoroplethResolver`.
       case 'choropleth':
         groups.choroplethSeriesList.push({ series });
         break;
-      // A flow diagram and a force-directed network are read, described,
-      // brailled and navigated, and deliberately get no bucket: MAIDR hands a
-      // flow trace's position back as a *braille* one — the stage, and the
-      // index within it — and recovering the node from that would mean
-      // reimplementing the model's own node ordering and stage layering here.
-      // That is a derived graph structure rather than an ordering, which is
-      // the line `buildCloudResolver` refuses to cross, so no resolver is
-      // registered and the overlay clears. See `docs/amcharts.md`.
+      // A sankey and a chord are one weighted graph drawn two ways, so they
+      // share a bucket the way a treemap and an icicle do. Both had none at
+      // all until #904: the only position on offer was the *braille* one — a
+      // stage and an index within it — and recovering the node from that would
+      // have meant reimplementing the model's stage layering here. The trace
+      // now names the ribbon it outlined instead, as an index into the data
+      // this adapter emitted, which is an inversion rather than a copy.
       case 'sankey':
       case 'chord':
+        groups.flowSeriesList.push(series);
+        break;
+      // The same story with the component walk in place of the layering.
       case 'network':
+        groups.networkSeriesList.push(series);
         break;
       default:
         break;
@@ -861,6 +1002,8 @@ function addEntryResolvers(
   let ganttIdx = 0;
   let hierarchyIdx = 0;
   let wordCloudIdx = 0;
+  let flowIdx = 0;
+  let networkIdx = 0;
   let choroplethIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
@@ -918,7 +1061,7 @@ function addEntryResolvers(
         // A polar area draws its values as wedges rather than as points on a
         // line, so the sprite the overlay measures differs even though the
         // navigable grid is the same.
-        const kind: NavTarget['kind']
+        const kind: NavItemTarget['kind']
           = layer.type === TraceType.POLAR_AREA ? 'slice' : 'point';
         register(layer.id, (row, col) => {
           const entry = seriesList[row];
@@ -980,7 +1123,7 @@ function addEntryResolvers(
       case TraceType.SUNBURST: {
         // One tree, three marks: a treemap block and an icicle bar are
         // rectangles, a sunburst node is a wedge.
-        const kind: NavTarget['kind']
+        const kind: NavItemTarget['kind']
           = layer.type === TraceType.SUNBURST ? 'slice' : 'column';
         register(
           layer.id,
@@ -1041,32 +1184,30 @@ function addEntryResolvers(
         }
         break;
       }
-      // Named rather than left to the default, because their absence is a
-      // decision rather than an omission — the failure mode this whole file
-      // exists to make visible is a type that reads correctly while its
-      // highlight silently vanishes.
-      //
-      // `createNavigateObserver` hands a flow or network layer the *braille*
-      // position, which `FlowTrace.braille` transposes to (stage, index within
-      // stage) and `NetworkTrace.braille` to (component, index within
-      // component). Inverting either means reimplementing the model's node
-      // ordering together with its stage layering — or its component
-      // discovery, ordering and sorting — inside the adapter. That is a
-      // derived graph structure, not an ordering over data this adapter
-      // emitted, and `buildCloudResolver` already refuses exactly that: a copy
-      // drifts silently and then outlines a confidently wrong node.
-      //
-      // So no resolver is registered, `NavMap.resolve` answers `[]`, and
-      // `applyHighlight` clears the overlay. An empty outline is truthful; a
-      // box drawn from a guessed layering is not. Both traces already compute
-      // the right answer internally (`edge.at`, `node.linkAt[0]`), so a
-      // `highlightedPointIndices` getter on each — a `src/model/` change —
-      // makes all four resolvable by registering resolvers and nothing else.
+      // A sankey and a chord are one weighted graph drawn two ways, and were
+      // collected together for that reason; an `ArcDiagram` is announced as a
+      // sankey and lands with them.
       case TraceType.SANKEY:
-      case TraceType.CHORD:
-      case TraceType.ALLUVIAL:
-      case TraceType.NETWORK:
+      case TraceType.CHORD: {
+        register(layer.id, buildFlowResolver(groups.flowSeriesList[flowIdx++], layer));
         break;
+      }
+      // The same am5flow series, read a third way — so its resolver is the
+      // flow one, taken from the declared queue rather than from the bucket.
+      case TraceType.ALLUVIAL: {
+        register(
+          layer.id,
+          buildFlowResolver(nextDeclared(TraceType.ALLUVIAL)?.series, layer),
+        );
+        break;
+      }
+      case TraceType.NETWORK: {
+        register(
+          layer.id,
+          buildNetworkResolver(groups.networkSeriesList[networkIdx++], layer),
+        );
+        break;
+      }
       default:
         break;
     }

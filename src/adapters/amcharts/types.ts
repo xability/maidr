@@ -132,6 +132,17 @@ export interface AmXYSeries extends AmEntity {
    * thing that tells an area from a line.
    */
   fills?: { template?: AmSprite };
+  /**
+   * The lines an `am5hierarchy.ForceDirected` draws between its nodes, as an
+   * am5 `ListTemplate`.
+   *
+   * A network is the one reading whose marks hang off neither a data item nor
+   * the series' own data: its links are derived from the tree and from the
+   * rows' `linkWith` columns, and amCharts keeps the drawn lines here. Each
+   * carries the two node data items it joins on `source` / `target`, which is
+   * how `findNetworkLink` tells them apart.
+   */
+  links?: AmListLike<AmSprite>;
   /** Converts a series-local point to root-container coordinates. */
   toGlobal?: (point: AmPoint) => AmPoint;
   /**
