@@ -1,10 +1,14 @@
 import type { AmChartsBinderOptions, AmXYSeries } from '@adapters/amcharts/types';
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellData,
+  FlowPoint,
   GanttData,
+  GaugePoint,
   LinePoint,
   MaidrLayer,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
@@ -21,12 +25,18 @@ import {
   fakeContainerEl,
   fakeDotSeries,
   fakeFloatingColumnSeries,
+  fakeFlowSeries,
+  fakeForceDirectedSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
+  fakeGaugeChart,
   fakeHierarchySeries,
   fakeHorizontalBarSeries,
   fakeLineSeries,
   fakeLollipopSeries,
+  fakeMapChart,
+  fakeMapPolygon,
+  fakeMapPolygonSeries,
   fakePieChart,
   fakePieSeries,
   fakePolarSeries,
@@ -898,6 +908,623 @@ describe('fromAmCharts (hierarchy)', () => {
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
       .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (sunburst)', () => {
+  const TREE = {
+    category: 'Root',
+    children: [
+      {
+        category: 'Asia',
+        children: [
+          { category: 'China', value: 1425 },
+          { category: 'India', value: 1428 },
+        ],
+      },
+      { category: 'Africa', children: [{ category: 'Nigeria', value: 224 }] },
+    ],
+  };
+
+  it('finds a standalone Sunburst, which like a treemap is no chart at all', () => {
+    // A `Sunburst` extends `Partition` but carries its own class name, so it is
+    // discovered only because it is named in its own right.
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('reads a Sunburst as a sunburst, not as the icicle it extends', () => {
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.SUNBURST);
+    expect(layer.title).toBe('Population');
+    // A tree is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Value' } });
+    // The same walk the treemap and the icicle emit: one tree, three marks.
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: 'Asia', path: [] },
+      { x: 'China', y: 1425, path: ['Asia'] },
+      { x: 'India', y: 1428, path: ['Asia'] },
+      { x: 'Africa', path: [] },
+      { x: 'Nigeria', y: 224, path: ['Africa'] },
+    ]);
+  });
+
+  it('emits no selectors: amCharts paints the wedges to canvas, not to SVG', () => {
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (flow: sankey, chord, arc diagram)', () => {
+  const LINKS = [
+    { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    { sourceId: 'Gas', targetId: 'Electricity', value: 21 },
+    { sourceId: 'Electricity', targetId: 'Homes', value: 40 },
+  ];
+
+  it('finds a standalone Sankey, which like a treemap is no chart at all', () => {
+    // An am5flow series is an `am5.Series` pushed straight into a container,
+    // so discovery has to recognise the series itself or recurse past it.
+    const series = fakeFlowSeries('Energy', LINKS);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('converts a Sankey into one point per link, nodes derived from the ends', () => {
+    const series = fakeFlowSeries('Energy', LINKS);
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.SANKEY);
+    expect(layer.title).toBe('Energy');
+    // A flow is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Weight' } });
+    expect(layer.data as FlowPoint[]).toEqual([
+      { source: 'Coal', target: 'Electricity', value: 34 },
+      { source: 'Gas', target: 'Electricity', value: 21 },
+      { source: 'Electricity', target: 'Homes', value: 40 },
+    ]);
+  });
+
+  it('reads an end off the node data item when no id was resolved', () => {
+    // The second of the three probes: amCharts joined the link to a node
+    // object, and the id setting answered with nothing.
+    const series = fakeFlowSeries('Energy', [{
+      sourceNode: { name: 'Coal' },
+      targetNode: { id: 'Electricity' },
+      value: 34,
+    }]);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+  });
+
+  it('reads an end and a weight off the author\'s own row as a last resort', () => {
+    // The third probe. Neither the resolved id nor a node object answered, so
+    // the row the author supplied is all there is — keyed by the fields the
+    // series was told to read, which amCharts defaults to `from`/`to`/`value`.
+    const series = fakeFlowSeries('Energy', [
+      { row: { from: 'Coal', to: 'Electricity', value: 34 } },
+      { row: { origin: 'Gas', dest: 'Electricity', mwh: 21 } },
+    ], 'Sankey');
+    const named = fakeFlowSeries('Energy', [
+      { row: { origin: 'Gas', dest: 'Electricity', mwh: 21 } },
+    ], 'Sankey', { sourceIdField: 'origin', targetIdField: 'dest', valueField: 'mwh' });
+
+    // Default field names: only the first row reads.
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+    // The author's own field names: the same row now reads.
+    expect(fromAmCharts(fakeRoot([named])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Gas', target: 'Electricity', value: 21 }]);
+  });
+
+  it('drops a link with no end, and one carrying no weight', () => {
+    // A ribbon amCharts does not draw but MAIDR still counts would slide every
+    // later position onto its neighbour. `Number(null)` is 0 and finite, so a
+    // missing weight has to be refused rather than coerced.
+    const series = fakeFlowSeries('Energy', [
+      { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+      { sourceId: 'Gas', value: 21 },
+      { sourceId: 'Oil', targetId: 'Electricity' },
+      { sourceId: 'Wind', targetId: 'Electricity', value: 0 },
+      { sourceId: 'Sun', targetId: 'Electricity', value: Number.NaN },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+  });
+
+  it('reads every Chord variant as a chord, and an ArcDiagram as a sankey', () => {
+    // The three chord classes each extend the last and each carry their own
+    // class name, so each has to be listed. An arc diagram is a sankey rather
+    // than a network: it extends `FlowSeries` and carries weights, and a
+    // network payload has nowhere to put one.
+    const typeOf = (className: string): TraceType =>
+      fromAmCharts(fakeRoot([fakeFlowSeries('Trade', LINKS, className)]))
+        .subplots[0][0]
+        .layers[0]
+        .type;
+
+    expect(typeOf('Chord')).toBe(TraceType.CHORD);
+    expect(typeOf('ChordDirected')).toBe(TraceType.CHORD);
+    expect(typeOf('ChordNonRibbon')).toBe(TraceType.CHORD);
+    expect(typeOf('ArcDiagram')).toBe(TraceType.SANKEY);
+  });
+
+  it('emits no selectors: amCharts paints the ribbons to canvas, not to SVG', () => {
+    const series = fakeFlowSeries('Energy', LINKS);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+
+  it('leaves a flow series whose links none resolve out of the figure', () => {
+    // A layer of nothing is worse than no layer: `convertCharts` drops a chart
+    // with none and says so, rather than announcing an empty graph.
+    const series = fakeFlowSeries('Energy', [{ value: 34 }, { sourceId: 'Coal' }]);
+
+    expect(() => fromAmCharts(fakeRoot([series]))).toThrow(/no supported series with data/);
+  });
+});
+
+describe('fromAmCharts (network)', () => {
+  const TREE = {
+    category: 'Root',
+    children: [
+      {
+        category: 'Ada',
+        row: { name: 'Ada', linkWith: ['Grace'] },
+        children: [
+          { category: 'Alan', row: { name: 'Alan' } },
+          { category: 'Grace', row: { name: 'Grace' } },
+        ],
+      },
+      { category: 'Edsger', row: { name: 'Edsger', linkWith: ['Alan', 'Nobody'] } },
+    ],
+  };
+
+  it('finds a standalone ForceDirected, which is no chart either', () => {
+    const series = fakeForceDirectedSeries('People', TREE);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('reads the tree as links: one per parent-child edge, root dropped', () => {
+    // A force-directed graph is a HIERARCHY series in amCharts, not a link
+    // list, so the edges are the tree's own and the container root is not one
+    // of the participants.
+    const series = fakeForceDirectedSeries('People', TREE);
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.NETWORK);
+    expect(layer.title).toBe('People');
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Links' } });
+    expect(layer.data as NetworkPoint[]).toEqual([
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+    ]);
+  });
+
+  it('adds the cross-links a row names, and skips one naming no node', () => {
+    // `linkWith` is the only place a force-directed graph's non-tree edges
+    // live. An entry the walk never saw names nothing amCharts drew either, so
+    // inventing the node would announce a participant the chart does not have.
+    const series = fakeForceDirectedSeries('People', TREE, { linkWithField: 'linkWith' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data).toEqual([
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+      { source: 'Edsger', target: 'Alan' },
+    ]);
+  });
+
+  it('resolves a cross-link named by id when that is not the node label', () => {
+    // `idField` and `categoryField` are the same column in amCharts' own
+    // examples, but they need not be — and a reference by id is still a
+    // reference to a node the walk saw.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [
+        { category: 'Ada Lovelace', row: { key: 'ada', linkWith: ['grace'] } },
+        { category: 'Grace Hopper', row: { key: 'grace' } },
+      ],
+    }, { linkWithField: 'linkWith', idField: 'key' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Ada Lovelace', target: 'Grace Hopper' }]);
+  });
+
+  it('emits one link for a pair that names itself from both ends', () => {
+    // A link is undirected, so two rows naming each other draw one line.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [
+        { category: 'Ada', row: { linkWith: ['Grace'] } },
+        { category: 'Grace', row: { linkWith: ['Ada'] } },
+      ],
+    }, { linkWithField: 'linkWith' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Ada', target: 'Grace' }]);
+  });
+
+  it('emits no selectors: amCharts paints the links to canvas, not to SVG', () => {
+    const series = fakeForceDirectedSeries('People', TREE);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (gauge)', () => {
+  function gaugeLayer(config: Parameters<typeof fakeGaugeChart>[0] = {}): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeGaugeChart(config)])).subplots[0][0].layers[0];
+  }
+
+  it('reads a RadarChart with a ClockHand and no series at all as a gauge', () => {
+    // The whole point of the shape: the needle is a bullet on an AXIS data
+    // item, so the series loop finds nothing and the chart-level fallback is
+    // the only thing that can see the reading.
+    const layer = gaugeLayer({ value: 73, min: 0, max: 120, axisLabel: 'km/h' });
+
+    expect(layer.type).toBe(TraceType.GAUGE);
+    // A single object, not an array of one: the chart draws exactly one measure.
+    expect(layer.data).toEqual({ value: 73, min: 0, max: 120, label: 'km/h' });
+    expect(Array.isArray(layer.data)).toBe(false);
+    expect(layer.axes).toEqual({ x: { label: 'Measure' }, y: { label: 'km/h' } });
+  });
+
+  it('names the measure after the chart when the chart is titled', () => {
+    const layer = gaugeLayer({ value: 40, title: 'Server load', axisLabel: 'percent' });
+
+    expect(layer.title).toBe('Server load');
+    expect((layer.data as GaugePoint).label).toBe('Server load');
+  });
+
+  it('reads the dial from the extremes amCharts computed when none were set', () => {
+    const layer = gaugeLayer({ min: 10, max: 90, value: 55, privateExtremes: true });
+
+    expect(layer.data).toMatchObject({ min: 10, max: 90, value: 55 });
+  });
+
+  it('finds a hand filed under the axis dataItems as well as under its ranges', () => {
+    // Which list a made axis data item lands in is not checkable without the
+    // library, so both are read.
+    expect(gaugeLayer({ viaDataItems: true, value: 12 }).data)
+      .toMatchObject({ value: 12 });
+  });
+
+  it('finds a hand whose bullet exposes its sprite as a plain property', () => {
+    expect(gaugeLayer({ bulletProperty: true, value: 12 }).data)
+      .toMatchObject({ value: 12 });
+  });
+
+  it('carries the dial bands ascending, numbering the ones nothing names', () => {
+    const layer = gaugeLayer({
+      value: 73,
+      bands: [
+        { endValue: 100 },
+        { endValue: 40, label: 'poor' },
+        { endValue: 70 },
+      ],
+    });
+
+    // Upper edges only: a band starts where the previous one ended, which is
+    // why an unsorted list would describe a partition the chart does not draw.
+    expect((layer.data as GaugePoint).bands).toEqual([
+      { to: 40, label: 'poor' },
+      { to: 70, label: 'Band 2' },
+      { to: 100, label: 'Band 3' },
+    ]);
+  });
+
+  it('leaves the hand out of the bands: a reading is not one of them', () => {
+    // The hand's own axis range carries a value and no end, which is exactly
+    // what separates it from a band.
+    const layer = gaugeLayer({ value: 73, bands: [{ endValue: 100 }] });
+
+    expect((layer.data as GaugePoint).bands).toEqual([{ to: 100, label: 'Band 1' }]);
+  });
+
+  it('emits no layer for a dial with no finite ends, rather than one of NaNs', () => {
+    // GaugeTrace pitches its tone against the range, so a reading with no
+    // range behind it is not a reading -- and a chart with no layers is
+    // dropped, which is the honest degradation.
+    const chart = fakeGaugeChart({ privateExtremes: true, min: Number.NaN, max: Number.NaN });
+
+    expect(() => fromAmCharts(fakeRoot([chart]))).toThrow();
+  });
+
+  it('emits no layer when the hand points at no value', () => {
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ value: null })]))).toThrow();
+  });
+
+  it('reads the first of several hands, and says so', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(gaugeLayer({ hands: 2, value: 73 }).data).toMatchObject({ value: 73 });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 hands'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('leaves an ordinary radar chart a radar, hand or no hand', () => {
+    // RADAR and POLAR_AREA are drawn in the same `RadarChart`, so the gauge
+    // path runs only when the series produced no layer at all.
+    const chart = fakeGaugeChart({
+      series: [fakeRadarSeries('Speed', [
+        { categoryX: 'Mon', valueY: 10 },
+        { categoryX: 'Tue', valueY: 20 },
+      ])],
+    });
+
+    const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.RADAR);
+  });
+
+  it('ignores a chart that is not a RadarChart, and a sprite that is no hand', () => {
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ className: 'XYChart' })])))
+      .toThrow();
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ handClassName: 'Bullet' })])))
+      .toThrow();
+  });
+});
+
+describe('fromAmCharts (choropleth)', () => {
+  /** Three western states, shaded, with the value amCharts resolved. */
+  const WEST = [
+    { name: 'Washington', value: 12.1 },
+    { name: 'Oregon', value: 16.4 },
+    { name: 'Nevada', value: 38.9 },
+  ];
+
+  it('finds a MapChart, which neither chart gate could see', () => {
+    // A `MapChart` is a `SerialChart`: a series list, no axes, and a class name
+    // of its own — so `isXYChartLike` and `isPercentChartLike` both miss it and
+    // discovery used to recurse straight past into its own containers.
+    const series = fakeMapPolygonSeries('Rate', WEST);
+    const chart = fakeMapChart({ series: [series] });
+    const root = fakeRoot([fakeContainer([chart])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+    // Not an XY chart: the narrower entry point must not claim it.
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('measures the panel from the MapChart itself, which is its own container', () => {
+    // A `MapChart` has no `plotContainer` — that is an `XYChart` notion — so
+    // the wrapper points the slot at the chart, which IS a `Container`. Without
+    // it `readPlotBounds` answers nothing and a map beside another panel has
+    // its highlight suppressed outright.
+    const bounds = { left: 0, top: 0, right: 400, bottom: 300 };
+    const chart = fakeMapChart({
+      series: [fakeMapPolygonSeries('Rate', WEST)],
+      bounds,
+    });
+
+    const found = findCharts(fakeRoot([chart]));
+    expect(found[0].plotContainer?.globalBounds?.()).toEqual(bounds);
+  });
+
+  it('converts a shaded MapPolygonSeries into one point per region', () => {
+    const series = fakeMapPolygonSeries('Rate', WEST);
+
+    const layer = fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.type).toBe(TraceType.CHOROPLETH);
+    expect(layer.title).toBe('Rate');
+    // A map is bound to no axis: the value runs along a colour ramp and the
+    // regions along nothing at all.
+    expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Value' } });
+    expect(layer.data as ChoroplethPoint[]).toEqual([
+      { x: 'Washington', y: 12.1 },
+      { x: 'Oregon', y: 16.4 },
+      { x: 'Nevada', y: 38.9 },
+    ]);
+  });
+
+  it('skips the base geography, the graticule, the lines and the pins', () => {
+    // A map routinely carries a polygon series with no values under the shaded
+    // one. Announcing it would offer a list of every country with nothing to
+    // say about any of them — and `classifySeriesKind` answers `'bar'` for
+    // anything it does not know, so without the map classes each of these
+    // would have been read as a bar chart of its shapes rather than skipped.
+    const base = fakeMapPolygonSeries('World', WEST, {});
+    const lines = fakeMapPolygonSeries('Routes', WEST, { valueField: 'value' }, 'MapLineSeries');
+    const pins = fakeMapPolygonSeries('Cities', WEST, { valueField: 'value' }, 'MapPointSeries');
+    const grid = fakeMapPolygonSeries('Grid', WEST, { valueField: 'value' }, 'GraticuleSeries');
+
+    for (const series of [base, lines, pins, grid]) {
+      expect(() => fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })])))
+        .toThrow(/no supported series with data/);
+    }
+  });
+
+  it('reads a polygon series shaded through heatRules alone', () => {
+    // `heatRules` is how the shading is declared; either it or a bound
+    // `valueField` says the author meant this series to carry a reading.
+    const series = fakeMapPolygonSeries('Rate', WEST, {
+      heatRules: [{ target: 'polygon', dataField: 'value' }],
+    });
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0].layers[0].type).toBe(TraceType.CHOROPLETH);
+  });
+
+  it('leaves out a region amCharts drew but joined no value onto', () => {
+    // The ordinary case on a real map — the shapes drawn in the no-data
+    // colour. `Number(null)` is 0 and finite, so an absent value has to be
+    // refused rather than coerced into a region worth nothing.
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Washington', value: 12.1 },
+      { name: 'California' },
+      { name: 'Nevada', value: 38.9 },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: 'Nevada', y: 38.9 }]);
+  });
+
+  it('names a region from the row when amCharts resolved no name', () => {
+    // A GeoJSON feature keeps everything joined onto it under `properties`,
+    // and an am5map row is ordinarily keyed by `id`. Both are on the chain,
+    // names ahead of codes: a region is called by its name, not by its FIPS.
+    const series = fakeMapPolygonSeries('Rate', [
+      { value: 12.1, row: { id: '53', properties: { NAME: 'Washington' } } },
+      { value: 38.9, row: { id: '32' } },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: '32', y: 38.9 }]);
+  });
+
+  it('reads the value off the column the series was bound to', () => {
+    // amCharts resolved nothing onto the data item, so the author's own row —
+    // keyed by the field the series names — is what carries the shading.
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Washington', row: { deaths: 12.1 } },
+      { name: 'Nevada', row: { deaths: 38.9 } },
+    ], { valueField: 'deaths' });
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: 'Nevada', y: 38.9 }]);
+  });
+
+  it('places the regions from the drawn polygons\' geographic centroids', () => {
+    // The centroids are what make this a map rather than a bar chart whose
+    // categories happen to be places: `ChoroplethTrace` walks north, south,
+    // east and west out of this pair and out of nothing else.
+    const series = fakeMapPolygonSeries('Rate', [
+      {
+        name: 'Washington',
+        value: 12.1,
+        polygon: fakeMapPolygon({ centroid: { longitude: -120.5, latitude: 47.4 } }),
+      },
+      {
+        name: 'Nevada',
+        value: 38.9,
+        polygon: fakeMapPolygon({ centroid: { longitude: -116.6, latitude: 39.3 } }),
+      },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([
+        { x: 'Washington', y: 12.1, lon: -120.5, lat: 47.4 },
+        { x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 },
+      ]);
+  });
+
+  it('omits the pair rather than believing a centroid that is not in degrees', () => {
+    // The highest-consequence read in the batch, and the one that cannot be
+    // checked without the library. A projected coordinate accepted here is a
+    // wrong compass direction; omitted, the map degrades to a region list in
+    // declared order, which the grammar explicitly sanctions.
+    const projected = fakeMapPolygon({ centroid: { longitude: 1340221, latitude: 5621880 } });
+    const absent = fakeMapPolygon({});
+    const broken = fakeMapPolygon({ centroidThrows: true });
+    const half = fakeMapPolygon({ centroid: { longitude: -116.6, latitude: null } });
+
+    for (const polygon of [projected, absent, broken, half]) {
+      const series = fakeMapPolygonSeries('Rate', [
+        { name: 'Nevada', value: 38.9, polygon },
+      ]);
+      expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+        .subplots[0][0]
+        .layers[0]
+        .data as ChoroplethPoint[])
+        .toEqual([{ x: 'Nevada', y: 38.9 }]);
+    }
+  });
+
+  it('prefers a centroid the author stated to the one the polygon reports', () => {
+    // A table of `{ region, value, lon, lat }` states the pair outright, and a
+    // stated degree pair beats a derived one — the same order the Highcharts
+    // adapter reads a map in.
+    const series = fakeMapPolygonSeries('Rate', [{
+      name: 'Nevada',
+      value: 38.9,
+      polygon: fakeMapPolygon({ centroid: { longitude: -1, latitude: -1 } }),
+      row: { longitude: -116.6, latitude: 39.3 },
+    }]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 }]);
+  });
+
+  it('emits no selectors: amCharts paints the polygons to canvas, not to SVG', () => {
+    const series = fakeMapPolygonSeries('Rate', WEST);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0].layers[0].selectors).toBeUndefined();
+  });
+
+  it('drops a map whose regions all missed their join', () => {
+    // Not a layer of NaNs, and not an empty subplot either: `convertCharts`
+    // drops a chart yielding no layer and says so, which is the difference
+    // between an actionable error and a crash inside the core model.
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Washington' }, { name: 'Nevada' }]);
+
+    expect(() => fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })])))
+      .toThrow(/no supported series with data/);
+  });
+
+  it('places a map beside another panel in the grid', () => {
+    // The wrapper's whole point: with a plot container to measure, a map takes
+    // its place in `computeChartGrid` like any other panel.
+    const map = fakeMapChart({
+      series: [fakeMapPolygonSeries('Rate', WEST)],
+      bounds: { left: 0, top: 0, right: 300, bottom: 200 },
+    });
+    const bars = fakeChart({
+      series: [fakeBarSeries('Sales', [{ categoryX: 'Q1', valueY: 5 }])],
+      bounds: { left: 0, top: 300, right: 300, bottom: 500 },
+    });
+
+    const maidr = fromAmCharts(fakeRoot([map, bars]));
+
+    // Rows are emitted bottom-first, so the lower panel — the bar chart — is
+    // row 0 and the map sits above it.
+    expect(maidr.subplots).toHaveLength(2);
+    expect(maidr.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    expect(maidr.subplots[1][0].layers[0].type).toBe(TraceType.CHOROPLETH);
   });
 });
 

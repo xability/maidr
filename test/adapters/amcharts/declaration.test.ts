@@ -7,11 +7,21 @@ import type {
   SurvivalPoint,
   VolcanoPoint,
 } from '@type/grammar';
-import { fromXYChart } from '@adapters/amcharts/adapter';
+import { findCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { planDeclarations } from '@adapters/amcharts/declaration';
-import { buildNavigationMap } from '@adapters/amcharts/navmap';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { Orientation, TraceType } from '@type/grammar';
-import { fakeChart, fakeContainerEl, fakePieSeries, fakeSeries } from './helpers';
+import {
+  fakeChart,
+  fakeContainer,
+  fakeContainerEl,
+  fakeFlowSeries,
+  fakeMapChart,
+  fakeMapPolygonSeries,
+  fakePieSeries,
+  fakeRoot,
+  fakeSeries,
+} from './helpers';
 
 /**
  * The declared reading is opt-in, so every case here is really two charts: the
@@ -159,6 +169,244 @@ describe('declaration precedence', () => {
     expect(layer.type).toBe(TraceType.SURVIVAL);
     expect(layer.stepDirection).toBe('hv');
     expect(warnings()).toContain('unknown key "significanse"');
+  });
+});
+
+describe('declared alluvials', () => {
+  const LINKS = [
+    { sourceId: 'Rent', targetId: 'Housing', value: 40 },
+    { sourceId: 'Loan', targetId: 'Housing', value: 25 },
+  ];
+
+  /** The layer a bare am5flow series produces, found the way discovery finds it. */
+  function standaloneLayer(series: AmXYSeries): MaidrLayer {
+    const layers = fromAmCharts(fakeRoot([series])).subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    return layers[0];
+  }
+
+  it('reads an undeclared Sankey as a sankey', () => {
+    expect(standaloneLayer(fakeFlowSeries('Budget', LINKS)).type).toBe(TraceType.SANKEY);
+  });
+
+  it('reads the same series as an alluvial once it declares one', () => {
+    // amCharts has no alluvial class: an alluvial IS a sankey, drawn with the
+    // nodes repeated across stages, so only the author can separate the two.
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+
+    const layer = standaloneLayer(series);
+
+    expect(layer.type).toBe(TraceType.ALLUVIAL);
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Weight' } });
+    // The payload is the same weighted graph either way — what the author
+    // declared is which of the two readings the drawing stands for.
+    expect(layer.data).toEqual([
+      { source: 'Rent', target: 'Housing', value: 40 },
+      { source: 'Loan', target: 'Housing', value: 25 },
+    ]);
+  });
+
+  it('is visible through the panel discovery wraps a bare series in', () => {
+    // `planDeclarations` iterates `chart.series.values`, and a bare am5flow
+    // series has no chart at all — it reaches the plan only through the
+    // one-series panel `asStandalonePanel` synthesises around it.
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+    const chart = findCharts(fakeRoot([fakeContainer([series])]))[0];
+
+    const plan = planDeclarations(chart);
+
+    expect(plan.declared.get(series)?.declaration.type).toBe(TraceType.ALLUVIAL);
+  });
+
+  it('keeps the name and title the block declared', () => {
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial', name: 'flows', title: 'Where the money goes' } },
+    });
+
+    const layer = standaloneLayer(series);
+
+    expect(layer.name).toBe('flows');
+    expect(layer.title).toBe('Where the money goes');
+  });
+
+  it('falls back to the undeclared reading on a series that draws no flow', () => {
+    // The "wrong construct" check: `type: 'alluvial'` on a pie series is a
+    // mistake worth reporting, not a layer to emit with nothing in it.
+    const declared = fakeSeries({
+      className: 'PieSeries',
+      name: 'Share',
+      userData: { maidr: { type: 'alluvial' } },
+      settings: { categoryField: 'category', valueField: 'value' },
+      data: [{ category: 'A', value: 3 }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.PIE);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('refuses the block on a column series whose rows merely look like links', () => {
+    // The class name is the half of the check the data cannot supply: a bar
+    // chart authored from rows with `from`/`to`/`value` columns reads as a
+    // perfectly good link list, and reading it as one would announce a graph
+    // nobody drew. amCharts drawing a weighted flow is what makes the claim
+    // about the DRAWING true, which is what a declaration is.
+    const declared = fakeSeries({
+      className: 'ColumnSeries',
+      name: 'Transfers',
+      userData: { maidr: { type: 'alluvial' } },
+      settings: { categoryXField: 'category' },
+      data: [{ categoryX: 'Rent', from: 'Rent', to: 'Housing', value: 40, valueY: 40 }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.BAR);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('falls back when the flow series carries no link the adapter can read', () => {
+    const series = fakeFlowSeries('Budget', [{ sourceId: 'Rent' }], 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+
+    // No readable link means no flow of any kind, declared or not — so the
+    // figure has no layer at all rather than an alluvial of nothing.
+    expect(() => fromAmCharts(fakeRoot([series]))).toThrow(/no supported series with data/);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('does not absorb the siblings that follow it', () => {
+    // An alluvial declares nothing but which reading the drawing stands for,
+    // so a second flow beside it is a second figure, not a further arm of one.
+    const declared = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+    const sibling = fakeFlowSeries('Energy', LINKS);
+
+    expect(layersOf([declared, sibling]).map(layer => layer.type))
+      .toEqual([TraceType.ALLUVIAL, TraceType.SANKEY]);
+  });
+});
+
+describe('declared choropleths', () => {
+  /** The layer a one-map figure produces. */
+  function mapLayer(series: AmXYSeries): MaidrLayer {
+    const layers = fromXYChart(fakeMapChart({ series: [series] }), CONTAINER)
+      .subplots[0][0]
+      .layers;
+    expect(layers).toHaveLength(1);
+    return layers[0];
+  }
+
+  it('reads a map whose value amCharts was never bound to', () => {
+    // The reason the declaration is worth having at all. With no `valueField`
+    // the series is the base geography as far as the heuristics can tell, and
+    // the whole map is skipped; the block says which column the shading is in.
+    const undeclared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { deaths: 16.4 } },
+    ], {});
+    const declared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { deaths: 16.4 } },
+    ], { userData: { maidr: { type: 'choropleth', value: 'deaths' } } });
+
+    expect(() => fromXYChart(fakeMapChart({ series: [undeclared] }), CONTAINER))
+      .toThrow(/no supported series with data/);
+
+    const layer = mapLayer(declared);
+    expect(layer.type).toBe(TraceType.CHOROPLETH);
+    expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Value' } });
+    expect(layer.data).toEqual([{ x: 'Nevada', y: 38.9 }, { x: 'Oregon', y: 16.4 }]);
+  });
+
+  it('renames the region and the centroid pair too', () => {
+    // All four facts of a map are renameable, and the two that matter most are
+    // the coordinates: named wrong the map reads as a region list, named right
+    // it is walked as a map.
+    const series = fakeMapPolygonSeries('Rate', [
+      { row: { place: 'Nevada', deaths: 38.9, east: -116.6, north: 39.3 } },
+    ], {
+      userData: {
+        maidr: {
+          type: 'choropleth',
+          region: 'place',
+          value: 'deaths',
+          lon: 'east',
+          lat: 'north',
+        },
+      },
+    });
+
+    expect(mapLayer(series).data)
+      .toEqual([{ x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 }]);
+  });
+
+  it('keeps the name and title the block declared', () => {
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Nevada', value: 38.9 }], {
+      valueField: 'value',
+      userData: {
+        maidr: { type: 'choropleth', name: 'rates', title: 'Deaths per 100,000' },
+      },
+    });
+
+    const layer = mapLayer(series);
+
+    expect(layer.name).toBe('rates');
+    expect(layer.title).toBe('Deaths per 100,000');
+  });
+
+  it('refuses the block on a series that draws no regions', () => {
+    // The "wrong construct" check: `type: 'choropleth'` on a column series is
+    // a mistake worth reporting, not a map to emit with nothing in it.
+    const declared = fakeSeries({
+      className: 'ColumnSeries',
+      name: 'Rate',
+      userData: { maidr: { type: 'choropleth' } },
+      settings: { categoryXField: 'category' },
+      data: [{ categoryX: 'Nevada', valueY: 38.9, value: 38.9, name: 'Nevada' }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.BAR);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('falls back when the named column reaches no region', () => {
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Nevada', row: { deaths: 38.9 } }], {
+      userData: { maidr: { type: 'choropleth', value: 'fatalities' } },
+    });
+
+    expect(() => fromXYChart(fakeMapChart({ series: [series] }), CONTAINER))
+      .toThrow(/no supported series with data/);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('keeps the declared map and its highlight in step', () => {
+    // A declared map lands in the same ordered bucket an undeclared one does,
+    // carrying the field names with it — because the fields decide which
+    // regions the layer KEPT, and a resolver filtering by a different rule
+    // would index a list of a different length and clear.
+    const declared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', polygon: { globalBounds: () => ({ left: 0, top: 0, right: 8, bottom: 8 }) }, row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { note: 'no data' } },
+    ], { userData: { maidr: { type: 'choropleth', value: 'deaths' } } });
+    const chart = fakeMapChart({ series: [declared] });
+    const layer = fromXYChart(chart, CONTAINER).subplots[0][0].layers[0];
+
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [layer],
+      groups: groupSeries(chart),
+    }]);
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(target).toBeDefined();
+    expect(target.kind).toBe('region');
+    // Oregon carried no `deaths` column and was left out of the layer, so the
+    // one announced region is Nevada and the outline is Nevada's polygon.
+    expect(layer.data).toEqual([{ x: 'Nevada', y: 38.9 }]);
   });
 });
 
@@ -655,6 +903,7 @@ describe('declared layers and the highlight', () => {
         ganttSeriesList: [],
         hierarchySeriesList: [],
         wordCloudSeriesList: [],
+        choroplethSeriesList: [],
         declaredList: [...plan.declared.values()],
       },
     }]);

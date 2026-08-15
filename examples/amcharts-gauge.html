@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Gauge</title>
+
+    <!-- 1. Load amCharts 5 (core + xy + radar). A gauge is a RadarChart with a
+         circular value axis and a ClockHand pinned to an axis data item. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/radar.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over each chart, so the core
+         maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 640px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Gauge</h1>
+    <p>
+      A gauge is the one amCharts chart whose reading is not in a series at
+      all: the needle is an <code>AxisBullet</code> on an <em>axis</em> data
+      item, so the chart commonly carries zero series. MAIDR reads it from the
+      chart instead.
+    </p>
+    <p>
+      "73" on its own is not a reading. The announcement carries the dial's
+      ends and the band the needle landed in, because neither is written
+      anywhere a screen reader can reach on a drawn gauge. The tone is pitched
+      against the range rather than against the value, so where the needle sits
+      on the dial is what you hear.
+    </p>
+
+    <h2>Server load, banded</h2>
+    <div id="gauge-chart" class="chart"></div>
+
+    <script>
+      window.__amBindings = [];
+
+      var root = am5.Root.new("gauge-chart");
+
+      var chart = root.container.children.push(
+        am5radar.RadarChart.new(root, {
+          panX: false,
+          panY: false,
+          startAngle: 160,
+          endAngle: 380,
+        })
+      );
+
+      // The dial. `min` and `max` are what MAIDR reads the range from; leave
+      // them out and the adapter falls back to the extremes amCharts computes.
+      var axis = chart.xAxes.push(
+        am5xy.ValueAxis.new(root, {
+          min: 0,
+          max: 100,
+          strictMinMax: true,
+          renderer: am5radar.AxisRendererCircular.new(root, { minGridDistance: 30 }),
+        })
+      );
+      axis.set("title", am5.Label.new(root, { text: "Load, percent" }));
+
+      // Qualitative bands. MAIDR carries each band's UPPER edge only -- a band
+      // starts where the previous one ended -- and numbers the ones nothing
+      // names, so give them labels if the reader should hear them.
+      var BANDS = [
+        { from: 0, to: 50, label: "healthy", color: 0x33aa33 },
+        { from: 50, to: 80, label: "busy", color: 0xddaa22 },
+        { from: 80, to: 100, label: "saturated", color: 0xcc3333 },
+      ];
+      BANDS.forEach(function (band) {
+        var range = axis.createAxisRange(
+          axis.makeDataItem({ value: band.from, endValue: band.to })
+        );
+        range.get("axisFill").setAll({ visible: true, fill: am5.color(band.color) });
+        range.set("label", am5.Label.new(root, { text: band.label }));
+        range.get("label").setAll({ visible: false });
+      });
+
+      // The needle. A ClockHand is a Container of primitives, so unlike a Slice
+      // it reports a real box -- which is what the MAIDR overlay outlines.
+      var handItem = axis.makeDataItem({ value: 73 });
+      var hand = handItem.set(
+        "bullet",
+        am5xy.AxisBullet.new(root, {
+          sprite: am5radar.ClockHand.new(root, {
+            radius: am5.percent(80),
+          }),
+        })
+      );
+      axis.createAxisRange(handItem);
+
+      window.__amBindings.push({
+        root: root,
+        options: { title: "Server Load" },
+      });
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR (with canvas highlight)
+         on each chart via the `maidrAmCharts` UMD global. In production, prefer
+         listening to the chart's "frameended" event instead of a fixed timeout. -->
+    <script>
+      function bindAll() {
+        for (const b of (window.__amBindings || [])) {
+          try {
+            maidrAmCharts.bindAmCharts(b.root, b.options);
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed:', err);
+          }
+        }
+      }
+
+      setTimeout(bindAll, 1500);
+    </script>
+  </body>
+</html>

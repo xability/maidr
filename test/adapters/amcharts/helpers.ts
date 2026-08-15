@@ -405,6 +405,25 @@ export interface FakeNode {
   children?: FakeNode[];
   /** Stands in for the rectangle sprite the overlay measures. */
   rectangle?: unknown;
+  /**
+   * Stands in for the wedge a `Sunburst` draws a node with, which the overlay
+   * measures the way it measures a pie slice.
+   */
+  slice?: unknown;
+  /**
+   * The same wedge hung on `graphics` instead — the other slot `sliceRect`
+   * probes, since which of the two an am5hierarchy build uses is exactly the
+   * shape that cannot be checked without the library.
+   */
+  graphics?: unknown;
+  /**
+   * The author's own row behind the node, as `dataItem.dataContext`.
+   *
+   * Where an `am5hierarchy.ForceDirected`'s cross-links live: amCharts binds
+   * them through `linkWithField`, which names a column on the row rather than
+   * anything the chart itself resolves.
+   */
+  row?: Record<string, unknown>;
 }
 
 function fakeHierarchyItem(node: FakeNode): AmDataItem {
@@ -414,28 +433,359 @@ function fakeHierarchyItem(node: FakeNode): AmDataItem {
     ...(node.value != null ? { value: node.value } : {}),
     ...(children != null ? { children } : {}),
     ...(node.rectangle != null ? { rectangle: node.rectangle } : {}),
+    ...(node.slice != null ? { slice: node.slice } : {}),
+    ...(node.graphics != null ? { graphics: node.graphics } : {}),
   };
-  return { get: (key: string) => settings[key] } as unknown as AmDataItem;
+  return {
+    get: (key: string) => settings[key],
+    ...(node.row != null ? { dataContext: node.row } : {}),
+  } as unknown as AmDataItem;
 }
 
 /**
- * An am5hierarchy series — a `Treemap`, or the `Partition` amCharts draws an
- * icicle with. Unlike every other series here it is not inside a chart: it is
- * pushed straight into a container, and its nodes hang off the single root
- * data item rather than off the series.
+ * An am5hierarchy series — a `Treemap`, the `Partition` amCharts draws an
+ * icicle with, or the `Sunburst` that bends that icicle into a ring. Unlike
+ * every other series here it is not inside a chart: it is pushed straight into
+ * a container, and its nodes hang off the single root data item rather than
+ * off the series.
  */
 export function fakeHierarchySeries(
   name: string,
   root: FakeNode,
   className = 'Treemap',
+  extraSettings: Record<string, unknown> = {},
 ): AmXYSeries {
-  const settings: Record<string, unknown> = { name };
+  const settings: Record<string, unknown> = { name, ...extraSettings };
   return {
     className,
     uid: nextUid++,
     get: (key: string) => settings[key],
     dataItems: [fakeHierarchyItem(root)],
   } as unknown as AmXYSeries;
+}
+
+/**
+ * An `am5hierarchy.ForceDirected` series — a network, and a hierarchy series
+ * rather than a link list: its graph is a tree of `children` plus whatever
+ * cross-links each row names in the column `linkWithField` points at.
+ */
+export function fakeForceDirectedSeries(
+  name: string,
+  root: FakeNode,
+  settings: Record<string, unknown> = {},
+): AmXYSeries {
+  return fakeHierarchySeries(name, root, 'ForceDirected', settings);
+}
+
+/**
+ * One link of a fake am5flow series, with a knob for each of the three ways
+ * the adapter probes for an end.
+ *
+ * All three exist because none can be checked without the library: a build may
+ * answer with the resolved id, with the node data item the link was joined to,
+ * or with neither — leaving the author's own row as the only thing that says
+ * what the link connects.
+ */
+export interface FakeLink {
+  /** `dataItem.get('sourceId')` — the id amCharts resolved the end to. */
+  sourceId?: string | number;
+  /** `dataItem.get('targetId')`. */
+  targetId?: string | number;
+  /** `dataItem.get('source')` — the *node* data item, asked for name then id. */
+  sourceNode?: { name?: string | number; id?: string | number };
+  /** `dataItem.get('target')`. */
+  targetNode?: { name?: string | number; id?: string | number };
+  /** `dataItem.get('value')` — how much flows. */
+  value?: number;
+  /** The author's own row, reached only when the reads above answer nothing. */
+  row?: Record<string, unknown>;
+}
+
+function fakeNodeItem(node: { name?: string | number; id?: string | number }): unknown {
+  return { get: (key: string) => (node as Record<string, unknown>)[key] };
+}
+
+function fakeLinkItem(link: FakeLink): AmDataItem {
+  const settings: Record<string, unknown> = {
+    ...(link.sourceId != null ? { sourceId: link.sourceId } : {}),
+    ...(link.targetId != null ? { targetId: link.targetId } : {}),
+    ...(link.sourceNode != null ? { source: fakeNodeItem(link.sourceNode) } : {}),
+    ...(link.targetNode != null ? { target: fakeNodeItem(link.targetNode) } : {}),
+    ...(link.value !== undefined ? { value: link.value } : {}),
+  };
+  return {
+    get: (key: string) => settings[key],
+    ...(link.row != null ? { dataContext: link.row } : {}),
+  } as unknown as AmDataItem;
+}
+
+/**
+ * An am5flow series — a `Sankey`, one of the three `Chord` variants, or the
+ * `ArcDiagram` that draws the same weighted links along a line.
+ *
+ * Like an am5hierarchy layout it is not inside a chart: it is pushed straight
+ * into a container. Its `dataItems` are the **links**; the nodes amCharts
+ * derives from them live on a separate series, which the adapter deliberately
+ * does not read.
+ */
+export function fakeFlowSeries(
+  name: string,
+  links: FakeLink[],
+  className = 'Sankey',
+  extraSettings: Record<string, unknown> = {},
+): AmXYSeries {
+  const settings: Record<string, unknown> = { name, ...extraSettings };
+  return {
+    className,
+    uid: nextUid++,
+    get: (key: string) => settings[key],
+    dataItems: links.map(fakeLinkItem),
+  } as unknown as AmXYSeries;
+}
+
+/**
+ * One qualitative band of a gauge's dial: an axis range with an upper edge and
+ * (usually) nothing that names it.
+ */
+export interface FakeGaugeBand {
+  endValue: number;
+  /** A `Label` entity, as amCharts hangs one on a range. */
+  label?: string;
+  /** The same name as a plain string, the other slot the reader probes. */
+  labelText?: string;
+}
+
+export interface FakeGaugeConfig {
+  /** The reading the hand points at. `null` leaves the data item valueless. */
+  value?: number | null;
+  /** The dial's ends, as settings on the value axis. */
+  min?: number;
+  max?: number;
+  /**
+   * Report the ends through `axis.getPrivate()` instead — what amCharts does
+   * when the author fixed neither and let it compute them.
+   */
+  privateExtremes?: boolean;
+  /** The axis title, which is what names the dial. */
+  axisLabel?: string;
+  /** The chart title, exposed as a `Label` child like amCharts does. */
+  title?: string;
+  bands?: FakeGaugeBand[];
+  /** Stands in for the `ClockHand` sprite the overlay measures. */
+  hand?: unknown;
+  /** How many hands to pin to the axis. Defaults to one. */
+  hands?: number;
+  /**
+   * File the hand's data item under `axis.dataItems` rather than under
+   * `axis.axisRanges` — the other list a made axis data item may land in.
+   */
+  viaDataItems?: boolean;
+  /**
+   * Expose the bullet's sprite as a plain `.sprite` property rather than
+   * through `bullet.get('sprite')`.
+   */
+  bulletProperty?: boolean;
+  /** Series on the chart. A ClockHand gauge ordinarily has none. */
+  series?: AmXYSeries[];
+  /** Overrides the `RadarChart` class name, for the negative cases. */
+  className?: string;
+  /** Overrides the hand sprite's `ClockHand` class name. */
+  handClassName?: string;
+}
+
+/** A `ClockHand` as amCharts reports one: a `Container` with a laid-out box. */
+export function fakeClockHand(
+  box: { left: number; top: number; width: number; height: number },
+  className = 'ClockHand',
+): unknown {
+  return {
+    className,
+    width: () => box.width,
+    height: () => box.height,
+    toGlobal: (point: { x: number; y: number }) => ({
+      x: box.left + point.x,
+      y: box.top + point.y,
+    }),
+    get: () => undefined,
+  };
+}
+
+function fakeAxisRange(settings: Record<string, unknown>): AmDataItem {
+  return { get: (key: string) => settings[key] } as unknown as AmDataItem;
+}
+
+/**
+ * An am5radar gauge: a `RadarChart` whose reading is a `ClockHand` pinned to
+ * an axis data item, and — the point of the whole shape — no series at all.
+ */
+export function fakeGaugeChart(config: FakeGaugeConfig = {}): AmChart {
+  const handSprite = config.hand
+    ?? fakeClockHand({ left: 40, top: 60, width: 12, height: 80 }, config.handClassName);
+
+  const handItems: AmDataItem[] = [];
+  for (let at = 0; at < (config.hands ?? 1); at++) {
+    const bullet = config.bulletProperty
+      ? { get: () => undefined, sprite: handSprite }
+      : { get: (key: string) => (key === 'sprite' ? handSprite : undefined) };
+    handItems.push(fakeAxisRange({
+      ...(config.value !== null ? { value: config.value ?? 73 } : {}),
+      bullet,
+    }));
+  }
+
+  const bandItems = (config.bands ?? []).map(band => fakeAxisRange({
+    endValue: band.endValue,
+    ...(band.label != null
+      ? { label: { get: (key: string) => (key === 'text' ? band.label : undefined) } }
+      : {}),
+    ...(band.labelText != null ? { label: band.labelText } : {}),
+  }));
+
+  const title = config.axisLabel != null
+    ? { get: (key: string) => (key === 'text' ? config.axisLabel : undefined) }
+    : undefined;
+  const settings: Record<string, unknown> = {
+    ...(title != null ? { title } : {}),
+    ...(config.privateExtremes ? {} : { min: config.min ?? 0, max: config.max ?? 100 }),
+  };
+  const privates: Record<string, unknown> = config.privateExtremes
+    ? { min: config.min ?? 0, max: config.max ?? 100 }
+    : {};
+
+  const axis = {
+    className: 'ValueAxis',
+    get: (key: string) => settings[key],
+    getPrivate: (key: string) => privates[key],
+    dataItems: config.viaDataItems ? handItems : [],
+    axisRanges: { values: config.viaDataItems ? bandItems : [...handItems, ...bandItems] },
+  } as unknown as AmAxis;
+
+  const chart: Record<string, unknown> = {
+    className: config.className ?? 'RadarChart',
+    uid: nextUid++,
+    get: () => undefined,
+    series: { values: config.series ?? [] },
+    xAxes: { values: [axis] },
+    yAxes: { values: [] },
+    plotContainer: {
+      globalBounds: () => ({ left: 0, top: 0, right: 400, bottom: 400 }),
+    },
+  };
+  if (config.title != null) {
+    const chartTitle = config.title;
+    chart.children = {
+      values: [{
+        className: 'Label',
+        get: (key: string) => (key === 'text' ? chartTitle : undefined),
+      }],
+    };
+  }
+  return chart as unknown as AmChart;
+}
+
+/**
+ * The polygon an am5map `MapPolygonSeries` drew a region as.
+ *
+ * `globalBounds()` is the axis-aligned box the overlay outlines; `geoCentroid`
+ * is the degree pair the payload's `lon`/`lat` come from when the author's own
+ * row carries none. Both are unverifiable without the library, so both are
+ * knobs: pass no `centroid` for a build that answers nothing, and a
+ * `degenerate` box for one that reports a point rather than a shape.
+ */
+export function fakeMapPolygon(config: {
+  box?: { left: number; top: number; right: number; bottom: number };
+  centroid?: { longitude: unknown; latitude: unknown };
+  /** Make `geoCentroid()` throw, as a half-built polygon may. */
+  centroidThrows?: boolean;
+} = {}): unknown {
+  const box = config.box ?? { left: 10, top: 20, right: 60, bottom: 70 };
+  const polygon: Record<string, unknown> = {
+    className: 'MapPolygon',
+    globalBounds: () => box,
+  };
+  if (config.centroidThrows) {
+    polygon.geoCentroid = (): never => {
+      throw new Error('not laid out');
+    };
+  } else if (config.centroid !== undefined) {
+    polygon.geoCentroid = (): unknown => config.centroid;
+  }
+  return polygon;
+}
+
+/** One region of a fake choropleth. */
+export interface FakeRegion {
+  /** `dataItem.get('name')` — the name amCharts resolved the polygon to. */
+  name?: string;
+  /** `dataItem.get('value')` — the number the region is shaded by. */
+  value?: number;
+  /** The drawn polygon, on `dataItem.get('mapPolygon')`. */
+  polygon?: unknown;
+  /** The author's own row, as `dataItem.dataContext`. */
+  row?: Record<string, unknown>;
+}
+
+/**
+ * An am5map `MapPolygonSeries`.
+ *
+ * Bound to a `valueField` by default, which is what separates a choropleth
+ * from the base geography drawn under one: pass `settings: {}` for a series
+ * carrying no values at all.
+ */
+export function fakeMapPolygonSeries(
+  name: string,
+  regions: FakeRegion[],
+  settings: Record<string, unknown> = { valueField: 'value' },
+  className = 'MapPolygonSeries',
+): AmXYSeries {
+  const seriesSettings: Record<string, unknown> = { name, ...settings };
+  return {
+    className,
+    uid: nextUid++,
+    get: (key: string) => seriesSettings[key],
+    dataItems: regions.map((region) => {
+      const itemSettings: Record<string, unknown> = {
+        ...(region.name != null ? { name: region.name } : {}),
+        ...(region.value != null ? { value: region.value } : {}),
+        ...(region.polygon != null ? { mapPolygon: region.polygon } : {}),
+      };
+      return {
+        get: (key: string) => itemSettings[key],
+        ...(region.row != null ? { dataContext: region.row } : {}),
+      } as unknown as AmDataItem;
+    }),
+  } as unknown as AmXYSeries;
+}
+
+/**
+ * An am5map `MapChart`: a `SerialChart` with a series list, no axes, and a
+ * class name of its own — the signature the adapter's other two chart gates
+ * both miss. It is its own `Container`, so it answers the geometry reads a
+ * panel is measured by.
+ */
+export function fakeMapChart(
+  config: { series?: AmXYSeries[]; title?: string; bounds?: AmBounds } = {},
+): AmChart {
+  const chart: Record<string, unknown> = {
+    className: 'MapChart',
+    uid: nextUid++,
+    get: () => undefined,
+    series: { values: config.series ?? [] },
+  };
+  if (config.bounds) {
+    const bounds = config.bounds;
+    chart.globalBounds = (): AmBounds => bounds;
+  }
+  if (config.title != null) {
+    const title = config.title;
+    chart.children = {
+      values: [{
+        className: 'Label',
+        get: (key: string) => (key === 'text' ? title : undefined),
+      }],
+    };
+  }
+  return chart as unknown as AmChart;
 }
 
 /** A step-line series, drawn as a staircase rather than an interpolated line. */

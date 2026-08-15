@@ -1,19 +1,31 @@
 import type { SeriesGroups } from '@adapters/amcharts/navmap';
 import type { AmXYChart, AmXYSeries } from '@adapters/amcharts/types';
+import type { ChoroplethTrace } from '@model/choropleth';
 import type { MaidrLayer } from '@type/grammar';
-import { buildNavigationMap } from '@adapters/amcharts/navmap';
+import { fromXYChart } from '@adapters/amcharts/adapter';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
+import { dataItemToOverlayRect } from '@adapters/amcharts/overlay';
+import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
 import {
   fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
+  fakeClockHand,
+  fakeContainerEl,
   fakeDotSeries,
   fakeFloatingColumnSeries,
+  fakeFlowSeries,
+  fakeForceDirectedSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
+  fakeGaugeChart,
   fakeHierarchySeries,
   fakeLineSeries,
   fakeLollipopSeries,
+  fakeMapChart,
+  fakeMapPolygon,
+  fakeMapPolygonSeries,
   fakePieChart,
   fakePieSeries,
   fakePolarSeries,
@@ -42,6 +54,7 @@ function emptyGroups(): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    choroplethSeriesList: [],
     declaredList: [],
   };
 }
@@ -306,6 +319,97 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(navMap.resolve('tree', 2, 0)).toEqual([]);
   });
 
+  it('measures a sunburst node as a wedge, not as a rectangle', () => {
+    // A treemap block and an icicle bar are rectangles; a sunburst node is a
+    // `Slice`, which reports a degenerate box and has to be measured from its
+    // radius and sweep instead. Getting this wrong outlines nothing at all.
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [
+        { category: 'Asia', children: [{ category: 'China', value: 1425 }] },
+        { category: 'Africa', children: [{ category: 'Nigeria', value: 224 }] },
+      ],
+    }, 'Sunburst');
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'ring', type: TraceType.SUNBURST, data: [] }],
+      groups: { ...emptyGroups(), hierarchySeriesList: [series] },
+    }]);
+
+    expect(navMap.resolve('ring', 0, 1)[0].dataItem.get('category')).toBe('Africa');
+    expect(navMap.resolve('ring', 1, 1)[0].dataItem.get('category')).toBe('Nigeria');
+    expect(navMap.resolve('ring', 1, 1)[0].kind).toBe('slice');
+    expect(navMap.resolve('ring', 2, 0)).toEqual([]);
+  });
+
+  it('reaches a sunburst wedge on `slice` and on `graphics` alike', () => {
+    // Which slot an am5hierarchy build hangs the wedge on cannot be checked
+    // without the library, so both are probed -- and a `Slice` reports a
+    // degenerate point, so the box has to come from its radius and sweep.
+    const wedge = {
+      globalBounds: () => ({ left: 100, top: 100, right: 100, bottom: 100 }),
+      width: () => 0,
+      height: () => 0,
+      // 0..90 is the bottom-right quarter; y grows down.
+      get: (key: string) => ({ radius: 50, startAngle: 0, arc: 90 } as Record<string, unknown>)[key],
+    };
+    const box = { left: 100, top: 100, width: 50, height: 50 };
+
+    for (const slot of ['slice', 'graphics'] as const) {
+      const series = fakeHierarchySeries('Population', {
+        category: 'Root',
+        children: [{ category: 'Asia', value: 3000, [slot]: wedge }],
+      }, 'Sunburst');
+      const navMap = buildNavigationMap([{
+        chart: fakeChart({ series: [series] }),
+        layers: [{ id: 'ring', type: TraceType.SUNBURST, data: [] }],
+        groups: { ...emptyGroups(), hierarchySeriesList: [series] },
+      }]);
+
+      expect(dataItemToOverlayRect(navMap.resolve('ring', 0, 0)[0], null)).toEqual(box);
+    }
+  });
+
+  it('resolves a gauge to its needle, from every position there is', () => {
+    // `GaugeTrace` is a 1x1 grid whose position is always (0, 0), so there is
+    // nothing to invert -- and the hand is a bullet on an AXIS, so it reaches
+    // the overlay through a data item that answers `graphics` with it.
+    const hand = fakeClockHand({ left: 40, top: 60, width: 12, height: 80 });
+    const chart = fakeGaugeChart({ value: 73, hand });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'dial', type: TraceType.GAUGE, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    const [target] = navMap.resolve('dial', 0, 0);
+    expect(target.kind).toBe('column');
+    expect(target.dataItem.get('graphics')).toBe(hand);
+    // The overlay reads the hand's own laid-out box, not the whole dial.
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 40, top: 60, width: 12, height: 80 });
+  });
+
+  it('clears rather than boxing the dial when the hand reports no geometry', () => {
+    // A hand that answers with nothing measurable must draw nothing. An
+    // outline around the whole gauge would say nothing about where the needle
+    // is, which is the kind of confidently-uninformative mark to avoid.
+    const chart = fakeGaugeChart({
+      value: 73,
+      hand: { className: 'ClockHand', get: () => undefined },
+    });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'dial', type: TraceType.GAUGE, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    const [target] = navMap.resolve('dial', 0, 0);
+    expect(target).toBeDefined();
+    expect(dataItemToOverlayRect(target, null)).toBeNull();
+  });
+
   it('resolves a diverging layer as it resolves a dodged one, one row per side', () => {
     const men = fakeBarSeries('Men', [
       { categoryX: '0-14', valueY: -1200 },
@@ -434,5 +538,241 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(targets[0].dataItem.get('valueY')).toBe(1);
     expect(targets[0].kind).toBe('point');
     expect(navMap.resolve('places', 2, 0)).toEqual([]);
+  });
+});
+
+describe('buildNavigationMap (flow and network: no highlight, on purpose)', () => {
+  const LINKS = [
+    { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    { sourceId: 'Electricity', targetId: 'Homes', value: 40 },
+  ];
+
+  /**
+   * Asserted positively, because the absence is a decision. MAIDR hands a flow
+   * or network layer its BRAILLE position — a stage and an index within it, or
+   * a component and an index within it — and recovering the node from that
+   * would mean reimplementing the model's node ordering together with its
+   * stage layering, which is a derived graph structure rather than an ordering
+   * over data this adapter emitted. So `resolve` answers `[]` and the binder
+   * clears the overlay; a resolver added later without a position that says
+   * which node it means would outline a confidently wrong one, and this is
+   * what would notice.
+   */
+  it.each([
+    ['a sankey', TraceType.SANKEY],
+    ['a chord', TraceType.CHORD],
+    ['an alluvial', TraceType.ALLUVIAL],
+    ['a network', TraceType.NETWORK],
+  ])('registers no resolver for %s, so the overlay clears', (_name, type) => {
+    const series = fakeFlowSeries('Energy', LINKS);
+    const navMap = buildNavigationMap([{
+      chart: fakeChart({ series: [series] }),
+      layers: [{ id: 'flow', type, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    expect(navMap.resolve('flow', 0, 0)).toEqual([]);
+    expect(navMap.resolve('flow', 1, 1)).toEqual([]);
+  });
+});
+
+describe('buildNavigationMap (choropleth)', () => {
+  /**
+   * Four states with real centroids, declared in an order that is neither the
+   * order the map is walked in nor a rotation of it: `arrange` bands them by
+   * latitude and reads each band west to east, so a resolver that had simply
+   * kept declared order would be wrong at every position but one.
+   */
+  const STATES: Array<{ name: string; value: number; lon: number; lat: number }> = [
+    { name: 'Washington', value: 12.1, lon: -120.5, lat: 47.4 },
+    { name: 'Nevada', value: 38.9, lon: -116.6, lat: 39.3 },
+    { name: 'Oregon', value: 16.4, lon: -120.6, lat: 43.9 },
+    { name: 'Idaho', value: 21.7, lon: -114.6, lat: 44.4 },
+  ];
+
+  /** The polygons, kept so a resolved target can be identified by its box. */
+  function polygons(): unknown[] {
+    return STATES.map((_state, at) => fakeMapPolygon({
+      box: { left: at * 10, top: 0, right: at * 10 + 8, bottom: 8 },
+    }));
+  }
+
+  function mapSeries(shapes: unknown[]): AmXYSeries {
+    return fakeMapPolygonSeries('Rate', STATES.map((state, at) => ({
+      name: state.name,
+      value: state.value,
+      polygon: shapes[at],
+      row: { longitude: state.lon, latitude: state.lat },
+    })));
+  }
+
+  function navMapFor(series: AmXYSeries): {
+    navMap: ReturnType<typeof buildNavigationMap>;
+    layer: MaidrLayer;
+  } {
+    const chart = fakeMapChart({ series: [series] });
+    const layer = fromXYChart(chart, fakeContainerEl()).subplots[0][0].layers[0];
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [layer],
+      groups: groupSeries(chart),
+    }]);
+    return { navMap, layer };
+  }
+
+  it('resolves every position to the region the trace names there', () => {
+    // The contract test the mirror is not allowed to ship without. It asks the
+    // REAL `ChoroplethTrace` which region each position announces and checks
+    // the adapter outlines that one — so a change to `arrange` in the model
+    // turns into a red build here rather than into a highlight that quietly
+    // drifts one region east.
+    const shapes = polygons();
+    const { navMap, layer } = navMapFor(mapSeries(shapes));
+    const trace = TraceFactory.create(layer) as ChoroplethTrace;
+    const boxOf = new Map(STATES.map((state, at) => [state.name, at]));
+
+    // Four regions band into a 2x2 grid: two bands of two.
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 2; col++) {
+        const state = trace.getStateAt(row, col);
+        if (state.empty) {
+          throw new Error(`Expected a populated state at ${row},${col}`);
+        }
+        const named = String(state.text.main.value);
+
+        const [target] = navMap.resolve(layer.id, row, col);
+        expect(target).toBeDefined();
+        expect(target.kind).toBe('region');
+        expect(target.dataItem.get('mapPolygon')).toBe(shapes[boxOf.get(named) as number]);
+      }
+    }
+  });
+
+  it('bands the map the way the trace does, rather than keeping declared order', () => {
+    // Spelled out once, so the test above is readable as a contract rather
+    // than as a tautology: four regions make two bands of two, south first,
+    // and west to east inside each.
+    const shapes = polygons();
+    const { navMap, layer } = navMapFor(mapSeries(shapes));
+
+    // The two southernmost are Nevada (39.3N) and Oregon (43.9N), read west to
+    // east — so Oregon (-120.6) comes before Nevada (-116.6), which is neither
+    // their declared order nor their order by latitude.
+    expect(navMap.resolve(layer.id, 0, 0)[0].dataItem.get('mapPolygon')).toBe(shapes[2]);
+    expect(navMap.resolve(layer.id, 0, 1)[0].dataItem.get('mapPolygon')).toBe(shapes[1]);
+    // Northern band: Washington (-120.5) is west of Idaho (-114.6).
+    expect(navMap.resolve(layer.id, 1, 0)[0].dataItem.get('mapPolygon')).toBe(shapes[0]);
+    expect(navMap.resolve(layer.id, 1, 1)[0].dataItem.get('mapPolygon')).toBe(shapes[3]);
+  });
+
+  it('degenerates to declared order when the map placed no region', () => {
+    // The likely common case, since the centroid read is unverified. With no
+    // coordinates `arrange` returns one band in declared order, so the mirror
+    // is the identity map — and the map is still navigable, still announced,
+    // still outlined, just read as a region list.
+    const shapes = polygons();
+    const series = fakeMapPolygonSeries('Rate', STATES.map((state, at) => ({
+      name: state.name,
+      value: state.value,
+      polygon: shapes[at],
+    })));
+    const { navMap, layer } = navMapFor(series);
+
+    for (let col = 0; col < STATES.length; col++) {
+      expect(navMap.resolve(layer.id, 0, col)[0].dataItem.get('mapPolygon')).toBe(shapes[col]);
+    }
+  });
+
+  it('outlines the polygon\'s reported box', () => {
+    const shapes = polygons();
+    const { navMap, layer } = navMapFor(mapSeries(shapes));
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 20, top: 0, width: 8, height: 8 });
+  });
+
+  it('clears rather than outlining a polygon that reports no box with area', () => {
+    // An am5 `Graphics` painted through a draw callback can report a
+    // degenerate point (the `Slice` problem of #774), and a region has no
+    // radius or sweep to be measured from instead. A one-pixel mark at the
+    // wrong place says less than nothing.
+    const flat = fakeMapPolygon({ box: { left: 30, top: 30, right: 30, bottom: 30 } });
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', value: 38.9, polygon: flat },
+    ]);
+    const { navMap, layer } = navMapFor(series);
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(target).toBeDefined();
+    expect(dataItemToOverlayRect(target, null)).toBeNull();
+  });
+
+  it('resolves nothing when the polygons and the announced regions disagree', () => {
+    // The alignment guard. A layer whose data no longer matches the series it
+    // was built from means the chart moved underneath the conversion; an empty
+    // answer clears the overlay, which beats outlining a stale index.
+    const shapes = polygons();
+    const series = mapSeries(shapes);
+    const chart = fakeMapChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'map', type: TraceType.CHOROPLETH, data: [{ x: 'Nevada', y: 38.9 }] }],
+      groups: groupSeries(chart),
+    }]);
+
+    expect(navMap.resolve('map', 0, 0)).toEqual([]);
+  });
+});
+
+describe('groupSeries (choropleth)', () => {
+  it('buckets a shaded polygon series and leaves the base geography out', () => {
+    // The fourth edit every new type needs, and the one whose omission is
+    // silent: audio and text would keep working while the highlight vanished.
+    const shaded = fakeMapPolygonSeries('Rate', [{ name: 'Nevada', value: 38.9 }]);
+    const base = fakeMapPolygonSeries('World', [{ name: 'Nevada', value: 38.9 }], {});
+
+    const groups = groupSeries(fakeMapChart({ series: [base, shaded] }));
+
+    expect(groups.choroplethSeriesList).toEqual([{ series: shaded }]);
+    // And emphatically not read as a bar chart of its shapes, which is what
+    // `classifySeriesKind`'s default would have made of either of them.
+    expect(groups.barSeriesList).toEqual([]);
+  });
+});
+
+describe('groupSeries', () => {
+  it('leaves an am5flow series and a force-directed network in no bucket', () => {
+    // Not an oversight, and not a no-op either: `classifySeriesKind` answers
+    // `'bar'` for a class it does not know, so before these classes were named
+    // a sankey landed in `barSeriesList` — where it would have shifted every
+    // real bar layer's resolver index and outlined the wrong column on a chart
+    // carrying both. Recognising them is what puts them in NO bucket.
+    const sankey = fakeFlowSeries('Energy', [
+      { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    ]);
+    const network = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [{ category: 'Ada' }],
+    });
+
+    const groups = groupSeries(fakeChart({ series: [sankey, network] }));
+
+    expect(groups.barSeriesList).toEqual([]);
+    expect(Object.values(groups).every(bucket => bucket.length === 0)).toBe(true);
+  });
+
+  it('buckets a sunburst with the trees it is one of', () => {
+    // The fourth edit every new type needs, and the one whose omission is
+    // silent: the layer would still be built, announced and navigated, and
+    // only the highlight would vanish. `hierarchySeriesList` is what the
+    // resolver indexes, so an unbucketed sunburst resolves to nothing.
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [{ category: 'Asia', value: 3000 }],
+    }, 'Sunburst');
+
+    expect(groupSeries(fakeChart({ series: [series] })).hierarchySeriesList)
+      .toEqual([series]);
   });
 });

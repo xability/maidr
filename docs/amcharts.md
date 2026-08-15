@@ -84,16 +84,21 @@ Series are classified by their amCharts class name and field configuration:
 - `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
 - `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
 - `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
-- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**
 - two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
 - `am5wc.WordCloud` → **word cloud**
+- `am5flow.Sankey` → **sankey**; `Chord`, `ChordDirected` and `ChordNonRibbon` → **chord**; `ArcDiagram` → **sankey**, because it carries weights and a network has nowhere to put one
+- `am5hierarchy.ForceDirected` → **network**
+- `am5map.MapPolygonSeries` bound to a `valueField` (or carrying `heatRules`) → **choropleth**; a polygon series with neither, and every `MapLineSeries`, `MapPointSeries` or `GraticuleSeries`, is the base geography and is skipped
 - `LineSeries` on a value axis whose renderer is `inversed`, carrying a genuine ranking → **bump** (rank over time); the `bump` option settles the cases the axis cannot
 
 ### Visual Highlighting
 
 amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes for MAIDR's usual highlighting. `bindAmCharts` instead draws an absolutely-positioned outline box over the canvas at the active data point's pixel geometry (computed via am5's `sprite.toGlobal()`) — the same overlay approach the Chart.js adapter uses. The overlay re-anchors on resize. Call the returned `dispose()` to unmount MAIDR, remove the overlay, and restore the chart. Highlighting is unavailable on the `fromAmCharts` JSON/attribute path.
+
+**Four types are read but not outlined**: sankey, alluvial, chord and network. They sonify, describe, braille and navigate correctly, and the overlay simply clears as the cursor moves. This is deliberate, and [the reason is written out below](#flow-and-network-are-not-outlined) — an empty outline is truthful, and a box drawn around a guessed node is not.
 
 ## Supported Chart Types
 
@@ -119,17 +124,27 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Gantt / Timeline | `ColumnSeries` | category Y axis + `openValueXField` (or `openDateXField`) |
 | Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
 | Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
+| Sunburst | `am5hierarchy.Sunburst` | series class (requires `hierarchy.js`) |
 | Diverging Bar / Population Pyramid | two `ColumnSeries` | shared categories, one series entirely negative and the other entirely positive |
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
+| Sankey † | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
+| Chord † | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
+| Network † | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |
+| Choropleth | `am5map.MapPolygonSeries` inside a `MapChart` | series class + a bound `valueField` or `heatRules` (requires `map.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
+| Gauge | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
 | Error bar | any XY series, with a floating column behind it | **declared** — `{ type: "error_bar" }` |
 | Forest (meta-analysis) | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
 | Volcano | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
 | Manhattan | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
 | Scatter | the same | **declared** — `{ type: "point" }` |
+| Alluvial † | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
+| Choropleth (renamed fields) | `am5map.MapPolygonSeries` | **declared** — `{ type: "choropleth", value: "…" }` |
+
+† Read, announced, brailled and navigated — but **not outlined**. See [Flow and network are not outlined](#flow-and-network-are-not-outlined).
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -139,13 +154,13 @@ A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` r
 
 `RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
 
-The last seven rows are **declared** rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.
+The **declared** rows are declared rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.
 
-> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder, and neither are sankey, alluvial or chord diagrams (`am5flow`).
+> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder.
 
 ## Declaring What a Chart Means
 
-Some readings amCharts leaves no signature for. A Kaplan-Meier curve and a step line are one series class. An error bar is a second series of floating columns, which is also how a waterfall and a dumbbell are drawn. A volcano, a Manhattan and a plain scatter are all a `LineSeries` with its stroke switched off and bullets pushed on, and so is a dot plot. Every one of those configurations is worn by an ordinary chart, so the adapter's heuristics cannot separate them and do not try: a step line read as a survival curve announces censoring the chart never carried, which is worse than reading it as the step line it is.
+Some readings amCharts leaves no signature for. A Kaplan-Meier curve and a step line are one series class. An error bar is a second series of floating columns, which is also how a waterfall and a dumbbell are drawn. A volcano, a Manhattan and a plain scatter are all a `LineSeries` with its stroke switched off and bullets pushed on, and so is a dot plot. An alluvial is an `am5flow.Sankey`. Every one of those configurations is worn by an ordinary chart, so the adapter's heuristics cannot separate them and do not try: a step line read as a survival curve announces censoring the chart never carried, which is worse than reading it as the step line it is.
 
 What separates them is the author saying so, in the `userData` slot amCharts documents as *"a storage for any custom user data"*:
 
@@ -178,6 +193,12 @@ A field you leave out falls back to its canonical name and then to a short list 
 | `"manhattan"` | `label`, `group`, `significance`, `significanceDirection`, `effect`, `merge` (default `true`) |
 | `"volcano"` | the same, with `merge` defaulting to `false` |
 | `"point"` | `label`, `merge` (default `false`) — note the value is `"point"`, not `"scatter"` |
+| `"alluvial"` | nothing — the block is the whole declaration |
+| `"choropleth"` | `region`, `value`, `lon`, `lat` |
+
+`"choropleth"` is the one declared type the adapter also detects on its own. A `MapPolygonSeries` bound to a `valueField` needs no block; the block is for a map whose region name, shaded value or centroid pair lives in a column amCharts was never told about — which is also the only way to get the centroids, and so the arrow keys walking north and south, out of a table that spells them `east`/`north` or keeps them beside the value. It is accepted only on a `MapPolygonSeries`; a block on anything else is reported and the chart is read as what it was drawn as.
+
+`"alluvial"` takes no fields at all, and that is the point: an alluvial is the same weighted flow a sankey carries, drawn without a left-to-right budget, so the nodes, the links and their weights are already in the drawing and the only thing missing is which of the two readings it stands for. It is accepted only on an `am5flow` series that carries at least one readable link — a block on anything else is reported and the chart is read as what it was drawn as.
 
 Every variant also accepts `title` (what the chart is called) and `name` (what this layer is called among its siblings). Any other key is reported and ignored, which is what catches a `significanse: 7.3` in plain JavaScript, where nothing else would.
 
@@ -448,9 +469,9 @@ The lanes come from the **category axis**, not from the bars, so a lane with not
 
 A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
 
-### Treemap / Icicle
+### Treemap / Icicle / Sunburst
 
-An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap and an icicle (amCharts calls it a `Partition`) draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
+An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap, an icicle (amCharts calls it a `Partition`) and a sunburst draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page covering all three is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
 
 ```js
 var series = root.container.children.push(am5hierarchy.Treemap.new(root, {
@@ -466,6 +487,32 @@ series.data.setAll([{
 ```
 
 The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
+
+A `Sunburst` extends `Partition` but carries its own class name, so it is recognised in its own right rather than inherited — which is also what keeps it from being announced as an icicle. The one thing the mark does change is the highlight: a treemap block and an icicle bar are rectangles, and a sunburst node is a `Slice`, which reports a degenerate box at its own centre and is therefore measured from its radius and sweep instead (the same reading a pie wedge gets).
+
+### Gauge
+
+A gauge is the one chart in this adapter whose reading is not in a series at all. amCharts draws the needle as an `AxisBullet` on an **axis** data item, so a `ClockHand` gauge commonly carries zero series and there is nothing for the per-series conversion to find. The adapter therefore asks the chart directly — but only after the series loop produced no layer, which is what keeps an ordinary radar or polar-area chart, drawn in the very same `RadarChart`, from ever reaching this path. A runnable page is at [`examples/amcharts-gauge.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-gauge.html).
+
+```js
+var chart = root.container.children.push(am5radar.RadarChart.new(root, { startAngle: 160, endAngle: 380 }));
+var axis = chart.xAxes.push(am5xy.ValueAxis.new(root, {
+  min: 0, max: 100, strictMinMax: true,
+  renderer: am5radar.AxisRendererCircular.new(root, {}),
+}));
+// A band: MAIDR carries its UPPER edge only, since bands partition the range.
+axis.createAxisRange(axis.makeDataItem({ value: 50, endValue: 80 }));
+// The needle, and the value MAIDR reads.
+var handItem = axis.makeDataItem({ value: 73 });
+handItem.set("bullet", am5xy.AxisBullet.new(root, { sprite: am5radar.ClockHand.new(root, {}) }));
+axis.createAxisRange(handItem);
+```
+
+The payload is a **single object**, not an array of one: the chart draws exactly one measure, and an array would describe a shape it does not have. The dial's ends come from the axis' `min`/`max` settings, falling back to the extremes amCharts computed when the author fixed neither — never from the axis' `start`/`end`, which are relative zoom positions and would quietly report every gauge as a 0-to-1 dial. **A dial with no finite ends emits no layer at all.** `GaugeTrace` pitches its tone against the range rather than against the value, so a reading with no range behind it is not a reading, and a chart left with no layers is dropped rather than announced as a dial of `NaN`s.
+
+Bands are read from the axis' ranges: any range with a finite `endValue` becomes one, sorted ascending, and a band amCharts leaves unnamed is numbered by its position (`Band 1`, `Band 2`). The needle's own range carries a value and no end, which is exactly what keeps it out of the band list. A chart carrying several hands is read as its first, with a console warning.
+
+Two things are **not** read. A bullet chart's `target` marker is omitted: amCharts has no unambiguous construct for one, and a guessed target is a number the chart never stated. And the highlight outlines the `ClockHand` sprite itself — if that sprite reports no measurable box, the overlay **clears** rather than falling back to the chart, because a box drawn around the whole dial says nothing about where the needle is.
 
 ### Diverging Bar / Population Pyramid
 
@@ -531,6 +578,93 @@ series.data.setAll([
 ```
 
 A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
+
+### Sankey / Alluvial / Chord / Network
+
+An `am5flow` diagram is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it. It needs `flow.js` on top of `index.js`; a force-directed network needs `hierarchy.js` instead. A runnable page covering all four is at [`examples/amcharts-flow.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-flow.html).
+
+```js
+var series = root.container.children.push(am5flow.Sankey.new(root, {
+  sourceIdField: "from", targetIdField: "to", valueField: "value",
+}));
+series.data.setAll([
+  { from: "Coal", to: "Electricity", value: 34 },
+  { from: "Gas", to: "Electricity", value: 21 },
+  { from: "Electricity", to: "Homes", value: 40 },
+]);
+```
+
+The payload is **one point per link**. The nodes are derived from the ends, so `series.nodes` is deliberately not read — a second node list would be a second source of truth for something the links already say, and the two could then disagree. A link missing an end, or carrying no weight, is dropped rather than kept as a gap: amCharts draws no ribbon for it, and a mark MAIDR counted but the chart never drew would slide every later position onto its neighbour.
+
+An `ArcDiagram` is announced as a **sankey**, not as a network. It extends `FlowSeries` and carries a weight per link, and MAIDR's network payload has nowhere to put one, so reading it as a network would silently drop the magnitudes.
+
+All three `Chord` classes — `Chord`, `ChordDirected`, `ChordNonRibbon` — are announced as a **chord**. One honesty note: a chord graph is cyclic, and MAIDR's flow trace lays nodes out by their longest distance from a source. A cyclic graph has no such layering, so every node collapses into a single stage by design. Navigation and sonification are correct; there is simply no left-to-right ordering to announce, and the trace does not claim one.
+
+An **alluvial** has no amCharts class at all — it is an `am5flow.Sankey` with the nodes repeated across stages — so it is [declared](#declaring-what-a-chart-means) rather than detected:
+
+```js
+series.set("userData", { maidr: { type: "alluvial" } });
+```
+
+A **network** comes from `am5hierarchy.ForceDirected`, which is a *hierarchy* series rather than a link list: its data is a tree of `children`, and the links are that tree's parent-child edges plus whatever cross-links each row names in the column `linkWithField` points at.
+
+```js
+var series = root.container.children.push(am5hierarchy.ForceDirected.new(root, {
+  categoryField: "name", childDataField: "children",
+  idField: "name", linkWithField: "linkWith",
+}));
+```
+
+The container root is dropped, as it is for a treemap. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
+
+#### Flow and network are not outlined
+
+Sankey, alluvial, chord and network layers get **no highlight**. As the cursor moves the overlay clears; audio, the text description, braille and keyboard navigation all work normally.
+
+This is a deliberate refusal rather than an oversight, and the reason is worth stating. MAIDR hands a canvas adapter one of two things: an explicit list of point indices, for traces that publish which marks they mean, or the **braille** position for everything else. A flow trace is in the second group, and its braille position is `(stage, index within that stage)` — the stage being a column of the drawing, which is the only thing a braille line can be. A network trace's is `(component, index within that component)`.
+
+Turning either back into a node means reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — longest-distance-from-a-source, with a fallback that collapses a cyclic graph into one stage — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted. This adapter already mirrors an ordering where one exists (a heatmap's row reversal, a word cloud's weight order), and already refuses to mirror a derived structure (a scatter's binning). A copy would drift from the model silently and then outline a confidently wrong node while the announcement said something else — and nothing about the announcement would look wrong. An empty outline is truthful; that is not.
+
+The fix is small and lives in the model rather than here: both traces already compute the right answer internally, so publishing it as point indices would make all four types highlightable by registering resolvers and changing nothing else. That is tracked as a follow-up.
+
+### Choropleth
+
+A choropleth is an `am5map.MapPolygonSeries` shaded by a value, inside a `MapChart`. It needs `map.js` and a geodata file on top of `index.js`. A runnable page is at [`examples/amcharts-choropleth.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-choropleth.html).
+
+```js
+var chart = root.container.children.push(am5map.MapChart.new(root, {
+  projection: am5map.geoAlbersUsa(),
+}));
+var series = chart.series.push(am5map.MapPolygonSeries.new(root, {
+  geoJSON: am5geodata_region_usa_low,
+  valueField: "value",
+  calculateAggregates: true,
+}));
+series.set("heatRules", [{
+  target: series.mapPolygons.template, dataField: "value",
+  key: "fill", min: am5.color(0xeeeeee), max: am5.color(0x203080),
+}]);
+series.data.setAll([
+  { id: "US-WA", value: 12.1 },
+  { id: "US-OR", value: 16.4 },
+  { id: "US-NV", value: 38.9 },
+]);
+```
+
+A `MapChart` is a `SerialChart`: it has a series list and no axes, so the adapter recognises it by its class name, exactly as it does a `PieChart`. Only a **shaded** polygon series becomes a layer — one bound to a `valueField`, or carrying `heatRules`. The base geography drawn underneath, the graticule, route lines and city pins are all skipped: announcing the base map would offer a list of every shape on it with nothing to say about any of them. A region amCharts drew but joined no value onto is left out of the layer too, which is the ordinary case for the shapes drawn in the no-data colour.
+
+The map is bound to no axis — the value runs along a colour ramp and the regions along nothing at all — so its dimensions are named `Region` and `Value`; the `axisLabels` option overrides both.
+
+**The centroids are what make this a map** rather than a bar chart whose categories happen to be places. MAIDR's choropleth trace bands the regions by latitude and reads each band west to east, so Up is north and Right is east — and it does that out of a longitude and a latitude in **degrees** and out of nothing else. The adapter reads them from two places, in this order:
+
+1. your own row, from `lon`/`longitude`/`long` and `lat`/`latitude`, or from whatever a [declaration](#declaring-what-a-chart-means) renames them to;
+2. the drawn polygon's `geoCentroid()`.
+
+A pair that resolves to neither is **omitted**, never converted. A projected or normalised coordinate announced as a degree is a wrong compass direction, which is worse than what the omission costs: without the pair the regions are read as one band in declared order — a region list, which is a poorer reading but the one the data supports. Values outside ±180 / ±90 are refused for the same reason, and half a pair is treated as none.
+
+`neighbors` is not emitted at all. Adjacency is not recoverable from rendered geometry, and centroids do not answer it either — two regions can have near centroids and no shared border. The trace keeps its spatial walk and is told nothing about borders rather than something guessed, so the "bordering regions" rotor is simply empty on an amCharts map.
+
+**Highlighting** outlines the drawn polygon's axis-aligned box. That is coarse for a long thin country, but it hugs the shape and says which way navigation moved, which is what the overlay is for — the same call the word cloud's rotated glyphs make. A polygon that reports no box with area clears the overlay rather than drawing a hairline somewhere plausible.
 
 ### Bump (Rank Over Time)
 

@@ -9,20 +9,26 @@
  * chart so highlights clip against the correct panel's plot area.
  */
 
-import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { ChoroplethPoint, HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AmDeclaredLayer } from './declaration';
+import type { ChoroplethFields } from './extractor';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 import {
+  choroplethFields,
   extractCloudMarks,
   extractErrorBarSamples,
   extractForestSamples,
   extractSurvivalArms,
+  planDeclarations,
 } from './declaration';
 import {
+  classifySeriesKind,
   extractGanttItems,
   extractHierarchyNodes,
   extractSpanItems,
+  filterChoroplethItems,
+  findGaugeHand,
   isColumnSeries,
 } from './extractor';
 
@@ -30,12 +36,12 @@ import {
  * The am5 entities to highlight for a navigation position.
  * `kind` tells the overlay which geometry to read: a column's box, a line
  * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
- * or the glyph of a word cloud's term.
+ * the glyph of a word cloud's term, or the drawn polygon of a map region.
  */
 export interface NavTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice' | 'label';
+  kind: 'column' | 'point' | 'slice' | 'label' | 'region';
 }
 
 /**
@@ -78,6 +84,22 @@ export interface NavMapEntry {
 }
 
 /**
+ * Where one choropleth layer came from: the polygon series amCharts drew, and
+ * the field names a declaration renamed its facts to, when the author gave
+ * one.
+ *
+ * The fields have to travel with the series because they change *which
+ * regions the layer kept*: a map whose value hangs on a column amCharts was
+ * never bound to reads as no regions at all without them, and the highlight
+ * would then index a list of a different length from the one the reader is
+ * walking.
+ */
+export interface AmChoroplethSource {
+  series: AmXYSeries;
+  fields?: ChoroplethFields;
+}
+
+/**
  * Live am5 series grouped exactly as the adapter groups them when building
  * layers, so each MAIDR layer can be matched back to its source series.
  */
@@ -117,10 +139,29 @@ export interface SeriesGroups {
   dumbbellSeriesList: AmXYSeries[];
   /** One GANTT layer each, in series order. */
   ganttSeriesList: AmXYSeries[];
-  /** One TREEMAP or ICICLE layer each, in series order. */
+  /**
+   * One TREEMAP, ICICLE or SUNBURST layer each, in series order.
+   *
+   * One bucket for three layouts because they are one tree drawn three ways
+   * and the highlight walks the same nodes whichever it is. Which *mark* to
+   * measure is decided from the layer's trace type where the resolver is
+   * built, since that is the part that differs.
+   */
   hierarchySeriesList: AmXYSeries[];
   /** One WORD_CLOUD layer each, in series order. */
   wordCloudSeriesList: AmXYSeries[];
+  /**
+   * One CHOROPLETH layer each, in series order.
+   *
+   * The one bucket that carries a declaration alongside the series, because a
+   * map is the one type this adapter reads BOTH ways: an `am5map`
+   * `MapPolygonSeries` bound to a `valueField` is a choropleth on its own, and
+   * one whose value hangs on a column amCharts was never told about is a
+   * choropleth the author declared. Both emit `TraceType.CHOROPLETH`, so one
+   * ordered bucket keeps the layers and their sources in step — which two
+   * buckets could not, since the layers interleave in series order.
+   */
+  choroplethSeriesList: AmChoroplethSource[];
   /**
    * One layer each for the series that declared what they mean, in series
    * order — a survival curve, an error bar, a forest plot, a cloud.
@@ -280,24 +321,69 @@ function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
 }
 
 /**
- * Build a resolver for a treemap or icicle layer.
+ * Build a resolver for a treemap, icicle or sunburst layer.
  *
  * MAIDR addresses a tree node by depth and by its position within that depth,
  * taking the position from the order the nodes were declared in — which is the
  * order the walk emitted them, so gathering the walk by depth rebuilds exactly
- * the grid the reader is navigating.
+ * the grid the reader is navigating. That is true of all three layouts: they
+ * are one tree drawn three ways.
+ *
+ * What is not the same is the mark. A treemap block and an icicle bar are
+ * rectangles, which the overlay measures as it measures a column; a sunburst
+ * node is a `Slice`, which reports a degenerate box at its own centre and has
+ * to be measured from its radius and sweep instead. Hence the `kind` — the one
+ * thing the caller has to say.
  */
-function buildHierarchyResolver(series: AmXYSeries | undefined): Resolver {
+function buildHierarchyResolver(
+  series: AmXYSeries | undefined,
+  kind: NavTarget['kind'],
+): Resolver {
   const levels: AmDataItem[][] = [];
   for (const node of series ? extractHierarchyNodes(series) : []) {
     (levels[node.depth] ??= []).push(node.dataItem);
   }
   return (row, col) => {
     const dataItem = levels[row]?.[col];
-    // A node is drawn as a rectangle, which the overlay measures the same way
-    // it measures a column.
-    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+    return series && dataItem ? [{ series, dataItem, kind }] : [];
   };
+}
+
+/**
+ * Build a resolver for a gauge layer.
+ *
+ * Structurally the simplest resolver there is: `GaugeTrace` is a 1x1 grid and
+ * its position is always `(0, 0)`, so there is no ordering to mirror and no
+ * index to invert — every position is the needle.
+ *
+ * The plumbing is the only wrinkle. A {@link NavTarget} names a series and a
+ * data item, and a ClockHand has neither: it is a bullet on an *axis*. Rather
+ * than widen the target for one layer, the hand is handed to the overlay
+ * through a data item that answers `graphics` with it — which is exactly the
+ * read `kind: 'column'` already makes — and a stand-in series that nothing on
+ * that path asks anything of. The same trick `asStandalonePanel` uses to give
+ * a bare series the shape of a chart.
+ *
+ * If the hand reports no usable box the overlay clears rather than falling
+ * back to the chart. An outline around the whole dial would say nothing about
+ * where the needle is.
+ */
+function buildGaugeResolver(chart: AmChart): Resolver {
+  const hand = findGaugeHand(chart);
+  if (!hand) {
+    return () => [];
+  }
+
+  const dataItem = {
+    get: (key: string) => (key === 'graphics' ? hand.sprite : undefined),
+  } as AmDataItem;
+  const series = {
+    className: 'ClockHand',
+    get: () => undefined,
+    dataItems: [],
+  } as unknown as AmXYSeries;
+
+  return () => [{ series, dataItem, kind: 'column' }];
 }
 
 /**
@@ -399,6 +485,99 @@ function buildCloudResolver(
 }
 
 /**
+ * Lay the regions out the way `ChoroplethTrace` does, as indices into the
+ * layer's own `data` array.
+ *
+ * **This mirrors model logic, deliberately, and the line it sits on is worth
+ * stating.** What the codebase refuses to copy is a *derived structure* — a
+ * scatter's binning, a flow's stage layering — because a copy of one drifts
+ * silently and then outlines a confidently wrong mark. `arrange`
+ * (`src/model/choropleth.ts`) is not that: it is a pure sort-and-chunk over
+ * exactly the numbers this adapter emitted, with no graph in it, the same kind
+ * of ordering {@link buildHeatmapResolver} already mirrors for the model's
+ * y-reversal and `filterWordCloudItems` for its weight order.
+ *
+ * Two things keep it honest rather than optimistic. A layer that declared no
+ * centroids arranges to one band in declared order, so the mirror degenerates
+ * to the identity map — which is the common case here, since the centroid read
+ * is unverified. And the contract is pinned by a test that constructs the real
+ * `ChoroplethTrace` and asks it, at every position, which region it just
+ * named.
+ *
+ * Sorted with the model's own comparisons on a stable sort, so regions of
+ * equal latitude keep their declared order in both.
+ *
+ * @param points - The regions the layer declared.
+ * @returns Their `data` indices, banded south-first and west-to-east.
+ */
+function arrangeRegions(points: readonly ChoroplethPoint[]): number[][] {
+  const placed = points.map((point, at) => ({
+    at,
+    lat: typeof point.lat === 'number' ? point.lat : Number.NaN,
+    lon: typeof point.lon === 'number' ? point.lon : Number.NaN,
+  }));
+  if (placed.length === 0) {
+    return [];
+  }
+  if (!placed.every(region => Number.isFinite(region.lat) && Number.isFinite(region.lon))) {
+    return [placed.map(region => region.at)];
+  }
+
+  const bands = Math.max(1, Math.round(Math.sqrt(placed.length)));
+  const perBand = Math.ceil(placed.length / bands);
+  const southFirst = [...placed].sort((a, b) => a.lat - b.lat);
+
+  const arranged: number[][] = [];
+  for (let start = 0; start < southFirst.length; start += perBand) {
+    arranged.push(
+      southFirst
+        .slice(start, start + perBand)
+        .sort((a, b) => a.lon - b.lon)
+        .map(region => region.at),
+    );
+  }
+  return arranged;
+}
+
+/**
+ * Build a resolver for a choropleth layer.
+ *
+ * A map is the one layer whose navigation grid is neither the declared order
+ * nor a filtered view of it: the regions are banded by latitude and read west
+ * to east inside each band, so `(row, col)` names a place on the map rather
+ * than a position in the data. {@link arrangeRegions} rebuilds that banding
+ * over the layer's own points and hands back the declared index, which then
+ * indexes the drawn polygons.
+ *
+ * The alignment guard is what makes it safe: the polygons are re-filtered with
+ * the same rule the extraction used, and a list of a different length from
+ * `layer.data` means the chart moved underneath the conversion. The resolver
+ * then answers nothing, the overlay clears, and no stale index gets outlined —
+ * the same call {@link buildCloudResolver} makes.
+ */
+function buildChoroplethResolver(
+  source: AmChoroplethSource | undefined,
+  layer: MaidrLayer,
+): Resolver {
+  const points = layer.data as ChoroplethPoint[];
+  if (!source || !Array.isArray(points)) {
+    return () => [];
+  }
+
+  const items = filterChoroplethItems(source.series, source.fields);
+  if (items.length !== points.length) {
+    return () => [];
+  }
+
+  const bands = arrangeRegions(points);
+  return (row, col) => {
+    const at = bands[row]?.[col];
+    const dataItem = at === undefined ? undefined : items[at];
+    return dataItem ? [{ series: source.series, dataItem, kind: 'region' }] : [];
+  };
+}
+
+/**
  * Build a resolver for a heatmap layer. amCharts heatmap dataItems are a flat,
  * insertion-ordered list, so we index them by `categoryX`/`categoryY` value.
  * MAIDR's Heatmap model reverses the Y axis (`src/model/heatmap.ts`), so we
@@ -446,6 +625,172 @@ export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
     chartFor: layerId => owners.get(layerId),
     chartCount: new Set(entries.map(entry => entry.chart)).size,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Series grouping
+// ---------------------------------------------------------------------------
+
+/**
+ * Group a chart's live series exactly as `buildChartLayers` groups them when
+ * it builds the layers.
+ *
+ * The one place in the adapter that deliberately duplicates a decision: the
+ * layer a reader hears and the mark the overlay outlines have to be the same
+ * series, so this asks the same two questions of the same chart —
+ * {@link planDeclarations} first, since a declared series is never also
+ * classified and an absorbed one is never a layer of its own, then
+ * `classifySeriesKind`. A kind added to one side and forgotten on the other is
+ * the failure this shape exists to make visible: audio and text keep working
+ * while the highlight silently vanishes.
+ *
+ * It lives here rather than beside the binder that calls it because
+ * {@link SeriesGroups} is defined here and the resolvers that consume it are
+ * here — and because the binder's own module cannot be loaded without React,
+ * which left this untested for as long as it sat there.
+ *
+ * @param chart - The live chart whose series to group.
+ * @returns The same buckets `addEntryResolvers` walks.
+ */
+export function groupSeries(chart: AmChart): SeriesGroups {
+  const groups: SeriesGroups = {
+    barSeriesList: [],
+    dotSeriesList: [],
+    lollipopSeriesList: [],
+    lineSeriesList: [],
+    stepSeriesList: [],
+    areaSeriesList: [],
+    radarSeriesList: [],
+    polarSeriesList: [],
+    histogramSeries: [],
+    heatmapSeries: [],
+    pieSeriesList: [],
+    funnelSeriesList: [],
+    waterfallSeriesList: [],
+    dumbbellSeriesList: [],
+    ganttSeriesList: [],
+    hierarchySeriesList: [],
+    wordCloudSeriesList: [],
+    choroplethSeriesList: [],
+    declaredList: [],
+  };
+
+  // The same plan `buildChartLayers` builds, asked of the same chart: a
+  // declared series is never also classified, and an absorbed one is never a
+  // layer of its own — so the layer a reader hears and the mark the overlay
+  // outlines are always the same series.
+  const plan = planDeclarations(chart);
+
+  for (const series of chart.series.values) {
+    if (plan.absorbed.has(series)) {
+      continue;
+    }
+    const declared = plan.declared.get(series);
+    if (declared) {
+      // A declared choropleth goes to the map bucket rather than the declared
+      // one: its layer is a CHOROPLETH like any other, and keeping both kinds
+      // in one ordered bucket is what lets the resolver find the source of the
+      // n-th map layer without depending on generated ids.
+      if (declared.declaration.type === TraceType.CHOROPLETH) {
+        groups.choroplethSeriesList.push({
+          series,
+          fields: choroplethFields(declared.declaration),
+        });
+      } else {
+        groups.declaredList.push(declared);
+      }
+      continue;
+    }
+
+    switch (classifySeriesKind(series)) {
+      case 'bar':
+        groups.barSeriesList.push(series);
+        break;
+      // A dot and a lollipop read as a bar chart but are drawn with different
+      // marks, so the highlight measures different sprites and they keep
+      // buckets of their own.
+      case 'dot':
+        groups.dotSeriesList.push(series);
+        break;
+      case 'lollipop':
+        groups.lollipopSeriesList.push(series);
+        break;
+      // A bump chart's competitors are line series too. Whether the layer they
+      // merge into is read as ranks is a property of the group, decided where
+      // the layer is built, so the highlight path has one bucket for both.
+      case 'line':
+        groups.lineSeriesList.push(series);
+        break;
+      case 'step':
+        groups.stepSeriesList.push(series);
+        break;
+      case 'area':
+        groups.areaSeriesList.push(series);
+        break;
+      case 'radar':
+        groups.radarSeriesList.push(series);
+        break;
+      case 'polar':
+        groups.polarSeriesList.push(series);
+        break;
+      case 'histogram':
+        groups.histogramSeries.push(series);
+        break;
+      case 'heatmap':
+        groups.heatmapSeries.push(series);
+        break;
+      case 'pie':
+        groups.pieSeriesList.push(series);
+        break;
+      case 'funnel':
+        groups.funnelSeriesList.push(series);
+        break;
+      case 'waterfall':
+        groups.waterfallSeriesList.push(series);
+        break;
+      case 'dumbbell':
+        groups.dumbbellSeriesList.push(series);
+        break;
+      case 'gantt':
+        groups.ganttSeriesList.push(series);
+        break;
+      // A treemap, an icicle and a sunburst draw one tree three ways; the
+      // highlight walks the same nodes whichever it is, so they share a
+      // bucket. Which *mark* to measure is decided from the layer's trace type
+      // where the resolver is built, since that is what differs.
+      case 'treemap':
+      case 'icicle':
+      case 'sunburst':
+        groups.hierarchySeriesList.push(series);
+        break;
+      case 'wordcloud':
+        groups.wordCloudSeriesList.push(series);
+        break;
+      // A map region IS addressable — the polygon amCharts drew reports a box
+      // — so unlike the flow family below, a choropleth gets a bucket and a
+      // resolver. The banding the model navigates it by is rebuilt from the
+      // layer's own centroids; see `buildChoroplethResolver`.
+      case 'choropleth':
+        groups.choroplethSeriesList.push({ series });
+        break;
+      // A flow diagram and a force-directed network are read, described,
+      // brailled and navigated, and deliberately get no bucket: MAIDR hands a
+      // flow trace's position back as a *braille* one — the stage, and the
+      // index within it — and recovering the node from that would mean
+      // reimplementing the model's own node ordering and stage layering here.
+      // That is a derived graph structure rather than an ordering, which is
+      // the line `buildCloudResolver` refuses to cross, so no resolver is
+      // registered and the overlay clears. See `docs/amcharts.md`.
+      case 'sankey':
+      case 'chord':
+      case 'network':
+        break;
+      default:
+        break;
+    }
+  }
+
+  return groups;
 }
 
 /** Register the resolvers (and owning chart) for one subplot's layers. */
@@ -516,6 +861,7 @@ function addEntryResolvers(
   let ganttIdx = 0;
   let hierarchyIdx = 0;
   let wordCloudIdx = 0;
+  let choroplethIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -630,11 +976,22 @@ function addEntryResolvers(
         break;
       }
       case TraceType.TREEMAP:
-      case TraceType.ICICLE: {
+      case TraceType.ICICLE:
+      case TraceType.SUNBURST: {
+        // One tree, three marks: a treemap block and an icicle bar are
+        // rectangles, a sunburst node is a wedge.
+        const kind: NavTarget['kind']
+          = layer.type === TraceType.SUNBURST ? 'slice' : 'column';
         register(
           layer.id,
-          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++]),
+          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++], kind),
         );
+        break;
+      }
+      case TraceType.GAUGE: {
+        // The one layer whose source is the chart rather than a series — a
+        // ClockHand gauge has no series for `groupSeries` to have bucketed.
+        register(layer.id, buildGaugeResolver(chart));
         break;
       }
       case TraceType.WORD_CLOUD: {
@@ -670,6 +1027,13 @@ function addEntryResolvers(
         register(layer.id, buildCloudResolver(nextDeclared(layer.type), layer));
         break;
       }
+      case TraceType.CHOROPLETH: {
+        register(
+          layer.id,
+          buildChoroplethResolver(groups.choroplethSeriesList[choroplethIdx++], layer),
+        );
+        break;
+      }
       case TraceType.HEATMAP: {
         const series = groups.heatmapSeries[heatIdx++];
         if (series) {
@@ -677,6 +1041,32 @@ function addEntryResolvers(
         }
         break;
       }
+      // Named rather than left to the default, because their absence is a
+      // decision rather than an omission — the failure mode this whole file
+      // exists to make visible is a type that reads correctly while its
+      // highlight silently vanishes.
+      //
+      // `createNavigateObserver` hands a flow or network layer the *braille*
+      // position, which `FlowTrace.braille` transposes to (stage, index within
+      // stage) and `NetworkTrace.braille` to (component, index within
+      // component). Inverting either means reimplementing the model's node
+      // ordering together with its stage layering — or its component
+      // discovery, ordering and sorting — inside the adapter. That is a
+      // derived graph structure, not an ordering over data this adapter
+      // emitted, and `buildCloudResolver` already refuses exactly that: a copy
+      // drifts silently and then outlines a confidently wrong node.
+      //
+      // So no resolver is registered, `NavMap.resolve` answers `[]`, and
+      // `applyHighlight` clears the overlay. An empty outline is truthful; a
+      // box drawn from a guessed layering is not. Both traces already compute
+      // the right answer internally (`edge.at`, `node.linkAt[0]`), so a
+      // `highlightedPointIndices` getter on each — a `src/model/` change —
+      // makes all four resolvable by registering resolvers and nothing else.
+      case TraceType.SANKEY:
+      case TraceType.CHORD:
+      case TraceType.ALLUVIAL:
+      case TraceType.NETWORK:
+        break;
       default:
         break;
     }

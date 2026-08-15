@@ -25,14 +25,18 @@
 
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellData,
+  FlowPoint,
   GanttData,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
@@ -47,6 +51,7 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import {
+  choroplethFields,
   extractErrorBarSamples,
   extractForestSamples,
   extractScatterPoints,
@@ -60,15 +65,20 @@ import {
 import {
   classifySeriesKind,
   extractBarPoints,
+  extractChoroplethPoints,
   extractDumbbellPoints,
+  extractFlowPoints,
   extractGanttData,
+  extractGaugePoint,
   extractHeatmapData,
   extractHierarchyPoints,
   extractHistogramPoints,
   extractLinePoints,
+  extractNetworkPoints,
   extractPiePoints,
   extractSegmentedPoints,
   extractWaterfallPoints,
+  findGaugeHand,
   hasRankAxis,
   holdsRanks,
   isColumnSeries,
@@ -290,7 +300,7 @@ function buildChartLayers(
     }
     const declared = plan.declared.get(series);
     if (declared) {
-      const layer = buildDeclaredLayer(declared, xLabel, yLabel, containerEl);
+      const layer = buildDeclaredLayer(declared, xLabel, yLabel, containerEl, options);
       if (layer) {
         layers.push(layer);
       }
@@ -384,7 +394,8 @@ function buildChartLayers(
         break;
       }
       case 'treemap':
-      case 'icicle': {
+      case 'icicle':
+      case 'sunburst': {
         const data = extractHierarchyPoints(series);
         if (data.length === 0)
           break;
@@ -398,6 +409,35 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildWordCloudLayer(series, data, options));
+        break;
+      }
+      case 'sankey':
+      case 'chord': {
+        // One weighted graph drawn two ways; only the announced type differs.
+        // An `ArcDiagram` lands here as a sankey — it carries weights, which a
+        // network payload has nowhere to put.
+        const data = extractFlowPoints(series);
+        if (data.length === 0)
+          break;
+        const type = kind === 'chord' ? TraceType.CHORD : TraceType.SANKEY;
+        layers.push(buildFlowLayer(series, type, data, options));
+        break;
+      }
+      case 'network': {
+        const data = extractNetworkPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildNetworkLayer(series, data, options));
+        break;
+      }
+      case 'choropleth': {
+        // A polygon series whose regions all missed their join carries no
+        // reading at all; the panel is then dropped rather than emitted as a
+        // map of nothing.
+        const data = extractChoroplethPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildChoroplethLayer(series, data, options));
         break;
       }
       default:
@@ -428,6 +468,19 @@ function buildChartLayers(
   pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
   pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
   pushMerged(layers, merged.polar, TraceType.POLAR_AREA, xLabel, yLabel);
+
+  // A ClockHand gauge is the one chart whose reading is not in a series at
+  // all: the needle is an `AxisBullet` on an *axis* data item, so a gauge
+  // commonly carries zero series and the loop above found nothing to convert.
+  // Asked last, and only of a chart that produced no layer, which is what
+  // keeps an ordinary radar or polar chart — drawn in the same `RadarChart` —
+  // from ever reaching this path.
+  if (layers.length === 0) {
+    const gauge = buildGaugeLayer(chart, options);
+    if (gauge) {
+      layers.push(gauge);
+    }
+  }
 
   return layers;
 }
@@ -504,7 +557,7 @@ function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
 /**
  * Builds the layer one co-located `maidr` declaration describes.
  *
- * These are the six readings amCharts leaves no signature for: a survival curve
+ * These are the readings amCharts leaves no signature for: a survival curve
  * and a step line are one series class, an error bar is a floating column
  * behind another series, and a volcano, a Manhattan and a plain scatter are all
  * a `LineSeries` with the stroke switched off. Nothing here is guessed — every
@@ -520,6 +573,7 @@ function buildDeclaredLayer(
   xLabel: string,
   yLabel: string,
   containerEl: HTMLElement,
+  options?: AmChartsBinderOptions,
 ): MaidrLayer | null {
   const declaration = declared.declaration;
   const axes = { x: { label: xLabel }, y: { label: yLabel } };
@@ -529,6 +583,43 @@ function buildDeclaredLayer(
   };
 
   switch (declaration.type) {
+    // The one declared type whose payload is a graph rather than a series of
+    // marks — and the one the chart already carries whole. An alluvial IS an
+    // `am5flow.Sankey`; what the author declared is which of the two readings
+    // the drawing stands for, so nothing beyond the type is taken from the
+    // block. Bound to no axis, so it names its own dimensions rather than
+    // taking the chart's — and it emits no selectors and gets no highlight,
+    // exactly as an undeclared sankey does.
+    case TraceType.ALLUVIAL: {
+      const data = extractFlowPoints(declared.series);
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.ALLUVIAL,
+        title: declaration.title ?? seriesName(declared.series),
+        axes: flowAxes(options),
+        data,
+      };
+    }
+    // A map amCharts already draws as regions, declared so the author can say
+    // which of their own columns each fact lives in. Bound to no axis, so it
+    // names its own dimensions; no selectors, because the polygons are painted
+    // into a canvas and the overlay outlines them instead.
+    case TraceType.CHOROPLETH: {
+      const data = extractChoroplethPoints(declared.series, choroplethFields(declaration));
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.CHOROPLETH,
+        title: declaration.title ?? seriesName(declared.series),
+        axes: choroplethAxes(options),
+        data,
+      };
+    }
     case TraceType.SURVIVAL: {
       const { data } = extractSurvivalArms(declared);
       if (data.length === 0) {
@@ -598,7 +689,7 @@ function buildDeclaredLayer(
         data,
       };
     }
-    // Named rather than defaulted, so that a seventh member of `AmDeclaration`
+    // Named rather than defaulted, so that a further member of `AmDeclaration`
     // fails to compile here instead of being read out as a plain scatter.
     case TraceType.SCATTER: {
       const data = extractScatterPoints(declared);
@@ -848,21 +939,26 @@ const HIERARCHY_VALUE_AXIS = 'Value';
 const HIERARCHY_TRACE_TYPES = {
   treemap: TraceType.TREEMAP,
   icicle: TraceType.ICICLE,
+  sunburst: TraceType.SUNBURST,
 } as const;
 
 /**
- * Builds the layer for one am5hierarchy series — a treemap, or the icicle
- * amCharts calls a `Partition`.
+ * Builds the layer for one am5hierarchy series — a treemap, the icicle
+ * amCharts calls a `Partition`, or the `Sunburst` that bends that icicle into
+ * a ring.
  *
- * The two draw the same tree with different marks, so they differ here only in
- * which trace type they name; MAIDR navigates both as a tree either way.
+ * The three draw the same tree with different marks, so they differ here only
+ * in which trace type they name; MAIDR navigates all three as a tree either
+ * way. What the mark does change is the highlight: a treemap block and an
+ * icicle bar are rectangles, and a sunburst node is a wedge, which the overlay
+ * has to measure differently — see `buildHierarchyResolver`.
  *
  * No `selectors`, for the reason a pie emits none — amCharts paints the nodes
- * into a canvas. The binder's overlay highlights the active node's rectangle.
+ * into a canvas. The binder's overlay highlights the active node's mark.
  */
 function buildHierarchyLayer(
   series: AmXYSeries,
-  kind: 'treemap' | 'icicle',
+  kind: 'treemap' | 'icicle' | 'sunburst',
   data: TreemapPoint[],
   options?: AmChartsBinderOptions,
 ): MaidrLayer {
@@ -873,6 +969,174 @@ function buildHierarchyLayer(
     axes: {
       x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
       y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a flow diagram's two dimensions are called. A sankey, an alluvial, a
+ * chord and an arc diagram are all bound to no axis, and what a reader is
+ * after at a node is how much moves through it.
+ */
+const FLOW_NODE_AXIS = 'Node';
+const FLOW_WEIGHT_AXIS = 'Weight';
+
+/** The axes every flow layer names, with the figure-wide override applied. */
+function flowAxes(options?: AmChartsBinderOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: options?.axisLabels?.x ?? FLOW_NODE_AXIS },
+    y: { label: options?.axisLabels?.y ?? FLOW_WEIGHT_AXIS },
+  };
+}
+
+/**
+ * Builds the layer for one am5flow series — a `Sankey`, one of the three
+ * `Chord` variants, or the `ArcDiagram` that draws the same weighted links
+ * along a line.
+ *
+ * All of them are one weighted graph declared as one point per link, so they
+ * differ here only in which trace type they announce; MAIDR reads all of them
+ * with the same `FlowTrace`. The arc diagram is announced as a sankey because
+ * it carries weights, and MAIDR's network payload has nowhere to put one.
+ *
+ * No `selectors`, for the reason a pie and a treemap emit none — amCharts
+ * paints the ribbons into a canvas. **And no highlight either**: the position
+ * MAIDR hands back for a flow trace is a braille one, `(stage, index within
+ * stage)`, and turning that back into a node would mean reimplementing the
+ * model's own node ordering and stage layering here. See `docs/amcharts.md`;
+ * the overlay clears rather than outlining a guessed node.
+ */
+function buildFlowLayer(
+  series: AmXYSeries,
+  type: TraceType.SANKEY | TraceType.CHORD,
+  data: FlowPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: flowAxes(options),
+    data,
+  };
+}
+
+/**
+ * What a choropleth's two dimensions are called. A map is bound to no axis a
+ * title could be read from — the value runs along a colour ramp and the
+ * regions along nothing at all — so the chart-level fallback would name them
+ * after coordinates the chart does not have. The same two names the Highcharts
+ * adapter gives a `map` series.
+ */
+const CHOROPLETH_REGION_AXIS = 'Region';
+const CHOROPLETH_VALUE_AXIS = 'Value';
+
+/** The axes every choropleth layer names, with the figure-wide override applied. */
+function choroplethAxes(options?: AmChartsBinderOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: options?.axisLabels?.x ?? CHOROPLETH_REGION_AXIS },
+    y: { label: options?.axisLabels?.y ?? CHOROPLETH_VALUE_AXIS },
+  };
+}
+
+/**
+ * Builds the layer for one am5map `MapPolygonSeries` shaded by a value.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the
+ * polygons into a canvas. The binder's overlay outlines the active region
+ * instead, from the box the drawn polygon reports.
+ */
+function buildChoroplethLayer(
+  series: AmXYSeries,
+  data: ChoroplethPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.CHOROPLETH,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: choroplethAxes(options),
+    data,
+  };
+}
+
+/**
+ * What a network's two dimensions are called. A force-directed graph is bound
+ * to no axis either, and what a reader is after at a node is its degree.
+ */
+const NETWORK_NODE_AXIS = 'Node';
+const NETWORK_LINK_AXIS = 'Links';
+
+/**
+ * Builds the layer for one `am5hierarchy.ForceDirected` series.
+ *
+ * Nothing about where the solver put the nodes is carried: the position is a
+ * fact about its seed rather than about the data. No selectors and no
+ * highlight, for the same reasons the flow layer has none.
+ */
+function buildNetworkLayer(
+  series: AmXYSeries,
+  data: NetworkPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.NETWORK,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? NETWORK_NODE_AXIS },
+      y: { label: options?.axisLabels?.y ?? NETWORK_LINK_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a gauge's two dimensions are called.
+ *
+ * A gauge is bound to an axis, but the axis is the *dial* — the range the
+ * reading sits in — and the thing being measured is named nowhere on it. The
+ * same split Highcharts' gauge converter makes.
+ */
+const GAUGE_MEASURE_AXIS = 'Measure';
+const GAUGE_DIAL_AXIS = 'Value';
+
+/**
+ * Builds the layer for an am5radar gauge, or `null` for any other chart.
+ *
+ * The only layer in this adapter built from a chart rather than from a series.
+ * amCharts draws a gauge's needle as an `AxisBullet` on an axis data item, so
+ * a ClockHand gauge carries no series at all and there is nothing for the
+ * series loop to find; `buildChartLayers` therefore asks this last, of a chart
+ * that produced no layer.
+ *
+ * `null` rather than a layer of `NaN`s when the dial has no finite ends: the
+ * caller drops a chart with no layers, which is the right degradation for a
+ * dial whose range cannot be read.
+ */
+function buildGaugeLayer(
+  chart: AmChart,
+  options?: AmChartsBinderOptions,
+): MaidrLayer | null {
+  const hand = findGaugeHand(chart);
+  if (!hand) {
+    return null;
+  }
+
+  const title = readChartTitle(chart);
+  const data: GaugePoint | null = extractGaugePoint(hand, title);
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: `amcharts-gauge-${chart.uid ?? counter()}`,
+    type: TraceType.GAUGE,
+    ...(title ? { title } : {}),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? GAUGE_MEASURE_AXIS },
+      y: { label: options?.axisLabels?.y ?? readAxisLabel(hand.axis, GAUGE_DIAL_AXIS) },
     },
     data,
   };
@@ -1157,6 +1421,11 @@ function collectCharts(node: unknown, found: AmChart[]): void {
       found.push(child);
       continue;
     }
+    const map = asMapPanel(child);
+    if (map) {
+      found.push(map);
+      continue;
+    }
     const standalone = asStandalonePanel(child);
     if (standalone) {
       found.push(standalone);
@@ -1207,6 +1476,60 @@ function isPercentChartLike(candidate: unknown): candidate is AmChart {
   return typeof c.className === 'string'
     && PERCENT_CHART_CLASSES.has(c.className)
     && Boolean(c.series);
+}
+
+/**
+ * The am5map chart class a choropleth is drawn in.
+ *
+ * A `MapChart` is a `SerialChart`: it has a series list and no axes, which is
+ * the same signature an am5percent chart carries — so the class name is what
+ * separates them, exactly as it does there.
+ */
+const MAP_CHART_CLASSES = new Set([
+  'MapChart',
+]);
+
+/**
+ * Wrap an am5map `MapChart` as a panel.
+ *
+ * The one chart in the library that discovery could not see. It answers to
+ * neither {@link isXYChartLike} (no axes) nor {@link isPercentChartLike} (a
+ * class name of its own), so `collectCharts` used to recurse straight past it
+ * into its own containers and surface nothing.
+ *
+ * The wrapper exists for one read: `plotContainer`. A `MapChart` has none —
+ * that is an `XYChart` notion — but it IS a `Container`, so pointing the slot
+ * at the chart itself answers `globalBounds()` / `toGlobal()` / `width()` /
+ * `height()`, which is all {@link readPlotBounds} asks for. That keeps
+ * multi-panel highlight clipping and {@link computeChartGrid} working on the
+ * same reads every other panel uses; without it a map beside another chart
+ * would have its highlight suppressed outright.
+ *
+ * The same trick {@link asStandalonePanel} uses to give a bare series the
+ * shape of a chart, and the `children` list is carried across so the panel
+ * keeps its title.
+ *
+ * @returns The wrapped panel, or `null` for anything that is not one.
+ */
+function asMapPanel(candidate: unknown): AmChart | null {
+  if (candidate == null || typeof candidate !== 'object')
+    return null;
+
+  const chart = candidate as AmChart;
+  if (typeof chart.className !== 'string' || !MAP_CHART_CLASSES.has(chart.className))
+    return null;
+  if (!Array.isArray(chart.series?.values))
+    return null;
+
+  const children = (candidate as { children?: unknown }).children;
+  return {
+    className: chart.className,
+    uid: chart.uid,
+    get: key => chart.get(key),
+    series: chart.series,
+    ...(children != null ? { children } : {}),
+    plotContainer: chart as AmChart['plotContainer'],
+  } as AmChart;
 }
 
 /**

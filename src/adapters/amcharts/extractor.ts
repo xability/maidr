@@ -5,18 +5,25 @@
 
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellPoint,
+  FlowPoint,
   GanttData,
+  GaugeBand,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
-import type { AmAxis, AmDataItem, AmSprite, AmXYSeries } from './types';
+import type { AmAxis, AmChart, AmDataItem, AmSprite, AmXYSeries } from './types';
+import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
+import { TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -898,6 +905,718 @@ export function extractHierarchyPoints(series: AmXYSeries): TreemapPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Flow (am5flow) and network (am5hierarchy.ForceDirected)
+// ---------------------------------------------------------------------------
+
+/**
+ * What am5flow binds a link's two ends to when the author names no field.
+ *
+ * amCharts' own examples author a link as `{ from, to, value }` and set
+ * `sourceIdField` / `targetIdField` / `valueField` to match, so these are the
+ * defaults for the last resort in {@link readFlowEnd} — reading the author's
+ * own row when neither the resolved id nor the node data item answered.
+ */
+const FLOW_SOURCE_FIELD_DEFAULT = 'from';
+const FLOW_TARGET_FIELD_DEFAULT = 'to';
+const FLOW_VALUE_FIELD_DEFAULT = 'value';
+
+/**
+ * A value usable as a node's name: a non-empty string, or a finite number.
+ *
+ * Stricter than {@link toStringOrNumber}, which renders `null` as `''` — an
+ * empty name is not a node, and a link with one is a link to nowhere.
+ */
+function asNodeName(value: unknown): string | number | null {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string')
+    return value.length > 0 ? value : null;
+  return null;
+}
+
+/** A finite number, from a number or from the numeric string a CSV row carries. */
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/** The author's own record behind a data item, when it kept one. */
+function rowOf(item: AmDataItem): Record<string, unknown> | null {
+  const row = item.dataContext;
+  return row != null && typeof row === 'object' ? (row as Record<string, unknown>) : null;
+}
+
+/**
+ * What one end of a flow link is called.
+ *
+ * Three reads, in falling order of how directly amCharts states the answer,
+ * because which of them a given build answers with is exactly the shape that
+ * cannot be checked without the library:
+ *
+ * 1. `sourceId` / `targetId` — the id amCharts resolved the end to, which is
+ *    the name if it answers at all.
+ * 2. `source` / `target` — the *node* data item the link was joined to, asked
+ *    for its own `name` and then its `id`.
+ * 3. The author's row, keyed by the field the series was told to read ends
+ *    from. This is the one that survives a build answering with neither.
+ *
+ * `null` when no read answers, which drops the link: a ribbon with one end is
+ * not a flow, and naming the missing end anything at all would invent a node.
+ */
+function readFlowEnd(
+  item: AmDataItem,
+  series: AmXYSeries,
+  end: 'source' | 'target',
+): string | number | null {
+  const resolved = asNodeName(item.get(`${end}Id`));
+  if (resolved != null)
+    return resolved;
+
+  const node = item.get(end);
+  if (node != null && typeof node === 'object') {
+    const get = (node as { get?: (key: string) => unknown }).get;
+    if (typeof get === 'function') {
+      const named = asNodeName(get.call(node, 'name')) ?? asNodeName(get.call(node, 'id'));
+      if (named != null)
+        return named;
+    }
+  }
+
+  const field = series.get(`${end}IdField`);
+  const key = typeof field === 'string' && field.length > 0
+    ? field
+    : (end === 'source' ? FLOW_SOURCE_FIELD_DEFAULT : FLOW_TARGET_FIELD_DEFAULT);
+  return asNodeName(rowOf(item)?.[key]);
+}
+
+/**
+ * How much flows along one link.
+ *
+ * Read from the data item's own `value` first and from the author's row after,
+ * both strictly: `toNumber` would answer `0` for a link carrying no value at
+ * all, because `Number(null)` is `0`, and a zero is a weight the chart never
+ * stated rather than an absent one.
+ */
+function readFlowValue(item: AmDataItem, series: AmXYSeries): number | null {
+  const declared = asFiniteNumber(item.get('value'));
+  if (declared != null)
+    return declared;
+
+  const field = series.get('valueField');
+  const key = typeof field === 'string' && field.length > 0 ? field : FLOW_VALUE_FIELD_DEFAULT;
+  return asFiniteNumber(rowOf(item)?.[key]);
+}
+
+/**
+ * Convert an am5flow series — a `Sankey`, a `Chord` or an `ArcDiagram` — into
+ * {@link FlowPoint} data.
+ *
+ * One point per **link**, which is the whole payload: MAIDR derives the nodes
+ * from the links by design, so `series.nodes` is deliberately not read. A
+ * second list would be a second source of truth for something the links
+ * already say, and the two could then disagree.
+ *
+ * A link missing an end, or carrying no weight, is dropped rather than kept as
+ * a gap — the same call the pie, funnel and waterfall conversions make. A link
+ * amCharts draws no ribbon for but MAIDR still counts would slide every later
+ * position onto its neighbour.
+ */
+export function extractFlowPoints(series: AmXYSeries): FlowPoint[] {
+  const points: FlowPoint[] = [];
+
+  for (const item of series.dataItems) {
+    const source = readFlowEnd(item, series, 'source');
+    const target = readFlowEnd(item, series, 'target');
+    if (source == null || target == null)
+      continue;
+
+    const value = readFlowValue(item, series);
+    if (value == null || value === 0)
+      continue;
+
+    points.push({ source, target, value });
+  }
+
+  return points;
+}
+
+/**
+ * The field an `am5hierarchy.ForceDirected` names each row's cross-links in.
+ *
+ * Unlike the flow fields there is no default worth guessing: amCharts draws no
+ * cross-link at all unless the author sets `linkWithField`, so an unset one
+ * means the graph really is the tree.
+ */
+const LINK_WITH_FIELD_SETTING = 'linkWithField';
+
+/**
+ * Convert an `am5hierarchy.ForceDirected` series into {@link NetworkPoint}
+ * links.
+ *
+ * The awkward one. A force-directed graph is a **hierarchy** series in
+ * amCharts, not a link list: its data is a tree of `children`, and the links a
+ * reader sees are the parent-child edges of that tree plus whatever cross-links
+ * each row named. So the same walk the treemap uses supplies the tree — each
+ * node's parent is the last name on its path — and the cross-links are read
+ * off the authors' own rows afterwards.
+ *
+ * Nothing about the layout is read. Where the solver dropped a node is a fact
+ * about its seed rather than about the data, which is why `NetworkPoint` has
+ * nowhere to put one.
+ *
+ * A cross-link naming something the walk never saw is skipped rather than
+ * turned into a node: amCharts draws no link for it either, and inventing the
+ * node would announce a participant the chart does not have. Each pair is
+ * emitted once — a link is undirected, and two rows naming each other draw one
+ * line.
+ */
+export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
+  const nodes = extractHierarchyNodes(series);
+
+  // Every name a cross-link may legitimately reach: the node's own category,
+  // and the id the author keyed it by when that is a different column.
+  const idField = series.get('idField');
+  const byRef = new Map<string | number, string | number>();
+  for (const node of nodes) {
+    if (!byRef.has(node.name))
+      byRef.set(node.name, node.name);
+    if (typeof idField === 'string' && idField.length > 0) {
+      const id = asNodeName(rowOf(node.dataItem)?.[idField]);
+      if (id != null && !byRef.has(id))
+        byRef.set(id, node.name);
+    }
+  }
+
+  const links: NetworkPoint[] = [];
+  const seen = new Set<string>();
+  const add = (source: string | number, target: string | number): void => {
+    const key = [String(source), String(target)].sort().join(' ');
+    if (seen.has(key))
+      return;
+    seen.add(key);
+    links.push({ source, target });
+  };
+
+  for (const node of nodes) {
+    const parent = node.path[node.path.length - 1];
+    if (parent !== undefined)
+      add(parent, node.name);
+  }
+
+  const linkWithField = series.get(LINK_WITH_FIELD_SETTING);
+  if (typeof linkWithField === 'string' && linkWithField.length > 0) {
+    for (const node of nodes) {
+      const refs = rowOf(node.dataItem)?.[linkWithField];
+      if (!Array.isArray(refs))
+        continue;
+      for (const ref of refs) {
+        const name = asNodeName(ref);
+        const target = name != null ? byRef.get(name) : undefined;
+        if (target !== undefined)
+          add(node.name, target);
+      }
+    }
+  }
+
+  return links;
+}
+
+// ---------------------------------------------------------------------------
+// Gauge (am5radar ClockHand)
+// ---------------------------------------------------------------------------
+
+/**
+ * The chart class an am5radar gauge is drawn in. It extends `XYChart`, so the
+ * adapter's discovery has always found it; what it has never had is a series
+ * to convert.
+ */
+const RADAR_CHART_CLASS = 'RadarChart';
+
+/**
+ * The class name amCharts gives a gauge's needle. Nothing else in the library
+ * draws one, which is what makes this the whole of the signature: a gauge is
+ * recognised by the mark it has, not by the series it lacks.
+ */
+const CLOCK_HAND_CLASS = 'ClockHand';
+
+/**
+ * The needle of an am5radar gauge, with the axis it is pinned to.
+ *
+ * A gauge is the one layer in this adapter whose source is the *chart* rather
+ * than a series: amCharts draws the hand as an `AxisBullet` on an axis data
+ * item, so a ClockHand gauge routinely carries no series at all. Both the
+ * extraction and the highlight need the same three things, so they are found
+ * once and shared.
+ */
+export interface AmGaugeHand {
+  /** The axis the hand is pinned to, which carries the dial's range. */
+  axis: AmAxis;
+  /** The axis data item the hand's value is read from. */
+  dataItem: AmDataItem;
+  /** The `ClockHand` sprite itself, which is what the overlay outlines. */
+  sprite: AmSprite;
+}
+
+/** A duck-typed `values` list, or `[]` for anything that is not one. */
+function listValues<T>(candidate: unknown): T[] {
+  if (candidate == null || typeof candidate !== 'object')
+    return [];
+  const values = (candidate as { values?: unknown }).values;
+  return Array.isArray(values) ? (values as T[]) : [];
+}
+
+/** Read a setting only when it really is a finite number. */
+function finiteSetting(entity: { get: (key: string) => unknown }, key: string): number | null {
+  const value = entity.get(key);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Every data item an axis carries a bullet on.
+ *
+ * A gauge's hand hangs on a data item created with `axis.createAxisRange()`,
+ * which amCharts keeps in `axisRanges` — but the raw `dataItems` list is read
+ * too, because the range and the tick lists are the same kind of object and
+ * which one a given build files a made data item under is not something this
+ * adapter can verify without the library.
+ */
+function axisMarkerItems(axis: AmAxis): AmDataItem[] {
+  const ranges = listValues<AmDataItem>((axis as unknown as { axisRanges?: unknown }).axisRanges);
+  const items = Array.isArray(axis.dataItems) ? axis.dataItems : [];
+  return [...ranges, ...items];
+}
+
+/**
+ * The sprites a data item's bullets draw.
+ *
+ * Read through both the settings accessor and the plain property, and through
+ * both the singular `bullet` an axis data item carries and the `bullets` list
+ * a series data item does, because which of them answers is exactly the shape
+ * that cannot be checked here.
+ */
+function bulletSprites(item: AmDataItem): AmSprite[] {
+  const sprites: AmSprite[] = [];
+  const push = (value: unknown): void => {
+    if (value != null && typeof value === 'object')
+      sprites.push(value as AmSprite);
+  };
+  const readBullet = (bullet: unknown): void => {
+    if (bullet == null || typeof bullet !== 'object')
+      return;
+    const b = bullet as { get?: (key: string) => unknown; sprite?: unknown };
+    if (typeof b.get === 'function')
+      push(b.get('sprite'));
+    push(b.sprite);
+  };
+
+  readBullet(item.get('bullet'));
+  for (const bullet of item.bullets ?? []) {
+    readBullet(bullet);
+  }
+  return sprites;
+}
+
+/** Whether a sprite is the needle amCharts draws a gauge's reading with. */
+function isClockHand(sprite: AmSprite): boolean {
+  return (sprite as { className?: string }).className === CLOCK_HAND_CLASS;
+}
+
+/**
+ * Find the needle of an am5radar gauge, or `null` for any other chart.
+ *
+ * The signature is deliberately narrow, because a `RadarChart` is also what a
+ * radar and a polar area are drawn in: the class name has to match *and* an
+ * axis has to carry a `ClockHand`. The caller adds the third condition — this
+ * is asked only of a chart whose series produced no layer at all — so an
+ * ordinary radar chart never reaches it even if someone pins a hand to one.
+ *
+ * A chart with several hands is read as its first, with a warning: MAIDR's
+ * gauge is one measure against one range, and there is no shape here for a
+ * second.
+ */
+export function findGaugeHand(chart: AmChart): AmGaugeHand | null {
+  if (chart.className !== RADAR_CHART_CLASS)
+    return null;
+
+  const axes = [...(chart.xAxes?.values ?? []), ...(chart.yAxes?.values ?? [])];
+  const hands: AmGaugeHand[] = [];
+  for (const axis of axes) {
+    for (const dataItem of axisMarkerItems(axis)) {
+      for (const sprite of bulletSprites(dataItem)) {
+        if (isClockHand(sprite)) {
+          hands.push({ axis, dataItem, sprite });
+        }
+      }
+    }
+  }
+
+  const hand = hands[0];
+  if (!hand)
+    return null;
+  if (hands.length > 1) {
+    console.warn(
+      `[MAIDR amCharts] Gauge carries ${hands.length} hands; reading the first. `
+      + `A gauge layer carries one measure.`,
+    );
+  }
+  return hand;
+}
+
+/**
+ * The qualitative bands an axis partitions its dial into.
+ *
+ * Only a range with a finite `endValue` is a band: MAIDR carries the upper
+ * edge alone, because bands partition the range and a band starts where the
+ * previous one ended. That also excludes the hand's own range, which carries a
+ * value and no end — the reading is not one of the bands it lands in.
+ *
+ * Sorted ascending, since an unsorted list would describe a partition the
+ * chart does not draw, and a band amCharts leaves unnamed is numbered by its
+ * position: that says where in the partition the reading landed, which is what
+ * a band is read for, without inventing a meaning the chart never gave it.
+ */
+export function extractGaugeBands(axis: AmAxis): GaugeBand[] {
+  const ranges = axisMarkerItems(axis);
+  const found: { to: number; label?: string }[] = [];
+
+  for (const range of ranges) {
+    const to = finiteSetting(range, 'endValue');
+    if (to == null)
+      continue;
+    const label = readRangeLabel(range);
+    found.push({ to, ...(label != null ? { label } : {}) });
+  }
+
+  return found
+    .sort((a, b) => a.to - b.to)
+    .map((band, index) => ({ to: band.to, label: band.label ?? `Band ${index + 1}` }));
+}
+
+/** What an axis range calls itself, when it says. */
+function readRangeLabel(range: AmDataItem): string | undefined {
+  const label = range.get('label');
+  if (typeof label === 'string' && label.length > 0)
+    return label;
+  if (label != null && typeof label === 'object') {
+    const text = (label as { get?: (key: string) => unknown }).get?.('text');
+    if (typeof text === 'string' && text.length > 0)
+      return text;
+  }
+  const category = range.get('category');
+  return typeof category === 'string' && category.length > 0 ? category : undefined;
+}
+
+/**
+ * Convert an am5radar gauge into the single {@link GaugePoint} it draws.
+ *
+ * A single object rather than an array, because the chart draws exactly one
+ * measure — an array of one would describe a shape the chart does not have.
+ *
+ * `null` when the dial has no finite ends. `GaugeTrace` pitches its tone
+ * against the range rather than against the value, so a reading with no range
+ * behind it is not a reading at all; emitting no layer is the honest answer,
+ * and the caller then leaves the panel out rather than announcing a dial of
+ * `NaN`s.
+ *
+ * The range is read from the axis' own `min`/`max` settings, falling back to
+ * the private values amCharts computes when the author did not fix them. It is
+ * NOT read from the axis' `start`/`end`, which on an am5 axis are the relative
+ * zoom positions (0 to 1) and would silently answer with a 0-to-1 dial for
+ * every gauge whose extremes are computed.
+ */
+export function extractGaugePoint(hand: AmGaugeHand, label?: string): GaugePoint | null {
+  const min = axisExtreme(hand.axis, 'min');
+  const max = axisExtreme(hand.axis, 'max');
+  if (min == null || max == null)
+    return null;
+
+  const value = finiteSetting(hand.dataItem, 'value');
+  if (value == null)
+    return null;
+
+  const bands = extractGaugeBands(hand.axis);
+  const name = label ?? readAxisTitle(hand.axis);
+
+  return {
+    value,
+    min,
+    max,
+    ...(name != null ? { label: name } : {}),
+    ...(bands.length > 0 ? { bands } : {}),
+  };
+}
+
+/** An axis extreme: the author's setting, else the one amCharts computed. */
+function axisExtreme(axis: AmAxis, key: 'min' | 'max'): number | null {
+  const declared = finiteSetting(axis, key);
+  if (declared != null)
+    return declared;
+  const computed = (axis as unknown as { getPrivate?: (k: string) => unknown }).getPrivate?.(key);
+  return typeof computed === 'number' && Number.isFinite(computed) ? computed : null;
+}
+
+/** An axis' own title, when it has one — never a fallback. */
+function readAxisTitle(axis: AmAxis): string | undefined {
+  const label = readAxisLabel(axis, '');
+  return label.length > 0 ? label : undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Choropleth (am5map MapPolygonSeries)
+// ---------------------------------------------------------------------------
+
+/**
+ * The am5map series class that draws regions. A choropleth is one of these
+ * shaded by a value; the base geography underneath is another one that carries
+ * none, which is why the class alone is not the signature.
+ */
+const MAP_POLYGON_CLASS = 'MapPolygonSeries';
+
+/**
+ * Every am5map series class, so the ones that are not regions are *skipped*
+ * rather than defaulted.
+ *
+ * {@link classifySeriesKind} answers `'bar'` for anything it does not know, so
+ * an unlisted map series would be announced as a bar chart of its shapes. A
+ * graticule read as a row of bars is the failure this list prevents; naming
+ * them all is what makes "not a choropleth" mean "not a layer".
+ */
+const MAP_SERIES_CLASSES = new Set([
+  MAP_POLYGON_CLASS,
+  'MapLineSeries',
+  'MapPointSeries',
+  'ClusteredPointSeries',
+  'GraticuleSeries',
+]);
+
+/** Whether a series is the class an am5map choropleth is drawn with. */
+export function isMapPolygonSeries(series: AmXYSeries): boolean {
+  return series.className === MAP_POLYGON_CLASS;
+}
+
+/**
+ * Whether a polygon series is shaded by a value — a choropleth — rather than
+ * being the base geography under one.
+ *
+ * A map routinely carries two `MapPolygonSeries`: the countries, drawn once in
+ * a flat colour, and the ones a value was joined onto. Only the second is a
+ * chart; announcing the first would offer the reader a list of every country
+ * on earth with nothing to say about any of them.
+ *
+ * `valueField` is what binds the shading, and `heatRules` is how the shading is
+ * declared, so either one says the author meant this series to carry a reading.
+ */
+function isShadedPolygonSeries(series: AmXYSeries): boolean {
+  if (!isMapPolygonSeries(series))
+    return false;
+  const field = series.get('valueField');
+  if (typeof field === 'string' && field.length > 0)
+    return true;
+  const rules = series.get('heatRules');
+  return Array.isArray(rules) && rules.length > 0;
+}
+
+/**
+ * The declared field names a choropleth's four facts may be renamed to.
+ *
+ * Spelled here as plain strings rather than as a `ChoroplethDeclaration`, so
+ * that this module stays the reader of what amCharts drew and `declaration.ts`
+ * stays the reader of what the author said. Both paths land in the same
+ * function because a map's regions are read the same way either way — the
+ * declaration only says which column each fact is in.
+ */
+export interface ChoroplethFields {
+  region?: string;
+  value?: string;
+  lon?: string;
+  lat?: string;
+}
+
+/**
+ * What a region is called.
+ *
+ * An explicit `region` ref wins outright and with no fallback, exactly as
+ * {@link resolveFieldRef} treats every named ref: a name the author wrote that
+ * misses is their mistake to see, not one to paper over with a column they did
+ * not name.
+ *
+ * Undeclared, amCharts' own reading comes first — `dataItem.get('name')` is
+ * the name it resolved the polygon to — and the row's chain second. That chain
+ * reaches `properties.NAME` on a GeoJSON feature, which is where a map's names
+ * actually live, and ends at the `id` an am5map row is ordinarily keyed by.
+ */
+function readRegionName(
+  item: AmDataItem,
+  fields: ChoroplethFields | undefined,
+): string | number | null {
+  const row = rowOf(item);
+  if (fields?.region != null) {
+    return asNodeName(resolveFieldRef(row, fields.region, 'region', TraceType.CHOROPLETH));
+  }
+  const drawn = asNodeName(item.get('name'));
+  if (drawn != null)
+    return drawn;
+  return asNodeName(resolveFieldRef(row, undefined, 'region', TraceType.CHOROPLETH));
+}
+
+/**
+ * The number a region is shaded by.
+ *
+ * Read strictly, never through `toNumber`: `Number(null)` is `0`, and a region
+ * amCharts drew in the no-data colour would then be announced as a region
+ * whose value is zero — a reading a listener cannot tell from a true one.
+ *
+ * The series' own `valueField` is consulted before the shared chain, because
+ * it is the column the author actually bound the shading to.
+ */
+function readRegionValue(
+  item: AmDataItem,
+  series: AmXYSeries,
+  fields: ChoroplethFields | undefined,
+): number | null {
+  const row = rowOf(item);
+  if (fields?.value != null) {
+    return asFiniteNumber(resolveFieldRef(row, fields.value, 'value', TraceType.CHOROPLETH));
+  }
+
+  const drawn = asFiniteNumber(item.get('value'));
+  if (drawn != null)
+    return drawn;
+
+  const field = series.get('valueField');
+  if (typeof field === 'string' && field.length > 0) {
+    const bound = asFiniteNumber(row?.[field]);
+    if (bound != null)
+      return bound;
+  }
+  return asFiniteNumber(resolveFieldRef(row, undefined, 'value', TraceType.CHOROPLETH));
+}
+
+/**
+ * A coordinate in degrees, or `null` for anything that is not one.
+ *
+ * The whole point of the guard. `ChoroplethTrace` walks north, south, east and
+ * west out of this pair, so a projected or normalised coordinate accepted here
+ * is a wrong compass direction — worse than the declared-order region list the
+ * grammar explicitly sanctions when the pair is missing.
+ */
+function asDegrees(value: unknown, limit: number): number | null {
+  const number = asFiniteNumber(value);
+  return number != null && Math.abs(number) <= limit ? number : null;
+}
+
+/**
+ * The geographic centroid of the polygon a region was drawn as.
+ *
+ * **Unverified against the library.** `MapPolygon.geoCentroid()` is documented
+ * to answer an `IGeoPoint` — `{ longitude, latitude }` in degrees — but
+ * amCharts is commercial and not installed here, so every read is guarded and
+ * a build answering with anything else falls through to `null`. The pair is
+ * then omitted, and the map degrades to a region list in declared order rather
+ * than to a compass pointing the wrong way.
+ */
+function readGeoCentroid(item: AmDataItem): { lon: number; lat: number } | null {
+  const polygon = item.get('mapPolygon');
+  if (polygon == null || typeof polygon !== 'object')
+    return null;
+  const centroid = (polygon as { geoCentroid?: () => unknown }).geoCentroid;
+  if (typeof centroid !== 'function')
+    return null;
+
+  let point: unknown;
+  try {
+    point = centroid.call(polygon);
+  } catch {
+    return null;
+  }
+  if (point == null || typeof point !== 'object')
+    return null;
+
+  const geo = point as { longitude?: unknown; latitude?: unknown };
+  const lon = asDegrees(geo.longitude, 180);
+  const lat = asDegrees(geo.latitude, 90);
+  return lon != null && lat != null ? { lon, lat } : null;
+}
+
+/**
+ * The data items a choropleth layer was built from, in the order it emitted
+ * them.
+ *
+ * Kept as its own function so the highlight path indexes exactly the list the
+ * payload was built from. A region the layer dropped must not stay in this
+ * list: it would slide every later position onto its neighbour, which is the
+ * same call the pie, funnel and flow conversions already make.
+ */
+export function filterChoroplethItems(
+  series: AmXYSeries,
+  fields?: ChoroplethFields,
+): AmDataItem[] {
+  return series.dataItems.filter(item =>
+    readRegionName(item, fields) != null && readRegionValue(item, series, fields) != null);
+}
+
+/**
+ * Convert an am5map `MapPolygonSeries` into {@link ChoroplethPoint} data.
+ *
+ * A region amCharts drew but joined no value onto is left out. It is the
+ * ordinary case on a real map — the shapes with no data, drawn in a flat
+ * colour — and a layer's value is a number, so there is nothing to announce
+ * for one.
+ *
+ * **The centroids are what make this a map rather than a bar chart whose
+ * categories happen to be places.** They are read in degrees or not at all:
+ * from the author's own row first, where a table of `{ region, value, lon, lat }`
+ * states them outright, and from the drawn polygon's `geoCentroid()` second.
+ * A pair that resolves to neither is omitted — `ChoroplethTrace` then keeps
+ * the regions in declared order in one band, which is a poorer reading but the
+ * one the data supports.
+ *
+ * `neighbors` is not emitted at all. Adjacency is not recoverable from
+ * rendered geometry, and not from centroids either, so the trace keeps its
+ * spatial walk and is told nothing about borders rather than something
+ * guessed — the same call the Highcharts adapter makes.
+ */
+export function extractChoroplethPoints(
+  series: AmXYSeries,
+  fields?: ChoroplethFields,
+): ChoroplethPoint[] {
+  const points: ChoroplethPoint[] = [];
+
+  for (const item of series.dataItems) {
+    const x = readRegionName(item, fields);
+    if (x == null)
+      continue;
+    const y = readRegionValue(item, series, fields);
+    if (y == null)
+      continue;
+
+    const row = rowOf(item);
+    const centroid = readGeoCentroid(item);
+    const lon = asDegrees(resolveFieldRef(row, fields?.lon, 'lon', TraceType.CHOROPLETH), 180)
+      ?? centroid?.lon ?? null;
+    const lat = asDegrees(resolveFieldRef(row, fields?.lat, 'lat', TraceType.CHOROPLETH), 90)
+      ?? centroid?.lat ?? null;
+
+    points.push({
+      x,
+      y,
+      // Both or neither: a longitude alone places nothing, and a region
+      // carrying half a coordinate would drop the whole map back to declared
+      // order anyway — `ChoroplethTrace` bands only when every region is
+      // placed. Emitting one half would look like a placement and be none.
+      ...(lon != null && lat != null ? { lon, lat } : {}),
+    });
+  }
+
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Series type detection
 // ---------------------------------------------------------------------------
 
@@ -968,11 +1687,27 @@ const RADAR_COLUMN_CLASSES = new Set([
 /**
  * Series that are not inside a chart at all, and what each one draws.
  *
- * An am5hierarchy layout and an am5wc word cloud are `am5.Series` pushed
- * straight into a plain container, with no chart object around them, which is
- * why the adapter's discovery has to recognise the series itself. `Sunburst`
- * is deliberately absent — it extends `Partition` but carries its own class
- * name, so leaving it out keeps it out rather than reading it as an icicle.
+ * An am5hierarchy layout, an am5flow diagram and an am5wc word cloud are
+ * `am5.Series` pushed straight into a plain container, with no chart object
+ * around them, which is why the adapter's discovery has to recognise the
+ * series itself.
+ *
+ * `Sunburst` is named here in its own right rather than inherited. It extends
+ * `Partition` but carries its own class name, so listing it is what makes it a
+ * sunburst instead of nothing at all — and naming it separately is also what
+ * keeps it from being announced as an icicle, which is the same tree drawn
+ * with an entirely different mark. The same reasoning names all three chord
+ * variants: each extends the last, and each carries its own class name.
+ *
+ * `ArcDiagram` is a sankey rather than a network. It extends `FlowSeries` and
+ * carries a weight per link, and MAIDR's `NetworkPoint` has nowhere to put
+ * one — so reading it as a network would silently drop the magnitudes. The
+ * same call the Highcharts adapter makes for `arcdiagram`.
+ *
+ * Listing a class here is also what keeps it from being read as something
+ * else: {@link classifySeriesKind} answers `'bar'` for anything it does not
+ * know, so an unlisted flow series would be announced as a bar chart of its
+ * links rather than skipped.
  *
  * One record rather than one set per module: discovery asks a single question
  * ("is this series a panel of its own?"), and a per-module set would have to
@@ -981,7 +1716,14 @@ const RADAR_COLUMN_CLASSES = new Set([
 const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Treemap: 'treemap',
   Partition: 'icicle',
+  Sunburst: 'sunburst',
   WordCloud: 'wordcloud',
+  Sankey: 'sankey',
+  ArcDiagram: 'sankey',
+  Chord: 'chord',
+  ChordDirected: 'chord',
+  ChordNonRibbon: 'chord',
+  ForceDirected: 'network',
 };
 
 /** The class names {@link STANDALONE_KINDS} covers, for discovery to probe. */
@@ -1126,7 +1868,12 @@ export type SeriesKind
     | 'gantt'
     | 'treemap'
     | 'icicle'
+    | 'sunburst'
     | 'wordcloud'
+    | 'sankey'
+    | 'chord'
+    | 'network'
+    | 'choropleth'
     | 'unknown';
 
 /**
@@ -1140,6 +1887,21 @@ export type SeriesKind
  */
 export function isColumnSeries(series: AmXYSeries): boolean {
   return COLUMN_CLASSES.has(series.className ?? '');
+}
+
+/**
+ * Whether a series is one of am5flow's weighted graphs.
+ *
+ * Asked only by the alluvial declaration, which is the one reading amCharts
+ * has no class for at all: an alluvial IS a sankey — the same weighted flow
+ * drawn without a left-to-right budget — so the only thing separating them is
+ * the author saying which they drew. This is the "wrong construct" half of
+ * that check: a block declaring an alluvial on a pie series is a mistake worth
+ * reporting, not a layer to emit with nothing in it.
+ */
+export function isFlowSeries(series: AmXYSeries): boolean {
+  const kind = STANDALONE_KINDS[series.className ?? ''];
+  return kind === 'sankey' || kind === 'chord';
 }
 
 /**
@@ -1161,6 +1923,14 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   const standalone = STANDALONE_KINDS[className];
   if (standalone) {
     return standalone;
+  }
+
+  // Every am5map series, answered together. A polygon series shaded by a value
+  // is a choropleth; the base geography under it, the graticule, the lines and
+  // the pins are drawings rather than readings, and are skipped outright —
+  // which they would not be if they fell through to the `'bar'` default below.
+  if (MAP_SERIES_CLASSES.has(className)) {
+    return isShadedPolygonSeries(series) ? 'choropleth' : 'unknown';
   }
 
   if (COLUMN_CLASSES.has(className)) {

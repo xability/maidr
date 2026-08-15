@@ -149,9 +149,46 @@ function readRect(target: NavTarget): OverlayRect | null {
       return sliceRect(target);
     case 'label':
       return labelRect(target);
+    case 'region':
+      return regionRect(target);
     case 'column':
       return columnRect(target);
   }
+}
+
+/**
+ * Rectangle for a map region — the polygon an am5map `MapPolygonSeries` drew,
+ * which it keeps on the data item's `mapPolygon`.
+ *
+ * Measured from the reported bounds first, for the reason a word cloud's glyph
+ * is: a region is an irregular shape at whatever angle the projection put it,
+ * and its local width and height describe a box it does not fill. The
+ * axis-aligned box `globalBounds()` maps is the honest outline for one — coarse
+ * for a long thin country, but it hugs the shape and says which way navigation
+ * moved, which is what the highlight is for.
+ *
+ * A polygon reporting no box with area answers `null` rather than a hairline:
+ * an am5 `Graphics` painted through a draw callback can report a degenerate
+ * point (the `Slice` problem of #774), and there is no radius or sweep to
+ * measure a region from instead. The overlay then clears, which says nothing
+ * rather than pointing a one-pixel mark at the wrong place.
+ */
+function regionRect(target: NavTarget): OverlayRect | null {
+  const polygon = target.dataItem.get('mapPolygon') as AmSprite | undefined;
+  if (!polygon) {
+    return null;
+  }
+
+  const bounds = polygon.globalBounds?.();
+  if (bounds) {
+    const box = boundsToRect(bounds);
+    if (box.width > 0 && box.height > 0) {
+      return box;
+    }
+  }
+
+  const box = spriteBoxRect(polygon);
+  return box && box.width > 0 && box.height > 0 ? box : null;
 }
 
 /**
