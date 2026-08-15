@@ -13,6 +13,11 @@
  * installation. This module only reads from the Highcharts chart API and
  * generates a plain JSON descriptor that MAIDR understands.
  *
+ * The trace types Highcharts draws with a series type it shares with something
+ * else are declared in the `maidr` block of a series' `custom` subspace, which
+ * is why {@link MaidrTraceDeclaration} and the variants this adapter reads are
+ * re-exported here.
+ *
  * @example
  * ```ts
  * import Highcharts from 'highcharts';
@@ -32,6 +37,14 @@
  * @packageDocumentation
  */
 
+export type {
+  ChoroplethDeclaration,
+  FieldRef,
+  ForestDeclaration,
+  MaidrTraceDeclaration,
+  SeriesRef,
+  SurvivalDeclaration,
+} from '../../type/declaration';
 export { highchartsToMaidr } from './adapter';
 export { highchartsGridToMaidr } from './grid';
 export { createHighchartsSync } from './sync';
