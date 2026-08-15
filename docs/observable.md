@@ -156,7 +156,7 @@ A **line or area** is different. Its vertices come back out of the path's `d` at
 
 Three more things worth knowing:
 
-- **Draw order is data order.** Plot draws marks in the order the data arrived, which is not the visual order when a mark is given `sort`. Navigation follows that same order, so the highlight always matches what was announced, but on a sorted chart the arrow keys will not sweep strictly left to right.
+- **Navigation follows the axis, except where the marks overlap.** Plot draws in the order the data arrived, which `sort` makes something other than the visual order, so the adapter puts each layer in axis order and *moves the elements to match* — reordering siblings only changes paint order, and marks that tile do not paint over each other. Marks that do overlap keep draw order instead, because moving one there would change the picture; on such a chart the arrow keys will not sweep strictly left to right. The highlight always matches what was announced either way.
 - **A chart the adapter cannot read faithfully is left unbound.** When Plot's `scale` function is missing — a chart revived from saved HTML rather than drawn on the page — the scales are fitted from the rendered axis ticks. That fit describes a linear axis, so a log axis is refused rather than approximated, and a quantitative axis whose labels cannot be read back is refused too. No announcement beats a confident wrong one.
 - **Plot 0.6.3 or later.** The adapter reads the separate axis groups Plot has emitted since 0.6.3. Quarto currently bundles Plot 0.6.11.
 
