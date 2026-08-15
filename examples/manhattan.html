@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Manhattan Plot Example — Genome-wide Association</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A Manhattan plot and a volcano plot are the same trace reading the
+        same payload: VolcanoPoint[] taken through a declared threshold.
+        examples/volcano.html is the neighbour. What separates them is what
+        the axes MEAN, and that changes what may be declared about them.
+
+        A volcano's x is EFFECT SIZE -- signed, symmetric about zero -- so its
+        effect cutoff is applied to the magnitude of x, and a fold change of
+        -2 is as large as one of +2. A Manhattan's x is POSITION ALONG THE
+        GENOME. 872 Mb is not a bigger anything than 31 Mb, it is somewhere
+        else, and an effect cutoff declared here would sort the SNPs by how
+        far right they sit and announce the far end of chromosome 4 as the
+        finding. So there is deliberately no effect in thresholdOptions below.
+
+        The one cutoff a GWAS has is the genome-wide significance line, and it
+        is DECLARED at 7.3 -- p < 5e-8 on a -log10 axis -- rather than guessed.
+        The same figure is drawn at 1.3 for a nominal p < 0.05, so a guessed
+        line puts every point on the wrong side of it silently.
+
+        The chromosomes are ONE LAYER, not four. Alternating the colours is a
+        reading aid for the eye; a GWAS is one genome read through one line,
+        and the summary on entry -- 4 of these 24 points clear the threshold --
+        is the first thing a sighted reader takes from it and the last thing
+        four separate clouds would assemble. Each point carries its chromosome
+        in group, so it is announced beside the SNP without splitting the
+        layer, and the rotor reaches the four hits directly.
+
+        IDENTITY is the payload, as it is on a volcano. "x is 342, y is 12.6"
+        hands a reader the two numbers the axes already describe and withholds
+        the one they came for, which is that this is rs4988235 on chr2.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="880pt" height="420pt" viewBox="0 0 880 420" version="1.1"
+        id="manhattan-gwas" maidr='{&#10;  &quot;id&quot;: &quot;manhattan-gwas&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;manhattan-gwas-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;manhattan-gwas-layer&quot;,&#10;            &quot;type&quot;: &quot;manhattan&quot;,&#10;            &quot;title&quot;: &quot;Genome-wide Association&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Genomic position (Mb)&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Minus log10 p&quot;&#10;              }&#10;            },&#10;            &quot;thresholdOptions&quot;: {&#10;              &quot;significance&quot;: 7.3&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;manhattan-points&#x27;] &gt; circle&quot;,&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;x&quot;: 31,&#10;                &quot;y&quot;: 2.4,&#10;                &quot;label&quot;: &quot;rs1801133&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 74,&#10;                &quot;y&quot;: 1.1,&#10;                &quot;label&quot;: &quot;rs1042522&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 114,&#10;                &quot;y&quot;: 8.9,&#10;                &quot;label&quot;: &quot;rs2476601&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 156,&#10;                &quot;y&quot;: 3.6,&#10;                &quot;label&quot;: &quot;rs11591147&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 199,&#10;                &quot;y&quot;: 0.8,&#10;                &quot;label&quot;: &quot;rs1801131&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 232,&#10;                &quot;y&quot;: 4.1,&#10;                &quot;label&quot;: &quot;rs2814778&quot;,&#10;                &quot;group&quot;: &quot;chr1&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 271,&#10;                &quot;y&quot;: 1.9,&#10;                &quot;label&quot;: &quot;rs7574865&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 305,&#10;                &quot;y&quot;: 5.2,&#10;                &quot;label&quot;: &quot;rs1801282&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 342,&#10;                &quot;y&quot;: 12.6,&#10;                &quot;label&quot;: &quot;rs4988235&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 388,&#10;                &quot;y&quot;: 2.2,&#10;                &quot;label&quot;: &quot;rs13387042&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 431,&#10;                &quot;y&quot;: 0.6,&#10;                &quot;label&quot;: &quot;rs6752770&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 475,&#10;                &quot;y&quot;: 3.1,&#10;                &quot;label&quot;: &quot;rs3771300&quot;,&#10;                &quot;group&quot;: &quot;chr2&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 508,&#10;                &quot;y&quot;: 1.4,&#10;                &quot;label&quot;: &quot;rs9858542&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 541,&#10;                &quot;y&quot;: 6.8,&#10;                &quot;label&quot;: &quot;rs2306283&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 583,&#10;                &quot;y&quot;: 0.9,&#10;                &quot;label&quot;: &quot;rs6444174&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 624,&#10;                &quot;y&quot;: 2.6,&#10;                &quot;label&quot;: &quot;rs13098911&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 657,&#10;                &quot;y&quot;: 7.5,&#10;                &quot;label&quot;: &quot;rs11720524&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 686,&#10;                &quot;y&quot;: 1.7,&#10;                &quot;label&quot;: &quot;rs1344706&quot;,&#10;                &quot;group&quot;: &quot;chr3&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 705,&#10;                &quot;y&quot;: 9.8,&#10;                &quot;label&quot;: &quot;rs1229984&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 738,&#10;                &quot;y&quot;: 1.2,&#10;                &quot;label&quot;: &quot;rs4148323&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 771,&#10;                &quot;y&quot;: 4.7,&#10;                &quot;label&quot;: &quot;rs13107325&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 806,&#10;                &quot;y&quot;: 0.7,&#10;                &quot;label&quot;: &quot;rs17632542&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 840,&#10;                &quot;y&quot;: 2.9,&#10;                &quot;label&quot;: &quot;rs2854746&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              },&#10;              {&#10;                &quot;x&quot;: 872,&#10;                &quot;y&quot;: 5.9,&#10;                &quot;label&quot;: &quot;rs3796529&quot;,&#10;                &quot;group&quot;: &quot;chr4&quot;&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 420  L 880 420  L 880 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <line x1="80" y1="198.8" x2="850" y2="198.8"
+              style="stroke: #c44e52; stroke-width: 1; stroke-dasharray: 4 3" />
+            <text x="856" y="202" style="font: 11px sans-serif; text-anchor: end; fill: #c44e52">7.3</text>
+            <g id="manhattan-points">
+          <circle cx="106.5" cy="300.3" r="4.5" style="fill: #4c72b0" />
+          <circle cx="143.3" cy="327.2" r="4.5" style="fill: #4c72b0" />
+          <circle cx="177.5" cy="165.6" r="4.5" style="fill: #c44e52" />
+          <circle cx="213.5" cy="275.4" r="4.5" style="fill: #4c72b0" />
+          <circle cx="250.3" cy="333.4" r="4.5" style="fill: #4c72b0" />
+          <circle cx="278.5" cy="265.1" r="4.5" style="fill: #4c72b0" />
+          <circle cx="311.9" cy="310.6" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="340.9" cy="242.3" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="372.6" cy="89" r="4.5" style="fill: #c44e52" />
+          <circle cx="412" cy="304.4" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="448.7" cy="337.6" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="486.4" cy="285.8" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="514.6" cy="321" r="4.5" style="fill: #4c72b0" />
+          <circle cx="542.9" cy="209.1" r="4.5" style="fill: #4c72b0" />
+          <circle cx="578.8" cy="331.4" r="4.5" style="fill: #4c72b0" />
+          <circle cx="613.9" cy="296.1" r="4.5" style="fill: #4c72b0" />
+          <circle cx="642.1" cy="194.6" r="4.5" style="fill: #c44e52" />
+          <circle cx="666.9" cy="314.8" r="4.5" style="fill: #4c72b0" />
+          <circle cx="683.2" cy="147" r="4.5" style="fill: #c44e52" />
+          <circle cx="711.4" cy="325.1" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="739.6" cy="252.6" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="769.6" cy="335.5" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="798.7" cy="289.9" r="4.5" style="fill: #5d7f9c" />
+          <circle cx="826" cy="227.8" r="4.5" style="fill: #5d7f9c" />
+            </g>
+            <g id="axis_x">
+          <text x="192.5" y="374" style="font: 12px sans-serif; text-anchor: middle">chr1</text>
+          <text x="399.1" y="374" style="font: 12px sans-serif; text-anchor: middle">chr2</text>
+          <text x="590.8" y="374" style="font: 12px sans-serif; text-anchor: middle">chr3</text>
+          <text x="754.6" y="374" style="font: 12px sans-serif; text-anchor: middle">chr4</text>
+              <text x="465" y="400" style="font: 13px sans-serif; text-anchor: middle">Genomic position (Mb)</text>
+            </g>
+            <g id="axis_y">
+          <text x="70" y="354" style="font: 12px sans-serif; text-anchor: end">0</text>
+          <text x="70" y="251" style="font: 12px sans-serif; text-anchor: end">5</text>
+          <text x="70" y="147" style="font: 12px sans-serif; text-anchor: end">10</text>
+              <text x="26" y="205" transform="rotate(-90 26 205)" style="font: 13px sans-serif; text-anchor: middle">Minus log10 p</text>
+            </g>
+            <g id="chart-title">
+              <text x="465" y="36" style="font: 16px sans-serif; text-anchor: middle">Genome-wide Association</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

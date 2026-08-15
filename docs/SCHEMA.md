@@ -134,9 +134,13 @@ Use the following to define the object properties:
 >
 > It is the only deliberate gap. Other declarable types that lack a
 > hand-authored example are genuinely missing one, and adding it is a normal
-> contribution — at the time of writing that is `alluvial`, `area` and
-> `manhattan`, which appear under `examples/` only as adapter-bound pages where
-> a chart library emits the schema at runtime.
+> contribution. The last three — `alluvial`, `area` and `manhattan` — were
+> filled by `examples/alluvial.html`, `examples/area-overlapping.html` and
+> `examples/manhattan.html`, so every declarable type now has a page carrying
+> its JSON. Note that `examples/area.html` declares `stacked_area`, not `area`;
+> `examples/area-overlapping.html` is the plain one, and the pair is written to
+> be read together, since the difference between independent bands and bands
+> that add up is the thing the missing page had left ambiguous.
 
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)

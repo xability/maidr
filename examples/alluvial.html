@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Alluvial Example — Commute Mode Over Time</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        An alluvial diagram carries exactly the payload a sankey carries --
+        FlowPoint[], one entry per flow, source and target and value, with the
+        nodes derived from the ends. examples/sankey.html is the neighbour, and
+        the difference between the two is not in the data shape at all.
+
+        In a sankey each node belongs to ONE stage. Coal is upstream,
+        Electricity is midstream, Homes is a sink, and the chart answers where
+        a quantity GOES.
+
+        In an alluvial the SAME CATEGORIES RECUR AT EVERY STAGE. Car, Transit
+        and Bike are all three present in 2019, in 2022 and again in 2025, and
+        the chart answers how a fixed population is RE-DIVIDED between them
+        over time. The categories stay put; only the split moves. 94 thousand
+        commuters enter every column and 94 thousand leave it.
+
+        That recurrence is why the node names below are stage-qualified rather
+        than bare. MAIDR derives its nodes from the flows and its stages from
+        the longest path to each node, so a category appearing in three columns
+        has to be three nodes. A single "Car" flowing to itself is a cycle, and
+        a cycle has no layering at all: every node collapses into one stage,
+        which is the right answer for a chord diagram and the wrong one here.
+
+        With the stages laid out the reading is the flow reading unchanged --
+        right follows the largest flow OUT of this node, left the largest flow
+        IN, up and down walk the column -- and what it surfaces is the STAYERS
+        against the SWITCHERS. "2019 Car to 2022 Car, 45, 86.5% of 2019 Car" is
+        the diagonal that holds; the thin ribbons beside it are the churn, and
+        the churn is the entire finding.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="760pt" height="460pt" viewBox="0 0 760 460" version="1.1"
+        id="alluvial-commute" maidr='{&#10;  &quot;id&quot;: &quot;alluvial-commute&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;alluvial-commute-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;alluvial-commute-layer&quot;,&#10;            &quot;type&quot;: &quot;alluvial&quot;,&#10;            &quot;title&quot;: &quot;How commuters travelled, 2019 to 2025&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Year&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Commuters (thousands)&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;path[id=&#x27;ribbon-0&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-1&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-2&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-3&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-4&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-5&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-6&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-7&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-8&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-9&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-10&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-11&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-12&#x27;]&quot;,&#10;              &quot;path[id=&#x27;ribbon-13&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;source&quot;: &quot;2019 Car&quot;,&#10;                &quot;target&quot;: &quot;2022 Car&quot;,&#10;                &quot;value&quot;: 45&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Car&quot;,&#10;                &quot;target&quot;: &quot;2022 Transit&quot;,&#10;                &quot;value&quot;: 5&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Car&quot;,&#10;                &quot;target&quot;: &quot;2022 Bike&quot;,&#10;                &quot;value&quot;: 2&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Transit&quot;,&#10;                &quot;target&quot;: &quot;2022 Transit&quot;,&#10;                &quot;value&quot;: 25&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Transit&quot;,&#10;                &quot;target&quot;: &quot;2022 Car&quot;,&#10;                &quot;value&quot;: 3&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Bike&quot;,&#10;                &quot;target&quot;: &quot;2022 Bike&quot;,&#10;                &quot;value&quot;: 12&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2019 Bike&quot;,&#10;                &quot;target&quot;: &quot;2022 Transit&quot;,&#10;                &quot;value&quot;: 2&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Car&quot;,&#10;                &quot;target&quot;: &quot;2025 Car&quot;,&#10;                &quot;value&quot;: 41&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Car&quot;,&#10;                &quot;target&quot;: &quot;2025 Transit&quot;,&#10;                &quot;value&quot;: 6&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Car&quot;,&#10;                &quot;target&quot;: &quot;2025 Bike&quot;,&#10;                &quot;value&quot;: 1&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Transit&quot;,&#10;                &quot;target&quot;: &quot;2025 Transit&quot;,&#10;                &quot;value&quot;: 30&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Transit&quot;,&#10;                &quot;target&quot;: &quot;2025 Car&quot;,&#10;                &quot;value&quot;: 2&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Bike&quot;,&#10;                &quot;target&quot;: &quot;2025 Bike&quot;,&#10;                &quot;value&quot;: 13&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;2022 Bike&quot;,&#10;                &quot;target&quot;: &quot;2025 Transit&quot;,&#10;                &quot;value&quot;: 1&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 460  L 760 460  L 760 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+          <path id="ribbon-0" d="M 112 78 C 241 78 241 78 370 78 L 370 222 C 241 222 241 222 112 222 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-1" d="M 112 222 C 241 222 241 249.6 370 249.6 L 370 265.6 C 241 265.6 241 238 112 238 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-2" d="M 112 238 C 241 238 241 370 370 370 L 370 376.4 C 241 376.4 241 244.4 112 244.4 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-3" d="M 112 262.4 C 241 262.4 241 265.6 370 265.6 L 370 345.6 C 241 345.6 241 342.4 112 342.4 Z" style="fill: #4c72b0; fill-opacity: 0.4" />
+          <path id="ribbon-4" d="M 112 342.4 C 241 342.4 241 222 370 222 L 370 231.6 C 241 231.6 241 352 112 352 Z" style="fill: #4c72b0; fill-opacity: 0.4" />
+          <path id="ribbon-5" d="M 112 370 C 241 370 241 376.4 370 376.4 L 370 414.8 C 241 414.8 241 408.4 112 408.4 Z" style="fill: #4f8a5b; fill-opacity: 0.4" />
+          <path id="ribbon-6" d="M 112 408.4 C 241 408.4 241 345.6 370 345.6 L 370 352 C 241 352 241 414.8 112 414.8 Z" style="fill: #4f8a5b; fill-opacity: 0.4" />
+          <path id="ribbon-7" d="M 392 78 C 521 78 521 78 650 78 L 650 209.2 C 521 209.2 521 209.2 392 209.2 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-8" d="M 392 209.2 C 521 209.2 521 233.6 650 233.6 L 650 252.8 C 521 252.8 521 228.4 392 228.4 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-9" d="M 392 228.4 C 521 228.4 521 370 650 370 L 650 373.2 C 521 373.2 521 231.6 392 231.6 Z" style="fill: #8c6d4f; fill-opacity: 0.4" />
+          <path id="ribbon-10" d="M 392 249.6 C 521 249.6 521 252.8 650 252.8 L 650 348.8 C 521 348.8 521 345.6 392 345.6 Z" style="fill: #4c72b0; fill-opacity: 0.4" />
+          <path id="ribbon-11" d="M 392 345.6 C 521 345.6 521 209.2 650 209.2 L 650 215.6 C 521 215.6 521 352 392 352 Z" style="fill: #4c72b0; fill-opacity: 0.4" />
+          <path id="ribbon-12" d="M 392 370 C 521 370 521 373.2 650 373.2 L 650 414.8 C 521 414.8 521 411.6 392 411.6 Z" style="fill: #4f8a5b; fill-opacity: 0.4" />
+          <path id="ribbon-13" d="M 392 411.6 C 521 411.6 521 348.8 650 348.8 L 650 352 C 521 352 521 414.8 392 414.8 Z" style="fill: #4f8a5b; fill-opacity: 0.4" />
+          <rect x="90" y="78" width="22" height="166.4" style="fill: #8c6d4f" />
+          <rect x="90" y="262.4" width="22" height="89.6" style="fill: #4c72b0" />
+          <rect x="90" y="370" width="22" height="44.8" style="fill: #4f8a5b" />
+          <rect x="370" y="78" width="22" height="153.6" style="fill: #8c6d4f" />
+          <rect x="370" y="249.6" width="22" height="102.4" style="fill: #4c72b0" />
+          <rect x="370" y="370" width="22" height="44.8" style="fill: #4f8a5b" />
+          <rect x="650" y="78" width="22" height="137.6" style="fill: #8c6d4f" />
+          <rect x="650" y="233.6" width="22" height="118.4" style="fill: #4c72b0" />
+          <rect x="650" y="370" width="22" height="44.8" style="fill: #4f8a5b" />
+          <text x="118" y="165.2" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2019 Car</text>
+          <text x="118" y="311.2" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2019 Transit</text>
+          <text x="118" y="396.4" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2019 Bike</text>
+          <text x="398" y="158.8" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2022 Car</text>
+          <text x="398" y="304.8" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2022 Transit</text>
+          <text x="398" y="396.4" style="font: 11px sans-serif; text-anchor: start; fill: #1a1a1a">2022 Bike</text>
+          <text x="644" y="150.8" style="font: 11px sans-serif; text-anchor: end; fill: #1a1a1a">2025 Car</text>
+          <text x="644" y="296.8" style="font: 11px sans-serif; text-anchor: end; fill: #1a1a1a">2025 Transit</text>
+          <text x="644" y="396.4" style="font: 11px sans-serif; text-anchor: end; fill: #1a1a1a">2025 Bike</text>
+          <text x="101" y="62" style="font: 13px sans-serif; text-anchor: middle; fill: #1a1a1a">2019</text>
+          <text x="381" y="62" style="font: 13px sans-serif; text-anchor: middle; fill: #1a1a1a">2022</text>
+          <text x="661" y="62" style="font: 13px sans-serif; text-anchor: middle; fill: #1a1a1a">2025</text>
+          <text x="380" y="34" style="font: 16px sans-serif; text-anchor: middle">How commuters travelled, 2019 to 2025</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
