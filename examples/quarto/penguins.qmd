@@ -1,0 +1,109 @@
+---
+title: "Accessible Observable Plot charts in Quarto"
+format:
+  html:
+    include-in-header:
+      - text: |
+          <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/maidr/dist/observable.js"></script>
+---
+
+Render this file with `quarto render penguins.qmd`, open the result, and Tab to
+a chart. Arrow keys move between data points, <kbd>S</kbd> toggles
+sonification, <kbd>B</kbd> braille, and <kbd>T</kbd> text descriptions.
+
+Nothing below calls MAIDR. The two scripts in the header are the whole
+integration: the adapter watches the page and binds each chart as the
+Observable runtime draws it.
+
+If you have installed the extension with `quarto add xability/maidr`, replace
+the `include-in-header` block above with:
+
+``` yaml
+filters:
+  - maidr
+```
+
+## A bar chart
+
+```{ojs}
+// Inline so the document renders with no data file and no network. In your own
+// document this is where `FileAttachment("penguins.csv").csv({typed: true})`
+// or an `ojs_define()` from an R or Python chunk would go.
+penguins = [
+  { species: "Adelie", island: "Torgersen", flipper_length_mm: 181, body_mass_g: 3750 },
+  { species: "Adelie", island: "Torgersen", flipper_length_mm: 186, body_mass_g: 3800 },
+  { species: "Adelie", island: "Biscoe", flipper_length_mm: 190, body_mass_g: 3325 },
+  { species: "Adelie", island: "Biscoe", flipper_length_mm: 184, body_mass_g: 3400 },
+  { species: "Chinstrap", island: "Dream", flipper_length_mm: 192, body_mass_g: 3500 },
+  { species: "Chinstrap", island: "Dream", flipper_length_mm: 196, body_mass_g: 3900 },
+  { species: "Chinstrap", island: "Dream", flipper_length_mm: 193, body_mass_g: 3675 },
+  { species: "Gentoo", island: "Biscoe", flipper_length_mm: 211, body_mass_g: 4500 },
+  { species: "Gentoo", island: "Biscoe", flipper_length_mm: 230, body_mass_g: 5700 },
+  { species: "Gentoo", island: "Biscoe", flipper_length_mm: 218, body_mass_g: 5200 }
+]
+```
+
+```{ojs}
+Plot.plot({
+  title: "Mean body mass by species",
+  x: { label: "Species" },
+  y: { label: "Body mass (g)" },
+  marks: [
+    Plot.barY(penguins, Plot.groupX({ y: "mean" }, { x: "species", y: "body_mass_g" }))
+  ]
+})
+```
+
+## A scatter plot
+
+```{ojs}
+Plot.plot({
+  title: "Flipper length against body mass",
+  x: { label: "Flipper length (mm)" },
+  y: { label: "Body mass (g)" },
+  marks: [Plot.dot(penguins, { x: "flipper_length_mm", y: "body_mass_g" })]
+})
+```
+
+## A reactive chart
+
+The cell below redraws whenever the slider moves, and the adapter binds each
+redraw — so the chart is still navigable after the reader has changed it.
+
+```{ojs}
+viewof minimumMass = Inputs.range([2500, 5000], { step: 100, value: 2500, label: "Minimum body mass (g)" })
+```
+
+```{ojs}
+Plot.plot({
+  title: `Penguins over ${minimumMass} g`,
+  x: { label: "Species" },
+  y: { label: "Count" },
+  marks: [
+    Plot.barY(
+      penguins.filter(d => d.body_mass_g >= minimumMass),
+      Plot.groupX({ y: "count" }, { x: "species" })
+    )
+  ]
+})
+```
+
+## Facets become panels
+
+Each facet is a MAIDR panel. Move between them with <kbd>Page Up</kbd> and
+<kbd>Page Down</kbd>.
+
+```{ojs}
+Plot.plot({
+  title: "Mean body mass by species and island",
+  x: { label: "Species" },
+  y: { label: "Body mass (g)" },
+  marks: [
+    Plot.barY(penguins, Plot.groupX(
+      { y: "mean" },
+      { x: "species", y: "body_mass_g", fx: "island" }
+    ))
+  ]
+})
+```

@@ -46,6 +46,11 @@
       "import": "./dist/highcharts.mjs",
       "default": "./dist/highcharts.js"
     },
+    "./observable": {
+      "types": "./dist/observable.d.mts",
+      "import": "./dist/observable.mjs",
+      "default": "./dist/observable.js"
+    },
     "./recharts": {
       "types": "./dist/recharts.d.mts",
       "import": "./dist/recharts.mjs",

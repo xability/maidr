@@ -4,7 +4,7 @@ import { claimPlotlyExamination, extractPlotlyData, isPlotlyPlot, normalizePlotl
 import { liveDataManager } from './service/liveData';
 import { DomEventType } from './type/event';
 import { Constant } from './util/constant';
-import { initMaidrOnElement } from './util/initMaidr';
+import { disposeMaidrOnElement, initMaidrOnElement } from './util/initMaidr';
 
 declare global {
   interface Window {
@@ -84,6 +84,23 @@ document.addEventListener('maidr:bindchart', ((event: CustomEvent<Maidr>) => {
   const json = target.getAttribute(Constant.MAIDR_DATA);
   if (json) {
     parseAndInit(target, json, 'maidr-data');
+  }
+}) as EventListener);
+
+// The other half of that contract: an adapter whose host page discards a chart
+// says so, and the instance mounted on it is torn down.
+//
+// Nothing else can notice. A discarded chart is detached from the document, so
+// its own events no longer reach this listener — which is why the element
+// travels in `detail` and the event is dispatched on `document` — and the
+// re-init path never fires for a chart that does not come back. Without this,
+// a reactive document leaks one whole chart per re-render: the Observable
+// runtime replaces a cell's output node on every input change, and a reader
+// dragging a slider discards one chart per frame.
+document.addEventListener('maidr:unbindchart', ((event: CustomEvent<Element>) => {
+  const plot = event.detail;
+  if (plot instanceof Element) {
+    disposeMaidrOnElement(plot);
   }
 }) as EventListener);
 
