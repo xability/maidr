@@ -63,6 +63,7 @@ import {
   isDiscrete,
   isTemporal,
   readScales,
+  scaleSpan,
   toNumber,
   valueAtColor,
   valueAtPixel,
@@ -408,7 +409,51 @@ function convertBar(facet: MarkFacet, context: ConversionContext): ConvertedMark
   if (data.length === 0)
     return null;
 
+  if (isFloating(data, context.scales, orientation))
+    return null;
+
   return buildBarLayer(data, context, orientation, TraceType.BAR);
+}
+
+/**
+ * Whether a bar mark's rects float free of the baseline.
+ *
+ * A bar's value is the length of the bar, which is only the datum because one
+ * of its ends is zero. `y1`/`y2` breaks that: a waterfall step drawn from 140
+ * down to 90 has length 50, and 50 is not what happened — the step is a fall of
+ * 50, and 90 is where it landed. MAIDR's bar grammar has one value per point
+ * and nowhere to put the second, so such a mark is left unread rather than
+ * announced as a rise of 50.
+ *
+ * A stacked segment is also off the baseline and must *not* be caught by this:
+ * there the length genuinely is the value. What separates them is that a stack
+ * is built from a colour channel, so its segments carry a series and rest on
+ * one another, and every column still has one segment standing on the baseline.
+ * A mark where no rect reaches it is floating.
+ *
+ * @param data        - The mark's rects, as read.
+ * @param scales      - The plot's scales, which say where zero is.
+ * @param orientation - Which axis carries the magnitude.
+ * @returns True when the mark is a ranged bar rather than a bar chart.
+ */
+function isFloating(
+  data: readonly MarkDatum[],
+  scales: PlotScales,
+  orientation: Orientation,
+): boolean {
+  if (data.some(datum => datum.series !== undefined))
+    return false;
+  const value = orientation === Orientation.VERTICAL ? scales.y : scales.x;
+  const baseline = baselinePixel(value);
+  if (baseline === null)
+    return false;
+  const attributes = orientation === Orientation.VERTICAL
+    ? (['y', 'height'] as const)
+    : (['x', 'width'] as const);
+  // Every rect, not merely one: a waterfall's opening step is drawn from zero
+  // like any bar, so a mark is only a bar chart if all of them are.
+  const elements = data.map(datum => datum.element);
+  return countTouching(elements, attributes, baseline) < elements.length;
 }
 
 /**
@@ -807,15 +852,30 @@ function convertLine(
       continue;
 
     const points: LinePoint[] = [];
-    for (const vertex of path.vertices) {
+    for (const [index, vertex] of path.vertices.entries()) {
       // Unlike a rect's x and y, a path's coordinates were rounded on the way
       // into the `d` attribute, so the inverted value is only good to the
       // quantum that rounding left. Reporting it in full would dress a rounded
       // pixel up as an exact measurement.
       const x = pathValue(scales.x, vertex.x, path.pixelError);
-      const y = toNumber(pathValue(scales.y, vertex.y, path.pixelError));
-      if (x === null || y === null)
+      const top = toNumber(pathValue(scales.y, vertex.y, path.pixelError));
+      if (x === null || top === null)
         continue;
+
+      // An area's value is the height of its band, not the height of its top
+      // edge. The two agree only while the band sits on the baseline, and a
+      // `fill` channel makes `Plot.areaY` stack by default — so the top edge is
+      // then the running total and this series' own value appears nowhere else.
+      // Read that way a three-series chart announced 180 for a series drawn
+      // from 60.
+      const floor = path.lower?.[index];
+      const base = floor
+        ? toNumber(pathValue(scales.y, floor.y, path.pixelError))
+        : 0;
+      if (base === null)
+        continue;
+      const y = base === 0 ? top : cleanNumber(top - base, scaleSpan(scales.y));
+
       points.push({ x, y, ...(name !== null ? { z: String(name) } : {}) });
     }
     if (points.length === 0)
@@ -1365,7 +1425,14 @@ function parsePathVertices(
     // baseline starts where the series ended) makes it odd; drop it first.
     const usable = vertices.length % 2 === 0 ? vertices : vertices.slice(0, -1);
     const half = usable.slice(0, usable.length / 2);
-    return expected !== null && half.length !== expected ? null : { vertices: half, pixelError };
+    // The other half is that same baseline, walked back, so reversing it lines
+    // it up with the top edge vertex for vertex. It is not decoration: on a
+    // stacked area the "baseline" is the series below, and the band between the
+    // two edges is the only place this series' own value appears.
+    const lower = usable.slice(usable.length / 2).reverse();
+    return expected !== null && half.length !== expected
+      ? null
+      : { vertices: half, lower, pixelError };
   }
 
   return expected !== null && vertices.length !== expected
@@ -1377,6 +1444,12 @@ function parsePathVertices(
 interface ParsedPath {
   /** The path's vertices, in drawing order. */
   vertices: { x: number; y: number }[];
+  /**
+   * An area band's lower edge, aligned with {@link vertices}.
+   *
+   * Absent for a line, which has no band.
+   */
+  lower?: { x: number; y: number }[];
   /** Half the pixel quantum the coordinates were rounded to. */
   pixelError: number;
 }

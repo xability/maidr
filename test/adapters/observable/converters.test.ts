@@ -632,3 +632,41 @@ describe('a chart Plot wrapped around a rendered legend', () => {
     expect((layer?.data as SegmentedPoint[][])[0].map(point => point.y)).toEqual([1, 3]);
   });
 });
+
+describe('an area mark that does not sit on the baseline', () => {
+  it('reads each band\'s own height rather than the stack it sits on', () => {
+    // `Plot.areaY` with a `fill` stacks by default, so a series' top edge is
+    // the running total and its own value appears nowhere else on the chart.
+    // Read as the edge, a series drawn from 60 was announced as 180.
+    const { element } = mountFixture('stackedArea');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+    const series = layer?.data as LinePoint[][];
+
+    expect(layer?.type).toBe(TraceType.AREA);
+    expect(series.map(points => points.map(point => point.y))).toEqual([
+      [120, 135, 150],
+      [60, 70, 65],
+      [30, 25, 40],
+    ]);
+  });
+
+  it('still reads a single-series area, whose band is its value', () => {
+    // The same subtraction, with a baseline of zero: nothing changes for the
+    // ordinary case, which is what makes the rule general rather than a patch.
+    const layer = onlyLayer('area');
+
+    expect((layer.data as LinePoint[][])[0].map(point => point.y)).toEqual([2, 5, 1]);
+  });
+});
+
+describe('bars that span an interval instead of standing on zero', () => {
+  it('leaves a ranged bar unread rather than announcing its height', () => {
+    // A bar's length is its value only because one end is zero. `y1`/`y2`
+    // breaks that: a waterfall step drawn from 140 down to 90 has length 50,
+    // and 50 is not what happened — the step is a fall of 50 and lands at 90.
+    // A bar point holds one number and there is nowhere to put the second.
+    const { element } = mountFixture('waterfall');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+});
