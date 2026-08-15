@@ -212,7 +212,9 @@ A Manhattan is usually drawn as one series per chromosome, and a survival figure
 
 ### Highlighting a declared layer
 
-A survival curve, an error bar and a forest plot highlight like every other amCharts layer: the overlay outlines the mark the reader is on. A **volcano, Manhattan or scatter layer does not**. MAIDR's canvas overlay is driven by the position the navigation callback carries, and a scatter publishes a *binned grid* rather than its individual points — so a position there names a cell of that grid, and outlining the point that happens to sit at the same ordinal would put the box on the wrong gene. The overlay is cleared instead. Sonification, the text description, the findings a threshold produces and the point-level navigation are all unaffected; this is the visual highlight alone, and only on the three cloud types.
+Every declared layer highlights like the rest of the amCharts adapter: the overlay outlines the mark the reader is on. A volcano, Manhattan or scatter layer is addressed differently from the others, and it is worth knowing why. A cloud is navigated through several different index spaces — columns of shared x, rows of shared y, a flat point order, a binned grid — so no single row/column position can say which mark is selected. MAIDR therefore sends the *identity* of the highlighted points instead: their indices into the `data` array this adapter supplied. The adapter maps them back through the same walk that produced that array, so the binning stays in MAIDR's model and is never reconstructed here.
+
+One position often covers several marks — a column holds every point sharing an x, a grid cell every point binned into it — and the overlay outlines all of them. Where a reader is on a single point, as in point navigation or on a volcano's significant-point rotor, exactly one mark is outlined.
 
 ## Multi-Panel Charts
 

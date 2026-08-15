@@ -1014,6 +1014,37 @@ export function extractScatterPoints(declared: AmDeclaredLayer): ScatterPoint[] 
   return points;
 }
 
+/**
+ * The live marks behind a declared cloud, in the order its points were read.
+ *
+ * The index-twin of {@link extractScatterPoints} / {@link extractVolcanoPoints}:
+ * the same walk over `[series, ...arms]`, keeping exactly the items
+ * `readCloudPoint` accepts, so the entry at index `i` is the mark that drew the
+ * layer's `data[i]`.
+ *
+ * It lives beside those two, and is written as the same loop, because the
+ * alignment is the entire contract — MAIDR addresses a cloud's highlight by
+ * data index, and the two walks drifting apart would outline a confidently
+ * wrong point. Keeping them in one file is what makes a drift visible in a
+ * side-by-side read.
+ *
+ * @param declared - The declared layer and the siblings merged into it.
+ * @returns One `{ series, item }` per readable mark, in chart order.
+ */
+export function extractCloudMarks(
+  declared: AmDeclaredLayer,
+): { series: AmXYSeries; item: AmDataItem }[] {
+  const marks: { series: AmXYSeries; item: AmDataItem }[] = [];
+  for (const series of [declared.series, ...declared.arms]) {
+    for (const item of series.dataItems) {
+      if (readCloudPoint(item) !== null) {
+        marks.push({ series, item });
+      }
+    }
+  }
+  return marks;
+}
+
 /** One point of a cloud, or `null` for a mark missing either coordinate. */
 function readCloudPoint(item: AmDataItem): VolcanoPoint | null {
   const x = item.get('valueX') != null ? toNumber(item.get('valueX')) : null;
