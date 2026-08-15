@@ -57,12 +57,16 @@ export function generatePlotlySelectors(
     // A pyramid is among these: it is a stacked bar chart whose two sides grow
     // opposite ways, drawn through the same renderer, so its bars are the same
     // elements in the same trace-by-trace order.
+    // A marimekko is among these too: plotly draws it as a stacked bar chart
+    // whose columns happen to differ in width, through the same renderer and
+    // into the same elements. Only the reading changes.
     case TraceType.BAR:
     case TraceType.HISTOGRAM:
     case TraceType.DODGED:
     case TraceType.STACKED:
     case TraceType.NORMALIZED:
     case TraceType.DIVERGING:
+    case TraceType.MOSAIC:
       return `${prefix}.trace.bars .point > path`;
 
     // A step trace is a scatter trace plotly drew as a staircase, and an area
@@ -250,6 +254,48 @@ export function choroplethRegionSelectors(
     + ` > g.trace.choropleth:nth-of-type(${position})`;
   return indices.map(index =>
     `${group} > path.choroplethlocation:nth-of-type(${index + 1})`);
+}
+
+/**
+ * The trace types plotly draws into a panel's `g.contourlayer`, and so the
+ * ones whose groups a contour has to count past.
+ *
+ * `histogram2dcontour` names `contourlayer` as its own layer and is drawn by
+ * the contour plotter, so the two share both the layer and the `g.contour`
+ * class plotly gives each trace's group.
+ */
+const CONTOURLAYER_TRACE_TYPES = ['contour', 'histogram2dcontour'];
+
+/**
+ * Contour selectors: the curves plotly drew for one level at a time.
+ *
+ * Plotly gives every level a `g.contourlevel` of its own — one per level in
+ * the ladder, whether or not the field crosses it — and puts the level's
+ * curves inside as `path.openline` and `path.closedline`. A level the field
+ * never reaches therefore still takes a group, which is why a curve is
+ * addressed by the index of the LEVEL it runs at rather than by counting the
+ * curves before it.
+ *
+ * The trace's group is counted within its own panel, since plotly hangs no
+ * uid class on these groups either.
+ *
+ * @param gd           - The plotly graph div
+ * @param traceIndex   - The global index of the contour trace
+ * @param levelIndices - The ladder position of each level the layer emitted
+ * @returns One selector per level
+ */
+export function contourLevelSelectors(
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  levelIndices: number[],
+): string[] {
+  const trace = gd._fullData?.[traceIndex];
+  const prefix = subplotCssPrefix(trace?.xaxis, trace?.yaxis);
+  const position = layerNthChild(gd, traceIndex, CONTOURLAYER_TRACE_TYPES);
+  const lines = `${prefix}.contourlayer > g.contour:nth-of-type(${position})`
+    + ` > g.contourlines`;
+  return levelIndices.map(index =>
+    `${lines} > g.contourlevel:nth-of-type(${index + 1}) > path`);
 }
 
 /**
