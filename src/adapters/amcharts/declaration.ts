@@ -29,6 +29,7 @@
 
 import type {
   AlluvialDeclaration,
+  ChoroplethDeclaration,
   ErrorBarDeclaration,
   ForestDeclaration,
   MaidrTraceDeclaration,
@@ -45,6 +46,7 @@ import type {
   ThresholdOptions,
   VolcanoPoint,
 } from '@type/grammar';
+import type { ChoroplethFields } from './extractor';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import {
   isFlagValue,
@@ -55,8 +57,10 @@ import {
 import { Orientation, TraceType } from '@type/grammar';
 import {
   classifySeriesKind,
+  extractChoroplethPoints,
   extractFlowPoints,
   isFlowSeries,
+  isMapPolygonSeries,
   readXValue,
   toNumber,
   toStringOrNumber,
@@ -70,8 +74,14 @@ const ADAPTER = 'amCharts';
  *
  * The union is smaller than `MaidrTraceDeclaration` because a declaration is
  * still a claim about a drawing: there is no amCharts construct behind a
- * `hexbin` or a `choropleth`, and a block declaring one is reported rather
- * than read into a layer with nothing in it.
+ * `hexbin`, and a block declaring one is reported rather than read into a
+ * layer with nothing in it.
+ *
+ * `choropleth` is here for the ordinary reason and `alluvial` for a strange
+ * one. An `am5map.MapPolygonSeries` bound to a `valueField` is already read as
+ * a map with no declaration at all; declaring one says which of the author's
+ * own columns carries the region, the value or the centroid pair, for a map
+ * that hangs them somewhere amCharts was never told about.
  *
  * `alluvial` is the odd member. Every other entry names a reading amCharts
  * draws with a series class worn by something else; an alluvial has no class
@@ -83,6 +93,7 @@ const ADAPTER = 'amCharts';
  */
 export type AmDeclaration
   = | AlluvialDeclaration
+    | ChoroplethDeclaration
     | ErrorBarDeclaration
     | ForestDeclaration
     | ManhattanDeclaration
@@ -259,6 +270,7 @@ function readDeclaration(series: AmXYSeries): MaidrTraceDeclaration | null {
 function isDeclarable(declaration: MaidrTraceDeclaration): declaration is AmDeclaration {
   switch (declaration.type) {
     case TraceType.ALLUVIAL:
+    case TraceType.CHOROPLETH:
     case TraceType.ERROR_BAR:
     case TraceType.FOREST:
     case TraceType.MANHATTAN:
@@ -437,6 +449,30 @@ function readMain(item: AmDataItem, series: AmXYSeries, horizontal: boolean): un
   return item.get('categoryY') ?? item.get('valueY');
 }
 
+/**
+ * The four column names a choropleth declaration renames a region's facts to.
+ *
+ * Narrowed to plain strings here so that `extractor.ts` — which reads what
+ * amCharts drew — never has to know what a declaration is. A slot the author
+ * left out stays `undefined`, and the extractor then walks its own chain for
+ * that fact rather than treating the omission as a name.
+ *
+ * Exported because the highlight path needs the same four: they decide which
+ * regions the layer kept, and a resolver filtering by a different rule would
+ * index a list of a different length.
+ *
+ * @param declaration - The declared map.
+ * @returns The named columns, each omitted when the author named none.
+ */
+export function choroplethFields(declaration: ChoroplethDeclaration): ChoroplethFields {
+  return {
+    ...(declaration.region != null ? { region: declaration.region } : {}),
+    ...(declaration.value != null ? { value: declaration.value } : {}),
+    ...(declaration.lon != null ? { lon: declaration.lon } : {}),
+    ...(declaration.lat != null ? { lat: declaration.lat } : {}),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Planning a chart
 // ---------------------------------------------------------------------------
@@ -462,6 +498,14 @@ function backsDeclaration(series: AmXYSeries, declaration: AmDeclaration): boole
     // would otherwise emit an alluvial layer with nothing in it.
     case TraceType.ALLUVIAL:
       return isFlowSeries(series) && extractFlowPoints(series).length > 0;
+    // Both halves again, and for the same reason. The class name says amCharts
+    // drew regions at all — `type: 'choropleth'` on a column series is the
+    // mistake this reports — and the regions say the named columns resolve to
+    // something: a map whose `value` ref names nothing would otherwise emit a
+    // layer with no regions in it.
+    case TraceType.CHOROPLETH:
+      return isMapPolygonSeries(series)
+        && extractChoroplethPoints(series, choroplethFields(declaration)).length > 0;
     case TraceType.SURVIVAL:
       return series.dataItems.some(item =>
         readXValue(item, series) != null && item.get('valueY') != null

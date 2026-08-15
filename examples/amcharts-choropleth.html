@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Choropleth</title>
+
+    <!-- 1. Load amCharts 5. `map.js` carries the MapChart and its polygon
+         series; the geodata file carries the shapes themselves. A MapChart is
+         a SerialChart: a series list and no axes, which is why the adapter
+         recognises it by its class name the way it does a PieChart. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/map.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/geodata/usaLow.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over the chart, so the core maidr.js
+         script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 720px;
+        height: 440px;
+      }
+      .note {
+        background: #f4f4f4;
+        border-left: 4px solid #666;
+        padding: 12px 16px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Choropleth</h1>
+    <p>
+      A choropleth shades places by a value. What a reader gets from one is
+      <strong>spatial</strong> — where the high values sit, which way the
+      gradient runs — so MAIDR bands the regions by latitude and reads each band
+      west to east: Up is north, Right is east.
+    </p>
+    <p class="note">
+      <strong>That walk comes out of centroids in degrees, and out of nothing
+      else.</strong> The adapter reads them from your own row first and from the
+      drawn polygon's <code>geoCentroid()</code> second, and
+      <strong>omits the pair</strong> when neither answers in degrees — a
+      projected coordinate announced as a degree would be a wrong compass
+      direction. Without the pair the map is still read, still navigable and
+      still outlined; it is simply a region list in declared order.
+    </p>
+
+    <h2>Detected: a polygon series bound to a value</h2>
+    <p>
+      No declaration needed. A <code>MapPolygonSeries</code> with a
+      <code>valueField</code> (or <code>heatRules</code>) is a choropleth; the
+      base geography drawn under it, and any lines or pins, are skipped.
+    </p>
+    <div id="detected-chart" class="chart"></div>
+
+    <h2>Declared: the centroids stated on the row</h2>
+    <p>
+      The same map, with the coordinates and the state's own name read off
+      columns amCharts was never bound to. This is what guarantees the north /
+      south / east / west walk rather than leaving it to
+      <code>geoCentroid()</code>.
+    </p>
+    <div id="declared-chart" class="chart"></div>
+
+    <script>
+      // Age-adjusted rate per 100,000 -- illustrative figures, not real ones.
+      // `id` is what amCharts joins the row to a shape by; every other column
+      // is the author's own and reaches MAIDR through the declaration.
+      var STATES = [
+        { id: "US-WA", state: "Washington", rate: 12.1, east: -120.5, north: 47.4 },
+        { id: "US-OR", state: "Oregon", rate: 16.4, east: -120.6, north: 43.9 },
+        { id: "US-ID", state: "Idaho", rate: 21.7, east: -114.6, north: 44.4 },
+        { id: "US-NV", state: "Nevada", rate: 38.9, east: -116.6, north: 39.3 },
+        { id: "US-UT", state: "Utah", rate: 19.2, east: -111.7, north: 39.3 },
+        { id: "US-CA", state: "California", rate: 27.5, east: -119.4, north: 37.2 },
+        { id: "US-AZ", state: "Arizona", rate: 31.4, east: -111.7, north: 34.3 },
+        { id: "US-NM", state: "New Mexico", rate: 24.8, east: -106.1, north: 34.4 },
+      ];
+
+      /**
+       * One MapChart with a shaded polygon series.
+       *
+       * `valueField` is what makes the series a reading rather than a drawing:
+       * with neither it nor `heatRules`, the adapter treats it as the base
+       * geography and skips it.
+       */
+      function mapChart(divId, userData) {
+        var root = am5.Root.new(divId);
+        var chart = root.container.children.push(
+          am5map.MapChart.new(root, {
+            projection: am5map.geoAlbersUsa(),
+            panX: "none",
+            panY: "none",
+            wheelY: "none",
+          })
+        );
+
+        var series = chart.series.push(
+          am5map.MapPolygonSeries.new(root, {
+            geoJSON: am5geodata_usaLow,
+            valueField: "rate",
+            calculateAggregates: true,
+            // The block below names the author's own columns. Omitted, the
+            // adapter reads what amCharts resolved and the polygons' own
+            // centroids -- see the second panel's comment.
+            userData: userData,
+          })
+        );
+
+        series.mapPolygons.template.setAll({
+          tooltipText: "{name}: {rate}",
+          stroke: am5.color(0xffffff),
+          strokeWidth: 0.5,
+        });
+        series.set("heatRules", [{
+          target: series.mapPolygons.template,
+          dataField: "value",
+          key: "fill",
+          min: am5.color(0xe8eef8),
+          max: am5.color(0x1f3f8f),
+        }]);
+
+        series.data.setAll(STATES);
+        return root;
+      }
+
+      var detectedRoot = mapChart("detected-chart");
+
+      // `region`, `lon` and `lat` name columns of the rows above. `value` is
+      // left out: the series is already bound to `rate`, so the chart itself
+      // says what the shading is.
+      var declaredRoot = mapChart("declared-chart", {
+        maidr: {
+          type: "choropleth",
+          region: "state",
+          lon: "east",
+          lat: "north",
+        },
+      });
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR on each panel via the
+         `maidrAmCharts` UMD global. In production, prefer listening to the
+         series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      setTimeout(function () {
+        var panels = [
+          [detectedRoot, "Rate per 100,000, Western States"],
+          [declaredRoot, "Rate per 100,000, Western States (declared centroids)"],
+        ];
+        panels.forEach(function (panel) {
+          try {
+            maidrAmCharts.bindAmCharts(panel[0], {
+              title: panel[1],
+              // A map is bound to no axis; drop these and the adapter falls
+              // back to "Region" and "Value".
+              axisLabels: { x: "State", y: "Rate per 100,000" },
+            });
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed for ' + panel[1] + ':', err);
+          }
+        });
+      }, 1200);
+    </script>
+  </body>
+</html>

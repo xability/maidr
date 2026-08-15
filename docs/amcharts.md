@@ -91,6 +91,7 @@ Series are classified by their amCharts class name and field configuration:
 - `am5wc.WordCloud` → **word cloud**
 - `am5flow.Sankey` → **sankey**; `Chord`, `ChordDirected` and `ChordNonRibbon` → **chord**; `ArcDiagram` → **sankey**, because it carries weights and a network has nowhere to put one
 - `am5hierarchy.ForceDirected` → **network**
+- `am5map.MapPolygonSeries` bound to a `valueField` (or carrying `heatRules`) → **choropleth**; a polygon series with neither, and every `MapLineSeries`, `MapPointSeries` or `GraticuleSeries`, is the base geography and is skipped
 - `LineSeries` on a value axis whose renderer is `inversed`, carrying a genuine ranking → **bump** (rank over time); the `bump` option settles the cases the axis cannot
 
 ### Visual Highlighting
@@ -131,6 +132,7 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Sankey † | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
 | Chord † | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
 | Network † | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |
+| Choropleth | `am5map.MapPolygonSeries` inside a `MapChart` | series class + a bound `valueField` or `heatRules` (requires `map.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 | Gauge | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
@@ -140,6 +142,7 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Manhattan | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
 | Scatter | the same | **declared** — `{ type: "point" }` |
 | Alluvial † | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
+| Choropleth (renamed fields) | `am5map.MapPolygonSeries` | **declared** — `{ type: "choropleth", value: "…" }` |
 
 † Read, announced, brailled and navigated — but **not outlined**. See [Flow and network are not outlined](#flow-and-network-are-not-outlined).
 
@@ -191,6 +194,9 @@ A field you leave out falls back to its canonical name and then to a short list 
 | `"volcano"` | the same, with `merge` defaulting to `false` |
 | `"point"` | `label`, `merge` (default `false`) — note the value is `"point"`, not `"scatter"` |
 | `"alluvial"` | nothing — the block is the whole declaration |
+| `"choropleth"` | `region`, `value`, `lon`, `lat` |
+
+`"choropleth"` is the one declared type the adapter also detects on its own. A `MapPolygonSeries` bound to a `valueField` needs no block; the block is for a map whose region name, shaded value or centroid pair lives in a column amCharts was never told about — which is also the only way to get the centroids, and so the arrow keys walking north and south, out of a table that spells them `east`/`north` or keeps them beside the value. It is accepted only on a `MapPolygonSeries`; a block on anything else is reported and the chart is read as what it was drawn as.
 
 `"alluvial"` takes no fields at all, and that is the point: an alluvial is the same weighted flow a sankey carries, drawn without a left-to-right budget, so the nodes, the links and their weights are already in the drawing and the only thing missing is which of the two readings it stands for. It is accepted only on an `am5flow` series that carries at least one readable link — a block on anything else is reported and the chart is read as what it was drawn as.
 
@@ -620,6 +626,45 @@ This is a deliberate refusal rather than an oversight, and the reason is worth s
 Turning either back into a node means reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — longest-distance-from-a-source, with a fallback that collapses a cyclic graph into one stage — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted. This adapter already mirrors an ordering where one exists (a heatmap's row reversal, a word cloud's weight order), and already refuses to mirror a derived structure (a scatter's binning). A copy would drift from the model silently and then outline a confidently wrong node while the announcement said something else — and nothing about the announcement would look wrong. An empty outline is truthful; that is not.
 
 The fix is small and lives in the model rather than here: both traces already compute the right answer internally, so publishing it as point indices would make all four types highlightable by registering resolvers and changing nothing else. That is tracked as a follow-up.
+
+### Choropleth
+
+A choropleth is an `am5map.MapPolygonSeries` shaded by a value, inside a `MapChart`. It needs `map.js` and a geodata file on top of `index.js`. A runnable page is at [`examples/amcharts-choropleth.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-choropleth.html).
+
+```js
+var chart = root.container.children.push(am5map.MapChart.new(root, {
+  projection: am5map.geoAlbersUsa(),
+}));
+var series = chart.series.push(am5map.MapPolygonSeries.new(root, {
+  geoJSON: am5geodata_region_usa_low,
+  valueField: "value",
+  calculateAggregates: true,
+}));
+series.set("heatRules", [{
+  target: series.mapPolygons.template, dataField: "value",
+  key: "fill", min: am5.color(0xeeeeee), max: am5.color(0x203080),
+}]);
+series.data.setAll([
+  { id: "US-WA", value: 12.1 },
+  { id: "US-OR", value: 16.4 },
+  { id: "US-NV", value: 38.9 },
+]);
+```
+
+A `MapChart` is a `SerialChart`: it has a series list and no axes, so the adapter recognises it by its class name, exactly as it does a `PieChart`. Only a **shaded** polygon series becomes a layer — one bound to a `valueField`, or carrying `heatRules`. The base geography drawn underneath, the graticule, route lines and city pins are all skipped: announcing the base map would offer a list of every shape on it with nothing to say about any of them. A region amCharts drew but joined no value onto is left out of the layer too, which is the ordinary case for the shapes drawn in the no-data colour.
+
+The map is bound to no axis — the value runs along a colour ramp and the regions along nothing at all — so its dimensions are named `Region` and `Value`; the `axisLabels` option overrides both.
+
+**The centroids are what make this a map** rather than a bar chart whose categories happen to be places. MAIDR's choropleth trace bands the regions by latitude and reads each band west to east, so Up is north and Right is east — and it does that out of a longitude and a latitude in **degrees** and out of nothing else. The adapter reads them from two places, in this order:
+
+1. your own row, from `lon`/`longitude`/`long` and `lat`/`latitude`, or from whatever a [declaration](#declaring-what-a-chart-means) renames them to;
+2. the drawn polygon's `geoCentroid()`.
+
+A pair that resolves to neither is **omitted**, never converted. A projected or normalised coordinate announced as a degree is a wrong compass direction, which is worse than what the omission costs: without the pair the regions are read as one band in declared order — a region list, which is a poorer reading but the one the data supports. Values outside ±180 / ±90 are refused for the same reason, and half a pair is treated as none.
+
+`neighbors` is not emitted at all. Adjacency is not recoverable from rendered geometry, and centroids do not answer it either — two regions can have near centroids and no shared border. The trace keeps its spatial walk and is told nothing about borders rather than something guessed, so the "bordering regions" rotor is simply empty on an amCharts map.
+
+**Highlighting** outlines the drawn polygon's axis-aligned box. That is coarse for a long thin country, but it hugs the shape and says which way navigation moved, which is what the overlay is for — the same call the word cloud's rotated glyphs make. A polygon that reports no box with area clears the overlay rather than drawing a hairline somewhere plausible.
 
 ### Bump (Rank Over Time)
 

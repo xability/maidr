@@ -9,11 +9,13 @@
  * chart so highlights clip against the correct panel's plot area.
  */
 
-import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { ChoroplethPoint, HeatmapData, MaidrLayer } from '@type/grammar';
 import type { AmDeclaredLayer } from './declaration';
+import type { ChoroplethFields } from './extractor';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 import {
+  choroplethFields,
   extractCloudMarks,
   extractErrorBarSamples,
   extractForestSamples,
@@ -25,6 +27,7 @@ import {
   extractGanttItems,
   extractHierarchyNodes,
   extractSpanItems,
+  filterChoroplethItems,
   findGaugeHand,
   isColumnSeries,
 } from './extractor';
@@ -33,12 +36,12 @@ import {
  * The am5 entities to highlight for a navigation position.
  * `kind` tells the overlay which geometry to read: a column's box, a line
  * point, the wedge-shaped sprite of a pie slice, funnel stage or polar column,
- * or the glyph of a word cloud's term.
+ * the glyph of a word cloud's term, or the drawn polygon of a map region.
  */
 export interface NavTarget {
   series: AmXYSeries;
   dataItem: AmDataItem;
-  kind: 'column' | 'point' | 'slice' | 'label';
+  kind: 'column' | 'point' | 'slice' | 'label' | 'region';
 }
 
 /**
@@ -78,6 +81,22 @@ export interface NavMapEntry {
   layers: MaidrLayer[];
   groups: SeriesGroups;
   chart: AmChart;
+}
+
+/**
+ * Where one choropleth layer came from: the polygon series amCharts drew, and
+ * the field names a declaration renamed its facts to, when the author gave
+ * one.
+ *
+ * The fields have to travel with the series because they change *which
+ * regions the layer kept*: a map whose value hangs on a column amCharts was
+ * never bound to reads as no regions at all without them, and the highlight
+ * would then index a list of a different length from the one the reader is
+ * walking.
+ */
+export interface AmChoroplethSource {
+  series: AmXYSeries;
+  fields?: ChoroplethFields;
 }
 
 /**
@@ -131,6 +150,18 @@ export interface SeriesGroups {
   hierarchySeriesList: AmXYSeries[];
   /** One WORD_CLOUD layer each, in series order. */
   wordCloudSeriesList: AmXYSeries[];
+  /**
+   * One CHOROPLETH layer each, in series order.
+   *
+   * The one bucket that carries a declaration alongside the series, because a
+   * map is the one type this adapter reads BOTH ways: an `am5map`
+   * `MapPolygonSeries` bound to a `valueField` is a choropleth on its own, and
+   * one whose value hangs on a column amCharts was never told about is a
+   * choropleth the author declared. Both emit `TraceType.CHOROPLETH`, so one
+   * ordered bucket keeps the layers and their sources in step — which two
+   * buckets could not, since the layers interleave in series order.
+   */
+  choroplethSeriesList: AmChoroplethSource[];
   /**
    * One layer each for the series that declared what they mean, in series
    * order — a survival curve, an error bar, a forest plot, a cloud.
@@ -454,6 +485,99 @@ function buildCloudResolver(
 }
 
 /**
+ * Lay the regions out the way `ChoroplethTrace` does, as indices into the
+ * layer's own `data` array.
+ *
+ * **This mirrors model logic, deliberately, and the line it sits on is worth
+ * stating.** What the codebase refuses to copy is a *derived structure* — a
+ * scatter's binning, a flow's stage layering — because a copy of one drifts
+ * silently and then outlines a confidently wrong mark. `arrange`
+ * (`src/model/choropleth.ts`) is not that: it is a pure sort-and-chunk over
+ * exactly the numbers this adapter emitted, with no graph in it, the same kind
+ * of ordering {@link buildHeatmapResolver} already mirrors for the model's
+ * y-reversal and `filterWordCloudItems` for its weight order.
+ *
+ * Two things keep it honest rather than optimistic. A layer that declared no
+ * centroids arranges to one band in declared order, so the mirror degenerates
+ * to the identity map — which is the common case here, since the centroid read
+ * is unverified. And the contract is pinned by a test that constructs the real
+ * `ChoroplethTrace` and asks it, at every position, which region it just
+ * named.
+ *
+ * Sorted with the model's own comparisons on a stable sort, so regions of
+ * equal latitude keep their declared order in both.
+ *
+ * @param points - The regions the layer declared.
+ * @returns Their `data` indices, banded south-first and west-to-east.
+ */
+function arrangeRegions(points: readonly ChoroplethPoint[]): number[][] {
+  const placed = points.map((point, at) => ({
+    at,
+    lat: typeof point.lat === 'number' ? point.lat : Number.NaN,
+    lon: typeof point.lon === 'number' ? point.lon : Number.NaN,
+  }));
+  if (placed.length === 0) {
+    return [];
+  }
+  if (!placed.every(region => Number.isFinite(region.lat) && Number.isFinite(region.lon))) {
+    return [placed.map(region => region.at)];
+  }
+
+  const bands = Math.max(1, Math.round(Math.sqrt(placed.length)));
+  const perBand = Math.ceil(placed.length / bands);
+  const southFirst = [...placed].sort((a, b) => a.lat - b.lat);
+
+  const arranged: number[][] = [];
+  for (let start = 0; start < southFirst.length; start += perBand) {
+    arranged.push(
+      southFirst
+        .slice(start, start + perBand)
+        .sort((a, b) => a.lon - b.lon)
+        .map(region => region.at),
+    );
+  }
+  return arranged;
+}
+
+/**
+ * Build a resolver for a choropleth layer.
+ *
+ * A map is the one layer whose navigation grid is neither the declared order
+ * nor a filtered view of it: the regions are banded by latitude and read west
+ * to east inside each band, so `(row, col)` names a place on the map rather
+ * than a position in the data. {@link arrangeRegions} rebuilds that banding
+ * over the layer's own points and hands back the declared index, which then
+ * indexes the drawn polygons.
+ *
+ * The alignment guard is what makes it safe: the polygons are re-filtered with
+ * the same rule the extraction used, and a list of a different length from
+ * `layer.data` means the chart moved underneath the conversion. The resolver
+ * then answers nothing, the overlay clears, and no stale index gets outlined —
+ * the same call {@link buildCloudResolver} makes.
+ */
+function buildChoroplethResolver(
+  source: AmChoroplethSource | undefined,
+  layer: MaidrLayer,
+): Resolver {
+  const points = layer.data as ChoroplethPoint[];
+  if (!source || !Array.isArray(points)) {
+    return () => [];
+  }
+
+  const items = filterChoroplethItems(source.series, source.fields);
+  if (items.length !== points.length) {
+    return () => [];
+  }
+
+  const bands = arrangeRegions(points);
+  return (row, col) => {
+    const at = bands[row]?.[col];
+    const dataItem = at === undefined ? undefined : items[at];
+    return dataItem ? [{ series: source.series, dataItem, kind: 'region' }] : [];
+  };
+}
+
+/**
  * Build a resolver for a heatmap layer. amCharts heatmap dataItems are a flat,
  * insertion-ordered list, so we index them by `categoryX`/`categoryY` value.
  * MAIDR's Heatmap model reverses the Y axis (`src/model/heatmap.ts`), so we
@@ -547,6 +671,7 @@ export function groupSeries(chart: AmChart): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    choroplethSeriesList: [],
     declaredList: [],
   };
 
@@ -562,7 +687,18 @@ export function groupSeries(chart: AmChart): SeriesGroups {
     }
     const declared = plan.declared.get(series);
     if (declared) {
-      groups.declaredList.push(declared);
+      // A declared choropleth goes to the map bucket rather than the declared
+      // one: its layer is a CHOROPLETH like any other, and keeping both kinds
+      // in one ordered bucket is what lets the resolver find the source of the
+      // n-th map layer without depending on generated ids.
+      if (declared.declaration.type === TraceType.CHOROPLETH) {
+        groups.choroplethSeriesList.push({
+          series,
+          fields: choroplethFields(declared.declaration),
+        });
+      } else {
+        groups.declaredList.push(declared);
+      }
       continue;
     }
 
@@ -629,6 +765,13 @@ export function groupSeries(chart: AmChart): SeriesGroups {
         break;
       case 'wordcloud':
         groups.wordCloudSeriesList.push(series);
+        break;
+      // A map region IS addressable — the polygon amCharts drew reports a box
+      // — so unlike the flow family below, a choropleth gets a bucket and a
+      // resolver. The banding the model navigates it by is rebuilt from the
+      // layer's own centroids; see `buildChoroplethResolver`.
+      case 'choropleth':
+        groups.choroplethSeriesList.push({ series });
         break;
       // A flow diagram and a force-directed network are read, described,
       // brailled and navigated, and deliberately get no bucket: MAIDR hands a
@@ -718,6 +861,7 @@ function addEntryResolvers(
   let ganttIdx = 0;
   let hierarchyIdx = 0;
   let wordCloudIdx = 0;
+  let choroplethIdx = 0;
 
   const register = (layerId: string, resolver: Resolver): void => {
     resolvers.set(layerId, resolver);
@@ -881,6 +1025,13 @@ function addEntryResolvers(
         // position on offer was the braille one, which for a scatter is a cell
         // of a *binned grid* rather than a point.
         register(layer.id, buildCloudResolver(nextDeclared(layer.type), layer));
+        break;
+      }
+      case TraceType.CHOROPLETH: {
+        register(
+          layer.id,
+          buildChoroplethResolver(groups.choroplethSeriesList[choroplethIdx++], layer),
+        );
         break;
       }
       case TraceType.HEATMAP: {

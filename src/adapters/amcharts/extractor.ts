@@ -5,6 +5,7 @@
 
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellPoint,
   FlowPoint,
   GanttData,
@@ -21,6 +22,8 @@ import type {
   WaterfallPoint,
 } from '@type/grammar';
 import type { AmAxis, AmChart, AmDataItem, AmSprite, AmXYSeries } from './types';
+import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
+import { TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1364,6 +1367,256 @@ function readAxisTitle(axis: AmAxis): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// Choropleth (am5map MapPolygonSeries)
+// ---------------------------------------------------------------------------
+
+/**
+ * The am5map series class that draws regions. A choropleth is one of these
+ * shaded by a value; the base geography underneath is another one that carries
+ * none, which is why the class alone is not the signature.
+ */
+const MAP_POLYGON_CLASS = 'MapPolygonSeries';
+
+/**
+ * Every am5map series class, so the ones that are not regions are *skipped*
+ * rather than defaulted.
+ *
+ * {@link classifySeriesKind} answers `'bar'` for anything it does not know, so
+ * an unlisted map series would be announced as a bar chart of its shapes. A
+ * graticule read as a row of bars is the failure this list prevents; naming
+ * them all is what makes "not a choropleth" mean "not a layer".
+ */
+const MAP_SERIES_CLASSES = new Set([
+  MAP_POLYGON_CLASS,
+  'MapLineSeries',
+  'MapPointSeries',
+  'ClusteredPointSeries',
+  'GraticuleSeries',
+]);
+
+/** Whether a series is the class an am5map choropleth is drawn with. */
+export function isMapPolygonSeries(series: AmXYSeries): boolean {
+  return series.className === MAP_POLYGON_CLASS;
+}
+
+/**
+ * Whether a polygon series is shaded by a value — a choropleth — rather than
+ * being the base geography under one.
+ *
+ * A map routinely carries two `MapPolygonSeries`: the countries, drawn once in
+ * a flat colour, and the ones a value was joined onto. Only the second is a
+ * chart; announcing the first would offer the reader a list of every country
+ * on earth with nothing to say about any of them.
+ *
+ * `valueField` is what binds the shading, and `heatRules` is how the shading is
+ * declared, so either one says the author meant this series to carry a reading.
+ */
+function isShadedPolygonSeries(series: AmXYSeries): boolean {
+  if (!isMapPolygonSeries(series))
+    return false;
+  const field = series.get('valueField');
+  if (typeof field === 'string' && field.length > 0)
+    return true;
+  const rules = series.get('heatRules');
+  return Array.isArray(rules) && rules.length > 0;
+}
+
+/**
+ * The declared field names a choropleth's four facts may be renamed to.
+ *
+ * Spelled here as plain strings rather than as a `ChoroplethDeclaration`, so
+ * that this module stays the reader of what amCharts drew and `declaration.ts`
+ * stays the reader of what the author said. Both paths land in the same
+ * function because a map's regions are read the same way either way — the
+ * declaration only says which column each fact is in.
+ */
+export interface ChoroplethFields {
+  region?: string;
+  value?: string;
+  lon?: string;
+  lat?: string;
+}
+
+/**
+ * What a region is called.
+ *
+ * An explicit `region` ref wins outright and with no fallback, exactly as
+ * {@link resolveFieldRef} treats every named ref: a name the author wrote that
+ * misses is their mistake to see, not one to paper over with a column they did
+ * not name.
+ *
+ * Undeclared, amCharts' own reading comes first — `dataItem.get('name')` is
+ * the name it resolved the polygon to — and the row's chain second. That chain
+ * reaches `properties.NAME` on a GeoJSON feature, which is where a map's names
+ * actually live, and ends at the `id` an am5map row is ordinarily keyed by.
+ */
+function readRegionName(
+  item: AmDataItem,
+  fields: ChoroplethFields | undefined,
+): string | number | null {
+  const row = rowOf(item);
+  if (fields?.region != null) {
+    return asNodeName(resolveFieldRef(row, fields.region, 'region', TraceType.CHOROPLETH));
+  }
+  const drawn = asNodeName(item.get('name'));
+  if (drawn != null)
+    return drawn;
+  return asNodeName(resolveFieldRef(row, undefined, 'region', TraceType.CHOROPLETH));
+}
+
+/**
+ * The number a region is shaded by.
+ *
+ * Read strictly, never through `toNumber`: `Number(null)` is `0`, and a region
+ * amCharts drew in the no-data colour would then be announced as a region
+ * whose value is zero — a reading a listener cannot tell from a true one.
+ *
+ * The series' own `valueField` is consulted before the shared chain, because
+ * it is the column the author actually bound the shading to.
+ */
+function readRegionValue(
+  item: AmDataItem,
+  series: AmXYSeries,
+  fields: ChoroplethFields | undefined,
+): number | null {
+  const row = rowOf(item);
+  if (fields?.value != null) {
+    return asFiniteNumber(resolveFieldRef(row, fields.value, 'value', TraceType.CHOROPLETH));
+  }
+
+  const drawn = asFiniteNumber(item.get('value'));
+  if (drawn != null)
+    return drawn;
+
+  const field = series.get('valueField');
+  if (typeof field === 'string' && field.length > 0) {
+    const bound = asFiniteNumber(row?.[field]);
+    if (bound != null)
+      return bound;
+  }
+  return asFiniteNumber(resolveFieldRef(row, undefined, 'value', TraceType.CHOROPLETH));
+}
+
+/**
+ * A coordinate in degrees, or `null` for anything that is not one.
+ *
+ * The whole point of the guard. `ChoroplethTrace` walks north, south, east and
+ * west out of this pair, so a projected or normalised coordinate accepted here
+ * is a wrong compass direction — worse than the declared-order region list the
+ * grammar explicitly sanctions when the pair is missing.
+ */
+function asDegrees(value: unknown, limit: number): number | null {
+  const number = asFiniteNumber(value);
+  return number != null && Math.abs(number) <= limit ? number : null;
+}
+
+/**
+ * The geographic centroid of the polygon a region was drawn as.
+ *
+ * **Unverified against the library.** `MapPolygon.geoCentroid()` is documented
+ * to answer an `IGeoPoint` — `{ longitude, latitude }` in degrees — but
+ * amCharts is commercial and not installed here, so every read is guarded and
+ * a build answering with anything else falls through to `null`. The pair is
+ * then omitted, and the map degrades to a region list in declared order rather
+ * than to a compass pointing the wrong way.
+ */
+function readGeoCentroid(item: AmDataItem): { lon: number; lat: number } | null {
+  const polygon = item.get('mapPolygon');
+  if (polygon == null || typeof polygon !== 'object')
+    return null;
+  const centroid = (polygon as { geoCentroid?: () => unknown }).geoCentroid;
+  if (typeof centroid !== 'function')
+    return null;
+
+  let point: unknown;
+  try {
+    point = centroid.call(polygon);
+  } catch {
+    return null;
+  }
+  if (point == null || typeof point !== 'object')
+    return null;
+
+  const geo = point as { longitude?: unknown; latitude?: unknown };
+  const lon = asDegrees(geo.longitude, 180);
+  const lat = asDegrees(geo.latitude, 90);
+  return lon != null && lat != null ? { lon, lat } : null;
+}
+
+/**
+ * The data items a choropleth layer was built from, in the order it emitted
+ * them.
+ *
+ * Kept as its own function so the highlight path indexes exactly the list the
+ * payload was built from. A region the layer dropped must not stay in this
+ * list: it would slide every later position onto its neighbour, which is the
+ * same call the pie, funnel and flow conversions already make.
+ */
+export function filterChoroplethItems(
+  series: AmXYSeries,
+  fields?: ChoroplethFields,
+): AmDataItem[] {
+  return series.dataItems.filter(item =>
+    readRegionName(item, fields) != null && readRegionValue(item, series, fields) != null);
+}
+
+/**
+ * Convert an am5map `MapPolygonSeries` into {@link ChoroplethPoint} data.
+ *
+ * A region amCharts drew but joined no value onto is left out. It is the
+ * ordinary case on a real map — the shapes with no data, drawn in a flat
+ * colour — and a layer's value is a number, so there is nothing to announce
+ * for one.
+ *
+ * **The centroids are what make this a map rather than a bar chart whose
+ * categories happen to be places.** They are read in degrees or not at all:
+ * from the author's own row first, where a table of `{ region, value, lon, lat }`
+ * states them outright, and from the drawn polygon's `geoCentroid()` second.
+ * A pair that resolves to neither is omitted — `ChoroplethTrace` then keeps
+ * the regions in declared order in one band, which is a poorer reading but the
+ * one the data supports.
+ *
+ * `neighbors` is not emitted at all. Adjacency is not recoverable from
+ * rendered geometry, and not from centroids either, so the trace keeps its
+ * spatial walk and is told nothing about borders rather than something
+ * guessed — the same call the Highcharts adapter makes.
+ */
+export function extractChoroplethPoints(
+  series: AmXYSeries,
+  fields?: ChoroplethFields,
+): ChoroplethPoint[] {
+  const points: ChoroplethPoint[] = [];
+
+  for (const item of series.dataItems) {
+    const x = readRegionName(item, fields);
+    if (x == null)
+      continue;
+    const y = readRegionValue(item, series, fields);
+    if (y == null)
+      continue;
+
+    const row = rowOf(item);
+    const centroid = readGeoCentroid(item);
+    const lon = asDegrees(resolveFieldRef(row, fields?.lon, 'lon', TraceType.CHOROPLETH), 180)
+      ?? centroid?.lon ?? null;
+    const lat = asDegrees(resolveFieldRef(row, fields?.lat, 'lat', TraceType.CHOROPLETH), 90)
+      ?? centroid?.lat ?? null;
+
+    points.push({
+      x,
+      y,
+      // Both or neither: a longitude alone places nothing, and a region
+      // carrying half a coordinate would drop the whole map back to declared
+      // order anyway — `ChoroplethTrace` bands only when every region is
+      // placed. Emitting one half would look like a placement and be none.
+      ...(lon != null && lat != null ? { lon, lat } : {}),
+    });
+  }
+
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Series type detection
 // ---------------------------------------------------------------------------
 
@@ -1620,6 +1873,7 @@ export type SeriesKind
     | 'sankey'
     | 'chord'
     | 'network'
+    | 'choropleth'
     | 'unknown';
 
 /**
@@ -1669,6 +1923,14 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
   const standalone = STANDALONE_KINDS[className];
   if (standalone) {
     return standalone;
+  }
+
+  // Every am5map series, answered together. A polygon series shaded by a value
+  // is a choropleth; the base geography under it, the graticule, the lines and
+  // the pins are drawings rather than readings, and are skipped outright —
+  // which they would not be if they fell through to the `'bar'` default below.
+  if (MAP_SERIES_CLASSES.has(className)) {
+    return isShadedPolygonSeries(series) ? 'choropleth' : 'unknown';
   }
 
   if (COLUMN_CLASSES.has(className)) {

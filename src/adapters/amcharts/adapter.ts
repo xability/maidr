@@ -25,6 +25,7 @@
 
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellData,
   FlowPoint,
   GanttData,
@@ -50,6 +51,7 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import {
+  choroplethFields,
   extractErrorBarSamples,
   extractForestSamples,
   extractScatterPoints,
@@ -63,6 +65,7 @@ import {
 import {
   classifySeriesKind,
   extractBarPoints,
+  extractChoroplethPoints,
   extractDumbbellPoints,
   extractFlowPoints,
   extractGanttData,
@@ -427,6 +430,16 @@ function buildChartLayers(
         layers.push(buildNetworkLayer(series, data, options));
         break;
       }
+      case 'choropleth': {
+        // A polygon series whose regions all missed their join carries no
+        // reading at all; the panel is then dropped rather than emitted as a
+        // map of nothing.
+        const data = extractChoroplethPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildChoroplethLayer(series, data, options));
+        break;
+      }
       default:
         // Skip unsupported series types.
         break;
@@ -587,6 +600,23 @@ function buildDeclaredLayer(
         type: TraceType.ALLUVIAL,
         title: declaration.title ?? seriesName(declared.series),
         axes: flowAxes(options),
+        data,
+      };
+    }
+    // A map amCharts already draws as regions, declared so the author can say
+    // which of their own columns each fact lives in. Bound to no axis, so it
+    // names its own dimensions; no selectors, because the polygons are painted
+    // into a canvas and the overlay outlines them instead.
+    case TraceType.CHOROPLETH: {
+      const data = extractChoroplethPoints(declared.series, choroplethFields(declaration));
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.CHOROPLETH,
+        title: declaration.title ?? seriesName(declared.series),
+        axes: choroplethAxes(options),
         data,
       };
     }
@@ -993,6 +1023,45 @@ function buildFlowLayer(
 }
 
 /**
+ * What a choropleth's two dimensions are called. A map is bound to no axis a
+ * title could be read from — the value runs along a colour ramp and the
+ * regions along nothing at all — so the chart-level fallback would name them
+ * after coordinates the chart does not have. The same two names the Highcharts
+ * adapter gives a `map` series.
+ */
+const CHOROPLETH_REGION_AXIS = 'Region';
+const CHOROPLETH_VALUE_AXIS = 'Value';
+
+/** The axes every choropleth layer names, with the figure-wide override applied. */
+function choroplethAxes(options?: AmChartsBinderOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: options?.axisLabels?.x ?? CHOROPLETH_REGION_AXIS },
+    y: { label: options?.axisLabels?.y ?? CHOROPLETH_VALUE_AXIS },
+  };
+}
+
+/**
+ * Builds the layer for one am5map `MapPolygonSeries` shaded by a value.
+ *
+ * No `selectors`, for the reason a pie emits none — amCharts paints the
+ * polygons into a canvas. The binder's overlay outlines the active region
+ * instead, from the box the drawn polygon reports.
+ */
+function buildChoroplethLayer(
+  series: AmXYSeries,
+  data: ChoroplethPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.CHOROPLETH,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: choroplethAxes(options),
+    data,
+  };
+}
+
+/**
  * What a network's two dimensions are called. A force-directed graph is bound
  * to no axis either, and what a reader is after at a node is its degree.
  */
@@ -1352,6 +1421,11 @@ function collectCharts(node: unknown, found: AmChart[]): void {
       found.push(child);
       continue;
     }
+    const map = asMapPanel(child);
+    if (map) {
+      found.push(map);
+      continue;
+    }
     const standalone = asStandalonePanel(child);
     if (standalone) {
       found.push(standalone);
@@ -1402,6 +1476,60 @@ function isPercentChartLike(candidate: unknown): candidate is AmChart {
   return typeof c.className === 'string'
     && PERCENT_CHART_CLASSES.has(c.className)
     && Boolean(c.series);
+}
+
+/**
+ * The am5map chart class a choropleth is drawn in.
+ *
+ * A `MapChart` is a `SerialChart`: it has a series list and no axes, which is
+ * the same signature an am5percent chart carries — so the class name is what
+ * separates them, exactly as it does there.
+ */
+const MAP_CHART_CLASSES = new Set([
+  'MapChart',
+]);
+
+/**
+ * Wrap an am5map `MapChart` as a panel.
+ *
+ * The one chart in the library that discovery could not see. It answers to
+ * neither {@link isXYChartLike} (no axes) nor {@link isPercentChartLike} (a
+ * class name of its own), so `collectCharts` used to recurse straight past it
+ * into its own containers and surface nothing.
+ *
+ * The wrapper exists for one read: `plotContainer`. A `MapChart` has none —
+ * that is an `XYChart` notion — but it IS a `Container`, so pointing the slot
+ * at the chart itself answers `globalBounds()` / `toGlobal()` / `width()` /
+ * `height()`, which is all {@link readPlotBounds} asks for. That keeps
+ * multi-panel highlight clipping and {@link computeChartGrid} working on the
+ * same reads every other panel uses; without it a map beside another chart
+ * would have its highlight suppressed outright.
+ *
+ * The same trick {@link asStandalonePanel} uses to give a bare series the
+ * shape of a chart, and the `children` list is carried across so the panel
+ * keeps its title.
+ *
+ * @returns The wrapped panel, or `null` for anything that is not one.
+ */
+function asMapPanel(candidate: unknown): AmChart | null {
+  if (candidate == null || typeof candidate !== 'object')
+    return null;
+
+  const chart = candidate as AmChart;
+  if (typeof chart.className !== 'string' || !MAP_CHART_CLASSES.has(chart.className))
+    return null;
+  if (!Array.isArray(chart.series?.values))
+    return null;
+
+  const children = (candidate as { children?: unknown }).children;
+  return {
+    className: chart.className,
+    uid: chart.uid,
+    get: key => chart.get(key),
+    series: chart.series,
+    ...(children != null ? { children } : {}),
+    plotContainer: chart as AmChart['plotContainer'],
+  } as AmChart;
 }
 
 /**

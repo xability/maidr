@@ -683,6 +683,111 @@ export function fakeGaugeChart(config: FakeGaugeConfig = {}): AmChart {
   return chart as unknown as AmChart;
 }
 
+/**
+ * The polygon an am5map `MapPolygonSeries` drew a region as.
+ *
+ * `globalBounds()` is the axis-aligned box the overlay outlines; `geoCentroid`
+ * is the degree pair the payload's `lon`/`lat` come from when the author's own
+ * row carries none. Both are unverifiable without the library, so both are
+ * knobs: pass no `centroid` for a build that answers nothing, and a
+ * `degenerate` box for one that reports a point rather than a shape.
+ */
+export function fakeMapPolygon(config: {
+  box?: { left: number; top: number; right: number; bottom: number };
+  centroid?: { longitude: unknown; latitude: unknown };
+  /** Make `geoCentroid()` throw, as a half-built polygon may. */
+  centroidThrows?: boolean;
+} = {}): unknown {
+  const box = config.box ?? { left: 10, top: 20, right: 60, bottom: 70 };
+  const polygon: Record<string, unknown> = {
+    className: 'MapPolygon',
+    globalBounds: () => box,
+  };
+  if (config.centroidThrows) {
+    polygon.geoCentroid = (): never => {
+      throw new Error('not laid out');
+    };
+  } else if (config.centroid !== undefined) {
+    polygon.geoCentroid = (): unknown => config.centroid;
+  }
+  return polygon;
+}
+
+/** One region of a fake choropleth. */
+export interface FakeRegion {
+  /** `dataItem.get('name')` — the name amCharts resolved the polygon to. */
+  name?: string;
+  /** `dataItem.get('value')` — the number the region is shaded by. */
+  value?: number;
+  /** The drawn polygon, on `dataItem.get('mapPolygon')`. */
+  polygon?: unknown;
+  /** The author's own row, as `dataItem.dataContext`. */
+  row?: Record<string, unknown>;
+}
+
+/**
+ * An am5map `MapPolygonSeries`.
+ *
+ * Bound to a `valueField` by default, which is what separates a choropleth
+ * from the base geography drawn under one: pass `settings: {}` for a series
+ * carrying no values at all.
+ */
+export function fakeMapPolygonSeries(
+  name: string,
+  regions: FakeRegion[],
+  settings: Record<string, unknown> = { valueField: 'value' },
+  className = 'MapPolygonSeries',
+): AmXYSeries {
+  const seriesSettings: Record<string, unknown> = { name, ...settings };
+  return {
+    className,
+    uid: nextUid++,
+    get: (key: string) => seriesSettings[key],
+    dataItems: regions.map((region) => {
+      const itemSettings: Record<string, unknown> = {
+        ...(region.name != null ? { name: region.name } : {}),
+        ...(region.value != null ? { value: region.value } : {}),
+        ...(region.polygon != null ? { mapPolygon: region.polygon } : {}),
+      };
+      return {
+        get: (key: string) => itemSettings[key],
+        ...(region.row != null ? { dataContext: region.row } : {}),
+      } as unknown as AmDataItem;
+    }),
+  } as unknown as AmXYSeries;
+}
+
+/**
+ * An am5map `MapChart`: a `SerialChart` with a series list, no axes, and a
+ * class name of its own — the signature the adapter's other two chart gates
+ * both miss. It is its own `Container`, so it answers the geometry reads a
+ * panel is measured by.
+ */
+export function fakeMapChart(
+  config: { series?: AmXYSeries[]; title?: string; bounds?: AmBounds } = {},
+): AmChart {
+  const chart: Record<string, unknown> = {
+    className: 'MapChart',
+    uid: nextUid++,
+    get: () => undefined,
+    series: { values: config.series ?? [] },
+  };
+  if (config.bounds) {
+    const bounds = config.bounds;
+    chart.globalBounds = (): AmBounds => bounds;
+  }
+  if (config.title != null) {
+    const title = config.title;
+    chart.children = {
+      values: [{
+        className: 'Label',
+        get: (key: string) => (key === 'text' ? title : undefined),
+      }],
+    };
+  }
+  return chart as unknown as AmChart;
+}
+
 /** A step-line series, drawn as a staircase rather than an interpolated line. */
 export function fakeStepSeries(
   name: string,

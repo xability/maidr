@@ -9,13 +9,15 @@ import type {
 } from '@type/grammar';
 import { findCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { planDeclarations } from '@adapters/amcharts/declaration';
-import { buildNavigationMap } from '@adapters/amcharts/navmap';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { Orientation, TraceType } from '@type/grammar';
 import {
   fakeChart,
   fakeContainer,
   fakeContainerEl,
   fakeFlowSeries,
+  fakeMapChart,
+  fakeMapPolygonSeries,
   fakePieSeries,
   fakeRoot,
   fakeSeries,
@@ -285,6 +287,126 @@ describe('declared alluvials', () => {
 
     expect(layersOf([declared, sibling]).map(layer => layer.type))
       .toEqual([TraceType.ALLUVIAL, TraceType.SANKEY]);
+  });
+});
+
+describe('declared choropleths', () => {
+  /** The layer a one-map figure produces. */
+  function mapLayer(series: AmXYSeries): MaidrLayer {
+    const layers = fromXYChart(fakeMapChart({ series: [series] }), CONTAINER)
+      .subplots[0][0]
+      .layers;
+    expect(layers).toHaveLength(1);
+    return layers[0];
+  }
+
+  it('reads a map whose value amCharts was never bound to', () => {
+    // The reason the declaration is worth having at all. With no `valueField`
+    // the series is the base geography as far as the heuristics can tell, and
+    // the whole map is skipped; the block says which column the shading is in.
+    const undeclared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { deaths: 16.4 } },
+    ], {});
+    const declared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { deaths: 16.4 } },
+    ], { userData: { maidr: { type: 'choropleth', value: 'deaths' } } });
+
+    expect(() => fromXYChart(fakeMapChart({ series: [undeclared] }), CONTAINER))
+      .toThrow(/no supported series with data/);
+
+    const layer = mapLayer(declared);
+    expect(layer.type).toBe(TraceType.CHOROPLETH);
+    expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Value' } });
+    expect(layer.data).toEqual([{ x: 'Nevada', y: 38.9 }, { x: 'Oregon', y: 16.4 }]);
+  });
+
+  it('renames the region and the centroid pair too', () => {
+    // All four facts of a map are renameable, and the two that matter most are
+    // the coordinates: named wrong the map reads as a region list, named right
+    // it is walked as a map.
+    const series = fakeMapPolygonSeries('Rate', [
+      { row: { place: 'Nevada', deaths: 38.9, east: -116.6, north: 39.3 } },
+    ], {
+      userData: {
+        maidr: {
+          type: 'choropleth',
+          region: 'place',
+          value: 'deaths',
+          lon: 'east',
+          lat: 'north',
+        },
+      },
+    });
+
+    expect(mapLayer(series).data)
+      .toEqual([{ x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 }]);
+  });
+
+  it('keeps the name and title the block declared', () => {
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Nevada', value: 38.9 }], {
+      valueField: 'value',
+      userData: {
+        maidr: { type: 'choropleth', name: 'rates', title: 'Deaths per 100,000' },
+      },
+    });
+
+    const layer = mapLayer(series);
+
+    expect(layer.name).toBe('rates');
+    expect(layer.title).toBe('Deaths per 100,000');
+  });
+
+  it('refuses the block on a series that draws no regions', () => {
+    // The "wrong construct" check: `type: 'choropleth'` on a column series is
+    // a mistake worth reporting, not a map to emit with nothing in it.
+    const declared = fakeSeries({
+      className: 'ColumnSeries',
+      name: 'Rate',
+      userData: { maidr: { type: 'choropleth' } },
+      settings: { categoryXField: 'category' },
+      data: [{ categoryX: 'Nevada', valueY: 38.9, value: 38.9, name: 'Nevada' }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.BAR);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('falls back when the named column reaches no region', () => {
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Nevada', row: { deaths: 38.9 } }], {
+      userData: { maidr: { type: 'choropleth', value: 'fatalities' } },
+    });
+
+    expect(() => fromXYChart(fakeMapChart({ series: [series] }), CONTAINER))
+      .toThrow(/no supported series with data/);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('keeps the declared map and its highlight in step', () => {
+    // A declared map lands in the same ordered bucket an undeclared one does,
+    // carrying the field names with it — because the fields decide which
+    // regions the layer KEPT, and a resolver filtering by a different rule
+    // would index a list of a different length and clear.
+    const declared = fakeMapPolygonSeries('Rate', [
+      { name: 'Nevada', polygon: { globalBounds: () => ({ left: 0, top: 0, right: 8, bottom: 8 }) }, row: { deaths: 38.9 } },
+      { name: 'Oregon', row: { note: 'no data' } },
+    ], { userData: { maidr: { type: 'choropleth', value: 'deaths' } } });
+    const chart = fakeMapChart({ series: [declared] });
+    const layer = fromXYChart(chart, CONTAINER).subplots[0][0].layers[0];
+
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [layer],
+      groups: groupSeries(chart),
+    }]);
+
+    const [target] = navMap.resolve(layer.id, 0, 0);
+    expect(target).toBeDefined();
+    expect(target.kind).toBe('region');
+    // Oregon carried no `deaths` column and was left out of the layer, so the
+    // one announced region is Nevada and the outline is Nevada's polygon.
+    expect(layer.data).toEqual([{ x: 'Nevada', y: 38.9 }]);
   });
 });
 
@@ -781,6 +903,7 @@ describe('declared layers and the highlight', () => {
         ganttSeriesList: [],
         hierarchySeriesList: [],
         wordCloudSeriesList: [],
+        choroplethSeriesList: [],
         declaredList: [...plan.declared.values()],
       },
     }]);

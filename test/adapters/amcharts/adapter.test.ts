@@ -1,6 +1,7 @@
 import type { AmChartsBinderOptions, AmXYSeries } from '@adapters/amcharts/types';
 import type {
   BarPoint,
+  ChoroplethPoint,
   DumbbellData,
   FlowPoint,
   GanttData,
@@ -33,6 +34,9 @@ import {
   fakeHorizontalBarSeries,
   fakeLineSeries,
   fakeLollipopSeries,
+  fakeMapChart,
+  fakeMapPolygon,
+  fakeMapPolygonSeries,
   fakePieChart,
   fakePieSeries,
   fakePolarSeries,
@@ -1282,6 +1286,245 @@ describe('fromAmCharts (gauge)', () => {
       .toThrow();
     expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ handClassName: 'Bullet' })])))
       .toThrow();
+  });
+});
+
+describe('fromAmCharts (choropleth)', () => {
+  /** Three western states, shaded, with the value amCharts resolved. */
+  const WEST = [
+    { name: 'Washington', value: 12.1 },
+    { name: 'Oregon', value: 16.4 },
+    { name: 'Nevada', value: 38.9 },
+  ];
+
+  it('finds a MapChart, which neither chart gate could see', () => {
+    // A `MapChart` is a `SerialChart`: a series list, no axes, and a class name
+    // of its own — so `isXYChartLike` and `isPercentChartLike` both miss it and
+    // discovery used to recurse straight past into its own containers.
+    const series = fakeMapPolygonSeries('Rate', WEST);
+    const chart = fakeMapChart({ series: [series] });
+    const root = fakeRoot([fakeContainer([chart])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+    // Not an XY chart: the narrower entry point must not claim it.
+    expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('measures the panel from the MapChart itself, which is its own container', () => {
+    // A `MapChart` has no `plotContainer` — that is an `XYChart` notion — so
+    // the wrapper points the slot at the chart, which IS a `Container`. Without
+    // it `readPlotBounds` answers nothing and a map beside another panel has
+    // its highlight suppressed outright.
+    const bounds = { left: 0, top: 0, right: 400, bottom: 300 };
+    const chart = fakeMapChart({
+      series: [fakeMapPolygonSeries('Rate', WEST)],
+      bounds,
+    });
+
+    const found = findCharts(fakeRoot([chart]));
+    expect(found[0].plotContainer?.globalBounds?.()).toEqual(bounds);
+  });
+
+  it('converts a shaded MapPolygonSeries into one point per region', () => {
+    const series = fakeMapPolygonSeries('Rate', WEST);
+
+    const layer = fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0];
+
+    expect(layer.type).toBe(TraceType.CHOROPLETH);
+    expect(layer.title).toBe('Rate');
+    // A map is bound to no axis: the value runs along a colour ramp and the
+    // regions along nothing at all.
+    expect(layer.axes).toEqual({ x: { label: 'Region' }, y: { label: 'Value' } });
+    expect(layer.data as ChoroplethPoint[]).toEqual([
+      { x: 'Washington', y: 12.1 },
+      { x: 'Oregon', y: 16.4 },
+      { x: 'Nevada', y: 38.9 },
+    ]);
+  });
+
+  it('skips the base geography, the graticule, the lines and the pins', () => {
+    // A map routinely carries a polygon series with no values under the shaded
+    // one. Announcing it would offer a list of every country with nothing to
+    // say about any of them — and `classifySeriesKind` answers `'bar'` for
+    // anything it does not know, so without the map classes each of these
+    // would have been read as a bar chart of its shapes rather than skipped.
+    const base = fakeMapPolygonSeries('World', WEST, {});
+    const lines = fakeMapPolygonSeries('Routes', WEST, { valueField: 'value' }, 'MapLineSeries');
+    const pins = fakeMapPolygonSeries('Cities', WEST, { valueField: 'value' }, 'MapPointSeries');
+    const grid = fakeMapPolygonSeries('Grid', WEST, { valueField: 'value' }, 'GraticuleSeries');
+
+    for (const series of [base, lines, pins, grid]) {
+      expect(() => fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })])))
+        .toThrow(/no supported series with data/);
+    }
+  });
+
+  it('reads a polygon series shaded through heatRules alone', () => {
+    // `heatRules` is how the shading is declared; either it or a bound
+    // `valueField` says the author meant this series to carry a reading.
+    const series = fakeMapPolygonSeries('Rate', WEST, {
+      heatRules: [{ target: 'polygon', dataField: 'value' }],
+    });
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0].layers[0].type).toBe(TraceType.CHOROPLETH);
+  });
+
+  it('leaves out a region amCharts drew but joined no value onto', () => {
+    // The ordinary case on a real map — the shapes drawn in the no-data
+    // colour. `Number(null)` is 0 and finite, so an absent value has to be
+    // refused rather than coerced into a region worth nothing.
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Washington', value: 12.1 },
+      { name: 'California' },
+      { name: 'Nevada', value: 38.9 },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: 'Nevada', y: 38.9 }]);
+  });
+
+  it('names a region from the row when amCharts resolved no name', () => {
+    // A GeoJSON feature keeps everything joined onto it under `properties`,
+    // and an am5map row is ordinarily keyed by `id`. Both are on the chain,
+    // names ahead of codes: a region is called by its name, not by its FIPS.
+    const series = fakeMapPolygonSeries('Rate', [
+      { value: 12.1, row: { id: '53', properties: { NAME: 'Washington' } } },
+      { value: 38.9, row: { id: '32' } },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: '32', y: 38.9 }]);
+  });
+
+  it('reads the value off the column the series was bound to', () => {
+    // amCharts resolved nothing onto the data item, so the author's own row —
+    // keyed by the field the series names — is what carries the shading.
+    const series = fakeMapPolygonSeries('Rate', [
+      { name: 'Washington', row: { deaths: 12.1 } },
+      { name: 'Nevada', row: { deaths: 38.9 } },
+    ], { valueField: 'deaths' });
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Washington', y: 12.1 }, { x: 'Nevada', y: 38.9 }]);
+  });
+
+  it('places the regions from the drawn polygons\' geographic centroids', () => {
+    // The centroids are what make this a map rather than a bar chart whose
+    // categories happen to be places: `ChoroplethTrace` walks north, south,
+    // east and west out of this pair and out of nothing else.
+    const series = fakeMapPolygonSeries('Rate', [
+      {
+        name: 'Washington',
+        value: 12.1,
+        polygon: fakeMapPolygon({ centroid: { longitude: -120.5, latitude: 47.4 } }),
+      },
+      {
+        name: 'Nevada',
+        value: 38.9,
+        polygon: fakeMapPolygon({ centroid: { longitude: -116.6, latitude: 39.3 } }),
+      },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([
+        { x: 'Washington', y: 12.1, lon: -120.5, lat: 47.4 },
+        { x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 },
+      ]);
+  });
+
+  it('omits the pair rather than believing a centroid that is not in degrees', () => {
+    // The highest-consequence read in the batch, and the one that cannot be
+    // checked without the library. A projected coordinate accepted here is a
+    // wrong compass direction; omitted, the map degrades to a region list in
+    // declared order, which the grammar explicitly sanctions.
+    const projected = fakeMapPolygon({ centroid: { longitude: 1340221, latitude: 5621880 } });
+    const absent = fakeMapPolygon({});
+    const broken = fakeMapPolygon({ centroidThrows: true });
+    const half = fakeMapPolygon({ centroid: { longitude: -116.6, latitude: null } });
+
+    for (const polygon of [projected, absent, broken, half]) {
+      const series = fakeMapPolygonSeries('Rate', [
+        { name: 'Nevada', value: 38.9, polygon },
+      ]);
+      expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+        .subplots[0][0]
+        .layers[0]
+        .data as ChoroplethPoint[])
+        .toEqual([{ x: 'Nevada', y: 38.9 }]);
+    }
+  });
+
+  it('prefers a centroid the author stated to the one the polygon reports', () => {
+    // A table of `{ region, value, lon, lat }` states the pair outright, and a
+    // stated degree pair beats a derived one — the same order the Highcharts
+    // adapter reads a map in.
+    const series = fakeMapPolygonSeries('Rate', [{
+      name: 'Nevada',
+      value: 38.9,
+      polygon: fakeMapPolygon({ centroid: { longitude: -1, latitude: -1 } }),
+      row: { longitude: -116.6, latitude: 39.3 },
+    }]);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0]
+      .layers[0]
+      .data as ChoroplethPoint[])
+      .toEqual([{ x: 'Nevada', y: 38.9, lon: -116.6, lat: 39.3 }]);
+  });
+
+  it('emits no selectors: amCharts paints the polygons to canvas, not to SVG', () => {
+    const series = fakeMapPolygonSeries('Rate', WEST);
+
+    expect(fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })]))
+      .subplots[0][0].layers[0].selectors).toBeUndefined();
+  });
+
+  it('drops a map whose regions all missed their join', () => {
+    // Not a layer of NaNs, and not an empty subplot either: `convertCharts`
+    // drops a chart yielding no layer and says so, which is the difference
+    // between an actionable error and a crash inside the core model.
+    const series = fakeMapPolygonSeries('Rate', [{ name: 'Washington' }, { name: 'Nevada' }]);
+
+    expect(() => fromAmCharts(fakeRoot([fakeMapChart({ series: [series] })])))
+      .toThrow(/no supported series with data/);
+  });
+
+  it('places a map beside another panel in the grid', () => {
+    // The wrapper's whole point: with a plot container to measure, a map takes
+    // its place in `computeChartGrid` like any other panel.
+    const map = fakeMapChart({
+      series: [fakeMapPolygonSeries('Rate', WEST)],
+      bounds: { left: 0, top: 0, right: 300, bottom: 200 },
+    });
+    const bars = fakeChart({
+      series: [fakeBarSeries('Sales', [{ categoryX: 'Q1', valueY: 5 }])],
+      bounds: { left: 0, top: 300, right: 300, bottom: 500 },
+    });
+
+    const maidr = fromAmCharts(fakeRoot([map, bars]));
+
+    // Rows are emitted bottom-first, so the lower panel — the bar chart — is
+    // row 0 and the map sits above it.
+    expect(maidr.subplots).toHaveLength(2);
+    expect(maidr.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+    expect(maidr.subplots[1][0].layers[0].type).toBe(TraceType.CHOROPLETH);
   });
 });
 
