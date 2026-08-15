@@ -12,8 +12,8 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { marked } from 'marked';
 import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
+import { renderMarkdown } from './markdown.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -30,21 +30,18 @@ if (!fs.existsSync(SITE_DIR)) {
 // Read template
 const template = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 
-// Configure marked for safe HTML output
-marked.setOptions({
-  gfm: true,
-  breaks: false,
-});
-
 /**
- * Convert markdown to HTML using marked library
+ * Convert markdown to HTML for the site.
+ *
+ * `renderMarkdown` carries the marked configuration and the heading ids the
+ * table-of-contents links need; see `scripts/markdown.js` for why the ids are
+ * not marked's own.
  */
 function markdownToHtml(md) {
   // Remove the centered logo div at the top of README
   const content = md.replace(/<div align="center">[\s\S]*?<\/div>\s*/, '');
 
-  // Convert markdown to HTML
-  return marked.parse(content);
+  return renderMarkdown(content);
 }
 
 // Per-page SEO descriptions.
@@ -191,7 +188,7 @@ if (fs.existsSync(reactMdPath)) {
   const reactMd = fs.readFileSync(reactMdPath, 'utf-8');
   const reactHtml = `
 <div class="content">
-  ${marked.parse(reactMd)}
+  ${renderMarkdown(reactMd)}
 </div>
 `;
   const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
@@ -205,7 +202,7 @@ if (fs.existsSync(rechartsMdPath)) {
   const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
   const rechartsHtml = `
 <div class="content">
-  ${marked.parse(rechartsMd)}
+  ${renderMarkdown(rechartsMd)}
 </div>
 `;
   const rechartsPage = generatePage({ title: 'Recharts', content: rechartsHtml, activePage: 'recharts', slug: 'recharts.html', ogType: 'article' });
@@ -219,7 +216,7 @@ if (fs.existsSync(plotlyMdPath)) {
   const plotlyMd = fs.readFileSync(plotlyMdPath, 'utf-8');
   const plotlyHtml = `
 <div class="content">
-  ${marked.parse(plotlyMd)}
+  ${renderMarkdown(plotlyMd)}
 </div>
 `;
   const plotlyPage = generatePage({ title: 'Plotly', content: plotlyHtml, activePage: 'plotly', slug: 'plotly.html', ogType: 'article' });
@@ -233,7 +230,7 @@ if (fs.existsSync(googleChartsMdPath)) {
   const googleChartsMd = fs.readFileSync(googleChartsMdPath, 'utf-8');
   const googleChartsHtml = `
 <div class="content">
-  ${marked.parse(googleChartsMd)}
+  ${renderMarkdown(googleChartsMd)}
 </div>
 `;
   const googleChartsPage = generatePage({ title: 'Google Charts', content: googleChartsHtml, activePage: 'google-charts', slug: 'google-charts.html', ogType: 'article' });
@@ -247,7 +244,7 @@ if (fs.existsSync(d3MdPath)) {
   const d3Md = fs.readFileSync(d3MdPath, 'utf-8');
   const d3Html = `
 <div class="content">
-  ${marked.parse(d3Md)}
+  ${renderMarkdown(d3Md)}
 </div>
 `;
   const d3Page = generatePage({ title: 'D3.js', content: d3Html, activePage: 'd3', slug: 'd3.html', ogType: 'article' });
@@ -261,7 +258,7 @@ if (fs.existsSync(vegaliteMdPath)) {
   const vegaliteMd = fs.readFileSync(vegaliteMdPath, 'utf-8');
   const vegaliteHtml = `
 <div class="content">
-  ${marked.parse(vegaliteMd)}
+  ${renderMarkdown(vegaliteMd)}
 </div>
 `;
   const vegalitePage = generatePage({ title: 'Vega-Lite', content: vegaliteHtml, activePage: 'vegalite', slug: 'vegalite.html', ogType: 'article' });
@@ -275,7 +272,7 @@ if (fs.existsSync(chartjsMdPath)) {
   const chartjsMd = fs.readFileSync(chartjsMdPath, 'utf-8');
   const chartjsHtml = `
 <div class="content">
-  ${marked.parse(chartjsMd)}
+  ${renderMarkdown(chartjsMd)}
 </div>
 `;
   const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
@@ -289,7 +286,7 @@ if (fs.existsSync(amchartsMdPath)) {
   const amchartsMd = fs.readFileSync(amchartsMdPath, 'utf-8');
   const amchartsHtml = `
 <div class="content">
-  ${marked.parse(amchartsMd)}
+  ${renderMarkdown(amchartsMd)}
 </div>
 `;
   const amchartsPage = generatePage({ title: 'amCharts', content: amchartsHtml, activePage: 'amcharts', slug: 'amcharts.html', ogType: 'article' });
@@ -303,7 +300,7 @@ if (fs.existsSync(observableMdPath)) {
   const observableMd = fs.readFileSync(observableMdPath, 'utf-8');
   const observableHtml = `
 <div class="content">
-  ${marked.parse(observableMd)}
+  ${renderMarkdown(observableMd)}
 </div>
 `;
   const observablePage = generatePage({ title: 'Observable Plot', content: observableHtml, activePage: 'observable', slug: 'observable.html', ogType: 'article' });
@@ -317,7 +314,7 @@ if (fs.existsSync(frappeMdPath)) {
   const frappeMd = fs.readFileSync(frappeMdPath, 'utf-8');
   const frappeHtml = `
 <div class="content">
-  ${marked.parse(frappeMd)}
+  ${renderMarkdown(frappeMd)}
 </div>
 `;
   const frappePage = generatePage({ title: 'Frappe Charts', content: frappeHtml, activePage: 'frappe', slug: 'frappe.html', ogType: 'article' });
@@ -331,7 +328,7 @@ if (fs.existsSync(victoryMdPath)) {
   const victoryMd = fs.readFileSync(victoryMdPath, 'utf-8');
   const victoryHtml = `
 <div class="content">
-  ${marked.parse(victoryMd)}
+  ${renderMarkdown(victoryMd)}
 </div>
 `;
   const victoryPage = generatePage({ title: 'Victory', content: victoryHtml, activePage: 'victory', slug: 'victory.html', ogType: 'article' });
@@ -345,7 +342,7 @@ if (fs.existsSync(anychartMdPath)) {
   const anychartMd = fs.readFileSync(anychartMdPath, 'utf-8');
   const anychartHtml = `
 <div class="content">
-  ${marked.parse(anychartMd)}
+  ${renderMarkdown(anychartMd)}
 </div>
 `;
   const anychartPage = generatePage({ title: 'AnyChart', content: anychartHtml, activePage: 'anychart', slug: 'anychart.html', ogType: 'article' });
@@ -359,7 +356,7 @@ if (fs.existsSync(highchartsMdPath)) {
   const highchartsMd = fs.readFileSync(highchartsMdPath, 'utf-8');
   const highchartsHtml = `
 <div class="content">
-  ${marked.parse(highchartsMd)}
+  ${renderMarkdown(highchartsMd)}
 </div>
 `;
   const highchartsPage = generatePage({ title: 'Highcharts', content: highchartsHtml, activePage: 'highcharts', slug: 'highcharts.html', ogType: 'article' });
