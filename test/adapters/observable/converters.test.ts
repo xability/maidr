@@ -653,6 +653,22 @@ describe('an area mark that does not sit on the baseline', () => {
     ]);
   });
 
+  it('calls bands stacked only when they actually rest on one another', () => {
+    // `areaY` stacks by default, but bands given their own `y1` and `y2` are
+    // independent and may overlap. Typed stacked, `AreaTrace` announces a
+    // running total and each band's share of it — a total of things that were
+    // never added together. The drawn edges settle it: bands stack exactly when
+    // each one's floor is the one below it's ceiling.
+    const { element } = mountFixture('independentAreas');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.AREA);
+    // The values are the bands' own heights either way, which is what makes
+    // this a question about the announcement rather than about the numbers.
+    expect((layer?.data as LinePoint[][]).map(points => points.map(point => point.y)))
+      .toEqual([[10, 15, 12], [35, 40, 33]]);
+  });
+
   it('still reads a single-series area, whose band is its value', () => {
     // The same subtraction, with a baseline of zero: nothing changes for the
     // ordinary case, which is what makes the rule general rather than a patch.

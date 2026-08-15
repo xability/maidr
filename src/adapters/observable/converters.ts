@@ -63,7 +63,6 @@ import {
   isDiscrete,
   isTemporal,
   readScales,
-  scaleSpan,
   toNumber,
   valueAtColor,
   valueAtPixel,
@@ -849,6 +848,8 @@ function convertLine(
   const series: LinePoint[][] = [];
   const elements: Element[][] = [];
   const legend: string[] = [];
+  /** Each band's drawn edges in pixels, for deciding whether they stack. */
+  const bands: { upper: number[]; lower: number[] }[] = [];
 
   for (const element of facet.elements) {
     if (element.tagName.toLowerCase() !== 'path')
@@ -882,12 +883,25 @@ function convertLine(
         : 0;
       if (base === null)
         continue;
-      const y = base === 0 ? top : cleanNumber(top - base, scaleSpan(scales.y));
+      // Rounded to what the geometry supports, and against twice the quantum:
+      // both edges were rounded on the way into the `d` attribute, so their
+      // difference carries both errors. Without it a band of exactly 33 comes
+      // back as 33.0001 — a rounded pixel presented as a measurement.
+      const y = base === 0
+        ? top
+        : cleanToGeometry(top - base, scales.y, path.pixelError * 2);
 
       points.push({ x, y, ...(name !== null ? { z: String(name) } : {}) });
     }
     if (points.length === 0)
       continue;
+
+    if (path.lower) {
+      bands.push({
+        upper: path.vertices.map(vertex => vertex.y),
+        lower: path.lower.map(vertex => vertex.y),
+      });
+    }
 
     series.push(points);
     elements.push([element]);
@@ -906,7 +920,7 @@ function convertLine(
   // is never told what the bands add up to or what share this one is. The
   // totals are summed there rather than sent from here, which is what the
   // per-series values read off the band are.
-  const stacked = type === TraceType.AREA && series.length > 1;
+  const stacked = type === TraceType.AREA && bandsStack(bands);
 
   return {
     legend,
@@ -984,6 +998,37 @@ function buildBarLayer(
       data: grid.rows,
     },
   };
+}
+
+/**
+ * Whether a mark's area bands rest on one another.
+ *
+ * `Plot.areaY` stacks by default when a `fill` splits it, but bands given their
+ * own `y1` and `y2` are independent and may overlap — and the difference is not
+ * cosmetic. A stacked layer makes `AreaTrace` announce a running total and each
+ * band's share of it, so calling an independent set stacked hands a reader a
+ * total of things that were never added together.
+ *
+ * The drawn edges answer it outright: bands stack exactly when each one's floor
+ * is the previous one's ceiling. Comparing the pixels rather than the inverted
+ * values keeps the tolerance in the units the question is about — a pixel — and
+ * a band's floor is the very edge the one below it drew.
+ *
+ * @param bands - Each band's upper and lower edge, in pixels, in draw order.
+ * @returns True when every band after the first sits on the one before it.
+ */
+function bandsStack(bands: readonly { upper: number[]; lower: number[] }[]): boolean {
+  if (bands.length < 2)
+    return false;
+  for (let index = 1; index < bands.length; index++) {
+    const floor = bands[index].lower;
+    const ceiling = bands[index - 1].upper;
+    if (floor.length !== ceiling.length)
+      return false;
+    if (floor.some((pixel, at) => Math.abs(pixel - ceiling[at]) > 1))
+      return false;
+  }
+  return true;
 }
 
 /**
