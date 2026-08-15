@@ -1,5 +1,6 @@
 import type { FlowPoint, MaidrLayer } from '@type/grammar';
 import type { Coordinate, MovableDirection, Node } from '@type/movable';
+import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { MathUtil } from '@util/math';
@@ -107,7 +108,7 @@ function asPercent(fraction: number): string {
  * a separate node list would be a second source of truth for something the
  * edges already say -- the treemap's reasoning about paths, applied to a graph.
  */
-export class FlowTrace extends AbstractTrace {
+export class FlowTrace extends AbstractTrace implements PointCloudHighlightable {
   /**
    * No go-to-extrema dialog. Every node is one arrow from its neighbours and
    * the largest flows are named in the description; leaving this true without
@@ -747,14 +748,71 @@ export class FlowTrace extends AbstractTrace {
     // and nothing about the announcement would look wrong.
     return this.grid.map(row =>
       row.map((node) => {
-        if (node === null) {
-          return Svg.createEmptyElement();
-        }
-        const touching = [...node.out, ...node.in]
-          .map(edge => flat[edge.at])
-          .filter((element): element is SVGElement => element !== undefined);
-        return touching[0] ?? Svg.createEmptyElement();
+        const at = FlowTrace.ribbonOf(node);
+        const element = at === undefined ? undefined : flat[at];
+        return element ?? Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * The one ribbon a node's highlight covers, as its position in the declared
+   * flow array.
+   *
+   * **This is the single expression both highlight channels read.** A node
+   * touches every flow on either side of it, but the chart is not asked to
+   * outline all of them: `mapToSvgElements` takes one element per cell, and
+   * {@link highlightedPointIndices} names one index. Writing the rule twice is
+   * how the two would come to disagree -- an adapter publishing
+   * `[...out, ...in]` while the SVG path outlined `out[0]` puts a canvas
+   * highlight and an SVG highlight on different ribbons for the same trace at
+   * the same cursor position, which reads as correct and is not.
+   *
+   * Outgoing first, because that is the direction the chart is drawn in and the
+   * ribbon the FORWARD arrow follows; a sink has no outgoing flow, so it falls
+   * back to the widest one arriving. Both lists are sorted largest first, so
+   * this is the widest ribbon touching the node -- the one an eye goes to.
+   *
+   * @param node - The node under the cursor, or null where the grid is empty
+   * @returns Its ribbon's index into the declared flows, or undefined when the
+   *   node draws no ribbon at all
+   */
+  private static ribbonOf(node: FlowNode | null): number | undefined {
+    if (node === null) {
+      return undefined;
+    }
+    return node.out[0]?.at ?? node.in[0]?.at;
+  }
+
+  /**
+   * The ribbon the highlight currently covers, as an index into this layer's
+   * `data` array.
+   *
+   * This is `highlight` answered in a renderer-neutral currency. A flow chart
+   * drawn on a canvas has no SVG elements for `selectors` to reach, and an
+   * adapter that rebuilt the stage layering to find the node itself would drift
+   * from {@link assignStages} silently -- so the trace names the ribbon by the
+   * position it occupies in the flow array the adapter supplied, and the
+   * adapter inverts that against its own extraction walk.
+   *
+   * Derived from {@link ribbonOf}, the same expression `mapToSvgElements`
+   * indexes its elements with, so the canvas highlight and the SVG highlight
+   * cannot name different ribbons.
+   *
+   * Deliberately not gated on SVG availability: a canvas chart has no elements
+   * by definition, and that is the case this exists to serve.
+   *
+   * @returns One index into `layer.data`, or nothing when the cursor is on no
+   *   node or on a node no ribbon was drawn for.
+   */
+  public get highlightedPointIndices(): readonly number[] {
+    if (this.isInitialEntry) {
+      // The inherited `highlight` reports out of bounds until the cursor has
+      // entered the trace; an empty array is how this channel says the same
+      // thing, so the two agree at every position including this one.
+      return [];
+    }
+    const at = FlowTrace.ribbonOf(this.current);
+    return at === undefined ? [] : [at];
   }
 
   protected findNearestPoint(): NearestPoint | null {
