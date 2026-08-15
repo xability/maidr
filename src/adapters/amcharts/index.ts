@@ -21,6 +21,12 @@
  *    attribute or `<Maidr data={...}>`. Enables audio/text/braille but NOT
  *    visual highlighting (the highlight callback cannot survive JSON).
  *
+ * A handful of readings amCharts leaves no signature for — a survival curve, an
+ * error bar, a forest plot, a volcano, a Manhattan, a scatter — are declared
+ * rather than detected, in a `maidr` block on the series' own `userData`. See
+ * {@link MaidrTraceDeclaration}, re-exported here so a TypeScript author gets
+ * the field names checked.
+ *
  * Multi-panel roots are supported by both paths: every `XYChart` in the
  * root's container tree (including am5stock `StockPanel`s) and every
  * am5percent chart becomes one MAIDR subplot, arranged in a grid matching the
@@ -44,3 +50,14 @@ export { findCharts, findXYCharts, fromAmCharts, fromXYChart, fromXYCharts } fro
 export { bindAmCharts, bindXYChart } from './binder';
 export type { AmChartsBinding, AmChartsBindOptions } from './binder';
 export type { AmChart, AmChartsBinderOptions, AmRoot, AmXYChart, AmXYSeries } from './types';
+export type {
+  ErrorBarDeclaration,
+  FieldRef,
+  ForestDeclaration,
+  MaidrTraceDeclaration,
+  ManhattanDeclaration,
+  ScatterDeclaration,
+  SeriesRef,
+  SurvivalDeclaration,
+  VolcanoDeclaration,
+} from '@type/declaration';

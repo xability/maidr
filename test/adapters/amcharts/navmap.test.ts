@@ -42,6 +42,7 @@ function emptyGroups(): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    declaredList: [],
   };
 }
 

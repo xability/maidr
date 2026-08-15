@@ -34,6 +34,7 @@ import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
+import { planDeclarations } from './declaration';
 import { classifySeriesKind } from './extractor';
 import { readPlotBounds, readSliceBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
@@ -203,9 +204,25 @@ function groupSeries(chart: AmChart): SeriesGroups {
     ganttSeriesList: [],
     hierarchySeriesList: [],
     wordCloudSeriesList: [],
+    declaredList: [],
   };
 
+  // The same plan `buildChartLayers` builds, asked of the same chart: a
+  // declared series is never also classified, and an absorbed one is never a
+  // layer of its own — so the layer a reader hears and the mark the overlay
+  // outlines are always the same series.
+  const plan = planDeclarations(chart);
+
   for (const series of chart.series.values) {
+    if (plan.absorbed.has(series)) {
+      continue;
+    }
+    const declared = plan.declared.get(series);
+    if (declared) {
+      groups.declaredList.push(declared);
+      continue;
+    }
+
     switch (classifySeriesKind(series)) {
       case 'bar':
         groups.barSeriesList.push(series);
