@@ -4,12 +4,20 @@
 
 import type { Maidr, NavigateCallback } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { TraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
+import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
+
+/** What the callback is handed, mirroring `NavigateCallback`'s parameter. */
+type NavEvent = {
+  layerId: string;
+  row: number;
+  col: number;
+  pointIndices?: readonly number[];
+} | null;
 
 /**
  * Leaving a subplot has to reach a canvas adapter, or its highlight is stranded.
@@ -56,24 +64,13 @@ const FORWARD: MovableDirection = 'FORWARD';
 describe('the navigate callback reports the selection ending', () => {
   let figure: Figure;
   let context: Context;
-  let seen: Array<{ layerId: string; row: number; col: number } | null>;
+  let seen: NavEvent[];
 
-  /** Mirrors `Controller.registerNavigateCallback`. */
+  /** Registers what `Controller.registerNavigateCallback` registers. */
   function register(callback: NavigateCallback): void {
-    const observer = {
-      update: (state: TraceState): void => {
-        if (!state.empty && !state.braille.empty) {
-          callback({
-            layerId: state.layerId,
-            row: state.braille.row,
-            col: state.braille.col,
-          });
-        }
-      },
-    };
     figure.subplots.forEach(row => row.forEach((subplot) => {
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
-        trace.addObserver(observer as never);
+        trace.addObserver(createNavigateObserver(trace, callback));
       }));
     }));
     figure.addObserver({ update: () => callback(null) } as never);

@@ -61,6 +61,36 @@ export function isPointNavigable(plot: unknown): plot is PointNavigable {
 }
 
 /**
+ * Interface for traces whose highlight is a set of individual data points
+ * rather than a position on a row/column grid.
+ *
+ * A scatter-family trace navigates five different index spaces (x-bucket,
+ * y-bucket, flat point, grid cell, in-cell x-group), so no single row/column
+ * pair can name what it has selected. It publishes the selection as indices
+ * into its layer's `data` array instead — the one currency the producing
+ * adapter already shares with the model, since the adapter built that array.
+ *
+ * This is what lets a canvas chart draw a highlight: it has no SVG elements to
+ * select, so the element-based highlight path cannot reach it, and an adapter
+ * that reconstructed the model's binning would drift from it silently.
+ */
+export interface PointCloudHighlightable {
+  /** Indices into the layer's `data` array of the currently highlighted points. */
+  readonly highlightedPointIndices: readonly number[];
+}
+
+/**
+ * Type guard to check if a plot publishes point-level highlight identity.
+ */
+export function isPointCloudHighlightable(plot: unknown): plot is PointCloudHighlightable {
+  return (
+    plot !== null
+    && typeof plot === 'object'
+    && 'highlightedPointIndices' in plot
+  );
+}
+
+/**
  * Union type for all point types that have an 'x' property
  */
 export type PointWithX = BarPoint | LinePoint | ScatterPoint | SegmentedPoint | SmoothPoint;
