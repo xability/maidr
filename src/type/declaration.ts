@@ -41,7 +41,14 @@
  * explicit name that misses is a mistake worth reporting rather than papering
  * over. The fallback lists live in `src/adapters/shared/traceDeclaration.ts`
  * so a column that works in one adapter reading this block works in all of
- * them.
+ * them. Most are shared by canonical name across the variants; a few belong to
+ * one chart, because the same name means different things on different ones —
+ * see {@link ChoroplethDeclaration.value}.
+ *
+ * A name is resolved against the row itself and against the row's
+ * `properties`, in that order, and a dotted name walks the path it spells. A
+ * GeoJSON feature keeps everything joined onto it one level down, so a map
+ * needs no declaration to say so.
  *
  * ## What a declaration is worth
  *
@@ -276,6 +283,14 @@ export interface ErrorBarDeclaration extends DeclarationBase {
    *
    * Normalised to absolute bounds on the way into the payload. Loses to
    * `yMin`/`yMax` where both are declared, since those need no arithmetic.
+   *
+   * Alone among the field refs here, this one has **no fallback chain**: an
+   * offset column is named explicitly or spelled exactly `error`. Every common
+   * spelling is either axis-specific (`yerr`, `xerr`, and a row carrying both
+   * says nothing about which axis this chart draws its intervals on) or a
+   * dispersion statistic a chart commonly draws a multiple of (`sd`, `sem`,
+   * `err` — ±1.96 SEM is as ordinary as ±1). Read as the drawn offset, one of
+   * those resizes every interval on the figure without saying so.
    */
   error?: FieldRef;
   /**
@@ -588,19 +603,29 @@ export interface ChoroplethDeclaration extends DeclarationBase {
   /**
    * Field holding the region's name. Maps to `ChoroplethPoint.x`.
    *
-   * @default 'region'
+   * The chain is a map's own, not the one every other declaration shares: the
+   * names a place answers to on a GeoJSON or TopoJSON feature, ending in `x`
+   * so the ordinary region table — `{ x: 'Texas', y: 12.4 }` — is read the
+   * right way round. Resolved against the row **and** against its
+   * `properties`, which is where a feature keeps everything joined onto it, so
+   * `region: 'NAME'` finds `properties.NAME` without being spelled as a path.
+   *
+   * @default 'region', falling back to `name`, `NAME`, `name_long`, `admin`,
+   * `state`, `id`, `label` or `x`
    */
   region?: FieldRef;
   /**
    * Field holding the value the region is shaded by. Maps to
    * `ChoroplethPoint.y`.
    *
-   * The fallback chain is shared with {@link RidgelineDeclaration.value},
-   * where `x` genuinely is the position on the value axis. On a map whose rows
-   * put the region name in an `x` column, that chain would resolve the name as
-   * the value — so name the field, on any row shaped that way.
+   * A map's own chain, deliberately **not** the one
+   * {@link RidgelineDeclaration.value} carries: `x` is a position on the value
+   * axis of a ridgeline and the place's own name on a map, and announcing
+   * "Texas" as the value of Texas is a wrong reading a listener cannot tell
+   * from a right one. Read off the row's `properties` as well, exactly as
+   * {@link ChoroplethDeclaration.region} is.
    *
-   * @default 'value', falling back to `x`, `t` or `position`
+   * @default 'value', falling back to `y`, `rate`, `density` or `count`
    */
   value?: FieldRef;
   /**
