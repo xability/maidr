@@ -2,9 +2,67 @@
 
 MAIDR provides an adapter for [Observable Plot](https://observablehq.com/plot) — the grammar-of-graphics library built on D3 — that turns its charts into accessible, navigable visualizations with audio sonification, text descriptions, braille output, and keyboard navigation.
 
-It is also how MAIDR reaches **[Quarto](https://quarto.org) documents**. Quarto renders `{ojs}` cells with the Observable runtime, which ships Plot and draws the chart in the browser. Nothing in an `{ojs}` cell can call an adapter — the cell's value *is* the chart — so this adapter watches the page instead: add two script tags to the document header and every Plot chart in it becomes navigable, including cells that redraw when a reader moves a slider.
+There are two ways it gets used, and they differ only in how the scripts get onto the page:
 
-## Quarto Quick Start
+| | You are writing | Load the scripts by | Your chart code changes |
+|---|---|---|---|
+| **[Plain page](#plain-page-quick-start)** | HTML, or an app that renders Plot charts | putting two `<script>` tags in `<head>` | not at all |
+| **[Quarto](#quarto-quick-start)** | a `.qmd` with `{ojs}` cells | `include-in-header`, or `quarto add xability/maidr` | not at all |
+
+The adapter itself does not know which one it is in. It watches the page for Plot charts and binds each one as it appears — that is the whole mechanism, and it is why neither case asks you to touch the code that draws the chart.
+
+Quarto gets its own section because it is the case that *cannot* work any other way: an `{ojs}` cell's value **is** the chart, so there is nowhere in the cell to call a binder even if you wanted to. On a plain page you have the choice, and [Manual binding](#manual-binding) covers taking it.
+
+## Plain page quick start
+
+Two script tags. Draw charts however you already do.
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>My Observable Plot chart</title>
+    <!-- 1. MAIDR core, then the Observable Plot adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/observable.js"></script>
+  </head>
+  <body>
+    <div id="chart"></div>
+
+    <script type="module">
+      import * as Plot from 'https://cdn.jsdelivr.net/npm/@observablehq/plot/+esm';
+
+      const data = [
+        { day: 'Mon', count: 120 },
+        { day: 'Tue', count: 240 },
+        { day: 'Wed', count: 180 },
+      ];
+
+      document.querySelector('#chart').append(Plot.plot({
+        title: 'Daily visitors',
+        x: { label: 'Day' },
+        y: { label: 'Visitors' },
+        marks: [Plot.barY(data, { x: 'day', y: 'count' })],
+      }));
+      // Nothing else to do: the adapter binds the chart as it is inserted.
+    </script>
+  </body>
+</html>
+```
+
+Tab to the chart. Arrow keys move between bars, `S` toggles sonification, `B` toggles braille, `T` toggles text descriptions.
+
+A chart appended later — after a `fetch`, on a click, on every frame of a slider drag — is bound as it appears, and one the page throws away is released. So a dashboard that redraws does not accumulate charts, and you do not re-bind anything by hand.
+
+If you install from npm rather than a CDN, `maidr/observable` is the entry point:
+
+```js
+import 'maidr';
+import 'maidr/observable';
+```
+
+## Quarto quick start
 
 Add the scripts to your document's header. Nothing else changes.
 
@@ -33,7 +91,7 @@ Plot.plot({
 ```
 ````
 
-Render the document and Tab to the chart. Arrow keys move between bars, `S` toggles sonification, `B` toggles braille, `T` toggles text descriptions.
+Render the document and Tab to the chart — the same keys as above.
 
 To apply it to a whole project, put the same `include-in-header` block under `format: html:` in `_quarto.yml`.
 
@@ -72,44 +130,6 @@ The filter injects the same two scripts. `maidr-version` pins which release to l
 filters:
   - maidr
 maidr-version: "4.2.0"
-```
-
-## Plain HTML Quick Start
-
-Outside Quarto the adapter behaves the same way — it binds any Plot chart that appears on the page.
-
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>My Observable Plot chart</title>
-    <!-- 1. MAIDR core, then the Observable Plot adapter -->
-    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/maidr/dist/observable.js"></script>
-  </head>
-  <body>
-    <div id="chart"></div>
-
-    <script type="module">
-      import * as Plot from 'https://cdn.jsdelivr.net/npm/@observablehq/plot/+esm';
-
-      const data = [
-        { day: 'Mon', count: 120 },
-        { day: 'Tue', count: 240 },
-        { day: 'Wed', count: 180 },
-      ];
-
-      document.querySelector('#chart').append(Plot.plot({
-        title: 'Daily visitors',
-        x: { label: 'Day' },
-        y: { label: 'Visitors' },
-        marks: [Plot.barY(data, { x: 'day', y: 'count' })],
-      }));
-      // The adapter binds the chart as soon as it is inserted.
-    </script>
-  </body>
-</html>
 ```
 
 ## How it works
@@ -162,7 +182,7 @@ Three more things worth knowing:
 
 ## Manual binding
 
-Auto-binding covers the Quarto case and most others. When you want the schema instead — to edit it, or to hand it to the `<Maidr>` React component — call the adapter yourself, and turn the watcher off first so it does not bind the chart behind you.
+Auto-binding is what both quick starts rely on, and on a plain page it is optional. When you want the schema instead — to edit it, or to hand it to the `<Maidr>` React component — call the adapter yourself, and turn the watcher off first so it does not bind the chart behind you.
 
 ```js
 // Before the bundle loads, if you are loading it with a script tag.
@@ -208,11 +228,11 @@ Set the flag before the bundle loads, then drive it yourself:
 <script src="https://cdn.jsdelivr.net/npm/maidr/dist/observable.js"></script>
 <script>
   // Watch only part of the page, or bind charts one at a time.
-  maidrObservable.initQuartoObservable({ root: document.querySelector('#report') });
+  maidrObservable.initObservablePlots({ root: document.querySelector('#report') });
 </script>
 ```
 
-`initQuartoObservable` returns a function that stops the watcher.
+`initObservablePlots` returns a function that stops the watcher.
 
 ## Keyboard Controls
 
