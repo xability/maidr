@@ -11,6 +11,8 @@ import {
   fakeClockHand,
   fakeDotSeries,
   fakeFloatingColumnSeries,
+  fakeFlowSeries,
+  fakeForceDirectedSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
   fakeGaugeChart,
@@ -531,7 +533,62 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
   });
 });
 
+describe('buildNavigationMap (flow and network: no highlight, on purpose)', () => {
+  const LINKS = [
+    { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    { sourceId: 'Electricity', targetId: 'Homes', value: 40 },
+  ];
+
+  /**
+   * Asserted positively, because the absence is a decision. MAIDR hands a flow
+   * or network layer its BRAILLE position — a stage and an index within it, or
+   * a component and an index within it — and recovering the node from that
+   * would mean reimplementing the model's node ordering together with its
+   * stage layering, which is a derived graph structure rather than an ordering
+   * over data this adapter emitted. So `resolve` answers `[]` and the binder
+   * clears the overlay; a resolver added later without a position that says
+   * which node it means would outline a confidently wrong one, and this is
+   * what would notice.
+   */
+  it.each([
+    ['a sankey', TraceType.SANKEY],
+    ['a chord', TraceType.CHORD],
+    ['an alluvial', TraceType.ALLUVIAL],
+    ['a network', TraceType.NETWORK],
+  ])('registers no resolver for %s, so the overlay clears', (_name, type) => {
+    const series = fakeFlowSeries('Energy', LINKS);
+    const navMap = buildNavigationMap([{
+      chart: fakeChart({ series: [series] }),
+      layers: [{ id: 'flow', type, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    expect(navMap.resolve('flow', 0, 0)).toEqual([]);
+    expect(navMap.resolve('flow', 1, 1)).toEqual([]);
+  });
+});
+
 describe('groupSeries', () => {
+  it('leaves an am5flow series and a force-directed network in no bucket', () => {
+    // Not an oversight, and not a no-op either: `classifySeriesKind` answers
+    // `'bar'` for a class it does not know, so before these classes were named
+    // a sankey landed in `barSeriesList` — where it would have shifted every
+    // real bar layer's resolver index and outlined the wrong column on a chart
+    // carrying both. Recognising them is what puts them in NO bucket.
+    const sankey = fakeFlowSeries('Energy', [
+      { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    ]);
+    const network = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [{ category: 'Ada' }],
+    });
+
+    const groups = groupSeries(fakeChart({ series: [sankey, network] }));
+
+    expect(groups.barSeriesList).toEqual([]);
+    expect(Object.values(groups).every(bucket => bucket.length === 0)).toBe(true);
+  });
+
   it('buckets a sunburst with the trees it is one of', () => {
     // The fourth edit every new type needs, and the one whose omission is
     // silent: the layer would still be built, announced and navigated, and

@@ -630,6 +630,18 @@ export function groupSeries(chart: AmChart): SeriesGroups {
       case 'wordcloud':
         groups.wordCloudSeriesList.push(series);
         break;
+      // A flow diagram and a force-directed network are read, described,
+      // brailled and navigated, and deliberately get no bucket: MAIDR hands a
+      // flow trace's position back as a *braille* one — the stage, and the
+      // index within it — and recovering the node from that would mean
+      // reimplementing the model's own node ordering and stage layering here.
+      // That is a derived graph structure rather than an ordering, which is
+      // the line `buildCloudResolver` refuses to cross, so no resolver is
+      // registered and the overlay clears. See `docs/amcharts.md`.
+      case 'sankey':
+      case 'chord':
+      case 'network':
+        break;
       default:
         break;
     }
@@ -878,6 +890,32 @@ function addEntryResolvers(
         }
         break;
       }
+      // Named rather than left to the default, because their absence is a
+      // decision rather than an omission — the failure mode this whole file
+      // exists to make visible is a type that reads correctly while its
+      // highlight silently vanishes.
+      //
+      // `createNavigateObserver` hands a flow or network layer the *braille*
+      // position, which `FlowTrace.braille` transposes to (stage, index within
+      // stage) and `NetworkTrace.braille` to (component, index within
+      // component). Inverting either means reimplementing the model's node
+      // ordering together with its stage layering — or its component
+      // discovery, ordering and sorting — inside the adapter. That is a
+      // derived graph structure, not an ordering over data this adapter
+      // emitted, and `buildCloudResolver` already refuses exactly that: a copy
+      // drifts silently and then outlines a confidently wrong node.
+      //
+      // So no resolver is registered, `NavMap.resolve` answers `[]`, and
+      // `applyHighlight` clears the overlay. An empty outline is truthful; a
+      // box drawn from a guessed layering is not. Both traces already compute
+      // the right answer internally (`edge.at`, `node.linkAt[0]`), so a
+      // `highlightedPointIndices` getter on each — a `src/model/` change —
+      // makes all four resolvable by registering resolvers and nothing else.
+      case TraceType.SANKEY:
+      case TraceType.CHORD:
+      case TraceType.ALLUVIAL:
+      case TraceType.NETWORK:
+        break;
       default:
         break;
     }

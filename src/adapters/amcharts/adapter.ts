@@ -26,6 +26,7 @@
 import type {
   BarPoint,
   DumbbellData,
+  FlowPoint,
   GanttData,
   GaugePoint,
   HeatmapData,
@@ -34,6 +35,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
@@ -62,12 +64,14 @@ import {
   classifySeriesKind,
   extractBarPoints,
   extractDumbbellPoints,
+  extractFlowPoints,
   extractGanttData,
   extractGaugePoint,
   extractHeatmapData,
   extractHierarchyPoints,
   extractHistogramPoints,
   extractLinePoints,
+  extractNetworkPoints,
   extractPiePoints,
   extractSegmentedPoints,
   extractWaterfallPoints,
@@ -293,7 +297,7 @@ function buildChartLayers(
     }
     const declared = plan.declared.get(series);
     if (declared) {
-      const layer = buildDeclaredLayer(declared, xLabel, yLabel, containerEl);
+      const layer = buildDeclaredLayer(declared, xLabel, yLabel, containerEl, options);
       if (layer) {
         layers.push(layer);
       }
@@ -402,6 +406,25 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildWordCloudLayer(series, data, options));
+        break;
+      }
+      case 'sankey':
+      case 'chord': {
+        // One weighted graph drawn two ways; only the announced type differs.
+        // An `ArcDiagram` lands here as a sankey — it carries weights, which a
+        // network payload has nowhere to put.
+        const data = extractFlowPoints(series);
+        if (data.length === 0)
+          break;
+        const type = kind === 'chord' ? TraceType.CHORD : TraceType.SANKEY;
+        layers.push(buildFlowLayer(series, type, data, options));
+        break;
+      }
+      case 'network': {
+        const data = extractNetworkPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildNetworkLayer(series, data, options));
         break;
       }
       default:
@@ -521,7 +544,7 @@ function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
 /**
  * Builds the layer one co-located `maidr` declaration describes.
  *
- * These are the six readings amCharts leaves no signature for: a survival curve
+ * These are the readings amCharts leaves no signature for: a survival curve
  * and a step line are one series class, an error bar is a floating column
  * behind another series, and a volcano, a Manhattan and a plain scatter are all
  * a `LineSeries` with the stroke switched off. Nothing here is guessed — every
@@ -537,6 +560,7 @@ function buildDeclaredLayer(
   xLabel: string,
   yLabel: string,
   containerEl: HTMLElement,
+  options?: AmChartsBinderOptions,
 ): MaidrLayer | null {
   const declaration = declared.declaration;
   const axes = { x: { label: xLabel }, y: { label: yLabel } };
@@ -546,6 +570,26 @@ function buildDeclaredLayer(
   };
 
   switch (declaration.type) {
+    // The one declared type whose payload is a graph rather than a series of
+    // marks — and the one the chart already carries whole. An alluvial IS an
+    // `am5flow.Sankey`; what the author declared is which of the two readings
+    // the drawing stands for, so nothing beyond the type is taken from the
+    // block. Bound to no axis, so it names its own dimensions rather than
+    // taking the chart's — and it emits no selectors and gets no highlight,
+    // exactly as an undeclared sankey does.
+    case TraceType.ALLUVIAL: {
+      const data = extractFlowPoints(declared.series);
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.ALLUVIAL,
+        title: declaration.title ?? seriesName(declared.series),
+        axes: flowAxes(options),
+        data,
+      };
+    }
     case TraceType.SURVIVAL: {
       const { data } = extractSurvivalArms(declared);
       if (data.length === 0) {
@@ -615,7 +659,7 @@ function buildDeclaredLayer(
         data,
       };
     }
-    // Named rather than defaulted, so that a seventh member of `AmDeclaration`
+    // Named rather than defaulted, so that a further member of `AmDeclaration`
     // fails to compile here instead of being read out as a plain scatter.
     case TraceType.SCATTER: {
       const data = extractScatterPoints(declared);
@@ -895,6 +939,85 @@ function buildHierarchyLayer(
     axes: {
       x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
       y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a flow diagram's two dimensions are called. A sankey, an alluvial, a
+ * chord and an arc diagram are all bound to no axis, and what a reader is
+ * after at a node is how much moves through it.
+ */
+const FLOW_NODE_AXIS = 'Node';
+const FLOW_WEIGHT_AXIS = 'Weight';
+
+/** The axes every flow layer names, with the figure-wide override applied. */
+function flowAxes(options?: AmChartsBinderOptions): MaidrLayer['axes'] {
+  return {
+    x: { label: options?.axisLabels?.x ?? FLOW_NODE_AXIS },
+    y: { label: options?.axisLabels?.y ?? FLOW_WEIGHT_AXIS },
+  };
+}
+
+/**
+ * Builds the layer for one am5flow series — a `Sankey`, one of the three
+ * `Chord` variants, or the `ArcDiagram` that draws the same weighted links
+ * along a line.
+ *
+ * All of them are one weighted graph declared as one point per link, so they
+ * differ here only in which trace type they announce; MAIDR reads all of them
+ * with the same `FlowTrace`. The arc diagram is announced as a sankey because
+ * it carries weights, and MAIDR's network payload has nowhere to put one.
+ *
+ * No `selectors`, for the reason a pie and a treemap emit none — amCharts
+ * paints the ribbons into a canvas. **And no highlight either**: the position
+ * MAIDR hands back for a flow trace is a braille one, `(stage, index within
+ * stage)`, and turning that back into a node would mean reimplementing the
+ * model's own node ordering and stage layering here. See `docs/amcharts.md`;
+ * the overlay clears rather than outlining a guessed node.
+ */
+function buildFlowLayer(
+  series: AmXYSeries,
+  type: TraceType.SANKEY | TraceType.CHORD,
+  data: FlowPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: flowAxes(options),
+    data,
+  };
+}
+
+/**
+ * What a network's two dimensions are called. A force-directed graph is bound
+ * to no axis either, and what a reader is after at a node is its degree.
+ */
+const NETWORK_NODE_AXIS = 'Node';
+const NETWORK_LINK_AXIS = 'Links';
+
+/**
+ * Builds the layer for one `am5hierarchy.ForceDirected` series.
+ *
+ * Nothing about where the solver put the nodes is carried: the position is a
+ * fact about its seed rather than about the data. No selectors and no
+ * highlight, for the same reasons the flow layer has none.
+ */
+function buildNetworkLayer(
+  series: AmXYSeries,
+  data: NetworkPoint[],
+  options?: AmChartsBinderOptions,
+): MaidrLayer {
+  return {
+    id: layerId(series),
+    type: TraceType.NETWORK,
+    ...(seriesName(series) ? { title: seriesName(series) } : {}),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? NETWORK_NODE_AXIS },
+      y: { label: options?.axisLabels?.y ?? NETWORK_LINK_AXIS },
     },
     data,
   };

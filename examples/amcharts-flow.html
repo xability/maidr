@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + amCharts 5 Flow &amp; Network</title>
+
+    <!-- 1. Load amCharts 5. `flow.js` carries the sankey and the chord;
+         `hierarchy.js` carries the force-directed network, which amCharts
+         builds as a hierarchy series rather than as a link list. Like a
+         treemap, none of these is a chart: each is a series pushed straight
+         into the root container. -->
+    <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/flow.js"></script>
+    <script src="https://cdn.amcharts.com/lib/5/hierarchy.js"></script>
+
+    <!-- 2. Load the MAIDR amCharts adapter (UMD). `bindAmCharts` mounts the
+         full MAIDR app (React bundled in) over the chart, so the core maidr.js
+         script is not needed here. -->
+    <script type="text/javascript" src="../dist/amcharts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .chart {
+        width: 720px;
+        height: 460px;
+      }
+      .note {
+        background: #f4f4f4;
+        border-left: 4px solid #666;
+        padding: 12px 16px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + amCharts 5 Flow &amp; Network</h1>
+    <p>
+      Four readings of one idea: a weighted graph. A <strong>sankey</strong>
+      budgets it left to right, an <strong>alluvial</strong> re-divides the same
+      quantity between categories that stay put, a <strong>chord</strong> draws
+      it as a circle, and a <strong>network</strong> drops the weights and keeps
+      only who is connected to whom.
+    </p>
+    <p class="note">
+      <strong>These four types are read but not outlined.</strong> They sonify,
+      describe, braille and navigate correctly; the canvas highlight simply
+      clears as the cursor moves. Recovering which node the cursor is on would
+      mean reimplementing MAIDR's own node ordering and stage layering inside
+      the adapter, and a copy of that would drift silently and then outline a
+      confidently wrong node. See <code>docs/amcharts.md</code>.
+    </p>
+
+    <h2>Sankey</h2>
+    <p>
+      One point per link, and the nodes are derived from the ends — the node
+      list amCharts keeps separately is deliberately not read.
+    </p>
+    <div id="sankey-chart" class="chart"></div>
+
+    <h2>Alluvial (declared)</h2>
+    <p>
+      amCharts has no alluvial class: an alluvial <em>is</em> a sankey, drawn
+      with the nodes repeated across stages. Only the author can say which of
+      the two the drawing stands for, so this one carries a
+      <code>userData.maidr</code> block and nothing else changes.
+    </p>
+    <div id="alluvial-chart" class="chart"></div>
+
+    <h2>Chord</h2>
+    <p>
+      A chord graph is cyclic, and MAIDR lays a flow's nodes out by their
+      longest distance from a source. A cycle has no such layering, so every
+      node collapses into one stage by design — navigation and sonification are
+      correct, and the trace claims no left-to-right order it does not have.
+    </p>
+    <div id="chord-chart" class="chart"></div>
+
+    <h2>Network (force-directed)</h2>
+    <p>
+      A hierarchy series rather than a link list: the links are the tree's own
+      parent-child edges plus whatever cross-links each row names in
+      <code>linkWith</code>. Where the solver put each node is a fact about its
+      seed rather than about the data, so nothing about the layout is read.
+    </p>
+    <div id="network-chart" class="chart"></div>
+
+    <script>
+      var ENERGY = [
+        { from: "Coal", to: "Electricity", value: 34 },
+        { from: "Gas", to: "Electricity", value: 21 },
+        { from: "Nuclear", to: "Electricity", value: 18 },
+        { from: "Wind", to: "Electricity", value: 12 },
+        { from: "Electricity", to: "Homes", value: 40 },
+        { from: "Electricity", to: "Industry", value: 33 },
+        { from: "Gas", to: "Homes", value: 15 },
+      ];
+
+      // An alluvial re-divides one quantity between categories that persist,
+      // so the same names appear at every stage.
+      var BUDGET = [
+        { from: "2022 Housing", to: "2023 Housing", value: 40 },
+        { from: "2022 Housing", to: "2023 Savings", value: 8 },
+        { from: "2022 Travel", to: "2023 Housing", value: 6 },
+        { from: "2022 Travel", to: "2023 Travel", value: 14 },
+        { from: "2022 Savings", to: "2023 Savings", value: 22 },
+        { from: "2022 Savings", to: "2023 Travel", value: 5 },
+      ];
+
+      var TRADE = [
+        { from: "Europe", to: "Asia", value: 31 },
+        { from: "Asia", to: "Americas", value: 24 },
+        { from: "Americas", to: "Europe", value: 19 },
+        { from: "Asia", to: "Africa", value: 11 },
+        { from: "Africa", to: "Europe", value: 9 },
+      ];
+
+      var PEOPLE = [{
+        name: "Computing",
+        children: [
+          {
+            name: "Ada",
+            linkWith: ["Grace"],
+            children: [
+              { name: "Alan" },
+              { name: "Grace" },
+            ],
+          },
+          { name: "Edsger", linkWith: ["Alan"] },
+          { name: "Barbara", linkWith: ["Grace", "Edsger"] },
+        ],
+      }];
+
+      /** A flow series of the given class, pushed straight into its own root. */
+      function flowChart(divId, Kind, data, userData) {
+        var root = am5.Root.new(divId);
+        var series = root.container.children.push(
+          Kind.new(root, {
+            sourceIdField: "from",
+            targetIdField: "to",
+            valueField: "value",
+            // The block below is what separates an alluvial from the sankey it
+            // is drawn as. Omitted, the same chart reads as a sankey.
+            userData: userData,
+          })
+        );
+        series.data.setAll(data);
+        return root;
+      }
+
+      var sankeyRoot = flowChart("sankey-chart", am5flow.Sankey, ENERGY);
+      var alluvialRoot = flowChart("alluvial-chart", am5flow.Sankey, BUDGET, {
+        maidr: { type: "alluvial" },
+      });
+      var chordRoot = flowChart("chord-chart", am5flow.ChordDirected, TRADE);
+
+      var networkRoot = am5.Root.new("network-chart");
+      var network = networkRoot.container.children.push(
+        am5hierarchy.ForceDirected.new(networkRoot, {
+          categoryField: "name",
+          childDataField: "children",
+          // `idField` names the column a cross-link refers to; `linkWithField`
+          // names the column holding those references.
+          idField: "name",
+          linkWithField: "linkWith",
+          manyBodyStrength: -12,
+          centerStrength: 0.5,
+        })
+      );
+      network.data.setAll(PEOPLE);
+    </script>
+
+    <!-- After amCharts finishes rendering, mount MAIDR on each panel via the
+         `maidrAmCharts` UMD global. In production, prefer listening to the
+         series' "datavalidated" event instead of a fixed timeout. -->
+    <script>
+      setTimeout(function () {
+        var panels = [
+          [sankeyRoot, "Energy Flow", { x: "Node", y: "Terawatt-hours" }],
+          [alluvialRoot, "Where the Budget Moved", { x: "Category", y: "Thousands" }],
+          [chordRoot, "Trade Between Regions", { x: "Region", y: "Billions" }],
+          // A network is bound to no axis and carries no weight; drop these and
+          // the adapter falls back to "Node" and "Links".
+          [networkRoot, "Who Worked With Whom", { x: "Person", y: "Connections" }],
+        ];
+        panels.forEach(function (panel) {
+          try {
+            maidrAmCharts.bindAmCharts(panel[0], {
+              title: panel[1],
+              axisLabels: panel[2],
+            });
+          } catch (err) {
+            console.error('MAIDR amCharts bind failed for ' + panel[1] + ':', err);
+          }
+        });
+      }, 1500);
+    </script>
+  </body>
+</html>

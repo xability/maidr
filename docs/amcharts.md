@@ -89,11 +89,15 @@ Series are classified by their amCharts class name and field configuration:
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
 - `am5wc.WordCloud` → **word cloud**
+- `am5flow.Sankey` → **sankey**; `Chord`, `ChordDirected` and `ChordNonRibbon` → **chord**; `ArcDiagram` → **sankey**, because it carries weights and a network has nowhere to put one
+- `am5hierarchy.ForceDirected` → **network**
 - `LineSeries` on a value axis whose renderer is `inversed`, carrying a genuine ranking → **bump** (rank over time); the `bump` option settles the cases the axis cannot
 
 ### Visual Highlighting
 
 amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes for MAIDR's usual highlighting. `bindAmCharts` instead draws an absolutely-positioned outline box over the canvas at the active data point's pixel geometry (computed via am5's `sprite.toGlobal()`) — the same overlay approach the Chart.js adapter uses. The overlay re-anchors on resize. Call the returned `dispose()` to unmount MAIDR, remove the overlay, and restore the chart. Highlighting is unavailable on the `fromAmCharts` JSON/attribute path.
+
+**Four types are read but not outlined**: sankey, alluvial, chord and network. They sonify, describe, braille and navigate correctly, and the overlay simply clears as the cursor moves. This is deliberate, and [the reason is written out below](#flow-and-network-are-not-outlined) — an empty outline is truthful, and a box drawn around a guessed node is not.
 
 ## Supported Chart Types
 
@@ -124,6 +128,9 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
+| Sankey † | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
+| Chord † | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
+| Network † | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 | Gauge | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
@@ -132,6 +139,9 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Volcano | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
 | Manhattan | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
 | Scatter | the same | **declared** — `{ type: "point" }` |
+| Alluvial † | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
+
+† Read, announced, brailled and navigated — but **not outlined**. See [Flow and network are not outlined](#flow-and-network-are-not-outlined).
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -141,13 +151,13 @@ A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` r
 
 `RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
 
-The last seven rows are **declared** rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.
+The **declared** rows are declared rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.
 
-> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder, and neither are sankey, alluvial or chord diagrams (`am5flow`).
+> Box plots, candlestick, violin, and smooth/regression layers are **not** supported by the amCharts binder.
 
 ## Declaring What a Chart Means
 
-Some readings amCharts leaves no signature for. A Kaplan-Meier curve and a step line are one series class. An error bar is a second series of floating columns, which is also how a waterfall and a dumbbell are drawn. A volcano, a Manhattan and a plain scatter are all a `LineSeries` with its stroke switched off and bullets pushed on, and so is a dot plot. Every one of those configurations is worn by an ordinary chart, so the adapter's heuristics cannot separate them and do not try: a step line read as a survival curve announces censoring the chart never carried, which is worse than reading it as the step line it is.
+Some readings amCharts leaves no signature for. A Kaplan-Meier curve and a step line are one series class. An error bar is a second series of floating columns, which is also how a waterfall and a dumbbell are drawn. A volcano, a Manhattan and a plain scatter are all a `LineSeries` with its stroke switched off and bullets pushed on, and so is a dot plot. An alluvial is an `am5flow.Sankey`. Every one of those configurations is worn by an ordinary chart, so the adapter's heuristics cannot separate them and do not try: a step line read as a survival curve announces censoring the chart never carried, which is worse than reading it as the step line it is.
 
 What separates them is the author saying so, in the `userData` slot amCharts documents as *"a storage for any custom user data"*:
 
@@ -180,6 +190,9 @@ A field you leave out falls back to its canonical name and then to a short list 
 | `"manhattan"` | `label`, `group`, `significance`, `significanceDirection`, `effect`, `merge` (default `true`) |
 | `"volcano"` | the same, with `merge` defaulting to `false` |
 | `"point"` | `label`, `merge` (default `false`) — note the value is `"point"`, not `"scatter"` |
+| `"alluvial"` | nothing — the block is the whole declaration |
+
+`"alluvial"` takes no fields at all, and that is the point: an alluvial is the same weighted flow a sankey carries, drawn without a left-to-right budget, so the nodes, the links and their weights are already in the drawing and the only thing missing is which of the two readings it stands for. It is accepted only on an `am5flow` series that carries at least one readable link — a block on anything else is reported and the chart is read as what it was drawn as.
 
 Every variant also accepts `title` (what the chart is called) and `name` (what this layer is called among its siblings). Any other key is reported and ignored, which is what catches a `significanse: 7.3` in plain JavaScript, where nothing else would.
 
@@ -559,6 +572,54 @@ series.data.setAll([
 ```
 
 A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
+
+### Sankey / Alluvial / Chord / Network
+
+An `am5flow` diagram is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it. It needs `flow.js` on top of `index.js`; a force-directed network needs `hierarchy.js` instead. A runnable page covering all four is at [`examples/amcharts-flow.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-flow.html).
+
+```js
+var series = root.container.children.push(am5flow.Sankey.new(root, {
+  sourceIdField: "from", targetIdField: "to", valueField: "value",
+}));
+series.data.setAll([
+  { from: "Coal", to: "Electricity", value: 34 },
+  { from: "Gas", to: "Electricity", value: 21 },
+  { from: "Electricity", to: "Homes", value: 40 },
+]);
+```
+
+The payload is **one point per link**. The nodes are derived from the ends, so `series.nodes` is deliberately not read — a second node list would be a second source of truth for something the links already say, and the two could then disagree. A link missing an end, or carrying no weight, is dropped rather than kept as a gap: amCharts draws no ribbon for it, and a mark MAIDR counted but the chart never drew would slide every later position onto its neighbour.
+
+An `ArcDiagram` is announced as a **sankey**, not as a network. It extends `FlowSeries` and carries a weight per link, and MAIDR's network payload has nowhere to put one, so reading it as a network would silently drop the magnitudes.
+
+All three `Chord` classes — `Chord`, `ChordDirected`, `ChordNonRibbon` — are announced as a **chord**. One honesty note: a chord graph is cyclic, and MAIDR's flow trace lays nodes out by their longest distance from a source. A cyclic graph has no such layering, so every node collapses into a single stage by design. Navigation and sonification are correct; there is simply no left-to-right ordering to announce, and the trace does not claim one.
+
+An **alluvial** has no amCharts class at all — it is an `am5flow.Sankey` with the nodes repeated across stages — so it is [declared](#declaring-what-a-chart-means) rather than detected:
+
+```js
+series.set("userData", { maidr: { type: "alluvial" } });
+```
+
+A **network** comes from `am5hierarchy.ForceDirected`, which is a *hierarchy* series rather than a link list: its data is a tree of `children`, and the links are that tree's parent-child edges plus whatever cross-links each row names in the column `linkWithField` points at.
+
+```js
+var series = root.container.children.push(am5hierarchy.ForceDirected.new(root, {
+  categoryField: "name", childDataField: "children",
+  idField: "name", linkWithField: "linkWith",
+}));
+```
+
+The container root is dropped, as it is for a treemap. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
+
+#### Flow and network are not outlined
+
+Sankey, alluvial, chord and network layers get **no highlight**. As the cursor moves the overlay clears; audio, the text description, braille and keyboard navigation all work normally.
+
+This is a deliberate refusal rather than an oversight, and the reason is worth stating. MAIDR hands a canvas adapter one of two things: an explicit list of point indices, for traces that publish which marks they mean, or the **braille** position for everything else. A flow trace is in the second group, and its braille position is `(stage, index within that stage)` — the stage being a column of the drawing, which is the only thing a braille line can be. A network trace's is `(component, index within that component)`.
+
+Turning either back into a node means reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — longest-distance-from-a-source, with a fallback that collapses a cyclic graph into one stage — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted. This adapter already mirrors an ordering where one exists (a heatmap's row reversal, a word cloud's weight order), and already refuses to mirror a derived structure (a scatter's binning). A copy would drift from the model silently and then outline a confidently wrong node while the announcement said something else — and nothing about the announcement would look wrong. An empty outline is truthful; that is not.
+
+The fix is small and lives in the model rather than here: both traces already compute the right answer internally, so publishing it as point indices would make all four types highlightable by registering resolvers and changing nothing else. That is tracked as a follow-up.
 
 ### Bump (Rank Over Time)
 

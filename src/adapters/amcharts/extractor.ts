@@ -6,12 +6,14 @@
 import type {
   BarPoint,
   DumbbellPoint,
+  FlowPoint,
   GanttData,
   GaugeBand,
   GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
@@ -900,6 +902,228 @@ export function extractHierarchyPoints(series: AmXYSeries): TreemapPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Flow (am5flow) and network (am5hierarchy.ForceDirected)
+// ---------------------------------------------------------------------------
+
+/**
+ * What am5flow binds a link's two ends to when the author names no field.
+ *
+ * amCharts' own examples author a link as `{ from, to, value }` and set
+ * `sourceIdField` / `targetIdField` / `valueField` to match, so these are the
+ * defaults for the last resort in {@link readFlowEnd} — reading the author's
+ * own row when neither the resolved id nor the node data item answered.
+ */
+const FLOW_SOURCE_FIELD_DEFAULT = 'from';
+const FLOW_TARGET_FIELD_DEFAULT = 'to';
+const FLOW_VALUE_FIELD_DEFAULT = 'value';
+
+/**
+ * A value usable as a node's name: a non-empty string, or a finite number.
+ *
+ * Stricter than {@link toStringOrNumber}, which renders `null` as `''` — an
+ * empty name is not a node, and a link with one is a link to nowhere.
+ */
+function asNodeName(value: unknown): string | number | null {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string')
+    return value.length > 0 ? value : null;
+  return null;
+}
+
+/** A finite number, from a number or from the numeric string a CSV row carries. */
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/** The author's own record behind a data item, when it kept one. */
+function rowOf(item: AmDataItem): Record<string, unknown> | null {
+  const row = item.dataContext;
+  return row != null && typeof row === 'object' ? (row as Record<string, unknown>) : null;
+}
+
+/**
+ * What one end of a flow link is called.
+ *
+ * Three reads, in falling order of how directly amCharts states the answer,
+ * because which of them a given build answers with is exactly the shape that
+ * cannot be checked without the library:
+ *
+ * 1. `sourceId` / `targetId` — the id amCharts resolved the end to, which is
+ *    the name if it answers at all.
+ * 2. `source` / `target` — the *node* data item the link was joined to, asked
+ *    for its own `name` and then its `id`.
+ * 3. The author's row, keyed by the field the series was told to read ends
+ *    from. This is the one that survives a build answering with neither.
+ *
+ * `null` when no read answers, which drops the link: a ribbon with one end is
+ * not a flow, and naming the missing end anything at all would invent a node.
+ */
+function readFlowEnd(
+  item: AmDataItem,
+  series: AmXYSeries,
+  end: 'source' | 'target',
+): string | number | null {
+  const resolved = asNodeName(item.get(`${end}Id`));
+  if (resolved != null)
+    return resolved;
+
+  const node = item.get(end);
+  if (node != null && typeof node === 'object') {
+    const get = (node as { get?: (key: string) => unknown }).get;
+    if (typeof get === 'function') {
+      const named = asNodeName(get.call(node, 'name')) ?? asNodeName(get.call(node, 'id'));
+      if (named != null)
+        return named;
+    }
+  }
+
+  const field = series.get(`${end}IdField`);
+  const key = typeof field === 'string' && field.length > 0
+    ? field
+    : (end === 'source' ? FLOW_SOURCE_FIELD_DEFAULT : FLOW_TARGET_FIELD_DEFAULT);
+  return asNodeName(rowOf(item)?.[key]);
+}
+
+/**
+ * How much flows along one link.
+ *
+ * Read from the data item's own `value` first and from the author's row after,
+ * both strictly: `toNumber` would answer `0` for a link carrying no value at
+ * all, because `Number(null)` is `0`, and a zero is a weight the chart never
+ * stated rather than an absent one.
+ */
+function readFlowValue(item: AmDataItem, series: AmXYSeries): number | null {
+  const declared = asFiniteNumber(item.get('value'));
+  if (declared != null)
+    return declared;
+
+  const field = series.get('valueField');
+  const key = typeof field === 'string' && field.length > 0 ? field : FLOW_VALUE_FIELD_DEFAULT;
+  return asFiniteNumber(rowOf(item)?.[key]);
+}
+
+/**
+ * Convert an am5flow series — a `Sankey`, a `Chord` or an `ArcDiagram` — into
+ * {@link FlowPoint} data.
+ *
+ * One point per **link**, which is the whole payload: MAIDR derives the nodes
+ * from the links by design, so `series.nodes` is deliberately not read. A
+ * second list would be a second source of truth for something the links
+ * already say, and the two could then disagree.
+ *
+ * A link missing an end, or carrying no weight, is dropped rather than kept as
+ * a gap — the same call the pie, funnel and waterfall conversions make. A link
+ * amCharts draws no ribbon for but MAIDR still counts would slide every later
+ * position onto its neighbour.
+ */
+export function extractFlowPoints(series: AmXYSeries): FlowPoint[] {
+  const points: FlowPoint[] = [];
+
+  for (const item of series.dataItems) {
+    const source = readFlowEnd(item, series, 'source');
+    const target = readFlowEnd(item, series, 'target');
+    if (source == null || target == null)
+      continue;
+
+    const value = readFlowValue(item, series);
+    if (value == null || value === 0)
+      continue;
+
+    points.push({ source, target, value });
+  }
+
+  return points;
+}
+
+/**
+ * The field an `am5hierarchy.ForceDirected` names each row's cross-links in.
+ *
+ * Unlike the flow fields there is no default worth guessing: amCharts draws no
+ * cross-link at all unless the author sets `linkWithField`, so an unset one
+ * means the graph really is the tree.
+ */
+const LINK_WITH_FIELD_SETTING = 'linkWithField';
+
+/**
+ * Convert an `am5hierarchy.ForceDirected` series into {@link NetworkPoint}
+ * links.
+ *
+ * The awkward one. A force-directed graph is a **hierarchy** series in
+ * amCharts, not a link list: its data is a tree of `children`, and the links a
+ * reader sees are the parent-child edges of that tree plus whatever cross-links
+ * each row named. So the same walk the treemap uses supplies the tree — each
+ * node's parent is the last name on its path — and the cross-links are read
+ * off the authors' own rows afterwards.
+ *
+ * Nothing about the layout is read. Where the solver dropped a node is a fact
+ * about its seed rather than about the data, which is why `NetworkPoint` has
+ * nowhere to put one.
+ *
+ * A cross-link naming something the walk never saw is skipped rather than
+ * turned into a node: amCharts draws no link for it either, and inventing the
+ * node would announce a participant the chart does not have. Each pair is
+ * emitted once — a link is undirected, and two rows naming each other draw one
+ * line.
+ */
+export function extractNetworkPoints(series: AmXYSeries): NetworkPoint[] {
+  const nodes = extractHierarchyNodes(series);
+
+  // Every name a cross-link may legitimately reach: the node's own category,
+  // and the id the author keyed it by when that is a different column.
+  const idField = series.get('idField');
+  const byRef = new Map<string | number, string | number>();
+  for (const node of nodes) {
+    if (!byRef.has(node.name))
+      byRef.set(node.name, node.name);
+    if (typeof idField === 'string' && idField.length > 0) {
+      const id = asNodeName(rowOf(node.dataItem)?.[idField]);
+      if (id != null && !byRef.has(id))
+        byRef.set(id, node.name);
+    }
+  }
+
+  const links: NetworkPoint[] = [];
+  const seen = new Set<string>();
+  const add = (source: string | number, target: string | number): void => {
+    const key = [String(source), String(target)].sort().join(' ');
+    if (seen.has(key))
+      return;
+    seen.add(key);
+    links.push({ source, target });
+  };
+
+  for (const node of nodes) {
+    const parent = node.path[node.path.length - 1];
+    if (parent !== undefined)
+      add(parent, node.name);
+  }
+
+  const linkWithField = series.get(LINK_WITH_FIELD_SETTING);
+  if (typeof linkWithField === 'string' && linkWithField.length > 0) {
+    for (const node of nodes) {
+      const refs = rowOf(node.dataItem)?.[linkWithField];
+      if (!Array.isArray(refs))
+        continue;
+      for (const ref of refs) {
+        const name = asNodeName(ref);
+        const target = name != null ? byRef.get(name) : undefined;
+        if (target !== undefined)
+          add(node.name, target);
+      }
+    }
+  }
+
+  return links;
+}
+
+// ---------------------------------------------------------------------------
 // Gauge (am5radar ClockHand)
 // ---------------------------------------------------------------------------
 
@@ -1210,15 +1434,27 @@ const RADAR_COLUMN_CLASSES = new Set([
 /**
  * Series that are not inside a chart at all, and what each one draws.
  *
- * An am5hierarchy layout and an am5wc word cloud are `am5.Series` pushed
- * straight into a plain container, with no chart object around them, which is
- * why the adapter's discovery has to recognise the series itself.
+ * An am5hierarchy layout, an am5flow diagram and an am5wc word cloud are
+ * `am5.Series` pushed straight into a plain container, with no chart object
+ * around them, which is why the adapter's discovery has to recognise the
+ * series itself.
  *
  * `Sunburst` is named here in its own right rather than inherited. It extends
  * `Partition` but carries its own class name, so listing it is what makes it a
  * sunburst instead of nothing at all — and naming it separately is also what
  * keeps it from being announced as an icicle, which is the same tree drawn
- * with an entirely different mark.
+ * with an entirely different mark. The same reasoning names all three chord
+ * variants: each extends the last, and each carries its own class name.
+ *
+ * `ArcDiagram` is a sankey rather than a network. It extends `FlowSeries` and
+ * carries a weight per link, and MAIDR's `NetworkPoint` has nowhere to put
+ * one — so reading it as a network would silently drop the magnitudes. The
+ * same call the Highcharts adapter makes for `arcdiagram`.
+ *
+ * Listing a class here is also what keeps it from being read as something
+ * else: {@link classifySeriesKind} answers `'bar'` for anything it does not
+ * know, so an unlisted flow series would be announced as a bar chart of its
+ * links rather than skipped.
  *
  * One record rather than one set per module: discovery asks a single question
  * ("is this series a panel of its own?"), and a per-module set would have to
@@ -1229,6 +1465,12 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Partition: 'icicle',
   Sunburst: 'sunburst',
   WordCloud: 'wordcloud',
+  Sankey: 'sankey',
+  ArcDiagram: 'sankey',
+  Chord: 'chord',
+  ChordDirected: 'chord',
+  ChordNonRibbon: 'chord',
+  ForceDirected: 'network',
 };
 
 /** The class names {@link STANDALONE_KINDS} covers, for discovery to probe. */
@@ -1375,6 +1617,9 @@ export type SeriesKind
     | 'icicle'
     | 'sunburst'
     | 'wordcloud'
+    | 'sankey'
+    | 'chord'
+    | 'network'
     | 'unknown';
 
 /**
@@ -1388,6 +1633,21 @@ export type SeriesKind
  */
 export function isColumnSeries(series: AmXYSeries): boolean {
   return COLUMN_CLASSES.has(series.className ?? '');
+}
+
+/**
+ * Whether a series is one of am5flow's weighted graphs.
+ *
+ * Asked only by the alluvial declaration, which is the one reading amCharts
+ * has no class for at all: an alluvial IS a sankey — the same weighted flow
+ * drawn without a left-to-right budget — so the only thing separating them is
+ * the author saying which they drew. This is the "wrong construct" half of
+ * that check: a block declaring an alluvial on a pie series is a mistake worth
+ * reporting, not a layer to emit with nothing in it.
+ */
+export function isFlowSeries(series: AmXYSeries): boolean {
+  const kind = STANDALONE_KINDS[series.className ?? ''];
+  return kind === 'sankey' || kind === 'chord';
 }
 
 /**

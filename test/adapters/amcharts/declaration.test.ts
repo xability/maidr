@@ -7,11 +7,19 @@ import type {
   SurvivalPoint,
   VolcanoPoint,
 } from '@type/grammar';
-import { fromXYChart } from '@adapters/amcharts/adapter';
+import { findCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
 import { planDeclarations } from '@adapters/amcharts/declaration';
 import { buildNavigationMap } from '@adapters/amcharts/navmap';
 import { Orientation, TraceType } from '@type/grammar';
-import { fakeChart, fakeContainerEl, fakePieSeries, fakeSeries } from './helpers';
+import {
+  fakeChart,
+  fakeContainer,
+  fakeContainerEl,
+  fakeFlowSeries,
+  fakePieSeries,
+  fakeRoot,
+  fakeSeries,
+} from './helpers';
 
 /**
  * The declared reading is opt-in, so every case here is really two charts: the
@@ -159,6 +167,124 @@ describe('declaration precedence', () => {
     expect(layer.type).toBe(TraceType.SURVIVAL);
     expect(layer.stepDirection).toBe('hv');
     expect(warnings()).toContain('unknown key "significanse"');
+  });
+});
+
+describe('declared alluvials', () => {
+  const LINKS = [
+    { sourceId: 'Rent', targetId: 'Housing', value: 40 },
+    { sourceId: 'Loan', targetId: 'Housing', value: 25 },
+  ];
+
+  /** The layer a bare am5flow series produces, found the way discovery finds it. */
+  function standaloneLayer(series: AmXYSeries): MaidrLayer {
+    const layers = fromAmCharts(fakeRoot([series])).subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    return layers[0];
+  }
+
+  it('reads an undeclared Sankey as a sankey', () => {
+    expect(standaloneLayer(fakeFlowSeries('Budget', LINKS)).type).toBe(TraceType.SANKEY);
+  });
+
+  it('reads the same series as an alluvial once it declares one', () => {
+    // amCharts has no alluvial class: an alluvial IS a sankey, drawn with the
+    // nodes repeated across stages, so only the author can separate the two.
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+
+    const layer = standaloneLayer(series);
+
+    expect(layer.type).toBe(TraceType.ALLUVIAL);
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Weight' } });
+    // The payload is the same weighted graph either way — what the author
+    // declared is which of the two readings the drawing stands for.
+    expect(layer.data).toEqual([
+      { source: 'Rent', target: 'Housing', value: 40 },
+      { source: 'Loan', target: 'Housing', value: 25 },
+    ]);
+  });
+
+  it('is visible through the panel discovery wraps a bare series in', () => {
+    // `planDeclarations` iterates `chart.series.values`, and a bare am5flow
+    // series has no chart at all — it reaches the plan only through the
+    // one-series panel `asStandalonePanel` synthesises around it.
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+    const chart = findCharts(fakeRoot([fakeContainer([series])]))[0];
+
+    const plan = planDeclarations(chart);
+
+    expect(plan.declared.get(series)?.declaration.type).toBe(TraceType.ALLUVIAL);
+  });
+
+  it('keeps the name and title the block declared', () => {
+    const series = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial', name: 'flows', title: 'Where the money goes' } },
+    });
+
+    const layer = standaloneLayer(series);
+
+    expect(layer.name).toBe('flows');
+    expect(layer.title).toBe('Where the money goes');
+  });
+
+  it('falls back to the undeclared reading on a series that draws no flow', () => {
+    // The "wrong construct" check: `type: 'alluvial'` on a pie series is a
+    // mistake worth reporting, not a layer to emit with nothing in it.
+    const declared = fakeSeries({
+      className: 'PieSeries',
+      name: 'Share',
+      userData: { maidr: { type: 'alluvial' } },
+      settings: { categoryField: 'category', valueField: 'value' },
+      data: [{ category: 'A', value: 3 }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.PIE);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('refuses the block on a column series whose rows merely look like links', () => {
+    // The class name is the half of the check the data cannot supply: a bar
+    // chart authored from rows with `from`/`to`/`value` columns reads as a
+    // perfectly good link list, and reading it as one would announce a graph
+    // nobody drew. amCharts drawing a weighted flow is what makes the claim
+    // about the DRAWING true, which is what a declaration is.
+    const declared = fakeSeries({
+      className: 'ColumnSeries',
+      name: 'Transfers',
+      userData: { maidr: { type: 'alluvial' } },
+      settings: { categoryXField: 'category' },
+      data: [{ categoryX: 'Rent', from: 'Rent', to: 'Housing', value: 40, valueY: 40 }],
+    });
+
+    expect(layerOf([declared]).type).toBe(TraceType.BAR);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('falls back when the flow series carries no link the adapter can read', () => {
+    const series = fakeFlowSeries('Budget', [{ sourceId: 'Rent' }], 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+
+    // No readable link means no flow of any kind, declared or not — so the
+    // figure has no layer at all rather than an alluvial of nothing.
+    expect(() => fromAmCharts(fakeRoot([series]))).toThrow(/no supported series with data/);
+    expect(warnings()).toContain('no mark of it carries the values');
+  });
+
+  it('does not absorb the siblings that follow it', () => {
+    // An alluvial declares nothing but which reading the drawing stands for,
+    // so a second flow beside it is a second figure, not a further arm of one.
+    const declared = fakeFlowSeries('Budget', LINKS, 'Sankey', {
+      userData: { maidr: { type: 'alluvial' } },
+    });
+    const sibling = fakeFlowSeries('Energy', LINKS);
+
+    expect(layersOf([declared, sibling]).map(layer => layer.type))
+      .toEqual([TraceType.ALLUVIAL, TraceType.SANKEY]);
   });
 });
 

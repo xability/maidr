@@ -2,10 +2,12 @@ import type { AmChartsBinderOptions, AmXYSeries } from '@adapters/amcharts/types
 import type {
   BarPoint,
   DumbbellData,
+  FlowPoint,
   GanttData,
   GaugePoint,
   LinePoint,
   MaidrLayer,
+  NetworkPoint,
   PiePoint,
   SegmentedPoint,
   TreemapPoint,
@@ -22,6 +24,8 @@ import {
   fakeContainerEl,
   fakeDotSeries,
   fakeFloatingColumnSeries,
+  fakeFlowSeries,
+  fakeForceDirectedSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
   fakeGaugeChart,
@@ -950,6 +954,215 @@ describe('fromAmCharts (sunburst)', () => {
 
   it('emits no selectors: amCharts paints the wedges to canvas, not to SVG', () => {
     const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (flow: sankey, chord, arc diagram)', () => {
+  const LINKS = [
+    { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+    { sourceId: 'Gas', targetId: 'Electricity', value: 21 },
+    { sourceId: 'Electricity', targetId: 'Homes', value: 40 },
+  ];
+
+  it('finds a standalone Sankey, which like a treemap is no chart at all', () => {
+    // An am5flow series is an `am5.Series` pushed straight into a container,
+    // so discovery has to recognise the series itself or recurse past it.
+    const series = fakeFlowSeries('Energy', LINKS);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('converts a Sankey into one point per link, nodes derived from the ends', () => {
+    const series = fakeFlowSeries('Energy', LINKS);
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.SANKEY);
+    expect(layer.title).toBe('Energy');
+    // A flow is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Weight' } });
+    expect(layer.data as FlowPoint[]).toEqual([
+      { source: 'Coal', target: 'Electricity', value: 34 },
+      { source: 'Gas', target: 'Electricity', value: 21 },
+      { source: 'Electricity', target: 'Homes', value: 40 },
+    ]);
+  });
+
+  it('reads an end off the node data item when no id was resolved', () => {
+    // The second of the three probes: amCharts joined the link to a node
+    // object, and the id setting answered with nothing.
+    const series = fakeFlowSeries('Energy', [{
+      sourceNode: { name: 'Coal' },
+      targetNode: { id: 'Electricity' },
+      value: 34,
+    }]);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+  });
+
+  it('reads an end and a weight off the author\'s own row as a last resort', () => {
+    // The third probe. Neither the resolved id nor a node object answered, so
+    // the row the author supplied is all there is — keyed by the fields the
+    // series was told to read, which amCharts defaults to `from`/`to`/`value`.
+    const series = fakeFlowSeries('Energy', [
+      { row: { from: 'Coal', to: 'Electricity', value: 34 } },
+      { row: { origin: 'Gas', dest: 'Electricity', mwh: 21 } },
+    ], 'Sankey');
+    const named = fakeFlowSeries('Energy', [
+      { row: { origin: 'Gas', dest: 'Electricity', mwh: 21 } },
+    ], 'Sankey', { sourceIdField: 'origin', targetIdField: 'dest', valueField: 'mwh' });
+
+    // Default field names: only the first row reads.
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+    // The author's own field names: the same row now reads.
+    expect(fromAmCharts(fakeRoot([named])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Gas', target: 'Electricity', value: 21 }]);
+  });
+
+  it('drops a link with no end, and one carrying no weight', () => {
+    // A ribbon amCharts does not draw but MAIDR still counts would slide every
+    // later position onto its neighbour. `Number(null)` is 0 and finite, so a
+    // missing weight has to be refused rather than coerced.
+    const series = fakeFlowSeries('Energy', [
+      { sourceId: 'Coal', targetId: 'Electricity', value: 34 },
+      { sourceId: 'Gas', value: 21 },
+      { sourceId: 'Oil', targetId: 'Electricity' },
+      { sourceId: 'Wind', targetId: 'Electricity', value: 0 },
+      { sourceId: 'Sun', targetId: 'Electricity', value: Number.NaN },
+    ]);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Coal', target: 'Electricity', value: 34 }]);
+  });
+
+  it('reads every Chord variant as a chord, and an ArcDiagram as a sankey', () => {
+    // The three chord classes each extend the last and each carry their own
+    // class name, so each has to be listed. An arc diagram is a sankey rather
+    // than a network: it extends `FlowSeries` and carries weights, and a
+    // network payload has nowhere to put one.
+    const typeOf = (className: string): TraceType =>
+      fromAmCharts(fakeRoot([fakeFlowSeries('Trade', LINKS, className)]))
+        .subplots[0][0]
+        .layers[0]
+        .type;
+
+    expect(typeOf('Chord')).toBe(TraceType.CHORD);
+    expect(typeOf('ChordDirected')).toBe(TraceType.CHORD);
+    expect(typeOf('ChordNonRibbon')).toBe(TraceType.CHORD);
+    expect(typeOf('ArcDiagram')).toBe(TraceType.SANKEY);
+  });
+
+  it('emits no selectors: amCharts paints the ribbons to canvas, not to SVG', () => {
+    const series = fakeFlowSeries('Energy', LINKS);
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+
+  it('leaves a flow series whose links none resolve out of the figure', () => {
+    // A layer of nothing is worse than no layer: `convertCharts` drops a chart
+    // with none and says so, rather than announcing an empty graph.
+    const series = fakeFlowSeries('Energy', [{ value: 34 }, { sourceId: 'Coal' }]);
+
+    expect(() => fromAmCharts(fakeRoot([series]))).toThrow(/no supported series with data/);
+  });
+});
+
+describe('fromAmCharts (network)', () => {
+  const TREE = {
+    category: 'Root',
+    children: [
+      {
+        category: 'Ada',
+        row: { name: 'Ada', linkWith: ['Grace'] },
+        children: [
+          { category: 'Alan', row: { name: 'Alan' } },
+          { category: 'Grace', row: { name: 'Grace' } },
+        ],
+      },
+      { category: 'Edsger', row: { name: 'Edsger', linkWith: ['Alan', 'Nobody'] } },
+    ],
+  };
+
+  it('finds a standalone ForceDirected, which is no chart either', () => {
+    const series = fakeForceDirectedSeries('People', TREE);
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('reads the tree as links: one per parent-child edge, root dropped', () => {
+    // A force-directed graph is a HIERARCHY series in amCharts, not a link
+    // list, so the edges are the tree's own and the container root is not one
+    // of the participants.
+    const series = fakeForceDirectedSeries('People', TREE);
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.NETWORK);
+    expect(layer.title).toBe('People');
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Links' } });
+    expect(layer.data as NetworkPoint[]).toEqual([
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+    ]);
+  });
+
+  it('adds the cross-links a row names, and skips one naming no node', () => {
+    // `linkWith` is the only place a force-directed graph's non-tree edges
+    // live. An entry the walk never saw names nothing amCharts drew either, so
+    // inventing the node would announce a participant the chart does not have.
+    const series = fakeForceDirectedSeries('People', TREE, { linkWithField: 'linkWith' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data).toEqual([
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Ada', target: 'Grace' },
+      { source: 'Edsger', target: 'Alan' },
+    ]);
+  });
+
+  it('resolves a cross-link named by id when that is not the node label', () => {
+    // `idField` and `categoryField` are the same column in amCharts' own
+    // examples, but they need not be — and a reference by id is still a
+    // reference to a node the walk saw.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [
+        { category: 'Ada Lovelace', row: { key: 'ada', linkWith: ['grace'] } },
+        { category: 'Grace Hopper', row: { key: 'grace' } },
+      ],
+    }, { linkWithField: 'linkWith', idField: 'key' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Ada Lovelace', target: 'Grace Hopper' }]);
+  });
+
+  it('emits one link for a pair that names itself from both ends', () => {
+    // A link is undirected, so two rows naming each other draw one line.
+    const series = fakeForceDirectedSeries('People', {
+      category: 'Root',
+      children: [
+        { category: 'Ada', row: { linkWith: ['Grace'] } },
+        { category: 'Grace', row: { linkWith: ['Ada'] } },
+      ],
+    }, { linkWithField: 'linkWith' });
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].data)
+      .toEqual([{ source: 'Ada', target: 'Grace' }]);
+  });
+
+  it('emits no selectors: amCharts paints the links to canvas, not to SVG', () => {
+    const series = fakeForceDirectedSeries('People', TREE);
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
       .toBeUndefined();

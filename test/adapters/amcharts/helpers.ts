@@ -416,6 +416,14 @@ export interface FakeNode {
    * shape that cannot be checked without the library.
    */
   graphics?: unknown;
+  /**
+   * The author's own row behind the node, as `dataItem.dataContext`.
+   *
+   * Where an `am5hierarchy.ForceDirected`'s cross-links live: amCharts binds
+   * them through `linkWithField`, which names a column on the row rather than
+   * anything the chart itself resolves.
+   */
+  row?: Record<string, unknown>;
 }
 
 function fakeHierarchyItem(node: FakeNode): AmDataItem {
@@ -428,7 +436,10 @@ function fakeHierarchyItem(node: FakeNode): AmDataItem {
     ...(node.slice != null ? { slice: node.slice } : {}),
     ...(node.graphics != null ? { graphics: node.graphics } : {}),
   };
-  return { get: (key: string) => settings[key] } as unknown as AmDataItem;
+  return {
+    get: (key: string) => settings[key],
+    ...(node.row != null ? { dataContext: node.row } : {}),
+  } as unknown as AmDataItem;
 }
 
 /**
@@ -442,13 +453,93 @@ export function fakeHierarchySeries(
   name: string,
   root: FakeNode,
   className = 'Treemap',
+  extraSettings: Record<string, unknown> = {},
 ): AmXYSeries {
-  const settings: Record<string, unknown> = { name };
+  const settings: Record<string, unknown> = { name, ...extraSettings };
   return {
     className,
     uid: nextUid++,
     get: (key: string) => settings[key],
     dataItems: [fakeHierarchyItem(root)],
+  } as unknown as AmXYSeries;
+}
+
+/**
+ * An `am5hierarchy.ForceDirected` series — a network, and a hierarchy series
+ * rather than a link list: its graph is a tree of `children` plus whatever
+ * cross-links each row names in the column `linkWithField` points at.
+ */
+export function fakeForceDirectedSeries(
+  name: string,
+  root: FakeNode,
+  settings: Record<string, unknown> = {},
+): AmXYSeries {
+  return fakeHierarchySeries(name, root, 'ForceDirected', settings);
+}
+
+/**
+ * One link of a fake am5flow series, with a knob for each of the three ways
+ * the adapter probes for an end.
+ *
+ * All three exist because none can be checked without the library: a build may
+ * answer with the resolved id, with the node data item the link was joined to,
+ * or with neither — leaving the author's own row as the only thing that says
+ * what the link connects.
+ */
+export interface FakeLink {
+  /** `dataItem.get('sourceId')` — the id amCharts resolved the end to. */
+  sourceId?: string | number;
+  /** `dataItem.get('targetId')`. */
+  targetId?: string | number;
+  /** `dataItem.get('source')` — the *node* data item, asked for name then id. */
+  sourceNode?: { name?: string | number; id?: string | number };
+  /** `dataItem.get('target')`. */
+  targetNode?: { name?: string | number; id?: string | number };
+  /** `dataItem.get('value')` — how much flows. */
+  value?: number;
+  /** The author's own row, reached only when the reads above answer nothing. */
+  row?: Record<string, unknown>;
+}
+
+function fakeNodeItem(node: { name?: string | number; id?: string | number }): unknown {
+  return { get: (key: string) => (node as Record<string, unknown>)[key] };
+}
+
+function fakeLinkItem(link: FakeLink): AmDataItem {
+  const settings: Record<string, unknown> = {
+    ...(link.sourceId != null ? { sourceId: link.sourceId } : {}),
+    ...(link.targetId != null ? { targetId: link.targetId } : {}),
+    ...(link.sourceNode != null ? { source: fakeNodeItem(link.sourceNode) } : {}),
+    ...(link.targetNode != null ? { target: fakeNodeItem(link.targetNode) } : {}),
+    ...(link.value !== undefined ? { value: link.value } : {}),
+  };
+  return {
+    get: (key: string) => settings[key],
+    ...(link.row != null ? { dataContext: link.row } : {}),
+  } as unknown as AmDataItem;
+}
+
+/**
+ * An am5flow series — a `Sankey`, one of the three `Chord` variants, or the
+ * `ArcDiagram` that draws the same weighted links along a line.
+ *
+ * Like an am5hierarchy layout it is not inside a chart: it is pushed straight
+ * into a container. Its `dataItems` are the **links**; the nodes amCharts
+ * derives from them live on a separate series, which the adapter deliberately
+ * does not read.
+ */
+export function fakeFlowSeries(
+  name: string,
+  links: FakeLink[],
+  className = 'Sankey',
+  extraSettings: Record<string, unknown> = {},
+): AmXYSeries {
+  const settings: Record<string, unknown> = { name, ...extraSettings };
+  return {
+    className,
+    uid: nextUid++,
+    get: (key: string) => settings[key],
+    dataItems: links.map(fakeLinkItem),
   } as unknown as AmXYSeries;
 }
 
