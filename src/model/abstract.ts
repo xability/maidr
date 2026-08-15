@@ -472,6 +472,23 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Whether the cursor has no point to report.
+   *
+   * Read from {@link dimension} rather than from any one trace's data,
+   * because that is the one shape every trace already answers in. It is also
+   * evaluated *at the cursor* — `LineTrace` returns the current series'
+   * length as `cols` — so this covers a ragged layer, where one series has
+   * points and another has none, and not only a layer that is empty
+   * throughout.
+   *
+   * @returns True when there is nothing at `(row, col)` to describe
+   */
+  protected get isEmptyAtCursor(): boolean {
+    const { rows, cols } = this.dimension;
+    return rows <= 0 || cols <= 0;
+  }
+
+  /**
    * Gets the current state of the trace including audio, braille, text, and highlight information.
    * @returns The current TraceState
    */
@@ -489,6 +506,21 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
         },
         warning: true,
       };
+    }
+    // Answer "nothing here" rather than describing a point that does not
+    // exist. Every populated branch below reaches `points[row][col]` through
+    // one accessor or another -- `LineTrace.text` reads `point.z`,
+    // `BarTrace`'s reads `point.x` -- and none of them guards the point
+    // itself, so an empty series threw a TypeError. That throw leaves trace
+    // construction, propagates out of `new Figure(...)`, and takes the whole
+    // render with it, so one malformed layer silences a figure that is
+    // otherwise fine (#905).
+    //
+    // Guarded here rather than in each accessor because this is the single
+    // funnel they are all reached through, and because a producer can always
+    // emit an empty series -- the core cannot assume otherwise.
+    if (this.isEmptyAtCursor) {
+      return this.outOfBoundsState;
     }
     return {
       empty: false,
