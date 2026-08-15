@@ -13,7 +13,7 @@
  *
  * Set `window.maidrObservableAutoInit = false` **before** the bundle loads to
  * keep the exported functions and skip the watcher, then call
- * {@link initQuartoObservable} or {@link bindObservablePlot} yourself.
+ * {@link initObservablePlots} or {@link bindObservablePlot} yourself.
  *
  * @example
  * ```yaml
@@ -32,30 +32,34 @@
 import { observablePlotToMaidr } from './adapters/observable/converters';
 import { isObservablePlot } from './adapters/observable/introspect';
 import {
-  autoInitQuartoObservable,
+  autoInitObservablePlots,
   bindObservablePlot,
-  initQuartoObservable,
-  stopQuartoObservable,
-} from './adapters/observable/quarto';
+  initObservablePlots,
+  stopObservablePlots,
+} from './adapters/observable/watcher';
 
 export { observablePlotToMaidr } from './adapters/observable/converters';
 export { isObservablePlot } from './adapters/observable/introspect';
-export {
-  autoInitQuartoObservable,
-  bindObservablePlot,
-  initQuartoObservable,
-  stopQuartoObservable,
-} from './adapters/observable/quarto';
-
 export type {
   MarkDatum,
   ObservablePlotElement,
   ObservablePlotOptions,
   ObservablePlotResult,
+  ObservableWatchOptions,
   PlotScale,
   PlotScales,
   QuartoObservableOptions,
 } from './adapters/observable/types';
+
+export {
+  autoInitObservablePlots,
+  autoInitQuartoObservable,
+  bindObservablePlot,
+  initObservablePlots,
+  initQuartoObservable,
+  stopObservablePlots,
+  stopQuartoObservable,
+} from './adapters/observable/watcher';
 
 // Re-export core types that consumers may need alongside the adapter.
 export type { Maidr as MaidrData, MaidrLayer, MaidrSubplot } from './type/grammar';
@@ -65,10 +69,14 @@ declare global {
   interface Window {
     maidrObservable?: {
       bindObservablePlot: typeof bindObservablePlot;
-      initQuartoObservable: typeof initQuartoObservable;
-      stopQuartoObservable: typeof stopQuartoObservable;
+      initObservablePlots: typeof initObservablePlots;
+      stopObservablePlots: typeof stopObservablePlots;
       observablePlotToMaidr: typeof observablePlotToMaidr;
       isObservablePlot: typeof isObservablePlot;
+      /** @deprecated Use `initObservablePlots`. */
+      initQuartoObservable: typeof initObservablePlots;
+      /** @deprecated Use `stopObservablePlots`. */
+      stopQuartoObservable: typeof stopObservablePlots;
     };
     /** Set to `false` before the bundle loads to skip the automatic watcher. */
     maidrObservableAutoInit?: boolean;
@@ -81,10 +89,14 @@ if (typeof window !== 'undefined') {
   // script-tag consumer needs to read a layer's `type`, among them.
   window.maidrObservable = Object.assign(window.maidrObservable ?? {}, {
     bindObservablePlot,
-    initQuartoObservable,
-    stopQuartoObservable,
+    initObservablePlots,
+    stopObservablePlots,
     observablePlotToMaidr,
     isObservablePlot,
+    // The names the first release shipped. A page written against them keeps
+    // working; the guide only documents the ones above.
+    initQuartoObservable: initObservablePlots,
+    stopQuartoObservable: stopObservablePlots,
   });
-  autoInitQuartoObservable();
+  autoInitObservablePlots();
 }

@@ -128,8 +128,8 @@ export interface ObservablePlotResult {
   element: Element;
 }
 
-/** Options for {@link initQuartoObservable}. */
-export interface QuartoObservableOptions {
+/** Options for {@link initObservablePlots}. */
+export interface ObservableWatchOptions {
   /**
    * Root to watch for plots. Defaults to `document.body`.
    *
@@ -175,3 +175,11 @@ export interface MarkDatum {
   /** Bin end, for binned rect marks. */
   xMax?: number;
 }
+
+/**
+ * @deprecated Renamed to {@link ObservableWatchOptions}. The options were never
+ * Quarto's — they configure the watcher, which binds Plot charts on any page.
+ * Kept so the released name goes on working; it will be removed in the next
+ * major.
+ */
+export type QuartoObservableOptions = ObservableWatchOptions;

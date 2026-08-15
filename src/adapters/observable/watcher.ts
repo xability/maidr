@@ -6,7 +6,7 @@
  * because there is nothing in an `{ojs}` cell to call it from — the cell's
  * value *is* the chart, and Quarto inserts it into the page for you.
  *
- * So the adapter watches instead. {@link initQuartoObservable} observes the
+ * So the adapter watches instead. {@link initObservablePlots} observes the
  * document, recognises an Observable Plot chart when one appears, converts it,
  * and hands the schema to MAIDR's runtime. An author adds the script and their
  * existing plots become navigable; nothing in the cell changes.
@@ -22,7 +22,7 @@
 import type {
   ObservablePlotOptions,
   ObservablePlotResult,
-  QuartoObservableOptions,
+  ObservableWatchOptions,
 } from './types';
 import { observablePlotToMaidr } from './converters';
 import { isObservablePlot, resolveSvg } from './introspect';
@@ -192,7 +192,7 @@ export function bindObservablePlot(
  * <!-- every {ojs} cell that draws with Plot is now navigable -->
  * ```
  */
-export function initQuartoObservable(options: QuartoObservableOptions = {}): () => void {
+export function initObservablePlots(options: ObservableWatchOptions = {}): () => void {
   const root = options.root ?? document.body;
   if (!root)
     return () => {};
@@ -252,7 +252,7 @@ export function initQuartoObservable(options: QuartoObservableOptions = {}): () 
  *
  * @returns A function that stops watching, or `null` when auto-init is off.
  */
-export function autoInitQuartoObservable(): (() => void) | null {
+export function autoInitObservablePlots(): (() => void) | null {
   if (typeof window === 'undefined' || typeof document === 'undefined')
     return null;
   if ((window as Window & { maidrObservableAutoInit?: boolean }).maidrObservableAutoInit === false)
@@ -264,7 +264,7 @@ export function autoInitQuartoObservable(): (() => void) | null {
     return autoWatcher;
 
   if (document.readyState !== 'loading') {
-    autoWatcher = initQuartoObservable();
+    autoWatcher = initObservablePlots();
     return autoWatcher;
   }
 
@@ -274,7 +274,7 @@ export function autoInitQuartoObservable(): (() => void) | null {
   let cancelled = false;
   document.addEventListener('DOMContentLoaded', () => {
     if (!cancelled)
-      stop = initQuartoObservable();
+      stop = initObservablePlots();
   }, { once: true });
 
   autoWatcher = () => {
@@ -286,13 +286,13 @@ export function autoInitQuartoObservable(): (() => void) | null {
 }
 
 /**
- * Stops the watcher {@link autoInitQuartoObservable} started, if it started one.
+ * Stops the watcher {@link autoInitObservablePlots} started, if it started one.
  *
  * Charts already bound stay bound; this only stops new ones being picked up.
  * Exposed so a single-page app can hand the page back cleanly, and so a test
  * can turn the adapter off.
  */
-export function stopQuartoObservable(): void {
+export function stopObservablePlots(): void {
   autoWatcher?.();
   autoWatcher = null;
 }
@@ -365,7 +365,7 @@ function findUnboundPlots(root: ParentNode): Element[] {
  * @param svg     - The chart's `<svg>`.
  * @param options - The observer's options.
  */
-function bindOne(svg: Element, options: QuartoObservableOptions): void {
+function bindOne(svg: Element, options: ObservableWatchOptions): void {
   try {
     const result = bindObservablePlot(svg, options.plot ?? {});
     if (result)
@@ -380,3 +380,24 @@ function bindOne(svg: Element, options: QuartoObservableOptions): void {
       console.warn(`${LOG_PREFIX} failed to bind a plot:`, error);
   }
 }
+
+/**
+ * @deprecated Renamed to {@link initObservablePlots}. The watcher never had
+ * anything to do with Quarto — it binds Plot charts wherever they appear, and
+ * the Quarto name said otherwise to everyone using it on an ordinary page.
+ * Kept so the released name goes on working; it will be removed in the next
+ * major.
+ */
+export const initQuartoObservable = initObservablePlots;
+
+/**
+ * @deprecated Renamed to {@link stopObservablePlots}. See
+ * {@link initQuartoObservable}.
+ */
+export const stopQuartoObservable = stopObservablePlots;
+
+/**
+ * @deprecated Renamed to {@link autoInitObservablePlots}. See
+ * {@link initQuartoObservable}.
+ */
+export const autoInitQuartoObservable = autoInitObservablePlots;

@@ -13,7 +13,7 @@
  *   every mutation, stacking duplicate schemas on one element.
  */
 
-import { bindObservablePlot, initQuartoObservable } from '@adapters/observable/quarto';
+import { bindObservablePlot, initObservablePlots } from '@adapters/observable/watcher';
 import { FIXTURES } from './fixtures';
 import { mountFixture } from './helpers';
 
@@ -106,7 +106,7 @@ describe('watching a Quarto document', () => {
       const { document } = dom.window;
       document.body.innerHTML = '<div id="ojs-cell-1" data-nodetype="expression"></div>';
       const bound: unknown[] = [];
-      const stop = initQuartoObservable({ onBind: result => bound.push(result) });
+      const stop = initObservablePlots({ onBind: result => bound.push(result) });
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html;
@@ -127,7 +127,7 @@ describe('watching a Quarto document', () => {
       const { document } = dom.window;
       document.body.innerHTML = '<div id="ojs-cell-1"></div>';
       const bound: unknown[] = [];
-      const stop = initQuartoObservable({ onBind: result => bound.push(result) });
+      const stop = initObservablePlots({ onBind: result => bound.push(result) });
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html;
@@ -151,7 +151,7 @@ describe('watching a Quarto document', () => {
       const { document } = dom.window;
       document.body.innerHTML = `<div id="ojs-cell-1">${FIXTURES.bar.html}</div>`;
       const bound: unknown[] = [];
-      const stop = initQuartoObservable({ onBind: result => bound.push(result) });
+      const stop = initObservablePlots({ onBind: result => bound.push(result) });
 
       // Any mutation triggers another scan; the chart is already bound.
       document.body.appendChild(document.createElement('p'));
@@ -171,7 +171,7 @@ describe('watching a Quarto document', () => {
       const { document } = dom.window;
       document.body.innerHTML = '<div id="ojs-cell-1"></div>';
       const bound: unknown[] = [];
-      const stop = initQuartoObservable({ onBind: result => bound.push(result) });
+      const stop = initObservablePlots({ onBind: result => bound.push(result) });
       stop();
 
       document.querySelector('#ojs-cell-1')!.innerHTML = FIXTURES.bar.html;
@@ -200,7 +200,7 @@ describe('charts a reactive cell replaces', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html;
@@ -234,7 +234,7 @@ describe('charts a reactive cell replaces', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html;
@@ -267,7 +267,7 @@ describe('charts a reactive cell replaces', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.scatter.html;
@@ -312,7 +312,7 @@ describe('charts a reactive cell replaces', () => {
         container = document.createElement('div');
         chart.parentNode?.replaceChild(container, chart);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.scatter.html;
@@ -356,7 +356,7 @@ describe('a cell holding more than one chart', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html + FIXTURES.scatter.html;
@@ -380,7 +380,7 @@ describe('a cell holding more than one chart', () => {
       document.addEventListener('maidr:unbindchart', (event) => {
         released.push((event as CustomEvent<Element>).detail);
       });
-      const stop = initQuartoObservable();
+      const stop = initObservablePlots();
 
       const cell = document.querySelector('#ojs-cell-1');
       cell!.innerHTML = FIXTURES.bar.html + FIXTURES.scatter.html;
@@ -393,6 +393,40 @@ describe('a cell holding more than one chart', () => {
       await settle();
 
       expect(released).toEqual(first);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('the names the first release shipped', () => {
+  it('still exports the Quarto-prefixed ones, pointing at the same functions', async () => {
+    // The watcher was named for Quarto because Quarto was what it was written
+    // for, and the name outlived the reason: it binds Plot charts on any page.
+    // Renaming it is only safe if a document written against the released names
+    // goes on working, so the aliases are part of the contract, not a courtesy.
+    const module = await import('@adapters/observable/watcher');
+
+    expect(module.initQuartoObservable).toBe(module.initObservablePlots);
+    expect(module.stopQuartoObservable).toBe(module.stopObservablePlots);
+    expect(module.autoInitQuartoObservable).toBe(module.autoInitObservablePlots);
+  });
+
+  it('watches the page when called by its old name', async () => {
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="cell"></div>';
+      const bound: unknown[] = [];
+      const { initQuartoObservable } = await import('@adapters/observable/watcher');
+      const stop = initQuartoObservable({ onBind: result => bound.push(result) });
+
+      document.querySelector('#cell')!.innerHTML = FIXTURES.bar.html;
+      await settle();
+
+      expect(bound).toHaveLength(1);
       stop();
     } finally {
       restore();
