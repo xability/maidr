@@ -121,11 +121,23 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-<<<<<<< HEAD
 - `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `survival`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares.
-=======
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `survival`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares.
->>>>>>> 97ef5574 (fix(choropleth): let the border walk be entered leftwards)
+
+> **`candlestick_delta` has no example page, on purpose.** It should never be
+> given one: it is a reading mode the model derives at runtime from a
+> `candlestick` layer (`src/model/candlestickDelta.ts`, reached with Alt+L), not
+> a value a page declares. `TraceFactory.create` in `src/model/factory.ts` has
+> no case for it, so a layer declaring it throws
+> `Invalid trace type: candlestick_delta` and the figure never binds — an
+> example would document something that does not exist. An audit of example
+> coverage that finds this gap has found the correct state of affairs.
+>
+> It is the only deliberate gap. Other declarable types that lack a
+> hand-authored example are genuinely missing one, and adding it is a normal
+> contribution — at the time of writing that is `alluvial`, `area` and
+> `manhattan`, which appear under `examples/` only as adapter-bound pages where
+> a chart library emits the schema at runtime.
+
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
 - `axes`: axes info for your plot. Each axis is a per-axis object: `maidr.axes.x`, `maidr.axes.y`, and (when used) `maidr.axes.z`. Supported properties per axis: `label` (string), `min` / `max` (number bounds), `tickStep` (number), and `format` (an `AxisFormat` object controlling numeric / categorical rendering). `label` is optional and defaults to `X`, `Y`, or `Level` for the respective axis. Bare string values for axes are no longer accepted.

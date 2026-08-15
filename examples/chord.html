@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Chord Diagram Example — Trade Between Regions</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A chord diagram is a weighted graph drawn around a circle. It carries
+        exactly what a SANKEY carries -- source, target, value, one entry per
+        ribbon -- and shares its trace class, so following a ribbon works the
+        same way:
+
+          right  follows the largest flow OUT of this node
+          left   follows the largest flow IN, back the other way
+          up/down  walk the other nodes
+
+        What makes it a type of its own is that IT IS CYCLIC. Every region
+        here both sends and receives, and Americas to Europe sits alongside
+        Europe to Americas, so there is no left-to-right budget and no order
+        the nodes could be layered in. A sankey's stage assignment is a longest
+        path from a source, and this graph has no source: the assignment does
+        not sort, so every node goes in ONE STAGE. That is the honest answer --
+        a partial layering would put some ribbons in a direction the data does
+        not support -- and the ribbons still follow, which is what the chart is
+        read for.
+
+        You can hear the cycle. Right takes the widest ribbon out of the node
+        it is on, and here that is Americas to Europe to Asia to Africa and
+        back to the Americas -- four presses and you are where you started,
+        which on a sankey could never happen.
+
+        THE PAIRS ARE THE POINT. Asia sends 28 to Africa and receives 8, a net
+        outflow of 20 that neither number states on its own; a reading that
+        gave only node totals would lose the direction the whole diagram is
+        drawn to show.
+
+        `selectors` is ONE ENTRY PER FLOW, in declared order, because a ribbon
+        is what the chart draws -- the nodes are the gaps between them. Twelve
+        flows, twelve `path` ids. A list of a different length resolves to
+        nothing and the layer silently loses its highlight.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="460pt" viewBox="0 0 720 460" version="1.1"
+        id="chord-trade" maidr='{&#10;  &quot;id&quot;: &quot;chord-trade&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;chord-trade-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;chord-trade-layer&quot;,&#10;            &quot;type&quot;: &quot;chord&quot;,&#10;            &quot;title&quot;: &quot;Trade Between Regions&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Region&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Billions of dollars&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;path[id=&#x27;chord-ribbon-0&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-1&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-2&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-3&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-4&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-5&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-6&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-7&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-8&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-9&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-10&#x27;]&quot;,&#10;              &quot;path[id=&#x27;chord-ribbon-11&#x27;]&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              {&#10;                &quot;source&quot;: &quot;Americas&quot;,&#10;                &quot;target&quot;: &quot;Europe&quot;,&#10;                &quot;value&quot;: 34&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Europe&quot;,&#10;                &quot;target&quot;: &quot;Americas&quot;,&#10;                &quot;value&quot;: 22&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Americas&quot;,&#10;                &quot;target&quot;: &quot;Asia&quot;,&#10;                &quot;value&quot;: 26&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Asia&quot;,&#10;                &quot;target&quot;: &quot;Americas&quot;,&#10;                &quot;value&quot;: 24&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Americas&quot;,&#10;                &quot;target&quot;: &quot;Africa&quot;,&#10;                &quot;value&quot;: 9&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Africa&quot;,&#10;                &quot;target&quot;: &quot;Americas&quot;,&#10;                &quot;value&quot;: 15&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Europe&quot;,&#10;                &quot;target&quot;: &quot;Asia&quot;,&#10;                &quot;value&quot;: 30&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Asia&quot;,&#10;                &quot;target&quot;: &quot;Europe&quot;,&#10;                &quot;value&quot;: 19&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Europe&quot;,&#10;                &quot;target&quot;: &quot;Africa&quot;,&#10;                &quot;value&quot;: 12&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Africa&quot;,&#10;                &quot;target&quot;: &quot;Europe&quot;,&#10;                &quot;value&quot;: 11&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Asia&quot;,&#10;                &quot;target&quot;: &quot;Africa&quot;,&#10;                &quot;value&quot;: 28&#10;              },&#10;              {&#10;                &quot;source&quot;: &quot;Africa&quot;,&#10;                &quot;target&quot;: &quot;Asia&quot;,&#10;                &quot;value&quot;: 8&#10;              }&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 460  L 720 460  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="chord-ribbons">
+          <path id="chord-ribbon-0" d="M 353.5 86.1 A 150.0 150.0 0 0 1 415.7 96.7 Q 360.0 236.0 509.3 250.0 A 150.0 150.0 0 0 1 490.4 310.2 Q 360.0 236.0 353.5 86.1 Z" style="fill: #4c72b0; fill-opacity: 0.45" />
+          <path id="chord-ribbon-1" d="M 490.4 310.2 A 150.0 150.0 0 0 1 465.4 342.7 Q 360.0 236.0 415.7 96.7 A 150.0 150.0 0 0 1 451.3 117.0 Q 360.0 236.0 490.4 310.2 Z" style="fill: #dd8452; fill-opacity: 0.45" />
+          <path id="chord-ribbon-2" d="M 451.3 117.0 A 150.0 150.0 0 0 1 484.5 152.3 Q 360.0 236.0 329.4 382.8 A 150.0 150.0 0 0 1 284.2 365.4 Q 360.0 236.0 451.3 117.0 Z" style="fill: #4c72b0; fill-opacity: 0.45" />
+          <path id="chord-ribbon-3" d="M 284.2 365.4 A 150.0 150.0 0 0 1 249.4 337.3 Q 360.0 236.0 484.5 152.3 A 150.0 150.0 0 0 1 503.6 192.7 Q 360.0 236.0 284.2 365.4 Z" style="fill: #55a868; fill-opacity: 0.45" />
+          <path id="chord-ribbon-4" d="M 503.6 192.7 A 150.0 150.0 0 0 1 507.6 209.0 Q 360.0 236.0 222.1 176.9 A 150.0 150.0 0 0 1 229.6 161.8 Q 360.0 236.0 503.6 192.7 Z" style="fill: #4c72b0; fill-opacity: 0.45" />
+          <path id="chord-ribbon-5" d="M 229.6 161.8 A 150.0 150.0 0 0 1 245.7 138.9 Q 360.0 236.0 507.6 209.0 A 150.0 150.0 0 0 1 510.0 236.9 Q 360.0 236.0 229.6 161.8 Z" style="fill: #c44e52; fill-opacity: 0.45" />
+          <path id="chord-ribbon-6" d="M 465.4 342.7 A 150.0 150.0 0 0 1 419.1 373.9 Q 360.0 236.0 249.4 337.3 A 150.0 150.0 0 0 1 220.0 289.9 Q 360.0 236.0 465.4 342.7 Z" style="fill: #dd8452; fill-opacity: 0.45" />
+          <path id="chord-ribbon-7" d="M 220.0 289.9 A 150.0 150.0 0 0 1 211.3 255.6 Q 360.0 236.0 419.1 373.9 A 150.0 150.0 0 0 1 385.1 383.9 Q 360.0 236.0 220.0 289.9 Z" style="fill: #55a868; fill-opacity: 0.45" />
+          <path id="chord-ribbon-8" d="M 385.1 383.9 A 150.0 150.0 0 0 1 362.8 386.0 Q 360.0 236.0 245.7 138.9 A 150.0 150.0 0 0 1 261.5 122.9 Q 360.0 236.0 385.1 383.9 Z" style="fill: #dd8452; fill-opacity: 0.45" />
+          <path id="chord-ribbon-9" d="M 261.5 122.9 A 150.0 150.0 0 0 1 277.8 110.5 Q 360.0 236.0 362.8 386.0 A 150.0 150.0 0 0 1 342.3 384.9 Q 360.0 236.0 261.5 122.9 Z" style="fill: #c44e52; fill-opacity: 0.45" />
+          <path id="chord-ribbon-10" d="M 211.3 255.6 A 150.0 150.0 0 0 1 213.6 203.5 Q 360.0 236.0 277.8 110.5 A 150.0 150.0 0 0 1 325.7 90.0 Q 360.0 236.0 211.3 255.6 Z" style="fill: #55a868; fill-opacity: 0.45" />
+          <path id="chord-ribbon-11" d="M 325.7 90.0 A 150.0 150.0 0 0 1 340.4 87.3 Q 360.0 236.0 213.6 203.5 A 150.0 150.0 0 0 1 217.5 189.1 Q 360.0 236.0 325.7 90.0 Z" style="fill: #c44e52; fill-opacity: 0.45" />
+            </g>
+            <g id="chord-arcs">
+          <path d="M 353.5 86.1 A 150.0 150.0 0 0 1 510.0 236.9 L 524.0 237.0 A 164.0 164.0 0 0 0 352.8 72.2 Z" style="fill: #4c72b0" />
+          <path d="M 509.3 250.0 A 150.0 150.0 0 0 1 342.3 384.9 L 340.6 398.9 A 164.0 164.0 0 0 0 523.3 251.3 Z" style="fill: #dd8452" />
+          <path d="M 329.4 382.8 A 150.0 150.0 0 0 1 217.5 189.1 L 204.2 184.7 A 164.0 164.0 0 0 0 326.5 396.5 Z" style="fill: #55a868" />
+          <path d="M 222.1 176.9 A 150.0 150.0 0 0 1 340.4 87.3 L 338.6 73.4 A 164.0 164.0 0 0 0 209.3 171.4 Z" style="fill: #c44e52" />
+            </g>
+            <g id="chord-labels">
+          <text x="489.0" y="106.0" style="font: 13px sans-serif; text-anchor: start">Americas</text>
+          <text x="476.9" y="384.7" style="font: 13px sans-serif; text-anchor: start">Europe</text>
+          <text x="198.9" y="333.0" style="font: 13px sans-serif; text-anchor: end">Asia</text>
+          <text x="247.7" y="91.7" style="font: 13px sans-serif; text-anchor: end">Africa</text>
+            </g>
+            <g id="chart-title">
+              <text x="360" y="40" style="font: 16px sans-serif; text-anchor: middle">Trade Between Regions</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
