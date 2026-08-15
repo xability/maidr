@@ -727,6 +727,26 @@ export interface LinePoint {
    * { x: 1.5, y: 3, label: 'REM' }
    */
   label?: string;
+  /**
+   * Lower bound of the uncertainty around `y`, when the chart draws one.
+   *
+   * A fitted curve almost always comes with a band, and it is the reason the
+   * curve is drawn rather than a plain line: `geom_smooth(se = TRUE)` and
+   * `sns.regplot` both default to one. Carried on the sample rather than in a
+   * layer of its own so a reader hears the value and its interval at the same
+   * x — the comparison a band exists for is whether the trend is
+   * distinguishable from flat, and that cannot be made by navigating two
+   * layers in turn.
+   *
+   * Named to match {@link ErrorBarPoint}, so a producer that already computes
+   * an interval emits the same keys wherever it puts them.
+   *
+   * Both bounds are optional and independent: a one-sided interval is a real
+   * chart, and a sample missing its bounds still carries its value.
+   */
+  yMin?: number;
+  /** Upper bound of the uncertainty around `y`. See {@link LinePoint.yMin}. */
+  yMax?: number;
 }
 
 /**

@@ -386,6 +386,19 @@ export interface TextState {
    * shape.
    */
   stack?: { label: string; value: number; share?: number };
+  /**
+   * The uncertainty around the value in `cross`, announced as a clause after
+   * it rather than in place of it.
+   *
+   * Deliberately not {@link TextState.range}, which is a *main-axis* extent
+   * that **replaces** the main value — right for a histogram bin ("x is 3
+   * through 5") and wrong here, where the value is a real reading and the
+   * interval is a second fact about it. A band on a fitted curve has to be
+   * heard alongside "y is 3.2", not instead of it.
+   *
+   * Either bound may be absent: a one-sided interval is a real chart.
+   */
+  interval?: { min?: number; max?: number };
   range?: { min: number; max: number };
   /**
    * Facts the point carries that sit on neither axis, announced as their own

@@ -58,6 +58,29 @@ const SVG_PATH_ARITY: Record<string, number> = {
 };
 
 /**
+ * Read the uncertainty band a sample carries, when it carries one.
+ *
+ * Spread into the text state rather than assigned, so a point with no bounds
+ * produces no `interval` key at all — the text service branches on the field
+ * being present, and an `{}` would announce an empty clause.
+ *
+ * Only finite bounds count. A producer that fills the columns with `NaN` for
+ * the samples outside its fit is describing a curve with no band there, and
+ * announcing "interval NaN to NaN" would be worse than saying nothing.
+ *
+ * @param point - The sample under the cursor
+ * @returns A spreadable `{ interval }`, or nothing
+ */
+function intervalOf(point: LinePoint): { interval?: { min?: number; max?: number } } {
+  const min = Number.isFinite(point.yMin) ? point.yMin : undefined;
+  const max = Number.isFinite(point.yMax) ? point.yMax : undefined;
+  if (min === undefined && max === undefined) {
+    return {};
+  }
+  return { interval: { min, max } };
+}
+
+/**
  * Represents a line trace plot with support for single and multi-line navigation
  */
 export class LineTrace extends AbstractTrace {
@@ -275,6 +298,22 @@ export class LineTrace extends AbstractTrace {
       stats.push({ label: labels.names, value: lineNames });
     }
 
+    // How wide the uncertainty gets, when the chart draws any. That is what
+    // the per-sample statistics above cannot show: `Min value` and `Max value`
+    // describe the fitted curve, not the band around it, so a reader opening
+    // the description of a regression chart would otherwise learn nothing
+    // about how well determined it is.
+    const widths = this.points
+      .flat()
+      .map(point => Number(point.yMax) - Number(point.yMin))
+      .filter(width => Number.isFinite(width));
+    if (widths.length > 0) {
+      stats.push(
+        { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
+        { label: 'Widest interval', value: MathUtil.safeMax(widths) },
+      );
+    }
+
     let headers: string[];
     let rows: (string | number)[][];
 
@@ -467,6 +506,7 @@ export class LineTrace extends AbstractTrace {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
       cross: { label: this.yAxis, value: crossValue },
       ...zData,
+      ...intervalOf(point),
     };
   }
 
