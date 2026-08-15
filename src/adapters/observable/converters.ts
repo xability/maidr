@@ -441,8 +441,16 @@ function isFloating(
   scales: PlotScales,
   orientation: Orientation,
 ): boolean {
-  if (data.some(datum => datum.series !== undefined))
+  // More rects than categories is what a stack is: its segments share a
+  // category and pile up on one another, and the ones above the first are off
+  // the baseline by design. Asking instead whether any rect has a *colour* —
+  // which is what this did — exempts every mark with a `fill`, and a waterfall
+  // coloured by rise and fall is both a floating bar and a coloured one. It
+  // still has one rect per category, so counting is the test that separates
+  // them, and it is the same one `stackedGrid` applies.
+  if (data.length > new Set(data.map(datum => datum.x)).size)
     return false;
+
   const value = orientation === Orientation.VERTICAL ? scales.y : scales.x;
   const baseline = baselinePixel(value);
   if (baseline === null)
@@ -891,11 +899,20 @@ function convertLine(
     return null;
 
   const token = `L${context.layerCount++}`;
+  // A stacked area draws two magnitudes per sample — the band's own height and
+  // the running total its top edge traces — and `AreaTrace` announces the
+  // second only when it is told the layer is stacked. Typed as a plain area the
+  // values are right and half the chart's meaning is missing, because a reader
+  // is never told what the bands add up to or what share this one is. The
+  // totals are summed there rather than sent from here, which is what the
+  // per-series values read off the band are.
+  const stacked = type === TraceType.AREA && series.length > 1;
+
   return {
     legend,
     layer: {
       id: token,
-      type,
+      type: stacked ? TraceType.STACKED_AREA : type,
       selectors: stampSeries(elements, context.containerId, token),
       axes: axisConfig(context),
       data: series,

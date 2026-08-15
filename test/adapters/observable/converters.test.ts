@@ -642,7 +642,10 @@ describe('an area mark that does not sit on the baseline', () => {
     const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
     const series = layer?.data as LinePoint[][];
 
-    expect(layer?.type).toBe(TraceType.AREA);
+    // Stacked, not plain: `AreaTrace` announces the running total and this
+    // band's share of it only when the layer says so, and it sums the series
+    // itself — which is exactly the per-series values read off the bands.
+    expect(layer?.type).toBe(TraceType.STACKED_AREA);
     expect(series.map(points => points.map(point => point.y))).toEqual([
       [120, 135, 150],
       [60, 70, 65],
@@ -666,6 +669,17 @@ describe('bars that span an interval instead of standing on zero', () => {
     // and 50 is not what happened — the step is a fall of 50 and lands at 90.
     // A bar point holds one number and there is nowhere to put the second.
     const { element } = mountFixture('waterfall');
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+
+  it('refuses one drawn with a fill as well', () => {
+    // A waterfall is usually coloured by rise and fall, and the first attempt
+    // at this exempted any mark with a colour channel in order to spare genuine
+    // stacked segments — which let the common form of the very chart it was
+    // written to refuse straight through. What separates the two is that a
+    // stack has more rects than categories; a coloured waterfall has one each.
+    const { element } = mountFixture('colouredWaterfall');
 
     expect(observablePlotToMaidr(element)).toBeNull();
   });

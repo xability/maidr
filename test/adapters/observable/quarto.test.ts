@@ -38,9 +38,18 @@ function useDom(dom: MountedDom): () => void {
 
 type MountedDom = ReturnType<typeof mountFixture>['dom'];
 
-/** Resolves after the watcher's coalesced scan has run. */
+/**
+ * Resolves after the watcher's coalesced scan has run.
+ *
+ * Several turns rather than one: the scan is scheduled through the
+ * `requestAnimationFrame` stub, and a binding pass can schedule another, so a
+ * single short sleep is enough only while the machine is idle. On a loaded CI
+ * runner it was not, and the test that depended on it failed there and nowhere
+ * else.
+ */
 async function settle(): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 5));
+  for (let turn = 0; turn < 5; turn++)
+    await new Promise(resolve => setTimeout(resolve, 5));
 }
 
 /**
