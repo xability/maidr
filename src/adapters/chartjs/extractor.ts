@@ -14,9 +14,12 @@
  * semantically equivalent trace for them.
  */
 
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
 
 // ---------------------------------------------------------------------------
 // Monotonic ID counter for guaranteed unique IDs
@@ -580,6 +583,130 @@ export function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y
   return v != null && typeof v === 'object' && 'v' in v;
 }
 
+// ---------------------------------------------------------------------------
+// The co-located `maidr` declaration
+// ---------------------------------------------------------------------------
+
+/** How this adapter names itself in a declaration warning. */
+const ADAPTER = 'Chart.js';
+
+/**
+ * Every dataset's validated `maidr` block, in chart order, `null` where the
+ * dataset carries none this adapter can read.
+ *
+ * Read once per extraction, before any layer is built, so a block with a typo
+ * in it is reported once rather than once per reader that consults it.
+ */
+type DatasetDeclarations = readonly (MaidrTraceDeclaration | null)[];
+
+/**
+ * Which Chart.js constructs can back each declared trace type.
+ *
+ * A declaration says what a drawing means; it cannot make a pie chart into a
+ * survival curve. A type absent from this table is one the Chart.js adapter
+ * has no reading for at all — the union covers every library, and a hexbin or
+ * a choropleth has no Chart.js construct behind it here.
+ */
+const DECLARED_TYPE_CONSTRUCTS: Partial<Record<TraceType, readonly string[]>> = {
+  [TraceType.SURVIVAL]: ['line'],
+  [TraceType.SCATTER]: ['scatter', 'bubble'],
+  [TraceType.VOLCANO]: ['scatter', 'bubble'],
+  [TraceType.MANHATTAN]: ['scatter', 'bubble'],
+};
+
+/**
+ * Emits one adapter-prefixed warning.
+ *
+ * @param message - The sentence following the prefix
+ */
+function warn(message: string): void {
+  console.warn(`[MAIDR ${ADAPTER}] ${message}`);
+}
+
+/**
+ * How a warning names a dataset, so its author can find it.
+ *
+ * @param dataset - The dataset being read
+ * @param index - Its position in `chart.data.datasets`
+ * @returns A locating phrase — a label where the dataset has one
+ */
+function datasetRef(dataset: ChartJsDataset, index: number): string {
+  return dataset.label ? `dataset "${dataset.label}"` : `dataset ${index}`;
+}
+
+/** Who is reading a dataset's declaration, and what they are reading it off. */
+function declarationContext(dataset: ChartJsDataset, index: number): DeclarationContext {
+  return { adapter: ADAPTER, seriesRef: datasetRef(dataset, index) };
+}
+
+/**
+ * Whether the dataset carries a `maidr` block at all, readable or not.
+ *
+ * Distinct from having a usable declaration: a block this adapter rejected is
+ * still the author saying something about this dataset, which is what keeps it
+ * out of a neighbour's merged layer.
+ *
+ * @param dataset - The dataset being read
+ * @returns True when a block was written on it
+ */
+function carriesDeclaration(dataset: ChartJsDataset): boolean {
+  return dataset.maidr !== undefined && dataset.maidr !== null;
+}
+
+/**
+ * Reads every dataset's co-located `maidr` block.
+ *
+ * Two failures are settled here so no layer builder has to: a block the shared
+ * validator rejects, and a block declaring a type this adapter cannot back
+ * with the construct it was written on. Both degrade to `null` — the chart is
+ * read exactly as it would have been with no block at all — and both say so.
+ *
+ * @param chart - The chart being read
+ * @param chartType - What Chart.js is drawing the chart as
+ * @returns One entry per dataset, in chart order
+ */
+function readDeclarations(chart: ChartJsChart, chartType: string): DatasetDeclarations {
+  return chart.data.datasets.map((dataset, index) => {
+    const declaration = validateDeclaration(
+      dataset.maidr,
+      declarationContext(dataset, index),
+    );
+    if (declaration === null)
+      return null;
+
+    const constructs = DECLARED_TYPE_CONSTRUCTS[declaration.type];
+    const drawn = drawnKind(dataset, chartType);
+    if (constructs === undefined) {
+      warn(
+        `maidr declaration for "${declaration.type}" on ${datasetRef(dataset, index)} `
+        + `names a trace the Chart.js adapter has no reading for; `
+        + `reading it as the undeclared chart.`,
+      );
+      return null;
+    }
+    if (!constructs.includes(drawn)) {
+      warn(
+        `maidr declaration for "${declaration.type}" on ${datasetRef(dataset, index)} `
+        + `needs a ${constructs.join(' or ')} dataset and this one is drawn as "${drawn}"; `
+        + `reading it as the undeclared chart.`,
+      );
+      return null;
+    }
+    return declaration;
+  });
+}
+
+/**
+ * What Chart.js draws a dataset with: its own `type`, or the chart's.
+ *
+ * @param dataset - The dataset being read
+ * @param chartType - What Chart.js is drawing the chart as
+ * @returns The resolved Chart.js type string
+ */
+function drawnKind(dataset: ChartJsDataset, chartType: string): string {
+  return dataset.type ?? chartType;
+}
+
 /**
  * What the page's author declared the chart to be, if anything.
  *
@@ -587,11 +714,51 @@ export function isMatrixValue(v: ChartJsDataValue): v is { x: string | number; y
  * every heuristic below, and for the three readings no heuristic can reach —
  * a survival curve, a dumbbell, a gauge — it is the only way in.
  *
+ * A co-located block on a dataset outranks the chart-wide
+ * {@link MaidrPluginOptions.traceType}, which stays the shorthand for a figure
+ * drawn as a single dataset. Where the two disagree the block wins and both
+ * are named, because a chart carrying two answers is an edit half-finished.
+ *
+ * Only one whole-chart reading can win, so where several datasets declare
+ * differing types the first in chart order wins and every type found is
+ * named. Several datasets declaring the same type is the ordinary case —
+ * a survival curve's arms each say what they are — and passes silently.
+ *
+ * @param declarations - Every dataset's validated block, in chart order
  * @param pluginOptions - Optional per-chart plugin options
  * @returns The declared trace type, or `undefined` when the page does not say
  */
-function declaredType(pluginOptions?: MaidrPluginOptions): TraceType | undefined {
-  return pluginOptions?.traceType;
+function declaredType(
+  declarations: DatasetDeclarations,
+  pluginOptions?: MaidrPluginOptions,
+): TraceType | undefined {
+  const declaredTypes = [...new Set(
+    declarations
+      .filter((one): one is MaidrTraceDeclaration => one !== null)
+      .map(one => one.type),
+  )];
+  const declared = declaredTypes[0];
+  const chartWide = pluginOptions?.traceType;
+  if (declared === undefined)
+    return chartWide;
+  // Several datasets may carry a block — a survival curve's arms each declare
+  // themselves — but only one whole-chart reading can win, so blocks that
+  // disagree are an edit half-finished in the same way a block disagreeing
+  // with the chart-wide option is, and are named the same way.
+  if (declaredTypes.length > 1) {
+    warn(
+      `maidr declarations on this chart read it as `
+      + `${declaredTypes.map(one => `"${one}"`).join(' and ')}; a chart has one `
+      + `whole-chart reading, so the first ("${declared}") wins.`,
+    );
+  }
+  if (chartWide !== undefined && chartWide !== declared) {
+    warn(
+      `a maidr declaration reads this chart as "${declared}" and `
+      + `plugins.maidr.traceType reads it as "${chartWide}"; the declaration wins.`,
+    );
+  }
+  return declared;
 }
 
 function isStacked(chart: ChartJsChart): boolean {
@@ -619,17 +786,19 @@ function extractLayers(
   pluginOptions?: MaidrPluginOptions,
   datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
+  const declarations = readDeclarations(chart, chartType);
+
   switch (chartType) {
     case 'bar':
-      return extractBarLayers(chart, pluginOptions);
+      return extractBarLayers(chart, declarations, pluginOptions);
     case 'line':
-      return extractLineLayers(chart, pluginOptions, datasetIndices);
+      return extractLineLayers(chart, declarations, pluginOptions, datasetIndices);
     case 'scatter':
     case 'bubble':
-      return extractScatterLayers(chart, pluginOptions);
+      return extractScatterLayers(chart, declarations, pluginOptions, datasetIndices);
     case 'pie':
     case 'doughnut':
-      return extractPieLayers(chart, pluginOptions, datasetIndices);
+      return extractPieLayers(chart, declarations, pluginOptions, datasetIndices);
     // A radar joins its values into a closed outline and a polar area draws
     // them as wedges; a reader navigates the same spokes either way, which is
     // why `RadarTrace` serves both and the payload is identical.
@@ -659,6 +828,7 @@ function extractLayers(
 
 function extractBarLayers(
   chart: ChartJsChart,
+  declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer[] {
   const data = chart.data;
@@ -669,7 +839,7 @@ function extractBarLayers(
   // Floating bars carry two positions rather than a magnitude, so they are
   // neither a bar nor a segmented bar — checked before either.
   if (data.datasets.some(dataset => dataset.data.some(isRangeValue)))
-    return [extractFloatingBarLayer(chart, pluginOptions)];
+    return [extractFloatingBarLayer(chart, declarations, pluginOptions)];
 
   if (data.datasets.length > 1) {
     const traceType = isStacked(chart)
@@ -860,13 +1030,14 @@ function isWaterfallSequence(chart: ChartJsChart): boolean {
 
 function extractFloatingBarLayer(
   chart: ChartJsChart,
+  declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer {
   // A dumbbell has no heuristic of its own on purpose. One interval per
   // category on a horizontal axis is the same figure a one-lane-per-task gantt
   // draws, down to the datum, so any test that read one as a dumbbell would
   // read every schedule as one too. The author says which, or it stays a gantt.
-  switch (declaredType(pluginOptions)) {
+  switch (declaredType(declarations, pluginOptions)) {
     case TraceType.DUMBBELL:
       return extractDumbbellLayer(chart, pluginOptions);
     case TraceType.WATERFALL:
@@ -1309,11 +1480,11 @@ function isCategoryScale(chart: ChartJsChart, axisId: string): boolean {
  * has two measured coordinates rather than a value per named category.
  *
  * @param chart - The chart to classify
- * @param pluginOptions - Optional per-chart plugin options
+ * @param declared - What the page declared the chart to be, if anything
  * @returns True when the chart draws one value per category as a point
  */
-function isDotPlot(chart: ChartJsChart, pluginOptions?: MaidrPluginOptions): boolean {
-  if (declaredType(pluginOptions) === TraceType.DOT)
+function isDotPlot(chart: ChartJsChart, declared: TraceType | undefined): boolean {
+  if (declared === TraceType.DOT)
     return true;
   if (!isCategoryScale(chart, categoryAxis(chart)))
     return false;
@@ -1449,6 +1620,7 @@ function extractSurvivalLayer(
 
 function extractLineLayers(
   chart: ChartJsChart,
+  declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
   datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
@@ -1473,10 +1645,11 @@ function extractLineLayers(
   // settled before the datasets are bucketed by mark: a dot plot has no line
   // to be stepped or filled, and a survival curve is one figure whose arms
   // belong together whatever each dataset declares.
-  if (declaredType(pluginOptions) === TraceType.SURVIVAL)
+  const declared = declaredType(declarations, pluginOptions);
+  if (declared === TraceType.SURVIVAL)
     return [extractSurvivalLayer(chart, pluginOptions)];
 
-  if (isDotPlot(chart, pluginOptions))
+  if (isDotPlot(chart, declared))
     return extractDotLayers(chart, pluginOptions, datasetIndices);
 
   // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
@@ -1640,36 +1813,296 @@ function extractRadarLayers(
  */
 const DEFAULT_BUBBLE_SIZE_LABEL = 'Size';
 
+/**
+ * A declaration this adapter reads a cloud of points from.
+ *
+ * All three are drawn as a Chart.js scatter and navigated identically; what a
+ * volcano and a Manhattan add is an identity per point and the threshold the
+ * figure is read through.
+ */
+type PointDeclaration = ScatterDeclaration | VolcanoDeclaration | ManhattanDeclaration;
+
+/** A declaration whose points carry an identity the grammar has room for. */
+type NamedPointDeclaration = VolcanoDeclaration | ManhattanDeclaration;
+
+/**
+ * Whether a validated block declares one of the point-cloud readings.
+ *
+ * @param declaration - A dataset's validated block, or `null`
+ * @returns True when the block is a point-cloud declaration
+ */
+function isPointDeclaration(
+  declaration: MaidrTraceDeclaration | null,
+): declaration is PointDeclaration {
+  return declaration !== null
+    && (declaration.type === TraceType.SCATTER
+      || declaration.type === TraceType.VOLCANO
+      || declaration.type === TraceType.MANHATTAN);
+}
+
+/**
+ * The declaration whose points carry a label and a group, when this one does.
+ *
+ * `ScatterPoint` has no identity field, so a declared `point` layer reads
+ * exactly as an undeclared one and nothing is read off its data rows.
+ *
+ * @param declaration - The layer's declaration, when it has one
+ * @returns The declaration, or `undefined` when it names no identity
+ */
+function namedPoints(
+  declaration: PointDeclaration | null,
+): NamedPointDeclaration | undefined {
+  return declaration !== null && declaration.type !== TraceType.SCATTER
+    ? declaration
+    : undefined;
+}
+
+/**
+ * Whether a declaration absorbs the sibling datasets drawn after it.
+ *
+ * A Manhattan is one cloud split across a dataset per chromosome — 22 layers
+ * a reader must switch between is not a reading of that figure — so it
+ * absorbs by default. A volcano's siblings are usually up-regulated,
+ * down-regulated and unchanged, which are three things a reader wants told
+ * apart, so it does not.
+ *
+ * @param declaration - The declaration starting the layer
+ * @returns True when following undeclared siblings join this layer
+ */
+function mergesSiblings(declaration: PointDeclaration): boolean {
+  return declaration.merge ?? declaration.type === TraceType.MANHATTAN;
+}
+
+/**
+ * The chart-wide reading, in the form a layer is built from.
+ *
+ * `plugins.maidr.traceType` predates the co-located block and stays the
+ * shorthand for a figure drawn as a single dataset; it is the third step of
+ * the precedence order, below a block on the dataset itself. It carries no
+ * field names and no cutoffs, so what it buys is the trace type and whatever
+ * identity the default name chain finds on the data — a real reading, and a
+ * smaller one than a block gives.
+ *
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns The chart-wide declaration, or `null` when the page names no point cloud
+ */
+function chartWidePointDeclaration(
+  pluginOptions?: MaidrPluginOptions,
+): PointDeclaration | null {
+  switch (pluginOptions?.traceType) {
+    case TraceType.VOLCANO:
+      return { type: TraceType.VOLCANO };
+    case TraceType.MANHATTAN:
+      return { type: TraceType.MANHATTAN };
+    default:
+      return null;
+  }
+}
+
+/** One emitted point layer: which datasets back it, and what they declare. */
+interface PointGroup {
+  /** The dataset the layer is identified and titled by. */
+  index: number;
+  /** Every dataset backing the layer, in chart order. */
+  indices: number[];
+  declaration: PointDeclaration | null;
+}
+
+/**
+ * Which datasets become one layer.
+ *
+ * The shipped convention is one layer per dataset, which is what keeps a
+ * two-series scatter's series apart and its highlights routed. A declaration
+ * that merges overrides it for its own run: every *following* dataset drawn
+ * the same way that carries no declaration of its own joins the declaring
+ * layer, up to the next dataset that declares something.
+ *
+ * @param chart - The chart being read
+ * @param declarations - Every dataset's validated block, in chart order
+ * @param chartWide - The chart-wide reading, for datasets carrying no block
+ * @returns One group per emitted layer, in chart order
+ */
+function groupPointDatasets(
+  chart: ChartJsChart,
+  declarations: DatasetDeclarations,
+  chartWide: PointDeclaration | null,
+): PointGroup[] {
+  const chartType = chart.config.type;
+  const groups: PointGroup[] = [];
+  let absorbing: PointGroup | null = null;
+
+  for (let index = 0; index < chart.data.datasets.length; index++) {
+    const dataset = chart.data.datasets[index];
+    const declaration = declarations[index] ?? null;
+
+    // A dataset carrying a block of its own is never absorbed, even where the
+    // block turned out to be one this adapter cannot read: the author was
+    // saying this dataset is not simply more of the cloud before it, and they
+    // have already been told why the block did not take.
+    if (
+      !carriesDeclaration(dataset)
+      && absorbing !== null
+      && drawnKind(dataset, chartType)
+      === drawnKind(chart.data.datasets[absorbing.index], chartType)
+    ) {
+      absorbing.indices.push(index);
+      continue;
+    }
+
+    const group: PointGroup = {
+      index,
+      indices: [index],
+      declaration: isPointDeclaration(declaration) ? declaration : chartWide,
+    };
+    groups.push(group);
+    absorbing = group.declaration !== null && mergesSiblings(group.declaration)
+      ? group
+      : null;
+  }
+
+  return groups;
+}
+
+/**
+ * The cutoffs a volcano or Manhattan layer is read through.
+ *
+ * Nothing here is inferred. A Chart.js scatter states no line, and a guessed
+ * one would sort every point in the figure onto the wrong side of it,
+ * silently; a Manhattan's x-axis dividers are chromosome boundaries rather
+ * than an effect-size cutoff. A layer that declares neither is emitted with no
+ * option block at all and reports no findings, which is the reading its data
+ * supports.
+ *
+ * @param declaration - The layer's declaration
+ * @returns The declared cutoffs, or `undefined` when none were declared
+ */
+function thresholdOptionsOf(declaration: NamedPointDeclaration): ThresholdOptions | undefined {
+  const options: ThresholdOptions = {
+    ...(declaration.significance !== undefined
+      ? { significance: declaration.significance }
+      : {}),
+    ...(declaration.significanceDirection !== undefined
+      ? { significanceDirection: declaration.significanceDirection }
+      : {}),
+    ...(declaration.effect !== undefined ? { effect: declaration.effect } : {}),
+  };
+  return Object.keys(options).length > 0 ? options : undefined;
+}
+
+/**
+ * One point's identity or region, in the form the grammar carries it.
+ *
+ * `VolcanoPoint.label` and `.group` are strings, and a chromosome is very
+ * often authored as the number 7. Anything else — an object, a boolean, an
+ * empty string — is left out rather than stringified into an announcement.
+ *
+ * @param row - The datum the chart bound to the mark
+ * @param ref - The field the author named, or `undefined` to default
+ * @param canonical - The grammar field being filled
+ * @returns The text, or `undefined` when nothing usable resolved
+ */
+function pointText(
+  row: unknown,
+  ref: FieldRef | undefined,
+  canonical: string,
+): string | undefined {
+  const value = resolveFieldRef<unknown>(row, ref, canonical);
+  if (typeof value === 'string' && value !== '')
+    return value;
+  if (typeof value === 'number' && Number.isFinite(value))
+    return String(value);
+  return undefined;
+}
+
 function extractScatterLayers(
   chart: ChartJsChart,
+  declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
-  // Preserve per-dataset layers so multi-series scatter plots keep
-  // their dataset distinction (needed for correct highlighting).
-  return chart.data.datasets.map((dataset, idx) => {
-    const scatterData: ScatterPoint[] = datasetToScatterPoints(dataset);
+  const chartWide = chartWidePointDeclaration(pluginOptions);
+  return groupPointDatasets(chart, declarations, chartWide).map((group) => {
+    const declaration = group.declaration;
+    const named = namedPoints(declaration);
+    const points = group.indices.flatMap(index =>
+      datasetToScatterPoints(chart.data.datasets[index], named));
+    reportPointGaps(chart, group, points);
+
+    const id = String(group.index);
+    // Each layer says which datasets back it. The caller's per-type default
+    // reads a scatter layer's id as its lone dataset index, which a merged
+    // Manhattan — one layer over 22 datasets — is not.
+    datasetIndices?.set(id, group.indices);
+
+    const thresholds = named !== undefined ? thresholdOptionsOf(named) : undefined;
+    // A merged layer's declaring dataset names one chromosome of a cloud, not
+    // the cloud, so only a layer that really is one series takes its label.
+    const title = declaration?.title
+      ?? (group.indices.length === 1 ? chart.data.datasets[group.index].label : undefined);
 
     return {
-      id: String(idx),
-      type: TraceType.SCATTER,
-      title: dataset.label,
+      id,
+      type: declaration?.type ?? TraceType.SCATTER,
+      title,
+      ...(declaration?.name !== undefined ? { name: declaration.name } : {}),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
-        // Only when a radius was actually carried. This function serves plain
-        // scatter too, and a `z` axis on a chart with no third variable would
-        // announce a label for something that is not there.
-        ...(scatterData.some(point => point.z !== undefined) && {
+        // Only when a radius was actually carried. This serves plain scatter
+        // too, and a `z` axis on a chart with no third variable would announce
+        // a label for something that is not there.
+        ...(points.some(point => point.z !== undefined) && {
           z: { label: pluginOptions?.axes?.z ?? DEFAULT_BUBBLE_SIZE_LABEL },
         }),
       },
-      data: scatterData,
+      ...(thresholds !== undefined ? { thresholdOptions: thresholds } : {}),
+      data: points,
     };
   });
 }
 
 /**
- * Turn a dataset's points into scatter points, keeping a bubble's radius.
+ * Reports what a declared point layer asked for and did not get.
+ *
+ * Two silences are worth breaking. A field name the author wrote that no row
+ * carries is a typo, and the layer would otherwise arrive quietly missing the
+ * identity the chart is read for. A volcano or Manhattan with no significance
+ * cutoff is a real chart and is emitted, but it reports no findings — which is
+ * the one thing an author declaring the type was after.
+ *
+ * @param chart - The chart being read
+ * @param group - The datasets backing the layer, and what they declare
+ * @param points - The points the layer emitted
+ */
+function reportPointGaps(
+  chart: ChartJsChart,
+  group: PointGroup,
+  points: ScatterPoint[],
+): void {
+  const declaration = namedPoints(group.declaration);
+  if (declaration === undefined)
+    return;
+
+  const context = declarationContext(chart.data.datasets[group.index], group.index);
+  const carried = points as VolcanoPoint[];
+  if (points.length > 0) {
+    if (declaration.label !== undefined && !carried.some(point => point.label !== undefined))
+      warnUnresolvedRef(context, declaration.label, 'label');
+    if (declaration.group !== undefined && !carried.some(point => point.group !== undefined))
+      warnUnresolvedRef(context, declaration.group, 'group');
+  }
+  if (declaration.significance === undefined) {
+    warn(
+      `maidr declaration for "${declaration.type}" on ${context.seriesRef} `
+      + `declares no significance; the layer is emitted without a threshold and `
+      + `reports no findings.`,
+    );
+  }
+}
+
+/**
+ * Turn a dataset's points into scatter points, keeping a bubble's radius and
+ * whatever identity a declaration names.
  *
  * A Chart.js bubble datum is `{x, y, r}`, and `r` is a whole encoded variable
  * -- population, market cap, sample size -- which is usually the reason the
@@ -1679,17 +2112,42 @@ function extractScatterLayers(
  *
  * A plain scatter has no `r` and gets no `z`, which is what keeps `hasZ`
  * false and leaves its announcements unchanged.
+ *
+ * On a volcano or a Manhattan the coordinates are the *least* of the payload:
+ * a reader told "x is 2.3, y is 14.1" has been given the two numbers the axes
+ * already describe and withheld which gene that is. Chart.js passes properties
+ * it does not know through untouched, so the gene name rides on the datum the
+ * same way a survival curve's censoring mark does, and the declaration says
+ * which property it is. Neither field is fabricated when nothing resolves.
+ *
+ * @param dataset - The dataset to read
+ * @param declaration - The layer's declaration, when its points carry an identity
+ * @returns The dataset's points, gaps and non-point entries dropped
  */
-function datasetToScatterPoints(dataset: ChartJsDataset): ScatterPoint[] {
+function datasetToScatterPoints(
+  dataset: ChartJsDataset,
+  declaration?: NamedPointDeclaration,
+): ScatterPoint[] {
   const points: ScatterPoint[] = [];
   for (const point of dataset.data) {
-    if (isPointValue(point)) {
-      points.push(
-        typeof point.r === 'number'
-          ? { x: point.x, y: point.y, z: point.r }
-          : { x: point.x, y: point.y },
-      );
+    if (!isPointValue(point))
+      continue;
+
+    const position: ScatterPoint = typeof point.r === 'number'
+      ? { x: point.x, y: point.y, z: point.r }
+      : { x: point.x, y: point.y };
+    if (declaration === undefined) {
+      points.push(position);
+      continue;
     }
+
+    const label = pointText(point, declaration.label, 'label');
+    const group = pointText(point, declaration.group, 'group');
+    points.push({
+      ...position,
+      ...(label !== undefined ? { label } : {}),
+      ...(group !== undefined ? { group } : {}),
+    } satisfies VolcanoPoint);
   }
   return points;
 }
@@ -1729,11 +2187,10 @@ function getPieAxes(pluginOptions?: MaidrPluginOptions): MaidrLayer['axes'] {
  * misses, declaring `pie` keeps two slices two slices.
  *
  * @param chart - The chart to classify
- * @param pluginOptions - Optional per-chart plugin options
+ * @param declared - What the page declared the chart to be, if anything
  * @returns True when the chart draws one measure against a dial
  */
-function isGaugeDial(chart: ChartJsChart, pluginOptions?: MaidrPluginOptions): boolean {
-  const declared = declaredType(pluginOptions);
+function isGaugeDial(chart: ChartJsChart, declared: TraceType | undefined): boolean {
   if (declared === TraceType.GAUGE)
     return true;
   if (declared !== undefined)
@@ -1821,12 +2278,14 @@ function extractGaugeLayer(
  */
 function extractPieLayers(
   chart: ChartJsChart,
+  declarations: DatasetDeclarations,
   pluginOptions?: MaidrPluginOptions,
   datasetIndices?: LocalDatasetIndices,
 ): MaidrLayer[] {
   // A dial is the same ring drawn part way round, so it is settled here rather
   // than in the dispatcher — the chart type is `doughnut` either way.
-  if (chart.data.datasets.length > 0 && isGaugeDial(chart, pluginOptions))
+  const declared = declaredType(declarations, pluginOptions);
+  if (chart.data.datasets.length > 0 && isGaugeDial(chart, declared))
     return [extractGaugeLayer(chart, pluginOptions)];
 
   const labels = chart.data.labels ?? [];
