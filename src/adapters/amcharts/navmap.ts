@@ -18,11 +18,14 @@ import {
   extractErrorBarSamples,
   extractForestSamples,
   extractSurvivalArms,
+  planDeclarations,
 } from './declaration';
 import {
+  classifySeriesKind,
   extractGanttItems,
   extractHierarchyNodes,
   extractSpanItems,
+  findGaugeHand,
   isColumnSeries,
 } from './extractor';
 
@@ -117,7 +120,14 @@ export interface SeriesGroups {
   dumbbellSeriesList: AmXYSeries[];
   /** One GANTT layer each, in series order. */
   ganttSeriesList: AmXYSeries[];
-  /** One TREEMAP or ICICLE layer each, in series order. */
+  /**
+   * One TREEMAP, ICICLE or SUNBURST layer each, in series order.
+   *
+   * One bucket for three layouts because they are one tree drawn three ways
+   * and the highlight walks the same nodes whichever it is. Which *mark* to
+   * measure is decided from the layer's trace type where the resolver is
+   * built, since that is the part that differs.
+   */
   hierarchySeriesList: AmXYSeries[];
   /** One WORD_CLOUD layer each, in series order. */
   wordCloudSeriesList: AmXYSeries[];
@@ -280,24 +290,69 @@ function buildGanttResolver(series: AmXYSeries | undefined): Resolver {
 }
 
 /**
- * Build a resolver for a treemap or icicle layer.
+ * Build a resolver for a treemap, icicle or sunburst layer.
  *
  * MAIDR addresses a tree node by depth and by its position within that depth,
  * taking the position from the order the nodes were declared in — which is the
  * order the walk emitted them, so gathering the walk by depth rebuilds exactly
- * the grid the reader is navigating.
+ * the grid the reader is navigating. That is true of all three layouts: they
+ * are one tree drawn three ways.
+ *
+ * What is not the same is the mark. A treemap block and an icicle bar are
+ * rectangles, which the overlay measures as it measures a column; a sunburst
+ * node is a `Slice`, which reports a degenerate box at its own centre and has
+ * to be measured from its radius and sweep instead. Hence the `kind` — the one
+ * thing the caller has to say.
  */
-function buildHierarchyResolver(series: AmXYSeries | undefined): Resolver {
+function buildHierarchyResolver(
+  series: AmXYSeries | undefined,
+  kind: NavTarget['kind'],
+): Resolver {
   const levels: AmDataItem[][] = [];
   for (const node of series ? extractHierarchyNodes(series) : []) {
     (levels[node.depth] ??= []).push(node.dataItem);
   }
   return (row, col) => {
     const dataItem = levels[row]?.[col];
-    // A node is drawn as a rectangle, which the overlay measures the same way
-    // it measures a column.
-    return series && dataItem ? [{ series, dataItem, kind: 'column' }] : [];
+    return series && dataItem ? [{ series, dataItem, kind }] : [];
   };
+}
+
+/**
+ * Build a resolver for a gauge layer.
+ *
+ * Structurally the simplest resolver there is: `GaugeTrace` is a 1x1 grid and
+ * its position is always `(0, 0)`, so there is no ordering to mirror and no
+ * index to invert — every position is the needle.
+ *
+ * The plumbing is the only wrinkle. A {@link NavTarget} names a series and a
+ * data item, and a ClockHand has neither: it is a bullet on an *axis*. Rather
+ * than widen the target for one layer, the hand is handed to the overlay
+ * through a data item that answers `graphics` with it — which is exactly the
+ * read `kind: 'column'` already makes — and a stand-in series that nothing on
+ * that path asks anything of. The same trick `asStandalonePanel` uses to give
+ * a bare series the shape of a chart.
+ *
+ * If the hand reports no usable box the overlay clears rather than falling
+ * back to the chart. An outline around the whole dial would say nothing about
+ * where the needle is.
+ */
+function buildGaugeResolver(chart: AmChart): Resolver {
+  const hand = findGaugeHand(chart);
+  if (!hand) {
+    return () => [];
+  }
+
+  const dataItem = {
+    get: (key: string) => (key === 'graphics' ? hand.sprite : undefined),
+  } as AmDataItem;
+  const series = {
+    className: 'ClockHand',
+    get: () => undefined,
+    dataItems: [],
+  } as unknown as AmXYSeries;
+
+  return () => [{ series, dataItem, kind: 'column' }];
 }
 
 /**
@@ -446,6 +501,141 @@ export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
     chartFor: layerId => owners.get(layerId),
     chartCount: new Set(entries.map(entry => entry.chart)).size,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Series grouping
+// ---------------------------------------------------------------------------
+
+/**
+ * Group a chart's live series exactly as `buildChartLayers` groups them when
+ * it builds the layers.
+ *
+ * The one place in the adapter that deliberately duplicates a decision: the
+ * layer a reader hears and the mark the overlay outlines have to be the same
+ * series, so this asks the same two questions of the same chart —
+ * {@link planDeclarations} first, since a declared series is never also
+ * classified and an absorbed one is never a layer of its own, then
+ * `classifySeriesKind`. A kind added to one side and forgotten on the other is
+ * the failure this shape exists to make visible: audio and text keep working
+ * while the highlight silently vanishes.
+ *
+ * It lives here rather than beside the binder that calls it because
+ * {@link SeriesGroups} is defined here and the resolvers that consume it are
+ * here — and because the binder's own module cannot be loaded without React,
+ * which left this untested for as long as it sat there.
+ *
+ * @param chart - The live chart whose series to group.
+ * @returns The same buckets `addEntryResolvers` walks.
+ */
+export function groupSeries(chart: AmChart): SeriesGroups {
+  const groups: SeriesGroups = {
+    barSeriesList: [],
+    dotSeriesList: [],
+    lollipopSeriesList: [],
+    lineSeriesList: [],
+    stepSeriesList: [],
+    areaSeriesList: [],
+    radarSeriesList: [],
+    polarSeriesList: [],
+    histogramSeries: [],
+    heatmapSeries: [],
+    pieSeriesList: [],
+    funnelSeriesList: [],
+    waterfallSeriesList: [],
+    dumbbellSeriesList: [],
+    ganttSeriesList: [],
+    hierarchySeriesList: [],
+    wordCloudSeriesList: [],
+    declaredList: [],
+  };
+
+  // The same plan `buildChartLayers` builds, asked of the same chart: a
+  // declared series is never also classified, and an absorbed one is never a
+  // layer of its own — so the layer a reader hears and the mark the overlay
+  // outlines are always the same series.
+  const plan = planDeclarations(chart);
+
+  for (const series of chart.series.values) {
+    if (plan.absorbed.has(series)) {
+      continue;
+    }
+    const declared = plan.declared.get(series);
+    if (declared) {
+      groups.declaredList.push(declared);
+      continue;
+    }
+
+    switch (classifySeriesKind(series)) {
+      case 'bar':
+        groups.barSeriesList.push(series);
+        break;
+      // A dot and a lollipop read as a bar chart but are drawn with different
+      // marks, so the highlight measures different sprites and they keep
+      // buckets of their own.
+      case 'dot':
+        groups.dotSeriesList.push(series);
+        break;
+      case 'lollipop':
+        groups.lollipopSeriesList.push(series);
+        break;
+      // A bump chart's competitors are line series too. Whether the layer they
+      // merge into is read as ranks is a property of the group, decided where
+      // the layer is built, so the highlight path has one bucket for both.
+      case 'line':
+        groups.lineSeriesList.push(series);
+        break;
+      case 'step':
+        groups.stepSeriesList.push(series);
+        break;
+      case 'area':
+        groups.areaSeriesList.push(series);
+        break;
+      case 'radar':
+        groups.radarSeriesList.push(series);
+        break;
+      case 'polar':
+        groups.polarSeriesList.push(series);
+        break;
+      case 'histogram':
+        groups.histogramSeries.push(series);
+        break;
+      case 'heatmap':
+        groups.heatmapSeries.push(series);
+        break;
+      case 'pie':
+        groups.pieSeriesList.push(series);
+        break;
+      case 'funnel':
+        groups.funnelSeriesList.push(series);
+        break;
+      case 'waterfall':
+        groups.waterfallSeriesList.push(series);
+        break;
+      case 'dumbbell':
+        groups.dumbbellSeriesList.push(series);
+        break;
+      case 'gantt':
+        groups.ganttSeriesList.push(series);
+        break;
+      // A treemap, an icicle and a sunburst draw one tree three ways; the
+      // highlight walks the same nodes whichever it is, so they share a
+      // bucket. Which *mark* to measure is decided from the layer's trace type
+      // where the resolver is built, since that is what differs.
+      case 'treemap':
+      case 'icicle':
+      case 'sunburst':
+        groups.hierarchySeriesList.push(series);
+        break;
+      case 'wordcloud':
+        groups.wordCloudSeriesList.push(series);
+        break;
+      default:
+        break;
+    }
+  }
+
+  return groups;
 }
 
 /** Register the resolvers (and owning chart) for one subplot's layers. */
@@ -630,11 +820,22 @@ function addEntryResolvers(
         break;
       }
       case TraceType.TREEMAP:
-      case TraceType.ICICLE: {
+      case TraceType.ICICLE:
+      case TraceType.SUNBURST: {
+        // One tree, three marks: a treemap block and an icicle bar are
+        // rectangles, a sunburst node is a wedge.
+        const kind: NavTarget['kind']
+          = layer.type === TraceType.SUNBURST ? 'slice' : 'column';
         register(
           layer.id,
-          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++]),
+          buildHierarchyResolver(groups.hierarchySeriesList[hierarchyIdx++], kind),
         );
+        break;
+      }
+      case TraceType.GAUGE: {
+        // The one layer whose source is the chart rather than a series — a
+        // ClockHand gauge has no series for `groupSeries` to have bucketed.
+        register(layer.id, buildGaugeResolver(chart));
         break;
       }
       case TraceType.WORD_CLOUD: {

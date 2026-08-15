@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>MAIDR + amCharts 5 Treemap and Icicle</title>
+    <title>MAIDR + amCharts 5 Treemap, Icicle and Sunburst</title>
 
     <!-- 1. Load amCharts 5 (core + hierarchy charts). A hierarchy layout is not
          a chart: it is a series pushed straight into the root container. -->
@@ -31,12 +31,13 @@
   </head>
 
   <body>
-    <h1>MAIDR + amCharts 5 Treemap and Icicle</h1>
+    <h1>MAIDR + amCharts 5 Treemap, Icicle and Sunburst</h1>
     <p>
-      A treemap and an icicle draw the same tree with different marks — nested
-      rectangles against stacked bands — so MAIDR reads them the same way: as a
-      tree rather than as a grid. Left and Right move between siblings, Down
-      steps into a node's children, and Up returns to its parent.
+      A treemap, an icicle and a sunburst draw the same tree with different
+      marks — nested rectangles, stacked bands, and the same bands bent into
+      rings — so MAIDR reads all three the same way: as a tree rather than as a
+      grid. Left and Right move between siblings, Down steps into a node's
+      children, and Up returns to its parent.
     </p>
     <p>
       Only the leaves carry a value here. Every branch total is derived from
@@ -49,6 +50,9 @@
 
     <h2>Icicle: the same tree, drawn as bands</h2>
     <div id="icicle-chart" class="chart"></div>
+
+    <h2>Sunburst: the same bands, bent into rings</h2>
+    <div id="sunburst-chart" class="chart"></div>
 
     <script>
       // Collects { root, options } for each chart so the block below can mount
@@ -136,6 +140,15 @@
         "World Population by Region, as an Icicle",
         am5hierarchy.Partition,
         { orientation: "vertical" }
+      );
+      // A Sunburst extends Partition but carries its own class name, which is
+      // why the adapter names it in its own right rather than inheriting the
+      // icicle's reading. Its nodes are drawn as wedges, so the highlight
+      // measures them the way it measures a pie slice.
+      makeHierarchy(
+        "sunburst-chart",
+        "World Population by Region, as a Sunburst",
+        am5hierarchy.Sunburst
       );
     </script>
 

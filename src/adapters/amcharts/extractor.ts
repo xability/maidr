@@ -7,6 +7,8 @@ import type {
   BarPoint,
   DumbbellPoint,
   GanttData,
+  GaugeBand,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -16,7 +18,7 @@ import type {
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
-import type { AmAxis, AmDataItem, AmSprite, AmXYSeries } from './types';
+import type { AmAxis, AmChart, AmDataItem, AmSprite, AmXYSeries } from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -898,6 +900,246 @@ export function extractHierarchyPoints(series: AmXYSeries): TreemapPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Gauge (am5radar ClockHand)
+// ---------------------------------------------------------------------------
+
+/**
+ * The chart class an am5radar gauge is drawn in. It extends `XYChart`, so the
+ * adapter's discovery has always found it; what it has never had is a series
+ * to convert.
+ */
+const RADAR_CHART_CLASS = 'RadarChart';
+
+/**
+ * The class name amCharts gives a gauge's needle. Nothing else in the library
+ * draws one, which is what makes this the whole of the signature: a gauge is
+ * recognised by the mark it has, not by the series it lacks.
+ */
+const CLOCK_HAND_CLASS = 'ClockHand';
+
+/**
+ * The needle of an am5radar gauge, with the axis it is pinned to.
+ *
+ * A gauge is the one layer in this adapter whose source is the *chart* rather
+ * than a series: amCharts draws the hand as an `AxisBullet` on an axis data
+ * item, so a ClockHand gauge routinely carries no series at all. Both the
+ * extraction and the highlight need the same three things, so they are found
+ * once and shared.
+ */
+export interface AmGaugeHand {
+  /** The axis the hand is pinned to, which carries the dial's range. */
+  axis: AmAxis;
+  /** The axis data item the hand's value is read from. */
+  dataItem: AmDataItem;
+  /** The `ClockHand` sprite itself, which is what the overlay outlines. */
+  sprite: AmSprite;
+}
+
+/** A duck-typed `values` list, or `[]` for anything that is not one. */
+function listValues<T>(candidate: unknown): T[] {
+  if (candidate == null || typeof candidate !== 'object')
+    return [];
+  const values = (candidate as { values?: unknown }).values;
+  return Array.isArray(values) ? (values as T[]) : [];
+}
+
+/** Read a setting only when it really is a finite number. */
+function finiteSetting(entity: { get: (key: string) => unknown }, key: string): number | null {
+  const value = entity.get(key);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Every data item an axis carries a bullet on.
+ *
+ * A gauge's hand hangs on a data item created with `axis.createAxisRange()`,
+ * which amCharts keeps in `axisRanges` — but the raw `dataItems` list is read
+ * too, because the range and the tick lists are the same kind of object and
+ * which one a given build files a made data item under is not something this
+ * adapter can verify without the library.
+ */
+function axisMarkerItems(axis: AmAxis): AmDataItem[] {
+  const ranges = listValues<AmDataItem>((axis as unknown as { axisRanges?: unknown }).axisRanges);
+  const items = Array.isArray(axis.dataItems) ? axis.dataItems : [];
+  return [...ranges, ...items];
+}
+
+/**
+ * The sprites a data item's bullets draw.
+ *
+ * Read through both the settings accessor and the plain property, and through
+ * both the singular `bullet` an axis data item carries and the `bullets` list
+ * a series data item does, because which of them answers is exactly the shape
+ * that cannot be checked here.
+ */
+function bulletSprites(item: AmDataItem): AmSprite[] {
+  const sprites: AmSprite[] = [];
+  const push = (value: unknown): void => {
+    if (value != null && typeof value === 'object')
+      sprites.push(value as AmSprite);
+  };
+  const readBullet = (bullet: unknown): void => {
+    if (bullet == null || typeof bullet !== 'object')
+      return;
+    const b = bullet as { get?: (key: string) => unknown; sprite?: unknown };
+    if (typeof b.get === 'function')
+      push(b.get('sprite'));
+    push(b.sprite);
+  };
+
+  readBullet(item.get('bullet'));
+  for (const bullet of item.bullets ?? []) {
+    readBullet(bullet);
+  }
+  return sprites;
+}
+
+/** Whether a sprite is the needle amCharts draws a gauge's reading with. */
+function isClockHand(sprite: AmSprite): boolean {
+  return (sprite as { className?: string }).className === CLOCK_HAND_CLASS;
+}
+
+/**
+ * Find the needle of an am5radar gauge, or `null` for any other chart.
+ *
+ * The signature is deliberately narrow, because a `RadarChart` is also what a
+ * radar and a polar area are drawn in: the class name has to match *and* an
+ * axis has to carry a `ClockHand`. The caller adds the third condition — this
+ * is asked only of a chart whose series produced no layer at all — so an
+ * ordinary radar chart never reaches it even if someone pins a hand to one.
+ *
+ * A chart with several hands is read as its first, with a warning: MAIDR's
+ * gauge is one measure against one range, and there is no shape here for a
+ * second.
+ */
+export function findGaugeHand(chart: AmChart): AmGaugeHand | null {
+  if (chart.className !== RADAR_CHART_CLASS)
+    return null;
+
+  const axes = [...(chart.xAxes?.values ?? []), ...(chart.yAxes?.values ?? [])];
+  const hands: AmGaugeHand[] = [];
+  for (const axis of axes) {
+    for (const dataItem of axisMarkerItems(axis)) {
+      for (const sprite of bulletSprites(dataItem)) {
+        if (isClockHand(sprite)) {
+          hands.push({ axis, dataItem, sprite });
+        }
+      }
+    }
+  }
+
+  const hand = hands[0];
+  if (!hand)
+    return null;
+  if (hands.length > 1) {
+    console.warn(
+      `[MAIDR amCharts] Gauge carries ${hands.length} hands; reading the first. `
+      + `A gauge layer carries one measure.`,
+    );
+  }
+  return hand;
+}
+
+/**
+ * The qualitative bands an axis partitions its dial into.
+ *
+ * Only a range with a finite `endValue` is a band: MAIDR carries the upper
+ * edge alone, because bands partition the range and a band starts where the
+ * previous one ended. That also excludes the hand's own range, which carries a
+ * value and no end — the reading is not one of the bands it lands in.
+ *
+ * Sorted ascending, since an unsorted list would describe a partition the
+ * chart does not draw, and a band amCharts leaves unnamed is numbered by its
+ * position: that says where in the partition the reading landed, which is what
+ * a band is read for, without inventing a meaning the chart never gave it.
+ */
+export function extractGaugeBands(axis: AmAxis): GaugeBand[] {
+  const ranges = axisMarkerItems(axis);
+  const found: { to: number; label?: string }[] = [];
+
+  for (const range of ranges) {
+    const to = finiteSetting(range, 'endValue');
+    if (to == null)
+      continue;
+    const label = readRangeLabel(range);
+    found.push({ to, ...(label != null ? { label } : {}) });
+  }
+
+  return found
+    .sort((a, b) => a.to - b.to)
+    .map((band, index) => ({ to: band.to, label: band.label ?? `Band ${index + 1}` }));
+}
+
+/** What an axis range calls itself, when it says. */
+function readRangeLabel(range: AmDataItem): string | undefined {
+  const label = range.get('label');
+  if (typeof label === 'string' && label.length > 0)
+    return label;
+  if (label != null && typeof label === 'object') {
+    const text = (label as { get?: (key: string) => unknown }).get?.('text');
+    if (typeof text === 'string' && text.length > 0)
+      return text;
+  }
+  const category = range.get('category');
+  return typeof category === 'string' && category.length > 0 ? category : undefined;
+}
+
+/**
+ * Convert an am5radar gauge into the single {@link GaugePoint} it draws.
+ *
+ * A single object rather than an array, because the chart draws exactly one
+ * measure — an array of one would describe a shape the chart does not have.
+ *
+ * `null` when the dial has no finite ends. `GaugeTrace` pitches its tone
+ * against the range rather than against the value, so a reading with no range
+ * behind it is not a reading at all; emitting no layer is the honest answer,
+ * and the caller then leaves the panel out rather than announcing a dial of
+ * `NaN`s.
+ *
+ * The range is read from the axis' own `min`/`max` settings, falling back to
+ * the private values amCharts computes when the author did not fix them. It is
+ * NOT read from the axis' `start`/`end`, which on an am5 axis are the relative
+ * zoom positions (0 to 1) and would silently answer with a 0-to-1 dial for
+ * every gauge whose extremes are computed.
+ */
+export function extractGaugePoint(hand: AmGaugeHand, label?: string): GaugePoint | null {
+  const min = axisExtreme(hand.axis, 'min');
+  const max = axisExtreme(hand.axis, 'max');
+  if (min == null || max == null)
+    return null;
+
+  const value = finiteSetting(hand.dataItem, 'value');
+  if (value == null)
+    return null;
+
+  const bands = extractGaugeBands(hand.axis);
+  const name = label ?? readAxisTitle(hand.axis);
+
+  return {
+    value,
+    min,
+    max,
+    ...(name != null ? { label: name } : {}),
+    ...(bands.length > 0 ? { bands } : {}),
+  };
+}
+
+/** An axis extreme: the author's setting, else the one amCharts computed. */
+function axisExtreme(axis: AmAxis, key: 'min' | 'max'): number | null {
+  const declared = finiteSetting(axis, key);
+  if (declared != null)
+    return declared;
+  const computed = (axis as unknown as { getPrivate?: (k: string) => unknown }).getPrivate?.(key);
+  return typeof computed === 'number' && Number.isFinite(computed) ? computed : null;
+}
+
+/** An axis' own title, when it has one — never a fallback. */
+function readAxisTitle(axis: AmAxis): string | undefined {
+  const label = readAxisLabel(axis, '');
+  return label.length > 0 ? label : undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Series type detection
 // ---------------------------------------------------------------------------
 
@@ -970,9 +1212,13 @@ const RADAR_COLUMN_CLASSES = new Set([
  *
  * An am5hierarchy layout and an am5wc word cloud are `am5.Series` pushed
  * straight into a plain container, with no chart object around them, which is
- * why the adapter's discovery has to recognise the series itself. `Sunburst`
- * is deliberately absent — it extends `Partition` but carries its own class
- * name, so leaving it out keeps it out rather than reading it as an icicle.
+ * why the adapter's discovery has to recognise the series itself.
+ *
+ * `Sunburst` is named here in its own right rather than inherited. It extends
+ * `Partition` but carries its own class name, so listing it is what makes it a
+ * sunburst instead of nothing at all — and naming it separately is also what
+ * keeps it from being announced as an icicle, which is the same tree drawn
+ * with an entirely different mark.
  *
  * One record rather than one set per module: discovery asks a single question
  * ("is this series a panel of its own?"), and a per-module set would have to
@@ -981,6 +1227,7 @@ const RADAR_COLUMN_CLASSES = new Set([
 const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Treemap: 'treemap',
   Partition: 'icicle',
+  Sunburst: 'sunburst',
   WordCloud: 'wordcloud',
 };
 
@@ -1126,6 +1373,7 @@ export type SeriesKind
     | 'gantt'
     | 'treemap'
     | 'icicle'
+    | 'sunburst'
     | 'wordcloud'
     | 'unknown';
 

@@ -3,6 +3,7 @@ import type {
   BarPoint,
   DumbbellData,
   GanttData,
+  GaugePoint,
   LinePoint,
   MaidrLayer,
   PiePoint,
@@ -23,6 +24,7 @@ import {
   fakeFloatingColumnSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
+  fakeGaugeChart,
   fakeHierarchySeries,
   fakeHorizontalBarSeries,
   fakeLineSeries,
@@ -898,6 +900,175 @@ describe('fromAmCharts (hierarchy)', () => {
 
     expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
       .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (sunburst)', () => {
+  const TREE = {
+    category: 'Root',
+    children: [
+      {
+        category: 'Asia',
+        children: [
+          { category: 'China', value: 1425 },
+          { category: 'India', value: 1428 },
+        ],
+      },
+      { category: 'Africa', children: [{ category: 'Nigeria', value: 224 }] },
+    ],
+  };
+
+  it('finds a standalone Sunburst, which like a treemap is no chart at all', () => {
+    // A `Sunburst` extends `Partition` but carries its own class name, so it is
+    // discovered only because it is named in its own right.
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+    const root = fakeRoot([fakeContainer([series])]);
+
+    const found = findCharts(root);
+    expect(found).toHaveLength(1);
+    expect(found[0].series.values).toEqual([series]);
+  });
+
+  it('reads a Sunburst as a sunburst, not as the icicle it extends', () => {
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+
+    const layer = fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.SUNBURST);
+    expect(layer.title).toBe('Population');
+    // A tree is bound to no axis, so the dimensions name what they hold.
+    expect(layer.axes).toEqual({ x: { label: 'Node' }, y: { label: 'Value' } });
+    // The same walk the treemap and the icicle emit: one tree, three marks.
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: 'Asia', path: [] },
+      { x: 'China', y: 1425, path: ['Asia'] },
+      { x: 'India', y: 1428, path: ['Asia'] },
+      { x: 'Africa', path: [] },
+      { x: 'Nigeria', y: 224, path: ['Africa'] },
+    ]);
+  });
+
+  it('emits no selectors: amCharts paints the wedges to canvas, not to SVG', () => {
+    const series = fakeHierarchySeries('Population', TREE, 'Sunburst');
+
+    expect(fromAmCharts(fakeRoot([series])).subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+  });
+});
+
+describe('fromAmCharts (gauge)', () => {
+  function gaugeLayer(config: Parameters<typeof fakeGaugeChart>[0] = {}): MaidrLayer {
+    return fromAmCharts(fakeRoot([fakeGaugeChart(config)])).subplots[0][0].layers[0];
+  }
+
+  it('reads a RadarChart with a ClockHand and no series at all as a gauge', () => {
+    // The whole point of the shape: the needle is a bullet on an AXIS data
+    // item, so the series loop finds nothing and the chart-level fallback is
+    // the only thing that can see the reading.
+    const layer = gaugeLayer({ value: 73, min: 0, max: 120, axisLabel: 'km/h' });
+
+    expect(layer.type).toBe(TraceType.GAUGE);
+    // A single object, not an array of one: the chart draws exactly one measure.
+    expect(layer.data).toEqual({ value: 73, min: 0, max: 120, label: 'km/h' });
+    expect(Array.isArray(layer.data)).toBe(false);
+    expect(layer.axes).toEqual({ x: { label: 'Measure' }, y: { label: 'km/h' } });
+  });
+
+  it('names the measure after the chart when the chart is titled', () => {
+    const layer = gaugeLayer({ value: 40, title: 'Server load', axisLabel: 'percent' });
+
+    expect(layer.title).toBe('Server load');
+    expect((layer.data as GaugePoint).label).toBe('Server load');
+  });
+
+  it('reads the dial from the extremes amCharts computed when none were set', () => {
+    const layer = gaugeLayer({ min: 10, max: 90, value: 55, privateExtremes: true });
+
+    expect(layer.data).toMatchObject({ min: 10, max: 90, value: 55 });
+  });
+
+  it('finds a hand filed under the axis dataItems as well as under its ranges', () => {
+    // Which list a made axis data item lands in is not checkable without the
+    // library, so both are read.
+    expect(gaugeLayer({ viaDataItems: true, value: 12 }).data)
+      .toMatchObject({ value: 12 });
+  });
+
+  it('finds a hand whose bullet exposes its sprite as a plain property', () => {
+    expect(gaugeLayer({ bulletProperty: true, value: 12 }).data)
+      .toMatchObject({ value: 12 });
+  });
+
+  it('carries the dial bands ascending, numbering the ones nothing names', () => {
+    const layer = gaugeLayer({
+      value: 73,
+      bands: [
+        { endValue: 100 },
+        { endValue: 40, label: 'poor' },
+        { endValue: 70 },
+      ],
+    });
+
+    // Upper edges only: a band starts where the previous one ended, which is
+    // why an unsorted list would describe a partition the chart does not draw.
+    expect((layer.data as GaugePoint).bands).toEqual([
+      { to: 40, label: 'poor' },
+      { to: 70, label: 'Band 2' },
+      { to: 100, label: 'Band 3' },
+    ]);
+  });
+
+  it('leaves the hand out of the bands: a reading is not one of them', () => {
+    // The hand's own axis range carries a value and no end, which is exactly
+    // what separates it from a band.
+    const layer = gaugeLayer({ value: 73, bands: [{ endValue: 100 }] });
+
+    expect((layer.data as GaugePoint).bands).toEqual([{ to: 100, label: 'Band 1' }]);
+  });
+
+  it('emits no layer for a dial with no finite ends, rather than one of NaNs', () => {
+    // GaugeTrace pitches its tone against the range, so a reading with no
+    // range behind it is not a reading -- and a chart with no layers is
+    // dropped, which is the honest degradation.
+    const chart = fakeGaugeChart({ privateExtremes: true, min: Number.NaN, max: Number.NaN });
+
+    expect(() => fromAmCharts(fakeRoot([chart]))).toThrow();
+  });
+
+  it('emits no layer when the hand points at no value', () => {
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ value: null })]))).toThrow();
+  });
+
+  it('reads the first of several hands, and says so', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(gaugeLayer({ hands: 2, value: 73 }).data).toMatchObject({ value: 73 });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 hands'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('leaves an ordinary radar chart a radar, hand or no hand', () => {
+    // RADAR and POLAR_AREA are drawn in the same `RadarChart`, so the gauge
+    // path runs only when the series produced no layer at all.
+    const chart = fakeGaugeChart({
+      series: [fakeRadarSeries('Speed', [
+        { categoryX: 'Mon', valueY: 10 },
+        { categoryX: 'Tue', valueY: 20 },
+      ])],
+    });
+
+    const layers = fromAmCharts(fakeRoot([chart])).subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.RADAR);
+  });
+
+  it('ignores a chart that is not a RadarChart, and a sprite that is no hand', () => {
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ className: 'XYChart' })])))
+      .toThrow();
+    expect(() => fromAmCharts(fakeRoot([fakeGaugeChart({ handClassName: 'Bullet' })])))
+      .toThrow();
   });
 });
 

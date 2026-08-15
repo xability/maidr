@@ -27,6 +27,7 @@ import type {
   BarPoint,
   DumbbellData,
   GanttData,
+  GaugePoint,
   HeatmapData,
   HistogramPoint,
   LinePoint,
@@ -62,6 +63,7 @@ import {
   extractBarPoints,
   extractDumbbellPoints,
   extractGanttData,
+  extractGaugePoint,
   extractHeatmapData,
   extractHierarchyPoints,
   extractHistogramPoints,
@@ -69,6 +71,7 @@ import {
   extractPiePoints,
   extractSegmentedPoints,
   extractWaterfallPoints,
+  findGaugeHand,
   hasRankAxis,
   holdsRanks,
   isColumnSeries,
@@ -384,7 +387,8 @@ function buildChartLayers(
         break;
       }
       case 'treemap':
-      case 'icicle': {
+      case 'icicle':
+      case 'sunburst': {
         const data = extractHierarchyPoints(series);
         if (data.length === 0)
           break;
@@ -428,6 +432,19 @@ function buildChartLayers(
   pushMerged(layers, merged.area, areaTraceType(areaSeriesList), xLabel, yLabel);
   pushMerged(layers, merged.radar, TraceType.RADAR, xLabel, yLabel);
   pushMerged(layers, merged.polar, TraceType.POLAR_AREA, xLabel, yLabel);
+
+  // A ClockHand gauge is the one chart whose reading is not in a series at
+  // all: the needle is an `AxisBullet` on an *axis* data item, so a gauge
+  // commonly carries zero series and the loop above found nothing to convert.
+  // Asked last, and only of a chart that produced no layer, which is what
+  // keeps an ordinary radar or polar chart — drawn in the same `RadarChart` —
+  // from ever reaching this path.
+  if (layers.length === 0) {
+    const gauge = buildGaugeLayer(chart, options);
+    if (gauge) {
+      layers.push(gauge);
+    }
+  }
 
   return layers;
 }
@@ -848,21 +865,26 @@ const HIERARCHY_VALUE_AXIS = 'Value';
 const HIERARCHY_TRACE_TYPES = {
   treemap: TraceType.TREEMAP,
   icicle: TraceType.ICICLE,
+  sunburst: TraceType.SUNBURST,
 } as const;
 
 /**
- * Builds the layer for one am5hierarchy series — a treemap, or the icicle
- * amCharts calls a `Partition`.
+ * Builds the layer for one am5hierarchy series — a treemap, the icicle
+ * amCharts calls a `Partition`, or the `Sunburst` that bends that icicle into
+ * a ring.
  *
- * The two draw the same tree with different marks, so they differ here only in
- * which trace type they name; MAIDR navigates both as a tree either way.
+ * The three draw the same tree with different marks, so they differ here only
+ * in which trace type they name; MAIDR navigates all three as a tree either
+ * way. What the mark does change is the highlight: a treemap block and an
+ * icicle bar are rectangles, and a sunburst node is a wedge, which the overlay
+ * has to measure differently — see `buildHierarchyResolver`.
  *
  * No `selectors`, for the reason a pie emits none — amCharts paints the nodes
- * into a canvas. The binder's overlay highlights the active node's rectangle.
+ * into a canvas. The binder's overlay highlights the active node's mark.
  */
 function buildHierarchyLayer(
   series: AmXYSeries,
-  kind: 'treemap' | 'icicle',
+  kind: 'treemap' | 'icicle' | 'sunburst',
   data: TreemapPoint[],
   options?: AmChartsBinderOptions,
 ): MaidrLayer {
@@ -873,6 +895,56 @@ function buildHierarchyLayer(
     axes: {
       x: { label: options?.axisLabels?.x ?? HIERARCHY_NODE_AXIS },
       y: { label: options?.axisLabels?.y ?? HIERARCHY_VALUE_AXIS },
+    },
+    data,
+  };
+}
+
+/**
+ * What a gauge's two dimensions are called.
+ *
+ * A gauge is bound to an axis, but the axis is the *dial* — the range the
+ * reading sits in — and the thing being measured is named nowhere on it. The
+ * same split Highcharts' gauge converter makes.
+ */
+const GAUGE_MEASURE_AXIS = 'Measure';
+const GAUGE_DIAL_AXIS = 'Value';
+
+/**
+ * Builds the layer for an am5radar gauge, or `null` for any other chart.
+ *
+ * The only layer in this adapter built from a chart rather than from a series.
+ * amCharts draws a gauge's needle as an `AxisBullet` on an axis data item, so
+ * a ClockHand gauge carries no series at all and there is nothing for the
+ * series loop to find; `buildChartLayers` therefore asks this last, of a chart
+ * that produced no layer.
+ *
+ * `null` rather than a layer of `NaN`s when the dial has no finite ends: the
+ * caller drops a chart with no layers, which is the right degradation for a
+ * dial whose range cannot be read.
+ */
+function buildGaugeLayer(
+  chart: AmChart,
+  options?: AmChartsBinderOptions,
+): MaidrLayer | null {
+  const hand = findGaugeHand(chart);
+  if (!hand) {
+    return null;
+  }
+
+  const title = readChartTitle(chart);
+  const data: GaugePoint | null = extractGaugePoint(hand, title);
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: `amcharts-gauge-${chart.uid ?? counter()}`,
+    type: TraceType.GAUGE,
+    ...(title ? { title } : {}),
+    axes: {
+      x: { label: options?.axisLabels?.x ?? GAUGE_MEASURE_AXIS },
+      y: { label: options?.axisLabels?.y ?? readAxisLabel(hand.axis, GAUGE_DIAL_AXIS) },
     },
     data,
   };

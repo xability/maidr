@@ -24,7 +24,7 @@
 import type { Maidr as MaidrData, NavigateCallback } from '@type/grammar';
 import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
-import type { NavMap, SeriesGroups } from './navmap';
+import type { NavMap } from './navmap';
 import type {
   AmChart,
   AmChartsBinderOptions,
@@ -34,11 +34,9 @@ import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
-import { planDeclarations } from './declaration';
-import { classifySeriesKind } from './extractor';
 import { readPlotBounds, readSliceBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
-import { buildNavigationMap } from './navmap';
+import { buildNavigationMap, groupSeries } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
 
 /**
@@ -185,117 +183,6 @@ function createHighlightCallback(
       // Ignore highlight errors (e.g., during teardown or before layout).
     }
   };
-}
-
-// ---------------------------------------------------------------------------
-// Series grouping (mirrors fromXYChart in adapter.ts)
-// ---------------------------------------------------------------------------
-
-function groupSeries(chart: AmChart): SeriesGroups {
-  const groups: SeriesGroups = {
-    barSeriesList: [],
-    dotSeriesList: [],
-    lollipopSeriesList: [],
-    lineSeriesList: [],
-    stepSeriesList: [],
-    areaSeriesList: [],
-    radarSeriesList: [],
-    polarSeriesList: [],
-    histogramSeries: [],
-    heatmapSeries: [],
-    pieSeriesList: [],
-    funnelSeriesList: [],
-    waterfallSeriesList: [],
-    dumbbellSeriesList: [],
-    ganttSeriesList: [],
-    hierarchySeriesList: [],
-    wordCloudSeriesList: [],
-    declaredList: [],
-  };
-
-  // The same plan `buildChartLayers` builds, asked of the same chart: a
-  // declared series is never also classified, and an absorbed one is never a
-  // layer of its own — so the layer a reader hears and the mark the overlay
-  // outlines are always the same series.
-  const plan = planDeclarations(chart);
-
-  for (const series of chart.series.values) {
-    if (plan.absorbed.has(series)) {
-      continue;
-    }
-    const declared = plan.declared.get(series);
-    if (declared) {
-      groups.declaredList.push(declared);
-      continue;
-    }
-
-    switch (classifySeriesKind(series)) {
-      case 'bar':
-        groups.barSeriesList.push(series);
-        break;
-      // A dot and a lollipop read as a bar chart but are drawn with different
-      // marks, so the highlight measures different sprites and they keep
-      // buckets of their own.
-      case 'dot':
-        groups.dotSeriesList.push(series);
-        break;
-      case 'lollipop':
-        groups.lollipopSeriesList.push(series);
-        break;
-      // A bump chart's competitors are line series too. Whether the layer they
-      // merge into is read as ranks is a property of the group, decided where
-      // the layer is built, so the highlight path has one bucket for both.
-      case 'line':
-        groups.lineSeriesList.push(series);
-        break;
-      case 'step':
-        groups.stepSeriesList.push(series);
-        break;
-      case 'area':
-        groups.areaSeriesList.push(series);
-        break;
-      case 'radar':
-        groups.radarSeriesList.push(series);
-        break;
-      case 'polar':
-        groups.polarSeriesList.push(series);
-        break;
-      case 'histogram':
-        groups.histogramSeries.push(series);
-        break;
-      case 'heatmap':
-        groups.heatmapSeries.push(series);
-        break;
-      case 'pie':
-        groups.pieSeriesList.push(series);
-        break;
-      case 'funnel':
-        groups.funnelSeriesList.push(series);
-        break;
-      case 'waterfall':
-        groups.waterfallSeriesList.push(series);
-        break;
-      case 'dumbbell':
-        groups.dumbbellSeriesList.push(series);
-        break;
-      case 'gantt':
-        groups.ganttSeriesList.push(series);
-        break;
-      // A treemap and an icicle draw one tree two ways; the highlight walks
-      // the same nodes either way, so they share a bucket.
-      case 'treemap':
-      case 'icicle':
-        groups.hierarchySeriesList.push(series);
-        break;
-      case 'wordcloud':
-        groups.wordCloudSeriesList.push(series);
-        break;
-      default:
-        break;
-    }
-  }
-
-  return groups;
 }
 
 // ---------------------------------------------------------------------------

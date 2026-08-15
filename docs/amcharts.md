@@ -84,7 +84,7 @@ Series are classified by their amCharts class name and field configuration:
 - `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
 - `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
 - `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
-- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**
 - two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
@@ -119,11 +119,13 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Gantt / Timeline | `ColumnSeries` | category Y axis + `openValueXField` (or `openDateXField`) |
 | Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
 | Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
+| Sunburst | `am5hierarchy.Sunburst` | series class (requires `hierarchy.js`) |
 | Diverging Bar / Population Pyramid | two `ColumnSeries` | shared categories, one series entirely negative and the other entirely positive |
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
+| Gauge | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
 | Survival (Kaplan-Meier) | `StepLineSeries` | **declared** — `userData: { maidr: { type: "survival" } }` |
 | Error bar | any XY series, with a floating column behind it | **declared** — `{ type: "error_bar" }` |
 | Forest (meta-analysis) | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
@@ -448,9 +450,9 @@ The lanes come from the **category axis**, not from the bars, so a lane with not
 
 A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
 
-### Treemap / Icicle
+### Treemap / Icicle / Sunburst
 
-An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap and an icicle (amCharts calls it a `Partition`) draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
+An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap, an icicle (amCharts calls it a `Partition`) and a sunburst draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page covering all three is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
 
 ```js
 var series = root.container.children.push(am5hierarchy.Treemap.new(root, {
@@ -466,6 +468,32 @@ series.data.setAll([{
 ```
 
 The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
+
+A `Sunburst` extends `Partition` but carries its own class name, so it is recognised in its own right rather than inherited — which is also what keeps it from being announced as an icicle. The one thing the mark does change is the highlight: a treemap block and an icicle bar are rectangles, and a sunburst node is a `Slice`, which reports a degenerate box at its own centre and is therefore measured from its radius and sweep instead (the same reading a pie wedge gets).
+
+### Gauge
+
+A gauge is the one chart in this adapter whose reading is not in a series at all. amCharts draws the needle as an `AxisBullet` on an **axis** data item, so a `ClockHand` gauge commonly carries zero series and there is nothing for the per-series conversion to find. The adapter therefore asks the chart directly — but only after the series loop produced no layer, which is what keeps an ordinary radar or polar-area chart, drawn in the very same `RadarChart`, from ever reaching this path. A runnable page is at [`examples/amcharts-gauge.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-gauge.html).
+
+```js
+var chart = root.container.children.push(am5radar.RadarChart.new(root, { startAngle: 160, endAngle: 380 }));
+var axis = chart.xAxes.push(am5xy.ValueAxis.new(root, {
+  min: 0, max: 100, strictMinMax: true,
+  renderer: am5radar.AxisRendererCircular.new(root, {}),
+}));
+// A band: MAIDR carries its UPPER edge only, since bands partition the range.
+axis.createAxisRange(axis.makeDataItem({ value: 50, endValue: 80 }));
+// The needle, and the value MAIDR reads.
+var handItem = axis.makeDataItem({ value: 73 });
+handItem.set("bullet", am5xy.AxisBullet.new(root, { sprite: am5radar.ClockHand.new(root, {}) }));
+axis.createAxisRange(handItem);
+```
+
+The payload is a **single object**, not an array of one: the chart draws exactly one measure, and an array would describe a shape it does not have. The dial's ends come from the axis' `min`/`max` settings, falling back to the extremes amCharts computed when the author fixed neither — never from the axis' `start`/`end`, which are relative zoom positions and would quietly report every gauge as a 0-to-1 dial. **A dial with no finite ends emits no layer at all.** `GaugeTrace` pitches its tone against the range rather than against the value, so a reading with no range behind it is not a reading, and a chart left with no layers is dropped rather than announced as a dial of `NaN`s.
+
+Bands are read from the axis' ranges: any range with a finite `endValue` becomes one, sorted ascending, and a band amCharts leaves unnamed is numbered by its position (`Band 1`, `Band 2`). The needle's own range carries a value and no end, which is exactly what keeps it out of the band list. A chart carrying several hands is read as its first, with a console warning.
+
+Two things are **not** read. A bullet chart's `target` marker is omitted: amCharts has no unambiguous construct for one, and a guessed target is a number the chart never stated. And the highlight outlines the `ClockHand` sprite itself — if that sprite reports no measurable box, the overlay **clears** rather than falling back to the chart, because a box drawn around the whole dial says nothing about where the needle is.
 
 ### Diverging Bar / Population Pyramid
 

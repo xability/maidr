@@ -405,6 +405,17 @@ export interface FakeNode {
   children?: FakeNode[];
   /** Stands in for the rectangle sprite the overlay measures. */
   rectangle?: unknown;
+  /**
+   * Stands in for the wedge a `Sunburst` draws a node with, which the overlay
+   * measures the way it measures a pie slice.
+   */
+  slice?: unknown;
+  /**
+   * The same wedge hung on `graphics` instead — the other slot `sliceRect`
+   * probes, since which of the two an am5hierarchy build uses is exactly the
+   * shape that cannot be checked without the library.
+   */
+  graphics?: unknown;
 }
 
 function fakeHierarchyItem(node: FakeNode): AmDataItem {
@@ -414,15 +425,18 @@ function fakeHierarchyItem(node: FakeNode): AmDataItem {
     ...(node.value != null ? { value: node.value } : {}),
     ...(children != null ? { children } : {}),
     ...(node.rectangle != null ? { rectangle: node.rectangle } : {}),
+    ...(node.slice != null ? { slice: node.slice } : {}),
+    ...(node.graphics != null ? { graphics: node.graphics } : {}),
   };
   return { get: (key: string) => settings[key] } as unknown as AmDataItem;
 }
 
 /**
- * An am5hierarchy series — a `Treemap`, or the `Partition` amCharts draws an
- * icicle with. Unlike every other series here it is not inside a chart: it is
- * pushed straight into a container, and its nodes hang off the single root
- * data item rather than off the series.
+ * An am5hierarchy series — a `Treemap`, the `Partition` amCharts draws an
+ * icicle with, or the `Sunburst` that bends that icicle into a ring. Unlike
+ * every other series here it is not inside a chart: it is pushed straight into
+ * a container, and its nodes hang off the single root data item rather than
+ * off the series.
  */
 export function fakeHierarchySeries(
   name: string,
@@ -436,6 +450,146 @@ export function fakeHierarchySeries(
     get: (key: string) => settings[key],
     dataItems: [fakeHierarchyItem(root)],
   } as unknown as AmXYSeries;
+}
+
+/**
+ * One qualitative band of a gauge's dial: an axis range with an upper edge and
+ * (usually) nothing that names it.
+ */
+export interface FakeGaugeBand {
+  endValue: number;
+  /** A `Label` entity, as amCharts hangs one on a range. */
+  label?: string;
+  /** The same name as a plain string, the other slot the reader probes. */
+  labelText?: string;
+}
+
+export interface FakeGaugeConfig {
+  /** The reading the hand points at. `null` leaves the data item valueless. */
+  value?: number | null;
+  /** The dial's ends, as settings on the value axis. */
+  min?: number;
+  max?: number;
+  /**
+   * Report the ends through `axis.getPrivate()` instead — what amCharts does
+   * when the author fixed neither and let it compute them.
+   */
+  privateExtremes?: boolean;
+  /** The axis title, which is what names the dial. */
+  axisLabel?: string;
+  /** The chart title, exposed as a `Label` child like amCharts does. */
+  title?: string;
+  bands?: FakeGaugeBand[];
+  /** Stands in for the `ClockHand` sprite the overlay measures. */
+  hand?: unknown;
+  /** How many hands to pin to the axis. Defaults to one. */
+  hands?: number;
+  /**
+   * File the hand's data item under `axis.dataItems` rather than under
+   * `axis.axisRanges` — the other list a made axis data item may land in.
+   */
+  viaDataItems?: boolean;
+  /**
+   * Expose the bullet's sprite as a plain `.sprite` property rather than
+   * through `bullet.get('sprite')`.
+   */
+  bulletProperty?: boolean;
+  /** Series on the chart. A ClockHand gauge ordinarily has none. */
+  series?: AmXYSeries[];
+  /** Overrides the `RadarChart` class name, for the negative cases. */
+  className?: string;
+  /** Overrides the hand sprite's `ClockHand` class name. */
+  handClassName?: string;
+}
+
+/** A `ClockHand` as amCharts reports one: a `Container` with a laid-out box. */
+export function fakeClockHand(
+  box: { left: number; top: number; width: number; height: number },
+  className = 'ClockHand',
+): unknown {
+  return {
+    className,
+    width: () => box.width,
+    height: () => box.height,
+    toGlobal: (point: { x: number; y: number }) => ({
+      x: box.left + point.x,
+      y: box.top + point.y,
+    }),
+    get: () => undefined,
+  };
+}
+
+function fakeAxisRange(settings: Record<string, unknown>): AmDataItem {
+  return { get: (key: string) => settings[key] } as unknown as AmDataItem;
+}
+
+/**
+ * An am5radar gauge: a `RadarChart` whose reading is a `ClockHand` pinned to
+ * an axis data item, and — the point of the whole shape — no series at all.
+ */
+export function fakeGaugeChart(config: FakeGaugeConfig = {}): AmChart {
+  const handSprite = config.hand
+    ?? fakeClockHand({ left: 40, top: 60, width: 12, height: 80 }, config.handClassName);
+
+  const handItems: AmDataItem[] = [];
+  for (let at = 0; at < (config.hands ?? 1); at++) {
+    const bullet = config.bulletProperty
+      ? { get: () => undefined, sprite: handSprite }
+      : { get: (key: string) => (key === 'sprite' ? handSprite : undefined) };
+    handItems.push(fakeAxisRange({
+      ...(config.value !== null ? { value: config.value ?? 73 } : {}),
+      bullet,
+    }));
+  }
+
+  const bandItems = (config.bands ?? []).map(band => fakeAxisRange({
+    endValue: band.endValue,
+    ...(band.label != null
+      ? { label: { get: (key: string) => (key === 'text' ? band.label : undefined) } }
+      : {}),
+    ...(band.labelText != null ? { label: band.labelText } : {}),
+  }));
+
+  const title = config.axisLabel != null
+    ? { get: (key: string) => (key === 'text' ? config.axisLabel : undefined) }
+    : undefined;
+  const settings: Record<string, unknown> = {
+    ...(title != null ? { title } : {}),
+    ...(config.privateExtremes ? {} : { min: config.min ?? 0, max: config.max ?? 100 }),
+  };
+  const privates: Record<string, unknown> = config.privateExtremes
+    ? { min: config.min ?? 0, max: config.max ?? 100 }
+    : {};
+
+  const axis = {
+    className: 'ValueAxis',
+    get: (key: string) => settings[key],
+    getPrivate: (key: string) => privates[key],
+    dataItems: config.viaDataItems ? handItems : [],
+    axisRanges: { values: config.viaDataItems ? bandItems : [...handItems, ...bandItems] },
+  } as unknown as AmAxis;
+
+  const chart: Record<string, unknown> = {
+    className: config.className ?? 'RadarChart',
+    uid: nextUid++,
+    get: () => undefined,
+    series: { values: config.series ?? [] },
+    xAxes: { values: [axis] },
+    yAxes: { values: [] },
+    plotContainer: {
+      globalBounds: () => ({ left: 0, top: 0, right: 400, bottom: 400 }),
+    },
+  };
+  if (config.title != null) {
+    const chartTitle = config.title;
+    chart.children = {
+      values: [{
+        className: 'Label',
+        get: (key: string) => (key === 'text' ? chartTitle : undefined),
+      }],
+    };
+  }
+  return chart as unknown as AmChart;
 }
 
 /** A step-line series, drawn as a staircase rather than an interpolated line. */

@@ -1,16 +1,19 @@
 import type { SeriesGroups } from '@adapters/amcharts/navmap';
 import type { AmXYChart, AmXYSeries } from '@adapters/amcharts/types';
 import type { MaidrLayer } from '@type/grammar';
-import { buildNavigationMap } from '@adapters/amcharts/navmap';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
+import { dataItemToOverlayRect } from '@adapters/amcharts/overlay';
 import { TraceType } from '@type/grammar';
 import {
   fakeAreaSeries,
   fakeBarSeries,
   fakeChart,
+  fakeClockHand,
   fakeDotSeries,
   fakeFloatingColumnSeries,
   fakeFunnelSeries,
   fakeGanttSeries,
+  fakeGaugeChart,
   fakeHierarchySeries,
   fakeLineSeries,
   fakeLollipopSeries,
@@ -306,6 +309,97 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(navMap.resolve('tree', 2, 0)).toEqual([]);
   });
 
+  it('measures a sunburst node as a wedge, not as a rectangle', () => {
+    // A treemap block and an icicle bar are rectangles; a sunburst node is a
+    // `Slice`, which reports a degenerate box and has to be measured from its
+    // radius and sweep instead. Getting this wrong outlines nothing at all.
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [
+        { category: 'Asia', children: [{ category: 'China', value: 1425 }] },
+        { category: 'Africa', children: [{ category: 'Nigeria', value: 224 }] },
+      ],
+    }, 'Sunburst');
+    const chart = fakeChart({ series: [series] });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'ring', type: TraceType.SUNBURST, data: [] }],
+      groups: { ...emptyGroups(), hierarchySeriesList: [series] },
+    }]);
+
+    expect(navMap.resolve('ring', 0, 1)[0].dataItem.get('category')).toBe('Africa');
+    expect(navMap.resolve('ring', 1, 1)[0].dataItem.get('category')).toBe('Nigeria');
+    expect(navMap.resolve('ring', 1, 1)[0].kind).toBe('slice');
+    expect(navMap.resolve('ring', 2, 0)).toEqual([]);
+  });
+
+  it('reaches a sunburst wedge on `slice` and on `graphics` alike', () => {
+    // Which slot an am5hierarchy build hangs the wedge on cannot be checked
+    // without the library, so both are probed -- and a `Slice` reports a
+    // degenerate point, so the box has to come from its radius and sweep.
+    const wedge = {
+      globalBounds: () => ({ left: 100, top: 100, right: 100, bottom: 100 }),
+      width: () => 0,
+      height: () => 0,
+      // 0..90 is the bottom-right quarter; y grows down.
+      get: (key: string) => ({ radius: 50, startAngle: 0, arc: 90 } as Record<string, unknown>)[key],
+    };
+    const box = { left: 100, top: 100, width: 50, height: 50 };
+
+    for (const slot of ['slice', 'graphics'] as const) {
+      const series = fakeHierarchySeries('Population', {
+        category: 'Root',
+        children: [{ category: 'Asia', value: 3000, [slot]: wedge }],
+      }, 'Sunburst');
+      const navMap = buildNavigationMap([{
+        chart: fakeChart({ series: [series] }),
+        layers: [{ id: 'ring', type: TraceType.SUNBURST, data: [] }],
+        groups: { ...emptyGroups(), hierarchySeriesList: [series] },
+      }]);
+
+      expect(dataItemToOverlayRect(navMap.resolve('ring', 0, 0)[0], null)).toEqual(box);
+    }
+  });
+
+  it('resolves a gauge to its needle, from every position there is', () => {
+    // `GaugeTrace` is a 1x1 grid whose position is always (0, 0), so there is
+    // nothing to invert -- and the hand is a bullet on an AXIS, so it reaches
+    // the overlay through a data item that answers `graphics` with it.
+    const hand = fakeClockHand({ left: 40, top: 60, width: 12, height: 80 });
+    const chart = fakeGaugeChart({ value: 73, hand });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'dial', type: TraceType.GAUGE, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    const [target] = navMap.resolve('dial', 0, 0);
+    expect(target.kind).toBe('column');
+    expect(target.dataItem.get('graphics')).toBe(hand);
+    // The overlay reads the hand's own laid-out box, not the whole dial.
+    expect(dataItemToOverlayRect(target, null))
+      .toEqual({ left: 40, top: 60, width: 12, height: 80 });
+  });
+
+  it('clears rather than boxing the dial when the hand reports no geometry', () => {
+    // A hand that answers with nothing measurable must draw nothing. An
+    // outline around the whole gauge would say nothing about where the needle
+    // is, which is the kind of confidently-uninformative mark to avoid.
+    const chart = fakeGaugeChart({
+      value: 73,
+      hand: { className: 'ClockHand', get: () => undefined },
+    });
+    const navMap = buildNavigationMap([{
+      chart,
+      layers: [{ id: 'dial', type: TraceType.GAUGE, data: [] }],
+      groups: emptyGroups(),
+    }]);
+
+    const [target] = navMap.resolve('dial', 0, 0);
+    expect(target).toBeDefined();
+    expect(dataItemToOverlayRect(target, null)).toBeNull();
+  });
+
   it('resolves a diverging layer as it resolves a dodged one, one row per side', () => {
     const men = fakeBarSeries('Men', [
       { categoryX: '0-14', valueY: -1200 },
@@ -434,5 +528,21 @@ describe('buildNavigationMap (behavior preserved from single-panel)', () => {
     expect(targets[0].dataItem.get('valueY')).toBe(1);
     expect(targets[0].kind).toBe('point');
     expect(navMap.resolve('places', 2, 0)).toEqual([]);
+  });
+});
+
+describe('groupSeries', () => {
+  it('buckets a sunburst with the trees it is one of', () => {
+    // The fourth edit every new type needs, and the one whose omission is
+    // silent: the layer would still be built, announced and navigated, and
+    // only the highlight would vanish. `hierarchySeriesList` is what the
+    // resolver indexes, so an unbucketed sunburst resolves to nothing.
+    const series = fakeHierarchySeries('Population', {
+      category: 'Root',
+      children: [{ category: 'Asia', value: 3000 }],
+    }, 'Sunburst');
+
+    expect(groupSeries(fakeChart({ series: [series] })).hierarchySeriesList)
+      .toEqual([series]);
   });
 });
