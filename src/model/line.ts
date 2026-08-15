@@ -12,18 +12,37 @@ import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
 /**
- * Regex for extracting data point coordinates from SVG path `d` attribute.
+ * Splits a path `d` attribute into commands, each with its argument text.
  *
- * Matches M/L commands (direct endpoints) with comma or whitespace separators,
- * and C (cubic bezier) commands — extracting the endpoint (last coordinate pair).
- *
- * M/L: `M65,231.42` or `L 100 200` → captures (65, 231.42) or (100, 200)
- * C:   `C81,215,97,199,113,182`    → captures endpoint (113, 182)
+ * `A`/`a` are deliberately absent. An arc's flag arguments are legally
+ * written without separators — `a1 1 0 011 1` is three flags and a coordinate
+ * pair — so a plain number scan mis-tokenizes them and would push invented
+ * vertices. Line-family geometry never contains an arc, so an unread one is
+ * the honest answer; an arc in the middle of a path leaves the current point
+ * stale, which is no worse than the whole command being invisible as it was
+ * before.
  */
-const SVG_PATH_ML_REGEX
-  = /[ML]\s*(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
-const SVG_PATH_C_REGEX
-  = /C\s*(?:-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+){2}(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
+const SVG_PATH_COMMAND_REGEX = /([MLHVCSQTZ])([^MLHVCSQTZ]*)/gi;
+
+/** One number of a path argument list, including exponent notation. */
+const SVG_PATH_NUMBER_REGEX = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
+
+/**
+ * How many numbers each path command takes per repetition.
+ *
+ * A command may carry several repetitions in one argument list — `L1 2 3 4`
+ * is two linetos — so the arity is what the argument list is walked in.
+ */
+const SVG_PATH_ARITY: Record<string, number> = {
+  M: 2,
+  L: 2,
+  H: 1,
+  V: 1,
+  C: 6,
+  S: 4,
+  Q: 4,
+  T: 2,
+};
 
 /**
  * Represents a line trace plot with support for single and multi-line navigation
@@ -866,39 +885,74 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Extracts data point coordinates from an SVG path `d` attribute.
-   * Handles M/L (move/line) and C (cubic bezier) commands.
-   * For C commands, the endpoint (3rd coordinate pair) is extracted.
+   *
+   * One vertex per drawing command, taken at that command's endpoint — which
+   * for a curve is where it lands, not where its control points sit. The path
+   * is walked rather than pattern-matched because the endpoint of `H`, `V`,
+   * and every relative command is only defined against the current point,
+   * which a regex over the whole string cannot know.
+   *
+   * That is what this used to be, and it left `H`/`V` unread. A staircase is
+   * precisely the shape a renderer draws with them, every segment being
+   * axis-aligned, so a Plotly step chart parsed to its single `M` and nothing
+   * else: measured, `M0,399H246.67V147H493.33V273H740V21` yielded 1 vertex for
+   * 4 samples. `reconcilePathCoordinates` then padded with `NaN`, the series
+   * was marked failed, and `mapToSvgElements` returned null — correct audio,
+   * braille and text, no highlight, and nothing anywhere saying why (#907).
+   *
+   * `M`, `L` and `C` behave exactly as they did; a cubic still contributes its
+   * endpoint alone.
+   *
+   * @param pathD - The `d` attribute of the rendered path
+   * @param coordinates - Vertex list to append to, mutated in place
    */
   private extractPathCoordinates(pathD: string, coordinates: LinePoint[]): void {
-    // Extract M/L endpoints
-    SVG_PATH_ML_REGEX.lastIndex = 0;
-    let match: RegExpExecArray | null = SVG_PATH_ML_REGEX.exec(pathD);
-    const indexed: { index: number; x: number; y: number }[] = [];
-    while (match !== null) {
-      indexed.push({
-        index: match.index,
-        x: Number.parseFloat(match[1]),
-        y: Number.parseFloat(match[2]),
-      });
-      match = SVG_PATH_ML_REGEX.exec(pathD);
-    }
+    let x = 0;
+    let y = 0;
+    // Where the current subpath began, which is where `Z` returns to.
+    let startX = 0;
+    let startY = 0;
 
-    // Extract C cubic bezier endpoints (3rd pair of each C command)
-    SVG_PATH_C_REGEX.lastIndex = 0;
-    match = SVG_PATH_C_REGEX.exec(pathD);
+    SVG_PATH_COMMAND_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null = SVG_PATH_COMMAND_REGEX.exec(pathD);
     while (match !== null) {
-      indexed.push({
-        index: match.index,
-        x: Number.parseFloat(match[1]),
-        y: Number.parseFloat(match[2]),
-      });
-      match = SVG_PATH_C_REGEX.exec(pathD);
-    }
+      const command = match[1];
+      const absolute = command.toUpperCase();
+      const isRelative = command !== absolute;
+      const args = (match[2].match(SVG_PATH_NUMBER_REGEX) ?? []).map(Number);
+      match = SVG_PATH_COMMAND_REGEX.exec(pathD);
 
-    // Sort by position in path string to preserve point order
-    indexed.sort((a, b) => a.index - b.index);
-    for (const point of indexed) {
-      coordinates.push({ x: point.x, y: point.y });
+      if (absolute === 'Z') {
+        // A closepath draws back to a vertex already recorded, so it moves the
+        // pen without adding a point. Emitting one would duplicate the start.
+        x = startX;
+        y = startY;
+        continue;
+      }
+
+      const arity = SVG_PATH_ARITY[absolute];
+      for (let i = 0; i + arity <= args.length; i += arity) {
+        if (absolute === 'H') {
+          x = isRelative ? x + args[i] : args[i];
+        } else if (absolute === 'V') {
+          y = isRelative ? y + args[i] : args[i];
+        } else {
+          // The endpoint is the last pair of every remaining command; the
+          // control points before it are not on the drawn path.
+          const endX = args[i + arity - 2];
+          const endY = args[i + arity - 1];
+          x = isRelative ? x + endX : endX;
+          y = isRelative ? y + endY : endY;
+        }
+
+        // Only the first pair of a moveto starts a subpath; the repetitions
+        // after it are implicit linetos, per the SVG path grammar.
+        if (absolute === 'M' && i === 0) {
+          startX = x;
+          startY = y;
+        }
+        coordinates.push({ x, y });
+      }
     }
   }
 
