@@ -4713,6 +4713,24 @@ describe('plotly extractor', () => {
       warn.mockRestore();
     });
 
+    it('reports a column named against array rows rather than counting them', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const layer = mosaicLayer(mosaicTraces(
+        { type: 'mosaic', count: 'n' },
+        { customdata: [['First', 203], ['Third', 178]] },
+      ));
+
+      // Naming a column that array rows cannot carry is the author's mistake,
+      // and saying so beats reading the second element because it happens to
+      // be a number.
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('names "n" for count'),
+      );
+      expect((layer.data as MosaicPoint[][])[0][0].count).toBeUndefined();
+      warn.mockRestore();
+    });
+
     it('reads a marimekko drawn on its side off the axis it stacks along', () => {
       const layer = mosaicLayer(
         [
