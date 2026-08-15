@@ -1260,7 +1260,14 @@ function readPointDatum(
  */
 function signedMagnitude(upper: number, lower: number): number {
   const magnitude = Math.abs(upper - lower);
-  return upper <= 0 && lower < 0 ? -magnitude : magnitude;
+  // Which side of zero the bar was drawn on, not which of its two ends landed
+  // on the smaller pixel. Those agree only while the axis runs the usual way:
+  // `y: {reverse: true}`, or an explicitly descending domain, puts the bar's
+  // near-zero end at the top and its negative end at the bottom, and reading
+  // the sign off pixel order then announced a budget cut of 4.2 as a gain of
+  // 4.2 — with the sonified pitch and the reported range wrong to match.
+  const away = Math.abs(upper) >= Math.abs(lower) ? upper : lower;
+  return away < 0 ? -magnitude : magnitude;
 }
 
 /**

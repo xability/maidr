@@ -595,3 +595,40 @@ describe('dot marks Plot did not draw as circles', () => {
     expect(document.querySelectorAll(layer?.selectors as string)).toHaveLength(4);
   });
 });
+
+describe('a value axis that does not run the usual way', () => {
+  it('keeps a negative bar negative when the axis is reversed', () => {
+    // The sign came from which of a bar's two ends landed on the smaller pixel,
+    // which `reverse: true` swaps. A budget cut of 4.2 was announced as a gain
+    // of 4.2 — with the sonified pitch and the reported range wrong to match.
+    const layer = onlyLayer('reversedNegativeBars');
+
+    expect((layer.data as BarPoint[]).map(point => point.y)).toEqual([-4.2, 6.8, -1.5]);
+  });
+});
+
+describe('a chart whose axis drew too few ticks to fit', () => {
+  it('refuses an axis with two labelled ticks rather than assuming it is straight', () => {
+    // Two ticks fit a straight line perfectly and say nothing about whether the
+    // axis is straight, so the collinearity check has nothing left to test. A
+    // short log axis labels only "100" and "1k", and the line through them
+    // announced a point drawn at 12 as -728.
+    const { element } = mountFixture('twoTickLog', false);
+
+    expect(observablePlotToMaidr(element)).toBeNull();
+  });
+});
+
+describe('a chart Plot wrapped around a rendered legend', () => {
+  it('reads the chart rather than the first legend swatch', () => {
+    // `legend: true` renders each swatch as its own 15px <svg> placed before
+    // the chart in the <figure>. Taking the first one handed the conversion a
+    // legend square: no marks, no scales, and a chart that never binds — and
+    // that is the shape of the documented example.
+    const { element } = mountFixture('legendFigure');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
+
+    expect(layer?.type).toBe(TraceType.STACKED);
+    expect((layer?.data as SegmentedPoint[][])[0].map(point => point.y)).toEqual([1, 3]);
+  });
+});

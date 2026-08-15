@@ -56,7 +56,17 @@ export function isObservablePlot(element: Element): boolean {
 export function resolveSvg(element: Element): SVGSVGElement | null {
   if (element.tagName.toLowerCase() === 'svg')
     return element as SVGSVGElement;
-  return element.querySelector('svg');
+
+  // Not the first `<svg>` — the chart's. `legend: true` makes Plot render each
+  // swatch as its own 15px `<svg>` and put them *before* the chart inside the
+  // `<figure>`, so taking the first one hands the whole conversion a legend
+  // square: no mark groups, no scales, nothing to read, and a chart that never
+  // binds. That is the shape of the documented example, so it is the common
+  // case rather than an exotic one.
+  const candidates = Array.from(element.querySelectorAll('svg'));
+  return candidates.find(svg => svg.querySelector('g[aria-label]'))
+    ?? candidates[0]
+    ?? null;
 }
 
 /**

@@ -484,6 +484,14 @@ export function deriveScale(svg: Element, axis: 'x' | 'y' | 'fx' | 'fy'): PlotSc
     if (!numeric.every(t => t.value !== null))
       return undefined;
     const points = numeric as { pixel: number; value: number }[];
+    // Two ticks fit a straight line perfectly and say nothing about whether the
+    // axis is straight: the collinearity check below has nothing left to test,
+    // so a log axis that happened to label only "100" and "1k" — which a short
+    // chart does — passed as linear and announced a point drawn at 12 as -728.
+    // Three is the fewest that can disagree with a line, so it is the fewest
+    // this will fit one through.
+    if (points.length < 3)
+      return undefined;
     const first = points[0];
     const last = points[points.length - 1];
     if (first.pixel === last.pixel || first.value === last.value)
