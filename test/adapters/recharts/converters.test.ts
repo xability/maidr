@@ -1,5 +1,5 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
-import type { BarPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
+import type { BarPoint, BoxenPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HexbinPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -1706,6 +1706,429 @@ describe('convertRechartsToMaidr', () => {
       for (const point of layer.data as PiePoint[]) {
         expect(point).not.toHaveProperty('percentage');
       }
+    });
+  });
+
+  describe('parallel coordinates', () => {
+    // The RAW values, which is what the payload carries. The chart itself is
+    // drawn from a normalised transpose of these, because a <Line> binds to a
+    // single yAxisId.
+    const cars = [
+      { car: 'Mazda RX4', mpg: 21, hp: 110, wt: 2.62 },
+      { car: 'Datsun 710', mpg: 22.8, hp: 93, wt: 2.32 },
+      { car: 'Hornet', mpg: 21.4, hp: 110, wt: 3.215 },
+      { car: 'Valiant', mpg: 18.1, hp: 105, wt: 3.46 },
+    ];
+
+    const parallelConfig: RechartsAdapterConfig = {
+      id: 'cars',
+      title: 'Cars by Specification',
+      data: cars,
+      chartType: 'parallel',
+      xKey: 'car',
+      parallelConfig: {
+        dimensions: ['mpg', 'hp', { label: 'Weight (1000 lb)', key: 'wt' }],
+        labelKey: 'car',
+      },
+      xLabel: 'Variable',
+      yLabel: 'Value',
+    };
+
+    it('builds one row per observation, in the declared axis order', () => {
+      const layer = convertRechartsToMaidr(parallelConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.PARALLEL);
+
+      const data = layer.data as LinePoint[][];
+      expect(data).toHaveLength(4);
+      // The axis order is the config's, the values are the raw ones, and the
+      // object form's label is what a reader hears while its key stays the
+      // field that was read.
+      expect(data[0]).toEqual([
+        { x: 'mpg', y: 21, z: 'Mazda RX4' },
+        { x: 'hp', y: 110, z: 'Mazda RX4' },
+        { x: 'Weight (1000 lb)', y: 2.62, z: 'Mazda RX4' },
+      ]);
+      expect(data[1][1]).toEqual({ x: 'hp', y: 93, z: 'Datsun 710' });
+    });
+
+    it('names an observation from a name column when no labelKey is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...parallelConfig,
+        data: [{ name: 'Mazda RX4', mpg: 21, hp: 110, wt: 2.62 }],
+        parallelConfig: { dimensions: ['mpg', 'hp', 'wt'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as LinePoint[][];
+      expect(data[0][0]).toEqual({ x: 'mpg', y: 21, z: 'Mazda RX4' });
+    });
+
+    it('leaves an unnamed observation unnamed', () => {
+      const layer = convertRechartsToMaidr({
+        ...parallelConfig,
+        data: [{ mpg: 21, hp: 110, wt: 2.62 }],
+        parallelConfig: { dimensions: ['mpg', 'hp', 'wt'] },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as LinePoint[][];
+      expect(data[0][0]).toEqual({ x: 'mpg', y: 21 });
+    });
+
+    it('targets one curve path per observation', () => {
+      const layer = convertRechartsToMaidr(parallelConfig).subplots[0][0].layers[0];
+
+      // A ParallelTrace is a LineTrace: one selector per ROW, and Recharts
+      // draws one <Line> per observation.
+      expect(layer.selectors).toEqual(Array.from({ length: 4 }, () =>
+        '#maidr-article-cars .recharts-line .recharts-line-curve'));
+    });
+
+    it('withholds the selectors when there are as many observations as axes', () => {
+      // LineTrace accepts whole ELEMENTS whose count equals the row's own
+      // length before it parses any path, so with one path per observation
+      // this is the one shape where every value would light some other
+      // observation's polyline.
+      const layer = convertRechartsToMaidr({
+        ...parallelConfig,
+        data: cars.slice(0, 3),
+        parallelConfig: { dimensions: ['mpg', 'hp', 'wt'], labelKey: 'car' },
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as LinePoint[][])).toHaveLength(3);
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('throws when no dimensions are declared', () => {
+      expect(() => convertRechartsToMaidr({
+        ...parallelConfig,
+        parallelConfig: undefined,
+      })).toThrow('RechartsAdapter');
+    });
+
+    it('cannot be a layer of a composed chart', () => {
+      expect(() => convertRechartsToMaidr({
+        id: 'composed-parallel',
+        data: cars,
+        xKey: 'car',
+        layers: [{ yKey: 'mpg', chartType: 'parallel' }],
+        parallelConfig: { dimensions: ['mpg', 'hp'] },
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('ridgeline plot', () => {
+    // One row per KDE sample. `plotted` is what the <Area> draws — the density
+    // with the group's ridge offset added — and is exactly what the payload
+    // must NOT carry.
+    const samples = [
+      { month: 'Jan', temp: -4, density: 0.06, plotted: 2.06 },
+      { month: 'Jan', temp: 0, density: 0.11, plotted: 2.11 },
+      { month: 'Feb', temp: -2, density: 0.08, plotted: 1.08 },
+      { month: 'Feb', temp: 2, density: 0.13, plotted: 1.13 },
+    ];
+
+    const ridgelineConfig: RechartsAdapterConfig = {
+      id: 'temps',
+      title: 'Daily Temperature by Month',
+      data: samples,
+      chartType: 'ridgeline',
+      xKey: 'temp',
+      ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+      xLabel: 'Temperature (C)',
+      yLabel: 'Month',
+    };
+
+    it('builds one curve per group, carrying the density without the offset', () => {
+      const layer = convertRechartsToMaidr(ridgelineConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.RIDGELINE);
+
+      const data = layer.data as ViolinKdePoint[][];
+      expect(data).toEqual([
+        [
+          { x: 'Jan', y: -4, density: 0.06 },
+          { x: 'Jan', y: 0, density: 0.11 },
+        ],
+        [
+          { x: 'Feb', y: -2, density: 0.08 },
+          { x: 'Feb', y: 2, density: 0.13 },
+        ],
+      ]);
+      // The offset is presentation: fed the drawn y, the lowest ridge would be
+      // the loudest thing on the chart.
+      expect(data[0][0].density).not.toBe(2.06);
+    });
+
+    it('groups in first-appearance order however the rows are interleaved', () => {
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        data: [samples[2], samples[0], samples[3], samples[1]],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ViolinKdePoint[][];
+      expect(data.map(curve => curve[0].x)).toEqual(['Feb', 'Jan']);
+      expect(data[0]).toHaveLength(2);
+    });
+
+    it('drops a sample carrying no density rather than filling in a zero', () => {
+      const layer = convertRechartsToMaidr({
+        ...ridgelineConfig,
+        data: [samples[0], { month: 'Jan', temp: 4, plotted: 2.2 }, samples[1]],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as ViolinKdePoint[][];
+      expect(data[0]).toEqual([
+        { x: 'Jan', y: -4, density: 0.06 },
+        { x: 'Jan', y: 0, density: 0.11 },
+      ]);
+    });
+
+    it('names the density axis and targets one band per group', () => {
+      const layer = convertRechartsToMaidr(ridgelineConfig).subplots[0][0].layers[0];
+
+      expect(layer.axes?.z).toEqual({ label: 'Density' });
+      // RidgelineTrace wants one element per ridge, not one per sample.
+      expect(layer.selectors).toBe('#maidr-article-temps .recharts-area .recharts-area-area');
+    });
+
+    it('refuses the reading when nothing resolves as a density', () => {
+      // Only the plotted column is present, and reading that as the density
+      // would report each group's loudness as a function of where it was
+      // stacked.
+      expect(() => convertRechartsToMaidr({
+        ...ridgelineConfig,
+        data: samples.map(({ month, temp, plotted }) => ({ month, temp, plotted })),
+        ridgelineConfig: { groupKey: 'month', valueKey: 'temp' },
+      })).toThrow('RechartsAdapter');
+    });
+
+    it('throws when no groupKey is declared', () => {
+      expect(() => convertRechartsToMaidr({
+        ...ridgelineConfig,
+        ridgelineConfig: undefined,
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('hexbin plot', () => {
+    // Two lattice rows, the lower one staggered half a cell against the upper.
+    const bins = [
+      { cx: 0.5, cy: 1000, count: 12 },
+      { cx: 1.5, cy: 1000, count: 30 },
+      { cx: 1, cy: 1500, count: 7 },
+      { cx: 2, cy: 1500, count: 4 },
+    ];
+
+    const hexbinConfig: RechartsAdapterConfig = {
+      id: 'diamonds',
+      title: 'Carat against Price',
+      data: bins,
+      chartType: 'hexbin',
+      xKey: 'cx',
+      yKeys: ['cy'],
+      hexbinConfig: { countKey: 'count' },
+      xLabel: 'Carat',
+      yLabel: 'Price ($)',
+    };
+
+    it('assembles a lattice: rows from the bottom up, each left to right', () => {
+      const layer = convertRechartsToMaidr(hexbinConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.HEXBIN);
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data).toEqual([
+        [{ x: 0.5, y: 1000, count: 12 }, { x: 1.5, y: 1000, count: 30 }],
+        [{ x: 1, y: 1500, count: 7 }, { x: 2, y: 1500, count: 4 }],
+      ]);
+    });
+
+    it('orders a shuffled bin list into the lattice, and drops the selectors', () => {
+      const layer = convertRechartsToMaidr({
+        ...hexbinConfig,
+        data: [bins[3], bins[1], bins[2], bins[0]],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data[0].map(bin => bin.x)).toEqual([0.5, 1.5]);
+      expect(data[1].map(bin => bin.x)).toEqual([1, 2]);
+      // A <Scatter> draws its symbols in row order, so a list that is not
+      // already in lattice order would highlight the wrong bin.
+      expect(layer.selectors).toBeUndefined();
+    });
+
+    it('targets one symbol per bin when the rows arrive in lattice order', () => {
+      const layer = convertRechartsToMaidr(hexbinConfig).subplots[0][0].layers[0];
+
+      expect(layer.selectors).toBe('#maidr-article-diamonds .recharts-scatter-symbol .recharts-shape > *');
+      expect(layer.axes?.z).toEqual({ label: 'Count' });
+    });
+
+    it('groups rows by a declared rowKey rather than by the y centre', () => {
+      const layer = convertRechartsToMaidr({
+        ...hexbinConfig,
+        // Two bins on lattice row 0 whose centres differ, which grouping by y
+        // alone would split into two rows of one.
+        data: [
+          { cx: 0.5, cy: 1000, count: 12, r: 0 },
+          { cx: 1.5, cy: 1001, count: 30, r: 0 },
+          { cx: 1, cy: 1500, count: 7, r: 1 },
+        ],
+        hexbinConfig: { countKey: 'count', rowKey: 'r' },
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data).toHaveLength(2);
+      expect(data[0]).toHaveLength(2);
+    });
+
+    it('reads a count from a length field, as a d3-hexbin bin carries it', () => {
+      const layer = convertRechartsToMaidr({
+        ...hexbinConfig,
+        data: [{ cx: 0.5, cy: 1000, length: 12 }],
+        hexbinConfig: undefined,
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data[0][0]).toEqual({ x: 0.5, y: 1000, count: 12 });
+    });
+
+    it('drops a bin missing any of its three numbers', () => {
+      const layer = convertRechartsToMaidr({
+        ...hexbinConfig,
+        data: [bins[0], { cx: 3, cy: 1000 }, bins[1]],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data).toEqual([[
+        { x: 0.5, y: 1000, count: 12 },
+        { x: 1.5, y: 1000, count: 30 },
+      ]]);
+    });
+
+    it('throws when no row carries a centre and a count', () => {
+      expect(() => convertRechartsToMaidr({
+        ...hexbinConfig,
+        data: [{ cx: 0.5, cy: 1000 }],
+      })).toThrow('RechartsAdapter');
+    });
+  });
+
+  describe('boxen plot', () => {
+    const distributions = [
+      {
+        region: 'East',
+        median: 180,
+        levels: [{ p: 0.25, lo: 150, hi: 240 }, { p: 0.125, lo: 130, hi: 310 }],
+        high: [820, 910],
+      },
+      {
+        region: 'West',
+        median: 210,
+        levels: [{ p: 0.25, lo: 175, hi: 260 }],
+        low: [40],
+      },
+    ];
+
+    const boxenConfig: RechartsAdapterConfig = {
+      id: 'latency',
+      title: 'Response Time by Region',
+      data: distributions,
+      chartType: 'boxen',
+      xKey: 'region',
+      boxenConfig: { lowerOutliersKey: 'low', upperOutliersKey: 'high' },
+      xLabel: 'Region',
+      yLabel: 'Milliseconds',
+    };
+
+    it('builds one ladder per distribution', () => {
+      const layer = convertRechartsToMaidr(boxenConfig).subplots[0][0].layers[0];
+
+      expect(layer.type).toBe(TraceType.BOXEN);
+
+      const data = layer.data as BoxenPoint[];
+      expect(data).toEqual([
+        {
+          z: 'East',
+          median: 180,
+          levels: [{ p: 0.25, lo: 150, hi: 240 }, { p: 0.125, lo: 130, hi: 310 }],
+          upperOutliers: [820, 910],
+        },
+        {
+          z: 'West',
+          median: 210,
+          levels: [{ p: 0.25, lo: 175, hi: 260 }],
+          lowerOutliers: [40],
+        },
+      ]);
+    });
+
+    it('drops a rung whose three numbers are not all finite', () => {
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [{
+          region: 'East',
+          median: 180,
+          levels: [
+            { p: 0.25, lo: 150, hi: 240 },
+            { p: 0.125, lo: null, hi: 310 },
+            { p: 0.0625, lo: 90 },
+          ],
+        }],
+      }).subplots[0][0].layers[0];
+
+      // A rung missing a bound would be announced as a percentile the sample
+      // was never asked for.
+      const data = layer.data as BoxenPoint[];
+      expect(data[0].levels).toEqual([{ p: 0.25, lo: 150, hi: 240 }]);
+    });
+
+    it('reads the ladder from a letterValues column when no key is declared', () => {
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [{ region: 'East', q2: 180, letterValues: [{ p: 0.25, lo: 150, hi: 240 }] }],
+        boxenConfig: undefined,
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as BoxenPoint[];
+      expect(data[0]).toEqual({
+        z: 'East',
+        median: 180,
+        levels: [{ p: 0.25, lo: 150, hi: 240 }],
+      });
+    });
+
+    it('drops a distribution with no median', () => {
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [distributions[0], { region: 'North', levels: [{ p: 0.25, lo: 1, hi: 2 }] }],
+      }).subplots[0][0].layers[0];
+
+      expect((layer.data as BoxenPoint[]).map(point => point.z)).toEqual(['East']);
+    });
+
+    it('throws when no distribution carries a median', () => {
+      expect(() => convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [{ region: 'East', levels: [] }],
+      })).toThrow('RechartsAdapter');
+    });
+
+    it('generates no selector, since a rung is not a distribution', () => {
+      const layer = convertRechartsToMaidr(boxenConfig).subplots[0][0].layers[0];
+
+      // The rungs are stacked <Bar>s: one rectangle per rung per category,
+      // and no class name says which rung is which.
+      expect(layer.selectors).toBeUndefined();
+      expect(layer.orientation).toBe(Orientation.VERTICAL);
+
+      const overridden = convertRechartsToMaidr({
+        ...boxenConfig,
+        orientation: Orientation.HORIZONTAL,
+        selectorOverride: '.boxen-outer .recharts-rectangle',
+      }).subplots[0][0].layers[0];
+      expect(overridden.selectors).toBe('.boxen-outer .recharts-rectangle');
+      expect(overridden.orientation).toBe(Orientation.HORIZONTAL);
     });
   });
 

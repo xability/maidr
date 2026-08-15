@@ -132,6 +132,10 @@ export function MaidrRecharts({
   waterfallConfig,
   ganttConfig,
   gaugeConfig,
+  parallelConfig,
+  ridgelineConfig,
+  hexbinConfig,
+  boxenConfig,
   selectorOverride,
   children,
 }: MaidrRechartsProps): JSX.Element {
@@ -161,9 +165,13 @@ export function MaidrRecharts({
       waterfallConfig,
       ganttConfig,
       gaugeConfig,
+      parallelConfig,
+      ridgelineConfig,
+      hexbinConfig,
+      boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

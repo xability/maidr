@@ -84,6 +84,22 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  *   depth-ordered bands. Recharts has no icicle component, so it is built as a
  *   `<BarChart layout="vertical">` of floating bars — one row per node, the
  *   lane its depth — exactly the recipe `'gantt'` uses
+ * - `'parallel'` → `TraceType.PARALLEL` (the string
+ *   `'parallel_coordinates'`) — One polyline per observation crossing an axis
+ *   per variable. A `<Line>` binds to one `yAxisId`, so the drawn values have
+ *   to be min-max normalised onto a shared scale; the announced ones must not
+ *   be, and {@link ParallelAxesConfig} names the RAW fields
+ * - `'ridgeline'` → `TraceType.RIDGELINE` — One density curve per group along
+ *   a shared value axis, drawn as overlapping `<Area>`s with a per-group
+ *   offset baked into the plotted values. The offset is presentation, so
+ *   {@link RidgelineCurveConfig} names the densities BEFORE it was added
+ * - `'hexbin'` → `TraceType.HEXBIN` — A hexagonal lattice of counts, drawn as
+ *   `<Scatter shape={hexagon}>` on numeric axes. Recharts places the marks and
+ *   nothing else: the binning happens outside it, so the rows are precomputed
+ *   bin centres and counts named by {@link HexbinLatticeConfig}
+ * - `'boxen'` → `TraceType.BOXEN` — A letter-value plot: a median and a
+ *   variable-depth ladder of quantile pairs per category, computed outside
+ *   Recharts and named by {@link BoxenLadderConfig}
  */
 export type RechartsChartType
   = | 'bar'
@@ -117,7 +133,11 @@ export type RechartsChartType
     | 'sankey'
     | 'treemap'
     | 'sunburst'
-    | 'icicle';
+    | 'icicle'
+    | 'parallel'
+    | 'ridgeline'
+    | 'hexbin'
+    | 'boxen';
 
 /**
  * A single data series/layer configuration for composed charts.
@@ -384,6 +404,161 @@ export interface GaugeDialConfig {
    * way every other chart type takes its category label from `xKey`.
    */
   label?: string;
+}
+
+/**
+ * Configuration for parallel coordinates plots.
+ * Required when `chartType` is `'parallel'`.
+ *
+ * One data row is one OBSERVATION and one dimension is one axis, which is the
+ * transpose of what the chart is drawn from: a Recharts `<Line>` binds to a
+ * single `yAxisId`, so a polyline crossing axes with different units has to be
+ * drawn from values min-max normalised onto one shared scale, with one
+ * `<Line>` per observation over rows keyed by axis.
+ *
+ * MAIDR is unaffected by that — a parallel trace derives each column's own
+ * extent and pitches a value against its OWN axis — but it must never see the
+ * normalised numbers, since every axis would then run 0 to 1 and the chart's
+ * whole point would be flattened. So {@link dimensions} names the RAW fields,
+ * and `data` here is the observations rather than the array the chart draws.
+ */
+export interface ParallelAxesConfig {
+  /**
+   * The axes, in the order they are drawn — which is the order a reader arrows
+   * through them.
+   *
+   * Required, and required to be a list: nothing on an observation states the
+   * order, and an object's key order is not an axis order. A bare string names
+   * both the axis and the raw field; the object form separates them, for a
+   * column whose key is not what a reader should hear.
+   *
+   * @example
+   * dimensions: ['mpg', 'hp', { label: 'Weight (lb)', key: 'wt' }]
+   */
+  dimensions: (string | { label?: string; key: string })[];
+  /**
+   * Key holding what the observation IS — the car, the country, the patient.
+   * It becomes the polyline's series name, and without it an observation is
+   * announced by its position among the rest.
+   *
+   * Defaults to a `label` column, then `snp`, `id`, `name`, `gene`, `probe`.
+   */
+  labelKey?: string;
+}
+
+/**
+ * Configuration for ridgeline (joy) plots.
+ * Required when `chartType` is `'ridgeline'`.
+ *
+ * Recharts has no ridgeline primitive: the chart is overlapping `<Area>`s with
+ * a per-group vertical offset baked into the plotted values. The offset is
+ * presentation — it exists so the curves do not overlap illegibly — so the
+ * payload carries each curve on its own terms and the config must name the
+ * density BEFORE the offset was added.
+ *
+ * The kernel density itself is computed outside Recharts and outside the
+ * adapter; `data` is the sampled curves, one row per sample, tagged with the
+ * group they belong to.
+ */
+export interface RidgelineCurveConfig {
+  /**
+   * Key holding the group a sample's curve belongs to. Rows are grouped by it
+   * in first-appearance order, which is the order the ridges are announced in
+   * and the order the `<Area>`s have to be declared in for highlighting.
+   */
+  groupKey: string;
+  /**
+   * Key holding the position along the shared value axis.
+   *
+   * Defaults to a `value` column, then `x`, `t`, `position`.
+   */
+  valueKey?: string;
+  /**
+   * Key holding the kernel-density value BEFORE the group's ridge offset was
+   * added.
+   *
+   * Fed the drawn y instead, every group's loudness would become a function of
+   * where it was stacked and the lowest ridge would be the loudest. Where
+   * nothing resolves, the reading is refused rather than a baseline guessed.
+   *
+   * Defaults to a `density` column, then `kde`, `width`, `p`, `estimate`.
+   */
+  densityKey?: string;
+}
+
+/**
+ * Configuration for hexbin density plots.
+ * Optional when `chartType` is `'hexbin'`.
+ *
+ * Recharts has no hexbin either: the marks are a `<Scatter>` given a hexagonal
+ * `shape`, and the binning happens before the chart is drawn. So `data` is one
+ * row per OCCUPIED bin — an empty bin is not drawn and not announced — and the
+ * adapter assembles the lattice those bins form: rows grouped by their y
+ * centre, ordered from the lowest upward, each row ordered left to right.
+ *
+ * The centres are in DATA units. Screen coordinates would announce every bin's
+ * position in pixels.
+ */
+export interface HexbinLatticeConfig {
+  /** Key holding the bin's centre along the x axis. Defaults to the chart's `xKey`. */
+  xKey?: string;
+  /** Key holding the bin's centre along the y axis. Defaults to the first `yKeys` entry, then a `y` column. */
+  yKey?: string;
+  /**
+   * Key holding how many points fell in the bin.
+   *
+   * Defaults to a `count` column, then `length`, `value`, `n`, `total` — the
+   * `length` fallback being what makes a `d3-hexbin` bin work untouched, since
+   * its bins are arrays of the points that fell in them.
+   */
+  countKey?: string;
+  /**
+   * Key holding the lattice row a bin sits on, for data that names it.
+   *
+   * Omitted, rows are grouped by identical y centre, which is what a lattice
+   * computed by the usual libraries produces.
+   */
+  rowKey?: string;
+}
+
+/**
+ * Configuration for boxen (letter-value) plots.
+ * Optional when `chartType` is `'boxen'`, but a boxen with no ladder is a box
+ * plot — see {@link levelsKey}.
+ *
+ * Recharts has no box primitive at all, so the rungs are faked as stacked
+ * `<Bar>`s with a transparent base segment. Neither the ladder nor the median
+ * is anything the chart holds: both are computed from the raw sample before it
+ * is drawn, and this names the columns they were computed into. One data row
+ * is one distribution.
+ */
+export interface BoxenLadderConfig {
+  /** Key holding the category the distribution summarises. Defaults to the chart's `xKey`. */
+  xKey?: string;
+  /**
+   * Key holding the middle of the distribution.
+   *
+   * Defaults to a `median` column, then `q2`, `mid`, `y`.
+   */
+  medianKey?: string;
+  /**
+   * Key holding the ladder: an array of `{ p, lo, hi }` rungs, where `p` is
+   * the TAIL probability — 0.25 for the rung spanning the middle half, 0.125
+   * for the middle three quarters, and so on inwards.
+   *
+   * A rung whose three numbers are not all finite is dropped rather than
+   * announced as a quantile the data does not contain. The order does not
+   * matter: MAIDR walks the ladder outward from the median whichever way round
+   * it arrives.
+   *
+   * Defaults to a `levels` column, then `letterValues`, `letter_values`,
+   * `quantiles`, `ladder`.
+   */
+  levelsKey?: string;
+  /** Key holding the values below the deepest rung. */
+  lowerOutliersKey?: string;
+  /** Key holding the values above the deepest rung. */
+  upperOutliersKey?: string;
 }
 
 /**
@@ -779,6 +954,83 @@ export interface RechartsSubplotConfig {
  * };
  * ```
  *
+ * @example Parallel coordinates
+ * ```typescript
+ * // `data` is the OBSERVATIONS with their raw values; the chart is drawn from
+ * // a normalised transpose of them, because a <Line> binds to one yAxisId.
+ * // MAIDR pitches each value against its own axis, so it must see the raw
+ * // numbers — handed the normalised ones, every axis would run 0 to 1.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'cars-chart',
+ *   title: 'Cars by Specification',
+ *   data: [{ car: 'Mazda RX4', mpg: 21, hp: 110, wt: 2.62 }],
+ *   chartType: 'parallel',
+ *   xKey: 'car',
+ *   parallelConfig: {
+ *     dimensions: ['mpg', 'hp', { label: 'Weight (1000 lb)', key: 'wt' }],
+ *     labelKey: 'car',
+ *   },
+ *   xLabel: 'Variable',
+ *   yLabel: 'Value',
+ * };
+ * ```
+ *
+ * @example Ridgeline plot
+ * ```typescript
+ * // One row per KDE sample, tagged with its group. `densityKey` names the
+ * // density BEFORE the ridge offset: the offset is what keeps the curves from
+ * // overlapping on screen and says nothing about any group.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'temps-chart',
+ *   title: 'Daily Temperature by Month',
+ *   data: [{ month: 'Jan', temp: -4, density: 0.06, plotted: 11.06 }],
+ *   chartType: 'ridgeline',
+ *   xKey: 'temp',
+ *   ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+ *   xLabel: 'Temperature (C)',
+ *   yLabel: 'Month',
+ * };
+ * ```
+ *
+ * @example Hexbin plot
+ * ```typescript
+ * // One row per occupied bin, its centre in DATA units. The lattice — rows
+ * // from the bottom up, each ordered left to right — is assembled here, since
+ * // a hex row staggers and a bin's index therefore is not its position.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'diamonds-chart',
+ *   title: 'Carat against Price',
+ *   data: [{ cx: 0.5, cy: 1200, count: 43 }],
+ *   chartType: 'hexbin',
+ *   xKey: 'cx',
+ *   yKeys: ['cy'],
+ *   hexbinConfig: { countKey: 'count' },
+ *   xLabel: 'Carat',
+ *   yLabel: 'Price ($)',
+ * };
+ * ```
+ *
+ * @example Boxen (letter-value) plot
+ * ```typescript
+ * // One row per distribution, carrying the ladder computed from the sample.
+ * // `p` is the TAIL probability, so 0.25 is the rung spanning the middle half.
+ * const config: RechartsAdapterConfig = {
+ *   id: 'latency-chart',
+ *   title: 'Response Time by Region',
+ *   data: [{
+ *     region: 'East',
+ *     median: 180,
+ *     levels: [{ p: 0.25, lo: 150, hi: 240 }, { p: 0.125, lo: 130, hi: 310 }],
+ *     high: [820, 910],
+ *   }],
+ *   chartType: 'boxen',
+ *   xKey: 'region',
+ *   boxenConfig: { upperOutliersKey: 'high' },
+ *   xLabel: 'Region',
+ *   yLabel: 'Milliseconds',
+ * };
+ * ```
+ *
  * @example Composed chart (bar + line)
  * ```typescript
  * const config: RechartsAdapterConfig = {
@@ -952,6 +1204,30 @@ export interface RechartsAdapterConfig {
    * Required when `chartType` is `'gauge'`.
    */
   gaugeConfig?: GaugeDialConfig;
+
+  /**
+   * Axis order and raw value keys for a parallel coordinates plot.
+   * Required when `chartType` is `'parallel'`.
+   */
+  parallelConfig?: ParallelAxesConfig;
+
+  /**
+   * Group, value and density keys for a ridgeline plot.
+   * Required when `chartType` is `'ridgeline'`.
+   */
+  ridgelineConfig?: RidgelineCurveConfig;
+
+  /**
+   * Bin centre, count and lattice row keys for a hexbin plot.
+   * Used when `chartType` is `'hexbin'`.
+   */
+  hexbinConfig?: HexbinLatticeConfig;
+
+  /**
+   * Median, ladder and outlier keys for a boxen plot.
+   * Used when `chartType` is `'boxen'`.
+   */
+  boxenConfig?: BoxenLadderConfig;
 
   /**
    * Custom CSS selector override for SVG highlighting.

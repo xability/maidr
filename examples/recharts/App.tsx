@@ -31,6 +31,10 @@ import { SankeyExample } from './examples/SankeyExample';
 import { TreemapExample } from './examples/TreemapExample';
 import { SunburstExample } from './examples/SunburstExample';
 import { IcicleExample } from './examples/IcicleExample';
+import { ParallelCoordinatesExample } from './examples/ParallelCoordinatesExample';
+import { RidgelineExample } from './examples/RidgelineExample';
+import { HexbinExample } from './examples/HexbinExample';
+import { BoxenExample } from './examples/BoxenExample';
 import { ComposedChartExample } from './examples/ComposedChartExample';
 import { FacetExample } from './examples/FacetExample';
 
@@ -66,6 +70,10 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Treemap', component: TreemapExample },
   { name: 'Sunburst', component: SunburstExample },
   { name: 'Icicle', component: IcicleExample },
+  { name: 'Parallel Coordinates', component: ParallelCoordinatesExample },
+  { name: 'Ridgeline', component: RidgelineExample },
+  { name: 'Hexbin', component: HexbinExample },
+  { name: 'Boxen', component: BoxenExample },
   { name: 'Composed Chart', component: ComposedChartExample },
   { name: 'Faceted (Multi-Panel)', component: FacetExample },
 ];

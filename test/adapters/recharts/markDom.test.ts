@@ -113,6 +113,43 @@ const icicleBands = [
   { name: 'Fiji', depth: '1', from: 100, to: 101 },
 ];
 
+// A parallel coordinates plot is drawn from the TRANSPOSE of its
+// observations, min-max normalised onto one scale, because a `<Line>` binds to
+// a single yAxisId. The adapter is given the observations with their raw
+// values; the chart is given these rows, one per axis and one `<Line>` per
+// observation.
+const carRows = [
+  { car: 'Mazda RX4', mpg: 21, hp: 110, wt: 2.62 },
+  { car: 'Datsun 710', mpg: 22.8, hp: 93, wt: 2.32 },
+  { car: 'Hornet', mpg: 21.4, hp: 110, wt: 3.215 },
+  { car: 'Valiant', mpg: 18.1, hp: 105, wt: 3.46 },
+];
+const carAxisRows = [
+  { axis: 'mpg', obs0: 0.62, obs1: 1, obs2: 0.7, obs3: 0 },
+  { axis: 'hp', obs0: 1, obs1: 0, obs2: 1, obs3: 0.71 },
+  { axis: 'wt', obs0: 0.26, obs1: 0, obs2: 0.79, obs3: 1 },
+];
+
+// One row per KDE sample. `plotted` is the density with the group's ridge
+// offset added — what the `<Area>` draws, and what the payload must not carry.
+const ridgeSamples = [
+  { month: 'Jan', temp: -4, density: 0.06, plotted: 2.06 },
+  { month: 'Jan', temp: 0, density: 0.11, plotted: 2.11 },
+  { month: 'Jan', temp: 4, density: 0.02, plotted: 2.02 },
+  { month: 'Feb', temp: -2, density: 0.08, plotted: 1.08 },
+  { month: 'Feb', temp: 2, density: 0.13, plotted: 1.13 },
+  { month: 'Feb', temp: 6, density: 0.04, plotted: 1.04 },
+];
+
+// Two lattice rows, the upper staggered half a cell against the lower, already
+// in lattice order — which is what lets the adapter emit selectors at all.
+const hexBins = [
+  { cx: 0.5, cy: 1000, count: 12 },
+  { cx: 1.5, cy: 1000, count: 30 },
+  { cx: 1, cy: 1500, count: 7 },
+  { cx: 2, cy: 1500, count: 4 },
+];
+
 const configs = {
   funnel: {
     id: 'funnel-dom',
@@ -222,6 +259,31 @@ const configs = {
     yKeys: ['value'],
     flowConfig: { targetKey: 'target', nodes: flowNodes },
   },
+  parallel: {
+    id: 'parallel-dom',
+    data: carRows,
+    chartType: 'parallel' as const,
+    xKey: 'car',
+    parallelConfig: {
+      dimensions: ['mpg', 'hp', { label: 'Weight (1000 lb)', key: 'wt' }],
+      labelKey: 'car',
+    },
+  },
+  ridgeline: {
+    id: 'ridgeline-dom',
+    data: ridgeSamples,
+    chartType: 'ridgeline' as const,
+    xKey: 'temp',
+    ridgelineConfig: { groupKey: 'month', valueKey: 'temp', densityKey: 'density' },
+  },
+  hexbin: {
+    id: 'hexbin-dom',
+    data: hexBins,
+    chartType: 'hexbin' as const,
+    xKey: 'cx',
+    yKeys: ['cy'],
+    hexbinConfig: { countKey: 'count' },
+  },
   polarArea: {
     id: 'polar-dom',
     data: coxcombData,
@@ -297,6 +359,8 @@ beforeAll(async () => {
   const { createElement, act } = await import('react');
   const { createRoot } = await import('react-dom/client');
   const {
+    Area,
+    AreaChart,
     Bar,
     BarChart,
     ErrorBar,
@@ -317,6 +381,23 @@ beforeAll(async () => {
     YAxis,
   } = await import('recharts');
   const { MaidrRecharts } = await import('@adapters/recharts/MaidrRecharts');
+
+  /**
+   * The custom mark a hexbin draws: Recharts has no hexagon among its own
+   * symbol types, so a `<Scatter shape>` renders whatever this returns —
+   * inside Recharts' own `g.recharts-shape` wrapper, which is what the
+   * adapter's selector targets.
+   *
+   * @param props - The point Recharts places, carrying its centre
+   * @returns One hexagon
+   */
+  function Hexagon(props: unknown): ReactElement {
+    const { cx, cy } = props as { cx: number; cy: number };
+    const points = [[-6, 0], [-3, -5], [3, -5], [6, 0], [3, 5], [-3, 5]]
+      .map(([dx, dy]) => `${cx + dx},${cy + dy}`)
+      .join(' ');
+    return createElement('polygon', { points, fill: '#8884d8' });
+  }
 
   function wrap(config: (typeof configs)[keyof typeof configs], chart: ReactElement): ReactElement {
     return createElement(MaidrRecharts, { ...config, children: null }, chart);
@@ -433,6 +514,45 @@ beforeAll(async () => {
         height: 300,
         data: { nodes: flowNodes, links: flowLinks },
       })),
+      wrap(configs.parallel, createElement(
+        LineChart,
+        { width: 320, height: 220, data: carAxisRows },
+        createElement(XAxis, { dataKey: 'axis' }),
+        createElement(YAxis, { type: 'number' }),
+        // One `<Line>` per OBSERVATION, over the normalised transpose.
+        ...carRows.map((row, index) => createElement(Line, {
+          key: row.car,
+          dataKey: `obs${index}`,
+          isAnimationActive: false,
+        })),
+      )),
+      wrap(configs.ridgeline, createElement(
+        AreaChart,
+        { width: 320, height: 220 },
+        createElement(XAxis, { dataKey: 'temp', type: 'number' }),
+        createElement(YAxis, { type: 'number' }),
+        // One `<Area>` per group, declared in the order the groups first
+        // appear in the data — which is the order the payload carries them in.
+        createElement(Area, {
+          data: ridgeSamples.filter(sample => sample.month === 'Jan'),
+          dataKey: 'plotted',
+          isAnimationActive: false,
+        }),
+        createElement(Area, {
+          data: ridgeSamples.filter(sample => sample.month === 'Feb'),
+          dataKey: 'plotted',
+          isAnimationActive: false,
+        }),
+      )),
+      wrap(configs.hexbin, createElement(
+        ScatterChart,
+        { width: 320, height: 220 },
+        createElement(XAxis, { dataKey: 'cx', type: 'number' }),
+        createElement(YAxis, { dataKey: 'cy', type: 'number' }),
+        // Recharts has no hexagon symbol, so a hexbin always draws a custom
+        // shape — which is exactly what the selector has to survive.
+        createElement(Scatter, { data: hexBins, shape: Hexagon, isAnimationActive: false }),
+      )),
       wrap(configs.polarArea, createElement(
         PieChart,
         { width: 320, height: 320 },
@@ -553,6 +673,33 @@ describe('recharts rendered mark contract', () => {
   it('matches one pie sector per polar area spoke', () => {
     expect(document.querySelectorAll(firstSelector(maidr.polarArea)))
       .toHaveLength(coxcombData.length);
+  });
+
+  it('matches one curve path per parallel coordinates observation', () => {
+    // `ParallelTrace` inherits `LineTrace`'s resolution: one selector per row,
+    // each resolving to that observation's own polyline.
+    const { selectors } = maidr.parallel.subplots[0][0].layers[0];
+    expect(selectors).toHaveLength(carRows.length);
+    expect(document.querySelectorAll(firstSelector(maidr.parallel)))
+      .toHaveLength(carRows.length);
+  });
+
+  it('matches one filled band per ridgeline group', () => {
+    // One element per RIDGE, not per sample: `RidgelineTrace` lights a group's
+    // whole curve from any sample of it, and withdraws on any other count.
+    const groups = new Set(ridgeSamples.map(sample => sample.month)).size;
+    expect(document.querySelectorAll(firstSelector(maidr.ridgeline)))
+      .toHaveLength(groups);
+  });
+
+  it('matches one custom hexagon per hexbin, lattice order and all', () => {
+    const marks = document.querySelectorAll(firstSelector(maidr.hexbin));
+    expect(marks).toHaveLength(hexBins.length);
+    // Every mark is the drawn shape rather than the group around it, which is
+    // what a highlight can be cloned from.
+    for (const mark of marks) {
+      expect(mark.tagName).toBe('polygon');
+    }
   });
 
   it('scopes every selector to its own chart', () => {
