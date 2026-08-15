@@ -81,12 +81,20 @@ export interface PointCloudHighlightable {
 
 /**
  * Type guard to check if a plot publishes point-level highlight identity.
+ *
+ * The shape is checked, not merely the name: the sibling guards above assert
+ * `typeof … === 'function'` on the member they test, and the equivalent here is
+ * that the member reads as an array. Reading it is safe and cheap — the getter
+ * is pure over fields fixed at construction — and a trace that happened to
+ * carry a same-named property of another shape would otherwise be fed to a
+ * consumer expecting indices.
  */
 export function isPointCloudHighlightable(plot: unknown): plot is PointCloudHighlightable {
   return (
     plot !== null
     && typeof plot === 'object'
     && 'highlightedPointIndices' in plot
+    && Array.isArray((plot as PointCloudHighlightable).highlightedPointIndices)
   );
 }
 

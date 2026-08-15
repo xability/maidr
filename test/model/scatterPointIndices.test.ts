@@ -71,6 +71,17 @@ describe('a scatter names the points it has highlighted', () => {
     expect(isPointCloudHighlightable(trace)).toBe(true);
   });
 
+  test('the capability test reads the shape, not just the name', () => {
+    // A trace carrying the name but not the shape must not be fed to a
+    // consumer that will spread it as indices.
+    expect(isPointCloudHighlightable({ highlightedPointIndices: 3 })).toBe(false);
+    expect(isPointCloudHighlightable({ highlightedPointIndices: undefined })).toBe(false);
+    expect(isPointCloudHighlightable({ somethingElse: [] })).toBe(false);
+    expect(isPointCloudHighlightable(null)).toBe(false);
+
+    expect(isPointCloudHighlightable({ highlightedPointIndices: [] })).toBe(true);
+  });
+
   test('COL mode selects every point sharing the column X', () => {
     const trace = new ScatterTrace(createLayer(shared));
 
