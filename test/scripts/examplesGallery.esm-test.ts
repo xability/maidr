@@ -88,7 +88,7 @@ describe('the examples gallery', () => {
     const dir = mkdtempSync(join(tmpdir(), 'maidr-gallery-'));
     try {
       writeFileSync(join(dir, 'plotly-bar.html'), '');
-      for (const built of ['react', 'dist']) {
+      for (const built of ['react', 'dist', 'node_modules']) {
         mkdirSync(join(dir, built));
         writeFileSync(join(dir, built, 'index.html'), '');
       }

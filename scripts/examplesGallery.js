@@ -225,6 +225,12 @@ const WORDS = {
  * which charting library they use, not which chart type MAIDR calls what. What
  * changed is only that membership is now decided by the filename rather than by
  * remembering to add a line.
+ *
+ * Order matters: `groupFor` returns the first group whose `dir`, `names` or
+ * `prefixes` match, so a new prefix that is a substring of an earlier one would
+ * quietly claim that group's pages rather than erroring. The prefixes here are
+ * distinct today (`amcharts-` and `anychart-` share only `a`), but a prefix
+ * added below an existing one it extends needs to go above it instead.
  */
 export const GROUPS = [
   {
