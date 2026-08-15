@@ -150,7 +150,8 @@ export type MaidrTraceDeclaration
     | ParallelDeclaration
     | RidgelineDeclaration
     | HexbinDeclaration
-    | BoxenDeclaration;
+    | BoxenDeclaration
+    | GanttDeclaration;
 
 /**
  * A Kaplan-Meier survival curve drawn as a step line.
@@ -753,14 +754,19 @@ export interface HexbinDeclaration extends DeclarationBase {
    *
    * Screen coordinates would announce every bin's position in pixels.
    *
-   * @default 'x'
+   * The chain is a hexbin's own: `x` names a bin centre here and a category, a
+   * lane or a quantile on other charts, so no chain could be shared. It is the
+   * shipped d3 hexbin binder's, which is where these bins are already read
+   * from.
+   *
+   * @default 'x', falling back to `x0` or `cx`
    */
   x?: FieldRef;
   /**
    * Field holding the bin's centre along the y axis, in **data units**. Maps
    * to `HexbinPoint.y`.
    *
-   * @default 'y'
+   * @default 'y', falling back to `y0` or `cy`
    */
   y?: FieldRef;
   /**
@@ -814,6 +820,12 @@ export interface BoxenDeclaration extends DeclarationBase {
    * The trace sorts them outward from the median rather than trusting the
    * order they arrive in.
    *
+   * This names the *column*; the rungs inside it are not declared field by
+   * field. A rung is read as a row of its own, so its three numbers answer to
+   * the same spread of spellings a top-level field does: `p` also to `prob`,
+   * `probability` or `depth`; `lo` to `lower`, `low`, `min` or `y0`; `hi` to
+   * `upper`, `high`, `max` or `y1`.
+   *
    * @default 'levels', falling back to `letterValues`, `letter_values`,
    * `quantiles` or `ladder`
    */
@@ -829,4 +841,77 @@ export interface BoxenDeclaration extends DeclarationBase {
    * words they abbreviate, exactly as {@link ErrorBarDeclaration.orientation}.
    */
   orientation?: Orientation;
+}
+
+/**
+ * A schedule drawn as intervals along a shared axis — a gantt chart, a
+ * timeline, a swimlane diagram.
+ *
+ * What separates this from a bar chart is that both coordinates are positions
+ * on the same axis rather than a position and a magnitude. A bar has one
+ * number and a baseline; an interval has two numbers and no baseline, and the
+ * fact a reader is listening for — how *long* the interval is — is a
+ * difference between them that has to be announced rather than heard as a
+ * height.
+ *
+ * That difference is also why {@link GanttDeclaration.unit} matters more here
+ * than a unit does elsewhere: no charting library carries what a step of the
+ * axis is called, so without it a task is announced as "7 long" rather than
+ * "7 days".
+ *
+ * @example
+ * // Highcharts, a schedule whose rows name their ends the ordinary way
+ * { custom: { maidr: { type: 'gantt', x: 'resource', unit: 'days' } } }
+ */
+export interface GanttDeclaration extends DeclarationBase {
+  /** `TraceType.GANTT` — the string `'gantt'`. */
+  type: TraceType.GANTT;
+  /**
+   * Field holding the lane the interval belongs to — a task, a resource, a
+   * phase. Maps to `GanttPoint.x`.
+   *
+   * A lane commonly holds several intervals, and grouping is by this field's
+   * value, so a row that resolves nothing here is its own lane rather than
+   * joining another.
+   *
+   * @default 'x', falling back to `lane`, `category`, `label`, `name`, `key`,
+   * `group` or `task`
+   */
+  x?: FieldRef;
+  /**
+   * Field holding where the interval begins. Maps to `GanttPoint.start`.
+   *
+   * @default 'start', falling back to `from`, `begin`, `x0` or `startDate`
+   */
+  start?: FieldRef;
+  /**
+   * Field holding where the interval ends. Maps to `GanttPoint.end`.
+   *
+   * @default 'end', falling back to `to`, `finish`, `x1` or `endDate`
+   */
+  end?: FieldRef;
+  /**
+   * Field holding what this interval is called, when the lane is not already
+   * its name. Maps to `GanttPoint.label`.
+   *
+   * The chain is a schedule's own rather than the `label` chain every other
+   * declaration shares, which is the Manhattan identifier's (`snp`, `gene`,
+   * `probe`) and names nothing on a schedule.
+   *
+   * A label that resolves to the lane's own name is dropped rather than
+   * emitted: an interval labelled with its own lane says the same thing twice.
+   *
+   * @default 'label', falling back to `name`, `task`, `title` or `activity`
+   */
+  label?: FieldRef;
+  /**
+   * What a unit of the axis is called: `'days'`, `'hours'`, `'weeks'`. Maps to
+   * `GanttData.unit`.
+   *
+   * A literal word, not a field: the unit belongs to the chart and not to any
+   * row, and a per-row unit would let a producer emit intervals that disagree
+   * about what their numbers measure. Omitted, the trace announces a length
+   * without a unit rather than guessing one.
+   */
+  unit?: string;
 }

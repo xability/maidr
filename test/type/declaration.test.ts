@@ -29,9 +29,9 @@ describe('the declaration union is keyed on TraceType string values', () => {
     expect(unknown).toEqual([]);
   });
 
-  test('the union covers the thirteen declarable types, each exactly once', () => {
-    expect(members).toHaveLength(13);
-    expect(new Set(members).size).toBe(13);
+  test('the union covers the fourteen declarable types, each exactly once', () => {
+    expect(members).toHaveLength(14);
+    expect(new Set(members).size).toBe(14);
   });
 
   test('the two spellings that surprise authors are the ones that ship', () => {

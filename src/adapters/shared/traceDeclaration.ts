@@ -30,7 +30,7 @@
  * option blocks would become a second grammar that can drift from the first.
  */
 
-import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
 import { Orientation, TraceType } from '../../type/grammar';
 
 /** The `type` values {@link MaidrTraceDeclaration} covers. */
@@ -148,6 +148,22 @@ export const FIELD_REF_FALLBACKS: Readonly<Record<string, readonly string[]>> = 
  * right way round: `x` is the **last** name a region answers to and `y` the
  * **first** a value does.
  *
+ * The other entries are here for the milder reason: a canonical name so
+ * generic that no chain could be shared. `x` on a hexbin is a bin centre, on a
+ * gantt a lane; `label` on a gantt is the interval's name and everywhere else
+ * the Manhattan identifier. Each chain is the shipped d3 binder's for that
+ * chart, so a column that already worked there works through a declaration
+ * too.
+ *
+ * The boxen entry is the one that is not a top-level field at all. `p`, `lo`
+ * and `hi` are the fields of a **rung** — the `{ p, lo, hi }` entries inside
+ * whatever `BoxenDeclaration.levels` names — and their spellings vary exactly
+ * as the top-level ones do (`prob`, `lower`, `y1`). An adapter reading only
+ * the literal three drops every ladder written any other way, which leaves a
+ * boxen with a median and no rungs to walk. Nothing new is needed to reach
+ * them: a rung **is** a row, so passing one to {@link resolveFieldRef} under
+ * `TraceType.BOXEN` reads it.
+ *
  * A chain here replaces the shared one rather than extending it. Extending
  * would keep exactly the entry the type is here to disown.
  */
@@ -157,6 +173,24 @@ export const DECLARED_FIELD_REF_FALLBACKS: Readonly<
   [TraceType.CHOROPLETH]: {
     region: ['name', 'NAME', 'name_long', 'admin', 'state', 'id', 'label', 'x'],
     value: ['y', 'rate', 'density', 'count'],
+  },
+  [TraceType.HEXBIN]: {
+    x: ['x0', 'cx'],
+    y: ['y0', 'cy'],
+  },
+  [TraceType.GANTT]: {
+    x: ['lane', 'category', 'label', 'name', 'key', 'group', 'task'],
+    start: ['from', 'begin', 'x0', 'startDate'],
+    end: ['to', 'finish', 'x1', 'endDate'],
+    // Not the `label` chain every other type shares — that one is the
+    // Manhattan/volcano identifier's (`snp`, `gene`, `probe`), which names
+    // nothing on a schedule.
+    label: ['name', 'task', 'title', 'activity'],
+  },
+  [TraceType.BOXEN]: {
+    p: ['prob', 'probability', 'depth'],
+    lo: ['lower', 'low', 'min', 'y0'],
+    hi: ['upper', 'high', 'max', 'y1'],
   },
 };
 
@@ -580,6 +614,18 @@ const DECLARATION_KEYS: Readonly<Record<DeclaredType, Readonly<Record<string, Ke
     upperOutliers: 'field',
     orientation: 'orientation',
   } satisfies FieldKeySet<BoxenDeclaration>,
+  [TraceType.GANTT]: {
+    title: 'text',
+    name: 'text',
+    x: 'field',
+    start: 'field',
+    end: 'field',
+    label: 'field',
+    // Text, not a field: a unit belongs to the chart and not to any row, and
+    // per-row units would let a producer emit intervals disagreeing about what
+    // their numbers measure.
+    unit: 'text',
+  } satisfies FieldKeySet<GanttDeclaration>,
 };
 
 /**

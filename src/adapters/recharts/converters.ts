@@ -915,8 +915,10 @@ function buildHexbinLayer(
 
   const bins: HexbinBin[] = [];
   data.forEach((item, index) => {
-    const x = toOptionalNumber(resolveFieldRef(item, binXKey ?? xKey, 'x'));
-    const y = toOptionalNumber(resolveFieldRef(item, binYKey ?? yKey, 'y'));
+    // The hexbin's own chain, so a bin spelling its centre `x0`/`cx` — as a
+    // d3-hexbin bin does — is read rather than dropped for want of a centre.
+    const x = toOptionalNumber(resolveFieldRef(item, binXKey ?? xKey, 'x', TraceType.HEXBIN));
+    const y = toOptionalNumber(resolveFieldRef(item, binYKey ?? yKey, 'y', TraceType.HEXBIN));
     const count = toOptionalNumber(resolveFieldRef(item, countKey, 'count'));
     // A bin is its centre and its count. Missing any of the three, there is
     // nothing to announce and nowhere to announce it from.
@@ -1090,10 +1092,14 @@ function toLetterValueLevels(value: unknown): LetterValueLevel[] {
     if (entry === null || typeof entry !== 'object') {
       continue;
     }
-    const rung = entry as Record<string, unknown>;
-    const p = toOptionalNumber(rung.p);
-    const lo = toOptionalNumber(rung.lo);
-    const hi = toOptionalNumber(rung.hi);
+    // A rung is a row of its own, so it is read through the same resolver the
+    // top-level fields are: `lo` also answers to `lower`, `low`, `min` or
+    // `y0`, exactly as it does in the d3 boxen binder. Reading only the
+    // literal three dropped every ladder written any other way, which left a
+    // boxen with a median and nothing to walk out to.
+    const p = toOptionalNumber(resolveFieldRef(entry, undefined, 'p', TraceType.BOXEN));
+    const lo = toOptionalNumber(resolveFieldRef(entry, undefined, 'lo', TraceType.BOXEN));
+    const hi = toOptionalNumber(resolveFieldRef(entry, undefined, 'hi', TraceType.BOXEN));
     // A rung is a labelled pair of positions on the distribution. One missing
     // any of its three numbers would be announced as a percentile the sample
     // was never asked for.

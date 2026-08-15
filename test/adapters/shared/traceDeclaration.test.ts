@@ -1,3 +1,4 @@
+import type { DeclaredType } from '@adapters/shared/traceDeclaration';
 import type { MaidrTraceDeclaration } from '@type/declaration';
 import {
   DECLARED_FIELD_REF_FALLBACKS,
@@ -151,8 +152,55 @@ describe('resolveFieldRef — a type whose chain cannot be the shared one', () =
     ),
   )('a %s reads %s from a row carrying only `%s`', (type, canonical, alternative) => {
     expect(
-      resolveFieldRef({ [alternative]: 'read' }, undefined, canonical, type as TraceType.CHOROPLETH),
+      resolveFieldRef({ [alternative]: 'read' }, undefined, canonical, type as DeclaredType),
     ).toBe('read');
+  });
+
+  test('a hexbin bin keeps its centre when it spells it the d3-hexbin way', () => {
+    // A d3-hexbin bin carries `x`/`y` on the bin and `x0`/`y0` on the lattice
+    // cell, and a Recharts-style bin uses `cx`/`cy`. Read under the shared
+    // chain, `x` and `y` have none, so such a bin resolved no centre at all —
+    // and a bin with no centre is dropped, which is a hole in the lattice a
+    // reader navigates straight past.
+    const bin = { x0: 0.5, y0: 1000, length: 12 };
+
+    expect(resolveFieldRef(bin, undefined, 'x', TraceType.HEXBIN)).toBe(0.5);
+    expect(resolveFieldRef(bin, undefined, 'y', TraceType.HEXBIN)).toBe(1000);
+    expect(resolveFieldRef(bin, undefined, 'x')).toBeUndefined();
+  });
+
+  test('a boxen rung is a row, and its three numbers spread as widely', () => {
+    // The ladder is the fact a boxen exists to carry. The foundation resolved
+    // only top-level fields, so a rung spelled any way but `{ p, lo, hi }` was
+    // dropped and the distribution announced a median with nothing around it.
+    const rung = { prob: 0.125, lower: 130, upper: 310 };
+
+    expect(resolveFieldRef(rung, undefined, 'p', TraceType.BOXEN)).toBe(0.125);
+    expect(resolveFieldRef(rung, undefined, 'lo', TraceType.BOXEN)).toBe(130);
+    expect(resolveFieldRef(rung, undefined, 'hi', TraceType.BOXEN)).toBe(310);
+  });
+
+  test('a rung\'s names belong to the rung and not to every row', () => {
+    // `lo` and `hi` are alternatives for `yMin`/`yMax` on the shared chain, not
+    // canonicals of their own, so nothing reads them outside a boxen.
+    expect(resolveFieldRef({ lower: 130 }, undefined, 'lo')).toBeUndefined();
+    expect(resolveFieldRef({ upper: 310 }, undefined, 'hi')).toBeUndefined();
+  });
+
+  test('a schedule reads the ends of its intervals', () => {
+    const interval = { lane: 'Design', from: 3, to: 9 };
+
+    expect(resolveFieldRef(interval, undefined, 'x', TraceType.GANTT)).toBe('Design');
+    expect(resolveFieldRef(interval, undefined, 'start', TraceType.GANTT)).toBe(3);
+    expect(resolveFieldRef(interval, undefined, 'end', TraceType.GANTT)).toBe(9);
+  });
+
+  test('a schedule does not label an interval from the Manhattan chain', () => {
+    // The shared `label` chain is `snp`, `id`, `name`, `gene`, `probe` — a
+    // genomic identifier. An `id` column on a schedule row is a database key,
+    // and announcing it as the interval's name says nothing a listener can use.
+    expect(resolveFieldRef({ id: 4171 }, undefined, 'label', TraceType.GANTT)).toBeUndefined();
+    expect(resolveFieldRef({ task: 'Wiring' }, undefined, 'label', TraceType.GANTT)).toBe('Wiring');
   });
 
   test('an offset column is spelled `error` or named, and never guessed at', () => {
@@ -524,6 +572,16 @@ const FULL_DECLARATIONS: readonly MaidrTraceDeclaration[] = [
     upperOutliers: 'highOut',
     orientation: Orientation.VERTICAL,
   },
+  {
+    type: TraceType.GANTT,
+    title: 't',
+    name: 'n',
+    x: 'resource',
+    start: 'from',
+    end: 'to',
+    label: 'activity',
+    unit: 'days',
+  },
 ];
 
 describe('validateDeclaration — a valid block passes through untouched', () => {
@@ -534,8 +592,8 @@ describe('validateDeclaration — a valid block passes through untouched', () =>
     expect(warnings).toEqual([]);
   });
 
-  test('all thirteen variants are covered by the fixtures above', () => {
-    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(13);
+  test('all fourteen variants are covered by the fixtures above', () => {
+    expect(new Set(FULL_DECLARATIONS.map(d => d.type)).size).toBe(14);
   });
 
   test('a survival curve may say its siblings are further arms of it', () => {
@@ -545,6 +603,36 @@ describe('validateDeclaration — a valid block passes through untouched', () =>
       .not
       .toBeNull();
     expect(warnings).toEqual([]);
+  });
+});
+
+describe('validateDeclaration — a schedule can be declared at all', () => {
+  test('a gantt is a variant, so an adapter that draws one can be told so', () => {
+    // There was no GANTT variant, so a library drawing a schedule its adapter
+    // could not detect had no way for the author to say what it was — the
+    // intervals were read as bars, which announces a length as a height and
+    // loses the axis the two ends share.
+    const block = { type: TraceType.GANTT, x: 'resource', unit: 'days' };
+
+    expect(validateDeclaration(block, CONTEXT)).toBe(block);
+    expect(warnings).toEqual([]);
+  });
+
+  test('the unit is a word, and a number written there is dropped', () => {
+    // `'7'` is not what a step of the axis is called, and announcing "7 7" is
+    // worse than announcing the length alone. The word/column distinction the
+    // key set draws is documentation — both kinds accept a string — so what is
+    // pinned here is that a non-string never reaches the payload.
+    const declaration = validateDeclaration({ type: TraceType.GANTT, unit: 7 }, CONTEXT);
+
+    expect(declaration).toEqual({ type: TraceType.GANTT });
+    expect(warnings[0]).toContain('unit');
+  });
+
+  test('a misspelt schedule key is reported like any other', () => {
+    validateDeclaration({ type: TraceType.GANTT, finish: 'to' }, CONTEXT);
+
+    expect(warnings[0]).toContain('unknown key "finish"');
   });
 });
 
