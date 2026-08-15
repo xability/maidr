@@ -200,7 +200,7 @@ Two rules decide how a field is written. **A fact that differs per point names a
 
 The block is checked when it is read and never throws. A `type` that names no trace type, a key the declared type does not accept, and a value of the wrong kind are each warned about on the console with the series named, and the reading degrades to the undeclared chart rather than to a confident wrong one. Companion series are named by `id`, never by index — an index into a series list goes stale the moment a series is filtered or reordered.
 
-`significancePlot` is chart-level sugar for the same idea and keeps working unchanged. Where a series carries both, the co-located block wins.
+This adapter reads a co-located block for `survival`, `forest` and `choropleth`. A block naming any other trace type is warned about by name and the series is read as the undeclared chart it is drawn as — so declaring `volcano` or `manhattan` on a series does nothing but log. `significancePlot` remains the way to declare those two here, and it is chart-level: it names the scatters through `seriesIndices`, not through a block on any one of them.
 
 ## Multi-Panel Charts
 
@@ -271,7 +271,7 @@ Converts a rendered Highcharts chart into a `Maidr` data object.
 | `options.seriesIndices` | `number[]?` | Convert only specific series by index. Default: all visible series. |
 | `options.dumbbellLabels` | `{ start?: string; end?: string }?` | What a dumbbell chart's two ends are called — `low` is the start. Default: MAIDR announces them as "start" and "end" (see the dumbbell note above). |
 | `options.bump` | `boolean?` | Force (`true`) or suppress (`false`) the bump reading of the chart's line series. Default: decided from the data (see the bump note above). |
-| `options.significancePlot` | `object?` | Read the chart's `scatter` series as one volcano or Manhattan plot: `{ type: 'volcano' \| 'manhattan', seriesIndices?, significance?, significanceDirection?, effect? }`. Chart-level sugar for a declaration; a series' own `custom.maidr` block wins over it. Default: absent, and the scatters are read as scatters. |
+| `options.significancePlot` | `object?` | Read the chart's `scatter` series as one volcano or Manhattan plot: `{ type: 'volcano' \| 'manhattan', seriesIndices?, significance?, significanceDirection?, effect? }`. The only way to declare a volcano or Manhattan here — a series' own `custom.maidr` block is not read for either type yet. Default: absent, and the scatters are read as scatters. |
 
 Returns a `Maidr` object ready to assign to a `maidr-data` attribute, pass to the `<Maidr>` React component, or serialize for downstream tooling. Multi-pane charts produce a subplot grid (see [Multi-Panel Charts](#multi-panel-charts)).
 
