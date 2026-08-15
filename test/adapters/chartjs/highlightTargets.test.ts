@@ -18,6 +18,14 @@ function createChart(type: string, data: ChartJsData, options?: ChartJsOptions):
 function setup(chart: ChartJsChart): {
   layers: ReturnType<typeof extractChartData>['maidr']['subplots'][number][number]['layers'];
   resolve: (layerId: string, row: number, col: number) => { datasetIndex: number; index: number }[];
+  /**
+   * Resolve a point cloud, which is addressed by `layer.data` index rather than
+   * by position — the callback sends the -1 sentinel for the pair.
+   */
+  resolvePoints: (
+    layerId: string,
+    pointIndices: readonly number[],
+  ) => { datasetIndex: number; index: number }[];
 } {
   const { maidr, layerDatasetIndices } = extractChartData(chart);
   const layers = maidr.subplots.flat().flatMap(subplot => subplot.layers);
@@ -26,6 +34,8 @@ function setup(chart: ChartJsChart): {
     layers,
     resolve: (layerId, row, col) =>
       resolveActiveTargets(layers, maps, layerDatasetIndices, layerId, row, col),
+    resolvePoints: (layerId, pointIndices) =>
+      resolveActiveTargets(layers, maps, layerDatasetIndices, layerId, -1, -1, pointIndices),
   };
 }
 
@@ -73,13 +83,22 @@ describe('chart.js highlight target resolution', () => {
         ],
       });
 
-      const { resolve } = setup(chart);
+      const { resolve, resolvePoints } = setup(chart);
 
-      // Layer '1' is dataset 1; its col 0 X-bucket holds both x=2 points.
-      expect(resolve('1', 0, 0)).toEqual([
+      // Layer '1' is dataset 1, and its data is that dataset's two points in
+      // order, so data index 0 and 1 are its element 0 and 1.
+      expect(resolvePoints('1', [0])).toEqual([{ datasetIndex: 1, index: 0 }]);
+      expect(resolvePoints('1', [1])).toEqual([{ datasetIndex: 1, index: 1 }]);
+      // A selection covering several points — what a column of shared X, or a
+      // grid cell, resolves to — outlines all of them.
+      expect(resolvePoints('1', [0, 1])).toEqual([
         { datasetIndex: 1, index: 0 },
         { datasetIndex: 1, index: 1 },
       ]);
+
+      // A consumer that has not learned about `pointIndices` sends the -1 pair
+      // through unchanged, and gets nothing rather than an arbitrary mark.
+      expect(resolve('1', -1, -1)).toEqual([]);
     });
 
     it('maps pie navigation to the slice, skipping gap markers', () => {
@@ -154,13 +173,13 @@ describe('chart.js highlight target resolution', () => {
         ],
       }, stackedScales);
 
-      const { resolve } = setup(chart);
+      const { resolvePoints } = setup(chart);
 
       // Bottom-first rows: panel 0 is the y2 band (S2, S3), panel 1 is y (S1).
-      expect(resolve('0_0', 0, 0)).toEqual([{ datasetIndex: 1, index: 0 }]);
-      expect(resolve('1_0', 0, 0)).toEqual([{ datasetIndex: 0, index: 0 }]);
-      // Second layer of the y2 panel = dataset 2; its bucket has two shared-X points.
-      expect(resolve('0_1', 0, 0)).toEqual([
+      expect(resolvePoints('0_0', [0])).toEqual([{ datasetIndex: 1, index: 0 }]);
+      expect(resolvePoints('1_0', [0])).toEqual([{ datasetIndex: 0, index: 0 }]);
+      // Second layer of the y2 panel = dataset 2; both of its points.
+      expect(resolvePoints('0_1', [0, 1])).toEqual([
         { datasetIndex: 2, index: 0 },
         { datasetIndex: 2, index: 1 },
       ]);

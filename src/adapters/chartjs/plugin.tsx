@@ -43,6 +43,12 @@ interface NavEvent {
   layerId: string;
   row: number;
   col: number;
+  /**
+   * A point cloud's selection, as `layer.data` indices. Carried through the
+   * resize replay as well, so a re-resolve after a resize outlines the same
+   * points rather than falling back to the `-1` position that accompanies it.
+   */
+  pointIndices?: readonly number[];
 }
 
 interface MaidrChartBinding {
@@ -190,6 +196,7 @@ function createHighlightCallback(
             event.layerId,
             event.row,
             event.col,
+            event.pointIndices,
           );
       applyHighlight(chart, getOverlay(), targets);
     } catch {
@@ -389,6 +396,7 @@ function handleResize(chart: ChartJsChart): void {
         active.layerId,
         active.row,
         active.col,
+        active.pointIndices,
       );
       applyHighlight(chart, overlay, targets);
     } catch {
