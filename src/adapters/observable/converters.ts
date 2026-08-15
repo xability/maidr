@@ -463,7 +463,7 @@ function convertRect(facet: MarkFacet, context: ConversionContext): ConvertedMar
   }
 
   const ordered = orderedByBin(bins);
-  const data = toHistogramPoints(ordered, binScale);
+  const data = toHistogramPoints(ordered, binScale, binned);
   // The bins are announced left to right, so the elements are moved to match:
   // a selector resolves in document order, and Plot draws pre-binned intervals
   // in whatever order the author's rows arrived in.
@@ -656,21 +656,25 @@ function orderedByBin(bins: MarkDatum[]): MarkDatum[] {
  * @param scale - The x scale, whose domain bounds the bins.
  * @returns One histogram point per bin, in the same order.
  */
-function toHistogramPoints(bins: MarkDatum[], scale: PlotScale | undefined): HistogramPoint[] {
+function toHistogramPoints(
+  bins: MarkDatum[],
+  scale: PlotScale | undefined,
+  orientation: Orientation,
+): HistogramPoint[] {
   const edges = uniformBinEdges(bins, scale);
 
   return bins.map((bin, index) => {
-    const xMin = edges ? edges[index] : (bin.xMin ?? 0);
-    const xMax = edges ? edges[index + 1] : (bin.xMax ?? 0);
+    const low = edges ? edges[index] : (bin.xMin ?? 0);
+    const high = edges ? edges[index + 1] : (bin.xMax ?? 0);
+    const midpoint = (low + high) / 2;
+    const count = bin.y;
 
-    return {
-      x: (xMin + xMax) / 2,
-      y: bin.y,
-      xMin,
-      xMax,
-      yMin: bin.yMin ?? 0,
-      yMax: bin.yMax ?? bin.y,
-    };
+    // `Histogram` reads the bin bounds from `xMin`/`xMax` when the layer is
+    // vertical and from `yMin`/`yMax` when it is horizontal, and takes the
+    // frequency from the other axis in both cases. See {@link placePoint}.
+    return orientation === Orientation.VERTICAL
+      ? { x: midpoint, y: count, xMin: low, xMax: high, yMin: 0, yMax: count }
+      : { x: count, y: midpoint, xMin: 0, xMax: count, yMin: low, yMax: high };
   });
 }
 
@@ -871,7 +875,8 @@ function buildBarLayer(
     // sweep the chart the way it looks. Plot draws in data order, which a
     // `sort` option makes something else entirely.
     const ordered = orderAlongAxis(data, orientation);
-    const points: BarPoint[] = ordered.map(datum => ({ x: datum.x, y: datum.y }));
+    const points: BarPoint[] = ordered.map(datum =>
+      placePoint(datum.x, datum.y, orientation));
     return {
       legend: [],
       layer: {
@@ -902,6 +907,39 @@ function buildBarLayer(
       data: grid.rows,
     },
   };
+}
+
+/**
+ * Puts a category and its value on the axes MAIDR reads them from.
+ *
+ * A trace does not infer which of a point's coordinates is the measurement; it
+ * is told by the layer's orientation and reads that axis. `AbstractBarPlot`
+ * takes the value from `point.y` when the layer is vertical and from `point.x`
+ * when it is horizontal (`src/model/bar.ts`), and `SegmentedTrace` names the
+ * category off the opposite one. So a horizontal layer is not a vertical layer
+ * with a flag on it: its points are transposed.
+ *
+ * Emitting them the same way round for both — which this adapter did — leaves a
+ * horizontal chart looking bound and reading as nothing at all: `Number('Mon')`
+ * is `NaN`, so there is no sonification, no braille, and the description
+ * reports its minimum and maximum as missing. Nothing about that is visible in
+ * the schema on its own, which is why the layers this builds are checked
+ * against the real traces in `test/adapters/observable/traceContract.test.ts`
+ * rather than against an expected shape.
+ *
+ * @param category    - The value on the categorical axis.
+ * @param value       - The measurement.
+ * @param orientation - Which way the layer runs.
+ * @returns The point, with each figure on the axis its trace reads it from.
+ */
+function placePoint(
+  category: string | number,
+  value: number,
+  orientation: Orientation,
+): BarPoint {
+  return orientation === Orientation.VERTICAL
+    ? { x: category, y: value }
+    : { x: value, y: category };
 }
 
 /**
@@ -958,7 +996,7 @@ function stackedGrid(
     const row: SegmentedPoint[] = [];
     for (const category of categories) {
       const match = data.find(datum => datum.series === name && datum.x === category);
-      row.push({ x: category, y: match?.y ?? 0, z: name });
+      row.push({ ...placePoint(category, match?.y ?? 0, orientation), z: name });
       if (match) {
         elements.push(match.element);
         drawnZero ||= match.y === 0;

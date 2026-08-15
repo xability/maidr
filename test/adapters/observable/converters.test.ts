@@ -67,10 +67,12 @@ describe('bar marks', () => {
 
     expect(layer.type).toBe(TraceType.BAR);
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // Transposed, because a horizontal layer's measurement is read from `x`.
+    // `traceContract.test.ts` is what says that is the right way round.
     expect(layer.data as BarPoint[]).toEqual([
-      { x: 'Mon', y: 20 },
-      { x: 'Tue', y: 14 },
-      { x: 'Wed', y: 23 },
+      { x: 20, y: 'Mon' },
+      { x: 14, y: 'Tue' },
+      { x: 23, y: 'Wed' },
     ]);
   });
 });
@@ -449,14 +451,16 @@ describe('histograms binned down the other axis', () => {
 
     expect(layer.type).toBe(TraceType.HISTOGRAM);
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
-    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([
+    // Bounds on the binned axis and the count on the other one, which for a
+    // horizontal layer is the opposite pair from a vertical one.
+    expect(data.map(bin => [bin.yMin, bin.yMax])).toEqual([
       [0, 2],
       [2, 4],
       [4, 6],
       [6, 8],
       [8, 10],
     ]);
-    expect(data.map(bin => bin.y)).toEqual([8, 8, 8, 8, 8]);
+    expect(data.map(bin => bin.x)).toEqual([8, 8, 8, 8, 8]);
   });
 });
 
@@ -536,14 +540,14 @@ describe('histograms binned down an axis that also runs backwards', () => {
 
     expect(layer.type).toBe(TraceType.HISTOGRAM);
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
-    expect(data.map(bin => [bin.xMin, bin.xMax])).toEqual([
+    expect(data.map(bin => [bin.yMin, bin.yMax])).toEqual([
       [0, 2],
       [2, 4],
       [4, 6],
       [6, 8],
       [8, 10],
     ]);
-    expect(data.map(bin => bin.y)).toEqual([8, 8, 8, 8, 8]);
+    expect(data.map(bin => bin.x)).toEqual([8, 8, 8, 8, 8]);
   });
 
   it('splits a horizontal histogram into series the same way a vertical one splits', () => {
@@ -555,8 +559,10 @@ describe('histograms binned down an axis that also runs backwards', () => {
     expect(layer?.type).toBe(TraceType.STACKED);
     expect(layer?.orientation).toBe(Orientation.HORIZONTAL);
     expect(subplot?.legend).toHaveLength(2);
-    expect(series[0].map(point => point.x)).toEqual([1, 3, 5, 7, 9]);
-    expect(series.flat().map(point => point.y)).toEqual(Array.from({ length: 10 }, () => 4));
+    // Horizontal, so the bin midpoint is the category on `y` and the count is
+    // the measurement on `x`.
+    expect(series[0].map(point => point.y)).toEqual([1, 3, 5, 7, 9]);
+    expect(series.flat().map(point => point.x)).toEqual(Array.from({ length: 10 }, () => 4));
   });
 });
 
