@@ -8,6 +8,8 @@ There are two ways it gets used, and they differ only in how the scripts get ont
 |---|---|---|---|
 | **[Plain page](#plain-page-quick-start)** | HTML, or an app that renders Plot charts | putting two `<script>` tags in `<head>` | not at all |
 | **[Quarto](#quarto-quick-start)** | a `.qmd` with `{ojs}` cells | `include-in-header`, or `quarto add xability/maidr` | not at all |
+| **[Framework](#observable-framework)** | a Framework project | `head` in `observablehq.config.js` | not at all |
+| **[Embedded notebook](#embedded-notebooks)** | a page running `@observablehq/runtime` | two `<script>` tags on the host page | not at all |
 
 The adapter itself does not know which one it is in. It watches the page for Plot charts and binds each one as it appears — that is the whole mechanism, and it is why neither case asks you to touch the code that draws the chart.
 
@@ -131,6 +133,45 @@ filters:
   - maidr
 maidr-version: "4.2.0"
 ```
+
+## Observable's own runtimes
+
+The two quick starts cover a page you control. Observable ships two other ways
+to run Plot, and the adapter works in both — the mechanism is the same, so the
+only question in each is where the two script tags go.
+
+### Observable Framework
+
+Put the bundles in your source root and name them in `head`. Framework rewrites
+the paths and content-hashes the files for you, so `/maidr.js` resolves to
+whatever it emitted:
+
+```js
+// observablehq.config.js
+export default {
+  root: 'src',
+  head: '<script src="/maidr.js"></script><script src="/observable.js"></script>',
+};
+```
+
+Charts in `display(Plot.plot(...))` cells bind as they render, and a cell driven
+by `view(Inputs.range(...))` rebinds each time the reader moves the input.
+
+### Embedded notebooks
+
+A notebook embedded with `@observablehq/runtime` and `@observablehq/inspector`
+works the same way: load the two bundles on the host page and every cell whose
+value is a Plot chart becomes navigable, including cells the runtime re-runs
+when you `redefine` a value.
+
+**Verified against** Framework 1.13.4, runtime 5.9.9 and inspector 5.0.1 — the
+charts bind, the reactive re-runs rebind, and the chart each re-run discards is
+released rather than accumulated.
+
+**Not verified:** a notebook on observablehq.com itself. The adapter needs its
+two scripts on the page, and on a notebook hosted there you do not control the
+page's head. Whether a cell can inject them into its own document is untested —
+so it is an open question rather than a documented route.
 
 ## How it works
 
