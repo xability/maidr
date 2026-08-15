@@ -83,6 +83,49 @@ describe('a cursor parked past the end of the data', () => {
     expect(() => trace.state).not.toThrow();
     expect(trace.state.empty).toBe(true);
   });
+
+  // `box` and `pie` are patched by the same change but do not fit the table
+  // above: a box point is a five-number summary rather than an {x, y} pair,
+  // and a pie is a single row of slices. Given separately rather than left
+  // untested, since both are in the diff.
+
+  test('a box trace reports empty rather than throwing', () => {
+    // Its own index, deliberately: `boxValues` is section-major, so a single
+    // box is seven rows (the five-number summary plus the outlier groups) and
+    // `PAST_THE_END` would still be inside it. Picking a row that is only
+    // past the end of *some* traces is how a guard gets a green test it never
+    // exercised.
+    const trace = TraceFactory.create(
+      layer(TraceType.BOX, [
+        {
+          z: 'a',
+          lowerOutliers: [],
+          min: 1,
+          q1: 2,
+          q2: 3,
+          q3: 4,
+          max: 5,
+          upperOutliers: [],
+        },
+      ]),
+    );
+    trace.row = 99;
+
+    expect(() => trace.state).not.toThrow();
+    expect(trace.state.empty).toBe(true);
+  });
+
+  test('a pie trace reports empty rather than throwing', () => {
+    // Worth its own case beyond shape: `PieTrace.dimension` hardcodes
+    // `rows: 1`, so the row index is the one thing nothing else keeps at 0.
+    const trace = TraceFactory.create(
+      layer(TraceType.PIE, [{ x: 'a', y: 1 }, { x: 'b', y: 2 }]),
+    );
+    trace.row = PAST_THE_END;
+
+    expect(() => trace.state).not.toThrow();
+    expect(trace.state.empty).toBe(true);
+  });
 });
 
 describe('the cursor coming back into range', () => {
