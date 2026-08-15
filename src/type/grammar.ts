@@ -143,8 +143,20 @@ export interface ViolinKdePoint {
  * @param info.layerId - The ID of the active layer/trace
  * @param info.row - The current row index (e.g., dataset index)
  * @param info.col - The current column index (e.g., data point index)
+ * @param info.pointIndices - Present only for a point cloud (scatter, volcano,
+ *   manhattan), whose selection is a *set of points* rather than a cell of a
+ *   grid: the indices into that layer's `data` array — as the producer supplied
+ *   it — of every point the highlight covers. When it is present `row` and
+ *   `col` are both `-1`, because no row/column pair can name the selection, and
+ *   a consumer that bounds-checks them (as it must) then clears the overlay
+ *   rather than outlining an arbitrary mark.
  */
-export type NavigateCallback = (info: { layerId: string; row: number; col: number } | null) => void;
+export type NavigateCallback = (info: {
+  layerId: string;
+  row: number;
+  col: number;
+  pointIndices?: readonly number[];
+} | null) => void;
 
 /**
  * Root MAIDR data structure containing figure metadata and subplot grid.

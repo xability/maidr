@@ -42,14 +42,15 @@ function pointsOf(chart: ChartJsChart): VolcanoPoint[] {
 /** Everything the plugin's navigation bridge resolves highlights through. */
 function highlightsOf(chart: ChartJsChart): (
   layerId: string,
-  row: number,
-  col: number,
+  pointIndices: readonly number[],
 ) => { datasetIndex: number; index: number }[] {
   const { maidr, layerDatasetIndices } = extractChartData(chart);
   const layers = maidr.subplots.flat().flatMap(subplot => subplot.layers);
   const maps = computeTargetMaps(chart, layers, layerDatasetIndices);
-  return (layerId, row, col) =>
-    resolveActiveTargets(layers, maps, layerDatasetIndices, layerId, row, col);
+  // A cloud is addressed by `layer.data` index, so the position pair the
+  // callback carries alongside it is the -1 sentinel.
+  return (layerId, pointIndices) =>
+    resolveActiveTargets(layers, maps, layerDatasetIndices, layerId, -1, -1, pointIndices);
 }
 
 /** Two genes of a differential expression analysis, as a page would write them. */
@@ -349,11 +350,15 @@ describe('chart.js volcano and manhattan extraction', () => {
 
       const resolve = highlightsOf(chart);
 
-      // Buckets run in ascending x, as `ScatterTrace` orders its columns:
-      // x = 1, x = 2, then the two points sharing x = 3.
-      expect(resolve('0', 0, 0)).toEqual([{ datasetIndex: 0, index: 1 }]);
-      expect(resolve('0', 0, 1)).toEqual([{ datasetIndex: 1, index: 0 }]);
-      expect(resolve('0', 0, 2)).toEqual([
+      // The merged layer's `data` runs chr1's points then chr2's, in dataset
+      // order — so index 0..3 walk (ds0,0), (ds0,1), (ds1,0), (ds1,1).
+      expect(resolve('0', [0])).toEqual([{ datasetIndex: 0, index: 0 }]);
+      expect(resolve('0', [1])).toEqual([{ datasetIndex: 0, index: 1 }]);
+      expect(resolve('0', [2])).toEqual([{ datasetIndex: 1, index: 0 }]);
+
+      // The whole point of the merge: one selection reaching elements in more
+      // than one dataset. The two points sharing x = 3 are data 0 and 3.
+      expect(resolve('0', [0, 3])).toEqual([
         { datasetIndex: 0, index: 0 },
         { datasetIndex: 1, index: 1 },
       ]);

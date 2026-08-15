@@ -2,8 +2,6 @@ import type { AppendedPointInfo } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback } from '@type/grammar';
-import type { Observer } from '@type/observable';
-import type { TraceState } from '@type/state';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
@@ -42,6 +40,7 @@ import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 
 /**
@@ -570,20 +569,9 @@ export class Controller implements Disposable {
    * Used by canvas-based charting libraries (e.g., Chart.js) for visual highlighting.
    */
   private registerNavigateCallback(callback: NavigateCallback): void {
-    const observer: Observer<TraceState> = {
-      update: (state: TraceState) => {
-        if (!state.empty && !state.braille.empty) {
-          callback({
-            layerId: state.layerId,
-            row: state.braille.row,
-            col: state.braille.col,
-          });
-        }
-      },
-    };
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
-        trace.addObserver(observer);
+        trace.addObserver(createNavigateObserver(trace, callback));
       }));
     }));
 

@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { GridNavigable, PointNavigable } from '@type/navigation';
+import type { GridNavigable, PointCloudHighlightable, PointNavigable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
@@ -40,6 +40,13 @@ interface GridCell {
   xValues: number[];
   zValues: number[];
   svgElements: SVGElement[];
+  /**
+   * Indices into the layer's `data` array of the points binned into this cell,
+   * index-aligned with `points`. Unlike `svgElements` this is filled whether or
+   * not the binder supplied elements, so a canvas chart — which has none — can
+   * still say which points a cell holds.
+   */
+  indices: number[];
   xRange: { min: number; max: number };
   yRange: { min: number; max: number };
 }
@@ -64,7 +71,7 @@ interface FlatPoint {
   yIndexInColumn: number;
 }
 
-export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable {
+export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -115,6 +122,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private cellPointIndex: number;
   private cellXPoints: ScatterXPoint[]; // Grouped cell points by X (like xPoints)
   private cellSvgGroups: SVGElement[][]; // SVG elements grouped by X
+  /**
+   * `data` indices grouped by X, parallel to `cellXPoints`. The index twin of
+   * `cellSvgGroups`, built unconditionally so a canvas chart can resolve a
+   * cell-mode highlight it has no elements for.
+   */
+  private cellIndexGroups: number[][];
 
   // Point navigation state (POINT_MODE)
   // - flatPoints: every individual datapoint, in original data order
@@ -157,6 +170,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   //   user on the points they were just hearing.
   private readonly xPointsSvg: (SVGElement | null)[][] | null;
   private readonly yPointsSvg: (SVGElement | null)[][] | null;
+  /**
+   * The index twins of `xPointsSvg` / `yPointsSvg`: `[col][k]` is the `data`
+   * index of the point `xPoints[col].y[k]` came from (and likewise for y).
+   *
+   * Built unconditionally, where the SVG arrays are built only when the binder
+   * supplied one element per datapoint. A canvas chart has no elements at all,
+   * so the identity of a highlighted point has to survive their absence.
+   */
+  private readonly xPointIndices: number[][];
+  private readonly yPointIndices: number[][];
   private readonly hasIntersectableStack: boolean;
   private isInIntersectionMode: boolean;
   private intersectionStackIndex: number;
@@ -242,6 +265,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.cellPointIndex = 0;
     this.cellXPoints = [];
     this.cellSvgGroups = [];
+    this.cellIndexGroups = [];
     const gridConfig = this.resolveGridConfig(layer);
     if (gridConfig) {
       const xSteps = this.computeGridSteps(gridConfig.xMin, gridConfig.xMax, gridConfig.xTickStep);
@@ -307,11 +331,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // stacks, from ROW it uses y-row stacks, so we offer the mode whenever
     // either is non-trivial.
     const hasSvg = allSvgClones.length === data.length;
+    this.xPointIndices = ScatterTrace.buildStackedIndices(data, 'x');
+    this.yPointIndices = ScatterTrace.buildStackedIndices(data, 'y');
     this.xPointsSvg = hasSvg
-      ? this.buildStackedSvg(data, allSvgClones, 'x')
+      ? this.xPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;
     this.yPointsSvg = hasSvg
-      ? this.buildStackedSvg(data, allSvgClones, 'y')
+      ? this.yPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;
     this.hasIntersectableStack
       = this.xPoints.some(p => p.y.length >= 2)
@@ -322,19 +348,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /**
    * Build an array parallel to xPoints / yPoints whose [col][k] (or [row][k])
-   * is the SVG element for xPoints[col].y[k] / yPoints[row].x[k].
+   * is the `data` index of the point behind xPoints[col].y[k] /
+   * yPoints[row].x[k].
    *
    * xPoints is constructed by sorting (x asc, y asc); yPoints by (y asc, x
    * asc). We walk the same sort order over data indices and group on the
-   * primary axis so each entry lines up with its rendered element. Required
-   * for INTERSECTION highlight, which focuses a single point in a stack
-   * rather than the whole chord.
+   * primary axis, so each entry lines up with the value the *Points entry
+   * holds. Required for INTERSECTION highlight, which focuses a single point
+   * in a stack rather than the whole chord.
+   *
+   * The index is the durable identity: the caller maps it to an SVG element
+   * when the binder supplied one, and publishes it as-is to a canvas adapter,
+   * which has no element to map it to.
    */
-  private buildStackedSvg(
+  private static buildStackedIndices(
     data: ScatterPoint[],
-    svgs: SVGElement[],
     primary: 'x' | 'y',
-  ): (SVGElement | null)[][] {
+  ): number[][] {
     const secondary = primary === 'x' ? 'y' : 'x';
     const sortedIndices = data
       .map((_, i) => i)
@@ -343,8 +373,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           data[a][primary] - data[b][primary]
           || data[a][secondary] - data[b][secondary],
       );
-    const result: (SVGElement | null)[][] = [];
-    let group: (SVGElement | null)[] | null = null;
+    const result: number[][] = [];
+    let group: number[] | null = null;
     let prevKey: number | null = null;
     for (const i of sortedIndices) {
       const key = data[i][primary];
@@ -353,7 +383,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         result.push(group);
         prevKey = key;
       }
-      group.push(svgs[i] ?? null);
+      group.push(i);
     }
     return result;
   }
@@ -926,6 +956,61 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     };
   }
 
+  /**
+   * The points the highlight currently covers, as indices into this layer's
+   * `data` array.
+   *
+   * This is `highlight` answered in a renderer-neutral currency. `highlight`
+   * resolves the same five navigation modes into `SVGElement`s, which a canvas
+   * chart has none of — so a canvas adapter is handed back an index into the
+   * `data` array it supplied, and inverts it against its own extraction walk.
+   * That keeps the binning here, in the model that owns it: the adapter never
+   * learns what a grid cell or an x-bucket is.
+   *
+   * Deliberately not gated on SVG availability, where `highlight` falls back to
+   * out-of-bounds when the binder supplied no elements. A canvas chart has no
+   * elements by definition, and that is exactly the case this exists to serve.
+   *
+   * Returns an empty array when nothing is addressed, which a consumer reads as
+   * "clear the overlay".
+   *
+   * @returns Indices into `layer.data`, in no particular order.
+   */
+  public get highlightedPointIndices(): readonly number[] {
+    if (this.isInIntersectionMode) {
+      // A single point in the current stack, selected the same way the SVG
+      // branch selects its element.
+      const stack = this.mode === NavMode.COL
+        ? this.xPointIndices[this.col]
+        : this.yPointIndices[this.row];
+      if (!stack || stack.length === 0) {
+        return [];
+      }
+      const idx = Math.min(this.intersectionStackIndex, Math.max(0, stack.length - 1));
+      const index = stack[idx];
+      return index === undefined ? [] : [index];
+    }
+
+    if (this.isInPointMode) {
+      // pointModeIndex indexes flatPoints, which is `data.map(...)` — so it is
+      // already a data index, with no bookkeeping in between.
+      return this.pointModeIndex >= 0 && this.pointModeIndex < this.flatPoints.length
+        ? [this.pointModeIndex]
+        : [];
+    }
+
+    if (this.isInGridMode && this.gridCells) {
+      if (this.isInGridCellMode && this.cellIndexGroups.length > 0) {
+        return this.cellIndexGroups[this.cellPointIndex] ?? [];
+      }
+      return this.gridCells[this.gridRow]?.[this.gridCol]?.indices ?? [];
+    }
+
+    return (this.mode === NavMode.COL
+      ? this.xPointIndices[this.col]
+      : this.yPointIndices[this.row]) ?? [];
+  }
+
   protected override get hasMultiPoints(): boolean {
     return true;
   }
@@ -1473,31 +1558,43 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
 
     // Build cellXPoints by grouping cell points by X (sorted by X, then Y)
-    const pointsWithSvg = cell.points.map((p, i) => ({ point: p, svg: cell.svgElements[i] }));
+    const pointsWithSvg = cell.points.map((p, i) => ({
+      point: p,
+      svg: cell.svgElements[i],
+      index: cell.indices[i],
+    }));
     const sorted = [...pointsWithSvg].sort((a, b) => a.point.x - b.point.x || a.point.y - b.point.y);
 
     this.cellXPoints = [];
     this.cellSvgGroups = [];
+    this.cellIndexGroups = [];
     let currentX: ScatterXPoint | null = null;
     let currentSvgGroup: SVGElement[] = [];
+    let currentIndexGroup: number[] = [];
 
-    for (const { point, svg } of sorted) {
+    for (const { point, svg, index } of sorted) {
       if (!currentX || currentX.x !== point.x) {
         if (currentX) {
           this.cellXPoints.push(currentX);
           this.cellSvgGroups.push(currentSvgGroup);
+          this.cellIndexGroups.push(currentIndexGroup);
         }
         currentX = { x: point.x, y: [], z: [] };
         currentSvgGroup = [];
+        currentIndexGroup = [];
       }
       currentX.y.push(point.y);
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
       if (svg)
         currentSvgGroup.push(svg);
+      // Unconditional, unlike the SVG push above: a canvas cell still knows
+      // which points it holds.
+      currentIndexGroup.push(index);
     }
     if (currentX) {
       this.cellXPoints.push(currentX);
       this.cellSvgGroups.push(currentSvgGroup);
+      this.cellIndexGroups.push(currentIndexGroup);
     }
 
     this.isInGridCellMode = true;
@@ -1906,6 +2003,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           xValues: [],
           zValues: [],
           svgElements: [],
+          indices: [],
           xRange: xSteps[c],
           yRange: ySteps[r],
         };
@@ -1924,6 +2022,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         grid[rowIdx][colIdx].yValues.push(point.y);
         grid[rowIdx][colIdx].xValues.push(point.x);
         grid[rowIdx][colIdx].zValues.push(typeof point.z === 'number' ? point.z : Number.NaN);
+        // Not guarded by hasElements: the identity of a binned point does not
+        // depend on the binder having drawn something we could select.
+        grid[rowIdx][colIdx].indices.push(i);
         if (hasElements) {
           grid[rowIdx][colIdx].svgElements.push(svgClones[i]);
         }

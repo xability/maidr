@@ -65,6 +65,12 @@ interface NavEvent {
   layerId: string;
   row: number;
   col: number;
+  /**
+   * A point cloud's selection, as `layer.data` indices. Recorded alongside the
+   * position so the resize replay re-resolves the same points rather than the
+   * `-1` pair that accompanies them.
+   */
+  pointIndices?: readonly number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -116,7 +122,7 @@ function applyHighlight(
   navMap: NavMap,
   event: NavEvent,
 ): void {
-  const targets = navMap.resolve(event.layerId, event.row, event.col);
+  const targets = navMap.resolve(event.layerId, event.row, event.col, event.pointIndices);
   if (targets.length === 0) {
     overlay.clear();
     return;

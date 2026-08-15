@@ -14,6 +14,7 @@ import type { AmDeclaredLayer } from './declaration';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
 import {
+  extractCloudMarks,
   extractErrorBarSamples,
   extractForestSamples,
   extractSurvivalArms,
@@ -41,7 +42,20 @@ export interface NavTarget {
  * Resolves a MAIDR navigation position to the am5 targets to highlight.
  */
 export interface NavMap {
-  resolve: (layerId: string, row: number, col: number) => NavTarget[];
+  /**
+   * @param layerId - The layer the position belongs to
+   * @param row - The MAIDR row, or `-1` when `pointIndices` is given
+   * @param col - The MAIDR column, or `-1` when `pointIndices` is given
+   * @param pointIndices - For a point cloud, the `layer.data` indices to
+   *   outline. A cloud's selection is a set of points that no row/column pair
+   *   can name, so it is addressed by data index instead.
+   */
+  resolve: (
+    layerId: string,
+    row: number,
+    col: number,
+    pointIndices?: readonly number[],
+  ) => NavTarget[];
   /**
    * The chart owning a layer, so highlights can be clipped against the owning
    * panel's plot bounds. Layer ids are unique figure-wide, so the id alone
@@ -119,7 +133,11 @@ export interface SeriesGroups {
   declaredList: AmDeclaredLayer[];
 }
 
-type Resolver = (row: number, col: number) => NavTarget[];
+type Resolver = (
+  row: number,
+  col: number,
+  pointIndices?: readonly number[],
+) => NavTarget[];
 
 /** A live series paired with its extractor-filtered (gap-free) data items. */
 interface FilteredSeries {
@@ -326,6 +344,61 @@ function buildIntervalResolver(declared: AmDeclaredLayer | undefined): Resolver 
 }
 
 /**
+ * Build a resolver for a declared point cloud — a scatter, a volcano or a
+ * Manhattan.
+ *
+ * A cloud is the one family whose selection is a *set of points* rather than a
+ * position: the model navigates it through x-buckets, y-buckets, a flat point
+ * order, a binned grid and a within-cell grouping, and no row/column pair can
+ * say which of those is live. It therefore names the points it has highlighted
+ * by their index in the `data` array this adapter supplied, and this inverts
+ * that index against the same walk `extractScatterPoints` and
+ * `extractVolcanoPoints` used to build it.
+ *
+ * The binning stays in the model. Nothing here reconstructs it — a copy would
+ * drift silently and outline a confidently wrong mark, which is why this
+ * resolver was left unregistered until the position could say which point it
+ * meant.
+ *
+ * The marks are read once, at build time, and the resolver is a lookup — the
+ * same shape as {@link buildSurvivalResolver} and {@link buildIntervalResolver},
+ * which index their own extractor-order lists.
+ *
+ * @param declared - The declared cloud layer, if one matched.
+ * @param layer - The emitted layer, whose `data` the indices address.
+ * @returns A resolver mapping data indices to the marks that drew them.
+ */
+function buildCloudResolver(
+  declared: AmDeclaredLayer | undefined,
+  layer: MaidrLayer,
+): Resolver {
+  const marks = declared ? extractCloudMarks(declared) : [];
+  // An index only means anything if this list and `layer.data` are the same
+  // list. Both come from the one walk over `[series, ...arms]` filtered by
+  // `readCloudPoint`, so a mismatch means the chart moved underneath the
+  // extraction. Resolving to nothing then clears the overlay, which is the
+  // honest answer — the same one this layer type gave before it had a resolver
+  // at all, and strictly better than a box on a mark picked by a stale index.
+  const aligned = Array.isArray(layer.data) && marks.length === layer.data.length;
+  if (!aligned) {
+    return () => [];
+  }
+  return (_row, _col, pointIndices) => {
+    if (!pointIndices) {
+      return [];
+    }
+    const targets: NavTarget[] = [];
+    for (const index of pointIndices) {
+      const mark = marks[index];
+      if (mark) {
+        targets.push({ series: mark.series, dataItem: mark.item, kind: 'point' });
+      }
+    }
+    return targets;
+  };
+}
+
+/**
  * Build a resolver for a heatmap layer. amCharts heatmap dataItems are a flat,
  * insertion-ordered list, so we index them by `categoryX`/`categoryY` value.
  * MAIDR's Heatmap model reverses the Y axis (`src/model/heatmap.ts`), so we
@@ -368,7 +441,8 @@ export function buildNavigationMap(entries: readonly NavMapEntry[]): NavMap {
   }
 
   return {
-    resolve: (layerId, row, col) => resolvers.get(layerId)?.(row, col) ?? [],
+    resolve: (layerId, row, col, pointIndices) =>
+      resolvers.get(layerId)?.(row, col, pointIndices) ?? [],
     chartFor: layerId => owners.get(layerId),
     chartCount: new Set(entries.map(entry => entry.chart)).size,
   };
@@ -588,15 +662,12 @@ function addEntryResolvers(
       case TraceType.MANHATTAN:
       case TraceType.VOLCANO:
       case TraceType.SCATTER: {
-        // Deliberately unresolved, and the queue is drained so a second cloud
-        // still matches its own layer. A canvas highlight is driven by the
-        // braille position the navigation callback carries, and a scatter's
-        // braille surface is a *binned grid* rather than the points — so a
-        // position here names a cell of that grid, and reading it as a point
-        // index would outline whichever mark happens to sit at that ordinal.
-        // Resolving to nothing clears the overlay instead, which is the
-        // truthful answer until the position says which point it means.
-        nextDeclared(layer.type);
+        // The navigation callback now says which points it means, by their
+        // index in the `data` this adapter supplied, so a cloud resolves to the
+        // marks that drew them. It stayed unresolved for as long as the only
+        // position on offer was the braille one, which for a scatter is a cell
+        // of a *binned grid* rather than a point.
+        register(layer.id, buildCloudResolver(nextDeclared(layer.type), layer));
         break;
       }
       case TraceType.HEATMAP: {

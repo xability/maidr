@@ -697,16 +697,59 @@ describe('declared layers and the highlight', () => {
     expect(lower[0].kind).toBe('column');
   });
 
-  it('resolves nothing for a cloud, whose position names a grid cell', () => {
+  it('resolves a cloud by data index, so a volcano point outlines', () => {
+    // A cloud has no row/column position that names a mark -- its braille
+    // surface is a binned grid -- so it is addressed by `layer.data` index
+    // instead (#897). Before that channel existed this resolver was left
+    // unregistered on purpose, and volcano and Manhattan outlined nothing.
+    const cloud = cloudSeries('DE', [
+      { valueX: 1, valueY: 2 },
+      { valueX: 3, valueY: 4 },
+    ], {
+      maidr: { type: 'volcano' },
+    });
+    const navMap = navMapOf([cloud]);
+    const layerId = layersOf([cloud])[0].id;
+
+    const first = navMap.resolve(layerId, -1, -1, [0]);
+    const second = navMap.resolve(layerId, -1, -1, [1]);
+
+    expect(first[0].dataItem).toBe(cloud.dataItems[0]);
+    expect(first[0].kind).toBe('point');
+    expect(second[0].dataItem).toBe(cloud.dataItems[1]);
+  });
+
+  it('resolves every point of a multi-point cloud selection', () => {
+    // A scatter column selects every point sharing an X, and a grid cell every
+    // point binned into it, so one position routinely covers several marks.
+    const cloud = cloudSeries('DE', [
+      { valueX: 1, valueY: 2 },
+      { valueX: 3, valueY: 4 },
+    ], {
+      maidr: { type: 'volcano' },
+    });
+    const navMap = navMapOf([cloud]);
+    const layerId = layersOf([cloud])[0].id;
+
+    const both = navMap.resolve(layerId, -1, -1, [0, 1]);
+
+    expect(both.map(target => target.dataItem)).toEqual([
+      cloud.dataItems[0],
+      cloud.dataItems[1],
+    ]);
+  });
+
+  it('clears rather than guesses when a cloud carries no point indices', () => {
+    // A consumer that has not learned about `pointIndices` sends the -1 pair
+    // through. Resolving to nothing keeps #895's honest blank instead of
+    // outlining whichever mark sits at that ordinal.
     const cloud = cloudSeries('DE', [{ valueX: 1, valueY: 2 }], {
       maidr: { type: 'volcano' },
     });
     const navMap = navMapOf([cloud]);
     const layerId = layersOf([cloud])[0].id;
 
-    // A scatter publishes a binned grid rather than its points, so a position
-    // here does not name a mark: the overlay is cleared instead of outlining
-    // whichever point happens to sit at that ordinal.
     expect(navMap.resolve(layerId, 0, 0)).toEqual([]);
+    expect(navMap.resolve(layerId, -1, -1)).toEqual([]);
   });
 });
