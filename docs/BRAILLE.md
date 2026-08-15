@@ -835,7 +835,6 @@ Contours use one line per level on a multiline display, which is the case where
 braille gives back what the announcement carries: two fingers on adjacent rows
 feel exactly where the curves crowd together and where they open out.
 
-<<<<<<< HEAD
 ## Sankey, alluvial and chord
 
 One row per **stage** -- one column of the drawing -- with one cell per node in
@@ -867,7 +866,14 @@ Stage   Cells
 0       ⣿⠶
 1       ⠂⣿⡶
 2       ⣿⡖
-=======
+```
+
+### Multiline Displays
+
+One line per stage, so a hand across the display holds the whole chart and the
+narrowing from source to sink is felt directly -- the one thing here braille
+conveys better than it conveys the ribbons.
+
 ## Network
 
 One row per **connected group**, one cell per node in it, ordered most
@@ -890,20 +896,13 @@ data, so there is nothing there to put in a cell.
 Group   Cells
 1       ⣿⡶⡶⠆⠆
 2       ⡶⡶⡶
->>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
 ```
 
 ### Multiline Displays
 
-<<<<<<< HEAD
-One line per stage, so a hand across the display holds the whole chart and the
-narrowing from source to sink is felt directly -- the one thing here braille
-conveys better than it conveys the ribbons.
-=======
 One line per group, so the split into groups -- the structure a reader
 following links can never discover, because links do not cross between them --
 is felt directly as separate rows of different lengths.
->>>>>>> eae4da3f (feat(network): reach every node, which following links cannot)
 
 ## Treemap
 
