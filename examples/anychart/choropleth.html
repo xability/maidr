@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Choropleth Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 800px; height: 500px; margin-bottom: 1rem; }
+      p { max-width: 800px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). A map needs the map module on top of
+         anychart-base, plus a geodata file for the regions it draws. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-map.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/geodata/countries/united_states_of_america/united_states_of_america.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const chart = anychart.map();
+        chart.geoData(anychart.maps.united_states_of_america);
+
+        // Every row names a region by the id the geodata declared and gives it
+        // the value the map shades it by. The human-readable name is NOT in
+        // the data — it belongs to the geo feature, and MAIDR reads it from
+        // there so the reading is "Nevada" rather than "US.NV".
+        const series = chart.choropleth([
+          { id: 'US.NV', value: 42.1 },
+          { id: 'US.UT', value: 17.9 },
+          { id: 'US.AZ', value: 31.4 },
+          { id: 'US.CA', value: 68.3 },
+          { id: 'US.OR', value: 24.6 },
+          { id: 'US.ID', value: 12.2 },
+        ]);
+        series.name('Solar capacity');
+
+        chart.title('Installed solar capacity by state');
+        chart.container('container');
+        chart.draw();
+
+        maidrAnyChart.bindAnyChart(chart, {
+          id: 'anychart-choropleth',
+          // A map is bound to no axis, so there is no axis title to extract.
+          // Drop these and the adapter falls back to "Region" and "Value".
+          axes: { x: 'State', y: 'Gigawatts' },
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Choropleth Map</h1>
+    <p>
+      Click on the chart and use the left and right arrow keys to move between
+      the shaded regions, in the order the data declares them. Each move
+      announces the region and the value it is shaded by. Press <kbd>B</kbd> for
+      braille, <kbd>T</kbd> for text descriptions, and <kbd>S</kbd> to toggle
+      sonification.
+    </p>
+    <p>
+      The regions are read as a <strong>list in declared order</strong> rather
+      than as a map walked north and south. MAIDR's spatial walk needs a
+      centroid in degrees of longitude and latitude, and what AnyChart carries
+      is each feature's <code>middle-x</code> / <code>middle-y</code> — a
+      normalised coordinate in the map's own projection, which is not a compass
+      bearing and cannot be turned into one without inverting a projection the
+      chart does not name. Announcing it as one would tell you a region lies
+      north of another when the map says nothing of the kind, so it is left out.
+    </p>
+    <p>
+      Highlighting locates each region rather than counting shapes off: the map
+      paints every feature of the geodata — all fifty states for the six rows
+      above — in the geodata's order, so a region is found by matching the
+      drawn bounds AnyChart reports for it. A region that cannot be placed
+      switches highlighting off for the whole map rather than putting one
+      state's outline around another.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

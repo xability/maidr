@@ -25,9 +25,12 @@ import type {
   BoxSelector,
   CandlestickPoint,
   CandlestickTrend,
+  ChoroplethPoint,
   DumbbellData,
   DumbbellPoint,
   FlowPoint,
+  GanttData,
+  GanttPoint,
   HeatmapData,
   LinePoint,
   Maidr,
@@ -43,15 +46,18 @@ import type {
 } from '@type/grammar';
 import type {
   AnyChartBinderOptions,
+  AnyChartDataView,
   AnyChartGridInput,
   AnyChartInstance,
   AnyChartIterator,
   AnyChartsBinderOptions,
   AnyChartSeries,
   AnyChartTitle,
+  AnyChartTree,
+  AnyChartTreeItem,
 } from './types';
 import { nextId } from '@adapters/shared/selectorUtil';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -88,6 +94,7 @@ type AnyChartTraceType
     | TraceType.DUMBBELL
     | TraceType.HEATMAP
     | TraceType.CANDLESTICK
+    | TraceType.CHOROPLETH
     | TraceType.PIE;
 
 /**
@@ -124,6 +131,10 @@ type AnyChartTraceType
  *   ordinal x scale is a Cleveland dot plot rather than a point cloud. That is
  *   a question about the chart's scale rather than about the series, so
  *   {@link resolveMarkerVariant} asks it and promotes the layer.
+ * - `choropleth` is the map module's shaded-region series. It names itself, so
+ *   nothing chart-level is required to recognise one — deliberately, because
+ *   {@link readChartType} answers `''` on a build with no `getType()` and on a
+ *   chart that has not been drawn, and gating on it would drop working maps.
  * - `"pie"` covers doughnuts too: AnyChart draws one with `chart.innerRadius()`
  *   on an ordinary pie, so both report the same type and read identically.
  *   A pie chart has no series API of its own, so this branch only fires for
@@ -159,6 +170,10 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'heat': TraceType.HEATMAP,
     'candlestick': TraceType.CANDLESTICK,
     'ohlc': TraceType.CANDLESTICK,
+    // A map's regions, shaded by value. The one map series that carries a
+    // magnitude — `marker`, `bubble` and `connector` draw over a map rather
+    // than colouring it — and its own name is the whole detection.
+    'choropleth': TraceType.CHOROPLETH,
     'pie': TraceType.PIE,
   };
 
@@ -217,6 +232,32 @@ function readChartType(chart: AnyChartInstance): string {
   } catch {
     return '';
   }
+}
+
+/**
+ * The chart-level data view, on a chart that has one.
+ *
+ * `chart.data()` answers with a data view on every single-dataset chart type
+ * and with an {@link AnyChartTree} on a gantt, and the two share no method:
+ * asking a tree for an iterator throws. Which one arrived is therefore
+ * decided by the object rather than by the chart type, so a gantt reaching a
+ * reader written for a data view is a no-op instead of an exception.
+ *
+ * @param chart - The chart to ask
+ * @returns Its data view, or `undefined` when it has none
+ */
+function resolveChartDataView(
+  chart: AnyChartInstance,
+): AnyChartDataView | undefined {
+  let data: AnyChartDataView | AnyChartTree | undefined;
+  try {
+    data = chart.data?.();
+  } catch {
+    return undefined;
+  }
+  if (data && 'getIterator' in data && typeof data.getIterator === 'function')
+    return data;
+  return undefined;
 }
 
 /** Resolve the DOM element that holds the AnyChart SVG rendering. */
@@ -430,6 +471,9 @@ function readRows(iterator: AnyChartIterator): Array<Record<string, unknown>> {
       'volume',
       // Heatmap cell value
       'heat',
+      // The geo feature a map row is matched to. Carries the id the geodata
+      // declared (`'US.CA'`), never the region's name.
+      'id',
       // Sankey flow: both ends and how much runs between them
       'from',
       'to',
@@ -515,6 +559,21 @@ const WATERFALL_SERIES_TYPES = new Set(['waterfall']);
 
 /** The one series type a marimekko draws its tiles from. */
 const MOSAIC_SERIES_TYPES = new Set(['mekko']);
+
+/**
+ * The map series that shades its regions by value. Its siblings — `marker`,
+ * `bubble`, `connector` — draw *over* a map rather than colouring it, and are
+ * distinct type strings, so nothing plainer wears this name.
+ */
+const CHOROPLETH_SERIES_TYPES = new Set(['choropleth']);
+
+/**
+ * The chart types AnyChart's two gantt constructors report. A project chart
+ * gives every task its own `actualStart` / `actualEnd`; a resource chart gives
+ * each row a `periods` array and can therefore hold several intervals in one
+ * lane. Both are read as one schedule.
+ */
+const GANTT_CHART_TYPES = new Set(['gantt-project', 'gantt-resource']);
 
 /**
  * The series types a radar or polar chart draws that this adapter can read.
@@ -650,6 +709,22 @@ const RADAR_ATTR = 'data-maidr-anychart-spoke';
 const DUMBBELL_ATTR = 'data-maidr-anychart-pair';
 
 /**
+ * Attribute name stamped onto each shaded region of a map by
+ * {@link stampChoroplethAttributes}. The value encodes
+ * `<seriesIndex>-<regionIndex>`, where the region index is the row's position
+ * in the SERIES' data — a map draws every feature of its geodata, in the
+ * geodata's order, so document order is not data order here.
+ */
+const CHOROPLETH_ATTR = 'data-maidr-anychart-region';
+
+/**
+ * Attribute name stamped onto each task bar of a gantt chart by
+ * {@link stampGanttAttributes}. The value encodes `<laneIndex>-<intervalIndex>`
+ * — a gantt has no series API, so the first half names the lane instead.
+ */
+const GANTT_ATTR = 'data-maidr-anychart-task-bar';
+
+/**
  * Attribute name stamped onto each panel's own `<svg>` root by
  * {@link bindAnyCharts}. Its value is the panel token
  * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
@@ -779,10 +854,13 @@ function resolveSelector(
     // a defensive default when the heatmap path is bypassed.
     case TraceType.HEATMAP:
       return `${scope}[${HEATMAP_ATTR}]`;
-    // Both own their selector construction in their layer builder — see the
-    // BOX note above; candlestick likewise emits a CandlestickSelector.
+    // All three own their selector construction in their layer builder — see
+    // the BOX note above; candlestick likewise emits a CandlestickSelector,
+    // and a choropleth needs one exact-match entry per region in DATA order,
+    // which a prefix selector (resolved in document order) cannot express.
     case TraceType.BOX:
     case TraceType.CANDLESTICK:
+    case TraceType.CHOROPLETH:
       return undefined;
   }
 }
@@ -961,9 +1039,21 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
   if (chartType?.includes('pie'))
     return false;
   // A sankey is one too: its ribbons are already one element per flow, and
-  // asking it for a series count throws.
-  if (isFunnelChart(chart) || isWordCloudChart(chart) || isSankeyChart(chart))
+  // asking it for a series count throws. A gantt is the same shape again —
+  // its data is a task tree rather than a series list.
+  //
+  // A map is deliberately *not* in this list: it does expose the series API,
+  // so it falls through to the loop below, which no-ops because
+  // `'choropleth'` is not in `LINE_LIKE_SERIES_TYPES`. No early return is
+  // needed for it.
+  if (
+    isFunnelChart(chart)
+    || isWordCloudChart(chart)
+    || isSankeyChart(chart)
+    || isGanttChart(chart)
+  ) {
     return false;
+  }
 
   const seriesCount = chart.getSeriesCount();
   let mutated = false;
@@ -1974,7 +2064,7 @@ function stampHeatmapAttributes(
     return;
   }
 
-  const dataView = chart.data?.();
+  const dataView = resolveChartDataView(chart);
   if (!dataView)
     return;
   let iterator: AnyChartIterator | null = null;
@@ -2278,6 +2368,45 @@ function isSankeyChart(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether a chart draws a map.
+ *
+ * Asked only by the paths that need a CHART-level answer — which stampers to
+ * run, and whether the line stamper should keep away. The reading itself is
+ * decided by the SERIES, whose `'choropleth'` type names itself: a chart whose
+ * `getType()` is unavailable (an undrawn chart, a build without it) still has
+ * its series, and a map recognised only by its chart type would be dropped
+ * exactly when {@link readChartType} answers `''`.
+ *
+ * `'heat-map'` contains `'map'`, so the chart-type half is an exact match
+ * rather than the tolerant one the pie and heatmap paths use.
+ */
+function isMapChart(chart: AnyChartInstance): boolean {
+  if (readChartType(chart) === 'map')
+    return true;
+  return collectSeriesOfType(chart, CHOROPLETH_SERIES_TYPES).length > 0;
+}
+
+/**
+ * Whether a chart is a gantt.
+ *
+ * `anychart.ganttProject()` and `anychart.ganttResource()` are two distinct
+ * constructors reporting their own names back, and neither shares anything
+ * with the rest of the adapter: a gantt has no series API at all, and its
+ * `data()` hands back a task tree rather than a data view. The type name is
+ * therefore corroborated structurally by {@link readTaskTree} before anything
+ * is read — a chart naming itself a gantt with no tree behind it is bound as
+ * nothing rather than as an empty schedule.
+ *
+ * `anychart.timeline()` is deliberately NOT matched. It is a third
+ * constructor with a series API and its own `range` / `moment` series, whose
+ * moments are instants rather than intervals; reading one here would announce
+ * a schedule whose every zero-length row the chart drew as a point.
+ */
+function isGanttChart(chart: AnyChartInstance): boolean {
+  return GANTT_CHART_TYPES.has(readChartType(chart));
+}
+
+/**
  * Whether a chart is a marimekko.
  *
  * `anychart.mekko()`, `anychart.mosaic()` and `anychart.barmekko()` report
@@ -2340,7 +2469,7 @@ function resolveRadialType(
  * both, so one reader serves all three.
  */
 function readChartRows(chart: AnyChartInstance): Array<Record<string, unknown>> {
-  const dataView = chart.data?.();
+  const dataView = resolveChartDataView(chart);
   if (!dataView)
     return [];
   try {
@@ -2476,6 +2605,20 @@ function resolveStampers(
     return [['word cloud', stampWordCloudAttributes]];
   if (isSankeyChart(chart))
     return [['sankey', stampSankeyAttributes]];
+  // A map does have a series API, and its regions are a mark family no XY
+  // stamper writes — so a map running the XY set would be stamped by nothing
+  // at all. Running the region stamper ALONE is the second half of that: a
+  // map carrying a `marker` or `bubble` overlay would otherwise have the
+  // scatter stamper loose on it, and its geometric filter cannot tell an
+  // overlaid point from the small islands and legend swatches a map is full
+  // of. The overlay loses its highlight, which is what the pie and radar
+  // branches above already choose over a placed guess.
+  if (isMapChart(chart))
+    return [['choropleth', stampChoroplethAttributes]];
+  // A gantt has no series API at all, and its bars are the one mark family
+  // here that no cartesian stamper draws.
+  if (isGanttChart(chart))
+    return [['gantt', stampGanttAttributes]];
   // A radial chart does have a series API, but none of the XY stampers may run
   // on one: its series report themselves as lines and markers, and the line
   // stamper pairs those with marks by their left-to-right order — which on a
@@ -3285,6 +3428,669 @@ function stampDumbbellAttributes(
 }
 
 // ---------------------------------------------------------------------------
+// Choropleth region naming and attribute stamping
+// ---------------------------------------------------------------------------
+
+/** Whether a value is a plain object whose properties can be read by name. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The geo features of whatever geodata a map was bound to.
+ *
+ * AnyChart accepts both of the formats its own map files ship in, and they
+ * nest their features differently: GeoJSON puts them in a flat `features`
+ * array, TopoJSON in one `geometries` array per entry of `objects`. Both carry
+ * the same per-feature `properties`, which is the only thing read here.
+ *
+ * @param geoData - Whatever `chart.geoData()` answered with
+ * @returns Its features, or nothing when the shape is neither
+ */
+function collectGeoFeatures(geoData: unknown): Array<Record<string, unknown>> {
+  if (!isRecord(geoData))
+    return [];
+
+  if (Array.isArray(geoData.features))
+    return geoData.features.filter(isRecord);
+
+  const features: Array<Record<string, unknown>> = [];
+  if (isRecord(geoData.objects)) {
+    for (const object of Object.values(geoData.objects)) {
+      if (isRecord(object) && Array.isArray(object.geometries))
+        features.push(...object.geometries.filter(isRecord));
+    }
+  }
+  return features;
+}
+
+/**
+ * What each region of a map's geodata is called, keyed by the id its rows are
+ * matched on.
+ *
+ * A choropleth's rows carry an id and a value and nothing else — `'US.CA'`,
+ * `42` — because the name belongs to the geodata rather than to the data. A
+ * map read without this announces every region by a code, which is a reading
+ * a listener cannot follow.
+ *
+ * @param chart - The map to read
+ * @returns Region names by feature id, empty when the geodata says none
+ */
+function readRegionNames(chart: AnyChartInstance): Map<string, string> {
+  const names = new Map<string, string>();
+
+  let geoData: unknown;
+  try {
+    geoData = chart.geoData?.();
+  } catch {
+    return names;
+  }
+
+  // Which property the rows' `id` is matched against. AnyChart defaults to
+  // `'id'` and a chart that renames it renames it for the lookup here too.
+  let idField = 'id';
+  try {
+    idField = chart.geoIdField?.() || 'id';
+  } catch {
+    idField = 'id';
+  }
+
+  for (const feature of collectGeoFeatures(geoData)) {
+    const properties = isRecord(feature.properties) ? feature.properties : {};
+    const id = properties[idField] ?? feature.id ?? properties.id;
+    const name = properties.name;
+    if (id !== undefined && typeof name === 'string' && name.length > 0)
+      names.set(String(id), name);
+  }
+  return names;
+}
+
+/**
+ * The name the bound geo feature gives one region, when the build exposes it.
+ *
+ * The direct route, and the one that needs no id matching: a map series' point
+ * hands back the properties of the feature it was drawn onto. Older builds do
+ * not offer it, and the caller then falls back to the geodata lookup.
+ *
+ * @param series - The choropleth series
+ * @param index - The row's own index within the series
+ * @returns The feature's name, or `undefined`
+ */
+function readFeatureName(
+  series: AnyChartSeries,
+  index: number,
+): string | undefined {
+  try {
+    const properties = series.getPoint(index)?.getFeatureProp?.();
+    const name = isRecord(properties) ? properties.name : undefined;
+    return typeof name === 'string' && name.length > 0 ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What one region of a choropleth is announced as.
+ *
+ * In falling order of how much the chart itself says: the bound feature's own
+ * name, the same name looked up in the geodata by id, whatever the row called
+ * itself, and finally the bare id. The last is a poor name but a true one —
+ * every alternative would be a region the map does not contain.
+ *
+ * @param series - The choropleth series the row belongs to
+ * @param row - The row
+ * @param names - Region names by feature id, from {@link readRegionNames}
+ * @returns The region's name
+ */
+function regionNameOf(
+  series: AnyChartSeries,
+  row: Record<string, unknown>,
+  names: Map<string, string>,
+): string {
+  const fromFeature = readFeatureName(series, asNumber(row._index, -1));
+  if (fromFeature)
+    return fromFeature;
+
+  const id = row.id === undefined ? undefined : String(row.id);
+  const fromGeoData = id === undefined ? undefined : names.get(id);
+  if (fromGeoData)
+    return fromGeoData;
+
+  const own = asString(row.name ?? row.x);
+  if (own.length > 0)
+    return own;
+
+  return id ?? asString(row._index);
+}
+
+/** A rectangle in the coordinates the stage draws its shapes in. */
+interface RegionBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * How far apart two measurements of one drawn shape may be and still be the
+ * same shape: a region's own box against the bounds AnyChart reports for its
+ * feature, or one gantt bar's left edge against another's.
+ *
+ * A region's two readings are the same rectangle read twice — the chart
+ * computed the bounds and then drew the path from them — so the tolerance
+ * covers rounding rather than disagreement, and staying tight is what keeps
+ * two adjacent regions from both answering to one set of bounds.
+ */
+const DRAWN_BOX_TOLERANCE_PX = 1.5;
+
+/**
+ * The bounds AnyChart reports for the feature one row was matched to.
+ *
+ * @param series - The choropleth series
+ * @param index - The row's own index within the series
+ * @returns The feature's drawn box, or `undefined` when the build has none
+ */
+function readFeatureBox(
+  series: AnyChartSeries,
+  index: number,
+): RegionBox | undefined {
+  let bounds: unknown;
+  try {
+    bounds = series.getPoint(index)?.getFeatureBounds?.();
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(bounds))
+    return undefined;
+
+  const box = {
+    left: Number(bounds.left),
+    top: Number(bounds.top),
+    width: Number(bounds.width),
+    height: Number(bounds.height),
+  };
+  const finite = Object.values(box).every(Number.isFinite);
+  return finite && box.width > 0 && box.height > 0 ? box : undefined;
+}
+
+/** The box a rendered shape occupies, when it can be measured. */
+function readDrawnBox(element: SVGElement): RegionBox | undefined {
+  let bbox: DOMRect | null = null;
+  try {
+    bbox = (element as unknown as SVGGraphicsElement).getBBox?.() ?? null;
+  } catch {
+    bbox = null;
+  }
+  if (!bbox || bbox.width <= 0 || bbox.height <= 0)
+    return undefined;
+  return { left: bbox.x, top: bbox.y, width: bbox.width, height: bbox.height };
+}
+
+/** Whether two boxes are the same rectangle read twice. */
+function boxesMatch(a: RegionBox, b: RegionBox): boolean {
+  return Math.abs(a.left - b.left) <= DRAWN_BOX_TOLERANCE_PX
+    && Math.abs(a.top - b.top) <= DRAWN_BOX_TOLERANCE_PX
+    && Math.abs(a.width - b.width) <= DRAWN_BOX_TOLERANCE_PX
+    && Math.abs(a.height - b.height) <= DRAWN_BOX_TOLERANCE_PX;
+}
+
+/**
+ * Stamp `data-maidr-anychart-region="<seriesIndex>-<regionIndex>"` on the path
+ * a map drew for each region the data names.
+ *
+ * Every other stamper in this file pairs a datum with a shape by counting DOM
+ * order, and a map is the family where that cannot work: AnyChart paints every
+ * feature of the bound geodata — all fifty states for a table naming three —
+ * in the geodata's order rather than the data's, and the paths carry no id. A
+ * count would put California's highlight on Alabama's shape.
+ *
+ * Each region is therefore *located* instead. AnyChart reports the drawn
+ * bounds of the feature a row was matched to, and the path it drew from them
+ * has exactly that box, so a region is the shape whose own box is the one the
+ * chart said it would be. A region matching no shape, or more than one, is a
+ * region this cannot place: nothing is stamped for the whole chart then, for
+ * the reason {@link stampWordCloudAttributes} gives — a half-stamped map costs
+ * the same highlight while looking, in the DOM, like it worked.
+ *
+ * On a chart with no choropleth series this is a no-op.
+ */
+function stampChoroplethAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  const entries = collectSeriesOfType(chart, CHOROPLETH_SERIES_TYPES);
+  if (entries.length === 0)
+    return;
+
+  const regions: Array<{ series: number; region: number; box: RegionBox }> = [];
+  for (const { series, index } of entries) {
+    const rows = extractRawRows(series).filter(isDrawnDatum);
+    for (const [region, row] of rows.entries()) {
+      const box = readFeatureBox(series, asNumber(row._index, -1));
+      if (!box) {
+        console.warn(
+          '[maidr/anychart] Highlighting is disabled for this map: AnyChart '
+          + `reports no drawn bounds for the region at index ${region} of `
+          + `series ${index}, and the regions of a map cannot be paired with `
+          + 'its paths by position. Pass an explicit `selectors` entry to '
+          + 'override.',
+        );
+        return;
+      }
+      regions.push({ series: index, region, box });
+    }
+  }
+  if (regions.length === 0)
+    return;
+
+  const candidates = collectFilledDataPaths(svg).filter(
+    // Idempotency — skip regions stamped on a prior bind.
+    path => !path.hasAttribute(CHOROPLETH_ATTR),
+  );
+
+  const matched: SVGElement[] = [];
+  const taken = new Set<SVGElement>();
+  for (const { box } of regions) {
+    const hits = candidates.filter((path) => {
+      const drawn = readDrawnBox(path);
+      return drawn !== undefined && boxesMatch(drawn, box);
+    });
+    if (hits.length !== 1 || taken.has(hits[0])) {
+      console.warn(
+        `[maidr/anychart] Expected exactly one drawn shape at the bounds `
+        + `AnyChart reports for a region but found ${hits.length}. `
+        + 'Highlighting is disabled for this map; pass an explicit '
+        + '`selectors` entry to override.',
+      );
+      return;
+    }
+    taken.add(hits[0]);
+    matched.push(hits[0]);
+  }
+
+  matched.forEach((path, i) => {
+    const { series, region } = regions[i];
+    path.setAttribute(CHOROPLETH_ATTR, `${stampPrefix}${series}-${region}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Gantt task tree, axis scale and attribute stamping
+// ---------------------------------------------------------------------------
+
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * The widest span a schedule may cover and still be read in hours. Two days —
+ * past that an hour is too fine to compare tasks by, and below it a day is too
+ * coarse to distinguish them at all.
+ */
+const GANTT_HOURLY_MAX_SPAN = 2 * MS_PER_DAY;
+
+/** One interval of a schedule, before the axis unit has been decided. */
+interface GanttSpan {
+  /** When it begins, in milliseconds since the epoch. */
+  start: number;
+  /** When it ends. Equal to {@link GanttSpan.start} for a milestone. */
+  end: number;
+  /** What the interval is called, when the lane does not already name it. */
+  label?: string;
+}
+
+/** One row of a schedule: a task or a resource, and the work booked on it. */
+interface GanttLane {
+  name: string;
+  spans: GanttSpan[];
+}
+
+/** How a schedule's milliseconds are turned into the axis a reader hears. */
+interface GanttScale {
+  /** Milliseconds per axis unit. */
+  perUnit: number;
+  /** What one unit is called. */
+  unit: string;
+}
+
+/**
+ * The task tree behind a gantt chart.
+ *
+ * The structural half of the detection: `chart.data()` answers with an
+ * `anychart.data.Tree` on a gantt and with a flat data view on every other
+ * chart-level type, and the two share no method. A chart naming itself a gantt
+ * with no tree behind it has not been given its data, and binding it would
+ * announce a schedule with no work in it.
+ *
+ * @param chart - The chart to ask
+ * @returns Its task tree, or `null` when it has none
+ */
+function readTaskTree(chart: AnyChartInstance): AnyChartTree | null {
+  let data: AnyChartDataView | AnyChartTree | undefined;
+  try {
+    data = chart.data?.();
+  } catch {
+    return null;
+  }
+  if (
+    data
+    && 'numChildren' in data
+    && typeof data.numChildren === 'function'
+    && typeof data.getChildAt === 'function'
+  ) {
+    return data;
+  }
+  return null;
+}
+
+/**
+ * One date off a task, as milliseconds since the epoch.
+ *
+ * A gantt's axis is a date-time scale whatever the author wrote against it:
+ * AnyChart accepts a `Date`, an ISO string and a bare timestamp for the same
+ * field and draws all three at the same instant, so all three are read as one
+ * here.
+ *
+ * @param value - Whatever the tree item held
+ * @returns The instant, or `NaN` when the value names none
+ */
+function toTimestamp(value: unknown): number {
+  if (value instanceof Date)
+    return value.getTime();
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : Number.NaN;
+  if (typeof value === 'string') {
+    const asNumeric = Number(value);
+    return Number.isFinite(asNumeric) ? asNumeric : Date.parse(value);
+  }
+  return Number.NaN;
+}
+
+/**
+ * One of a task's own dates, falling back to the one the chart worked out.
+ *
+ * A parent task states no dates: AnyChart derives them from its children and
+ * keeps the answer in the item's meta as `autoStart` / `autoEnd`. Reading only
+ * the authored field would leave every summary row of a project chart empty.
+ *
+ * @param item - The tree item to read
+ * @param field - The authored field name
+ * @param derived - The meta key AnyChart computes it into
+ * @returns The instant, or `NaN` when neither is set
+ */
+function readTaskDate(
+  item: AnyChartTreeItem,
+  field: string,
+  derived: string,
+): number {
+  let own: unknown;
+  try {
+    own = item.get(field);
+  } catch {
+    own = undefined;
+  }
+  const authored = toTimestamp(own);
+  if (Number.isFinite(authored))
+    return authored;
+
+  try {
+    return toTimestamp(item.meta?.(derived));
+  } catch {
+    return Number.NaN;
+  }
+}
+
+/**
+ * The intervals booked on one row of a schedule.
+ *
+ * A resource chart puts several on a row — that is what its `periods` array
+ * is for, and it is the case {@link GanttData}'s nested shape exists to carry.
+ * A project chart puts at most one there. A task with a start and no end is a
+ * milestone: AnyChart draws it as a diamond at an instant, so it is emitted as
+ * the zero-length interval it is rather than dropped.
+ *
+ * @param item - The tree item to read
+ * @returns Its intervals, in the order the row holds them
+ */
+function readTaskSpans(item: AnyChartTreeItem): GanttSpan[] {
+  let periods: unknown;
+  try {
+    periods = item.get('periods');
+  } catch {
+    periods = undefined;
+  }
+
+  if (Array.isArray(periods)) {
+    const spans: GanttSpan[] = [];
+    for (const period of periods) {
+      if (!isRecord(period))
+        continue;
+      const start = toTimestamp(period.start);
+      if (!Number.isFinite(start))
+        continue;
+      const end = toTimestamp(period.end);
+      const label = asString(period.name ?? period.id);
+      spans.push({
+        start,
+        end: Number.isFinite(end) ? end : start,
+        ...(label ? { label } : {}),
+      });
+    }
+    return spans;
+  }
+
+  const start = readTaskDate(item, 'actualStart', 'autoStart');
+  if (!Number.isFinite(start))
+    return [];
+  const end = readTaskDate(item, 'actualEnd', 'autoEnd');
+  return [{ start, end: Number.isFinite(end) ? end : start }];
+}
+
+/**
+ * Flatten a gantt's task tree into one lane per row, in draw order.
+ *
+ * Depth-first, parents before their children, which is the order the chart
+ * stacks its rows in. A parent is a lane of its own rather than a heading: it
+ * carries the span AnyChart derived for it, and a reader arrowing down the
+ * lanes meets it exactly where the chart draws it.
+ *
+ * @param tree - The chart's task tree
+ * @returns Its lanes, in row order
+ */
+function collectGanttLanes(tree: AnyChartTree): GanttLane[] {
+  const lanes: GanttLane[] = [];
+
+  const visit = (item: AnyChartTreeItem): void => {
+    const name = asString(item.get('name') ?? item.get('id'))
+      || `Lane ${lanes.length + 1}`;
+    lanes.push({ name, spans: readTaskSpans(item) });
+
+    let children = 0;
+    try {
+      children = item.numChildren?.() ?? 0;
+    } catch {
+      children = 0;
+    }
+    for (let i = 0; i < children; i++) {
+      const child = item.getChildAt?.(i);
+      if (child)
+        visit(child);
+    }
+  };
+
+  let rows = 0;
+  try {
+    rows = tree.numChildren();
+  } catch {
+    return lanes;
+  }
+  for (let i = 0; i < rows; i++) {
+    const child = tree.getChildAt(i);
+    if (child)
+      visit(child);
+  }
+  return lanes;
+}
+
+/**
+ * What one unit of a schedule's axis is, and how many milliseconds it holds.
+ *
+ * The length of an interval is the fact a gantt exists to carry, and MAIDR
+ * announces it as a bare number with {@link GanttData.unit} after it. Left in
+ * milliseconds every task in a project would be announced as an unreadable
+ * nine-digit figure, so the axis is restated in the unit its own span calls
+ * for. The unit is READ rather than guessed: AnyChart's gantt timeline is a
+ * date-time scale, so what the tree holds is instants, and saying so is not
+ * an inference about the data.
+ *
+ * @param lanes - The schedule's lanes
+ * @returns The unit its axis reads in
+ */
+function resolveGanttScale(lanes: GanttLane[]): GanttScale {
+  const instants = lanes.flatMap(lane =>
+    lane.spans.flatMap(span => [span.start, span.end]));
+  const span = instants.length > 0
+    ? Math.max(...instants) - Math.min(...instants)
+    : 0;
+  return span <= GANTT_HOURLY_MAX_SPAN
+    ? { perUnit: MS_PER_HOUR, unit: 'hours' }
+    : { perUnit: MS_PER_DAY, unit: 'days' };
+}
+
+/**
+ * Stamp `data-maidr-anychart-task-bar="<laneIndex>-<intervalIndex>"` on every
+ * bar of a gantt chart.
+ *
+ * A gantt renders as a split widget — a data grid on the left, a timeline on
+ * the right — sharing one SVG, and its bars have no counterpart among the
+ * cartesian mark families: no series drew them, so no series-scoped lookup
+ * finds them. What is left is the count, and a gantt offers more filled shapes
+ * than any other chart here: the row stripes behind both halves, the header,
+ * the progress fill inside a bar that has one.
+ *
+ * So the schedule's own interval count is what picks them out. When the whole
+ * SVG holds exactly that many filled paths they are the bars; otherwise the
+ * search narrows to the LAYER holding exactly that many, since AnyChart draws
+ * each family into a layer of its own. Two layers answering to the same count
+ * — the stripes behind a one-interval-per-row project chart are exactly that —
+ * are separated by the one property a schedule has and a background does not:
+ * its bars begin and end in different places. Anything still ambiguous is left
+ * unstamped and said out loud, because a bar highlighted for the wrong task is
+ * worse than none at all.
+ *
+ * On any other chart type this is a no-op.
+ */
+function stampGanttAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isGanttChart(chart))
+    return;
+
+  const tree = readTaskTree(chart);
+  if (!tree)
+    return;
+
+  const drawn: Array<{ lane: number; interval: number }> = [];
+  collectGanttLanes(tree).forEach((lane, index) => {
+    lane.spans.forEach((_, interval) => drawn.push({ lane: index, interval }));
+  });
+  if (drawn.length === 0)
+    return;
+
+  const candidates = collectFilledDataPaths(svg).filter(
+    // Idempotency — skip bars stamped on a prior bind.
+    path => !path.hasAttribute(GANTT_ATTR),
+  );
+
+  const bars = resolveGanttBars(candidates, drawn.length);
+  if (!bars) {
+    console.warn(
+      `[maidr/anychart] Could not tell this gantt's ${drawn.length} task bars `
+      + `apart from the ${candidates.length} filled shapes its SVG holds. `
+      + 'Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
+
+  bars.forEach((bar, i) => {
+    const { lane, interval } = drawn[i];
+    bar.setAttribute(GANTT_ATTR, `${stampPrefix}${lane}-${interval}`);
+  });
+}
+
+/**
+ * Pick the schedule's task bars out of a gantt's filled shapes.
+ *
+ * @param candidates - Every filled path the SVG holds
+ * @param expected - How many intervals the schedule emitted
+ * @returns The bars, in document order, or `null` when they cannot be told
+ * apart from the rest of the chart
+ */
+function resolveGanttBars(
+  candidates: SVGElement[],
+  expected: number,
+): SVGElement[] | null {
+  if (candidates.length === expected)
+    return candidates;
+
+  const byLayer = new Map<Element, SVGElement[]>();
+  for (const candidate of candidates) {
+    const layer = candidate.closest('g[id^="ac_layer_"]');
+    if (!layer)
+      continue;
+    const group = byLayer.get(layer);
+    if (group)
+      group.push(candidate);
+    else
+      byLayer.set(layer, [candidate]);
+  }
+
+  const matching = Array.from(byLayer.values()).filter(
+    group => group.length === expected,
+  );
+  if (matching.length === 1)
+    return matching[0];
+  if (matching.length === 0)
+    return null;
+
+  // Several layers hold the right number of shapes. A schedule's bars start
+  // and end in different places; a column of row backgrounds is one rectangle
+  // repeated down the chart, and that is the difference.
+  const varied = matching.filter(hasVaryingSpans);
+  return varied.length === 1 ? varied[0] : null;
+}
+
+/**
+ * Whether a group of shapes sits at more than one position and width.
+ *
+ * A shape that cannot be measured answers no rather than yes: this separates
+ * a schedule from a backdrop, and a group it cannot see is a group it cannot
+ * vouch for.
+ *
+ * @param group - The shapes to measure
+ * @returns True when they do not all share one left edge and one width
+ */
+function hasVaryingSpans(group: SVGElement[]): boolean {
+  const boxes: RegionBox[] = [];
+  for (const shape of group) {
+    const box = readDrawnBox(shape);
+    if (!box)
+      return false;
+    boxes.push(box);
+  }
+  const [first] = boxes;
+  if (!first)
+    return false;
+  return boxes.some(
+    box => Math.abs(box.left - first.left) > DRAWN_BOX_TOLERANCE_PX
+      || Math.abs(box.width - first.width) > DRAWN_BOX_TOLERANCE_PX,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Layer builders – one per MAIDR trace type
 // ---------------------------------------------------------------------------
 
@@ -3632,7 +4438,7 @@ function buildHeatmapLayerFromChart(
   selectors: string | string[] | undefined,
   panel?: PanelContext,
 ): MaidrLayer | null {
-  const dataView = chart.data?.();
+  const dataView = resolveChartDataView(chart);
   if (!dataView)
     return null;
   let iterator: AnyChartIterator | null = null;
@@ -3795,6 +4601,66 @@ function buildPieLayer(
 }
 
 /**
+ * Build a CHOROPLETH layer from an AnyChart map's shaded-region series.
+ *
+ * Each row is a region and its value. The name comes from the geodata rather
+ * than from the row — see {@link regionNameOf} — and a row with no numeric
+ * value is dropped, because AnyChart shades no region for one and keeping it
+ * would slide every later region's highlight onto its neighbour.
+ *
+ * **`lon` and `lat` are deliberately omitted.** The grammar's centroids are
+ * degrees east and north (`ChoroplethPoint.lon` / `.lat`), and what AnyChart
+ * has are its features' `middle-x` / `middle-y` — normalised coordinates in
+ * the map's own projection, which are not degrees and cannot be turned into
+ * them without inverting a projection the chart does not name. Passing them
+ * through would tell a reader that one region lies north of another when the
+ * map says nothing of the kind. Without them `ChoroplethTrace` reads the
+ * regions as a list in declared order: a poorer reading, and the one the data
+ * supports. `neighbors` is not derivable from AnyChart at all and stays
+ * absent too.
+ *
+ * The selectors are emitted as an ARRAY, one exact-match entry per region in
+ * DATA order, for the reason {@link stampChoroplethAttributes} explains: a map
+ * paints every feature of its geodata in the geodata's order, so a prefix
+ * selector — which resolves in document order — would hand the trace its
+ * regions shuffled.
+ *
+ * @param chart - The map the series belongs to, for its geodata
+ * @param series - The choropleth series
+ * @param seriesIndex - Index used as the layer id and in the default selectors
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The MAIDR choropleth layer
+ */
+function buildChoroplethLayer(
+  chart: AnyChartInstance,
+  series: AnyChartSeries,
+  seriesIndex: number,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const names = readRegionNames(chart);
+  const data: ChoroplethPoint[] = extractRawRows(series)
+    .filter(isDrawnDatum)
+    .map(row => ({
+      x: regionNameOf(series, row, names),
+      y: asNumber(row.value ?? row.y),
+    }));
+
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const defaultSelectors = data.map(
+    (_, i) => `${scope}[${CHOROPLETH_ATTR}="${stamp}${seriesIndex}-${i}"]`,
+  );
+  return {
+    id: String(seriesIndex),
+    type: TraceType.CHOROPLETH,
+    selectors: selectors ?? defaultSelectors,
+    data,
+  };
+}
+
+/**
  * Build a FUNNEL layer from an AnyChart funnel's (or pyramid's) stage rows.
  *
  * Only the count is emitted. `FunnelTrace` derives each stage's share of the
@@ -3921,6 +4787,88 @@ function buildSankeyLayer(
     id: '0',
     type: TraceType.SANKEY,
     selectors: selectors ?? defaultSelectors,
+    data,
+  };
+}
+
+/**
+ * Build a GANTT layer from a gantt chart's task tree.
+ *
+ * The lanes are NESTED, one array per row of the chart, which is what lets an
+ * empty one survive: a task with no dates — a heading, a row whose work has
+ * not been scheduled — is a real statement about a plan, and a flat list
+ * grouped by lane cannot make it. Every lane is named in `lanes` in the same
+ * order for the same reason, since an empty lane holds no interval to carry
+ * its own name in `x`.
+ *
+ * The ends are restated in whole days (or hours, on a schedule short enough to
+ * need them) rather than left as the milliseconds the tree holds, and the unit
+ * is named alongside them — see {@link resolveGanttScale}. The x axis carries
+ * a formatter that turns a position back into a date, so a reader is told when
+ * a task runs as well as how long it takes.
+ *
+ * The selectors are emitted as an ARRAY, one exact-match entry per interval in
+ * lane order: `GanttTrace` slices the resolved elements lane by lane, so the
+ * order they arrive in is the reading, and it withdraws the highlight entirely
+ * unless the count matches exactly.
+ *
+ * @param lanes - The schedule's rows, in draw order
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel - The owning panel, in multi-panel mode
+ * @returns The MAIDR gantt layer
+ */
+function buildGanttLayer(
+  lanes: GanttLane[],
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const scale = resolveGanttScale(lanes);
+  const points: GanttPoint[][] = lanes.map(lane =>
+    lane.spans.map(span => ({
+      x: lane.name,
+      start: span.start / scale.perUnit,
+      end: span.end / scale.perUnit,
+      ...(span.label && span.label !== lane.name ? { label: span.label } : {}),
+    })));
+
+  const data: GanttData = {
+    points,
+    lanes: lanes.map(lane => lane.name),
+    unit: scale.unit,
+  };
+
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const defaultSelectors: string[] = [];
+  points.forEach((lane, index) => {
+    lane.forEach((_, interval) => {
+      defaultSelectors.push(
+        `${scope}[${GANTT_ATTR}="${stamp}${index}-${interval}"]`,
+      );
+    });
+  });
+
+  return {
+    id: '0',
+    type: TraceType.GANTT,
+    // A schedule runs its bars left to right, which puts the dates on x and
+    // the lanes on y — the opposite of the trace's own default.
+    orientation: Orientation.HORIZONTAL,
+    selectors: selectors ?? defaultSelectors,
+    // The positions stay readable as dates even though the lengths are now
+    // counted in units: without this an end announces as the unit count it
+    // is, which says how far along the axis a task sits and not when it runs.
+    axes: {
+      x: {
+        format: {
+          function: `return new Date(value * ${scale.perUnit}).${
+            scale.perUnit === MS_PER_HOUR
+              ? 'toLocaleString()'
+              : 'toLocaleDateString()'
+          }`,
+        },
+      },
+    },
     data,
   };
 }
@@ -4329,6 +5277,7 @@ function radarSelector(seriesIndex: number, panel?: PanelContext): string {
  * until a matching case is added here.
  */
 function buildLayer(
+  chart: AnyChartInstance,
   series: AnyChartSeries,
   seriesIndex: number,
   traceType: AnyChartTraceType,
@@ -4357,6 +5306,10 @@ function buildLayer(
       return buildHeatmapLayer(series, seriesIndex, selectors);
     case TraceType.CANDLESTICK:
       return buildCandlestickLayer(series, seriesIndex, selectors, panel);
+    // The one builder that needs the chart as well as the series: a region's
+    // name lives in the geodata the CHART was bound to, never in the row.
+    case TraceType.CHOROPLETH:
+      return buildChoroplethLayer(chart, series, seriesIndex, selectors, panel);
     case TraceType.PIE:
       return buildPieLayer(extractRawRows(series), seriesIndex, selectors, panel);
   }
@@ -4395,6 +5348,36 @@ const WORD_CLOUD_AXIS_FALLBACKS = { x: 'Term', y: 'Weight' };
 const SANKEY_AXIS_FALLBACKS = { x: 'Node', y: 'Flow' };
 
 /**
+ * What a choropleth's two dimensions are called when the chart names neither.
+ * A map is bound to no axis: its regions are places rather than positions on a
+ * scale, and AnyChart's map chart has no `xAxis()` / `yAxis()` to borrow a
+ * title from.
+ */
+const CHOROPLETH_AXIS_FALLBACKS = { x: 'Region', y: 'Value' };
+
+/**
+ * What a gantt's two dimensions are called when the chart names neither. A
+ * gantt draws its own timeline header rather than an `xAxis()` / `yAxis()`
+ * pair, so there is no axis title to extract; a resource chart's rows are
+ * named separately, because what they hold is who is booked rather than what
+ * is to be done.
+ */
+const GANTT_PROJECT_AXIS_FALLBACKS = { x: 'Date', y: 'Task' };
+const GANTT_RESOURCE_AXIS_FALLBACKS = { x: 'Date', y: 'Resource' };
+
+/**
+ * The fallbacks for the trace types a SERIES can produce that are bound to no
+ * axis. Looked up by trace type so the series loop states the rule once
+ * instead of asking about each of them in turn.
+ */
+const AXIS_FALLBACKS_BY_TYPE: Partial<
+  Record<AnyChartTraceType, { x: string; y: string }>
+> = {
+  [TraceType.PIE]: PIE_AXIS_FALLBACKS,
+  [TraceType.CHOROPLETH]: CHOROPLETH_AXIS_FALLBACKS,
+};
+
+/**
  * Build one {@link MaidrSubplot} from a single AnyChart chart instance.
  *
  * This is the per-chart body shared by {@link anyChartToMaidr} (single
@@ -4431,12 +5414,17 @@ function buildSubplot(
   ): void => {
     const x = xAxisLabel ?? fallbacks?.x;
     const y = yAxisLabel ?? fallbacks?.y;
-    if (x || y) {
-      layer.axes = {
-        ...(x ? { x: { label: x } } : {}),
-        ...(y ? { y: { label: y } } : {}),
-      };
-    }
+    if (!x && !y)
+      return;
+    // Merged onto whatever the builder already put there, rather than
+    // replacing it: a gantt's x axis arrives carrying the formatter that turns
+    // its positions back into dates, and that is not a label's to discard.
+    const axes = { ...layer.axes };
+    if (x)
+      axes.x = { ...axes.x, label: x };
+    if (y)
+      axes.y = { ...axes.y, label: y };
+    layer.axes = axes;
   };
 
   const finalize = (layers: MaidrLayer[]): MaidrSubplot => {
@@ -4544,6 +5532,31 @@ function buildSubplot(
       return null;
     const layer = buildSankeyLayer(rows, chartLevelSelector, panel);
     attachAxes(layer, SANKEY_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
+  // A gantt is the last of the chart-level types, and the one furthest from
+  // the rest: it has no series API to reach the loop below with, and its data
+  // is a task tree rather than a data view — so the `getSeriesCount()`
+  // fallback would route its schedule to the heatmap builder, which would find
+  // no iterator and bind nothing at all.
+  if (isGanttChart(chart)) {
+    const tree = readTaskTree(chart);
+    if (!tree)
+      return null;
+    const lanes = collectGanttLanes(tree);
+    // A plan whose every row is undated is not a schedule to read: the lanes
+    // exist but nothing is booked in any of them, and a trace of empty lanes
+    // announces a chart the reader cannot navigate anywhere within.
+    if (lanes.every(lane => lane.spans.length === 0))
+      return null;
+    const layer = buildGanttLayer(lanes, chartLevelSelector, panel);
+    attachAxes(
+      layer,
+      readChartType(chart) === 'gantt-resource'
+        ? GANTT_RESOURCE_AXIS_FALLBACKS
+        : GANTT_PROJECT_AXIS_FALLBACKS,
+    );
     return finalize([layer]);
   }
 
@@ -4663,10 +5676,10 @@ function buildSubplot(
     }
 
     const selectors = resolveSelector(i, traceType, options, panel);
-    const layer = buildLayer(series, i, traceType, selectors, panel);
+    const layer = buildLayer(chart, series, i, traceType, selectors, panel);
 
     // Attach axis labels.
-    attachAxes(layer, traceType === TraceType.PIE ? PIE_AXIS_FALLBACKS : undefined);
+    attachAxes(layer, AXIS_FALLBACKS_BY_TYPE[traceType]);
 
     layers.push(layer);
   }

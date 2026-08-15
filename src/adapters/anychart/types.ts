@@ -21,6 +21,27 @@ export interface AnyChartPoint {
   get: (field: string) => unknown;
   getIndex: () => number;
   exists: () => boolean;
+
+  /**
+   * The bound geo feature's own properties, on a point of a map series.
+   *
+   * This is where a region's human-readable name lives: the data row carries
+   * only the id it was matched on (`'US.CA'`), and the name (`'California'`)
+   * belongs to the feature the geodata declared. Absent on every non-map
+   * series, and on builds that predate the map module's point API — the
+   * region then keeps the id as its name, which is poorer but still true.
+   */
+  getFeatureProp?: () => unknown;
+
+  /**
+   * The drawn bounds of the bound geo feature, in the stage's pixels.
+   *
+   * The only handle a map offers on WHICH shape it drew for a region:
+   * AnyChart paints every feature of the geodata, not only the rows it was
+   * given, and the paths carry no id. Matching a path's own box against this
+   * is what lets a region be highlighted rather than counted off.
+   */
+  getFeatureBounds?: () => unknown;
 }
 
 /** A data view (mapping / set) backing a series. */
@@ -65,6 +86,34 @@ export interface AnyChartSeries {
    * candlestick series do not expose this method.
    */
   markers?: () => AnyChartMarkers;
+}
+
+/**
+ * One node of the task tree backing a gantt chart.
+ *
+ * A gantt is the one AnyChart chart type whose data is neither a series nor a
+ * flat data view: `chart.data()` hands back an `anychart.data.Tree` whose
+ * items carry `actualStart` / `actualEnd` (a project chart) or a `periods`
+ * array (a resource chart), and whose children are the rows drawn beneath
+ * their parent.
+ */
+export interface AnyChartTreeItem {
+  /** Reads one field of the task — `'name'`, `'actualStart'`, `'periods'`. */
+  get: (field: string) => unknown;
+  /**
+   * Reads a value the chart computed for the task rather than one the author
+   * wrote. A parent task states no dates of its own: AnyChart derives them
+   * from its children and stores them as `'autoStart'` / `'autoEnd'`.
+   */
+  meta?: (key: string) => unknown;
+  numChildren?: () => number;
+  getChildAt?: (index: number) => AnyChartTreeItem | null;
+}
+
+/** The task tree returned by a gantt chart's `data()`. */
+export interface AnyChartTree {
+  numChildren: () => number;
+  getChildAt: (index: number) => AnyChartTreeItem | null;
 }
 
 /** Title object returned by `chart.title()`. */
@@ -189,8 +238,25 @@ export interface AnyChartInstance {
    * as Heatmap, which do not expose a series-based API and instead store
    * their cells in a top-level data view. Absent on multi-series Cartesian
    * charts (bar, line, scatter, box, candlestick).
+   *
+   * A gantt chart answers with an {@link AnyChartTree} instead of a data
+   * view — the two are told apart by whether the result can hand out an
+   * iterator, never by the chart type alone.
    */
-  data?: () => AnyChartDataView;
+  data?: () => AnyChartDataView | AnyChartTree;
+
+  /**
+   * The geodata a map was bound to (`anychart.maps.*`), as GeoJSON or
+   * TopoJSON. Read for one thing only: the region names, which the data rows
+   * do not carry. Present on a map chart.
+   */
+  geoData?: () => unknown;
+
+  /**
+   * Which property of a geo feature the data rows' `id` is matched against.
+   * Defaults to `'id'`. Present on a map chart.
+   */
+  geoIdField?: () => string | undefined;
 
   /** SVG string export. */
   toSvg?: () => string;
