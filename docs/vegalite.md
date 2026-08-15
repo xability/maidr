@@ -53,7 +53,7 @@ Load Vega, Vega-Lite, vega-embed, MAIDR core, and the Vega-Lite adapter, then ca
 
 `embed()` returns a `Promise<{ view }>` — `await` it (or use `.then()` / `.catch()`) when you need the underlying Vega view or want to handle render failures.
 
-If you already drive `vegaEmbed` yourself (e.g. you need the `view` for additional logic before MAIDR mounts), use [`bindVegaLite`](#bindvegalite-view-spec-options) instead. **You must `await result.view.runAsync()`** between embedding and binding so the SVG is in the DOM by the time MAIDR mounts:
+If you already drive `vegaEmbed` yourself (e.g. you need the `view` for additional logic before MAIDR mounts), use [`bindVegaLite`](#bindvegaliteview-spec-options) instead. **You must `await result.view.runAsync()`** between embedding and binding so the SVG is in the DOM by the time MAIDR mounts:
 
 ```js
 // renderer must be 'svg' — MAIDR navigates the SVG output, not canvas.
@@ -574,7 +574,7 @@ Lower-level entry point that mounts MAIDR on the SVG produced by an existing `ve
 | `options.id` | `string` (optional) | Unique ID for the MAIDR instance. Defaults to the view container's `id`, or a timestamp fallback. |
 | `options.title` | `string` (optional) | Override for the chart title used in announcements. |
 
-**Callers must `await view.runAsync()` before calling `bindVegaLite()`.** `vegaEmbed(...)` resolves when the view is *constructed*, not when it has *rendered* — calling `bindVegaLite()` immediately after `vegaEmbed()` resolves can race the first paint and produce a "No SVG found" error on slow or aggregated specs (histograms, complex transforms). The view must also be created with `renderer: 'svg'`; MAIDR cannot navigate canvas output. **Prefer [`embed()`](#embed-target-spec-options)** which performs both steps for you.
+**Callers must `await view.runAsync()` before calling `bindVegaLite()`.** `vegaEmbed(...)` resolves when the view is *constructed*, not when it has *rendered* — calling `bindVegaLite()` immediately after `vegaEmbed()` resolves can race the first paint and produce a "No SVG found" error on slow or aggregated specs (histograms, complex transforms). The view must also be created with `renderer: 'svg'`; MAIDR cannot navigate canvas output. **Prefer [`embed()`](#embedtarget-spec-options)** which performs both steps for you.
 
 ### `vegaLiteToMaidr(spec, view?, options?)`
 

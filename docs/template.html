@@ -271,10 +271,31 @@
       background: rgba(255, 255, 255, 0.2);
     }
 
+    /* Skip link: first thing in the tab order, offscreen until focused. */
+    .skip-link {
+      position: absolute;
+      left: -10000px;
+      top: 0;
+      z-index: 1100;
+      padding: 0.75rem 1rem;
+      background: white;
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    .skip-link:focus {
+      left: 0;
+    }
+
     main {
       max-width: 1200px;
       margin: 0 auto;
       padding: 2rem;
+    }
+
+    /* Focused only to move the reading position from the skip link. */
+    main:focus {
+      outline: none;
     }
 
     /* Markdown content styles */
@@ -407,6 +428,7 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
   <nav>
     <div class="container">
       <a href="{{BASE_PATH}}index.html" class="logo">
@@ -456,7 +478,7 @@
     </div>
   </nav>
 
-  <main>
+  <main id="main-content" tabindex="-1">
     {{CONTENT}}
   </main>
 
