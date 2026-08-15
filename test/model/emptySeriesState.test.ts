@@ -91,7 +91,7 @@ describe('a ragged layer', () => {
 
   test('the empty series reports empty rather than throwing', () => {
     const trace = raggedTrace();
-    (trace as unknown as { row: number }).row = 1;
+    trace.row = 1;
 
     expect(() => trace.state).not.toThrow();
     expect(trace.state.empty).toBe(true);
@@ -101,12 +101,11 @@ describe('a ragged layer', () => {
     // The guard must not latch: an empty row is a fact about where the
     // cursor is, not about the trace.
     const trace = raggedTrace();
-    const cursor = trace as unknown as { row: number };
 
-    cursor.row = 1;
+    trace.row = 1;
     expect(trace.state.empty).toBe(true);
 
-    cursor.row = 0;
+    trace.row = 0;
     expect(trace.state.empty).toBe(false);
   });
 });
