@@ -556,7 +556,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * @returns Its line's index into the declared links, or undefined when the
    *   node has no line drawn for it
    */
-  private static lineOf(node: NetworkNode | null | undefined): number | undefined {
+  private static lineOf(node: NetworkNode | null): number | undefined {
     const at = node?.linkAt[0];
     return at === undefined || at < 0 ? undefined : at;
   }
