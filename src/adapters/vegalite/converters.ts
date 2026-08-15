@@ -16,9 +16,11 @@
  * into one.
  */
 
+import type { ChoroplethDeclaration, MaidrTraceDeclaration } from '@type/declaration';
 import type {
   BarPoint,
   BoxPoint,
+  ChoroplethPoint,
   DumbbellData,
   DumbbellPoint,
   ErrorBarPoint,
@@ -48,6 +50,7 @@ import type {
   VegaLiteTransform,
   VegaView,
 } from './types';
+import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
 import {
   chunkIntoRows,
@@ -98,6 +101,8 @@ export function vegaLiteToMaidr(
   const caption = spec.description;
 
   const domOrder = options?.domOrder;
+
+  warnCompositeDeclaration(spec);
 
   // Handle composite views (concat).
   if (spec.hconcat) {
@@ -1064,6 +1069,16 @@ function resolveTraceType(
     case 'errorbar':
     case 'errorband':
       return TraceType.ERROR_BAR;
+    // The one mark that names itself. `geoshape` draws geography and
+    // nothing else compiles to it, so no author sentence is needed to
+    // recognise a map — but a map is only a *choropleth* once a value
+    // shades it. A `geoshape` with no colour or fill field is the outline
+    // layer such a spec is usually built on top of: it carries no data, and
+    // it is left unread rather than announced as a chart with no values.
+    case 'geoshape':
+      return hasField(encoding?.color) || hasField(encoding?.fill)
+        ? TraceType.CHOROPLETH
+        : null;
     default:
       return null;
   }
@@ -2416,6 +2431,372 @@ function extractDumbbellData(
   return { points, startLabel: ends[0], endLabel: ends[1] };
 }
 
+// ---------------------------------------------------------------------------
+// Choropleth
+// ---------------------------------------------------------------------------
+
+/** How the shared declaration reader names this adapter in its warnings. */
+const DECLARATION_ADAPTER = 'Vega-Lite';
+
+/**
+ * Where a `geoshape` layer's two facts live: what each region is called,
+ * and the value it is shaded by.
+ *
+ * The region field is the part a map does not carry positionally — a
+ * choropleth has no `x` — so it is recovered from the join that built the
+ * layer, or named outright in a `usermeta.maidr` block.
+ */
+interface ChoroplethFields {
+  /** Field naming each region, resolved against the row. */
+  region: string;
+  /** What to call the regions on the announced axis. */
+  regionLabel: string;
+  /** Field carrying the shaded value. */
+  value: string;
+  /** What to call the values on the announced axis. */
+  valueLabel: string;
+  /**
+   * The channel `value` came from, when it came from the encoding rather
+   * than from a declaration — which is what says whether Vega-Lite renamed
+   * the column while aggregating it.
+   */
+  valueChannel?: VegaLiteChannelDef;
+  /** The declaration, when the spec carried one. */
+  declaration?: ChoroplethDeclaration;
+}
+
+/**
+ * Read a field off a row, reaching into nested objects for a dotted name.
+ *
+ * TopoJSON features nest everything a spec can key on: a world map joins on
+ * `properties.name` and a US one on `id`, and Vega resolves both as field
+ * accessors. A flat property wins, since Vega-Lite escapes a literal dot in
+ * a column name and the unescaped form is then the nested one.
+ *
+ * @param row - The row the layer resolved
+ * @param field - The field name, possibly a dotted path
+ * @returns The value, or `undefined` when the path leads nowhere
+ */
+function readFieldPath(row: Record<string, unknown>, field: string): unknown {
+  if (field in row)
+    return row[field];
+  if (!field.includes('.'))
+    return undefined;
+
+  let value: unknown = row;
+  for (const step of field.split('.')) {
+    if (typeof value !== 'object' || value === null)
+      return undefined;
+    value = (value as Record<string, unknown>)[step];
+  }
+  return value;
+}
+
+/**
+ * A number in degrees, or nothing.
+ *
+ * Degrees are the whole point of a centroid — they are what settles whether
+ * a rising value means north or south — so anything that is not one is left
+ * out rather than passed on. A projected or normalised coordinate would put
+ * regions in compass directions from one another that the map does not.
+ *
+ * @param value - Whatever the centroid field resolved to
+ * @returns The coordinate, or `undefined`
+ */
+function toDegrees(value: unknown): number | undefined {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || value.trim() === '')
+    return undefined;
+  const degrees = Number(value);
+  return Number.isFinite(degrees) ? degrees : undefined;
+}
+
+/**
+ * The field a `geoshape` layer names its regions with, read off the spec.
+ *
+ * A choropleth is built by joining values onto geometry, and the join key
+ * is* the region's identity — it is the one field guaranteed present on
+ * every drawn feature and distinct between them. Failing that, the tooltip:
+ * on a map it is the only place left where a spec says what a region is,
+ * since there is no positional channel to say it. A tooltip entry naming
+ * the shaded value is skipped, because announcing the value as the region's
+ * name would leave the map with no names at all.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param transform - The transforms in scope for the layer
+ * @param valueField - The field the regions are shaded by
+ * @returns The field and the label to announce it under, or `null`
+ */
+function resolveRegionSource(
+  encoding: VegaLiteEncoding,
+  transform: VegaLiteTransform[] | undefined,
+  valueField: string | undefined,
+): { field: string; label: string } | null {
+  const joined = transform?.find(entry => typeof entry.lookup === 'string')?.lookup;
+  if (typeof joined === 'string' && joined.length > 0) {
+    // `properties.name` is a path into the feature, not a name a reader
+    // would recognise; the leaf of it is.
+    const leaf = joined.slice(joined.lastIndexOf('.') + 1);
+    return { field: joined, label: leaf };
+  }
+
+  const tooltip = encoding.tooltip;
+  const channels = Array.isArray(tooltip) ? tooltip : tooltip ? [tooltip] : [];
+  const named = channels.find(
+    channel => hasField(channel) && channel.field !== valueField,
+  );
+  return named?.field ? { field: named.field, label: getAxisLabel(named) } : null;
+}
+
+/**
+ * Work out which columns a choropleth layer reads.
+ *
+ * A declaration outranks the spec for both facts. Note that `region` does
+ * **not** fall back to a column literally called `region` the way the
+ * naming law's other fields fall back to their own names: a `geoshape`
+ * spec's join already names the field, so the spec-derived answer is the
+ * better default and is used wherever the author named nothing.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @param transform - The transforms in scope for the layer
+ * @param declaration - The layer's `usermeta.maidr` block, when it declared one
+ * @param seriesRef - How the author can find this layer, for warnings
+ * @returns The fields to read, or `null` when the spec names no regions
+ */
+function resolveChoroplethFields(
+  encoding: VegaLiteEncoding,
+  transform: VegaLiteTransform[] | undefined,
+  declaration: ChoroplethDeclaration | undefined,
+  seriesRef: string,
+): ChoroplethFields | null {
+  const valueChannel = encoding.color ?? encoding.fill;
+  const value = declaration?.value ?? valueChannel?.field;
+  if (value === undefined) {
+    console.warn(
+      `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "choropleth" on `
+      + `${seriesRef} has no colour or fill field to shade the regions by and `
+      + `names none with "value"; the map is left unread.`,
+    );
+    return null;
+  }
+
+  const region = declaration?.region
+    ? { field: declaration.region, label: declaration.region }
+    : resolveRegionSource(encoding, transform, valueChannel?.field);
+  if (!region) {
+    console.warn(
+      `[maidr/vegalite] A geoshape map on ${seriesRef} names its regions `
+      + `nowhere MAIDR can read: add the "lookup" transform that joins the `
+      + `values on, a "tooltip" naming the region field, or a `
+      + `usermeta.maidr block declaring "region". The map is left unread.`,
+    );
+    return null;
+  }
+
+  return {
+    region: region.field,
+    regionLabel: region.label,
+    value,
+    valueLabel: declaration?.value !== undefined || !valueChannel
+      ? value
+      : getAxisLabel(valueChannel),
+    valueChannel: declaration?.value === undefined ? valueChannel : undefined,
+    declaration,
+  };
+}
+
+/**
+ * Read one region per row: what it is called and the value shading it.
+ *
+ * A row the join left unmatched carries no value — Vega still draws the
+ * geometry, unshaded — and is dropped rather than shaded with a stand-in:
+ * a region announced as zero is a claim the map does not make. Dropping it
+ * costs the layer its highlighting when it happens, since the regions then
+ * no longer line up one-to-one with the drawn shapes, so say so.
+ *
+ * `lon`/`lat` are read only from a declaration. A projection is not
+ * inverted to synthesise them: with the pair the reader walks the map by
+ * compass direction, and with a *wrong* pair they walk a map that does not
+ * exist, so the centroids come from the author or not at all.
+ *
+ * @param rows - The layer's resolved rows
+ * @param fields - The columns this layer reads
+ * @param seriesRef - How the author can find this layer, for warnings
+ * @returns One region per readable row, in data-flow order
+ */
+function extractChoroplethData(
+  rows: Record<string, unknown>[],
+  fields: ChoroplethFields,
+  seriesRef: string,
+): ChoroplethPoint[] {
+  const { declaration } = fields;
+  const resolved = new Set<string>();
+  const points: ChoroplethPoint[] = [];
+
+  for (const row of rows) {
+    const name = readFieldPath(row, fields.region);
+    if (name !== undefined && name !== null) {
+      resolved.add('region');
+    }
+    const read = fields.valueChannel
+      ? readEncodedValue(row, fields.valueChannel, fields.value)
+      : readFieldPath(row, fields.value);
+    if (read !== undefined && read !== null) {
+      resolved.add('value');
+    }
+
+    const shaded = Number(read);
+    if (name === undefined || name === null || !Number.isFinite(shaded)) {
+      continue;
+    }
+
+    const point: ChoroplethPoint = {
+      x: typeof name === 'number' ? name : String(name),
+      y: shaded,
+    };
+    if (declaration) {
+      const lon = toDegrees(resolveFieldRef(row, declaration.lon, 'lon'));
+      const lat = toDegrees(resolveFieldRef(row, declaration.lat, 'lat'));
+      // Each half is tracked on its own, because the diagnostic answers a
+      // different question than the payload does: whether *this* name found
+      // degrees on the row. Tracking the pair together makes a correctly
+      // named `lon` report as missing whenever `lat` is the typo, pointing
+      // the author at the one field that was right.
+      if (lon !== undefined) {
+        resolved.add('lon');
+      }
+      if (lat !== undefined) {
+        resolved.add('lat');
+      }
+      // Both or neither: half a centroid places a region nowhere, and
+      // `ChoroplethTrace` bands the map only when every region has the pair.
+      if (lon !== undefined && lat !== undefined) {
+        point.lon = lon;
+        point.lat = lat;
+      }
+    }
+    points.push(point);
+  }
+
+  if (points.length < rows.length) {
+    console.warn(
+      `[maidr/vegalite] ${rows.length - points.length} of ${rows.length} `
+      + `geoshape features on ${seriesRef} carry no value to announce and were `
+      + `dropped; the remaining regions no longer line up with the drawn `
+      + `shapes, so this layer is not highlighted.`,
+    );
+  }
+  reportUnresolvedRefs(declaration, resolved, seriesRef);
+  return points;
+}
+
+/**
+ * Report every field the author named that no row of the layer carried.
+ *
+ * An explicit {@link FieldRef} is used verbatim, so a typo resolves to
+ * nothing on every row and the fact is quietly left out of the payload.
+ * Saying which name missed is what turns that into something the author can
+ * fix.
+ *
+ * @param declaration - The layer's declaration, when it carried one
+ * @param resolved - The canonical names that resolved on at least one row
+ * @param seriesRef - How the author can find this layer
+ */
+function reportUnresolvedRefs(
+  declaration: ChoroplethDeclaration | undefined,
+  resolved: Set<string>,
+  seriesRef: string,
+): void {
+  if (!declaration) {
+    return;
+  }
+  const named: [string, string | undefined][] = [
+    ['region', declaration.region],
+    ['value', declaration.value],
+    ['lon', declaration.lon],
+    ['lat', declaration.lat],
+  ];
+  for (const [canonical, ref] of named) {
+    if (ref !== undefined && !resolved.has(canonical)) {
+      warnUnresolvedRef(
+        { adapter: DECLARATION_ADAPTER, seriesRef },
+        ref,
+        canonical,
+      );
+    }
+  }
+}
+
+/**
+ * Apply a `usermeta.maidr` block's `type` over the mark's own reading.
+ *
+ * A declaration outranks every heuristic, but only where the library
+ * construct can back it: Vega-Lite says what most of its marks are, and the
+ * one thing a spec cannot say for itself here is that a `geoshape` is a
+ * choropleth when no colour encoding shades it. Anything else declared is
+ * reported against what was actually drawn and read as the undeclared
+ * chart, per the disagreement rule — never thrown, and never announced as a
+ * chart the marks do not draw.
+ *
+ * @param declaration - The layer's declaration, when it carried one
+ * @param mark - The layer's mark
+ * @param resolved - What the mark and its encoding resolved to
+ * @param seriesRef - How the author can find this layer
+ * @returns The type to read the layer as
+ */
+function applyDeclaredType(
+  declaration: MaidrTraceDeclaration | null,
+  mark: string,
+  resolved: TraceType | null,
+  seriesRef: string,
+): TraceType | null {
+  if (!declaration || declaration.type === resolved) {
+    return resolved;
+  }
+  if (declaration.type === TraceType.CHOROPLETH && mark === 'geoshape') {
+    return TraceType.CHOROPLETH;
+  }
+  console.warn(
+    `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration for "${declaration.type}" `
+    + `on ${seriesRef} names a chart this adapter cannot read from a "${mark}" `
+    + `mark; reading it as the undeclared chart.`,
+  );
+  return resolved;
+}
+
+/**
+ * Report a declaration written on a spec node that becomes no single layer.
+ *
+ * A declaration says what **one** layer means. On a `layer`, `concat`,
+ * `facet` or `repeat` parent it names none of the several layers below it,
+ * and guessing which one it meant would announce the wrong half of a
+ * composite map as the chart. Move it down onto the child it describes.
+ *
+ * Called at every point a composite node is descended into, not only on the
+ * entry spec: a concat child or a faceted child can itself be a `layer`, and
+ * a declaration stranded on one of those is as unusable as on the outer
+ * node. Each call site fires once per node, so a misplaced declaration is
+ * reported once however many panels the node expands into.
+ *
+ * @param spec - The spec about to be converted
+ */
+function warnCompositeDeclaration(spec: VegaLiteSpec): void {
+  if (spec.usermeta?.maidr === undefined) {
+    return;
+  }
+  const composite = spec.layer ?? spec.hconcat ?? spec.vconcat ?? spec.concat
+    ?? spec.facet ?? spec.repeat;
+  if (composite === undefined) {
+    return;
+  }
+  console.warn(
+    `[MAIDR ${DECLARATION_ADAPTER}] maidr declaration on a composite spec `
+    + `names no one layer; move it onto the layer, concat or facet child it `
+    + `describes. Ignored.`,
+  );
+}
+
 /**
  * Convert a segment layer and the dot layer that follows it into the one
  * chart they draw together.
@@ -2577,7 +2958,22 @@ function convertLayerSpec(
     : spec.transform;
 
   const stepDirection = getStepDirection(spec);
-  const traceType = resolveTraceType(mark, encoding, stepDirection, transform);
+
+  // `usermeta` is Vega-Lite's own slot for third-party metadata, and the
+  // only home a JSON-authored or Altair-produced spec has for a
+  // declaration. Read before the mark's own reading, since a declaration
+  // outranks every heuristic.
+  const seriesRef = `layer ${index}`;
+  const declaration = readDeclarationSlot(spec.usermeta, {
+    adapter: DECLARATION_ADAPTER,
+    seriesRef,
+  });
+  const traceType = applyDeclaredType(
+    declaration,
+    mark,
+    resolveTraceType(mark, encoding, stepDirection, transform),
+    seriesRef,
+  );
 
   if (!traceType)
     return null;
@@ -2764,6 +3160,30 @@ function convertLayerSpec(
       data = extractHeatmapData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
+    // A map has no positional channels at all, so its axes are named after
+    // the two things it does carry: what a region is called, and what
+    // shades it.
+    case TraceType.CHOROPLETH: {
+      const fields = resolveChoroplethFields(
+        encoding,
+        transform,
+        declaration?.type === TraceType.CHOROPLETH ? declaration : undefined,
+        seriesRef,
+      );
+      if (!fields) {
+        return null;
+      }
+      data = extractChoroplethData(rows, fields, seriesRef);
+      // Emitted unconditionally: Vega draws one `<path>` per feature, and
+      // `ChoroplethTrace` refuses a selector set whose element count does
+      // not match the regions it was given, so a map that dropped an
+      // unmatched feature degrades to no highlight rather than to the wrong
+      // one.
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      axes.x = { label: fields.regionLabel };
+      axes.y = { label: fields.valueLabel };
+      break;
+    }
     case TraceType.PIE:
       data = extractPieData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
@@ -2884,6 +3304,15 @@ function convertLayerSpec(
     data,
   };
 
+  // Naming is independent of the type: an author whose declared type could
+  // not be honoured still named this layer, and the two fields are the only
+  // way a spec says which of several layers a reader has switched to.
+  if (declaration?.title !== undefined) {
+    layer.title = declaration.title;
+  }
+  if (declaration?.name !== undefined) {
+    layer.name = declaration.name;
+  }
   if (stepDirection && traceType === TraceType.STEP) {
     layer.stepDirection = stepDirection;
   }
@@ -2918,6 +3347,10 @@ function buildConcatMaidr(
   let globalLayerIndex = 0;
 
   const subplotEntries: MaidrSubplot[] = specs.map((childSpec, i) => {
+    // A concat child is a spec node `vegaLiteToMaidr` never sees, so a
+    // declaration written on one that is itself composite is caught here or
+    // not at all. Once per child, not once per layer.
+    warnCompositeDeclaration(childSpec);
     // Each concat child compiles to a per-cell Vega scope group
     // (`concat_<i>_group`) wrapping the panel's background path. Pointing
     // the subplot selector at that background gives MAIDR core a real
@@ -3356,6 +3789,15 @@ function buildFacetMaidr(
   domOrder?: 'series-major' | 'subject-major',
 ): Maidr {
   const childSpec = descriptor.childSpec;
+  // With the `facet` operator the child is a separate spec node that
+  // `vegaLiteToMaidr` never inspects, so a declaration misplaced on a
+  // layered child is caught here. The `encoding.row`/`column` shorthand is
+  // deliberately excluded: there the child is the entry spec with the facet
+  // channels stripped, carrying the same declaration object, and it was
+  // already checked once — warning again would print the same line twice.
+  if (spec.facet != null && spec.spec != null) {
+    warnCompositeDeclaration(spec.spec);
+  }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
   const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
   const facetFields = [
@@ -3550,6 +3992,11 @@ function buildRepeatMaidr(
   domOrder?: 'series-major' | 'subject-major',
 ): Maidr {
   const childSpec = descriptor.childSpec;
+  // `describeRepeat` only answers for `spec.repeat` + `spec.spec`, so the
+  // child is always a separate node the entry check never saw. Warn once
+  // here, before the per-cell loop — a misplaced declaration is one mistake,
+  // not one per repeated panel.
+  warnCompositeDeclaration(childSpec);
 
   // Grid of per-cell field mappings in reading order.
   interface RepeatCellDef { mapping: RepeatCellMapping; title: string }

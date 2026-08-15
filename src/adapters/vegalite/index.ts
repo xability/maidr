@@ -46,3 +46,8 @@ export type {
   VegaLiteToMaidrOptions,
   VegaView,
 } from './types';
+
+// The co-located declaration a spec writes on `usermeta.maidr`. Re-exported
+// here so an author typing a spec against this barrel can type the block on
+// it too, without reaching into `src/type/`.
+export type { ChoroplethDeclaration, MaidrTraceDeclaration } from '@type/declaration';

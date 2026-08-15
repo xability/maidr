@@ -1584,6 +1584,9 @@ export type {
   VegaView,
 } from './adapters/vegalite/types';
 
+// The co-located declaration a spec writes on `usermeta.maidr`.
+export type { ChoroplethDeclaration, MaidrTraceDeclaration } from './type/declaration';
+
 /**
  * Initialise MAIDR on an already-rendered Vega-Lite chart.
  *

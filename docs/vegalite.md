@@ -109,6 +109,7 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `errorbar`, `errorband` | — | Error bar | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
 | `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
 | `arc` | `radius` bound to a field | Polar area (coxcomb, rose) | — |
+| `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
 | `rule` + `point` layers | shared category and value channels | Lollipop | — |
 | `rule` + `point` layers, or `line` + `point` where the `line` has a `detail` naming the category | two values per category, told apart by `color` | Dumbbell | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
 
@@ -117,6 +118,8 @@ An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the chann
 Two of these charts have no mark of their own in Vega-Lite and are authored as a pair of layers: a lollipop is a `rule` from the baseline plus its dots, and a dumbbell is a connector plus two dots per category (Vega-Lite's own "Ranged Dot Plot"). MAIDR collapses each pair into one trace, so the stem's magnitude and the gap between a pair are announced rather than dropped. The two ends of a dumbbell are named from the colour field — "1995" and "2000" rather than "start" and "end" — since those names are the whole content of the comparison. A `line` connector has to say what it joins, by naming the category in `detail` the way the Ranged Dot Plot does: a `line` under a dot layer without one is the ordinary line-with-markers idiom, and a two-series version of it would otherwise be read as a comparison of its two series.
 
 Four more charts have no mark of their own either and are recognised from the transform that built them. A `line` is a bump chart only when the ranked column is the one actually plotted on `y` — the same `window` rank is also how a spec picks a top-n before drawing the underlying magnitude, which is an ordinary line. A folded `line` split by `detail` is parallel coordinates, and the fold's raw `value` column is handed to the trace rather than any pre-normalised one, so each axis keeps its own units. A `row` facet of density curves is a ridgeline, whose panel order is read from the compiled view rather than the facet domain, because Vega sorts that domain before laying the cells out. A diverging bar is decided per series — every series wholly one side of the baseline, and both sides used — which recognises a pyramid and a Likert scale while leaving an ordinary stacked bar that merely dips negative alone.
+
+A `geoshape` mark is the one mark that names itself: it draws geography and nothing else compiles to it, so a map needs no annotation to be recognised. It is only a *choropleth* once a value shades it, which is why a `color` or `fill` field is required — a `geoshape` with neither is the outline layer such a map is usually drawn on top of, carries no data, and is left unread rather than announced as a chart with no values.
 
 A ranged bar — gantt or waterfall — needs the axis opposite its two bounds typed in the spec as `nominal` or `ordinal`. A type Vega-Lite infers from the data is written down nowhere MAIDR can read it, and without one the bar reads as an ordinary bar whose magnitude is its lower bound alone, so MAIDR warns to the console when it sees a two-bound bar with an untyped category axis.
 
@@ -429,6 +432,70 @@ maidrVegaLite.embed('#chart', spec, { id: 'fruit-pie' });
 An `arc` has no `x` or `y` to name its axes after, so the slice labels come from the `color` (or `fill`) channel and the magnitudes from `theta`, and the layer's axis labels are taken from those two channels' titles. Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Apples, 30, 26.1%". Adding `mark: { type: 'arc', innerRadius: 60 }` makes it a doughnut, which reads identically.
 
 See [`examples/vegalite-pie.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) for a runnable version.
+
+### Choropleth map
+
+```js
+const states = [
+  { id: 53, state: 'Washington', rate: 4.9, lon: -120.4, lat: 47.4 },
+  { id: 41, state: 'Oregon', rate: 4.6, lon: -120.6, lat: 43.9 },
+  { id: 6, state: 'California', rate: 5.3, lon: -119.7, lat: 37.2 },
+  { id: 32, state: 'Nevada', rate: 5.8, lon: -116.6, lat: 39.3 },
+];
+
+const spec = {
+  $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+  width: 640,
+  height: 400,
+  title: 'Unemployment rate, western states',
+  data: {
+    url: 'https://cdn.jsdelivr.net/npm/vega-datasets@2/data/us-10m.json',
+    format: { type: 'topojson', feature: 'states' },
+  },
+  transform: [
+    {
+      lookup: 'id',
+      from: { data: { values: states }, key: 'id', fields: ['state', 'rate', 'lon', 'lat'] },
+    },
+    { filter: 'isValid(datum.rate)' },
+  ],
+  projection: { type: 'albersUsa' },
+  mark: 'geoshape',
+  encoding: {
+    color: { field: 'rate', type: 'quantitative', title: 'Unemployment rate (%)' },
+  },
+  usermeta: {
+    maidr: { type: 'choropleth', region: 'state' },
+  },
+};
+
+maidrVegaLite.embed('#chart', spec, { id: 'states-choropleth' });
+```
+
+A map has no `x` or `y` channel, so MAIDR names its two axes after the two things it does carry: what a region is called, and what shades it. The region name is read from the `lookup` transform's join key — the one field present on every drawn feature and distinct between them, including a nested one such as `properties.name`. Failing that, from the first `tooltip` entry that is not the shaded value itself. A map that names its regions in neither place is left unread, because numbering them 0, 1, 2 would announce a position in the file as if it were a place.
+
+Geometry the join left unmatched carries no value. Those regions are **dropped** rather than shaded zero — a region announced as 0 is a claim the map does not make, and on a rate it is the lowest value on the scale. Once regions are dropped they no longer line up one-to-one with the drawn shapes, so the layer loses its highlighting; a `filter` on the joined column, as above, keeps the two aligned.
+
+#### Declaring what a map means
+
+`usermeta` is Vega-Lite's own slot for third-party metadata, and `usermeta.maidr` is where a spec says what MAIDR cannot read off the drawing. On a choropleth it carries four optional fields, each named exactly like the value it fills:
+
+| field | what it names | default |
+|---|---|---|
+| `region` | the column holding each region's name | the `lookup` join key, then a `tooltip` field |
+| `value` | the column holding the value shading it | the `color` / `fill` field |
+| `lon` | centroid longitude, **degrees east** | a `lon`, `longitude` or `long` column |
+| `lat` | centroid latitude, **degrees north** | a `lat` or `latitude` column |
+
+`region` is worth writing whenever the join key is a code rather than a name: the map above joins on the numeric FIPS `id`, so without it the reader is told "6" rather than "California".
+
+`lon` and `lat` are what buy back everything spatial. With them the arrow keys move **across the map** — up is north, down is south, left is west, right is east — and the description names where the high values sit and which way the gradient runs. Without them the map is read as a region list in declared order, which is a poorer reading but the one the data supports. MAIDR does not invert the projection to synthesise the pair: degrees are the only accepted form, anything else is left out, and a coordinate that is not one is dropped rather than coerced — a wrong compass direction is worse than no compass at all.
+
+A declaration outranks every heuristic, but only where the marks can back it: a `maidr` block on a spec whose mark is not a `geoshape` is reported to the console and the chart is read as what was actually drawn. The block belongs on the spec node that becomes **one** layer — a single-view spec, a `layer[i]` child, a concat or facet leaf. One written on a composite parent — a `layer`, `concat`, `facet` or `repeat` node — names none of the layers below it and is ignored. `title` and `name` are accepted on any layer and override what it is announced as.
+
+Field names given explicitly are used verbatim, with no fallback: a name that no row carries is a typo worth reporting, and MAIDR says so to the console rather than quietly substituting a column you did not ask for.
+
+See [`examples/vegalite-choropleth.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) for a runnable version.
 
 ## Multi-panel charts (facet, repeat, concat)
 
