@@ -46,8 +46,11 @@ export interface PlotlyTrace {
    * A heatmap's grid of magnitudes — and a choropleth's flat column of them,
    * which is the same attribute carrying one value per region rather than one
    * per cell.
+   *
+   * A grid cell may be `null`: that is how plotly's own documentation writes a
+   * hole in a field, and the readers here treat any non-number as one.
    */
-  z?: number[][] | (number | string)[];
+  z?: (number | null)[][] | (number | string)[];
   xaxis?: string;
   yaxis?: string;
   orientation?: 'v' | 'h';

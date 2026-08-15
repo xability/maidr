@@ -4337,6 +4337,72 @@ describe('plotly extractor', () => {
       ]);
     });
 
+    it('leaves a hole in the field a hole rather than reading it as a zero', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        // `null` is how plotly's own docs write a missing cell. Read as the 0
+        // it converts to, it would be a corner below the level and the curve
+        // would be walked around a field the chart never drew.
+        z: [
+          [0, 0, null],
+          [0, 4, 0],
+          [0, 0, 0],
+        ],
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      // The cell holding it contributes nothing, so the diamond of the whole
+      // grid is walked as an open curve that stops where the data does --
+      // four vertices and no repeat of the first, which is how a curve that
+      // did close says so.
+      expect(layer.data as ContourPoint[][]).toEqual([[
+        { x: 1, y: 0.5, level: 2 },
+        { x: 0.5, y: 1, level: 2 },
+        { x: 1, y: 1.5, level: 2 },
+        { x: 1.5, y: 1, level: 2 },
+      ]]);
+    });
+
+    it('falls back to grid positions when the chart states no coordinates', () => {
+      const layer = contourLayer({
+        type: 'contour',
+        z: PEAK,
+        contours: { start: 2, end: 2, size: 1 },
+      });
+
+      // Without an x or a y the column and row indices are the only honest
+      // coordinates, and they are what plotly draws the grid at too.
+      expect((layer.data as ContourPoint[][])[0]).toEqual([
+        { x: 1, y: 0.5, level: 2 },
+        { x: 0.5, y: 1, level: 2 },
+        { x: 1, y: 1.5, level: 2 },
+        { x: 1.5, y: 1, level: 2 },
+        { x: 1, y: 0.5, level: 2 },
+      ]);
+    });
+
+    it('refuses a ladder of more levels than a reader could walk', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const maidr = extractPlotlyData(contourGd({
+        type: 'contour',
+        z: PEAK,
+        x: [0, 1, 2],
+        y: [0, 1, 2],
+        // Every level costs a walk over the whole grid, and no reader walks
+        // 4001 curves: this is an authoring mistake, not a chart.
+        contours: { start: 0, end: 4, size: 0.001 },
+      }));
+
+      expect(maidr).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('states no levels to read'),
+      );
+      warn.mockRestore();
+    });
+
     it('withholds the selectors from a contour that strokes no lines', () => {
       const layer = contourLayer({
         type: 'contour',
@@ -4645,6 +4711,48 @@ describe('plotly extractor', () => {
       expect(cells.map(cell => cell.width)).toEqual([0.25, 0.75]);
       expect(warn).not.toHaveBeenCalled();
       warn.mockRestore();
+    });
+
+    it('reads a marimekko drawn on its side off the axis it stacks along', () => {
+      const layer = mosaicLayer(
+        [
+          {
+            type: 'bar',
+            name: 'Survived',
+            orientation: 'h',
+            x: [0.6, 0.3],
+            y: [15, 75],
+            width: [30, 90],
+            meta: { maidr: { type: 'mosaic' } },
+          },
+          {
+            type: 'bar',
+            name: 'Died',
+            orientation: 'h',
+            x: [0.4, 0.7],
+            y: [15, 75],
+            width: [30, 90],
+          },
+        ],
+        // Turned on its side the columns run along y, so that is the axis
+        // whose ticks name them.
+        {
+          xaxis: { title: { text: 'Proportion' }, domain: [0, 1] },
+          yaxis: {
+            title: { text: 'Class' },
+            domain: [0, 1],
+            tickvals: [15, 75],
+            ticktext: ['First', 'Third'],
+          },
+        },
+      );
+
+      expect(layer.type).toBe(TraceType.MOSAIC);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      expect((layer.data as MosaicPoint[][])[0]).toEqual([
+        { x: 0.6, y: 'First', z: 'Survived', width: 0.25 },
+        { x: 0.3, y: 'Third', z: 'Survived', width: 0.75 },
+      ]);
     });
 
     it('reads a lone bar trace declared a mosaic as a spineplot', () => {

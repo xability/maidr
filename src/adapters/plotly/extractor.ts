@@ -3145,9 +3145,36 @@ function numberGrid(value: unknown): number[][] | null {
   for (const row of value) {
     if (!Array.isArray(row) || row.length < width)
       return null;
-    grid.push(row.slice(0, width).map(cell => Number(cell)));
+    grid.push(row.slice(0, width).map(gridCell));
   }
   return grid;
+}
+
+/**
+ * One cell of a grid, as a magnitude or as `NaN` for a hole.
+ *
+ * `Number()` on its own would read plotly's own way of writing a hole — a
+ * `null` in an authored `z`, and `[[1, null, 3]]` is how the plotly docs write
+ * one — as a 0, and the curves would then be walked through a field that
+ * claims to be zero exactly where it has no data. `''`, `[]` and `false` all
+ * convert the same way.
+ *
+ * The rule here is plotly's: it cleans a grid with `isNumeric(v) ? +v :
+ * undefined`, so anything that is not a number is a hole, and
+ * {@link crossingSegments} already leaves a cell with one out of the walk.
+ * Only the authored fallback needs this — a grid read from calcdata has been
+ * through that cleaning already — but the two must agree, or the same chart
+ * would read differently before and after plotly calculated it.
+ *
+ * @param cell - Whatever the grid held at one position
+ * @returns The magnitude, or `NaN` when the cell holds no number
+ */
+function gridCell(cell: unknown): number {
+  if (typeof cell === 'number')
+    return cell;
+  if (typeof cell === 'string' && cell.trim() !== '')
+    return Number(cell);
+  return Number.NaN;
 }
 
 /**
