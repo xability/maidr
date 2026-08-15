@@ -620,6 +620,38 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
     }
 
+    // The uncertainty around the value, after it rather than instead of it —
+    // a band is a second fact about a real reading, not a replacement for it
+    // the way a histogram bin's extent is. Each bound is announced only when
+    // the chart drew it, so a one-sided interval reads as one.
+    if (state.interval !== undefined) {
+      const { min, max } = state.interval;
+      if (min !== undefined && max !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          'interval',
+          Constant.SPACE,
+          this.formatSingleValue(min, crossAxisType),
+          Constant.THROUGH,
+          this.formatSingleValue(max, crossAxisType),
+        );
+      } else if (min !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          'interval from',
+          Constant.SPACE,
+          this.formatSingleValue(min, crossAxisType),
+        );
+      } else if (max !== undefined) {
+        verbose.push(
+          Constant.COMMA_SPACE,
+          'interval up to',
+          Constant.SPACE,
+          this.formatSingleValue(max, crossAxisType),
+        );
+      }
+    }
+
     return verbose.join(Constant.EMPTY);
   }
 
