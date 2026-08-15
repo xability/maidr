@@ -54,18 +54,22 @@
 
 export { observablePlotToMaidr } from './converters';
 export { isObservablePlot } from './introspect';
-export {
-  autoInitQuartoObservable,
-  bindObservablePlot,
-  initQuartoObservable,
-  stopQuartoObservable,
-} from './quarto';
 export type {
   MarkDatum,
   ObservablePlotElement,
   ObservablePlotOptions,
   ObservablePlotResult,
+  ObservableWatchOptions,
   PlotScale,
   PlotScales,
   QuartoObservableOptions,
 } from './types';
+export {
+  autoInitObservablePlots,
+  autoInitQuartoObservable,
+  bindObservablePlot,
+  initObservablePlots,
+  initQuartoObservable,
+  stopObservablePlots,
+  stopQuartoObservable,
+} from './watcher';

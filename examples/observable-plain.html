@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR — Observable Plot on a plain page</title>
+
+    <!--
+      The other half of the pair. `observable-quarto.html` reproduces what
+      Quarto renders for `{ojs}` cells, where an author *cannot* call a binder
+      because the cell's value is the chart. This page is the ordinary case: no
+      Quarto, no Observable runtime, no cell structure — just Plot charts
+      appended to a page, which is how most people use the library.
+
+      The adapter cannot tell the two apart, and that is the point. It looks for
+      the class Plot puts on every chart it draws, so the integration is the two
+      script tags below and nothing else. No call, no configuration, no change
+      to the code that draws the charts.
+    -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/observable.js"></script>
+
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0 auto;
+        max-width: 44rem;
+        padding: 2rem 1rem 4rem;
+        line-height: 1.5;
+      }
+      figure { margin: 2.5rem 0; }
+      h1 { margin-bottom: 0.25rem; }
+      .lede { color: #444; margin-top: 0; }
+      .note {
+        background: #f4f6f8;
+        border-left: 4px solid #4269d0;
+        padding: 0.75rem 1rem;
+        margin: 2rem 0;
+      }
+      button {
+        font: inherit;
+        padding: 0.4rem 0.9rem;
+        border: 1px solid #4269d0;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Observable Plot, on an ordinary page</h1>
+    <p class="lede">
+      No Quarto and no Observable runtime anywhere on this page. Tab to a chart,
+      then use the arrow keys; <kbd>S</kbd> sonification, <kbd>B</kbd> braille,
+      <kbd>T</kbd> text.
+    </p>
+
+    <div class="note">
+      <strong>What makes this work:</strong> the two <code>&lt;script&gt;</code>
+      tags in the head. The charts below are drawn with plain
+      <code>Plot.plot()</code> calls that know nothing about MAIDR.
+    </div>
+
+    <section id="charts"></section>
+
+    <div class="note">
+      <p style="margin-top: 0">
+        A chart added after load is picked up the same way — nothing needs
+        re-binding, and the one it replaces is released rather than left behind.
+      </p>
+      <button id="redraw" type="button">Redraw the last chart</button>
+    </div>
+
+    <script type="module">
+      import * as Plot from 'https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/+esm';
+
+      const charts = document.querySelector('#charts');
+
+      const visitors = [
+        { day: 'Mon', count: 120 },
+        { day: 'Tue', count: 240 },
+        { day: 'Wed', count: 180 },
+        { day: 'Thu', count: 260 },
+        { day: 'Fri', count: 310 },
+      ];
+      charts.append(Plot.plot({
+        title: 'Daily visitors',
+        x: { label: 'Day' },
+        y: { label: 'Visitors' },
+        marks: [Plot.barY(visitors, { x: 'day', y: 'count' })],
+      }));
+
+      const readings = Array.from({ length: 40 }, (_, index) => ({
+        depth: 20 + index * 1.5 + Math.sin(index / 3) * 6,
+        temp: 4 + index * 0.15,
+      }));
+      charts.append(Plot.plot({
+        title: 'Temperature against depth',
+        marks: [Plot.dot(readings, { x: 'depth', y: 'temp' })],
+      }));
+
+      const quarters = [];
+      for (const [q, hardware, services] of [[1, 120, 60], [2, 135, 70], [3, 150, 65], [4, 165, 80]]) {
+        quarters.push({ q, line: 'Hardware', revenue: hardware });
+        quarters.push({ q, line: 'Services', revenue: services });
+      }
+      charts.append(Plot.plot({
+        title: 'Revenue by line',
+        marks: [Plot.barY(quarters, { x: 'q', y: 'revenue', fill: 'line' })],
+        color: { legend: true },
+      }));
+
+      // Appended late and replaced on demand — the case a dashboard hits, and
+      // the one a watcher has to handle rather than a one-time scan.
+      let seed = 0;
+      const drawLate = () => {
+        seed += 1;
+        const series = Array.from({ length: 12 }, (_, index) => ({
+          month: index + 1,
+          value: 50 + Math.sin((index + seed) / 2) * 20 + seed * 2,
+        }));
+        return Plot.plot({
+          title: `Monthly index (revision ${seed})`,
+          marks: [Plot.lineY(series, { x: 'month', y: 'value' })],
+        });
+      };
+
+      let late = drawLate();
+      charts.append(late);
+
+      document.querySelector('#redraw').addEventListener('click', () => {
+        const next = drawLate();
+        late.replaceWith(next);
+        late = next;
+      });
+    </script>
+  </body>
+</html>

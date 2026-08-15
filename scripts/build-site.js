@@ -450,9 +450,10 @@ const examplesContent = `
 
   <h3>Observable Plot &amp; Quarto</h3>
   <ul>
+    <li><a href="#" onclick="loadHTML('observable-plain.html', 'Observable Plot on a plain page'); return false;">Plain page &mdash; bar, scatter, stacked bar, and a chart redrawn on demand</a></li>
     <li><a href="#" onclick="loadHTML('observable-quarto.html', 'Observable Plot in a Quarto document'); return false;">Quarto OJS cells (bar, scatter, line, histogram, facets)</a></li>
   </ul>
-  <p>See the <a href="observable.html">Observable Plot &amp; Quarto Integration Guide</a> for setup instructions, including the Quarto extension.</p>
+  <p>The two differ only in how the scripts reach the page &mdash; the adapter is the same and neither asks you to change the code that draws the chart. See the <a href="observable.html">Observable Plot &amp; Quarto Integration Guide</a> for both, including the Quarto extension.</p>
 
   <h3>Frappe Charts</h3>
   <ul>
