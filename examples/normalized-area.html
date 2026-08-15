@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR 100% Stacked Area Example — Share of Sessions by Device</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        The same idea as the 100% stacked bar, over a continuous x: each year's
+        bands are SHARES of that year's total, and every column sums to 100.
+
+        Against a plain `stacked_area`, one thing changes and it changes what
+        the chart is for. There the top edge is the running total and carries
+        real information -- revenue grew. Here the top edge is FLAT AT 100 BY
+        CONSTRUCTION and carries none, so all the movement is in the bands: the
+        story is that mobile overtook desktop between 2021 and 2022, not that
+        anything got bigger.
+
+        MAIDR derives the total by summing the series it was given rather than
+        expecting the accumulated edge, so each point announces its own value
+        alongside the stack it sits in -- on a normalized layer the total is
+        100 and the share is the value itself, which is the tell that the
+        columns really do normalise.
+
+        Each band is drawn the way every renderer draws one: out along its top
+        edge through each sample, then back along the edge beneath it, then
+        closed. That is 2N vertices for N samples and only the first N are
+        data; MAIDR keeps those and drops the return journey, so a highlight
+        never lands on a baseline. `selectors` is one entry per band, in
+        declared order, and Desktop -- declared first -- is the band on the
+        BOTTOM of the stack.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="420pt" viewBox="0 0 720 420" version="1.1"
+        id="normalized-area-sessions" maidr='{&#10;  &quot;id&quot;: &quot;normalized-area-sessions&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;normalized-area-sessions-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;normalized-area-sessions-layer&quot;,&#10;            &quot;type&quot;: &quot;stacked_normalized_area&quot;,&#10;            &quot;title&quot;: &quot;Share of Sessions by Device&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Year&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Percent of sessions&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Device&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;normalized-area-desktop&#x27;] path&quot;,&#10;              &quot;g[id=&#x27;normalized-area-mobile&#x27;] path&quot;,&#10;              &quot;g[id=&#x27;normalized-area-tablet&#x27;] path&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 62,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2020&quot;,&#10;                  &quot;y&quot;: 55,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 48,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2022&quot;,&#10;                  &quot;y&quot;: 42,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 36,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2024&quot;,&#10;                  &quot;y&quot;: 31,&#10;                  &quot;z&quot;: &quot;Desktop&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 30,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2020&quot;,&#10;                  &quot;y&quot;: 37,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 45,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2022&quot;,&#10;                  &quot;y&quot;: 52,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 59,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2024&quot;,&#10;                  &quot;y&quot;: 65,&#10;                  &quot;z&quot;: &quot;Mobile&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;2019&quot;,&#10;                  &quot;y&quot;: 8,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2020&quot;,&#10;                  &quot;y&quot;: 8,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2021&quot;,&#10;                  &quot;y&quot;: 7,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2022&quot;,&#10;                  &quot;y&quot;: 6,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2023&quot;,&#10;                  &quot;y&quot;: 5,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;2024&quot;,&#10;                  &quot;y&quot;: 4,&#10;                  &quot;z&quot;: &quot;Tablet&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 420  L 720 420  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="grid">
+          <path d="M 90.0 360.0 L 660.0 360.0 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90.0 285.0 L 660.0 285.0 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90.0 210.0 L 660.0 210.0 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90.0 135.0 L 660.0 135.0 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90.0 60.0 L 660.0 60.0 " style="stroke: #dddddd; stroke-width: 0.8" />
+            </g>
+            <g id="axis_x">
+          <text x="90.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2019</text>
+          <text x="204.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2020</text>
+          <text x="318.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2021</text>
+          <text x="432.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2022</text>
+          <text x="546.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2023</text>
+          <text x="660.0" y="382.0" style="font: 12px sans-serif; text-anchor: middle">2024</text>
+            </g>
+            <g id="axis_y">
+          <text x="78.0" y="364.0" style="font: 12px sans-serif; text-anchor: end">0%</text>
+          <text x="78.0" y="289.0" style="font: 12px sans-serif; text-anchor: end">25%</text>
+          <text x="78.0" y="214.0" style="font: 12px sans-serif; text-anchor: end">50%</text>
+          <text x="78.0" y="139.0" style="font: 12px sans-serif; text-anchor: end">75%</text>
+          <text x="78.0" y="64.0" style="font: 12px sans-serif; text-anchor: end">100%</text>
+            </g>
+        <g id="normalized-area-desktop">
+          <path d="M 90.0 174.0 L 204.0 195.0 L 318.0 216.0 L 432.0 234.0 L 546.0 252.0 L 660.0 267.0 L 660.0 360.0 L 546.0 360.0 L 432.0 360.0 L 318.0 360.0 L 204.0 360.0 L 90.0 360.0 Z" style="fill: #4c78a8; fill-opacity: 0.85; stroke: #4c78a8; stroke-width: 1.5" />
+        </g>
+        <g id="normalized-area-mobile">
+          <path d="M 90.0 84.0 L 204.0 84.0 L 318.0 81.0 L 432.0 78.0 L 546.0 75.0 L 660.0 72.0 L 660.0 267.0 L 546.0 252.0 L 432.0 234.0 L 318.0 216.0 L 204.0 195.0 L 90.0 174.0 Z" style="fill: #f58518; fill-opacity: 0.85; stroke: #f58518; stroke-width: 1.5" />
+        </g>
+        <g id="normalized-area-tablet">
+          <path d="M 90.0 60.0 L 204.0 60.0 L 318.0 60.0 L 432.0 60.0 L 546.0 60.0 L 660.0 60.0 L 660.0 72.0 L 546.0 75.0 L 432.0 78.0 L 318.0 81.0 L 204.0 84.0 L 90.0 84.0 Z" style="fill: #54a24b; fill-opacity: 0.85; stroke: #54a24b; stroke-width: 1.5" />
+        </g>
+            <g id="chart-title">
+              <text x="375" y="40" style="font: 16px sans-serif; text-anchor: middle">Share of Sessions by Device</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>

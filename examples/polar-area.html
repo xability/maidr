@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Polar Area Example — Wind Hours by Direction</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A polar area -- a coxcomb, or a rose -- puts its categories around a
+        circle and draws each value as a WEDGE whose radius is the magnitude.
+        A wind rose is the case the mark is made for: the categories are
+        compass directions, so their arrangement around the circle is the data
+        rather than a layout choice.
+
+        It shares its trace with RADAR, and the difference between the two is
+        entirely in the mark. A radar joins the spoke values into a closed
+        outline; a polar area fills a wedge out to each one. A reader navigates
+        the same thing either way -- a spoke and a value -- so the two differ
+        in what the chart is called and in nothing that is read.
+
+        What both get, and a row of bars does not, is that THE STEREO POSITION
+        FOLLOWS THE SPOKE'S ANGLE rather than its index: 12 o'clock centre, 3
+        o'clock hard right, 6 o'clock centre again, 9 o'clock hard left.
+        Sweeping the eight directions goes out and comes back, which is what a
+        circle sounds like. Here that is literal -- panning right IS wind from
+        the east.
+
+        The data is a multi-line layer's, so it nests: one row per series, one
+        entry per spoke. A coxcomb is usually the single-series case, which is
+        `[[...]]` -- one row -- and not a flat array. `selectors` is one entry
+        per series, and this one selector matches the eight wedges of the one
+        series it names.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="460pt" viewBox="0 0 720 460" version="1.1"
+        id="polar-area-wind" maidr='{&#10;  &quot;id&quot;: &quot;polar-area-wind&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;polar-area-wind-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;polar-area-wind-layer&quot;,&#10;            &quot;type&quot;: &quot;polar_area&quot;,&#10;            &quot;title&quot;: &quot;Wind Hours by Direction&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Direction&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Hours&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: &quot;g[id=&#x27;polar-wedges&#x27;] &gt; path&quot;,&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;N&quot;,&#10;                  &quot;y&quot;: 42&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;NE&quot;,&#10;                  &quot;y&quot;: 28&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;E&quot;,&#10;                  &quot;y&quot;: 15&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;SE&quot;,&#10;                  &quot;y&quot;: 22&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;S&quot;,&#10;                  &quot;y&quot;: 61&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;SW&quot;,&#10;                  &quot;y&quot;: 78&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;W&quot;,&#10;                  &quot;y&quot;: 54&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;NW&quot;,&#10;                  &quot;y&quot;: 33&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 460  L 720 460  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="polar-grid">
+            <circle cx="360.0" cy="236.0" r="37.5" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360.0" cy="236.0" r="75.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360.0" cy="236.0" r="112.5" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            <circle cx="360.0" cy="236.0" r="150.0" style="fill: none; stroke: #d9d9d9; stroke-width: 1" />
+            </g>
+            <g id="polar-wedges">
+          <path d="M 360.0 236.0 L 329.9 163.2 A 78.8 78.8 0 0 1 390.1 163.2 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 380.1 187.5 A 52.5 52.5 0 0 1 408.5 215.9 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 386.0 225.2 A 28.1 28.1 0 0 1 386.0 246.8 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 398.1 251.8 A 41.2 41.2 0 0 1 375.8 274.1 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 403.8 341.7 A 114.4 114.4 0 0 1 316.2 341.7 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 304.0 371.1 A 146.2 146.2 0 0 1 224.9 292.0 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 266.5 274.7 A 101.2 101.2 0 0 1 266.5 197.3 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+          <path d="M 360.0 236.0 L 302.8 212.3 A 61.9 61.9 0 0 1 336.3 178.8 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #ffffff; stroke-width: 1" />
+            </g>
+            <g id="spoke-labels">
+            <text x="360.0" y="64.0" style="font: 12px sans-serif; text-anchor: middle">N</text>
+            <text x="484.5" y="115.5" style="font: 12px sans-serif; text-anchor: middle">NE</text>
+            <text x="536.0" y="240.0" style="font: 12px sans-serif; text-anchor: middle">E</text>
+            <text x="484.5" y="364.5" style="font: 12px sans-serif; text-anchor: middle">SE</text>
+            <text x="360.0" y="416.0" style="font: 12px sans-serif; text-anchor: middle">S</text>
+            <text x="235.5" y="364.5" style="font: 12px sans-serif; text-anchor: middle">SW</text>
+            <text x="184.0" y="240.0" style="font: 12px sans-serif; text-anchor: middle">W</text>
+            <text x="235.5" y="115.5" style="font: 12px sans-serif; text-anchor: middle">NW</text>
+            </g>
+            <g id="chart-title">
+              <text x="360" y="40" style="font: 16px sans-serif; text-anchor: middle">Wind Hours by Direction</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
