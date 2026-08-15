@@ -98,7 +98,7 @@ Series are classified by their amCharts class name and field configuration:
 
 amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes for MAIDR's usual highlighting. `bindAmCharts` instead draws an absolutely-positioned outline box over the canvas at the active data point's pixel geometry (computed via am5's `sprite.toGlobal()`) — the same overlay approach the Chart.js adapter uses. The overlay re-anchors on resize. Call the returned `dispose()` to unmount MAIDR, remove the overlay, and restore the chart. Highlighting is unavailable on the `fromAmCharts` JSON/attribute path.
 
-**Four types are read but not outlined**: sankey, alluvial, chord and network. They sonify, describe, braille and navigate correctly, and the overlay simply clears as the cursor moves. This is deliberate, and [the reason is written out below](#flow-and-network-are-not-outlined) — an empty outline is truthful, and a box drawn around a guessed node is not.
+A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time — the band or line the cursor's node is read through — rather than by a box around the node itself; see [Flow and network highlighting](#flow-and-network-highlighting).
 
 ## Supported Chart Types
 
@@ -129,9 +129,9 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
 | Word Cloud | `am5wc.WordCloud` | series class (requires `wc.js`) |
-| Sankey † | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
-| Chord † | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
-| Network † | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |
+| Sankey | `am5flow.Sankey`, `ArcDiagram` | series class (requires `flow.js`) |
+| Chord | `am5flow.Chord`, `ChordDirected`, `ChordNonRibbon` | series class (requires `flow.js`) |
+| Network | `am5hierarchy.ForceDirected` | series class (requires `hierarchy.js`) |
 | Choropleth | `am5map.MapPolygonSeries` inside a `MapChart` | series class + a bound `valueField` or `heatRules` (requires `map.js`) |
 | Bump (rank over time) | `LineSeries` | value axis renderer `inversed: true` **and** values that are a ranking; or the `bump` option |
 | Gauge | *no series* — an `am5radar.ClockHand` on a `RadarChart` axis | chart class `RadarChart` + a `ClockHand` bullet, asked only when the chart's series produced no layer (requires `radar.js`) |
@@ -141,10 +141,8 @@ amCharts 5 renders to an HTML5 `<canvas>`, so there are no per-element SVG nodes
 | Volcano | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
 | Manhattan | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
 | Scatter | the same | **declared** — `{ type: "point" }` |
-| Alluvial † | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
+| Alluvial | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
 | Choropleth (renamed fields) | `am5map.MapPolygonSeries` | **declared** — `{ type: "choropleth", value: "…" }` |
-
-† Read, announced, brailled and navigated — but **not outlined**. See [Flow and network are not outlined](#flow-and-network-are-not-outlined).
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -617,15 +615,17 @@ var series = root.container.children.push(am5hierarchy.ForceDirected.new(root, {
 
 The container root is dropped, as it is for a treemap. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
 
-#### Flow and network are not outlined
+#### Flow and network highlighting
 
-Sankey, alluvial, chord and network layers get **no highlight**. As the cursor moves the overlay clears; audio, the text description, braille and keyboard navigation all work normally.
+A sankey, alluvial, chord or network layer **is** outlined, and what it outlines is one ribbon: the band amCharts drew for a flow link, or the line it drew between two nodes. Not a box around the node the cursor is on — amCharts paints its nodes into the same canvas as everything else, and a node's own extent is not what the reading is about.
 
-This is a deliberate refusal rather than an oversight, and the reason is worth stating. MAIDR hands a canvas adapter one of two things: an explicit list of point indices, for traces that publish which marks they mean, or the **braille** position for everything else. A flow trace is in the second group, and its braille position is `(stage, index within that stage)` — the stage being a column of the drawing, which is the only thing a braille line can be. A network trace's is `(component, index within that component)`.
+The route is worth stating, because the obvious one is wrong. MAIDR hands a canvas adapter either an explicit list of point indices, for traces that publish which marks they mean, or the **braille** position for everything else. A flow trace's braille position is `(stage, index within that stage)` and a network trace's is `(component, index within that component)`, and turning either back into a node would mean reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted, and a copy of one drifts from the model silently and then outlines a confidently wrong node while the announcement says something else. Both types shipped with no highlight at all rather than that.
 
-Turning either back into a node means reimplementing, inside this adapter, the model's own first-appearance node ordering *together with* its stage layering — longest-distance-from-a-source, with a fallback that collapses a cyclic graph into one stage — or, for a network, its connected-component discovery, member sort and component sort. Those are **derived graph structures**, not orderings over data the adapter emitted. This adapter already mirrors an ordering where one exists (a heatmap's row reversal, a word cloud's weight order), and already refuses to mirror a derived structure (a scatter's binning). A copy would drift from the model silently and then outline a confidently wrong node while the announcement said something else — and nothing about the announcement would look wrong. An empty outline is truthful; that is not.
+They are in the first group now: `FlowTrace` and `NetworkTrace` publish the mark they highlighted as an index into the `data` this adapter supplied, and the adapter inverts that index against its own extraction walk. The n-th flow point was read from the n-th readable link, so a flow index reaches its ribbon directly; a network's links are not data items at all, so the index names two nodes and the drawn line joining that pair is found by name, in either direction. The binning, the layering and the component walk all stay in the model.
 
-The fix is small and lives in the model rather than here: both traces already compute the right answer internally, so publishing it as point indices would make all four types highlightable by registering resolvers and changing nothing else. That is tracked as a follow-up.
+The published set is exactly **one** mark, the same one an SVG renderer outlines for the same trace at the same cursor position, so a chart read on amCharts and a chart read on Vega-Lite light up the same ribbon. A node in a sankey touches every flow on either side of it, and outlining all of them would have been the wider, wrong-looking-right answer.
+
+The outline is the ribbon's axis-aligned box — coarse for a long curved band, but it hugs the mark and says which way navigation moved. A link drawn perfectly straight reports a box with no thickness and is padded to a hairline rather than dropped. A build that hands back no geometry at all, or a pair no drawn line joins, clears the overlay instead of outlining something nearby.
 
 ### Choropleth
 

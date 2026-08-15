@@ -1,4 +1,4 @@
-import type { NavTarget } from '@adapters/amcharts/navmap';
+import type { NavItemTarget, NavTarget } from '@adapters/amcharts/navmap';
 import type { AmDataItem, AmSprite, AmXYSeries } from '@adapters/amcharts/types';
 import { dataItemToOverlayRect } from '@adapters/amcharts/overlay';
 import { describe, expect, it } from '@jest/globals';
@@ -29,7 +29,10 @@ function stageSprite(left: number, top: number, width: number, height: number): 
   };
 }
 
-function target(properties: Record<string, unknown>, kind: NavTarget['kind'] = 'slice'): NavTarget {
+function target(
+  properties: Record<string, unknown>,
+  kind: NavItemTarget['kind'] = 'slice',
+): NavTarget {
   const dataItem = { get: (key: string) => properties[key] } as unknown as AmDataItem;
   return { series: {} as AmXYSeries, dataItem, kind };
 }
@@ -101,5 +104,54 @@ describe('dataItemToOverlayRect (wedge-shaped marks)', () => {
       target({ slice }),
       { left: 0, top: 80, right: 130, bottom: 200 },
     )).toEqual({ left: 100, top: 80, width: 30, height: 20 });
+  });
+});
+
+describe('dataItemToOverlayRect (ribbons)', () => {
+  /** A ribbon target: the sprite is resolved before the overlay ever sees it. */
+  function ribbon(sprite: AmSprite): NavTarget {
+    return { series: {} as AmXYSeries, sprite, kind: 'ribbon' };
+  }
+
+  it('measures a flow band from the box it reports', () => {
+    // A `SankeyLink` is a curved band, and its local width and height describe
+    // a box it does not fill; the reported box is the shape as drawn.
+    const band: AmSprite = {
+      globalBounds: () => ({ left: 40, top: 12, right: 190, bottom: 60 }),
+      width: () => 150,
+      height: () => 8,
+      toGlobal: point => ({ x: 40 + point.x, y: 12 + point.y }),
+    };
+
+    expect(dataItemToOverlayRect(ribbon(band), null))
+      .toEqual({ left: 40, top: 12, width: 150, height: 48 });
+  });
+
+  it('keeps a straight link visible instead of collapsing it away', () => {
+    // A network line between two nodes at the same height reports a box of
+    // zero height. That is real geometry rather than the degenerate point of
+    // #774, so it is padded to a hairline band — left as it was, the clip
+    // would drop it and a perfectly straight link would outline nothing.
+    const line: AmSprite = {
+      globalBounds: () => ({ left: 20, top: 50, right: 120, bottom: 50 }),
+    };
+
+    expect(dataItemToOverlayRect(ribbon(line), { left: 0, top: 0, right: 200, bottom: 200 }))
+      .toEqual({ left: 20, top: 49, width: 100, height: 2 });
+  });
+
+  it('falls back to a link\'s own corners, and clears when it has neither', () => {
+    const laidOut: AmSprite = {
+      width: () => 90,
+      height: () => 4,
+      toGlobal: point => ({ x: 5 + point.x, y: 70 + point.y }),
+    };
+    const unlaid: AmSprite = {
+      globalBounds: () => ({ left: 30, top: 30, right: 30, bottom: 30 }),
+    };
+
+    expect(dataItemToOverlayRect(ribbon(laidOut), null))
+      .toEqual({ left: 5, top: 70, width: 90, height: 4 });
+    expect(dataItemToOverlayRect(ribbon(unlaid), null)).toBeNull();
   });
 });

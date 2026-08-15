@@ -21,6 +21,7 @@ import {
   fakePieSeries,
   fakeRoot,
   fakeSeries,
+  itemOf,
 } from './helpers';
 
 /**
@@ -903,6 +904,8 @@ describe('declared layers and the highlight', () => {
         ganttSeriesList: [],
         hierarchySeriesList: [],
         wordCloudSeriesList: [],
+        flowSeriesList: [],
+        networkSeriesList: [],
         choroplethSeriesList: [],
         declaredList: [...plan.declared.values()],
       },
@@ -925,7 +928,7 @@ describe('declared layers and the highlight', () => {
 
     expect(targets).toHaveLength(1);
     expect(targets[0].series).toBe(control);
-    expect(targets[0].dataItem).toBe(control.dataItems[1]);
+    expect(itemOf(targets[0])).toBe(control.dataItems[1]);
   });
 
   it('points every section of an error bar at the sample it belongs to', () => {
@@ -941,8 +944,8 @@ describe('declared layers and the highlight', () => {
     const lower = navMap.resolve(layerId, 0, 1);
     const upper = navMap.resolve(layerId, 2, 1);
 
-    expect(lower[0].dataItem).toBe(estimate.dataItems[1]);
-    expect(upper[0].dataItem).toBe(estimate.dataItems[1]);
+    expect(itemOf(lower[0])).toBe(estimate.dataItems[1]);
+    expect(itemOf(upper[0])).toBe(estimate.dataItems[1]);
     expect(lower[0].kind).toBe('column');
   });
 
@@ -963,9 +966,9 @@ describe('declared layers and the highlight', () => {
     const first = navMap.resolve(layerId, -1, -1, [0]);
     const second = navMap.resolve(layerId, -1, -1, [1]);
 
-    expect(first[0].dataItem).toBe(cloud.dataItems[0]);
+    expect(itemOf(first[0])).toBe(cloud.dataItems[0]);
     expect(first[0].kind).toBe('point');
-    expect(second[0].dataItem).toBe(cloud.dataItems[1]);
+    expect(itemOf(second[0])).toBe(cloud.dataItems[1]);
   });
 
   it('resolves every point of a multi-point cloud selection', () => {
@@ -982,7 +985,7 @@ describe('declared layers and the highlight', () => {
 
     const both = navMap.resolve(layerId, -1, -1, [0, 1]);
 
-    expect(both.map(target => target.dataItem)).toEqual([
+    expect(both.map(target => itemOf(target))).toEqual([
       cloud.dataItems[0],
       cloud.dataItems[1],
     ]);

@@ -588,8 +588,8 @@ function buildDeclaredLayer(
     // `am5flow.Sankey`; what the author declared is which of the two readings
     // the drawing stands for, so nothing beyond the type is taken from the
     // block. Bound to no axis, so it names its own dimensions rather than
-    // taking the chart's — and it emits no selectors and gets no highlight,
-    // exactly as an undeclared sankey does.
+    // taking the chart's — and it emits no selectors, exactly as an undeclared
+    // sankey does; the overlay outlines its ribbons instead.
     case TraceType.ALLUVIAL: {
       const data = extractFlowPoints(declared.series);
       if (data.length === 0) {
@@ -1001,11 +1001,12 @@ function flowAxes(options?: AmChartsBinderOptions): MaidrLayer['axes'] {
  * it carries weights, and MAIDR's network payload has nowhere to put one.
  *
  * No `selectors`, for the reason a pie and a treemap emit none — amCharts
- * paints the ribbons into a canvas. **And no highlight either**: the position
- * MAIDR hands back for a flow trace is a braille one, `(stage, index within
- * stage)`, and turning that back into a node would mean reimplementing the
- * model's own node ordering and stage layering here. See `docs/amcharts.md`;
- * the overlay clears rather than outlining a guessed node.
+ * paints the ribbons into a canvas, so the binder's overlay outlines the active
+ * one instead. It can, because `FlowTrace` publishes the ribbon it highlighted
+ * as an index into this `data`: the position MAIDR hands back for a flow trace
+ * is otherwise a braille one, `(stage, index within stage)`, and turning that
+ * into a node would have meant reimplementing the model's node ordering and
+ * stage layering here. See `navmap.ts`'s `buildFlowResolver`.
  */
 function buildFlowLayer(
   series: AmXYSeries,
@@ -1072,8 +1073,9 @@ const NETWORK_LINK_AXIS = 'Links';
  * Builds the layer for one `am5hierarchy.ForceDirected` series.
  *
  * Nothing about where the solver put the nodes is carried: the position is a
- * fact about its seed rather than about the data. No selectors and no
- * highlight, for the same reasons the flow layer has none.
+ * fact about its seed rather than about the data. No selectors either, for the
+ * reason the flow layer emits none — and the overlay outlines the active link
+ * the same way, from what `NetworkTrace` publishes.
  */
 function buildNetworkLayer(
   series: AmXYSeries,

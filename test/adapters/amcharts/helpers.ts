@@ -6,16 +6,42 @@
  * enough — no amCharts import and no DOM required.
  */
 
+import type { NavTarget } from '@adapters/amcharts/navmap';
 import type {
   AmAxis,
   AmBounds,
   AmChart,
   AmDataItem,
   AmRoot,
+  AmSprite,
   AmXYSeries,
 } from '@adapters/amcharts/types';
 
 let nextUid = 1;
+
+/**
+ * The data item a resolved target names.
+ *
+ * `NavTarget` is a union because a ribbon is not addressed like the other
+ * marks: a network's lines are not data items at all, so a flow or network
+ * target names the sprite amCharts drew instead. A test that asks a ribbon for
+ * a data item has resolved something other than what it meant to, so this says
+ * so rather than narrowing with a cast.
+ */
+export function itemOf(target: NavTarget): AmDataItem {
+  if (target.kind === 'ribbon') {
+    throw new Error('Expected a target naming a data item, got a ribbon');
+  }
+  return target.dataItem;
+}
+
+/** The sprite a resolved ribbon names, with the same guard the other way. */
+export function spriteOf(target: NavTarget): AmSprite {
+  if (target.kind !== 'ribbon') {
+    throw new Error(`Expected a ribbon target, got a ${target.kind}`);
+  }
+  return target.sprite;
+}
 
 export interface FakeSeriesConfig {
   /** amCharts series class name. Defaults to `ColumnSeries`. */
@@ -473,8 +499,49 @@ export function fakeForceDirectedSeries(
   name: string,
   root: FakeNode,
   settings: Record<string, unknown> = {},
+  links: unknown[] = [],
 ): AmXYSeries {
-  return fakeHierarchySeries(name, root, 'ForceDirected', settings);
+  const series = fakeHierarchySeries(name, root, 'ForceDirected', settings);
+  // The drawn lines, which hang off the series rather than off any data item:
+  // amCharts derives them from the tree and from the rows' `linkWith` columns,
+  // and keeps them in a list of its own. Absent for a build that exposes none,
+  // which is how the highlight's fallback to nothing is exercised.
+  return { ...series, links: { values: links } } as unknown as AmXYSeries;
+}
+
+/**
+ * One line an `am5hierarchy.ForceDirected` drew between two nodes.
+ *
+ * Its ends are *node data items*, asked for the category that names them —
+ * the same read the tree walk names a node by, which is what lets the highlight
+ * match a drawn line to an emitted link. `globalBounds()` is the box the
+ * overlay outlines; pass a flat one for a line drawn perfectly straight.
+ */
+export function fakeHierarchyLink(config: {
+  source: string | number;
+  target: string | number;
+  box?: AmBounds;
+}): unknown {
+  const ends: Record<string, unknown> = {
+    source: { get: (key: string) => (key === 'category' ? config.source : undefined) },
+    target: { get: (key: string) => (key === 'category' ? config.target : undefined) },
+  };
+  const box = config.box ?? { left: 0, top: 0, right: 10, bottom: 10 };
+  return {
+    className: 'HierarchyLink',
+    get: (key: string) => ends[key],
+    globalBounds: () => box,
+  };
+}
+
+/**
+ * The band an am5flow series drew for one link, as the overlay measures it.
+ *
+ * Nothing but a box: a `SankeyLink` is a `Graphics` painted from a path, so
+ * what the highlight reads off it is the axis-aligned box it reports.
+ */
+export function fakeRibbon(box: AmBounds): unknown {
+  return { className: 'SankeyLink', globalBounds: () => box };
 }
 
 /**
@@ -499,6 +566,12 @@ export interface FakeLink {
   value?: number;
   /** The author's own row, reached only when the reads above answer nothing. */
   row?: Record<string, unknown>;
+  /**
+   * `dataItem.get('link')` — the band amCharts drew for the link, which the
+   * overlay measures. Unverifiable without the library, so it is a knob: leave
+   * it out for a build that keeps none.
+   */
+  link?: unknown;
 }
 
 function fakeNodeItem(node: { name?: string | number; id?: string | number }): unknown {
@@ -512,6 +585,7 @@ function fakeLinkItem(link: FakeLink): AmDataItem {
     ...(link.sourceNode != null ? { source: fakeNodeItem(link.sourceNode) } : {}),
     ...(link.targetNode != null ? { target: fakeNodeItem(link.targetNode) } : {}),
     ...(link.value !== undefined ? { value: link.value } : {}),
+    ...(link.link != null ? { link: link.link } : {}),
   };
   return {
     get: (key: string) => settings[key],
