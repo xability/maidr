@@ -4065,8 +4065,9 @@ function convertChoroplethSeries(
 
   // The name and the value are read off the point Highcharts already resolved
   // them onto, and the declaration only renames them. The default fallback
-  // chain is deliberately not walked for either: `value`'s chain includes `x`,
-  // which on a map row is as likely to be the region's own name.
+  // chain is not walked for either: a `map` series states both for itself, and
+  // a chain consulted over the top of that could only disagree with what
+  // Highcharts drew.
   const names = declaration?.region === undefined
     ? undefined
     : readSeriesField(series, declaration.region, 'region');

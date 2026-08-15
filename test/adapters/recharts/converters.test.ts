@@ -2012,6 +2012,24 @@ describe('convertRechartsToMaidr', () => {
         data: [{ cx: 0.5, cy: 1000 }],
       })).toThrow('RechartsAdapter');
     });
+
+    it('reads a y centre a d3-hexbin bin spells `y0`, with no key named', () => {
+      // `yKeys` is what names the vertical centre, and a hexbin is the one
+      // chart type that can be built without it — the bin carries its own
+      // centre. Undefaulted, every such bin resolved no y and was dropped, and
+      // a lattice of dropped bins throws rather than announcing anything.
+      const layer = convertRechartsToMaidr({
+        ...hexbinConfig,
+        data: [{ cx: 0.5, y0: 1000, count: 12 }, { cx: 1.5, y0: 1000, count: 30 }],
+        yKeys: undefined,
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as HexbinPoint[][];
+      expect(data).toEqual([[
+        { x: 0.5, y: 1000, count: 12 },
+        { x: 1.5, y: 1000, count: 30 },
+      ]]);
+    });
   });
 
   describe('boxen plot', () => {
@@ -2081,6 +2099,30 @@ describe('convertRechartsToMaidr', () => {
       // was never asked for.
       const data = layer.data as BoxenPoint[];
       expect(data[0].levels).toEqual([{ p: 0.25, lo: 150, hi: 240 }]);
+    });
+
+    it('reads a rung that spells its three numbers the way the d3 binder allows', () => {
+      // The column holding the ladder was resolved through the shared chains
+      // and the rungs inside it were not: only the literal `p`/`lo`/`hi` were
+      // read, so a ladder written any other way produced a distribution with a
+      // median and nothing around it — a boxen with no boxen in it.
+      const layer = convertRechartsToMaidr({
+        ...boxenConfig,
+        data: [{
+          region: 'East',
+          median: 180,
+          levels: [
+            { prob: 0.25, lower: 150, upper: 240 },
+            { depth: 0.125, y0: 130, y1: 310 },
+          ],
+        }],
+      }).subplots[0][0].layers[0];
+
+      const data = layer.data as BoxenPoint[];
+      expect(data[0].levels).toEqual([
+        { p: 0.25, lo: 150, hi: 240 },
+        { p: 0.125, lo: 130, hi: 310 },
+      ]);
     });
 
     it('reads the ladder from a letterValues column when no key is declared', () => {

@@ -41,7 +41,14 @@
  * explicit name that misses is a mistake worth reporting rather than papering
  * over. The fallback lists live in `src/adapters/shared/traceDeclaration.ts`
  * so a column that works in one adapter reading this block works in all of
- * them.
+ * them. Most are shared by canonical name across the variants; a few belong to
+ * one chart, because the same name means different things on different ones —
+ * see {@link ChoroplethDeclaration.value}.
+ *
+ * A name is resolved against the row itself and against the row's
+ * `properties`, in that order, and a dotted name walks the path it spells. A
+ * GeoJSON feature keeps everything joined onto it one level down, so a map
+ * needs no declaration to say so.
  *
  * ## What a declaration is worth
  *
@@ -143,7 +150,8 @@ export type MaidrTraceDeclaration
     | ParallelDeclaration
     | RidgelineDeclaration
     | HexbinDeclaration
-    | BoxenDeclaration;
+    | BoxenDeclaration
+    | GanttDeclaration;
 
 /**
  * A Kaplan-Meier survival curve drawn as a step line.
@@ -276,6 +284,14 @@ export interface ErrorBarDeclaration extends DeclarationBase {
    *
    * Normalised to absolute bounds on the way into the payload. Loses to
    * `yMin`/`yMax` where both are declared, since those need no arithmetic.
+   *
+   * Alone among the field refs here, this one has **no fallback chain**: an
+   * offset column is named explicitly or spelled exactly `error`. Every common
+   * spelling is either axis-specific (`yerr`, `xerr`, and a row carrying both
+   * says nothing about which axis this chart draws its intervals on) or a
+   * dispersion statistic a chart commonly draws a multiple of (`sd`, `sem`,
+   * `err` — ±1.96 SEM is as ordinary as ±1). Read as the drawn offset, one of
+   * those resizes every interval on the figure without saying so.
    */
   error?: FieldRef;
   /**
@@ -588,19 +604,29 @@ export interface ChoroplethDeclaration extends DeclarationBase {
   /**
    * Field holding the region's name. Maps to `ChoroplethPoint.x`.
    *
-   * @default 'region'
+   * The chain is a map's own, not the one every other declaration shares: the
+   * names a place answers to on a GeoJSON or TopoJSON feature, ending in `x`
+   * so the ordinary region table — `{ x: 'Texas', y: 12.4 }` — is read the
+   * right way round. Resolved against the row **and** against its
+   * `properties`, which is where a feature keeps everything joined onto it, so
+   * `region: 'NAME'` finds `properties.NAME` without being spelled as a path.
+   *
+   * @default 'region', falling back to `name`, `NAME`, `name_long`, `admin`,
+   * `state`, `id`, `label` or `x`
    */
   region?: FieldRef;
   /**
    * Field holding the value the region is shaded by. Maps to
    * `ChoroplethPoint.y`.
    *
-   * The fallback chain is shared with {@link RidgelineDeclaration.value},
-   * where `x` genuinely is the position on the value axis. On a map whose rows
-   * put the region name in an `x` column, that chain would resolve the name as
-   * the value — so name the field, on any row shaped that way.
+   * A map's own chain, deliberately **not** the one
+   * {@link RidgelineDeclaration.value} carries: `x` is a position on the value
+   * axis of a ridgeline and the place's own name on a map, and announcing
+   * "Texas" as the value of Texas is a wrong reading a listener cannot tell
+   * from a right one. Read off the row's `properties` as well, exactly as
+   * {@link ChoroplethDeclaration.region} is.
    *
-   * @default 'value', falling back to `x`, `t` or `position`
+   * @default 'value', falling back to `y`, `rate`, `density` or `count`
    */
   value?: FieldRef;
   /**
@@ -728,14 +754,19 @@ export interface HexbinDeclaration extends DeclarationBase {
    *
    * Screen coordinates would announce every bin's position in pixels.
    *
-   * @default 'x'
+   * The chain is a hexbin's own: `x` names a bin centre here and a category, a
+   * lane or a quantile on other charts, so no chain could be shared. It is the
+   * shipped d3 hexbin binder's, which is where these bins are already read
+   * from.
+   *
+   * @default 'x', falling back to `x0` or `cx`
    */
   x?: FieldRef;
   /**
    * Field holding the bin's centre along the y axis, in **data units**. Maps
    * to `HexbinPoint.y`.
    *
-   * @default 'y'
+   * @default 'y', falling back to `y0` or `cy`
    */
   y?: FieldRef;
   /**
@@ -789,6 +820,12 @@ export interface BoxenDeclaration extends DeclarationBase {
    * The trace sorts them outward from the median rather than trusting the
    * order they arrive in.
    *
+   * This names the *column*; the rungs inside it are not declared field by
+   * field. A rung is read as a row of its own, so its three numbers answer to
+   * the same spread of spellings a top-level field does: `p` also to `prob`,
+   * `probability` or `depth`; `lo` to `lower`, `low`, `min` or `y0`; `hi` to
+   * `upper`, `high`, `max` or `y1`.
+   *
    * @default 'levels', falling back to `letterValues`, `letter_values`,
    * `quantiles` or `ladder`
    */
@@ -804,4 +841,86 @@ export interface BoxenDeclaration extends DeclarationBase {
    * words they abbreviate, exactly as {@link ErrorBarDeclaration.orientation}.
    */
   orientation?: Orientation;
+}
+
+/**
+ * A schedule drawn as intervals along a shared axis — a gantt chart, a
+ * timeline, a swimlane diagram.
+ *
+ * What separates this from a bar chart is that both coordinates are positions
+ * on the same axis rather than a position and a magnitude. A bar has one
+ * number and a baseline; an interval has two numbers and no baseline, and the
+ * fact a reader is listening for — how *long* the interval is — is a
+ * difference between them that has to be announced rather than heard as a
+ * height.
+ *
+ * That difference is also why {@link GanttDeclaration.unit} matters more here
+ * than a unit does elsewhere: no charting library carries what a step of the
+ * axis is called, so without it a task is announced as "7 long" rather than
+ * "7 days".
+ *
+ * The variant is the schema an adapter reads a schedule through; no adapter
+ * reads a gantt block yet, so a chart declaring one today is read as the
+ * undeclared chart and told so. Adoption is a per-adapter change.
+ *
+ * @example
+ * // The block a Highcharts adapter reading schedules would take, on a series
+ * // whose rows name their ends the ordinary way
+ * { custom: { maidr: { type: 'gantt', x: 'resource', unit: 'days' } } }
+ */
+export interface GanttDeclaration extends DeclarationBase {
+  /** `TraceType.GANTT` — the string `'gantt'`. */
+  type: TraceType.GANTT;
+  /**
+   * Field holding the lane the interval belongs to — a task, a resource, a
+   * phase. Maps to `GanttPoint.x`.
+   *
+   * A lane commonly holds several intervals, and grouping is by this field's
+   * value, so a row that resolves nothing here is its own lane rather than
+   * joining another.
+   *
+   * @default 'x', falling back to `lane`, `category`, `label`, `name`, `key`,
+   * `group` or `task`
+   */
+  x?: FieldRef;
+  /**
+   * Field holding where the interval begins. Maps to `GanttPoint.start`.
+   *
+   * @default 'start', falling back to `from`, `begin`, `x0` or `startDate`
+   */
+  start?: FieldRef;
+  /**
+   * Field holding where the interval ends. Maps to `GanttPoint.end`.
+   *
+   * @default 'end', falling back to `to`, `finish`, `x1` or `endDate`
+   */
+  end?: FieldRef;
+  /**
+   * Field holding what this interval is called, when the lane is not already
+   * its name. Maps to `GanttPoint.label`.
+   *
+   * The chain is a schedule's own rather than the `label` chain every other
+   * declaration shares, which is the Manhattan identifier's (`snp`, `gene`,
+   * `probe`) and names nothing on a schedule.
+   *
+   * The `x` chain includes `label`, so a row that names its interval but not
+   * its lane resolves both fields to the same word. An adapter adopting this
+   * declaration should drop a label equal to the lane it sits in rather than
+   * emit it — an interval labelled with its own lane says the same thing
+   * twice. {@link resolveFieldRef} resolves the two names independently and
+   * does not compare them, so the drop belongs to the adopting adapter.
+   *
+   * @default 'label', falling back to `name`, `task`, `title` or `activity`
+   */
+  label?: FieldRef;
+  /**
+   * What a unit of the axis is called: `'days'`, `'hours'`, `'weeks'`. Maps to
+   * `GanttData.unit`.
+   *
+   * A literal word, not a field: the unit belongs to the chart and not to any
+   * row, and a per-row unit would let a producer emit intervals that disagree
+   * about what their numbers measure. Omitted, the trace announces a length
+   * without a unit rather than guessing one.
+   */
+  unit?: string;
 }

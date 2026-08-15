@@ -17,12 +17,27 @@
  * called, so both keep the readers they shipped and neither is bound by the
  * table below.
  *
+ * The same argument covers the two things a reader hears rather than a column
+ * name: the sentence an adapter prints when a declaration names a construct
+ * the library does not draw ({@link warnUndrawnType},
+ * {@link warnWrongConstruct}), and the rule that each distinct problem is said
+ * once per binding rather than once per pass over the chart — an adapter that
+ * walks the chart twice, once for the payload and once for the highlight,
+ * otherwise says everything twice. That is settled here by keying every
+ * warning on the author's own block, so no caller has to arrange it.
+ *
  * Nothing else belongs in this file. Anything that mirrors `MaidrLayer`'s
  * option blocks would become a second grammar that can drift from the first.
  */
 
-import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
+import type { AlluvialDeclaration, BoxenDeclaration, ChoroplethDeclaration, ErrorBarDeclaration, FieldRef, ForestDeclaration, GanttDeclaration, HexbinDeclaration, MaidrTraceDeclaration, ManhattanDeclaration, MosaicDeclaration, ParallelDeclaration, RidgelineDeclaration, ScatterDeclaration, SurvivalDeclaration, VolcanoDeclaration } from '../../type/declaration';
 import { Orientation, TraceType } from '../../type/grammar';
+
+/** The `type` values {@link MaidrTraceDeclaration} covers. */
+export type DeclaredType = MaidrTraceDeclaration['type'];
+
+/** The declaration variant a declared type names. */
+export type DeclarationOf<T extends DeclaredType> = Extract<MaidrTraceDeclaration, { type: T }>;
 
 /**
  * Who is reading a declaration, and what they are reading it off.
@@ -41,6 +56,23 @@ export interface DeclarationContext {
    * phrase — `'series "sales"'`, `'dataset 2'` — rather than a bare number.
    */
   seriesRef: string;
+  /**
+   * The binding this reading belongs to, for saying each distinct problem
+   * once.
+   *
+   * The spec allows each warning at most once per chart per binding, and an
+   * adapter that resolves declarations at two entry points — the payload pass
+   * and the highlight pass both re-walk the chart — otherwise says everything
+   * twice. Pass any object that lives as long as the binding and no longer:
+   * the author's own block, the slot it was read from, the series. Every
+   * warning raised against a context carrying one is said once per object.
+   *
+   * {@link validateDeclaration} needs none, and ignores this when the block it
+   * was handed is itself an object: keying on the author's block is what stops
+   * a *corrected* block from being silenced, since rewriting it produces a new
+   * object that is reported afresh.
+   */
+  binding?: object;
 }
 
 /**
@@ -59,16 +91,26 @@ export interface DeclarationContext {
  *
  * Consulted **only** when the author named no field: an explicit
  * {@link FieldRef} is used verbatim, per {@link resolveFieldRef}. A canonical
- * name with no entry here — `width`, `x`, `y`, `region` — resolves under its
- * own name and nothing else.
+ * name with no entry here — `width`, `x`, `y` — resolves under its own name
+ * and nothing else.
  *
- * The chains are keyed by canonical name across every declared type, so a name
- * borrowed by two of them is shared: `value` carries the ridgeline chain and a
- * choropleth's `value` therefore also answers to `x`, which is called out on
- * {@link ChoroplethDeclaration.value}.
+ * The chains here are keyed by canonical name across every declared type, so a
+ * name borrowed by two of them is shared. Where that sharing would resolve the
+ * wrong column, the type says so for itself in
+ * {@link DECLARED_FIELD_REF_FALLBACKS}, which replaces the entry below for
+ * that type.
  *
  * `censored` is deliberately not aliased to `event`, which most survival
  * datasets carry with the opposite meaning.
+ *
+ * `error` has **no chain at all**, and that is deliberate rather than an
+ * omission: it is an *offset* whose every common spelling is either
+ * axis-specific (`yerr`, `xerr` — a row carrying both says nothing about which
+ * axis this chart draws its intervals on) or a dispersion statistic a chart
+ * commonly draws a multiple of (`sd`, `sem`, `err` — ±1.96 SEM is as ordinary
+ * as ±1). Reading one of those as the drawn offset resizes every interval on
+ * the figure without saying so, which is the failure this table exists to
+ * avoid, so an offset column is named explicitly or spelled exactly `error`.
  */
 export const FIELD_REF_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
   censored: ['censor', 'isCensored'],
@@ -88,14 +130,157 @@ export const FIELD_REF_FALLBACKS: Readonly<Record<string, readonly string[]>> = 
 };
 
 /**
+ * Chains that belong to one declared type, replacing
+ * {@link FIELD_REF_FALLBACKS} for it.
+ *
+ * A canonical name is shared across variants and a chain sometimes cannot be:
+ * `value` on a ridgeline is a position on the value axis, so `x` is a fair
+ * reading of it, while `value` on a choropleth is the number a region is
+ * shaded by and a map's rows routinely put the *place name* in an `x` column.
+ * Shared, that chain announces "Texas" as the shaded value of Texas — the one
+ * failure mode worse than announcing nothing, since a reader has no way to
+ * tell it from a number.
+ *
+ * So a choropleth reads its own two chains, and they are the shipped d3
+ * binder's (`d3/binders/choropleth.ts`), which the same maps have been read
+ * through since before this table existed. They are ordered so that the
+ * ordinary region table — `{ x: 'Texas', y: 12.4 }` — resolves both halves the
+ * right way round: `x` is the **last** name a region answers to and `y` the
+ * **first** a value does.
+ *
+ * The other entries are here for the milder reason: a canonical name so
+ * generic that no chain could be shared. `x` on a hexbin is a bin centre, on a
+ * gantt a lane; `label` on a gantt is the interval's name and everywhere else
+ * the Manhattan identifier. Each chain is the shipped d3 binder's for that
+ * chart, so a column that already worked there works through a declaration
+ * too.
+ *
+ * The boxen entry is the one that is not a top-level field at all. `p`, `lo`
+ * and `hi` are the fields of a **rung** — the `{ p, lo, hi }` entries inside
+ * whatever `BoxenDeclaration.levels` names — and their spellings vary exactly
+ * as the top-level ones do (`prob`, `lower`, `y1`). An adapter reading only
+ * the literal three drops every ladder written any other way, which leaves a
+ * boxen with a median and no rungs to walk. Nothing new is needed to reach
+ * them: a rung **is** a row, so passing one to {@link resolveFieldRef} under
+ * `TraceType.BOXEN` reads it.
+ *
+ * A chain here replaces the shared one rather than extending it. Extending
+ * would keep exactly the entry the type is here to disown.
+ */
+export const DECLARED_FIELD_REF_FALLBACKS: Readonly<
+  Partial<Record<DeclaredType, Readonly<Record<string, readonly string[]>>>>
+> = {
+  [TraceType.CHOROPLETH]: {
+    region: ['name', 'NAME', 'name_long', 'admin', 'state', 'id', 'label', 'x'],
+    value: ['y', 'rate', 'density', 'count'],
+  },
+  [TraceType.HEXBIN]: {
+    x: ['x0', 'cx'],
+    y: ['y0', 'cy'],
+  },
+  [TraceType.GANTT]: {
+    x: ['lane', 'category', 'label', 'name', 'key', 'group', 'task'],
+    start: ['from', 'begin', 'x0', 'startDate'],
+    end: ['to', 'finish', 'x1', 'endDate'],
+    // Not the `label` chain every other type shares — that one is the
+    // Manhattan/volcano identifier's (`snp`, `gene`, `probe`), which names
+    // nothing on a schedule.
+    label: ['name', 'task', 'title', 'activity'],
+  },
+  [TraceType.BOXEN]: {
+    p: ['prob', 'probability', 'depth'],
+    lo: ['lower', 'low', 'min', 'y0'],
+    hi: ['upper', 'high', 'max', 'y1'],
+  },
+};
+
+/**
+ * The chain a canonical name is defaulted through, for the type being read.
+ *
+ * @param canonical - The grammar field name being filled.
+ * @param type      - The declared type reading it, when the caller knows it.
+ * @returns The alternative names to try, in order.
+ */
+function fallbacksFor(canonical: string, type: DeclaredType | undefined): readonly string[] {
+  const scoped = type === undefined ? undefined : DECLARED_FIELD_REF_FALLBACKS[type]?.[canonical];
+  return scoped ?? FIELD_REF_FALLBACKS[canonical] ?? [];
+}
+
+/**
+ * Reads a name off one lookup surface: the key itself, or the dotted path it
+ * spells.
+ *
+ * The literal key is tried first, so a column genuinely named `a.b` is read as
+ * itself before the name is taken apart.
+ *
+ * @param record - The surface to read.
+ * @param name   - The key, or a dotted path through nested objects.
+ * @returns The value read, or `undefined` when the surface does not carry it.
+ */
+function readName<T>(record: Record<string, unknown>, name: string): T | undefined {
+  const own = record[name];
+  if (own !== undefined) {
+    return own as T;
+  }
+  if (!name.includes('.')) {
+    return undefined;
+  }
+
+  let step: unknown = record;
+  for (const segment of name.split('.')) {
+    if (step === null || typeof step !== 'object') {
+      return undefined;
+    }
+    step = (step as Record<string, unknown>)[segment];
+  }
+  return step as T | undefined;
+}
+
+/**
+ * Reads a name off a row and, failing that, off the row's `properties`.
+ *
+ * The second surface is what makes a **map** readable. `element.__data__` on a
+ * choropleth is a GeoJSON or TopoJSON feature, which keeps only `type`, `id`,
+ * `geometry` and `properties` at the top level: the region's name and the
+ * value joined onto it live in `properties`, every time. An author writing
+ * `region: 'NAME'` can only mean the property, so making them spell
+ * `properties.NAME` would be ceremony over a shape the format fixes — though
+ * that path resolves too, per {@link readName}.
+ *
+ * Second, never first: the row's own key always wins, so this can fill a gap
+ * but never overrule what the row itself says.
+ *
+ * @param row  - The row the charting library bound to the mark.
+ * @param name - The key, or a dotted path through nested objects.
+ * @returns The value read, or `undefined` when neither surface carries it.
+ */
+function readFromRow<T>(row: Record<string, unknown>, name: string): T | undefined {
+  const own = readName<T>(row, name);
+  if (own !== undefined) {
+    return own;
+  }
+  const properties = row.properties;
+  return properties === null || typeof properties !== 'object'
+    ? undefined
+    : readName<T>(properties as Record<string, unknown>, name);
+}
+
+/**
  * Reads one declared fact off an author's row.
  *
  * An explicit `ref` is used verbatim with **no fallback**: a name the author
  * wrote that misses is their error, and reporting it — with
  * {@link warnUnresolvedRef}, once the series is read — beats papering over it
- * with a column they did not name. Only the defaulted path walks
- * {@link FIELD_REF_FALLBACKS}, trying `canonical` first and then each
- * alternative in order.
+ * with a column they did not name. Only the defaulted path walks the chain,
+ * trying `canonical` first and then each alternative in order — the type's own
+ * chain from {@link DECLARED_FIELD_REF_FALLBACKS} where it has one, and
+ * {@link FIELD_REF_FALLBACKS} otherwise.
+ *
+ * Every name, explicit or defaulted, is looked for in three places in turn:
+ * the row's own key, the dotted path it spells, and the row's `properties` —
+ * see {@link readFromRow}. Name priority dominates: `properties.name` beats a
+ * top-level `id` on a GeoJSON feature, because a region is called by its name
+ * rather than by its FIPS code.
  *
  * `undefined` and `null` both mean "no ref given" here, exactly as they do in
  * {@link validateDeclaration}: the slots this rides in are frequently untyped
@@ -121,12 +306,16 @@ export const FIELD_REF_FALLBACKS: Readonly<Record<string, readonly string[]>> = 
  *                    that is not an object resolves to nothing.
  * @param ref       - The field the author named, or `undefined` to default.
  * @param canonical - The grammar field name being filled, e.g. `'yMin'`.
+ * @param type      - The declared type being read, where one of its fields
+ *                    defaults differently from the shared chain — `'value'` on
+ *                    a choropleth. Omitted, the shared chain applies.
  * @returns The value read, or `undefined` when nothing resolves.
  */
 export function resolveFieldRef<T>(
   row: unknown,
   ref: FieldRef | undefined,
   canonical: string,
+  type?: DeclaredType,
 ): T | undefined {
   if (row === null || typeof row !== 'object') {
     return undefined;
@@ -136,17 +325,17 @@ export function resolveFieldRef<T>(
   // bag of the author's own columns, and the names are resolved from data.
   const record = row as Record<string, unknown>;
   if (typeof ref === 'string') {
-    return record[ref] as T | undefined;
+    return readFromRow<T>(record, ref);
   }
 
-  const canonicalValue = record[canonical];
+  const canonicalValue = readFromRow<T>(record, canonical);
   if (canonicalValue !== undefined) {
-    return canonicalValue as T;
+    return canonicalValue;
   }
-  for (const alternative of FIELD_REF_FALLBACKS[canonical] ?? []) {
-    const value = record[alternative];
+  for (const alternative of fallbacksFor(canonical, type)) {
+    const value = readFromRow<T>(record, alternative);
     if (value !== undefined) {
-      return value as T;
+      return value;
     }
   }
   return undefined;
@@ -162,9 +351,11 @@ export function resolveFieldRef<T>(
  * row of it. The field is then left out of the payload, and the author is told
  * why rather than being handed a chart quietly missing what they declared.
  *
- * The message lives here so all eight adapters print the same sentence; the
+ * The message lives here so all eight adapters print the same sentence. The
  * "at most once per chart per binding" contract is satisfied by calling this
- * once per series per field, since it holds no state of its own.
+ * once per series per field; an adapter that reads a series at two entry
+ * points calls it twice and passes {@link DeclarationContext.binding} — the
+ * declaration it is reading — to have the second one swallowed.
  *
  * @param context   - Who is reading, and what they are reading it off.
  * @param ref       - The field name the author wrote.
@@ -175,10 +366,59 @@ export function warnUnresolvedRef(
   ref: FieldRef,
   canonical: string,
 ): void {
-  warn(
-    context.adapter,
+  report(
+    context,
     `maidr declaration on ${context.seriesRef} names "${ref}" for ${canonical}, `
     + `which no row carries; ${canonical} is left out.`,
+  );
+}
+
+/**
+ * Reports a declared type this adapter has no reading for — spec §7.1.
+ *
+ * The declaration is honoured where the library can back it and degrades to
+ * the undeclared chart where it cannot, so this is the sentence every adapter
+ * needs and none should spell for itself: eight hand-rolled wordings for one
+ * fact is eight things an author has to recognise as the same fact.
+ *
+ * @param context - Who is reading, and what they are reading it off.
+ * @param type    - The declared type, printed as the author wrote it.
+ */
+export function warnUndrawnType(context: DeclarationContext, type: string): void {
+  report(
+    context,
+    `maidr declaration for "${type}" on ${context.seriesRef} names no construct `
+    + `this library draws; reading it as the undeclared chart.`,
+  );
+}
+
+/**
+ * Reports a declaration the construct it was written on cannot back — the
+ * other half of spec §7.1.
+ *
+ * Distinct from {@link warnUndrawnType}: the adapter reads this type, but not
+ * off *this* series. A survival curve read off a pie is not a degraded
+ * announcement, it is a wrong one, so the reading falls through to the
+ * undeclared chart and says which construct the declaration wanted.
+ *
+ * @param context - Who is reading, and what they are reading it off.
+ * @param type    - The declared type, printed as the author wrote it.
+ * @param needs   - What the type needs, phrased to follow "needs" — `'a "map"
+ *                  series'`, `'a bar or line dataset'`.
+ * @param drawn   - What the library actually draws this series as, when the
+ *                  adapter can name it.
+ */
+export function warnWrongConstruct(
+  context: DeclarationContext,
+  type: string,
+  needs: string,
+  drawn?: string,
+): void {
+  const found = drawn === undefined ? '' : ` and this one is drawn as "${drawn}"`;
+  report(
+    context,
+    `maidr declaration for "${type}" on ${context.seriesRef} needs ${needs}${found}; `
+    + `reading it as the undeclared chart.`,
   );
 }
 
@@ -212,9 +452,6 @@ export function isFlagValue(value: unknown): boolean {
   }
   return false;
 }
-
-/** The `type` values {@link MaidrTraceDeclaration} covers. */
-type DeclaredType = MaidrTraceDeclaration['type'];
 
 /**
  * What a key's value has to look like for the declaration to keep it.
@@ -377,6 +614,18 @@ const DECLARATION_KEYS: Readonly<Record<DeclaredType, Readonly<Record<string, Ke
     upperOutliers: 'field',
     orientation: 'orientation',
   } satisfies FieldKeySet<BoxenDeclaration>,
+  [TraceType.GANTT]: {
+    title: 'text',
+    name: 'text',
+    x: 'field',
+    start: 'field',
+    end: 'field',
+    label: 'field',
+    // Text, not a field: a unit belongs to the chart and not to any row, and
+    // per-row units would let a producer emit intervals disagreeing about what
+    // their numbers measure.
+    unit: 'text',
+  } satisfies FieldKeySet<GanttDeclaration>,
 };
 
 /**
@@ -567,6 +816,11 @@ function describeValue(value: unknown): string {
  *   parallel plot, `group` on a ridgeline — is rejected. The alternative is
  *   returning a block typed as if the field were there, which is an invitation
  *   to the throw this function exists to prevent.
+ * - A variant outside the `reads` set — a choropleth declared on a library
+ *   that draws no map — is reported with {@link warnUndrawnType} and rejected.
+ *   Every adapter reads some subset and each was otherwise hand-writing the
+ *   same narrowing predicate after this returned, along with its own wording
+ *   for the one sentence spec §7.1 fixes.
  *
  * `undefined` and `null` are "not given" wherever they appear, both as the
  * block and as any key's value.
@@ -576,24 +830,31 @@ function describeValue(value: unknown): string {
  * never mutated.
  *
  * This is the only place an `unknown` from a chart config is narrowed; `any`
- * must not escape it. Calling it once per series per binding is what satisfies
- * the "each distinct warning at most once per chart per binding" contract —
- * this function holds no state of its own.
+ * must not escape it. The "each distinct warning at most once per chart per
+ * binding" contract holds however often this is called, since every warning it
+ * raises is keyed on the author's own block — an adapter that resolves
+ * declarations at two entry points per binding needs to arrange nothing.
  *
  * @param raw     - The value at the library's `maidr` slot.
  * @param context - Who is reading, and what they are reading it off.
+ * @param reads   - The declared types this adapter has a reading for. Omitted,
+ *                  every variant is accepted and the caller narrows for
+ *                  itself.
  * @returns The validated declaration, or `null` when there is none to read.
  */
-export function validateDeclaration(
+export function validateDeclaration<T extends DeclaredType = DeclaredType>(
   raw: unknown,
   context: DeclarationContext,
-): MaidrTraceDeclaration | null {
+  reads?: readonly T[],
+): DeclarationOf<T> | null {
   if (raw === undefined || raw === null) {
     return null;
   }
 
   const { adapter, seriesRef } = context;
   if (typeof raw !== 'object' || Array.isArray(raw)) {
+    // No object to key a once-per-binding gate on, and none needed: a block
+    // this shape carries no fields to go on and report a second problem about.
     warn(adapter, `maidr declaration on ${seriesRef} is not an object; ignored.`);
     return null;
   }
@@ -601,16 +862,22 @@ export function validateDeclaration(
   const block = raw as Record<string, unknown>;
   const type = block.type;
   if (typeof type !== 'string' || !isDeclaredType(type)) {
-    warn(
-      adapter,
+    report(
+      context,
       `maidr declaration on ${seriesRef} has unknown type "${String(type)}"; `
       + `reading it as the undeclared chart.`,
+      block,
     );
     return null;
   }
 
+  if (reads !== undefined && !(reads as readonly string[]).includes(type)) {
+    warnUndrawnType({ ...context, binding: context.binding ?? block }, type);
+    return null;
+  }
+
   const located = (message: string): void =>
-    warn(adapter, `maidr declaration for "${type}" on ${seriesRef} ${message}`);
+    report(context, `maidr declaration for "${type}" on ${seriesRef} ${message}`, block);
 
   const accepted = DECLARATION_KEYS[type];
   const dropped: string[] = [];
@@ -652,13 +919,13 @@ export function validateDeclaration(
   }
 
   if (dropped.length === 0) {
-    return block as unknown as MaidrTraceDeclaration;
+    return block as unknown as DeclarationOf<T>;
   }
   const kept = { ...block };
   for (const key of dropped) {
     delete kept[key];
   }
-  return kept as unknown as MaidrTraceDeclaration;
+  return kept as unknown as DeclarationOf<T>;
 }
 
 /**
@@ -676,16 +943,55 @@ export function validateDeclaration(
  * @param container - The library's slot — `series.options.custom`,
  *                    `series.get('userData')`, `trace.meta`, `usermeta`.
  * @param context   - Who is reading, and what they are reading it off.
+ * @param reads     - The declared types this adapter has a reading for, as
+ *                    {@link validateDeclaration} takes them.
  * @returns The validated declaration, or `null` when there is none to read.
  */
-export function readDeclarationSlot(
+export function readDeclarationSlot<T extends DeclaredType = DeclaredType>(
   container: unknown,
   context: DeclarationContext,
-): MaidrTraceDeclaration | null {
+  reads?: readonly T[],
+): DeclarationOf<T> | null {
+  const written = declarationIn(container);
+  return written === undefined ? null : validateDeclaration(written, context, reads);
+}
+
+/**
+ * Whether the author wrote a block in this slot at all, readable or not.
+ *
+ * `null` from {@link readDeclarationSlot} answers two different questions with
+ * one word — "nothing was written here" and "something was written and this
+ * module rejected it" — and spec §6(b)'s precedence turns on which: a block
+ * that was written and rejected is still the author saying something *about
+ * this series*, so the reading falls through to the heuristic rather than on
+ * to a chart-level declaration meant for the series that said nothing.
+ *
+ * Shares its guard with {@link readDeclarationSlot} rather than restating it,
+ * so the two cannot come to disagree about what a slot is.
+ *
+ * @param container - The library's slot.
+ * @returns True when a `maidr` block was written on it.
+ */
+export function hasDeclarationSlot(container: unknown): boolean {
+  return declarationIn(container) !== undefined;
+}
+
+/**
+ * The block written in a library's slot, if any.
+ *
+ * A container that is not an object, that carries no `maidr` key, or whose
+ * `maidr` is `null` is no declaration: Plotly's `meta` is very often a plain
+ * string that has nothing to do with MAIDR, and `null` is how an author writes
+ * "not set".
+ *
+ * @param container - The library's slot.
+ * @returns The block, or `undefined` when none was written.
+ */
+function declarationIn(container: unknown): unknown {
   if (typeof container !== 'object' || container === null || !('maidr' in container)) {
-    return null;
+    return undefined;
   }
-  return validateDeclaration(container.maidr, context);
+  return container.maidr ?? undefined;
 }
 
 /**
@@ -696,4 +1002,54 @@ export function readDeclarationSlot(
  */
 function warn(adapter: string, message: string): void {
   console.warn(`[MAIDR ${adapter}] ${message}`);
+}
+
+/**
+ * Sentences already said, keyed by the binding they were said against.
+ *
+ * A `WeakMap` so a chart that is thrown away takes its warning history with
+ * it, and keyed on the author's own object so a *corrected* block is reported
+ * afresh: rewriting a declaration produces a new object, which has said
+ * nothing yet. The sentence itself is the key, which makes "each distinct
+ * warning" exactly what it says — a second problem on the same block is a
+ * different sentence and is still reported.
+ */
+const said = new WeakMap<object, Set<string>>();
+
+/**
+ * Emits one adapter-prefixed warning, at most once per binding.
+ *
+ * The gate lives here rather than in each adapter because every adapter needs
+ * it and only some have noticed: a chart walked twice per binding — once for
+ * the payload, once for the highlight — says everything twice, and a reader
+ * turning on the console to find out why their chart is silent should not have
+ * to read it double.
+ *
+ * With no binding to key on, the warning is emitted every time. That is the
+ * honest default: swallowing a warning on a key that outlives the chart would
+ * silence a genuinely new problem.
+ *
+ * @param context - Who is reading, and the binding to say it once per.
+ * @param message - The sentence following the `[MAIDR <Adapter>]` prefix.
+ * @param block   - The author's own block, when the caller holds one. Used as
+ *                  the binding where the context names none.
+ */
+function report(context: DeclarationContext, message: string, block?: object): void {
+  const binding = context.binding ?? block;
+  if (binding === undefined) {
+    warn(context.adapter, message);
+    return;
+  }
+
+  let seen = said.get(binding);
+  if (seen === undefined) {
+    seen = new Set<string>();
+    said.set(binding, seen);
+  }
+  const sentence = `${context.adapter}: ${message}`;
+  if (seen.has(sentence)) {
+    return;
+  }
+  seen.add(sentence);
+  warn(context.adapter, message);
 }
