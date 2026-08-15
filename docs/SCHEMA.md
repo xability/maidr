@@ -123,16 +123,20 @@ Use the following to define the object properties:
 
 - `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `survival`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares.
 
-> **`candlestick_delta` has no example page, on purpose.** Every declarable
-> trace type above has a hand-authored example under `examples/` that carries
-> its schema literally in a `maidr='{...}'` attribute. `candlestick_delta` has
-> none and should never be given one: it is a reading mode the model derives at
-> runtime from a `candlestick` layer (`src/model/candlestickDelta.ts`, reached
-> with Alt+L), not a value a page declares. `TraceFactory.create` in
-> `src/model/factory.ts` has no case for it, so a layer declaring it throws
+> **`candlestick_delta` has no example page, on purpose.** It should never be
+> given one: it is a reading mode the model derives at runtime from a
+> `candlestick` layer (`src/model/candlestickDelta.ts`, reached with Alt+L), not
+> a value a page declares. `TraceFactory.create` in `src/model/factory.ts` has
+> no case for it, so a layer declaring it throws
 > `Invalid trace type: candlestick_delta` and the figure never binds — an
 > example would document something that does not exist. An audit of example
 > coverage that finds this gap has found the correct state of affairs.
+>
+> It is the only deliberate gap. Other declarable types that lack a
+> hand-authored example are genuinely missing one, and adding it is a normal
+> contribution — at the time of writing that is `alluvial`, `area` and
+> `manhattan`, which appear under `examples/` only as adapter-bound pages where
+> a chart library emits the schema at runtime.
 
 - `id`: the id that you added as an attribute of your main SVG.
 - `title`: the title of the plot. (optional)
