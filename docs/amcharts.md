@@ -202,7 +202,9 @@ var estimate = chart.series.push(am5xy.LineSeries.new(root, {
 
 An absorbed companion is merged into the parent layer **by position**, not by index — a companion carrying fewer rows than the series it decorates still lines up — and it does not become a layer of its own. `openValueY` maps to `yMin` and `valueY` to `yMax` (`openValueX`/`valueX` on a horizontal chart); the bounds are **absolute positions** on the value axis, never offsets. An interval your data holds as an offset instead is declared with `error`, which takes a number for a symmetric interval or a `[lower, upper]` pair for an asymmetric one, both as positive magnitudes.
 
-The four roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSeries` (survival), and `pooledSeries` (forest). A role naming no series is reported and the layer is emitted without that half.
+The four roles are `intervalSeries` (error bar, forest), `censoredSeries` and `bandSeries` (survival), and `pooledSeries` (forest). A role naming no series is reported and the layer is emitted without that half — as is a role naming a series that declares a layer of its own, or one another declaration has already absorbed, since reading a series into two layers would announce the same rows twice over.
+
+On a forest plot declaring both `intervalSeries` and `pooledSeries`, the interval companion covers the summary too: the join is by position, so a chart drawing every interval in one column series, the summary's included, has already said where the summary's interval is. The pooled series' own row fields and `error` offset still outrank it.
 
 ### Merging siblings
 

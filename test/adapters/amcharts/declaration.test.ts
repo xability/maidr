@@ -349,6 +349,35 @@ describe('declared error bars', () => {
     expect(points[1]).toMatchObject({ x: 'B', yMin: 1.9, yMax: 2.3 });
   });
 
+  it('refuses a companion another declaration has already absorbed', () => {
+    const interval = columnSeries('CI', [
+      { categoryX: 'A', openValueY: 1.1, valueY: 1.7 },
+      { categoryX: 'B', openValueY: 1.9, valueY: 2.3 },
+    ], { id: 'ci' });
+    const layers = layersOf([
+      columnSeries('Mean', ESTIMATES, {
+        maidr: { type: 'error_bar', intervalSeries: 'ci' },
+      }),
+      columnSeries('Median', ESTIMATES, {
+        maidr: { type: 'error_bar', intervalSeries: 'ci' },
+      }),
+      interval,
+    ]);
+
+    // One column of intervals cannot be two layers' intervals: the first claim
+    // stands, the second is refused out loud, and the rows are announced once.
+    expect(layers).toHaveLength(2);
+    expect(layers[0].data as ErrorBarPoint[]).toEqual([
+      { x: 'A', y: 1.4, yMin: 1.1, yMax: 1.7 },
+      { x: 'B', y: 2.1, yMin: 1.9, yMax: 2.3 },
+    ]);
+    expect(layers[1].data as ErrorBarPoint[]).toEqual([
+      { x: 'A', y: 1.4 },
+      { x: 'B', y: 2.1 },
+    ]);
+    expect(warnings()).toContain('which another declaration already absorbed');
+  });
+
   it('lets the declaration settle an orientation the drawing does not state', () => {
     const onValueAxes = [{ valueX: 1.4, valueY: 3 }];
     const upright = layerOf([fakeSeries({
@@ -463,6 +492,62 @@ describe('declared forest plots', () => {
     expect(layers).toHaveLength(1);
     expect(points).toHaveLength(3);
     expect(points[2]).toMatchObject({ x: 'Overall', y: 0.95, pooled: true });
+  });
+
+  it('fills the pooled summary from the interval companion at its own position', () => {
+    const interval = columnSeries('CI', [
+      { categoryY: 'Ross 1998', openValueX: 0.6, valueX: 1 },
+      { categoryY: 'Overall', openValueX: 0.85, valueX: 1.05 },
+    ], { id: 'ci', horizontal: true });
+    const summary = columnSeries('Pooled', [
+      { categoryY: 'Overall', valueX: 0.95 },
+    ], { id: 'summary', horizontal: true });
+    const layers = layersOf([
+      columnSeries('Effect', STUDIES.slice(0, 2), {
+        horizontal: true,
+        maidr: { type: 'forest', intervalSeries: 'ci', pooledSeries: 'summary' },
+      }),
+      interval,
+      summary,
+    ]);
+    const points = layers[0].data as ForestPoint[];
+
+    // A forest plot routinely draws every interval in one column series, the
+    // summary's included, so the interval companion stays in scope for the
+    // pooled rows too. The join is by position either way: the summary takes
+    // the interval drawn at its own category, and the study the companion
+    // draws nothing for keeps no bounds at all.
+    expect(layers).toHaveLength(1);
+    expect(points).toEqual([
+      { x: 'Ross 1998', y: 0.8, yMin: 0.6, yMax: 1 },
+      { x: 'Patel 2004', y: 1.2 },
+      { x: 'Overall', y: 0.95, yMin: 0.85, yMax: 1.05, pooled: true },
+    ]);
+  });
+
+  it('lets the pooled summary\'s own row outrank the interval companion', () => {
+    const interval = columnSeries('CI', [
+      { categoryY: 'Ross 1998', openValueX: 0.6, valueX: 1 },
+      { categoryY: 'Overall', openValueX: 0.85, valueX: 1.05 },
+    ], { id: 'ci', horizontal: true });
+    const summary = columnSeries('Pooled', [
+      { categoryY: 'Overall', valueX: 0.95 },
+    ], { id: 'summary', horizontal: true, rows: [{ study: 'Overall', lower: 0.9 }] });
+    const layers = layersOf([
+      columnSeries('Effect', STUDIES.slice(0, 2), {
+        horizontal: true,
+        maidr: { type: 'forest', intervalSeries: 'ci', pooledSeries: 'summary' },
+        rows: [{ study: 'Ross 1998' }, { study: 'Patel 2004' }],
+      }),
+      interval,
+      summary,
+    ]);
+    const points = layers[0].data as ForestPoint[];
+
+    // Row fields → `error` offset → companion, for the summary exactly as for
+    // a study: a bound the summary's own row states is the more specific
+    // statement, and the companion fills only the half it left unsaid.
+    expect(points[2]).toEqual({ x: 'Overall', y: 0.95, yMin: 0.9, yMax: 1.05, pooled: true });
   });
 });
 

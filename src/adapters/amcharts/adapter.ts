@@ -598,7 +598,9 @@ function buildDeclaredLayer(
         data,
       };
     }
-    default: {
+    // Named rather than defaulted, so that a seventh member of `AmDeclaration`
+    // fails to compile here instead of being read out as a plain scatter.
+    case TraceType.SCATTER: {
       const data = extractScatterPoints(declared);
       if (data.length === 0) {
         return null;

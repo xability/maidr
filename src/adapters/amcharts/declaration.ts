@@ -482,10 +482,12 @@ function mergesSiblings(declaration: AmDeclaration): boolean {
 /**
  * Resolve one companion reference to a series, and absorb it.
  *
- * A ref that names nothing, or that names a series declaring a layer of its
- * own, leaves the parent standing without that half — the alternative is
- * silently swallowing somebody else's layer, or matching whatever sits at that
- * position today, which is the failure `SeriesRef` exists to remove.
+ * A ref that names nothing, that names a series declaring a layer of its own,
+ * or that names a series another declaration has already absorbed, leaves the
+ * parent standing without that half — the alternative is silently swallowing
+ * somebody else's layer, reading one series' rows into two announced layers,
+ * or matching whatever sits at that position today, which is the failure
+ * `SeriesRef` exists to remove.
  */
 function absorb(
   declared: AmDeclaredLayer,
@@ -515,6 +517,20 @@ function absorb(
       `companion:${role}`,
       `maidr declaration on ${parent} names ${role} "${ref}", which declares a `
       + `layer of its own; it is left as that layer and not absorbed.`,
+    );
+    return undefined;
+  }
+  if (plan.absorbed.has(companion)) {
+    // Two refs naming one series is an authoring mistake either way round —
+    // one layer's interval column doubling as another's, or a single
+    // declaration naming the same id twice. Reading those rows into both
+    // layers would announce a number twice over with nothing said; the second
+    // claim is refused out loud instead, as a ref naming a declared layer is.
+    warnOnce(
+      declared.declaration,
+      `companion:${role}`,
+      `maidr declaration on ${parent} names ${role} "${ref}", which another `
+      + `declaration already absorbed; the layer is emitted without it.`,
     );
     return undefined;
   }
@@ -895,6 +911,13 @@ export function extractForestSamples(
   const items = [...studies.items];
   const owners = [...studies.owners];
   if (declared.pooled) {
+    // The summary is read exactly as a study is, off its own series' rows —
+    // and `interval` is deliberately left in scope for it. A companion is
+    // joined by position, not by series, so a chart drawing every interval in
+    // one column series, the summary's included, has said where the summary's
+    // interval is; scoping the companion out would drop a bound the author
+    // did draw. The summary's own row fields and `error` offset still win, so
+    // a pooled series that spells its interval out is unaffected either way.
     const summary = extractErrorBarSamples({ ...declared, series: declared.pooled });
     for (const point of summary.data) {
       data.push({ ...point, pooled: true });
