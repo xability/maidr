@@ -473,7 +473,7 @@ export class LineTrace extends AbstractTrace {
   protected get dimension(): Dimension {
     return {
       rows: this.lineValues.length,
-      cols: this.lineValues[this.row].length,
+      cols: this.lineValues[this.row]?.length ?? 0,
     };
   }
 
