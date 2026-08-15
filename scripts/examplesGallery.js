@@ -406,7 +406,15 @@ function groupFor(page) {
   return dir === null ? GROUPS.find(group => group.fallback) : undefined;
 }
 
-/** The part of a filename that names the chart, with the group's prefix gone. */
+/**
+ * The part of a filename that names the chart, with the group's prefix gone.
+ *
+ * Only `prefixes` is stripped, not `names`: a page matched by `names` is the
+ * group's own landing page, and both of them (`amcharts.html`,
+ * `google-charts.html`) carry a curated `TITLES` entry, so this never runs for
+ * one. A `names` group added without that entry would be labelled from its full
+ * stem — give it a `TITLES` entry rather than stripping `names` here.
+ */
 function chartStem(page, group) {
   let stem = path.posix.basename(page, '.html').toLowerCase().replace(/_/g, '-');
 
