@@ -1130,6 +1130,19 @@ export type SeriesKind
     | 'unknown';
 
 /**
+ * Whether a series draws its marks as columns.
+ *
+ * The one question a declared layer still has to ask about how it was drawn:
+ * an estimate laid out as a column and one laid out as a bullet on a line keep
+ * their geometry in different places, so the highlight has to know which. It is
+ * asked of the class name rather than of the declaration, because the mark is
+ * amCharts' business and the meaning is the author's.
+ */
+export function isColumnSeries(series: AmXYSeries): boolean {
+  return COLUMN_CLASSES.has(series.className ?? '');
+}
+
+/**
  * Determine the MAIDR trace kind for a given amCharts series.
  */
 export function classifySeriesKind(series: AmXYSeries): SeriesKind {
@@ -1216,7 +1229,18 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
 // Utilities
 // ---------------------------------------------------------------------------
 
-function readXValue(item: AmDataItem, series: AmXYSeries): unknown {
+/**
+ * Read the position a mark sits at along the main axis.
+ *
+ * The four places amCharts may keep it, in the order a chart is most likely to
+ * mean: the category it was bound to, the value on a value axis, the `Date` a
+ * date axis stores, and finally the raw column the series named as its category
+ * field for a chart whose data items have not been processed yet.
+ *
+ * Exported for the declared-trace reader, which reads the same position off
+ * series the heuristics deliberately do not classify.
+ */
+export function readXValue(item: AmDataItem, series: AmXYSeries): unknown {
   // Try category first, then numeric value.
   const cat = item.get('categoryX');
   if (cat != null)
@@ -1242,13 +1266,21 @@ function readXValue(item: AmDataItem, series: AmXYSeries): unknown {
  * Convert an unknown value to a finite number, or `null` if the
  * conversion is not possible. Callers should skip data items that
  * return `null` to avoid silent data corruption.
+ *
+ * Coerces the way `Number()` does, so `null` reads as 0 and `''` as 0: every
+ * caller here has already established that the value is present. A value that
+ * may legitimately be absent — anything read off an author's own row — goes
+ * through the declared reader's stricter conversion instead.
  */
-function toNumber(value: unknown): number | null {
+export function toNumber(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
-function toStringOrNumber(value: unknown): string | number {
+/**
+ * Render an axis position as the `string | number` the grammar's points carry.
+ */
+export function toStringOrNumber(value: unknown): string | number {
   if (typeof value === 'number' && Number.isFinite(value))
     return value;
   return String(value ?? '');

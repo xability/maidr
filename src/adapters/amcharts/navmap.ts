@@ -10,12 +10,19 @@
  */
 
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
+import type { AmDeclaredLayer } from './declaration';
 import type { AmChart, AmDataItem, AmXYSeries } from './types';
 import { TraceType } from '@type/grammar';
+import {
+  extractErrorBarSamples,
+  extractForestSamples,
+  extractSurvivalArms,
+} from './declaration';
 import {
   extractGanttItems,
   extractHierarchyNodes,
   extractSpanItems,
+  isColumnSeries,
 } from './extractor';
 
 /**
@@ -100,6 +107,16 @@ export interface SeriesGroups {
   hierarchySeriesList: AmXYSeries[];
   /** One WORD_CLOUD layer each, in series order. */
   wordCloudSeriesList: AmXYSeries[];
+  /**
+   * One layer each for the series that declared what they mean, in series
+   * order — a survival curve, an error bar, a forest plot, a cloud.
+   *
+   * Kept as the plan rather than as a series list: a declared layer routinely
+   * spans several series (the column drawing an interval, the arms merged into
+   * one curve), and the highlight has to walk exactly the ones the layer was
+   * built from.
+   */
+  declaredList: AmDeclaredLayer[];
 }
 
 type Resolver = (row: number, col: number) => NavTarget[];
@@ -266,6 +283,49 @@ function buildHierarchyResolver(series: AmXYSeries | undefined): Resolver {
 }
 
 /**
+ * Build a resolver for a declared survival figure.
+ *
+ * Rows are the arms and columns the samples, exactly as a merged line layer is
+ * navigated — a survival curve is a step line with two more things said about
+ * it, and neither of them changes which mark a position addresses.
+ */
+function buildSurvivalResolver(declared: AmDeclaredLayer | undefined): Resolver {
+  const arms = declared ? extractSurvivalArms(declared).items : [];
+  const series = declared ? [declared.series, ...declared.arms] : [];
+  return (row, col) => {
+    const dataItem = arms[row]?.[col];
+    const owner = series[row];
+    return owner && dataItem ? [{ series: owner, dataItem, kind: 'point' }] : [];
+  };
+}
+
+/**
+ * Build a resolver for a declared error bar or forest plot.
+ *
+ * The row walks the interval's three sections — lower bound, estimate, upper
+ * bound — and a chart draws one mark per sample rather than one per bound, so
+ * every section resolves to the same mark. A highlight that stays put while the
+ * announcement moves between the bounds is the honest rendering of that; the
+ * alternative is pointing at marks the chart never drew, which is the call the
+ * dumbbell's two ends already make.
+ */
+function buildIntervalResolver(declared: AmDeclaredLayer | undefined): Resolver {
+  if (!declared) {
+    return () => [];
+  }
+  const { items, owners } = declared.declaration.type === TraceType.FOREST
+    ? extractForestSamples(declared)
+    : extractErrorBarSamples(declared);
+  const kind: NavTarget['kind'] = isColumnSeries(declared.series) ? 'column' : 'point';
+
+  return (_row, col) => {
+    const dataItem = items[col];
+    const owner = owners[col];
+    return dataItem && owner ? [{ series: owner, dataItem, kind }] : [];
+  };
+}
+
+/**
  * Build a resolver for a heatmap layer. amCharts heatmap dataItems are a flat,
  * insertion-ordered list, so we index them by `categoryX`/`categoryY` value.
  * MAIDR's Heatmap model reverses the Y axis (`src/model/heatmap.ts`), so we
@@ -355,6 +415,21 @@ function addEntryResolvers(
     [TraceType.RADAR]: radarSeries,
     [TraceType.POLAR_AREA]: polarSeries,
   };
+
+  // Declared layers keep one queue per declared type rather than one counter:
+  // several types can be declared on one chart, and each type's layers appear
+  // in the same order as the series that declared them.
+  const declaredQueues = new Map<string, AmDeclaredLayer[]>();
+  for (const declared of groups.declaredList) {
+    const queue = declaredQueues.get(declared.declaration.type);
+    if (queue) {
+      queue.push(declared);
+    } else {
+      declaredQueues.set(declared.declaration.type, [declared]);
+    }
+  }
+  const nextDeclared = (type: TraceType): AmDeclaredLayer | undefined =>
+    declaredQueues.get(type)?.shift();
 
   let dotIdx = 0;
   let lollipopIdx = 0;
@@ -499,6 +574,29 @@ function addEntryResolvers(
             ? [{ series: entry.series, dataItem, kind: 'label' }]
             : [];
         });
+        break;
+      }
+      case TraceType.SURVIVAL: {
+        register(layer.id, buildSurvivalResolver(nextDeclared(TraceType.SURVIVAL)));
+        break;
+      }
+      case TraceType.ERROR_BAR:
+      case TraceType.FOREST: {
+        register(layer.id, buildIntervalResolver(nextDeclared(layer.type)));
+        break;
+      }
+      case TraceType.MANHATTAN:
+      case TraceType.VOLCANO:
+      case TraceType.SCATTER: {
+        // Deliberately unresolved, and the queue is drained so a second cloud
+        // still matches its own layer. A canvas highlight is driven by the
+        // braille position the navigation callback carries, and a scatter's
+        // braille surface is a *binned grid* rather than the points — so a
+        // position here names a cell of that grid, and reading it as a point
+        // index would outline whichever mark happens to sit at that ordinal.
+        // Resolving to nothing clears the overlay instead, which is the
+        // truthful answer until the position says which point it means.
+        nextDeclared(layer.type);
         break;
       }
       case TraceType.HEATMAP: {

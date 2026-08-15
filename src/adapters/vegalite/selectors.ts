@@ -50,6 +50,12 @@ export function markToCssClass(mark: string): string {
       return 'mark-rect';
     case 'boxplot':
       return 'mark-rect';
+    // Vega has no `geoshape` mark either: Vega-Lite compiles one to a Vega
+    // `shape` mark, which renders as `mark-shape`. The default branch's
+    // `mark-geoshape` matches nothing in a rendered map, which would cost a
+    // choropleth its highlighting without costing it anything else.
+    case 'geoshape':
+      return 'mark-shape';
     case 'errorbar':
       return 'mark-rule';
     default:

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Manhattan Plot Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Manhattan Plot</h1>
+    <p>Click on the chart and use arrow keys to navigate. Press 'b' for braille, 't' for text descriptions. The four chromosome datasets are read as one cloud rather than four layers, and the rotor offers the SNPs above the genome-wide line as a navigation unit of their own.</p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="manhattan-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      // A Manhattan plot is drawn as one Chart.js scatter dataset per
+      // chromosome, so that the colours alternate. Read literally that is
+      // four layers a reader has to switch between; the declaration on the
+      // first dataset absorbs the following ones into a single navigable
+      // cloud, which is what `merge` does (and what a Manhattan does by
+      // default — the key is written out here only to show it).
+      const snps = (chromosome, start, points) =>
+        points.map(([offset, y], i) => ({
+          x: start + offset,
+          y,
+          snp: `rs${chromosome}${String(i + 1).padStart(3, '0')}`,
+          chr: chromosome,
+        }));
+
+      new Chart(document.getElementById('manhattan-chart'), {
+        type: 'scatter',
+        data: {
+          datasets: [
+            {
+              label: 'chr1',
+              data: snps(1, 0, [
+                [5, 1.2], [18, 2.4], [31, 0.8], [44, 8.6], [57, 1.9], [70, 3.1],
+              ]),
+              pointBackgroundColor: '#1f77b4',
+              // Only the first dataset carries a block. The rest are folded
+              // into this layer, and their `chr` column keeps each point's
+              // chromosome in the announcement.
+              maidr: {
+                type: 'manhattan',
+                label: 'snp',
+                group: 'chr',
+                significance: 7.3,
+                merge: true,
+              },
+            },
+            {
+              label: 'chr2',
+              data: snps(2, 100, [
+                [6, 2.2], [20, 1.1], [33, 4.9], [46, 2.0], [61, 0.7],
+              ]),
+              pointBackgroundColor: '#ff7f0e',
+            },
+            {
+              label: 'chr3',
+              data: snps(3, 200, [
+                [4, 0.9], [17, 9.4], [29, 1.6], [42, 2.8], [55, 1.3],
+              ]),
+              pointBackgroundColor: '#1f77b4',
+            },
+            {
+              label: 'chr4',
+              data: snps(4, 300, [
+                [8, 1.5], [21, 3.3], [35, 0.6], [48, 7.9], [62, 2.1],
+              ]),
+              pointBackgroundColor: '#ff7f0e',
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Genome-wide association study' },
+            legend: { display: false },
+          },
+          scales: {
+            x: { title: { display: true, text: 'Genomic position (kb)' } },
+            y: { title: { display: true, text: '-log10(p)' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

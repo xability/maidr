@@ -22,23 +22,41 @@ export interface FakeSeriesConfig {
   className?: string;
   /** Series name (used for layer titles / segmented fill). */
   name?: string;
+  /** `IEntitySettings.id` — the name a companion series is addressed by. */
+  id?: string;
+  /**
+   * The `userData` slot, which a co-located `maidr` declaration rides in:
+   * pass `{ maidr: { type: 'survival', … } }`.
+   */
+  userData?: unknown;
   /** Extra series settings readable via `series.get(key)`. */
   settings?: Record<string, unknown>;
   /** Data-item records readable via `dataItem.get(key)`. */
   data?: Array<Record<string, unknown>>;
+  /**
+   * The authors' own rows, as `dataItem.dataContext`, index-aligned with
+   * `data`. Defaults to the `data` record itself, which is the ordinary case —
+   * amCharts derives a data item's readable values from the row it was given.
+   * Pass this to put a column *only* on the row, which is where a declared
+   * field the chart was never bound to actually lives.
+   */
+  rows?: Array<Record<string, unknown>>;
 }
 
 export function fakeSeries(config: FakeSeriesConfig = {}): AmXYSeries {
   const settings: Record<string, unknown> = {
     ...(config.name != null ? { name: config.name } : {}),
+    ...(config.id != null ? { id: config.id } : {}),
+    ...(config.userData != null ? { userData: config.userData } : {}),
     ...config.settings,
   };
   return {
     className: config.className ?? 'ColumnSeries',
     uid: nextUid++,
     get: (key: string) => settings[key],
-    dataItems: (config.data ?? []).map(record => ({
+    dataItems: (config.data ?? []).map((record, at) => ({
       get: (key: string) => record[key],
+      dataContext: config.rows?.[at] ?? record,
     })),
   } as unknown as AmXYSeries;
 }

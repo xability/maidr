@@ -162,6 +162,8 @@ function buildSpec(props: MaidrD3Props): D3AdapterSpec {
       return { chartType: 'candlestick', config: props.config };
     case 'chord':
       return { chartType: 'chord', config: props.config };
+    case 'choropleth':
+      return { chartType: 'choropleth', config: props.config };
     case 'contour':
       return { chartType: 'contour', config: props.config };
     case 'diverging':

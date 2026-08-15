@@ -50,6 +50,7 @@
  * - **Parallel coordinates plots** via {@link bindD3Parallel}
  * - **Ridgeline / joy plots** via {@link bindD3Ridgeline}
  * - **Hexbin density plots** via {@link bindD3Hexbin}
+ * - **Choropleth maps** via {@link bindD3Choropleth}
  * - **Contour plots** via {@link bindD3Contour}
  * - **Smooth/regression curves** via {@link bindD3Smooth}
  *
@@ -129,6 +130,7 @@ export { bindD3Bar, bindD3Dot, bindD3Funnel, bindD3Lollipop } from './binders/ba
 export { bindD3Box } from './binders/box';
 export { bindD3Boxen } from './binders/boxen';
 export { bindD3Candlestick } from './binders/candlestick';
+export { bindD3Choropleth } from './binders/choropleth';
 export { bindD3Contour } from './binders/contour';
 export { bindD3Dumbbell } from './binders/dumbbell';
 export { bindD3ErrorBar, bindD3Forest } from './binders/errorBar';
@@ -163,6 +165,7 @@ export type {
   D3BoxConfig,
   D3BoxenConfig,
   D3CandlestickConfig,
+  D3ChoroplethConfig,
   D3ContourConfig,
   D3DumbbellConfig,
   D3ErrorBarConfig,

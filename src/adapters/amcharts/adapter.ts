@@ -38,6 +38,7 @@ import type {
   TreemapPoint,
   WaterfallPoint,
 } from '@type/grammar';
+import type { AmDeclaredLayer } from './declaration';
 import type {
   AmChart,
   AmChartsBinderOptions,
@@ -45,6 +46,17 @@ import type {
   AmXYSeries,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import {
+  extractErrorBarSamples,
+  extractForestSamples,
+  extractScatterPoints,
+  extractSurvivalArms,
+  extractVolcanoPoints,
+  isDeclaredHorizontal,
+  planDeclarations,
+  readForestOptions,
+  readThresholdOptions,
+} from './declaration';
 import {
   classifySeriesKind,
   extractBarPoints,
@@ -59,6 +71,7 @@ import {
   extractWaterfallPoints,
   hasRankAxis,
   holdsRanks,
+  isColumnSeries,
   isDivergingPair,
   readAxisLabel,
   STANDALONE_SERIES_CLASSES,
@@ -266,7 +279,24 @@ function buildChartLayers(
   const areaSeriesList: AmXYSeries[] = [];
   const lineSeriesList: AmXYSeries[] = [];
 
+  // What the author declared outranks every heuristic below, and a series
+  // absorbed into a declared layer — the column drawing an interval, a further
+  // arm of one survival figure — never becomes a layer of its own.
+  const plan = planDeclarations(chart);
+
   for (const series of chart.series.values) {
+    if (plan.absorbed.has(series)) {
+      continue;
+    }
+    const declared = plan.declared.get(series);
+    if (declared) {
+      const layer = buildDeclaredLayer(declared, xLabel, yLabel, containerEl);
+      if (layer) {
+        layers.push(layer);
+      }
+      continue;
+    }
+
     const kind = classifySeriesKind(series);
 
     switch (kind) {
@@ -470,6 +500,163 @@ function areaTraceType(areaSeriesList: AmXYSeries[]): MergedTraceType {
 // ---------------------------------------------------------------------------
 // Layer builders
 // ---------------------------------------------------------------------------
+
+/**
+ * Builds the layer one co-located `maidr` declaration describes.
+ *
+ * These are the six readings amCharts leaves no signature for: a survival curve
+ * and a step line are one series class, an error bar is a floating column
+ * behind another series, and a volcano, a Manhattan and a plain scatter are all
+ * a `LineSeries` with the stroke switched off. Nothing here is guessed — every
+ * fact the drawing does not carry comes off the author's own rows or off the
+ * declaration, and a fact that resolves to nothing is left out rather than
+ * filled in. See `declaration.ts` for what each field resolves to.
+ *
+ * @returns The layer, or `null` when no mark of the series could be read as the
+ *   declared type after all — the declaration then costs the chart nothing.
+ */
+function buildDeclaredLayer(
+  declared: AmDeclaredLayer,
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer | null {
+  const declaration = declared.declaration;
+  const axes = { x: { label: xLabel }, y: { label: yLabel } };
+  const named = {
+    id: layerId(declared.series),
+    ...(declaration.name ? { name: declaration.name } : {}),
+  };
+
+  switch (declaration.type) {
+    case TraceType.SURVIVAL: {
+      const { data } = extractSurvivalArms(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      const arms = [declared.series, ...declared.arms];
+      const selectors = arms
+        .map(series => buildLineSelector(series, containerEl))
+        .filter((selector): selector is string => selector !== undefined);
+
+      return {
+        ...named,
+        type: TraceType.SURVIVAL,
+        title: declaration.title ?? armTitle(arms),
+        ...(selectors.length > 0 ? { selectors } : {}),
+        ...(declaration.stepDirection ? { stepDirection: declaration.stepDirection } : {}),
+        axes,
+        data,
+      };
+    }
+    case TraceType.ERROR_BAR: {
+      const { data } = extractErrorBarSamples(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.ERROR_BAR,
+        title: declaration.title ?? seriesName(declared.series),
+        ...declaredMarkSelector(declared.series, containerEl),
+        ...declaredOrientation(declared),
+        axes,
+        data,
+      };
+    }
+    case TraceType.FOREST: {
+      const { data } = extractForestSamples(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      const forestOptions = readForestOptions(declaration);
+      return {
+        ...named,
+        type: TraceType.FOREST,
+        title: declaration.title ?? seriesName(declared.series),
+        ...declaredMarkSelector(declared.series, containerEl),
+        ...declaredOrientation(declared),
+        ...(forestOptions ? { forestOptions } : {}),
+        axes,
+        data,
+      };
+    }
+    case TraceType.MANHATTAN:
+    case TraceType.VOLCANO: {
+      const data = extractVolcanoPoints(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      const thresholdOptions = readThresholdOptions(declaration);
+      return {
+        ...named,
+        type: declaration.type,
+        title: declaration.title ?? seriesName(declared.series),
+        ...cloudSelector(declared, containerEl),
+        ...(thresholdOptions ? { thresholdOptions } : {}),
+        axes,
+        data,
+      };
+    }
+    // Named rather than defaulted, so that a seventh member of `AmDeclaration`
+    // fails to compile here instead of being read out as a plain scatter.
+    case TraceType.SCATTER: {
+      const data = extractScatterPoints(declared);
+      if (data.length === 0) {
+        return null;
+      }
+      return {
+        ...named,
+        type: TraceType.SCATTER,
+        title: declaration.title ?? seriesName(declared.series),
+        ...cloudSelector(declared, containerEl),
+        axes,
+        data,
+      };
+    }
+  }
+}
+
+/** What a survival layer is called: every arm that has a name, in draw order. */
+function armTitle(arms: AmXYSeries[]): string | undefined {
+  const names = arms
+    .map(series => seriesName(series))
+    .filter((name): name is string => name !== undefined);
+  return names.length > 0 ? names.join(', ') : undefined;
+}
+
+/**
+ * The selector for a declared layer's own marks.
+ *
+ * An estimate is drawn either as a column or as a bullet on a line, and the two
+ * live in different places — so the series' own class decides which to ask for,
+ * exactly as {@link classifySeriesKind} would have.
+ */
+function declaredMarkSelector(
+  series: AmXYSeries,
+  containerEl: HTMLElement,
+): { selectors?: string } {
+  const selector = isColumnSeries(series)
+    ? buildColumnSelector(series, containerEl)
+    : buildLineSelector(series, containerEl);
+  return selector ? { selectors: selector } : {};
+}
+
+/** The selector for a cloud, whose marks are the bullets of every merged arm. */
+function cloudSelector(
+  declared: AmDeclaredLayer,
+  containerEl: HTMLElement,
+): { selectors?: string } {
+  const parts = [declared.series, ...declared.arms]
+    .map(series => buildLineSelector(series, containerEl))
+    .filter((selector): selector is string => selector !== undefined);
+  return parts.length > 0 ? { selectors: parts.join(', ') } : {};
+}
+
+/** Which way a declared interval layer runs, when it is not the default. */
+function declaredOrientation(declared: AmDeclaredLayer): { orientation?: Orientation } {
+  return isDeclaredHorizontal(declared) ? { orientation: Orientation.HORIZONTAL } : {};
+}
 
 /**
  * The trace types a bar chart's reading serves: the bar itself, and the two

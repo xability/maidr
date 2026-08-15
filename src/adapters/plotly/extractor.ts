@@ -9,12 +9,14 @@
  * plotly.js charts and they become accessible automatically.
  */
 
+import type { MosaicDeclaration } from '../../type/declaration';
 import type {
   BarPoint,
   BoxPoint,
   BoxSelector,
   CandlestickPoint,
   ChoroplethPoint,
+  ContourPoint,
   ErrorBarPoint,
   FlowPoint,
   GanttData,
@@ -27,6 +29,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  MosaicPoint,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
@@ -37,6 +40,7 @@ import type {
   WaterfallPoint,
   WordCloudPoint,
 } from '../../type/grammar';
+import type { DeclarationContext } from '../shared/traceDeclaration';
 import type {
   PlotlyAnnotation,
   PlotlyAxis,
@@ -52,10 +56,12 @@ import type {
   PolarSeries,
 } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '../shared/traceDeclaration';
 import {
   barPointSelector,
   boxLayerNthChild,
   choroplethRegionSelectors,
+  contourLevelSelectors,
   errorBarAxis,
   generatePlotlySelectors,
   polarSeriesSelectors,
@@ -323,6 +329,14 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'heatmap':
     case 'heatmapgl':
       return TraceType.HEATMAP;
+
+    // Both draw a scalar field as curves of constant value, and differ only
+    // in where the field came from: `contour` is given the grid, and
+    // `histogram2dcontour` bins samples into one first. Plotly draws them
+    // with the same plotter, into the same layer.
+    case 'contour':
+    case 'histogram2dcontour':
+      return TraceType.CONTOUR;
 
     case 'histogram':
       return TraceType.HISTOGRAM;
@@ -697,6 +711,124 @@ function buildSubplotGrid(
 }
 
 /**
+ * How a trace is named in a warning about its declaration.
+ *
+ * The index is what an author can find a trace by — plotly traces have no ids
+ * — and the name is added when there is one, since that is what the legend
+ * shows.
+ *
+ * @param trace      - The resolved plotly trace
+ * @param traceIndex - Its index in `_fullData`
+ * @returns The context every declaration warning is located from
+ */
+function declarationContext(trace: PlotlyTrace, traceIndex: number): DeclarationContext {
+  return {
+    adapter: 'Plotly',
+    seriesRef: trace.name ? `trace ${traceIndex} ("${trace.name}")` : `trace ${traceIndex}`,
+  };
+}
+
+/**
+ * The co-located `maidr` declaration a trace carries, when it is one this
+ * adapter reads.
+ *
+ * Plotly's own arbitrary-metadata attribute is the channel:
+ * `trace.meta.maidr`. It is ordinary trace config, so it survives
+ * `Plotly.react` and a JSON-authored figure, and — unlike an options bag —
+ * it reaches an extractor that is called from a DOM sweep the author never
+ * touches.
+ *
+ * Only the mosaic is declarable here. Every other chart plotly can draw
+ * either names itself in `trace.type` or is read from the figure's own
+ * configuration, so a declaration of another type is reported rather than
+ * quietly dropped: the author wrote it expecting it to do something.
+ *
+ * @param trace      - The resolved plotly trace
+ * @param traceIndex - Its index in `_fullData`
+ * @returns The declaration, or null when there is none to read
+ */
+function readTraceDeclaration(
+  trace: PlotlyTrace,
+  traceIndex: number,
+): MosaicDeclaration | null {
+  const context = declarationContext(trace, traceIndex);
+  const declaration = readDeclarationSlot(trace.meta, context);
+  if (declaration === null) {
+    return null;
+  }
+  if (declaration.type === TraceType.MOSAIC) {
+    return declaration;
+  }
+
+  console.warn(
+    `[MAIDR Plotly] maidr declaration on ${context.seriesRef} declares `
+    + `"${declaration.type}", which the plotly adapter does not read; `
+    + `reading it as the undeclared chart.`,
+  );
+  return null;
+}
+
+/**
+ * The marimekko a panel declares, if the bars it is declared on can draw one.
+ *
+ * A mosaic is opt-in for a reason that is about the schema rather than about
+ * this adapter: plotly's `width` is ordinary bar styling and an array of
+ * widths is a legitimate thing to write on any bar trace, so reading one as a
+ * marimekko would announce every column's width as a share of all
+ * observations — a number the chart does not contain.
+ *
+ * @param group      - The panel's traces
+ * @param barTraces  - The bar traces among them
+ * @param layout     - The resolved layout, for `barmode`
+ * @returns The declaration to read the panel by, or null
+ */
+function declaredMosaic(
+  group: SubplotGroup,
+  barTraces: TraceEntry[],
+  layout: PlotlyFullLayout,
+): MosaicDeclaration | null {
+  let declared: MosaicDeclaration | null = null;
+  let declaredOnBars = false;
+
+  // Read once per trace per binding, which is what keeps each warning to one
+  // line however many layers the panel ends up with.
+  for (let i = 0; i < group.traces.length; i++) {
+    const declaration = readTraceDeclaration(group.traces[i], group.traceIndices[i]);
+    if (declaration === null || declared !== null) {
+      continue;
+    }
+    declared = declaration;
+    declaredOnBars = barTraces.some(entry => entry.trace === group.traces[i]);
+  }
+
+  if (declared === null) {
+    return null;
+  }
+  if (!declaredOnBars) {
+    console.warn(
+      '[MAIDR Plotly] maidr declaration for "mosaic" is not on a bar trace; '
+      + 'a mosaic is drawn as bars. Reading the panel as the undeclared chart.',
+    );
+    return null;
+  }
+
+  // Several bar traces are the cells of one column only when plotly stacked
+  // them. Grouped side by side they are not a mosaic's segments at all, and
+  // the widths would describe columns that were never drawn.
+  const barmode = layout.barmode ?? 'group';
+  if (barTraces.length > 1 && barmode !== 'stack' && barmode !== 'relative') {
+    console.warn(
+      `[MAIDR Plotly] maidr declaration for "mosaic" is on a panel whose bars `
+      + `are drawn with barmode "${barmode}"; a mosaic stacks its segments. `
+      + `Reading the panel as the undeclared chart.`,
+    );
+    return null;
+  }
+
+  return declared;
+}
+
+/**
  * Builds all MAIDR layers for one subplot (one x/y axis-pair group).
  */
 function buildSubplotLayers(
@@ -856,15 +988,32 @@ function buildSubplotLayers(
       layers.push(layer);
   }
 
+  // A declared marimekko is read as one whatever else the panel's bars would
+  // have been taken for: a declaration beats every heuristic.
+  const mosaic = declaredMosaic(group, barTraces, layout);
+  const mosaicLayer = mosaic && barTraces.length > 0
+    ? extractSegmentedBarLayer(
+        barTraces,
+        group,
+        TraceType.MOSAIC,
+        xLabel,
+        yLabel,
+        gd,
+        mosaic,
+      )
+    : null;
+
   // A schedule reaches plotly as bars floated onto a time axis, so it has to
   // be recognised before the bar shapes are: read as bars, the intervals would
   // announce their durations as magnitudes measured from nothing.
-  const ganttLayer = isGanttPanel(barTraces, group, layout)
+  const ganttLayer = !mosaicLayer && isGanttPanel(barTraces, group, layout)
     ? extractGanttLayer(barTraces, group, layout, xLabel, yLabel)
     : null;
 
   // Build bar layers: grouped/stacked/normalized for multiple bar traces.
-  if (ganttLayer) {
+  if (mosaicLayer) {
+    layers.push(mosaicLayer);
+  } else if (ganttLayer) {
     layers.push(ganttLayer);
   } else if (barTraces.length > 1) {
     const barmode = layout.barmode ?? 'group';
@@ -1402,6 +1551,11 @@ function extractLayer(
 
     case TraceType.HEATMAP:
       return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
+
+    // `selectors` is not passed on: a contour needs one per level, and which
+    // levels the field actually crosses is only known once they are walked.
+    case TraceType.CONTOUR:
+      return extractContourLayer(trace, calcdata, id, title, axes, traceIndex, gd);
 
     case TraceType.HISTOGRAM:
       return extractHistogramLayer(trace, calcdata, id, title, selectors, axes, traceIndex, gd);
@@ -2802,6 +2956,543 @@ function extractColorbarTitle(trace: PlotlyTrace, layout: PlotlyLayout | undefin
 }
 
 // ---------------------------------------------------------------------------
+// Contour
+// ---------------------------------------------------------------------------
+
+/**
+ * The scalar field a contour trace was drawn from.
+ *
+ * The grid and the coordinates it is indexed by, in DATA units — never pixels.
+ * Plotly draws the curves by converting these through the axes, and reading
+ * the drawn geometry back would announce every vertex's position on the page.
+ */
+interface ContourField {
+  /** Magnitudes, row-major: `z[row][col]`. */
+  z: number[][];
+  /** Each column's coordinate. */
+  x: number[];
+  /** Each row's coordinate. */
+  y: number[];
+}
+
+/** One vertex of an iso-value curve, in data units. */
+interface ContourVertex {
+  x: number;
+  y: number;
+}
+
+/**
+ * How many levels a ladder may hold before it is refused.
+ *
+ * Every level costs a walk over the whole grid, and a chart that asks for
+ * thousands is an authoring mistake — plotly's own `ncontours` defaults to
+ * 15 — so the ceiling is high enough never to be met by a real chart and low
+ * enough that a bad `size` cannot hang the page.
+ */
+const MAX_CONTOUR_LEVELS = 1000;
+
+/** Trims binary floating-point noise from an interpolated coordinate. */
+function withoutFloatNoise(value: number): number {
+  return Number(value.toPrecision(12));
+}
+
+/**
+ * Builds a contour layer: one iso-value curve per level, walked out of the
+ * field itself.
+ *
+ * Plotly computes its curves at draw time and keeps none of them — `calcdata`
+ * holds the grid and nothing else — so the curves are recomputed here by
+ * marching squares over that grid, at the levels the trace states. The
+ * alternative, reading the rendered `d` attributes back through the axes,
+ * would hand every vertex to smoothing and to whichever points plotly merged
+ * for being too close together.
+ *
+ * @param trace      - The resolved plotly trace
+ * @param calcdata   - Its calculated data, which is where a binned grid lives
+ * @param id         - The layer id
+ * @param title      - The trace name, when it has one
+ * @param axes       - The panel's axis labels
+ * @param traceIndex - The trace's index in `_fullData`, for the selectors
+ * @param gd         - The plotly graph div
+ * @returns The layer, or null when the chart states no levels to walk
+ */
+function extractContourLayer(
+  trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
+  id: string,
+  title: string | undefined,
+  axes: MaidrLayer['axes'],
+  traceIndex: number,
+  gd: PlotlyGraphDiv,
+): MaidrLayer | null {
+  // A constraint contour draws the boundary of a region that satisfies an
+  // inequality, not a ladder of iso-values. Its `start` and `end` are the
+  // ends of that interval, so walking them as levels would announce two
+  // curves the chart does not draw.
+  if (trace.contours?.type === 'constraint') {
+    console.warn(
+      '[maidr] Plotly contour draws a constraint region rather than iso-value '
+      + 'curves. Skipping.',
+    );
+    return null;
+  }
+
+  const field = contourField(trace, calcdata);
+  if (!field) {
+    console.warn('[maidr] Plotly contour has no grid to read. Skipping.');
+    return null;
+  }
+
+  const levels = contourLevels(trace);
+  if (!levels) {
+    console.warn('[maidr] Plotly contour states no levels to read. Skipping.');
+    return null;
+  }
+
+  // A level the field never reaches is drawn as an empty group rather than
+  // skipped, so the group's position is the level's place in the ladder and
+  // not the number of curves before it — which is what the selectors count by.
+  const data: ContourPoint[][] = [];
+  const levelIndices: number[] = [];
+  for (const [index, level] of levels.entries()) {
+    const vertices = isoCurves(field, level).flat();
+    if (vertices.length === 0)
+      continue;
+    data.push(vertices.map(vertex => ({ x: vertex.x, y: vertex.y, level })));
+    levelIndices.push(index);
+  }
+
+  if (data.length === 0) {
+    console.warn('[maidr] Plotly contour crosses none of its levels. Skipping.');
+    return null;
+  }
+
+  // The level is announced on the field's own axis, so it takes the colorbar
+  // title when the author gave one. Without one the axis is left unnamed and
+  // the trace says "Level", which is what the number is.
+  const fieldLabel = extractColorbarTitle(trace, gd._fullLayout ?? gd.layout);
+  const contourAxes: MaidrLayer['axes'] = fieldLabel
+    ? { ...axes, z: { label: fieldLabel } }
+    : axes;
+
+  // The selectors address the level groups, and a trace that strokes no lines
+  // has none: plotly builds them only for a trace drawing lines or labels, and
+  // removes them again when only the labels were wanted. A fill-only contour
+  // is one filled path per level with nothing per curve inside it, so the
+  // layer goes out without selectors rather than with ones that match nothing
+  // — the same choice a resorted pie makes, and for the same reason.
+  const linesDrawn = trace.contours?.showlines !== false;
+
+  return {
+    id,
+    type: TraceType.CONTOUR,
+    title,
+    selectors: linesDrawn ? contourLevelSelectors(gd, traceIndex, levelIndices) : undefined,
+    axes: contourAxes,
+    data,
+  };
+}
+
+/**
+ * The grid a contour was drawn from, with the coordinates it is indexed by.
+ *
+ * Calcdata first: it is where a `histogram2dcontour`'s binned grid lives at
+ * all, and where a `contour`'s grid has already been trimmed to the columns
+ * and rows plotly kept. The trace's own arrays stand in for a chart captured
+ * before plotly computed it.
+ *
+ * @param trace    - The resolved plotly trace
+ * @param calcdata - Its calculated data
+ * @returns The field, or null when there is no usable grid
+ */
+function contourField(trace: PlotlyTrace, calcdata: PlotlyCalcData[]): ContourField | null {
+  const z = numberGrid(calcdata[0]?.z) ?? numberGrid(trace.z);
+  if (!z)
+    return null;
+
+  const rows = z.length;
+  const cols = z[0].length;
+  // One cell is the smallest thing a curve can cross.
+  if (rows < 2 || cols < 2)
+    return null;
+
+  return {
+    z,
+    x: gridCoordinates(calcdata[0]?.x, trace.x, cols),
+    y: gridCoordinates(calcdata[0]?.y, trace.y, rows),
+  };
+}
+
+/**
+ * Narrows a value to a rectangular grid of magnitudes.
+ *
+ * A choropleth carries a flat column on the same attribute, so being a grid
+ * is what a row of rows is. Cells that are not finite are kept as `NaN` and
+ * skipped later, since a hole in the field is not a reason to drop the chart.
+ *
+ * @param value - Whatever `z` held
+ * @returns The grid, or null when the value is not one
+ */
+function numberGrid(value: unknown): number[][] | null {
+  if (!Array.isArray(value) || value.length === 0 || !Array.isArray(value[0]))
+    return null;
+
+  const width = (value[0] as unknown[]).length;
+  if (width === 0)
+    return null;
+
+  const grid: number[][] = [];
+  for (const row of value) {
+    if (!Array.isArray(row) || row.length < width)
+      return null;
+    grid.push(row.slice(0, width).map(gridCell));
+  }
+  return grid;
+}
+
+/**
+ * One cell of a grid, as a magnitude or as `NaN` for a hole.
+ *
+ * `Number()` on its own would read plotly's own way of writing a hole — a
+ * `null` in an authored `z`, and `[[1, null, 3]]` is how the plotly docs write
+ * one — as a 0, and the curves would then be walked through a field that
+ * claims to be zero exactly where it has no data. `''`, `[]` and `false` all
+ * convert the same way.
+ *
+ * The rule here is plotly's: it cleans a grid with `isNumeric(v) ? +v :
+ * undefined`, so anything that is not a number is a hole, and
+ * {@link crossingSegments} already leaves a cell with one out of the walk.
+ * Only the authored fallback needs this — a grid read from calcdata has been
+ * through that cleaning already — but the two must agree, or the same chart
+ * would read differently before and after plotly calculated it.
+ *
+ * @param cell - Whatever the grid held at one position
+ * @returns The magnitude, or `NaN` when the cell holds no number
+ */
+function gridCell(cell: unknown): number {
+  if (typeof cell === 'number')
+    return cell;
+  if (typeof cell === 'string' && cell.trim() !== '')
+    return Number(cell);
+  return Number.NaN;
+}
+
+/**
+ * The coordinate of each column or row of a grid.
+ *
+ * Plotly's own calculated array is taken first, then the authored one, and
+ * failing both the indices — which is what plotly itself draws a grid at when
+ * the author names no coordinates, so it is the chart's own reading rather
+ * than a stand-in for one.
+ *
+ * @param calculated - What plotly's calc entry held for the axis
+ * @param authored   - What the trace declared for it
+ * @param length     - How many coordinates the grid needs
+ * @returns One coordinate per column or row
+ */
+function gridCoordinates(
+  calculated: number | number[] | undefined,
+  authored: (number | string)[] | undefined,
+  length: number,
+): number[] {
+  for (const candidate of [calculated, authored]) {
+    if (!Array.isArray(candidate) || candidate.length < length)
+      continue;
+    const values = candidate.slice(0, length).map(Number);
+    if (values.every(value => Number.isFinite(value)))
+      return values;
+  }
+  return Array.from({ length }, (_, index) => index);
+}
+
+/**
+ * The ladder of levels a contour draws its curves at.
+ *
+ * Plotly resolves `start`, `end` and `size` during calc — including for a
+ * trace that left `autocontour` on — so the ladder is read off the chart
+ * rather than derived from the grid. Guessing it would announce curves at
+ * values the chart never drew one at.
+ *
+ * @param trace - The resolved plotly trace
+ * @returns The levels in ascending order, or null when the trace states none
+ */
+function contourLevels(trace: PlotlyTrace): number[] | null {
+  const { start, end, size } = trace.contours ?? {};
+  if (
+    typeof start !== 'number' || !Number.isFinite(start)
+    || typeof end !== 'number' || !Number.isFinite(end)
+    || typeof size !== 'number' || !Number.isFinite(size) || size <= 0
+  ) {
+    return null;
+  }
+
+  // The tolerance is plotly's own: it walks to `end` plus a millionth of a
+  // step, so a ladder whose last level lands exactly on `end` keeps it
+  // instead of losing it to accumulated floating-point error.
+  const count = Math.floor((end - start) / size + 1e-6) + 1;
+  if (count < 1 || count > MAX_CONTOUR_LEVELS)
+    return null;
+
+  return Array.from({ length: count }, (_, index) =>
+    withoutFloatNoise(start + index * size));
+}
+
+/**
+ * Walks one level of the field, by marching squares.
+ *
+ * Every cell the level crosses contributes one or two segments between the
+ * points where it crosses the cell's edges; the segments are then chained
+ * into curves. A closed curve repeats its first vertex at the end, which is
+ * how the shape says it closed.
+ *
+ * The two ambiguous cells — opposite corners on one side of the level — are
+ * resolved by the average of the four corners, the reading that keeps the
+ * side the middle belongs to connected.
+ *
+ * @param field - The grid and its coordinates
+ * @param level - The value to walk
+ * @returns One vertex list per curve, disjoint curves in the order found
+ */
+function isoCurves(field: ContourField, level: number): ContourVertex[][] {
+  const segments = crossingSegments(field, level);
+  return chainSegments(segments)
+    .map(chain => chain.map(edge => edgeVertex(field, edge, level)));
+}
+
+/**
+ * Identifies a grid edge, so that the two cells sharing one name the same
+ * crossing.
+ *
+ * Chaining on identity rather than on coordinates is what makes it exact: a
+ * crossing computed twice from the same two corners can differ in its last
+ * bit depending on which way the interpolation ran, and two curves that
+ * should meet would then not.
+ *
+ * The low bit says which way the edge runs — 0 towards the next column, 1
+ * towards the next row — and the rest is the grid position it starts at.
+ */
+function horizontalEdge(cols: number, row: number, col: number): number {
+  return (row * cols + col) * 2;
+}
+
+function verticalEdge(cols: number, row: number, col: number): number {
+  return (row * cols + col) * 2 + 1;
+}
+
+/**
+ * Every segment the level draws through the grid, as pairs of the edges it
+ * crosses.
+ *
+ * @param field - The grid and its coordinates
+ * @param level - The value being walked
+ * @returns The segments, in row-major cell order
+ */
+function crossingSegments(field: ContourField, level: number): [number, number][] {
+  const { z } = field;
+  const rows = z.length;
+  const cols = z[0].length;
+  const segments: [number, number][] = [];
+
+  for (let row = 0; row < rows - 1; row++) {
+    for (let col = 0; col < cols - 1; col++) {
+      const bottomLeft = z[row][col];
+      const bottomRight = z[row][col + 1];
+      const topRight = z[row + 1][col + 1];
+      const topLeft = z[row + 1][col];
+      // A hole in the field is a cell with no crossing rather than a reason
+      // to stop: the rest of the curve is still the chart's own.
+      if (
+        !Number.isFinite(bottomLeft) || !Number.isFinite(bottomRight)
+        || !Number.isFinite(topRight) || !Number.isFinite(topLeft)
+      ) {
+        continue;
+      }
+
+      const corners = (bottomLeft >= level ? 1 : 0)
+        | (bottomRight >= level ? 2 : 0)
+        | (topRight >= level ? 4 : 0)
+        | (topLeft >= level ? 8 : 0);
+      if (corners === 0 || corners === 15)
+        continue;
+
+      const bottom = horizontalEdge(cols, row, col);
+      const top = horizontalEdge(cols, row + 1, col);
+      const left = verticalEdge(cols, row, col);
+      const right = verticalEdge(cols, row, col + 1);
+
+      // The two saddles: the middle decides which pair of corners the curve
+      // wraps, and getting it backwards joins two curves that never meet.
+      if (corners === 5 || corners === 10) {
+        const middleIsHigh
+          = (bottomLeft + bottomRight + topRight + topLeft) / 4 >= level;
+        // The curve wraps whichever pair of corners the middle does NOT join:
+        // with the bottom-left and top-right corners high (case 5), a high
+        // middle joins them and leaves the other two wrapped, and a low
+        // middle joins the other two and leaves these wrapped.
+        if ((corners === 5) === middleIsHigh) {
+          // Wrapped separately: the bottom-right corner and the top-left one.
+          segments.push([bottom, right], [left, top]);
+        } else {
+          // Wrapped separately: the bottom-left corner and the top-right one.
+          segments.push([left, bottom], [right, top]);
+        }
+        continue;
+      }
+
+      switch (corners) {
+        case 1:
+        case 14:
+          segments.push([left, bottom]);
+          break;
+        case 2:
+        case 13:
+          segments.push([bottom, right]);
+          break;
+        case 3:
+        case 12:
+          segments.push([left, right]);
+          break;
+        case 4:
+        case 11:
+          segments.push([right, top]);
+          break;
+        case 6:
+        case 9:
+          segments.push([bottom, top]);
+          break;
+        case 7:
+        case 8:
+          segments.push([left, top]);
+          break;
+      }
+    }
+  }
+
+  return segments;
+}
+
+/**
+ * Chains segments into curves, following each one end to end.
+ *
+ * An edge is shared by at most two cells and each contributes at most one
+ * segment to it, so a curve never has a choice about where to go next. A
+ * curve that returns to where it started repeats that edge and stops; one
+ * that runs off the grid is followed the other way too, so an open curve
+ * comes back whole rather than as the two halves either side of wherever the
+ * walk happened to begin.
+ *
+ * @param segments - The level's segments, as pairs of edges
+ * @returns One edge list per curve
+ */
+function chainSegments(segments: readonly [number, number][]): number[][] {
+  const byEdge = new Map<number, number[]>();
+  segments.forEach(([from, to], index) => {
+    for (const edge of [from, to]) {
+      const holders = byEdge.get(edge);
+      if (holders) {
+        holders.push(index);
+      } else {
+        byEdge.set(edge, [index]);
+      }
+    }
+  });
+
+  const used = Array.from({ length: segments.length }, () => false);
+  const curves: number[][] = [];
+
+  for (let start = 0; start < segments.length; start++) {
+    if (used[start])
+      continue;
+    used[start] = true;
+
+    const curve = [segments[start][0], segments[start][1]];
+    if (!extendCurve(curve, segments, byEdge, used)) {
+      curve.reverse();
+      extendCurve(curve, segments, byEdge, used);
+      curve.reverse();
+    }
+    curves.push(curve);
+  }
+
+  return curves;
+}
+
+/**
+ * Follows a curve forward from its last edge for as long as it goes.
+ *
+ * @param curve    - The edges so far, appended to in place
+ * @param segments - The level's segments
+ * @param byEdge   - Which segments touch each edge
+ * @param used     - Which segments have been walked, marked in place
+ * @returns True when the curve closed on itself
+ */
+function extendCurve(
+  curve: number[],
+  segments: readonly [number, number][],
+  byEdge: ReadonlyMap<number, number[]>,
+  used: boolean[],
+): boolean {
+  for (;;) {
+    const end = curve[curve.length - 1];
+    const next = byEdge.get(end)?.find(index => !used[index]);
+    if (next === undefined)
+      return false;
+
+    used[next] = true;
+    const [from, to] = segments[next];
+    const onward = from === end ? to : from;
+    curve.push(onward);
+    if (onward === curve[0])
+      return true;
+  }
+}
+
+/**
+ * Where the level crosses one grid edge, in data units.
+ *
+ * Linear between the two corners, which is the same reading the marching
+ * squares made when it decided the edge was crossed at all.
+ *
+ * @param field - The grid and its coordinates
+ * @param edge  - The edge identifier
+ * @param level - The value being walked
+ * @returns The crossing point
+ */
+function edgeVertex(field: ContourField, edge: number, level: number): ContourVertex {
+  const { z, x, y } = field;
+  const cols = z[0].length;
+  const cell = Math.floor(edge / 2);
+  const col = cell % cols;
+  const row = (cell - col) / cols;
+
+  if (edge % 2 === 1) {
+    const fraction = crossFraction(z[row][col], z[row + 1][col], level);
+    return {
+      x: withoutFloatNoise(x[col]),
+      y: withoutFloatNoise(y[row] + fraction * (y[row + 1] - y[row])),
+    };
+  }
+  const fraction = crossFraction(z[row][col], z[row][col + 1], level);
+  return {
+    x: withoutFloatNoise(x[col] + fraction * (x[col + 1] - x[col])),
+    y: withoutFloatNoise(y[row]),
+  };
+}
+
+/**
+ * How far along an edge the level falls, as a fraction of it.
+ *
+ * @param from  - The magnitude at the edge's start
+ * @param to    - The magnitude at its end
+ * @param level - The value being walked
+ * @returns The fraction, and the midpoint for an edge with no gradient
+ */
+function crossFraction(from: number, to: number, level: number): number {
+  const span = to - from;
+  return span === 0 ? 0.5 : (level - from) / span;
+}
+
+// ---------------------------------------------------------------------------
 // Choropleth
 // ---------------------------------------------------------------------------
 
@@ -4073,13 +4764,20 @@ function extractSegmentedBarLayer(
   xLabel: string | undefined,
   yLabel: string | undefined,
   gd: PlotlyGraphDiv,
+  mosaic?: MosaicDeclaration,
 ): MaidrLayer | null {
   const data: SegmentedPoint[][] = [];
 
   // Check orientation from first trace (all traces in a group share orientation).
   const isHorizontal = barTraces[0]?.trace.orientation === 'h';
+  const categoryAxis = mosaic
+    ? getAxis(
+        gd._fullLayout ?? {},
+        isHorizontal ? group.yAxisId : group.xAxisId,
+      )
+    : undefined;
 
-  for (const { trace, calcIdx } of barTraces) {
+  for (const { trace, calcIdx, globalIdx } of barTraces) {
     const x = trace.x;
     const y = trace.y;
     if (!x || !y)
@@ -4090,8 +4788,32 @@ function extractSegmentedBarLayer(
     const len = Math.min(x.length, y.length);
     const series: SegmentedPoint[] = [];
 
+    // A marimekko's columns are the two things a stacked bar does not carry:
+    // a name, because plotly draws them at precomputed cumulative positions
+    // rather than at categories, and a share of all observations.
+    const columns = mosaic
+      ? mosaicCells(
+          trace,
+          mosaic,
+          declarationContext(trace, globalIdx),
+          isHorizontal ? y.slice(0, len) : x.slice(0, len),
+          categoryAxis,
+        )
+      : undefined;
+
     for (let i = 0; i < len; i++) {
-      series.push({ ...barPoint(cd[i], x[i], y[i], isHorizontal), z });
+      const point: SegmentedPoint = { ...barPoint(cd[i], x[i], y[i], isHorizontal), z };
+      const column = columns?.[i];
+      if (column) {
+        series.push({
+          ...point,
+          ...(isHorizontal ? { y: column.name } : { x: column.name }),
+          ...(column.width === undefined ? {} : { width: column.width }),
+          ...(column.count === undefined ? {} : { count: column.count }),
+        } satisfies MosaicPoint);
+      } else {
+        series.push(point);
+      }
     }
 
     data.push(series);
@@ -4118,4 +4840,177 @@ function extractSegmentedBarLayer(
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     data,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Mosaic
+// ---------------------------------------------------------------------------
+
+/** One cell of a declared marimekko, beyond what a stacked bar carries. */
+interface MosaicCell {
+  /** What the cell's column is called. */
+  name: string | number;
+  /** The column's share of all observations, as a fraction of one. */
+  width?: number;
+  /** The cell's own count, when the chart carries the table it was drawn from. */
+  count?: number;
+}
+
+/**
+ * Reads the facts a marimekko adds to a stacked bar, one per cell of one
+ * trace.
+ *
+ * @param trace       - The resolved plotly trace
+ * @param declaration - What the author declared on it
+ * @param context     - How the trace is named in a warning
+ * @param positions   - The trace's coordinate on the category axis
+ * @param axis        - That axis, which is where the column names may live
+ * @returns One entry per cell, in the trace's own order
+ */
+function mosaicCells(
+  trace: PlotlyTrace,
+  declaration: MosaicDeclaration,
+  context: DeclarationContext,
+  positions: (number | string)[],
+  axis: PlotlyAxis | undefined,
+): MosaicCell[] {
+  const shares = mosaicShares(trace, positions.length);
+  const names = mosaicColumnNames(trace, positions, axis);
+
+  let widthResolved = false;
+  let countResolved = false;
+  const cells = positions.map((_, index) => {
+    const row = customRow(trace, index);
+    const width = finiteNumber(resolveFieldRef(row, declaration.width, 'width'));
+    const count = finiteNumber(resolveFieldRef(row, declaration.count, 'count'));
+    widthResolved = widthResolved || width !== undefined;
+    countResolved = countResolved || count !== undefined;
+    // The drawn widths stand in for a share the author did not declare: they
+    // are what the chart put on the page, and this trace said they mean
+    // something. A declared field that resolves wins over them.
+    return { name: names[index], width: width ?? shares?.[index], count };
+  });
+
+  if (declaration.width !== undefined && !widthResolved)
+    warnUnresolvedRef(context, declaration.width, 'width');
+  if (declaration.count !== undefined && !countResolved)
+    warnUnresolvedRef(context, declaration.count, 'count');
+
+  return cells;
+}
+
+/**
+ * Each column's share of all observations, from the widths plotly drew.
+ *
+ * Normalised by their own total, so a marimekko authored in counts, in
+ * percentages or already in fractions all read the same — and a chart already
+ * authored in fractions is unchanged by it.
+ *
+ * All or nothing: a partial width array would give some columns a share and
+ * leave others without one, and a reader comparing them would be comparing a
+ * fraction against silence.
+ *
+ * @param trace - The resolved plotly trace
+ * @param count - How many columns the trace draws
+ * @returns One share per column, or undefined when the trace draws no widths
+ */
+function mosaicShares(trace: PlotlyTrace, count: number): number[] | undefined {
+  const widths = trace.width;
+  if (!Array.isArray(widths) || widths.length < count)
+    return undefined;
+
+  const drawn = widths.slice(0, count).map(Number);
+  if (!drawn.every(width => Number.isFinite(width) && width >= 0))
+    return undefined;
+
+  const total = drawn.reduce((sum, width) => sum + width, 0);
+  if (total <= 0)
+    return undefined;
+
+  return drawn.map(width => withoutFloatNoise(width / total));
+}
+
+/**
+ * What a marimekko's columns are called.
+ *
+ * A plotly marimekko puts its bars at precomputed cumulative positions, so
+ * the coordinate is a number and the name has to come from somewhere else:
+ * the per-point text the author drew on the columns, the hover text behind
+ * them, or the tick the axis labels that position with. Failing all three the
+ * position stands, which is what the chart itself shows.
+ *
+ * @param trace     - The resolved plotly trace
+ * @param positions - The trace's coordinate on the category axis
+ * @param axis      - That axis
+ * @returns One name per column
+ */
+function mosaicColumnNames(
+  trace: PlotlyTrace,
+  positions: (number | string)[],
+  axis: PlotlyAxis | undefined,
+): (string | number)[] {
+  const drawn = Array.isArray(trace.text) ? trace.text : undefined;
+  const hovered = Array.isArray(trace.hovertext) ? trace.hovertext : undefined;
+  const authored = drawn ?? hovered;
+  const ticks = axis?.ticktext;
+  const tickValues = axis?.tickvals;
+
+  return positions.map((position, index) => {
+    const named = authored?.[index];
+    if (named !== undefined && named !== null && named !== '')
+      return named;
+
+    if (ticks && tickValues) {
+      const tick = tickValues.findIndex(value => Number(value) === Number(position));
+      if (tick >= 0 && tick < ticks.length)
+        return ticks[tick];
+    }
+    return position;
+  });
+}
+
+/**
+ * The author's own row behind one point.
+ *
+ * `customdata` is plotly's only per-point channel for values it does not draw
+ * with, which makes it the row a declared field is read off.
+ *
+ * An ARRAY row is refused. Plotly's canonical `customdata` shape is one array
+ * per point — `[[a, b], [c, d]]` — and a `FieldRef` is a property NAME, so an
+ * array carries nothing a declared field could resolve against. It would not
+ * be inert, though: `resolveFieldRef` accepts an array as a row on purpose (a
+ * hexbin bin **is** the array of its points), and `count`'s fallback chain
+ * starts at `length`. A marimekko declared with no `count` would then announce
+ * every cell's number of COLUMNS as its number of observations — a fabricated
+ * count, stated with no warning, which is the one thing the declaration
+ * design refuses to do.
+ *
+ * @param trace - The resolved plotly trace
+ * @param index - Which point
+ * @returns The row, or undefined when the point has none
+ */
+function customRow(trace: PlotlyTrace, index: number): unknown {
+  const row = trace.customdata?.[index];
+  if (Array.isArray(row))
+    return undefined;
+  return typeof row === 'object' && row !== null ? row : undefined;
+}
+
+/**
+ * Narrows a resolved field to a number the payload can carry.
+ *
+ * @param value - Whatever the field resolved to
+ * @returns The number, or undefined when it is not one
+ */
+function finiteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : undefined;
+
+  // A row that came from a CSV carries its numbers as strings, and a share
+  // that arrives as "0.25" is still the share.
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }

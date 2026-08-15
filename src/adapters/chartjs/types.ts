@@ -6,6 +6,7 @@
  * objects will satisfy these interfaces.
  */
 
+import type { MaidrTraceDeclaration } from '../../type/declaration';
 import type { GaugeBand, TraceType } from '../../type/grammar';
 
 /**
@@ -41,6 +42,17 @@ export interface ChartJsPointValue {
   yMin?: number;
   /** Upper bound of the confidence band at this point. */
   yMax?: number;
+  /**
+   * Whatever else the author's own row carries.
+   *
+   * The three members above are the facts this adapter looks for under a fixed
+   * name. A volcano's gene and a Manhattan's chromosome are the same kind of
+   * rider, but their column is the author's to name — the co-located `maidr`
+   * block says which it is — so they cannot be listed, and a datum written in
+   * TypeScript would otherwise be rejected for carrying the very column the
+   * declaration points at.
+   */
+  [column: string]: unknown;
 }
 
 /**
@@ -137,6 +149,28 @@ export interface ChartJsDataset {
     | number
     | string
     | { target?: boolean | number | string; value?: number };
+  /**
+   * What this dataset *means*, when the drawing cannot say.
+   *
+   * Chart.js has no reserved slot for third-party metadata, but it passes
+   * dataset properties it does not know through untouched — the same mechanism
+   * a survival curve's `censored` datum rides on ({@link ChartJsPointValue}) —
+   * so the co-located `maidr` block is written straight onto the dataset:
+   *
+   * ```js
+   * datasets: [{
+   *   label: 'chr1',
+   *   data: [{ x: 1e6, y: 8.2, snp: 'rs1234' }],
+   *   maidr: { type: 'manhattan', label: 'snp', significance: 7.3 },
+   * }]
+   * ```
+   *
+   * It wins over `plugins.maidr.traceType`, which stays the chart-wide
+   * shorthand for a figure drawn as one dataset. A block whose `type` names
+   * nothing, or whose keys the declared type does not accept, is reported and
+   * the chart is read as if it carried none.
+   */
+  maidr?: MaidrTraceDeclaration;
 }
 
 /**

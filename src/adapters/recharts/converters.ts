@@ -22,10 +22,14 @@
  *   GaugePoint          = { value, min, max, ... }       (a single OBJECT)
  *   GanttData           = { points: [[{ x, start, end }]], lanes?, unit? }
  *   DumbbellData        = { points: [{ x, start, end }], startLabel?, endLabel? }
+ *   HexbinPoint[][]     = [[{ x, y, count }, ...], ...]  (a staggered LATTICE)
+ *   ViolinKdePoint[][]  = [[{ x, y, density }, ...], ...] (one curve per group)
+ *   BoxenPoint[]        = [{ z, median, levels, ... }, ...]
  */
 
 import type {
   BarPoint,
+  BoxenPoint,
   DumbbellData,
   DumbbellPoint,
   ErrorBarPoint,
@@ -34,7 +38,9 @@ import type {
   GanttData,
   GanttPoint,
   GaugePoint,
+  HexbinPoint,
   HistogramPoint,
+  LetterValueLevel,
   LinePoint,
   Maidr,
   MaidrLayer,
@@ -44,12 +50,14 @@ import type {
   SegmentedPoint,
   SurvivalPoint,
   TreemapPoint,
+  ViolinKdePoint,
   VolcanoPoint,
   WaterfallKind,
   WaterfallPoint,
 } from '@type/grammar';
 import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
 import { cssEscape } from '@adapters/shared/selectorUtil';
+import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
 import { getPanelClassSelector, getRechartsSelector } from './selectors';
 
@@ -187,6 +195,10 @@ function buildPanelSubplot(
     waterfallConfig: config.waterfallConfig,
     ganttConfig: config.ganttConfig,
     gaugeConfig: config.gaugeConfig,
+    parallelConfig: config.parallelConfig,
+    ridgelineConfig: config.ridgelineConfig,
+    hexbinConfig: config.hexbinConfig,
+    boxenConfig: config.boxenConfig,
     selectorOverride: panel.selectorOverride,
   };
 
@@ -226,13 +238,37 @@ function buildLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrL
 function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   const { data, chartType, xKey, yKeys, xLabel, yLabel, orientation, fillKeys, selectorOverride } = config;
 
-  if (!chartType || !yKeys || yKeys.length === 0) {
+  if (!chartType) {
     throw new Error(
       'RechartsAdapter: either provide chartType + yKeys (simple mode) or layers (composed mode)',
     );
   }
   if (!data) {
     throw new Error('RechartsAdapter: data is required (top-level or per subplot panel)');
+  }
+
+  // Four types whose payload is a grid grouped by something that is not a
+  // series: the observations of a parallel plot, the groups of a ridgeline,
+  // the rows of a hex lattice, the ladders of a boxen. None of them declares
+  // `yKeys` — every field they read is named by their own config — so they are
+  // dispatched before the check for it.
+  switch (chartType) {
+    case 'parallel':
+      return [buildParallelLayer(data, chartType, xLabel, yLabel, config.parallelConfig, selectorOverride, config.id, panelScope)];
+    case 'ridgeline':
+      return [buildRidgelineLayer(data, chartType, xLabel, yLabel, config.ridgelineConfig, selectorOverride, config.id, panelScope)];
+    case 'hexbin':
+      return [buildHexbinLayer(data, chartType, xKey, yKeys?.[0], xLabel, yLabel, config.hexbinConfig, selectorOverride, config.id, panelScope)];
+    case 'boxen':
+      return [buildBoxenLayer(data, chartType, xKey, xLabel, yLabel, orientation, config.boxenConfig, selectorOverride, config.id, panelScope)];
+    default:
+      break;
+  }
+
+  if (!yKeys || yKeys.length === 0) {
+    throw new Error(
+      'RechartsAdapter: either provide chartType + yKeys (simple mode) or layers (composed mode)',
+    );
   }
 
   const hasMultipleSeries = yKeys.length > 1;
@@ -678,6 +714,414 @@ function buildDumbbellLayer(
 }
 
 /**
+ * Builds a single parallel coordinates layer, one row per observation.
+ *
+ * The payload is the transpose of what the chart is drawn from. A Recharts
+ * `<Line>` binds to one `yAxisId`, so a polyline crossing axes of different
+ * units has to be drawn from values min-max normalised onto a shared scale,
+ * over rows keyed by axis — while a MAIDR layer is one row per observation and
+ * one column per axis. `ParallelTrace` derives each column's own extent and pitches a
+ * value against its OWN axis, so it must never see those normalised numbers —
+ * every axis would run 0 to 1 and the crossings the chart exists to show would
+ * be gone. Hence `dimensions`, which names the RAW fields on the observation.
+ */
+function buildParallelLayer(
+  data: Record<string, unknown>[],
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  parallelConfig?: RechartsAdapterConfig['parallelConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  const dimensions = parallelConfig?.dimensions;
+  if (!dimensions || dimensions.length === 0) {
+    throw new Error(
+      'RechartsAdapter: parallelConfig with dimensions is required when chartType is "parallel" — the axes, in the order they are drawn, naming the RAW fields rather than the normalised ones the chart plots',
+    );
+  }
+
+  const axes = dimensions.map(dimension => (
+    typeof dimension === 'string'
+      ? { label: dimension, key: dimension }
+      : { label: dimension.label ?? dimension.key, key: dimension.key }
+  ));
+
+  const observations: LinePoint[][] = data.map((item) => {
+    const name = toText(resolveFieldRef(item, parallelConfig?.labelKey, 'label'));
+    return axes.map(({ label, key }) => {
+      const point: LinePoint = { x: label, y: toNumber(item[key]) };
+      if (name !== undefined) {
+        point.z = name;
+      }
+      return point;
+    });
+  });
+
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
+
+  // One selector per observation, all of them the same: Recharts draws one
+  // `<Line>` path per observation, and `ParallelTrace` inherits `LineTrace`'s
+  // resolution — which pairs the list with the rows one for one, then parses
+  // each path's vertices into a mark per value.
+  //
+  // Withheld when the chart holds exactly as many observations as it has axes.
+  // `LineTrace` tries whole ELEMENTS before parsing, accepting a match whose
+  // count equals the row's own length, and with one path per observation those
+  // two counts coincide only then — every value of every observation would
+  // light some other observation's whole polyline.
+  const alignable = data.length > 0 && data.length !== axes.length;
+
+  return {
+    id: '0',
+    type: TraceType.PARALLEL,
+    selectors: selector !== undefined && alignable ? data.map(() => selector) : undefined,
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: observations,
+  };
+}
+
+/** What a ridgeline's densities are called, since no axis of the chart draws them. */
+const RIDGELINE_DENSITY_AXIS = 'Density';
+
+/**
+ * Builds a single ridgeline layer, one curve per group.
+ *
+ * Recharts has no ridgeline primitive: the chart is overlapping `<Area>`s with
+ * a per-group vertical offset baked into the plotted values. That offset is
+ * presentation — it exists so the curves do not overlap illegibly — so the
+ * payload carries each curve on its own terms and `densityKey` names the
+ * density BEFORE it was added. Read off the drawn y instead, every group's
+ * loudness would be a function of where it was stacked and the lowest ridge
+ * would be the loudest thing on the chart.
+ *
+ * The groups come out in first-appearance order, which is the order the
+ * `<Area>`s have to be declared in for the highlight to land on the right one.
+ */
+function buildRidgelineLayer(
+  data: Record<string, unknown>[],
+  chartType: RechartsChartType,
+  xLabel?: string,
+  yLabel?: string,
+  ridgelineConfig?: RechartsAdapterConfig['ridgelineConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  const groupKey = ridgelineConfig?.groupKey;
+  if (groupKey === undefined) {
+    throw new Error('RechartsAdapter: ridgelineConfig with a groupKey is required when chartType is "ridgeline"');
+  }
+
+  const { valueKey, densityKey } = ridgelineConfig ?? {};
+  const curves = new Map<string, ViolinKdePoint[]>();
+
+  for (const item of data) {
+    const group = toText(item[groupKey]);
+    const value = toOptionalNumber(resolveFieldRef(item, valueKey, 'value'));
+    const density = toOptionalNumber(resolveFieldRef(item, densityKey, 'density'));
+    // A sample needs both a place on the value axis and a height there. One
+    // without either is not a sample of anything, and filling in a zero would
+    // put a trough in the curve where the data said nothing.
+    if (group === undefined || value === undefined || density === undefined) {
+      continue;
+    }
+
+    const point: ViolinKdePoint = { x: group, y: value, density };
+    const curve = curves.get(group);
+    if (curve === undefined) {
+      curves.set(group, [point]);
+    } else {
+      curve.push(point);
+    }
+  }
+
+  if (curves.size === 0) {
+    throw new Error(
+      `RechartsAdapter: no ridgeline row carried both a value and a density (looked for "${valueKey ?? 'value'}" and "${densityKey ?? 'density'}"). `
+      + 'The density is the kernel-density value BEFORE the group\'s ridge offset was added, and the drawn y is not a substitute for it',
+    );
+  }
+
+  return {
+    id: '0',
+    type: TraceType.RIDGELINE,
+    // One element per group, which is what the chart draws: `RidgelineTrace`
+    // resolves the selector to a flat list, requires exactly one entry per
+    // ridge, and then lights that ridge's whole curve from any of its samples.
+    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+      z: { label: RIDGELINE_DENSITY_AXIS },
+    },
+    data: [...curves.values()],
+  };
+}
+
+/** What a hexbin's counts are called, since the fill is what carries them. */
+const HEXBIN_COUNT_AXIS = 'Count';
+
+/**
+ * How many significant digits a bin's y centre is compared on when grouping
+ * the bins into lattice rows.
+ *
+ * Every bin of a hex row is placed by the same arithmetic on the same row
+ * number, so their centres normally come out identical — but a lattice
+ * computed through a scale can differ in the last digit or two of a `double`.
+ * Twelve digits is far beyond any real lattice's spacing and well inside that
+ * noise. Lifted from the d3 binder so the two adapters group alike.
+ */
+const HEXBIN_ROW_PRECISION = 12;
+
+/** One bin, with the row key and the input position it was read at. */
+interface HexbinBin {
+  key: string;
+  order: number;
+  index: number;
+  point: HexbinPoint;
+}
+
+/**
+ * Builds a single hexbin layer whose data is a staggered LATTICE.
+ *
+ * Recharts places the marks and nothing else — the binning happens before the
+ * chart is drawn — so `data` is one row per OCCUPIED bin and the lattice those
+ * bins form is assembled here: rows grouped by their y centre, ordered from
+ * the lowest upward, each row ordered left to right. `HexbinTrace` steps its
+ * row index up for an upward move and treats a column index as a position
+ * within its row, so neither order is optional.
+ *
+ * The centres stay in DATA units. Passing screen coordinates through would
+ * announce every bin's position in pixels.
+ */
+function buildHexbinLayer(
+  data: Record<string, unknown>[],
+  chartType: RechartsChartType,
+  xKey: string,
+  yKey?: string,
+  xLabel?: string,
+  yLabel?: string,
+  hexbinConfig?: RechartsAdapterConfig['hexbinConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  const { xKey: binXKey, yKey: binYKey, countKey, rowKey } = hexbinConfig ?? {};
+
+  const bins: HexbinBin[] = [];
+  data.forEach((item, index) => {
+    const x = toOptionalNumber(resolveFieldRef(item, binXKey ?? xKey, 'x'));
+    const y = toOptionalNumber(resolveFieldRef(item, binYKey ?? yKey, 'y'));
+    const count = toOptionalNumber(resolveFieldRef(item, countKey, 'count'));
+    // A bin is its centre and its count. Missing any of the three, there is
+    // nothing to announce and nowhere to announce it from.
+    if (x === undefined || y === undefined || count === undefined) {
+      return;
+    }
+
+    const declared = rowKey === undefined ? undefined : item[rowKey];
+    const order = declared === undefined ? y : toOptionalNumber(declared);
+
+    bins.push({
+      key: declared === undefined ? y.toPrecision(HEXBIN_ROW_PRECISION) : String(declared),
+      // A row named by something that is not a number keeps its first-seen
+      // position rather than sorting to the front as a NaN would.
+      order: order ?? Number.POSITIVE_INFINITY,
+      index,
+      point: { x, y, count },
+    });
+  });
+
+  if (bins.length === 0) {
+    throw new Error(
+      `RechartsAdapter: no hexbin row carried a centre and a count (looked for "${binXKey ?? xKey}", "${binYKey ?? yKey ?? 'y'}" and "${countKey ?? 'count'}"). `
+      + 'The centres are the bins\' positions in DATA units, which is what the reader is given instead of a column index',
+    );
+  }
+
+  const rows = groupIntoHexbinRows(bins);
+  const drawnOrder = rows.flat().map(bin => bin.index);
+
+  // `HexbinTrace` slices its selector's matches row by row down the lattice,
+  // while a `<Scatter>` draws one symbol per row of `data` in the order the
+  // rows arrive. The two agree only when the rows already arrive in lattice
+  // order, so a chart whose bins are listed some other way gets no
+  // highlighting rather than a highlight on a bin half a field away — which on
+  // a stagger is not even a neighbour in the direction a reader would guess.
+  const inLatticeOrder = drawnOrder.every((index, i) => i === 0 || index > drawnOrder[i - 1]);
+  const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
+
+  return {
+    id: '0',
+    type: TraceType.HEXBIN,
+    selectors: inLatticeOrder ? selector : undefined,
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+      z: { label: HEXBIN_COUNT_AXIS },
+    },
+    data: rows.map(row => row.map(bin => bin.point)),
+  };
+}
+
+/**
+ * Assembles the lattice: bins grouped into rows, rows ordered from the lowest
+ * upward, each row ordered left to right.
+ *
+ * @param bins - Every bin, with the row key and ordinal it was read with
+ * @returns The lattice, rows outermost
+ */
+function groupIntoHexbinRows(bins: HexbinBin[]): HexbinBin[][] {
+  const rows = new Map<string, HexbinBin[]>();
+  const order = new Map<string, number>();
+
+  for (const bin of bins) {
+    const row = rows.get(bin.key);
+    if (row === undefined) {
+      rows.set(bin.key, [bin]);
+      order.set(bin.key, bin.order);
+    } else {
+      row.push(bin);
+    }
+  }
+
+  return Array.from(rows.entries())
+    .sort(([a], [b]) => (order.get(a) ?? 0) - (order.get(b) ?? 0))
+    .map(([, row]) => [...row].sort((a, b) => Number(a.point.x) - Number(b.point.x)));
+}
+
+/**
+ * Builds a single boxen layer, one letter-value ladder per distribution.
+ *
+ * Recharts has no box primitive at all, so the rungs are faked as stacked
+ * `<Bar>`s over a transparent base — and neither the ladder nor the median is
+ * anything that construction holds: both are computed from the raw sample
+ * before it is drawn. So both are read from the rows, and a rung whose three
+ * numbers are not all finite is dropped rather than announced as a quantile
+ * the data never computed.
+ *
+ * No selector is generated. A rung is a rectangle rather than a distribution,
+ * `BoxenTrace` wants exactly one element per distribution, and no class name
+ * identifies the outermost rung — so a chart that wants highlighting puts a
+ * `className` on that one `<Bar>` and passes it as `selectorOverride`.
+ */
+function buildBoxenLayer(
+  data: Record<string, unknown>[],
+  chartType: RechartsChartType,
+  xKey: string,
+  xLabel?: string,
+  yLabel?: string,
+  orientation?: Orientation,
+  boxenConfig?: RechartsAdapterConfig['boxenConfig'],
+  selectorOverride?: string,
+  chartId?: string,
+  panelScope?: string,
+): MaidrLayer {
+  const { xKey: categoryKey, medianKey, levelsKey, lowerOutliersKey, upperOutliersKey } = boxenConfig ?? {};
+
+  const points: BoxenPoint[] = [];
+  for (const item of data) {
+    const median = toOptionalNumber(resolveFieldRef(item, medianKey, 'median'));
+    // The median is the middle of the ladder and a navigable position in its
+    // own right. A distribution without one has no centre to walk out from.
+    if (median === undefined) {
+      continue;
+    }
+
+    const point: BoxenPoint = {
+      z: toText(item[categoryKey ?? xKey]) ?? '',
+      median,
+      levels: toLetterValueLevels(resolveFieldRef(item, levelsKey, 'levels')),
+    };
+    const lower = toNumberList(lowerOutliersKey === undefined ? undefined : item[lowerOutliersKey]);
+    if (lower !== undefined) {
+      point.lowerOutliers = lower;
+    }
+    const upper = toNumberList(upperOutliersKey === undefined ? undefined : item[upperOutliersKey]);
+    if (upper !== undefined) {
+      point.upperOutliers = upper;
+    }
+    points.push(point);
+  }
+
+  if (points.length === 0) {
+    throw new Error(
+      `RechartsAdapter: no boxen row carried a median (looked for "${medianKey ?? 'median'}"). `
+      + 'A letter-value plot is computed from the raw sample before it is drawn, and the ladder and the median both arrive through the data rather than from the chart',
+    );
+  }
+
+  return {
+    id: '0',
+    type: TraceType.BOXEN,
+    selectors: selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope),
+    orientation: orientation ?? Orientation.VERTICAL,
+    axes: {
+      x: { label: xLabel },
+      y: { label: yLabel },
+    },
+    data: points,
+  };
+}
+
+/**
+ * Reads a distribution's ladder, keeping the rungs that are fully numeric.
+ *
+ * `p` is the TAIL probability, exactly as {@link LetterValueLevel} defines it:
+ * 0.25 is the rung spanning the middle half. The order is left alone, since
+ * `BoxenTrace` walks the ladder outward from the median whichever way round it
+ * arrives.
+ *
+ * @param value - Whatever the levels key resolved to
+ * @returns The rungs the payload carries
+ */
+function toLetterValueLevels(value: unknown): LetterValueLevel[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const levels: LetterValueLevel[] = [];
+  for (const entry of value) {
+    if (entry === null || typeof entry !== 'object') {
+      continue;
+    }
+    const rung = entry as Record<string, unknown>;
+    const p = toOptionalNumber(rung.p);
+    const lo = toOptionalNumber(rung.lo);
+    const hi = toOptionalNumber(rung.hi);
+    // A rung is a labelled pair of positions on the distribution. One missing
+    // any of its three numbers would be announced as a percentile the sample
+    // was never asked for.
+    if (p === undefined || lo === undefined || hi === undefined) {
+      continue;
+    }
+    levels.push({ p, lo, hi });
+  }
+  return levels;
+}
+
+/**
+ * Reads a list of numbers — a boxen's outliers — or nothing.
+ *
+ * @param value - Whatever the outlier key resolved to
+ * @returns The finite numbers in it, or undefined when there are none
+ */
+function toNumberList(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const numbers = value
+    .map(toOptionalNumber)
+    .filter((entry): entry is number => entry !== undefined);
+  return numbers.length > 0 ? numbers : undefined;
+}
+
+/**
  * Builds layers for composed mode (mixed chart types via layers config).
  */
 function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
@@ -798,9 +1242,18 @@ function convertData(
     // Whole-chart types: their payload describes the figure rather than a
     // series, so there is nothing for them to be a layer OF. Only composed
     // mode reaches this — simple mode routes each to its own builder.
+    //
+    // The four grid types are here for the same reason: a parallel plot's rows
+    // are its observations, a ridgeline's its groups, a hexbin's its lattice
+    // rows and a boxen's its ladders — none of them a series of the chart
+    // around it.
     case 'gauge':
     case 'gantt':
     case 'dumbbell':
+    case 'parallel':
+    case 'ridgeline':
+    case 'hexbin':
+    case 'boxen':
       throw new Error(`RechartsAdapter: chartType "${chartType}" describes a whole chart and cannot be a layer of a composed one`);
     // Stacked/dodged/normalized/diverging/histogram handled by dedicated builders
     case 'stacked_bar':
@@ -1438,6 +1891,17 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.ALLUVIAL;
     case 'sankey':
       return TraceType.SANKEY;
+    // `TraceType.PARALLEL` is the string `'parallel_coordinates'`, the way
+    // `'scatter'` here is `TraceType.SCATTER === 'point'`: the adapter keeps
+    // its own house spelling and maps.
+    case 'parallel':
+      return TraceType.PARALLEL;
+    case 'ridgeline':
+      return TraceType.RIDGELINE;
+    case 'hexbin':
+      return TraceType.HEXBIN;
+    case 'boxen':
+      return TraceType.BOXEN;
   }
 }
 

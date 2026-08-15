@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + AnyChart Gantt Example</title>
+    <style>
+      body { font-family: sans-serif; margin: 2rem; }
+      #container { width: 820px; height: 420px; margin-bottom: 1rem; }
+      p { max-width: 820px; }
+    </style>
+    <!-- 1. Load AnyChart (CDN). Both gantt constructors ship in the gantt
+         module on top of anychart-base. -->
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-base.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.13.0/js/anychart-gantt.min.js"></script>
+    <!-- 2. Load the core MAIDR runtime. -->
+    <script src="../../dist/maidr.js"></script>
+    <!-- 3. Load the MAIDR AnyChart adapter (UMD build — exposes window.maidrAnyChart). -->
+    <script src="../../dist/anychart.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        // A gantt's data is a TREE rather than a series: parents carry their
+        // children, and a parent states no dates of its own — AnyChart derives
+        // them from what is beneath it, and MAIDR reads the derived pair so a
+        // summary row is a lane like any other.
+        const treeData = anychart.data.tree([
+          {
+            id: 'design',
+            name: 'Design',
+            children: [
+              {
+                id: 'research',
+                name: 'User research',
+                actualStart: Date.UTC(2024, 0, 8),
+                actualEnd: Date.UTC(2024, 0, 22),
+              },
+              {
+                id: 'wireframes',
+                name: 'Wireframes',
+                actualStart: Date.UTC(2024, 0, 22),
+                actualEnd: Date.UTC(2024, 1, 5),
+              },
+            ],
+          },
+          {
+            id: 'build',
+            name: 'Build',
+            actualStart: Date.UTC(2024, 1, 5),
+            actualEnd: Date.UTC(2024, 2, 18),
+          },
+          {
+            id: 'launch',
+            name: 'Launch',
+            // A start with no end is a milestone: an instant, drawn as a
+            // diamond, and read as the zero-length interval it is.
+            actualStart: Date.UTC(2024, 2, 25),
+          },
+          {
+            // A row with no dates at all is an EMPTY lane. It survives the
+            // reading — nothing is booked on it, which is a real statement
+            // about a plan — and is named from the row rather than from an
+            // interval it does not have.
+            id: 'support',
+            name: 'Support (unscheduled)',
+          },
+        ], 'as-tree');
+
+        const chart = anychart.ganttProject();
+        chart.data(treeData);
+        chart.container('container');
+        chart.draw();
+        chart.fitAll();
+
+        maidrAnyChart.bindAnyChart(chart, { id: 'anychart-gantt' });
+      });
+    </script>
+  </head>
+  <body>
+    <h1>MAIDR + AnyChart Gantt Chart</h1>
+    <p>
+      Click on the chart and use the up and down arrow keys to move between
+      lanes, and the left and right arrow keys to move between the intervals
+      booked on one. Pitch carries how <em>long</em> an interval runs and the
+      stereo position carries <em>when</em> it starts — mapped along the whole
+      timeline rather than by column — so two tasks that overlap sound like
+      they overlap. Press <kbd>B</kbd> for braille, <kbd>T</kbd> for text
+      descriptions, and <kbd>S</kbd> to toggle sonification.
+    </p>
+    <p>
+      The dates are restated in whole days and announced with the unit named,
+      because the tree holds milliseconds since the epoch and a nine-digit
+      figure carries nothing by ear. A schedule shorter than two days is read
+      in hours instead. Each end is still announced as a date: the x axis
+      carries a formatter that turns a position back into one.
+    </p>
+    <p>
+      <code>anychart.ganttResource()</code> is read the same way. Its rows carry
+      a <code>periods</code> array rather than one pair of dates, so a lane
+      holds several intervals — which is what the nested shape is for.
+      <code>anychart.timeline()</code> is a different chart and is not read
+      here: its <code>moment</code> series are instants rather than intervals,
+      and reading one as a schedule would announce work the chart never drew.
+    </p>
+    <div id="container"></div>
+  </body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Choropleth - MAIDR</title>
+    <!-- highmaps.js ships the `map` series and the map view. -->
+    <script src="https://code.highcharts.com/maps/highmaps.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Choropleth</h1>
+    <p>
+      A Highmaps <code>map</code> series, made accessible by the MAIDR
+      Highcharts adapter. This one needs no configuration at all —
+      <code>map</code> is a series type of its own, so the adapter reads the
+      shaded regions as a choropleth without being told.
+    </p>
+    <p>
+      Click on the chart and use the arrow keys to move across the map rather
+      than down a list: up is north, down is south, left is west and right is
+      east. The directions come from each state's centroid, which the adapter
+      takes back out of the map's projection in degrees.
+    </p>
+
+    <div id="choropleth-chart" style="width: 800px; height: 520px"></div>
+
+    <script>
+      (async () => {
+        const topology = await fetch(
+          'https://code.highcharts.com/mapdata/countries/us/us-all.topo.json'
+        ).then(response => response.json());
+
+        const chart = Highcharts.mapChart('choropleth-chart', {
+          chart: { map: topology },
+          title: { text: 'Population density by state' },
+          subtitle: { text: 'People per square kilometre' },
+          colorAxis: { min: 0, max: 500 },
+          series: [{
+            type: 'map',
+            name: 'Density',
+            joinBy: ['hc-key', 'key'],
+            data: [
+              { key: 'us-nj', value: 470.3 }, { key: 'us-ri', value: 393.5 },
+              { key: 'us-ma', value: 336.0 }, { key: 'us-ct', value: 285.9 },
+              { key: 'us-md', value: 238.2 }, { key: 'us-de', value: 187.6 },
+              { key: 'us-ny', value: 161.5 }, { key: 'us-fl', value: 145.9 },
+              { key: 'us-pa', value: 110.5 }, { key: 'us-oh', value: 109.9 },
+              { key: 'us-ca', value: 97.6 }, { key: 'us-il', value: 89.4 },
+              { key: 'us-nc', value: 79.9 }, { key: 'us-va', value: 79.3 },
+              { key: 'us-tx', value: 41.2 }, { key: 'us-co', value: 20.9 },
+              { key: 'us-or', value: 16.4 }, { key: 'us-nv', value: 10.4 },
+              { key: 'us-nm', value: 6.7 }, { key: 'us-mt', value: 2.7 },
+              { key: 'us-wy', value: 2.3 }, { key: 'us-ak', value: 0.5 },
+            ],
+          }],
+        });
+
+        const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'choropleth-chart' });
+        document
+          .getElementById('choropleth-chart')
+          .setAttribute('maidr-data', JSON.stringify(maidrData));
+        maidrHighcharts.createHighchartsSync(chart);
+      })();
+    </script>
+  </body>
+</html>
