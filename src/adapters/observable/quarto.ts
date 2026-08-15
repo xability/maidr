@@ -74,15 +74,6 @@ const tracked = new Set<Element>();
  */
 const settled = new WeakSet<Element>();
 
-/** Sweeps a chart has been missing for, as a backstop for one never seen. */
-const missing = new WeakMap<Element, number>();
-
-/**
- * How many sweeps a chart may be missing before it is released even though it
- * was never seen settled — enough frames for any mount to have landed.
- */
-const MISSING_LIMIT = 3;
-
 /** The watcher the automatic start owns, so it can be stopped and not doubled. */
 let autoWatcher: (() => void) | null = null;
 
@@ -296,17 +287,19 @@ function sweepDiscarded(): void {
   for (const chart of tracked) {
     if (chart.isConnected) {
       settled.add(chart);
-      missing.delete(chart);
       continue;
     }
 
-    const absences = (missing.get(chart) ?? 0) + 1;
-    missing.set(chart, absences);
-    if (!settled.has(chart) && absences < MISSING_LIMIT)
+    // A chart with no parent at all may be one the runtime is halfway through
+    // mounting: mounting replaces it with a wrapper — which detaches it — and
+    // adopts it a commit later, and between the two it belongs to nothing.
+    // Waiting costs nothing, because React commits into its container whether
+    // or not the page still holds that container, so a chart discarded during
+    // its own mount acquires a parent anyway and is released on the next sweep.
+    if (!settled.has(chart) && chart.parentNode === null)
       continue;
 
     tracked.delete(chart);
-    missing.delete(chart);
     bound.delete(chart);
     // On the chart's own document, with the element in `detail`: the chart is
     // detached by now, so an event fired on it would reach no listener, and a

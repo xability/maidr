@@ -242,11 +242,10 @@ describe('charts a reactive cell replaces', () => {
   });
 
   it('tears down a chart discarded before any sweep saw it mounted', async () => {
-    // The backstop for the case the rule above cannot decide: a chart bound and
-    // then discarded without a single sweep ever finding it in the document. It
-    // is indistinguishable from one still being mounted, so the adapter waits —
-    // but not forever, or a chart that was never seen would be retained for the
-    // life of the page.
+    // The case the rule above cannot decide on absence alone: a chart bound and
+    // then discarded without a single sweep ever finding it in the document.
+    // What settles it is the parent — a chart mid-mount belongs to nothing,
+    // while a discarded one went down still inside whatever held it.
     const { dom } = mountFixture('bar');
     const restore = useDom(dom);
     try {
@@ -265,15 +264,51 @@ describe('charts a reactive cell replaces', () => {
 
       cell!.innerHTML = FIXTURES.scatter.html;
       await settle();
-      expect(released).toEqual([]);
 
-      // Each unrelated mutation is one more frame the mount did not land in.
-      for (let frame = 0; frame < 2; frame++) {
+      expect(released).toEqual([first]);
+      stop();
+    } finally {
+      restore();
+    }
+  });
+
+  it('waits for a chart the runtime has not finished mounting', async () => {
+    // Mounting detaches the chart and re-attaches it a React commit later, and
+    // in between it has no parent. Releasing it there would tear down a chart
+    // that is about to appear — the reader sees it and has no way into it — so
+    // the parentless state is the one case the sweep leaves alone.
+    const { dom } = mountFixture('bar');
+    const restore = useDom(dom);
+    try {
+      const { document } = dom.window;
+      document.body.innerHTML = '<div id="ojs-cell-1"></div>';
+      const released: Element[] = [];
+      document.addEventListener('maidr:unbindchart', (event) => {
+        released.push((event as CustomEvent<Element>).detail);
+      });
+      const stop = initQuartoObservable();
+
+      const cell = document.querySelector('#ojs-cell-1');
+      cell!.innerHTML = FIXTURES.bar.html;
+      await settle();
+
+      // The first half of a mount: the wrapper takes the chart's place and the
+      // chart waits, parentless, for the commit that adopts it.
+      const chart = cell!.querySelector('svg')!;
+      const container = document.createElement('div');
+      chart.parentNode!.replaceChild(container, chart);
+      // Several passes, none of which may release it.
+      for (let frame = 0; frame < 3; frame++) {
         document.body.appendChild(document.createElement('p'));
         await settle();
       }
+      expect(released).toEqual([]);
 
-      expect(released).toEqual([first]);
+      // The commit lands and the chart is in the page again.
+      container.append(chart);
+      await settle();
+
+      expect(released).toEqual([]);
       stop();
     } finally {
       restore();

@@ -202,15 +202,31 @@ export function cleanNumber(value: number, span: number): number {
   if (!Number.isFinite(value))
     return value;
   const magnitude = Math.abs(span) || Math.abs(value) || 1;
-  const fromSpan = 10 - Math.floor(Math.log10(magnitude));
+  const fromSpan = 10 - decade(magnitude);
   // A value far below the span's own scale still deserves its digits: on a log
   // axis running to a billion, the span sets `fromSpan` to 1 and a millionth
   // would round to nothing. Keeping ten significant figures of the value itself
   // costs nothing on an ordinary axis, where it is the smaller of the two.
-  const fromValue = value === 0 ? 0 : 10 - Math.floor(Math.log10(Math.abs(value)));
+  const fromValue = value === 0 ? 0 : 10 - decade(Math.abs(value));
   const decimals = Math.min(15, Math.max(0, fromSpan, fromValue));
   const rounded = Number(value.toFixed(decimals));
   return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+/**
+ * Which power of ten a value sits in, judged after the noise is rounded off.
+ *
+ * `Math.floor(Math.log10(v))` answers this for an exact value and gets it wrong
+ * for the ones this module sees: inverting a pixel puts `0.001` a hair *below*
+ * a power of ten, so the floor drops a decade, one digit too many is kept, and
+ * the noise the rounding was meant to remove is preserved instead — `0.001`
+ * announced as `0.00099999999996`.
+ *
+ * @param value - A positive, finite number.
+ * @returns Its base-ten exponent.
+ */
+function decade(value: number): number {
+  return Number(value.toExponential(6).split('e')[1]);
 }
 
 /**
