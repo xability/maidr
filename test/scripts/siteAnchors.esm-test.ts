@@ -30,16 +30,6 @@ import { createHeadingSlugger, renderMarkdown, slugify } from '../../scripts/mar
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TEMPLATE = readFileSync(resolve(ROOT, 'docs/template.html'), 'utf-8');
 
-/**
- * `docs/BRAILLE.md` carries committed merge-conflict markers (#917). One lands
- * inside a fenced code block, which flips the fence parity and swallows the
- * last ninety lines of the file — including the `## Multiline Braille Display
- * Support` heading that line 14 links to. No slug rule can fix that; the
- * heading is not a heading any more. Pinned below rather than skipped, so the
- * day #917 lands this turns red and the pin can go.
- */
-const CONFLICTED_PAGE = 'docs/BRAILLE.md';
-
 /** Every markdown source the site builds into a page, in build order. */
 function markdownSources(): string[] {
   const docs = readdirSync(resolve(ROOT, 'docs'))
@@ -232,7 +222,7 @@ describe('renderMarkdown', () => {
 });
 
 describe('in-page anchors in every built page', () => {
-  const pages = markdownSources().filter(source => source !== CONFLICTED_PAGE);
+  const pages = markdownSources();
 
   it('should be checking the pages this bug was reported against', () => {
     // A glob that quietly stopped matching would turn every case below green
@@ -241,16 +231,17 @@ describe('in-page anchors in every built page', () => {
     expect(pages).toContain('README.md');
     expect(pages).toContain('docs/amcharts.md');
     expect(pages).toContain('docs/VIOLIN_PLOT_SPEC.md');
-    expect(pages.length).toBeGreaterThanOrEqual(18);
+    // `docs/BRAILLE.md` was excluded while #917 stood: a committed `=======`
+    // sat inside a fenced code block, flipped the fence parity, and swallowed
+    // the rest of the file — so `## Multiline Braille Display Support`, which
+    // line 14 links to, was not a heading any more. It is checked like every
+    // other page now, and naming it here keeps it from dropping back out.
+    expect(pages).toContain('docs/BRAILLE.md');
+    expect(pages.length).toBeGreaterThanOrEqual(19);
   });
 
   it.each(pages)('should resolve every in-page anchor in %s', (source) => {
     expect(deadAnchors(source)).toEqual([]);
-  });
-
-  // Pinned rather than skipped — see CONFLICTED_PAGE and #917.
-  it.failing(`should resolve every in-page anchor in ${CONFLICTED_PAGE}`, () => {
-    expect(deadAnchors(CONFLICTED_PAGE)).toEqual([]);
   });
 
   it('should point the skip link at the main landmark', () => {

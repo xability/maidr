@@ -31,6 +31,37 @@ jobs:
       - name: Check generated instruction files
         run: npm run sync:copilot:check
 
+  # Three unresolved conflict regions sat on `main` for weeks and shipped to
+  # maidr.ai (#917). They passed commitlint, the linter, the type check, the
+  # build and the whole test suite, because none of those read prose — and one
+  # `=======` inside a fenced code block silently swallowed the last ninety
+  # lines of docs/BRAILLE.md.
+  #
+  # Every tracked file rather than markdown: the same mistake in a .ts file
+  # would at least fail the type check, but in .html or .json it would sail
+  # through exactly as this one did.
+  #
+  # Pure Node and git with no dependencies, so it skips npm ci, and it gates
+  # nothing for the same reason commitlint below does not.
+  conflict-markers:
+    name: No Conflict Markers
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Check tracked files for conflict markers
+        run: npm run check:conflicts
+
   # Gates nothing, and must not: `needs` does not just order jobs, it *skips*
   # them when the dependency fails, so a commit subject that does not parse
   # used to take the build, the type check, the whole unit suite and every e2e
