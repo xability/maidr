@@ -183,6 +183,31 @@ describe('highcharts survival declaration', () => {
     warn.mockRestore();
   });
 
+  it('re-reads a declaration the author corrected on the series in place', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // `Series#update` rewrites a series' options without replacing the series,
+    // so a corrected block arrives on the object a previous conversion already
+    // read. It has to be read again, not answered from the earlier reading.
+    const series = arm(0, 'Treated', [
+      { x: 0, y: 1 },
+      { x: 6, y: 0.82 },
+    ], declaring({ type: 'kaplan-meier' } as never));
+    const chart = fakeChart({ series: [series] });
+
+    const before = highchartsToMaidr(chart).subplots[0][0].layers;
+    expect(before.map(layer => layer.type)).toEqual([TraceType.STEP]);
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockClear();
+    series.options.custom = { maidr: { type: TraceType.SURVIVAL } };
+
+    const after = highchartsToMaidr(chart).subplots[0][0].layers;
+
+    expect(after.map(layer => layer.type)).toEqual([TraceType.SURVIVAL]);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it('takes the step convention from the declaration when the curve is interpolated', () => {
     const chart = fakeChart({
       series: [fakeSeries({

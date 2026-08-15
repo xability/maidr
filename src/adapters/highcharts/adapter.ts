@@ -211,6 +211,9 @@ export function buildSubplotGrid(
   containerId: string,
   options?: HighchartsAdapterOptions,
 ): MaidrSubplot[][] {
+  // One conversion, one reading of every declaration. See declarationCache.
+  resetDeclarationCache();
+
   const paneGrid = detectPaneGrid(seriesList);
 
   if (paneGrid) {
@@ -1060,17 +1063,33 @@ function convertDivergingBar(
 const ADAPTER = 'Highcharts';
 
 /**
- * Declarations already read off a series, so one binding warns once.
+ * Declarations already read off a series during the conversion in progress,
+ * so one binding warns once.
  *
  * `validateDeclaration` holds no state of its own, and a series is read more
- * than once per binding: {@link buildSubplotGrid} converts a pane grid and
+ * than once per conversion: {@link buildSubplotGrid} converts a pane grid and
  * then falls back to the single-subplot path when too few panes survive, so
- * an author with a typo would hear about it twice. Keyed by the series object
- * because Highcharts builds new ones when a chart is rebuilt — a corrected
- * declaration is therefore reported again, while a chart converted repeatedly
- * is not.
+ * an author with a typo would hear about it twice.
+ *
+ * The map lives no longer than that. `Series#update` rewrites a series'
+ * options in place rather than replacing the series, so an author who
+ * corrects a `custom.maidr` block that way keeps the same object identity: a
+ * cache that outlived the conversion would answer the next one with the
+ * superseded declaration, and silently — the correction would never be
+ * re-validated. {@link buildSubplotGrid} replaces it on entry, which is the
+ * exact scope the double read happens in and the only path into
+ * {@link buildSubplot}.
  */
-const declarationCache = new WeakMap<HighchartsSeries, MaidrTraceDeclaration | null>();
+let declarationCache = new WeakMap<HighchartsSeries, MaidrTraceDeclaration | null>();
+
+/**
+ * Starts a fresh conversion's worth of declaration readings.
+ *
+ * @internal
+ */
+function resetDeclarationCache(): void {
+  declarationCache = new WeakMap<HighchartsSeries, MaidrTraceDeclaration | null>();
+}
 
 /**
  * How a series is named in a warning.
