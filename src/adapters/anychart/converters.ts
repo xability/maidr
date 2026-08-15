@@ -1040,8 +1040,12 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
     return false;
   // A sankey is one too: its ribbons are already one element per flow, and
   // asking it for a series count throws. A gantt is the same shape again —
-  // its data is a task tree rather than a series list — and no series a map
-  // carries is drawn as a line.
+  // its data is a task tree rather than a series list.
+  //
+  // A map is deliberately *not* in this list: it does expose the series API,
+  // so it falls through to the loop below, which no-ops because
+  // `'choropleth'` is not in `LINE_LIKE_SERIES_TYPES`. No early return is
+  // needed for it.
   if (
     isFunnelChart(chart)
     || isWordCloudChart(chart)
