@@ -1,7 +1,8 @@
-import type { MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
 import { LineTrace } from './line';
+import { STEP_DIRECTION_LABEL, stepDataVertices } from './step';
 
 /** Label the running total is announced under. */
 const TOTAL = 'Total';
@@ -98,6 +99,22 @@ export class AreaTrace extends LineTrace {
   private readonly columnTotals: Map<string, number> | null;
 
   /**
+   * How the boundary moves between samples, when the producer says.
+   *
+   * `line.shape` and a fill are independent in every library that has both,
+   * so a filled band can be a staircase — a stacked step area is the standard
+   * way to draw a cumulative count that changes at discrete events. Read as a
+   * smoothly interpolated band it tells a reader the wrong thing about every
+   * interval: that the value slid between samples when it in fact held and
+   * then jumped.
+   *
+   * Carried alongside the fill rather than replacing it, because the two
+   * facts are orthogonal and a reader needs both. `undefined` for an ordinary
+   * area, which is the shape of every producer that does not say.
+   */
+  private readonly stepDirection?: StepDirection;
+
+  /**
    * Creates a new area trace.
    *
    * @param layer - The MAIDR layer carrying the area data
@@ -107,6 +124,65 @@ export class AreaTrace extends LineTrace {
 
     this.variant = variantOf(layer.type);
     this.columnTotals = this.variant === 'area' ? null : this.computeColumnTotals();
+    this.stepDirection = layer.stepDirection;
+  }
+
+  /**
+   * Maps the vertices of a rendered band back onto the data points.
+   *
+   * A plain band needs nothing from here: its path draws the data out along
+   * the top edge and then returns along the baseline, so the surplus is
+   * trailing* and the inherited trim-from-the-end keeps exactly the samples.
+   * `areaHighlight.test.ts` pins that, and it is why this override guards on
+   * `stepDirection` rather than running for every area.
+   *
+   * A stepped band carries both kinds of surplus at once. Its top edge has the
+   * corner vertices the steps introduce — `2N - 1` for `hv`/`vh`, `2N` for
+   * `mid` — and its return journey adds `N` more, so trimming from the end
+   * removes the baseline and leaves the corners interleaved among the samples.
+   * The highlight then lands on a corner: measured with a four-sample `hv`
+   * band, the second highlight sat on the held value at the next x rather than
+   * on the sample, and every one after it was displaced too.
+   *
+   * So the baseline is dropped first, and what remains is handed to the same
+   * {@link stepDataVertices} that `StepTrace` uses. Sharing that rather than
+   * repeating it keeps the two from disagreeing about which vertex is a
+   * sample, which is the failure this method exists to prevent.
+   *
+   * @param coordinates - Vertices parsed from the path, mutated in place
+   * @param row - Index of the series these coordinates belong to
+   */
+  protected override reconcilePathCoordinates(
+    coordinates: LinePoint[],
+    row: number,
+  ): void {
+    // `this.layer`, not `this.stepDirection`, and that is load-bearing for
+    // the same reason `StepTrace` reads `this.points` here rather than its own
+    // field: this method runs during `super(layer)` -- LineTrace's constructor
+    // calls mapToSvgElements, which reaches this override -- so nothing this
+    // class assigns exists yet. Reading the field instead made it `undefined`
+    // for every band and fell straight through to the inherited trim, which is
+    // precisely the bug this override was added to fix. `AbstractTrace`
+    // assigns `layer` before any subclass work, so it is readable.
+    if (this.layer.stepDirection === undefined) {
+      super.reconcilePathCoordinates(coordinates, row);
+      return;
+    }
+
+    const expected = this.points[row]?.length ?? 0;
+    const closed
+      = expected > 0 && coordinates.length > 2 * expected - 1
+        ? coordinates.slice(0, coordinates.length - expected)
+        : coordinates;
+
+    const dataVertices = stepDataVertices(closed, expected);
+    if (dataVertices !== null) {
+      coordinates.length = 0;
+      coordinates.push(...dataVertices);
+      return;
+    }
+
+    super.reconcilePathCoordinates(coordinates, row);
   }
 
   /**
@@ -210,22 +286,31 @@ export class AreaTrace extends LineTrace {
    */
   public override get description(): DescriptionState {
     const baseDescription = super.description;
-    if (this.columnTotals === null) {
-      return baseDescription;
+    const stats = [...baseDescription.stats];
+
+    // Announced for every variant, not only a stacked one. How the boundary
+    // moves between samples is a fact about the shape, and an unstacked step
+    // area is as misread without it as a stacked one.
+    if (this.stepDirection !== undefined) {
+      stats.push({
+        label: 'Step direction',
+        value: STEP_DIRECTION_LABEL[this.stepDirection],
+      });
     }
 
-    const totals = [...this.columnTotals.values()].filter(isMeasured);
-    if (totals.length === 0) {
-      return baseDescription;
-    }
-
-    return {
-      ...baseDescription,
-      stats: [
-        ...baseDescription.stats,
+    const totals
+      = this.columnTotals === null
+        ? []
+        : [...this.columnTotals.values()].filter(isMeasured);
+    if (totals.length > 0) {
+      stats.push(
         { label: 'Minimum total', value: Math.min(...totals) },
         { label: 'Maximum total', value: Math.max(...totals) },
-      ],
-    };
+      );
+    }
+
+    return stats.length === baseDescription.stats.length
+      ? baseDescription
+      : { ...baseDescription, stats };
   }
 }

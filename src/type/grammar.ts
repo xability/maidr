@@ -1214,13 +1214,13 @@ export interface MaidrLayer {
    */
   violinOptions?: ViolinOptions;
   /**
-   * Where a {@link TraceType.STEP} layer jumps between samples. Ignored by
-   * every other trace type. Omit it when the producing library does not report
-   * one: MAIDR does not substitute a default, so the description stays silent
-   * about the convention rather than naming one the data never authored.
-   *
-   * @example
-   * stepDirection: 'hv'
+   * Where a {@link TraceType.STEP} layer jumps between samples, and how a
+   * stepped {@link TraceType.AREA} band moves between them. Read by
+   * `StepTrace` and by `AreaTrace` -- `line.shape` and a fill are independent,
+   * so a band can be a staircase -- and ignored by every other trace type.
+   * Omit it when the producing library does not report one, rather than
+   * guessing: the announcement names the convention, and naming the wrong one
+   * is worse than staying silent.
    */
   stepDirection?: StepDirection;
   data:

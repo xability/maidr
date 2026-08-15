@@ -164,3 +164,44 @@ describe('area trace highlight mapping', () => {
     );
   });
 });
+
+describe('stepped area highlight mapping (#413)', () => {
+  beforeEach(() => {
+    defineSvgPathElement();
+    document.body.innerHTML = '';
+  });
+
+  /**
+   * A stepped band, drawn the way a renderer draws one: out along the top edge
+   * with a corner vertex between every pair of samples, then back along the
+   * baseline, then close.
+   *
+   * That is `(2N - 1) + N` vertices for `N` samples, and the surplus is both
+   * interleaved* (the corners) and *trailing* (the return journey). The
+   * inherited reconciliation removes surplus from the end only, which is
+   * exactly right for a plain band and cannot separate the corners here.
+   * @returns The `d` attribute of the closed stepped area path
+   */
+  function steppedAreaPath(): string {
+    const top: string[] = [`M ${SAMPLE_X[0]} ${SAMPLE_Y[0]}`];
+    for (let i = 1; i < POINTS.length; i++) {
+      // `hv`: hold the previous value across to this x, then jump to it.
+      top.push(`L ${SAMPLE_X[i]} ${SAMPLE_Y[i - 1]}`);
+      top.push(`L ${SAMPLE_X[i]} ${SAMPLE_Y[i]}`);
+    }
+    const bottom = [...POINTS]
+      .map((_, i) => POINTS.length - 1 - i)
+      .map(i => `L ${SAMPLE_X[i]} ${BASELINE_Y}`);
+    return [...top, ...bottom, 'Z'].join(' ');
+  }
+
+  test('the highlights land on the samples, not on the step corners', () => {
+    renderArea(steppedAreaPath());
+    // eslint-disable-next-line no-new
+    new AreaTrace({ ...createAreaLayer(), stepDirection: 'hv' });
+
+    expect(highlightCircles()).toEqual(
+      POINTS.map((_, i) => ({ x: SAMPLE_X[i], y: SAMPLE_Y[i] })),
+    );
+  });
+});
