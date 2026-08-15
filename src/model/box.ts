@@ -272,7 +272,7 @@ export class BoxTrace extends AbstractTrace {
     // navigation col), so rows/cols map directly to its shape.
     return {
       rows: this.boxValues.length,
-      cols: this.boxValues[this.row].length,
+      cols: this.boxValues[this.row]?.length ?? 0,
     };
   }
 

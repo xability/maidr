@@ -318,7 +318,7 @@ export class PieTrace extends AbstractTrace {
   protected get dimension(): Dimension {
     return {
       rows: 1,
-      cols: this.sliceValues[this.row].length,
+      cols: this.sliceValues[this.row]?.length ?? 0,
     };
   }
 

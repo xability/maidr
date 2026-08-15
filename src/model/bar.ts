@@ -219,7 +219,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   protected get dimension(): Dimension {
     return {
       rows: this.barValues.length,
-      cols: this.barValues[this.row].length,
+      cols: this.barValues[this.row]?.length ?? 0,
     };
   }
 

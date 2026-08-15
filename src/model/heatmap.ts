@@ -129,7 +129,7 @@ export class Heatmap extends AbstractTrace {
   protected get dimension(): Dimension {
     return {
       rows: this.heatmapValues.length,
-      cols: this.heatmapValues[this.row].length,
+      cols: this.heatmapValues[this.row]?.length ?? 0,
     };
   }
 
