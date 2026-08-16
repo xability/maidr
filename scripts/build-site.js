@@ -62,6 +62,7 @@ const PAGE_DESCRIPTIONS = {
   'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized, and pie chart types.',
+  'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR — sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets via a one-line binder.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
   'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
@@ -155,6 +156,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
+    .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -361,6 +363,20 @@ if (fs.existsSync(highchartsMdPath)) {
 `;
   const highchartsPage = generatePage({ title: 'Highcharts', content: highchartsHtml, activePage: 'highcharts', slug: 'highcharts.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'highcharts.html'), highchartsPage);
+}
+
+// Build tableau.html from docs/tableau.md
+console.log('Building tableau.html from docs/tableau.md...');
+const tableauMdPath = path.join(ROOT, 'docs', 'tableau.md');
+if (fs.existsSync(tableauMdPath)) {
+  const tableauMd = fs.readFileSync(tableauMdPath, 'utf-8');
+  const tableauHtml = `
+<div class="content">
+  ${renderMarkdown(tableauMd)}
+</div>
+`;
+  const tableauPage = generatePage({ title: 'Tableau', content: tableauHtml, activePage: 'tableau', slug: 'tableau.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'tableau.html'), tableauPage);
 }
 
 // Build examples.html (inline gallery content — no middle iframe)
@@ -573,7 +589,7 @@ const docsSiteDest = path.join(SITE_DIR, 'docs');
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'observable.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md')
+    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'observable.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md' || file === 'tableau.md')
       continue;
 
     const src = path.join(docsSource, file);
@@ -640,6 +656,7 @@ const sitemapUrls = [
   { loc: 'https://maidr.ai/victory.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'victory.md')) },
   { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
   { loc: 'https://maidr.ai/highcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'highcharts.md')) },
+  { loc: 'https://maidr.ai/tableau.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'tableau.md')) },
   { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
   { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
 ];
@@ -647,7 +664,7 @@ const sitemapUrls = [
 // Add all doc .md files that were built into _site/docs/
 if (fs.existsSync(docsSource)) {
   for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'observable.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || !f.endsWith('.md'))
+    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'observable.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || f === 'tableau.md' || !f.endsWith('.md'))
       continue;
     const base = path.basename(f, '.md');
     sitemapUrls.push({
