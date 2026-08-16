@@ -76,7 +76,17 @@ export interface SelectionBridge {
   readonly worksheets: Map<string, TableauWorksheet>;
   /** Shared re-entrancy flag. */
   readonly guard: SelectionGuard;
-  /** Layers whose selection has been permanently disabled by a rejection. */
+  /**
+   * Worksheets, **by name**, whose selection has been permanently disabled by
+   * a rejection.
+   *
+   * Keyed by name and not by layer id: a layer id is an index among the
+   * worksheets that survived one extraction, so a refresh that drops a
+   * worksheet re-points every id after it at a different worksheet, and a latch
+   * earned by one worksheet would silence another. A worksheet name is stable
+   * across refreshes — it is already how {@link SelectionBridge.worksheets} is
+   * rebuilt.
+   */
   readonly disabled: Set<string>;
 }
 
@@ -111,7 +121,7 @@ function withGuard(guard: SelectionGuard, call: () => Promise<void>): Promise<vo
 }
 
 /**
- * Disable a layer's selection after a rejection, once and for good.
+ * Disable a worksheet's selection after a rejection, once and for good.
  *
  * `selectMarksByValueAsync` rejects on an invalid field name or an invalid
  * value, and neither becomes valid by being retried — a wrong `fieldName` is
@@ -119,27 +129,28 @@ function withGuard(guard: SelectionGuard, call: () => Promise<void>): Promise<vo
  * arrow key. Guessing a different field to try instead is worse still: it would
  * highlight marks chosen by the adapter rather than by the data.
  *
+ * The latch is keyed by worksheet name rather than by layer id, because it
+ * outlives the refresh that can renumber the layer ids underneath it.
+ *
  * @param bridge - The selection bridge.
- * @param layerId - The layer whose selection failed.
- * @param worksheetName - The worksheet, for the message.
+ * @param worksheetName - The worksheet whose selection failed, and the latch key.
  * @param criteria - The criteria that were rejected, for the message.
  * @param error - The rejection.
  */
-function disableLayer(
+function disableWorksheetSelection(
   bridge: SelectionBridge,
-  layerId: string,
   worksheetName: string,
   criteria: readonly TableauSelectionCriteria[],
   error: unknown,
 ): void {
-  if (bridge.disabled.has(layerId)) {
+  if (bridge.disabled.has(worksheetName)) {
     return;
   }
-  bridge.disabled.add(layerId);
+  bridge.disabled.add(worksheetName);
   const fields = criteria.map(criterion => `"${criterion.fieldName}"`).join(', ');
   console.warn(
     `${ADAPTER_PREFIX} could not select marks in worksheet "${worksheetName}" `
-    + `by ${fields}; mark selection is now disabled for this layer. `
+    + `by ${fields}; mark selection is now disabled for this worksheet. `
     + `Audio, text and braille are unaffected.`,
     error,
   );
@@ -172,8 +183,9 @@ export function clearSelection(
 /**
  * Clear every worksheet MAIDR may have selected marks in.
  *
- * Used on blur and on dispose, so the adapter never leaves a selection behind
- * in a workbook it no longer drives.
+ * Used when focus leaves the figure, before every re-read, and on dispose, so
+ * the adapter never leaves a selection behind in a workbook it no longer
+ * drives.
  *
  * @param worksheets - The bound worksheets.
  * @param guard - The shared guard.
@@ -327,7 +339,7 @@ export function applySelection(
 
   const { layerId } = info;
   const worksheet = bridge.worksheets.get(layerId);
-  if (worksheet === undefined || bridge.disabled.has(layerId)) {
+  if (worksheet === undefined || bridge.disabled.has(worksheet.name)) {
     return Promise.resolve();
   }
 
@@ -344,7 +356,7 @@ export function applySelection(
   return withGuard(bridge.guard, () =>
     worksheet.selectMarksByValueAsync(criteria, SELECT_REPLACE)).catch(
     (error: unknown) => {
-      disableLayer(bridge, layerId, worksheet.name, criteria, error);
+      disableWorksheetSelection(bridge, worksheet.name, criteria, error);
       return clearSelection(worksheet, bridge.guard);
     },
   );

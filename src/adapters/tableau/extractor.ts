@@ -50,7 +50,7 @@ import type {
   TableauWorksheetOverride,
   WorksheetSnapshot,
 } from './types';
-import { TraceType } from '../../type/grammar';
+import { Orientation, TraceType } from '../../type/grammar';
 import { classifyColumns, toCategoryKey, toDateValue, toFiniteNumber } from './fields';
 
 const ADAPTER_PREFIX = '[MAIDR tableau]';
@@ -161,10 +161,18 @@ interface BuiltLayer {
   readonly points?: (readonly TableauSelectionCriteria[] | null)[];
 }
 
-/** A flat category/magnitude pair, assignable to both `BarPoint` and `PiePoint`. */
+/**
+ * A flat category/magnitude pair, assignable to `BarPoint`.
+ *
+ * Which field holds which depends on the layer's orientation: a vertical bar
+ * carries its category in `x` and its magnitude in `y`, and a horizontal one
+ * carries them the other way round, because that is how `AbstractBarPlot` reads
+ * an oriented layer. A `pie` layer is never oriented, so the pie path only ever
+ * builds the vertical form and stays assignable to `PiePoint` as well.
+ */
 interface FlatPoint {
-  readonly x: string;
-  readonly y: number;
+  readonly x: string | number;
+  readonly y: number | string;
 }
 
 // ---------------------------------------------------------------------------
@@ -390,19 +398,37 @@ function planColumns(
     warned,
   );
 
-  const category = requestedCategory ?? dimensions.find(d => d !== requestedGroup) ?? null;
+  let category = requestedCategory ?? dimensions.find(d => d !== requestedGroup) ?? null;
+  let groupRequest = requestedGroup;
+
   // One column cannot be both the category axis and the series: that would
   // build a grouped chart of one category per group, which is a shape the page
   // cannot have meant.
-  if (requestedGroup !== null && requestedGroup === category) {
+  if (groupRequest !== null && groupRequest === category) {
     warnOnce(
       warned,
-      `worksheet "${snapshot.name}": "${requestedGroup.column.fieldName}" is already `
+      `worksheet "${snapshot.name}": "${groupRequest.column.fieldName}" is already `
       + `the category axis, so it cannot also group the series; ignoring the group.`,
     );
+    groupRequest = null;
   }
-  const seriesOverride = requestedGroup === category ? null : requestedGroup;
-  const group = seriesOverride ?? dimensions.find(d => d !== category) ?? null;
+
+  // ...and it cannot be the series when it is the only dimension there is. The
+  // search above excludes the requested group from the category candidates, so
+  // a one-dimension worksheet would otherwise leave the category unset, and the
+  // ladder would drop the worksheet reporting that it has no dimension to
+  // navigate — which is false, and never names the override that caused it.
+  if (groupRequest !== null && category === null) {
+    warnOnce(
+      warned,
+      `worksheet "${snapshot.name}": "${groupRequest.column.fieldName}" is the only `
+      + `dimension, so it cannot group the series; reading it as the category axis.`,
+    );
+    category = groupRequest;
+    groupRequest = null;
+  }
+
+  const group = groupRequest ?? dimensions.find(d => d !== category) ?? null;
   const extras = dimensions.filter(d => d !== category && d !== group);
   if (extras.length > 0) {
     warnOnce(
@@ -641,7 +667,27 @@ function ladderTraceType(
     return null;
   }
 
-  // C1. A single aggregate has nothing to navigate between — one number is a
+  // C1. Several measures, and every dimension is a detail dimension (one
+  //     distinct value per row): the rows are observations rather than
+  //     categories, which is a point cloud.
+  //
+  //     This is tested *before* the "nothing to navigate" skip below, and the
+  //     order is load-bearing. A worksheet with a continuous field on an axis —
+  //     an unaggregated `Discount`, or a `Sales (bin)` field — has that field
+  //     classified as a second *measure*, because `classifyColumn` routes every
+  //     numeric column to the measure rung. Such a worksheet therefore arrives
+  //     here with no dimensions at all, where `every` is vacuously true, and
+  //     reading it as numeric x against numeric y is exactly what it is. Tested
+  //     the other way round it would be skipped for having no category, and a
+  //     perfectly readable view would vanish from the figure.
+  const everyDimensionIsDetail = plan.dimensions.every(
+    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
+  );
+  if (plan.measures.length >= 2 && everyDimensionIsDetail) {
+    return TraceType.SCATTER;
+  }
+
+  // C2. A single aggregate has nothing to navigate between — one number is a
   //     sentence, not a chart, and MAIDR would announce a one-cell figure.
   if (plan.category === null) {
     warnOnce(
@@ -651,19 +697,15 @@ function ladderTraceType(
     return null;
   }
 
-  // C2. Several measures, and every dimension is a detail dimension (one
-  //     distinct value per row): the rows are observations rather than
-  //     categories, which is a point cloud.
-  const everyDimensionIsDetail = plan.dimensions.every(
-    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
-  );
-  if (plan.measures.length >= 2 && everyDimensionIsDetail) {
-    return TraceType.SCATTER;
-  }
-
-  // C3. A temporal category, or an unaggregated continuous one, is an ordered
-  //     axis: the marks are samples along it rather than separate bars.
-  if (plan.category.temporal || plan.category.numeric) {
+  // C3. A temporal category is an ordered axis: the marks are samples along it
+  //     rather than separate bars.
+  //
+  //     Only a *temporal* one: a continuous numeric field never reaches here as
+  //     a dimension. `classifyColumn` sends every numeric column to the measure
+  //     rung, so the only dimension that can carry `numeric: true` is a
+  //     date-part wrapper such as `YEAR(Order Date)`, which is already
+  //     `temporal`. The continuous-axis case is C1's, above.
+  if (plan.category.temporal) {
     return TraceType.LINE;
   }
 
@@ -755,6 +797,9 @@ function decideTraceType(
  * @param category - The category dimension.
  * @param value - The measure.
  * @param rows - The worksheet's rows, in view order.
+ * @param horizontal - Whether the layer is horizontal, in which case the
+ * category goes on `y` and the magnitude on `x`, which is the payload
+ * `AbstractBarPlot` reads for an oriented layer.
  * @returns The points and their single-row cell index, or `null` when nothing
  * survived.
  */
@@ -762,6 +807,7 @@ function buildFlatData(
   category: TableauDimensionColumn,
   value: TableauMeasureColumn,
   rows: readonly TableauRow[],
+  horizontal: boolean,
 ): LayerBuild | null {
   const data: FlatPoint[] = [];
   const cells: (readonly TableauSelectionCriteria[] | null)[] = [];
@@ -771,7 +817,12 @@ function buildFlatData(
     if (magnitude === null) {
       continue;
     }
-    data.push({ x: toCategoryKey(row[category.viewIndex]), y: magnitude });
+    const categoryKey = toCategoryKey(row[category.viewIndex]);
+    data.push(
+      horizontal
+        ? { x: magnitude, y: categoryKey }
+        : { x: categoryKey, y: magnitude },
+    );
     cells.push(rowCriteria([category], row));
   }
 
@@ -782,16 +833,26 @@ function buildFlatData(
  * Build a rectangular grouped series, for the `dodged_bar` family.
  *
  * `SegmentedTrace.createSummaryLevel()` sums across rows by index, so every
- * inner array must hold the same categories in the same order. A `(group,
- * category)` pair with no row is therefore filled with `y: 0` — and its cell
- * criteria are `null`, because that zero is the adapter's scaffolding rather
- * than a mark, and selecting a mark that was never drawn is worse than
- * selecting nothing.
+ * inner array must hold the same categories in the same order. What it needs is
+ * equal *length*, not values: it filters the segments it sums with `isMeasured`
+ * and yields a gap for a category every series is missing. A `(group,
+ * category)` pair with no row is therefore padded with a magnitude of `NaN` —
+ * MAIDR's gap sentinel, kept out of the pitch range, announced as "missing",
+ * and left silent — and never with a `0`, which would sonify as a real reading
+ * at the bottom of the range, be reachable as the row's minimum, and pull the
+ * scale every other bar's pitch is measured against. Its cell criteria are
+ * `null` for the same reason: the pad is the adapter's scaffolding rather than
+ * a mark, and selecting a mark that was never drawn is worse than selecting
+ * nothing.
  *
  * @param category - The category dimension (`D[0]`).
  * @param group - The series dimension (`D[1]`).
  * @param value - The measure.
  * @param rows - The worksheet's rows, in view order.
+ * @param horizontal - Whether the layer is horizontal, in which case the
+ * category goes on `y` and the magnitude on `x`. The `[group][category]`
+ * iteration order is unchanged: `SegmentedTrace.createSummaryLevel()` already
+ * reads the category off `y` when the trace is horizontal.
  * @returns The nested points and their `[group][category]` cell index, or
  * `null` when the view is empty.
  */
@@ -800,6 +861,7 @@ function buildSegmentedData(
   group: TableauDimensionColumn,
   value: TableauMeasureColumn,
   rows: readonly TableauRow[],
+  horizontal: boolean,
 ): LayerBuild | null {
   const categories = distinctKeys(rows, category.viewIndex);
   const groups = distinctKeys(rows, group.viewIndex);
@@ -832,7 +894,12 @@ function buildSegmentedData(
       const magnitude = source === undefined
         ? null
         : toFiniteNumber(source[value.viewIndex]);
-      series.push({ x: categoryKey, y: magnitude ?? 0, z: groupKey });
+      const magnitudeOrGap = magnitude ?? Number.NaN;
+      series.push(
+        horizontal
+          ? { x: magnitudeOrGap, y: categoryKey, z: groupKey }
+          : { x: categoryKey, y: magnitudeOrGap, z: groupKey },
+      );
       seriesCells.push(
         source === undefined || magnitude === null
           ? null
@@ -958,7 +1025,8 @@ function buildScatterData(
  * `points.length === y.length` and `points[r].length === x.length`. Callers
  * check {@link isCompleteGrid} first, so a hole here is a duplicated pair
  * rather than a missing one; it is filled with `0` and given `null` criteria,
- * the same contract the segmented builder uses for its filler.
+ * so the pad names no mark — the same criteria contract the segmented builder
+ * uses for its own padding.
  *
  * @param category - The category dimension, laid along x.
  * @param group - The series dimension, laid along y.
@@ -1024,12 +1092,15 @@ function buildHeatData(
  * @param type - The decided trace type.
  * @param plan - The worksheet's column plan.
  * @param rows - The worksheet's rows, in view order.
+ * @param horizontal - Whether the layer is horizontal. Only the bar families
+ * are oriented, so only they read it; the rest ignore it.
  * @returns The built payload, or `null` when the worksheet yields no data.
  */
 function buildData(
   type: TraceType,
   plan: ColumnPlan,
   rows: readonly TableauRow[],
+  horizontal: boolean,
 ): LayerBuild | null {
   const { category, group, value, measures, dimensions } = plan;
 
@@ -1038,11 +1109,11 @@ function buildData(
     case 'pie':
       return category === null || value === null
         ? null
-        : buildFlatData(category, value, rows);
+        : buildFlatData(category, value, rows, horizontal);
     case 'segmented':
       return category === null || group === null || value === null
         ? null
-        : buildSegmentedData(category, group, value, rows);
+        : buildSegmentedData(category, group, value, rows, horizontal);
     case 'line':
       return category === null || value === null
         ? null
@@ -1072,11 +1143,15 @@ function buildData(
  *
  * @param family - The family the layer belongs to.
  * @param plan - The worksheet's column plan.
+ * @param horizontal - Whether the layer is horizontal, in which case a bar
+ * family's captions are swapped with its payload: the magnitude is on x and the
+ * category on y.
  * @returns The captions, each absent when the family has no such axis.
  */
 function defaultAxisLabels(
   family: TraceFamily,
   plan: ColumnPlan,
+  horizontal: boolean,
 ): { x?: string; y?: string; z?: string } {
   if (family === 'scatter') {
     return {
@@ -1094,6 +1169,17 @@ function defaultAxisLabels(
       z: plan.value?.caption,
     };
   }
+  if (horizontal) {
+    // A horizontal bar carries its magnitude on x and its category on y, so the
+    // captions travel with the payload. Naming them the other way round would
+    // announce the category label over the number and the measure label over
+    // the category name.
+    return {
+      x: plan.value?.caption,
+      y: plan.category?.caption,
+      z: plan.group?.caption,
+    };
+  }
   return {
     x: plan.category?.caption,
     y: plan.value?.caption,
@@ -1108,9 +1194,15 @@ function defaultAxisLabels(
  * Axes are always `AxisConfig` objects: a bare string is not accepted by the
  * grammar and silently degrades the label to `'X'` at runtime.
  *
+ * An explicit `override.axes` caption always wins, including on a horizontal
+ * layer: a page that hand-writes a caption is writing it for the axis as the
+ * layer will actually emit it.
+ *
  * @param family - The family the layer belongs to.
  * @param plan - The worksheet's column plan.
  * @param override - The page's overrides for this worksheet.
+ * @param horizontal - Whether the layer is horizontal, which swaps a bar
+ * family's default captions along with its payload.
  * @returns The axis configuration, with an axis omitted only when neither an
  * override nor a column names it.
  */
@@ -1118,8 +1210,9 @@ function buildAxes(
   family: TraceFamily,
   plan: ColumnPlan,
   override: TableauWorksheetOverride,
+  horizontal: boolean,
 ): { x?: AxisConfig; y?: AxisConfig; z?: AxisConfig } {
-  const defaults = defaultAxisLabels(family, plan);
+  const defaults = defaultAxisLabels(family, plan, horizontal);
   const axes: { x?: AxisConfig; y?: AxisConfig; z?: AxisConfig } = {};
 
   const x = override.axes?.x ?? defaults.x;
@@ -1177,7 +1270,18 @@ function buildLayer(
     return null;
   }
 
-  const build = buildData(type, plan, snapshot.rows);
+  // `orientation: 'horz'` is a claim about the payload, not a decoration on it.
+  // `AbstractBarPlot` reads an oriented layer's magnitude off `point.x` and its
+  // category off `point.y`, so a horizontal bar family has to be *built*
+  // transposed; stamping the flag onto the vertical shape would hand every bar
+  // `Number('<category>')`, i.e. `NaN`, and leave the chart silent with an empty
+  // braille display. Only the bar families are oriented — `IS_ORIENTED` is
+  // false for line, scatter, heat and pie, whose models ignore the field
+  // entirely — so nothing else transposes.
+  const horizontal = override.orientation === Orientation.HORIZONTAL
+    && (family === 'bar' || family === 'segmented');
+
+  const build = buildData(type, plan, snapshot.rows, horizontal);
   if (build === null) {
     warnOnce(
       warned,
@@ -1190,7 +1294,7 @@ function buildLayer(
     id: layerId,
     type,
     title: override.title ?? snapshot.name,
-    axes: buildAxes(family, plan, override),
+    axes: buildAxes(family, plan, override, horizontal),
     data: build.data,
   };
   // Nothing in the summary data says which way Tableau drew the bars, or where

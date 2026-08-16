@@ -58,10 +58,10 @@
     <p>
       A view embedded from Tableau Public and made accessible by the MAIDR
       Tableau adapter. Tab to the "Accessible chart view" block above the viz,
-      press Enter, then use the arrow keys to move between bars. Page Up and
-      Page Down move between worksheets when the embedded sheet is a dashboard.
-      Toggle B for Braille, T for Text, S for Sonification, and R for Review
-      mode.
+      press Enter, then use the arrow keys to move between bars. When the
+      embedded sheet is a dashboard, press Escape to return to the worksheet
+      list, Up and Down to choose a worksheet, and Enter to open it. Toggle B
+      for Braille, T for Text, S for Sonification, and R for Review mode.
     </p>
 
     <div class="note">
@@ -108,14 +108,25 @@
       to announce from its shape: one dimension and one measure read as a bar
       chart, a date dimension reads as a line, two dimensions read as a grouped
       bar chart, and two measures over a detail dimension read as a scatter
-      plot. Worksheets it cannot read honestly (a box plot, a map, a gantt) are
-      skipped with a console warning rather than approximated.
+      plot. A worksheet is skipped, with a console warning, only when it has no
+      measure to sonify, no dimension to navigate, or no rows at all.
+    </p>
+    <p>
+      That shape test is all the adapter has here, so it cannot recognise a
+      distribution or a map and step aside: a box plot is read as a bar chart of
+      its disaggregated marks, and a filled map as a scatter of latitude against
+      longitude — usually without a warning, because nothing looks wrong from
+      the data's side. Exclude such worksheets by name with
+      <code>overrides['&lt;worksheet&gt;'].skip</code>, or declare what they are
+      with <code>overrides['&lt;worksheet&gt;'].traceType</code>.
     </p>
     <p>
       There is no highlight box. The marks live inside a cross-origin iframe,
       so the host page cannot measure them; instead the mark under the cursor is
       <em>selected</em> in the Tableau view itself, which is what a sighted
-      colleague sees light up. Leaving the chart clears the selection again.
+      colleague sees light up. Tabbing out of the accessible chart block clears
+      the selection again, so no mark is left highlighted once you have moved
+      on.
     </p>
     <p>
       Changing a filter or a parameter in the view re-reads the data and
@@ -131,10 +142,22 @@
 
       // Nothing in the workbook is readable before `firstinteractive`; the data
       // API rejects if asked earlier.
-      viz.addEventListener('firstinteractive', () => {
-        const binding = maidrTableau.bindTableau(viz, {
-          title: 'Superstore Overview',
-        });
+      //
+      // `bindTableau` is async — it can only report whether any worksheet
+      // produced a navigable layer once the first read has finished — so the
+      // handler must await it. Branching on the un-awaited call would branch on
+      // a promise, which is always truthy, and this status region would claim
+      // success even when nothing was mounted.
+      viz.addEventListener('firstinteractive', async () => {
+        let binding = null;
+        try {
+          binding = await maidrTableau.bindTableau(viz, {
+            title: 'Superstore Overview',
+          });
+        } catch (error) {
+          status.textContent = `MAIDR could not bind to the Tableau view: ${error?.message ?? 'unknown error'}`;
+          return;
+        }
 
         status.textContent = binding
           ? 'Tableau view loaded and bound. Tab to the accessible chart view above the viz, then press Enter.'

@@ -194,8 +194,10 @@ describe('tableau selection bridge', () => {
     });
 
     it('should clear rather than select a rectangularized filler cell', async () => {
-      // `(Consumer, West)` was never drawn; the extractor fills it with `y: 0`
-      // so the segmented rows stay equal length, and gives it `null` criteria.
+      // `(Consumer, West)` was never drawn; the extractor pads it with a gap so
+      // the segmented rows stay equal length, and gives it `null` criteria —
+      // the pad is scaffolding, and selecting a mark nobody drew is worse than
+      // selecting nothing.
       const { bridge, worksheet } = bind(groupedSnapshot([
         ['East', 'Consumer', 10],
         ['West', 'Corporate', 40],
@@ -273,7 +275,7 @@ describe('tableau selection bridge', () => {
   });
 
   describe('when tableau refuses the selection', () => {
-    it('should disable that layer permanently and warn exactly once', async () => {
+    it('should disable that worksheet permanently and warn exactly once', async () => {
       const { bridge, worksheet } = bind(
         groupedSnapshot([
           ['East', 'Consumer', 10],
@@ -296,6 +298,66 @@ describe('tableau selection bridge', () => {
       // A rejected field name is wrong on every arrow key, so the second
       // navigation must not retry it — nor log a second time.
       expect(worksheet.calls.selections).toHaveLength(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should follow the worksheet that refused, not the layer id it sat at', async () => {
+      const rows = [
+        ['East', 'Consumer', 10],
+        ['East', 'Corporate', 20],
+        ['West', 'Consumer', 30],
+        ['West', 'Corporate', 40],
+      ];
+      const columns = [REGION, SEGMENT, SALES];
+      const refused = fakeWorksheet({
+        name: 'Sales by Region',
+        columns,
+        rows: [],
+        failSelect: true,
+      });
+      const willing = fakeWorksheet({ name: 'Profit by Region', columns, rows: [] });
+      // Two layers, so both `'0'` and `'1'` address a real cell and a latch can
+      // be asked which of the two it followed.
+      const { selection } = extractTableau([
+        fakeSnapshot({ name: refused.name, columns, rows }),
+        fakeSnapshot({ name: willing.name, columns, rows }),
+      ]);
+      // Shared across the bridges, as the binder shares one set across every
+      // refresh: a worksheet that rejects once rejects on every later read of
+      // the same fields.
+      const disabled = new Set<string>();
+      const guard = createSelectionGuard();
+      const bridgeOver = (
+        layers: Record<string, TableauWorksheet>,
+      ): SelectionBridge => ({
+        index: selection,
+        worksheets: new Map(Object.entries(layers)),
+        guard,
+        disabled,
+      });
+
+      await applySelection(
+        bridgeOver({ 0: refused, 1: willing }),
+        { layerId: '0', row: 0, col: 0 },
+      );
+
+      expect(refused.calls.selections).toHaveLength(1);
+      expect(warn.mock.calls[0][0]).toContain('"Sales by Region"');
+
+      // A refresh that drops a worksheet renumbers every layer after it, so the
+      // id the rejection happened at now belongs to a worksheet that never
+      // refused anything. Latching by position would silence it.
+      await applySelection(bridgeOver({ 0: willing }), { layerId: '0', row: 0, col: 0 });
+
+      expect(willing.calls.selections).toHaveLength(1);
+
+      // And the worksheet that did refuse stays disabled wherever it lands.
+      await applySelection(
+        bridgeOver({ 0: willing, 1: refused }),
+        { layerId: '1', row: 1, col: 1 },
+      );
+
+      expect(refused.calls.selections).toHaveLength(1);
       expect(warn).toHaveBeenCalledTimes(1);
     });
   });

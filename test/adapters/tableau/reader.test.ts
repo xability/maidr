@@ -17,9 +17,19 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
   return { promise, resolve };
 }
 
-/** The columns every worksheet in this file reports, in view order. */
+/**
+ * The columns every worksheet in this file reports, in view order.
+ *
+ * The names are chosen so that view order and alphabetical order **disagree**:
+ * `'SUM(Sales)'` sorts before `'Zone'`, so `fakeDataTable` serves the measure
+ * first while `getSummaryColumnsInfoAsync` reports the dimension first. Every
+ * assertion below that reads `row[0]` as the zone and `row[1]` as the measure
+ * therefore fails unless the reader really applies its index map — with an
+ * already-alphabetical fixture the remap would be the identity and prove
+ * nothing.
+ */
 const columns = [
-  fakeColumn('Category', 'string', 0),
+  fakeColumn('Zone', 'string', 0),
   fakeColumn('SUM(Sales)', 'float', 1),
 ];
 
@@ -52,7 +62,8 @@ describe('tableau worksheet reader', () => {
 
     expect(snapshot.name).toBe('Sales');
     expect(snapshot.rows).toHaveLength(5);
-    // View order, not the alphabetical order the reader's own columns are in.
+    // View order, not the alphabetical order the reader's own columns are in:
+    // the table serves `SUM(Sales)` first, and these come back as the zones.
     expect(snapshot.rows.map(row => row[0]?.nativeValue)).toEqual([
       'Chairs',
       'Tables',

@@ -104,7 +104,7 @@ describe('tableau extractor', () => {
       expect(layerOf(extraction).type).toBe(TraceType.DODGED);
     });
 
-    it('rectangularizes grouped bars, filling a missing cell with zero', () => {
+    it('rectangularizes grouped bars, padding a missing cell with a gap and never a zero', () => {
       const extraction = extractTableau([
         fakeSnapshot({
           columns: [category(), region(), measure()],
@@ -118,7 +118,12 @@ describe('tableau extractor', () => {
 
       const data = layerOf(extraction).data as SegmentedPoint[][];
       // `SegmentedTrace.createSummaryLevel()` sums across rows by index, so
-      // every series must hold the same categories in the same order.
+      // every series must hold the same categories in the same order — but it
+      // filters the segments it sums with `isMeasured`, so equal *length* is
+      // all it needs. The pad is therefore `NaN`, MAIDR's gap sentinel: a `0`
+      // would sonify as a real reading at the bottom of the range, be reachable
+      // as the row's minimum, and pull the scale every other bar is pitched
+      // against — for a bar the view never drew.
       expect(data).toEqual([
         [
           { x: 'Chairs', y: 1, z: 'East' },
@@ -126,9 +131,10 @@ describe('tableau extractor', () => {
         ],
         [
           { x: 'Chairs', y: 3, z: 'West' },
-          { x: 'Tables', y: 0, z: 'West' },
+          { x: 'Tables', y: Number.NaN, z: 'West' },
         ],
       ]);
+      expect(Number.isNaN(data[1][1].y as number)).toBe(true);
       expect(new Set(data.map(series => series.length)).size).toBe(1);
       expect(data.every(series => series.every(point => point.z !== undefined))).toBe(true);
     });
@@ -158,7 +164,7 @@ describe('tableau extractor', () => {
       ]);
     });
 
-    it('reads a numeric dimension as a line too, since it is an ordered axis', () => {
+    it('reads a numeric date-part dimension as a line too, since it is an ordered axis', () => {
       const extraction = extractTableau([
         fakeSnapshot({
           columns: [fakeColumn('YEAR(Order Date)', 'int', 0), measure()],
@@ -167,6 +173,32 @@ describe('tableau extractor', () => {
       ]);
 
       expect(layerOf(extraction).type).toBe(TraceType.LINE);
+    });
+
+    it('reads a continuous axis as a point cloud rather than dropping the worksheet', () => {
+      // A continuous field on an axis — an unaggregated `Discount`, or a
+      // `Sales (bin)` field — is classified as a second *measure*, because every
+      // numeric column goes to the measure rung. The worksheet therefore has no
+      // dimension at all, and the point-cloud rung has to be tested before the
+      // "nothing to navigate" skip or a perfectly readable view vanishes.
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Profit by Discount',
+          columns: [fakeColumn('Discount', 'float', 0), fakeColumn('SUM(Profit)', 'float', 1)],
+          rows: [[0.1, 5], [0.2, 9], [0.3, 2]],
+        }),
+      ]);
+
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.SCATTER);
+      expect(layer.data as ScatterPoint[]).toEqual([
+        { x: 0.1, y: 5 },
+        { x: 0.2, y: 9 },
+        { x: 0.3, y: 2 },
+      ]);
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('no dimension to navigate'),
+      );
     });
 
     it('gives every point of a grouped line a z, and does not pad the shorter series', () => {
@@ -557,6 +589,144 @@ describe('tableau extractor', () => {
       expect(declared.orientation).toBe(Orientation.HORIZONTAL);
       expect(declared.stepDirection).toBe('hv');
     });
+
+    it('transposes a horizontal bar, so the magnitude is the value the model reads', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sheet 1',
+            columns: [category(), measure()],
+            rows: [['Chairs', 3], ['Tables', 1]],
+          }),
+        ],
+        { overrides: { 'Sheet 1': { orientation: Orientation.HORIZONTAL } } },
+      );
+
+      const layer = layerOf(extraction);
+      expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+      // `AbstractBarPlot` reads an oriented layer's magnitude off `point.x`.
+      // Stamping the flag onto the vertical payload would give it
+      // `Number('Chairs')`, i.e. `NaN` for every bar: no tone, no braille, and
+      // "Min value: missing".
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 3, y: 'Chairs' },
+        { x: 1, y: 'Tables' },
+      ]);
+      // The captions travel with the payload.
+      expect(layer.axes).toEqual({ x: { label: 'Sales' }, y: { label: 'Category' } });
+    });
+
+    it('transposes a horizontal grouped bar, keeping the series order and the pad', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sheet 1',
+            columns: [category(), region(), measure()],
+            rows: [
+              ['Chairs', 'East', 1],
+              ['Tables', 'East', 2],
+              ['Chairs', 'West', 3],
+            ],
+          }),
+        ],
+        { overrides: { 'Sheet 1': { orientation: Orientation.HORIZONTAL } } },
+      );
+
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.DODGED);
+      // `[group][category]` is unchanged: `SegmentedTrace.createSummaryLevel()`
+      // already reads the category off `y` when the trace is horizontal.
+      expect(layer.data as SegmentedPoint[][]).toEqual([
+        [
+          { x: 1, y: 'Chairs', z: 'East' },
+          { x: 2, y: 'Tables', z: 'East' },
+        ],
+        [
+          { x: 3, y: 'Chairs', z: 'West' },
+          { x: Number.NaN, y: 'Tables', z: 'West' },
+        ],
+      ]);
+      expect(layer.axes).toEqual({
+        x: { label: 'Sales' },
+        y: { label: 'Category' },
+        z: { label: 'Region' },
+      });
+    });
+
+    it('leaves an explicit axis caption alone on a horizontal layer', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sheet 1',
+            columns: [category(), measure()],
+            rows: [['Chairs', 3]],
+          }),
+        ],
+        {
+          overrides: {
+            'Sheet 1': {
+              orientation: Orientation.HORIZONTAL,
+              axes: { x: 'Revenue', y: 'Product' },
+            },
+          },
+        },
+      );
+
+      // A page that hand-writes a caption is writing it for the axis as the
+      // layer will actually emit it.
+      expect(layerOf(extraction).axes).toEqual({
+        x: { label: 'Revenue' },
+        y: { label: 'Product' },
+      });
+    });
+
+    it('does not transpose a family the model never orients', () => {
+      const january = fakeValue(new Date('2021-01-01T00:00:00Z'), 'January 2021');
+
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sheet 1',
+            columns: [month(), measure()],
+            rows: [[january, 10]],
+          }),
+        ],
+        { overrides: { 'Sheet 1': { orientation: Orientation.HORIZONTAL } } },
+      );
+
+      // `IS_ORIENTED` is false for the line family, so `LineTrace` never reads
+      // `layer.orientation`; transposing here would only mislabel the axes.
+      const layer = layerOf(extraction);
+      expect(layer.data as LinePoint[][]).toEqual([[{ x: 'January 2021', y: 10 }]]);
+      expect(layer.axes).toEqual({ x: { label: 'MONTH(Order Date)' }, y: { label: 'Sales' } });
+    });
+
+    it('reads a z override that names the only dimension as the category axis', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sales by Region',
+            columns: [category('Region'), measure()],
+            rows: [['East', 3], ['West', 1]],
+          }),
+        ],
+        { overrides: { 'Sales by Region': { z: 'Region' } } },
+      );
+
+      // Grouping the only dimension away would leave nothing to navigate, and
+      // the ladder would drop the worksheet reporting that it has no dimension
+      // — which is false, and never names the override that caused it.
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.BAR);
+      expect(layer.data as BarPoint[]).toEqual([
+        { x: 'East', y: 3 },
+        { x: 'West', y: 1 },
+      ]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('is the only dimension'));
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('no dimension to navigate'),
+      );
+    });
   });
 
   describe('the subplot grid', () => {
@@ -804,7 +974,7 @@ describe('tableau extractor', () => {
         { fieldName: 'Category', value: 'Chairs' },
         { fieldName: 'Region', value: 'East' },
       ]);
-      // The `y: 0` at `[West][Tables]` is the adapter's scaffolding, not a mark.
+      // The pad at `[West][Tables]` is the adapter's scaffolding, not a mark.
       expect(cells?.[1][1]).toBeNull();
     });
 

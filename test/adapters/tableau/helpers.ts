@@ -6,18 +6,24 @@
  * `src/adapters/tableau/types.ts` — so a plain object satisfies it and no
  * network, no live viz and no vendor bundle are needed here.
  *
- * The factories deliberately reproduce the two traps the real API sets, because
- * a fake that is tidier than the thing it stands in for proves nothing:
+ * The factories deliberately reproduce the traps the real API sets, because a
+ * fake that is tidier than the thing it stands in for proves nothing:
  *
  * - {@link fakeDataTable} sorts its columns **alphabetically**, exactly as a
  *   real `DataTableReader` does, while {@link fakeWorksheet} keeps
  *   `getSummaryColumnsInfoAsync` in view order. A test that writes its columns
- *   in view order and reads its rows back in view order is therefore proving
- *   the view↔alphabetical remap works, not assuming it away.
+ *   so that the two orders differ, and reads its rows back in view order, is
+ *   therefore proving the view↔alphabetical remap works rather than assuming it
+ *   away — a fixture whose names happen to be alphabetical already proves
+ *   nothing, since the remap is then the identity.
  * - {@link fakeWorksheet} counts the readers it opens and the releases it is
  *   given and records the order of every call in a shared log, so a leaked
  *   reader or a read that started before the previous one finished is a failed
  *   assertion rather than an invisible bug.
+ * - {@link fakeViz} exposes `workbook` as an accessor that **throws** until the
+ *   viz is interactive, rather than leaving the property undefined, because
+ *   that is what the real custom element does and it is the difference between
+ *   waiting for `firstinteractive` and appearing to be ready.
  *
  * Not a test file: jest's `*.test.ts` glob does not match this name.
  */
@@ -32,6 +38,7 @@ import type {
   TableauGetSummaryDataOptions,
   TableauRow,
   TableauSelectionCriteria,
+  TableauSheet,
   TableauVisualSpecification,
   TableauViz,
   TableauWorkbook,
@@ -91,7 +98,14 @@ export interface FakeWorksheetConfig {
   name?: string;
   /** Columns in **view order**, as `getSummaryColumnsInfoAsync` returns them. */
   columns: readonly TableauColumn[];
-  /** Rows in view order; the reader serves them alphabetically remapped. */
+  /**
+   * Rows in view order; the reader serves them alphabetically remapped.
+   *
+   * Read when a reader is *opened*, not when the worksheet is built, exactly as
+   * a real one snapshots the view at that moment. A test that keeps a mutable
+   * reference to this array can therefore change what the next read returns,
+   * which is how a filter change is expressed here.
+   */
   rows: readonly (readonly FakeCell[])[];
   /**
    * The visual specification to report. When omitted the worksheet has **no**
@@ -252,29 +266,33 @@ export function fakeWorksheet(config: FakeWorksheetConfig): FakeWorksheet {
     releases: 0,
     clears: 0,
   };
-  const pages = paginate(config.rows, config.pageSize);
-
-  const openReader = (): TableauDataTableReader => ({
-    pageCount: pages.length,
-    totalRowCount: config.rows.length,
-    getPageAsync: async (pageNumber: number): Promise<TableauDataTable> => {
-      if (pageNumber === 0 && config.holdFirstPage !== undefined) {
-        await config.holdFirstPage;
-      }
-      calls.log.push(`page:${name}:${pageNumber}`);
-      if (pageNumber === config.failPage) {
-        throw config.pageError ?? new Error(`page ${pageNumber} of "${name}" failed`);
-      }
-      return fakeDataTable(config.columns, pages[pageNumber] ?? []);
-    },
-    releaseAsync: async (): Promise<void> => {
-      calls.releases++;
-      calls.log.push(`release:${name}`);
-      if (config.failRelease === true) {
-        throw new Error(`release of "${name}" failed`);
-      }
-    },
-  });
+  // Paginated per reader rather than once per worksheet: the rows are whatever
+  // `config.rows` holds when the reader is opened, so a test can change the
+  // data between two reads the way a filter change does.
+  const openReader = (): TableauDataTableReader => {
+    const pages = paginate(config.rows, config.pageSize);
+    return {
+      pageCount: pages.length,
+      totalRowCount: config.rows.length,
+      getPageAsync: async (pageNumber: number): Promise<TableauDataTable> => {
+        if (pageNumber === 0 && config.holdFirstPage !== undefined) {
+          await config.holdFirstPage;
+        }
+        calls.log.push(`page:${name}:${pageNumber}`);
+        if (pageNumber === config.failPage) {
+          throw config.pageError ?? new Error(`page ${pageNumber} of "${name}" failed`);
+        }
+        return fakeDataTable(config.columns, pages[pageNumber] ?? []);
+      },
+      releaseAsync: async (): Promise<void> => {
+        calls.releases++;
+        calls.log.push(`release:${name}`);
+        if (config.failRelease === true) {
+          throw new Error(`release of "${name}" failed`);
+        }
+      },
+    };
+  };
 
   const worksheet: FakeWorksheet = {
     name,
@@ -377,29 +395,79 @@ export function fakeDashboard(
   return { name, sheetType: 'dashboard', worksheets };
 }
 
+/** A viz element whose active sheet the test can change, or take away. */
+export interface FakeVizHandle {
+  /** The element itself. */
+  readonly viz: TableauViz;
+  /**
+   * Make this sheet the active one, or `null` to make the viz unreadable again.
+   *
+   * Setting a sheet is what a `tabswitched` means; `null` is a viz that has not
+   * become interactive.
+   */
+  readonly setActiveSheet: (sheet: TableauSheet | null) => void;
+}
+
 /**
- * Build a live `<tableau-viz>` element whose active sheet is a dashboard.
+ * Build a live `<tableau-viz>` element whose active sheet a test controls.
  *
  * A real one is a custom element the Embedding library upgraded, so this uses a
  * genuine element rather than a cast: the binder inserts a sibling next to it
  * and must never re-parent it, and only a real node can show that.
  *
+ * `workbook` is an accessor that **throws** until a sheet is set, which is what
+ * a real viz does before it is interactive — the property exists from the
+ * moment the element is upgraded, and reading through it is what fails. An
+ * adapter that treats `workbook !== undefined` as readiness therefore breaks
+ * here rather than passing by accident.
+ *
+ * @param active - The sheet to start active, or `null` for a viz that is still
+ * loading.
+ * @param name - The workbook's name.
+ * @returns The element and the setter that changes its active sheet.
+ * @throws When there is no DOM — add `@jest-environment jsdom` to the test.
+ */
+export function fakeViz(
+  active: TableauSheet | null = null,
+  name = 'Workbook 1',
+): FakeVizHandle {
+  if (typeof document === 'undefined') {
+    throw new TypeError('fakeViz needs a DOM; add a `@jest-environment jsdom` docblock.');
+  }
+  const element = document.createElement('tableau-viz');
+  let sheet = active;
+  Object.defineProperty(element, 'workbook', {
+    configurable: true,
+    get(): TableauWorkbook {
+      if (sheet === null) {
+        throw new Error('the viz is not interactive yet');
+      }
+      // A fresh wrapper per read, as the custom element builds one.
+      return { name, activeSheet: sheet };
+    },
+  });
+
+  return {
+    viz: element,
+    setActiveSheet: (next: TableauSheet | null): void => {
+      sheet = next;
+    },
+  };
+}
+
+/**
+ * Build a live `<tableau-viz>` element whose active sheet is a dashboard.
+ *
+ * The common case of {@link fakeViz}, for a test that never changes the sheet.
+ *
  * @param worksheets - The dashboard's worksheets, in add-order.
  * @param name - The dashboard's name.
- * @returns The viz element, already carrying a workbook.
+ * @returns The viz element, already carrying a readable workbook.
  * @throws When there is no DOM — add `@jest-environment jsdom` to the test.
  */
 export function fakeDashboardViz(
   worksheets: readonly TableauWorksheet[],
   name = 'Dashboard 1',
 ): TableauViz {
-  if (typeof document === 'undefined') {
-    throw new TypeError(
-      'fakeDashboardViz needs a DOM; add a `@jest-environment jsdom` docblock.',
-    );
-  }
-  const element = document.createElement('tableau-viz');
-  const workbook: TableauWorkbook = { name, activeSheet: fakeDashboard(worksheets, name) };
-  Object.defineProperty(element, 'workbook', { value: workbook, configurable: true });
-  return element;
+  return fakeViz(fakeDashboard(worksheets, name), name).viz;
 }
