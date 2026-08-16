@@ -475,6 +475,28 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
+   // scatterplot on a category axis: `xLabel` / `yLabel` name the category the
+   // coordinate is a *position* for. A strip plot, a swarm plot and a jittered
+   // `geom_point` all draw this shape.
+   //
+   // The coordinate stays numeric. The trace sorts on it, measures distance
+   // with it, and resolves the column index that stereo panning uses from it,
+   // and `'a' - 'b'` is NaN -- a string in `x` alone would give an unstable
+   // sort, a broken column index and a highlight that lands nowhere. Emit the
+   // tick position, not the drawn coordinate: on a strip plot the drawn one is
+   // the jitter, a precise number for a quantity that does not exist.
+   //
+   // Either axis may carry the names -- `stripplot(x='g', y='v')` puts them on
+   // x and `stripplot(y='g', x='v')` puts them on y -- so name the one that
+   // applies and leave the other off. An empty string counts as absent.
+   maidr = {
+     data: [
+       { "x": 0, "xLabel": "a", "y": 1.4 },
+       { "x": 0, "xLabel": "a", "y": 2.1 },
+       { "x": 1, "xLabel": "b", "y": 3.0 }
+     ],
+   };
+
    // smooth line maidr.data: an object containing x and y properties, each with an array of float values
    // note that data is an array here as scatterplots are often combine with line plots
    maidr = {

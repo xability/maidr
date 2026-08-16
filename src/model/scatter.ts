@@ -18,6 +18,18 @@ interface ScatterXPoint {
   x: number;
   y: number[];
   z: number[];
+  /**
+   * The category name this column stands for, when the x axis carries names.
+   * Scalar because every point in the column shares the x that is the slot.
+   */
+  label?: string;
+  /**
+   * Index-aligned with `y`: the category name of each point's y, when the y
+   * axis carries names. An array rather than a scalar because a column's y
+   * values differ from one another, which is the whole reason the column
+   * exists.
+   */
+  yLabels: (string | undefined)[];
 }
 
 /**
@@ -28,6 +40,10 @@ interface ScatterYPoint {
   x: number[];
   y: number;
   z: number[];
+  /** The category name this row stands for; see {@link ScatterXPoint.label}. */
+  label?: string;
+  /** Index-aligned with `x`; see {@link ScatterXPoint.yLabels}. */
+  xLabels: (string | undefined)[];
 }
 
 /**
@@ -57,6 +73,47 @@ enum NavMode {
 }
 
 /**
+ * A category name if the producer supplied a usable one, otherwise undefined.
+ *
+ * An empty string counts as absent, per {@link ScatterPoint.xLabel}: a
+ * producer that emits `''` for an unnamed slot gets the number announced
+ * rather than a blank where a value should be.
+ */
+function nameOf(label: string | undefined): string | undefined {
+  return label || undefined;
+}
+
+/**
+ * The name a coordinate stands for, or the coordinate itself.
+ *
+ * Every announcement of an x or a y goes through this, so a categorical axis
+ * reads as its categories and a continuous one is untouched. Kept as one
+ * function rather than inlined at each site because the trace announces a
+ * coordinate from six places (two base modes, point mode, intersection mode,
+ * grid-cell point mode) and a site that forgot would announce a slot index as
+ * though it were a measurement.
+ */
+function named(value: number, label: string | undefined): number | string {
+  return label ?? value;
+}
+
+/**
+ * The same, for the index-aligned arrays a column or row announces.
+ *
+ * Returns the numbers untouched when no element carries a name, so a
+ * continuous axis keeps emitting `number[]` exactly as before.
+ */
+function namedAll(
+  values: number[],
+  labels: (string | undefined)[],
+): number[] | string[] {
+  if (!labels.some(Boolean)) {
+    return values;
+  }
+  return values.map((value, index) => labels[index] ?? String(value));
+}
+
+/**
  * A single scatter datapoint as the point-navigation rotor sees it,
  * paired with its rendered SVG element (when one was found).
  */
@@ -64,6 +121,10 @@ interface FlatPoint {
   x: number;
   y: number;
   z: number;
+  /** See {@link ScatterPoint.xLabel}; undefined on a continuous axis. */
+  xLabel?: string;
+  /** See {@link ScatterPoint.yLabel}; undefined on a continuous axis. */
+  yLabel?: string;
   svg: SVGElement | null;
   /** Index of this point's x among the sorted unique x values (`xPoints`). */
   xIndex: number;
@@ -201,10 +262,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     let currentX: ScatterXPoint | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
-        currentX = { x: point.x, y: [], z: [] };
+        currentX = { x: point.x, y: [], z: [], label: nameOf(point.xLabel), yLabels: [] };
         this.xPoints.push(currentX);
       }
       currentX.y.push(point.y);
+      currentX.yLabels.push(nameOf(point.yLabel));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
@@ -213,10 +275,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     let currentY: ScatterYPoint | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
-        currentY = { y: point.y, x: [], z: [] };
+        currentY = { y: point.y, x: [], z: [], label: nameOf(point.yLabel), xLabels: [] };
         this.yPoints.push(currentY);
       }
       currentY.x.push(point.x);
+      currentY.xLabels.push(nameOf(point.xLabel));
       currentY.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
@@ -292,6 +355,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         x: p.x,
         y: p.y,
         z: typeof p.z === 'number' ? p.z : Number.NaN,
+        xLabel: nameOf(p.xLabel),
+        yLabel: nameOf(p.yLabel),
         svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
         xIndex,
         yIndexInColumn: Math.max(0, column.indexOf(p.y)),
@@ -743,18 +808,34 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       const stack = this.getIntersectionStackValues();
       const idx = Math.min(this.intersectionStackIndex, Math.max(0, stack.length - 1));
       const z = this.textZ([this.getIntersectionStackZ()[idx] ?? Number.NaN]);
+      // The stack is one axis' values; its names come from the other point's
+      // index-aligned label array, so the cursor announces the category the
+      // chart drew rather than the slot it was drawn at.
+      const stackLabels = this.getIntersectionStackLabels();
       if (this.mode === NavMode.COL) {
         const xPoint = this.xPoints[this.col];
         return {
-          main: { label: this.xAxis, value: xPoint?.x ?? '' },
-          cross: { label: this.yAxis, value: stack[idx] ?? '' },
+          main: {
+            label: this.xAxis,
+            value: xPoint === undefined ? '' : named(xPoint.x, xPoint.label),
+          },
+          cross: {
+            label: this.yAxis,
+            value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
+          },
           z,
         };
       }
       const yPoint = this.yPoints[this.row];
       return {
-        main: { label: this.yAxis, value: yPoint?.y ?? '' },
-        cross: { label: this.xAxis, value: stack[idx] ?? '' },
+        main: {
+          label: this.yAxis,
+          value: yPoint === undefined ? '' : named(yPoint.y, yPoint.label),
+        },
+        cross: {
+          label: this.xAxis,
+          value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
+        },
         z,
       };
     }
@@ -764,8 +845,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // The echo train carries z as density; without this the number itself is
       // unreachable in the one mode built for reading a single 3D point.
       return {
-        main: { label: this.xAxis, value: point.x },
-        cross: { label: this.yAxis, value: point.y },
+        main: { label: this.xAxis, value: named(point.x, point.xLabel) },
+        cross: { label: this.yAxis, value: named(point.y, point.yLabel) },
         z: this.textZ([point.z]),
       };
     }
@@ -777,8 +858,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       if (this.isInGridCellMode && this.cellXPoints.length > 0) {
         const currentPoint = this.cellXPoints[this.cellPointIndex];
         return {
-          main: { label: this.xAxis, value: currentPoint.x },
-          cross: { label: this.yAxis, value: currentPoint.y },
+          main: { label: this.xAxis, value: named(currentPoint.x, currentPoint.label) },
+          cross: {
+            label: this.yAxis,
+            value: namedAll(currentPoint.y, currentPoint.yLabels),
+          },
           z: this.textZ(currentPoint.z),
           gridPosition: { row: this.gridRow + 1, col: this.gridCol + 1 },
         };
@@ -798,15 +882,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
       return {
-        main: { label: this.xAxis, value: current.x },
-        cross: { label: this.yAxis, value: current.y },
+        main: { label: this.xAxis, value: named(current.x, current.label) },
+        cross: { label: this.yAxis, value: namedAll(current.y, current.yLabels) },
         z: this.textZ(current.z),
       };
     } else {
       const current = this.yPoints[this.row];
       return {
-        main: { label: this.yAxis, value: current.y },
-        cross: { label: this.xAxis, value: current.x },
+        main: { label: this.yAxis, value: named(current.y, current.label) },
+        cross: { label: this.xAxis, value: namedAll(current.x, current.xLabels) },
         z: this.textZ(current.z),
       };
     }
@@ -828,8 +912,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     ];
 
     const headers = [this.xAxis, this.yAxis];
+    // Named the same way the announcements are, so the table a reader exports
+    // or reads cell by cell agrees with what navigation told them. A table
+    // still showing slot indices after the cursor said "a" would be the same
+    // defect one surface over.
     const rows: (string | number)[][] = this.xPoints.flatMap(xp =>
-      xp.y.map(y => [xp.x, y]),
+      xp.y.map((y, index) => [named(xp.x, xp.label), named(y, xp.yLabels[index])]),
     );
 
     return {
@@ -1579,11 +1667,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           this.cellSvgGroups.push(currentSvgGroup);
           this.cellIndexGroups.push(currentIndexGroup);
         }
-        currentX = { x: point.x, y: [], z: [] };
+        currentX = { x: point.x, y: [], z: [], label: nameOf(point.xLabel), yLabels: [] };
         currentSvgGroup = [];
         currentIndexGroup = [];
       }
       currentX.y.push(point.y);
+      currentX.yLabels.push(nameOf(point.yLabel));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
       if (svg)
         currentSvgGroup.push(svg);
@@ -1775,6 +1864,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return this.xPoints[this.col]?.z ?? [];
     }
     return this.yPoints[this.row]?.z ?? [];
+  }
+
+  /**
+   * The category names of the stack the intersection cursor is walking,
+   * index-aligned with {@link getIntersectionStackValues}.
+   *
+   * The stack holds the *cross* axis' values — a column's y in COL mode, a
+   * row's x in ROW mode — so the names come from the matching label array.
+   *
+   * @returns One name per point in the current stack, `undefined` where the
+   *   axis is continuous; empty when the cursor is out of bounds
+   */
+  private getIntersectionStackLabels(): (string | undefined)[] {
+    if (this.mode === NavMode.COL) {
+      return this.xPoints[this.col]?.yLabels ?? [];
+    }
+    return this.yPoints[this.row]?.xLabels ?? [];
   }
 
   // ── Point navigation (POINT_MODE) ─────────────────────────────────────

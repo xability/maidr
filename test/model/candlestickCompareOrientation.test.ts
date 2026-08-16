@@ -50,7 +50,9 @@ function makeLayer(orientation: Orientation): MaidrLayer {
  * @param trace - The trace to inspect
  * @returns The current candle's x label
  */
-function currentDate(trace: Candlestick): string | number | number[] | undefined {
+function currentDate(
+  trace: Candlestick,
+): string | number | number[] | string[] | undefined {
   const state = trace.state;
   return state.empty ? undefined : state.text.main.value;
 }
