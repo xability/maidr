@@ -1,3 +1,51 @@
+# [4.3.0](https://github.com/xability/maidr/compare/v4.2.0...v4.3.0) (2026-08-16)
+
+
+### Bug Fixes
+
+* **ci:** size the e2e report's code fence so its content cannot close it ([#924](https://github.com/xability/maidr/issues/924)) ([e4afdd9](https://github.com/xability/maidr/commit/e4afdd9c9ffe5f76e604dce8b4416b89cbc36c48)), closes [#715](https://github.com/xability/maidr/issues/715)
+* **docs:** generate the examples gallery so it cannot miss a page ([#914](https://github.com/xability/maidr/issues/914)) ([f5aecad](https://github.com/xability/maidr/commit/f5aecad934944c3f36413e23403b81493b3428f0)), closes [#911](https://github.com/xability/maidr/issues/911)
+* **docs:** give built pages heading ids so in-page links jump ([#918](https://github.com/xability/maidr/issues/918)) ([9ed5a39](https://github.com/xability/maidr/commit/9ed5a396e2e4668c3d00e6d91861995223d73607)), closes [#917](https://github.com/xability/maidr/issues/917) [#913](https://github.com/xability/maidr/issues/913)
+* **docs:** resolve the committed conflict markers and guard against more ([#921](https://github.com/xability/maidr/issues/921)) ([0c04513](https://github.com/xability/maidr/commit/0c04513a25cb96afbff3d15195cbb435716140b1)), closes [#918](https://github.com/xability/maidr/issues/918) [#917](https://github.com/xability/maidr/issues/917)
+* **highlight:** let a flow or network trace publish the ribbon it highlighted ([#906](https://github.com/xability/maidr/issues/906)) ([da131aa](https://github.com/xability/maidr/commit/da131aa76099a2730119e9bdf9c5391f99a72cd9)), closes [#895](https://github.com/xability/maidr/issues/895) [#903](https://github.com/xability/maidr/issues/903) [#899](https://github.com/xability/maidr/issues/899) [#904](https://github.com/xability/maidr/issues/904) [#903](https://github.com/xability/maidr/issues/903) [#904](https://github.com/xability/maidr/issues/904) [#904](https://github.com/xability/maidr/issues/904)
+* **line:** read every path command, so a staircase highlights its samples ([#908](https://github.com/xability/maidr/issues/908)) ([035c5bd](https://github.com/xability/maidr/commit/035c5bdd95d076385d7e26b815fb0e9503811005))
+* **plotly:** count a box's group across the whole box layer ([#883](https://github.com/xability/maidr/issues/883)) ([78375cb](https://github.com/xability/maidr/commit/78375cb4587b1468fb14d4dc5381b0529f172d3a)), closes [#882](https://github.com/xability/maidr/issues/882)
+* **plotly:** scope a candlestick's selector to its own panel and trace ([#882](https://github.com/xability/maidr/issues/882)) ([1cf0470](https://github.com/xability/maidr/commit/1cf0470be356e5d9adcb97d938d0795695367042)), closes [#881](https://github.com/xability/maidr/issues/881)
+* **trace:** answer empty rather than throwing when the cursor has no point ([#909](https://github.com/xability/maidr/issues/909)) ([893d6ea](https://github.com/xability/maidr/commit/893d6ead3d7b6078f4e0bdf798c0b1b537522a48))
+* **trace:** answer for a row that does not exist instead of throwing ([#916](https://github.com/xability/maidr/issues/916)) ([4b6f731](https://github.com/xability/maidr/commit/4b6f7315fca7f2de45d417c95fe4a2a1fe18f449)), closes [#905](https://github.com/xability/maidr/issues/905)
+
+
+### Features
+
+* **adapters:** add the co-located maidr trace declaration ([#886](https://github.com/xability/maidr/issues/886)) ([bbd62b6](https://github.com/xability/maidr/commit/bbd62b690c4e2bd46ce7ae8532303be557abe026))
+* **adapters:** close the declaration-foundation gaps the adapters reported ([#900](https://github.com/xability/maidr/issues/900)) ([ec47b0e](https://github.com/xability/maidr/commit/ec47b0eb12200b8d50e70d964e6aab31f57a93e9)), closes [#896](https://github.com/xability/maidr/issues/896) [#896](https://github.com/xability/maidr/issues/896)
+* **amcharts:** read flow, hierarchy, map and gauge charts ([#903](https://github.com/xability/maidr/issues/903)) ([7cf4c5c](https://github.com/xability/maidr/commit/7cf4c5ce3f64dcedbaf39553f213e29ee4f7385d))
+* **amcharts:** read the chart types deferred out of the coverage PR ([#895](https://github.com/xability/maidr/issues/895)) ([5a39999](https://github.com/xability/maidr/commit/5a39999581a6f033bc5de762a68bcd7d776c97e0))
+* **amcharts:** support the chart types added since the pie chart ([#879](https://github.com/xability/maidr/issues/879)) ([1763eec](https://github.com/xability/maidr/commit/1763eec9667d0fb26bc59de9e8bc9eb8a5545562))
+* **anychart:** read the chart types deferred out of the coverage PR ([#892](https://github.com/xability/maidr/issues/892)) ([cd9c89f](https://github.com/xability/maidr/commit/cd9c89fd449f3c9d2d9f6ebb7033fb58923fc1dc))
+* **anychart:** support the chart types added since the pie chart ([#877](https://github.com/xability/maidr/issues/877)) ([3f0cb99](https://github.com/xability/maidr/commit/3f0cb994f50f10ad92a9670fef70ce034804f174))
+* **area:** announce and highlight the step direction of a filled staircase ([#902](https://github.com/xability/maidr/issues/902)) ([1715d6a](https://github.com/xability/maidr/commit/1715d6ab0a170ae805f8aa4408ff80fb26989f85))
+* **chartjs:** read the chart types deferred out of the coverage PR ([#890](https://github.com/xability/maidr/issues/890)) ([0c402aa](https://github.com/xability/maidr/commit/0c402aad757f03b46a91668bee793b87db990705))
+* **chartjs:** support the chart types added since the pie chart ([#872](https://github.com/xability/maidr/issues/872)) ([b482bdc](https://github.com/xability/maidr/commit/b482bdcd78f576480552896ab8a43882253fe6a9))
+* **d3:** read the chart types deferred out of the coverage PR ([#888](https://github.com/xability/maidr/issues/888)) ([aad9d47](https://github.com/xability/maidr/commit/aad9d47c18e0f6cd0c881449e94a963c24126ce1))
+* **d3:** support the chart types added since the pie chart ([#880](https://github.com/xability/maidr/issues/880)) ([e4e5e69](https://github.com/xability/maidr/commit/e4e5e69912e88e9f759fe7e673db693aa84ab9ae))
+* **frappe:** support the chart types added since the pie chart ([#870](https://github.com/xability/maidr/issues/870)) ([739f55d](https://github.com/xability/maidr/commit/739f55de5b27d371598236333bb979f3cc5f77aa))
+* **google-charts:** support the chart types added since the pie chart ([#876](https://github.com/xability/maidr/issues/876)) ([b4bfa5c](https://github.com/xability/maidr/commit/b4bfa5c84f656fad4bef082128f978ae77435bdb))
+* **highcharts:** read the chart types deferred out of the coverage PR ([#893](https://github.com/xability/maidr/issues/893)) ([22853ee](https://github.com/xability/maidr/commit/22853eef267a116c59fa370ea33407856dd06ae9))
+* **highcharts:** support the chart types added since the pie chart ([#878](https://github.com/xability/maidr/issues/878)) ([33a4336](https://github.com/xability/maidr/commit/33a4336cf69eb6da4fee3f8208af8366883fb382)), closes [WordcloudSeries#drawPoints](https://github.com/WordcloudSeries/issues/drawPoints)
+* **highlight:** let a canvas adapter address a scatter-family point ([#899](https://github.com/xability/maidr/issues/899)) ([e13ba10](https://github.com/xability/maidr/commit/e13ba101d19f8d073631af08e7ee1e5f9b85f1eb)), closes [#897](https://github.com/xability/maidr/issues/897) [#897](https://github.com/xability/maidr/issues/897)
+* **line:** let a fitted curve carry its confidence band ([#920](https://github.com/xability/maidr/issues/920)) ([9233d51](https://github.com/xability/maidr/commit/9233d51921fe2f35e25d58484d1ad4bebfed3ea5))
+* **line:** let a sample carry a position with no reading ([#926](https://github.com/xability/maidr/issues/926)) ([d2ccc1b](https://github.com/xability/maidr/commit/d2ccc1b3d0b6a91068a494292a123ba3d37a2259)), closes [xability/py-maidr#427](https://github.com/xability/py-maidr/issues/427) [#925](https://github.com/xability/maidr/issues/925)
+* **observable:** make Quarto's Observable Plot charts accessible ([#887](https://github.com/xability/maidr/issues/887)) ([7d9f419](https://github.com/xability/maidr/commit/7d9f419aa5996cf23ba02ab9ef5719912dd80baa))
+* **observable:** name the watcher for what it watches, and document the plain-page path ([#898](https://github.com/xability/maidr/issues/898)) ([7e2a8bf](https://github.com/xability/maidr/commit/7e2a8bf9a780baf449c1467d2698ed8c93e565ad)), closes [#887](https://github.com/xability/maidr/issues/887)
+* **plotly:** read the chart types deferred out of the coverage PR ([#891](https://github.com/xability/maidr/issues/891)) ([5a7c4ac](https://github.com/xability/maidr/commit/5a7c4ac8dd96a00fdca550d4e842f6a7da0c7a8c))
+* **plotly:** support the chart types added since the pie chart ([#874](https://github.com/xability/maidr/issues/874)) ([d2ed9c6](https://github.com/xability/maidr/commit/d2ed9c60af64d97bdb56d36398b22b5dc0a7be13))
+* **recharts:** read the chart types deferred out of the coverage PR ([#894](https://github.com/xability/maidr/issues/894)) ([b8f4b3a](https://github.com/xability/maidr/commit/b8f4b3a4b2f0c3bb5a76124caef758e4f7578e95))
+* **recharts:** support the chart types added since the pie chart ([#875](https://github.com/xability/maidr/issues/875)) ([bd4e637](https://github.com/xability/maidr/commit/bd4e63772a14dcc06bb2c8fe2513d053014e160c))
+* **vegalite:** read the chart types deferred out of the coverage PR ([#889](https://github.com/xability/maidr/issues/889)) ([713660a](https://github.com/xability/maidr/commit/713660a3bfaa3f099b433232d543ead982309f2e))
+* **vegalite:** support the chart types added since the pie chart ([#871](https://github.com/xability/maidr/issues/871)) ([170c4d1](https://github.com/xability/maidr/commit/170c4d1a8fa526073b64f8219520c479271f9c1e))
+* **victory:** support the chart types added since the pie chart ([#873](https://github.com/xability/maidr/issues/873)) ([5ef2429](https://github.com/xability/maidr/commit/5ef24296b8f10bc74840e889b05c88d491ecf174))
+
 # [4.2.0](https://github.com/xability/maidr/compare/v4.1.0...v4.2.0) (2026-08-13)
 
 
