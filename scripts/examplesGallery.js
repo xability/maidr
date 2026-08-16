@@ -131,6 +131,14 @@ export const CHART_TITLES = {
  * "<integration> <link text>" need.
  */
 export const TITLES = {
+  // `area.html` declares `stacked_area`, not `area` -- the plain one is
+  // `area-overlapping.html`. The deslugify fallback would label this page
+  // "Area" and seat it directly beside "Area Overlapping", where the two
+  // read as a chart and a variant of it rather than as the two distinct
+  // trace types they are. Link text is the whole of what a screen reader
+  // announces here, so it names the type the page actually declares.
+  'area.html': 'Stacked Area Chart',
+  'alluvial.html': 'Alluvial Diagram',
   // Hand-authored MAIDR JSON pages: titles carried over from the old list.
   'barplot.html': 'Barplot',
   'candlestick_multilayer.html': 'Candlestick multilayer',
