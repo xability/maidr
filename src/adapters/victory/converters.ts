@@ -855,9 +855,12 @@ function isNormalizedStack(series: LinePoint[][]): boolean {
   const totals = new Map<string, number>();
   for (const band of series) {
     for (const point of band) {
-      if (!Number.isFinite(point.y))
+      // A band with a gap is not a normalized stack: its column cannot sum to
+      // the whole. `Number.isFinite(null)` was already false here.
+      const value = point.y;
+      if (value === null || !Number.isFinite(value))
         return false;
-      totals.set(String(point.x), (totals.get(String(point.x)) ?? 0) + point.y);
+      totals.set(String(point.x), (totals.get(String(point.x)) ?? 0) + value);
     }
   }
   if (totals.size < 2)

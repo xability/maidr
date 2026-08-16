@@ -8,6 +8,7 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
+import { isMeasured, toBarValue } from './bar';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
@@ -138,11 +139,25 @@ export class LineTrace extends AbstractTrace {
 
     this.points = layer.data as LinePoint[][];
 
+    // `toBarValue` rather than `Number`, for the reason its own docstring
+    // gives: `Number(null)` is `0`, which makes a gap indistinguishable from a
+    // point genuinely measured at zero. It would sound like a real low
+    // reading, be reachable as the row's minimum, and pull the range every
+    // other point's pitch is scaled against. `NaN` keeps it absent, which is
+    // what the audio and text services already read as missing (#925).
+    //
+    // Imported from `bar.ts` because that is where the convention lives and
+    // where it is documented; `PieTrace`, `FunnelTrace`, `DivergingTrace` and
+    // `SegmentedTrace` all reach for it the same way.
     this.lineValues = this.points.map(row =>
-      row.map(point => Number(point.y)),
+      row.map(point => toBarValue(point.y)),
     );
-    this.min = this.lineValues.map(row => MathUtil.safeMin(row));
-    this.max = this.lineValues.map(row => MathUtil.safeMax(row));
+    // Gaps are filtered out of the range rather than filtered in: `Math.min`
+    // of anything containing `NaN` is `NaN`, which would leave every point in
+    // the row with a non-finite range to be scaled against and silence the
+    // whole series rather than the one gap.
+    this.min = this.lineValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
+    this.max = this.lineValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
 
     // `layer.selectors` is `string | string[] | ...` per the schema. When a
     // single-line binder (e.g. the D3 smooth/line binders) emits a bare
@@ -321,11 +336,13 @@ export class LineTrace extends AbstractTrace {
       headers = [this.xAxis, this.yAxis, labels.column];
       rows = this.points.flatMap((line, i) => {
         const lineName = this.groupNameAt(i);
-        return line.map(p => [p.x, p.y, lineName]);
+        // A gap prints as an empty cell rather than as a number it does
+        // not have; `TextService` names it "missing" when spoken.
+        return line.map(p => [p.x, p.y ?? '', lineName]);
       });
     } else {
       headers = [this.xAxis, this.yAxis];
-      rows = this.points[0].map(p => [p.x, p.y]);
+      rows = this.points[0].map(p => [p.x, p.y ?? '']);
     }
 
     return {
@@ -370,7 +387,14 @@ export class LineTrace extends AbstractTrace {
         continue;
       }
 
-      const sortedPoints = [...pointsAtCol].sort((a, b) => a.y - b.y);
+      // Gaps take no part in the ordering: there is no magnitude to rank
+      // them by, and `null - null` would sort them somewhere arbitrary and
+      // then report one as the column's top or bottom.
+      const measured = pointsAtCol.filter(p => p.y !== null);
+      if (measured.length === 0) {
+        continue;
+      }
+      const sortedPoints = [...measured].sort((a, b) => a.y! - b.y!);
       const bottom = { row: sortedPoints[0].row, col: c };
       const top = { row: sortedPoints[sortedPoints.length - 1].row, col: c };
       for (let i = 0; i < sortedPoints.length; i++) {
@@ -499,8 +523,15 @@ export class LineTrace extends AbstractTrace {
     // so the human-readable name rides alongside as `label`. Announce the name
     // when there is one, and the number otherwise — which is the right reading
     // for the continuous y that most line charts have.
+    // `lineValues`, not `point.y`: identical for every measured point, and
+    // `NaN` for a gap, which `TextService.formatSingleValue` already announces
+    // as "missing". Reading `point.y` here would hand it a `null` instead —
+    // which it also names correctly, but only because the text layer is
+    // tolerant, and the two would then disagree with what audio and braille
+    // were given.
     const label = point.label;
-    const crossValue = label === undefined || label === '' ? point.y : label;
+    const value = this.lineValues[this.row][this.col];
+    const crossValue = label === undefined || label === '' ? value : label;
 
     return {
       main: { label: this.xAxis, value: this.points[this.row][this.col].x },
@@ -633,7 +664,7 @@ export class LineTrace extends AbstractTrace {
             freq: {
               min: this.min[r],
               max: this.max[r],
-              raw: currentY,
+              raw: toBarValue(currentY),
             },
             // The cursor's own cell, not series `r`'s -- an intersection is
             // one point that several series share, so every tone in the chord
@@ -713,13 +744,21 @@ export class LineTrace extends AbstractTrace {
       }
 
       const lineY = this.points[row][matchingPointIndex].y;
+      const cursorY = this.points[this.row][this.col].y;
+
+      // Neither end of the comparison can be a gap. "The nearest line above
+      // this one" is a question about two magnitudes, and a sample with no
+      // reading is not above or below anything -- `null > n` is false and
+      // `null < n` is true, so leaving it in would make every gap look like a
+      // candidate in one direction and rank it at distance `n` from nothing.
+      if (lineY === null || cursorY === null) {
+        continue;
+      }
 
       // Check if this line's y value is in the desired direction
       const isValidDirection
-        = direction === 'UPWARD'
-          ? lineY > this.points[this.row][this.col].y
-          : lineY < this.points[this.row][this.col].y;
-      const distance = Math.abs(lineY - this.points[this.row][this.col].y);
+        = direction === 'UPWARD' ? lineY > cursorY : lineY < cursorY;
+      const distance = Math.abs(lineY - cursorY);
 
       if (!isValidDirection) {
         continue;
@@ -852,12 +891,18 @@ export class LineTrace extends AbstractTrace {
       const linePointElements: SVGElement[] = [];
       let lineFailed = false;
       for (const coordinate of coordinates) {
-        if (Number.isNaN(Number(coordinate.x)) || Number.isNaN(coordinate.y)) {
+        // `toBarValue` so a gap reaches the same branch a NaN already did:
+        // there is no y to put a marker at. A series carrying one therefore
+        // gets no synthesized highlight at all, which is the existing
+        // behaviour for an unusable coordinate rather than a new limitation --
+        // and only affects charts whose highlight maidr draws itself.
+        const markerY = toBarValue(coordinate.y);
+        if (Number.isNaN(Number(coordinate.x)) || !Number.isFinite(markerY)) {
           lineFailed = true;
           break;
         }
         linePointElements.push(
-          Svg.createCircleElement(coordinate.x, coordinate.y, lineElement),
+          Svg.createCircleElement(coordinate.x, markerY, lineElement),
         );
       }
       if (lineFailed) {

@@ -736,19 +736,24 @@ export function holdsRanks(seriesList: AmXYSeries[]): boolean {
 
   for (const series of seriesList) {
     for (const point of extractLinePoints(series)) {
-      if (!Number.isInteger(point.y) || point.y < 1 || point.y > competitors)
+      // A rank is a whole number in `1..competitors`, so a gap disqualifies
+      // the series exactly as a fractional or out-of-range value does --
+      // `Number.isInteger(null)` was already false, this only lets the
+      // compiler see it.
+      const rank = point.y;
+      if (rank === null || !Number.isInteger(rank) || rank < 1 || rank > competitors)
         return false;
 
       const period = String(point.x);
       const taken = takenAt.get(period);
       if (taken == null)
-        takenAt.set(period, new Set([point.y]));
-      else if (taken.has(point.y))
+        takenAt.set(period, new Set([rank]));
+      else if (taken.has(rank))
         return false;
       else
-        taken.add(point.y);
+        taken.add(rank);
 
-      best = Math.min(best, point.y);
+      best = Math.min(best, rank);
       ranks++;
     }
   }

@@ -74,7 +74,7 @@ describe('vega-Lite merged multi-series line layers', () => {
       // which is worse for a screen reader user than no name at all.
       const series = onlyLayer(densitySpec, view).data as LinePoint[][];
       const peakX = series.map(points =>
-        points.reduce((best, p) => (p.y > best.y ? p : best)).x,
+        points.reduce((best, p) => (p.y! > best.y! ? p : best)).x,
       );
 
       expect(new Set(peakX).size).toBe(3);
