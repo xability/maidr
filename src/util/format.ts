@@ -57,8 +57,42 @@ export const defaultFormat: FormatFunction = (value: number | string): string =>
 };
 
 /**
+ * A value as a finite number, or `null` when it is not one.
+ *
+ * Every numeric formatter below used `Number.parseFloat(String(value))` and
+ * formatted the result unconditionally, which meant a *category name* came
+ * back formatted as a number that does not exist:
+ *
+ *     formatters.currency('USD', 2)('Cherries')  ->  "$NaN"
+ *     formatters.percent(1)('Cherries')          ->  "NaN%"
+ *     formatters.number(2)('Cherries')           ->  "NaN"
+ *
+ * A named axis with a numeric `AxisFormat` is a legal combination —
+ * {@link BarPoint.x} is `string | number`, and {@link ScatterPoint.xLabel}
+ * now reaches the same place — so this is not a malformed payload being
+ * punished. It is a formatter meeting a value it cannot express, and
+ * announcing "g is $NaN" is a confident statement of something false, which
+ * is the failure this library exists to prevent (#930).
+ *
+ * The rule matches one the text service already applies a layer up: a
+ * non-finite *number* is announced as missing rather than as a value. Here
+ * the value is real and only the formatting does not apply, so it is
+ * announced as itself.
+ *
+ * @param value - A value arriving at a formatter
+ * @returns The number, or `null` when the value is not a finite number
+ */
+function asFiniteNumber(value: number | string): number | null {
+  const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
  * Pre-built formatter factories for common formatting patterns.
- * Used internally by type specifiers.
+ *
+ * Each returns the value unchanged when it is not the kind of thing the
+ * formatter can express — see {@link asFiniteNumber}. Used internally by type
+ * specifiers.
  */
 export const formatters = {
   /**
@@ -75,7 +109,10 @@ export const formatters = {
    */
   currency: (currency = 'USD', decimals = 2, locale = 'en-US'): FormatFunction =>
     (value: number | string): string => {
-      const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      const num = asFiniteNumber(value);
+      if (num === null) {
+        return String(value);
+      }
       return new Intl.NumberFormat(locale, {
         style: 'currency',
         currency,
@@ -96,7 +133,10 @@ export const formatters = {
    */
   percent: (decimals = 1): FormatFunction =>
     (value: number | string): string => {
-      const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      const num = asFiniteNumber(value);
+      if (num === null) {
+        return String(value);
+      }
       return `${(num * 100).toFixed(decimals)}%`;
     },
 
@@ -113,7 +153,14 @@ export const formatters = {
    */
   date: (options?: Intl.DateTimeFormatOptions, locale = 'en-US'): FormatFunction =>
     (value: number | string): string => {
+      // `Intl.DateTimeFormat.format` *throws* a RangeError on an invalid
+      // date rather than returning a NaN-ish string, and nothing between
+      // here and the announcement catches it -- so a date format on a named
+      // axis took the whole reading out, not just this value.
       const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
       return new Intl.DateTimeFormat(locale, options).format(date);
     },
 
@@ -130,7 +177,10 @@ export const formatters = {
    */
   number: (decimals = 0, locale = 'en-US'): FormatFunction =>
     (value: number | string): string => {
-      const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      const num = asFiniteNumber(value);
+      if (num === null) {
+        return String(value);
+      }
       return new Intl.NumberFormat(locale, {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
@@ -149,7 +199,10 @@ export const formatters = {
    */
   scientific: (decimals = 2): FormatFunction =>
     (value: number | string): string => {
-      const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      const num = asFiniteNumber(value);
+      if (num === null) {
+        return String(value);
+      }
       return num.toExponential(decimals);
     },
 
@@ -165,7 +218,10 @@ export const formatters = {
    */
   fixed: (decimals = 2): FormatFunction =>
     (value: number | string): string => {
-      const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      const num = asFiniteNumber(value);
+      if (num === null) {
+        return String(value);
+      }
       return num.toFixed(decimals);
     },
 };
