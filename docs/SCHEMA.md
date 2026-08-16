@@ -244,6 +244,49 @@ The data property is defined as a list of objects where each object is a record 
             "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
   }
 
+  // boxen (letter-value) maidr.data structure: one object per distribution,
+  // each with a median and a ladder of quantile pairs. A box plot is this
+  // shape with exactly one rung; the point of a boxen is that a larger sample
+  // earns more of them, so the depth varies per distribution and between them.
+  maidr = {
+    "type": "boxen",
+    "data": [
+              {
+                "z": "Group 1",
+                "median": 99.64912548800726,
+                // Ordered outward from the median. `p` is the *tail*
+                // probability, which is how letter-value plots are defined
+                // and how the libraries drawing them report it: p = 0.25 is
+                // the rung spanning the middle half, p = 0.125 the middle
+                // three quarters, and so on. `lo` is the p quantile and `hi`
+                // is the 1 - p quantile.
+                //
+                // Getting this backwards is the easy mistake -- a producer
+                // that sends the *coverage* (0.5, 0.75, 0.875) rather than
+                // the tail will have every rung announced as the wrong
+                // percentile while the values stay right. The trace sorts by
+                // p rather than trusting the order sent, so a ladder built
+                // inward-first still reads correctly.
+                //
+                // 0.5 is out of range rather than a way of naming the median:
+                // it would put two positions labelled "50th percentile"
+                // either side of the one already called "median". Rungs
+                // outside (0, 0.5) are dropped.
+                "levels": [
+                  { "p": 0.0625, "lo": 71.35, "hi": 118.19 },
+                  { "p": 0.125,  "lo": 80.11, "hi": 112.44 },
+                  { "p": 0.25,   "lo": 92.62, "hi": 107.67 }
+                ],
+                // Whatever fell beyond the deepest rung. Optional; a ladder
+                // drawn to full depth has none.
+                "lowerOutliers": [40.0, 50.0],
+                "upperOutliers": [150.0, 160.0]
+              }
+            ],
+
+            "orientation": "vert" // horz when the distributions run across the page
+  }
+
   //candlestick
   maidr = {
     "data":[
