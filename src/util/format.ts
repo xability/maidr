@@ -134,7 +134,10 @@ export const formatters = {
   percent: (decimals = 1): FormatFunction =>
     (value: number | string): string => {
       const num = asFiniteNumber(value);
-      return num === null ? String(value) : `${(num * 100).toFixed(decimals)}%`;
+      if (num === null) {
+        return String(value);
+      }
+      return `${(num * 100).toFixed(decimals)}%`;
     },
 
   /**
@@ -197,7 +200,10 @@ export const formatters = {
   scientific: (decimals = 2): FormatFunction =>
     (value: number | string): string => {
       const num = asFiniteNumber(value);
-      return num === null ? String(value) : num.toExponential(decimals);
+      if (num === null) {
+        return String(value);
+      }
+      return num.toExponential(decimals);
     },
 
   /**
@@ -213,7 +219,10 @@ export const formatters = {
   fixed: (decimals = 2): FormatFunction =>
     (value: number | string): string => {
       const num = asFiniteNumber(value);
-      return num === null ? String(value) : num.toFixed(decimals);
+      if (num === null) {
+        return String(value);
+      }
+      return num.toFixed(decimals);
     },
 };
 
