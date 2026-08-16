@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>MAIDR Area Example — Snowpack Depth by Station</title>
+</head>
+
+<body>
+  <div>
+    <link rel="stylesheet" href="../dist/maidr.css" />
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <div>
+      <!--
+        A plain area layer is a LINE with the region under it filled in, and
+        the fill is what the mark looks like rather than a second magnitude.
+        So several AREA series are read INDEPENDENTLY of one another: each
+        sample announces its own series' value and nothing else, exactly as a
+        multi-line chart does.
+
+        That is the whole distinction from examples/area.html next door, which
+        carries the same nested payload and declares STACKED_AREA. Had this
+        layer said stacked_area, MAIDR would sum the series itself and every
+        sample would carry a second number -- Ridge in January would be
+        announced inside a total of 215, 55.8% of it -- and the chart would be
+        reporting a combined snowpack that no station measured. Two stations'
+        depths do not add up to anything, which is exactly why this layer is
+        area and not stacked_area.
+
+        The bands OVERLAP AND CROSS, which is the visible half of the same
+        fact. Valley sits under Ridge in December and over it in February.
+        Stacked bands never cross: the second one is drawn on top of the first
+        by construction, so a crossing is a shape only independent series can
+        make.
+
+        And the crossing is navigable, because up and down are ordered by
+        VALUE at the current x rather than by the order the series were
+        declared. At January, down goes from Ridge to Valley; at February the
+        two have swapped, so it is UP that reaches Valley and down that leaves
+        the chart. A reader who walks the columns pressing the same key hears
+        the overtake happen.
+
+        Each band is drawn the way every renderer draws one: out along its top
+        edge through each sample, then back along the baseline, then closed.
+        That is 2N vertices for N samples, and only the first N are data --
+        MAIDR keeps those and drops the return journey, so a highlight never
+        lands on a baseline. test/model/areaHighlight.test.ts pins it.
+      -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="720pt" height="420pt" viewBox="0 0 720 420" version="1.1"
+        id="area-snowpack" maidr='{&#10;  &quot;id&quot;: &quot;area-snowpack&quot;,&#10;  &quot;subplots&quot;: [&#10;    [&#10;      {&#10;        &quot;id&quot;: &quot;area-snowpack-subplot&quot;,&#10;        &quot;layers&quot;: [&#10;          {&#10;            &quot;id&quot;: &quot;area-snowpack-layer&quot;,&#10;            &quot;type&quot;: &quot;area&quot;,&#10;            &quot;title&quot;: &quot;Snowpack Depth by Station&quot;,&#10;            &quot;axes&quot;: {&#10;              &quot;x&quot;: {&#10;                &quot;label&quot;: &quot;Month&quot;&#10;              },&#10;              &quot;y&quot;: {&#10;                &quot;label&quot;: &quot;Snow depth (cm)&quot;&#10;              },&#10;              &quot;z&quot;: {&#10;                &quot;label&quot;: &quot;Station&quot;&#10;              }&#10;            },&#10;            &quot;selectors&quot;: [&#10;              &quot;g[id=&#x27;area-snowpack-ridge&#x27;] path&quot;,&#10;              &quot;g[id=&#x27;area-snowpack-valley&#x27;] path&quot;&#10;            ],&#10;            &quot;data&quot;: [&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;Nov&quot;,&#10;                  &quot;y&quot;: 40,&#10;                  &quot;z&quot;: &quot;Ridge&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Dec&quot;,&#10;                  &quot;y&quot;: 85,&#10;                  &quot;z&quot;: &quot;Ridge&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Jan&quot;,&#10;                  &quot;y&quot;: 120,&#10;                  &quot;z&quot;: &quot;Ridge&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Feb&quot;,&#10;                  &quot;y&quot;: 110,&#10;                  &quot;z&quot;: &quot;Ridge&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Mar&quot;,&#10;                  &quot;y&quot;: 60,&#10;                  &quot;z&quot;: &quot;Ridge&quot;&#10;                }&#10;              ],&#10;              [&#10;                {&#10;                  &quot;x&quot;: &quot;Nov&quot;,&#10;                  &quot;y&quot;: 15,&#10;                  &quot;z&quot;: &quot;Valley&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Dec&quot;,&#10;                  &quot;y&quot;: 60,&#10;                  &quot;z&quot;: &quot;Valley&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Jan&quot;,&#10;                  &quot;y&quot;: 95,&#10;                  &quot;z&quot;: &quot;Valley&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Feb&quot;,&#10;                  &quot;y&quot;: 130,&#10;                  &quot;z&quot;: &quot;Valley&quot;&#10;                },&#10;                {&#10;                  &quot;x&quot;: &quot;Mar&quot;,&#10;                  &quot;y&quot;: 45,&#10;                  &quot;z&quot;: &quot;Valley&quot;&#10;                }&#10;              ]&#10;            ]&#10;          }&#10;        ]&#10;      }&#10;    ]&#10;  ]&#10;}'>
+        <g id="figure_1">
+          <g id="figure-background">
+            <path d="M 0 420  L 720 420  L 720 0  L 0 0  z " style="fill: #ffffff" />
+          </g>
+          <g id="axes_1">
+            <g id="axes-background">
+              <path d="M 90 360  L 660 360  L 660 60  L 90 60  z " style="fill: #ffffff" />
+            </g>
+            <g id="grid">
+          <path d="M 90 360 L 660 360 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90 285 L 660 285 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90 210 L 660 210 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90 135 L 660 135 " style="stroke: #dddddd; stroke-width: 0.8" />
+          <path d="M 90 60 L 660 60 " style="stroke: #dddddd; stroke-width: 0.8" />
+            </g>
+            <g id="area-snowpack-ridge">
+          <path d="M 90 274.3 L 232.5 177.9 L 375 102.9 L 517.5 124.3 L 660 231.4 L 660 360 L 517.5 360 L 375 360 L 232.5 360 L 90 360 Z" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #4c72b0; stroke-width: 1.5" />
+            </g>
+            <g id="area-snowpack-valley">
+          <path d="M 90 327.9 L 232.5 231.4 L 375 156.4 L 517.5 81.4 L 660 263.6 L 660 360 L 517.5 360 L 375 360 L 232.5 360 L 90 360 Z" style="fill: #dd8452; fill-opacity: 0.55; stroke: #dd8452; stroke-width: 1.5" />
+            </g>
+            <g id="axis_y">
+          <text x="80" y="364" style="font: 12px sans-serif; text-anchor: end">0</text>
+          <text x="80" y="289" style="font: 12px sans-serif; text-anchor: end">35</text>
+          <text x="80" y="214" style="font: 12px sans-serif; text-anchor: end">70</text>
+          <text x="80" y="139" style="font: 12px sans-serif; text-anchor: end">105</text>
+          <text x="80" y="64" style="font: 12px sans-serif; text-anchor: end">140</text>
+              <text x="30" y="210" transform="rotate(-90 30 210)" style="font: 13px sans-serif; text-anchor: middle">Snow depth (cm)</text>
+            </g>
+            <g id="axis_x">
+          <text x="90" y="382" style="font: 12px sans-serif; text-anchor: middle">Nov</text>
+          <text x="232.5" y="382" style="font: 12px sans-serif; text-anchor: middle">Dec</text>
+          <text x="375" y="382" style="font: 12px sans-serif; text-anchor: middle">Jan</text>
+          <text x="517.5" y="382" style="font: 12px sans-serif; text-anchor: middle">Feb</text>
+          <text x="660" y="382" style="font: 12px sans-serif; text-anchor: middle">Mar</text>
+              <text x="375" y="406" style="font: 13px sans-serif; text-anchor: middle">Month</text>
+            </g>
+            <g id="legend">
+          <rect x="540" y="76" width="12" height="12" style="fill: #4c72b0; fill-opacity: 0.55; stroke: #4c72b0" />
+          <text x="558" y="87" style="font: 12px sans-serif; text-anchor: start">Ridge</text>
+          <rect x="540" y="96" width="12" height="12" style="fill: #dd8452; fill-opacity: 0.55; stroke: #dd8452" />
+          <text x="558" y="107" style="font: 12px sans-serif; text-anchor: start">Valley</text>
+            </g>
+            <g id="chart-title">
+              <text x="375" y="38" style="font: 16px sans-serif; text-anchor: middle">Snowpack Depth by Station</text>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</body>
+
+</html>
