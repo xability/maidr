@@ -21,6 +21,12 @@ interface ScatterXPoint {
   /**
    * The category name this column stands for, when the x axis carries names.
    * Scalar because every point in the column shares the x that is the slot.
+   *
+   * Taken from the first point grouped into the column, which assumes one
+   * name per numeric slot -- the premise of the shape, since the slot *is*
+   * the category. A producer that emitted two different names for one `x`
+   * would have the second silently dropped; there is nothing better to do
+   * with it, and inventing a second column would split a category in half.
    */
   label?: string;
   /**

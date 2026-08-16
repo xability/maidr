@@ -489,6 +489,11 @@ The data property is defined as a list of objects where each object is a record 
    // Either axis may carry the names -- `stripplot(x='g', y='v')` puts them on
    // x and `stripplot(y='g', x='v')` puts them on y -- so name the one that
    // applies and leave the other off. An empty string counts as absent.
+   //
+   // One name per numeric slot: every point sharing an `x` must carry the same
+   // `xLabel`, since the slot *is* the category. A second, different name for
+   // the same `x` is dropped rather than splitting the category into two
+   // columns.
    maidr = {
      data: [
        { "x": 0, "xLabel": "a", "y": 1.4 },

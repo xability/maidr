@@ -123,6 +123,34 @@ describe('a scatter whose x axis carries names', () => {
     expect(stateOf(trace).text.main.value).toBe('a');
   });
 
+  test('grid-cell point mode announces the category', () => {
+    // The fifth announcing site, and the one easiest to leave behind: it has
+    // its own grouping pass (`enterGridCell`) rather than reusing `xPoints`,
+    // so naming the other four does not name this one.
+    //
+    // Grid mode needs per-axis min/max/tickStep before the trace will build
+    // cells at all, which is why this layer differs from the others here.
+    const trace = new ScatterTrace({
+      id: 'grid-category',
+      type: TraceType.SCATTER,
+      title: 'Category axis, gridded',
+      axes: {
+        x: { label: 'g', min: 0, max: 4, tickStep: 2 },
+        y: { label: 'v', min: 0, max: 4, tickStep: 2 },
+      },
+      data: [
+        { x: 0, xLabel: 'a', y: 0.5 },
+        { x: 1, xLabel: 'b', y: 0.7 },
+        { x: 3, xLabel: 'd', y: 3 },
+      ],
+    });
+    trace.isInitialEntry = false;
+    trace.setGridMode(true);
+
+    expect(trace.enterGridCell()).toBe(true);
+    expect(stateOf(trace).text.main.value).toBe('a');
+  });
+
   test('the description table shows names rather than slots', () => {
     // A table still listing 0, 1, 2 after the cursor said "a" would be the
     // same defect one surface over.
