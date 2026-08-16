@@ -354,8 +354,17 @@ export type AxisType = 'x' | 'y' | 'z';
  * Text description state containing labels and values for screen reader output.
  */
 export interface TextState {
-  main: { label: string; value: number | number[] | string };
-  cross: { label: string; value: number | number[] | string };
+  /**
+   * `string[]` for the same reason `number[]` is here: one navigation step can
+   * cover several points. A categorical scatter reaches it — in ROW mode the
+   * cross value is every x sharing that y, and on a strip plot those x are
+   * category names ({@link ScatterPoint.xLabel}). `TextService` already
+   * formats arrays as `(number | string)[]` and joins them, so this widens
+   * the type to what the service has always accepted rather than adding a
+   * shape it has to learn.
+   */
+  main: { label: string; value: number | number[] | string | string[] };
+  cross: { label: string; value: number | number[] | string | string[] };
   /**
    * Third-dimension value for heatmaps, segmented bars, pie slices and 3D
    * scatter. `number[]` when one navigation step covers several points that

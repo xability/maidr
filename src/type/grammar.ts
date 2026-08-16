@@ -929,6 +929,48 @@ export interface ScatterPoint {
   x: number;
   y: number;
   z?: number;
+  /**
+   * The name of the category `x` is a position for, when the x axis carries
+   * names rather than measurements.
+   *
+   * `x` stays numeric because {@link ScatterTrace} does arithmetic on it —
+   * `sort((a, b) => a.x - b.x)`, `Math.hypot(center.x - _x, …)`, and the
+   * column index that stereo panning resolves through. `'a' - 'b'` is `NaN`,
+   * so a string in `x` alone would give an unstable sort, a broken column
+   * index and a highlight that resolves to nothing. The name therefore
+   * travels *alongside* the position rather than in place of it, which is
+   * also what the chart is: a category **at** a slot.
+   *
+   * {@link LinePoint} needs no equivalent for x because it never subtracts
+   * one — `LinePoint.x` simply widens to `string`. {@link LinePoint.label} is
+   * the same idea as this one applied to a line's *y*, which cannot widen
+   * because it drives sonification.
+   *
+   * A categorical scatter is not a rare shape: it is what
+   * `seaborn.stripplot`, `seaborn.swarmplot` and `ggplot2::geom_jitter` draw,
+   * and what any `geom_point` on a discrete scale draws. Without this a
+   * reader hears "g is 0" where the chart says "a" (#927).
+   *
+   * An empty string counts as absent, so a producer emitting `''` for an
+   * unnamed slot gets the numeric announcement rather than a blank one.
+   *
+   * @example
+   * { x: 0, xLabel: 'a', y: 12.5 }
+   */
+  xLabel?: string;
+  /**
+   * The name of the category `y` is a position for, for the same reasons
+   * {@link ScatterPoint.xLabel} gives.
+   *
+   * Both axes carry one because either can be the categorical one: a strip
+   * plot drawn `sns.stripplot(df, x='g', y='v')` puts the names on x, and
+   * `sns.stripplot(df, y='g', x='v')` puts them on y. A single un-suffixed
+   * `label` would leave a consumer guessing which coordinate it names.
+   *
+   * @example
+   * { x: 12.5, y: 0, yLabel: 'a' }
+   */
+  yLabel?: string;
 }
 
 /**
