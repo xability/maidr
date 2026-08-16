@@ -423,6 +423,67 @@ function createBrailleServiceWithSettingsTrigger(displaySize: number): {
   return { service, triggerDisplaySizeChange, setContextState };
 }
 
+/**
+ * A line sample with a position and no reading, on the braille display (#925).
+ *
+ * A gap reaches the encoder as `NaN`, and every threshold comparison in
+ * `getBrailleChar` loses against it — so before this it fell all the way
+ * through to `return ''`. Not a wrong glyph but *no* glyph: the encoded row
+ * came out one character shorter than the row has cells, which slides every
+ * cursor position past the gap onto the wrong point. The bar encoder has
+ * always written a blank for one.
+ */
+describe('a line gap on the braille display', () => {
+  /** A three-sample row whose middle value was never measured. */
+  function rowWithGap(): TraceState {
+    const state = createLineTraceState([[1, Number.NaN, 3]], 0, 0);
+    // `createLineTraceState` derives the range with `Math.min(...items)`,
+    // which is NaN once a gap is in the row. `LineTrace` filters gaps out of
+    // its range for exactly that reason, so the state is corrected to match
+    // what the model really emits.
+    (state as { braille: { min: number[]; max: number[] } }).braille.min = [1];
+    (state as { braille: { min: number[]; max: number[] } }).braille.max = [3];
+    return state;
+  }
+
+  function encode(state: TraceState): string {
+    const { service } = createBrailleService(10);
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+    disposable.dispose();
+    service.dispose();
+    return emitted.split('\n')[0];
+  }
+
+  test('takes a cell of its own rather than none', () => {
+    // The assertion that matters is the length: a missing character is what
+    // desynchronises the cursor mapping, and it is invisible in the output.
+    expect(encode(rowWithGap())).toHaveLength(3);
+  });
+
+  test('reads as blank', () => {
+    expect(encode(rowWithGap())[1]).toBe(' ');
+  });
+
+  test('leaves the measured samples with their own glyphs', () => {
+    const encoded = encode(rowWithGap());
+
+    expect(encoded[0]).not.toBe(' ');
+    expect(encoded[2]).not.toBe(' ');
+  });
+
+  test('a row with no gaps is unchanged', () => {
+    const encoded = encode(createLineTraceState([[1, 2, 3]], 0, 0));
+
+    expect(encoded).toHaveLength(3);
+    expect(encoded).not.toContain(' ');
+  });
+});
+
 describe('BrailleService display-size encoding', () => {
   test('encodes one newline when row length is less than display size', () => {
     const { service } = createBrailleService(10);

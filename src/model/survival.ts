@@ -236,7 +236,10 @@ export class SurvivalTrace extends StepTrace {
   private medianSurvivalOf(arm: number): number | string | null {
     const curve = this.survivalPoints[arm] ?? [];
     for (const point of curve) {
-      if (Number.isFinite(point.y) && point.y <= 0.5) {
+      // A gap is not a crossing: the curve has no value there to compare
+      // against a half. `Number.isFinite(null)` was already false.
+      const survival = point.y;
+      if (survival !== null && Number.isFinite(survival) && survival <= 0.5) {
         return point.x;
       }
     }

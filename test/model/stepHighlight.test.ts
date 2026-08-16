@@ -30,11 +30,11 @@ const PIXEL_FOR_SAMPLE = [10, 20, 30, 40];
  * @returns The `d` attribute of the staircase path
  */
 function staircasePath(): string {
-  const commands = [`M ${PIXEL_FOR_SAMPLE[0]} ${PIXEL_FOR_LEVEL[POINTS[0].y]}`];
+  const commands = [`M ${PIXEL_FOR_SAMPLE[0]} ${PIXEL_FOR_LEVEL[POINTS[0].y!]}`];
   for (let i = 1; i < POINTS.length; i++) {
     // Horizontal to the next x at the old level, then vertical to the new one.
-    commands.push(`L ${PIXEL_FOR_SAMPLE[i]} ${PIXEL_FOR_LEVEL[POINTS[i - 1].y]}`);
-    commands.push(`L ${PIXEL_FOR_SAMPLE[i]} ${PIXEL_FOR_LEVEL[POINTS[i].y]}`);
+    commands.push(`L ${PIXEL_FOR_SAMPLE[i]} ${PIXEL_FOR_LEVEL[POINTS[i - 1].y!]}`);
+    commands.push(`L ${PIXEL_FOR_SAMPLE[i]} ${PIXEL_FOR_LEVEL[POINTS[i].y!]}`);
   }
   return commands.join(' ');
 }
@@ -57,8 +57,8 @@ function midStaircasePath(): string {
   xs.push(PIXEL_FOR_SAMPLE[POINTS.length - 1]);
 
   const ys = POINTS.flatMap(point => [
-    PIXEL_FOR_LEVEL[point.y],
-    PIXEL_FOR_LEVEL[point.y],
+    PIXEL_FOR_LEVEL[point.y!],
+    PIXEL_FOR_LEVEL[point.y!],
   ]);
 
   return xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
@@ -151,7 +151,7 @@ describe('step trace highlight mapping', () => {
     expect(circles).toEqual(
       POINTS.map((point, i) => ({
         x: PIXEL_FOR_SAMPLE[i],
-        y: PIXEL_FOR_LEVEL[point.y],
+        y: PIXEL_FOR_LEVEL[point.y!],
       })),
     );
 
@@ -176,7 +176,7 @@ describe('step trace highlight mapping', () => {
     expect(circles).toEqual(
       POINTS.map((point, i) => ({
         x: PIXEL_FOR_SAMPLE[i],
-        y: PIXEL_FOR_LEVEL[point.y],
+        y: PIXEL_FOR_LEVEL[point.y!],
       })),
     );
 
@@ -196,8 +196,8 @@ describe('step trace highlight mapping', () => {
     }
     xs.push(unevenX[unevenX.length - 1]);
     const ys = POINTS.flatMap(point => [
-      PIXEL_FOR_LEVEL[point.y],
-      PIXEL_FOR_LEVEL[point.y],
+      PIXEL_FOR_LEVEL[point.y!],
+      PIXEL_FOR_LEVEL[point.y!],
     ]);
     renderStaircase(xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' '));
 
@@ -214,7 +214,7 @@ describe('step trace highlight mapping', () => {
       const runEnd = i === POINTS.length - 1 ? unevenX[unevenX.length - 1] : midpoints[i];
       expect(circle.x).toBeGreaterThanOrEqual(runStart);
       expect(circle.x).toBeLessThanOrEqual(runEnd);
-      expect(circle.y).toBe(PIXEL_FOR_LEVEL[POINTS[i].y]);
+      expect(circle.y).toBe(PIXEL_FOR_LEVEL[POINTS[i].y!]);
     });
 
     trace.dispose();

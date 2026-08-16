@@ -770,7 +770,14 @@ implements BrailleEncoder<T> {
   protected encodeCell(state: T, row: number, col: number): string {
     const { low, medium, mediumHigh, high } = this.getThresholds(row, state);
     const currentValue = state.values[row][col];
-    const prevValue = col > 0 ? state.values[row][col - 1] : null;
+    // A gap behind the cursor becomes `null` rather than staying `NaN`: there
+    // is no trend to draw from a reading that does not exist, and `null` is
+    // already how this encoder spells "nothing before this". Leaving the NaN
+    // in reaches the same glyph today only because it loses every comparison.
+    const previous = col > 0 ? state.values[row][col - 1] : null;
+    const prevValue = previous !== null && Number.isFinite(previous)
+      ? previous
+      : null;
 
     return this.getBrailleChar(
       currentValue,
@@ -843,6 +850,15 @@ implements BrailleEncoder<T> {
   ): string {
     if (mediumHigh === undefined) {
       mediumHigh = high;
+    }
+    // A gap arrives as NaN, which loses every comparison below and falls all
+    // the way through to `return ''` — an empty *string*, not a blank cell.
+    // That is worse than a wrong glyph: the encoded line comes out one
+    // character shorter than the row has cells, so every cursor position past
+    // the gap maps to the wrong point. It reads as blank, which is what the
+    // bar encoder already does with one (#925).
+    if (!Number.isFinite(current)) {
+      return ' ';
     }
     if (current <= low && prev !== null && prev > low) {
       if (prev <= medium)

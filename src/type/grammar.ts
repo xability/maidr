@@ -710,7 +710,23 @@ export interface HistogramPoint extends BarPoint {
  */
 export interface LinePoint {
   x: number | string;
-  y: number;
+  /**
+   * The magnitude at this x, or `null` where the series has a position but no
+   * reading.
+   *
+   * A gap is not a zero. `seaborn.pointplot` pads a hue level missing from one
+   * category so its estimate lines stay the same length, and a producer that
+   * meets a break in a series has nowhere else to put it. `Number(null)` is
+   * `0`, which would make the gap sound like a real low point, let it be
+   * reached as the row's minimum, and pull the range every other point's pitch
+   * is scaled against — the same trap `toBarValue` was written for (#925).
+   *
+   * `null` rather than a non-finite number because the payload has to survive
+   * `JSON.parse`: `json.dumps` writes `NaN` and `Infinity` as bare tokens that
+   * are legal JavaScript and invalid JSON, and a producer emitting one stops
+   * the chart initialising at all (xability/py-maidr#427).
+   */
+  y: number | null;
   z?: string;
   /**
    * Ordinal level name announced in place of the raw numeric `y`, for a chart
