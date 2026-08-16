@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 /**
@@ -36,6 +37,8 @@ interface RunResult {
   commented: number[];
   /** Labels passed to `issues.create`, if it filed a new report. */
   created: string[][];
+  /** Bodies passed to `issues.create`, in the same order as `created`. */
+  createdBodies: string[];
   /** True if any lookup bypassed `paginate`. */
   usedUnpaginatedList: boolean;
   /** Warnings the script emitted instead of throwing. */
@@ -80,6 +83,7 @@ async function runScript(
     closed: [],
     commented: [],
     created: [],
+    createdBodies: [],
     usedUnpaginatedList: false,
     warnings: [],
     adopted: [],
@@ -104,8 +108,9 @@ async function runScript(
           result.usedUnpaginatedList = true;
           return { data: matching(params).slice(0, 30) };
         },
-        create: async (params: { labels: string[] }) => {
+        create: async (params: { labels: string[]; body: string }) => {
           result.created.push(params.labels);
+          result.createdBodies.push(params.body);
         },
         createComment: async (params: { issue_number: number }) => {
           if (failingComments.has(params.issue_number)) {
@@ -160,6 +165,51 @@ async function runScript(
   }
 
   return result;
+}
+
+/**
+ * Runs `fn` with `output` standing in for the Playwright reporter capture.
+ *
+ * The module reads `test-results.txt` relative to the working directory, the
+ * way the test step leaves it there, so the fixture is supplied by running
+ * from a directory that has one. Stubbing `fs` would test a seam production
+ * does not have — and this file also reads the workflow YAML through the real
+ * `fs`, so a module mock would have to be unpicked again for those cases.
+ * @param output - What the reporter is to have printed.
+ * @param fn - The run to make against it.
+ * @returns Whatever `fn` resolves to.
+ */
+async function withResults<T>(output: string, fn: () => Promise<T>): Promise<T> {
+  const directory = mkdtempSync(join(tmpdir(), 'maidr-e2e-report-'));
+  const previous = process.cwd();
+
+  writeFileSync(join(directory, 'test-results.txt'), output);
+  process.chdir(directory);
+
+  try {
+    return await fn();
+  } finally {
+    process.chdir(previous);
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+/** The fence the body opened its Test Results block with. */
+function openingFence(body: string): string {
+  const opened = /^### Test Results\n(`+)$/m.exec(body);
+
+  expect(opened).not.toBeNull();
+  return (opened as RegExpExecArray)[1];
+}
+
+/** What the body put inside its Test Results block. */
+function fencedContent(body: string): string {
+  const fence = openingFence(body);
+  const block = new RegExp(`^### Test Results\\n${fence}\\n([\\s\\S]*?)\\n${fence}$`, 'm');
+  const matched = block.exec(body);
+
+  expect(matched).not.toBeNull();
+  return (matched as RegExpExecArray)[1];
 }
 
 /** A report as this workflow files it. */
@@ -392,6 +442,98 @@ describe('the scheduled e2e report step', () => {
       const result = await runScript(undefined, []);
 
       expect(result.created).toEqual([['test-failure']]);
+    });
+  });
+
+  /**
+   * The body's shape, which nothing above covers (#715).
+   *
+   * A report that renders is not the same as a report that is faithful, and
+   * the labels and lifecycle cases pass either way. The capture is
+   * `npm run e2e 2>&1`, so it carries whatever the suite and the app print,
+   * and a failing assertion prints the values involved — which in this repo
+   * can be Markdown, since `TypingEffect`, `markdownSanitize` and
+   * `markdownPipeline` all have fenced blocks in flight.
+   */
+  describe('when it embeds the reporter output', () => {
+    it('should keep a triple-backtick line inside the block', async () => {
+      // The reported defect exactly: the fence closes on this line, and
+      // everything after it renders as Markdown while the closing fence
+      // becomes stray text.
+      const output = [
+        'Running 3 tests using 1 worker',
+        '  1) bar.spec.ts:12 › announces the value',
+        '',
+        'Error: expected the description to contain',
+        '```',
+        '# A heading, not a heading',
+        '```',
+        '',
+        '3 failed',
+      ].join('\n');
+
+      const result = await withResults(output, () => runScript('failure', []));
+
+      expect(fencedContent(result.createdBodies[0])).toBe(output);
+    });
+
+    it('should leave a fence-free capture on a plain three-tick fence', async () => {
+      // The longer fence is for the content that needs it. Widening every
+      // report would be a change to output nobody asked for.
+      const result = await withResults(
+        '3 passed (4.2s)',
+        () => runScript('failure', []),
+      );
+
+      expect(openingFence(result.createdBodies[0])).toBe('```');
+    });
+
+    it('should outrun the longest run of backticks, not just three of them', async () => {
+      // A four-tick fence is closed by a four-tick line, so "longer than
+      // three" is not the rule — "longer than anything inside" is.
+      const output = ['before', '`````', 'after'].join('\n');
+
+      const result = await withResults(output, () => runScript('failure', []));
+
+      expect(openingFence(result.createdBodies[0])).toBe('``````');
+      expect(fencedContent(result.createdBodies[0])).toBe(output);
+    });
+
+    it('should size the fence from the tail it keeps, not the head it drops', async () => {
+      // `results()` keeps the last 60000 characters, so the backticks at the
+      // front are not in the body at all. Sizing the fence before truncating
+      // would open the block with eleven ticks around content holding none.
+      const dropped = `${'`'.repeat(10)}\n`;
+      const kept = 'x'.repeat(60000);
+
+      const result = await withResults(
+        dropped + kept,
+        () => runScript('failure', []),
+      );
+      const body = result.createdBodies[0];
+
+      expect(body).toContain('… (truncated, full output in the workflow run)');
+      expect(body).not.toContain('`'.repeat(10));
+      expect(openingFence(body)).toBe('```');
+    });
+
+    it('should embed the capture verbatim when it fits', async () => {
+      // Nothing is escaped, indented or re-wrapped on the way in: the point
+      // of the block is that the transcript survives it.
+      const output = 'Running 1 test using 1 worker\n\n  ✓  bar.spec.ts:12\n\n1 passed';
+
+      const result = await withResults(output, () => runScript('failure', []));
+
+      expect(fencedContent(result.createdBodies[0])).toBe(output);
+    });
+
+    it('should say so rather than embed nothing when no capture exists', async () => {
+      // The test step not running is itself the report, and an empty block
+      // reads as a suite that printed nothing.
+      const result = await runScript('failure', []);
+
+      expect(fencedContent(result.createdBodies[0]))
+        .toBe('No test output was captured (the test step did not run).');
     });
   });
 });

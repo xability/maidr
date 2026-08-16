@@ -136,6 +136,31 @@ function results() {
 }
 
 /**
+ * A code fence long enough that the given content cannot close it (#715).
+ *
+ * The report's one job is to be a faithful transcript, and a bare three-tick
+ * fence is not one: the capture is `2>&1`, so it carries everything the suite
+ * and the app print, and a failing assertion prints the values involved. A
+ * line of three backticks anywhere in there closes the fence early — the rest
+ * renders as Markdown and the closing fence shows up as stray text.
+ *
+ * CommonMark lets a fence be longer than three and lets the content hold
+ * shorter runs, so one tick past the longest run present cannot be closed by
+ * anything inside. Measured on the whole content rather than line-starts
+ * alone: that is a longer fence than strictly required for an inline run, and
+ * cheaper than reasoning about which runs are indented into a position where
+ * they would count.
+ * @param {string} content - What will sit inside the fence.
+ * @returns {string} The fence to open and close it with.
+ */
+function fenceFor(content) {
+  const longest = (content.match(/`+/g) ?? [])
+    .reduce((max, run) => Math.max(max, run.length), 0);
+
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+
+/**
  * Files or updates this run's report issue, and retires stale failures.
  * @param {object} api - The github-script bindings.
  * @param {Github} api.github - The authenticated octokit client.
@@ -147,6 +172,14 @@ module.exports = async function report({ github, context, core }) {
   const { repo, owner } = context.repo;
   const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
 
+  // Read once, and pick the fence from what is actually embedded. Calling
+  // `results()` a second time for the fence would size it against the whole
+  // capture, and truncation keeps the *tail* — so a run whose discarded head
+  // held a long run of backticks would get a fence far longer than its content
+  // needs, for no reason a reader of the body could see.
+  const testResults = results();
+  const fence = fenceFor(testResults);
+
   const reportContent = [
     '## Test Execution Report',
     `Date: ${new Date().toISOString()}`,
@@ -155,9 +188,9 @@ module.exports = async function report({ github, context, core }) {
     `Commit: ${context.sha}`,
     '',
     '### Test Results',
-    '```',
-    results(),
-    '```',
+    fence,
+    testResults,
+    fence,
     '',
     `[View Workflow Run](${runUrl})`,
   ].join('\n');
