@@ -309,6 +309,12 @@ function readDashboardGeometry(
     if (![x, y, width, height].every(Number.isFinite)) {
       continue;
     }
+    // Keyed by worksheet name, which `Dashboard.worksheets` is documented to
+    // correspond to one-for-one with the `worksheet`-typed objects — so a name
+    // collision cannot arise from authoring, and a later object overwriting an
+    // earlier one's entry is a case the API's own contract rules out. Note this
+    // is `object.worksheet.name`, never `object.name`: the latter is the zone's
+    // authoring name and can differ from the sheet it holds.
     geometry.set(object.worksheet.name, {
       x,
       y,
@@ -490,6 +496,14 @@ export async function bindTableau(
   // Reassigned by every refresh: `tabswitched` makes a different sheet active,
   // and the worksheets discovered here belong to the sheet that was active at
   // bind time.
+  //
+  // `refresh()` discovers again rather than reusing this, so discovery runs
+  // twice on a bind. That is deliberate, not a leftover: this call exists so an
+  // empty sheet returns `null` *before* a wrapper is mounted, leaving the page
+  // untouched, while the call inside `refresh()` has to re-read because a
+  // `tabswitched` refresh describes a different sheet entirely. Both are a
+  // synchronous property walk over `dashboard.objects`, so the second read
+  // costs nothing worth restructuring for.
   let worksheets = selectWorksheets(discoverWorksheets(viz).worksheets, options);
   if (worksheets.length === 0) {
     warn('no worksheet to read on the active sheet; the page is unchanged.');
