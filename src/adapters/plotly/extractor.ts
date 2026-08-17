@@ -1540,7 +1540,7 @@ function extractLayer(
       return extractScatterLayer(trace, id, title, selectors, axes, gd);
 
     case TraceType.BAR:
-      return extractBarLayer(trace, calcdata, TraceType.BAR, id, title, selectors, axes);
+      return extractBarLayer(trace, calcdata, TraceType.BAR, id, title, selectors, axes, undefined, gd._fullLayout);
 
     // A dot plot is a bar chart drawn with dots, and MAIDR reads it as one.
     // Its calcdata is a scatter's and carries no bar size, so the marks are
@@ -1718,6 +1718,68 @@ function barPoint(
  * Builds a bar-shaped layer: a plain bar, or a funnel, which plotly draws
  * through the same renderer and describes with the same calcdata.
  */
+/**
+ * Where each of a bar trace's points sits once plotly has laid the axis out,
+ * or `null` when that is the order they already arrived in.
+ *
+ * `categoryorder` sorts the category axis and leaves `x`, `y` and `z` alone,
+ * so the trace's order is not the drawn one. `calcdata[i].p` is the resolved
+ * position, which makes the drawn order free here — no category list to
+ * consult, unlike a heatmap (#985). A reversed axis is not in `p` any more
+ * than it is in `_categories`, so it is still asked separately.
+ *
+ * @param calcdata - The trace's calculated points, in the trace's order
+ * @param count    - How many of them the layer is emitting
+ * @param layout   - The chart's computed layout, when it has one
+ * @param axisId   - The axis the categories are on
+ * @returns Indices into the trace's arrays in drawn order, or null
+ */
+function drawnBarOrder(
+  calcdata: PlotlyCalcData[],
+  count: number,
+  layout: PlotlyFullLayout | undefined,
+  axisId: string,
+): number[] | null {
+  const positions = new Array<{ index: number; at: number }>();
+  for (let index = 0; index < count; index++) {
+    const at = calcdata[index]?.p;
+    // A trace plotly has not calculated says nothing about where it is drawn.
+    if (typeof at !== 'number' || !Number.isFinite(at))
+      return null;
+    positions.push({ index, at });
+  }
+
+  positions.sort((a, b) => a.at - b.at);
+  if (axisRunsBackwards(layout, axisId))
+    positions.reverse();
+
+  const order = positions.map(position => position.index);
+  return order.some((index, at) => index !== at) ? order : null;
+}
+
+/** The tail every bar-family selector ends in, and the one this can narrow. */
+const BAR_SELECTOR_TAIL = '.point > path';
+
+/**
+ * The same selector narrowed to one bar.
+ *
+ * Measured: a bar's `.point` group is one of `g.points`' only children, and
+ * its text label sits inside that group rather than beside it, so counting
+ * `.point` siblings names exactly one bar. Declines a selector that is not
+ * the shape this knows, rather than building one by guesswork.
+ *
+ * @param selector - The layer's own selector
+ * @param position - Which bar to name, counting from one
+ * @returns The narrowed selector, or null when it cannot be built
+ */
+function nthBarSelector(selector: string, position: number): string | null {
+  if (!selector.endsWith(BAR_SELECTOR_TAIL))
+    return null;
+
+  const head = selector.slice(0, -BAR_SELECTOR_TAIL.length);
+  return `${head}.point:nth-child(${position}) > path`;
+}
+
 function extractBarLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
@@ -1727,6 +1789,7 @@ function extractBarLayer(
   selectors: string | undefined,
   axes: MaidrLayer['axes'],
   horizontal?: boolean,
+  layout?: PlotlyFullLayout,
 ): MaidrLayer | null {
   const x = trace.x;
   const y = trace.y;
@@ -1746,14 +1809,40 @@ function extractBarLayer(
   if (data.length === 0)
     return null;
 
+  // Only a plain bar chart is reordered here: it is the one whose drawn order
+  // has been measured, and a funnel's or a dot plot's elements are laid out
+  // differently enough that the selector arithmetic below would need its own
+  // measurement before it could be trusted on them (#987).
+  const order = type === TraceType.BAR
+    ? drawnBarOrder(calcdata, len, layout, isHorizontal ? trace.yaxis ?? 'y' : trace.xaxis ?? 'x')
+    : null;
+
+  // Both halves move or neither does. Plotly renders bars in the trace's own
+  // order, so the single selector resolves in that order too and the highlight
+  // is currently right; reordering the points alone would announce one bar and
+  // outline another. A layer with no selector has no highlight to disagree
+  // with, so an empty list of narrowed ones is not a refusal.
+  let orderedData = data;
+  let orderedSelectors: string | string[] | undefined = selectors;
+  if (order !== null) {
+    const perBar = selectors === undefined
+      ? []
+      : order.map(index => nthBarSelector(selectors, index + 1));
+
+    if (perBar.every(selector => selector !== null)) {
+      orderedData = order.map(index => data[index]);
+      orderedSelectors = selectors === undefined ? undefined : (perBar as string[]);
+    }
+  }
+
   return {
     id,
     type,
     title,
-    selectors,
+    selectors: orderedSelectors,
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
-    data,
+    data: orderedData,
   };
 }
 
