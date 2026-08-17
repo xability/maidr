@@ -148,7 +148,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
     this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
     this.highlightValues = this.mapToSvgElements(
-      layer.selectors as string | string[] | undefined,
+      layer.selectors as string | string[] | string[][] | undefined,
     );
     this.movable = new MovableGrid<T>(this.points);
   }
@@ -285,7 +285,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return this.barValues;
   }
 
-  protected mapToSvgElements(selector?: string | string[]): SVGElement[][] | null {
+  protected mapToSvgElements(
+    selector?: string | string[] | string[][],
+  ): SVGElement[][] | null {
     if (!selector) {
       return null;
     }
@@ -301,7 +303,21 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
         return null;
       }
 
-      const resolved = selector.map(one => Svg.selectElement(one));
+      // A grid names a cell per row and column, which is a segmented layer's
+      // shape (#989) and not a plain bar's -- one row of bars gains nothing
+      // from the nesting. Declined rather than flattened, so the subclass that
+      // does read one is the only thing that can, and narrowed by filtering
+      // rather than asserted: an assertion over the union would let a nested
+      // list through to `selectElement`, which answers null for anything but
+      // a string and would lose the highlight the same silent way #990 did.
+      const flat = selector.filter(
+        (entry): entry is string => typeof entry === 'string',
+      );
+      if (flat.length !== selector.length) {
+        return null;
+      }
+
+      const resolved = flat.map(one => Svg.selectElement(one));
       if (resolved.includes(null)) {
         // Discard the clones already inserted, so a partial resolution does
         // not leak hidden elements into the DOM.

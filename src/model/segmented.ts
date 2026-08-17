@@ -312,26 +312,79 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     return this.layer.domMapping?.groupDirection === 'forward';
   }
 
+  /**
+   * One element per cell, named outright rather than inferred.
+   *
+   * `selector[r][c]` is the element for series `r`, category `c` -- the same
+   * shape `Heatmap` reads, and the shape the plotly adapter emits once
+   * `categoryorder` has moved a chart's bars away from the order its traces
+   * were written in (#989). Every cell has to resolve: a grid that half
+   * resolves would outline some cells and leave others announced with nothing
+   * highlighted, which reads as "this bar has no mark" rather than as a
+   * failure.
+   *
+   * The summary row is not among the rows counted here. It is appended after
+   * `super()` returns, so `barValues` still holds the series alone while this
+   * runs -- and {@link highlight} declines that row anyway.
+   *
+   * @param grid - One row of selectors per series
+   * @returns One element per cell, or null when the grid does not fit
+   */
+  private mapGridToSvgElements(
+    grid: (string | string[])[],
+  ): SVGElement[][] | null {
+    const created = new Array<SVGElement>();
+    const discard = (): null => {
+      created.forEach(element => element.remove());
+      return null;
+    };
+
+    if (grid.length !== this.barValues.length) {
+      return null;
+    }
+
+    const svgElements = new Array<Array<SVGElement>>();
+    for (let row = 0; row < grid.length; row++) {
+      const cells = grid[row];
+      if (!Array.isArray(cells) || cells.length !== this.barValues[row]?.length) {
+        return discard();
+      }
+
+      const elements = new Array<SVGElement>();
+      for (const cell of cells) {
+        const element = typeof cell === 'string'
+          ? Svg.selectElement<SVGElement>(cell)
+          : null;
+        if (element === null) {
+          return discard();
+        }
+        created.push(element);
+        elements.push(element);
+      }
+      svgElements.push(elements);
+    }
+
+    return svgElements;
+  }
+
   protected override mapToSvgElements(
-    selector?: string | string[],
+    selector?: string | string[] | string[][],
   ): SVGElement[][] | null {
     if (!selector) {
       return null;
     }
 
-    // A segmented layer's selector is one string, and everything below infers
-    // which element belongs to which cell from it — `skipZeros`, row versus
-    // column major, and which end a category's series start from. A per-cell
-    // list would make all of that unnecessary rather than feed it, so it is
-    // declined here rather than silently producing nothing: the base class
-    // widened this parameter for a plain bar (#990), and an override that
-    // still said `string` would take an array by bivariance and hand it to
-    // `selectAllElements`, which answers `[]` for anything but a string.
+    // A grid names the element for every cell outright, so none of the
+    // inference below applies to it: `skipZeros`, row versus column major and
+    // which end a category's series start from are all ways of guessing what
+    // a grid has already said.
     //
-    // Teaching this branch to honour a list is #989's work; it needs the
-    // chunking above settled first, not bypassed by accident.
+    // A flat list is still declined, and for the same reason it was when this
+    // branch declined every array (#990): it says which bars there are but not
+    // which cell each one is in, and the chunking below is exactly what would
+    // have to answer that.
     if (Array.isArray(selector)) {
-      return null;
+      return this.mapGridToSvgElements(selector);
     }
 
     const domElements = Svg.selectAllElements(selector);
