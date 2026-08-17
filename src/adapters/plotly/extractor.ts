@@ -1811,6 +1811,12 @@ function drawnSegmentedOrder(
 
     positions.sort((a, b) => a.at - b.at);
 
+    // Compared as text, which is exact rather than approximate here: every
+    // `at` is a finite number, and `Number.prototype.toString` round-trips a
+    // double, so two lists join to the same string exactly when they hold the
+    // same values in the same order. `0` and `-0` join alike, which is what a
+    // position wants. A category axis makes these integer indices anyway; a
+    // numeric one puts the raw values here, which is why it is worth saying.
     const drawn = positions.map(position => position.at).join(',');
     if (covered === null)
       covered = drawn;
