@@ -562,8 +562,12 @@ describe('highchartsToMaidr', () => {
       const data = result.subplots[0][0].layers[0].data as HeatmapData;
 
       expect(data.x).toEqual(['Mon', 'Tue']);
-      expect(data.y).toEqual(['AM', 'PM']);
-      expect(data.points).toEqual([[5, 6], [7, 8]]);
+      // Top-first, so the categories come back turned over: Highcharts counts
+      // y from the bottom, which puts 'PM' — its index 1 — at the top of the
+      // drawn grid (#973). What this case is really asserting is *which axis*
+      // the labels came from; the order is `heatmapRowOrder.test.ts`.
+      expect(data.y).toEqual(['PM', 'AM']);
+      expect(data.points).toEqual([[7, 8], [5, 6]]);
     });
   });
 });
