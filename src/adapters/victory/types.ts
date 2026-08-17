@@ -5,6 +5,7 @@ import type {
   ErrorBarPoint,
   HistogramPoint,
   LinePoint,
+  Orientation,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
@@ -146,6 +147,16 @@ export interface VictoryLayerInfo {
   dataCount: number;
   /** Legend labels for multi-series segmented charts. */
   legend?: string[];
+  /**
+   * Which way the layer is drawn, when the chart says so.
+   *
+   * Victory turns a bar chart on its side with `horizontal`, on the component
+   * or on the enclosing `<VictoryChart>`. Only the bar family carries this
+   * onward -- see {@link MaidrLayer.orientation} for why, and for the fact
+   * that Victory's own data stays `x = category, y = value` either way, so
+   * nothing is swapped alongside it.
+   */
+  orientation?: Orientation;
 }
 
 /**
