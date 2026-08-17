@@ -3,10 +3,12 @@
  *
  * This is the half of the Tableau adapter that decides *what a worksheet is*.
  * Tableau's summary data is a flat table: it says what the numbers are and
- * never what was drawn with them. The Extensions API can answer that directly
- * (`getVisualSpecificationAsync`), the Embedding API cannot, so the answer is
+ * never what was drawn with them. `getVisualSpecificationAsync` answers that
+ * directly and is declared on both the Embedding and the Extensions
+ * `Worksheet`, but the host page loads whichever library build it likes, so its
+ * answer is available rather than guaranteed. The reading is therefore
  * assembled from three sources in a fixed order of authority — an explicit
- * override, then the visual specification when the host has one, then a
+ * override, then the visual specification when the host reported one, then a
  * heuristic ladder over the columns themselves.
  *
  * Two properties of this file are load-bearing:
@@ -548,10 +550,15 @@ function canBuild(
 /**
  * Map a Tableau mark type onto a MAIDR trace type.
  *
- * Used only when a visual specification is available — the Extensions API
- * today, and any future Embedding release that adds it. The mark type is the
+ * Used whenever the host reported a visual specification. The mark type is the
  * only *direct* evidence of what the author drew, so it outranks the heuristic
  * ladder; it does not outrank an explicit override.
+ *
+ * Every one of `MarkType`'s thirteen members is handled explicitly. The
+ * parameter is a `string` rather than {@link TableauMarkType} on purpose: the
+ * payload crosses an iframe boundary from a library build this code did not
+ * choose, so the union describes what Tableau declares and this function
+ * describes what may actually arrive.
  *
  * @param markType - `MarksSpecification.primitiveType`, as Tableau spells it.
  * @param plan - The worksheet's column plan.
@@ -613,10 +620,15 @@ function markTypeToTrace(
       // magnitude to sonify at all.
       return { kind: 'skip' };
     default:
-      // There is no `Automatic` member in `MarkType` — Tableau resolves it to
-      // whatever primitive it drew — but the docs never say the enum is closed,
-      // so an unrecognised mark falls through to the ladder rather than
-      // throwing away a worksheet the columns can still describe.
+      // Unreachable for every member `MarkType` declares in contract 1.211.0 —
+      // the thirteen cases above are the whole enum, and there is no
+      // `Automatic` among them, because Tableau resolves that to whatever
+      // primitive it drew. It is kept live for the two reasons a closed enum
+      // does not close this switch: the host page loads whichever Embedding
+      // build it likes, up to and including a later one with a fourteenth
+      // member, and the payload is untrusted JSON from across an iframe
+      // boundary. Either way an unrecognised mark falls through to the ladder
+      // rather than throwing away a worksheet the columns can still describe.
       return { kind: 'ladder' };
   }
 }
@@ -624,21 +636,65 @@ function markTypeToTrace(
 /**
  * The mark type of the active marks card, when the host reported one.
  *
- * `activeMarksSpecificationIndex` selects the card focused in the authoring UI
- * and is undocumented in view mode, so the first card is the fallback rather
- * than an error.
+ * `activeMarksSpecificationIndex` is declared as a bare `number` carrying no
+ * documentation whatsoever — nothing says it is integral, non-negative, or in
+ * range of `marksSpecifications`, in either authoring or view mode. It is
+ * therefore range-checked, and a value that is not a usable index falls back to
+ * the first card rather than raising: an out-of-range index is a fact about the
+ * host's bookkeeping, not a reason to drop a worksheet whose cards are right
+ * there. An empty card list returns `undefined`, which sends the caller to the
+ * ladder.
+ *
+ * Every member read here is *required* in the shipped declarations. The checks
+ * are still runtime checks, because the object arrives as JSON from a library
+ * build this code did not choose, and TypeScript's word for what a contract
+ * promises is not evidence about what crossed the boundary.
  *
  * @param spec - The worksheet's visual specification, when it has one.
- * @returns The primitive type, or `undefined`.
+ * @param worksheet - The worksheet name, for warnings.
+ * @param warned - Per-extraction warning latch.
+ * @returns The primitive type, or `undefined` when there is no card to read.
  */
-function activeMarkType(spec: TableauVisualSpecification | undefined): string | undefined {
+function activeMarkType(
+  spec: TableauVisualSpecification | undefined,
+  worksheet: string,
+  warned: Set<string>,
+): string | undefined {
   const cards = spec?.marksSpecifications;
   if (cards === undefined || cards.length === 0) {
     return undefined;
   }
+
+  // One entry is one marks card, and Tableau gives a dual-axis worksheet a card
+  // per measure. Nothing in the contract says which axis a card belongs to, or
+  // whether the axes are synchronized, and no summary-data column can be
+  // attributed to a card — so merging them into a multi-layer figure is not
+  // something the payload licenses. One card is read, and the fact that the
+  // others exist is said out loud rather than passed over.
+  if (cards.length > 1) {
+    warnOnce(
+      warned,
+      `worksheet "${worksheet}" has ${cards.length} marks cards (a dual-axis view `
+      + `has one per measure); reading only the active one.`,
+    );
+  }
+
   const index = spec?.activeMarksSpecificationIndex;
-  const active = typeof index === 'number' ? cards[index] : undefined;
-  return (active ?? cards[0])?.primitiveType;
+  const inRange = typeof index === 'number'
+    && Number.isInteger(index)
+    && index >= 0
+    && index < cards.length;
+  if (!inRange) {
+    warnOnce(
+      warned,
+      `worksheet "${worksheet}": the visual specification's active marks card `
+      + `index (${String(index)}) is not one of its ${cards.length} cards; `
+      + `reading the first card instead.`,
+    );
+  }
+
+  const active = inRange ? cards[index] : cards[0];
+  return active?.primitiveType;
 }
 
 /**
@@ -763,7 +819,7 @@ function decideTraceType(
   }
 
   // B. Tableau said so.
-  const markType = activeMarkType(snapshot.spec);
+  const markType = activeMarkType(snapshot.spec, snapshot.name, warned);
   if (markType !== undefined) {
     const decision = markTypeToTrace(markType, plan, rows, snapshot.name, warned);
     if (decision.kind === 'trace') {

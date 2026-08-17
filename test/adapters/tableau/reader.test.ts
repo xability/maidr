@@ -1,5 +1,14 @@
+import { extractTableau } from '@adapters/tableau/extractor';
 import { readWorksheet } from '@adapters/tableau/reader';
-import { fakeColumn, fakeWorksheet } from './helpers';
+import { TraceType } from '@type/grammar';
+import {
+  fakeColumn,
+  fakeEncoding,
+  fakeField,
+  fakeMarksCard,
+  fakeVisualSpec,
+  fakeWorksheet,
+} from './helpers';
 
 /**
  * A promise a test can settle on demand.
@@ -169,6 +178,10 @@ describe('tableau worksheet reader', () => {
   it('reports no visual specification when the host has no such method', async () => {
     const worksheet = fakeWorksheet({ columns, rows: [['Chairs', 1]] });
 
+    // Every `Worksheet` the declarations describe has `getVisualSpecificationAsync`
+    // — Embedding as well as Extensions — so this fake is not the contract, it
+    // is the host: an Embedding build older than the method, which is the case
+    // the feature detection exists for.
     expect(worksheet.getVisualSpecificationAsync).toBeUndefined();
 
     const snapshot = await readWorksheet(worksheet);
@@ -177,16 +190,62 @@ describe('tableau worksheet reader', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it('still yields a navigable figure when the host predates the method', async () => {
+    const worksheet = fakeWorksheet({
+      name: 'Sales',
+      columns,
+      rows: [['Chairs', 1], ['Tables', 2]],
+    });
+
+    const snapshot = await readWorksheet(worksheet);
+    const extraction = extractTableau([snapshot]);
+
+    // The point of feature-detecting rather than assuming: an older Embedding
+    // build costs the mark type and nothing else. The columns still describe a
+    // chart, and the ladder still reads one out of them.
+    expect(snapshot.spec).toBeUndefined();
+    expect(extraction.maidr.subplots).toHaveLength(1);
+    expect(extraction.maidr.subplots[0][0].layers[0].type).toBe(TraceType.BAR);
+  });
+
   it('carries the visual specification through when the host does expose one', async () => {
+    const spec = fakeVisualSpec(['bar']);
     const worksheet = fakeWorksheet({
       columns,
       rows: [['Chairs', 1]],
-      spec: { marksSpecifications: [{ primitiveType: 'bar' }] },
+      spec,
     });
 
     const snapshot = await readWorksheet(worksheet);
 
-    expect(snapshot.spec).toEqual({ marksSpecifications: [{ primitiveType: 'bar' }] });
+    // Whole and unaltered: the reader is a pass-through, and every member of a
+    // `VisualSpecification` is required, so a spec that arrived shortened would
+    // be a spec the extractor cannot trust.
+    expect(snapshot.spec).toEqual(spec);
+    expect(snapshot.spec?.marksSpecifications[0].primitiveType).toBe('bar');
+  });
+
+  it('carries the shelves and the encodings through as well, not just the mark type', async () => {
+    const region = fakeField('Region');
+    const spec = fakeVisualSpec(
+      [fakeMarksCard('bar', [fakeEncoding('color', region)])],
+      0,
+      { columnFields: [fakeField('Category')], rowFields: [] },
+    );
+    const worksheet = fakeWorksheet({ columns, rows: [['Chairs', 1]], spec });
+
+    const snapshot = await readWorksheet(worksheet);
+
+    // Nothing downstream reads these yet — which is exactly why they are worth
+    // pinning here. They were absent from the adapter's hand-written type, and
+    // that absence is what made "the API cannot tell a stack from a
+    // side-by-side" look like a fact about Tableau rather than about our mirror
+    // of it. A reader that quietly dropped them would recreate that.
+    expect(snapshot.spec?.columnFields).toEqual([fakeField('Category')]);
+    expect(snapshot.spec?.rowFields).toEqual([]);
+    expect(snapshot.spec?.marksSpecifications[0].encodings).toEqual([
+      { id: 'color', fieldEncodingId: 'color:[Region]', type: 'color', field: region },
+    ]);
   });
 
   it('degrades to no specification, with one warning, when reading it throws', async () => {

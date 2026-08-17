@@ -1,5 +1,9 @@
 import type { TableauExtraction } from '@adapters/tableau/extractor';
-import type { TableauColumn } from '@adapters/tableau/types';
+import type {
+  TableauColumn,
+  TableauMarkType,
+  WorksheetSnapshot,
+} from '@adapters/tableau/types';
 import type {
   BarPoint,
   HeatmapData,
@@ -11,7 +15,15 @@ import type {
 } from '@type/grammar';
 import { extractTableau } from '@adapters/tableau/extractor';
 import { Orientation, TraceType } from '@type/grammar';
-import { fakeColumn, fakeSnapshot, fakeValue } from './helpers';
+import {
+  fakeColumn,
+  fakeEncoding,
+  fakeField,
+  fakeMarksCard,
+  fakeSnapshot,
+  fakeValue,
+  fakeVisualSpec,
+} from './helpers';
 
 /** A plain categorical dimension. */
 const category = (name = 'Category'): TableauColumn => fakeColumn(name, 'string', 0);
@@ -292,12 +304,194 @@ describe('tableau extractor', () => {
   });
 
   describe('the visual specification', () => {
+    /**
+     * What the extractor makes of each of `MarkType`'s members, against
+     * {@link markSnapshot}. `null` means the worksheet is refused outright.
+     *
+     * Typed as a `Record` over the union rather than as a list, so it is the
+     * compiler that insists every member appears: a fourteenth member added to
+     * {@link TableauMarkType} fails to build here until someone says what the
+     * extractor should do with it, and "all thirteen are handled" stays a fact
+     * instead of a claim in a comment.
+     */
+    const MARK_TYPES: Record<TableauMarkType, TraceType | null> = {
+      // A second dimension is a second series, whichever way the bars were laid
+      // out — the summary data cannot tell a stack from a side-by-side.
+      'bar': TraceType.DODGED,
+      'line': TraceType.LINE,
+      // Never `stacked_area`: each band carries its own value either way.
+      'area': TraceType.AREA,
+      'square': TraceType.HEATMAP,
+      // The same primitive a categorical dot plot uses, so it is a point cloud
+      // only when there are two measures to put on the axes.
+      'circle': TraceType.SCATTER,
+      'shape': TraceType.SCATTER,
+      'pie': TraceType.PIE,
+      'heatmap': TraceType.HEATMAP,
+      // Refused rather than approximated: a gantt needs a start and an end
+      // where the summary gives a duration, a map needs centroids and a
+      // neighbour list Tableau does not expose, a text table has no magnitude
+      // to sonify, and a viz extension is whatever its author made it.
+      'gantt-bar': null,
+      'text': null,
+      'map': null,
+      'polygon': null,
+      'viz-extension': null,
+    };
+
+    const MAPPED = Object.entries(MARK_TYPES).filter(
+      (entry): entry is [string, TraceType] => entry[1] !== null,
+    );
+    const REFUSED = Object.entries(MARK_TYPES)
+      .filter(entry => entry[1] === null)
+      .map(([mark]) => mark);
+
+    /**
+     * A worksheet every mark type can be classified against unchanged.
+     *
+     * Two dimensions and two measures over a complete 2×2 grid is the one shape
+     * that satisfies every conditional branch at once: `circle` and `shape` need
+     * a second measure before they are a point cloud, `square` and `heatmap`
+     * need a grid with no holes, and `bar` needs a second dimension before it is
+     * a grouped bar. Every reading below therefore differs because the mark type
+     * differs and for no other reason.
+     *
+     * @param mark - The `primitiveType` to report, as Tableau spells it.
+     * @returns The snapshot.
+     */
+    const markSnapshot = (mark: string): WorksheetSnapshot => fakeSnapshot({
+      name: 'Marks',
+      columns: [
+        category(),
+        region(),
+        fakeColumn('SUM(Sales)', 'float', 2),
+        fakeColumn('AVG(Profit)', 'float', 3),
+      ],
+      rows: [
+        ['Chairs', 'East', 1, 10],
+        ['Tables', 'East', 2, 20],
+        ['Chairs', 'West', 3, 30],
+        ['Tables', 'West', 4, 40],
+      ],
+      spec: fakeVisualSpec([mark]),
+    });
+
+    it('covers every member of the mark-type enum Tableau declares', () => {
+      // Thirteen in contract 1.211.0, and no `Automatic` among them: Tableau
+      // resolves that at authoring time to whatever it went on to draw.
+      expect(Object.keys(MARK_TYPES)).toHaveLength(13);
+      expect(MAPPED.length + REFUSED.length).toBe(13);
+    });
+
+    it.each(MAPPED)('reads %s marks as a %s layer', (mark, expected) => {
+      const extraction = extractTableau([markSnapshot(mark)]);
+
+      expect(layerOf(extraction).type).toBe(expected);
+    });
+
+    it.each(REFUSED)('skips a worksheet drawn with %s marks, rather than reading it as something it is not', (mark) => {
+      const extraction = extractTableau([markSnapshot(mark)]);
+
+      // These columns would happily build a grouped bar layer. Building one
+      // would announce a chart the author never drew, which is worse for a
+      // reader than being told the worksheet was left out.
+      expect(extraction.maidr.subplots).toEqual([]);
+      expect(extraction.selection.worksheets.size).toBe(0);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(`is drawn with ${mark} marks`),
+      );
+    });
+
+    it('reads bar marks over a single dimension as a plain bar, not a grouped one', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [['Chairs', 3], ['Tables', 1]],
+          spec: fakeVisualSpec(['bar']),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.BAR);
+    });
+
+    it('never upgrades area marks to a stacked area, whatever the second dimension does', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Tables', 'East', 2],
+            ['Chairs', 'West', 3],
+            ['Tables', 'West', 4],
+          ],
+          spec: fakeVisualSpec(['area']),
+        }),
+      ]);
+
+      // Summary data gives each band its own value for both layouts, so the
+      // stack is not recoverable and claiming one would misreport every total.
+      const layer = layerOf(extraction);
+      expect(layer.type).toBe(TraceType.AREA);
+      expect(layer.data as LinePoint[][]).toHaveLength(2);
+    });
+
+    it('falls through to the ladder for shape marks with nothing to put on a second axis', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [['Chairs', 3], ['Tables', 1]],
+          spec: fakeVisualSpec(['shape']),
+        }),
+      ]);
+
+      // MAIDR's point cloud demands numeric x and y; a categorical dot plot has
+      // neither, so the columns decide instead of the primitive.
+      expect(layerOf(extraction).type).toBe(TraceType.BAR);
+    });
+
+    it('falls back to grouped bars, with a warning, when square marks leave the grid with holes', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Treemap',
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Tables', 'East', 2],
+            ['Chairs', 'West', 3],
+          ],
+          spec: fakeVisualSpec(['square']),
+        }),
+      ]);
+
+      // `HeatmapData` is a rectangle, and a hole filled with a zero is a value
+      // the viz never drew.
+      expect(layerOf(extraction).type).toBe(TraceType.DODGED);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('complete grid'));
+    });
+
+    it('outranks the ladder even where the ladder is confident', () => {
+      const january = fakeValue(new Date('2021-01-01T00:00:00Z'), 'January 2021');
+      const february = fakeValue(new Date('2021-02-01T00:00:00Z'), 'February 2021');
+
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [month(), measure()],
+          rows: [[january, 10], [february, 20]],
+          spec: fakeVisualSpec(['bar']),
+        }),
+      ]);
+
+      // A temporal category is the ladder's own signature for a line (C3). The
+      // mark type is the only *direct* evidence of what was drawn, so it wins.
+      expect(layerOf(extraction).type).toBe(TraceType.BAR);
+    });
+
     it('reads pie marks as a pie chart, outranking the ladder’s bar', () => {
       const extraction = extractTableau([
         fakeSnapshot({
           columns: [category(), measure()],
           rows: [['Chairs', 3], ['Tables', 1]],
-          spec: { marksSpecifications: [{ primitiveType: 'pie' }] },
+          spec: fakeVisualSpec(['pie']),
         }),
       ]);
 
@@ -314,7 +508,7 @@ describe('tableau extractor', () => {
         fakeSnapshot({
           columns: [category(), measure()],
           rows: [['Chairs', 3], ['Tables', 1]],
-          spec: { marksSpecifications: [{ primitiveType: 'line' }] },
+          spec: fakeVisualSpec(['line']),
         }),
       ]);
 
@@ -331,7 +525,7 @@ describe('tableau extractor', () => {
             ['Chairs', 'West', 3],
             ['Tables', 'West', 4],
           ],
-          spec: { marksSpecifications: [{ primitiveType: 'heatmap' }] },
+          spec: fakeVisualSpec(['heatmap']),
         }),
       ]);
 
@@ -356,7 +550,7 @@ describe('tableau extractor', () => {
             ['Tables', 'East', 2],
             ['Chairs', 'West', 3],
           ],
-          spec: { marksSpecifications: [{ primitiveType: 'heatmap' }] },
+          spec: fakeVisualSpec(['heatmap']),
         }),
       ]);
 
@@ -373,14 +567,14 @@ describe('tableau extractor', () => {
             fakeColumn('AVG(Profit)', 'float', 2),
           ],
           rows: [['Alice', 10, 1], ['Bob', 20, 2]],
-          spec: { marksSpecifications: [{ primitiveType: 'circle' }] },
+          spec: fakeVisualSpec(['circle']),
         }),
       ]);
       const asBars = extractTableau([
         fakeSnapshot({
           columns: [category(), measure()],
           rows: [['Chairs', 3], ['Tables', 1]],
-          spec: { marksSpecifications: [{ primitiveType: 'circle' }] },
+          spec: fakeVisualSpec(['circle']),
         }),
       ]);
 
@@ -395,7 +589,7 @@ describe('tableau extractor', () => {
           name: 'Map',
           columns: [category(), measure()],
           rows: [['Chairs', 3]],
-          spec: { marksSpecifications: [{ primitiveType: 'map' }] },
+          spec: fakeVisualSpec(['map']),
         }),
       ]);
 
@@ -408,7 +602,7 @@ describe('tableau extractor', () => {
         fakeSnapshot({
           columns: [category(), measure()],
           rows: [['Chairs', 3]],
-          spec: { marksSpecifications: [{ primitiveType: 'something-new' }] },
+          spec: fakeVisualSpec(['something-new']),
         }),
       ]);
 
@@ -420,14 +614,139 @@ describe('tableau extractor', () => {
         fakeSnapshot({
           columns: [category(), measure()],
           rows: [['Chairs', 3]],
-          spec: {
-            activeMarksSpecificationIndex: 1,
-            marksSpecifications: [{ primitiveType: 'bar' }, { primitiveType: 'pie' }],
-          },
+          spec: fakeVisualSpec(['bar', 'pie'], 1),
         }),
       ]);
 
       expect(layerOf(extraction).type).toBe(TraceType.PIE);
+    });
+
+    it('warns that a worksheet with several marks cards is read from one', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Dual Axis',
+          columns: [category(), measure()],
+          rows: [['Chairs', 3]],
+          spec: fakeVisualSpec(['bar', 'line'], 1),
+        }),
+      ]);
+
+      // A dual-axis view has a card per measure, and nothing in the payload
+      // says which axis a card belongs to — so one is read, out loud.
+      expect(layerOf(extraction).type).toBe(TraceType.LINE);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('2 marks cards'));
+    });
+
+    it('falls back to the first marks card when the active index is out of range', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Out Of Range',
+          columns: [category(), measure()],
+          rows: [['Chairs', 3]],
+          spec: fakeVisualSpec(['pie'], 7),
+        }),
+      ]);
+
+      // `activeMarksSpecificationIndex` is a bare `number` in the declarations,
+      // constrained by nothing: an index the cards do not have is no reason to
+      // throw away a worksheet whose only card is right there.
+      expect(layerOf(extraction).type).toBe(TraceType.PIE);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('active marks card'));
+    });
+
+    it('falls back to the first marks card when the active index is fractional', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [['Chairs', 3]],
+          spec: fakeVisualSpec(['pie'], 0.5),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.PIE);
+    });
+
+    it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+      'falls back to the first marks card when the active index is %p',
+      (activeIndex) => {
+        const extraction = extractTableau([
+          fakeSnapshot({
+            columns: [category(), measure()],
+            rows: [['Chairs', 3]],
+            spec: fakeVisualSpec(['pie'], activeIndex),
+          }),
+        ]);
+
+        expect(layerOf(extraction).type).toBe(TraceType.PIE);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('active marks card'));
+      },
+    );
+
+    it('reads a specification with no marks cards through the ladder instead of throwing', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [['Chairs', 3], ['Tables', 1]],
+          spec: fakeVisualSpec([], 0),
+        }),
+      ]);
+
+      // `marksSpecifications` is required, so an empty array is a shape the
+      // declarations permit — and indexing it at the equally required
+      // `activeMarksSpecificationIndex` reads past the end. There is nothing to
+      // report and nothing to complain about: the columns still describe a
+      // chart.
+      expect(layerOf(extraction).type).toBe(TraceType.BAR);
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('active marks card'),
+      );
+    });
+
+    it('reads a fully populated payload by its mark type alone', () => {
+      const segment = fakeField('Segment');
+      const spec = fakeVisualSpec(
+        [
+          fakeMarksCard('bar', [
+            // A discrete dimension on Color that is on neither shelf is the
+            // shape Tableau produces for a *stacked* bar. The extractor still
+            // reads grouped bars: nothing in the contract reports the Stack
+            // Marks setting, so acting on this would be a claim about authoring
+            // habits rather than a reading of a declared fact (#937).
+            fakeEncoding('color', fakeField('Region')),
+            fakeEncoding('detail', segment),
+            fakeEncoding('tooltip', segment, { fieldEncodingId: 'tooltip:[Segment]:1' }),
+          ]),
+        ],
+        0,
+        {
+          columnFields: [fakeField('Category')],
+          rowFields: [
+            fakeField('SUM(Sales)', {
+              role: 'measure',
+              aggregation: 'sum',
+              columnType: 'continuous',
+              dataType: 'float',
+            }),
+          ],
+        },
+      );
+
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Sales by Category and Region',
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Tables', 'East', 2],
+            ['Chairs', 'West', 3],
+            ['Tables', 'West', 4],
+          ],
+          spec,
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.DODGED);
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 
@@ -439,13 +758,32 @@ describe('tableau extractor', () => {
             name: 'Sheet 1',
             columns: [category(), measure()],
             rows: [['Chairs', 3], ['Tables', 1]],
-            spec: { marksSpecifications: [{ primitiveType: 'bar' }] },
+            spec: fakeVisualSpec(['bar']),
           }),
         ],
         { overrides: { 'Sheet 1': { traceType: TraceType.LINE } } },
       );
 
       expect(layerOf(extraction).type).toBe(TraceType.LINE);
+    });
+
+    it('lets the page’s trace type rescue a worksheet the mark type would refuse', () => {
+      const extraction = extractTableau(
+        [
+          fakeSnapshot({
+            name: 'Sheet 1',
+            columns: [category(), measure()],
+            rows: [['Chairs', 3], ['Tables', 1]],
+            spec: fakeVisualSpec(['map']),
+          }),
+        ],
+        { overrides: { 'Sheet 1': { traceType: TraceType.BAR } } },
+      );
+
+      // The refusal protects a reader from a chart MAIDR cannot honestly
+      // describe; a page that says what the worksheet is has answered that.
+      expect(layerOf(extraction).type).toBe(TraceType.BAR);
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('no equivalent'));
     });
 
     it('reaches a stacked bar, which is never inferred, only through the override', () => {
@@ -900,7 +1238,7 @@ describe('tableau extractor', () => {
             ['Chairs', 'West', 3],
             ['Tables', 'West', 4],
           ],
-          spec: { marksSpecifications: [{ primitiveType: 'heatmap' }] },
+          spec: fakeVisualSpec(['heatmap']),
         }),
       ]);
 
@@ -1002,7 +1340,7 @@ describe('tableau extractor', () => {
             ['Chairs', 'West', 3],
             ['Tables', 'West', 4],
           ],
-          spec: { marksSpecifications: [{ primitiveType: 'heatmap' }] },
+          spec: fakeVisualSpec(['heatmap']),
         }),
       ]);
 

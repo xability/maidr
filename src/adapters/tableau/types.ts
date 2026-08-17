@@ -9,13 +9,19 @@
  * nothing at runtime and pins us to one library version, so the members the
  * adapter actually reads are mirrored here instead — nothing more.
  *
- * Everything below is intentionally a *subset*. A member is present only
- * because some module in `src/adapters/tableau/` reads or calls it, and a
- * member is optional whenever the running library may not provide it (an older
- * Embedding release, or the Extensions API's `Worksheet`, which satisfies the
- * same shared `DataTable` contract). The one member that is optional for a
- * different reason is {@link TableauWorksheet.getVisualSpecificationAsync}:
- * it exists on the Extensions surface only, and `reader.ts` feature-detects it.
+ * Most of what follows is intentionally a *subset*: a member is present because
+ * some module in `src/adapters/tableau/` reads or calls it, and a member is
+ * optional whenever the running library may not provide it (an older Embedding
+ * release, or the Extensions API's `Worksheet`, which satisfies the same shared
+ * `DataTable` contract).
+ *
+ * The visual-specification block is the exception and is mirrored **whole**,
+ * member for member, against the shipped declarations. It was previously
+ * written from documentation prose, which got its optionality, its member types
+ * and its very availability wrong; a partial mirror is what allowed that, so
+ * each of those types names the declaration file and the package version it was
+ * read from and is meant to be re-verified against the package rather than
+ * against prose.
  */
 
 import type { Orientation, StepDirection, TraceType } from '../../type/grammar';
@@ -155,27 +161,259 @@ export interface TableauSelectionCriteria {
   readonly value: string | string[] | TableauRangeValue;
 }
 
-/** One marks card of a worksheet's visual specification. */
-export interface TableauMarksSpecification {
+// ---------------------------------------------------------------------------
+// Visual specification
+//
+// Everything from here to {@link TableauVisualSpecification} mirrors, member
+// for member, the declarations shipped in `@tableau/embedding-api@3.12.1`,
+// which vendors `@tableau/api-external-contract-js@1.211.0`. Paths in the doc
+// comments are relative to that contract's `lib/src/`.
+//
+// Two deliberate departures from the vendor's spelling, neither of which
+// changes what the payload is:
+//
+// - the enums become string-literal unions, because MAIDR compares against the
+//   *values* and importing the vendor's `enum` would be the dependency this
+//   file exists to avoid;
+// - the array members are `readonly T[]` rather than `T[]`. Nothing here is
+//   ever mutated, and a vendor `T[]` is assignable to a `readonly T[]`, so the
+//   mirror is stricter locally without misreporting the contract.
+// ---------------------------------------------------------------------------
+
+/**
+ * Values of Tableau's `MarkType` enum: the primitive one marks card drew.
+ *
+ * Mirrors `MarkType` in `ExternalContract/Shared/Namespaces/Tableau.d.ts` —
+ * all thirteen members, verbatim.
+ *
+ * There is no `Automatic` member. "Automatic" is an authoring-time setting; by
+ * the time a viz is drawn Tableau has resolved it to one of these. The enum is
+ * closed *in this contract version*, which is not the same as closed forever —
+ * the host page loads whichever Embedding build it likes — so `extractor.ts`
+ * still routes an unrecognised value to the heuristic ladder instead of
+ * treating the union as exhaustive at runtime.
+ */
+export type TableauMarkType
+  = | 'area'
+    | 'bar'
+    | 'circle'
+    | 'gantt-bar'
+    | 'heatmap'
+    | 'line'
+    | 'map'
+    | 'pie'
+    | 'polygon'
+    | 'shape'
+    | 'square'
+    | 'text'
+    | 'viz-extension';
+
+/**
+ * Values of Tableau's `EncodingType` enum: which shelf or card a field sits on.
+ *
+ * Mirrors `EncodingType` in `ExternalContract/Shared/Namespaces/Tableau.d.ts` —
+ * all sixteen members, verbatim. The declaration carries no documentation of
+ * any kind, so the meanings below are the enum's own spelling and nothing more.
+ *
+ * Worth knowing before reasoning about a payload: the *internal* contract's
+ * `EncodingType`, which is the one commented "Used by
+ * getVisualSpecificationAsync", declares only the last ten — `column`, `row`,
+ * `page`, `filter`, `marks-type` and `measure-values` exist on the public
+ * contract alone. The public contract is what a host ships, so it is what is
+ * mirrored, but a value from the first six arriving on `Encoding.type` should
+ * not be assumed.
+ */
+export type TableauEncodingType
+  = | 'angle'
+    | 'color'
+    | 'column'
+    | 'custom'
+    | 'detail'
+    | 'filter'
+    | 'geometry'
+    | 'label'
+    | 'marks-type'
+    | 'measure-values'
+    | 'page'
+    | 'path'
+    | 'row'
+    | 'shape'
+    | 'size'
+    | 'tooltip';
+
+/**
+ * Values of Tableau's `FieldRoleType` enum.
+ *
+ * Mirrors `FieldRoleType` in `ExternalContract/Shared/Namespaces/Tableau.d.ts`.
+ * Not to be confused with {@link TableauColumnRole}, which is MAIDR's own
+ * reading of a *summary-data column* and has nothing to do with this enum.
+ */
+export type TableauFieldRoleType = 'dimension' | 'measure' | 'unknown';
+
+/**
+ * Values of Tableau's `ColumnType` enum: whether a field is discrete or
+ * continuous, as the author placed it.
+ *
+ * Mirrors `ColumnType` in `ExternalContract/Shared/Namespaces/Tableau.d.ts`.
+ * `'unknown'` is a value the enum really declares, not a placeholder.
+ */
+export type TableauFieldColumnType = 'continuous' | 'discrete' | 'unknown';
+
+/**
+ * Values of Tableau's `FieldAggregationType` enum.
+ *
+ * Mirrors `FieldAggregationType` in
+ * `ExternalContract/Shared/Namespaces/Tableau.d.ts` — all forty members,
+ * verbatim. The list mixes true aggregations (`sum`, `countd`), date
+ * truncations (`trunc-month`) and date parts (`weekday`), because Tableau
+ * reports all three through this one property.
+ */
+export type TableauFieldAggregationType
+  = | 'attr'
+    | 'avg'
+    | 'collect'
+    | 'count'
+    | 'countd'
+    | 'day'
+    | 'end'
+    | 'hour'
+    | 'in-out'
+    | 'kurtosis'
+    | 'max'
+    | 'mdy'
+    | 'median'
+    | 'min'
+    | 'minute'
+    | 'month'
+    | 'month-year'
+    | 'none'
+    | 'qtr'
+    | 'quart1'
+    | 'quart3'
+    | 'second'
+    | 'skewness'
+    | 'stdev'
+    | 'stdevp'
+    | 'sum'
+    | 'trunc-day'
+    | 'trunc-hour'
+    | 'trunc-minute'
+    | 'trunc-month'
+    | 'trunc-qtr'
+    | 'trunc-second'
+    | 'trunc-week'
+    | 'trunc-year'
+    | 'user'
+    | 'var'
+    | 'varp'
+    | 'week'
+    | 'weekday'
+    | 'year';
+
+/**
+ * One field of a visual specification, with its properties.
+ *
+ * Mirrors `FieldInstance` in `ExternalContract/Shared/VisualModelInterface.d.ts`
+ * together with every member it inherits from `FieldBase` in
+ * `ExternalContract/Shared/DataSourceInterfaces.d.ts`: twelve inherited members
+ * plus `fieldId`.
+ *
+ * Note that `description` and `dataType` are **required keys whose value may be
+ * `undefined`**, not optional keys — that is how the vendor declares them, and
+ * the distinction is the difference between "Tableau reported no description"
+ * and "the payload never had the key".
+ */
+export interface TableauFieldInstance {
+  /** The field's caption, e.g. `Sales`. */
+  readonly name: string;
+  /** The author's description of the field, `undefined` when there is none. */
+  readonly description: string | undefined;
+  readonly dataType: TableauDataType | undefined;
+  readonly role: TableauFieldRoleType;
+  readonly aggregation: TableauFieldAggregationType;
+  readonly columnType: TableauFieldColumnType;
+  readonly isCalculatedField: boolean;
+  readonly isCombinedField: boolean;
+  /** Whether Tableau generated the field, e.g. `Measure Values`. */
+  readonly isGenerated: boolean;
+  readonly isGeospatial: boolean;
+  readonly isHidden: boolean;
+  readonly isPresentOnPublishedDatasource: boolean;
   /**
-   * The primitive Tableau actually drew — `'bar'`, `'line'`, `'pie'`, … There
-   * is no `Automatic` member: "Automatic" resolves to whatever was drawn.
+   * Unique across every data source in the workbook, and — in summary data —
+   * inclusive of the aggregation. Documented as changing when the data source
+   * is replaced, so it is a within-session key and not a durable one.
    */
-  readonly primitiveType?: string;
+  readonly fieldId: string;
 }
 
 /**
- * A worksheet's visual specification.
+ * One field on one encoding of a marks card.
  *
- * Available on the Extensions API (1.11+ / Tableau 2024.1+) and absent from the
- * Embedding API today, which is why every member is optional and why
- * `reader.ts` feature-detects the method that returns it. When present it is
- * the only *direct* evidence of what chart the author drew; without it the
- * extractor falls back to its heuristic ladder.
+ * Mirrors `Encoding` in `ExternalContract/Shared/VisualModelInterface.d.ts`.
+ */
+export interface TableauEncoding {
+  /** The built-in encoding type, or the name of the custom encoding. */
+  readonly id: string;
+  /** Distinguishes duplicate fields dropped on the same encoding. */
+  readonly fieldEncodingId: string;
+  readonly type: TableauEncodingType;
+  readonly field: TableauFieldInstance;
+}
+
+/**
+ * One marks card of a worksheet's visual specification.
+ *
+ * Mirrors `MarksSpecification` in
+ * `ExternalContract/Shared/VisualModelInterface.d.ts`. Both members are
+ * required there; neither is optional.
+ */
+export interface TableauMarksSpecification {
+  /** The primitive Tableau actually drew — `'bar'`, `'line'`, `'pie'`, … */
+  readonly primitiveType: TableauMarkType;
+  /**
+   * Every field on this card's encodings, colour and size included.
+   *
+   * Read by nothing today, and mirrored anyway: this is the member whose
+   * absence from the old hand-written type is what made "the API cannot tell a
+   * stack from a side-by-side" look like a fact about Tableau rather than a
+   * fact about our type. Nothing in the contract reports Tableau's *Stack
+   * Marks* setting — there is no such declared member anywhere — so this alone
+   * does not settle that question, but it is the evidence any attempt needs.
+   */
+  readonly encodings: readonly TableauEncoding[];
+}
+
+/**
+ * A worksheet's visual specification: the shelves and the marks cards behind
+ * what was drawn.
+ *
+ * Mirrors `VisualSpecification` in
+ * `ExternalContract/Shared/VisualModelInterface.d.ts`. **Every member is
+ * required**, and `reader.ts` still feature-detects the call that returns it —
+ * see {@link TableauWorksheet.getVisualSpecificationAsync} for why those two
+ * facts sit together.
+ *
+ * When it is present it is the only *direct* evidence of what chart the author
+ * drew; without it the extractor falls back to its heuristic ladder.
+ *
+ * `activeMarksSpecificationIndex` is declared as a bare `number` with no
+ * documentation at all: nothing says it is integral, non-negative, or less than
+ * `marksSpecifications.length`. The extractor range-checks it rather than
+ * indexing with it.
  */
 export interface TableauVisualSpecification {
-  readonly activeMarksSpecificationIndex?: number;
-  readonly marksSpecifications?: readonly TableauMarksSpecification[];
+  /** Fields on the Rows shelf, in shelf order. */
+  readonly rowFields: readonly TableauFieldInstance[];
+  /** Fields on the Columns shelf, in shelf order. */
+  readonly columnFields: readonly TableauFieldInstance[];
+  readonly activeMarksSpecificationIndex: number;
+  /**
+   * One entry per marks card. A dual-axis worksheet has more than one, and
+   * nothing in the contract says which axis a card belongs to, whether the axes
+   * are synchronized, or how the cards are ordered.
+   */
+  readonly marksSpecifications: readonly TableauMarksSpecification[];
 }
 
 /** Values of Tableau's `SheetType` enum. */
@@ -206,8 +444,25 @@ export interface TableauWorksheet extends TableauSheetBase {
     updateType: string,
   ) => Promise<void>;
   clearSelectedMarksAsync: () => Promise<void>;
-  /** Extensions-only, Tableau 2024.1+. Feature-detected, never assumed. */
-  getVisualSpecificationAsync?: () => Promise<TableauVisualSpecification>;
+  /**
+   * The worksheet's visual specification.
+   *
+   * Declared **non-optionally on both public `Worksheet` interfaces** —
+   * `ExternalContract/Embedding/SheetInterfaces.d.ts` and
+   * `ExternalContract/Extensions/SheetInterfaces.d.ts` — and implemented by the
+   * Embedding API's own `Worksheet` class (`EmbeddingApi/Models/Worksheet`) in
+   * `@tableau/embedding-api@3.12.1`. It is not Extensions-only.
+   *
+   * It is declared required here and *still* feature-detected in `reader.ts`,
+   * because the two answer different questions. This type describes the
+   * contract; the runtime check describes the host, which loads whatever build
+   * of the Embedding library it likes. The Extensions declaration carries
+   * `@since 1.11.0 and Tableau 2024.1`; the Embedding one carries no `@since`
+   * at all, so the declarations set no version floor there — an older library
+   * on the page simply will not have the method, and an older Tableau Server
+   * can reject the call at runtime, which `reader.ts` catches.
+   */
+  getVisualSpecificationAsync: () => Promise<TableauVisualSpecification>;
 }
 
 /** A dashboard. `worksheets` is in the order the author added them. */
