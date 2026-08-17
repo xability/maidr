@@ -49,9 +49,11 @@ import type { SelectionIndex } from './extractor';
 import type { SelectionBridge } from './selection';
 import type {
   TableauAdapterOptions,
+  TableauDashboardObject,
   TableauSheet,
   TableauViz,
   TableauWorksheet,
+  TableauWorksheetGeometry,
 } from './types';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
@@ -244,11 +246,107 @@ function waitForFirstInteractive(viz: TableauViz): Promise<void> {
 }
 
 /**
- * Find every worksheet the active sheet exposes.
+ * Read each worksheet's place on the dashboard, keyed by worksheet name.
+ *
+ * `Dashboard.objects` and every member of a `DashboardObject` are **required**
+ * in Tableau's shipped declarations and none of them carries an `@since` tag,
+ * so the contract sets no version floor — which is exactly why none of it is
+ * trusted here. The host page loads whichever build of the Embedding library it
+ * likes, and the real case this covers is an older one: a library that predates
+ * the dashboard-object surface simply has no `objects`, and a partial one could
+ * hand back an object with no `position`. Every access below is therefore
+ * guarded, and any failure to read a worksheet's geometry leaves that worksheet
+ * out of the map rather than inventing a place for it. The extractor requires
+ * geometry for *every* surviving worksheet before it will build a grid, so a
+ * gap here is a whole-figure fall back to the N×1 column — never a half-grid.
+ *
+ * Only worksheet objects are considered. Legends, titles, filters and blanks
+ * are furniture: they hold no data, contribute no subplot, and their positions
+ * would only distort the banding.
+ *
+ * Matching is by `object.worksheet.name`, never by `object.name` — the latter
+ * is the *object's* authoring name, which an author can change without
+ * renaming the sheet inside it. Tableau documents `dashboard.worksheets` as
+ * exactly the worksheets of the objects whose type is `worksheet`, so the names
+ * line up by construction.
+ *
+ * @param sheet - The active sheet. Anything but a dashboard yields nothing.
+ * @returns Worksheet name → geometry, empty when the sheet reported none.
+ */
+function readDashboardGeometry(
+  sheet: TableauSheet,
+): Map<string, TableauWorksheetGeometry> {
+  const geometry = new Map<string, TableauWorksheetGeometry>();
+  if (sheet.sheetType !== 'dashboard') {
+    return geometry;
+  }
+
+  let objects: readonly TableauDashboardObject[] | undefined;
+  try {
+    objects = sheet.objects;
+  } catch {
+    // A property that throws is a property this library does not really have.
+    return geometry;
+  }
+  if (!Array.isArray(objects)) {
+    return geometry;
+  }
+
+  for (const object of objects) {
+    if (object === null || typeof object !== 'object') {
+      continue;
+    }
+    if (object.type !== 'worksheet' || object.worksheet === undefined) {
+      continue;
+    }
+    const position = object.position;
+    const size = object.size;
+    if (position === undefined || size === undefined) {
+      continue;
+    }
+    const { x, y } = position;
+    const { width, height } = size;
+    if (![x, y, width, height].every(Number.isFinite)) {
+      continue;
+    }
+    // Keyed by worksheet name, which `Dashboard.worksheets` is documented to
+    // correspond to one-for-one with the `worksheet`-typed objects — so a name
+    // collision cannot arise from authoring, and a later object overwriting an
+    // earlier one's entry is a case the API's own contract rules out. Note this
+    // is `object.worksheet.name`, never `object.name`: the latter is the zone's
+    // authoring name and can differ from the sheet it holds.
+    geometry.set(object.worksheet.name, {
+      x,
+      y,
+      width,
+      height,
+      // Both flags default to the shape a tiled, on-screen dashboard has, so a
+      // library that reports geometry but not these two is still usable. Each
+      // of them, when true and false respectively, disqualifies the grid
+      // outright in the extractor — see `layOutByGeometry`.
+      isFloating: object.isFloating === true,
+      isVisible: object.isVisible !== false,
+    });
+  }
+  return geometry;
+}
+
+/** What the active sheet contributes: its worksheets, and where they sit. */
+interface DiscoveredSheet {
+  /** The worksheets, in the order the author added them. */
+  readonly worksheets: readonly TableauWorksheet[];
+  /** Worksheet name → geometry. Empty whenever geometry is unavailable. */
+  readonly geometry: ReadonlyMap<string, TableauWorksheetGeometry>;
+}
+
+/**
+ * Find every worksheet the active sheet exposes, and where each one sits.
  *
  * A dashboard's `worksheets` is in the order the author added them, which is
  * also the order Tableau documents a screen reader as narrating them in — so
- * paging through MAIDR's subplots follows the order the reader already knows.
+ * paging through MAIDR's subplots follows the order the reader already knows,
+ * unless the dashboard's own geometry says something more truthful (see
+ * {@link readDashboardGeometry}).
  *
  * A story yields nothing: reading a worksheet inside one is a documented known
  * issue ("operation not allowed on non-active sheet"). A viz that is not
@@ -256,33 +354,40 @@ function waitForFirstInteractive(viz: TableauViz): Promise<void> {
  *
  * Called again on every refresh, not only at bind time: `tabswitched` changes
  * which sheet is active, and the worksheets of the sheet the reader has left
- * describe a view that is no longer on screen.
+ * describe a view that is no longer on screen. The geometry is re-read on the
+ * same path, because a different sheet is laid out differently.
  *
  * @param viz - The `<tableau-viz>` element.
- * @returns The worksheets, or an empty list when there is nothing to read.
+ * @returns The worksheets and their geometry; the worksheets are empty when
+ * there is nothing to read.
  */
-function discoverWorksheets(viz: TableauViz): readonly TableauWorksheet[] {
+function discoverWorksheets(viz: TableauViz): DiscoveredSheet {
+  const empty = new Map<string, TableauWorksheetGeometry>();
   const sheet = readActiveSheet(viz);
   if (sheet === null) {
     warn(
       'the viz has no readable active sheet — it never became interactive, or '
       + 'its load failed; nothing to read.',
     );
-    return [];
+    return { worksheets: [], geometry: empty };
   }
 
   if (sheet.sheetType === 'worksheet') {
-    return [sheet];
+    // A single worksheet is the whole sheet; it has no place *on* anything.
+    return { worksheets: [sheet], geometry: empty };
   }
   if (sheet.sheetType === 'dashboard') {
-    return sheet.worksheets;
+    return {
+      worksheets: sheet.worksheets,
+      geometry: readDashboardGeometry(sheet),
+    };
   }
 
   warn(
     `the active sheet "${sheet.name}" is a story, and reading a worksheet `
     + `inside a story is a documented Tableau limitation; skipping it.`,
   );
-  return [];
+  return { worksheets: [], geometry: empty };
 }
 
 /**
@@ -391,7 +496,15 @@ export async function bindTableau(
   // Reassigned by every refresh: `tabswitched` makes a different sheet active,
   // and the worksheets discovered here belong to the sheet that was active at
   // bind time.
-  let worksheets = selectWorksheets(discoverWorksheets(viz), options);
+  //
+  // `refresh()` discovers again rather than reusing this, so discovery runs
+  // twice on a bind. That is deliberate, not a leftover: this call exists so an
+  // empty sheet returns `null` *before* a wrapper is mounted, leaving the page
+  // untouched, while the call inside `refresh()` has to re-read because a
+  // `tabswitched` refresh describes a different sheet entirely. Both are a
+  // synchronous property walk over `dashboard.objects`, so the second read
+  // costs nothing worth restructuring for.
+  let worksheets = selectWorksheets(discoverWorksheets(viz).worksheets, options);
   if (worksheets.length === 0) {
     warn('no worksheet to read on the active sheet; the page is unchanged.');
     return null;
@@ -467,7 +580,8 @@ export async function bindTableau(
     // a view that is no longer on screen. The clear above deliberately ran on
     // the *old* list first, so a selection is never stranded in the sheet the
     // reader has just left.
-    const current = selectWorksheets(discoverWorksheets(viz), options);
+    const discovered = discoverWorksheets(viz);
+    const current = selectWorksheets(discovered.worksheets, options);
     if (current.length === 0) {
       warn(
         state.data === null
@@ -492,8 +606,19 @@ export async function bindTableau(
     // Each `readWorksheet` enqueues its own pagination, so these resolve in
     // whatever order Tableau answers while still opening exactly one reader at
     // a time. `Promise.all` keeps the snapshots in figure order regardless.
+    //
+    // Geometry is attached here rather than inside `readWorksheet`, because it
+    // is a *sheet*-level fact: it lives on `dashboard.objects`, and the reader
+    // is handed one worksheet at a time and never sees the sheet those objects
+    // belong to. A worksheet the dashboard reported no usable geometry for gets
+    // no `geometry` at all, which is what the extractor reads as "lay this
+    // figure out as a column".
     const snapshots = await Promise.all(
-      worksheets.map(async worksheet => readWorksheet(worksheet)),
+      worksheets.map(async (worksheet) => {
+        const snapshot = await readWorksheet(worksheet);
+        const geometry = discovered.geometry.get(worksheet.name);
+        return geometry === undefined ? snapshot : { ...snapshot, geometry };
+      }),
     );
     if (disposed) {
       return;

@@ -31,6 +31,7 @@
 import type {
   TableauColumn,
   TableauDashboard,
+  TableauDashboardObject,
   TableauDataTable,
   TableauDataTableReader,
   TableauDataType,
@@ -48,6 +49,7 @@ import type {
   TableauViz,
   TableauWorkbook,
   TableauWorksheet,
+  TableauWorksheetGeometry,
   WorksheetSnapshot,
 } from '@adapters/tableau/types';
 
@@ -502,6 +504,52 @@ export interface FakeSnapshotConfig {
   rows: readonly (readonly (FakeCell | undefined)[])[];
   /** The visual specification, when the test exercises mark-type classification. */
   spec?: TableauVisualSpecification;
+  /**
+   * Where the worksheet sits on its dashboard, when the test exercises layout.
+   *
+   * Absent by default, which is what a snapshot read off an older embedding
+   * library — or off a sheet that is a lone worksheet rather than a dashboard —
+   * really looks like, so every fixture that says nothing about geometry keeps
+   * proving the N×1 column.
+   */
+  geometry?: FakeGeometryConfig;
+}
+
+/**
+ * A worksheet's place on a dashboard, as a test writes it.
+ *
+ * The two flags default to the shape a plain tiled worksheet has, so a test
+ * about banding writes four numbers and a test about floating or hidden
+ * worksheets writes the one flag it is actually about.
+ */
+export interface FakeGeometryConfig {
+  /** Left edge, relative to the dashboard's top-left corner. */
+  x: number;
+  /** Top edge, relative to the dashboard's top-left corner. */
+  y: number;
+  width: number;
+  height: number;
+  /** Defaults to `false` — a tiled object. */
+  isFloating?: boolean;
+  /** Defaults to `true` — an object that is on screen. */
+  isVisible?: boolean;
+}
+
+/**
+ * Fill in the flags a {@link FakeGeometryConfig} left off.
+ *
+ * @param config - The geometry a test wrote.
+ * @returns The complete geometry the adapter's types describe.
+ */
+export function fakeGeometry(config: FakeGeometryConfig): TableauWorksheetGeometry {
+  return {
+    x: config.x,
+    y: config.y,
+    width: config.width,
+    height: config.height,
+    isFloating: config.isFloating ?? false,
+    isVisible: config.isVisible ?? true,
+  };
 }
 
 /**
@@ -522,21 +570,85 @@ export function fakeSnapshot(config: FakeSnapshotConfig): WorksheetSnapshot {
     columns: config.columns,
     rows,
     ...(config.spec === undefined ? {} : { spec: config.spec }),
+    ...(config.geometry === undefined
+      ? {}
+      : { geometry: fakeGeometry(config.geometry) }),
+  };
+}
+
+/** One object on a dashboard, as a test writes it. */
+export interface FakeDashboardObjectConfig extends FakeGeometryConfig {
+  /**
+   * The worksheet inside the object, when there is one.
+   *
+   * `undefined` is what a real `DashboardObject` carries for every piece of
+   * dashboard furniture — the key is present, the value is not a worksheet —
+   * so it is written out below rather than left off.
+   */
+  worksheet?: TableauWorksheet;
+  /**
+   * The object type. Defaults to `'worksheet'` when a worksheet is given and to
+   * `'legend'` otherwise, so a test only names it to make a point.
+   */
+  type?: string;
+  /**
+   * The *object's* authoring name, which is not the worksheet's name.
+   *
+   * Deliberately defaulted to something no worksheet in these tests is called,
+   * so a binder that matched geometry on this instead of on
+   * `object.worksheet.name` would find nothing and fall back to the column.
+   */
+  name?: string;
+  /** The dashboard object's id. */
+  id?: number;
+}
+
+/**
+ * Build one entry of `dashboard.objects`.
+ *
+ * @param config - Where the object sits and what is inside it.
+ * @returns The object, with every member the contract declares required.
+ */
+export function fakeDashboardObject(
+  config: FakeDashboardObjectConfig,
+): TableauDashboardObject {
+  const geometry = fakeGeometry(config);
+  return {
+    type: config.type ?? (config.worksheet === undefined ? 'legend' : 'worksheet'),
+    position: { x: geometry.x, y: geometry.y },
+    size: { width: geometry.width, height: geometry.height },
+    worksheet: config.worksheet,
+    name: config.name ?? `Container ${config.id ?? 0}`,
+    isFloating: geometry.isFloating,
+    isVisible: geometry.isVisible,
+    id: config.id ?? 0,
   };
 }
 
 /**
  * Build a dashboard sheet over a set of worksheets, in add-order.
  *
+ * `objects` is left **off entirely** unless a test supplies it, because that is
+ * what an older embedding library looks like from the adapter's side: the
+ * property is missing, not empty. A dashboard built without it therefore keeps
+ * proving that geometry is feature-detected rather than assumed.
+ *
  * @param worksheets - The worksheets, in the order the author added them.
  * @param name - The dashboard's name.
+ * @param objects - Every object on the dashboard, when the test lays one out.
  * @returns The dashboard.
  */
 export function fakeDashboard(
   worksheets: readonly TableauWorksheet[],
   name = 'Dashboard 1',
+  objects?: readonly TableauDashboardObject[],
 ): TableauDashboard {
-  return { name, sheetType: 'dashboard', worksheets };
+  return {
+    name,
+    sheetType: 'dashboard',
+    worksheets,
+    ...(objects === undefined ? {} : { objects }),
+  };
 }
 
 /** A viz element whose active sheet the test can change, or take away. */
@@ -606,12 +718,16 @@ export function fakeViz(
  *
  * @param worksheets - The dashboard's worksheets, in add-order.
  * @param name - The dashboard's name.
+ * @param objects - Every object on the dashboard, when the test lays one out.
+ * Left off, the dashboard reports no `objects` at all, which is the older
+ * embedding library the binder has to keep working against.
  * @returns The viz element, already carrying a readable workbook.
  * @throws When there is no DOM — add `@jest-environment jsdom` to the test.
  */
 export function fakeDashboardViz(
   worksheets: readonly TableauWorksheet[],
   name = 'Dashboard 1',
+  objects?: readonly TableauDashboardObject[],
 ): TableauViz {
-  return fakeViz(fakeDashboard(worksheets, name), name).viz;
+  return fakeViz(fakeDashboard(worksheets, name, objects), name).viz;
 }
