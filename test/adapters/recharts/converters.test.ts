@@ -231,10 +231,15 @@ describe('convertRechartsToMaidr', () => {
       // DivergingTrace reads the sides in DECLARATION order rather than the
       // reversed stacking order, and reads the sign as the SIDE — so the left
       // side must stay first and stay negative.
+      //
+      // The counts sit in `x` and the age bands in `y`, because the config
+      // declares `HORIZONTAL` and that is how the bar family reads a `horz`
+      // layer (#958). Asserted the other way round until then, so this case
+      // was green while every bar of the pyramid was silent.
       const data = result.subplots[0][0].layers[0].data as SegmentedPoint[][];
       expect(data).toHaveLength(2);
-      expect(data[0][0]).toEqual({ x: '0-9', y: -2100, z: 'Men' });
-      expect(data[1][0]).toEqual({ x: '0-9', y: 2000, z: 'Women' });
+      expect(data[0][0]).toEqual({ x: -2100, y: '0-9', z: 'Men' });
+      expect(data[1][0]).toEqual({ x: 2000, y: '0-9', z: 'Women' });
     });
 
     it('falls back to BAR type when only one side is declared', () => {

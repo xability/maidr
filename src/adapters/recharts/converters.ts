@@ -319,6 +319,12 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey, config);
 
+    // See the composed-layer builder below: a horizontal bar layer is emitted
+    // the way the core reads it, not the way the config was written (#958).
+    const resolvedOrientation = layerOrientation(chartType, orientation);
+    const horizontal = resolvedOrientation === Orientation.HORIZONTAL
+      && swapsUnderHorizontal(chartType);
+
     return {
       id: String(index),
       type: maidrType,
@@ -326,12 +332,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
-      orientation: layerOrientation(chartType, orientation),
-      axes: {
-        x: { label: xLabel },
-        y: { label: yLabel },
-      },
-      data: layerData,
+      orientation: resolvedOrientation,
+      axes: barAxes(xLabel, yLabel, horizontal),
+      data: horizontal ? swapBarFamilyPoints(layerData) : layerData,
     } as MaidrLayer;
   });
 }
@@ -359,12 +362,18 @@ function buildSegmentedBarLayer(
   // SegmentedTrace expects [group/segment][category]:
   //   outer array = series (one per yKey/fill)
   //   inner array = categories (one per data item / x-value)
+  const resolved = orientation ?? Orientation.VERTICAL;
+  const horizontal = resolved === Orientation.HORIZONTAL;
+
   const segmentedData: SegmentedPoint[][] = yKeys.map((yKey, i) => {
-    return data.map(item => ({
-      x: item[xKey] as string | number,
-      y: toNumber(item[yKey]),
-      z: fillKeys?.[i] ?? yKey,
-    }));
+    return data.map((item) => {
+      const category = item[xKey] as string | number;
+      const magnitude = toNumber(item[yKey]);
+      const z = fillKeys?.[i] ?? yKey;
+      return horizontal
+        ? { x: magnitude, y: category, z }
+        : { x: category, y: magnitude, z };
+    });
   });
 
   const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
@@ -373,10 +382,9 @@ function buildSegmentedBarLayer(
     id: '0',
     type: toTraceType(chartType),
     selectors: selector,
-    orientation: orientation ?? Orientation.VERTICAL,
+    orientation: resolved,
     axes: {
-      x: { label: xLabel },
-      y: { label: yLabel },
+      ...barAxes(xLabel, yLabel, horizontal),
       z: { label: 'Series' },
     },
     data: segmentedData,
@@ -411,17 +419,19 @@ function buildHistogramLayer(
   });
 
   const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
+  const resolved = orientation ?? Orientation.VERTICAL;
+  const horizontal = resolved === Orientation.HORIZONTAL;
 
   return {
     id: '0',
     type: TraceType.HISTOGRAM,
     selectors: selector,
-    orientation: orientation ?? Orientation.VERTICAL,
-    axes: {
-      x: { label: xLabel },
-      y: { label: yLabel },
-    },
-    data: histData,
+    orientation: resolved,
+    // Bin edges travel in `xMin`/`xMax`, so they are exchanged along with the
+    // pair — see `swapBarFamilyPoints` for why halving the swap is worse than
+    // not swapping at all.
+    axes: barAxes(xLabel, yLabel, horizontal),
+    data: horizontal ? swapBarFamilyPoints(histData) : histData,
   };
 }
 
@@ -1164,6 +1174,14 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey, config);
 
+    // A horizontal bar layer is emitted the way the core reads it — magnitude
+    // in `x`, category in `y` — rather than the way the config was written.
+    // Declaring the key over the config's arrangement leaves `BarTrace` a
+    // category name to pitch and silences the layer (#958).
+    const resolvedOrientation = layerOrientation(chartType, orientation);
+    const horizontal = resolvedOrientation === Orientation.HORIZONTAL
+      && swapsUnderHorizontal(chartType);
+
     return {
       id: String(index),
       type: maidrType,
@@ -1171,12 +1189,9 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
-      orientation: layerOrientation(chartType, orientation),
-      axes: {
-        x: { label: xLabel },
-        y: { label: yLabel },
-      },
-      data: layerData,
+      orientation: resolvedOrientation,
+      axes: barAxes(xLabel, yLabel, horizontal),
+      data: horizontal ? swapBarFamilyPoints(layerData) : layerData,
     } as MaidrLayer;
   });
 }
@@ -1683,6 +1698,98 @@ function isBarType(chartType: RechartsChartType): boolean {
     || chartType === 'histogram'
     || chartType === 'gantt'
     || chartType === 'dumbbell';
+}
+
+/**
+ * A bar-family payload written the way a horizontal layer is read.
+ *
+ * Only the flat bar payloads reach here — the caller has already established
+ * the type is one {@link swapsUnderHorizontal} names, and the segmented
+ * builder swaps its own `SegmentedPoint[][]` as it assembles them.
+ *
+ * A histogram's bin span travels as `xMin`/`xMax`, so those move too:
+ * exchanging `x` and `y` alone would leave each bin announcing a value from
+ * one axis and a width from the other, which reads as a plausible bar and is
+ * not one.
+ *
+ * @param points - The points as the config's keys produced them
+ * @returns The same points with magnitude and category exchanged
+ */
+function swapBarFamilyPoints<T>(points: T): T {
+  if (!Array.isArray(points)) {
+    return points;
+  }
+  return points.map((point: BarPoint | HistogramPoint) => {
+    const swapped: BarPoint = { ...point, x: point.y, y: point.x };
+    if ('xMin' in point) {
+      const bin = point;
+      return {
+        ...swapped,
+        xMin: bin.yMin,
+        xMax: bin.yMax,
+        yMin: bin.xMin,
+        yMax: bin.xMax,
+      };
+    }
+    return swapped;
+  }) as T;
+}
+
+/**
+ * The `axes` block for a layer whose points may have been swapped.
+ *
+ * @param xLabel     - The label the config gave the category axis
+ * @param yLabel     - The label the config gave the value axis
+ * @param horizontal - Whether the layer declares `horz`
+ * @returns The two axis labels, paired with the fields they now describe
+ */
+function barAxes(
+  xLabel: string | undefined,
+  yLabel: string | undefined,
+  horizontal: boolean,
+): MaidrLayer['axes'] {
+  // `BarTrace.text` announces each value under the label of the axis it sits
+  // on, so the labels travel with the payload rather than staying put: an age
+  // band left under `xLabel: 'People'` is announced as a count of people.
+  return horizontal
+    ? { x: { label: yLabel }, y: { label: xLabel } }
+    : { x: { label: xLabel }, y: { label: yLabel } };
+}
+
+/**
+ * Whether a `horz` layer of this type is read with its magnitude in `x`.
+ *
+ * The bar family swaps its pair under `horz` — see
+ * {@link MaidrLayer.orientation}. A gantt and a dumbbell are in `isBarType`
+ * above because they are drawn as bars, but each carries its own span fields
+ * (`start`/`end`) and reads `orientation` as which way navigation and panning
+ * run; neither has a magnitude in `x` to move.
+ *
+ * A funnel is listed even though {@link layerOrientation} never emits the key
+ * for one today — it refuses precisely because the payload did not swap, and
+ * says so. Whether a funnel should now declare itself horizontal is a separate
+ * call about how it is announced; listing it here means that call cannot
+ * silently reintroduce this bug.
+ *
+ * Getting this wrong is not a mislabelling the reader can work around. The
+ * magnitude field ends up holding a category name, `toBarValue` answers
+ * `NaN`, and `NaN` is how a deliberate gap travels — so every bar of the
+ * layer goes silent while the chart still loads, navigates and highlights
+ * (#958).
+ *
+ * @param chartType - The declared Recharts chart type
+ * @returns Whether the layer's points must be swapped when horizontal
+ */
+function swapsUnderHorizontal(chartType: RechartsChartType): boolean {
+  return chartType === 'bar'
+    || chartType === 'stacked_bar'
+    || chartType === 'dodged_bar'
+    || chartType === 'normalized_bar'
+    || chartType === 'diverging_bar'
+    || chartType === 'dot'
+    || chartType === 'lollipop'
+    || chartType === 'histogram'
+    || chartType === 'funnel';
 }
 
 /**
