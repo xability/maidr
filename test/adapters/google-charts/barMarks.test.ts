@@ -175,12 +175,15 @@ describe('createMaidrFromGoogleChart with a FunnelChart', () => {
     const { layer } = build('FunnelChart', dt);
 
     expect(layer.type).toBe(TraceType.FUNNEL);
-    // A funnel runs its stages down the page and its counts along it.
+    // A funnel runs its stages down the page and its counts along it, so the
+    // count is in `x` and the stage in `y` -- the arrangement `FunnelTrace`
+    // reads a `horz` layer in (#955). This case asserted the other way round
+    // until then, which is why the bug survived: every stage was silent.
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
     expect(layer.data).toEqual([
-      { x: 'Visited', y: 10000 },
-      { x: 'Signed up', y: 2400 },
-      { x: 'Purchased', y: 100 },
+      { x: 10000, y: 'Visited' },
+      { x: 2400, y: 'Signed up' },
+      { x: 100, y: 'Purchased' },
     ]);
   });
 
@@ -196,10 +199,11 @@ describe('createMaidrFromGoogleChart with a FunnelChart', () => {
     const { layer } = build('FunnelChart', padded);
 
     expect(layer.data).toEqual([
-      { x: 'Visited', y: 10000 },
-      { x: 'Signed up', y: 2400 },
-      { x: 'Purchased', y: 100 },
+      { x: 10000, y: 'Visited' },
+      { x: 2400, y: 'Signed up' },
+      { x: 100, y: 'Purchased' },
     ]);
-    expect(layer.axes?.y).toEqual({ label: 'People' });
+    // The counts' own label travels to `x` with them.
+    expect(layer.axes?.x).toEqual({ label: 'People' });
   });
 });

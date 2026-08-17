@@ -93,16 +93,20 @@ describe('createMaidrFromGoogleChart with a DivergingBarChart', () => {
     expect(layer.orientation).toBe(Orientation.HORIZONTAL);
     // Stripped to magnitudes, a pyramid would draw both halves on the right;
     // DivergingTrace pitches the size and announces the side itself.
+    //
+    // The counts sit in `x` and the age bands in `y`, which is how a `horz`
+    // bar layer is read (#955). Asserted the other way round until then, so
+    // this case passed while every bar of the pyramid was silent.
     expect(layer.data).toEqual([
       [
-        { x: '0-14', y: -2_100_000, z: 'Men' },
-        { x: '15-64', y: -4_300_000, z: 'Men' },
-        { x: '65+', y: -900_000, z: 'Men' },
+        { x: -2_100_000, y: '0-14', z: 'Men' },
+        { x: -4_300_000, y: '15-64', z: 'Men' },
+        { x: -900_000, y: '65+', z: 'Men' },
       ],
       [
-        { x: '0-14', y: 2_000_000, z: 'Women' },
-        { x: '15-64', y: 4_400_000, z: 'Women' },
-        { x: '65+', y: 1_300_000, z: 'Women' },
+        { x: 2_000_000, y: '0-14', z: 'Women' },
+        { x: 4_400_000, y: '15-64', z: 'Women' },
+        { x: 1_300_000, y: '65+', z: 'Women' },
       ],
     ]);
   });
