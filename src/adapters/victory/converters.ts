@@ -86,12 +86,31 @@ function isDataComponent(name: string): name is VictoryComponentType {
 /**
  * Whether a data component is drawn around a circle rather than along an axis.
  *
- * `polar` is declared either on the component itself or on the enclosing
- * `<VictoryChart polar>`, which passes it down to every child. A child that
- * sets `polar={false}` opts back out, so an explicit own prop always wins.
+ * `polar` follows the same rule as `horizontal` below — the **outermost**
+ * declaration wins, not the innermost. `VictoryChart` clones each child with
+ * its own resolved value, so a child's `polar` is overwritten rather than
+ * preferred. Measured by rendering each arrangement and reading whether the
+ * bars came out as arcs or as straight lines:
+ *
+ * | arrangement                                        | Victory draws |
+ * | -------------------------------------------------- | ------------- |
+ * | `<VictoryChart polar><VictoryBar/>`                 | polar         |
+ * | `<VictoryChart><VictoryBar polar/>`                 | cartesian     |
+ * | `<VictoryChart polar><VictoryBar polar={false}/>`   | polar         |
+ * | `<VictoryBar polar/>` (no chart)                    | polar         |
+ *
+ * This read "an explicit own prop always wins" until #954, and was wrong in
+ * both directions: it built a coxcomb for a chart Victory drew as an ordinary
+ * bar chart, and read a genuinely polar chart as cartesian. `inherited` is
+ * `undefined` rather than `false` when no chart has spoken, so "not declared"
+ * stays distinct from "declared false" — the chart's `polar={false}` is a
+ * declaration and beats a child asking for polar.
  */
-function isPolarComponent(props: Record<string, unknown>, chartPolar: boolean): boolean {
-  return typeof props.polar === 'boolean' ? props.polar : chartPolar;
+function isPolarComponent(
+  props: Record<string, unknown>,
+  inherited: boolean | undefined,
+): boolean {
+  return typeof inherited === 'boolean' ? inherited : props.polar === true;
 }
 
 /**
@@ -799,7 +818,7 @@ function extractLayerFromElement(
   element: ReactElement,
   layerId: string,
   axisLabels: { x?: string; y?: string },
-  chartPolar: boolean,
+  inheritedPolar: boolean | undefined,
   inheritedHorizontal: boolean | undefined,
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
@@ -807,7 +826,7 @@ function extractLayerFromElement(
     return null;
 
   const props = element.props as Record<string, unknown>;
-  const polar = isPolarComponent(props, chartPolar);
+  const polar = isPolarComponent(props, inheritedPolar);
   const horizontal = isHorizontalComponent(props, inheritedHorizontal);
 
   let extracted: { data: VictoryLayerData; count: number } | null = null;
@@ -1152,7 +1171,7 @@ function collectDataLayers(
   childNodes: ReactNode,
   axisLabels: { x?: string; y?: string },
   makeId: (localIndex: number) => string,
-  chartPolar = false,
+  chartPolar?: boolean,
   chartHorizontal?: boolean,
 ): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
@@ -1219,7 +1238,7 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
         chartProps.children,
         axisLabels,
         n => String(layers.length + n),
-        chartProps.polar === true,
+        chartProps.polar,
         chartProps.horizontal,
       ));
     } else {
@@ -1294,7 +1313,7 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
         chartProps.children,
         axisLabels,
         n => `${panelIndex}_${n}`,
-        chartProps.polar === true,
+        chartProps.polar,
         chartProps.horizontal,
       ),
       title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
