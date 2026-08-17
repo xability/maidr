@@ -24,7 +24,7 @@ import type {
   VictoryPanelLayout,
   VictorySubplotInfo,
 } from './types';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -92,6 +92,83 @@ function isDataComponent(name: string): name is VictoryComponentType {
  */
 function isPolarComponent(props: Record<string, unknown>, chartPolar: boolean): boolean {
   return typeof props.polar === 'boolean' ? props.polar : chartPolar;
+}
+
+/**
+ * Whether a bar component is drawn on its side.
+ *
+ * `horizontal` is declared on the component, on a `<VictoryStack>`, or on the
+ * enclosing `<VictoryChart>` — and unlike `polar` above, **the outermost
+ * declaration wins**. Victory's wrappers clone their children with the
+ * wrapper's own value, so an inner `horizontal={false}` inside a horizontal
+ * chart does not opt back out, and a chart that says `horizontal={false}`
+ * suppresses a bar that asks for it. `inherited` is therefore `undefined`
+ * rather than `false` when nothing outside has spoken, so the two cases stay
+ * distinguishable. Measured by rendering each arrangement, not read off the
+ * prop merge.
+ *
+ * It was read nowhere until now, so a horizontal chart emitted no
+ * `orientation` and the core defaulted it to vertical -- announcing a
+ * population pyramid as a *vertical* diverging bar plot and sweeping its
+ * stereo cue across age bands that run down the page (#952).
+ */
+function isHorizontalComponent(
+  props: Record<string, unknown>,
+  inherited: boolean | undefined,
+): boolean {
+  return typeof inherited === 'boolean' ? inherited : props.horizontal === true;
+}
+
+/**
+ * Whether a layer kind is one the core reads through `orientation`.
+ *
+ * Only the bar family resolves the key — see {@link MaidrLayer.orientation}.
+ * A `VictoryLine` or `VictoryScatter` inside a horizontal chart is drawn on
+ * its side too, but its trace never asks, so declaring it would swap this
+ * layer's axis labels for nothing.
+ */
+function isBarFamily(kind: VictoryLayerData['kind']): boolean {
+  return kind === 'bar' || kind === 'dot' || kind === 'histogram';
+}
+
+/**
+ * One bar point in the arrangement a horizontal layer is read in.
+ *
+ * @param point - The point as Victory holds it, `x = category`
+ * @returns The same point with its magnitude in `x` and its category in `y`
+ */
+function swapBarPoint<T extends BarPoint>(point: T): T {
+  return { ...point, x: point.y, y: point.x };
+}
+
+/**
+ * One series of a stack or a diverging pair, swapped point by point.
+ *
+ * @param series - One row of the layer's `SegmentedPoint[][]`
+ * @returns The same row in the horizontal arrangement
+ */
+function swapSeries(series: SegmentedPoint[]): SegmentedPoint[] {
+  return series.map(swapBarPoint);
+}
+
+/**
+ * One histogram bin the same way round, edges included.
+ *
+ * The bin's edges travel as `xMin`/`xMax`, so a swap that moved only `x` and
+ * `y` would leave every bin describing a span of the other axis — a bar whose
+ * announced value and announced width came from different quantities.
+ *
+ * @param point - The bin as Victory holds it
+ * @returns The same bin with both its value and its edges swapped
+ */
+function swapHistogramPoint(point: HistogramPoint): HistogramPoint {
+  return {
+    ...swapBarPoint(point),
+    xMin: point.yMin,
+    xMax: point.yMax,
+    yMin: point.xMin,
+    yMax: point.xMax,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -723,6 +800,7 @@ function extractLayerFromElement(
   layerId: string,
   axisLabels: { x?: string; y?: string },
   chartPolar: boolean,
+  inheritedHorizontal: boolean | undefined,
 ): VictoryLayerInfo | null {
   const name = getVictoryDisplayName(element.type);
   if (!name || !isDataComponent(name))
@@ -730,6 +808,7 @@ function extractLayerFromElement(
 
   const props = element.props as Record<string, unknown>;
   const polar = isPolarComponent(props, chartPolar);
+  const horizontal = isHorizontalComponent(props, inheritedHorizontal);
 
   let extracted: { data: VictoryLayerData; count: number } | null = null;
 
@@ -779,6 +858,9 @@ function extractLayerFromElement(
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     dataCount: extracted.count,
+    ...(horizontal && isBarFamily(extracted.data.kind)
+      ? { orientation: Orientation.HORIZONTAL }
+      : {}),
   };
 }
 
@@ -971,8 +1053,16 @@ function extractSegmentedLayer(
   containerType: 'VictoryStack',
   layerId: string,
   axisLabels: { x?: string; y?: string },
+  chartHorizontal: boolean | undefined,
 ): VictoryLayerInfo | null {
-  const containerProps = containerElement.props as { children?: ReactNode };
+  const containerProps = containerElement.props as {
+    children?: ReactNode;
+    horizontal?: boolean;
+  };
+  // A stack carries `horizontal` of its own, and passes it to its bars — so
+  // this is resolved once here rather than per child, which is also the only
+  // granularity a single merged layer has.
+  const horizontal = isHorizontalComponent(containerProps, chartHorizontal);
   const children = collectStackChildren(containerProps.children);
   if (children.length === 0)
     return null;
@@ -1037,6 +1127,7 @@ function extractSegmentedLayer(
       : { kind: 'segmented', points: series },
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     dataCount: totalElements,
     legend,
   };
@@ -1062,6 +1153,7 @@ function collectDataLayers(
   axisLabels: { x?: string; y?: string },
   makeId: (localIndex: number) => string,
   chartPolar = false,
+  chartHorizontal?: boolean,
 ): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
 
@@ -1075,14 +1167,26 @@ function collectDataLayers(
 
     // VictoryStack → stacked bar
     if (name === 'VictoryStack') {
-      const segmented = extractSegmentedLayer(child, name, makeId(layers.length), axisLabels);
+      const segmented = extractSegmentedLayer(
+        child,
+        name,
+        makeId(layers.length),
+        axisLabels,
+        chartHorizontal,
+      );
       if (segmented)
         layers.push(segmented);
       return;
     }
 
     // Individual data components
-    const layer = extractLayerFromElement(child, makeId(layers.length), axisLabels, chartPolar);
+    const layer = extractLayerFromElement(
+      child,
+      makeId(layers.length),
+      axisLabels,
+      chartPolar,
+      chartHorizontal,
+    );
     if (layer)
       layers.push(layer);
   });
@@ -1109,13 +1213,14 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
     const name = getVictoryDisplayName(child.type);
 
     if (name === 'VictoryChart') {
-      const chartProps = child.props as { children?: ReactNode; polar?: boolean };
+      const chartProps = child.props as { children?: ReactNode; polar?: boolean; horizontal?: boolean };
       const axisLabels = extractAxisLabels(chartProps.children);
       layers.push(...collectDataLayers(
         chartProps.children,
         axisLabels,
         n => String(layers.length + n),
         chartProps.polar === true,
+        chartProps.horizontal,
       ));
     } else {
       layers.push(...collectDataLayers(child, {}, n => String(layers.length + n)));
@@ -1182,7 +1287,7 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
   }
 
   return charts.map(({ element, svgIndex }, panelIndex) => {
-    const chartProps = element.props as { children?: ReactNode; title?: string; polar?: boolean };
+    const chartProps = element.props as { children?: ReactNode; title?: string; polar?: boolean; horizontal?: boolean };
     const axisLabels = extractAxisLabels(chartProps.children);
     return {
       layers: collectDataLayers(
@@ -1190,6 +1295,7 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
         axisLabels,
         n => `${panelIndex}_${n}`,
         chartProps.polar === true,
+        chartProps.horizontal,
       ),
       title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
       svgIndex,
@@ -1262,9 +1368,19 @@ export function toMaidrLayer(
   layer: VictoryLayerInfo,
   selector?: string | string[] | BoxSelector[] | CandlestickSelector,
 ): MaidrLayer {
+  // A horizontal bar layer is emitted in the arrangement the core reads it in:
+  // `x` holds the magnitude and `y` the category, the reverse of Victory's own
+  // data, which stays `x = category` however the chart is drawn. Declaring the
+  // key over Victory's arrangement instead would be worse than the bug it
+  // fixes -- `BarTrace` would read a category name as the magnitude and every
+  // bar would go silent (#950 warns about exactly that payload).
+  const horizontal = layer.orientation === Orientation.HORIZONTAL;
+  const [xLabel, yLabel] = horizontal
+    ? [layer.yAxisLabel, layer.xAxisLabel]
+    : [layer.xAxisLabel, layer.yAxisLabel];
   const axes: MaidrLayer['axes'] = {
-    x: layer.xAxisLabel ? { label: layer.xAxisLabel } : undefined,
-    y: layer.yAxisLabel ? { label: layer.yAxisLabel } : undefined,
+    x: xLabel ? { label: xLabel } : undefined,
+    y: yLabel ? { label: yLabel } : undefined,
   };
 
   const { data } = layer;
@@ -1274,9 +1390,10 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.BAR,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
-        data: data.points,
+        data: horizontal ? data.points.map(swapBarPoint) : data.points,
       };
 
     case 'line':
@@ -1329,9 +1446,10 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.DOT,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
-        data: data.points,
+        data: horizontal ? data.points.map(swapBarPoint) : data.points,
       };
 
     case 'errorBar':
@@ -1374,9 +1492,10 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.HISTOGRAM,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
-        data: data.points,
+        data: horizontal ? data.points.map(swapHistogramPoint) : data.points,
       };
 
     case 'pie':
@@ -1399,22 +1518,24 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.STACKED,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
-        data: data.points,
+        data: horizontal ? data.points.map(swapSeries) : data.points,
       };
 
     case 'diverging':
       return {
         id: layer.id,
         type: TraceType.DIVERGING,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         // The values stay signed as the chart draws them. `DivergingTrace`
         // reads the sign as the side a bar points to and pitches the
         // magnitude, so stripping it here would leave the left-hand series
         // indistinguishable from the right.
         selectors: selector,
-        data: data.points,
+        data: horizontal ? data.points.map(swapSeries) : data.points,
       };
   }
 }
