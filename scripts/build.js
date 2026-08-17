@@ -330,6 +330,23 @@ export const builds = [
       '@type': path.resolve(rootDir, 'src/type'),
     },
   },
+  {
+    name: 'tableau',
+    entry: 'src/tableau-entry.ts',
+    libName: 'maidrTableau',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'tableau.mjs' : 'tableau.js',
+    emptyOutDir: false,
+    // `bindTableau` mounts the MAIDR React UI beside the embedded viz, so React
+    // is bundled in (mirrors chartjs/amcharts) and the UMD build (tableau.js)
+    // exposes the `maidrTableau` global for classic <script> use. Tableau's
+    // Embedding API is loaded by the host page and is only duck-typed off the
+    // live viz element, so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
 ];
 
 export function createViteConfig(config) {

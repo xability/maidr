@@ -80,6 +80,11 @@
       "types": "./dist/victory.d.mts",
       "import": "./dist/victory.mjs",
       "default": "./dist/victory.mjs"
+    },
+    "./tableau": {
+      "types": "./dist/tableau.d.mts",
+      "import": "./dist/tableau.mjs",
+      "default": "./dist/tableau.js"
     }
   },
   "main": "dist/maidr.js",
