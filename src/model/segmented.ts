@@ -312,8 +312,25 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     return this.layer.domMapping?.groupDirection === 'forward';
   }
 
-  protected override mapToSvgElements(selector?: string): SVGElement[][] | null {
+  protected override mapToSvgElements(
+    selector?: string | string[],
+  ): SVGElement[][] | null {
     if (!selector) {
+      return null;
+    }
+
+    // A segmented layer's selector is one string, and everything below infers
+    // which element belongs to which cell from it — `skipZeros`, row versus
+    // column major, and which end a category's series start from. A per-cell
+    // list would make all of that unnecessary rather than feed it, so it is
+    // declined here rather than silently producing nothing: the base class
+    // widened this parameter for a plain bar (#990), and an override that
+    // still said `string` would take an array by bivariance and hand it to
+    // `selectAllElements`, which answers `[]` for anything but a string.
+    //
+    // Teaching this branch to honour a list is #989's work; it needs the
+    // chunking above settled first, not bypassed by accident.
+    if (Array.isArray(selector)) {
       return null;
     }
 
