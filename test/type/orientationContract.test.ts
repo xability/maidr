@@ -43,8 +43,15 @@ describe('the orientation contract the schema documents', () => {
     // A plain bar declares one series as a flat array; the grouped types
     // declare one array per series. `grouped` says which shape to build so
     // both are exercised through the same two assertions.
+    // Membership is by implementation, not by name: `dot` and `lollipop` are
+    // constructed as a `BarTrace` outright, and `FunnelTrace` extends it and
+    // never un-swaps what `AbstractBarPlot`'s constructor did. Reading each
+    // model file on its own misses all three, which is why this list is
+    // executed rather than eyeballed.
     const BAR_FAMILY = [
       { name: 'bar', type: TraceType.BAR, grouped: false },
+      { name: 'dot', type: TraceType.DOT, grouped: false },
+      { name: 'lollipop', type: TraceType.LOLLIPOP, grouped: false },
       { name: 'stacked', type: TraceType.STACKED, grouped: true },
       { name: 'dodged', type: TraceType.DODGED, grouped: true },
     ];
@@ -101,6 +108,34 @@ describe('the orientation contract the schema documents', () => {
 
       expect(magnitude).not.toBe(APPLE);
       expect(typeof magnitude === 'number' && Number.isFinite(magnitude)).toBe(false);
+    });
+
+    it('reads a funnel the same way, though it sounds a ratio rather than a count', () => {
+      // A funnel is in this family — `FunnelTrace extends BarTrace` and never
+      // undoes what `AbstractBarPlot`'s constructor did to `barValues` — but
+      // the magnitude probe above cannot show it: what a funnel sounds is each
+      // stage's share of the first stage, so `freq.raw` is 1 at the entry
+      // point whichever way the payload is written.
+      //
+      // What does separate them is the identity the reader is given. Written
+      // the family's way, the point announces itself as the stage; written
+      // the other way it announces itself as the count and offers the stage
+      // name as the value.
+      const identityOf = (data: object[]): unknown => {
+        const trace = TraceFactory.create({
+          id: 'l',
+          type: TraceType.FUNNEL,
+          orientation: Orientation.HORIZONTAL,
+          data,
+        } as never);
+        trace.moveOnce('FORWARD' as never);
+        return (trace.state as { text: { main: { value: unknown } } }).text.main.value;
+      };
+
+      expect(identityOf([{ x: 100, y: 'visits' }, { x: 40, y: 'signups' }]))
+        .toBe('visits');
+      expect(identityOf([{ x: 'visits', y: 100 }, { x: 'signups', y: 40 }]))
+        .toBe(100);
     });
 
     it('reads a histogram the same way, since its trace extends the bar', () => {

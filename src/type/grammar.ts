@@ -1270,15 +1270,25 @@ export interface MaidrLayer {
    *
    * | trace | `vert` | `horz` |
    * | --- | --- | --- |
-   * | `bar`, `histogram`, `stacked`, `dodged`, `normalized`, and the traces built on them (`diverging`, `mosaic`) | `x` is the category, `y` the magnitude | `x` is the **magnitude**, `y` the category |
+   * | the bar family, listed below | `x` is the category, `y` the magnitude | `x` is the **magnitude**, `y` the category |
    * | `error_bar`, `forest` | `x` is the category, `y`/`yMin`/`yMax` the magnitudes | unchanged — only the axis labels swap |
    * | `box`, `boxen`, `violin_box` | quantile fields, no axis assignment | unchanged |
-   * | `funnel`, `gantt`, `dumbbell` | — | unchanged; navigation and panning only |
+   * | `gantt`, `dumbbell` | — | unchanged; navigation and panning only |
+   *
+   * The bar family is defined by what a type is built on rather than by what
+   * it is called, because the exchange is inherited from `AbstractBarPlot`'s
+   * constructor: `bar`, `histogram`, `stacked`, `dodged`, `normalized` and
+   * the traces built on those (`diverging`, `mosaic`) — and also `dot` and
+   * `lollipop`, which the factory constructs as a `BarTrace` outright, and
+   * `funnel`, whose trace extends `BarTrace` and never undoes the exchange.
+   * Reading one model file at a time misses those last three, so
+   * `test/type/orientationContract.test.ts` runs the list rather than
+   * restating it.
    *
    * Note that this is a different question from the one
    * `resolveOrientation()` in `src/util/orientation.ts` answers. Its
    * `IS_ORIENTED` record says whether a type has an orientation worth
-   * announcing* ("vertical bar plot"); a type can be oriented in that sense
+   * announcing ("vertical bar plot"); a type can be oriented in that sense
    * and still not want its payload swapped, which is the trap this table
    * exists to close. Both r-maidr #184 and #186 were emitted against the
    * wrong half of it.
