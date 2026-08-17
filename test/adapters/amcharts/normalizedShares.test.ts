@@ -96,6 +96,40 @@ describe('an amcharts 100% stack', () => {
   });
 });
 
+describe('a horizontal 100% stack', () => {
+  /** The same chart lying on its side: categories on Y, values on X. */
+  function horizontalSeries(name: string, values: number[]): ReturnType<typeof fakeSeries> {
+    return fakeSeries({
+      className: 'ColumnSeries',
+      name,
+      settings: {
+        categoryYField: 'category',
+        stacked: true,
+        valueXShow: 'valueXTotalPercent',
+      },
+      data: [
+        { categoryY: 'Q1', valueX: values[0] },
+        { categoryY: 'Q2', valueX: values[1] },
+      ],
+    });
+  }
+
+  it('divides the magnitude in x, not the category in y', () => {
+    // `toSegmentedShares` is told which field holds the magnitude, so a
+    // horizontal layer must divide `x` and leave `y` as the category — the
+    // half of the helper the vertical cases above never reach.
+    const chart = fakeChart({
+      series: [horizontalSeries('A', A), horizontalSeries('B', B)],
+    });
+    const layer = fromXYChart(chart, fakeContainerEl('panel')).subplots[0][0].layers[0];
+    const [first, second] = layer.data as SegmentedPoint[][];
+
+    expect(first.map(point => point.x)).toEqual([50, 75]);
+    expect(second.map(point => point.x)).toEqual([50, 25]);
+    expect(first.map(point => point.y)).toEqual(['Q1', 'Q2']);
+  });
+});
+
 describe('an ordinary amcharts stack is untouched', () => {
   it('stays a stacked layer carrying its counts', () => {
     const layer = layerFor(false);
