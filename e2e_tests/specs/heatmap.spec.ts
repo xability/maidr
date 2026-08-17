@@ -230,6 +230,39 @@ test.describe('Heatmap', () => {
       const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
       expect(currentDataPoint).toContain(heatmapData.x[heatmapData.x.length - 1].toString());
     });
+
+    // The rows of a heatmap run top-first in the schema, and `Heatmap`
+    // reverses them so its own row 0 is the bottom of the drawn grid -- which
+    // is what makes Up move visually up. Five adapters had that the wrong way
+    // round and nothing caught it: the chart loaded, navigated and announced
+    // every value against its own label, and only the direction was false
+    // (#971, #973, #974, #977, #978, #981). Nothing above exercises a vertical
+    // move, so nothing above would have noticed.
+    test('should enter at the bottom row and climb on Up', async () => {
+      const rows = heatmapData.y;
+      test.skip(rows.length < 2, 'needs at least two rows to have a direction');
+
+      await heatmapPage.moveToFirstDataPoint();
+      const entry = await heatmapPage.getCurrentDataPointInfo();
+      // Last in the payload is the row drawn at the bottom.
+      expect(entry).toContain(rows[rows.length - 1].toString());
+
+      await heatmapPage.moveToDataPointAbove();
+      const above = await heatmapPage.getCurrentDataPointInfo();
+      expect(above).toContain(rows[rows.length - 2].toString());
+    });
+
+    test('should come back down on Down', async () => {
+      const rows = heatmapData.y;
+      test.skip(rows.length < 2, 'needs at least two rows to have a direction');
+
+      await heatmapPage.moveToFirstDataPoint();
+      await heatmapPage.moveToDataPointAbove();
+      await heatmapPage.moveToDataPointBelow();
+
+      const back = await heatmapPage.getCurrentDataPointInfo();
+      expect(back).toContain(rows[rows.length - 1].toString());
+    });
   });
 
   test.describe('Autoplay Controls', () => {
