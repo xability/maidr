@@ -38,6 +38,62 @@ export function toBarValue(raw: string | number | null | undefined): number {
 }
 
 /**
+ * Says so when a producer has put the category name where the magnitude goes.
+ *
+ * `toBarValue` answers `NaN` for anything it cannot parse, and `NaN` is a real
+ * value in this protocol: it is how a *gap* travels, which is why `null`,
+ * `undefined` and `''` reach it and are meant to. `Number('apple')` is not a
+ * gap. It is a layer whose points are the wrong way round for the orientation
+ * it declared, and the trace has no way to tell the two apart — so the chart
+ * loads, highlights, navigates, announces, and sounds nothing at all.
+ *
+ * That has now shipped in three bindings, each found by measuring the emitted
+ * payload rather than by anything said here: r-maidr #184 declared `"horz"`
+ * over a vertical payload, py-maidr #480 emitted a horizontal payload with no
+ * `orientation` key, and py-maidr #482 declared `"horz"` over an unswapped
+ * grouped histogram. Three different mistakes either side of one contract,
+ * and in every case the first bar handed this function a category name (#950).
+ *
+ * Once per layer, not per point: a layer with the pair backwards has every
+ * point wrong, and one line is the signal. Named fields rather than a generic
+ * complaint, because the fix is always "swap them" and the message should say
+ * which way round the layer claimed to be.
+ *
+ * @param layer - The layer as its producer wrote it
+ * @param orientation - What the layer resolved to, defaults included
+ * @param magnitudes - The raw field this trace will read as the magnitude
+ */
+function warnOnMislabelledMagnitude(
+  layer: MaidrLayer,
+  orientation: Orientation,
+  magnitudes: (string | number | null | undefined)[][],
+): void {
+  const mislabelled = magnitudes
+    .flat()
+    .find(
+      raw =>
+        typeof raw === 'string'
+        && raw.trim() !== ''
+        && Number.isNaN(Number(raw)),
+    );
+  if (mislabelled === undefined) {
+    return;
+  }
+
+  const horizontal = orientation === Orientation.HORIZONTAL;
+  const magnitudeField = horizontal ? 'x' : 'y';
+  const categoryField = horizontal ? 'y' : 'x';
+  console.warn(
+    `[BarTrace] Layer "${layer.id}" is ${orientation}, so its magnitude is `
+    + `read from \`${magnitudeField}\` — but that field holds `
+    + `"${mislabelled}". A ${horizontal ? 'horizontal' : 'vertical'} bar puts `
+    + `the magnitude in \`${magnitudeField}\` and the category in `
+    + `\`${categoryField}\`; see MaidrLayer.orientation. Every bar of this `
+    + `layer will be silent.`,
+  );
+}
+
+/**
  * Reports whether a bar value is a real measurement rather than a gap.
  *
  * Exported for `SegmentedTrace`, which builds a summary row from these values
@@ -80,13 +136,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.points = [...points];
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
 
-    this.barValues = points.map(row =>
+    const magnitudes = points.map(row =>
       row.map(point =>
-        toBarValue(
-          this.orientation === Orientation.VERTICAL ? point.y : point.x,
-        ),
+        this.orientation === Orientation.VERTICAL ? point.y : point.x,
       ),
     );
+    warnOnMislabelledMagnitude(layer, this.orientation, magnitudes);
+    this.barValues = magnitudes.map(row => row.map(toBarValue));
     // A gap is not a measurement, so it must not set the row's range. Left in,
     // it drags the minimum to 0 and every other bar's pitch along with it.
     this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
