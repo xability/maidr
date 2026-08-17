@@ -786,10 +786,12 @@ function buildBarLayer(
     ? funnelValueColumn(dt)
     : firstDataColumn(dt);
 
+  const horizontal = orientation === Orientation.HORIZONTAL;
+
   for (let r = 0; r < rows; r++) {
     const label = formatCellValue(dt, r, 0);
     const value = numericValue(dt, r, dataCol);
-    data.push({ x: label, y: value });
+    data.push(horizontal ? { x: value, y: label } : { x: label, y: value });
   }
 
   // A dot plot draws its values as point markers and everything else as rects
@@ -803,12 +805,40 @@ function buildBarLayer(
     type: traceType,
     orientation,
     ...(selector ? { selectors: selector } : {}),
-    axes: {
-      x: { label: dt.getColumnLabel(0) || undefined },
-      y: { label: dt.getColumnLabel(dataCol) || undefined },
-    },
+    axes: barAxes(
+      dt.getColumnLabel(0) || undefined,
+      dt.getColumnLabel(dataCol) || undefined,
+      horizontal,
+    ),
     data,
   };
+}
+
+/**
+ * Whether a bar layer's payload is written the horizontal way round.
+ *
+ * `BarTrace` reads a `horz` layer's magnitude from `x` and its category from
+ * `y` — see {@link MaidrLayer.orientation}. Declaring the key over the
+ * vertical arrangement is not a mislabelling the reader can work around: the
+ * magnitude field then holds a category name, `toBarValue` answers `NaN`, and
+ * that is indistinguishable from a deliberate gap, so every bar of the layer
+ * goes silent while the chart still loads and navigates (#955).
+ *
+ * @param category  - The label of the axis the categories sit on
+ * @param magnitude - The label of the axis the values sit on
+ * @param horizontal - Whether the layer declares `horz`
+ * @returns The `axes` block paired the way the layer's points are written
+ */
+function barAxes(
+  category: string | undefined,
+  magnitude: string | undefined,
+  horizontal: boolean,
+): MaidrLayer['axes'] {
+  // `BarTrace.text` announces each value under the label of the axis it sits
+  // on, so the labels have to travel with the payload rather than stay put.
+  return horizontal
+    ? { x: { label: magnitude }, y: { label: category } }
+    : { x: { label: category }, y: { label: magnitude } };
 }
 
 /**
@@ -877,6 +907,7 @@ function buildSegmentedLayer(
   // - Left/Right arrows: move between categories (changes col)
   const data: SegmentedPoint[][] = [];
   let seriesCount = 0;
+  const horizontal = orientation === Orientation.HORIZONTAL;
 
   for (let c = 1; c < cols; c++) {
     if (isRoleColumn(dt, c))
@@ -888,7 +919,11 @@ function buildSegmentedLayer(
     for (let r = 0; r < rows; r++) {
       const label = formatCellValue(dt, r, 0);
       const value = numericValue(dt, r, c);
-      series.push({ x: label, y: value, z: fillLabel });
+      series.push(
+        horizontal
+          ? { x: value, y: label, z: fillLabel }
+          : { x: label, y: value, z: fillLabel },
+      );
     }
     data.push(series);
     seriesCount++;
@@ -907,10 +942,10 @@ function buildSegmentedLayer(
     ...(selector ? { selectors: selector } : {}),
     // 'row' tells MAIDR that DOM elements are in row-major order (series-first)
     domMapping: { order: 'row' },
-    axes: {
-      x: { label: dt.getColumnLabel(0) || undefined },
-      y: { label: 'Level' },
-    },
+    // A stack has no single value column to name, so the magnitude axis keeps
+    // the same 'Level' it carries when vertical; what matters is that the
+    // category label stays paired with the field the categories are in.
+    axes: barAxes(dt.getColumnLabel(0) || undefined, 'Level', horizontal),
     data,
   };
 }
