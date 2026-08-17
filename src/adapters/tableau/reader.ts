@@ -133,11 +133,19 @@ async function readRows(
 /**
  * Read the worksheet's visual specification, when the host has one.
  *
- * `getVisualSpecificationAsync` is an Extensions API method (1.11+ / Tableau
- * 2024.1+) and is absent from the Embedding API today, so it is feature-detected
- * rather than assumed. When it is missing the extractor falls back to its
- * heuristic ladder; when a future release adds it, mark-type classification
- * lights up with no further change here.
+ * `getVisualSpecificationAsync` is declared on **both** public `Worksheet`
+ * interfaces — Embedding and Extensions — and is implemented by the Embedding
+ * API's own `Worksheet` class, so on a current library it is simply there and
+ * mark-type classification is live. It is nonetheless feature-detected, because
+ * what the contract declares and what the host loaded are different facts: the
+ * page picks its own Embedding build, and an older one predates the method. The
+ * Extensions declaration carries `@since 1.11.0 and Tableau 2024.1`; the
+ * Embedding declaration carries no `@since` at all, so there is no version
+ * floor to test against — only the method's presence.
+ *
+ * The `catch` below covers the other half: a current library talking to an
+ * older Tableau Server can have the method and still be refused at runtime.
+ * Either way the extractor falls back to its heuristic ladder.
  *
  * @param worksheet - The worksheet to inspect.
  * @returns The specification, or `undefined` when unavailable or unreadable.
@@ -145,6 +153,8 @@ async function readRows(
 async function readVisualSpecification(
   worksheet: TableauWorksheet,
 ): Promise<TableauVisualSpecification | undefined> {
+  // Always a function as far as the declarations are concerned, and still worth
+  // asking at runtime: this is the check that reads an older library build.
   const getSpec = worksheet.getVisualSpecificationAsync;
   if (typeof getSpec !== 'function') {
     return undefined;

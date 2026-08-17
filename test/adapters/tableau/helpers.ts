@@ -35,7 +35,12 @@ import type {
   TableauDataTableReader,
   TableauDataType,
   TableauDataValue,
+  TableauEncoding,
+  TableauEncodingType,
+  TableauFieldInstance,
   TableauGetSummaryDataOptions,
+  TableauMarksSpecification,
+  TableauMarkType,
   TableauRow,
   TableauSelectionCriteria,
   TableauSheet,
@@ -92,6 +97,138 @@ export interface FakeWorksheet extends TableauWorksheet {
   readonly calls: FakeWorksheetCalls;
 }
 
+/**
+ * Build one field of a visual specification.
+ *
+ * A `FieldInstance` is `FieldBase`'s twelve members plus `fieldId`, and **not
+ * one of the thirteen is optional**. `description` and `dataType` are required
+ * keys whose value may be `undefined`, which is a different object from one
+ * where the key is absent — so they are written out here rather than left off.
+ * A field a test builds is therefore the shape Tableau really sends, and a
+ * member added to the mirror later fails to compile here instead of silently
+ * making every fixture a subset.
+ *
+ * The defaults describe a plain discrete string dimension, which is what a
+ * field on Color or on a shelf usually is; pass `overrides` for a measure.
+ *
+ * @param name - The field's caption, e.g. `Region`.
+ * @param overrides - Any member to set differently, e.g.
+ * `{ role: 'measure', aggregation: 'sum', columnType: 'continuous' }`.
+ * @returns The field.
+ */
+export function fakeField(
+  name: string,
+  overrides: Partial<TableauFieldInstance> = {},
+): TableauFieldInstance {
+  return {
+    name,
+    description: undefined,
+    dataType: 'string',
+    role: 'dimension',
+    aggregation: 'none',
+    columnType: 'discrete',
+    isCalculatedField: false,
+    isCombinedField: false,
+    isGenerated: false,
+    isGeospatial: false,
+    isHidden: false,
+    isPresentOnPublishedDatasource: true,
+    fieldId: `[${name}]`,
+    ...overrides,
+  };
+}
+
+/**
+ * Put one field on one encoding of a marks card.
+ *
+ * `Encoding.id` is documented as "inbuilt encoding type or the custom
+ * encoding", so it defaults to the encoding type's own value and only differs
+ * for `type: 'custom'`. `fieldEncodingId` exists to tell two copies of the same
+ * field on one encoding apart, so it is derived from both.
+ *
+ * @param type - The encoding the field sits on, e.g. `color`.
+ * @param field - The field, most easily built with {@link fakeField}.
+ * @param overrides - `id` or `fieldEncodingId`, when the test cares.
+ * @returns The encoding.
+ */
+export function fakeEncoding(
+  type: TableauEncodingType,
+  field: TableauFieldInstance,
+  overrides: Partial<TableauEncoding> = {},
+): TableauEncoding {
+  return {
+    id: type,
+    fieldEncodingId: `${type}:${field.fieldId}`,
+    type,
+    field,
+    ...overrides,
+  };
+}
+
+/**
+ * Build one marks card.
+ *
+ * `primitiveType` is taken as a plain `string` rather than a
+ * {@link TableauMarkType} on purpose: one of the cases worth covering is a mark
+ * type this version of the enum does not declare, because the host page loads
+ * its own Embedding build and the extractor is meant to survive a later one.
+ *
+ * @param primitiveType - What the card drew, as Tableau spells it.
+ * @param encodings - The fields on the card's encodings. Empty by default,
+ * which is what a card with nothing but a measure on Rows looks like.
+ * @returns The marks card.
+ */
+export function fakeMarksCard(
+  primitiveType: string,
+  encodings: readonly TableauEncoding[] = [],
+): TableauMarksSpecification {
+  return { primitiveType: primitiveType as TableauMarkType, encodings };
+}
+
+/** The shelves of a {@link fakeVisualSpec}, both empty unless a test says so. */
+export interface FakeShelves {
+  /** Fields on the Rows shelf, in shelf order. */
+  rowFields?: readonly TableauFieldInstance[];
+  /** Fields on the Columns shelf, in shelf order. */
+  columnFields?: readonly TableauFieldInstance[];
+}
+
+/**
+ * Build a visual specification, filling in the members a test says nothing
+ * about.
+ *
+ * `VisualSpecification` requires `rowFields`, `columnFields`,
+ * `activeMarksSpecificationIndex` and `marksSpecifications`, and
+ * `MarksSpecification` requires `encodings` alongside `primitiveType`: not one
+ * member of either is optional in the shipped declarations. A test about
+ * mark-type classification still only wants to say *these marks*, so the rest
+ * is filled in here rather than by pretending the payload is smaller than it
+ * is — a fake that is smaller than the real thing would let a reader of the
+ * extractor believe data is missing that Tableau in fact sends.
+ *
+ * @param marks - One card per marks card, in payload order. A bare string is
+ * shorthand for {@link fakeMarksCard} with no encodings; pass a card to attach
+ * them.
+ * @param activeIndex - `activeMarksSpecificationIndex`. Defaults to the first
+ * card; pass an out-of-range value to exercise the extractor's range check.
+ * @param shelves - The Rows and Columns shelves, when the test populates them.
+ * @returns The specification.
+ */
+export function fakeVisualSpec(
+  marks: readonly (string | TableauMarksSpecification)[],
+  activeIndex = 0,
+  shelves: FakeShelves = {},
+): TableauVisualSpecification {
+  return {
+    rowFields: shelves.rowFields ?? [],
+    columnFields: shelves.columnFields ?? [],
+    activeMarksSpecificationIndex: activeIndex,
+    marksSpecifications: marks.map(mark =>
+      typeof mark === 'string' ? fakeMarksCard(mark) : mark,
+    ),
+  };
+}
+
 /** How a {@link fakeWorksheet} behaves, including how it fails. */
 export interface FakeWorksheetConfig {
   /** Worksheet name; also the label used in {@link FakeWorksheetCalls.log}. */
@@ -108,8 +245,11 @@ export interface FakeWorksheetConfig {
    */
   rows: readonly (readonly FakeCell[])[];
   /**
-   * The visual specification to report. When omitted the worksheet has **no**
-   * `getVisualSpecificationAsync` at all, which is the Embedding API today.
+   * The visual specification to report, most easily built with
+   * {@link fakeVisualSpec}. When omitted the worksheet has **no**
+   * `getVisualSpecificationAsync` at all — which is not what the declarations
+   * describe, and is exactly what an Embedding build older than the method
+   * looks like on a host page.
    */
   spec?: TableauVisualSpecification;
   /** Rows per page. Defaults to every row on a single page. */
@@ -327,19 +467,23 @@ export function fakeWorksheet(config: FakeWorksheetConfig): FakeWorksheet {
         throw new Error(`clear of "${name}" failed`);
       }
     },
-  };
-
-  // Absent unless the test asks for it: `getVisualSpecificationAsync` is an
-  // Extensions API method, and the adapter feature-detects it precisely because
-  // the Embedding API does not have it.
-  if (config.spec !== undefined || config.specError !== undefined) {
-    worksheet.getVisualSpecificationAsync = async (): Promise<TableauVisualSpecification> => {
+    getVisualSpecificationAsync: async (): Promise<TableauVisualSpecification> => {
       calls.log.push(`spec:${name}`);
       if (config.specError !== undefined) {
         throw config.specError;
       }
-      return config.spec ?? {};
-    };
+      return config.spec ?? fakeVisualSpec([]);
+    },
+  };
+
+  // Removed unless the test asks for a specification. Every `Worksheet` the
+  // declarations describe — Embedding and Extensions alike — has this method,
+  // which is why {@link FakeWorksheet} declares it too; what it does *not*
+  // describe is the host page, which loads whichever Embedding build it likes,
+  // and a build older than the method has no such property at all. That is the
+  // object `reader.ts` feature-detects, so a fake has to be able to be one.
+  if (config.spec === undefined && config.specError === undefined) {
+    delete (worksheet as Partial<FakeWorksheet>).getVisualSpecificationAsync;
   }
 
   return worksheet;
