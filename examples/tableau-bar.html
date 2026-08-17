@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Tableau Bar Chart</title>
+
+    <!-- 1. The Tableau Embedding API v3. It is an ES module, so `type="module"`
+         is mandatory and the page must be served over http(s) — see the note
+         in the body. This copy is served by Tableau Public itself. -->
+    <script
+      type="module"
+      src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"
+    ></script>
+
+    <!-- 2. MAIDR core, then the MAIDR Tableau adapter (UMD, exposing the
+         `maidrTableau` global). -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/tableau.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .note {
+        border-left: 4px solid #4682b4;
+        background: #f4f8fb;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      #status {
+        font-family: monospace;
+        padding: 8px 12px;
+        border: 1px solid #999;
+        margin: 16px 0;
+      }
+      [data-maidr-tableau-anchor] {
+        display: inline-block;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        border: 2px solid #4682b4;
+        border-radius: 4px;
+      }
+      tableau-viz {
+        display: block;
+        width: 800px;
+        max-width: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + Tableau Bar Chart</h1>
+    <p>
+      A view embedded from Tableau Public and made accessible by the MAIDR
+      Tableau adapter. Tab to the "Accessible chart view" block above the viz,
+      press Enter, then use the arrow keys to move between bars. When the
+      embedded sheet is a dashboard, press Escape to return to the worksheet
+      list, Up and Down to choose a worksheet, and Enter to open it. Toggle B
+      for Braille, T for Text, S for Sonification, and R for Review mode.
+    </p>
+
+    <div class="note">
+      <strong>This page needs two things the other examples do not.</strong>
+      <ul>
+        <li>
+          <strong>A web server.</strong> The Embedding API is an ES module and
+          browsers block module loads from <code>file://</code>. Run something
+          like <code>npx serve</code> or <code>python3 -m http.server</code> in
+          the repository root and open this page over <code>http://</code>.
+        </li>
+        <li>
+          <strong>A live connection to Tableau Public.</strong> The view below
+          is rendered by <code>public.tableau.com</code> inside a cross-origin
+          iframe, and its data is fetched over that connection. Offline, the
+          viz never becomes interactive, MAIDR is never bound, and this page
+          shows nothing but the text you are reading.
+        </li>
+      </ul>
+      No Tableau account, token or backend is involved — Tableau Public views
+      need no authentication.
+    </div>
+
+    <div id="status" role="status">Waiting for the Tableau view to load…</div>
+
+    <h2>Embedded view</h2>
+    <p>
+      The MAIDR entry point is inserted <em>immediately before</em> the viz, so
+      a keyboard user reaches it before focus enters Tableau's own iframe
+      controls. The viz element itself is never moved.
+    </p>
+
+    <tableau-viz
+      id="tableauViz"
+      src="https://public.tableau.com/views/DeveloperSuperstore/Overview"
+      toolbar="bottom"
+      hide-tabs
+    ></tableau-viz>
+
+    <h2>What you are hearing</h2>
+    <p>
+      The adapter reads each worksheet's <em>summary data</em> — the same
+      aggregated table Tableau's own "View Data" pane shows — and decides what
+      to announce from its shape: one dimension and one measure read as a bar
+      chart, a date dimension reads as a line, two dimensions read as a grouped
+      bar chart, and two measures over a detail dimension read as a scatter
+      plot. A worksheet is skipped, with a console warning, only when it has no
+      measure to sonify, no dimension to navigate, or no rows at all.
+    </p>
+    <p>
+      That shape test is all the adapter has here, so it cannot recognise a
+      distribution or a map and step aside: a box plot is read as a bar chart of
+      its disaggregated marks, and a filled map as a scatter of latitude against
+      longitude — usually without a warning, because nothing looks wrong from
+      the data's side. Exclude such worksheets by name with
+      <code>overrides['&lt;worksheet&gt;'].skip</code>, or declare what they are
+      with <code>overrides['&lt;worksheet&gt;'].traceType</code>.
+    </p>
+    <p>
+      There is no highlight box. The marks live inside a cross-origin iframe,
+      so the host page cannot measure them; instead the mark under the cursor is
+      <em>selected</em> in the Tableau view itself, which is what a sighted
+      colleague sees light up. Tabbing out of the accessible chart block clears
+      the selection again, so no mark is left highlighted once you have moved
+      on.
+    </p>
+    <p>
+      Changing a filter or a parameter in the view re-reads the data and
+      rebuilds the figure. See the
+      <a href="https://maidr.ai/tableau.html">Tableau Integration Guide</a> for the
+      configuration options, including how to override a chart type the data
+      cannot reveal.
+    </p>
+
+    <script type="module">
+      const status = document.getElementById('status');
+      const viz = document.getElementById('tableauViz');
+
+      // Nothing in the workbook is readable before `firstinteractive`; the data
+      // API rejects if asked earlier.
+      //
+      // `bindTableau` is async — it can only report whether any worksheet
+      // produced a navigable layer once the first read has finished — so the
+      // handler must await it. Branching on the un-awaited call would branch on
+      // a promise, which is always truthy, and this status region would claim
+      // success even when nothing was mounted.
+      viz.addEventListener('firstinteractive', async () => {
+        let binding = null;
+        try {
+          binding = await maidrTableau.bindTableau(viz, {
+            title: 'Superstore Overview',
+          });
+        } catch (error) {
+          status.textContent = `MAIDR could not bind to the Tableau view: ${error?.message ?? 'unknown error'}`;
+          return;
+        }
+
+        status.textContent = binding
+          ? 'Tableau view loaded and bound. Tab to the accessible chart view above the viz, then press Enter.'
+          : 'Tableau view loaded, but no worksheet produced a readable layer. See the console for which ones were skipped and why.';
+
+        // Nothing on this page disposes the binding; a single-page app would
+        // call binding.dispose() when the viz is torn down.
+        window.__maidrTableauBinding = binding;
+      });
+
+      viz.addEventListener('vizloaderror', (event) => {
+        status.textContent = `Tableau could not load the view: ${event.detail?.message ?? 'unknown error'}`;
+      });
+
+      // Say so rather than leaving an empty page when Tableau Public is
+      // unreachable — the failure is silent otherwise.
+      setTimeout(() => {
+        if (status.textContent.startsWith('Waiting')) {
+          status.textContent
+            = 'The Tableau view has still not become interactive. Check that this page is served over http(s) and that public.tableau.com is reachable.';
+        }
+      }, 20000);
+    </script>
+  </body>
+</html>

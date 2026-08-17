@@ -344,6 +344,13 @@ export const GROUPS = [
     headingPrefix: 'Highcharts',
     note: 'See the <a href="highcharts.html">Highcharts Integration Guide</a> for setup instructions and code examples for all chart types.',
   },
+  {
+    id: 'tableau',
+    heading: 'Tableau',
+    prefixes: ['tableau-'],
+    headingPrefix: 'Tableau',
+    note: 'See the <a href="tableau.html">Tableau Integration Guide</a> for setup instructions and configuration options.',
+  },
 ];
 
 /**
