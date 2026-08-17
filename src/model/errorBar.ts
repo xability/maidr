@@ -6,7 +6,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -84,6 +84,32 @@ function withoutFloatNoise(value: number): number {
 }
 
 /**
+ * Normalises either accepted data shape into one series per group.
+ *
+ * `error_bar` took a flat `ErrorBarPoint[]` before groups existed, and still
+ * does — a single-series chart is the common case and must not be made to
+ * wrap itself in an array to keep working. A flat payload becomes the one
+ * group it is.
+ *
+ * An empty payload becomes one empty group rather than no groups, so a layer
+ * with no data keeps the single-row grid it had, instead of a grid with no
+ * rows for the cursor to be on.
+ *
+ * @param data - The layer's data, grouped or not
+ * @returns One entry per group
+ */
+function toGroups(
+  data: ErrorBarPoint[] | ErrorBarPoint[][],
+): ErrorBarPoint[][] {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [[]];
+  }
+  return Array.isArray(data[0])
+    ? (data as ErrorBarPoint[][])
+    : [data as ErrorBarPoint[]];
+}
+
+/**
  * Trace implementation for charts that draw an estimate together with the
  * interval around it — error bars, confidence intervals, point ranges.
  *
@@ -115,6 +141,15 @@ export class ErrorBarTrace extends AbstractTrace {
    * which is a section magnitude.
    */
   protected readonly points: ErrorBarPoint[];
+  /**
+   * The samples, split by group.
+   *
+   * One entry for an ungrouped chart, in which case it holds exactly
+   * {@link ErrorBarTrace.points}. `points` stays the flattened list so a
+   * subclass reading its own fields, and the selector count, both go on
+   * meaning what they meant before groups existed (#942).
+   */
+  private readonly groups: ErrorBarPoint[][];
   private readonly sections: readonly Section[];
   private readonly sectionValues: number[][];
   private readonly orientation: Orientation;
@@ -137,15 +172,31 @@ export class ErrorBarTrace extends AbstractTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = layer.data as ErrorBarPoint[];
+    this.groups = toGroups(layer.data as ErrorBarPoint[] | ErrorBarPoint[][]);
+    this.points = this.groups.flat();
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
     this.sections = SECTIONS.filter(section =>
       section === 'value'
       || this.points.some(point => isMeasured(magnitudeOf(point, section))),
     );
 
-    this.sectionValues = this.sections.map(section =>
-      this.points.map(point => magnitudeOf(point, section)),
+    // Rows run group-major: each group's sections are contiguous and in
+    // bottom-to-top order, then the next group's. That ordering is what makes
+    // the chart's own question answerable by ear -- pressing up at one
+    // category walks this group's lower, value and upper and then the next
+    // group's, so a reader hears directly whether one interval clears the
+    // other. Interleaving by section instead (every group's lower, then every
+    // group's value) would put the two ends of one interval three moves apart
+    // and answer nothing.
+    //
+    // Crossing from a group's upper bound to the next group's lower bound is
+    // a step down in value, which the shared pitch scale renders honestly as
+    // a drop. The announcement names the group on every move, so the drop is
+    // heard as arriving somewhere else rather than as the data falling.
+    this.sectionValues = this.groups.flatMap(group =>
+      this.sections.map(section =>
+        group.map(point => magnitudeOf(point, section)),
+      ),
     );
 
     const measured = this.sectionValues.flat().filter(isMeasured);
@@ -196,7 +247,17 @@ export class ErrorBarTrace extends AbstractTrace {
     if (flat.length !== this.points.length) {
       return null;
     }
-    return this.sections.map(() => flat);
+    // One whip per point, and the flat list runs in the same group-major
+    // order the rows do -- so each group's rows take that group's slice, and
+    // every section within a group highlights the same whips. Handing every
+    // row the whole list would light a second group's whips while the cursor
+    // was in the first.
+    let taken = 0;
+    return this.groups.flatMap((group) => {
+      const slice = flat.slice(taken, taken + group.length);
+      taken += group.length;
+      return this.sections.map(() => slice);
+    });
   }
 
   protected get values(): number[][] {
@@ -206,12 +267,18 @@ export class ErrorBarTrace extends AbstractTrace {
   protected get dimension(): Dimension {
     // Orientation-independent, matching `Candlestick.dimension`: up and down
     // walk the sections and left and right walk the samples in BOTH
-    // orientations, so rows must always be the section count. `AutoplayState`
-    // is keyed by direction, so conditioning this on orientation mis-paces
-    // autoplay and mis-clamps the `isMovable` bounds.
+    // orientations, so rows must always be the section count -- times the
+    // group count, since each group contributes its own sections.
+    // `AutoplayState` is keyed by direction, so conditioning this on
+    // orientation mis-paces autoplay and mis-clamps the `isMovable` bounds.
+    //
+    // Columns come from the current row rather than from the whole point
+    // count, which is the same rule `LineTrace.dimension` follows: with
+    // groups the flattened total is groups times samples, and using it would
+    // let the cursor walk off the end of every row.
     return {
       rows: this.sectionValues.length,
-      cols: this.points.length,
+      cols: this.sectionValues[this.row]?.length ?? 0,
     };
   }
 
@@ -234,7 +301,7 @@ export class ErrorBarTrace extends AbstractTrace {
         x: this.orientation === Orientation.HORIZONTAL ? this.row : this.col,
         y: this.orientation === Orientation.HORIZONTAL ? this.col : this.row,
         rows: this.sectionValues.length,
-        cols: this.points.length,
+        cols: this.sectionValues[this.row]?.length ?? 0,
       },
     };
   }
@@ -251,10 +318,73 @@ export class ErrorBarTrace extends AbstractTrace {
     };
   }
 
+  /** Which group a grid row belongs to. */
+  private groupOf(row: number): number {
+    return Math.floor(row / this.sections.length);
+  }
+
+  /** Which of the three magnitudes a grid row reads. */
+  private sectionOf(row: number): Section {
+    return this.sections[row % this.sections.length];
+  }
+
+  /**
+   * The row carrying one group's estimates.
+   *
+   * {@link ErrorBarTrace.valueRow} is this for the first group and wrong for
+   * every other, since rows are group-major. Anything resolving to "the
+   * estimate row" on a grouped chart has to ask which group first, or it
+   * lands on the first group's reading of a target that named another's.
+   */
+  private valueRowOf(group: number): number {
+    return group * this.sections.length + this.valueRow;
+  }
+
+  /** Human-readable name of a group, for a label that has to distinguish one. */
+  private groupNameAt(group: number): string | undefined {
+    if (this.groups.length < 2) {
+      return undefined;
+    }
+    const authored = this.groups[group]?.[0]?.z;
+    return authored === undefined || authored === null || authored === ''
+      ? `Group ${group + 1}`
+      : String(authored);
+  }
+
+  /**
+   * Label and name of the group the cursor is in, or `undefined`.
+   *
+   * Undefined on a chart that draws one group, and on one whose producer
+   * named no groups: a single unnamed series has nothing to disambiguate, and
+   * announcing "Group is Error bar 1" on every move would be noise in place
+   * of a reading. The same rule {@link LineTrace} applies to its series.
+   */
+  private get currentGroup(): { label: string; value: string } | undefined {
+    if (this.groups.length < 2) {
+      return undefined;
+    }
+    const authored = this.groups[this.groupOf(this.row)]?.[0]?.z;
+    if (authored === undefined || authored === null || authored === '') {
+      return undefined;
+    }
+    return { label: named(this.layer.axes?.z?.label, 'Group'), value: String(authored) };
+  }
+
   protected get text(): TextState {
-    const point = this.points[this.col];
-    const section = this.sections[this.row];
+    const point = this.groups[this.groupOf(this.row)]?.[this.col];
+    const section = this.sectionOf(this.row);
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const group = this.currentGroup;
+
+    if (point === undefined) {
+      return {
+        main: { label: isHorizontal ? this.yAxis : this.xAxis, value: '' },
+        cross: { label: isHorizontal ? this.xAxis : this.yAxis, value: '' },
+        section: SECTION_LABEL[section],
+        mainAxis: isHorizontal ? 'y' : 'x',
+        crossAxis: isHorizontal ? 'x' : 'y',
+      };
+    }
 
     return {
       main: { label: isHorizontal ? this.yAxis : this.xAxis, value: point.x },
@@ -273,6 +403,11 @@ export class ErrorBarTrace extends AbstractTrace {
       // number, and the category as currency.
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
+      // Which group this estimate belongs to, on a chart that draws more than
+      // one. Without it the two intervals at one category are two readings of
+      // the same name, and a reader has only emission order to tell them
+      // apart -- which nothing states (#942).
+      ...(group !== undefined && { z: group }),
     };
   }
 
@@ -299,13 +434,37 @@ export class ErrorBarTrace extends AbstractTrace {
       );
     }
 
-    const headers = [this.xAxis, this.yAxis, 'Lower', 'Upper'];
-    const rows: (string | number)[][] = this.points.map(point => [
-      point.x,
-      point.y,
-      point.yMin ?? '',
-      point.yMax ?? '',
-    ]);
+    // A grouped chart repeats every category once per group, so without a
+    // column naming the group the table has two rows headed "a" that differ
+    // only in their numbers -- the same loss the announcement would have,
+    // written down. Added only when there is more than one group, so an
+    // ungrouped chart's table keeps the four columns it had.
+    const grouped = this.groups.length > 1;
+    const groupLabel = named(this.layer.axes?.z?.label, 'Group');
+
+    if (grouped) {
+      stats.splice(1, 0, {
+        label: 'Number of groups',
+        value: this.groups.length,
+      });
+    }
+
+    const headers = grouped
+      ? [groupLabel, this.xAxis, this.yAxis, 'Lower', 'Upper']
+      : [this.xAxis, this.yAxis, 'Lower', 'Upper'];
+    const rows: (string | number)[][] = this.groups.flatMap((group, index) =>
+      group.map((point) => {
+        const cells: (string | number)[] = [
+          point.x,
+          point.y,
+          point.yMin ?? '',
+          point.yMax ?? '',
+        ];
+        return grouped
+          ? [point.z ?? `Group ${index + 1}`, ...cells]
+          : cells;
+      }),
+    );
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -332,10 +491,15 @@ export class ErrorBarTrace extends AbstractTrace {
    * @returns The maximum and minimum estimate, when any sample carries one
    */
   public override getExtremaTargets(): ExtremaTarget[] {
-    const estimates = this.sectionValues[this.valueRow];
-    const measured = estimates
-      .map((value, index) => ({ value, index }))
-      .filter(({ value }) => isMeasured(value));
+    // Across every group, not just the first. A chart whose largest estimate
+    // sits in a later group would otherwise offer the first group's largest
+    // under the name "max", sending a reader somewhere the maximum is not --
+    // and saying nothing about it.
+    const measured = this.groups.flatMap((group, groupIndex) =>
+      this.sectionValues[this.valueRowOf(groupIndex)]
+        .map((value, index) => ({ value, index, groupIndex }))
+        .filter(({ value }) => isMeasured(value)),
+    );
 
     if (measured.length === 0) {
       return [];
@@ -344,32 +508,54 @@ export class ErrorBarTrace extends AbstractTrace {
     const highest = measured.reduce((a, b) => (b.value > a.value ? b : a));
     const lowest = measured.reduce((a, b) => (b.value < a.value ? b : a));
 
-    const targets: ExtremaTarget[] = [{
-      label: `Max value at ${this.points[highest.index].x}`,
-      value: highest.value,
-      pointIndex: highest.index,
-      segment: 'value',
-      type: 'max',
-      navigationType: 'point',
-      xValue: this.points[highest.index].x,
-    }];
+    const targets: ExtremaTarget[] = [
+      this.extremaTarget(highest, 'max'),
+    ];
 
     // One sample, or a chart where every estimate is equal, has a single
     // extreme. Naming the same sample as both would report a spread the chart
-    // does not have.
-    if (lowest.index !== highest.index) {
-      targets.push({
-        label: `Min value at ${this.points[lowest.index].x}`,
-        value: lowest.value,
-        pointIndex: lowest.index,
-        segment: 'value',
-        type: 'min',
-        navigationType: 'point',
-        xValue: this.points[lowest.index].x,
-      });
+    // does not have. Compared on both coordinates, since two groups can share
+    // a column index without being the same reading.
+    if (lowest.index !== highest.index || lowest.groupIndex !== highest.groupIndex) {
+      targets.push(this.extremaTarget(lowest, 'min'));
     }
 
     return targets;
+  }
+
+  /**
+   * Builds one extrema target from a located estimate.
+   *
+   * The group's name joins the label on a grouped chart, because the groups
+   * share their category names: "Max value at c" alone does not say which
+   * series it means, and the menu offering it is read without the chart in
+   * view.
+   *
+   * @param found - Where the estimate was located
+   * @param found.value - The estimate itself
+   * @param found.index - Its column within its group
+   * @param found.groupIndex - Which group it belongs to
+   * @param type - Whether it is the maximum or the minimum
+   * @returns The target a reader can navigate to
+   */
+  private extremaTarget(
+    found: { value: number; index: number; groupIndex: number },
+    type: 'max' | 'min',
+  ): ExtremaTarget {
+    const point = this.groups[found.groupIndex][found.index];
+    const group = this.groupNameAt(found.groupIndex);
+    const where = group === undefined ? `${point.x}` : `${point.x}, ${group}`;
+
+    return {
+      label: `${type === 'max' ? 'Max' : 'Min'} value at ${where}`,
+      value: found.value,
+      pointIndex: found.index,
+      groupIndex: found.groupIndex,
+      segment: 'value',
+      type,
+      navigationType: 'point',
+      xValue: point.x,
+    };
   }
 
   /**
@@ -378,7 +564,10 @@ export class ErrorBarTrace extends AbstractTrace {
    * @param target - The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
-    this.row = this.valueRow;
+    // The target's own group, not the first: landing on the first group's
+    // estimate row would announce a different series' value at the category
+    // the target named, which reads as the extreme without being it.
+    this.row = this.valueRowOf(target.groupIndex ?? 0);
     this.col = target.pointIndex;
     this.finalizeNavigation();
   }
@@ -395,22 +584,38 @@ export class ErrorBarTrace extends AbstractTrace {
    * @returns The nearest sample, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues?.[0];
-    if (!elements || elements.length === 0) {
+    if (!this.highlightValues) {
       return null;
     }
 
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    for (let col = 0; col < elements.length; col++) {
-      const box = elements[col].getBoundingClientRect();
-      const centerX = box.left + box.width / 2;
-      const centerY = box.top + box.height / 2;
-      const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = { element: elements[col], row: this.valueRow, col, centerX, centerY };
+    // Every group's whips, not only the first's. A pointer landing on a
+    // second group's whip would otherwise be matched against the first
+    // group's elements and resolve to a sample the reader did not click --
+    // at the same category, so the announcement looks right.
+    for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
+      const elements = this.highlightValues[this.valueRowOf(groupIndex)];
+      if (!elements || elements.length === 0) {
+        continue;
+      }
+
+      for (let col = 0; col < elements.length; col++) {
+        const box = elements[col].getBoundingClientRect();
+        const centerX = box.left + box.width / 2;
+        const centerY = box.top + box.height / 2;
+        const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearest = {
+            element: elements[col],
+            row: this.valueRowOf(groupIndex),
+            col,
+            centerX,
+            centerY,
+          };
+        }
       }
     }
 
