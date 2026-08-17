@@ -25,6 +25,12 @@ import { Orientation, TraceType } from '@type/grammar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// jsdom exposes no specialised SVG constructors, and `SegmentedTrace` branches
+// on `SVGPathElement` before it chunks. Alias path to the real element so the
+// string path below is reachable; the array path returns before it gets there.
+const globals = globalThis as unknown as Record<string, unknown>;
+globals.SVGPathElement = globals.SVGElement;
+
 /** Three bars in the DOM, in the trace's own order: charlie, alpha, bravo. */
 function buildBars(): void {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -86,5 +92,59 @@ describe('a bar layer whose selectors were narrowed per bar', () => {
       'bravo',
       'charlie',
     ]);
+  });
+});
+
+describe('a segmented layer handed a selector list', () => {
+  it('declines rather than reporting an empty highlight', () => {
+    // `SegmentedTrace` infers which element belongs to which cell from one
+    // selector — `skipZeros`, row versus column major, and which end a
+    // category's series start from. A per-cell list would make all of that
+    // unnecessary rather than feed it, so it declines outright (#989 is where
+    // honouring one belongs). Pinned because the override takes the widened
+    // parameter by bivariance: without the guard an array reaches
+    // `selectAllElements`, which answers `[]` for anything but a string, and
+    // the decline happens by accident in a helper rather than on purpose here.
+    buildBars();
+    const layer = {
+      id: '0',
+      type: TraceType.STACKED,
+      orientation: Orientation.VERTICAL,
+      selectors: ['.points .point:nth-child(1) > path'],
+      axes: {},
+      data: [
+        [{ x: 'alpha', y: 1, z: 'A' }],
+        [{ x: 'alpha', y: 2, z: 'B' }],
+      ],
+    } as unknown as MaidrLayer;
+
+    const trace = TraceFactory.create(layer) as unknown as {
+      highlightValues: SVGElement[][] | null;
+    };
+
+    expect(trace.highlightValues).toBeNull();
+  });
+
+  it('still resolves a plain selector string', () => {
+    // The decline is for lists only; the ordinary path is untouched.
+    buildBars();
+    const layer = {
+      id: '0',
+      type: TraceType.STACKED,
+      orientation: Orientation.VERTICAL,
+      selectors: '.points .point > path',
+      axes: {},
+      data: [
+        [{ x: 'alpha', y: 1, z: 'A' }],
+        [{ x: 'bravo', y: 2, z: 'A' }],
+        [{ x: 'charlie', y: 3, z: 'A' }],
+      ],
+    } as unknown as MaidrLayer;
+
+    const trace = TraceFactory.create(layer) as unknown as {
+      highlightValues: SVGElement[][] | null;
+    };
+
+    expect(trace.highlightValues).not.toBeNull();
   });
 });
