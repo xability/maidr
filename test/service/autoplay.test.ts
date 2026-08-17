@@ -117,6 +117,26 @@ function traceState(pointCount: number): TraceState {
   } as unknown as TraceState;
 }
 
+/**
+ * Trace state for a chart that is not square — the case direction-dependent
+ * pacing showed up on.
+ * @param rows - Points a vertical pass covers
+ * @param cols - Points a horizontal pass covers
+ * @returns A non-empty trace state with differing counts per axis
+ */
+function oblongState(rows: number, cols: number): TraceState {
+  return {
+    empty: false,
+    type: 'trace',
+    autoplay: {
+      UPWARD: rows,
+      DOWNWARD: rows,
+      FORWARD: cols,
+      BACKWARD: cols,
+    },
+  } as unknown as TraceState;
+}
+
 describe('autoplayService step pacing', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -229,6 +249,48 @@ describe('autoplayService step pacing', () => {
     // fresh start. The point the user is on has just been heard, so replaying
     // it once per speed keypress would stutter the run rather than complete it.
     expect(notifyStateUpdate).toHaveBeenCalledTimes(1);
+
+    service.dispose();
+  });
+
+  it('steps at the same rate whichever way the reader goes', () => {
+    // A candlestick's shape: five sections against twelve samples. The rate
+    // used to be `duration / count-in-this-direction`, so the same chart
+    // played at 800 ms a step down and 334 ms a step across (#614).
+    const sections = 5;
+    const samples = 12;
+    const rate = Math.ceil(TOTAL_DURATION / samples);
+
+    const vertical = createAutoplay(TOTAL_DURATION);
+    vertical.service.start('UPWARD', oblongState(sections, samples));
+    jest.advanceTimersByTime(rate - 1);
+    expect(vertical.moveOnce).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(vertical.moveOnce).toHaveBeenCalledTimes(1);
+    vertical.service.dispose();
+
+    const horizontal = createAutoplay(TOTAL_DURATION);
+    horizontal.service.start('FORWARD', oblongState(sections, samples));
+    jest.advanceTimersByTime(rate - 1);
+    expect(horizontal.moveOnce).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(horizontal.moveOnce).toHaveBeenCalledTimes(1);
+    horizontal.service.dispose();
+  });
+
+  it('takes its tempo from the longest axis, not whichever is being played', () => {
+    // The box plot's shape, where the swing went the other way: seven
+    // sections against three boxes. Taking the shortest axis would make a
+    // wide chart crawl; the longest keeps the setting naming something real.
+    const { service, moveOnce } = createAutoplay(TOTAL_DURATION);
+    const rate = Math.ceil(TOTAL_DURATION / 7);
+
+    service.start('FORWARD', oblongState(7, 3));
+
+    jest.advanceTimersByTime(rate - 1);
+    expect(moveOnce).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(moveOnce).toHaveBeenCalledTimes(1);
 
     service.dispose();
   });
