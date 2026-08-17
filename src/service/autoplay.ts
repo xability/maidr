@@ -152,7 +152,7 @@ export class AutoplayService implements Disposable {
     this.stop();
     this.onChangeEmitter.fire({ type: 'start' });
 
-    this.autoplayRate = this.getAutoplayRate(direction, state);
+    this.autoplayRate = this.getAutoplayRate(state);
     this.currentDirection = direction;
     if (fromCurrentPoint) {
       this.context.notifyStateUpdate();
@@ -284,11 +284,14 @@ export class AutoplayService implements Disposable {
 
   /**
    * Calculates the autoplay rate based on user settings or trace state.
-   * @param direction - Direction of autoplay movement
+   *
+   * Takes no direction: the rate is a property of the trace rather than of
+   * the pass being played, which is what makes a chart sound the same
+   * whichever way a reader goes through it (#614).
    * @param state - Optional trace state for rate calculation
    * @returns Autoplay rate in milliseconds
    */
-  private getAutoplayRate(direction: MovableDirection, state?: TraceState): number {
+  private getAutoplayRate(state?: TraceState): number {
     // Remember the point counts so restart() — which passes no state — can
     // recompute the rate from the current totalDuration after a mid-playback
     // duration change, instead of reusing the stale defaultSpeed.
@@ -300,9 +303,25 @@ export class AutoplayService implements Disposable {
       return this.userSpeed;
     }
 
-    const pointCount = this.lastAutoplay?.[direction];
-    if (pointCount !== undefined) {
-      const calculatedRate = Math.ceil(this.totalDuration / pointCount);
+    // One tempo for the whole trace, taken from its longest axis.
+    //
+    // The rate used to be `duration / count-in-this-direction`, which made a
+    // chart play at two different speeds depending on which way the reader
+    // went — 800 ms a step down a candlestick's five sections against 334 ms
+    // along its twelve samples, and the swing reversed on a box plot, where
+    // seven sections meet three boxes. A reader cannot use tempo to judge
+    // anything if it means something different on each axis (#614).
+    //
+    // The longest axis rather than the shortest, so the setting keeps naming
+    // something real: a full pass along the longest direction takes the
+    // configured duration, and a pass along a shorter one finishes sooner
+    // *because there is less of it* — which is the honest rendering of a
+    // chart that is wider than it is tall.
+    const counts = Object.values(this.lastAutoplay ?? {}).filter(
+      (count): count is number => typeof count === 'number' && count > 0,
+    );
+    if (counts.length > 0) {
+      const calculatedRate = Math.ceil(this.totalDuration / Math.max(...counts));
       this.defaultSpeed = calculatedRate;
       this.minSpeed = Math.min(this.minSpeed, calculatedRate);
       return calculatedRate;
