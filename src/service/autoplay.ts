@@ -317,6 +317,12 @@ export class AutoplayService implements Disposable {
     // configured duration, and a pass along a shorter one finishes sooner
     // *because there is less of it* — which is the honest rendering of a
     // chart that is wider than it is tall.
+    // Both halves of the filter guard a value that arrives from parsed chart
+    // input rather than from this codebase. Every trace populates all four
+    // directions with numbers today, so neither is reachable through
+    // `AbstractTrace.autoplay` -- but a zero would have divided the duration
+    // into `Infinity` and hung the run on its first step, which the previous
+    // `duration / pointCount` had nothing to stop.
     const counts = Object.values(this.lastAutoplay ?? {}).filter(
       (count): count is number => typeof count === 'number' && count > 0,
     );
