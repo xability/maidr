@@ -1203,7 +1203,14 @@ export interface AxisConfig {
 }
 
 /**
- * Chart orientation for bar and box plots.
+ * Which way a layer is drawn, for the many trace types that can go either way
+ * — the bar family, the box and violin family, error bars, funnels, Gantt
+ * charts and dumbbells among them.
+ *
+ * See {@link MaidrLayer.orientation} for what setting it actually changes,
+ * which is not the same for every type: for the bar family it selects which
+ * field of a point carries the magnitude, and elsewhere it only swaps which
+ * axis label a reading is announced against.
  */
 export enum Orientation {
   VERTICAL = 'vert',
@@ -1249,6 +1256,47 @@ export interface MaidrLayer {
    */
   name?: string;
   selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
+  /**
+   * Which way the layer is drawn. Defaults to {@link Orientation.VERTICAL}.
+   *
+   * For one family of traces this key decides **which field of a point holds
+   * the magnitude**, so getting it wrong is not a cosmetic error — the trace
+   * reads a category name where it expects a number and sounds with no
+   * magnitude at all. For every other trace it changes only which axis label
+   * a reading is announced against, and the payload is written the same way
+   * whichever value is set.
+   *
+   * The rule is: **the bar family swaps `x` and `y`; nothing else does.**
+   *
+   * | trace | `vert` | `horz` |
+   * | --- | --- | --- |
+   * | the bar family, listed below | `x` is the category, `y` the magnitude | `x` is the **magnitude**, `y` the category |
+   * | `error_bar`, `forest` | `x` is the category, `y`/`yMin`/`yMax` the magnitudes | unchanged — only the axis labels swap |
+   * | `box`, `boxen`, `violin_box` | quantile fields, no axis assignment | unchanged |
+   * | `gantt`, `dumbbell` | — | unchanged; navigation and panning only |
+   *
+   * The bar family is defined by what a type is built on rather than by what
+   * it is called, because the exchange is inherited from `AbstractBarPlot`'s
+   * constructor: `bar`, `histogram`, `stacked`, `dodged`, `normalized` and
+   * the traces built on those (`diverging`, `mosaic`) — and also `dot` and
+   * `lollipop`, which the factory constructs as a `BarTrace` outright, and
+   * `funnel`, whose trace extends `BarTrace` and never undoes the exchange.
+   * Reading one model file at a time misses those last three, so
+   * `test/type/orientationContract.test.ts` runs the list rather than
+   * restating it.
+   *
+   * Note that this is a different question from the one
+   * `resolveOrientation()` in `src/util/orientation.ts` answers. Its
+   * `IS_ORIENTED` record says whether a type has an orientation worth
+   * announcing ("vertical bar plot"); a type can be oriented in that sense
+   * and still not want its payload swapped, which is the trap this table
+   * exists to close. Both r-maidr #184 and #186 were emitted against the
+   * wrong half of it.
+   *
+   * @example
+   * // a horizontal bar chart of apple = 30
+   * { orientation: 'horz', data: [{ x: 30, y: 'apple' }] }
+   */
   orientation?: Orientation;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in
