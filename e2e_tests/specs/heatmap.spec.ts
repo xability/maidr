@@ -231,13 +231,12 @@ test.describe('Heatmap', () => {
       expect(currentDataPoint).toContain(heatmapData.x[heatmapData.x.length - 1].toString());
     });
 
-    // The rows of a heatmap run top-first in the schema, and `Heatmap`
-    // reverses them so its own row 0 is the bottom of the drawn grid -- which
-    // is what makes Up move visually up. Five adapters had that the wrong way
-    // round and nothing caught it: the chart loaded, navigated and announced
-    // every value against its own label, and only the direction was false
-    // (#971, #973, #974, #977, #978, #981). Nothing above exercises a vertical
-    // move, so nothing above would have noticed.
+    // The rows run top-first in the schema and `Heatmap` reverses them, so its
+    // own row 0 is the bottom of the drawn grid -- which is what makes Up move
+    // visually up. Six adapters had that the wrong way round at once and the
+    // suite stayed green: the chart loaded, navigated, highlighted, and
+    // announced every value against its own label, and only the direction was
+    // false. Nothing but a vertical move catches that.
     test('should enter at the bottom row and climb on Up', async () => {
       const rows = heatmapData.y;
       test.skip(rows.length < 2, 'needs at least two rows to have a direction');
@@ -249,6 +248,9 @@ test.describe('Heatmap', () => {
 
       await heatmapPage.moveToDataPointAbove();
       const above = await heatmapPage.getCurrentDataPointInfo();
+      // Rows whose names share a prefix would let the label alone pass while
+      // standing still, so require the announcement to have changed too.
+      expect(above).not.toBe(entry);
       expect(above).toContain(rows[rows.length - 2].toString());
     });
 
@@ -257,10 +259,14 @@ test.describe('Heatmap', () => {
       test.skip(rows.length < 2, 'needs at least two rows to have a direction');
 
       await heatmapPage.moveToFirstDataPoint();
-      await heatmapPage.moveToDataPointAbove();
-      await heatmapPage.moveToDataPointBelow();
+      const entry = await heatmapPage.getCurrentDataPointInfo();
 
+      await heatmapPage.moveToDataPointAbove();
+      expect(await heatmapPage.getCurrentDataPointInfo()).not.toBe(entry);
+
+      await heatmapPage.moveToDataPointBelow();
       const back = await heatmapPage.getCurrentDataPointInfo();
+      expect(back).toBe(entry);
       expect(back).toContain(rows[rows.length - 1].toString());
     });
   });
