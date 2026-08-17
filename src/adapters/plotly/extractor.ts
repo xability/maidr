@@ -2922,18 +2922,21 @@ function buildViolinKdeLayer(
 // ---------------------------------------------------------------------------
 
 /**
- * Whether plotly draws the first of this axis's categories at the top.
+ * Whether plotly draws this axis backwards — from its high end to its low one.
  *
  * True only for a reversed axis, which resolves to a high-to-low range.
  * `autorange` cannot answer it: `autorange: 'reversed'` reads back as plain
  * `true`, indistinguishable from an ordinary auto-ranged axis. The resolved
  * range can, and it covers an explicitly reversed `range` as well.
  *
+ * On y this means the first category is drawn at the top rather than the
+ * bottom; on x, at the right rather than the left.
+ *
  * @param layout - The chart's computed layout, when it has one
- * @param axisId - The axis the trace is drawn against (`'y'`, `'y2'`, ...)
- * @returns Whether row 0 is already the top row
+ * @param axisId - The axis the trace is drawn against (`'y'`, `'x2'`, ...)
+ * @returns Whether the axis runs backwards
  */
-function drawsFirstRowAtTop(
+function axisRunsBackwards(
   layout: PlotlyFullLayout | undefined,
   axisId: string,
 ): boolean {
@@ -2942,6 +2945,53 @@ function drawsFirstRowAtTop(
     return false;
 
   return Number(range[0]) > Number(range[1]);
+}
+
+/**
+ * Where each of an axis's drawn categories sits in the trace's own labels.
+ *
+ * `categoryorder` sorts a categorical axis and leaves the trace's `x`/`y`/`z`
+ * exactly as the author wrote them, so the labels alone do not say what the
+ * chart shows. `_categories` does: it is the resolved list, in the order
+ * plotly lays the categories out from the axis origin — left for x, bottom
+ * for y. It says nothing about a reversed axis, which flips the drawn
+ * direction without touching the list; {@link axisRunsBackwards} answers that.
+ *
+ * Returns `null` unless the two describe the same set, one label each. A
+ * `categoryarray` naming categories the trace does not carry makes plotly draw
+ * empty columns — measured as `[[null, 12, null, 11], ...]` in its own
+ * calcdata — and `HeatmapData.points` has no way to say "empty", so the
+ * trace's order is kept rather than a column invented or dropped (#985).
+ *
+ * @param axis   - The resolved axis, when the chart has been drawn
+ * @param labels - The labels the trace carries, in its own order
+ * @returns Indices into `labels`, in drawn order, or null to decline
+ */
+function drawnCategoryOrder(
+  axis: PlotlyAxis | undefined,
+  labels: string[],
+): number[] | null {
+  const categories = axis?._categories;
+  if (!categories || categories.length !== labels.length)
+    return null;
+
+  const position = new Map<string, number>();
+  labels.forEach((label, index) => {
+    if (!position.has(label))
+      position.set(label, index);
+  });
+  // A repeated label leaves no unambiguous cell to send a category to.
+  if (position.size !== labels.length)
+    return null;
+
+  const order = new Array<number>();
+  for (const category of categories) {
+    const index = position.get(String(category));
+    if (index === undefined)
+      return null;
+    order.push(index);
+  }
+  return order;
 }
 
 function extractHeatmapLayer(
@@ -2968,16 +3018,35 @@ function extractHeatmapLayer(
   const xLabels = trace.x ? trace.x.slice(0, numCols).map(String) : grid[0].map((_, i) => String(i));
   const yLabels = trace.y ? trace.y.slice(0, numRows).map(String) : grid.map((_, i) => String(i));
 
-  // {@link HeatmapData} runs top-first, and plotly numbers a heatmap's rows
-  // from the bottom, so ordinarily they are turned over here. Left alone when
-  // plotly is drawing the y axis reversed — the idiom for showing a matrix in
-  // reading order — because that already puts row 0 at the top and reversing
-  // would stand the chart back on its head (#971).
-  const topFirst = drawsFirstRowAtTop(gd._fullLayout, trace.yaxis ?? 'y');
+  // The trace's order is not necessarily the drawn one: `categoryorder` sorts
+  // an axis and leaves `x`/`y`/`z` alone, so the grid has to be laid back out
+  // the way plotly actually draws it (#985). Falling back to the trace's own
+  // order covers a numeric axis, an undrawn chart, and the declines above.
+  const layout = gd._fullLayout;
+  const originRows = drawnCategoryOrder(layout ? getAxis(layout, trace.yaxis ?? 'y') : undefined, yLabels)
+    ?? yLabels.map((_, index) => index);
+  const originCols = drawnCategoryOrder(layout ? getAxis(layout, trace.xaxis ?? 'x') : undefined, xLabels)
+    ?? xLabels.map((_, index) => index);
+
+  // Both of those count from the axis origin — bottom for y, left for x —
+  // while {@link HeatmapData} runs top-first and left-first. So the rows turn
+  // over unless the y axis is reversed, which is plotly's idiom for showing a
+  // matrix in reading order and already puts the first row at the top (#971);
+  // the columns turn over only when the x axis is.
+  const rows = axisRunsBackwards(layout, trace.yaxis ?? 'y')
+    ? originRows
+    : [...originRows].reverse();
+  const cols = axisRunsBackwards(layout, trace.xaxis ?? 'x')
+    ? [...originCols].reverse()
+    : originCols;
+
+  // A row whose columns do not move keeps plotly's own array, which is what
+  // this has always emitted.
+  const columnsMoved = cols.some((col, index) => col !== index);
   const data: HeatmapData = {
-    x: xLabels,
-    y: topFirst ? yLabels : [...yLabels].reverse(),
-    points: topFirst ? grid : [...grid].reverse(),
+    x: cols.map(col => xLabels[col]),
+    y: rows.map(row => yLabels[row]),
+    points: rows.map(row => (columnsMoved ? cols.map(col => grid[row][col]) : grid[row])),
   };
 
   // Set the z axis label for z-values from the colorbar title, or default.
