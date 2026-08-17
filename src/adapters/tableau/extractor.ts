@@ -49,6 +49,7 @@ import type {
   TableauRow,
   TableauSelectionCriteria,
   TableauVisualSpecification,
+  TableauWorksheetGeometry,
   TableauWorksheetOverride,
   WorksheetSnapshot,
 } from './types';
@@ -1368,6 +1369,299 @@ function buildLayer(
   return { layer, cells: build.cells, points: build.points };
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard layout
+// ---------------------------------------------------------------------------
+
+/**
+ * How much of two objects' extents must overlap along one axis before they are
+ * read as sharing a row (vertically), or as being stacked rather than side by
+ * side (horizontally).
+ *
+ * Measured as a **fraction of the shorter extent**, never as a pixel tolerance.
+ * A fixed tolerance is the wrong shape of rule: ten pixels is generous on a
+ * 600px dashboard and meaningless on a 4000px one, and it moves again under
+ * browser zoom and device-pixel ratio. A ratio is scale-free, which also means
+ * it cannot be invalidated by the one thing about the units that the
+ * declarations do not pin down.
+ *
+ * A half is not a tuned constant. It is the point where "these two sit side by
+ * side" stops being more true than "one is above the other": below half, most
+ * of each object's extent is unshared, which is exactly when a sighted reader
+ * reads them as stacked. It is also nowhere near the case it exists to absorb —
+ * the real cause of imperfect alignment in a tiled dashboard is per-object
+ * padding and borders, a few pixels on objects hundreds of pixels tall, an
+ * overlap ratio of about 0.98. The threshold therefore only bites on layouts
+ * that are genuinely ambiguous, which is precisely where the grid is abandoned.
+ */
+const BAND_OVERLAP_RATIO = 0.5;
+
+/**
+ * One subplot that survived extraction, still paired with what it came from.
+ *
+ * Built in snapshot order and numbered before any layout happens, so that the
+ * layer ids and the {@link SelectionIndex} keyed by them are identical whether
+ * the figure ends up a grid or a column.
+ */
+interface BuiltSubplot {
+  /** The layer id — the index among survivors. Never derived from position. */
+  readonly layerId: string;
+  /** The snapshot the subplot was built from, geometry included. */
+  readonly snapshot: WorksheetSnapshot;
+  /** The one-layer subplot itself. */
+  readonly subplot: MaidrSubplot;
+}
+
+/** A survivor whose geometry passed the gates, ready to be banded. */
+interface PlacedSubplot {
+  /** Position among the survivors; the tie-break that makes sorting total. */
+  readonly order: number;
+  readonly subplot: MaidrSubplot;
+  readonly geometry: TableauWorksheetGeometry;
+}
+
+/** The outcome of trying to lay a figure out from its dashboard geometry. */
+interface LayoutAttempt {
+  /** The subplot grid, or `null` when the geometry did not support one. */
+  readonly rows: MaidrSubplot[][] | null;
+  /**
+   * Why a grid was rejected, when the page is likely to want to know.
+   *
+   * `null` when there was no geometry to reject in the first place — a single
+   * worksheet, a story, an older embedding library, the `'column'` option —
+   * which is the ordinary case and not worth a word. A dashboard that *did*
+   * report geometry and still got a column is the surprising case, so that one
+   * says why.
+   */
+  readonly reason: string | null;
+}
+
+/**
+ * The shared fraction of two one-dimensional intervals, against the shorter.
+ *
+ * @param aStart - Start of the first interval.
+ * @param aLength - Length of the first interval; must be positive.
+ * @param bStart - Start of the second interval.
+ * @param bLength - Length of the second interval; must be positive.
+ * @returns `0` when they do not overlap, up to `1` when one contains the other.
+ */
+function overlapRatio(
+  aStart: number,
+  aLength: number,
+  bStart: number,
+  bLength: number,
+): number {
+  const shared
+    = Math.min(aStart + aLength, bStart + bLength) - Math.max(aStart, bStart);
+  if (shared <= 0) {
+    return 0;
+  }
+  // Both lengths are positive — degenerate extents are rejected before any
+  // banding starts — so this never divides by zero.
+  return shared / Math.min(aLength, bLength);
+}
+
+/**
+ * Order two placed subplots top-to-bottom, then left-to-right.
+ *
+ * @param a - One subplot.
+ * @param b - The other.
+ * @returns Negative when `a` comes first, positive when `b` does.
+ */
+function compareTopThenLeft(a: PlacedSubplot, b: PlacedSubplot): number {
+  if (a.geometry.y !== b.geometry.y) {
+    return a.geometry.y - b.geometry.y;
+  }
+  if (a.geometry.x !== b.geometry.x) {
+    return a.geometry.x - b.geometry.x;
+  }
+  // Two objects at the same point cannot be separated by geometry. Falling back
+  // to survivor order keeps the comparator total, so the result is the same on
+  // every engine rather than depending on the sort's stability.
+  return a.order - b.order;
+}
+
+/**
+ * Order two placed subplots left-to-right, then top-to-bottom.
+ *
+ * @param a - One subplot.
+ * @param b - The other.
+ * @returns Negative when `a` comes first, positive when `b` does.
+ */
+function compareLeftThenTop(a: PlacedSubplot, b: PlacedSubplot): number {
+  if (a.geometry.x !== b.geometry.x) {
+    return a.geometry.x - b.geometry.x;
+  }
+  if (a.geometry.y !== b.geometry.y) {
+    return a.geometry.y - b.geometry.y;
+  }
+  return a.order - b.order;
+}
+
+/**
+ * Lay the survivors out as a grid using the dashboard's own geometry, or
+ * decline.
+ *
+ * Survivors are swept top-to-bottom into **bands**: a worksheet joins the band
+ * being built when its vertical extent overlaps the band's by at least
+ * {@link BAND_OVERLAP_RATIO} of the shorter of the two, and starts a new band
+ * otherwise. Within a band the order is left-to-right. That is the whole rule.
+ *
+ * Bands are emitted **bottom-most first**, so the bottom row of the dashboard
+ * becomes row 0 of the figure. That is not a preference; it is what makes the
+ * arrows true. The Tableau extractor emits no `selectors` — there is no DOM to
+ * select — so `resolveSubplotLayout` cannot measure anything and every Tableau
+ * figure takes its fallback layout, which sets `invertVertical: false`. With
+ * that flag clear, `MovableGrid` maps *Move Up* to `row + 1`, i.e. row 0 is
+ * navigationally the bottom of the figure — the same convention `Heatmap`
+ * follows when it reverses its rows. Emitting the top band first would leave a
+ * reader at the top-left of the dashboard told that Down is unavailable while
+ * Up carried them downwards. A wrong direction under a key named "Move Up" is
+ * worse than a wrong ordinal.
+ *
+ * The ordinal is the accepted cost: `buildFallbackLayout` numbers its
+ * `visualOrderMap` in data-array order, so the bottom-left subplot is announced
+ * as "Subplot 1". Naming it correctly means teaching `resolveSubplotLayout` to
+ * accept caller-supplied positions, which is a shared-utility change affecting
+ * every DOM-less adapter. The announcement still carries the worksheet's own
+ * title, which is what identifies it; the number is not a spatial claim.
+ *
+ * A grid is declined outright — no partial grids, ever — when:
+ *
+ * 1. **any** survivor has no geometry (an older library, a lone worksheet, a
+ *    story, or a worksheet no dashboard object named);
+ * 2. any extent is degenerate, which would make the overlap ratio meaningless;
+ * 3. any survivor floats or is invisible (see below);
+ * 4. a band turns out to be *chained* — the sweep is single-linkage, so it
+ *    would happily merge A with B and B with C while A and C barely touch, so
+ *    every pair inside a closed band is re-checked against the same ratio. A
+ *    staircase is not a row;
+ * 5. two members of a band overlap horizontally by more than the same ratio,
+ *    which means they are stacked within the band and "left to right" does not
+ *    order them.
+ *
+ * A floating worksheet disqualifies the *whole* figure rather than being woven
+ * in: floating objects are positioned independently of the tiled layout and
+ * routinely sit on top of tiled ones, so their coordinates do not place them in
+ * a row. An invisible one likewise — dropping it would silently remove data the
+ * page may have named explicitly, and placing it in the grid would be a claim
+ * about something that is not on screen. The column makes no spatial claim at
+ * all and includes everything in author order, which is the honest answer to
+ * both.
+ *
+ * All-singleton bands are *not* a failure: a genuinely vertical dashboard read
+ * in geometry order is more truthful than one read in the order its worksheets
+ * happened to be added. Nor is a single band holding everything, which is a
+ * genuine 1×N dashboard.
+ *
+ * Pure, like everything else in this file: the geometry arrives on the
+ * snapshots, captured once by the binder from `dashboard.objects`. It follows
+ * that the grid is computed at read time and is not recomputed when the window
+ * is merely resized — the refresh events are filter, parameter, data and tab
+ * changes, not `resize` — which is the same trade `options.live` makes
+ * elsewhere: rebuilding the figure under a navigating reader is worse than a
+ * layout that reflects the dashboard as it was read.
+ *
+ * @param built - Every survivor, in figure order, already numbered.
+ * @returns The grid and no reason, or no grid and a reason worth reporting.
+ */
+function layOutByGeometry(built: readonly BuiltSubplot[]): LayoutAttempt {
+  const placed: PlacedSubplot[] = [];
+  for (const [order, entry] of built.entries()) {
+    const geometry = entry.snapshot.geometry;
+    if (geometry === undefined) {
+      return { rows: null, reason: null };
+    }
+    if (geometry.isFloating) {
+      return {
+        rows: null,
+        reason: `worksheet "${entry.snapshot.name}" floats above the dashboard `
+          + `layout, so its position does not place it in a row`,
+      };
+    }
+    if (!geometry.isVisible) {
+      return {
+        rows: null,
+        reason: `worksheet "${entry.snapshot.name}" is hidden on the dashboard, `
+          + `so placing it in the layout would claim it is on screen`,
+      };
+    }
+    if (!(geometry.width > 0) || !(geometry.height > 0)) {
+      return {
+        rows: null,
+        reason: `worksheet "${entry.snapshot.name}" reported a zero or negative `
+          + `size (${geometry.width}×${geometry.height})`,
+      };
+    }
+    placed.push({ order, subplot: entry.subplot, geometry });
+  }
+  if (placed.length === 0) {
+    return { rows: null, reason: null };
+  }
+
+  placed.sort(compareTopThenLeft);
+
+  const bands: PlacedSubplot[][] = [];
+  // The running union of the band being built, as a half-open interval.
+  let top = 0;
+  let bottom = 0;
+  for (const member of placed) {
+    const { y, height } = member.geometry;
+    const current = bands.at(-1);
+    const joins = current !== undefined
+      && overlapRatio(top, bottom - top, y, height) >= BAND_OVERLAP_RATIO;
+    if (current === undefined || !joins) {
+      bands.push([member]);
+      top = y;
+      bottom = y + height;
+      continue;
+    }
+    current.push(member);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y + height);
+  }
+
+  for (const band of bands) {
+    band.sort(compareLeftThenTop);
+    for (let i = 0; i < band.length; i++) {
+      for (let j = i + 1; j < band.length; j++) {
+        const a = band[i].geometry;
+        const b = band[j].geometry;
+        if (overlapRatio(a.y, a.height, b.y, b.height) < BAND_OVERLAP_RATIO) {
+          return {
+            rows: null,
+            reason: 'the worksheets form a staircase rather than rows — two of '
+              + 'them were chained into the same band by a third without '
+              + 'sharing a row themselves',
+          };
+        }
+        if (overlapRatio(a.x, a.width, b.x, b.width) > BAND_OVERLAP_RATIO) {
+          return {
+            rows: null,
+            reason: 'two worksheets in the same row overlap horizontally, so '
+              + 'there is no left-to-right order between them',
+          };
+        }
+      }
+    }
+  }
+
+  // Bottom-most band first: with `invertVertical` clear, row 0 is the bottom of
+  // the figure, so this is what makes Up move up the dashboard.
+  const rows: MaidrSubplot[][] = [];
+  for (let index = bands.length - 1; index >= 0; index--) {
+    const band = bands[index];
+    // Unreachable: a band is created around a member and only ever grows. It is
+    // dropped rather than trusted because an empty row is the one shape that
+    // crashes the model — `Figure.activeSubplot` reads `subplots[r][0]`.
+    if (band.length === 0) {
+      continue;
+    }
+    rows.push(band.map(member => member.subplot));
+  }
+  return rows.length === 0 ? { rows: null, reason: null } : { rows, reason: null };
+}
+
 /**
  * Apply the page's include-list and per-worksheet `skip` flags.
  *
@@ -1409,16 +1703,40 @@ function selectSnapshots(
 /**
  * Build a MAIDR figure, and its selection index, from worksheet snapshots.
  *
- * The figure is laid out as **N rows × 1 column**: one worksheet per subplot,
- * in the order the snapshots arrive. Tableau documents that "screen readers
- * read views or objects in a dashboard in the order in which they were added",
- * and `dashboard.worksheets` is that order — so paging through the subplots
- * matches the order a reader is already narrated the dashboard in.
+ * One worksheet becomes one subplot holding one layer. How those subplots are
+ * arranged has two answers, and the fallback is always available:
+ *
+ * - **A geometry-aware grid**, when the snapshots carry the dashboard geometry
+ *   the binder read off `dashboard.objects` *and* that geometry is
+ *   unambiguous. Worksheets that share a row of the dashboard share a row of
+ *   the figure, left to right, and the dashboard's bottom row is row 0 — see
+ *   {@link layOutByGeometry} for the banding rule, for why the bottom comes
+ *   first, and for the five ways a grid is declined.
+ * - **N rows × 1 column** otherwise: one worksheet per subplot, in the order
+ *   the snapshots arrive. This is what an older embedding library gets, since
+ *   it reports no geometry at all; it is also what a single worksheet, a
+ *   `layout: 'column'` option, and every ambiguous dashboard get. Tableau
+ *   documents that "screen readers read views or objects in a dashboard in the
+ *   order in which they were added", and `dashboard.worksheets` is that order,
+ *   so this ordering is one a reader has already been narrated.
+ *
+ * **Layer ids are assigned before any layout happens**, as the running count of
+ * survivors, and are never derived from a grid position. That is load-bearing:
+ * `SelectionIndex.cells`, `.points` and `.worksheets` are keyed by them, and
+ * the binder turns those keys into live worksheets. Numbering after banding
+ * would hand out duplicate ids the moment a row held more than one subplot and
+ * would route highlights to the wrong worksheet. Banding is only ever a
+ * permutation of an already-numbered list, so the ids — and the whole selection
+ * index — are identical for the same input whichever layout is chosen. Nothing
+ * downstream reads a row or a column out of a layer id; the model stores it and
+ * echoes it back.
  *
  * A worksheet that yields no layer contributes **no subplot**: `Figure` crashes
  * on a subplot with zero layers, and the controller refuses to construct itself
- * when no subplot has any. When every worksheet is skipped the result has an
- * empty `subplots` array, which the binder reads as "leave the page alone".
+ * when no subplot has any. It is therefore never a band member either, so a
+ * skipped worksheet leaves no hole in the grid. When every worksheet is skipped
+ * the result has an empty `subplots` array, which the binder reads as "leave
+ * the page alone".
  *
  * `maidr.onNavigate` is not set here. Extraction is pure; the binder spreads
  * its own callback on.
@@ -1432,34 +1750,48 @@ export function extractTableau(
   options: TableauAdapterOptions = {},
 ): TableauExtraction {
   const warned = new Set<string>();
-  const subplots: MaidrSubplot[][] = [];
+  const built: BuiltSubplot[] = [];
   const cells = new Map<string, (readonly TableauSelectionCriteria[] | null)[][]>();
   const points = new Map<string, (readonly TableauSelectionCriteria[] | null)[]>();
   const worksheets = new Map<string, string>();
 
   for (const snapshot of selectSnapshots(snapshots, options, warned)) {
     // The survivor index, not the input index: a skipped worksheet must not
-    // shift the ids every later lookup is keyed by.
-    const layerId = String(subplots.length);
-    const built = buildLayer(
+    // shift the ids every later lookup is keyed by. Counted here, before the
+    // layout exists, so the ids cannot depend on where a subplot lands.
+    const layerId = String(built.length);
+    const layer = buildLayer(
       snapshot,
       options.overrides?.[snapshot.name] ?? {},
       layerId,
       warned,
     );
-    if (built === null) {
+    if (layer === null) {
       continue;
     }
 
-    subplots.push([{ layers: [built.layer] }]);
+    built.push({ layerId, snapshot, subplot: { layers: [layer.layer] } });
     worksheets.set(layerId, snapshot.name);
-    if (built.cells !== undefined) {
-      cells.set(layerId, built.cells);
+    if (layer.cells !== undefined) {
+      cells.set(layerId, layer.cells);
     }
-    if (built.points !== undefined) {
-      points.set(layerId, built.points);
+    if (layer.points !== undefined) {
+      points.set(layerId, layer.points);
     }
   }
+
+  const attempt: LayoutAttempt = options.layout === 'column'
+    ? { rows: null, reason: null }
+    : layOutByGeometry(built);
+  if (attempt.reason !== null) {
+    warnOnce(
+      warned,
+      `${attempt.reason}; laying the dashboard out as one worksheet per row `
+      + `instead. Pass layout: 'column' to ask for that without the check.`,
+    );
+  }
+  const subplots: MaidrSubplot[][]
+    = attempt.rows ?? built.map(entry => [entry.subplot]);
 
   const maidr: Maidr = {
     id: options.id ?? `maidr-tableau-${nextFigureId++}`,
