@@ -398,6 +398,26 @@ export interface ErrorBarPoint {
   yMin?: number;
   /** Absolute upper bound of the interval, when the chart draws one. */
   yMax?: number;
+  /**
+   * Name of the group this estimate belongs to, for a chart drawing an
+   * interval per group at each category.
+   *
+   * Named to match {@link LinePoint.z} and carried for the same reason. A
+   * dodged error bar over two treatments puts two estimates at every
+   * category, and without this they arrive as two readings of one name with
+   * nothing telling them apart. The grouping cannot be recovered from
+   * emission order, because nothing states that order — so the comparison the
+   * chart exists to support, whether one group's interval overlaps another's,
+   * is the thing that goes missing (#942).
+   *
+   * Meaningful on the grouped shape, `ErrorBarPoint[][]`, where every point
+   * in a series carries the same value. A single-series chart has one group
+   * and needs no name for it.
+   *
+   * @example
+   * { x: 'a', y: 2, yMin: 1.5, yMax: 2.9, z: 'control' }
+   */
+  z?: string;
 }
 
 /**
@@ -1310,6 +1330,7 @@ export interface MaidrLayer {
     | CandlestickPoint[]
     | DumbbellData
     | ErrorBarPoint[]
+    | ErrorBarPoint[][]
     | ForestPoint[]
     | GanttData
     | GaugePoint
