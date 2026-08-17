@@ -230,6 +230,45 @@ test.describe('Heatmap', () => {
       const currentDataPoint = await heatmapPage.getCurrentDataPointInfo();
       expect(currentDataPoint).toContain(heatmapData.x[heatmapData.x.length - 1].toString());
     });
+
+    // The rows run top-first in the schema and `Heatmap` reverses them, so its
+    // own row 0 is the bottom of the drawn grid -- which is what makes Up move
+    // visually up. Six adapters had that the wrong way round at once and the
+    // suite stayed green: the chart loaded, navigated, highlighted, and
+    // announced every value against its own label, and only the direction was
+    // false. Nothing but a vertical move catches that.
+    test('should enter at the bottom row and climb on Up', async () => {
+      const rows = heatmapData.y;
+      test.skip(rows.length < 2, 'needs at least two rows to have a direction');
+
+      await heatmapPage.moveToFirstDataPoint();
+      const entry = await heatmapPage.getCurrentDataPointInfo();
+      // Last in the payload is the row drawn at the bottom.
+      expect(entry).toContain(rows[rows.length - 1].toString());
+
+      await heatmapPage.moveToDataPointAbove();
+      const above = await heatmapPage.getCurrentDataPointInfo();
+      // Rows whose names share a prefix would let the label alone pass while
+      // standing still, so require the announcement to have changed too.
+      expect(above).not.toBe(entry);
+      expect(above).toContain(rows[rows.length - 2].toString());
+    });
+
+    test('should come back down on Down', async () => {
+      const rows = heatmapData.y;
+      test.skip(rows.length < 2, 'needs at least two rows to have a direction');
+
+      await heatmapPage.moveToFirstDataPoint();
+      const entry = await heatmapPage.getCurrentDataPointInfo();
+
+      await heatmapPage.moveToDataPointAbove();
+      expect(await heatmapPage.getCurrentDataPointInfo()).not.toBe(entry);
+
+      await heatmapPage.moveToDataPointBelow();
+      const back = await heatmapPage.getCurrentDataPointInfo();
+      expect(back).toBe(entry);
+      expect(back).toContain(rows[rows.length - 1].toString());
+    });
   });
 
   test.describe('Autoplay Controls', () => {
