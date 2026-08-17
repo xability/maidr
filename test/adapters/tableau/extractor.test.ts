@@ -13,6 +13,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
+import type { FakeGeometryConfig } from './helpers';
 import { extractTableau } from '@adapters/tableau/extractor';
 import { Orientation, TraceType } from '@type/grammar';
 import {
@@ -1161,6 +1162,360 @@ describe('tableau extractor', () => {
 
       expect(extraction.maidr.subplots).toHaveLength(1);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('no worksheet named "Ghost"'));
+    });
+  });
+
+  /**
+   * Laying a dashboard's worksheets out from the dashboard's own geometry.
+   *
+   * Two things are asserted throughout, and both are invariants rather than
+   * conveniences:
+   *
+   * 1. **Row 0 is the bottom of the dashboard.** The extractor emits no
+   *    `selectors` — there is no DOM inside the viz to select — so every
+   *    Tableau figure takes `resolveSubplotLayout`'s fallback, which leaves
+   *    `invertVertical` clear, and `MovableGrid` then maps *Move Up* to
+   *    `row + 1`. Emitting the top band as row 0 would leave a reader at the
+   *    top of the dashboard told that Down is unavailable while Up carried them
+   *    downwards. Every ordering assertion below is written bottom-up for that
+   *    reason, and is wrong if it is ever "fixed" to read top-down.
+   * 2. **A layer id is the survivor index and never a grid position.** It is
+   *    what `selection.cells`, `.points` and `.worksheets` are keyed by and
+   *    what the binder turns back into a live worksheet, so the moment a row
+   *    holds two subplots an id derived from the layout would start repeating
+   *    and highlights would land in the wrong worksheet. That failure is
+   *    completely silent, so the id and the worksheet it resolves to are
+   *    asserted together in every reordering case here.
+   */
+  describe('the dashboard layout', () => {
+    /**
+     * A one-bar worksheet, optionally placed on the dashboard.
+     *
+     * The single category is the worksheet's own name, so the criteria the
+     * selection index holds identify the worksheet they came from and a grid
+     * that shuffled the subplots without shuffling the index is visible.
+     *
+     * @param name - The worksheet name.
+     * @param geometry - Where it sits, or nothing for a snapshot with no
+     * geometry at all — an older embedding library, or a lone worksheet sheet.
+     * @returns The snapshot.
+     */
+    function tile(name: string, geometry?: FakeGeometryConfig): WorksheetSnapshot {
+      return fakeSnapshot({
+        name,
+        columns: [category(), measure()],
+        rows: [[name, 1]],
+        ...(geometry === undefined ? {} : { geometry }),
+      });
+    }
+
+    /**
+     * The worksheet titles of every subplot, row by row.
+     *
+     * @param extraction - What {@link extractTableau} returned.
+     * @returns One array of titles per row, in row order.
+     */
+    function titleGrid(extraction: TableauExtraction): (string | undefined)[][] {
+      return extraction.maidr.subplots.map(row =>
+        row.map(subplot => subplot.layers[0].title),
+      );
+    }
+
+    /**
+     * The layer ids of every subplot, row by row.
+     *
+     * @param extraction - What {@link extractTableau} returned.
+     * @returns One array of ids per row, in row order.
+     */
+    function idGrid(extraction: TableauExtraction): string[][] {
+      return extraction.maidr.subplots.map(row =>
+        row.map(subplot => subplot.layers[0].id),
+      );
+    }
+
+    it('reads two worksheets side by side as one row of two subplots', () => {
+      const extraction = extractTableau([
+        tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Right', { x: 100, y: 0, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['Left', 'Right']]);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('reads two stacked worksheets as two rows, the lower one first', () => {
+      const extraction = extractTableau([
+        tile('Top', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Bottom', { x: 0, y: 100, width: 100, height: 100 }),
+      ]);
+
+      // Row 0 is navigationally the bottom, so the dashboard's lower worksheet
+      // is the one Move Down reaches from the other.
+      expect(titleGrid(extraction)).toEqual([['Bottom'], ['Top']]);
+      // The ids did not follow the subplots: `Top` was read first and keeps 0.
+      expect(idGrid(extraction)).toEqual([['1'], ['0']]);
+    });
+
+    it('lays a 2×2 dashboard out as two rows of two, left to right within each', () => {
+      const extraction = extractTableau([
+        tile('TopLeft', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('TopRight', { x: 100, y: 0, width: 100, height: 100 }),
+        tile('BottomLeft', { x: 0, y: 100, width: 100, height: 100 }),
+        tile('BottomRight', { x: 100, y: 100, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([
+        ['BottomLeft', 'BottomRight'],
+        ['TopLeft', 'TopRight'],
+      ]);
+      expect(idGrid(extraction)).toEqual([['2', '3'], ['0', '1']]);
+    });
+
+    it('bands worksheets that are near-aligned rather than pixel-aligned', () => {
+      // Per-object padding and borders are the real cause of imperfect
+      // alignment in a tiled dashboard, and they are worth a few pixels on
+      // objects hundreds of pixels tall. This overlaps by 60% of the shorter
+      // extent, which is far coarser than that and still one row.
+      const extraction = extractTableau([
+        tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Right', { x: 100, y: 40, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['Left', 'Right']]);
+    });
+
+    it('splits worksheets whose overlap falls below the banding threshold', () => {
+      // 40% of the shorter extent: below half, most of each worksheet's height
+      // is unshared, which is when a sighted reader reads them as stacked.
+      const extraction = extractTableau([
+        tile('Upper', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Lower', { x: 100, y: 60, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['Lower'], ['Upper']]);
+    });
+
+    it('allows a ragged grid: two worksheets over one', () => {
+      const extraction = extractTableau([
+        tile('TopLeft', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('TopRight', { x: 100, y: 0, width: 100, height: 100 }),
+        tile('Footer', { x: 0, y: 100, width: 200, height: 100 }),
+      ]);
+
+      // `MovableGrid` re-clamps the column after every row change and every
+      // consumer iterates `subplots[row].length`, so rows of different widths
+      // are navigable; only an *empty* row would crash `Figure`.
+      expect(titleGrid(extraction)).toEqual([['Footer'], ['TopLeft', 'TopRight']]);
+      expect(extraction.maidr.subplots.every(row => row.length > 0)).toBe(true);
+    });
+
+    it('orders a band by geometry, not by the order the worksheets were read', () => {
+      const extraction = extractTableau([
+        tile('Right', { x: 200, y: 0, width: 100, height: 100 }),
+        tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Middle', { x: 100, y: 0, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['Left', 'Middle', 'Right']]);
+      // Read order still owns the ids: `Right` was read first and is still 0.
+      expect(idGrid(extraction)).toEqual([['1', '2', '0']]);
+      expect([...extraction.selection.worksheets]).toEqual([
+        ['0', 'Right'],
+        ['1', 'Left'],
+        ['2', 'Middle'],
+      ]);
+    });
+
+    it('keeps the selection index addressing the right worksheet after a reorder', () => {
+      const extraction = extractTableau([
+        tile('TopLeft', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('TopRight', { x: 100, y: 0, width: 100, height: 100 }),
+        tile('BottomLeft', { x: 0, y: 100, width: 100, height: 100 }),
+        tile('BottomRight', { x: 100, y: 100, width: 100, height: 100 }),
+      ]);
+
+      // The whole point of the invariant: walk the grid as a reader does, and
+      // every position's cells have to name the worksheet that is actually
+      // sitting there. Each tile's single bar carries its own name as the
+      // category, so a mismatch is legible rather than an index that happens to
+      // resolve.
+      for (const row of extraction.maidr.subplots) {
+        for (const subplot of row) {
+          const layer = subplot.layers[0];
+          expect(extraction.selection.worksheets.get(layer.id)).toBe(layer.title);
+          expect(extraction.selection.cells.get(layer.id)?.[0][0]).toEqual([
+            { fieldName: 'Category', value: layer.title },
+          ]);
+        }
+      }
+      // And no id was handed out twice, which is how numbering after the
+      // banding would fail.
+      expect(idGrid(extraction).flat().sort()).toEqual(['0', '1', '2', '3']);
+    });
+
+    it('leaves no hole in a row when a worksheet in the middle yields no layer', () => {
+      const extraction = extractTableau([
+        tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+        // No measure, so it is skipped before it is ever a band member.
+        fakeSnapshot({
+          name: 'Text Table',
+          columns: [category(), region()],
+          rows: [['Chairs', 'East']],
+          geometry: { x: 100, y: 0, width: 100, height: 100 },
+        }),
+        tile('Right', { x: 200, y: 0, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['Left', 'Right']]);
+      expect(idGrid(extraction)).toEqual([['0', '1']]);
+      expect([...extraction.selection.worksheets]).toEqual([
+        ['0', 'Left'],
+        ['1', 'Right'],
+      ]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('no measure to sonify'));
+    });
+
+    it('emits no row at all for a band whose every worksheet was skipped', () => {
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Filtered Out',
+          columns: [category(), measure()],
+          rows: [],
+          geometry: { x: 0, y: 0, width: 200, height: 100 },
+        }),
+        tile('Left', { x: 0, y: 100, width: 100, height: 100 }),
+        tile('Right', { x: 100, y: 100, width: 100, height: 100 }),
+      ]);
+
+      // An empty row is the one grid shape that crashes the model —
+      // `Figure.activeSubplot` reads `subplots[row][0]`. It cannot arise,
+      // because banding runs over the survivors and a skipped worksheet never
+      // becomes a band member in the first place; this pins that, rather than
+      // the emptiness being caught afterwards.
+      expect(titleGrid(extraction)).toEqual([['Left', 'Right']]);
+      expect(idGrid(extraction)).toEqual([['0', '1']]);
+    });
+
+    it('falls back to the N×1 column when the library reported no geometry', () => {
+      const extraction = extractTableau([tile('A'), tile('B'), tile('C')]);
+
+      // Byte-identical to the behaviour before dashboard layout existed: an
+      // older embedding library has no `dashboard.objects` at all.
+      expect(titleGrid(extraction)).toEqual([['A'], ['B'], ['C']]);
+      expect(idGrid(extraction)).toEqual([['0'], ['1'], ['2']]);
+      // Not worth a word: geometry-less is the ordinary case, not a surprise.
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the column when only some worksheets reported geometry', () => {
+      const extraction = extractTableau([
+        tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Unplaced'),
+        tile('Right', { x: 100, y: 0, width: 100, height: 100 }),
+      ]);
+
+      // All or nothing: a partial grid is a wrong grid, and a wrong grid is
+      // worse than a flat column.
+      expect(titleGrid(extraction)).toEqual([['Left'], ['Unplaced'], ['Right']]);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the column, with a reason, for a floating worksheet', () => {
+      const extraction = extractTableau([
+        tile('Tiled', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Floater', { x: 20, y: 20, width: 100, height: 100, isFloating: true }),
+      ]);
+
+      // A floating object is positioned independently of the tiled layout and
+      // routinely sits on top of one, so its coordinates do not place it in a
+      // row. It disqualifies the whole figure rather than being woven in.
+      expect(titleGrid(extraction)).toEqual([['Tiled'], ['Floater']]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('floats above the dashboard'));
+    });
+
+    it('falls back to the column, with a reason, for a hidden worksheet', () => {
+      const extraction = extractTableau([
+        tile('Shown', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Hidden', { x: 100, y: 0, width: 100, height: 100, isVisible: false }),
+      ]);
+
+      // Dropping it would silently remove data the page may have named
+      // explicitly; placing it in the grid would claim it is on screen. The
+      // column includes it and makes no spatial claim at all.
+      expect(titleGrid(extraction)).toEqual([['Shown'], ['Hidden']]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('hidden on the dashboard'));
+    });
+
+    it('falls back to the column, with a reason, for a degenerate extent', () => {
+      const extraction = extractTableau([
+        tile('Sized', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('Collapsed', { x: 100, y: 0, width: 100, height: 0 }),
+      ]);
+
+      // A zero-height interval makes the overlap ratio meaningless.
+      expect(titleGrid(extraction)).toEqual([['Sized'], ['Collapsed']]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('zero or negative size'));
+    });
+
+    it('falls back to the column, with a reason, for a staircase of chained bands', () => {
+      // The sweep is single-linkage: A joins B at exactly the threshold and B
+      // joins the widened band, but A and C do not overlap at all. Three steps
+      // of a staircase are not a row.
+      const extraction = extractTableau([
+        tile('A', { x: 0, y: 0, width: 100, height: 100 }),
+        tile('B', { x: 100, y: 50, width: 100, height: 100 }),
+        tile('C', { x: 200, y: 100, width: 100, height: 100 }),
+      ]);
+
+      expect(titleGrid(extraction)).toEqual([['A'], ['B'], ['C']]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('staircase rather than rows'));
+    });
+
+    it('falls back to the column, with a reason, when a band overlaps horizontally', () => {
+      const extraction = extractTableau([
+        tile('Under', { x: 0, y: 0, width: 200, height: 100 }),
+        tile('Over', { x: 50, y: 10, width: 200, height: 80 }),
+      ]);
+
+      // They share a band vertically but overlap by three quarters of the
+      // narrower width, so "left to right" does not order them.
+      expect(titleGrid(extraction)).toEqual([['Under'], ['Over']]);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('overlap horizontally'));
+    });
+
+    it('gives a single worksheet one row whether or not it reported geometry', () => {
+      const placed = extractTableau([tile('Only', { x: 40, y: 80, width: 100, height: 100 })]);
+      const unplaced = extractTableau([tile('Only')]);
+
+      expect(titleGrid(placed)).toEqual([['Only']]);
+      expect(titleGrid(unplaced)).toEqual([['Only']]);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('lets the page ask for the column even when the geometry is unambiguous', () => {
+      const extraction = extractTableau(
+        [
+          tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+          tile('Right', { x: 100, y: 0, width: 100, height: 100 }),
+        ],
+        { layout: 'column' },
+      );
+
+      expect(titleGrid(extraction)).toEqual([['Left'], ['Right']]);
+      // The page asked for it, so there is nothing to report.
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('builds the grid by default, without the page asking for it', () => {
+      const extraction = extractTableau(
+        [
+          tile('Left', { x: 0, y: 0, width: 100, height: 100 }),
+          tile('Right', { x: 100, y: 0, width: 100, height: 100 }),
+        ],
+        { layout: 'grid' },
+      );
+
+      expect(titleGrid(extraction)).toEqual([['Left', 'Right']]);
     });
   });
 

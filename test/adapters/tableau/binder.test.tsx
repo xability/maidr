@@ -2,13 +2,19 @@
  * @jest-environment jsdom
  */
 
-import type { TableauSheet, TableauViz } from '@adapters/tableau/types';
+import type { TableauBinding } from '@adapters/tableau/binder';
+import type {
+  TableauDashboardObject,
+  TableauSheet,
+  TableauViz,
+} from '@adapters/tableau/types';
 import type { ReactNode } from 'react';
 import type { FakeCell, FakeWorksheet } from './helpers';
 import { bindTableau } from '@adapters/tableau/binder';
 import {
   fakeColumn,
   fakeDashboard,
+  fakeDashboardObject,
   fakeDashboardViz,
   fakeViz,
   fakeWorksheet,
@@ -120,16 +126,23 @@ function salesWorksheet(name: string, log?: string[]): FakeWorksheet {
  * Put a viz on the page, preceded by a sibling so its position is observable.
  *
  * @param worksheets - The dashboard's worksheets, in add-order.
+ * @param objects - Every object on the dashboard, when the test lays one out.
+ * Left off, the dashboard reports no `objects` at all — an embedding library
+ * older than the dashboard-object surface — which is what keeps the default
+ * fixture proving the N×1 column.
  * @returns The host, the marker sibling and the viz.
  */
-function mountViz(worksheets: readonly FakeWorksheet[]): {
+function mountViz(
+  worksheets: readonly FakeWorksheet[],
+  objects?: readonly TableauDashboardObject[],
+): {
   host: HTMLElement;
   marker: HTMLElement;
   viz: TableauViz;
 } {
   const host = document.createElement('div');
   const marker = document.createElement('span');
-  const viz = fakeDashboardViz(worksheets);
+  const viz = fakeDashboardViz(worksheets, 'Dashboard 1', objects);
   host.append(marker, viz);
   document.body.append(host);
 
@@ -439,6 +452,315 @@ describe('tableau binder', () => {
       expect(binding.maidr).toBe(mounted);
       expect(warn.mock.calls.map(call => String(call[0])).join('\n'))
         .toContain('keeping whatever was already mounted');
+
+      binding.dispose();
+    });
+  });
+
+  /**
+   * Getting the dashboard's own geometry to the extractor.
+   *
+   * The extractor is pure and never touches a Tableau object, so the binder is
+   * the only place `dashboard.objects` is read. What it produces is only ever
+   * observable through the shape of the mounted figure, which is what these
+   * assert: a 1×2 grid means the geometry arrived, an N×1 column means it did
+   * not. The column is the outcome for every failure, so a test that only
+   * proved the fallback would pass against a binder that read nothing at all —
+   * hence the first case, which has to see a grid.
+   */
+  describe('reading the dashboard layout', () => {
+    /**
+     * The worksheet titles of the mounted figure, row by row.
+     *
+     * @param binding - The binding under test.
+     * @returns One array of titles per row, in row order.
+     */
+    function layout(binding: TableauBinding): (string | undefined)[][] {
+      return binding.maidr.subplots.map(row =>
+        row.map(subplot => subplot.layers[0].title),
+      );
+    }
+
+    /**
+     * The same dashboard object with one member taken away.
+     *
+     * A partial embedding library — one new enough to expose `objects` but not
+     * to populate every member of one — is exactly this, and the cast is the
+     * only way to describe it: the mirror in `types.ts` declares both members
+     * required, because Tableau's own declarations do.
+     *
+     * @param object - The complete object.
+     * @param member - The member to remove.
+     * @returns The object without it.
+     */
+    function without(
+      object: TableauDashboardObject,
+      member: 'position' | 'size',
+    ): TableauDashboardObject {
+      const copy: Record<string, unknown> = { ...object };
+      delete copy[member];
+      return copy as unknown as TableauDashboardObject;
+    }
+
+    it('should lay two side-by-side worksheets into one row of two subplots', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const { viz } = mountViz([left, right], [
+        fakeDashboardObject({ worksheet: left, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+        fakeDashboardObject({ worksheet: right, x: 100, y: 0, width: 100, height: 100, id: 2 }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left', 'Right']]);
+
+      binding.dispose();
+    });
+
+    it('should still bind, as an N×1 column, against a dashboard with no objects', async () => {
+      const sales = salesWorksheet('Sales');
+      const profit = salesWorksheet('Profit');
+      // No `objects` at all: the property is missing, not empty, which is what
+      // an embedding library older than the dashboard-object surface looks
+      // like from here. This is the regression proof that geometry is
+      // feature-detected rather than assumed.
+      const { viz } = mountViz([sales, profit]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Sales'], ['Profit']]);
+      expect(warn).not.toHaveBeenCalled();
+
+      binding.dispose();
+    });
+
+    it('should fall back to the column when reading objects throws', async () => {
+      const sales = salesWorksheet('Sales');
+      const profit = salesWorksheet('Profit');
+      const dashboard = fakeDashboard([sales, profit]);
+      Object.defineProperty(dashboard, 'objects', {
+        get(): never {
+          throw new Error('not supported by this build');
+        },
+      });
+      const { viz } = mountControlledViz(dashboard);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      // A property that throws is a property this library does not really
+      // have, and the figure is unchanged rather than unbuilt.
+      expect(layout(binding)).toEqual([['Sales'], ['Profit']]);
+
+      binding.dispose();
+    });
+
+    it('should take a worksheet’s place from its own object, never from its legend', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const { viz } = mountViz([left, right], [
+        // A title strip: furniture proper, carrying no worksheet at all.
+        fakeDashboardObject({ type: 'title', x: 0, y: 0, width: 200, height: 40, id: 1 }),
+        fakeDashboardObject({ worksheet: left, x: 0, y: 40, width: 100, height: 100, id: 2 }),
+        fakeDashboardObject({ worksheet: right, x: 100, y: 40, width: 100, height: 100, id: 3 }),
+        // A colour legend *for* `Left`, parked at the bottom of the dashboard.
+        // Tableau documents `worksheet` as `undefined` unless `type` is
+        // `worksheet`, but a library that fills it in anyway would overwrite
+        // `Left`'s real place with the legend's — it comes later — and the two
+        // worksheets would land on different rows. The type check is what stops
+        // that, and this is the fixture that can tell.
+        fakeDashboardObject({
+          type: 'legend',
+          worksheet: left,
+          x: 0,
+          y: 300,
+          width: 40,
+          height: 40,
+          id: 4,
+        }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left', 'Right']]);
+
+      binding.dispose();
+    });
+
+    it('should match geometry on the worksheet name, not on the object name', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      // An author can rename the container without renaming the sheet inside
+      // it, so `object.name` names neither worksheet here. A binder that
+      // matched on it would find nothing and lay out a column.
+      const { viz } = mountViz([left, right], [
+        fakeDashboardObject({
+          worksheet: left,
+          name: 'Sheet 1 Container',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          id: 1,
+        }),
+        fakeDashboardObject({
+          worksheet: right,
+          name: 'Sheet 2 Container',
+          x: 100,
+          y: 0,
+          width: 100,
+          height: 100,
+          id: 2,
+        }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left', 'Right']]);
+
+      binding.dispose();
+    });
+
+    it('should carry a floating worksheet through to the extractor’s refusal', async () => {
+      const tiled = salesWorksheet('Tiled');
+      const floater = salesWorksheet('Floater');
+      const { viz } = mountViz([tiled, floater], [
+        fakeDashboardObject({ worksheet: tiled, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+        fakeDashboardObject({
+          worksheet: floater,
+          x: 20,
+          y: 20,
+          width: 100,
+          height: 100,
+          isFloating: true,
+          id: 2,
+        }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      // The flag is read here and judged there: the binder never decides a
+      // layout, it only reports what the dashboard said.
+      expect(layout(binding)).toEqual([['Tiled'], ['Floater']]);
+      expect(warn.mock.calls.map(call => String(call[0])).join('\n'))
+        .toContain('floats above the dashboard');
+
+      binding.dispose();
+    });
+
+    it('should leave a worksheet unplaced when its object reported no position', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const { viz } = mountViz([left, right], [
+        without(
+          fakeDashboardObject({ worksheet: left, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+          'position',
+        ),
+        fakeDashboardObject({ worksheet: right, x: 100, y: 0, width: 100, height: 100, id: 2 }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      // One gap is a whole-figure fall back: a partial grid is a wrong grid.
+      expect(layout(binding)).toEqual([['Left'], ['Right']]);
+
+      binding.dispose();
+    });
+
+    it('should leave a worksheet unplaced when its coordinates are not finite', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const { viz } = mountViz([left, right], [
+        fakeDashboardObject({
+          worksheet: left,
+          x: Number.NaN,
+          y: 0,
+          width: 100,
+          height: 100,
+          id: 1,
+        }),
+        fakeDashboardObject({ worksheet: right, x: 100, y: 0, width: 100, height: 100, id: 2 }),
+      ]);
+
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left'], ['Right']]);
+
+      binding.dispose();
+    });
+
+    it('should re-read the geometry when the reader switches to another tab', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const top = salesWorksheet('Top');
+      const bottom = salesWorksheet('Bottom');
+      const { viz, setActiveSheet } = mountControlledViz(fakeDashboard(
+        [left, right],
+        'Dashboard 1',
+        [
+          fakeDashboardObject({ worksheet: left, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+          fakeDashboardObject({ worksheet: right, x: 100, y: 0, width: 100, height: 100, id: 2 }),
+        ],
+      ));
+      const binding = await bindTableau(viz);
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left', 'Right']]);
+
+      setActiveSheet(fakeDashboard([top, bottom], 'Dashboard 2', [
+        fakeDashboardObject({ worksheet: top, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+        fakeDashboardObject({ worksheet: bottom, x: 0, y: 100, width: 100, height: 100, id: 2 }),
+      ]));
+      viz.dispatchEvent(new Event('tabswitched'));
+      await settle();
+
+      // A different sheet is laid out differently, so the geometry has to come
+      // from the sheet that is now on screen. Row 0 is the bottom of the
+      // figure, so the dashboard's lower worksheet comes first.
+      expect(layout(binding)).toEqual([['Bottom'], ['Top']]);
+
+      binding.dispose();
+    });
+
+    it('should let the page ask for a column over a grid-shaped dashboard', async () => {
+      const left = salesWorksheet('Left');
+      const right = salesWorksheet('Right');
+      const { viz } = mountViz([left, right], [
+        fakeDashboardObject({ worksheet: left, x: 0, y: 0, width: 100, height: 100, id: 1 }),
+        fakeDashboardObject({ worksheet: right, x: 100, y: 0, width: 100, height: 100, id: 2 }),
+      ]);
+
+      const binding = await bindTableau(viz, { layout: 'column' });
+
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      expect(layout(binding)).toEqual([['Left'], ['Right']]);
 
       binding.dispose();
     });
