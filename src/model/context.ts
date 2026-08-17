@@ -526,6 +526,23 @@ export class Context implements Disposable {
   }
 
   /**
+   * Re-announces the active element where it already stands.
+   *
+   * Every other entry point here moves first and notifies as a consequence, so
+   * a caller that wants the current position sounded without a move has
+   * nothing to call. Autoplay is that caller: it starts by scheduling a move,
+   * so the point the user started from was never part of the pass and a
+   * left-to-right playthrough was missing its first point (#615).
+   *
+   * Delegating rather than reaching for `active` at the call site keeps the
+   * plot stack private, which is the same reason `moveOnce` and `isMovable`
+   * are here.
+   */
+  public notifyStateUpdate(): void {
+    this.active.notifyStateUpdate();
+  }
+
+  /**
    * Moves to the nearest point at (x, y) and returns directional guidance
    * toward the nearest data geometry in a single call.
    *
