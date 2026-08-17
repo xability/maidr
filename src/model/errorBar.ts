@@ -329,6 +329,29 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   /**
+   * The row carrying one group's estimates.
+   *
+   * {@link ErrorBarTrace.valueRow} is this for the first group and wrong for
+   * every other, since rows are group-major. Anything resolving to "the
+   * estimate row" on a grouped chart has to ask which group first, or it
+   * lands on the first group's reading of a target that named another's.
+   */
+  private valueRowOf(group: number): number {
+    return group * this.sections.length + this.valueRow;
+  }
+
+  /** Human-readable name of a group, for a label that has to distinguish one. */
+  private groupNameAt(group: number): string | undefined {
+    if (this.groups.length < 2) {
+      return undefined;
+    }
+    const authored = this.groups[group]?.[0]?.z;
+    return authored === undefined || authored === null || authored === ''
+      ? `Group ${group + 1}`
+      : String(authored);
+  }
+
+  /**
    * Label and name of the group the cursor is in, or `undefined`.
    *
    * Undefined on a chart that draws one group, and on one whose producer
@@ -468,10 +491,15 @@ export class ErrorBarTrace extends AbstractTrace {
    * @returns The maximum and minimum estimate, when any sample carries one
    */
   public override getExtremaTargets(): ExtremaTarget[] {
-    const estimates = this.sectionValues[this.valueRow];
-    const measured = estimates
-      .map((value, index) => ({ value, index }))
-      .filter(({ value }) => isMeasured(value));
+    // Across every group, not just the first. A chart whose largest estimate
+    // sits in a later group would otherwise offer the first group's largest
+    // under the name "max", sending a reader somewhere the maximum is not --
+    // and saying nothing about it.
+    const measured = this.groups.flatMap((group, groupIndex) =>
+      this.sectionValues[this.valueRowOf(groupIndex)]
+        .map((value, index) => ({ value, index, groupIndex }))
+        .filter(({ value }) => isMeasured(value)),
+    );
 
     if (measured.length === 0) {
       return [];
@@ -480,32 +508,54 @@ export class ErrorBarTrace extends AbstractTrace {
     const highest = measured.reduce((a, b) => (b.value > a.value ? b : a));
     const lowest = measured.reduce((a, b) => (b.value < a.value ? b : a));
 
-    const targets: ExtremaTarget[] = [{
-      label: `Max value at ${this.points[highest.index].x}`,
-      value: highest.value,
-      pointIndex: highest.index,
-      segment: 'value',
-      type: 'max',
-      navigationType: 'point',
-      xValue: this.points[highest.index].x,
-    }];
+    const targets: ExtremaTarget[] = [
+      this.extremaTarget(highest, 'max'),
+    ];
 
     // One sample, or a chart where every estimate is equal, has a single
     // extreme. Naming the same sample as both would report a spread the chart
-    // does not have.
-    if (lowest.index !== highest.index) {
-      targets.push({
-        label: `Min value at ${this.points[lowest.index].x}`,
-        value: lowest.value,
-        pointIndex: lowest.index,
-        segment: 'value',
-        type: 'min',
-        navigationType: 'point',
-        xValue: this.points[lowest.index].x,
-      });
+    // does not have. Compared on both coordinates, since two groups can share
+    // a column index without being the same reading.
+    if (lowest.index !== highest.index || lowest.groupIndex !== highest.groupIndex) {
+      targets.push(this.extremaTarget(lowest, 'min'));
     }
 
     return targets;
+  }
+
+  /**
+   * Builds one extrema target from a located estimate.
+   *
+   * The group's name joins the label on a grouped chart, because the groups
+   * share their category names: "Max value at c" alone does not say which
+   * series it means, and the menu offering it is read without the chart in
+   * view.
+   *
+   * @param found - Where the estimate was located
+   * @param found.value - The estimate itself
+   * @param found.index - Its column within its group
+   * @param found.groupIndex - Which group it belongs to
+   * @param type - Whether it is the maximum or the minimum
+   * @returns The target a reader can navigate to
+   */
+  private extremaTarget(
+    found: { value: number; index: number; groupIndex: number },
+    type: 'max' | 'min',
+  ): ExtremaTarget {
+    const point = this.groups[found.groupIndex][found.index];
+    const group = this.groupNameAt(found.groupIndex);
+    const where = group === undefined ? `${point.x}` : `${point.x}, ${group}`;
+
+    return {
+      label: `${type === 'max' ? 'Max' : 'Min'} value at ${where}`,
+      value: found.value,
+      pointIndex: found.index,
+      groupIndex: found.groupIndex,
+      segment: 'value',
+      type,
+      navigationType: 'point',
+      xValue: point.x,
+    };
   }
 
   /**
@@ -514,7 +564,10 @@ export class ErrorBarTrace extends AbstractTrace {
    * @param target - The extrema target to navigate to
    */
   public override navigateToExtrema(target: ExtremaTarget): void {
-    this.row = this.valueRow;
+    // The target's own group, not the first: landing on the first group's
+    // estimate row would announce a different series' value at the category
+    // the target named, which reads as the extreme without being it.
+    this.row = this.valueRowOf(target.groupIndex ?? 0);
     this.col = target.pointIndex;
     this.finalizeNavigation();
   }
@@ -531,22 +584,38 @@ export class ErrorBarTrace extends AbstractTrace {
    * @returns The nearest sample, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues?.[0];
-    if (!elements || elements.length === 0) {
+    if (!this.highlightValues) {
       return null;
     }
 
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    for (let col = 0; col < elements.length; col++) {
-      const box = elements[col].getBoundingClientRect();
-      const centerX = box.left + box.width / 2;
-      const centerY = box.top + box.height / 2;
-      const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearest = { element: elements[col], row: this.valueRow, col, centerX, centerY };
+    // Every group's whips, not only the first's. A pointer landing on a
+    // second group's whip would otherwise be matched against the first
+    // group's elements and resolve to a sample the reader did not click --
+    // at the same category, so the announcement looks right.
+    for (let groupIndex = 0; groupIndex < this.groups.length; groupIndex++) {
+      const elements = this.highlightValues[this.valueRowOf(groupIndex)];
+      if (!elements || elements.length === 0) {
+        continue;
+      }
+
+      for (let col = 0; col < elements.length; col++) {
+        const box = elements[col].getBoundingClientRect();
+        const centerX = box.left + box.width / 2;
+        const centerY = box.top + box.height / 2;
+        const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearest = {
+            element: elements[col],
+            row: this.valueRowOf(groupIndex),
+            col,
+            centerX,
+            centerY,
+          };
+        }
       }
     }
 

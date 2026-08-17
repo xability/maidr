@@ -118,6 +118,55 @@ describe('a grouped error bar is navigable as one chart', () => {
   });
 });
 
+describe('extrema navigation reaches every group', () => {
+  test('the largest estimate is found wherever it is', () => {
+    // Control's estimates are [2, 4, 3] and treated's [3, 5, 6]. Searching
+    // only the first group's row reports 4 as the maximum and never surfaces
+    // 6 -- a "go to max" that lands somewhere the chart's maximum is not.
+    const [highest] = at(GROUPS, 1, 0).getExtremaTargets();
+
+    expect(highest.value).toBe(6);
+    expect(highest.xValue).toBe('c');
+    expect(highest.groupIndex).toBe(1);
+  });
+
+  test('the smallest estimate is found wherever it is', () => {
+    const targets = at(GROUPS, 1, 0).getExtremaTargets();
+    const lowest = targets.find(target => target.type === 'min');
+
+    expect(lowest?.value).toBe(2);
+    expect(lowest?.groupIndex).toBe(0);
+  });
+
+  test('the label names the group the extreme belongs to', () => {
+    // Two groups share the category names, so "Max value at c" alone does not
+    // say which series it means.
+    const [highest] = at(GROUPS, 1, 0).getExtremaTargets();
+
+    expect(highest.label).toContain('treated');
+  });
+
+  test('navigating to an extreme lands on that group row', () => {
+    const trace = at(GROUPS, 1, 0);
+    const [highest] = trace.getExtremaTargets();
+
+    trace.navigateToExtrema(highest);
+    const state = nonEmptyState(trace);
+
+    // Landing on group 0's value row would announce control's estimate at
+    // category c -- 3, not the 6 the target named.
+    expect(state.audio.freq.raw).toBe(6);
+    expect(state.text.z?.value).toBe('treated');
+  });
+
+  test('an ungrouped chart still reports its own extremes', () => {
+    const [highest] = at(CONTROL, 1, 0).getExtremaTargets();
+
+    expect(highest.value).toBe(4);
+    expect(highest.xValue).toBe('b');
+  });
+});
+
 describe('a grouped error bar says which group it is reading', () => {
   test('the announcement names the group', () => {
     const state = nonEmptyState(at(GROUPS, 1, 1));
