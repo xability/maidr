@@ -1715,10 +1715,6 @@ function barPoint(
 }
 
 /**
- * Builds a bar-shaped layer: a plain bar, or a funnel, which plotly draws
- * through the same renderer and describes with the same calcdata.
- */
-/**
  * Where each of a bar trace's points sits once plotly has laid the axis out,
  * or `null` when that is the order they already arrived in.
  *
@@ -1780,6 +1776,10 @@ function nthBarSelector(selector: string, position: number): string | null {
   return `${head}.point:nth-child(${position}) > path`;
 }
 
+/**
+ * Builds a bar-shaped layer: a plain bar, or a funnel, which plotly draws
+ * through the same renderer and describes with the same calcdata.
+ */
 function extractBarLayer(
   trace: PlotlyTrace,
   calcdata: PlotlyCalcData[],
