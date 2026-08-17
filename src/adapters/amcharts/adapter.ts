@@ -49,6 +49,7 @@ import type {
   AmRoot,
   AmXYSeries,
 } from './types';
+import { toSegmentedShares } from '@adapters/shared/normalize';
 import { Orientation, TraceType } from '@type/grammar';
 import {
   choroplethFields,
@@ -837,7 +838,14 @@ function buildSegmentedLayer(
     ...(combinedSelector ? { selectors: combinedSelector } : {}),
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },
-    data,
+    // `valueYShow: 'valueYTotalPercent'` is amCharts' instruction to itself to
+    // draw the percent of total; the data items keep the raw value, and
+    // `detectStackMode` above already reads that setting. The core divides
+    // nothing itself, so without this the reader is pitched the counts across
+    // a chart whose columns are all the same height (#967).
+    data: traceType === TraceType.NORMALIZED
+      ? toSegmentedShares(data, isHorizontal)
+      : data,
   };
 }
 
