@@ -147,7 +147,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // it drags the minimum to 0 and every other bar's pitch along with it.
     this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
     this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as string | string[] | undefined,
+    );
     this.movable = new MovableGrid<T>(this.points);
   }
 
@@ -283,9 +285,36 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     return this.barValues;
   }
 
-  protected mapToSvgElements(selector?: string): SVGElement[][] | null {
+  protected mapToSvgElements(selector?: string | string[]): SVGElement[][] | null {
     if (!selector) {
       return null;
+    }
+
+    // An adapter that names one element per point has already resolved which
+    // element belongs to which bar, so none of the alignment below applies:
+    // there is nothing to infer, and a zero-height bar it chose to name is
+    // named deliberately. Reaching `selectAllElements` with an array instead
+    // returned nothing at all, since it guards on `typeof query === 'string'`,
+    // and the layer lost its highlight entirely (#990).
+    if (Array.isArray(selector)) {
+      if (selector.length === 0) {
+        return null;
+      }
+
+      const resolved = selector.map(one => Svg.selectElement(one));
+      if (resolved.includes(null)) {
+        // Discard the clones already inserted, so a partial resolution does
+        // not leak hidden elements into the DOM.
+        resolved.forEach(element => element?.remove());
+        return null;
+      }
+
+      const named = [resolved as SVGElement[]];
+      if (named[0].length !== this.points[0]?.length || this.points.length !== 1) {
+        named[0].forEach(element => element.remove());
+        return null;
+      }
+      return named;
     }
 
     const queried = Svg.selectAllElements(selector);
