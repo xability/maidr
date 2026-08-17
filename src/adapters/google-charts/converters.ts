@@ -942,10 +942,14 @@ function buildSegmentedLayer(
     ...(selector ? { selectors: selector } : {}),
     // 'row' tells MAIDR that DOM elements are in row-major order (series-first)
     domMapping: { order: 'row' },
-    // A stack has no single value column to name, so the magnitude axis keeps
-    // the same 'Level' it carries when vertical; what matters is that the
-    // category label stays paired with the field the categories are in.
-    axes: barAxes(dt.getColumnLabel(0) || undefined, 'Level', horizontal),
+    // A stack has no single value column to name — its data columns are the
+    // series names, and those are the `z` *values*. So the magnitude axis is
+    // left unnamed rather than borrowing 'Level', which is the label the core
+    // already defaults the *band* axis to: emitting it here made a reader hear
+    // "Level is Alpha … Level is 1", one word for the series and for its
+    // magnitude (#961). Naming the magnitude properly needs `vAxis.title` from
+    // the chart's draw options, which this adapter is not handed.
+    axes: barAxes(dt.getColumnLabel(0) || undefined, undefined, horizontal),
     data,
   };
 }

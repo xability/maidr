@@ -16,6 +16,10 @@
  * The assertions run the emitted layer through the real trace rather than
  * stopping at the payload, because the payload is what looked right before:
  * the defect only shows up once something reads it.
+ *
+ * The last describe covers the same two builders' `axes` block (#961), which
+ * has the same character: nothing about it looks wrong until something reads
+ * it aloud.
  */
 import type { GoogleChart, GoogleChartType, GoogleDataTable } from '@adapters/google-charts/types';
 import type { MaidrLayer } from '@type/grammar';
@@ -166,6 +170,46 @@ describe('a vertical google charts bar layer is untouched', () => {
       { x: 'Cherries', y: 50 },
     ]);
     expect(layer.axes).toEqual({ x: { label: 'Fruit' }, y: { label: 'Sales' } });
+  });
+});
+
+describe('a stacked layer names its value and its band differently', () => {
+  /**
+   * What the trace would announce at the first bar of a stack.
+   * @param chartType - The declared chart type
+   * @returns The value's label and the band's label
+   */
+  function labels(chartType: string): { value: unknown; band: unknown } {
+    const trace = TraceFactory.create(layerFor(chartType));
+    const state = (trace as unknown as {
+      state: { text: { cross: { label: unknown }; z?: { label: unknown } } };
+    }).state;
+    return { value: state.text.cross.label, band: state.text.z?.label };
+  }
+
+  it.each(['StackedColumnChart', 'DodgedColumnChart', 'DivergingColumnChart'])(
+    '%s does not call both of them "Level"',
+    (chartType) => {
+      // The builder emitted `y: { label: 'Level' }`, which is the label the
+      // core already defaults the *band* axis to — so a reader heard "Level is
+      // Alpha … Level is 1", one word for the series and for its magnitude.
+      const { value, band } = labels(chartType);
+
+      expect(band).toBe('Level');
+      expect(value).not.toBe('Level');
+    },
+  );
+
+  it('leaves a single-series bar chart naming its own columns', () => {
+    // Only the stack has no value column to name. A plain bar has one, and it
+    // must keep it — this is what stops the fix being "drop the label".
+    const trace = TraceFactory.create(layerFor('ColumnChart'));
+    const state = (trace as unknown as {
+      state: { text: { main: { label: unknown }; cross: { label: unknown } } };
+    }).state;
+
+    expect(state.text.main.label).toBe('Fruit');
+    expect(state.text.cross.label).toBe('Sales');
   });
 });
 
