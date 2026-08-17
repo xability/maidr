@@ -259,11 +259,16 @@ export class Heatmap extends AbstractTrace {
     const svgElements = new Array<Array<SVGElement>>();
 
     for (let r = 0; r < numRows; r++) {
+      // Row 0 is the bottom of the visual grid, the same convention the rect
+      // and path branches above flip the DOM index for. SVG `y` grows
+      // downward, so the bottom row is the last band of the image and the
+      // index has to be turned over to land on it (#971).
+      const band = numRows - 1 - r;
       const row = new Array<SVGElement>();
       for (let c = 0; c < numCols; c++) {
         const rect = document.createElementNS(svgNS, 'rect') as SVGRectElement;
         rect.setAttribute('x', String(imgX + c * cellW));
-        rect.setAttribute('y', String(imgY + r * cellH));
+        rect.setAttribute('y', String(imgY + band * cellH));
         rect.setAttribute('width', String(cellW));
         rect.setAttribute('height', String(cellH));
         rect.setAttribute('fill', 'transparent');

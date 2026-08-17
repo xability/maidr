@@ -2921,6 +2921,29 @@ function buildViolinKdeLayer(
 // Heatmap
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether plotly draws the first of this axis's categories at the top.
+ *
+ * True only for a reversed axis, which resolves to a high-to-low range.
+ * `autorange` cannot answer it: `autorange: 'reversed'` reads back as plain
+ * `true`, indistinguishable from an ordinary auto-ranged axis. The resolved
+ * range can, and it covers an explicitly reversed `range` as well.
+ *
+ * @param layout - The chart's computed layout, when it has one
+ * @param axisId - The axis the trace is drawn against (`'y'`, `'y2'`, ...)
+ * @returns Whether row 0 is already the top row
+ */
+function drawsFirstRowAtTop(
+  layout: PlotlyFullLayout | undefined,
+  axisId: string,
+): boolean {
+  const range = layout ? getAxis(layout, axisId)?.range : undefined;
+  if (!range || range.length < 2)
+    return false;
+
+  return Number(range[0]) > Number(range[1]);
+}
+
 function extractHeatmapLayer(
   trace: PlotlyTrace,
   id: string,
@@ -2945,10 +2968,16 @@ function extractHeatmapLayer(
   const xLabels = trace.x ? trace.x.slice(0, numCols).map(String) : grid[0].map((_, i) => String(i));
   const yLabels = trace.y ? trace.y.slice(0, numRows).map(String) : grid.map((_, i) => String(i));
 
+  // {@link HeatmapData} runs top-first, and plotly numbers a heatmap's rows
+  // from the bottom, so ordinarily they are turned over here. Left alone when
+  // plotly is drawing the y axis reversed — the idiom for showing a matrix in
+  // reading order — because that already puts row 0 at the top and reversing
+  // would stand the chart back on its head (#971).
+  const topFirst = drawsFirstRowAtTop(gd._fullLayout, trace.yaxis ?? 'y');
   const data: HeatmapData = {
     x: xLabels,
-    y: yLabels,
-    points: grid,
+    y: topFirst ? yLabels : [...yLabels].reverse(),
+    points: topFirst ? grid : [...grid].reverse(),
   };
 
   // Set the z axis label for z-values from the colorbar title, or default.
