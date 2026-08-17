@@ -364,11 +364,15 @@ function buildSegmentedBarLayer(
   //   inner array = categories (one per data item / x-value)
   const resolved = orientation ?? Orientation.VERTICAL;
   const horizontal = resolved === Orientation.HORIZONTAL;
+  const traceType = toTraceType(chartType);
+
+  const raw = yKeys.map(yKey => data.map(item => toNumber(item[yKey])));
+  const magnitudes = traceType === TraceType.NORMALIZED ? asShares(raw) : raw;
 
   const segmentedData: SegmentedPoint[][] = yKeys.map((yKey, i) => {
-    return data.map((item) => {
+    return data.map((item, row) => {
       const category = item[xKey] as string | number;
-      const magnitude = toNumber(item[yKey]);
+      const magnitude = magnitudes[i][row];
       const z = fillKeys?.[i] ?? yKey;
       return horizontal
         ? { x: magnitude, y: category, z }
@@ -380,7 +384,7 @@ function buildSegmentedBarLayer(
 
   return {
     id: '0',
-    type: toTraceType(chartType),
+    type: traceType,
     selectors: selector,
     orientation: resolved,
     axes: {
@@ -389,6 +393,39 @@ function buildSegmentedBarLayer(
     },
     data: segmentedData,
   };
+}
+
+/**
+ * Each category's values as percentages of that category's total.
+ *
+ * A `NORMALIZED` layer is a 100% chart, and the core does not divide anything
+ * itself — `NORMALIZED` and `STACKED` announce an identical payload
+ * identically. So the shares have to arrive here or the reader is pitched the
+ * counts while the bars show proportions: a category of 1 and 1 and one of 300
+ * and 100 sound like a 300-fold rise where the chart draws half a column
+ * against three quarters of one (#963).
+ *
+ * Recharts normalises at render time under `stackOffset="expand"`, so raw
+ * values are the ordinary thing to be handed. Dividing is safe either way —
+ * values already given as shares come back as the same shares, only pinned to
+ * a scale — which is why this does not have to guess what it was given.
+ *
+ * Percentages rather than fractions to match the Highcharts adapter, which
+ * takes Highcharts' own `point.percentage` for the same layer type.
+ *
+ * @param series - Raw magnitudes as `[series][category]`
+ * @returns The same shape, each category summing to 100
+ */
+function asShares(series: number[][]): number[][] {
+  const categories = series[0]?.length ?? 0;
+  const totals = Array.from({ length: categories }, (_, row) =>
+    series.reduce((sum, values) => sum + Math.abs(values[row] ?? 0), 0));
+
+  // A category whose bands are all zero has no total to divide by, and no
+  // share to report either; leaving those values alone keeps a 0 a 0 rather
+  // than turning it into a NaN the trace would read as a gap.
+  return series.map(values =>
+    values.map((value, row) => (totals[row] ? (value / totals[row]) * 100 : value)));
 }
 
 /**
