@@ -117,11 +117,46 @@ export class AutoplayService implements Disposable {
    * @param state - Optional trace state for calculating autoplay rate
    */
   public start(direction: MovableDirection, state?: TraceState): void {
+    this.launch(direction, state, true);
+  }
+
+  /**
+   * Begins playback, optionally sounding the point it begins from.
+   *
+   * The first thing playback used to do was move, so the point the user
+   * pressed the shortcut on was never sounded as part of the pass: starting
+   * from the leftmost point and playing forward gave every point but the
+   * first, and there was no way to hear a trace end to end in one pass
+   * (#615). Sounding it here makes the run cover what it claims to.
+   *
+   * It is the same notification a move would have produced, so it is heard
+   * exactly like the points after it: the 'start' event above has already put
+   * the text layer into autoplay's per-point suppression, and the echo tail
+   * the sonification queues is what {@link scheduleStep} then waits out before
+   * the first move — the same rule that spaces every later point.
+   *
+   * Rescheduling does not re-sound it. {@link restart} is a speed or duration
+   * change landing mid-playback, and the point the user is on has just been
+   * heard; replaying it on each speed keypress would stutter the run rather
+   * than complete it.
+   *
+   * @param direction - Direction to move on each step
+   * @param state - Optional trace state for calculating autoplay rate
+   * @param fromCurrentPoint - Whether to sound the starting point first
+   */
+  private launch(
+    direction: MovableDirection,
+    state: TraceState | undefined,
+    fromCurrentPoint: boolean,
+  ): void {
     this.stop();
     this.onChangeEmitter.fire({ type: 'start' });
 
     this.autoplayRate = this.getAutoplayRate(direction, state);
     this.currentDirection = direction;
+    if (fromCurrentPoint) {
+      this.context.notifyStateUpdate();
+    }
     this.scheduleStep(direction);
   }
 
@@ -203,7 +238,7 @@ export class AutoplayService implements Disposable {
     }
 
     if (this.currentDirection) {
-      this.start(this.currentDirection);
+      this.launch(this.currentDirection, undefined, false);
     }
   }
 

@@ -49,6 +49,8 @@ function createSettings(totalDuration: number): SettingsService {
 interface AutoplayHarness {
   service: AutoplayService;
   moveOnce: ReturnType<typeof jest.fn>;
+  /** Re-announcement of the point playback starts from (#615). */
+  notifyStateUpdate: ReturnType<typeof jest.fn>;
   /** Sets the wall-clock timestamp the faked audio reports its tail ending at. */
   setEchoTailDeadline: (deadline: number) => void;
 }
@@ -65,11 +67,13 @@ interface AutoplayHarness {
 function createAutoplay(totalDuration: number): AutoplayHarness {
   let echoTailDeadline = 0;
   const moveOnce = jest.fn();
+  const notifyStateUpdate = jest.fn();
 
   const context = {
     state: { type: 'trace' },
     isMovable: () => true,
     moveOnce,
+    notifyStateUpdate,
   } as unknown as Context;
   const notification = { notify: jest.fn() } as unknown as NotificationService;
   const audio = {
@@ -88,6 +92,7 @@ function createAutoplay(totalDuration: number): AutoplayHarness {
   return {
     service,
     moveOnce,
+    notifyStateUpdate,
     setEchoTailDeadline: (deadline: number): void => {
       echoTailDeadline = deadline;
     },
@@ -188,6 +193,42 @@ describe('autoplayService step pacing', () => {
     jest.advanceTimersByTime(RATE_MS * 3);
 
     expect(moveOnce).not.toHaveBeenCalled();
+
+    service.dispose();
+  });
+
+  it('sounds the starting point without spending the first step on it', () => {
+    const { service, moveOnce, notifyStateUpdate } = createAutoplay(TOTAL_DURATION);
+
+    service.start('FORWARD', traceState(POINT_COUNT));
+
+    // The point the shortcut was pressed on is sounded at once, and the first
+    // move still lands a full rate later: the starting point is an extra point
+    // in the pass rather than a step taken out of it (#615).
+    expect(notifyStateUpdate).toHaveBeenCalledTimes(1);
+    expect(moveOnce).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(RATE_MS);
+    expect(moveOnce).toHaveBeenCalledTimes(1);
+    expect(notifyStateUpdate).toHaveBeenCalledTimes(1);
+
+    service.dispose();
+  });
+
+  it('does not re-sound the current point when a speed change restarts the schedule', () => {
+    const { service, notifyStateUpdate } = createAutoplay(TOTAL_DURATION);
+
+    service.start('FORWARD', traceState(POINT_COUNT));
+    expect(notifyStateUpdate).toHaveBeenCalledTimes(1);
+
+    service.speedUp();
+    service.speedDown();
+    service.resetSpeed();
+
+    // Each of these re-schedules playback through the same code path as a
+    // fresh start. The point the user is on has just been heard, so replaying
+    // it once per speed keypress would stutter the run rather than complete it.
+    expect(notifyStateUpdate).toHaveBeenCalledTimes(1);
 
     service.dispose();
   });
