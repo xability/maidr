@@ -19,7 +19,7 @@
  */
 
 import type { MaidrLayer } from '@type/grammar';
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -30,6 +30,13 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 // string path below is reachable; the array path returns before it gets there.
 const globals = globalThis as unknown as Record<string, unknown>;
 globals.SVGPathElement = globals.SVGElement;
+
+// Each case builds its own chart, so the previous one's has to go: two charts
+// in the document at once would leave every selector below resolving against
+// whichever was appended first.
+afterEach(() => {
+  document.body.innerHTML = '';
+});
 
 /** Three bars in the DOM, in the trace's own order: charlie, alpha, bravo. */
 function buildBars(): void {
@@ -95,16 +102,15 @@ describe('a bar layer whose selectors were narrowed per bar', () => {
   });
 });
 
-describe('a segmented layer handed a selector list', () => {
+describe('a segmented layer handed a flat selector list', () => {
   it('declines rather than reporting an empty highlight', () => {
-    // `SegmentedTrace` infers which element belongs to which cell from one
-    // selector — `skipZeros`, row versus column major, and which end a
-    // category's series start from. A per-cell list would make all of that
-    // unnecessary rather than feed it, so it declines outright (#989 is where
-    // honouring one belongs). Pinned because the override takes the widened
-    // parameter by bivariance: without the guard an array reaches
-    // `selectAllElements`, which answers `[]` for anything but a string, and
-    // the decline happens by accident in a helper rather than on purpose here.
+    // A flat list says which bars there are but not which cell each one is
+    // in, and the chunking is exactly what would have to answer that — so it
+    // is declined, while the grid below is honoured. Pinned because the
+    // override takes the widened parameter by bivariance: without the guard an
+    // array reaches `selectAllElements`, which answers `[]` for anything but a
+    // string, and the decline happens by accident in a helper rather than on
+    // purpose here.
     buildBars();
     const layer = {
       id: '0',
@@ -146,5 +152,149 @@ describe('a segmented layer handed a selector list', () => {
     };
 
     expect(trace.highlightValues).not.toBeNull();
+  });
+});
+
+/** Two series of three bars each, in the trace's own order per group. */
+function buildGroups(): void {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.setAttribute('class', 'barlayer');
+  for (const series of ['A', 'B']) {
+    const trace = document.createElementNS(SVG_NS, 'g');
+    trace.setAttribute('class', 'trace bars');
+    const points = document.createElementNS(SVG_NS, 'g');
+    points.setAttribute('class', 'points');
+    for (const name of ['charlie', 'alpha', 'bravo']) {
+      const point = document.createElementNS(SVG_NS, 'g');
+      point.setAttribute('class', 'point');
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('data-name', `${series}-${name}`);
+      point.appendChild(path);
+      points.appendChild(point);
+    }
+    trace.appendChild(points);
+    layer.appendChild(trace);
+  }
+  svg.appendChild(layer);
+  document.body.appendChild(svg);
+}
+
+/**
+ * The cell in one group of the DOM built above, counting from one.
+ * @param group - Which trace group
+ * @param point - Which point within it
+ * @returns The selector naming that one bar
+ */
+function cell(group: number, point: number): string {
+  return `.barlayer > g.trace.bars:nth-of-type(${group})`
+    + ` > g.points > g.point:nth-of-type(${point}) > path`;
+}
+
+/**
+ * A stacked layer announced in drawn order, with a per-cell selector grid.
+ * @returns The layer
+ */
+function griddedLayer(): MaidrLayer {
+  return {
+    id: '0',
+    type: TraceType.STACKED,
+    orientation: Orientation.VERTICAL,
+    // The DOM holds charlie, alpha, bravo; the layer announces alpha, bravo,
+    // charlie, so each row names its group's 2nd, 3rd and 1st point.
+    selectors: [
+      [cell(1, 2), cell(1, 3), cell(1, 1)],
+      [cell(2, 2), cell(2, 3), cell(2, 1)],
+    ],
+    axes: {},
+    data: [
+      [
+        { x: 'alpha', y: 1, z: 'A' },
+        { x: 'bravo', y: 2, z: 'A' },
+        { x: 'charlie', y: 3, z: 'A' },
+      ],
+      [
+        { x: 'alpha', y: 10, z: 'B' },
+        { x: 'bravo', y: 20, z: 'B' },
+        { x: 'charlie', y: 30, z: 'B' },
+      ],
+    ],
+  } as unknown as MaidrLayer;
+}
+
+/**
+ * The trace a layer builds, opened up enough to read its highlight.
+ * @param layer - The layer to build from
+ * @returns The trace
+ */
+function highlightOf(layer: MaidrLayer): SVGElement[][] | null {
+  const trace = TraceFactory.create(layer) as unknown as {
+    highlightValues: SVGElement[][] | null;
+  };
+  return trace.highlightValues;
+}
+
+describe('a segmented layer handed a selector grid', () => {
+  it('resolves every cell', () => {
+    // Also what says the summary row is not among the rows counted:
+    // `createSummaryLevel` appends one after `super()` returns, so a grid is
+    // matched against the two series alone. Were the count taken after, this
+    // two-row grid would be one row short and withdrawn.
+    buildGroups();
+
+    expect(highlightOf(griddedLayer())).not.toBeNull();
+  });
+
+  it('points each cell at the bar its own point announces', () => {
+    buildGroups();
+    const highlight = highlightOf(griddedLayer()) ?? [];
+
+    expect(highlight.map(row => row.map(el => el.getAttribute('data-name')))).toEqual([
+      ['A-alpha', 'A-bravo', 'A-charlie'],
+      ['B-alpha', 'B-bravo', 'B-charlie'],
+    ]);
+  });
+
+  it('declines a grid that leaves a series out', () => {
+    // The one case only the row count catches. A short grid otherwise
+    // resolves as far as it goes and returns, leaving the series past its end
+    // with no row at all — a highlight that works for the first series and
+    // silently does nothing for the rest.
+    buildGroups();
+    const layer = griddedLayer();
+    (layer as { selectors: string[][] }).selectors.pop();
+
+    expect(highlightOf(layer)).toBeNull();
+  });
+
+  it('declines a grid whose row is the wrong length', () => {
+    buildGroups();
+    const layer = griddedLayer();
+    (layer as { selectors: string[][] }).selectors[1] = [cell(2, 1)];
+
+    expect(highlightOf(layer)).toBeNull();
+  });
+
+  it('declines outright when one cell names nothing', () => {
+    // Half a highlight reads as "this bar has no mark" rather than as a
+    // failure, so one unresolvable cell withdraws the whole grid.
+    buildGroups();
+    const layer = griddedLayer();
+    (layer as { selectors: string[][] }).selectors[1][2] = '.nothing-here';
+
+    expect(highlightOf(layer)).toBeNull();
+  });
+
+  it('leaves no clones behind when it declines', () => {
+    // The resolved cells are hidden clones inserted next to the originals.
+    // Abandoning them would leave a chart carrying copies of its own bars for
+    // every layer that failed to resolve.
+    buildGroups();
+    const before = document.querySelectorAll('path').length;
+    const layer = griddedLayer();
+    (layer as { selectors: string[][] }).selectors[1][2] = '.nothing-here';
+    highlightOf(layer);
+
+    expect(document.querySelectorAll('path').length).toBe(before);
   });
 });

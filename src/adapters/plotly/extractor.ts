@@ -1753,6 +1753,86 @@ function drawnBarOrder(
   return order.some((index, at) => index !== at) ? order : null;
 }
 
+/**
+ * Where each series' points sit once plotly has laid the category axis out,
+ * one order per series, or `null` when that is the order they already arrived
+ * in.
+ *
+ * `categoryorder` sorts the category axis and leaves every trace's own arrays
+ * alone, exactly as it does for a plain bar (#987), so a dodged or stacked
+ * layer is emitted in an order the chart does not show. `calcdata[i].p` is the
+ * resolved position, so the drawn order is free here as it was there; a
+ * reversed axis is not in `p` and is still asked separately.
+ *
+ * What a segmented layer adds is that its series are read *by column*: every
+ * series' column `c` is announced as one category, and the summary row sums
+ * down it. A per-series permutation only keeps that true when the series cover
+ * the same drawn positions, so this asks for exactly that and declines
+ * otherwise. A panel whose series cover different categories is already
+ * misaligned before any of this, and choosing an order for it would be
+ * inventing an answer rather than reading one.
+ *
+ * @param barTraces - The traces the layer emitted a series for, in that order
+ * @param group     - The panel they were grouped into, holding their calcdata
+ * @param layout    - The chart's computed layout, when it has one
+ * @param axisId    - The axis the categories are on
+ * @param lengths   - How many points each series emitted
+ * @returns One order per series, or null
+ */
+function drawnSegmentedOrder(
+  barTraces: { calcIdx: number }[],
+  group: SubplotGroup,
+  layout: PlotlyFullLayout | undefined,
+  axisId: string,
+  lengths: number[],
+): number[][] | null {
+  const backwards = axisRunsBackwards(layout, axisId);
+  const orders = new Array<number[]>();
+  let covered: string | null = null;
+
+  for (let series = 0; series < barTraces.length; series++) {
+    const calcdata = group.calcdata[barTraces[series].calcIdx] ?? [];
+    const positions = new Array<{ index: number; at: number }>();
+    const seen = new Set<number>();
+
+    for (let index = 0; index < lengths[series]; index++) {
+      const at = calcdata[index]?.p;
+      // A trace plotly has not calculated says nothing about where it is drawn.
+      if (typeof at !== 'number' || !Number.isFinite(at))
+        return null;
+      // Two of one series' points at the same position leave the sort free to
+      // put either first, and that choice would decide which bar a column
+      // announces.
+      if (seen.has(at))
+        return null;
+      seen.add(at);
+      positions.push({ index, at });
+    }
+
+    positions.sort((a, b) => a.at - b.at);
+
+    // Compared as text, which is exact rather than approximate here: every
+    // `at` is a finite number, and `Number.prototype.toString` round-trips a
+    // double, so two lists join to the same string exactly when they hold the
+    // same values in the same order. `0` and `-0` join alike, which is what a
+    // position wants. A category axis makes these integer indices anyway; a
+    // numeric one puts the raw values here, which is why it is worth saying.
+    const drawn = positions.map(position => position.at).join(',');
+    if (covered === null)
+      covered = drawn;
+    else if (drawn !== covered)
+      return null;
+
+    if (backwards)
+      positions.reverse();
+    orders.push(positions.map(position => position.index));
+  }
+
+  return orders.some(order => order.some((index, at) => index !== at))
+    ? orders
+    : null;
+}
+
 /** The tail every bar-family selector ends in, and the one this can narrow. */
 const BAR_SELECTOR_TAIL = '.point > path';
 
@@ -4981,6 +5061,11 @@ function extractSegmentedBarLayer(
       )
     : undefined;
 
+  // Which traces actually contributed a series, in that order. A trace with
+  // no `x` or no `y` is skipped below, so the panel's list and the layer's
+  // rows are not the same thing -- and the reorder at the end indexes rows.
+  const emitted: { trace: PlotlyTrace; calcIdx: number }[] = [];
+
   for (const { trace, calcIdx, globalIdx } of barTraces) {
     const x = trace.x;
     const y = trace.y;
@@ -5021,6 +5106,7 @@ function extractSegmentedBarLayer(
     }
 
     data.push(series);
+    emitted.push({ trace, calcIdx });
   }
 
   if (data.length === 0)
@@ -5034,15 +5120,50 @@ function extractSegmentedBarLayer(
   if (yLabel)
     axes.y = { label: yLabel };
 
-  const selectors = generatePlotlySelectors(type, barTraces[0].globalIdx, gd);
+  // A marimekko is left alone: plotly draws its columns at precomputed
+  // cumulative positions rather than at categories, so what `p` means there
+  // has not been measured the way it has for a bar (#989).
+  const order = mosaic
+    ? null
+    : drawnSegmentedOrder(
+        emitted,
+        group,
+        gd._fullLayout,
+        isHorizontal
+          ? emitted[0].trace.yaxis ?? 'y'
+          : emitted[0].trace.xaxis ?? 'x',
+        data.map(series => series.length),
+      );
+
+  // Both halves move or neither does, as for a plain bar (#987): plotly draws
+  // each group's bars in its trace's own order, so the shared selector
+  // resolves in that order too and the highlight is currently right.
+  // Reordering the points alone would announce one bar and outline another.
+  //
+  // A grid rather than one flat list, because a segmented layer's element for
+  // a cell is found by counting twice -- once among the panel's bar-layer
+  // trace groups, once among that group's own points -- and only the grid says
+  // which cell each answer belongs to. `SegmentedTrace` reads that shape
+  // directly instead of inferring the mapping from one selector.
+  let orderedData = data;
+  let orderedSelectors: MaidrLayer['selectors']
+    = generatePlotlySelectors(type, barTraces[0].globalIdx, gd);
+  if (order !== null) {
+    const prefix = subplotCssPrefix(emitted[0].trace.xaxis, emitted[0].trace.yaxis);
+    orderedData = data.map((series, row) => order[row].map(index => series[index]));
+    orderedSelectors = order.map((row, series) => {
+      const position = barLayerPosition(group, emitted[series].calcIdx);
+      return row.map(index => barPointSelector(prefix, position, index));
+    });
+  }
 
   return {
     id: String(barTraces[0].globalIdx),
     type,
-    selectors,
+    selectors: orderedSelectors,
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
-    data,
+    data: orderedData,
   };
 }
 
