@@ -484,6 +484,41 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * Where a point sits in the stereo field, from -1 (hard left) through 0
+   * (centre) to 1 (hard right).
+   *
+   * A trace with one column has no horizontal position to carry: a
+   * single-series horizontal bar chart stacks its bars down the page, and a
+   * gauge is one needle. The centre is the honest answer, and the
+   * interpolation cannot give it — with `cols: 1` the source range is empty,
+   * and {@link MathUtil.interpolate} answers an empty range with its `toMin`,
+   * which here is hard left. So every tone of such a chart played out of one
+   * ear, for the whole chart, in every mode: not "no horizontal position" but
+   * a positive claim of "far left", contradicting a highlight that moves
+   * vertically (#945). `cols: 0`, which several traces fall back to, landed
+   * in the same place.
+   *
+   * Centred here rather than inside `interpolate`, because an empty source
+   * range means something different to this file's other caller: a series
+   * whose values are all equal should sound at the bottom of the frequency
+   * range, not in the middle of it. Only a range symmetric about a neutral
+   * point wants its midpoint.
+   *
+   * @param panning - The point's column index and the trace's column count
+   * @returns The stereo position, within [-1, 1]
+   */
+  private stereoSlotOf(panning: Panning): number {
+    if (panning.cols <= 1) {
+      return 0;
+    }
+    return MathUtil.clamp(
+      MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1),
+      -1,
+      1,
+    );
+  }
+
+  /**
    * Plays a pitched tone that glides its frequency over the note duration to
    * convey a direction: `'up'` rises (a "whoosh"), `'down'` falls (a drop).
    *
@@ -552,11 +587,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     gainNode.gain.linearRampToValueAtTime(this.volume, startTime + duration * 0.15);
     gainNode.gain.linearRampToValueAtTime(1e-4 * this.volume, startTime + duration);
 
-    const xPos = MathUtil.clamp(
-      MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1),
-      -1,
-      1,
-    );
+    const xPos = this.stereoSlotOf(panning);
     // createStereoPanner is unavailable on Safari < 14.5; degrade to mono.
     const stereoPanner = typeof ctx.createStereoPanner === 'function'
       ? ctx.createStereoPanner()
@@ -595,7 +626,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     reverbAmount: number = 0,
   ): AudioId {
     const frequency = MathUtil.interpolate(freq.raw as number, freq.min, freq.max, this.minFrequency, this.maxFrequency);
-    const x = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
+    const x = this.stereoSlotOf(panning);
     // Y-axis not used for stereo panning
     return this.playOscillator(frequency, { x, y: 0 }, paletteEntry, volumeScale, reverbAmount);
   }
@@ -940,7 +971,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       freqs.push(freqs[0]);
     }
 
-    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
+    const xPos = this.stereoSlotOf(panning);
 
     // Use palette wave type if available, otherwise default sine
     const waveType = paletteEntry?.waveType || 'sine';
@@ -1026,7 +1057,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    const xPos = MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1);
+    const xPos = this.stereoSlotOf(panning);
 
     const ctx = this.audioContext;
     const now = ctx.currentTime;
@@ -1488,11 +1519,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
     const gain = ctx.createGain();
     gain.gain.value = this.volume;
 
-    const xPos = MathUtil.clamp(
-      MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1),
-      -1,
-      1,
-    );
+    const xPos = this.stereoSlotOf(panning);
     // createStereoPanner is unavailable on Safari < 14.5; degrade to mono.
     const stereoPanner = typeof ctx.createStereoPanner === 'function'
       ? ctx.createStereoPanner()
@@ -1524,7 +1551,7 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   private playZeroTone(panning: Panning): AudioId {
-    const xPos = MathUtil.clamp(MathUtil.interpolate(panning.x, 0, panning.cols - 1, -1, 1), -1, 1);
+    const xPos = this.stereoSlotOf(panning);
     // Y-axis not used for stereo panning
     return this.playOscillator(NULL_FREQUENCY, { x: xPos, y: 0 }, { index: DEFAULT_PALETTE_INDEX, waveType: 'triangle' });
   }
