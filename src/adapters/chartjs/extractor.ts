@@ -2435,11 +2435,33 @@ function extractHeatmapLayers(
     }
   }
 
-  const points: number[][] = yLabels.map(y =>
+  // Which order the rows are actually drawn in is the scale's business, not
+  // the data's: the loop above collected them as they were listed, which need
+  // not be the axis order at all. `HeatmapData` runs top-first, and the matrix
+  // controller defaults its y scale to `reverse`, so the drawn order usually
+  // needs turning over (#974).
+  //
+  // Read off `chart.options` rather than the laid-out `chart.scales`, which
+  // looks like the more authoritative source and is not: a matrix chart that
+  // lets Chart.js infer its category domain gets a y scale whose runtime
+  // `getLabels()` is contaminated with the x values — measured as
+  // `['c1', 'first', 'c2', 'second', 'third']`. The options copy stays clean,
+  // being either what the author declared or absent, and the fallback to data
+  // order is right precisely when it is absent, since an inferred domain is
+  // the order the points were listed in.
+  const yScale = chart.options.scales?.y;
+  const drawnRows = (yScale?.labels ?? yLabels).map(String);
+  const rowOrder = yScale?.reverse === true ? [...drawnRows].reverse() : drawnRows;
+  // Only rows the data actually filled, so a scale naming more than the chart
+  // draws cannot introduce an empty band.
+  const orderedY = rowOrder.filter(y => ySet.has(y));
+  const finalY = orderedY.length === yLabels.length ? orderedY : yLabels;
+
+  const points: number[][] = finalY.map(y =>
     xLabels.map(x => valueMap.get(`${x}\0${y}`) ?? 0),
   );
 
-  const heatmapData: HeatmapData = { x: xLabels, y: yLabels, points };
+  const heatmapData: HeatmapData = { x: xLabels, y: finalY, points };
 
   return [
     {

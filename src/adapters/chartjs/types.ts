@@ -209,8 +209,17 @@ export interface ChartJsScale {
    * Whether the scale runs the other way (largest value at the origin end).
    * A rank axis is the case that matters here: a bump chart reverses y so
    * rank 1 sits at the top.
+   *
+   * Chart.js resolves a controller's own default back into `chart.options`,
+   * so this is populated even when the author never wrote it — which is how
+   * a matrix chart's y scale reads `true` off an otherwise bare config.
    */
   reverse?: boolean;
+  /**
+   * A category scale's domain, in the order it is drawn along the axis
+   * (before {@link ChartJsScale.reverse} is applied).
+   */
+  labels?: (string | number)[];
   /** Time-scale options; `unit` names what one step of the axis measures. */
   time?: { unit?: string };
   /** Which axis this scale belongs to; defaults from the scale id's first letter. */
