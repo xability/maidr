@@ -691,10 +691,31 @@ export interface DumbbellData {
 
 /**
  * Data structure for heatmap charts with x/y labels and 2D point values.
+ *
+ * **Rows run top-first**: `y[0]` names the row drawn at the *top* of the
+ * chart and `points[0]` holds it, so the two arrays read the way a sighted
+ * reader reads the grid. {@link Heatmap} turns both over on construction, so
+ * that its own row 0 is the bottom of the drawn grid and <kbd>↑</kbd>, which
+ * increments the row index, moves visually upward.
+ *
+ * Stated here because it cannot be recovered from the payload: a matrix of
+ * numbers looks the same either way up, so a layer written bottom-first is
+ * not wrong in any way the core could notice. It loads, it navigates, and
+ * every value is still announced against its own label -- both arrays having
+ * been reversed together -- while <kbd>↑</kbd> walks *down* the chart and the
+ * cursor enters at the top instead of the bottom. A reader who then reports
+ * what the top row contains has it exactly backwards (#971).
+ *
+ * Producers therefore have to know which way their own library counts.
+ * matplotlib's array is top-first and needs nothing; plotly numbers a
+ * heatmap's rows from the bottom and its adapter turns them over.
  */
 export interface HeatmapData {
+  /** Column labels, left to right. */
   x: string[];
+  /** Row labels, **top row first**. */
   y: string[];
+  /** `points[row][col]`, rows **top-first**, aligned with `y` and `x`. */
   points: number[][];
 }
 
