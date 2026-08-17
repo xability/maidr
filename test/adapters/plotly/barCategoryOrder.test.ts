@@ -169,6 +169,24 @@ describe('a reversed category axis', () => {
   });
 });
 
+describe('a numeric axis', () => {
+  it('reads the bars in numeric order, which is the drawn one', () => {
+    // Not a `categoryorder` case at all: plotly resolves a *linear* axis for
+    // numeric labels and draws each bar at its own value, so an ascending
+    // sweep of `p` is the drawn order there too. Measured with
+    // `x: [10, 2, 1]`, `y: [3, 1, 2]` — the bars come out left to right with
+    // heights 203, 101, 304, which is `x = 1, 2, 10`, while the DOM keeps the
+    // trace's 304, 101, 203.
+    const layer = layerFor([10, 2, 1]);
+
+    expect(announced(layer)).toEqual(['bravo', 'alpha', 'charlie']);
+  });
+
+  it('narrows its selectors too, since the DOM is still the trace order', () => {
+    expect(Array.isArray(layerFor([10, 2, 1]).selectors)).toBe(true);
+  });
+});
+
 describe('an order that cannot be resolved', () => {
   it('leaves a trace plotly has not calculated alone', () => {
     // No position means nothing is known about where the bars are drawn.
