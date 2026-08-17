@@ -619,7 +619,32 @@ export function extractHeatmapData(series: AmXYSeries): HeatmapData | null {
     xLabels.map((_, xi) => valueMap.get(`${xi},${yi}`) ?? 0),
   );
 
-  return { x: xLabels, y: yLabels, points };
+  // {@link HeatmapData} runs top-first, and the core turns the rows over so
+  // its own row 0 is the bottom of the drawn grid -- which is what makes
+  // ArrowUp move visually up. amCharts counts a category axis from the
+  // *bottom*, and the data items above arrive in that order, so the rows are
+  // turned over here. An inversed renderer already counts from the top and is
+  // left alone (#981).
+  if (drawsFirstRowAtTop(series)) {
+    return { x: xLabels, y: yLabels, points };
+  }
+
+  return { x: xLabels, y: [...yLabels].reverse(), points: [...points].reverse() };
+}
+
+/**
+ * Whether amCharts draws this series' first y category at the top.
+ *
+ * True only for an inversed renderer, the setting amCharts uses to stand an
+ * axis on its head -- the same one {@link hasRankAxis} reads to spot a bump
+ * chart, asked here of the one series that owns the grid.
+ *
+ * @param series - The heatmap series
+ * @returns Whether row 0 is already the top row
+ */
+function drawsFirstRowAtTop(series: AmXYSeries): boolean {
+  const renderer = settingOf(series.get('yAxis'), 'renderer');
+  return settingOf(renderer, 'inversed') === true;
 }
 
 /**
