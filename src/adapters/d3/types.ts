@@ -348,6 +348,25 @@ export interface D3HeatmapConfig extends D3BinderConfig {
   y?: DataAccessor<string>;
   /** Accessor for the cell value. @default 'value' */
   value?: DataAccessor<number>;
+  /**
+   * The row labels **top-first**, in the order the chart draws them.
+   *
+   * Supply it whenever the join does not already iterate the rows top-down:
+   * usually `yScale.domain()`, or its reverse for a band scale whose domain
+   * ascends up the page. Without it the rows are taken in order of appearance
+   * in the DOM, which is the order the join happened to run in and need not be
+   * the order anything is drawn in (#978).
+   *
+   * Getting it wrong is silent — a matrix of numbers looks the same either way
+   * up — and what goes wrong is the reader's model of the chart rather than any
+   * value: <kbd>↑</kbd> walks *down* a chart whose rows arrived bottom-first,
+   * and the cursor enters at the top corner instead of the bottom.
+   *
+   * Labels the cells do not carry are ignored, and an order that does not name
+   * every row is declined in favour of appearance order rather than dropping a
+   * row the chart draws.
+   */
+  yOrder?: string[];
 }
 
 /**
