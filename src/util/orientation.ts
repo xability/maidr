@@ -16,6 +16,14 @@ import { Orientation, TraceType } from '@type/grammar';
  * Keyed by every {@link TraceType} so a new trace type cannot be added without
  * answering the question here — the same reason `CHART_TYPE_LABEL` in
  * `src/model/abstract.ts` is a full record rather than a partial one.
+ *
+ * This is not the question of what `orientation` does to a layer's *data*.
+ * A type marked true here may or may not want its `x` and `y` exchanged when
+ * it is drawn horizontally: the bar family does, and everything else does
+ * not. That table lives on {@link MaidrLayer.orientation}, because the party
+ * that needs it is whoever is writing the JSON. Reading this record as though
+ * it answered that is how two bindings came to emit a horizontal bar with a
+ * category name where the magnitude belongs.
  */
 const IS_ORIENTED: Record<TraceType, boolean> = {
   // An area trace is a line with a fill, and it is navigated as one: along
