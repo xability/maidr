@@ -50,6 +50,7 @@ import type {
   VegaLiteTransform,
   VegaView,
 } from './types';
+import { toSegmentedShares } from '@adapters/shared/normalize';
 import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
 import {
@@ -1654,51 +1655,6 @@ function extractSegmentedData(
 }
 
 /**
- * Each category's bands as percentages of that category's total.
- *
- * Totalled by the category's own value rather than by position, because the
- * bands arrive grouped by colour and a series that skips a category leaves the
- * rows unaligned — pairing by index would then divide one category's value by
- * another's total.
- *
- * Percentages rather than fractions, matching the Highcharts adapter, which
- * takes Highcharts' own `point.percentage` for this layer type.
- *
- * @param series     - The bands as extracted, one array per colour
- * @param horizontal - Whether the magnitude is in `x` and the category in `y`
- * @returns The same bands with each category summing to 100
- */
-function asShares(
-  series: SegmentedPoint[][],
-  horizontal: boolean,
-): SegmentedPoint[][] {
-  const magnitudeOf = (point: SegmentedPoint): number =>
-    Number(horizontal ? point.x : point.y);
-  const categoryOf = (point: SegmentedPoint): string =>
-    String(horizontal ? point.y : point.x);
-
-  const totals = new Map<string, number>();
-  for (const band of series) {
-    for (const point of band) {
-      const key = categoryOf(point);
-      totals.set(key, (totals.get(key) ?? 0) + Math.abs(magnitudeOf(point)));
-    }
-  }
-
-  return series.map(band => band.map((point) => {
-    const total = totals.get(categoryOf(point)) ?? 0;
-    // A category of nothing has no share to report, and `0 / 0` would reach
-    // the trace as `NaN`, which it reads as a gap rather than as an empty
-    // category.
-    if (!total) {
-      return point;
-    }
-    const share = (magnitudeOf(point) / total) * 100;
-    return horizontal ? { ...point, x: share } : { ...point, y: share };
-  }));
-}
-
-/**
  * Whether a segmented bar's series sit either side of a baseline.
  *
  * No Vega-Lite spec says "diverging". A population pyramid is authored as
@@ -3120,7 +3076,7 @@ function convertLayerSpec(
       // payload identically — so without this the reader is pitched the counts
       // while every column is drawn the same height (#965).
       if (traceType === TraceType.NORMALIZED) {
-        data = asShares(segments, orientation === Orientation.HORIZONTAL);
+        data = toSegmentedShares(segments, orientation === Orientation.HORIZONTAL);
       }
       // A population pyramid and a Likert chart are both authored as this
       // exact spec — Vega-Lite has no diverging mark — so the two sides
