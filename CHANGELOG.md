@@ -1,3 +1,23 @@
+# [4.4.0](https://github.com/xability/maidr/compare/v4.3.0...v4.4.0) (2026-08-17)
+
+
+### Bug Fixes
+
+* **audio:** centre a trace that has no horizontal extent ([#946](https://github.com/xability/maidr/issues/946)) ([0d032e2](https://github.com/xability/maidr/commit/0d032e2e7d307727a9fa06d7839ea6fafad86854)), closes [#945](https://github.com/xability/maidr/issues/945)
+* **autoplay:** sound the point playback starts from ([#940](https://github.com/xability/maidr/issues/940)) ([c707bd0](https://github.com/xability/maidr/commit/c707bd0e2888509726f35b7c0b50b7a739f2c9fc)), closes [#615](https://github.com/xability/maidr/issues/615)
+* **autoplay:** take the tempo from the trace's longest axis ([#944](https://github.com/xability/maidr/issues/944)) ([308fca9](https://github.com/xability/maidr/commit/308fca9ef251f31f250627df65da15e966bce1b4)), closes [#614](https://github.com/xability/maidr/issues/614)
+* **format:** announce a value a numeric format cannot express, not NaN ([#931](https://github.com/xability/maidr/issues/931)) ([e7f98ab](https://github.com/xability/maidr/commit/e7f98abcdc914677c223053f94d87ed58fdc3e3d)), closes [#930](https://github.com/xability/maidr/issues/930)
+* **tableau:** correct the visual specification against the shipped declarations ([#939](https://github.com/xability/maidr/issues/939)) ([1b50ce3](https://github.com/xability/maidr/commit/1b50ce36ce900c8394411bf850311a7220c3fac3)), closes [#935](https://github.com/xability/maidr/issues/935)
+
+
+### Features
+
+* **bar:** say so when a category name reaches the magnitude field ([#951](https://github.com/xability/maidr/issues/951)) ([bda4bfd](https://github.com/xability/maidr/commit/bda4bfdafd564f35bead53a7c46fd402b848e08c)), closes [xability/py-maidr#427](https://github.com/xability/py-maidr/issues/427) [#925](https://github.com/xability/maidr/issues/925) [#927](https://github.com/xability/maidr/issues/927) [#930](https://github.com/xability/maidr/issues/930) [#615](https://github.com/xability/maidr/issues/615) [#942](https://github.com/xability/maidr/issues/942) [#943](https://github.com/xability/maidr/issues/943) [#614](https://github.com/xability/maidr/issues/614) [#945](https://github.com/xability/maidr/issues/945) [#184](https://github.com/xability/maidr/issues/184) [#186](https://github.com/xability/maidr/issues/186) [#947](https://github.com/xability/maidr/issues/947) [#184](https://github.com/xability/maidr/issues/184) [#480](https://github.com/xability/maidr/issues/480) [#482](https://github.com/xability/maidr/issues/482) [#950](https://github.com/xability/maidr/issues/950)
+* **error-bar:** give a grouped interval chart a shape in the grammar ([#943](https://github.com/xability/maidr/issues/943)) ([e8d3874](https://github.com/xability/maidr/commit/e8d387409a18e7132c5df53242095eaec87f652f)), closes [#942](https://github.com/xability/maidr/issues/942)
+* **scatter:** let a point say which category it is in ([#929](https://github.com/xability/maidr/issues/929)) ([0e08938](https://github.com/xability/maidr/commit/0e0893842739503a691a693c28d6abb5053122ee)), closes [#927](https://github.com/xability/maidr/issues/927)
+* **tableau:** add tableau embedding api adapter ([#932](https://github.com/xability/maidr/issues/932)) ([62a4e62](https://github.com/xability/maidr/commit/62a4e627b602647d40dea4f0e4dd4813506edf48))
+* **tableau:** lay dashboard worksheets into a geometry-aware subplot grid ([#941](https://github.com/xability/maidr/issues/941)) ([12a4760](https://github.com/xability/maidr/commit/12a4760ae4a4a3a914715c9ca9e54b74c3df291e)), closes [#936](https://github.com/xability/maidr/issues/936)
+
 # [4.3.0](https://github.com/xability/maidr/compare/v4.2.0...v4.3.0) (2026-08-16)
 
 
