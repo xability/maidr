@@ -170,4 +170,19 @@ describe('an order that does not describe the grid', () => {
     // Honouring it would lose a row the reader can see.
     expect((layerFor(BOTTOM_UP, ['third', 'second']).data as HeatmapData).y).toEqual(BOTTOM_UP);
   });
+
+  it('declines an order that names one row twice instead of another', () => {
+    // Counting mentions rather than distinct rows would let this past: three
+    // entries for three rows, but 'first' emitted twice and 'second' lost.
+    const repeated = ['third', 'first', 'first'];
+
+    expect((layerFor(BOTTOM_UP, repeated).data as HeatmapData).y).toEqual(BOTTOM_UP);
+  });
+
+  it('ignores a stray repeat that still names every row', () => {
+    // The order is recoverable here, so it is used rather than discarded.
+    const repeated = ['third', 'second', 'third', 'first'];
+
+    expect((layerFor(BOTTOM_UP, repeated).data as HeatmapData).y).toEqual(DRAWN);
+  });
 });

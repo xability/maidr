@@ -90,7 +90,19 @@ function orderedRows(appearance: string[], declared?: string[]): string[] {
   }
 
   const present = new Set(appearance);
-  const ordered = declared.filter(row => present.has(row));
+  const taken = new Set<string>();
+  const ordered: string[] = [];
+  for (const row of declared) {
+    // Repeats are dropped as well as unknowns, so the length check below
+    // really does mean "names every row exactly once". Taking the first
+    // mention and counting alone would let `['a', 'a']` past for a grid of
+    // `a` and `b`, emitting one row twice and losing the other outright.
+    if (present.has(row) && !taken.has(row)) {
+      taken.add(row);
+      ordered.push(row);
+    }
+  }
+
   // Naming rows the chart does not draw is ordinary -- a scale's domain
   // outlives a filter -- so the extras are dropped. Naming *fewer* than it
   // draws is not a description of this grid, and honouring it would lose a row
