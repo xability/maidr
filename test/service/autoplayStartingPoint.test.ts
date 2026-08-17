@@ -14,11 +14,13 @@
  * the AudioService consumes. `autoplay.test.ts` covers the step *pacing*
  * against a stub; this file covers what the pass contains.
  */
+import type { Trace } from '@model/plot';
 import type { AudioService } from '@service/audio';
 import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { Maidr } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
+import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Context } from '@model/context';
@@ -71,19 +73,22 @@ function createHarness(): Harness {
   const context = new Context(new Figure(barChart()));
   const heard: number[] = [];
 
-  const observable = context.active as unknown as {
-    addObserver: (observer: { update: (state: TraceState) => void }) => void;
-  };
-  observable.addObserver({
+  // Narrowed to `Trace` rather than read through a structural cast: a
+  // single-panel figure opens in the trace, and typing the observer as
+  // `Observer<TraceState>` is what lets the compiler catch a state-shape
+  // change here instead of quietly continuing to compile.
+  const observer: Observer<TraceState> = {
     update: (state: TraceState): void => {
-      // An out-of-bounds notification carries no audio; only sounded points
-      // count toward what the pass covered.
-      const audio = (state as unknown as { audio?: { freq?: { raw?: number } } }).audio;
-      if (audio?.freq?.raw !== undefined) {
-        heard.push(audio.freq.raw);
+      // An out-of-bounds notification carries the empty state and no audio;
+      // only sounded points count toward what the pass covered.
+      if (state.empty) {
+        return;
       }
+      const raw = state.audio.freq.raw;
+      heard.push(typeof raw === 'number' ? raw : raw[0]);
     },
-  });
+  };
+  (context.active as Trace).addObserver(observer);
 
   const settings = {
     get: <T>(): T => 5000 as unknown as T,
