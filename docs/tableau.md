@@ -65,8 +65,35 @@ The adapter never imports a Tableau package. It duck-types the live `<tableau-vi
 1. **Find the worksheets.** `viz.workbook.activeSheet` is read at bind time, and again on every refresh — a `tabswitched` event changes which sheet the worksheets come from. A `worksheet` sheet is a single worksheet; a `dashboard` contributes `dashboard.worksheets`, in the order the author added them — which is also the order Tableau's own documentation says a screen reader narrates a dashboard. A `story` sheet is skipped with a warning (see [Limitations](#limitations)).
 2. **Read the summary data.** For each worksheet the adapter calls `getSummaryColumnsInfoAsync()` for the columns *in view order*, then opens a `getSummaryDataReaderAsync()` and pages through it. The reader hands its columns back **alphabetically**, so the adapter builds a view-order-to-alphabetical index map by `fieldId` and remaps every row; every index downstream is a view index. The reader is always released in a `finally` block, and every read goes through a per-viz promise chain, because Tableau supports **only one active summary-data reader at a time** and a leaked one blocks the next read.
 3. **Classify the columns.** Each column becomes a measure or a dimension — see [Supported Chart Types](#supported-chart-types).
-4. **Decide the trace type and build the layer.** One worksheet produces exactly **one** MAIDR layer inside its own subplot; a dashboard of four worksheets is a four-row, one-column subplot grid.
+4. **Decide the trace type and build the layer.** One worksheet produces exactly **one** MAIDR layer inside its own subplot. How those subplots are arranged depends on what the dashboard reports about itself — see [Dashboard Layout](#dashboard-layout).
 5. **Mount.** A wrapper `<div>` is inserted before the viz element and a React root renders MAIDR into it. The viz element itself is never moved — `<tableau-viz>` is a custom element and re-parenting re-runs its `connectedCallback`, with undocumented consequences for the iframe.
+
+### Dashboard Layout
+
+A dashboard's worksheets become a **two-dimensional subplot grid that follows the dashboard's own layout** when the layout is readable and unambiguous, and a **one-worksheet-per-row column** whenever it is not. Both paths are always available and nothing on the page has to opt in.
+
+The geometry comes from `dashboard.objects`: each object reports a `position`, a `size`, and — for a worksheet object — the worksheet inside it. The binder reads it once per re-read and hands four numbers and two flags per worksheet to the extractor, which stays pure.
+
+**How the grid is worked out.** Worksheets are swept top to bottom into *bands*. A worksheet joins the band being built when its vertical extent overlaps the band's by at least **half of the shorter of the two**, and starts a new band otherwise; within a band the order is left to right. The threshold is a ratio rather than a pixel tolerance on purpose — ten pixels is generous on a 600px dashboard and meaningless on a 4000px one, and it moves again under browser zoom. Real tiled dashboards miss perfect alignment by the few pixels of an object's padding and border, which is an overlap of about 98%, so the threshold only bites on layouts that are genuinely ambiguous.
+
+Rows are **ragged by design**: a dashboard with two worksheets over one wide one is a two-then-one grid, not a padded 2×2.
+
+**The bottom row of the dashboard is row 0 of the figure**, so <kbd>↑</kbd> moves up the dashboard and <kbd>↓</kbd> moves down it. This is a consequence of there being no DOM to measure: MAIDR resolves a figure's visual ordering from the rendered SVG, the adapter emits no selectors because the marks are inside a cross-origin iframe, and the layout it falls back to numbers rows from the bottom. One honest cost comes with it: the *ordinal* in the announcement is counted in data order, so the bottom-left subplot is announced as "Subplot 1 of 6". The subplot's own title — the worksheet name — is what identifies it, and the arrows are the part that had to be spatially true.
+
+**When the column is used instead.** Any one of these is enough, and each one applies to the *whole* figure — a partly-guessed grid is worse than an honest column:
+
+- the embedding library on the page reports no dashboard geometry at all (an older build), or reports none for even one worksheet in the figure;
+- the active sheet is a single worksheet or a story, so there is no layout to read;
+- any worksheet **floats** rather than sitting in the tiled layout — a floating object is positioned independently and routinely sits on top of a tiled one, so its coordinates do not place it in a row;
+- any worksheet is **hidden** on the dashboard — dropping it would silently remove data the page may have named explicitly, and placing it in the grid would claim it is on screen;
+- any worksheet reports a zero or negative size;
+- the worksheets form a **staircase** that only chains into a row through a third worksheet in the middle;
+- two worksheets in the same band overlap horizontally by more than half the narrower one, so there is no left-to-right order between them;
+- the page passed `layout: 'column'`.
+
+Every case except the last two logs nothing when there was no geometry to judge; a dashboard that *did* report geometry and still got a column says why in one console warning.
+
+The layout is computed when the worksheets are read. A window resize does not recompute it — the adapter re-reads on filter, parameter, data and tab changes, not on `resize` — for the same reason refreshes are deferred by default: rebuilding the figure under someone who is mid-navigation is worse than a layout that reflects the dashboard as it was read.
 
 ### Highlighting
 
@@ -295,6 +322,7 @@ The resolved handle carries three members:
 | `title` | `string?` | Figure title announced for the whole view. |
 | `live` | `boolean?` | Apply refreshes in place while the reader is inside the chart. Default `false` — see [Refresh and Filters](#refresh-and-filters). |
 | `worksheets` | `string[]?` | Worksheet names to include, honoured in the order written. Default: every worksheet of the active sheet. |
+| `layout` | `'grid' \| 'column'?` | How a dashboard's worksheets are arranged into subplots. Default `'grid'`: follow the dashboard's own geometry when it is readable and unambiguous, and fall back to one worksheet per row otherwise. `'column'` always uses the column. See [Dashboard Layout](#dashboard-layout). |
 | `overrides` | `Record<string, TableauWorksheetOverride>?` | Per-worksheet configuration, keyed by worksheet name. |
 | `anchorLabel` | `string?` | Text on the keyboard entry point rendered beside the viz. Defaults to `Accessible chart view — press Enter, then use arrow keys`. Style it with the `[data-maidr-tableau-anchor]` attribute selector. |
 
@@ -358,7 +386,7 @@ Once the figure is focused, the standard MAIDR shortcuts apply:
 
 Two notes specific to this adapter:
 
-- **Up and Down, not Left and Right, move between worksheets.** A dashboard becomes an N×1 subplot column (see [Limitations](#limitations)), so Left and Right in the worksheet list are always out of bounds.
+- **Which arrows move between worksheets depends on the dashboard.** In the geometry-aware grid, Up and Down move between the dashboard's rows and Left and Right move along one — in the direction the dashboard is laid out, since its bottom row is the figure's row 0. In the column fallback there is one worksheet per row, so Left and Right are always out of bounds. See [Dashboard Layout](#dashboard-layout).
 - **<kbd>Page Up</kbd> and <kbd>Page Down</kbd> do nothing here.** Those keys switch between *layers* of one subplot, and a Tableau worksheet always produces exactly one layer. There is nothing for them to switch to.
 
 For the full list, see the [Keyboard Controls](CONTROLS.html) reference.
@@ -373,7 +401,8 @@ Stated plainly, because every one of these is a place where a plausible-looking 
 - **Box plots, histograms and treemaps are never inferred as themselves, and are not skipped either.** Their mark primitives — `circle`, `bar`, `square` — are the same ones a scatter, a bar chart and a heatmap are drawn with, so the mark type cannot separate them and they are announced as those instead, with no warning. (Gantt charts and choropleths *are* skipped: `gantt-bar` and `map` are theirs alone.) Exclude a view by name with `overrides['<worksheet>'].skip`, or declare what it is with `overrides['<worksheet>'].traceType`. See [Supported Chart Types](#supported-chart-types).
 - **A dual-axis worksheet is read as one of its axes.** Tableau reports a marks card per measure but nothing that says which axis a card belongs to, whether the axes are synchronized, or which summary-data column came from which card. The active card is read and the others are named in a warning.
 - **Story sheets are skipped.** The Embedding API has a listed known issue: a worksheet inside a story throws *operation not allowed on non-active sheet*.
-- **A dashboard becomes an N×1 subplot column**, in the order the worksheets were added to the dashboard — the order Tableau documents a screen reader as narrating them. Geometry-aware two-dimensional layout is not attempted, because the Embedding API's dashboard objects are not documented to carry position and size.
+- **A dashboard layout is followed only when it is unambiguous.** The grid is built from `dashboard.objects`' positions and sizes; a floating or hidden worksheet, a staircase, an overlap inside a row, or an embedding library that reports no geometry all fall the *whole* figure back to one worksheet per row, in the order the worksheets were added — the order Tableau documents a screen reader as narrating them. The full list is under [Dashboard Layout](#dashboard-layout).
+- **A grid's subplot ordinals are not its positions.** "Subplot 1 of 6" counts in data order, which starts at the bottom-left, because MAIDR derives visual ordering from the rendered SVG and a `<tableau-viz>`'s marks are inside a cross-origin iframe. The arrow keys *are* spatially true; only the number is not, and the announcement carries the worksheet's name with it.
 - **Summary data only.** Underlying data (`getUnderlyingTableDataReaderAsync`) is gated to Explorer and Creator roles and would fail silently for Viewer-role users, so it is never requested.
 - **Nothing is written back into the workbook.** No annotations, no filters, no parameter changes; the only write is the mark selection, and that is cleared when focus leaves MAIDR's block, before every re-read, and on `dispose()` — see [How It Works](#how-it-works).
 - **Authentication is the host page's job.** Tableau Public needs none. Tableau Cloud and Tableau Server do: a connected-app JWT must be minted **by your server** — the connected-app secret must never reach the browser — and handed to the component through the `token` attribute or `viz.token` before you bind. The adapter neither mints, refreshes, nor inspects a token.

@@ -465,10 +465,108 @@ export interface TableauWorksheet extends TableauSheetBase {
   getVisualSpecificationAsync: () => Promise<TableauVisualSpecification>;
 }
 
+/**
+ * An x/y coordinate in pixels.
+ *
+ * Mirrors `Point` in `ExternalContract/Embedding/SheetInterfaces.d.ts`
+ * (`@tableau/embedding-api@3.12.1`, which vendors
+ * `@tableau/api-external-contract-js@1.211.0`), whose own doc comment reads
+ * "Represents an x/y coordinate in pixels". Note that the declaration lives in
+ * the Embedding file rather than in `Shared/`, unlike {@link TableauSize} — the
+ * Extensions contract declares a `Point` of its own.
+ */
+export interface TableauPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * A width and a height in pixels.
+ *
+ * Mirrors `Size` in `ExternalContract/Shared/SheetInterfaces.d.ts`
+ * (`@tableau/api-external-contract-js@1.211.0`), documented as "Represents a
+ * width and height in pixels" — the same space {@link TableauPoint} is in, so
+ * a position and a size on the same object are directly comparable.
+ *
+ * Declared `height` first, as the vendor does.
+ */
+export interface TableauSize {
+  readonly height: number;
+  readonly width: number;
+}
+
+/**
+ * One object placed on a dashboard: a worksheet, a legend, a title, a blank.
+ *
+ * Mirrors `DashboardObject` in
+ * `ExternalContract/Embedding/SheetInterfaces.d.ts`
+ * (`@tableau/api-external-contract-js@1.211.0`), member for member, minus the
+ * `dashboard` back-reference — that member exists, and is omitted here only
+ * because nothing reads it and mirroring it would make this file's two
+ * dashboard types mutually recursive for no gain.
+ *
+ * Every member is **required and non-optional** in the declarations, and none
+ * carries an `@since` tag, so the contract sets no version floor: presence at
+ * runtime is the only test that means anything. See
+ * {@link TableauDashboard.objects}.
+ */
+export interface TableauDashboardObject {
+  /**
+   * What the object represents.
+   *
+   * The vendor types this as the `DashboardObjectType` enum, whose values are
+   * `'blank'`, `'worksheet'`, `'quick-filter'`, `'parameter-control'`,
+   * `'page-filter'`, `'legend'`, `'title'`, `'text'`, `'image'`, `'web-page'`
+   * and `'extension'`. It is widened to `string` here deliberately: the enum is
+   * closed in *this* contract version, the host page loads whichever Embedding
+   * build it likes, and the adapter only ever asks whether the value is
+   * `'worksheet'` — a union would invite an exhaustive `switch` over a set that
+   * is not actually closed at runtime.
+   */
+  readonly type: string;
+  /** Coordinates relative to the top-left corner of the containing dashboard. */
+  readonly position: TableauPoint;
+  /** The object's own size, in the same pixel space as {@link position}. */
+  readonly size: TableauSize;
+  /** The worksheet when `type` is `'worksheet'`, `undefined` otherwise. */
+  readonly worksheet: TableauWorksheet | undefined;
+  /**
+   * The name given to the *object* during authoring.
+   *
+   * **Not** a worksheet name, even for a worksheet object: an author can rename
+   * the container without renaming the sheet inside it. Matching geometry to a
+   * worksheet goes through `object.worksheet.name`, never through this.
+   */
+  readonly name: string;
+  /** True when the object floats rather than sitting in the tiled layout. */
+  readonly isFloating: boolean;
+  /** True when the object is visible. */
+  readonly isVisible: boolean;
+  /** The dashboard object's id. */
+  readonly id: number;
+}
+
 /** A dashboard. `worksheets` is in the order the author added them. */
 export interface TableauDashboard extends TableauSheetBase {
   readonly sheetType: 'dashboard';
   readonly worksheets: readonly TableauWorksheet[];
+  /**
+   * Every object on the dashboard, worksheets and furniture alike.
+   *
+   * The contract declares this **required** — `readonly objects:
+   * Array<DashboardObject>` on `Dashboard`, with no `@since` tag — and it is
+   * nonetheless declared optional here, following this file's rule that a
+   * member is optional whenever the running library may not provide it. The
+   * real case is an older Embedding build on the host page: absence is exactly
+   * what that looks like from here, and making it a type-level fact keeps the
+   * feature detection in `binder.tsx` an ordinary check rather than a cast that
+   * asserts away the very thing being tested.
+   *
+   * Read for one purpose only: the per-worksheet geometry that lets the
+   * extractor lay a dashboard out as a grid instead of a column. When it is
+   * missing, the figure is an N×1 column and nothing else changes.
+   */
+  readonly objects?: readonly TableauDashboardObject[];
 }
 
 /**
@@ -545,6 +643,32 @@ export interface TableauColumnClassification {
 }
 
 /**
+ * Where a worksheet sits on its dashboard, in the dashboard's own pixel space.
+ *
+ * Flattened out of {@link TableauPoint} and {@link TableauSize} rather than
+ * holding them, for the same reason every other field of a snapshot is a
+ * primitive: the snapshot is a plain JSON-serializable value that a future
+ * Dashboard Extensions binder can fill in unchanged, and the extractor that
+ * reads it must never be handed a live Tableau object.
+ *
+ * All four numbers come from the *same* object's `position` and `size`, so they
+ * are mutually comparable whatever the units turn out to be; the extractor uses
+ * the extents only inside ratios, never against a fixed pixel tolerance.
+ */
+export interface TableauWorksheetGeometry {
+  /** Left edge, relative to the top-left corner of the dashboard. */
+  readonly x: number;
+  /** Top edge, relative to the top-left corner of the dashboard. */
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  /** True when the object floats above the tiled layout instead of within it. */
+  readonly isFloating: boolean;
+  /** True when the object is visible on the dashboard. */
+  readonly isVisible: boolean;
+}
+
+/**
  * Everything one worksheet contributes, read once and then never awaited again.
  *
  * This is the boundary between the async half of the adapter (`reader.ts`) and
@@ -559,6 +683,16 @@ export interface WorksheetSnapshot {
   readonly rows: readonly TableauRow[];
   /** Present only when the host exposes `getVisualSpecificationAsync`. */
   readonly spec?: TableauVisualSpecification;
+  /**
+   * Where this worksheet sits on the dashboard.
+   *
+   * Present only when the active sheet is a dashboard whose objects reported
+   * usable geometry — so absence covers an older Embedding library, a lone
+   * worksheet sheet, a story, and a worksheet no dashboard object named. The
+   * extractor needs it on **every** surviving worksheet before it will lay the
+   * figure out as a grid; one gap and the whole figure is a column again.
+   */
+  readonly geometry?: TableauWorksheetGeometry;
 }
 
 /**
@@ -610,4 +744,17 @@ export interface TableauAdapterOptions {
   overrides?: Record<string, TableauWorksheetOverride>;
   /** Text on the keyboard entry point rendered beside the viz. */
   anchorLabel?: string;
+  /**
+   * How a dashboard's worksheets are arranged into subplots.
+   *
+   * - `'grid'` (default) — follow the dashboard's own geometry when it is
+   *   readable *and* unambiguous, so Left and Right move along a row of the
+   *   dashboard and Up and Down move between its rows. Every other case,
+   *   including an older embedding library that reports no geometry at all,
+   *   falls back to the column below without the page doing anything.
+   * - `'column'` — always one worksheet per row, in the order the worksheets
+   *   were added. The escape hatch for a dashboard whose geometry is readable
+   *   but whose reading order the page knows better than the layout does.
+   */
+  layout?: 'grid' | 'column';
 }
