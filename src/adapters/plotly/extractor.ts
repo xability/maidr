@@ -232,6 +232,21 @@ function extractAxisGridConfig(
   if (!axis)
     return null;
 
+  // The grid bins the data values themselves, so it means something only when
+  // the axis reports its extent in the same space those values are in. A log
+  // axis does not: `range` is in decades and `dtick` counts them, while the
+  // points stay the plain numbers, so 1..1e9 arrives as a span of 0..9.6 and
+  // every point but the smallest bins outside the grid (#969). Plotly labels a
+  // narrow log axis with the string dticks `D1`/`D2`, which the check below
+  // already rejects — but from about four decades up it switches to a numeric
+  // one and nothing else here would notice.
+  //
+  // Asked positively rather than as a list of the types to skip, so an axis
+  // type nobody here has thought about declines the grid instead of getting
+  // one measured in whatever units it happens to use.
+  if (axis.type !== undefined && axis.type !== 'linear')
+    return null;
+
   // Extract range (min, max)
   const range = axis.range;
   if (!range || range.length < 2)
@@ -243,7 +258,9 @@ function extractAxisGridConfig(
     return null;
 
   // Extract tick step from dtick
-  // dtick can be a number or special string (e.g., "M3" for months, "D1" for days)
+  // dtick can be a number or special string (e.g., "M3" for months, "D1" for
+  // days). The axes that use those spellings are turned away above, so this
+  // only still guards a layout handed over without a resolved `type`.
   let tickStep: number | null = null;
 
   if (typeof axis.dtick === 'number') {
@@ -254,7 +271,7 @@ function extractAxisGridConfig(
     if (!Number.isNaN(parsed)) {
       tickStep = parsed;
     }
-    // Skip non-numeric dtick (date/log special formats)
+    // Skip non-numeric dtick
   }
 
   // Fallback: if tickmode is 'array' and tickvals exist, compute step from values
