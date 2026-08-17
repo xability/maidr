@@ -3823,14 +3823,21 @@ function convertHeatmapSeries(
     points[yIdx][xIdx] = cellValue ?? 0;
   }
 
+  // {@link HeatmapData} runs top-first. Highcharts numbers a y axis from the
+  // bottom, so `points[0]` — the row it calls y index 0 — is the bottom one
+  // and the rows are turned over here. A reversed axis already counts from
+  // the top and is left alone (#973).
+  const topFirst = isReversedAxis(series.yAxis);
+  const yLabels = yCategories.length > 0
+    ? yCategories
+    : Array.from({ length: rows }, (_, i) => String(i));
+
   const data: HeatmapData = {
     x: xCategories.length > 0
       ? xCategories
       : Array.from({ length: cols }, (_, i) => String(i)),
-    y: yCategories.length > 0
-      ? yCategories
-      : Array.from({ length: rows }, (_, i) => String(i)),
-    points,
+    y: topFirst ? yLabels : [...yLabels].reverse(),
+    points: topFirst ? points : [...points].reverse(),
   };
 
   // Stamp `data-maidr-row` / `data-maidr-col` onto each rendered cell using
@@ -3843,7 +3850,7 @@ function convertHeatmapSeries(
     id: String(series.index),
     type: TraceType.HEATMAP,
     title: series.name || undefined,
-    selectors: heatmapSelectors(containerId, series.index, rows, cols),
+    selectors: heatmapSelectors(containerId, series.index, rows, cols, topFirst),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),

@@ -525,33 +525,46 @@ export function candlestickSelectors(
  * Generates a 2D grid of per-cell CSS selectors for a Highcharts heatmap series.
  *
  * MAIDR's `HeatmapTrace` (when given a `string[][]`) treats `selectors[r][c]`
- * as the selector for the cell at logical row `r`, column `c`. The model
- * reverses incoming rows on construction (so row 0 = bottom of the visual
- * grid), and we account for that here by emitting `data-maidr-row="${rows-1-r}"`
- * — the visual top-down row index that the adapter stamps onto each cell.
+ * as the selector for the cell at logical row `r`, column `c`, having reversed
+ * the incoming rows so that row 0 is the bottom of the visual grid. The
+ * adapter stamps `data-maidr-row` with Highcharts' own y index, so this walks
+ * the same path back: which stamped row is logical row `r` depends on whether
+ * the adapter turned the payload over on its way out.
+ *
+ * On an ordinary axis it did — Highcharts counts y from the bottom while the
+ * grammar runs top-first — and the two reversals cancel, leaving logical row
+ * `r` on stamped row `r`. On a reversed axis the payload passed through
+ * untouched, so only the model's reversal applies and the index has to be
+ * flipped (#973).
  *
  * Highcharts emits heatmap cells in `series.data` order, which depends on the
  * user's data layout (could be row-major or column-major). DOM-order based
  * mapping is fragile across user configs; per-cell stamping (see
  * `stampHeatmapIndices` in adapter.ts) makes the selector→cell mapping
  * unambiguous regardless of insertion order.
+ *
+ * @param containerId - The chart container's id
+ * @param seriesIndex - Which series in the chart this is
+ * @param rows        - How many rows the grid has
+ * @param cols        - How many columns the grid has
+ * @param topFirst    - Whether Highcharts already draws y index 0 at the top,
+ *                      meaning the adapter left the payload's rows as they were
+ * @returns `selectors[r][c]`, indexed the way the model indexes its cells
  */
 export function heatmapSelectors(
   containerId: string,
   seriesIndex: number,
   rows: number,
   cols: number,
+  topFirst: boolean,
 ): string[][] {
   const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
   const result: string[][] = [];
   for (let r = 0; r < rows; r++) {
-    // HeatmapTrace reverses rows on construction; r=0 is logical bottom.
-    // Adapter stamps `data-maidr-row` using the visual top-down index
-    // (yIdx as provided by Highcharts), so flip back here.
-    const visualRow = rows - 1 - r;
+    const stampedRow = topFirst ? rows - 1 - r : r;
     const rowSelectors: string[] = [];
     for (let c = 0; c < cols; c++) {
-      rowSelectors.push(`${base}[data-maidr-row="${visualRow}"][data-maidr-col="${c}"]`);
+      rowSelectors.push(`${base}[data-maidr-row="${stampedRow}"][data-maidr-col="${c}"]`);
     }
     result.push(rowSelectors);
   }
