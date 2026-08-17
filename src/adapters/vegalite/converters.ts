@@ -1840,9 +1840,53 @@ function extractScatterData(
   }));
 }
 
+/**
+ * The categories of one heatmap axis, in the order the chart draws them.
+ *
+ * Vega sorts a nominal domain rather than keeping the rows' own order, so the
+ * two disagree whenever the data was not listed already sorted — and a chart
+ * announced in the rows' order then describes a grid nobody is looking at.
+ *
+ * Nothing is reversed. Vega lays a band scale's first domain value out at the
+ * top*, which is the order {@link HeatmapData} asks for; the sibling
+ * adapters reverse only because their libraries count from the bottom (#977).
+ *
+ * The order can come only from the compiled view: `sort` on the encoding may
+ * name another field, invert it, or give an explicit list, and only Vega
+ * knows what those resolved to. Without a view the rows' own order is the
+ * best guess available, and is what this returns.
+ *
+ * @param view - The compiled view, when one was supplied
+ * @param channel - The positional channel, `'x'` or `'y'`
+ * @param markGroupPrefix - The composite child's class prefix, if any
+ * @param seen - The categories the rows carried, in the order they arrived
+ * @returns The drawn order, or `seen` when there is no view to ask
+ */
+function orderedHeatmapAxis(
+  view: VegaView | undefined,
+  channel: string,
+  markGroupPrefix: string,
+  seen: string[],
+): string[] {
+  const domain = readScaleDomain(view, channel, markGroupPrefix);
+  if (!domain)
+    return seen;
+
+  const present = new Set(seen);
+  const ordered = domain.map(String).filter(value => present.has(value));
+  // A domain naming *more* than this layer draws is still authoritative about
+  // the relative order of what it does draw — a scale shared across a
+  // composite spec is the ordinary case — so the extras are simply filtered
+  // out. A domain missing one of the rows is a different matter: it is not
+  // describing this grid, and taking it would drop a row the chart shows.
+  return ordered.length === seen.length ? ordered : seen;
+}
+
 function extractHeatmapData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
+  view?: VegaView,
+  markGroupPrefix = '',
 ): HeatmapData {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
@@ -1854,8 +1898,8 @@ function extractHeatmapData(
     xLabelsSet.add(String(row[xField] ?? ''));
     yLabelsSet.add(String(row[yField] ?? ''));
   }
-  const xLabels = [...xLabelsSet];
-  const yLabels = [...yLabelsSet];
+  const xLabels = orderedHeatmapAxis(view, 'x', markGroupPrefix, [...xLabelsSet]);
+  const yLabels = orderedHeatmapAxis(view, 'y', markGroupPrefix, [...yLabelsSet]);
 
   const xIndex = new Map(xLabels.map((l, i) => [l, i]));
   const yIndex = new Map(yLabels.map((l, i) => [l, i]));
@@ -3166,7 +3210,7 @@ function convertLayerSpec(
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     case TraceType.HEATMAP:
-      data = extractHeatmapData(rows, encoding);
+      data = extractHeatmapData(rows, encoding, view, markGroupPrefix);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
     // A map has no positional channels at all, so its axes are named after
