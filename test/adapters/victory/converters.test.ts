@@ -741,7 +741,8 @@ describe('polar area', () => {
     expect(layer.selectors).toEqual(['#mv [data-maidr-victory-0]']);
   });
 
-  it('reads a polar prop on the bar itself', () => {
+  it('reads a polar prop on a bar with no chart around it', () => {
+    // Nothing outside has spoken, so the bar's own prop is all there is.
     const [info] = extractVictoryLayers(
       createElement(VictoryBar, { data: wedges, polar: true }),
     );
@@ -749,9 +750,31 @@ describe('polar area', () => {
     expect(toMaidrLayer(info).type).toBe(TraceType.POLAR_AREA);
   });
 
-  it('lets a child opt back out of an enclosing polar chart', () => {
+  it('keeps a polar chart polar even when the bar says otherwise', () => {
+    // The outermost declaration wins: `VictoryChart` clones each child with
+    // its own resolved `polar`, so the inner prop is overwritten rather than
+    // preferred. This case asserted the opposite until #954 — the reading it
+    // pinned was a plain bar chart for something Victory draws as a coxcomb.
     const [info] = extractVictoryLayers(
       chart({ polar: true }, createElement(VictoryBar, { data: wedges, polar: false })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.POLAR_AREA);
+  });
+
+  it('lets a chart suppress a bar that asks to be polar', () => {
+    // `polar={false}` on the chart is a declaration, not an absence, which is
+    // why the flag travels as `boolean | undefined`.
+    const [info] = extractVictoryLayers(
+      chart({ polar: false }, createElement(VictoryBar, { data: wedges, polar: true })),
+    );
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
+  });
+
+  it('leaves a bar inside a plain chart alone', () => {
+    const [info] = extractVictoryLayers(
+      chart({}, createElement(VictoryBar, { data: wedges })),
     );
 
     expect(toMaidrLayer(info).type).toBe(TraceType.BAR);
