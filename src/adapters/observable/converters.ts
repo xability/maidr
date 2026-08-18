@@ -418,7 +418,7 @@ function convertMark(
 }
 
 /**
- * How far apart two parts of the same box may sit and still be paired.
+ * How far apart two parts of one category may sit and still be paired.
  *
  * Plot offsets a stroked mark by half a pixel so it lands on the pixel grid,
  * and it does that to the medians and whiskers but not to the boxes — so the
@@ -495,14 +495,19 @@ function convertBoxComposite(
 /**
  * Finds the facet of another mark drawn in the same place as this one.
  *
+ * Compared exactly, unlike the parts within a facet below. A facet's offset is
+ * not a measurement of anything: Plot writes the same translation into every
+ * mark's group for a given facet, so two that belong together carry the same
+ * string and parse to the same number. A tolerance here would only make two
+ * genuinely adjacent facets confusable.
+ *
  * @param facets - The other mark's facets.
  * @param anchor - The facet to match.
  * @returns The matching facet, or `null` when the mark skipped it.
  */
 function facetAt(facets: readonly MarkFacet[], anchor: MarkFacet): MarkFacet | null {
   return facets.find(facet =>
-    Math.abs(facet.offsetX - anchor.offsetX) <= PART_TOLERANCE
-    && Math.abs(facet.offsetY - anchor.offsetY) <= PART_TOLERANCE) ?? null;
+    facet.offsetX === anchor.offsetX && facet.offsetY === anchor.offsetY) ?? null;
 }
 
 /** A mark's elements together with the translation its group carries. */
@@ -574,6 +579,11 @@ function readBoxLayer(context: ConversionContext, parts: BoxParts): ConvertedMar
       return null;
 
     const mine = spots.filter(spot => nearest(boxes, spot.centre) === index);
+    // One comparison rather than two, because a `dot` here is an outlier by
+    // construction: Plot draws this mark only for the observations that fall
+    // outside the whiskers. Anything not below the lower end is therefore above
+    // the upper one, and testing that separately would leave a third case with
+    // nowhere to go for a point that cannot occur.
     const lower = mine.filter(spot => spot.value < whisker.low);
     const upper = mine.filter(spot => spot.value >= whisker.low);
 
