@@ -581,6 +581,9 @@ export function candlestickSelectors(
  * @param cols        - How many columns the grid has
  * @param topFirst    - Whether Highcharts already draws y index 0 at the top,
  *                      meaning the adapter left the payload's rows as they were
+ * @param leftFirst   - The same question of the x axis: whether Highcharts
+ *                      already draws x index 0 at the left, meaning the
+ *                      adapter left each row's columns as they were (#1008)
  * @returns `selectors[r][c]`, indexed the way the model indexes its cells
  */
 export function heatmapSelectors(
@@ -589,6 +592,7 @@ export function heatmapSelectors(
   rows: number,
   cols: number,
   topFirst: boolean,
+  leftFirst: boolean,
 ): string[][] {
   const base = `#${containerId} .highcharts-series-group .highcharts-series-${seriesIndex} .highcharts-point`;
   const result: string[][] = [];
@@ -596,7 +600,10 @@ export function heatmapSelectors(
     const stampedRow = topFirst ? rows - 1 - r : r;
     const rowSelectors: string[] = [];
     for (let c = 0; c < cols; c++) {
-      rowSelectors.push(`${base}[data-maidr-row="${stampedRow}"][data-maidr-col="${c}"]`);
+      // Whichever way the payload was turned, the stamp is still the index
+      // Highcharts gave the cell, so the lookup is turned the same way back.
+      const stampedCol = leftFirst ? c : cols - 1 - c;
+      rowSelectors.push(`${base}[data-maidr-row="${stampedRow}"][data-maidr-col="${stampedCol}"]`);
     }
     result.push(rowSelectors);
   }

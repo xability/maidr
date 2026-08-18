@@ -3993,21 +3993,32 @@ function convertHeatmapSeries(
     points[yIdx][xIdx] = cellValue ?? 0;
   }
 
-  // {@link HeatmapData} runs top-first. Highcharts numbers a y axis from the
-  // bottom, so `points[0]` — the row it calls y index 0 — is the bottom one
-  // and the rows are turned over here. A reversed axis already counts from
-  // the top and is left alone (#973).
+  // {@link HeatmapData} runs top-first and left-first, so each axis is asked
+  // the same question: does Highcharts already draw its index 0 at that end?
+  //
+  // The two answers are opposite for the *same* chart, because Highcharts
+  // numbers a y axis from the bottom and an x axis from the left. So an
+  // unreversed y has to be turned over — `points[0]`, the row it calls y index
+  // 0, is the bottom one (#973) — while an unreversed x is already the way
+  // round the payload wants, and it is the *reversed* x that has to move
+  // (#1008). Asking both here rather than one at each site is what stops the
+  // second axis being forgotten, which is how #1008 outlived #973.
   const topFirst = isReversedAxis(series.yAxis);
+  const leftFirst = !isReversedAxis(series.xAxis);
+
+  const xLabels = xCategories.length > 0
+    ? xCategories
+    : Array.from({ length: cols }, (_, i) => String(i));
   const yLabels = yCategories.length > 0
     ? yCategories
     : Array.from({ length: rows }, (_, i) => String(i));
 
+  const byRow = topFirst ? points : [...points].reverse();
+
   const data: HeatmapData = {
-    x: xCategories.length > 0
-      ? xCategories
-      : Array.from({ length: cols }, (_, i) => String(i)),
+    x: leftFirst ? xLabels : [...xLabels].reverse(),
     y: topFirst ? yLabels : [...yLabels].reverse(),
-    points: topFirst ? points : [...points].reverse(),
+    points: leftFirst ? byRow : byRow.map(row => [...row].reverse()),
   };
 
   // Stamp `data-maidr-row` / `data-maidr-col` onto each rendered cell using
@@ -4020,7 +4031,7 @@ function convertHeatmapSeries(
     id: String(series.index),
     type: TraceType.HEATMAP,
     title: series.name || undefined,
-    selectors: heatmapSelectors(containerId, series.index, rows, cols, topFirst),
+    selectors: heatmapSelectors(containerId, series.index, rows, cols, topFirst, leftFirst),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
