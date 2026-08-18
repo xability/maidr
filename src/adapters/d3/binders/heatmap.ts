@@ -37,15 +37,18 @@ import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart
  * @see {@link useD3Adapter}
  *
  * @remarks
- * **Say which row is the top one.** The schema orders a heatmap's rows
- * top-first, and without {@link D3HeatmapConfig.yOrder} they are taken in the
- * order the cells appear in the DOM -- the order your `.data().join()` ran in,
- * which need not be the order your scale draws. A band scale whose domain
- * ascends up the page joins bottom-first, and the chart is then read upside
- * down: the cursor enters at the top row and <kbd>Up</kbd> walks down it.
- * Nothing errors, and every value is still announced against its own label
- * (#978). Pass `yOrder: yScale.domain()`, or its reverse for an ascending
- * band scale.
+ * **Say which row is the top one, and which column is the leftmost.** The
+ * schema orders a heatmap's rows top-first and its columns left-first, and
+ * without {@link D3HeatmapConfig.yOrder} and {@link D3HeatmapConfig.xOrder}
+ * both are taken in the order the cells appear in the DOM -- the order your
+ * `.data().join()` ran in, which need not be the order your scales draw. A
+ * band scale whose domain ascends up the page joins bottom-first, and the
+ * chart is then read upside down: the cursor enters at the top row and
+ * <kbd>Up</kbd> walks down it. The column equivalent reads it mirrored, with
+ * <kbd>Right</kbd> walking left. Nothing errors either way, and every value is
+ * still announced against its own label (#978, #1013). Pass
+ * `yOrder: yScale.domain()` and `xOrder: xScale.domain()`, reversing either
+ * for a band scale that runs the other way.
  *
  * @param svg - The SVG element containing the D3 heatmap.
  * @param config - Configuration specifying the selector and data accessors.
@@ -80,11 +83,11 @@ const CELL_ATTRIBUTE = 'data-maidr-heatmap-cell';
 /**
  * The row labels in the order the chart draws them, top first.
  *
- * @param appearance - The rows in the order they appear in the DOM
+ * @param appearance - The categories in the order they appear in the DOM
  * @param declared - What the caller said the drawn order is, if anything
- * @returns The declared order when it accounts for every row, else `appearance`
+ * @returns The declared order when it names every one, else `appearance`
  */
-function orderedRows(appearance: string[], declared?: string[]): string[] {
+function orderedCategories(appearance: string[], declared?: string[]): string[] {
   if (!declared) {
     return appearance;
   }
@@ -94,18 +97,18 @@ function orderedRows(appearance: string[], declared?: string[]): string[] {
   const ordered: string[] = [];
   for (const row of declared) {
     // Repeats are dropped as well as unknowns, so the length check below
-    // really does mean "names every row exactly once". Taking the first
+    // really does mean "names every category exactly once". Taking the first
     // mention and counting alone would let `['a', 'a']` past for a grid of
-    // `a` and `b`, emitting one row twice and losing the other outright.
+    // `a` and `b`, emitting one twice and losing the other outright.
     if (present.has(row) && !taken.has(row)) {
       taken.add(row);
       ordered.push(row);
     }
   }
 
-  // Naming rows the chart does not draw is ordinary -- a scale's domain
+  // Naming categories the chart does not draw is ordinary -- a scale's domain
   // outlives a filter -- so the extras are dropped. Naming *fewer* than it
-  // draws is not a description of this grid, and honouring it would lose a row
+  // draws is not a description of this grid, and honouring it would lose one
   // the reader can see, so appearance order is kept instead.
   return ordered.length === appearance.length ? ordered : appearance;
 }
@@ -117,6 +120,7 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
     format,
     selector,
     yOrder,
+    xOrder,
   } = config;
 
   const elements = queryD3Elements(root, selector);
@@ -162,7 +166,7 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
   });
 
   // Build unique x and y labels (preserving order of appearance)
-  const xLabels: string[] = [];
+  const appearanceX: string[] = [];
   const appearanceY: string[] = [];
   const seenX = new Set<string>();
   const seenY = new Set<string>();
@@ -170,7 +174,7 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
   for (const cell of cells) {
     if (!seenX.has(cell.x)) {
       seenX.add(cell.x);
-      xLabels.push(cell.x);
+      appearanceX.push(cell.x);
     }
     if (!seenY.has(cell.y)) {
       seenY.add(cell.y);
@@ -178,12 +182,13 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
     }
   }
 
-  // `HeatmapData` runs top-first, and appearance order is the order the join
-  // happened to run in -- which for a band scale whose domain ascends is
-  // bottom-first, and for anything else is nobody's order in particular.
-  // Unlike the library adapters there is no scale to consult here, so the
-  // caller says (#978).
-  const yLabels = orderedRows(appearanceY, yOrder);
+  // `HeatmapData` runs top-first and left-first, and appearance order is the
+  // order the join happened to run in -- which for a band scale whose domain
+  // ascends is bottom-first, and for anything else is nobody's order in
+  // particular. Unlike the library adapters there is no scale to consult here,
+  // so the caller says: rows since #978, columns since #1013.
+  const yLabels = orderedCategories(appearanceY, yOrder);
+  const xLabels = orderedCategories(appearanceX, xOrder);
 
   // Build the 2D points grid using nested Maps to avoid key collisions
   const cellMap = new Map<string, Map<string, number>>();
