@@ -411,6 +411,53 @@ function hasOrdinalXScale(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether the chart draws a series' categories in the opposite order to the
+ * one its rows are listed in.
+ *
+ * `chart.xScale().inverted(...)` reverses which end the categories start at,
+ * while AnyChart goes on rendering the marks in data order -- so when the two
+ * disagree, a layer emitted as written is announced as the mirror image of the
+ * chart (#1021).
+ *
+ * `inverted()` alone does not answer it, because AnyChart's defaults differ by
+ * chart type and **both agree with data order**. Measured on 8.13.0, reading
+ * a freshly constructed chart before touching anything:
+ *
+ *   anychart.bar    (horizontal)  inverted() === true
+ *   anychart.column (vertical)    inverted() === false
+ *
+ * A horizontal bar runs its categories down the page, and inverting is what
+ * puts the first one at the top; a vertical column runs them across, and not
+ * inverting is what puts the first one at the left. So the reading is
+ * backwards exactly when `inverted()` disagrees with the series' own
+ * direction, which is `'bar'` for horizontal and `'column'` for vertical --
+ * and an ordinary chart of either kind is left alone.
+ *
+ * The **x** scale specifically: inverting the value scale was measured to move
+ * no category, only which end the bars hang from, so asking "is either scale
+ * inverted" would reorder a chart that did not move.
+ *
+ * Defensive in the same shape as {@link hasOrdinalXScale} -- a chart or series
+ * that cannot be asked keeps the reading it has today.
+ *
+ * @param chart - The chart the series belongs to
+ * @param series - The bar or column series being read
+ * @returns True when the drawn order is the reverse of the listed order
+ */
+function drawsCategoriesReversed(
+  chart: AnyChartInstance,
+  series: AnyChartSeries,
+): boolean {
+  try {
+    const inverted = chart.xScale?.()?.inverted?.() === true;
+    const horizontal = series.seriesType() === 'bar';
+    return inverted !== horizontal;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Which point-drawn variant this chart's `marker` series belong to.
  *
  * A marker series against named categories is a Cleveland dot plot: one
@@ -799,6 +846,34 @@ function sanitizePanelToken(value: string): string {
  * Callers can override either behaviour by passing an explicit `selectors`
  * entry.
  */
+/**
+ * One selector per bar, naming the marks in the order the payload lists them.
+ *
+ * The default bar selector is a prefix match over the stamped attribute, which
+ * resolves in document order -- and AnyChart renders its marks in data order
+ * whichever way the scale runs. A layer read from the far end therefore cannot
+ * use it: point 0 would outline the bar at the opposite end. The per-point
+ * stamp {@link stampBarAttributes} already writes is enough to name them one
+ * by one, so nothing extra has to be stamped (#1021).
+ *
+ * @param seriesIndex - Index of the series within its chart
+ * @param pointCount  - How many bars the series drew
+ * @param panel       - The panel context, in multi-panel mode
+ * @returns One selector per point, in the payload's order
+ */
+function barSelectorsInDrawnOrder(
+  seriesIndex: number,
+  pointCount: number,
+  panel?: PanelContext,
+): string[] {
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  return Array.from(
+    { length: pointCount },
+    (_, i) => `${scope}[${BAR_ATTR}="${stamp}${seriesIndex}-${pointCount - 1 - i}"]`,
+  );
+}
+
 function resolveSelector(
   seriesIndex: number,
   traceType: AnyChartTraceType,
@@ -4098,12 +4173,29 @@ function buildBarLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  invertedCategories = false,
+  panel?: PanelContext,
 ): MaidrLayer {
   const rows = extractRawRows(series);
   const data: BarPoint[] = rows.map(r => ({
     x: asString(r.x ?? r.name ?? r._index),
     y: asNumber(r.value ?? r.y),
   }));
+
+  // An inverted scale draws the categories from the far end while the marks
+  // stay in data order, so both the reading and the selectors turn round
+  // together -- reversing one alone announces a bar and outlines another
+  // (#1021, and #988 / #1000 before it).
+  if (invertedCategories && data.length > 0) {
+    data.reverse();
+    return {
+      id: String(seriesIndex),
+      type: TraceType.BAR,
+      selectors: barSelectorsInDrawnOrder(seriesIndex, data.length, panel),
+      data,
+    };
+  }
+
   return {
     id: String(seriesIndex),
     type: TraceType.BAR,
@@ -5283,10 +5375,11 @@ function buildLayer(
   traceType: AnyChartTraceType,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
+  invertedCategories = false,
 ): MaidrLayer {
   switch (traceType) {
     case TraceType.BAR:
-      return buildBarLayer(series, seriesIndex, selectors);
+      return buildBarLayer(series, seriesIndex, selectors, invertedCategories, panel);
     case TraceType.DOT:
     case TraceType.LOLLIPOP:
       return buildDotLayer(series, seriesIndex, traceType, selectors);
@@ -5676,7 +5769,13 @@ function buildSubplot(
     }
 
     const selectors = resolveSelector(i, traceType, options, panel);
-    const layer = buildLayer(chart, series, i, traceType, selectors, panel);
+    // Only when the adapter owns the selectors: a caller who named the marks
+    // themselves is describing their own chart, and replacing their list with
+    // one built from the stamped attributes would discard what they said.
+    const invertedCategories = traceType === TraceType.BAR
+      && !hasSelectorOverrides
+      && drawsCategoriesReversed(chart, series);
+    const layer = buildLayer(chart, series, i, traceType, selectors, panel, invertedCategories);
 
     // Attach axis labels.
     attachAxes(layer, AXIS_FALLBACKS_BY_TYPE[traceType]);
