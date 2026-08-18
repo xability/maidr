@@ -284,7 +284,18 @@ export function buildSurvivalLayer(
     sample,
   );
 
-  const built = buildLineLayer(root, config, panel, TraceType.SURVIVAL, (point, datum, index) => {
+  // A Kaplan-Meier estimate holds until an event drops it, which is what
+  // `d3.curveStepAfter` draws and what this file's own description says the
+  // curve is -- so the convention is known here and does not need declaring.
+  // The config field is still the override, for a curve drawn the other way
+  // round with `curveStepBefore`. `SurvivalTrace extends StepTrace`, so this
+  // is the field it announces the direction from (#1066).
+  const stepped: D3SurvivalConfig = {
+    ...config,
+    stepDirection: config.stepDirection ?? 'hv',
+  };
+
+  const built = buildLineLayer(root, stepped, panel, TraceType.SURVIVAL, (point, datum, index) => {
     const survival = point as SurvivalPoint;
     if (isCensored(resolveAccessorOptional<unknown>(datum, censoredAccessor, index))) {
       survival.censored = true;

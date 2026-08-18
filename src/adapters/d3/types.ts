@@ -31,6 +31,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
   SmoothPoint,
+  StepDirection,
   TraceType,
   TreemapPoint,
   VolcanoPoint,
@@ -153,6 +154,21 @@ export interface D3LineConfig extends D3BinderConfig {
   y?: DataAccessor<number>;
   /** Accessor for the series/fill label. @default 'fill' */
   fill?: DataAccessor<string>;
+  /**
+   * Which way the risers of a step curve go, when the line is drawn as one.
+   *
+   * `'hv'` holds the level and jumps at the next sample, which is
+   * `d3.curveStepAfter`; `'vh'` jumps at the current one, `d3.curveStepBefore`.
+   * Declaring it is what turns a `bindD3Line` bind into a step reading —
+   * navigated by transition rather than by sample, and described in terms of
+   * its runs — and what tells an area's trace that the extra vertices in the
+   * rendered path are risers rather than samples.
+   *
+   * Left undefined by default rather than guessed: `d3.curveStep` puts the
+   * riser midway between the samples, which is neither convention, and
+   * `StepTrace` announces no direction rather than claiming a wrong one.
+   */
+  stepDirection?: StepDirection;
 }
 
 /**
@@ -174,6 +190,7 @@ export type LineMarkTraceType
     | typeof TraceType.NORMALIZED_AREA
     | typeof TraceType.RADAR
     | typeof TraceType.STACKED_AREA
+    | typeof TraceType.STEP
     | typeof TraceType.SURVIVAL;
 
 /**
