@@ -102,6 +102,61 @@ describe('a bar layer whose selectors were narrowed per bar', () => {
   });
 });
 
+/** Three bare bars, no wrapping group: the shape Highcharts draws. */
+function buildBareBars(): void {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const group = document.createElementNS(SVG_NS, 'g');
+  group.setAttribute('class', 'points');
+  for (const name of ['alpha', 'bravo', 'charlie']) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('class', 'point');
+    path.setAttribute('data-name', name);
+    group.appendChild(path);
+  }
+  svg.appendChild(group);
+  document.body.appendChild(svg);
+}
+
+describe('a bar layer whose selectors count the bar itself', () => {
+  // The list above narrows with `.point:nth-child(k) > path`, so the element
+  // that gets matched is the `path` *inside* the counted group and the clone
+  // lands where nothing is counting. Highcharts has no per-bar group -- its
+  // points are direct children -- so the count is on the matched element, and
+  // then resolving one selector moves the next one's answer (#1004).
+
+  /** A layer naming its bars in the order they are drawn, forwards. */
+  function ascendingLayer(): MaidrLayer {
+    return {
+      id: '0',
+      type: TraceType.BAR,
+      orientation: Orientation.VERTICAL,
+      selectors: [1, 2, 3].map(position => `.points .point:nth-child(${position})`),
+      axes: {},
+      data: [
+        { x: 'alpha', y: 1 },
+        { x: 'bravo', y: 2 },
+        { x: 'charlie', y: 3 },
+      ],
+    } as unknown as MaidrLayer;
+  }
+
+  it('points each row at its own bar when the list runs forwards', () => {
+    buildBareBars();
+    const trace = TraceFactory.create(ascendingLayer()) as unknown as {
+      highlightValues: SVGElement[][] | null;
+    };
+    const row = trace.highlightValues?.[0] ?? [];
+
+    // Resolved one at a time this answers alpha, alpha, alpha -- a real bar of
+    // the chart, outlined, that never moves.
+    expect(row.map(element => element.getAttribute('data-name'))).toEqual([
+      'alpha',
+      'bravo',
+      'charlie',
+    ]);
+  });
+});
+
 describe('a segmented layer handed a flat selector list', () => {
   it('declines rather than reporting an empty highlight', () => {
     // A flat list says which bars there are but not which cell each one is

@@ -161,6 +161,24 @@ export abstract class Svg {
       return null;
     }
 
+    return this.cloneHidden(element);
+  }
+
+  /**
+   * Clones an element, hides the copy, and inserts it straight after the
+   * original.
+   *
+   * This is the side effect {@link selectElement} performs once it has found
+   * its element, split out so a caller can do the finding first. Resolving a
+   * positional* selector -- `:nth-child(N)` and friends -- while earlier
+   * clones are already in the DOM counts siblings the chart never drew, and
+   * answers with the clone of an earlier element; a caller with a list of such
+   * selectors has to look them all up before inserting anything (#1004).
+   *
+   * @param element - The live element to stand a highlight copy beside
+   * @returns The inserted clone
+   */
+  public static cloneHidden<T extends SVGElement>(element: T): T {
     const clone = this.markOwned(element.cloneNode(true) as T);
     clone.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
     element.insertAdjacentElement(Constant.AFTER_END, clone);
