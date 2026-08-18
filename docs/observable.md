@@ -197,6 +197,24 @@ That is why the adapter needs no configuration and works on charts written befor
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
 
+## Step curves
+
+A line drawn with `curve: 'step-after'`, `'step-before'` or `'step'` is a **step chart**: navigated by transition rather than by sample, described in runs, and announced as a step plot. Which convention drew it is read off the path rather than declared:
+
+| Plot curve | announced as | the riser sits |
+|---|---|---|
+| `step-after` | `hv` | at the next sample |
+| `step-before` | `vh` | at the current sample |
+| `step` | `mid` | halfway between the two |
+
+A staircase passes through every sample and adds a corner between each pair, so the samples are all on the path and the corners say which convention put them there. Every corner is checked, not just counted — a path that merely happens to carry the right number of vertices is refused, because reading it as a staircase would announce transitions the chart never drew.
+
+The centred `step` needs one thing the other two do not. Its interior samples are **not on the path** — only the midpoints between them are — so they are recovered by walking out from the first, and the last sample, which *is* drawn, checks the result. The error does not accumulate along the series: measured over 50 samples at uneven spacing, the largest departure from the true pixel was 0.002, which is the quantum the coordinates were written at.
+
+An **area** drawn with a step curve stays an area and carries the convention, which is what its trace reads to tell a stepped band's risers from its samples. A stacked one works too: the baseline is stepped alongside the top edge, so the two stay aligned.
+
+This is the one reading in the adapter that is *detected* rather than declared, and it is worth knowing why. Plot binds the datum indices to the path, so how many samples there should be is known — which is what lets the surplus vertices be identified as corners rather than mistaken for data. A binder that reads its data from the source rather than from the drawing has no such handle, which is why MAIDR's d3 binder asks you to declare the convention instead.
+
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
 ## What it does not read
@@ -204,7 +222,7 @@ A **date axis** works: values travel as epoch milliseconds — every trace's poi
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
 - **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`).
 - **A `tick` with no cross-channel.** `Plot.tickX(data, {x: 'v'})` draws every tick across the whole frame, which is a one-dimensional distribution with no category to announce — and a dot plot's point has a second field the chart has nothing to put in. A tick given a categorical `y` (or `x`) is read; one without is not.
-- **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points, and the step curves (`curveStep`, `curveStepAfter`, `curveStepBefore`) draw a corner between every pair of points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the corners. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally.
+- **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the smoothing. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally, and the step curves are read as **step charts** (below).
 - **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.
 
 A chart whose marks are all unread is left alone; other charts on the page are unaffected.

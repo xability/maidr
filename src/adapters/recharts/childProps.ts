@@ -27,11 +27,13 @@ import { Children, isValidElement } from 'react';
  * | `stepBefore` | `M65,128.75 L65,16.25 L190,16.25 L190,72.5 L315,72.5`    | this sample  |
  * | `step`       | `M65,128.75 L127.5,128.75 L127.5,16.25 …`                | halfway      |
  *
- * A centred riser is neither convention, so `type="step"` is absent here on
- * purpose: it is still a step chart, and `StepTrace` announces no direction
- * rather than claiming one the chart does not draw.
+ * All three have a name. Recharts resolves `type` against d3's curves, and
+ * `StepDirection` covers the centred riser as `mid` — matplotlib's
+ * `steps-mid`, which `StepTrace` reads. `step` was left out here until #1075
+ * on the mistaken belief that the grammar could not name it.
  */
 const STEP_DIRECTIONS: Record<string, StepDirection> = {
+  step: 'mid',
   stepAfter: 'hv',
   stepBefore: 'vh',
 };

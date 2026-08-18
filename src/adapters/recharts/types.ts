@@ -45,8 +45,8 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  *   across an interval and then jumps rather than sliding between samples,
  *   which is what `StepTrace` navigates and describes in terms of runs.
  *   Which convention it is comes from {@link RechartsAdapterConfig.stepDirection}
- *   — Recharts' centred `type="step"` puts the riser midway between the
- *   samples and is neither, so a step may go out with no direction at all
+ *   or is read off the `<Line>`: `hv`, `vh`, or `mid` for the centred
+ *   `type="step"`, whose riser lands midway between the samples
  * - `'area'` → `TraceType.AREA` — Area chart (Recharts `<Area>`); the fill is
  *   decoration, so the data is a line's
  * - `'stacked_area'` → `TraceType.STACKED_AREA` — Stacked area chart
@@ -1135,10 +1135,11 @@ export interface RechartsAdapterConfig {
    * inside its own children when a step chart does not declare one, so an
    * author usually need not.
    *
-   * Left undefined rather than defaulted when nothing says: Recharts' centred
-   * `type="step"` draws the riser midway between the samples, which is neither
-   * convention, and `StepTrace` announces no direction rather than claiming a
-   * wrong one.
+   * Left undefined rather than defaulted when nothing says. Every curve
+   * Recharts draws has a name — `hv`, `vh`, or `mid` for the centred
+   * `type="step"` — so a default here would be substituting one of them for a
+   * config that named none, and an undeclared direction is the one case
+   * `StepTrace` is written to expect.
    */
   stepDirection?: StepDirection;
 

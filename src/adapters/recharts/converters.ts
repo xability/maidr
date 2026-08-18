@@ -2075,8 +2075,11 @@ function layerOptions(
     // A step and an area both carry the convention their riser is drawn with —
     // an area because `AreaTrace` reads `stepDirection` to reconcile the extra
     // vertices a staircase has, a step because `StepTrace` announces it. No
-    // default: Recharts' centred `type="step"` is neither convention, and an
-    // undeclared direction is the one case `StepTrace` is written to expect.
+    // default, because a config naming no direction and having no `<Line>` to
+    // read one off has not said which way its risers go, and an undeclared
+    // direction is the one case `StepTrace` is written to expect. Every curve
+    // Recharts draws does have a name — `hv`, `vh` or `mid` — so a default
+    // here would be substituting one of them for silence.
     case 'step':
     case 'area':
     case 'stacked_area':

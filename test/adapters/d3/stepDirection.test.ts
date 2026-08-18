@@ -83,13 +83,24 @@ describe('bindD3Line with a step convention', () => {
   });
 
   test('stays the line it was when nothing declares a convention', () => {
-    // `d3.curveStep` puts the riser midway between the samples, which is
-    // neither convention and which `StepDirection` cannot name — so a caller
-    // with nothing to declare is unchanged rather than guessed at.
+    // This binder reads its data off `__data__` and never looks at the path,
+    // so a caller who declares nothing is left alone rather than guessed at.
     const result = bindD3Line(buildSvg(LEVELS), LINE_BASE);
 
     expect(result.layer.type).toBe(TraceType.LINE);
     expect(result.layer.stepDirection).toBeUndefined();
+  });
+
+  test('carries the centred convention when one is declared', () => {
+    // `d3.curveStep` puts the riser midway between the samples, and the
+    // grammar names that `mid` — the same convention as matplotlib's
+    // `steps-mid`. Nothing here has to be taught it: the field is typed
+    // `StepDirection` and is passed through, which is worth a case because the
+    // docs claimed for a while that it could not be named.
+    const result = bindD3Line(buildSvg(LEVELS), { ...LINE_BASE, stepDirection: 'mid' });
+
+    expect(result.layer.type).toBe(TraceType.STEP);
+    expect(result.layer.stepDirection).toBe('mid');
   });
 });
 
