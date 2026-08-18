@@ -134,6 +134,24 @@ function buildScale(spec: FixtureScaleSpec): Record<string, unknown> {
 
   const [d0, d1] = spec.domain as number[];
 
+  // A `pow` scale interpolates in the exponent, which is how Plot sizes a
+  // radius: `r` defaults to a square root, so a bin holding five of nine
+  // points is drawn at 10·√(5/9) rather than at five ninths of the range.
+  // Rebuilt linearly, a hexbin's counts come back as 6.71 and 4.24.
+  if (spec.type === 'pow') {
+    const e = spec.exponent ?? 1;
+    const signed = (value: number): number => Math.sign(value) * Math.abs(value) ** e;
+    const p0 = signed(d0);
+    const p1 = signed(d1);
+    scale.apply = (value: unknown) =>
+      r0 + (signed(Number(value)) - p0) / (p1 - p0) * (r1 - r0);
+    scale.invert = (pixel: unknown) => {
+      const at = p0 + ((pixel as number) - r0) / (r1 - r0) * (p1 - p0);
+      return Math.sign(at) * Math.abs(at) ** (1 / e);
+    };
+    return scale;
+  }
+
   // A log scale interpolates in the exponent, which is exactly what the
   // adapter's tick-derived fallback cannot do — so building it faithfully here
   // is what lets a test tell the two paths apart.

@@ -378,7 +378,13 @@ function convertMark(
     case 'rect':
       return convertRect(facet, context);
     case 'dot':
-      return convertDot(facet, context);
+      // A hexbin arrives labelled `dot` like any other, and its hexagons are
+      // the same paths a `symbol: 'hexagon'` scatter draws — so the author
+      // says which it is, through the same `markTypes` option a binned rect
+      // uses to say it is a histogram.
+      return context.markTypes.dot === TraceType.HEXBIN
+        ? convertHexbin(facet, context)
+        : convertDot(facet, context);
     // A tick is a dot drawn as a stroke rather than a symbol -- one mark per
     // observation either way, and the same reading once its centre is found
     // (#1069).
@@ -483,6 +489,186 @@ function convertRegression(
       data,
     },
   };
+}
+
+/**
+ * Reads a hexbin's bins as a lattice.
+ *
+ * `Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` draws one `<path>`
+ * per bin, each a regular hexagon placed by a `transform` and sized by the `r`
+ * scale. Both halves invert exactly and neither goes through a colour:
+ *
+ * ```
+ * transform="translate(30.5, 363.731)"   the bin's centre
+ * d="M0,8.607L7.454,4.303L…Z"            radius 7.454, which the r scale
+ *                                        maps back to a count of 5
+ * ```
+ *
+ * **The author declares it**, because nothing in the markup can. The marks
+ * arrive in a group labelled `dot`, and Plot's own `symbol: 'hexagon'` draws
+ * the identical path shape at a different radius, so a scatter of hexagons and
+ * a hexbin are indistinguishable. `markTypes` is the option that already
+ * exists for exactly this, and a hexbin is a single mark, so one label maps to
+ * one type without widening it.
+ *
+ * The shape is still checked rather than trusted: a declaration that points at
+ * marks which are not hexagons is declined, so a mislabelled chart is read as
+ * nothing rather than as a lattice of invented counts.
+ *
+ * `HexbinTrace` navigates rows of bins, and a hex lattice's rows share a
+ * y **pixel** exactly, so they are grouped on that rather than on the inverted
+ * value — the grouping is then exact instead of tolerant.
+ *
+ * @param facet   - The mark's hexagons.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when the marks are not hexagons.
+ */
+function convertHexbin(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  const { scales } = context;
+  const bins: { row: number; x: number; y: number; count: number; element: Element }[] = [];
+
+  for (const element of facet.elements) {
+    if (element.tagName.toLowerCase() !== 'path')
+      continue;
+    const centre = translateOf(element);
+    const radius = hexagonRadius(element);
+    if (centre === null || radius === null)
+      return null;
+
+    const x = toNumber(valueAtPixel(scales.x, centre.x));
+    const y = toNumber(valueAtPixel(scales.y, centre.y));
+    const count = binCount(valueAtPixel(scales.r, radius), scales.r, radius);
+    if (x === null || y === null || count === null)
+      return null;
+    bins.push({ row: centre.y, x, y, count, element });
+  }
+
+  if (bins.length === 0)
+    return null;
+
+  // Bottom row first, since that is the direction the trace steps its row
+  // index in, and left to right within each — the way the lattice reads.
+  const byRow = new Map<number, typeof bins>();
+  for (const bin of bins) {
+    const row = byRow.get(bin.row) ?? [];
+    row.push(bin);
+    byRow.set(bin.row, row);
+  }
+  const ordered = [...byRow.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([, row]) => [...row].sort((a, b) => a.x - b.x));
+
+  const token = `L${context.layerCount++}`;
+  return {
+    legend: [],
+    layer: {
+      id: token,
+      type: TraceType.HEXBIN,
+      selectors: stampLayer(ordered.flat().map(bin => bin.element), context.containerId, token),
+      axes: axisConfig(context),
+      data: ordered.map(row => row.map(({ x, y, count }) => ({ x, y, count }))),
+    },
+  };
+}
+
+/**
+ * The step Plot writes a path coordinate at — three decimals, measured across
+ * every mark this adapter reads.
+ */
+const PATH_QUANTUM = 0.001;
+
+/**
+ * A bin's tally, cleaned to what the drawing actually supports.
+ *
+ * The radius reaches the `d` attribute rounded — Plot writes three decimals —
+ * and a radius scale squares it on the way back, so the recovered tally is a
+ * hair off: a bin of five comes back as 5.00059 from a drawn 7.454 where the
+ * true radius was 7.45356.
+ *
+ * `HexbinPoint.count` is documented as "how many points fell in it", so a
+ * whole number is what the field means, and rounding to one is reading its
+ * contract rather than guessing. But only when the reading is unambiguous:
+ * `r` need not be a count — a bin sized by a mean or a sum of fractions has a
+ * genuinely fractional tally — so the rounding applies only when the recovered
+ * value sits within the geometry's own error of an integer, and otherwise the
+ * value is cleaned to the precision the pixels support and left alone.
+ *
+ * @param value  - The tally as inverted, or `null` when there is no r scale.
+ * @param scale  - The radius scale.
+ * @param radius - The drawn radius, for sizing the error.
+ * @returns The tally, or `null` when none could be read.
+ */
+function binCount(
+  value: string | number | null,
+  scale: PlotScale | undefined,
+  radius: number,
+): number | null {
+  const tally = toNumber(value);
+  if (tally === null)
+    return null;
+
+  // Half the quantum Plot writes a coordinate at, carried through the scale:
+  // squaring doubles the relative error, so the absolute error on the tally is
+  // twice the tally's share of it.
+  const error = Math.abs(2 * tally * (PATH_QUANTUM / 2) / radius);
+  const whole = Math.round(tally);
+  if (Math.abs(tally - whole) <= Math.max(error, 1e-9))
+    return whole;
+  return cleanToGeometry(tally, scale, PATH_QUANTUM / 2);
+}
+
+/**
+ * The `translate(x, y)` a mark was placed by, when it carries one.
+ *
+ * @param element - The mark.
+ * @returns Its centre in pixels, or `null` when it is not translated.
+ */
+function translateOf(element: Element): { x: number; y: number } | null {
+  const written = element.getAttribute('transform') ?? '';
+  const match = /translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/.exec(written);
+  if (!match)
+    return null;
+  const x = Number.parseFloat(match[1]);
+  const y = Number.parseFloat(match[2]);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+/**
+ * The radius of a regular hexagon, or `null` when the path is not one.
+ *
+ * Plot draws a hexbin's cell with its vertices at `(0, ±2r/√3)` and
+ * `(±r, ±r/√3)`, so the radius is the widest `|x|` — and every vertex has to
+ * sit where that radius puts it, or this is some other six-sided shape and
+ * reading a count off its size would be reading a number the chart does not
+ * hold.
+ *
+ * @param element - The `<path>`.
+ * @returns The radius, or `null` when the shape does not match.
+ */
+function hexagonRadius(element: Element): number | null {
+  const drawn = readPathGeometry(element);
+  if (drawn === null || drawn.vertices.length !== 6)
+    return null;
+
+  const radius = Math.max(...drawn.vertices.map(vertex => Math.abs(vertex.x)));
+  if (!(radius > 0))
+    return null;
+
+  const tall = radius * 2 / Math.sqrt(3);
+  const expected = [
+    { x: 0, y: tall },
+    { x: radius, y: tall / 2 },
+    { x: radius, y: -tall / 2 },
+    { x: 0, y: -tall },
+    { x: -radius, y: -tall / 2 },
+    { x: -radius, y: tall / 2 },
+  ];
+  // Against the quantum the coordinates were written at, doubled because both
+  // the drawn value and the expected one carry it.
+  const tolerance = Math.max(drawn.pixelError * 2, 1e-6);
+  const matches = expected.every(want => drawn.vertices.some(vertex =>
+    Math.abs(vertex.x - want.x) <= tolerance && Math.abs(vertex.y - want.y) <= tolerance));
+  return matches ? radius : null;
 }
 
 /**
