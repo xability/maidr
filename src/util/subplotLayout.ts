@@ -84,7 +84,7 @@ export function resolveSubplotLayout(subplots: Subplot[][]): SubplotLayout {
   }
 
   const sorted = sortByVisualPosition(positions);
-  const visualOrderMap = buildOrderMap(sorted);
+  const visualOrderMap = buildOrderMap(sorted, subplots);
   const topLeftRow = sorted[0].row;
   const invertVertical = detectInversion(positions, subplots.length);
 
@@ -181,12 +181,95 @@ function sortByVisualPosition(entries: AxesPosition[]): AxesPosition[] {
 }
 
 /**
- * Creates a 1-based visual index map from a sorted array of positions.
+ * Orders the indices of one axis by the screen coordinate its cells report.
+ *
+ * Only the *direction* is read from the measurements, not the individual
+ * positions, so an index nothing could be measured for still lands where it
+ * belongs: an empty cell has a place in the grid even when it has none on
+ * the screen, and interpolating a coordinate for it would be inventing a
+ * measurement rather than using one.
+ *
+ * @param count - How many indices this axis has.
+ * @param coordOf - The axis coordinate of an index, or undefined if nothing
+ *   at that index could be measured.
+ * @returns The indices, in visual order.
  */
-function buildOrderMap(sorted: AxesPosition[]): Map<string, number> {
+function axisOrder(
+  count: number,
+  coordOf: (index: number) => number | undefined,
+): number[] {
+  const all = Array.from({ length: count }, (_, index) => index);
+  const measured = all.filter(index => coordOf(index) !== undefined);
+
+  // The first pair that actually differs. Equal coordinates say nothing about
+  // direction, and panels drawn exactly on top of each other report them.
+  let descending = false;
+  for (let k = 1; k < measured.length; k++) {
+    const before = coordOf(measured[k - 1])!;
+    const after = coordOf(measured[k])!;
+    if (before !== after) {
+      descending = before > after;
+      break;
+    }
+  }
+
+  return descending ? all.reverse() : all;
+}
+
+/**
+ * Creates a 1-based visual index map covering **every** cell of the grid.
+ *
+ * Numbering only the cells that could be measured left an empty one with no
+ * entry at all, and `Figure.state` then announced it as subplot 1 -- the
+ * index the top-left panel already claims, so two different cells answered to
+ * the same number and a reader had no way to tell where they were. The total
+ * was meanwhile the whole cell count, so the announced index and the
+ * announced total were counting different things and the last index was
+ * never reachable (#1085).
+ *
+ * Both halves now come from the same set: the indices run 1..cells, and every
+ * one of them is somewhere a reader can stand.
+ *
+ * @param sorted - Measured positions, in visual order.
+ * @param subplots - The full grid, including cells nothing could be measured
+ *   for.
+ * @returns A 1-based index for every cell.
+ */
+function buildOrderMap(
+  sorted: AxesPosition[],
+  subplots: Subplot[][],
+): Map<string, number> {
+  const numCols = subplots.reduce((widest, row) => Math.max(widest, row.length), 0);
+  const first = (
+    entries: AxesPosition[],
+    match: (entry: AxesPosition) => boolean,
+    coord: (entry: AxesPosition) => number,
+  ): number | undefined => {
+    const found = entries.find(match);
+    return found === undefined ? undefined : coord(found);
+  };
+
+  // `sorted` is already in reading order, so the first entry for a row or
+  // column is its topmost or leftmost cell.
+  const rowOrder = axisOrder(subplots.length, row =>
+    first(sorted, entry => entry.row === row, entry => entry.y));
+  const colOrder = axisOrder(numCols, col =>
+    first(sorted, entry => entry.col === col, entry => entry.x));
+
   const map = new Map<string, number>();
-  for (let i = 0; i < sorted.length; i++) {
-    map.set(`${sorted[i].row},${sorted[i].col}`, i + 1);
+  let index = 1;
+  for (const row of rowOrder) {
+    for (const col of colOrder) {
+      // Ragged grids are allowed: a shorter row simply has no cell there.
+      // The length is enough to say which, because a row is left-packed --
+      // a producer fills every position it emits, and a cell with nothing
+      // drawn in it is a `Subplot` carrying `layers: []` rather than a hole
+      // in the array. A row missing its *leading* column is not a shape the
+      // grammar can express.
+      if (col < subplots[row].length) {
+        map.set(`${row},${col}`, index++);
+      }
+    }
   }
   return map;
 }
