@@ -1,6 +1,6 @@
 import type { AppendedPointInfo } from '@service/liveData';
 import type { BarPoint, CandlestickPoint, LinePoint, Maidr } from '@type/grammar';
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
 import { TraceType } from '@type/grammar';
@@ -360,6 +360,81 @@ describe('liveDataManager', () => {
 
   test('setData returns false for an unregistered chart id', () => {
     expect(manager.setData(createBarMaidr('unknown'))).toBe(false);
+  });
+
+  describe('setData refuses a payload that is not a figure', () => {
+    // The three shapes #956 measured against a live 4.3.0 chart. Every one
+    // of them came back without throwing and changed nothing, which reads
+    // from outside exactly like three shapes all working. Two of them never
+    // reach the registry at all now, and the third -- a layer, which does
+    // carry an `id` -- is refused rather than being allowed to replace a
+    // whole figure with itself should the ids ever collide.
+    let warn: jest.SpiedFunction<typeof console.warn>;
+
+    beforeEach(() => {
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    /**
+     * Hand `setData` a payload of the wrong shape.
+     * @param payload - Whatever a caller passed
+     * @returns What `setData` answered
+     */
+    function setting(payload: unknown): boolean {
+      return manager.setData(payload as Maidr);
+    }
+
+    test('a bare data array', () => {
+      const initial = createBarMaidr();
+      const listener = jest.fn();
+      manager.register(initial, listener);
+
+      expect(setting([{ x: 'ZED1', y: 999 }])).toBe(false);
+      expect(listener).not.toHaveBeenCalled();
+      expect(manager.getData(initial.id)).toBe(initial);
+      expect(warn.mock.calls[0][0]).toContain('an array of 1');
+    });
+
+    test('a single layer object', () => {
+      // A layer has an `id`, so the old lookup would have taken it at its
+      // word: an id collision would have replaced the figure with a layer.
+      const initial = createBarMaidr();
+      manager.register(initial, jest.fn());
+
+      expect(setting({ id: initial.id, type: TraceType.BAR, data: [] })).toBe(false);
+      expect(manager.getData(initial.id)).toBe(initial);
+      expect(warn.mock.calls[0][0]).toContain('no `subplots`');
+    });
+
+    test('nothing at all', () => {
+      // `maidr.id` on undefined used to throw out of a public API.
+      expect(setting(undefined)).toBe(false);
+      expect(setting(null)).toBe(false);
+      expect(warn.mock.calls[0][0]).toContain('undefined');
+    });
+
+    test('a value that is not an object', () => {
+      expect(setting('the-chart-id')).toBe(false);
+      expect(warn.mock.calls[0][0]).toContain('a string');
+    });
+
+    test('an object carrying no id', () => {
+      expect(setting({ subplots: [[{ layers: [] }]] })).toBe(false);
+      expect(warn.mock.calls[0][0]).toContain('no `id`');
+    });
+
+    test('and says which shape it wanted', () => {
+      // The message has to name the expectation, not just the refusal: a
+      // caller who passed a layer needs to learn that a figure was wanted.
+      setting([]);
+
+      expect(warn.mock.calls[0][0]).toContain('`subplots`');
+      expect(warn.mock.calls[0][0]).toContain('was not changed');
+    });
   });
 
   test('appendData merges the point into stored data and notifies with append info', () => {
