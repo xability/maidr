@@ -47,6 +47,7 @@ import type { MarkFacet } from './introspect';
 import type { MarkDatum, ObservablePlotOptions, PlotScale, PlotScales } from './types';
 import { ensureContainerId, nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
+import { toCategoryShares, toSegmentedShares } from '../shared/normalize';
 import {
   boxCompositeGroups,
   findMarkGroups,
@@ -938,13 +939,27 @@ function convertLine(
   // totals are summed there rather than sent from here, which is what the
   // per-series values read off the band are.
   const stacked = type === TraceType.AREA && bandsStack(bands);
+  // The same question of a stacked area, asked per sample rather than per
+  // column: bands that add to one at every x are a 100% area.
+  const heights = series[0]?.map((_, sample) =>
+    series.map(band => Number(band[sample]?.y))) ?? [];
+  const normalized = stacked && columnsAreShares(heights);
+  if (normalized) {
+    const scaled = toCategoryShares(series.map(band => band.map(point => Number(point.y))));
+    for (const [band, values] of scaled.entries()) {
+      for (const [sample, value] of values.entries())
+        series[band][sample] = { ...series[band][sample], y: value };
+    }
+  }
   // A staircase is a step chart, which is navigated by transition rather than
   // by sample and described in runs. An area stays an area: its trace reads
   // the convention to tell a stepped band's risers from its samples, the way
   // `bindD3Area` does.
-  const kind = stacked
-    ? TraceType.STACKED_AREA
-    : (type === TraceType.LINE && stepDirection !== undefined ? TraceType.STEP : type);
+  const kind = normalized
+    ? TraceType.NORMALIZED_AREA
+    : stacked
+      ? TraceType.STACKED_AREA
+      : (type === TraceType.LINE && stepDirection !== undefined ? TraceType.STEP : type);
 
   return {
     legend,
@@ -1011,18 +1026,68 @@ function buildBarLayer(
   // inspection, so there is no draw order Plot can produce that this misreads.
   orderElements(grid.elements);
 
+  // A 100% stack is the same grid with every column adding to one. Read as a
+  // plain stack it announces fractions and never says they are parts of a
+  // whole, so the shares are pinned to a hundred here the way the Recharts,
+  // Vega-Lite, amCharts and Frappe adapters do — `NORMALIZED` divides nothing
+  // itself.
+  const horizontal = orientation === Orientation.HORIZONTAL;
+  const magnitude = (point: SegmentedPoint): number =>
+    Number(horizontal ? point.x : point.y);
+  const columns = grid.rows[0]?.map((_, column) =>
+    grid.rows.map(row => magnitude(row[column]))) ?? [];
+  const shares = columnsAreShares(columns);
+
   return {
     legend: seriesNames,
     layer: {
       id: token,
-      type: TraceType.STACKED,
+      type: shares ? TraceType.NORMALIZED : TraceType.STACKED,
       orientation,
       selectors: stampLayer(grid.elements, context.containerId, token),
       domMapping: { order: 'row' },
       axes: axisConfig(context),
-      data: grid.rows,
+      data: shares ? toSegmentedShares(grid.rows, horizontal) : grid.rows,
     },
   };
+}
+
+/**
+ * Whether a stack's columns each add up to one — that is, whether it is a 100%
+ * chart rather than an ordinary stack.
+ *
+ * `Plot.stackY({ offset: 'normalize' })` divides before it draws, so the values
+ * that come back out of the pixels are already shares. Read as a plain stack
+ * they are announced as fractions of one, and the reader is never told the
+ * columns are parts of a whole.
+ *
+ * The test is on the values rather than on the scale. A y domain of exactly
+ * `[0, 1]` looks like the obvious signal and is not one: an author who widens
+ * it for headroom (`y: { domain: [0, 1.2] }`) draws a 100% chart whose domain
+ * is not `[0, 1]` and whose columns do not span the frame, and the domain test
+ * misses it. Summing the columns catches that chart and needs nothing else.
+ *
+ * It does not separate Plot's own normalization from an author who divided
+ * their numbers first, and there is nothing there to separate: both are a
+ * chart of shares, and {@link toCategoryShares} is idempotent in proportion,
+ * so `0.3`/`0.7` and Plot's `0.75`/`0.25` both come out as percentages of a
+ * hundred.
+ *
+ * @param columns - The stack's magnitudes, as `[column][segment]`.
+ * @returns True when every column sums to one.
+ */
+function columnsAreShares(columns: readonly number[][]): boolean {
+  if (columns.length === 0)
+    return false;
+  return columns.every((column) => {
+    if (column.some(value => !Number.isFinite(value)))
+      return false;
+    const total = column.reduce((sum, value) => sum + value, 0);
+    // Loose enough for the float noise of inverting a pixel, tight enough that
+    // a stack of counts is never mistaken for one of shares: the nearest
+    // whole-number total is two.
+    return Math.abs(total - 1) < 1e-6;
+  });
 }
 
 /**
