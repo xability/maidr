@@ -260,6 +260,53 @@ export interface ChartJsRuntimeScale {
 export interface ChartJsDatasetMeta {
   data: ChartJsMetaElement[];
   type: string;
+  /**
+   * What Chart.js parsed each of the dataset's values into.
+   *
+   * The distribution controllers are the ones that need it. A boxplot or a
+   * violin accepts either a raw array of samples or a pre-computed summary,
+   * and only this is the same shape for both -- the plugin does the
+   * quartile and density work here, so reading `dataset.data` sees the raw
+   * samples of the first form and nothing usable (#1049).
+   */
+  _parsed?: ChartJsParsedValue[];
+}
+
+/**
+ * One sample of a violin's kernel density estimate, as the boxplot plugin
+ * computes it: the value on the measured axis and the density there.
+ */
+export interface ChartJsKdeCoord {
+  v: number;
+  estimate: number;
+}
+
+/**
+ * What Chart.js parsed one dataset value into.
+ *
+ * Every field is optional because the controllers disagree about which they
+ * produce: a plain bar parses to `{x, y}`, while the boxplot plugin adds the
+ * five-number summary and a violin adds `coords` on top of it.
+ *
+ * `min`/`max` are the **data** extremes and `whiskerMin`/`whiskerMax` the ends
+ * the chart draws its whiskers to; on a sample with an outlier the two differ,
+ * and it is the whiskers a box plot shows (#1049).
+ */
+export interface ChartJsParsedValue {
+  x?: number;
+  y?: number;
+  min?: number;
+  max?: number;
+  q1?: number;
+  median?: number;
+  q3?: number;
+  mean?: number;
+  whiskerMin?: number;
+  whiskerMax?: number;
+  outliers?: number[];
+  items?: number[];
+  /** A violin's density curve; absent on a boxplot. */
+  coords?: ChartJsKdeCoord[];
 }
 
 /**
