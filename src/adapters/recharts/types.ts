@@ -1100,6 +1100,15 @@ export interface RechartsAdapterConfig {
    */
   categoryAxisReversed?: boolean;
 
+  /**
+   * The same answer per panel, in the grid's row-major order, in subplot mode.
+   *
+   * A panel has its own chart and so its own axes: one verdict for the whole
+   * grid would apply the first panel's answer to every other. Derived by
+   * {@link MaidrRecharts} from each panel's own child element.
+   */
+  categoryAxisReversedPerPanel?: boolean[];
+
   /** Key in data objects for x-axis values. */
   xKey: string;
 

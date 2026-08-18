@@ -25,6 +25,20 @@
  *   hAxis: {direction: -1}    getXLocation(0) = 439   getXLocation(3) = 162
  *
  * which is the interface `markBarElements` already calls to find the rects.
+ *
+ * A horizontal `BarChart` puts its categories on the **vertical** axis, so it
+ * is `getYLocation` that answers there. Measured on the same library:
+ *
+ *   BarChart, plain                  labels top→bottom: Sat, Sun, Thu, Fri
+ *                                    getYLocation(0) = 108   (3) = 293
+ *   BarChart, vAxis: {direction:-1}  labels top→bottom: Fri, Thu, Sun, Sat
+ *                                    getYLocation(0) = 293   (3) = 108
+ *
+ * and on that reversed chart `getXLocation` read 116 then 127 — ascending, and
+ * unchanged from the plain one, because it is the magnitude axis. Both
+ * orientations are exercised below for that reason: a first version of this
+ * suite covered `ColumnChart` only and was hiding a check that never fired on
+ * a horizontal chart at all.
  */
 import type {
   GoogleBoundingBox,
@@ -34,6 +48,7 @@ import type {
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import { createMaidrFromGoogleChart } from '@adapters/google-charts/converters';
 import { describe, expect, it } from '@jest/globals';
+import { Orientation } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -77,9 +92,10 @@ function leftOf(index: number, reversed: boolean): number {
  * @param reversed - Whether the category axis is reversed
  * @returns The fake chart
  */
-function makeChart(reversed: boolean): GoogleChart {
-  const box = (index: number): GoogleBoundingBox =>
-    ({ left: leftOf(index, reversed), top: 30, width: 24, height: 100 });
+function makeChart(reversed: boolean, horizontal = false): GoogleChart {
+  const box = (index: number): GoogleBoundingBox => (horizontal
+    ? { left: 20, top: leftOf(index, reversed), width: 100, height: 24 }
+    : { left: leftOf(index, reversed), top: 30, width: 24, height: 100 });
   return {
     getSelection: () => [],
     setSelection: () => {},
@@ -91,10 +107,13 @@ function makeChart(reversed: boolean): GoogleChart {
         const index = Number(bar[1]);
         return index < ROWS.length ? box(index) : null;
       },
-      // The measured signal: ascending means left-to-right, descending means
-      // the last row is drawn before the first.
-      getXLocation: value => leftOf(Number(value), reversed),
-      getYLocation: value => Number(value),
+      // The measured signal, on whichever axis carries the categories:
+      // ascending means the rows run from the near end, descending means the
+      // last is drawn before the first. The other axis is the magnitude one,
+      // and stands still whichever way the categories were drawn — which is
+      // what asking it instead would have bought.
+      getXLocation: value => (horizontal ? 116 + Number(value) * 4 : leftOf(Number(value), reversed)),
+      getYLocation: value => (horizontal ? leftOf(Number(value), reversed) : 100 + Number(value) * 4),
     }),
   };
 }
@@ -105,7 +124,7 @@ function makeChart(reversed: boolean): GoogleChart {
  * @param reversed - Whether the category axis is reversed
  * @returns The container
  */
-function makeContainer(reversed: boolean): HTMLElement {
+function makeContainer(reversed: boolean, horizontal = false): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="rev-chart"></div></body>');
   const doc = dom.window.document;
   const container = doc.getElementById('rev-chart') as HTMLElement;
@@ -114,10 +133,10 @@ function makeContainer(reversed: boolean): HTMLElement {
 
   for (let i = 0; i < ROWS.length; i++) {
     const rect = doc.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('x', `${leftOf(i, reversed)}`);
-    rect.setAttribute('y', '30');
-    rect.setAttribute('width', '24');
-    rect.setAttribute('height', '100');
+    rect.setAttribute('x', horizontal ? '20' : `${leftOf(i, reversed)}`);
+    rect.setAttribute('y', horizontal ? `${leftOf(i, reversed)}` : '30');
+    rect.setAttribute('width', horizontal ? '100' : '24');
+    rect.setAttribute('height', horizontal ? '24' : '100');
     // Named after the datum it draws, so a resolved selector can say which.
     rect.setAttribute('data-datum', LISTED[i]);
     svg.appendChild(rect);
@@ -131,20 +150,27 @@ function makeContainer(reversed: boolean): HTMLElement {
  * @param reversed - Whether the category axis is reversed
  * @returns The layer and its container
  */
-function build(reversed: boolean): { layer: MaidrLayer; container: HTMLElement } {
-  const container = makeContainer(reversed);
+function build(reversed: boolean, horizontal = false): { layer: MaidrLayer; container: HTMLElement } {
+  const container = makeContainer(reversed, horizontal);
   const maidr = createMaidrFromGoogleChart(
-    makeChart(reversed),
+    makeChart(reversed, horizontal),
     makeDataTable(),
     container,
-    { chartType: 'ColumnChart' },
+    { chartType: horizontal ? 'BarChart' : 'ColumnChart' },
   );
   return { layer: maidr.subplots[0][0].layers[0], container };
 }
 
-/** The categories of a bar layer, in the order it emits them. */
+/**
+ * The categories of a bar layer, in the order it emits them.
+ *
+ * A horizontal layer is written the way `BarTrace` reads one — magnitude in
+ * `x`, category in `y` (#955) — so which field holds the category follows the
+ * orientation rather than the axis it was drawn against.
+ */
 function categoriesOf(layer: MaidrLayer): unknown[] {
-  return (layer.data as BarPoint[]).map(p => p.x);
+  const horizontal = layer.orientation === Orientation.HORIZONTAL;
+  return (layer.data as BarPoint[]).map(p => (horizontal ? p.y : p.x));
 }
 
 describe('a google chart on a reversed category axis', () => {
@@ -163,6 +189,17 @@ describe('a google chart on a reversed category axis', () => {
 
   it('leaves an ordinary chart alone', () => {
     expect(categoriesOf(build(false).layer)).toEqual(LISTED);
+  });
+
+  it('asks the vertical axis on a horizontal BarChart', () => {
+    // A `BarChart` runs its bars along x and its categories down y, so
+    // `getXLocation` there reads the magnitude axis — which stands still
+    // however the categories were drawn, and would answer no every time.
+    expect(categoriesOf(build(true, true).layer)).toEqual(DRAWN);
+  });
+
+  it('leaves an ordinary BarChart alone', () => {
+    expect(categoriesOf(build(false, true).layer)).toEqual(LISTED);
   });
 });
 

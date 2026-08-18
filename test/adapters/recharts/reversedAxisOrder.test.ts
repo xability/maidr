@@ -94,6 +94,79 @@ describe('a recharts bar chart on a reversed category axis', () => {
   });
 });
 
+describe('the config shapes the fix has to reach', () => {
+  /** The bar layer of a chart built in composed mode. */
+  function composedLayer(reversed: boolean): { selectors?: string | string[]; data: unknown } {
+    const maidr = convertRechartsToMaidr({
+      id: 'rc-composed',
+      title: 'Revenue',
+      data: DATA,
+      xKey: 'quarter',
+      layers: [{ chartType: 'bar', yKey: 'revenue' }],
+      ...(reversed ? { categoryAxisReversed: true } : {}),
+    });
+    return maidr.subplots[0][0].layers[0] as unknown as {
+      selectors?: string | string[];
+      data: unknown;
+    };
+  }
+
+  /** The bar layer of panel `index` of a subplot grid. */
+  function panelLayer(
+    perPanel: boolean[],
+    index: number,
+  ): { selectors?: string | string[]; data: unknown } {
+    const maidr = convertRechartsToMaidr({
+      id: 'rc-panels',
+      title: 'Revenue',
+      data: DATA,
+      xKey: 'quarter',
+      subplots: perPanel.map(() => ({
+        chartType: 'bar' as const,
+        yKeys: ['revenue'],
+      })),
+      categoryAxisReversedPerPanel: perPanel,
+    });
+    const flat = maidr.subplots.flat();
+    return flat[index].layers[0] as unknown as {
+      selectors?: string | string[];
+      data: unknown;
+    };
+  }
+
+  it('turns a composed chart bar layer round', () => {
+    // A composed chart's `bar` layer is the same reading as a simple one's and
+    // was reached by a different builder, which did not read the flag at all.
+    expect(categoriesOf(composedLayer(true))).toEqual(DRAWN);
+    expect(Array.isArray(composedLayer(true).selectors)).toBe(true);
+  });
+
+  it('leaves an ordinary composed chart alone', () => {
+    expect(categoriesOf(composedLayer(false))).toEqual(LISTED);
+  });
+
+  it('turns a subplot panel round', () => {
+    // The panel config is rebuilt field by field, and the flag was not among
+    // the fields copied — so a panel kept the pre-fix reading however its axis
+    // was drawn.
+    expect(categoriesOf(panelLayer([true], 0))).toEqual(DRAWN);
+  });
+
+  it('reads each panel own axis, not the first one', () => {
+    // A panel is its own chart. One verdict for the whole grid would announce
+    // the second panel by the first one's axis.
+    const mixed = [true, false];
+
+    expect(categoriesOf(panelLayer(mixed, 0))).toEqual(DRAWN);
+    expect(categoriesOf(panelLayer(mixed, 1))).toEqual(LISTED);
+  });
+
+  it('leaves an ordinary grid alone', () => {
+    expect(categoriesOf(panelLayer([false, false], 0))).toEqual(LISTED);
+    expect(categoriesOf(panelLayer([false, false], 1))).toEqual(LISTED);
+  });
+});
+
 describe('reading the axis out of the children', () => {
   /** A stand-in for a Recharts component: only `displayName` is read. */
   function stub(displayName: string): { (): null; displayName: string } {

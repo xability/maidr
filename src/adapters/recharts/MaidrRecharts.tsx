@@ -143,7 +143,16 @@ export function MaidrRecharts({
 }: MaidrRechartsProps): JSX.Element {
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
-      categoryAxisReversed: categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
+      // Simple and composed mode read the one chart's axes; subplot mode reads
+      // each panel's own, since a panel is its own chart with its own axes and
+      // the walk would otherwise stop at whichever axis it met first.
+      categoryAxisReversed: subplots
+        ? undefined
+        : categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
+      categoryAxisReversedPerPanel: subplots
+        ? Children.toArray(children).map(panel =>
+            categoryAxisReversedFor(panel, orientation === Orientation.HORIZONTAL))
+        : undefined,
       id,
       title,
       subtitle,

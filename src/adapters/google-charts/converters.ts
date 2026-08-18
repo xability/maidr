@@ -809,7 +809,7 @@ function buildBarLayer(
   const turnRound = (traceType === TraceType.BAR || traceType === TraceType.LOLLIPOP)
     && typeof selector === 'string'
     && selector.includes('data-maidr-bar')
-    && drawsCategoriesReversed(chart, rows);
+    && drawsCategoriesReversed(chart, rows, horizontal);
   if (turnRound) {
     data.reverse();
   }
@@ -2677,13 +2677,28 @@ function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
  *
  * The draw options never reach this adapter, but they do not have to: the
  * layout interface reports where each row was actually placed, and the drawing
- * is what the reading has to follow. Measured on a `ColumnChart` of four rows:
+ * is what the reading has to follow. This is the same interface
+ * {@link markBarElements} already uses to find the rects, so nothing new is
+ * asked of the chart or of the caller.
  *
- *   plain                     getXLocation(0) = 162   getXLocation(3) = 439
- *   hAxis: {direction: -1}    getXLocation(0) = 439   getXLocation(3) = 162
+ * **Which location is asked follows the orientation**, because Google puts the
+ * categories on whichever axis the bars do not run along: a `ColumnChart` has
+ * them on x, a `BarChart` on y. Asking x on a horizontal chart reads the
+ * magnitude* axis, which is virtually never itself reversed -- so the check
+ * would answer no however the categories were drawn. Measured on four rows:
  *
- * This is the same interface {@link markBarElements} already uses to find the
- * rects, so nothing new is asked of the chart or of the caller.
+ *   ColumnChart, plain                  getXLocation(0) = 162  (3) = 439
+ *   ColumnChart, hAxis: {direction:-1}  getXLocation(0) = 439  (3) = 162
+ *   BarChart,    plain                  getYLocation(0) = 108  (3) = 293
+ *   BarChart,    vAxis: {direction:-1}  getYLocation(0) = 293  (3) = 108
+ *
+ * and, on that same reversed `BarChart`, `getXLocation` reads 116 then 127 --
+ * ascending, and unchanged from the plain chart, which is what asking the
+ * wrong axis buys.
+ *
+ * The comparison itself is the same either way. Google numbers y downward, so
+ * a smaller number is nearer the top, and "the last row lands before the
+ * first" reads as `last < first` on both axes.
  *
  * A chart that answers neither location -- one drawn without a cartesian
  * layout, or a build whose interface differs -- keeps the reading it has today
@@ -2691,15 +2706,21 @@ function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
  *
  * @param chart - The drawn Google Chart
  * @param rowCount - How many rows the DataTable holds
+ * @param horizontal - Whether the bars run along x, putting categories on y
  * @returns True when the last row is drawn before the first
  */
-function drawsCategoriesReversed(chart: GoogleChart, rowCount: number): boolean {
+function drawsCategoriesReversed(
+  chart: GoogleChart,
+  rowCount: number,
+  horizontal: boolean,
+): boolean {
   if (rowCount < 2)
     return false;
   try {
     const layout = chart.getChartLayoutInterface();
-    const first = layout?.getXLocation?.(0);
-    const last = layout?.getXLocation?.(rowCount - 1);
+    const locate = horizontal ? layout?.getYLocation : layout?.getXLocation;
+    const first = locate?.call(layout, 0);
+    const last = locate?.call(layout, rowCount - 1);
     if (typeof first !== 'number' || typeof last !== 'number'
       || !Number.isFinite(first) || !Number.isFinite(last)) {
       return false;

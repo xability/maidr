@@ -138,8 +138,12 @@ function buildSubplotMaidr(config: RechartsAdapterConfig): Maidr {
   }
 
   const grid = normalizeRechartsSubplotGrid(config.subplots ?? [], config.columns);
+  // The panels' own children arrive in one flat row-major list, so a panel's
+  // axis verdict is found by counting past the rows above it rather than by
+  // its grid position (#1017).
+  let flatIndex = 0;
   const subplots = grid.map((row, rowIndex) =>
-    row.map((panel, colIndex) => buildPanelSubplot(config, panel, rowIndex, colIndex)),
+    row.map((panel, colIndex) => buildPanelSubplot(config, panel, rowIndex, colIndex, flatIndex++)),
   );
 
   return {
@@ -166,6 +170,7 @@ function buildPanelSubplot(
   panel: RechartsSubplotConfig,
   row: number,
   col: number,
+  flatIndex: number,
 ): MaidrSubplot {
   if (!panel.chartType && !panel.layers) {
     throw new Error(
@@ -183,6 +188,10 @@ function buildPanelSubplot(
     xLabel: panel.xLabel ?? config.xLabel,
     yLabel: panel.yLabel ?? config.yLabel,
     orientation: panel.orientation ?? config.orientation,
+    // Each panel's own axis, not the grid's: a panel draws its own chart, so
+    // one verdict for all of them would read the first panel's axis onto every
+    // other (#1017).
+    categoryAxisReversed: config.categoryAxisReversedPerPanel?.[flatIndex],
     fillKeys: panel.fillKeys ?? config.fillKeys,
     binConfig: panel.binConfig ?? config.binConfig,
     // The per-type configs name FIELDS and declare CUTOFFS, both of which the
@@ -330,16 +339,8 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     // A reversed category axis draws the bars from the far end while Recharts
     // renders them in data order, so the payload and the selectors turn round
     // together -- reversing one alone announces a bar and outlines another
-    // (#1017, and #988 / #1000 before it). Only where the adapter owns the
-    // selector and the reading is one mark per category: a caller who named
-    // the marks is describing their own chart.
-    const perBar = config.categoryAxisReversed === true
-      && maidrType === TraceType.BAR
-      && selectorOverride === undefined
-      && typeof selector === 'string'
-      && oriented.length > 0
-      ? reversedBarSelectors(selector, oriented.length)
-      : null;
+    // (#1017, and #988 / #1000 before it).
+    const turned = reversedBarSelectorsFor(config, maidrType, selector, selectorOverride, oriented.length);
 
     return {
       id: String(index),
@@ -347,10 +348,10 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
-      selectors: perBar ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
+      selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
       axes: barAxes(xLabel, yLabel, horizontal),
-      data: perBar ? [...oriented].reverse() : oriented,
+      data: turned ? [...oriented].reverse() : oriented,
     } as MaidrLayer;
   });
 }
@@ -1165,6 +1166,52 @@ function toNumberList(value: unknown): number[] | undefined {
 /**
  * Builds layers for composed mode (mixed chart types via layers config).
  */
+/**
+ * The selectors a bar layer takes when its category axis is drawn from the far
+ * end, or `null` when the layer should be left exactly as it is.
+ *
+ * Shared by the simple and composed builders rather than written twice: they
+ * emit the same `bar` reading from the same selector, and a rule that lived in
+ * one of them would be a rule the other quietly did not have (#1017).
+ *
+ * Declines, leaving the layer as it was, when:
+ * - the axis is not reversed, or the reading is not one mark per category;
+ * - the caller supplied the selector, since rebuilding it positionally would
+ *   discard what they said and reversing the payload under it would point
+ *   their selector at the wrong bars;
+ * - the selector is not one {@link reversedBarSelectors} can count, which is
+ *   how a multi-series composed layer (whose selector is `undefined`) falls
+ *   through.
+ *
+ * Answers the selectors rather than the payload too, so each caller reverses
+ * its own array and keeps its own point type -- the layer builders hand this a
+ * union of every payload shape, and narrowing that here would say the rule
+ * applies only to the first member of it.
+ *
+ * @param config - The chart or panel config being read
+ * @param maidrType - What the layer is announced as
+ * @param selector - The selector resolved for it, if any
+ * @param selectorOverride - The caller's own selector, if they gave one
+ * @param pointCount - How many marks the layer drew
+ * @returns One selector per mark in drawn order, or `null` to change nothing
+ */
+function reversedBarSelectorsFor(
+  config: RechartsAdapterConfig,
+  maidrType: TraceType,
+  selector: string | undefined,
+  selectorOverride: string | undefined,
+  pointCount: number,
+): string[] | null {
+  if (config.categoryAxisReversed !== true
+    || maidrType !== TraceType.BAR
+    || selectorOverride !== undefined
+    || typeof selector !== 'string'
+    || pointCount === 0) {
+    return null;
+  }
+  return reversedBarSelectors(selector, pointCount);
+}
+
 function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   const { data, xKey, xLabel, yLabel, orientation, layers, selectorOverride } = config;
 
@@ -1203,6 +1250,12 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     const resolvedOrientation = layerOrientation(chartType, orientation);
     const horizontal = resolvedOrientation === Orientation.HORIZONTAL
       && swapsUnderHorizontal(chartType);
+    const oriented = horizontal ? swapBarFamilyPoints(layerData) : layerData;
+
+    // A composed chart's `bar` layer is the same reading as a simple one's and
+    // turns round on the same terms. A layer sharing its chart type with
+    // another has no selector of its own, and falls through untouched.
+    const turned = reversedBarSelectorsFor(config, maidrType, selector, selectorOverride, oriented.length);
 
     return {
       id: String(index),
@@ -1210,10 +1263,10 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       title: name,
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
-      selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
+      selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
       axes: barAxes(xLabel, yLabel, horizontal),
-      data: horizontal ? swapBarFamilyPoints(layerData) : layerData,
+      data: turned ? [...oriented].reverse() : oriented,
     } as MaidrLayer;
   });
 }
