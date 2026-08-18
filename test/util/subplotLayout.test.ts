@@ -193,3 +193,100 @@ describe('resolveSubplotLayout axes-group path precedence', () => {
     expect(layout.totalAxesCount).toBe(2);
   });
 });
+
+/**
+ * Numbering only the cells that could be measured left an empty one with no
+ * entry at all. `Figure.state` fell through to `currentIndex ?? 1`, so the
+ * empty cell announced itself as subplot 1 — the index the top-left panel
+ * already claims. Two different cells answered to the same number, and
+ * position announcements are the only way to know where you are in a grid.
+ *
+ * The total was meanwhile the whole cell count, so "N of M" counted two
+ * different sets and the last index was never reachable (#1085).
+ *
+ * These go through the `<g id="axes_*">` path deliberately. The panel
+ * fallback next door demands geometry for *every* subplot and returns
+ * nothing when one is missing, so a grid with an empty cell lands on
+ * data-array order there — which already numbers every cell and would make
+ * these tests pass without exercising the change at all.
+ */
+describe('resolveSubplotLayout numbers cells nothing could be measured for', () => {
+  /**
+   * Builds a grid through the axes-group path, where `null` marks a cell
+   * with nothing to measure.
+   */
+  function axesGrid(rows: ({ top: number; left: number } | null)[][]): Subplot[][] {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    document.body.appendChild(svg);
+    let axesIndex = 1;
+
+    return rows.map(row =>
+      row.map((rect) => {
+        if (!rect) {
+          return {
+            getHighlightElement: () => null,
+            getLayerSelector: () => null,
+          } as unknown as Subplot;
+        }
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('id', `axes_${axesIndex++}`);
+        svg.appendChild(g);
+        mockRect(g, rect);
+
+        const inner = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        g.appendChild(inner);
+        mockRect(inner, rect);
+
+        return {
+          getHighlightElement: () => inner,
+          getLayerSelector: () => null,
+        } as unknown as Subplot;
+      }),
+    );
+  }
+
+  /** A 2x2 whose top row is one spanning panel, so (0,1) holds nothing. */
+  function spanningTopRow() {
+    return resolveSubplotLayout(axesGrid([
+      [{ top: 0, left: 0 }, null],
+      [{ top: 100, left: 0 }, { top: 100, left: 100 }],
+    ]));
+  }
+
+  it('gives the empty cell an index of its own', () => {
+    const layout = spanningTopRow();
+
+    expect(layout.visualOrderMap.get('0,1')).toBe(2);
+    expect(layout.visualOrderMap.get('0,1')).not.toBe(
+      layout.visualOrderMap.get('0,0'),
+    );
+  });
+
+  it('numbers every cell exactly once, 1 through the cell count', () => {
+    const indices = [...spanningTopRow().visualOrderMap.values()].sort();
+
+    expect(indices).toEqual([1, 2, 3, 4]);
+  });
+
+  it('keeps the drawn panels in reading order around it', () => {
+    const layout = spanningTopRow();
+
+    expect(layout.visualOrderMap.get('0,0')).toBe(1);
+    expect(layout.visualOrderMap.get('1,0')).toBe(3);
+    expect(layout.visualOrderMap.get('1,1')).toBe(4);
+  });
+
+  it('places an empty cell by its position, not at the end', () => {
+    // Data row 1 renders *above* data row 0, so the empty cell is in the row
+    // a reader meets first. Appending unmeasured cells would put it last.
+    const layout = resolveSubplotLayout(axesGrid([
+      [{ top: 100, left: 0 }, { top: 100, left: 100 }],
+      [{ top: 0, left: 0 }, null],
+    ]));
+
+    expect(layout.visualOrderMap.get('1,0')).toBe(1);
+    expect(layout.visualOrderMap.get('1,1')).toBe(2);
+    expect(layout.visualOrderMap.get('0,0')).toBe(3);
+    expect(layout.visualOrderMap.get('0,1')).toBe(4);
+  });
+});
