@@ -58,6 +58,7 @@ import type {
 import { Orientation, TraceType } from '../../type/grammar';
 import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '../shared/traceDeclaration';
 import {
+  barGroupSelector,
   barPointSelector,
   boxLayerNthChild,
   choroplethRegionSelectors,
@@ -5145,16 +5146,29 @@ function extractSegmentedBarLayer(
   // trace groups, once among that group's own points -- and only the grid says
   // which cell each answer belongs to. `SegmentedTrace` reads that shape
   // directly instead of inferring the mapping from one selector.
+  const prefix = subplotCssPrefix(emitted[0].trace.xaxis, emitted[0].trace.yaxis);
+  // `barlayer` outright rather than the map `generatePlotlySelectors` reads,
+  // because only bars reach this: `barTraces` is filled from `TraceType.BAR`
+  // entries alone, and a funnel or waterfall maps to its own type and is built
+  // by `extractLayer` instead. An invariant of the caller rather than of this
+  // function, so it is written down here where the hardcoding is.
+  const positions = emitted.map(entry => barLayerPosition(group, entry.calcIdx));
+
+  // One group per trace, and this layer spans several, so its selector is a
+  // list over the groups it actually covers. `querySelectorAll` answers a
+  // selector list in *document* order, which across these groups is
+  // series-major -- the order the chunking in `SegmentedTrace` expects. The
+  // panel-wide selector could not say that: a histogram drawn into the same
+  // `barlayer` put its bins at the head of the list, and the layer announced
+  // its first series while outlining the histogram's first bin (#993).
   let orderedData = data;
-  let orderedSelectors: MaidrLayer['selectors']
-    = generatePlotlySelectors(type, barTraces[0].globalIdx, gd);
+  let orderedSelectors: MaidrLayer['selectors'] = positions
+    .map(position => barGroupSelector(prefix, 'barlayer', position))
+    .join(', ');
   if (order !== null) {
-    const prefix = subplotCssPrefix(emitted[0].trace.xaxis, emitted[0].trace.yaxis);
     orderedData = data.map((series, row) => order[row].map(index => series[index]));
-    orderedSelectors = order.map((row, series) => {
-      const position = barLayerPosition(group, emitted[series].calcIdx);
-      return row.map(index => barPointSelector(prefix, position, index));
-    });
+    orderedSelectors = order.map((row, series) =>
+      row.map(index => barPointSelector(prefix, positions[series], index)));
   }
 
   return {
