@@ -909,15 +909,19 @@ function isDivergingSplit(datasets: ChartJsDataset[]): boolean {
  * adapter at all (#1007). Emitting the written order therefore reads a
  * reversed chart backwards (#1015).
  *
- * Chart.js paints to canvas and none of these layers carry `selectors`, so no
- * highlight index is keyed to this order: reordering the payload is the whole
- * of the fix, with none of the both-halves-must-move hazard of #988 or #1000.
+ * Exported because the highlight half has to walk the categories the same way.
+ * Chart.js paints to canvas and none of these layers carry `selectors`, which
+ * looked at first like an absence of the both-halves-must-move hazard of #988
+ * or #1000 -- but the plugin outlines by *index*, through the table
+ * `computeTargetMaps` builds, and a table built in the written order names a
+ * different bar from the one a reversed payload announces (#1024). Sharing
+ * this walk is what keeps the two from drifting apart again.
  *
  * @param chart - The chart being read
  * @param count - How many category positions it has
  * @returns `0..count-1`, turned round when the category axis is reversed
  */
-function drawnCategoryPositions(chart: ChartJsChart, count: number): number[] {
+export function drawnCategoryPositions(chart: ChartJsChart, count: number): number[] {
   const positions = Array.from({ length: count }, (_, i) => i);
   return chart.options.scales?.[categoryAxis(chart)]?.reverse === true
     ? positions.reverse()
