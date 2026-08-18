@@ -753,12 +753,19 @@ function convertBarGroup(
   const first = barSeries[0];
   const stacking = resolveGroupStacking(barSeries, chart);
 
-  const isInverted = chart.options.chart?.inverted === true;
+  // `inverted` is not a modifier on the series type, so the two combine with
+  // `or` rather than flipping each other: Highcharts' `type: 'bar'` *is*
+  // `column` with `inverted` set, and setting both does not turn the chart
+  // back upright. Measured on Highcharts 12, `bar`, `column + inverted` and
+  // `bar + inverted` render to identical coordinates; only the last was read
+  // as vertical, and the payload followed it into the transposed chart —
+  // category and magnitude in each other's fields, and the axis labels with
+  // them (#997).
   const seriesType = resolveSeriesType(first, chart);
-  const defaultOrientation = seriesType === 'bar' ? Orientation.HORIZONTAL : Orientation.VERTICAL;
-  const orientation = isInverted
-    ? (defaultOrientation === Orientation.VERTICAL ? Orientation.HORIZONTAL : Orientation.VERTICAL)
-    : defaultOrientation;
+  const orientation
+    = seriesType === 'bar' || chart.options.chart?.inverted === true
+      ? Orientation.HORIZONTAL
+      : Orientation.VERTICAL;
 
   // Single series: always a plain bar chart.
   if (barSeries.length === 1) {
