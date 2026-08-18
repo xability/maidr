@@ -400,44 +400,52 @@ describe('binned marks that are not plain histograms', () => {
 });
 
 describe('composite marks', () => {
-  it('leaves a box plot alone rather than reading its box as a bar', () => {
+  it('reads a box plot as one box layer rather than as four marks', () => {
     // Plot.boxY is four marks — a rule for the whiskers, a bar for the
     // interquartile box, a tick for the median, a dot for the outliers — and
     // nothing in the DOM says they belong together. Read individually, the bar
     // is an ordinary bar mark whose height is q3 - q1, so a reader is told a
     // number that appears nowhere in the data while the median and the whiskers
-    // are never announced at all.
+    // are never announced at all. Read together they are a distribution.
     const { element } = mountFixture('boxPlot');
+    const cell = observablePlotToMaidr(element)?.subplots[0][0];
 
-    expect(observablePlotToMaidr(element)).toBeNull();
+    expect(cell?.layers).toHaveLength(1);
+    expect(cell?.layers[0].type).toBe(TraceType.BOX);
   });
 
-  it('leaves a horizontal box plot alone as well', () => {
+  it('reads a horizontal box plot the same way', () => {
     // `boxX` stacks the same four marks the other way round, so a test that
     // only knows the vertical arrangement passes while half the cases fail.
     const { element } = mountFixture('boxHorizontal');
+    const layer = observablePlotToMaidr(element)?.subplots[0][0].layers[0];
 
-    expect(observablePlotToMaidr(element)).toBeNull();
+    expect(layer?.type).toBe(TraceType.BOX);
+    expect(layer?.orientation).toBe(Orientation.HORIZONTAL);
   });
 
   it('finds the box even when another rule is drawn first', () => {
     // Taking the first mark of each kind lets an unrelated `ruleY([0])` occupy
-    // the whisker's place, and the box plot is then read after all — the exact
-    // mis-announcement the check exists to prevent. `ruleY([0])` in front of a
-    // box plot is an ordinary thing to write.
+    // the whisker's place, and the box is then read as a bar after all — the
+    // exact mis-announcement the check exists to prevent. `ruleY([0])` in front
+    // of a box plot is an ordinary thing to write.
     const { element } = mountFixture('ruleThenBox');
+    const cell = observablePlotToMaidr(element)?.subplots[0][0];
 
-    expect(observablePlotToMaidr(element)).toBeNull();
+    expect(cell?.layers).toHaveLength(1);
+    expect(cell?.layers[0].type).toBe(TraceType.BOX);
   });
 
-  it('leaves a faceted box plot alone, outliers included', () => {
+  it('reads a faceted box plot, outliers included', () => {
     // Plot draws a facet's outlier group only where that facet has outliers, so
     // a check that counts a mark's children counts facets for some marks and
-    // elements for others. The outlier mark then survives on its own and the
-    // chart presents itself as a complete scatter of the outliers.
+    // elements for others. Pairing the facets by index rather than by offset
+    // hands the second facet's outliers to the first.
     const { element } = mountFixture('facetedBox');
+    const subplots = observablePlotToMaidr(element)?.subplots;
 
-    expect(observablePlotToMaidr(element)).toBeNull();
+    expect(subplots?.flat().map(cell => cell.layers[0].type))
+      .toEqual([TraceType.BOX, TraceType.BOX]);
   });
 
   it('reads an error-bar chart that happens to use the same three marks', () => {

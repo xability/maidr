@@ -148,7 +148,7 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
 }
 
 /**
- * Finds the mark groups that make up a box plot, so they can be left alone.
+ * Finds the mark groups that make up a box plot.
  *
  * `Plot.boxY` is not a mark but four of them — a `rule` for the whiskers, a
  * `bar` for the interquartile box, a `tick` for the median, and a `dot` for the
@@ -164,12 +164,19 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
  * every median tick lies *inside* its box and every whisker rule *contains*
  * it. Nothing that merely shares the mark types satisfies both.
  *
+ * That is conclusive enough to read the composite as a box plot rather than
+ * merely to skip it, which is what the caller does with the answer. It stays
+ * the outer gate either way: a composite this refuses is four marks that were
+ * never a box plot, and one it finds but the reader cannot pair up is skipped
+ * as it was before (#1074).
+ *
  * @param groups - The plot's mark groups, in draw order.
- * @returns Indices of the groups that form box plots.
+ * @returns One entry per box plot found, in draw order.
  */
-export function boxCompositeGroups(
+export function boxComposites(
   groups: readonly { label: string; group: Element }[],
-): Set<number> {
+): BoxComposite[] {
+  const found: BoxComposite[] = [];
   const skip = new Set<number>();
   const indices = (label: string): number[] => groups
     .map((entry, index) => (entry.label === label ? index : -1))
@@ -191,11 +198,24 @@ export function boxCompositeGroups(
           .find(index => !skip.has(index) && isOutlierMark(groups[index].group, groups[bar].group));
         if (outliers !== undefined)
           skip.add(outliers);
+        found.push({ bar, rule, tick, ...(outliers === undefined ? {} : { dot: outliers }) });
       }
     }
   }
 
-  return skip;
+  return found;
+}
+
+/** The mark groups of one box plot, as indices into the plot's groups. */
+export interface BoxComposite {
+  /** The interquartile boxes. */
+  bar: number;
+  /** The whiskers. */
+  rule: number;
+  /** The medians. */
+  tick: number;
+  /** The outliers, absent when the chart drew none. */
+  dot?: number;
 }
 
 /**
@@ -359,11 +379,32 @@ function spans(range: [number, number], other: [number, number]): boolean {
  * @returns The mark's leaf elements.
  */
 function leafElements(group: Element): Element[] {
+  const facets = facetGroupsOf(group);
+  if (facets.length > 0)
+    return facets.flatMap(facet => Array.from(facet.children));
+  return Array.from(group.children);
+}
+
+/**
+ * A mark's facet containers, or none when the mark is not faceted.
+ *
+ * Plot nests each facet's elements in a translated `<g>`, so a mark is faceted
+ * when *every* child is a group; a mixed set means the groups are part of the
+ * mark itself — an axis tick's line and label, say — rather than facet
+ * containers.
+ *
+ * Three separate readings turn on that distinction: what a mark's leaf elements
+ * are, how it splits into facets, and where Plot wrote the styling that says a
+ * `tick` is a box plot's median (#1074). They have to agree, so the rule lives
+ * here rather than being spelled out at each of them.
+ *
+ * @param group - A mark group.
+ * @returns The facet groups, or an empty array when the mark has none.
+ */
+export function facetGroupsOf(group: Element): Element[] {
   const children = Array.from(group.children);
   const facets = children.filter(child => child.tagName.toLowerCase() === 'g');
-  if (facets.length > 0 && facets.length === children.length)
-    return facets.flatMap(facet => Array.from(facet.children));
-  return children;
+  return facets.length > 0 && facets.length === children.length ? facets : [];
 }
 
 /**
@@ -390,20 +431,15 @@ export interface MarkFacet {
  * @returns One entry per facet, or a single entry for an unfaceted mark.
  */
 export function splitFacets(group: Element): MarkFacet[] {
-  const children = Array.from(group.children);
-  const facetGroups = children.filter(child => child.tagName.toLowerCase() === 'g');
-
-  // A mark is faceted when *every* child is a group; a mixed set means the
-  // groups are part of the mark itself (an axis tick's line and label, say)
-  // rather than facet containers.
-  if (facetGroups.length > 0 && facetGroups.length === children.length) {
+  const facetGroups = facetGroupsOf(group);
+  if (facetGroups.length > 0) {
     return facetGroups.map((facet) => {
       const [offsetX, offsetY] = translateOf(facet);
       return { offsetX, offsetY, elements: Array.from(facet.children) };
     });
   }
 
-  return [{ offsetX: 0, offsetY: 0, elements: children }];
+  return [{ offsetX: 0, offsetY: 0, elements: Array.from(group.children) }];
 }
 
 /**
