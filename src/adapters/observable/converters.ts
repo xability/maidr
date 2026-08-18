@@ -607,9 +607,13 @@ function binCount(
   if (tally === null)
     return null;
 
-  // Half the quantum Plot writes a coordinate at, carried through the scale:
-  // squaring doubles the relative error, so the absolute error on the tally is
-  // twice the tally's share of it.
+  // Half the quantum Plot writes a coordinate at, carried through the scale.
+  // The factor of two is the square-root scale's: `r ∝ √tally`, so a relative
+  // error in the radius arrives doubled in the tally. `Plot.hexbin` always
+  // sizes by that scale, and a linear one would make this estimate twice the
+  // true error — conservative in the wrong direction, since it would round a
+  // value that is not near an integer, so it is worth knowing which scale the
+  // arithmetic belongs to.
   const error = Math.abs(2 * tally * (PATH_QUANTUM / 2) / radius);
   const whole = Math.round(tally);
   if (Math.abs(tally - whole) <= Math.max(error, 1e-9))
@@ -663,8 +667,11 @@ function hexagonRadius(element: Element): number | null {
     { x: -radius, y: -tall / 2 },
     { x: -radius, y: tall / 2 },
   ];
-  // Against the quantum the coordinates were written at, doubled because both
-  // the drawn value and the expected one carry it.
+  // Against the quantum the coordinates were written at. Doubled to be
+  // generous rather than because there are two sources of error — the expected
+  // vertices are computed from the measured radius, so only the drawn path
+  // carries the rounding. Erring loose here can only admit a shape that is
+  // nearly a hexagon, never reject one that is.
   const tolerance = Math.max(drawn.pixelError * 2, 1e-6);
   const matches = expected.every(want => drawn.vertices.some(vertex =>
     Math.abs(vertex.x - want.x) <= tolerance && Math.abs(vertex.y - want.y) <= tolerance));
