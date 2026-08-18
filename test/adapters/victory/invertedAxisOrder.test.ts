@@ -25,7 +25,7 @@
  */
 import type { VictoryLayerInfo } from '@adapters/victory/types';
 import type { BarPoint } from '@type/grammar';
-import { extractVictoryLayers } from '@adapters/victory/converters';
+import { extractVictoryLayers, toMaidrLayer } from '@adapters/victory/converters';
 import { tagLayerElements } from '@adapters/victory/selectors';
 import { describe, expect, it } from '@jest/globals';
 import { JSDOM } from 'jsdom';
@@ -70,6 +70,7 @@ const DATA = LISTED.map((x, i) => ({ x, y: (i + 1) * 10 }));
  * @param options.label - A label for the independent axis, when it has one
  * @param options.line - Draw a `VictoryLine` instead of a `VictoryBar`
  * @param options.horizontal - Turn the chart on its side
+ * @param options.polar - Draw the chart around a circle
  * @returns The extracted layers
  */
 function layersFor(options: {
@@ -78,12 +79,16 @@ function layersFor(options: {
   label?: string;
   line?: boolean;
   horizontal?: boolean;
+  polar?: boolean;
 } = {}): VictoryLayerInfo[] {
   const mark = options.line ? VictoryLine : VictoryBar;
   return extractVictoryLayers(
     createElement(
       VictoryChart,
-      options.horizontal ? { horizontal: true } : null,
+      {
+        ...(options.horizontal ? { horizontal: true } : {}),
+        ...(options.polar ? { polar: true } : {}),
+      },
       createElement(VictoryAxis, {
         ...(options.invert ? { invertAxis: true } : {}),
         ...(options.label ? { label: options.label } : {}),
@@ -178,14 +183,64 @@ describe('a victory chart on an inverted independent axis', () => {
     expect(layer.categoriesReversed).toBeUndefined();
   });
 
-  it('leaves a line alone, whose order the adapter cannot give', () => {
-    // A line is one `<path>`, and `LineTrace` pairs vertex i with point i.
-    // Both are in data order and so agree; reversing the payload alone would
-    // break that agreement rather than fix anything (#1007).
+  it('turns a line round by declaring it, not by naming its marks', () => {
+    // A line is one `<path>`, so there is nothing to permute: `LineTrace`
+    // pairs vertex i with point i, and reversing the payload alone would
+    // break that agreement. The layer says so instead and the trace reverses
+    // the vertices it parsed (#1007, answered in #1026; #1031).
     const layer = layersFor({ invert: true, line: true })[0];
 
-    expect(layer.categoriesReversed).toBeUndefined();
     expect(layer.data.kind).toBe('line');
+    expect(layer.pointsReversed).toBe(true);
+    // Not the bar family's flag: nothing is stamped mark by mark.
+    expect(layer.categoriesReversed).toBeUndefined();
+  });
+
+  it('turns each series of a line round, not the series themselves', () => {
+    const layer = layersFor({ invert: true, line: true })[0];
+    const rows = layer.data.points as { x: unknown }[][];
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].map(point => point.x)).toEqual(DRAWN);
+  });
+
+  it('leaves a coxcomb alone, which has no far end to draw from', () => {
+    // A polar area radiates from the centre. There is no end of a Cartesian
+    // axis for an inverted one to start at, so nothing turns round.
+    const layer = layersFor({ invert: true, polar: true })[0];
+
+    expect(layer.data.kind).toBe('polarArea');
+    expect(layer.pointsReversed).toBeUndefined();
+    const rows = layer.data.points as { x: unknown }[][];
+    expect(rows[0].map(point => point.x)).toEqual(LISTED);
+  });
+
+  it('leaves a line on an ordinary axis alone', () => {
+    const layer = layersFor({ line: true })[0];
+    const rows = layer.data.points as { x: unknown }[][];
+
+    expect(layer.pointsReversed).toBeUndefined();
+    expect(rows[0].map(point => point.x)).toEqual(LISTED);
+  });
+});
+
+describe('what the emitted layer tells the trace', () => {
+  it('declares the point order on a line', () => {
+    const layer = toMaidrLayer(layersFor({ invert: true, line: true })[0], '#mv path');
+
+    expect(layer.domMapping?.pointOrder).toBe('reverse');
+  });
+
+  it('declares nothing on an ordinary line', () => {
+    const layer = toMaidrLayer(layersFor({ line: true })[0], '#mv path');
+
+    expect(layer.domMapping?.pointOrder).toBeUndefined();
+  });
+
+  it('declares nothing on a bar, which moves its marks instead', () => {
+    const layer = toMaidrLayer(layersFor({ invert: true })[0], ['#mv [a]', '#mv [b]']);
+
+    expect(layer.domMapping?.pointOrder).toBeUndefined();
   });
 });
 
