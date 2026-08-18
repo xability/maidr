@@ -1276,7 +1276,21 @@ export interface MaidrLayer {
    * name: 'Male'
    */
   name?: string;
-  selectors?: string | string[] | string[][] | BoxSelector[] | CandlestickSelector;
+  /**
+   * Which element of the chart each point of the layer is drawn as.
+   *
+   * A plain string leaves the pairing to document order; an array names one
+   * element per point; a grid names one per cell of a segmented layer.
+   *
+   * A grid cell may be `null`, which says the chart drew **no element** for
+   * that cell — a category a series has no bar at. That is different from a
+   * selector that fails to resolve, which is a mistake and declines the whole
+   * grid: without a way to tell the two apart, a producer whose layer has a
+   * gap has to choose between losing the highlight everywhere and inferring
+   * the gaps from the values, and a value of zero is not evidence that a bar
+   * was never drawn (#1002).
+   */
+  selectors?: string | string[] | (string | null)[][] | BoxSelector[] | CandlestickSelector;
   /**
    * Which way the layer is drawn. Defaults to {@link Orientation.VERTICAL}.
    *

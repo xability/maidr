@@ -148,7 +148,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     this.min = this.barValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
     this.max = this.barValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
     this.highlightValues = this.mapToSvgElements(
-      layer.selectors as string | string[] | string[][] | undefined,
+      layer.selectors as string | string[] | (string | null)[][] | undefined,
     );
     this.movable = new MovableGrid<T>(this.points);
   }
@@ -286,7 +286,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   protected mapToSvgElements(
-    selector?: string | string[] | string[][],
+    selector?: string | string[] | (string | null)[][],
   ): SVGElement[][] | null {
     if (!selector) {
       return null;
@@ -317,15 +317,20 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
         return null;
       }
 
-      const resolved = flat.map(one => Svg.selectElement(one));
-      if (resolved.includes(null)) {
-        // Discard the clones already inserted, so a partial resolution does
-        // not leak hidden elements into the DOM.
-        resolved.forEach(element => element?.remove());
+      // Looked up before anything is inserted. `Svg.selectElement` puts its
+      // clone straight after the element it matched, so resolving one at a
+      // time counts a sibling the chart never drew -- and a positional
+      // selector then answers with the clone of an earlier bar. Measured on
+      // three points addressed by `:nth-child`, one-at-a-time returns the
+      // *first* element three times when the list runs forwards; only a list
+      // that happens to run backwards survives it (#1004). Declining is also
+      // cheaper now: nothing has been inserted, so there is nothing to undo.
+      const found = flat.map(one => Svg.selectElement(one, false));
+      if (found.includes(null)) {
         return null;
       }
 
-      const named = [resolved as SVGElement[]];
+      const named = [(found as SVGElement[]).map(element => Svg.cloneHidden(element))];
       if (named[0].length !== this.points[0]?.length || this.points.length !== 1) {
         named[0].forEach(element => element.remove());
         return null;

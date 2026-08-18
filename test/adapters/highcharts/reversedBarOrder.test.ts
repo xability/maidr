@@ -162,10 +162,14 @@ describe('a segmented Highcharts bar group on a reversed category axis', () => {
     const layer = layerFor([[10, 20, 30], [1, 2, 3]], false, 'column', 'normal');
 
     expect(categoriesOf(layer)).toEqual(['alpha', 'bravo', 'charlie']);
-    expect(layer.selectors).toBe(
-      `${GROUP} .highcharts-series-0 .highcharts-point, `
-      + `${GROUP} .highcharts-series-1 .highcharts-point`,
-    );
+    // Named per cell either way. The order is what a reversed axis changes;
+    // the naming is what stops a zero being mistaken for an absent bar, and
+    // that is not a question about the axis (#1002).
+    expect((layer.selectors as (string | null)[][])[0]).toEqual([
+      `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(1)`,
+      `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(2)`,
+      `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(3)`,
+    ]);
   });
 
   it('reads a reversed stacked group the way it is drawn', () => {
@@ -200,29 +204,32 @@ describe('a segmented Highcharts bar group on a reversed category axis', () => {
     // `bravo` onto each other's bars.
     const layer = layerFor([[10, 0, 30], [1, 2, 3]], true, 'column', 'normal');
 
-    expect((layer.selectors as string[][])[0]).toEqual([
+    expect((layer.selectors as (string | null)[][])[0]).toEqual([
       `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(3)`,
       `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(2)`,
       `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(1)`,
     ]);
   });
 
-  it('leaves a group with a gap as it was', () => {
-    // No element exists for the cell `bravo` would need, and `SegmentedTrace`
-    // rejects a whole grid when one cell resolves to nothing — which would
-    // cost the layer its highlight entirely. Reading backwards is the lesser
-    // failure, so the group is left alone rather than half-fixed.
+  it('names nothing for a cell the chart never drew', () => {
+    // Series A has no `bravo` bar, so its middle cell names no element rather
+    // than a selector that would resolve to nothing -- which `SegmentedTrace`
+    // treats as a mistake and answers by declining the whole grid.
     const layer = layerFor([[10, null, 30], [1, 2, 3]], true, 'column', 'normal');
 
-    expect(categoriesOf(layer)).toEqual(['alpha', 'bravo', 'charlie']);
-    expect(typeof layer.selectors).toBe('string');
+    expect(categoriesOf(layer)).toEqual(['charlie', 'bravo', 'alpha']);
+    expect((layer.selectors as (string | null)[][])[0]).toEqual([
+      `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(2)`,
+      null,
+      `${GROUP} .highcharts-series-0 .highcharts-point:nth-child(1)`,
+    ]);
   });
 
   it('reads a reversed dodged group the way it is drawn', () => {
     const layer = layerFor([[10, 20, 30], [1, 2, 3]], true);
 
     expect(categoriesOf(layer)).toEqual(['charlie', 'bravo', 'alpha']);
-    expect((layer.selectors as string[][])[1][0])
+    expect((layer.selectors as (string | null)[][])[1][0])
       .toBe(`${GROUP} .highcharts-series-1 .highcharts-point:nth-child(3)`);
   });
 
@@ -254,12 +261,16 @@ describe('a segmented Highcharts bar group on a reversed category axis', () => {
  * `<path>` is what Highcharts 11 and 12 draw (#1003).
  *
  * @param seriesCount - How many series the chart drew
+ * @param drawn - Categories each series has a bar at, when not all of them
  */
-function installDom(seriesCount: number): void {
+function installDom(
+  seriesCount: number,
+  drawn: Record<number, string[]> = {},
+): void {
   const groups = Array
     .from({ length: seriesCount }, (_, series) =>
       `<g class="highcharts-series-${series}">${
-        CATEGORIES
+        (drawn[series] ?? CATEGORIES)
           .map(category =>
             `<path class="highcharts-point" id="S${series}-${category}"/>`)
           .join('')
@@ -301,7 +312,9 @@ function outlined(trace: BarTrace | SegmentedTrace, rows: number): string[] {
       const state = trace.state as Extract<TraceState, { empty: false }>;
       const highlight = state.highlight as { empty?: boolean; elements?: unknown };
       const element = highlight.elements as { id?: string } | undefined;
-      seen.push(element?.id || (highlight.empty ? '(empty)' : '(none)'));
+      // An element with no id is the placeholder the model stands in for a
+      // cell that names none -- distinct from there being no element at all.
+      seen.push(element === undefined ? '(none)' : element.id || '(placeholder)');
     }
   }
   return seen;
@@ -333,5 +346,44 @@ describe('what a reversed Highcharts bar chart actually outlines', () => {
       'S1-bravo',
       'S1-alpha',
     ]);
+  });
+});
+
+describe('a segmented Highcharts group holding a bar measured at zero', () => {
+  // `buildSegmentedRows` turns a gap and a real zero alike into `0`, and
+  // `SegmentedTrace` reads a zero cell as one the chart may have omitted.
+  // Highcharts omits only `null` -- measured, `[10, null, 0, 40]` draws three
+  // elements, at the alpha, charlie and delta slots -- so a real zero took a
+  // place the inference had already given away, and every cell after it in
+  // that series was paired one bar early (#1002).
+
+  it('outlines its own bar from every cell, zero included', () => {
+    const layer = layerFor([[10, null, 30], [0, 20, 5]], false, 'column', 'normal');
+    installDom(2, { 0: ['alpha', 'charlie'] });
+
+    expect(outlined(new SegmentedTrace(layer), 2)).toEqual([
+      'S0-alpha',
+      '(placeholder)',
+      'S0-charlie',
+      'S1-alpha',
+      'S1-bravo',
+      'S1-charlie',
+    ]);
+  });
+
+  it('reaches the last bar of a series that starts at zero', () => {
+    // The cell the old alignment could never highlight: with `S1-alpha`
+    // skipped as omittable, the row ran off the end of the element list and
+    // `S1-charlie` was never anybody's.
+    const layer = layerFor([[10, null, 30], [0, 20, 5]], false, 'column', 'normal');
+    installDom(2, { 0: ['alpha', 'charlie'] });
+
+    const trace = new SegmentedTrace(layer);
+    trace.moveToIndex(1, 2);
+    const state = trace.state as Extract<TraceState, { empty: false }>;
+    const element = (state.highlight as { elements?: unknown })
+      .elements as { id?: string } | undefined;
+
+    expect(element?.id).toBe('S1-charlie');
   });
 });

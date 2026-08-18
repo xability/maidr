@@ -959,28 +959,25 @@ function isReversedCategoryAxis(
 }
 
 /**
- * The DOM position of every cell of a segmented group, or `null` when some
- * cell has no element to point at.
+ * The DOM position of every cell of a segmented group, or -1 for a cell the
+ * chart never drew.
  *
  * Highcharts draws no `.highcharts-point` for a `null` point — but it does
  * draw one for a genuine `0` — so a series' elements run one per *non-null*
  * point while {@link buildSegmentedRows} pads its row out to one cell per
- * category. Counting the drawn points is what bridges the two.
- *
- * Declining on a gap is what keeps the reversal safe. A grid names an element
- * for every cell and `SegmentedTrace` rejects the whole grid if any one of
- * them resolves to nothing, which would cost the layer its highlight
- * altogether — worse than the wrong-direction reading it set out to fix. A
- * group with a gap is therefore left as it is.
+ * category, turning both a gap and a real zero into `0`. Counting the drawn
+ * points is what bridges the two, and it is the only thing that can: by the
+ * time the rows exist, a bar measured at zero and a bar that was never there
+ * look alike (#1002).
  *
  * @param seriesList - The series of one bar group
  * @param categoryCount - The number of cells each row was padded to
- * @returns One DOM position per cell, or null if any cell was never drawn
+ * @returns One DOM position per cell, -1 where nothing was drawn
  */
 function drawnCellIndices(
   seriesList: HighchartsSeries[],
   categoryCount: number,
-): number[][] | null {
+): number[][] {
   const indexForX = categoryIndexer(seriesList);
   const rows = new Array<number[]>();
 
@@ -999,9 +996,6 @@ function drawnCellIndices(
       // still took a place in the DOM, and every later position shifts by it.
       drawn += 1;
     }
-    if (row.includes(-1)) {
-      return null;
-    }
     rows.push(row);
   }
 
@@ -1009,52 +1003,70 @@ function drawnCellIndices(
 }
 
 /**
- * Puts a segmented group's cells in the order the chart draws them, naming one
- * element per cell so the highlight follows the announcements.
+ * Names the element of every cell of a segmented group, in the order the
+ * chart draws its categories.
  *
- * The rows already carry each value under its own category — that is what
- * makes Highcharts immune to the data-order bug plotly (#987) and Vega-Lite
- * (#994) have — but the categories themselves are the axis', and a reversed
- * axis draws `categories[0]` at the right-hand end. So the reading runs
- * backwards over a chart that is otherwise correct.
+ * Two things are settled here, and they are settled together because neither
+ * can be got right on its own.
  *
- * Reversing the rows alone would make it worse rather than better: the DOM
- * does *not* move with the axis, so a reversed row paired against document
- * order would announce one category and outline another. Both halves move
- * together, as in #988.
+ * **The order.** The rows already carry each value under its own category —
+ * that is what makes Highcharts immune to the data-order bug plotly (#987)
+ * and Vega-Lite (#994) have — but the categories are the axis', and a
+ * reversed axis draws `categories[0]` at the right-hand end, so the reading
+ * runs backwards over a chart that is otherwise correct. Reversing the rows
+ * alone would make it worse: the DOM does *not* move with the axis, so a
+ * reversed row paired against document order announces one category and
+ * outlines another (#988). Both halves move together.
+ *
+ * **The pairing.** Naming each cell outright is also what stops a bar
+ * measured at zero from being mistaken for one that was never drawn.
+ * `SegmentedTrace` infers which cells the chart omitted from the values,
+ * counting a zero as possibly-omitted; Highcharts omits only `null`, and
+ * draws a zero-height bar for a real `0`. Every cell after such a zero was
+ * paired one bar early (#1002). A grid says outright which element each cell
+ * has, and `null` says a cell has none, so nothing is left to infer — which
+ * also takes the layer out of reach of the branch asymmetry in #1003.
  *
  * @param seriesList - The series of one bar group
  * @param containerId - The id of the element the chart is rendered into
  * @param orientation - The orientation the group resolved to
  * @param data - The rows {@link buildSegmentedRows} produced
- * @returns The rows and selectors to emit
+ * @returns The rows and the per-cell selectors to emit
  */
-function orderSegmentedByAxis(
+function nameSegmentedCells(
   seriesList: HighchartsSeries[],
   containerId: string,
   orientation: Orientation,
   data: SegmentedPoint[][],
 ): { data: SegmentedPoint[][]; selectors: MaidrLayer['selectors'] } {
-  const joined = seriesList
-    .map(series => barSelector(containerId, series.index))
-    .join(', ');
-
   const categoryCount = data[0]?.length ?? 0;
-  if (categoryCount === 0 || !isReversedCategoryAxis(seriesList[0], orientation)) {
-    return { data, selectors: joined };
+  if (categoryCount === 0) {
+    return {
+      data,
+      selectors: seriesList
+        .map(series => barSelector(containerId, series.index))
+        .join(', '),
+    };
   }
+
+  const reversed = isReversedCategoryAxis(seriesList[0], orientation);
+  const order = Array.from(
+    { length: categoryCount },
+    (_, position) => (reversed ? categoryCount - 1 - position : position),
+  );
 
   const drawn = drawnCellIndices(seriesList, categoryCount);
-  if (drawn === null) {
-    return { data, selectors: joined };
-  }
 
   return {
-    data: data.map(row => [...row].reverse()),
-    selectors: drawn.map((row, series) => [...row]
-      .reverse()
-      .map(drawnIndex =>
-        barPointSelector(containerId, seriesList[series].index, drawnIndex))),
+    data: reversed
+      ? data.map(row => order.map(category => row[category]))
+      : data,
+    selectors: drawn.map((row, series) => order.map((category) => {
+      const drawnIndex = row[category];
+      return drawnIndex < 0
+        ? null
+        : barPointSelector(containerId, seriesList[series].index, drawnIndex);
+    })),
   };
 }
 
@@ -1074,7 +1086,7 @@ function convertStackedBar(
   // Each series is one "group" (fill level). Points within share x-categories.
   const rows = buildSegmentedRows(seriesList, orientation, traceType);
   const { data, selectors }
-    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
+    = nameSegmentedCells(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
 
@@ -1102,7 +1114,7 @@ function convertDodgedBar(
 ): MaidrLayer {
   const rows = buildSegmentedRows(seriesList, orientation, TraceType.DODGED);
   const { data, selectors }
-    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
+    = nameSegmentedCells(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
 
@@ -1192,7 +1204,7 @@ function convertDivergingBar(
 ): MaidrLayer {
   const rows = buildSegmentedRows(seriesList, orientation, TraceType.DIVERGING);
   const { data, selectors }
-    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
+    = nameSegmentedCells(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
 
