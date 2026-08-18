@@ -302,6 +302,47 @@ interface LiveDataInstance {
 }
 
 /**
+ * Say what is wrong with a payload that is not a figure, or `null` when it is.
+ *
+ * `setData` replaces a whole chart, so it takes the same shape the chart was
+ * declared with. Every other shape used to reach the registry lookup and come
+ * back as `no live chart registered with id "undefined"` -- a message that
+ * names a chart that was never the problem, and one a caller passing a layer
+ * or a bare data array has no way to read as "wrong shape" (#956). Worse, a
+ * layer whose `id` happened to match a chart's would have replaced the figure
+ * with a layer rather than being refused.
+ *
+ * Deliberately shallow: this separates the shapes that cannot possibly work
+ * from the one that can, and leaves the contents to the model. Validating the
+ * whole schema here would put a second, drifting copy of it in the service
+ * layer.
+ *
+ * @param maidr - Whatever the caller passed
+ * @returns A phrase naming what arrived, or `null` when it is a figure
+ */
+function describeIfNotFigure(maidr: Maidr): string | null {
+  const value: unknown = maidr;
+  if (value === null || value === undefined) {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return `an array of ${value.length}`;
+  }
+  if (typeof value !== 'object') {
+    return `a ${typeof value}`;
+  }
+
+  const figure = value as Partial<Maidr>;
+  if (typeof figure.id !== 'string') {
+    return 'an object with no `id`';
+  }
+  if (!Array.isArray(figure.subplots)) {
+    return `an object with an \`id\` of "${figure.id}" but no \`subplots\``;
+  }
+  return null;
+}
+
+/**
  * Global registry that routes realtime data updates to mounted chart instances.
  *
  * Each `<Maidr>` instance registers itself by chart id. External producers
@@ -344,6 +385,16 @@ export class LiveDataManager {
    * @returns True when a registered chart was updated
    */
   public setData(maidr: Maidr): boolean {
+    const wrong = describeIfNotFigure(maidr);
+    if (wrong !== null) {
+      console.warn(
+        `[maidr] setData: expected a full figure schema -- an object with an `
+        + `\`id\` and a \`subplots\` array -- but received ${wrong}. `
+        + `The chart was not changed.`,
+      );
+      return false;
+    }
+
     const instance = this.instances.get(maidr.id);
     if (!instance) {
       console.warn(`[maidr] setData: no live chart registered with id "${maidr.id}"`);
