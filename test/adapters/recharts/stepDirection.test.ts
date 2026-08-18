@@ -69,9 +69,15 @@ describe('a step chart type', () => {
   });
 
   it('announces no direction when nothing names one', () => {
-    // Recharts' centred `type="step"` is neither convention, and `StepTrace`
-    // is written to expect an undeclared direction rather than a guessed one.
+    // A config that declares no direction and has no `<Line>` to read one off
+    // gets none. `StepTrace` is written to expect that rather than a guess —
+    // the chart is still read as a step.
     expect(layerOf({ chartType: 'step', yKeys: ['v'] }).stepDirection).toBeUndefined();
+  });
+
+  it('carries the centred convention like any other', () => {
+    expect(layerOf({ chartType: 'step', yKeys: ['v'], stepDirection: 'mid' }).stepDirection)
+      .toBe('mid');
   });
 
   it('highlights through the dots, one per sample', () => {
@@ -175,10 +181,12 @@ describe('reading the convention out of the children', () => {
     expect(stepDirectionFor(tree(createElement(Area, { type: 'stepAfter' })))).toBe('hv');
   });
 
-  it('names no direction for a centred step', () => {
-    // The riser lands midway between the samples, which is neither convention.
-    // The chart is still a step; only the direction goes unannounced.
-    expect(stepDirectionFor(tree(createElement(Line, { type: 'step' })))).toBeUndefined();
+  it('reads a centred step as a riser midway between the samples', () => {
+    // Recharts resolves `type` against d3's curves, so `type="step"` is
+    // `d3.curveStep` — and the grammar names that `mid`, matplotlib's
+    // `steps-mid`. This was read as an ordinary line until the third name was
+    // noticed (#1075).
+    expect(stepDirectionFor(tree(createElement(Line, { type: 'step' })))).toBe('mid');
   });
 
   it('names no direction for an ordinary curve', () => {

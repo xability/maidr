@@ -32,6 +32,7 @@ import { Children, isValidElement } from 'react';
  * rather than claiming one the chart does not draw.
  */
 const STEP_DIRECTIONS: Record<string, StepDirection> = {
+  step: 'mid',
   stepAfter: 'hv',
   stepBefore: 'vh',
 };

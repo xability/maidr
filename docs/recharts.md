@@ -454,10 +454,11 @@ declaring twice:
 |---|---|---|
 | `stepAfter` | `hv` | at the next sample |
 | `stepBefore` | `vh` | at the current sample |
-| `step` | not announced | halfway between the two |
+| `step` | `mid` | halfway between the two |
 
-A centred `type="step"` is neither convention, so MAIDR names none rather than
-claiming one the chart does not draw — the chart is still read as a step. Pass
+All three are named. Recharts resolves `type` against d3's curves —
+`curveStepAfter`, `curveStepBefore` and `curveStep` — and the grammar has a
+name for each, `mid` being matplotlib's `steps-mid`. Pass
 `stepDirection` to state it yourself; it wins over what the walk finds, which
 is how a chart drawing more than one curve says which one is meant. In
 **subplot mode** nothing is derived at all — a grid has one walk and many
