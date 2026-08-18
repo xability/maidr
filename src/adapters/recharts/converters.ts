@@ -63,6 +63,15 @@ import { Orientation, TraceType } from '@type/grammar';
 import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors } from './selectors';
 
 /**
+ * What a layer carries when its marks run opposite to its payload.
+ *
+ * Declared here rather than beside its helpers because two builders read it
+ * before those are reached, and a `const` is not hoisted the way a function
+ * declaration is.
+ */
+const REVERSED_POINTS = { domMapping: { pointOrder: 'reverse' as const } };
+
+/**
  * Converts a Recharts adapter config into MAIDR's root data structure.
  *
  * @param config - Recharts adapter configuration
@@ -318,7 +327,16 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
 
   // Line with multiple series: single layer with 2D LinePoint[][] data
   if (isLineType(chartType) && hasMultipleSeries) {
-    return [buildMultiSeriesLineLayer(data, xKey, yKeys, chartType, xLabel, yLabel, selectorOverride)];
+    return [buildMultiSeriesLineLayer(
+      data,
+      xKey,
+      yKeys,
+      chartType,
+      xLabel,
+      yLabel,
+      selectorOverride,
+      reversesLinePoints(config, chartType, selectorOverride),
+    )];
   }
 
   const maidrType = toLayerTraceType(chartType, hasMultipleSeries);
@@ -341,6 +359,9 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     // together -- reversing one alone announces a bar and outlines another
     // (#1017, and #988 / #1000 before it).
     const turned = reversedBarSelectorsFor(config, maidrType, selector, selectorOverride, oriented.length);
+    // A line has no per-point selector to permute, so it says so instead and
+    // the trace pairs the two halves back up.
+    const turnedLine = reversesLinePoints(config, chartType, selectorOverride);
 
     return {
       id: String(index),
@@ -351,7 +372,10 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
       axes: barAxes(xLabel, yLabel, horizontal),
-      data: turned ? [...oriented].reverse() : oriented,
+      ...(turnedLine ? REVERSED_POINTS : {}),
+      data: turned
+        ? [...oriented].reverse()
+        : (turnedLine ? reversedLineSeries(oriented as LinePoint[][]) : oriented),
     } as MaidrLayer;
   });
 }
@@ -472,14 +496,17 @@ function buildMultiSeriesLineLayer(
   xLabel?: string,
   yLabel?: string,
   selectorOverride?: string,
+  reversed = false,
 ): MaidrLayer {
-  const lineData: LinePoint[][] = yKeys.map(yKey =>
+  const written: LinePoint[][] = yKeys.map(yKey =>
     data.map(item => ({
       x: toLineX(item[xKey]),
       y: toNumber(item[yKey]),
       z: yKey,
     })),
   );
+  // Every series of one chart shares its axis, so they turn round together.
+  const lineData = reversed ? reversedLineSeries(written) : written;
 
   // Multi-series: CSS selectors are unreliable, so omit them unless the
   // consumer provides a selectorOverride with custom class names.
@@ -495,6 +522,10 @@ function buildMultiSeriesLineLayer(
       x: { label: xLabel },
       y: { label: yLabel },
     },
+    // Inert while `selectors` is undefined -- there is nothing resolved to
+    // pair -- and carried anyway, so the two halves stay one statement
+    // should this builder ever name its marks.
+    ...(reversed ? REVERSED_POINTS : {}),
     data: lineData,
   };
 }
@@ -1212,6 +1243,55 @@ function reversedBarSelectorsFor(
   return reversedBarSelectors(selector, pointCount);
 }
 
+/**
+ * Whether a line-family layer's points run opposite to the order it drew them.
+ *
+ * A reversed category axis draws the series from its far end while Recharts
+ * goes on rendering its dots in data order, so the written order announces
+ * the chart as its own mirror image -- every value right, the shape
+ * backwards, and with it the stereo pan, the braille line and the direction
+ * autoplay sweeps (#1017 measured it; #1031 is the line half).
+ *
+ * A line has no per-point selector to permute the way a bar does: one class
+ * names every dot of the series. `domMapping.pointOrder` is how the layer
+ * says its marks run the other way, and `LineTrace` reverses the elements it
+ * resolved to pair the two halves back up (#1007).
+ *
+ * `radar` and `polar_area` are line-shaped payloads drawn around a circle,
+ * with no Cartesian category axis to reverse, so they are left out. A
+ * caller's own `selectorOverride` is left out too: its resolution order is
+ * not this adapter's to promise, and declaring `reverse` over it could
+ * invert a pairing that was right.
+ *
+ * @param config - The chart or panel config being read
+ * @param chartType - What the caller declared
+ * @param selectorOverride - The caller's own selector, if they gave one
+ * @returns True when both halves should be turned round
+ */
+function reversesLinePoints(
+  config: RechartsAdapterConfig,
+  chartType: RechartsChartType,
+  selectorOverride: string | undefined,
+): boolean {
+  if (config.categoryAxisReversed !== true || selectorOverride !== undefined) {
+    return false;
+  }
+  return chartType === 'line'
+    || chartType === 'area'
+    || isStackedAreaType(chartType)
+    || chartType === 'bump';
+}
+
+/**
+ * Turn each series of a line-family payload round, leaving the series order.
+ *
+ * @param data - The layer's `LinePoint[][]`
+ * @returns The same series, each read from its far end
+ */
+function reversedLineSeries(data: LinePoint[][]): LinePoint[][] {
+  return data.map(series => [...series].reverse());
+}
+
 function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
   const { data, xKey, xLabel, yLabel, orientation, layers, selectorOverride } = config;
 
@@ -1256,6 +1336,7 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     // turns round on the same terms. A layer sharing its chart type with
     // another has no selector of its own, and falls through untouched.
     const turned = reversedBarSelectorsFor(config, maidrType, selector, selectorOverride, oriented.length);
+    const turnedLine = reversesLinePoints(config, chartType, selectorOverride);
 
     return {
       id: String(index),
@@ -1266,7 +1347,10 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
       axes: barAxes(xLabel, yLabel, horizontal),
-      data: turned ? [...oriented].reverse() : oriented,
+      ...(turnedLine ? REVERSED_POINTS : {}),
+      data: turned
+        ? [...oriented].reverse()
+        : (turnedLine ? reversedLineSeries(oriented as LinePoint[][]) : oriented),
     } as MaidrLayer;
   });
 }
