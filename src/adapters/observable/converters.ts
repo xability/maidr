@@ -2251,11 +2251,12 @@ function tickCentre(element: Element): { x: number; y: number } | null {
  * observations — so the same comparison would refuse every fit ever drawn.
  *
  * @param element - The `<path>`.
- * @returns Its vertices and their rounding quantum, or `null` when it has none.
+ * @returns Its vertices, their rounding quantum, and how many subpaths it was
+ *          drawn in, or `null` when it has no vertices.
  */
 function readPathGeometry(
   element: Element,
-): { vertices: { x: number; y: number }[]; pixelError: number } | null {
+): { vertices: { x: number; y: number }[]; pixelError: number; subpaths: number } | null {
   const d = element.getAttribute('d');
   if (!d)
     return null;
@@ -2265,7 +2266,13 @@ function readPathGeometry(
   // Each drawing command ends at a coordinate pair; for M and L that pair is
   // the whole command, and for C it is the last of three.
   const commands = d.match(/[MLC][^MLCZ]*/gi) ?? [];
+  // Every `M` starts a subpath, and a mark drawn in more than one was broken
+  // somewhere. Counted here rather than at the caller so it comes from the
+  // same tokenisation as the vertices it describes.
+  let subpaths = 0;
   for (const command of commands) {
+    if (command[0].toUpperCase() === 'M')
+      subpaths++;
     const written = command.slice(1).match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi) ?? [];
     const numbers = written.map(Number.parseFloat);
     if (numbers.length < 2)
@@ -2282,7 +2289,7 @@ function readPathGeometry(
 
   // Half the smallest step the coordinates were written at: the most the
   // serializer can have moved a point when it rounded it.
-  return { vertices, pixelError: 0.5 * 10 ** -decimals };
+  return { vertices, pixelError: 0.5 * 10 ** -decimals, subpaths };
 }
 
 /**
@@ -2309,9 +2316,25 @@ function parsePathVertices(
   const drawn = readPathGeometry(element);
   if (drawn === null)
     return null;
-  const { vertices, pixelError } = drawn;
+  const { vertices, pixelError, subpaths } = drawn;
   const data = (element as Element & { __data__?: unknown }).__data__;
   const expected = Array.isArray(data) ? data.length : null;
+
+  // A gap breaks the mark into subpaths, and the count below cannot see it:
+  // it asks how many vertices there are, not whether they are the samples, and
+  // a break moves both numbers at once. Measured on `@observablehq/plot@0.6.17`,
+  // a `step-after` or `step-before` line whose `y` goes null, and a
+  // `step-after` area whose `x` does, land back on their own sample count — so
+  // the reading is accepted and the pieces are paired off with the samples
+  // they are not. What comes out is a subpath's opening move announced as a
+  // datum, a corner announced as another, and the gap itself gone (#1079).
+  //
+  // Reading the pieces properly is possible and is what `LinePoint` is for,
+  // but it needs the surviving samples matched to the subpaths that hold them.
+  // Until that exists this refuses rather than guesses, which costs nothing:
+  // every line and area Plot draws without a gap is a single subpath.
+  if (subpaths > 1)
+    return null;
 
   if (isArea) {
     // The loop is the series followed by the baseline back, so an even vertex
