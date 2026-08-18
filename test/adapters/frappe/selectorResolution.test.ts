@@ -83,6 +83,39 @@ function render(chart: FrappeChart, marks: 'bars' | 'line'): HTMLElement {
   return container;
 }
 
+/**
+ * Builds the Frappe v1.6.2 SVG for a percentage chart: one
+ * `rect.percentage-bar` per band inside a single `g.percentage-bars`, under
+ * `g.percentage-chart.chart-draw-area`.
+ *
+ * Unlike every other chart here there is no per-dataset group — the chart is
+ * one bar, and the bands are its segments, appended in the order Frappe's
+ * aggregation leaves them.
+ */
+function renderPercentage(bands: number[]): HTMLElement {
+  const container = document.getElementById('chart') as HTMLElement;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'frappe-chart chart');
+  container.appendChild(svg);
+
+  const chartGroup = document.createElementNS(SVG_NS, 'g');
+  chartGroup.setAttribute('class', 'percentage-chart chart-draw-area');
+  svg.appendChild(chartGroup);
+
+  const bars = document.createElementNS(SVG_NS, 'g');
+  bars.setAttribute('class', 'percentage-bars');
+  chartGroup.appendChild(bars);
+
+  for (const value of bands) {
+    const rect = document.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('class', 'percentage-bar');
+    rect.setAttribute('data-value', String(value));
+    bars.appendChild(rect);
+  }
+
+  return container;
+}
+
 function convert(chart: FrappeChart, chartType: FrappeChartType): MaidrLayer {
   const container = document.getElementById('chart') as HTMLElement;
   const maidr = createMaidrFromFrappeChart(chart, container, { chartType });
@@ -165,5 +198,24 @@ describe('frappe layer selectors against the rendered SVG', () => {
     expect(layer.domMapping).toEqual({ order: 'row' });
     expect(matched(layer.selectors as string))
       .toEqual(['-1200', '-1150', '1140', '1100']);
+  });
+
+  it('gives a percentage chart one bar per band, in band order', () => {
+    const chart: FrappeChart = {
+      data: {
+        labels: ['Direct', 'Search', 'Social'],
+        datasets: [{ name: 'Sessions', values: [50, 30, 20] }],
+      },
+    };
+    renderPercentage([50, 30, 20]);
+
+    const layer = convert(chart, 'percentage');
+
+    // Every band is a series of its own with a single column, so the DOM is
+    // trivially both row-major and column-major — but the column-major default
+    // also runs the series bottom-to-top, which would hand Direct the last bar.
+    // `order: 'row'` is what keeps band k on bar k.
+    expect(layer.domMapping).toEqual({ order: 'row' });
+    expect(matched(layer.selectors as string)).toEqual(['50', '30', '20']);
   });
 });

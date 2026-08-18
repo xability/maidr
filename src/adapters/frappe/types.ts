@@ -72,8 +72,12 @@ export interface FrappeChart {
  * - `'bump'` — a multi-dataset `type: 'line'` chart whose y values are ranks
  * - `'diverging'` — a two-dataset `type: 'bar'` chart with signed values
  *
- * `percentage` and the calendar-style `heatmap` have no clean MAIDR equivalent
- * and are not supported.
+ * `'percentage'` is Frappe's own name as well as the adapter's: it is the one
+ * chart here that MAIDR reads as a different shape than Frappe draws it. See
+ * {@link FrappeChartAdapterOptions.chartType} and `docs/frappe.md`.
+ *
+ * The calendar-style `heatmap` is not supported: it is a year of days keyed by
+ * date, structurally unlike MAIDR's labelled matrix.
  */
 export type FrappeChartType
   = | 'area'
@@ -84,6 +88,7 @@ export type FrappeChartType
     | 'donut'
     | 'dot'
     | 'line'
+    | 'percentage'
     | 'pie'
     | 'scatter';
 

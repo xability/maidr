@@ -518,6 +518,151 @@ describe('createMaidrFromFrappeChart (pie and donut)', () => {
   });
 });
 
+describe('createMaidrFromFrappeChart (percentage)', () => {
+  /**
+   * A percentage chart is built from the same `{ labels, datasets }` as a pie —
+   * Frappe draws both from `AggregationChart.calc()` — so the fixture is the
+   * pie's.
+   */
+  function makePercentageChart(
+    bands: Array<[string, number]>,
+    config?: { maxSlices?: number },
+  ): FrappeChart {
+    return {
+      data: {
+        labels: bands.map(([label]) => label),
+        datasets: [{ name: 'Sessions', values: bands.map(([, value]) => value) }],
+      },
+      ...(config ? { config } : {}),
+    };
+  }
+
+  function percentageLayer(
+    chart: FrappeChart,
+    axes?: { x?: string; y?: string; z?: string },
+  ): MaidrLayer {
+    const { containers } = makeDom(1);
+    containers[0].id = 'chart';
+    const maidr = createMaidrFromFrappeChart(chart, containers[0], {
+      chartType: 'percentage',
+      ...(axes ? { axes } : {}),
+    });
+    return maidr.subplots[0][0].layers[0];
+  }
+
+  it('reads the one bar as a normalized stack of one column', () => {
+    // Frappe draws a single bar divided into labelled bands. That is a 100%
+    // stacked bar whose column count happens to be one — the bands are the
+    // series, so Up/Down walks them and Left/Right has nowhere to go.
+    const layer = percentageLayer(makePercentageChart([
+      ['Direct', 400],
+      ['Search', 300],
+      ['Social', 200],
+      ['Referral', 100],
+    ]));
+
+    expect(layer.type).toBe(TraceType.NORMALIZED);
+    // Horizontal, so the share is on `x` and the one column's name on `y`.
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [{ x: 40, y: 'Total', z: 'Direct' }],
+      [{ x: 30, y: 'Total', z: 'Search' }],
+      [{ x: 20, y: 'Total', z: 'Social' }],
+      [{ x: 10, y: 'Total', z: 'Referral' }],
+    ]);
+  });
+
+  it('announces the shares the chart draws, not the counts the author wrote', () => {
+    // `NORMALIZED` divides nothing itself, so passing the counts through would
+    // pitch 1 against 3 as a three-fold rise while the chart shows a quarter of
+    // the bar against three quarters of it.
+    const layer = percentageLayer(makePercentageChart([['Failed', 1], ['Passed', 3]]));
+
+    expect((layer.data as SegmentedPoint[][]).map(band => band[0].x)).toEqual([25, 75]);
+  });
+
+  it('leaves values already written as percentages where they are', () => {
+    const layer = percentageLayer(makePercentageChart([['Failed', 25], ['Passed', 75]]));
+
+    expect((layer.data as SegmentedPoint[][]).map(band => band[0].x)).toEqual([25, 75]);
+  });
+
+  it('names the share and the column when the caller supplies no axis labels', () => {
+    const layer = percentageLayer(makePercentageChart([['Direct', 400]]));
+
+    expect(layer.axes).toEqual({ x: { label: 'Share' }, y: { label: 'Total' } });
+  });
+
+  it('keeps caller-supplied axis labels, including the one naming the bands', () => {
+    const layer = percentageLayer(
+      makePercentageChart([['Direct', 400]]),
+      { x: 'Percent of sessions', y: 'All traffic', z: 'Channel' },
+    );
+
+    expect(layer.axes).toEqual({
+      x: { label: 'Percent of sessions' },
+      y: { label: 'All traffic' },
+      z: { label: 'Channel' },
+    });
+  });
+
+  it('sums every dataset at each label, as Frappe does before drawing', () => {
+    const layer = percentageLayer({
+      data: {
+        labels: ['Apples', 'Bananas'],
+        datasets: [
+          { name: 'Q1', values: [10, 20] },
+          { name: 'Q2', values: [5, 5] },
+        ],
+      },
+    });
+
+    // 15 and 25 of 40.
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [{ x: 37.5, y: 'Total', z: 'Apples' }],
+      [{ x: 62.5, y: 'Total', z: 'Bananas' }],
+    ]);
+  });
+
+  it('drops labels Frappe draws no band for, and their values with them', () => {
+    const layer = percentageLayer(
+      makePercentageChart([['Apples', 30], ['Owed', -5], ['Cherries', 20]]),
+    );
+
+    // Carrying the negative would slide Cherries' highlight onto the band
+    // before it — and it is out of the denominator too, which is why the two
+    // remaining bands are 60/40 of 50 rather than shares of 45.
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [{ x: 60, y: 'Total', z: 'Apples' }],
+      [{ x: 40, y: 'Total', z: 'Cherries' }],
+    ]);
+  });
+
+  it('collapses everything past maxSlices into one Rest band, largest first', () => {
+    const layer = percentageLayer(
+      makePercentageChart([['A', 1], ['B', 5], ['C', 3], ['D', 1]], { maxSlices: 3 }),
+    );
+
+    // Measured against Frappe v1.6.2: a percentage chart and a pie given the
+    // same data produce identical `state.labels` and `state.sliceTotals`, the
+    // sort and the Rest wedge included.
+    expect(layer.data as SegmentedPoint[][]).toEqual([
+      [{ x: 50, y: 'Total', z: 'B' }],
+      [{ x: 30, y: 'Total', z: 'C' }],
+      [{ x: 20, y: 'Total', z: 'Rest' }],
+    ]);
+  });
+
+  it('leaves the label order alone while the bands fit within maxSlices', () => {
+    const layer = percentageLayer(
+      makePercentageChart([['A', 10], ['B', 50], ['C', 40]], { maxSlices: 3 }),
+    );
+
+    expect((layer.data as SegmentedPoint[][]).map(band => band[0].z))
+      .toEqual(['A', 'B', 'C']);
+  });
+});
+
 describe('createMaidrFromFrappeCharts (multi-panel)', () => {
   it('maps a 2D panel grid 1:1 to subplots, allowing ragged rows', () => {
     const { wrapper, containers } = makeDom(3);
