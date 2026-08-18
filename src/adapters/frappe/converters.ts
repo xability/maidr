@@ -24,6 +24,7 @@ import type {
 } from '@type/grammar';
 import type { FrappeChart, FrappeChartType, FrappeData, FrappeDataset, FrappePanel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import { toSegmentedShares } from '../shared/normalize';
 import {
   barSelector,
   barSelectorForDataset,
@@ -31,6 +32,7 @@ import {
   lineSelector,
   lineSelectorForDataset,
   nextId,
+  percentageBarSelector,
   scatterSelector,
   sliceSelector,
 } from './selectors';
@@ -389,11 +391,13 @@ function buildLayers(
     case 'pie':
     case 'donut':
       return [buildPieLayer(data, containerId, options)];
+    case 'percentage':
+      return [buildPercentageLayer(data, containerId, options)];
     default:
       throw new Error(
         `Unsupported Frappe chart type: ${options.chartType as string}. `
         + 'Supported types: bar, line, area, bump, scatter, dot, diverging, '
-        + 'axis-mixed, pie, donut.',
+        + 'axis-mixed, pie, donut, percentage.',
       );
   }
 }
@@ -772,6 +776,79 @@ function aggregateSlices(data: FrappeData, maxSlices: number): PiePoint[] {
     .slice(maxSlices - 1)
     .reduce((sum, point) => sum + point.y, 0);
   return [...sorted.slice(0, maxSlices - 1), { x: REST_SLICE_LABEL, y: round4(rest) }];
+}
+
+/**
+ * What a percentage chart's dimensions are called when the caller names none.
+ *
+ * `x` is the magnitude because the chart is read horizontally, and it is a
+ * share* rather than a value: the layer emits percentages, not the counts the
+ * author wrote. `y` names the one column, which Frappe draws as the whole bar
+ * and labels nowhere.
+ */
+const PERCENTAGE_AXIS_FALLBACKS = { x: 'Share', y: 'Total' };
+
+/**
+ * The single column's name — what the whole bar stands for.
+ *
+ * A horizontal segmented layer announces its category from `y`, and a
+ * percentage chart has exactly one: the grand total the bands divide up.
+ */
+const PERCENTAGE_COLUMN = 'Total';
+
+/**
+ * Builds the layer for a percentage chart — one bar divided into labelled
+ * bands, which is a 100% stacked bar with a single column.
+ *
+ * Frappe builds this chart from the same `AggregationChart.calc()` as the pie:
+ * measured against v1.6.2, a percentage chart and a pie given identical data
+ * produce identical `state.labels` and `state.sliceTotals`, down to the
+ * `maxSlices` collapse and the drop of any label whose datasets do not sum to
+ * a number `>= 0`. So the bands come from {@link aggregateSlices} rather than
+ * from a second copy of that arithmetic, and band k is bar k for the same
+ * reason slice k is wedge k.
+ *
+ * The values are emitted as **shares**, through the same
+ * {@link toSegmentedShares} the other 100% charts use: `NORMALIZED` divides
+ * nothing itself, so an adapter that passed the counts through would pitch a
+ * reader the raw numbers while every band is drawn as its fraction of one bar.
+ * That trade — the counts are no longer announced — is what a percentage chart
+ * draws, and is the position already settled for every other 100% chart here.
+ *
+ * @param data        - The chart's labels and datasets
+ * @param containerId - The chart container's id, for scoping the selector
+ * @param options     - Adapter options, for the axis labels and `maxSlices`
+ * @returns The converted layer
+ */
+function buildPercentageLayer(
+  data: FrappeData,
+  containerId: string,
+  options: BuildSubplotOptions,
+): MaidrLayer {
+  const slices = aggregateSlices(data, options.maxSlices ?? DEFAULT_MAX_SLICES);
+  const bands: SegmentedPoint[][] = slices.map(slice => [{
+    x: slice.y,
+    y: PERCENTAGE_COLUMN,
+    z: String(slice.x),
+  }]);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.NORMALIZED,
+    // The bar runs across, so the magnitude is on `x` and the column on `y` —
+    // which is what a horizontal segmented trace reads, and the only way round
+    // that puts the share in the field it takes the pitch from.
+    orientation: Orientation.HORIZONTAL,
+    // A segmented trace maps ONE selector across every series and splits the
+    // match itself. `order: 'row'` is series-major: band 0's rect, then band
+    // 1's, which is the order Frappe appends them in. The default is
+    // column-major *and* bottom-to-top, so leaving it off would hand band 0
+    // the last bar rather than the first, even though there is only one column.
+    selectors: percentageBarSelector(containerId),
+    domMapping: { order: 'row' },
+    axes: buildAxes(options, PERCENTAGE_AXIS_FALLBACKS),
+    data: toSegmentedShares(bands, true),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@
  *   Points:  <circle> inside <g class="dataset-units dataset-line dataset-{i}">  (scatter and dot reuse the line group)
  *   Pie:     <path class="pie-path"> inside <g class="pie-slices">
  *   Donut:   <path class="donut-path"> inside <g class="donut-slices">
+ *   Percent: <rect class="percentage-bar"> inside <g class="percentage-bars">
  *
  * For line traces MAIDR highlights one element per data point, so the line
  * selectors target the per-point `<circle>` dots — never the single
@@ -117,4 +118,19 @@ export function scatterSelector(containerId: string): string {
  */
 export function sliceSelector(containerId: string, chartType: 'donut' | 'pie'): string {
   return `#${containerId} svg.frappe-chart .${chartType}-slices path.${chartType}-path`;
+}
+
+/**
+ * Scoped selector for the bands of a percentage chart.
+ *
+ * A percentage chart is one bar, so the rects run along it in band order —
+ * which is the order the same aggregation gives the wedges of a pie, since
+ * Frappe builds both from `AggregationChart.calc()`. The segmented trace maps
+ * this single selector across all of its series, splitting the match itself.
+ *
+ * @param containerId - The chart container's id, for scoping.
+ * @returns The selector matching one element per band, in band order.
+ */
+export function percentageBarSelector(containerId: string): string {
+  return `#${containerId} svg.frappe-chart .percentage-bars rect.percentage-bar`;
 }

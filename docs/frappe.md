@@ -106,12 +106,15 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 | Mixed axis (bar + line) | `'axis-mixed'` | `'axis-mixed'` |
 | Pie | `'pie'` | `'pie'` |
 | Donut | `'donut'` | `'donut'` |
+| Percentage | `'percentage'` | `'percentage'` |
 
 The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws several distinct statistical charts with the same `type: 'line'` or `type: 'bar'`, differing only in their options or in what the numbers mean — nothing a chart instance records — so naming the chart is how you tell MAIDR which one to announce.
 
-**Not supported:** Percentage charts (no MAIDR equivalent), and Frappe's calendar-style Heatmap (structurally unlike MAIDR's matrix heatmap).
+**Not supported:** Frappe's calendar-style Heatmap — a year of days keyed by date, structurally unlike MAIDR's labelled matrix.
 
 > **Pie note:** Frappe aggregates before it draws — it sums every dataset at each label, drops labels whose total is negative, and collapses everything past `maxSlices` (default 20) into one "Rest" wedge. The adapter reproduces that aggregation so each announced slice is the wedge it highlights. Pass the chart instance (not a plain `{ data }` object) when you override `maxSlices`, so the adapter can read it.
+
+> **Percentage note:** A percentage chart is one bar divided into labelled bands, which is a 100% stacked bar whose column count is one — so MAIDR reads it as `stacked_normalized_bar` with the bands as its series. Up/Down walks the bands and then the 100% total; Left/Right has nowhere to go. The values announced are **shares, not counts**: `NORMALIZED` divides nothing itself, so the adapter emits each band's percentage of the whole, the same as every other 100% chart MAIDR reads. The counts the author wrote are not announced — draw a bar chart if they matter. Frappe aggregates this chart with exactly the same code as a pie (`AggregationChart.calc()`): datasets summed per label, labels whose total is not `>= 0` dropped, and everything past `maxSlices` (default 20) collapsed into one "Rest" band, largest first. Pass the chart instance rather than a plain `{ data }` object when you override `maxSlices`.
 
 > **Area note:** `lineOptions.regionFill` is an instance field the adapter reads directly, so a chart passed as `chartType: 'line'` with the region filled is announced as an area chart anyway — you cannot mislabel one as the other. Pass `chartType: 'area'` when you hand the adapter a plain `{ data }` object, which has no instance to read. Several filled bands in one chart **overlap** in Frappe rather than stacking, so they stay independent series (`area`, never `stacked_area`). Keep `dotSize > 0`: the fill is one `<path>` for the whole series and cannot highlight individual points.
 
@@ -336,6 +339,33 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
     chartType: 'scatter',
     title: 'Temperature vs Altitude',
     axes: { x: 'Altitude (m)', y: 'Temperature (C)' },
+  });
+</script>
+```
+
+### Percentage Chart
+
+```html
+<div id="percentage-chart"></div>
+<script>
+  const data = {
+    labels: ['Direct', 'Search', 'Social', 'Referral'],
+    datasets: [{ name: 'Sessions', values: [400, 300, 200, 100] }],
+  };
+  const chart = new frappe.Chart('#percentage-chart', {
+    data,
+    type: 'percentage',
+    height: 200,
+  });
+
+  // Read as a 100% stacked bar of one column: Up/Down walks the four bands
+  // and then their 100% total, and each is announced as its SHARE (40, 30,
+  // 20, 10) rather than as the session counts above. `axes.z` names what the
+  // bands are; `axes.x` names the share and `axes.y` the whole bar.
+  activateMaidrWhenSettled(document.querySelector('#percentage-chart'), {
+    chartType: 'percentage',
+    title: 'Share of Traffic by Channel',
+    axes: { x: 'Share of sessions (%)', y: 'All traffic', z: 'Channel' },
   });
 </script>
 ```
