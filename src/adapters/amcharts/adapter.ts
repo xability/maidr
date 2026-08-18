@@ -25,6 +25,7 @@
 
 import type {
   BarPoint,
+  CandlestickPoint,
   ChoroplethPoint,
   DumbbellData,
   FlowPoint,
@@ -66,6 +67,7 @@ import {
 import {
   classifySeriesKind,
   extractBarPoints,
+  extractCandlestickPoints,
   extractChoroplethPoints,
   extractDumbbellPoints,
   extractFlowPoints,
@@ -378,6 +380,13 @@ function buildChartLayers(
         if (data.length === 0)
           break;
         layers.push(buildWaterfallLayer(series, data, xLabel, yLabel, containerEl));
+        break;
+      }
+      case 'candlestick': {
+        const data = extractCandlestickPoints(series);
+        if (data.length === 0)
+          break;
+        layers.push(buildCandlestickLayer(series, data, xLabel, yLabel, containerEl));
         break;
       }
       case 'dumbbell': {
@@ -868,6 +877,33 @@ function buildWaterfallLayer(
   return {
     id: layerId(series),
     type: TraceType.WATERFALL,
+    title: seriesName(series),
+    ...(selector ? { selectors: selector } : {}),
+    axes: { x: { label: xLabel }, y: { label: yLabel } },
+    data,
+  };
+}
+
+/**
+ * Builds the layer for one candlestick or OHLC series.
+ *
+ * Both draw one column per candle -- a body with a wick through it, or a bar
+ * with two ticks -- so the column selector every other bar-shaped family uses
+ * finds the marks here too, and the highlight puts a box round the whole
+ * candle whichever of its five numbers is being announced (#1053).
+ */
+function buildCandlestickLayer(
+  series: AmXYSeries,
+  data: CandlestickPoint[],
+  xLabel: string,
+  yLabel: string,
+  containerEl: HTMLElement,
+): MaidrLayer {
+  const selector = buildColumnSelector(series, containerEl);
+
+  return {
+    id: layerId(series),
+    type: TraceType.CANDLESTICK,
     title: seriesName(series),
     ...(selector ? { selectors: selector } : {}),
     axes: { x: { label: xLabel }, y: { label: yLabel } },

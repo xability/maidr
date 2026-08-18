@@ -57,6 +57,7 @@ function emptyGroups(): SeriesGroups {
     pieSeriesList: [],
     funnelSeriesList: [],
     waterfallSeriesList: [],
+    candlestickSeriesList: [],
     dumbbellSeriesList: [],
     ganttSeriesList: [],
     hierarchySeriesList: [],
