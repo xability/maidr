@@ -161,8 +161,11 @@ export function clearTaggedElements(container: HTMLElement): void {
  *                     page-wide
  * @param panelIndex - Panel index in multi-panel mode; `null` keeps the
  *                     original single-panel attribute naming
- * @returns A CSS selector string, or `undefined` if elements could not be
- *          matched (highlighting will gracefully degrade).
+ * @returns Whatever names this layer's marks: one CSS selector for a series
+ *          the model can walk positionally, a `string[]` when the marks have
+ *          to be named one by one, or the structured selector a box or a
+ *          candle needs. `undefined` if the elements could not be matched, in
+ *          which case highlighting degrades gracefully.
  */
 export function tagLayerElements(
   svg: SVGElement,
@@ -233,7 +236,7 @@ function tagDiscreteElements(
   attrName: string,
   claimed: Set<Element>,
   scope: string,
-): string | undefined {
+): string | string[] | undefined {
   const candidates = Array.from(
     svg.querySelectorAll('path[role="presentation"]'),
   ).filter(el => !claimed.has(el) && !isMaidrOwned(el));
@@ -247,7 +250,11 @@ function tagDiscreteElements(
   }
 
   for (const el of matched) {
-    el.setAttribute(attrName, '');
+    // A reversed layer names its marks one by one below, and the shared
+    // attribute would then be a second, wrongly-ordered way to select them.
+    if (!layer.categoriesReversed) {
+      el.setAttribute(attrName, '');
+    }
     claimed.add(el);
     // Scatter points are <path> elements positioned by their `d` moveto, so
     // they expose no x/y or cx/cy. Stamp cx/cy from the path centre so MAIDR's
@@ -260,6 +267,23 @@ function tagDiscreteElements(
     if (layer.data.kind === 'scatter') {
       stampPathCenter(el);
     }
+  }
+
+  // A layer read in the drawn order of an inverted axis no longer lines up
+  // with the marks, which Victory renders in data order either way (#1018).
+  // One shared attribute resolves positionally and would pair point 0 with the
+  // mark at the far end, so each mark is named instead -- by the position it
+  // now holds in the payload, counted from the other end. Distinct attributes
+  // rather than `:nth-child`, so the list is order-independent and #1004's
+  // descending-only rule does not apply.
+  if (layer.categoriesReversed) {
+    // `matched` is in DOM order, which is data order; the payload was turned
+    // round, so payload position i is the mark standing at the other end.
+    return matched.map((_, i) => {
+      const own = `${attrName}-${i}`;
+      matched[matched.length - 1 - i].setAttribute(own, '');
+      return `${scope}[${own}]`;
+    });
   }
 
   return `${scope}[${attrName}]`;
