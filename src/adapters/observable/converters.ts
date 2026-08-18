@@ -495,6 +495,9 @@ function convertBoxComposite(
   return converted;
 }
 
+/** The stroke width `Plot.boxY` gives its median tick. */
+const BOX_MEDIAN_STROKE = 2;
+
 /**
  * Whether a tick mark is a box plot's median rather than one an author drew.
  *
@@ -529,9 +532,6 @@ function drawnAsMedian(group: Element): boolean {
   return carriers.every(element =>
     attributeNumber(element, 'stroke-width') === BOX_MEDIAN_STROKE);
 }
-
-/** The stroke width `Plot.boxY` gives its median tick. */
-const BOX_MEDIAN_STROKE = 2;
 
 /**
  * Finds the facet of another mark drawn in the same place as this one.
