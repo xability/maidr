@@ -1103,12 +1103,13 @@ function extractDumbbellLayer(
   // a gantt lane, an empty dumbbell row has no pair and so no comparison to
   // announce, and the trace's grid is a plain rows x ends rectangle.
   const points: DumbbellPoint[] = [];
-  dataset.data.forEach((value, i) => {
+  for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
+    const value = dataset.data[i];
     if (!isRangeValue(value))
-      return;
+      continue;
     const [start, end] = rangeBounds(value);
     points.push({ x: labels[i] ?? i, start, end });
-  });
+  }
 
   const data: DumbbellData = {
     points,
@@ -1157,9 +1158,16 @@ function extractWaterfallLayer(
   const labels = chart.data.labels ?? [];
   const points: WaterfallPoint[] = [];
 
-  chart.data.datasets[0].data.forEach((value, i) => {
+  // The steps are read in the order they are drawn, so a reversed axis is
+  // announced the way it is laid out. `isWaterfallSequence` has already run on
+  // the written order, where the chaining that identifies a waterfall lives,
+  // and each step's own start, end and kind are properties of the step rather
+  // than of its neighbours -- so nothing here depends on the order it is
+  // walked in.
+  for (const i of drawnCategoryPositions(chart, chart.data.datasets[0].data.length)) {
+    const value = chart.data.datasets[0].data[i];
     if (!isRangeValue(value))
-      return;
+      continue;
     const [start, end] = rangeBounds(value);
     points.push({
       x: labels[i] ?? i,
@@ -1168,7 +1176,7 @@ function extractWaterfallLayer(
       delta: end - start,
       kind: waterfallKind(start, end),
     });
-  });
+  }
 
   return {
     id: '0',
@@ -1230,8 +1238,12 @@ function extractGanttLayer(
   // twice, a phase that pauses and resumes — so it is named rather than left
   // to be told apart by position.
   const namesIntervals = datasets.length > 1;
+  // One order for both: `lanes` names the lanes `points` holds, position for
+  // position, so a reversed axis has to turn the two of them over together or
+  // every lane would be announced under its neighbour's name.
+  const drawn = drawnCategoryPositions(chart, laneCount);
   const points: GanttPoint[][] = [];
-  for (let lane = 0; lane < laneCount; lane++) {
+  for (const lane of drawn) {
     const intervals: GanttPoint[] = [];
     for (const dataset of datasets) {
       const value = dataset.data[lane];
@@ -1253,7 +1265,7 @@ function extractGanttLayer(
     points,
     // Carried for the lanes that hold nothing: an empty lane is a real
     // statement about a schedule and has no interval to name itself with.
-    lanes: Array.from({ length: laneCount }, (_, lane) => labels[lane] ?? lane),
+    lanes: drawn.map(lane => labels[lane] ?? lane),
     ...(unit ? { unit } : {}),
   };
 
