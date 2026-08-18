@@ -965,10 +965,7 @@ function convertLine(
     if (element.tagName.toLowerCase() !== 'path')
       continue;
 
-    // The stroke, not `strokeOrFill`: that helper prefers `fill`, and a fitted
-    // line's fill is `none` by construction — which is the very thing that
-    // identified it. A split mark puts the series colour on the stroke.
-    const name = valueAtColor(scales.color, element.getAttribute('stroke'));
+    const name = valueAtColor(scales.color, strokeOrFill(element));
     const path = parsePathVertices(element, type === TraceType.AREA);
     if (path === null)
       continue;

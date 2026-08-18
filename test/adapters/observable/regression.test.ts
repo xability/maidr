@@ -61,6 +61,21 @@ describe('a linear regression mark', () => {
     expect(fits[1].map(point => [point.x, point.y])).toEqual([[1, 5], [4, 11]]);
   });
 
+  it('leaves an area mark reading its colour off the fill', () => {
+    // A fitted line's colour is on its stroke because its fill is `none`. An
+    // area is the other way round — filled, with no stroke at all — so the
+    // stroke-first read this mark needs must not leak into the line family.
+    // It did: one careless replace-all took `strokeOrFill` out of
+    // `convertLine` too, and every stacked area silently lost its band names
+    // while the whole suite stayed green, because nothing pinned them.
+    const { element } = mountFixture('stackedStepArea');
+    const maidr = observablePlotToMaidr(element);
+    const bands = maidr?.subplots[0][0].layers[0].data as { z?: string }[][];
+
+    expect(maidr?.subplots[0][0].legend).toEqual(['a', 'b']);
+    expect(bands.map(band => band[0].z)).toEqual(['a', 'b']);
+  });
+
   it('names the series so a reader knows which trend is which', () => {
     expect(layersOf('groupedRegression')[0].type).toBe(TraceType.SMOOTH);
     const { element } = mountFixture('groupedRegression');
