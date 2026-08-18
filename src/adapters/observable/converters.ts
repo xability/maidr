@@ -376,6 +376,11 @@ function convertMark(
       return convertRect(facet, context);
     case 'dot':
       return convertDot(facet, context);
+    // A tick is a dot drawn as a stroke rather than a symbol -- one mark per
+    // observation either way, and the same reading once its centre is found
+    // (#1069).
+    case 'tick':
+      return convertDot(facet, context, tickCentre);
     case 'line':
       return convertLine(facet, context, TraceType.LINE);
     case 'area':
@@ -779,14 +784,18 @@ function uniformBinEdges(bins: MarkDatum[], scale: PlotScale | undefined): numbe
  * @param context - The conversion context.
  * @returns The layer, or `null` when the dots cannot be positioned.
  */
-function convertDot(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+function convertDot(
+  facet: MarkFacet,
+  context: ConversionContext,
+  centreOf: (element: Element) => { x: number; y: number } | null = dotCentre,
+): ConvertedMark | null {
   const { scales } = context;
 
   if (isContinuous(scales.x) && isContinuous(scales.y)) {
     const points: ScatterPoint[] = [];
     const elements: Element[] = [];
     for (const element of facet.elements) {
-      const centre = dotCentre(element);
+      const centre = centreOf(element);
       if (!centre)
         continue;
       const x = toNumber(valueAtPixel(scales.x, centre.x));
@@ -818,7 +827,7 @@ function convertDot(facet: MarkFacet, context: ConversionContext): ConvertedMark
 
   const data: MarkDatum[] = [];
   for (const element of facet.elements) {
-    const centre = dotCentre(element);
+    const centre = centreOf(element);
     if (!centre)
       continue;
     const datum = readPointDatum(element, scales, orientation, centre);
@@ -1428,6 +1437,35 @@ function dotCentre(element: Element): { x: number; y: number } | null {
   const x = Number.parseFloat(match[1]);
   const y = Number.parseFloat(match[2]);
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+/**
+ * The centre of a tick, which Plot draws as a `<line>` rather than a symbol.
+ *
+ * One end of the stroke carries the value and the other spans the band, so the
+ * pair that agrees is the measured coordinate and the pair that does not is the
+ * category's extent. Measured on a rendered strip plot: a `tickX` comes out
+ * `x1=40 x2=40 y1=23 y2=44`, a `tickY` `x1=68 x2=316 y1=370 y2=370`.
+ *
+ * The midpoint answers both: a pair that agrees is its own midpoint, and a pair
+ * that spans a band has the band's centre between them. Either end of the
+ * spanning pair would in fact invert to the same category — a tick is drawn
+ * exactly across its own band, so its ends are inside it — so the centre is
+ * chosen for being the band's representative point rather than to guard
+ * against anything.
+ *
+ * @param element - The tick's element.
+ * @returns The centre in pixels, or `null`.
+ */
+function tickCentre(element: Element): { x: number; y: number } | null {
+  const x1 = attributeNumber(element, 'x1');
+  const x2 = attributeNumber(element, 'x2');
+  const y1 = attributeNumber(element, 'y1');
+  const y2 = attributeNumber(element, 'y2');
+  if (x1 === null || x2 === null || y1 === null || y2 === null)
+    return null;
+
+  return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
 }
 
 /**

@@ -190,6 +190,7 @@ That is why the adapter needs no configuration and works on charts written befor
 | `rectY` / `rectX` on a categorical axis | Bar | |
 | `dot` on two continuous axes | Scatter | |
 | `dot` on a categorical axis | Dot plot | Navigated as a bar chart |
+| `tickX` / `tickY` on a categorical axis | Strip plot | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
 | `line` | Line | One series per drawn path |
 | `area` / `areaY` | Area | |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
@@ -202,6 +203,7 @@ A **date axis** works: values travel as epoch milliseconds — every trace's poi
 
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
 - **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`).
+- **A `tick` with no cross-channel.** `Plot.tickX(data, {x: 'v'})` draws every tick across the whole frame, which is a one-dimensional distribution with no category to announce — and a dot plot's point has a second field the chart has nothing to put in. A tick given a categorical `y` (or `x`) is read; one without is not.
 - **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points, and the step curves (`curveStep`, `curveStepAfter`, `curveStepBefore`) draw a corner between every pair of points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the corners. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally.
 - **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.
 

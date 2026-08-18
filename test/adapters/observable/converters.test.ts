@@ -128,6 +128,86 @@ describe('dot and line marks', () => {
   });
 });
 
+describe('tick marks', () => {
+  // A `Plot.tickX` strip plot is one `<line>` per observation, positioned on
+  // the value axis and spanning its category's band — the same one-mark-per-
+  // observation shape a `dot` has, differing only in where the centre is read
+  // from. Before #1069 it fell to `convertMark`'s default and the chart was
+  // dropped without so much as a line in the docs saying so.
+
+  it('recovers the values of a horizontal strip plot', () => {
+    const layer = onlyLayer('stripX');
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // Magnitude in `x` and category in `y`, which is the arrangement the core
+    // reads a horizontal layer in. The values come back exact from the pixels.
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 3, y: 'A' },
+      { x: 5, y: 'A' },
+      { x: 4, y: 'A' },
+      { x: 8, y: 'B' },
+      { x: 6, y: 'B' },
+    ]);
+  });
+
+  it('recovers the values of a vertical strip plot', () => {
+    const layer = onlyLayer('stripY');
+
+    expect(layer.type).toBe(TraceType.DOT);
+    expect(layer.orientation).toBe(Orientation.VERTICAL);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'A', y: 3 },
+      { x: 'A', y: 5 },
+      { x: 'A', y: 4 },
+      { x: 'B', y: 8 },
+      { x: 'B', y: 6 },
+    ]);
+  });
+
+  it('keeps every observation, not one per category', () => {
+    // A strip plot puts three marks in category A where a Cleveland dot plot
+    // puts one. Collapsing them would announce a distribution as a single
+    // reading, so the repeated category names are the honest payload.
+    const data = onlyLayer('stripX').data as BarPoint[];
+
+    expect(data).toHaveLength(5);
+    expect(data.filter(point => point.y === 'A')).toHaveLength(3);
+  });
+
+  it('reads the axis labels from the chart', () => {
+    expect(onlyLayer('stripX').axes).toEqual({
+      x: { label: 'Value' },
+      y: { label: 'Group' },
+    });
+  });
+
+  it('skips a tick whose ends the markup does not state', () => {
+    // A missing coordinate would invert to NaN, which reaches the trace as a
+    // sample with no value — silence at that point rather than an absence the
+    // reader is told about. The mark is dropped instead, and the rest of the
+    // strip is still read.
+    const { element } = mountFixture('stripX');
+    element.querySelector('g[aria-label="tick"] line')?.removeAttribute('x1');
+
+    const maidr = observablePlotToMaidr(element);
+    const data = maidr!.subplots[0][0].layers[0].data as BarPoint[];
+
+    expect(data).toHaveLength(4);
+    expect(data.every(point => typeof point.x === 'number' && Number.isFinite(point.x))).toBe(true);
+  });
+
+  it('gives every tick a mark to highlight', () => {
+    const { element, svg } = mountFixture('stripX');
+    const maidr = observablePlotToMaidr(element);
+    const selector = maidr!.subplots[0][0].layers[0].selectors as string;
+
+    // The selector resolves positionally against the payload, so it has to
+    // find exactly as many marks as there are points.
+    expect(svg.ownerDocument.querySelectorAll(selector)).toHaveLength(5);
+  });
+});
+
 describe('binned rect marks', () => {
   it('reconstructs bin edges Plot\'s inset would otherwise shift', () => {
     // Plot moves a binned rect's left edge in by a pixel and leaves its right
