@@ -2428,6 +2428,19 @@ function extractMultiLineLayer(
   if (data.length === 0)
     return null;
 
+  // A reversed axis draws the first-listed sample at the far end, so the
+  // layer reads back to front unless the points are turned over (#1039). The
+  // marks are not: plotly adds them to the DOM in the trace's order and moves
+  // them by transform, so the highlight has to be turned over too --
+  // `domMapping.pointOrder` is `LineTrace` being told to do that to the
+  // elements it resolved (#1026). Asked of the axis this layer is drawn
+  // against; the bar family asks the same question of the same helper (#987).
+  const reversed = axisRunsBackwards(
+    gd._fullLayout,
+    lineTraces[0].trace.xaxis ?? 'x',
+  );
+  const points = reversed ? data.map(series => [...series].reverse()) : data;
+
   const axes: MaidrLayer['axes'] = {};
   if (xLabel)
     axes.x = { label: xLabel };
@@ -2447,7 +2460,8 @@ function extractMultiLineLayer(
     selectors,
     axes,
     ...(variant?.stepDirection ? { stepDirection: variant.stepDirection } : {}),
-    data,
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
+    data: points,
   };
 }
 
