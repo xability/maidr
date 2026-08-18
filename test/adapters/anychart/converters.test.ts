@@ -1948,6 +1948,47 @@ describe('anyChartToMaidr (dumbbell chart)', () => {
       .toBe(TraceType.DUMBBELL);
   });
 
+  it('reads a hilo series the same way, and names no mark of it', () => {
+    // Measured on the real library: a `hilo` carries the same `low` / `high`
+    // pair and produces a byte-identical payload, but AnyChart draws it as one
+    // bare stroke per category with no marker at either end -- the marker is
+    // what makes a `stick` highlightable, and there is none here. The layer is
+    // emitted without selectors rather than with a stamped-attribute selector
+    // that matches nothing, because from inside the model a selector resolving
+    // to nothing and one resolving to the wrong thing look the same (#1051).
+    const chart = createRangeChart('Temperature', [
+      ['Mon', 4, 12],
+      ['Tue', 6, 15],
+    ], { seriesType: 'hilo' });
+
+    const layer = anyChartToMaidr(chart)!.subplots[0][0].layers[0];
+
+    expect(layer.type).toBe(TraceType.DUMBBELL);
+    expect(layer.data).toEqual({
+      points: [
+        { x: 'Mon', start: 4, end: 12 },
+        { x: 'Tue', start: 6, end: 15 },
+      ],
+      startLabel: 'Low',
+      endLabel: 'High',
+    });
+    expect(layer.selectors).toBeUndefined();
+  });
+
+  it('keeps a caller\'s own selectors for a hilo series', () => {
+    // Withholding is about what this adapter can see. A caller who named the
+    // marks themselves is describing their own chart and is not overruled.
+    const chart = createRangeChart('Temperature', [['Mon', 4, 12]], {
+      seriesType: 'hilo',
+    });
+
+    const layer = anyChartToMaidr(chart, {
+      selectors: ['g.my-hilo path'],
+    })!.subplots[0][0].layers[0];
+
+    expect(layer.selectors).toBe('g.my-hilo path');
+  });
+
   it('drops a row missing one of its two ends', () => {
     // AnyChart draws no bar for one, and keeping it would slide every later
     // row's highlight onto its neighbour.
@@ -2612,10 +2653,13 @@ describe('mapSeriesType', () => {
   it('reads the two-ended range series as dumbbells', () => {
     expect(mapSeriesType('range-column')).toBe(TraceType.DUMBBELL);
     expect(mapSeriesType('range-bar')).toBe(TraceType.DUMBBELL);
-    // `hilo` carries the same two fields but is drawn as a bare stroke, which
-    // no stamper here can tell from a grid line — it would announce correctly
-    // and never highlight.
-    expect(mapSeriesType('hilo')).toBeNull();
+    // `hilo` carries the same two fields and is read the same way. It is
+    // drawn as a bare stroke that no stamper here can tell from a grid line,
+    // so it announces correctly and never highlights — which is the trade this
+    // now makes deliberately, rather than skipping the chart and dropping the
+    // announcement, the braille and the keyboard path along with the outline
+    // (#1051). Its selectors are withheld; see the dumbbell suite.
+    expect(mapSeriesType('hilo')).toBe(TraceType.DUMBBELL);
   });
 
   it('normalises the series name before looking it up', () => {

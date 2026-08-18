@@ -162,9 +162,12 @@ export function mapSeriesType(anyChartType: string): AnyChartTraceType | null {
     'bubble': TraceType.SCATTER,
     // A stroke from the baseline to the value, with a marker on its end.
     'stick': TraceType.LOLLIPOP,
-    // The two range series that carry a `low` / `high` pair per category.
+    // The range series that carry a `low` / `high` pair per category.
+    // `hilo` is the third, and it is here despite drawing no mark this
+    // adapter can name -- see {@link UNSTAMPABLE_SERIES_TYPES}.
     'range-column': TraceType.DUMBBELL,
     'range-bar': TraceType.DUMBBELL,
+    'hilo': TraceType.DUMBBELL,
     'box': TraceType.BOX,
     'heatmap': TraceType.HEATMAP,
     'heat': TraceType.HEATMAP,
@@ -603,13 +606,36 @@ const LINE_LIKE_SERIES_TYPES = new Set([
  * The AnyChart series drawn as one floating bar per category, from a `low` to
  * a `high` — the pair {@link TraceType.DUMBBELL} reads.
  *
- * `hilo` is deliberately absent even though it carries the same two fields.
- * AnyChart draws it as a bare stroke (`fill="none"`), so the filled-mark
- * lookup every stamper here is built on cannot find it, and the only shapes
- * left to tell it apart from the grid lines and axis strokes are stroked paths
- * too. It would announce correctly and never highlight.
+ * `hilo` is absent, and only from *this* set: it carries the same two fields
+ * and is read as the same trace, but there is no filled mark to stamp — see
+ * {@link UNSTAMPABLE_SERIES_TYPES} for what that costs and why it is worth it.
  */
 const RANGE_SERIES_TYPES = new Set(['range-column', 'range-bar']);
+
+/**
+ * Series this adapter can read but cannot name a single mark of.
+ *
+ * A layer built from one is emitted with **no selectors at all** rather than
+ * with a stamped-attribute selector that matches nothing. Withholding is the
+ * honest form and the one the gantt already uses when its lanes cannot be
+ * paired: a selector that resolves to nothing and a selector that resolves to
+ * the wrong thing are indistinguishable from inside the model, so the adapter
+ * says nothing rather than something it cannot stand behind.
+ *
+ * `hilo` is the case. AnyChart draws it as one bare stroke per category
+ * (`fill="none"`), with no marker on either end — measured, and the reason a
+ * `stick` series *can* be highlighted is that it draws a marker the stamper
+ * finds, not its stroke. The only shapes left to tell a hilo's marks from the
+ * grid lines and axis strokes are stroked paths too.
+ *
+ * Reading it anyway is a deliberate reversal of the earlier call to skip these
+ * series entirely, and the project's own first principle is the argument:
+ * "a change that works visually but drops an announcement, a braille update,
+ * or a keyboard path is broken."* Skipping the series drops all three to avoid
+ * a missing outline. Reading it costs the outline alone, and the outline is
+ * the half MAIDR's readers are least likely to be using (#1051).
+ */
+const UNSTAMPABLE_SERIES_TYPES = new Set(['hilo']);
 
 /**
  * The bar series a diverging chart is drawn from.
@@ -5804,7 +5830,11 @@ function buildSubplot(
       continue;
     }
 
-    const selectors = resolveSelector(i, traceType, options, panel);
+    // Withheld for a series with no nameable mark, unless the caller named the
+    // marks themselves -- they can see shapes this adapter cannot.
+    const selectors = UNSTAMPABLE_SERIES_TYPES.has(anyChartType) && !hasSelectorOverrides
+      ? undefined
+      : resolveSelector(i, traceType, options, panel);
     // Only when the adapter owns the selectors: a caller who named the marks
     // themselves is describing their own chart, and replacing their list with
     // one built from the stamped attributes would discard what they said.
