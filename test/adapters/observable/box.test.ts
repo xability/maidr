@@ -27,7 +27,9 @@ import { mountFixture } from './helpers';
  * @param key - The fixture to mount.
  * @returns The layer, or `undefined` when the chart produced none.
  */
-function boxLayer(key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails'): {
+function boxLayer(
+  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxOnBaseline',
+): {
   data: BoxPoint[];
   selectors: BoxSelector[];
   orientation?: Orientation;
@@ -91,6 +93,18 @@ describe('reading a box plot', () => {
       [[0], [60]],
       [[10, 14], []],
     ]);
+  });
+
+  it('still reads a distribution one of whose boxes stands on zero', () => {
+    // Counts data with enough zeros puts a real first quartile at zero, and
+    // that box then sits on the baseline exactly as a bar would. Only a mark
+    // whose boxes *all* do that is a magnitude rather than a distribution, so
+    // the test that keeps a bullet chart out has to count them rather than look
+    // for one.
+    const layer = boxLayer('boxOnBaseline');
+
+    expect(layer?.data.map(point => point.q1)).toEqual([0, 13.5]);
+    expect(layer?.data.map(point => point.q3)).toEqual([4.5, 20.5]);
   });
 
   it('gives a facet only the outliers drawn in it', () => {
@@ -174,19 +188,25 @@ describe('highlighting a box plot', () => {
 });
 
 describe('declining a box plot that cannot be paired up', () => {
-  it('leaves a bar chart alone when its parts only look like a box', () => {
-    // A bar chart with a target tick inside each bar and a range rule that
-    // happens to reach the baseline satisfies every geometric relation a box
-    // plot's parts have: the tick lies inside the bar, the rule runs along it
-    // and past both ends. Read as a box it announces the bar's height as the
-    // third quartile and the target line as the median — numbers that are not
-    // quartiles of anything. What it does not have is the draw order `boxY`
-    // emits, because nobody called `boxY`.
-    const { element } = mountFixture('barRangeAndTarget');
-    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+  it.each(['barRangeAndTarget', 'bulletChart'] as const)(
+    'leaves %s alone when its parts only look like a box',
+    (key) => {
+      // Both satisfy every geometric relation a box plot's parts have: the tick
+      // lies inside the bar, the rule runs along it and past both ends. Read as
+      // a box they announce the bar's height as the third quartile and the
+      // target line as the median — numbers that are quartiles of nothing.
+      //
+      // The bullet chart is the harder of the two, and the reason the reading
+      // cannot rest on how the marks are arranged: it is drawn in the very
+      // order `boxY` emits its parts, because that is also the order someone
+      // draws a bullet chart in. What separates them is that a measure bar
+      // stands on zero and an interquartile box stands on q1.
+      const { element } = mountFixture(key);
+      const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 
-    expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
-  });
+      expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
+    },
+  );
 
   it('leaves the chart unread when a part sits beyond the last box', () => {
     // Recognition asks whether every *box* has a median, not whether every

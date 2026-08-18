@@ -466,22 +466,6 @@ function convertBoxComposite(
     shift: translateOf(groups[index].group) ?? { x: 0, y: 0 },
   });
 
-  // `Plot.boxY` emits its parts in one fixed order — rule, bar, tick, then the
-  // outliers — because they come from one call rather than from three the
-  // author wrote. Three marks that overlap the way a box plot's do but arrive
-  // in some other order were written separately, and the numbers behind them
-  // are not quartiles: a bar chart with a target line inside each bar and a
-  // range rule reaching the baseline satisfies the geometry exactly, and would
-  // otherwise be announced with a five-number summary in which the bar's height
-  // is the third quartile and the target line is the median.
-  //
-  // Narrowing rather than widening: a composite refused here is skipped, as it
-  // was before any of it was read (#1074). Detection is not changed to match,
-  // because what it should do with such a chart — skip it, or hand it back to
-  // be read as the bar chart it is — belongs with #1088.
-  if (composite.rule > composite.bar || composite.bar > composite.tick)
-    return [];
-
   const boxes = shifted(composite.bar);
   const whiskers = shifted(composite.rule);
   const medians = shifted(composite.tick);
@@ -572,6 +556,26 @@ function readBoxLayer(context: ConversionContext, parts: BoxParts): ConvertedMar
   if (!boxes || !whiskers || !medians)
     return null;
   if (boxes.length === 0 || whiskers.length !== boxes.length || medians.length !== boxes.length)
+    return null;
+
+  // A mark whose every rect stands on the value axis's zero is a magnitude,
+  // not an interquartile range. `Plot.barY` draws from the baseline by
+  // definition, so a bullet chart — a range rule, a measure bar inside it and a
+  // target tick inside that — sits exactly the way a box plot's parts do, and
+  // read as one it announces the measure as the third quartile and the target
+  // as the median. A box rests on `q1`, which is a quantile of the data and is
+  // zero only by coincidence; that it is zero for *every* category is the bar's
+  // signature rather than a distribution's.
+  //
+  // Declining, so a box plot whose first quartile really is zero throughout is
+  // skipped as it was before any of this was read (#1074) rather than announced
+  // wrongly.
+  const onBaseline = countTouching(
+    parts.boxes.elements,
+    vertical ? ['y', 'height'] : ['x', 'width'],
+    baselinePixel(valueScale),
+  );
+  if (onBaseline === boxes.length)
     return null;
 
   const spots = readSpots(parts.outliers, vertical, valueScale);

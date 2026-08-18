@@ -286,12 +286,16 @@ is needed and none is offered.
 Two more things have to hold before anything is announced. The parts must pair
 up one-to-one along the category axis — a chart with an extra tick, or a whisker
 with no box, is left unread rather than announced with a part borrowed from the
-wrong category. And the marks must arrive in the order `boxY` emits them, which
-is always rule, bar, tick, then the outliers. Three marks an author wrote
-separately can sit exactly the way a box plot's do: a bar chart with a target
-line inside each bar and a range rule reaching the baseline satisfies every
-geometric relation above, and reading it as a box would announce the bar's
-height as the third quartile and the target line as the median.
+wrong category. And the boxes must not all stand on the value axis's zero.
+
+That second one is what a **bullet chart** would otherwise trip: a qualitative
+range as a rule, a measure as a bar inside it, a target as a tick inside that.
+Its parts sit exactly the way a box plot's do, and it is even drawn in the same
+order, so reading it as a distribution would announce the measure as the third
+quartile and the target as the median. What separates them is that a measure bar
+stands on zero and an interquartile box stands on `q1`. A first quartile that is
+genuinely zero — counts data with enough zeros in it — is read normally; it is
+*every* box resting there that marks a magnitude rather than a distribution.
 
 Two details worth knowing:
 
