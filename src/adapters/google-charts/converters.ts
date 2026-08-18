@@ -609,6 +609,17 @@ function validatePanelContainers(grid: GoogleChartPanel[][], root: HTMLElement):
  * @returns One or more MAIDR layers, in the order they are drawn
  * @throws When `chartType` names a type the adapter cannot convert
  */
+/**
+ * Which way a Google stepped area moves between its samples.
+ *
+ * Measured rather than assumed. On a four-category chart drawn across
+ * `x = 100..500`, one of the boundary paths reads
+ * `M200,196.5 L200,58.5 L300,58.5` -- a vertical riser at the A/B boundary
+ * (the jump from 10 to 40), then a horizontal hold across B's band. Vertical
+ * then horizontal is `'vh'` (#1055).
+ */
+const STEPPED_AREA_DIRECTION: StepDirection = 'vh';
+
 function buildLayers(
   chart: GoogleChart,
   dt: GoogleDataTable,
@@ -663,6 +674,16 @@ function buildLayer(
       return buildLineLayer(chart, dt, container, TraceType.STACKED_AREA);
     case 'NormalizedAreaChart':
       return buildLineLayer(chart, dt, container, TraceType.NORMALIZED_AREA);
+    // A stepped area is an area whose boundary jumps between samples rather
+    // than sliding. Read as an AREA carrying a `stepDirection` rather than as
+    // a STEP, so both the fill and the staircase survive -- `AreaTrace` reads
+    // that field for exactly this shape (#1055).
+    case 'SteppedAreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.AREA, STEPPED_AREA_DIRECTION);
+    case 'StackedSteppedAreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.STACKED_AREA, STEPPED_AREA_DIRECTION);
+    case 'NormalizedSteppedAreaChart':
+      return buildLineLayer(chart, dt, container, TraceType.NORMALIZED_AREA, STEPPED_AREA_DIRECTION);
     case 'PieChart':
       // No `chart`: unlike the axis-based charts, a PieChart has no
       // `getChartLayoutInterface()` to ask where each slice was drawn.
@@ -1012,6 +1033,7 @@ function buildLineLayer(
     | TraceType.STACKED_AREA
     | TraceType.NORMALIZED_AREA
     | TraceType.BUMP,
+  stepDirection?: StepDirection,
 ): MaidrLayer {
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
@@ -1051,6 +1073,7 @@ function buildLineLayer(
     id: nextId('layer'),
     type: traceType,
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
+    ...(stepDirection ? { stepDirection } : {}),
     // A line names each series with one path rather than each point with its
     // own mark, so there is no selector list to permute the way the bar path
     // does -- measured, Google emits that path's vertices in row order, so

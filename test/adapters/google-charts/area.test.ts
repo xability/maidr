@@ -88,6 +88,62 @@ function buildAreaLayer(chartType: GoogleChartType, container = makeAreaContaine
   return { layer: maidr.subplots[0][0].layers[0], container };
 }
 
+describe('createMaidrFromGoogleChart with a SteppedAreaChart', () => {
+  /**
+   * A Google `SteppedAreaChart` used to be rejected outright (#1055):
+   *
+   *   Error: Unsupported Google Charts type: SteppedAreaChart. Supported types: …
+   *
+   * Its DataTable is a `LineChart`'s exactly, so the only thing that was not
+   * obvious is which step convention it draws. Measured on the real library in
+   * Chromium, four categories across `x = 100..500`, one of the boundary paths
+   * reads
+   *
+   *   M200,196.5 L200,58.5 L300,58.5
+   *
+   * — a vertical riser at the A/B boundary (the jump from 10 to 40), then a
+   * horizontal hold across B's band. Vertical then horizontal is `'vh'`.
+   *
+   * Read as an AREA carrying that direction rather than as a STEP, so the fill
+   * and the staircase both survive: `AreaTrace` reads `stepDirection` for
+   * exactly this shape. That is strictly better than the call AnyChart's
+   * adapter has to make for `step-area`, where the fill is given up.
+   */
+  it('reads a stepped area as an area that jumps between its samples', () => {
+    const { layer } = buildAreaLayer('SteppedAreaChart');
+
+    expect(layer.type).toBe(TraceType.AREA);
+    expect(layer.stepDirection).toBe('vh');
+  });
+
+  it('carries the same points a plain area carries', () => {
+    // The table is a line chart's, so nothing about the reading changes but
+    // the boundary between samples.
+    expect(buildAreaLayer('SteppedAreaChart').layer.data)
+      .toEqual(buildAreaLayer('AreaChart').layer.data);
+  });
+
+  it('names the stacked readings the way the plain area family already does', () => {
+    // `isStacked` lives in the draw options this adapter never receives, so
+    // the caller says which of the three it drew.
+    expect(buildAreaLayer('StackedSteppedAreaChart').layer.type)
+      .toBe(TraceType.STACKED_AREA);
+    expect(buildAreaLayer('NormalizedSteppedAreaChart').layer.type)
+      .toBe(TraceType.NORMALIZED_AREA);
+    for (const type of ['StackedSteppedAreaChart', 'NormalizedSteppedAreaChart'] as const) {
+      expect(buildAreaLayer(type).layer.stepDirection).toBe('vh');
+    }
+  });
+
+  it('leaves a plain area with no step direction at all', () => {
+    // Naming a convention the chart does not draw is worse than staying
+    // silent — the announcement says which one it is.
+    for (const type of ['AreaChart', 'StackedAreaChart', 'NormalizedAreaChart'] as const) {
+      expect(buildAreaLayer(type).layer.stepDirection).toBeUndefined();
+    }
+  });
+});
+
 describe('createMaidrFromGoogleChart with an AreaChart', () => {
   it('emits one LinePoint series per data column, as a line chart does', () => {
     const { layer } = buildAreaLayer('AreaChart');

@@ -91,6 +91,9 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Area | `AreaChart` | `'AreaChart'` |
 | Stacked Area | `AreaChart` + `isStacked: true` | `'StackedAreaChart'` |
 | 100% Stacked Area | `AreaChart` + `isStacked: 'percent'` | `'NormalizedAreaChart'` |
+| Stepped Area | `SteppedAreaChart` | `'SteppedAreaChart'` |
+| Stacked Stepped Area | `SteppedAreaChart` + `isStacked: true` | `'StackedSteppedAreaChart'` |
+| 100% Stacked Stepped Area | `SteppedAreaChart` + `isStacked: 'percent'` | `'NormalizedSteppedAreaChart'` |
 | Error bars / intervals | `LineChart`, `ScatterChart`, `ColumnChart` or `BarChart` with `role: 'interval'` columns | detected automatically — keep the chart's own `chartType` |
 | Sankey | `Sankey` (`sankey` package) | `'Sankey'` |
 | TreeMap | `TreeMap` (`treemap` package) | `'TreeMap'` |

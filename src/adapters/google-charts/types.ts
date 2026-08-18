@@ -269,6 +269,21 @@ export type GoogleChartType
     | 'StackedBarChart'
     | 'StackedColumnChart'
     /**
+     * An area whose boundary jumps between samples rather than sliding.
+     *
+     * Read as an AREA carrying a `stepDirection` rather than as a STEP, so the
+     * fill and the staircase both survive -- `AreaTrace` reads that field for
+     * exactly this shape. Which way it jumps was measured off the drawn path
+     * rather than assumed; see `STEPPED_AREA_DIRECTION` (#1055).
+     *
+     * `isStacked` lives in the draw options this adapter never receives, so
+     * the two stacked readings are named by the caller the way
+     * `'StackedAreaChart'` and `'NormalizedAreaChart'` already are.
+     */
+    | 'SteppedAreaChart'
+    | 'StackedSteppedAreaChart'
+    | 'NormalizedSteppedAreaChart'
+    /**
      * A `SteppedAreaChart` drawn with `areaOpacity: 0` — Google's way of
      * drawing a step line — carrying a Kaplan-Meier curve, optionally with
      * `role: 'interval'` columns for the confidence band and a boolean
