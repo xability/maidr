@@ -2407,6 +2407,49 @@ function extractCandlestickLayers(
 // Heatmap / Matrix chart extraction (chartjs-chart-matrix plugin)
 // ---------------------------------------------------------------------------
 
+/**
+ * The order an axis actually draws its categories in.
+ *
+ * `HeatmapData` lists both axes the way they are drawn — top-first for rows,
+ * left-first for columns — so neither can be taken from the order the points
+ * happened to be listed in. The matrix controller defaults its y scale to
+ * `reverse`, so the rows usually need turning over (#974); a declared domain
+ * reorders either axis outright, and `reverse` flips it (#1010).
+ *
+ * `reverse` means the same thing on both axes here, so one transformation
+ * serves both — unlike Highcharts, where the two need opposite polarity
+ * because its index numbering starts at a different end on each (#1008).
+ *
+ * Read off `chart.options` rather than the laid-out `chart.scales`, which
+ * looks like the more authoritative source and is not: a matrix chart that
+ * lets Chart.js infer its category domain gets a scale whose runtime
+ * `getLabels()` is contaminated with the other axis' values — measured as
+ * `['c1', 'first', 'c2', 'second', 'third']`. The options copy stays clean,
+ * being either what the author declared or absent, and the fallback to the
+ * listed order is right precisely when it is absent, since an inferred domain
+ * is* the order the points were listed in.
+ *
+ * @param scale   - The resolved scale for this axis, if the chart has one
+ * @param listed  - The categories in the order the points named them
+ * @param present - Which of them the data actually filled
+ * @returns The categories in drawn order
+ */
+function drawnCategoryOrder(
+  scale: { labels?: unknown[]; reverse?: boolean } | undefined,
+  listed: string[],
+  present: Set<string>,
+): string[] {
+  const declared = (scale?.labels ?? listed).map(String);
+  const drawn = scale?.reverse === true ? [...declared].reverse() : declared;
+
+  // Only categories the data filled, so a scale naming more than the chart
+  // draws cannot introduce an empty band. If that leaves a different count
+  // the scale and the data disagree about what exists, and the listed order
+  // is the safer answer.
+  const filled = drawn.filter(label => present.has(label));
+  return filled.length === listed.length ? filled : listed;
+}
+
 function extractHeatmapLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
@@ -2435,33 +2478,23 @@ function extractHeatmapLayers(
     }
   }
 
-  // Which order the rows are actually drawn in is the scale's business, not
-  // the data's: the loop above collected them as they were listed, which need
-  // not be the axis order at all. `HeatmapData` runs top-first, and the matrix
-  // controller defaults its y scale to `reverse`, so the drawn order usually
-  // needs turning over (#974).
+  // Both axes get the same question, because the answer matters for both:
+  // which order the chart actually draws its categories in is the scale's
+  // business, not the data's. The loop above collected them as they were
+  // listed, which need not be the axis order at all — measured, a matrix
+  // chart whose points are listed `c2, c0, c1` draws them `c0, c1, c2` once
+  // the scale declares that domain, and `c2, c1, c0` under `reverse` (#1010).
   //
-  // Read off `chart.options` rather than the laid-out `chart.scales`, which
-  // looks like the more authoritative source and is not: a matrix chart that
-  // lets Chart.js infer its category domain gets a y scale whose runtime
-  // `getLabels()` is contaminated with the x values — measured as
-  // `['c1', 'first', 'c2', 'second', 'third']`. The options copy stays clean,
-  // being either what the author declared or absent, and the fallback to data
-  // order is right precisely when it is absent, since an inferred domain is
-  // the order the points were listed in.
-  const yScale = chart.options.scales?.y;
-  const drawnRows = (yScale?.labels ?? yLabels).map(String);
-  const rowOrder = yScale?.reverse === true ? [...drawnRows].reverse() : drawnRows;
-  // Only rows the data actually filled, so a scale naming more than the chart
-  // draws cannot introduce an empty band.
-  const orderedY = rowOrder.filter(y => ySet.has(y));
-  const finalY = orderedY.length === yLabels.length ? orderedY : yLabels;
+  // The columns were left out when the rows were fixed (#974), which is the
+  // argument for asking once here rather than at each axis.
+  const finalX = drawnCategoryOrder(chart.options.scales?.x, xLabels, xSet);
+  const finalY = drawnCategoryOrder(chart.options.scales?.y, yLabels, ySet);
 
   const points: number[][] = finalY.map(y =>
-    xLabels.map(x => valueMap.get(`${x}\0${y}`) ?? 0),
+    finalX.map(x => valueMap.get(`${x}\0${y}`) ?? 0),
   );
 
-  const heatmapData: HeatmapData = { x: xLabels, y: finalY, points };
+  const heatmapData: HeatmapData = { x: finalX, y: finalY, points };
 
   return [
     {
