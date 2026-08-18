@@ -1016,6 +1016,15 @@ function buildLineLayer(
   const cols = dt.getNumberOfColumns();
   const rows = dt.getNumberOfRows();
 
+  // `hAxis: {direction: -1}` draws the rows from the far end while the table
+  // goes on holding them in its own order, so the layer reads as the mirror
+  // image of the chart unless the points are turned over (#1040). Asked of the
+  // domain axis, which for every reading here is x: an inverted *value* axis
+  // is how a bump chart puts rank 1 at the top and moves nothing about where
+  // the categories are laid out -- which matters, because this function emits
+  // that bump layer too.
+  const reversed = drawsCategoriesReversed(chart, rows, false);
+
   // Each data column (1 .. cols-1) is a separate series.
   const data: LinePoint[][] = [];
   let seriesCount = 0;
@@ -1025,8 +1034,9 @@ function buildLineLayer(
       continue;
     const series: LinePoint[] = [];
     for (let r = 0; r < rows; r++) {
-      const x = formatCellValue(dt, r, 0);
-      const y = numericValue(dt, r, c);
+      const at = reversed ? rows - 1 - r : r;
+      const x = formatCellValue(dt, at, 0);
+      const y = numericValue(dt, at, c);
       const z = dt.getColumnLabel(c) || `Series ${c}`;
       series.push({ x, y, z });
     }
@@ -1041,6 +1051,11 @@ function buildLineLayer(
     id: nextId('layer'),
     type: traceType,
     ...(selectors && selectors.length > 0 ? { selectors } : {}),
+    // A line names each series with one path rather than each point with its
+    // own mark, so there is no selector list to permute the way the bar path
+    // does -- measured, Google emits that path's vertices in row order, so
+    // `LineTrace` is told to turn the elements it parsed over instead (#1026).
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
       y: { label: dt.getColumnLabel(1) || undefined },
