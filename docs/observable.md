@@ -286,16 +286,23 @@ is needed and none is offered.
 Two more things have to hold before anything is announced. The parts must pair
 up one-to-one along the category axis — a chart with an extra tick, or a whisker
 with no box, is left unread rather than announced with a part borrowed from the
-wrong category. And the boxes must not all stand on the value axis's zero.
+wrong category. And Plot must have drawn the median as a box plot's median.
 
-That second one is what a **bullet chart** would otherwise trip: a qualitative
-range as a rule, a measure as a bar inside it, a target as a tick inside that.
-Its parts sit exactly the way a box plot's do, and it is even drawn in the same
-order, so reading it as a distribution would announce the measure as the third
-quartile and the target as the median. What separates them is that a measure bar
-stands on zero and an interquartile box stands on `q1`. A first quartile that is
-genuinely zero — counts data with enough zeros in it — is read normally; it is
-*every* box resting there that marks a magnitude rather than a distribution.
+That second one exists because **the geometry above is not conclusive**. A
+floating rect inside a rule with a line across it is a box plot's shape, and it
+is equally a bullet chart (a qualitative range, a measure, a target) or a
+candlestick with a marker in its body. Those are ordinary charts, drawn in the
+same order and arranged the same way, and reading one as a distribution would
+announce its two ends as the quartiles. What settles it is that `Plot.boxY`
+draws its median with `strokeWidth: 2`, which a `tick` mark does not otherwise
+carry — so the adapter asks Plot what it drew rather than inferring it from
+where things sit. Overriding the box's `fill` or `stroke` does not disturb this;
+a box plot styled by its author still reads.
+
+The evidence that justifies *withholding* a composite is not the same as the
+evidence that justifies reading one. A false positive costs a skipped chart in
+the first case and invented statistics in the second, which is why the reading
+asks for more than the recognition does.
 
 Two details worth knowing:
 

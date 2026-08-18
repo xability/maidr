@@ -459,6 +459,9 @@ function convertBoxComposite(
   groups: readonly { label: string; group: Element }[],
   context: ConversionContext,
 ): ConvertedBox[] {
+  if (!drawnAsMedian(groups[composite.tick].group))
+    return [];
+
   const shifted = (index: number): { facets: MarkFacet[]; shift: { x: number; y: number } } => ({
     facets: splitFacets(groups[index].group),
     // Plot centres a rule and a dot on the band by translating their whole
@@ -491,6 +494,44 @@ function convertBoxComposite(
   }
   return converted;
 }
+
+/**
+ * Whether a tick mark is a box plot's median rather than one an author drew.
+ *
+ * Geometry alone cannot answer this. A floating rect inside a rule with a line
+ * across it *is* a box plot's shape, and it is equally a candlestick's body
+ * with a marker on it, or any range-bar-and-target chart drawn on a categorical
+ * axis. Reading one of those as a distribution announces its two ends as the
+ * quartiles — numbers that are quartiles of nothing.
+ *
+ * What settles it is that `Plot.boxY` builds its median from a `tick` with
+ * `strokeWidth: 2`, which a tick mark does not otherwise carry. Measured
+ * against Plot 0.6.17, that survives both `fill` and `stroke` being overridden
+ * on the box, so a chart styled by its author still reads; `fill` does not,
+ * which is why the grey `#ccc` of the interquartile box is not used here.
+ *
+ * The evidence that justifies *withholding* a composite is not the same as the
+ * evidence that justifies reading one: a false positive costs a skipped chart
+ * in the first case and invented statistics in the second. This is the reading
+ * asking for more than {@link boxComposites} needs (#1074, #1088).
+ *
+ * @param group - The `tick` mark's group.
+ * @returns True when Plot drew it as a box plot's median.
+ */
+function drawnAsMedian(group: Element): boolean {
+  // Where the styling sits depends on whether the mark was faceted, and the
+  // rule for that is `splitFacets`': a mark is faceted when *every* child is a
+  // group, and Plot then writes the styling onto each of those rather than onto
+  // the mark.
+  const children = Array.from(group.children);
+  const facets = children.filter(child => child.tagName.toLowerCase() === 'g');
+  const carriers = facets.length > 0 && facets.length === children.length ? facets : [group];
+  return carriers.every(element =>
+    attributeNumber(element, 'stroke-width') === BOX_MEDIAN_STROKE);
+}
+
+/** The stroke width `Plot.boxY` gives its median tick. */
+const BOX_MEDIAN_STROKE = 2;
 
 /**
  * Finds the facet of another mark drawn in the same place as this one.
@@ -556,26 +597,6 @@ function readBoxLayer(context: ConversionContext, parts: BoxParts): ConvertedMar
   if (!boxes || !whiskers || !medians)
     return null;
   if (boxes.length === 0 || whiskers.length !== boxes.length || medians.length !== boxes.length)
-    return null;
-
-  // A mark whose every rect stands on the value axis's zero is a magnitude,
-  // not an interquartile range. `Plot.barY` draws from the baseline by
-  // definition, so a bullet chart — a range rule, a measure bar inside it and a
-  // target tick inside that — sits exactly the way a box plot's parts do, and
-  // read as one it announces the measure as the third quartile and the target
-  // as the median. A box rests on `q1`, which is a quantile of the data and is
-  // zero only by coincidence; that it is zero for *every* category is the bar's
-  // signature rather than a distribution's.
-  //
-  // Declining, so a box plot whose first quartile really is zero throughout is
-  // skipped as it was before any of this was read (#1074) rather than announced
-  // wrongly.
-  const onBaseline = countTouching(
-    parts.boxes.elements,
-    vertical ? ['y', 'height'] : ['x', 'width'],
-    baselinePixel(valueScale),
-  );
-  if (onBaseline === boxes.length)
     return null;
 
   const spots = readSpots(parts.outliers, vertical, valueScale);

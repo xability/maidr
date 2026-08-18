@@ -28,7 +28,7 @@ import { mountFixture } from './helpers';
  * @returns The layer, or `undefined` when the chart produced none.
  */
 function boxLayer(
-  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxOnBaseline',
+  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxesOnBaseline',
 ): {
   data: BoxPoint[];
   selectors: BoxSelector[];
@@ -95,16 +95,16 @@ describe('reading a box plot', () => {
     ]);
   });
 
-  it('still reads a distribution one of whose boxes stands on zero', () => {
+  it('still reads a distribution whose every box stands on zero', () => {
     // Counts data with enough zeros puts a real first quartile at zero, and
-    // that box then sits on the baseline exactly as a bar would. Only a mark
-    // whose boxes *all* do that is a magnitude rather than a distribution, so
-    // the test that keeps a bullet chart out has to count them rather than look
-    // for one.
-    const layer = boxLayer('boxOnBaseline');
+    // that box then sits on the baseline exactly as a bar would — in every
+    // category at once, if the data is zero-heavy throughout. Telling a
+    // distribution from a magnitude by where its boxes stand would leave this
+    // chart unread, which is why the reading asks Plot what it drew instead.
+    const layer = boxLayer('boxesOnBaseline');
 
-    expect(layer?.data.map(point => point.q1)).toEqual([0, 13.5]);
-    expect(layer?.data.map(point => point.q3)).toEqual([4.5, 20.5]);
+    expect(layer?.data.map(point => point.q1)).toEqual([0, 0]);
+    expect(layer?.data.map(point => point.q3)).toEqual([6.75, 11.25]);
   });
 
   it('gives a facet only the outliers drawn in it', () => {
@@ -188,7 +188,7 @@ describe('highlighting a box plot', () => {
 });
 
 describe('declining a box plot that cannot be paired up', () => {
-  it.each(['barRangeAndTarget', 'bulletChart'] as const)(
+  it.each(['barRangeAndTarget', 'bulletChart', 'floatingRangeBar'] as const)(
     'leaves %s alone when its parts only look like a box',
     (key) => {
       // Both satisfy every geometric relation a box plot's parts have: the tick
@@ -196,11 +196,14 @@ describe('declining a box plot that cannot be paired up', () => {
       // a box they announce the bar's height as the third quartile and the
       // target line as the median — numbers that are quartiles of nothing.
       //
-      // The bullet chart is the harder of the two, and the reason the reading
-      // cannot rest on how the marks are arranged: it is drawn in the very
-      // order `boxY` emits its parts, because that is also the order someone
-      // draws a bullet chart in. What separates them is that a measure bar
-      // stands on zero and an interquartile box stands on q1.
+      // Each defeats a different guess at what a box plot is. The first two
+      // stand on the baseline, which is what a magnitude does and a quartile
+      // does not; the third does not stand on anything, because a candlestick's
+      // body floats exactly as an interquartile box does. All three are drawn
+      // in the very order `boxY` emits its parts, which is also the order
+      // someone draws them in, so nothing about the arrangement separates them
+      // either. What does is that Plot draws a box plot's median twice as thick
+      // as an ordinary tick.
       const { element } = mountFixture(key);
       const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 
