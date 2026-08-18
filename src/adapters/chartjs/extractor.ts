@@ -15,7 +15,7 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -558,10 +558,6 @@ export function isPointValue(v: ChartJsDataValue): v is ChartJsPointValue {
   return v != null && typeof v === 'object' && 'x' in v && 'y' in v && !('o' in v) && !('v' in v) && !('median' in v);
 }
 
-function isBoxplotValue(v: ChartJsDataValue): v is { min: number; q1: number; median: number; q3: number; max: number; outliers?: number[] } {
-  return v != null && typeof v === 'object' && 'median' in v;
-}
-
 function isCandlestickValue(v: ChartJsDataValue): v is { x: number | string; o: number; h: number; l: number; c: number } {
   return v != null && typeof v === 'object' && 'o' in v && 'h' in v && 'l' in v && 'c' in v;
 }
@@ -808,6 +804,10 @@ function extractLayers(
       return extractRadarLayers(chart, TraceType.POLAR_AREA, pluginOptions);
     case 'boxplot':
       return extractBoxplotLayers(chart, pluginOptions);
+    // The boxplot plugin registers both, and a violin is the same summary with
+    // a density curve around it -- which the plugin has already computed.
+    case 'violin':
+      return extractViolinLayers(chart, pluginOptions);
     case 'candlestick':
     case 'ohlc':
       return extractCandlestickLayers(chart, pluginOptions);
@@ -817,7 +817,7 @@ function extractLayers(
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
-        + 'polarArea, boxplot, candlestick, ohlc, matrix.',
+        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix.',
       );
   }
 }
@@ -2373,32 +2373,63 @@ function extractPieLayers(
 // Boxplot chart extraction (chartjs-chart-boxplot plugin)
 // ---------------------------------------------------------------------------
 
+/**
+ * The five-number summaries a distribution chart drew, one per box.
+ *
+ * Read from `getDatasetMeta(d)._parsed` rather than from `dataset.data`,
+ * because the two forms the boxplot plugin accepts only agree there. Its
+ * documented primary form is a raw array of samples per box, which carries no
+ * summary at all -- the plugin computes one -- so reading the author's array
+ * skipped every point and emitted an empty layer (#1049).
+ *
+ * `min` and `max` come from the **whiskers**, not from the parse's `min`/`max`:
+ * those are the data extremes, and on a sample with an outlier they run past
+ * the ends the chart actually draws. The plugin has already separated the
+ * outliers, so they are taken as given rather than re-derived -- filtering them
+ * against the data extremes, as this used to, can never match anything and
+ * dropped every outlier silently.
+ *
+ * @param chart - The Chart.js chart
+ * @returns One box per parsed value, across every dataset
+ */
+function extractBoxSummaries(chart: ChartJsChart): BoxPoint[] {
+  const labels = chart.data.labels ?? [];
+  const boxes: BoxPoint[] = [];
+
+  for (let d = 0; d < chart.data.datasets.length; d++) {
+    const dataset = chart.data.datasets[d];
+    const parsed = chart.getDatasetMeta(d)?._parsed ?? [];
+
+    for (let i = 0; i < parsed.length; i++) {
+      const value = parsed[i];
+      if (value?.median === undefined)
+        continue;
+
+      const outliers = value.outliers ?? [];
+      const min = value.whiskerMin ?? value.min ?? 0;
+      const max = value.whiskerMax ?? value.max ?? 0;
+
+      boxes.push({
+        z: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
+        lowerOutliers: outliers.filter(v => v < min),
+        min,
+        q1: value.q1 ?? 0,
+        q2: value.median,
+        q3: value.q3 ?? 0,
+        max,
+        upperOutliers: outliers.filter(v => v > max),
+        ...(value.mean !== undefined ? { mean: value.mean } : {}),
+      });
+    }
+  }
+
+  return boxes;
+}
+
 function extractBoxplotLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer[] {
-  const labels = chart.data.labels ?? [];
-  const boxData: BoxPoint[] = [];
-
-  for (const dataset of chart.data.datasets) {
-    for (let i = 0; i < dataset.data.length; i++) {
-      const point = dataset.data[i];
-      if (isBoxplotValue(point)) {
-        const outliers = point.outliers ?? [];
-        boxData.push({
-          z: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
-          lowerOutliers: outliers.filter(v => v < point.min),
-          min: point.min,
-          q1: point.q1,
-          q2: point.median,
-          q3: point.q3,
-          max: point.max,
-          upperOutliers: outliers.filter(v => v > point.max),
-        });
-      }
-    }
-  }
-
   return [
     {
       id: '0',
@@ -2407,9 +2438,64 @@ function extractBoxplotLayers(
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
       },
-      data: boxData,
+      data: extractBoxSummaries(chart),
     },
   ];
+}
+
+/**
+ * Reads a violin chart as the two layers a violin is: the quartiles it draws a
+ * box for, and the density curve around them.
+ *
+ * The same pair the plotly adapter emits, and for the same reason -- one
+ * announces the summary and the other the shape, and neither answers the
+ * other's question. The plugin computes both: the summary is the boxplot's,
+ * and `coords` is 101 samples of `{ v, estimate }` along the measured axis,
+ * which is the `ViolinKdePoint` shape exactly.
+ *
+ * A violin whose parse carries no curve emits the box alone rather than an
+ * empty second layer, which is what an empty `coords` would announce.
+ *
+ * @param chart - The Chart.js chart
+ * @param pluginOptions - The MAIDR plugin options, for the axis labels
+ * @returns The box layer, and the curve layer when there is a curve
+ */
+function extractViolinLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer[] {
+  const axes = {
+    x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+    y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+  };
+  const boxes = extractBoxSummaries(chart);
+  const layers: MaidrLayer[] = [
+    { id: '0', type: TraceType.VIOLIN_BOX, axes, data: boxes },
+  ];
+
+  const labels = chart.data.labels ?? [];
+  const curves: ViolinKdePoint[][] = [];
+  for (let d = 0; d < chart.data.datasets.length; d++) {
+    const dataset = chart.data.datasets[d];
+    const parsed = chart.getDatasetMeta(d)?._parsed ?? [];
+    for (let i = 0; i < parsed.length; i++) {
+      const coords = parsed[i]?.coords;
+      if (!coords || coords.length === 0)
+        continue;
+      const label = String(labels[i] ?? dataset.label ?? `Violin ${i + 1}`);
+      curves.push(coords.map(coord => ({
+        x: label,
+        y: coord.v,
+        density: coord.estimate,
+      })));
+    }
+  }
+
+  if (curves.length > 0) {
+    layers.push({ id: '1', type: TraceType.VIOLIN_KDE, axes, data: curves });
+  }
+
+  return layers;
 }
 
 // ---------------------------------------------------------------------------
