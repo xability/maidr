@@ -196,9 +196,31 @@ That is why the adapter needs no configuration and works on charts written befor
 | `area` / `areaY` | Area | |
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
 | `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
+| `dot` under `hexbin` | Hexbin | Only when declared — see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
+
+## Hexbins
+
+`Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` is read as a lattice of bins — but **only when you say so**:
+
+```js
+observablePlotToMaidr(chart, { markTypes: { dot: 'hexbin' } });
+```
+
+The declaration is not a convenience, it is the only thing that can distinguish the chart. A hexbin's cells arrive in a group labelled `dot`, exactly like a scatter's, and Plot's own `symbol: 'hexagon'` draws the identical path shape at a different radius — the two are the same markup. `markTypes` is the option that already exists for this, and since a hexbin is a single mark, one label maps to one type.
+
+What the declaration does *not* do is override the geometry. The cells still have to be hexagons: six vertices, at the positions a regular hexagon of that width puts them. A declaration pointing at diamonds, or at a bubble chart, is declined rather than read as a lattice of invented tallies.
+
+Both halves of a bin then invert exactly, and neither goes through a colour — which is what separates this from `cell`, `contour` and `density` below:
+
+- the **centre** is the cell's `transform`, through the x and y scales;
+- the **tally** is the hexagon's radius through the `r` scale — a square root by default, so a bin holding five of nine points is drawn at `10·√(5/9) = 7.454`.
+
+The tally is rounded to a whole number **when the drawing is unambiguous about it**. `HexbinPoint.count` is documented as "how many points fell in it", and the radius reaches the `d` attribute rounded to three decimals, so a bin of five inverts to 5.00059 — within the geometry's own error of an integer. A hexbin sized by something that is not a count, such as `r: 'mean'` over a weight, has a genuinely fractional tally and is left alone.
+
+Rows are grouped on the cells' **y pixel**, which a hex lattice's rows share exactly, and are ordered from the bottom up — the direction the trace steps through them.
 
 ## Regression lines
 
