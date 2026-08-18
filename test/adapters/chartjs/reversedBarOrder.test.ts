@@ -180,6 +180,25 @@ describe('a segmented chart.js bar chart', () => {
     expect(groups[1].map(p => p.y)).toEqual([6, 5, 4]);
   });
 
+  it('turns a diverging chart round', () => {
+    // The third reading `extractSegmentedBarLayers` emits, reached by stacking
+    // two datasets that sit wholly on opposite sides of the baseline. Covered
+    // in its own right rather than left to the dodged and stacked cases: the
+    // type is chosen by `isDivergingSplit`, which reads the *values*, and a
+    // reordering that lost a sign would quietly change what the chart is.
+    const sides = [
+      { label: 'left', data: [-1, -2, -3] },
+      { label: 'right', data: [4, 5, 6] },
+    ];
+    const { type, data } = layerFor({ datasets: sides, stacked: true, scales: { x: { reverse: true } } });
+    const groups = data as SegmentedPoint[][];
+
+    expect(type).toBe('diverging_bar');
+    expect(groups.map(g => g.map(p => p.x))).toEqual([DRAWN, DRAWN]);
+    expect(groups[0].map(p => p.y)).toEqual([-3, -2, -1]);
+    expect(groups[1].map(p => p.y)).toEqual([6, 5, 4]);
+  });
+
   it('leaves an ordinary segmented chart alone', () => {
     const { data } = layerFor({ datasets: TWO, scales: { x: { reverse: false } } });
 
