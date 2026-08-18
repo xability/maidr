@@ -34,6 +34,8 @@
 import type {
   AxisConfig,
   BarPoint,
+  BoxPoint,
+  BoxSelector,
   HistogramPoint,
   LinePoint,
   Maidr,
@@ -44,13 +46,13 @@ import type {
   SmoothPoint,
   StepDirection,
 } from '@type/grammar';
-import type { MarkFacet } from './introspect';
+import type { BoxComposite, MarkFacet } from './introspect';
 import type { MarkDatum, ObservablePlotOptions, PlotScale, PlotScales } from './types';
 import { ensureContainerId, nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
 import { toCategoryShares, toSegmentedShares } from '../shared/normalize';
 import {
-  boxCompositeGroups,
+  boxComposites,
   findMarkGroups,
   readAxisLabel,
   readTitles,
@@ -188,32 +190,44 @@ interface FacetCell {
 function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[] {
   const cells = new Map<string, FacetCell>();
   const groups = findMarkGroups(svg);
-  // A box plot is four marks that only mean anything together, and this adapter
-  // reads none of them; left in, its interquartile box would be announced as an
-  // ordinary bar whose value is a height nobody plotted.
-  const composite = boxCompositeGroups(groups);
+  // A box plot is four marks that only mean anything together. They are read as
+  // one layer here and skipped in the loop below, where the interquartile box
+  // would otherwise be announced as an ordinary bar whose value is a height
+  // nobody plotted.
+  const composites = boxComposites(groups);
+  const claimed = new Set(composites.flatMap(({ bar, rule, tick, dot }) =>
+    dot === undefined ? [bar, rule, tick] : [bar, rule, tick, dot]));
+
+  const place = (facet: MarkFacet, converted: ConvertedMark): void => {
+    const position = facetPosition(facet, context.scales);
+    const key = `${position.row}:${position.column}`;
+    const cell = cells.get(key) ?? {
+      ...position,
+      layers: [],
+      legend: [],
+    };
+    cell.layers.push(converted.layer);
+    for (const name of converted.legend) {
+      if (!cell.legend.includes(name))
+        cell.legend.push(name);
+    }
+    cells.set(key, cell);
+  };
+
+  for (const composite of composites) {
+    for (const { facet, converted } of convertBoxComposite(composite, groups, context))
+      place(facet, converted);
+  }
 
   for (const [index, { label, group }] of groups.entries()) {
-    if (composite.has(index))
+    if (claimed.has(index))
       continue;
     for (const facet of splitFacets(group)) {
       const converted = convertMark(label, facet, context);
       if (!converted)
         continue;
 
-      const position = facetPosition(facet, context.scales);
-      const key = `${position.row}:${position.column}`;
-      const cell = cells.get(key) ?? {
-        ...position,
-        layers: [],
-        legend: [],
-      };
-      cell.layers.push(converted.layer);
-      for (const name of converted.legend) {
-        if (!cell.legend.includes(name))
-          cell.legend.push(name);
-      }
-      cells.set(key, cell);
+      place(facet, converted);
     }
   }
 
@@ -401,6 +415,387 @@ function convertMark(
     default:
       return null;
   }
+}
+
+/**
+ * How far apart two parts of the same box may sit and still be paired.
+ *
+ * Plot offsets a stroked mark by half a pixel so it lands on the pixel grid,
+ * and it does that to the medians and whiskers but not to the boxes — so the
+ * parts of one category sit at 192 and 192.5 rather than at one shared centre.
+ * Requiring them to agree exactly would decline every box plot Plot draws.
+ */
+const PART_TOLERANCE = 1;
+
+/**
+ * One facet's box plot, and the facet it was drawn in.
+ */
+interface ConvertedBox {
+  facet: MarkFacet;
+  converted: ConvertedMark;
+}
+
+/**
+ * Reads a box plot's four marks as one `box` layer, facet by facet.
+ *
+ * {@link boxComposites} has already established that these groups are a box
+ * plot: every median lies inside its box and every whisker runs past both of
+ * its ends. What is left is pairing them up category by category, which the
+ * detection does not do — it asks whether *some* median crosses each box, and
+ * a reading needs to know *which*.
+ *
+ * A facet is matched across the four groups by its offset rather than by its
+ * index. Plot emits a facet's `dot` group only where that facet has outliers,
+ * so the nth dot facet is not the nth box facet whenever an earlier facet had
+ * none.
+ *
+ * @param composite - The groups this box plot is drawn with.
+ * @param groups    - The plot's mark groups, in draw order.
+ * @param context   - The conversion context.
+ * @returns One entry per facet that could be read; empty when none could.
+ */
+function convertBoxComposite(
+  composite: BoxComposite,
+  groups: readonly { label: string; group: Element }[],
+  context: ConversionContext,
+): ConvertedBox[] {
+  const shifted = (index: number): { facets: MarkFacet[]; shift: { x: number; y: number } } => ({
+    facets: splitFacets(groups[index].group),
+    // Plot centres a rule and a dot on the band by translating their whole
+    // group, so the shift belongs to every element inside it.
+    shift: translateOf(groups[index].group) ?? { x: 0, y: 0 },
+  });
+
+  const boxes = shifted(composite.bar);
+  const whiskers = shifted(composite.rule);
+  const medians = shifted(composite.tick);
+  const outliers = composite.dot === undefined ? null : shifted(composite.dot);
+
+  const converted: ConvertedBox[] = [];
+  for (const facet of boxes.facets) {
+    const whisker = facetAt(whiskers.facets, facet);
+    const median = facetAt(medians.facets, facet);
+    if (!whisker || !median)
+      continue;
+
+    const layer = readBoxLayer(context, {
+      boxes: { elements: facet.elements, shift: boxes.shift },
+      whiskers: { elements: whisker.elements, shift: whiskers.shift },
+      medians: { elements: median.elements, shift: medians.shift },
+      outliers: outliers === null
+        ? { elements: [], shift: { x: 0, y: 0 } }
+        : { elements: facetAt(outliers.facets, facet)?.elements ?? [], shift: outliers.shift },
+    });
+    if (layer)
+      converted.push({ facet, converted: layer });
+  }
+  return converted;
+}
+
+/**
+ * Finds the facet of another mark drawn in the same place as this one.
+ *
+ * @param facets - The other mark's facets.
+ * @param anchor - The facet to match.
+ * @returns The matching facet, or `null` when the mark skipped it.
+ */
+function facetAt(facets: readonly MarkFacet[], anchor: MarkFacet): MarkFacet | null {
+  return facets.find(facet =>
+    Math.abs(facet.offsetX - anchor.offsetX) <= PART_TOLERANCE
+    && Math.abs(facet.offsetY - anchor.offsetY) <= PART_TOLERANCE) ?? null;
+}
+
+/** A mark's elements together with the translation its group carries. */
+interface BoxPart {
+  elements: readonly Element[];
+  shift: { x: number; y: number };
+}
+
+/** The four marks of one facet's box plot. */
+interface BoxParts {
+  boxes: BoxPart;
+  whiskers: BoxPart;
+  medians: BoxPart;
+  outliers: BoxPart;
+}
+
+/**
+ * Builds the `box` layer for one facet.
+ *
+ * The parts are sorted along the category axis and paired by position, which
+ * makes the pairing a bijection by construction; each pair then has to agree on
+ * where its category is, or these are marks that overlap without belonging to
+ * each other and nothing is read.
+ *
+ * Every value is read off a pixel through the scale, including the outliers'.
+ * Plot binds a datum *index* to an outlier rather than the observation, and the
+ * source data is not the adapter's to look in, so the pixel is the only place
+ * the value exists.
+ *
+ * @param context - The conversion context.
+ * @param parts   - The facet's four marks.
+ * @returns The layer, or `null` when the parts do not pair up.
+ */
+function readBoxLayer(context: ConversionContext, parts: BoxParts): ConvertedMark | null {
+  const orientation = barOrientation(context.scales);
+  if (!orientation)
+    return null;
+
+  const vertical = orientation === Orientation.VERTICAL;
+  const categoryScale = vertical ? context.scales.x : context.scales.y;
+  const valueScale = vertical ? context.scales.y : context.scales.x;
+
+  const boxes = readIntervals(parts.boxes, vertical, valueScale);
+  const whiskers = readSegments(parts.whiskers, vertical, valueScale);
+  const medians = readSegments(parts.medians, vertical, valueScale);
+  if (!boxes || !whiskers || !medians)
+    return null;
+  if (boxes.length === 0 || whiskers.length !== boxes.length || medians.length !== boxes.length)
+    return null;
+
+  const spots = readSpots(parts.outliers, vertical, valueScale);
+  if (!spots)
+    return null;
+
+  const token = `L${context.layerCount++}`;
+  const data: BoxPoint[] = [];
+  const selectors: BoxSelector[] = [];
+
+  for (const [index, box] of boxes.entries()) {
+    const whisker = whiskers[index];
+    const median = medians[index];
+    if (Math.abs(whisker.centre - box.centre) > PART_TOLERANCE
+      || Math.abs(median.centre - box.centre) > PART_TOLERANCE) {
+      return null;
+    }
+
+    const category = valueAtPixel(categoryScale, box.centre);
+    if (category === null)
+      return null;
+
+    const mine = spots.filter(spot => nearest(boxes, spot.centre) === index);
+    const lower = mine.filter(spot => spot.value < whisker.low);
+    const upper = mine.filter(spot => spot.value >= whisker.low);
+
+    data.push({
+      z: String(category),
+      lowerOutliers: lower.map(spot => spot.value).sort((a, b) => a - b),
+      min: whisker.low,
+      q1: box.low,
+      q2: median.value,
+      q3: box.high,
+      max: whisker.high,
+      upperOutliers: upper.map(spot => spot.value).sort((a, b) => a - b),
+    });
+
+    // One line spans both whiskers, so the minimum and the maximum highlight
+    // the same element. It is the element that holds them both, which is the
+    // truthful answer available; `buildViolinBoxSelectors` in the plotly
+    // adapter resolves the same mismatch the same way, over a path that holds
+    // the whole box.
+    const whiskerSelector = stampLayer(
+      [whisker.element],
+      context.containerId,
+      `${token}-${index}-w`,
+    );
+    selectors.push({
+      lowerOutliers: stampEach(lower, context, `${token}-${index}-lo`),
+      min: whiskerSelector,
+      iq: stampLayer([box.element], context.containerId, `${token}-${index}-iq`),
+      q2: stampLayer([median.element], context.containerId, `${token}-${index}-q2`),
+      max: whiskerSelector,
+      upperOutliers: stampEach(upper, context, `${token}-${index}-hi`),
+    });
+  }
+
+  return {
+    legend: [],
+    layer: {
+      id: token,
+      type: TraceType.BOX,
+      orientation,
+      selectors,
+      axes: axisConfig(context),
+      data,
+    },
+  };
+}
+
+/**
+ * Stamps each outlier separately, in the order its values were announced.
+ *
+ * @param spots   - The outliers of one end of one box.
+ * @param context - The conversion context.
+ * @param token   - Prefix identifying this end of this box.
+ * @returns One selector per outlier.
+ */
+function stampEach(
+  spots: readonly BoxSpot[],
+  context: ConversionContext,
+  token: string,
+): string[] {
+  return [...spots]
+    .sort((a, b) => a.value - b.value)
+    .map((spot, index) => stampLayer([spot.element], context.containerId, `${token}${index}`));
+}
+
+/** An interquartile box: where it sits, and the two values it spans. */
+interface BoxInterval {
+  element: Element;
+  centre: number;
+  low: number;
+  high: number;
+}
+
+/** A whisker or a median: where it sits, and the value or values it marks. */
+interface BoxSegment {
+  element: Element;
+  centre: number;
+  low: number;
+  high: number;
+  value: number;
+}
+
+/** An outlier: where it sits, and what it is worth. */
+interface BoxSpot {
+  element: Element;
+  centre: number;
+  value: number;
+}
+
+/**
+ * Reads the interquartile boxes, in category order.
+ *
+ * `q1` and `q3` come back as the smaller and the larger of the rect's two
+ * edges rather than as its top and its bottom, so a reversed value axis — which
+ * draws the larger value at the smaller pixel — still reports the quartiles the
+ * right way round.
+ *
+ * @param part     - The `bar` mark's rects.
+ * @param vertical - Whether the distribution runs up the chart.
+ * @param scale    - The value axis.
+ * @returns The boxes, or `null` when one could not be read.
+ */
+function readIntervals(
+  part: BoxPart,
+  vertical: boolean,
+  scale: PlotScale | undefined,
+): BoxInterval[] | null {
+  const read: BoxInterval[] = [];
+  for (const element of part.elements) {
+    const x = attributeNumber(element, 'x');
+    const y = attributeNumber(element, 'y');
+    const width = attributeNumber(element, 'width');
+    const height = attributeNumber(element, 'height');
+    if (x === null || y === null || width === null || height === null)
+      return null;
+
+    const near = toNumber(valueAtPixel(scale, vertical ? y : x));
+    const far = toNumber(valueAtPixel(scale, vertical ? y + height : x + width));
+    if (near === null || far === null)
+      return null;
+
+    read.push({
+      element,
+      centre: vertical ? x + width / 2 + part.shift.x : y + height / 2 + part.shift.y,
+      low: Math.min(near, far),
+      high: Math.max(near, far),
+    });
+  }
+  return read.sort((a, b) => a.centre - b.centre);
+}
+
+/**
+ * Reads the whiskers or the medians, in category order.
+ *
+ * A whisker runs along the value axis and a median across it, so one carries
+ * two values and the other one; both are read the same way and the caller takes
+ * the field it needs.
+ *
+ * @param part     - The `rule` or `tick` mark's lines.
+ * @param vertical - Whether the distribution runs up the chart.
+ * @param scale    - The value axis.
+ * @returns The segments, or `null` when one could not be read.
+ */
+function readSegments(
+  part: BoxPart,
+  vertical: boolean,
+  scale: PlotScale | undefined,
+): BoxSegment[] | null {
+  const read: BoxSegment[] = [];
+  for (const element of part.elements) {
+    const x1 = attributeNumber(element, 'x1');
+    const x2 = attributeNumber(element, 'x2');
+    const y1 = attributeNumber(element, 'y1');
+    const y2 = attributeNumber(element, 'y2');
+    if (x1 === null || x2 === null || y1 === null || y2 === null)
+      return null;
+
+    const along = vertical ? [y1, y2] : [x1, x2];
+    const across = vertical ? [x1, x2] : [y1, y2];
+    const first = toNumber(valueAtPixel(scale, along[0]));
+    const second = toNumber(valueAtPixel(scale, along[1]));
+    if (first === null || second === null)
+      return null;
+
+    read.push({
+      element,
+      centre: (across[0] + across[1]) / 2 + (vertical ? part.shift.x : part.shift.y),
+      low: Math.min(first, second),
+      high: Math.max(first, second),
+      value: first,
+    });
+  }
+  return read.sort((a, b) => a.centre - b.centre);
+}
+
+/**
+ * Reads the outliers.
+ *
+ * @param part     - The `dot` mark's circles.
+ * @param vertical - Whether the distribution runs up the chart.
+ * @param scale    - The value axis.
+ * @returns The outliers, or `null` when one could not be read.
+ */
+function readSpots(
+  part: BoxPart,
+  vertical: boolean,
+  scale: PlotScale | undefined,
+): BoxSpot[] | null {
+  const read: BoxSpot[] = [];
+  for (const element of part.elements) {
+    const cx = attributeNumber(element, 'cx');
+    const cy = attributeNumber(element, 'cy');
+    if (cx === null || cy === null)
+      return null;
+
+    const value = toNumber(valueAtPixel(scale, vertical ? cy : cx));
+    if (value === null)
+      return null;
+
+    read.push({
+      element,
+      centre: vertical ? cx + part.shift.x : cy + part.shift.y,
+      value,
+    });
+  }
+  return read;
+}
+
+/**
+ * Which box a pixel on the category axis belongs to.
+ *
+ * @param boxes  - The boxes, in category order.
+ * @param centre - The pixel.
+ * @returns The index of the nearest box.
+ */
+function nearest(boxes: readonly BoxInterval[], centre: number): number {
+  let best = 0;
+  for (const [index, box] of boxes.entries()) {
+    if (Math.abs(box.centre - centre) < Math.abs(boxes[best].centre - centre))
+      best = index;
+  }
+  return best;
 }
 
 /**

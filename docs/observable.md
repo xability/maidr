@@ -197,6 +197,7 @@ That is why the adapter needs no configuration and works on charts written befor
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
 | `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
 | `dot` under `hexbin` | Hexbin | Only when declared — see below |
+| `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
@@ -260,10 +261,46 @@ This is the one reading in the adapter that is *detected* rather than declared, 
 
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
+## Box plots
+
+`Plot.boxY` and `Plot.boxX` are read as a MAIDR box trace, with no option to set:
+
+```js
+const chart = Plot.plot({ marks: [Plot.boxY(penguins, { x: 'species', y: 'body_mass' })] });
+observablePlotToMaidr(chart);
+```
+
+Each category is announced with its five-number summary and its outliers, and
+every one of those numbers is recovered from the pixels the chart was drawn at.
+
+A box plot is not a mark in Plot: it is a `rule` for the whiskers, a `bar` for
+the interquartile box, a `tick` for the median and a `dot` for the outliers,
+drawn as four independent groups whose labels and attributes are exactly those
+of a hand-drawn rule, bar and tick. What identifies it is not that those marks
+are present — an error-bar chart and a bar chart with a target line each draw
+the same three — but how they sit on one another: in a box plot every median
+lies **inside** its box and every whisker runs **along** it and past both ends.
+Nothing that merely shares the mark types satisfies both, so no author sentence
+is needed and none is offered.
+
+That check is also the floor. A chart it recognises but whose parts cannot be
+matched up one-to-one — an extra tick, a whisker with no box — is left unread
+rather than announced with a part borrowed from the wrong category.
+
+Two details worth knowing:
+
+- **The whiskers highlight as one.** Plot draws a whisker as a single `<line>`
+  spanning both ends, so the minimum and the maximum resolve to the same
+  element. The announcement still moves between them; the outline does not.
+  Splitting the line would mean inserting elements into your chart, which this
+  adapter does not do.
+- **Outlier values come from the pixels**, like everything else. Plot binds a
+  datum *index* to an outlier rather than the observation, and the adapter never
+  sees your source data.
+
 ## What it does not read
 
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
-- **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`) plus a `dot` for the outliers. Every number a box needs is there and readable, but nothing in the markup says the four groups are one chart — their labels and attributes are exactly a hand-drawn rule, bar and tick's — so reading them as a box would take a heuristic that fires on charts that are not one. Tracked in #1074.
 - **A `tick` with no cross-channel.** `Plot.tickX(data, {x: 'v'})` draws every tick across the whole frame, which is a one-dimensional distribution with no category to announce — and a dot plot's point has a second field the chart has nothing to put in. A tick given a categorical `y` (or `x`) is read; one without is not.
 - **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the smoothing. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally, and the step curves are read as **step charts** (below).
 - **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.

@@ -148,7 +148,7 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
 }
 
 /**
- * Finds the mark groups that make up a box plot, so they can be left alone.
+ * Finds the mark groups that make up a box plot.
  *
  * `Plot.boxY` is not a mark but four of them — a `rule` for the whiskers, a
  * `bar` for the interquartile box, a `tick` for the median, and a `dot` for the
@@ -164,12 +164,19 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
  * every median tick lies *inside* its box and every whisker rule *contains*
  * it. Nothing that merely shares the mark types satisfies both.
  *
+ * That is conclusive enough to read the composite as a box plot rather than
+ * merely to skip it, which is what the caller does with the answer. It stays
+ * the outer gate either way: a composite this refuses is four marks that were
+ * never a box plot, and one it finds but the reader cannot pair up is skipped
+ * as it was before (#1074).
+ *
  * @param groups - The plot's mark groups, in draw order.
- * @returns Indices of the groups that form box plots.
+ * @returns One entry per box plot found, in draw order.
  */
-export function boxCompositeGroups(
+export function boxComposites(
   groups: readonly { label: string; group: Element }[],
-): Set<number> {
+): BoxComposite[] {
+  const found: BoxComposite[] = [];
   const skip = new Set<number>();
   const indices = (label: string): number[] => groups
     .map((entry, index) => (entry.label === label ? index : -1))
@@ -191,11 +198,24 @@ export function boxCompositeGroups(
           .find(index => !skip.has(index) && isOutlierMark(groups[index].group, groups[bar].group));
         if (outliers !== undefined)
           skip.add(outliers);
+        found.push({ bar, rule, tick, ...(outliers === undefined ? {} : { dot: outliers }) });
       }
     }
   }
 
-  return skip;
+  return found;
+}
+
+/** The mark groups of one box plot, as indices into the plot's groups. */
+export interface BoxComposite {
+  /** The interquartile boxes. */
+  bar: number;
+  /** The whiskers. */
+  rule: number;
+  /** The medians. */
+  tick: number;
+  /** The outliers, absent when the chart drew none. */
+  dot?: number;
 }
 
 /**
