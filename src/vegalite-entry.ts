@@ -1077,6 +1077,38 @@ function readXAxisLabelsInVisualOrder(root: Element): string[] {
 }
 
 /**
+ * The layers `extractLineData` emits, which all share one geometry: one
+ * `<path>` per series, whose vertices Vega writes in the order it drew them.
+ *
+ * They therefore all need {@link sortLinesByVisualOrder}. Only `LINE` used to
+ * reach it, which left an area, a staircase and a bump chart in the rows'
+ * order while their paths ran in the axis' -- and the highlight comes from
+ * that path, so the two were mis-paired rather than merely read backwards
+ * (#1042).
+ */
+const LINE_SHAPED = new Set<TraceType>([
+  TraceType.LINE,
+  TraceType.AREA,
+  TraceType.STEP,
+  TraceType.STACKED_AREA,
+  TraceType.NORMALIZED_AREA,
+  TraceType.BUMP,
+]);
+
+/**
+ * Which of those are read down a column rather than along a series.
+ *
+ * `AreaTrace` derives the running total at column `c` by summing `data[s][c]`
+ * over the bands, so the columns of every series have to name the same
+ * category. That makes the permutation all-or-nothing for these -- see
+ * {@link sortLinesByVisualOrder}.
+ */
+const READ_BY_COLUMN = new Set<TraceType>([
+  TraceType.STACKED_AREA,
+  TraceType.NORMALIZED_AREA,
+]);
+
+/**
  * For LINE layers, Vega-Lite renders the `<path>`'s `d` attribute with
  * M/L commands in **visual x-axis order** (alphabetical by default for
  * nominal/ordinal scales), but `extractLineData` returns
@@ -1108,7 +1140,7 @@ function sortLinesByVisualOrder(
   let svgAxisLabels: string[] | null = null;
 
   for (const layer of layers) {
-    if (layer.type !== TraceType.LINE)
+    if (!LINE_SHAPED.has(layer.type))
       continue;
     if (!Array.isArray(layer.data) || layer.data.length === 0)
       continue;
@@ -1146,7 +1178,19 @@ function sortLinesByVisualOrder(
       continue;
     }
 
-    let reorderedAny = false;
+    // A stacked band is read by COLUMN: `AreaTrace` derives the running total
+    // at column `c` by summing `data[s][c]` down the series. Permuting one
+    // series and not another would pair one band's `D` with the next band's
+    // `A` and total two different categories together, so those layers take
+    // the permutation all or not at all -- the rule
+    // `reorderSegmentedColumnsByVisualOrder` already applies to a segmented
+    // bar, for the same reason (#1042). An unstacked multi-line has no such
+    // tie between its series, so a series these labels do not describe simply
+    // goes unpermuted while its siblings are corrected.
+    const byColumn = READ_BY_COLUMN.has(layer.type);
+    const permuted = new Map<number, LinePoint[]>();
+    let declined = false;
+
     for (let s = 0; s < seriesArr.length; s++) {
       const series = seriesArr[s];
       if (series.length < 2)
@@ -1166,18 +1210,31 @@ function sortLinesByVisualOrder(
 
       // Only swap when the reorder is complete (every data point
       // matched an axis label) and actually differs from the original.
-      if (reordered.length !== series.length)
+      if (reordered.length !== series.length) {
+        declined = true;
         continue;
+      }
       const same = reordered.every((pt, i) => pt === series[i]);
       if (same)
         continue;
 
-      seriesArr[s] = reordered;
-      reorderedAny = true;
+      permuted.set(s, reordered);
     }
 
-    if (reorderedAny) {
-      debugLog(`line layer "${layer.id}": reordered series data to match visual x-axis order`);
+    if (byColumn && declined) {
+      debugLog(
+        `${layer.type} layer "${layer.id}": a series does not match the axis `
+        + 'labels, so the columns are left as they arrived',
+      );
+      continue;
+    }
+
+    for (const [s, reordered] of permuted) {
+      seriesArr[s] = reordered;
+    }
+
+    if (permuted.size > 0) {
+      debugLog(`${layer.type} layer "${layer.id}": reordered series data to match visual x-axis order`);
     }
   }
 }
