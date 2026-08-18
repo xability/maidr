@@ -76,6 +76,7 @@ function AccessibleBarChart() {
 | `xLabel` | `string` | No | X-axis label. |
 | `yLabel` | `string` | No | Y-axis label. |
 | `orientation` | `Orientation` | No | Bar orientation. Defaults to vertical. |
+| `stepDirection` | `StepDirection` | No | Which way a step curve's riser goes, for `step` and the area types. Read off the `<Line type>` / `<Area type>` in `children` when not given (simple and composed mode only). |
 | `fillKeys` | `string[]` | No | Display names for series in stacked/dodged/normalized charts. Maps 1:1 with `yKeys`. |
 | `binConfig` | `HistogramBinConfig` | Histogram only | Bin range configuration for histograms. |
 | `flowConfig` | `FlowLinkConfig` | Alluvial only | Target key and the `nodes` half of the `<Sankey>` data. |
@@ -151,6 +152,7 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'funnel'` | `<FunnelChart>` + `<Funnel>` | Funnel chart: a population shrinking across ordered stages |
 | `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
 | `'line'` | `<Line>` | Line chart |
+| `'step'` | `<Line type="stepAfter">` | Step chart: the value is held across an interval and then jumps |
 | `'area'` | `<Area>` | Area chart |
 | `'stacked_area'` | `<Area stackId="...">` | Stacked area chart (multiple `yKeys`) |
 | `'normalized_area'` | `<AreaChart stackOffset="expand">` | 100% stacked area chart (multiple `yKeys`) |
@@ -410,6 +412,61 @@ const data = [
 ```
 
 > **Tip:** Always include `dot` on the `<Line>` component. MAIDR uses the rendered dot elements for visual highlighting during keyboard navigation.
+
+### Step Chart
+
+A `<Line>` or `<Area>` drawn with `type="stepAfter"`, `"stepBefore"` or
+`"step"`. Declare it as `chartType="step"` rather than `"line"`: a step chart is
+navigated by transition rather than by sample, and described in terms of its
+runs — how many times the level changes, the longest unbroken one, and the
+levels themselves.
+
+```tsx
+const data = [
+  { hour: 0, stage: 1 },
+  { hour: 1, stage: 1 },
+  { hour: 2, stage: 3 },
+  { hour: 3, stage: 2 },
+];
+
+<MaidrRecharts
+  id="step-example"
+  title="Sleep Stage Through the Night"
+  data={data}
+  chartType="step"
+  xKey="hour"
+  yKeys={['stage']}
+  xLabel="Hour"
+  yLabel="Stage"
+>
+  <LineChart width={600} height={350} data={data}>
+    <XAxis dataKey="hour" />
+    <YAxis />
+    <Line type="stepAfter" dataKey="stage" stroke="#8884d8" dot />
+  </LineChart>
+</MaidrRecharts>
+```
+
+Which way the riser goes is read off the `<Line>` above, so it does not need
+declaring twice:
+
+| Recharts `type` | announced as | the riser sits |
+|---|---|---|
+| `stepAfter` | `hv` | at the next sample |
+| `stepBefore` | `vh` | at the current sample |
+| `step` | not announced | halfway between the two |
+
+A centred `type="step"` is neither convention, so MAIDR names none rather than
+claiming one the chart does not draw — the chart is still read as a step. Pass
+`stepDirection` to state it yourself; it wins over what the walk finds, which
+is how a chart drawing more than one curve says which one is meant. In
+**subplot mode** nothing is derived at all — a grid has one walk and many
+charts — so declare `stepDirection` on the grid or on the panel.
+
+An area drawn as a staircase keeps `chartType="area"` (or `"stacked_area"` /
+`"normalized_area"`) and adds `stepDirection`: the trace stays an area, and the
+direction is what tells MAIDR the extra vertices in the rendered path are
+risers rather than samples.
 
 ### Area Chart
 
@@ -1404,6 +1461,7 @@ type RechartsChartType =
   | 'funnel'
   | 'histogram'
   | 'line'
+  | 'step'
   | 'area'
   | 'stacked_area'
   | 'normalized_area'
@@ -1435,6 +1493,7 @@ interface RechartsLayerConfig {
   yKey: string;              // Key in data for this series' y-values
   chartType: RechartsChartType; // Chart type for this series
   name?: string;             // Display name (used in legends/descriptions)
+  stepDirection?: StepDirection; // This series' step convention
 }
 ```
 
@@ -1451,6 +1510,7 @@ interface RechartsSubplotConfig {
   xLabel?: string;              // Defaults to top-level xLabel
   yLabel?: string;              // Defaults to top-level yLabel
   orientation?: Orientation;    // Defaults to top-level orientation
+  stepDirection?: StepDirection; // Defaults to top-level stepDirection
   fillKeys?: string[];          // Defaults to top-level fillKeys
   binConfig?: HistogramBinConfig; // Defaults to top-level binConfig
   selectorOverride?: string;    // Panel-scoped highlight selector override

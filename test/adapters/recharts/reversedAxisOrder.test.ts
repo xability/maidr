@@ -29,7 +29,7 @@
  */
 import type { BarPoint } from '@type/grammar';
 import type { ReactNode } from 'react';
-import { categoryAxisReversedFor } from '@adapters/recharts/axisDirection';
+import { categoryAxisReversedFor } from '@adapters/recharts/childProps';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { describe, expect, it } from '@jest/globals';
 import { createElement } from 'react';

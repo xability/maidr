@@ -43,7 +43,7 @@ import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { categoryAxisReversedFor } from './axisDirection';
+import { categoryAxisReversedFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -124,6 +124,7 @@ export function MaidrRecharts({
   xLabel,
   yLabel,
   orientation,
+  stepDirection,
   fillKeys,
   binConfig,
   flowConfig,
@@ -153,6 +154,14 @@ export function MaidrRecharts({
         ? Children.toArray(children).map(panel =>
             categoryAxisReversedFor(panel, orientation === Orientation.HORIZONTAL))
         : undefined,
+      // The convention is on the `<Line type>` the chart already declares, so
+      // a step chart need not say it twice. An explicit one still wins, which
+      // is how the reading is corrected when the walk finds a curve that is
+      // not the one meant. Subplot mode abstains for the same reason the axis
+      // walk does above -- one verdict would read the first panel's curve onto
+      // every other -- so a grid of step charts declares the convention, on the
+      // panel or on the grid.
+      stepDirection: subplots ? stepDirection : (stepDirection ?? stepDirectionFor(children)),
       id,
       title,
       subtitle,
@@ -185,7 +194,7 @@ export function MaidrRecharts({
     }),
     // `children` joins the list because the schema now reads the axes out of
     // it; without that a chart that flips `reversed` would keep the old order.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride, children],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, stepDirection, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride, children],
   );
 
   return (
