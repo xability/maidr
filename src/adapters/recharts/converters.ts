@@ -48,6 +48,7 @@ import type {
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  StepDirection,
   SurvivalPoint,
   TreemapPoint,
   ViolinKdePoint,
@@ -197,6 +198,7 @@ function buildPanelSubplot(
     xLabel: panel.xLabel ?? config.xLabel,
     yLabel: panel.yLabel ?? config.yLabel,
     orientation: panel.orientation ?? config.orientation,
+    stepDirection: panel.stepDirection ?? config.stepDirection,
     // Each panel's own axis, not the grid's: a panel draws its own chart, so
     // one verdict for all of them would read the first panel's axis onto every
     // other (#1017).
@@ -1277,6 +1279,7 @@ function reversesLinePoints(
     return false;
   }
   return chartType === 'line'
+    || chartType === 'step'
     || chartType === 'area'
     || isStackedAreaType(chartType)
     || chartType === 'bump';
@@ -1342,7 +1345,7 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
       id: String(index),
       type: maidrType,
       title: name,
-      ...layerOptions(chartType, config),
+      ...layerOptions(chartType, config, layerConfig.stepDirection),
       // LineTrace expects selectors as string[] (one per series), not a single string
       selectors: turned ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
@@ -1384,6 +1387,7 @@ function convertData(
     // the model announces them, not what the adapter has to emit. A polar area
     // is a radar whose spokes are drawn as wedges, so it lands here too.
     case 'line':
+    case 'step':
     case 'area':
     case 'stacked_area':
     case 'normalized_area':
@@ -2028,6 +2032,7 @@ function isStackedAreaType(chartType: RechartsChartType): boolean {
  */
 function isLineType(chartType: RechartsChartType): boolean {
   return chartType === 'line'
+    || chartType === 'step'
     || chartType === 'area'
     || isStackedAreaType(chartType)
     || chartType === 'radar'
@@ -2049,6 +2054,7 @@ function isLineType(chartType: RechartsChartType): boolean {
 function layerOptions(
   chartType: RechartsChartType,
   config: RechartsAdapterConfig,
+  layerStepDirection?: StepDirection,
 ): Partial<MaidrLayer> {
   switch (chartType) {
     case 'volcano':
@@ -2066,6 +2072,20 @@ function layerOptions(
     case 'survival':
       // Only reachable from composed mode; buildSurvivalLayer sets its own.
       return { stepDirection: config.survivalConfig?.stepDirection ?? 'hv' };
+    // A step and an area both carry the convention their riser is drawn with —
+    // an area because `AreaTrace` reads `stepDirection` to reconcile the extra
+    // vertices a staircase has, a step because `StepTrace` announces it. No
+    // default: Recharts' centred `type="step"` is neither convention, and an
+    // undeclared direction is the one case `StepTrace` is written to expect.
+    case 'step':
+    case 'area':
+    case 'stacked_area':
+    case 'normalized_area': {
+      // A composed chart is where one curve is a staircase and another is not,
+      // so the layer's own answer wins over the chart-wide one.
+      const direction = layerStepDirection ?? config.stepDirection;
+      return direction === undefined ? {} : { stepDirection: direction };
+    }
     default:
       return {};
   }
@@ -2136,6 +2156,8 @@ function toTraceType(chartType: RechartsChartType): TraceType {
       return TraceType.HISTOGRAM;
     case 'line':
       return TraceType.LINE;
+    case 'step':
+      return TraceType.STEP;
     case 'area':
       return TraceType.AREA;
     case 'stacked_area':

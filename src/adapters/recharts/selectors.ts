@@ -370,8 +370,11 @@ function baseRechartsSelector(chartType: RechartsChartType): string | undefined 
     case 'sunburst':
       return '.recharts-sunburst .recharts-sector';
     // A bump chart is a <LineChart> of ranks and a survival curve a
-    // <LineChart> of step segments, so both draw line dots.
+    // <LineChart> of step segments, so both draw line dots. So does a step:
+    // its curve has more vertices than samples, but its dots are still one
+    // per sample, which is what the model pairs its points with.
     case 'line':
+    case 'step':
     case 'bump':
     case 'survival':
       return '.recharts-line-dots .recharts-line-dot';

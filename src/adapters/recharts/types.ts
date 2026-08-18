@@ -40,6 +40,13 @@ import type { GaugeBand, Orientation, StepDirection } from '@type/grammar';
  *   MAIDR derives the retention and share it announces from them
  * - `'histogram'` → `TraceType.HISTOGRAM` — Histogram rendered as bar chart with bin ranges
  * - `'line'` → `TraceType.LINE` — Line chart
+ * - `'step'` → `TraceType.STEP` — Step chart: a `<Line>` or `<Area>` drawn
+ *   with `type="stepAfter"`, `"stepBefore"` or `"step"`. The value is held
+ *   across an interval and then jumps rather than sliding between samples,
+ *   which is what `StepTrace` navigates and describes in terms of runs.
+ *   Which convention it is comes from {@link RechartsAdapterConfig.stepDirection}
+ *   — Recharts' centred `type="step"` puts the riser midway between the
+ *   samples and is neither, so a step may go out with no direction at all
  * - `'area'` → `TraceType.AREA` — Area chart (Recharts `<Area>`); the fill is
  *   decoration, so the data is a line's
  * - `'stacked_area'` → `TraceType.STACKED_AREA` — Stacked area chart
@@ -116,6 +123,7 @@ export type RechartsChartType
     | 'funnel'
     | 'histogram'
     | 'line'
+    | 'step'
     | 'area'
     | 'stacked_area'
     | 'normalized_area'
@@ -150,6 +158,14 @@ export interface RechartsLayerConfig {
   chartType: RechartsChartType;
   /** Display name for this series (used in legends/descriptions). */
   name?: string;
+  /**
+   * This series' step convention, when it is a step or an area drawn as one.
+   *
+   * Declared per layer because a composed chart is where one curve is a
+   * staircase and another is not; falls back to the chart-wide
+   * {@link RechartsAdapterConfig.stepDirection} when this layer says nothing.
+   */
+  stepDirection?: StepDirection;
 }
 
 /**
@@ -596,6 +612,15 @@ export interface RechartsSubplotConfig {
   yLabel?: string;
   /** Bar chart orientation. Falls back to the top-level `orientation`. */
   orientation?: Orientation;
+  /**
+   * This panel's step convention. Falls back to the top-level `stepDirection`.
+   *
+   * Declared rather than derived: {@link MaidrRecharts} reads the convention
+   * off the chart's own `<Line>` in simple and composed mode, but a grid has
+   * one walk and many charts, and the first panel's curve is not evidence
+   * about the rest.
+   */
+  stepDirection?: StepDirection;
   /** Series display names. Falls back to the top-level `fillKeys`. */
   fillKeys?: string[];
   /** Histogram bin range configuration. Falls back to the top-level `binConfig`. */
@@ -1099,6 +1124,23 @@ export interface RechartsAdapterConfig {
    * (#1017).
    */
   categoryAxisReversed?: boolean;
+
+  /**
+   * Which way a step curve's riser goes: `'hv'` holds the level and jumps at
+   * the next sample (`<Line type="stepAfter">`), `'vh'` jumps at the current
+   * one (`type="stepBefore"`).
+   *
+   * Read for `'step'` and for the area types, whose trace carries a step the
+   * same way. {@link MaidrRecharts} fills it in from the `<Line>` / `<Area>`
+   * inside its own children when a step chart does not declare one, so an
+   * author usually need not.
+   *
+   * Left undefined rather than defaulted when nothing says: Recharts' centred
+   * `type="step"` draws the riser midway between the samples, which is neither
+   * convention, and `StepTrace` announces no direction rather than claiming a
+   * wrong one.
+   */
+  stepDirection?: StepDirection;
 
   /**
    * The same answer per panel, in the grid's row-major order, in subplot mode.
