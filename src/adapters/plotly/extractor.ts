@@ -344,8 +344,13 @@ function mapTraceType(trace: PlotlyTrace): TraceType | null {
     case 'violin':
       return TraceType.VIOLIN_KDE;
 
+    // A 2D histogram draws the same grid of cells a heatmap does, and differs
+    // only in where the grid came from: a heatmap is given it, and a
+    // `histogram2d` bins samples into one first -- the same relationship
+    // `contour` and `histogram2dcontour` have below.
     case 'heatmap':
     case 'heatmapgl':
+    case 'histogram2d':
       return TraceType.HEATMAP;
 
     // Both draw a scalar field as curves of constant value, and differ only
@@ -1568,7 +1573,7 @@ function extractLayer(
       return extractErrorBarLayer(trace, calcdata, id, title, selectors, axes);
 
     case TraceType.HEATMAP:
-      return extractHeatmapLayer(trace, id, title, selectors, axes, gd);
+      return extractHeatmapLayer(trace, calcdata, id, title, selectors, axes, gd);
 
     // `selectors` is not passed on: a contour needs one per level, and which
     // levels the field actually crosses is only known once they are walked.
@@ -3180,6 +3185,7 @@ function drawnCategoryOrder(
 
 function extractHeatmapLayer(
   trace: PlotlyTrace,
+  calcdata: PlotlyCalcData[],
   id: string,
   title: string | undefined,
   selectors: string | undefined,
@@ -3189,7 +3195,13 @@ function extractHeatmapLayer(
   // A heatmap's `z` is the grid of cells. The same attribute carries a flat
   // column on a choropleth, which is a different trace type and a different
   // extractor — so a grid is what it is not being one.
-  const grid = Array.isArray(trace.z?.[0]) ? (trace.z as number[][]) : undefined;
+  //
+  // A `histogram2d` has no `z` at all: plotly bins its samples during calc, so
+  // calcdata is where its grid lives — the same place `contourField` reads a
+  // `histogram2dcontour`'s from, for the same reason (#1061).
+  const grid = Array.isArray(trace.z?.[0])
+    ? (trace.z as number[][])
+    : numberGrid(calcdata[0]?.z) ?? undefined;
   if (!grid || grid.length === 0)
     return null;
 
@@ -3199,8 +3211,16 @@ function extractHeatmapLayer(
     return null;
 
   // Ensure labels match z dimensions (trim if Plotly provides extras).
-  const xLabels = trace.x ? trace.x.slice(0, numCols).map(String) : grid[0].map((_, i) => String(i));
-  const yLabels = trace.y ? trace.y.slice(0, numRows).map(String) : grid.map((_, i) => String(i));
+  //
+  // A binned trace names its columns by the bins it made, never by `x`: that
+  // holds the SAMPLES it binned, one per observation rather than one per
+  // column, so slicing it would announce the first three observations as the
+  // three columns. Where the edges cannot be read the index stands in.
+  const binned = trace.type === 'histogram2d';
+  const xLabels = (binned ? binEdgeLabels(calcdata[0]?.x, numCols) : null)
+    ?? (!binned && trace.x ? trace.x.slice(0, numCols).map(String) : grid[0].map((_, i) => String(i)));
+  const yLabels = (binned ? binEdgeLabels(calcdata[0]?.y, numRows) : null)
+    ?? (!binned && trace.y ? trace.y.slice(0, numRows).map(String) : grid.map((_, i) => String(i)));
 
   // The trace's order is not necessarily the drawn one: `categoryorder` sorts
   // an axis and leaves `x`/`y`/`z` alone, so the grid has to be laid back out
@@ -3234,7 +3254,13 @@ function extractHeatmapLayer(
   };
 
   // Set the z axis label for z-values from the colorbar title, or default.
-  const fillLabel = extractColorbarTitle(trace, gd._fullLayout ?? gd.layout) ?? 'Value';
+  // A cell of a 2D histogram holds however many samples fell in it, and
+  // `histfunc` is what plotly calls that; its default is counting.
+  const binnedDefault = trace.type === 'histogram2d'
+    && (trace.histfunc === undefined || trace.histfunc === 'count')
+    ? 'Count'
+    : 'Value';
+  const fillLabel = extractColorbarTitle(trace, gd._fullLayout ?? gd.layout) ?? binnedDefault;
   const heatmapAxes: MaidrLayer['axes'] = { ...axes, z: { label: fillLabel } };
 
   return {
@@ -3252,6 +3278,43 @@ function extractHeatmapLayer(
  */
 function extractColorbarTitle(trace: PlotlyTrace, layout: PlotlyLayout | undefined): string | undefined {
   return extractGivenTitle(trace.colorbar?.title, layout);
+}
+
+/**
+ * The bin a cell of a binned grid stands for, named by the edges it spans.
+ *
+ * A `histogram2d` is a grid of bins rather than of named categories, and the
+ * bin's extent is most of what it is read for — a column called `2` says
+ * nothing about how wide the bin was. `HeatmapData` carries labels and no
+ * bounds, so the range goes in the label.
+ *
+ * Plotly stores `n + 1` edges for `n` cells (`[-0.5, 1.5, 3.5, 5.5]` for three
+ * columns), and both are required: one short and the last label would run to
+ * an edge that is not there.
+ *
+ * Called only for a trace that actually binned its samples, never keyed off
+ * the edge count — which is worth stating because it looks as though it could
+ * be. A plain `heatmap`'s calcdata carries the brick boundaries in the same
+ * `n + 1` shape (`[-0.5, 0.5, 1.5]` for two columns), so reading the edges
+ * wherever they are that long would replace an authored heatmap's own category
+ * names with numbers.
+ *
+ * Asked per axis, so one axis whose edges plotly did not leave behind does not
+ * cost the other the names it does have.
+ *
+ * @param edges - The calculated edges for one axis
+ * @param count - Cells along that axis
+ * @returns One label per cell, or null when the edges are absent or short
+ */
+function binEdgeLabels(edges: unknown, count: number): string[] | null {
+  if (!Array.isArray(edges) || edges.length !== count + 1)
+    return null;
+
+  const values = edges.map(Number);
+  if (!values.every(value => Number.isFinite(value)))
+    return null;
+
+  return values.slice(0, count).map((low, index) => `${low} to ${values[index + 1]}`);
 }
 
 // ---------------------------------------------------------------------------

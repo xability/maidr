@@ -123,6 +123,12 @@ export interface PlotlyTrace {
   close?: number[];
   // Histogram-specific
   xbins?: { start?: number; end?: number; size?: number };
+  /**
+   * How a histogram reduces the samples that fall in a bin. Plotly's default
+   * is `'count'`, which is why a 2D histogram's cells are counts unless the
+   * trace says otherwise.
+   */
+  histfunc?: 'count' | 'sum' | 'avg' | 'min' | 'max';
   // Pie-specific, and shared with the hierarchy traces below, which name and
   // size their sectors through the same two arrays.
   /** Slice labels, in the order the trace was authored. */

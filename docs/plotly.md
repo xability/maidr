@@ -66,7 +66,7 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Step | `type: 'scatter'`, `mode: 'lines'`, `line: { shape: 'hv' \| 'vh' \| 'hvh' \| 'vhv' }` | [Step chart](examples.html) |
 | Box Plot | `type: 'box'` | [Box plot](examples.html) |
 | Violin Plot | `type: 'violin'` | [Violin plot](examples.html) |
-| Heatmap | `type: 'heatmap'` | [Heatmap](examples.html) |
+| Heatmap | `type: 'heatmap'` or `type: 'histogram2d'` | [Heatmap](examples.html) |
 | Histogram | `type: 'histogram'` | [Histogram](examples.html) |
 | Candlestick | `type: 'candlestick'` | [Candlestick](examples.html) |
 | Pie | `type: 'pie'` | [Pie chart](examples.html) |
@@ -184,6 +184,14 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
   the data. Plotly draws these lines to a canvas rather than to SVG, so the
   layer carries no selectors — audio, text, braille, and navigation all work,
   visual highlighting alone does not.
+
+- A `histogram2d` is read as the heatmap of counts it draws. The grid comes
+  from the calculated data rather than the trace, because a 2D histogram is
+  given samples and plotly bins them while it draws — the same place a
+  `histogram2dcontour`'s grid comes from. Each cell is named by the bin it
+  stands for (`-0.5 to 1.5`) rather than by an index, since the extent is most
+  of what a histogram is read for, and the fill axis is called `Count` unless
+  the trace sets a `histfunc` other than counting or names its colorbar.
 
 - A `contour` (and a `histogram2dcontour`) is read as one curve per level.
   Plotly computes its curves while it draws and keeps none of them — the

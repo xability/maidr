@@ -1,5 +1,5 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyHierarchyNode, PlotlyTrace } from '@adapters/plotly/types';
-import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, LinePoint, MaidrLayer, MosaicPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, BoxSelector, ChoroplethPoint, ContourPoint, ErrorBarPoint, GanttData, GaugePoint, HeatmapData, LinePoint, MaidrLayer, MosaicPoint, PiePoint, SegmentedPoint, TreemapPoint, ViolinKdePoint } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
@@ -4583,6 +4583,138 @@ describe('plotly extractor', () => {
         { x: 1, y: 1.5, level: 2 },
         { x: 0.5, y: 2, level: 2 },
       ]]);
+    });
+  });
+
+  describe('histogram2d', () => {
+    /**
+     * The counts plotly binned three-by-three, and the four bin edges that
+     * index each axis. Measured in Chromium against plotly 3.7.0 from
+     * `x = [1,1,2,2,2,3,4,4,5,5,5,5]`, `y = [1,2,1,1,3,2,2,4,1,3,3,5]` with
+     * `nbinsx: 3, nbinsy: 3`.
+     */
+    const BINNED = [[1, 2, 1], [1, 2, 3], [0, 0, 2]];
+    const EDGES = [-0.5, 1.5, 3.5, 5.5];
+
+    function binnedGd(
+      trace: PlotlyTrace,
+      calcdata?: PlotlyCalcData[][],
+    ): PlotlyGraphDiv {
+      return createGraphDiv({
+        traces: [trace],
+        layout: {
+          xaxis: { title: { text: 'X' }, domain: [0, 1] },
+          yaxis: { title: { text: 'Y' }, domain: [0, 1] },
+        },
+        calcdata,
+        bgRects: [{ x: 0, y: 0 }],
+      });
+    }
+
+    function binnedLayer(
+      trace: PlotlyTrace,
+      calcdata?: PlotlyCalcData[][],
+    ): MaidrLayer {
+      const maidr = extractPlotlyData(binnedGd(trace, calcdata));
+      expect(maidr).not.toBeNull();
+      return maidr!.subplots[0][0].layers[0];
+    }
+
+    const SAMPLES: PlotlyTrace = {
+      type: 'histogram2d',
+      x: [1, 1, 2, 2, 2, 3, 4, 4, 5, 5, 5, 5],
+      y: [1, 2, 1, 1, 3, 2, 2, 4, 1, 3, 3, 5],
+    };
+    const CALCDATA: PlotlyCalcData[][] = [[{ z: BINNED, x: EDGES, y: EDGES }]];
+
+    it('reads the grid plotly binned, which the trace does not carry', () => {
+      const layer = binnedLayer(SAMPLES, CALCDATA);
+
+      // The trace has samples and no `z` at all: before #1061 the type was
+      // not mapped, and the whole layer was skipped with a warning.
+      expect(layer.type).toBe(TraceType.HEATMAP);
+      // Row order runs top-first while the y axis counts from the bottom, so
+      // the last binned row is announced first.
+      expect((layer.data as HeatmapData).points).toEqual([
+        [0, 0, 2],
+        [1, 2, 3],
+        [1, 2, 1],
+      ]);
+    });
+
+    it('names each cell by the bin it stands for', () => {
+      const layer = binnedLayer(SAMPLES, CALCDATA);
+
+      // A column called "1" would say nothing about how wide the bin was, and
+      // the extent is most of what a histogram is read for.
+      const data = layer.data as HeatmapData;
+      expect(data.x).toEqual(['-0.5 to 1.5', '1.5 to 3.5', '3.5 to 5.5']);
+      expect(data.y).toEqual(['3.5 to 5.5', '1.5 to 3.5', '-0.5 to 1.5']);
+    });
+
+    it('calls a cell of counts a count', () => {
+      expect(binnedLayer(SAMPLES, CALCDATA).axes?.z?.label).toBe('Count');
+    });
+
+    it('keeps the generic label when the bins hold something other than a count', () => {
+      const layer = binnedLayer({ ...SAMPLES, histfunc: 'avg', z: undefined }, CALCDATA);
+
+      expect(layer.axes?.z?.label).toBe('Value');
+    });
+
+    it('lets an authored colorbar title win over either default', () => {
+      const layer = binnedLayer(
+        { ...SAMPLES, colorbar: { title: { text: 'Observations' } } },
+        CALCDATA,
+      );
+
+      expect(layer.axes?.z?.label).toBe('Observations');
+    });
+
+    it('highlights through the one image plotly draws the cells into', () => {
+      // A histogram2d renders into `heatmaplayer` exactly as a heatmap does,
+      // so the selector needs nothing of its own.
+      expect(binnedLayer(SAMPLES, CALCDATA).selectors)
+        .toBe('.subplot.xy .heatmaplayer image');
+    });
+
+    it('skips a chart captured before plotly binned it', () => {
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const maidr = extractPlotlyData(binnedGd(SAMPLES));
+
+        expect(maidr).toBeNull();
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('numbers the columns when the edges are not there to name them', () => {
+      // Three columns need FOUR edges; three of them leaves the last label
+      // running to an edge that is not there. `x` cannot stand in either — it
+      // holds the twelve observations plotly binned, not three column names,
+      // so announcing "1, 1, 2" would name the columns after the first three
+      // samples.
+      const layer = binnedLayer(SAMPLES, [[{ z: BINNED, x: [-0.5, 1.5, 3.5], y: EDGES }]]);
+
+      const data = layer.data as HeatmapData;
+      expect(data.x).toEqual(['0', '1', '2']);
+      // The rows still have their edges, and are read from them.
+      expect(data.y).toEqual(['3.5 to 5.5', '1.5 to 3.5', '-0.5 to 1.5']);
+    });
+
+    it('leaves an authored heatmap reading the labels it was given', () => {
+      // The edge count is what tells a binned grid from a named one: three
+      // columns named by three labels are categories, not bin bounds.
+      const layer = binnedLayer(
+        { type: 'heatmap', z: [[1, 2], [3, 4]], x: ['a', 'b'], y: ['p', 'q'] },
+        [[{ z: [[1, 2], [3, 4]], x: [-0.5, 0.5, 1.5], y: [-0.5, 0.5, 1.5] }]],
+      );
+
+      const data = layer.data as HeatmapData;
+      expect(data.x).toEqual(['a', 'b']);
+      expect(data.y).toEqual(['q', 'p']);
+      expect(layer.axes?.z?.label).toBe('Value');
     });
   });
 
