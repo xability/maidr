@@ -298,3 +298,104 @@ describe('a segmented layer handed a selector grid', () => {
     expect(document.querySelectorAll('path').length).toBe(before);
   });
 });
+
+/**
+ * The DOM a plotly panel builds when a histogram shares its `barlayer`:
+ * the histogram's group first, then the two bar traces, each holding its own
+ * points in its trace's order.
+ */
+function buildWithHistogram(): void {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const barlayer = document.createElementNS(SVG_NS, 'g');
+  barlayer.setAttribute('class', 'barlayer');
+  const groups: [string, string[]][] = [
+    ['H', ['bin1', 'bin2']],
+    ['A', ['charlie', 'alpha', 'bravo']],
+    ['B', ['charlie', 'alpha', 'bravo']],
+  ];
+  for (const [series, names] of groups) {
+    const trace = document.createElementNS(SVG_NS, 'g');
+    trace.setAttribute('class', 'trace bars');
+    const points = document.createElementNS(SVG_NS, 'g');
+    points.setAttribute('class', 'points');
+    for (const name of names) {
+      const point = document.createElementNS(SVG_NS, 'g');
+      point.setAttribute('class', 'point');
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('data-name', `${series}-${name}`);
+      point.appendChild(path);
+      points.appendChild(point);
+    }
+    trace.appendChild(points);
+    barlayer.appendChild(trace);
+  }
+  svg.appendChild(barlayer);
+  document.body.appendChild(svg);
+}
+
+/** The selector naming one whole `barlayer` group, counting from one. */
+function groupSelector(position: number): string {
+  return `.barlayer > g.trace.bars:nth-of-type(${position}) .point > path`;
+}
+
+/**
+ * A two-series stacked layer over the DOM above, carrying the selector it is
+ * handed.
+ * @param selectors - What the adapter emitted
+ * @returns The layer
+ */
+function stackedOver(selectors: string): MaidrLayer {
+  return {
+    id: '0',
+    type: TraceType.STACKED,
+    orientation: Orientation.VERTICAL,
+    selectors,
+    axes: {},
+    data: [
+      [
+        { x: 'charlie', y: 3, z: 'A' },
+        { x: 'alpha', y: 1, z: 'A' },
+        { x: 'bravo', y: 2, z: 'A' },
+      ],
+      [
+        { x: 'charlie', y: 30, z: 'B' },
+        { x: 'alpha', y: 10, z: 'B' },
+        { x: 'bravo', y: 20, z: 'B' },
+      ],
+    ],
+  } as unknown as MaidrLayer;
+}
+
+describe('a segmented layer whose selector lists the groups it covers', () => {
+  it('chunks each series onto its own trace group', () => {
+    // The shape the plotly adapter emits once its selector is scoped (#993).
+    // `querySelectorAll` answers a selector list in document order, so the
+    // chunking lands series 0 on the first group listed.
+    buildWithHistogram();
+    const highlight = highlightOf(
+      stackedOver(`${groupSelector(2)}, ${groupSelector(3)}`),
+    ) ?? [];
+
+    expect(highlight.map(row => row.map(el => el.getAttribute('data-name')))).toEqual([
+      ['A-charlie', 'A-alpha', 'A-bravo'],
+      ['B-charlie', 'B-alpha', 'B-bravo'],
+    ]);
+  });
+
+  it('chunks a panel-wide selector blind, which is why one must not be sent', () => {
+    // Not a bug in the chunking: it is handed a flat list and told the layer
+    // owns all of it, and nothing in that list says which group an element
+    // came from. That is exactly why the adapter has to scope (#993) — named
+    // panel-wide, the histogram's two bins sat at the head and every cell
+    // shifted by two, announcing series A at 'charlie' while outlining the
+    // histogram's first bin. Pinned so a later attempt to make the model
+    // clever about this turns red here and reads the reason.
+    buildWithHistogram();
+    const highlight = highlightOf(stackedOver('.trace.bars .point > path')) ?? [];
+
+    expect(highlight.map(row => row.map(el => el.getAttribute('data-name')))).toEqual([
+      ['H-bin1', 'H-bin2', 'A-charlie'],
+      ['A-alpha', 'A-bravo', 'B-charlie'],
+    ]);
+  });
+});

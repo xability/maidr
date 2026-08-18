@@ -32,6 +32,21 @@ import { TraceType } from '../../type/grammar';
 const SANKEY_LINK_SELECTOR = '.sankey .sankey-links > path.sankey-link';
 
 /**
+ * Which layer plotly draws each bar-renderer trace type into.
+ *
+ * All four share the renderer, down to the `g.trace.bars` group class, and
+ * differ only in the layer that holds them. Measured on one panel carrying
+ * all four: each layer held exactly its own type's groups, two apiece, in
+ * `_fullData` order — no type strayed into another's layer.
+ */
+const BAR_FAMILY_LAYER: Record<string, string> = {
+  bar: 'barlayer',
+  histogram: 'barlayer',
+  funnel: 'funnellayer',
+  waterfall: 'waterfalllayer',
+};
+
+/**
  * Generates CSS selectors for a given trace type and index.
  *
  * @param maidrType   - The MAIDR trace type.
@@ -54,20 +69,29 @@ export function generatePlotlySelectors(
     case TraceType.SCATTER:
       return `${prefix}.trace.scatter .point`;
 
-    // A pyramid is among these: it is a stacked bar chart whose two sides grow
-    // opposite ways, drawn through the same renderer, so its bars are the same
-    // elements in the same trace-by-trace order.
-    // A marimekko is among these too: plotly draws it as a stacked bar chart
-    // whose columns happen to differ in width, through the same renderer and
-    // into the same elements. Only the reading changes.
+    // Scoped unconditionally, not only when the panel holds several groups: a
+    // one-group panel resolves the same either way, and a selector that is
+    // right only in the common case is the shape of the bug this closes.
+    // Without a resolved trace there is no position to count to, so the
+    // panel-wide selector stands as the last thing available.
     case TraceType.BAR:
     case TraceType.HISTOGRAM:
+      return barFamilySelector(prefix, plotlyGd, traceIndex, traceData)
+        ?? `${prefix}.trace.bars .point > path`;
+
+    // A segmented layer spans several traces — a pyramid and a marimekko
+    // among them, both stacked bar charts drawn through the same renderer —
+    // so no single group names its bars. Its selector is a list over the
+    // groups it covers, and only `extractSegmentedBarLayer` knows which those
+    // are; it builds one and never asks here. Answering with the panel-wide
+    // selector would hand a stray caller the very mismatch #993 is about, so
+    // this declines instead.
     case TraceType.DODGED:
     case TraceType.STACKED:
     case TraceType.NORMALIZED:
     case TraceType.DIVERGING:
     case TraceType.MOSAIC:
-      return `${prefix}.trace.bars .point > path`;
+      return undefined;
 
     // A step trace is a scatter trace plotly drew as a staircase, and an area
     // is one it filled in underneath, so their markers — when they have any —
@@ -80,14 +104,16 @@ export function generatePlotlySelectors(
       return lineSelector(prefix, traceData?.mode);
 
     // Funnel and waterfall are bar-like: plotly draws both through the bar
-    // renderer, down to the `trace bars` group class. Only the layer they sit
-    // in differs, and scoping by it keeps them apart from an actual bar trace
-    // sharing the panel.
+    // renderer, down to the `trace bars` group class, and only the layer they
+    // sit in differs. Scoped to the trace's own group within that layer for
+    // the same reason a bar is: two funnels on a panel get two groups, and
+    // the layer-wide selector named both (#993).
     case TraceType.FUNNEL:
-      return `${prefix}.funnellayer .trace.bars .point > path`;
-
     case TraceType.WATERFALL:
-      return `${prefix}.waterfalllayer .trace.bars .point > path`;
+      return barFamilySelector(prefix, plotlyGd, traceIndex, traceData)
+        ?? (maidrType === TraceType.FUNNEL
+          ? `${prefix}.funnellayer .trace.bars .point > path`
+          : `${prefix}.waterfalllayer .trace.bars .point > path`);
 
     // A dot plot is a scatter with one marker per category, so its marks are
     // scatter markers — but a bar-shaped layer pairs its selector with its own
@@ -196,6 +222,68 @@ function scatterTraceScope(
     return undefined;
   }
   return `${prefix}.scatterlayer g.trace.trace${uid} ${marks}`;
+}
+
+/**
+ * One bar-family trace's own bars, resolved from the trace itself.
+ *
+ * Returns undefined when there is no resolved trace, or when its type is not
+ * one the bar renderer draws — either way there is no group to count to, and
+ * the caller falls back to the layer-wide selector it used before.
+ *
+ * @param prefix     - The subplot prefix the trace is drawn in
+ * @param gd         - The plotly graph div
+ * @param traceIndex - The global index of the trace being selected
+ * @param trace      - That trace, when plotly has resolved one
+ * @returns The scoped selector, or undefined
+ */
+function barFamilySelector(
+  prefix: string,
+  gd: PlotlyGraphDiv,
+  traceIndex: number,
+  trace: PlotlyTrace | undefined,
+): string | undefined {
+  if (!trace) {
+    return undefined;
+  }
+  const layer = BAR_FAMILY_LAYER[trace.type ?? ''];
+  const position = barLayerPosition(gd, traceIndex, trace);
+  return layer === undefined || position < 0
+    ? undefined
+    : barGroupSelector(prefix, layer, position);
+}
+
+/**
+ * Every bar plotly drew for one bar-family trace.
+ *
+ * Scoped to that trace's own group rather than to the panel, because a panel
+ * can draw more than one trace into its `barlayer` and the panel-wide
+ * selector named all of their bars at once. Measured: two bars in `overlay`
+ * mode, a bar beside a histogram, or two histograms each give a layer a
+ * selector matching every group's bars (#993).
+ *
+ * What that cost differed by layer. A plain one saw more elements than points
+ * and withdrew its highlight — no outline at all. A segmented one does not
+ * compare counts, it chunks, so the extra elements shifted every cell instead:
+ * with a histogram's group drawn first, series A at 'charlie' announced its
+ * own value while outlining the histogram's first bin.
+ *
+ * The same holds one layer over: two funnels or two waterfalls on a panel
+ * each get two groups in their own layer, and the layer-wide selector named
+ * both — measured, 6 elements for two three-point traces.
+ *
+ * @param prefix        - The subplot prefix the trace is drawn in
+ * @param layer         - The layer plotly drew it into, e.g. `'barlayer'`
+ * @param tracePosition - Its position among that layer's traces on the panel
+ * @returns The selector for that trace's bars, in its own point order
+ */
+export function barGroupSelector(
+  prefix: string,
+  layer: string,
+  tracePosition: number,
+): string {
+  return `${prefix}.${layer} > g.trace.bars:nth-of-type(${tracePosition + 1})`
+    + ` .point > path`;
 }
 
 /**
@@ -368,28 +456,36 @@ function errorBarSelector(
 }
 
 /**
- * A bar-family trace's position among the ones plotly drew into its panel's
- * `barlayer`, which is what a `nth-of-type` selector counts by.
+ * A bar-family trace's position among the ones plotly drew into the same
+ * layer on the same panel, which is what a `nth-of-type` selector counts by.
  *
- * Histograms are counted too: plotly draws them through the bar renderer and
- * into the same layer, so one sitting before this trace shifts its group.
+ * Histograms are counted alongside bars: plotly draws them through the bar
+ * renderer and into the same `barlayer`, so one sitting before this trace
+ * shifts its group. Funnels and waterfalls each count only their own kind,
+ * because each has a layer to itself.
  *
  * @param gd         - The plotly graph div
  * @param traceIndex - The global index of the trace being selected
  * @param trace      - That trace, whose axes name the panel
- * @returns How many bar-layer traces plotly drew before it on that panel
+ * @returns How many traces plotly drew into its layer before it, or -1 when
+ *          the trace is not one the bar renderer draws
  */
 function barLayerPosition(
   gd: PlotlyGraphDiv,
   traceIndex: number,
   trace: PlotlyTrace,
 ): number {
+  const layer = BAR_FAMILY_LAYER[trace.type ?? ''];
+  if (layer === undefined) {
+    return -1;
+  }
+
   const traces = gd._fullData ?? [];
   let position = 0;
   for (let i = 0; i < traceIndex; i++) {
     const other = traces[i];
     if (
-      (other?.type === 'bar' || other?.type === 'histogram')
+      BAR_FAMILY_LAYER[other?.type ?? ''] === layer
       && other.visible !== false
       && other.visible !== 'legendonly'
       && (other.xaxis ?? 'x') === (trace.xaxis ?? 'x')

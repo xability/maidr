@@ -115,7 +115,11 @@ describe('plotly extractor', () => {
       expect(layer.id).toBe('0');
       expect(layer.type).toBe(TraceType.BAR);
       expect(layer.title).toBe('Tips');
-      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+      // Scoped to the trace's own `barlayer` group rather than to the panel,
+      // so a second bar-layer trace on the same panel cannot be named too
+      // (#993). A one-group panel like this one resolves the same either way.
+      expect(layer.selectors)
+        .toBe('.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) .point > path');
       expect(layer.axes?.x?.label).toBe('Day');
       expect(layer.axes?.y?.label).toBe('Count');
     });
@@ -2518,7 +2522,10 @@ describe('plotly extractor', () => {
         layout: SINGLE_PANEL,
       }));
 
-      expect(layer.selectors).toBe('.subplot.xy .funnellayer .trace.bars .point > path');
+      // Scoped to the funnel's own group within its layer: two funnels on a
+      // panel each get one, and the layer-wide selector named both (#993).
+      expect(layer.selectors)
+        .toBe('.subplot.xy .funnellayer > g.trace.bars:nth-of-type(1) .point > path');
     });
 
     it('keeps a vertical funnel on the value axis it was drawn against', () => {
@@ -2897,7 +2904,9 @@ describe('plotly extractor', () => {
         layout: SINGLE_PANEL,
       }));
 
-      expect(layer.selectors).toBe('.subplot.xy .waterfalllayer .trace.bars .point > path');
+      // Scoped the same way a funnel is, and for the same reason (#993).
+      expect(layer.selectors)
+        .toBe('.subplot.xy .waterfalllayer > g.trace.bars:nth-of-type(1) .point > path');
     });
   });
 
@@ -3971,7 +3980,13 @@ describe('plotly extractor', () => {
       // as one — so it must survive into the payload.
       expect(data[0][0]).toEqual({ x: -5, y: '0-9', z: 'Male' });
       expect(data[1][1]).toEqual({ x: 6, y: '10-19', z: 'Female' });
-      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+      // A segmented layer spans several traces, so its selector is a list over
+      // the groups it covers — one per series, in the order plotly drew them
+      // (#993).
+      expect(layer.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) .point > path, '
+        + '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) .point > path',
+      );
     });
 
     it('keeps the sign of the size plotly computed for each bar', () => {
@@ -4645,8 +4660,12 @@ describe('plotly extractor', () => {
           { x: 'Third', y: 0.7, z: 'Died', width: 0.75 },
         ],
       ]);
-      // Drawn as a stacked bar chart, and highlighted as one.
-      expect(layer.selectors).toBe('.subplot.xy .trace.bars .point > path');
+      // Drawn as a stacked bar chart, and highlighted as one — one group per
+      // series, joined into the list a segmented layer takes (#993).
+      expect(layer.selectors).toBe(
+        '.subplot.xy .barlayer > g.trace.bars:nth-of-type(1) .point > path, '
+        + '.subplot.xy .barlayer > g.trace.bars:nth-of-type(2) .point > path',
+      );
     });
 
     it('leaves an undeclared stacked bar chart a stacked bar chart', () => {
