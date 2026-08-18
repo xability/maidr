@@ -56,10 +56,16 @@ describe('highcharts diverging bar charts', () => {
     // Highcharts lays one series group out after another, which is row-major
     // — the opposite of what `SegmentedTrace` assumes for `<rect>` marks.
     expect(layer.domMapping).toEqual({ order: 'row' });
-    expect(layer.selectors).toBe(
-      '#diverging-chart .highcharts-series-group .highcharts-series-0 .highcharts-point, '
-      + '#diverging-chart .highcharts-series-group .highcharts-series-1 .highcharts-point',
-    );
+    // Named per cell rather than left to that mapping. A grid is honoured
+    // before the mapping is consulted at all, so this is the stronger claim of
+    // the two; the hint stays for a producer that still needs it (#1002).
+    const group = '#diverging-chart .highcharts-series-group';
+    expect(layer.selectors).toEqual([
+      [1, 2, 3].map(bar =>
+        `${group} .highcharts-series-0 .highcharts-point:nth-child(${bar})`),
+      [1, 2, 3].map(bar =>
+        `${group} .highcharts-series-1 .highcharts-point:nth-child(${bar})`),
+    ]);
   });
 
   it('leaves a genuine stack alone when both sides grow the same way', () => {

@@ -158,7 +158,7 @@ export class BoxenTrace extends AbstractTrace {
     if (typeof selectors === 'string') {
       return this.pairWith(Svg.selectAllElements(selectors));
     }
-    // `MaidrLayer['selectors']` also admits `string[][]` and the box and
+    // `MaidrLayer['selectors']` also admits `(string | null)[][]` and the box and
     // candlestick shapes, and `Array.isArray` alone lets all of them through
     // to a cast. Narrowing on the elements instead means the guard matches
     // what the type allows, rather than leaning on `isUsableSelector` to
