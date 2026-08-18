@@ -442,6 +442,65 @@ export interface D3BoxConfig extends D3BinderConfig {
 }
 
 /**
+ * Configuration for binding a D3 violin plot.
+ *
+ * A violin is `d3.area()` over the KDE bins, mirrored about each category's
+ * centre, so `selector` matches one `<path>` per category with that category's
+ * bin array bound to it — the same shape {@link D3LineConfig} reads off a line
+ * path. The box overlay, when the chart draws one, is the per-category `<g>`
+ * {@link D3BoxConfig} reads, and is named separately by `boxSelector`.
+ */
+export interface D3ViolinConfig extends D3BinderConfig {
+  /**
+   * CSS selector for the violin outline paths — one per category
+   * (e.g. `'path.violin'`).
+   */
+  selector: string;
+  /** Accessor for the category label. @default 'fill' */
+  fill?: DataAccessor<string>;
+  /**
+   * Accessor for the array of KDE samples bound to each violin, when the datum
+   * is an object wrapping them rather than the array itself.
+   * @default 'kde', falling back to `density`, `samples`, `bins` or `values`
+   */
+  kde?: DataAccessor<unknown[]>;
+  /**
+   * Accessor for one KDE sample's position on the value axis.
+   * @default 'value', falling back to `v`, `y` or `x`
+   */
+  value?: DataAccessor<number>;
+  /**
+   * Accessor for one KDE sample's density.
+   * @default 'density', falling back to `estimate`, `d` or `count`
+   */
+  density?: DataAccessor<number>;
+  /**
+   * CSS selector for the box overlay's groups, one per category, when the chart
+   * draws one. Without it — or when the summary cannot be read — the violin is
+   * emitted as its KDE curves alone.
+   */
+  boxSelector?: string;
+  /** Selector for the IQR box rectangle within each box group. @default 'rect' */
+  boxRectSelector?: string;
+  /** Accessor for the min value. @default 'min' */
+  min?: DataAccessor<number>;
+  /** Accessor for q1 value. @default 'q1' */
+  q1?: DataAccessor<number>;
+  /** Accessor for median (q2) value. @default 'q2' */
+  q2?: DataAccessor<number>;
+  /** Accessor for q3 value. @default 'q3' */
+  q3?: DataAccessor<number>;
+  /** Accessor for the max value. @default 'max' */
+  max?: DataAccessor<number>;
+  /** Accessor for lower outlier values. @default 'lowerOutliers' */
+  lowerOutliers?: DataAccessor<number[]>;
+  /** Accessor for upper outlier values. @default 'upperOutliers' */
+  upperOutliers?: DataAccessor<number[]>;
+  /** Chart orientation. @default Orientation.VERTICAL */
+  orientation?: Orientation;
+}
+
+/**
  * Configuration for binding a D3 histogram.
  */
 export interface D3HistogramConfig extends D3BinderConfig {
@@ -1559,8 +1618,22 @@ export interface D3ChoroplethConfig extends D3BinderConfig {
 export interface D3BinderResult {
   /** Complete MAIDR JSON data ready to use with the `<Maidr>` component or `maidr-data` attribute. */
   maidr: Maidr;
-  /** The generated layer for direct inspection or modification. */
+  /**
+   * The layer the binder is named for, for direct inspection or modification.
+   *
+   * A binder that emits more than one — a violin, which is a KDE curve plus a
+   * box summary — puts the rest in {@link layers}; this stays the primary one,
+   * so a caller written before that existed still reads what it expected.
+   */
   layer: MaidrLayer;
+  /**
+   * Every layer the bind produced, in the order the subplot carries them.
+   *
+   * Always populated, and `[layer]` for the binders that emit one. Read this
+   * rather than {@link layer} when what you want is "what did this bind
+   * produce" rather than "what is this chart".
+   */
+  layers: MaidrLayer[];
 }
 
 /**

@@ -22,6 +22,7 @@
  * - **Scatter plots** via {@link bindD3Scatter}
  * - **Heatmaps** via {@link bindD3Heatmap}
  * - **Box plots** via {@link bindD3Box}
+ * - **Violin plots** via {@link bindD3Violin}
  * - **Boxen / letter-value plots** via {@link bindD3Boxen}
  * - **Histograms** via {@link bindD3Histogram}
  * - **Candlestick charts** via {@link bindD3Candlestick}
@@ -151,6 +152,7 @@ export { bindD3Smooth } from './binders/smooth';
 export { bindD3Facets, bindD3Subplots } from './binders/subplots';
 export { bindD3Survival } from './binders/survival';
 export { bindD3Icicle, bindD3Sunburst, bindD3Treemap } from './binders/treemap';
+export { bindD3Violin } from './binders/violin';
 export { bindD3Waterfall } from './binders/waterfall';
 export { bindD3WordCloud } from './binders/wordCloud';
 
@@ -196,6 +198,7 @@ export type {
   D3SubplotsConfig,
   D3SurvivalConfig,
   D3TreemapConfig,
+  D3ViolinConfig,
   D3VolcanoConfig,
   D3WaterfallConfig,
   D3WordCloudConfig,

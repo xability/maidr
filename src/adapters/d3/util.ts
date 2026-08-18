@@ -409,17 +409,49 @@ export function finalizeSingleChart(
   config: D3BinderConfig,
   built: D3BuiltLayer,
 ): D3BinderResult {
+  return finalizeChart(svg, config, [built]);
+}
+
+/**
+ * The same, for a chart one bind reads as more than one layer.
+ *
+ * A violin is the case that exists: its KDE curves and its box summary are two
+ * layers over one set of marks, navigated as one chart, so they belong in one
+ * subplot rather than in two binds the caller has to place side by side.
+ *
+ * The first entry is the layer the binder is named for and becomes
+ * {@link D3BinderResult.layer}; every entry is in `layers`. Legends are
+ * concatenated in order, since a subplot carries one list.
+ *
+ * @param svg    - The SVG the binder was invoked on.
+ * @param config - The user's binder config (source of figure-level fields).
+ * @param built  - The layers, in the order the subplot should carry them.
+ * @returns The standard {@link D3BinderResult}.
+ * @throws When `built` is empty, which is a binder bug rather than a chart the
+ *         adapter could not read — a binder with nothing to emit throws first.
+ */
+export function finalizeChart(
+  svg: Element,
+  config: D3BinderConfig,
+  built: D3BuiltLayer[],
+): D3BinderResult {
+  if (built.length === 0) {
+    throw new Error('D3 binder: finalizeChart was given no layers to emit.');
+  }
+
   const { id = generateId(), title, subtitle, caption, autoApply } = config;
+  const layers = built.map(one => one.layer);
+  const legend = built.flatMap(one => one.legend ?? []);
   const maidr: Maidr = {
     id,
     title,
     subtitle,
     caption,
     subplots: [[{
-      ...(built.legend && built.legend.length > 0 ? { legend: built.legend } : {}),
-      layers: [built.layer],
+      ...(legend.length > 0 ? { legend } : {}),
+      layers,
     }]],
   };
   applyMaidrData(svg, maidr, autoApply);
-  return { maidr, layer: built.layer };
+  return { maidr, layer: layers[0], layers };
 }
