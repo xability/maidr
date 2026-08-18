@@ -158,6 +158,17 @@ export interface VictoryLayerInfo {
    */
   categoriesReversed?: boolean;
   /**
+   * Whether this layer's points were turned round for an inverted axis.
+   *
+   * The line half of the same fix `categoriesReversed` serves for the bar
+   * family, and separate from it because the two halves move differently. A
+   * bar names each mark with its own attribute so the highlight can be
+   * permuted; a line is one `<path>`, and there is nothing to permute -- the
+   * layer declares `domMapping.pointOrder` instead and `LineTrace` reverses
+   * the vertices it parsed (#1007, #1031).
+   */
+  pointsReversed?: boolean;
+  /**
    * Which way the layer is drawn, when the chart says so.
    *
    * Victory turns a bar chart on its side with `horizontal`, on the component

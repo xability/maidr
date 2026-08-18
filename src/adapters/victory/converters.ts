@@ -1199,12 +1199,15 @@ function extractSegmentedLayer(
  * makes reordering expressible, since the payload and the selectors can be
  * turned round together.
  *
- * Deliberately not in the list:
- * - `line`, `area`, `stackedArea` and `polarArea` are drawn as one `<path>`,
- *   and `LineTrace` pairs vertex `i` with point `i`. Both are in data order
- *   today, so they agree; reversing the payload alone would break that
- *   agreement rather than fix anything, and the adapter cannot rewrite the
- *   path. That half is #1007's question, not this one's.
+ * The line family is turned round too, by {@link REVERSIBLE_LINE_KINDS}, but
+ * differently: it is drawn as one `<path>` with nothing to permute, so the
+ * layer declares `domMapping.pointOrder` and `LineTrace` reverses the
+ * vertices it parsed. That was #1007's question when this list was written
+ * and is answered (#1026).
+ *
+ * Deliberately not in either list:
+ * - `polarArea` is drawn around a circle. There is no far end of a Cartesian
+ *   axis for an inverted one to draw from.
  * - `scatter` is read by `ScatterTrace`, which sorts by ascending x whatever
  *   order the layer arrived in. (A `VictoryScatter` over *categories* is
  *   `dot` rather than `scatter`, and is in the list.)
@@ -1215,7 +1218,16 @@ function extractSegmentedLayer(
  * - `box`, `candlestick` and `errorBar` have taggers of their own, and `pie`
  *   has no axis to invert.
  */
+/** What a line-family layer carries when its points were turned round. */
+const REVERSED_LINE_POINTS = { domMapping: { pointOrder: 'reverse' as const } };
+
 const REVERSIBLE_KINDS = new Set(['bar', 'dot', 'histogram', 'waterfall']);
+
+/**
+ * The kinds whose points turn round by declaring it rather than by naming
+ * each mark. See {@link REVERSIBLE_KINDS} for why the two lists differ.
+ */
+const REVERSIBLE_LINE_KINDS = new Set(['line', 'area', 'stackedArea']);
 
 /**
  * Turns the layers of a chart round when its independent axis is inverted.
@@ -1239,6 +1251,19 @@ function readInDrawnOrder(
   }
 
   return layers.map((layer) => {
+    if (REVERSIBLE_LINE_KINDS.has(layer.data.kind)) {
+      // A line's payload is a row per series, so each row turns round and the
+      // series keep their order.
+      return {
+        ...layer,
+        data: {
+          ...layer.data,
+          points: (layer.data.points as LinePoint[][])
+            .map(series => [...series].reverse()),
+        } as VictoryLayerData,
+        pointsReversed: true,
+      };
+    }
     if (!REVERSIBLE_KINDS.has(layer.data.kind)) {
       return layer;
     }
@@ -1514,6 +1539,7 @@ export function toMaidrLayer(
         axes,
         selectors: selector ? [selector as string] : undefined,
         ...(data.stepDirection ? { stepDirection: data.stepDirection } : {}),
+        ...(layer.pointsReversed ? REVERSED_LINE_POINTS : {}),
         data: data.points,
       };
 
@@ -1523,6 +1549,7 @@ export function toMaidrLayer(
         type: TraceType.AREA,
         axes,
         selectors: toSeriesSelectors(selector),
+        ...(layer.pointsReversed ? REVERSED_LINE_POINTS : {}),
         data: data.points,
       };
 
@@ -1532,6 +1559,7 @@ export function toMaidrLayer(
         type: data.normalized ? TraceType.NORMALIZED_AREA : TraceType.STACKED_AREA,
         axes,
         selectors: toSeriesSelectors(selector),
+        ...(layer.pointsReversed ? REVERSED_LINE_POINTS : {}),
         data: data.points,
       };
 
