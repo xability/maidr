@@ -212,11 +212,30 @@ function resolveAccessor(accessor: unknown, fallback: string): (d: Record<string
 // Axis label extraction
 // ---------------------------------------------------------------------------
 
+/** What a chart's `<VictoryAxis>` children say about its axes. */
+interface VictoryAxisInfo {
+  /** The labels, for the layers to carry. */
+  labels: { x?: string; y?: string };
+  /**
+   * Whether the independent axis -- the one the categories run along -- is
+   * drawn from the far end, which `<VictoryAxis invertAxis />` does.
+   */
+  invertedIndependent: boolean;
+}
+
 /**
- * Extracts axis labels from VictoryAxis children inside a VictoryChart.
+ * Reads what the `<VictoryAxis>` children of a `<VictoryChart>` declare.
+ *
+ * Both answers come off the same element, so they come out of the same walk.
+ * `label` is read only when there is one; `invertAxis` is read whether or not
+ * there is, since an axis is commonly inverted without being labelled.
+ *
+ * @param children - The chart's children
+ * @returns The labels, and whether the independent axis is inverted
  */
-function extractAxisLabels(children: ReactNode): { x?: string; y?: string } {
-  const result: { x?: string; y?: string } = {};
+function extractAxisInfo(children: ReactNode): VictoryAxisInfo {
+  const labels: { x?: string; y?: string } = {};
+  let invertedIndependent = false;
 
   Children.forEach(children, (child) => {
     if (!isValidElement(child))
@@ -226,18 +245,23 @@ function extractAxisLabels(children: ReactNode): { x?: string; y?: string } {
       return;
 
     const props = child.props as Record<string, unknown>;
+    const dependent = Boolean(props.dependentAxis);
+    if (!dependent && props.invertAxis === true) {
+      invertedIndependent = true;
+    }
+
     const label = props.label as string | undefined;
     if (!label)
       return;
 
-    if (props.dependentAxis) {
-      result.y = label;
+    if (dependent) {
+      labels.y = label;
     } else {
-      result.x = label;
+      labels.x = label;
     }
   });
 
-  return result;
+  return { labels, invertedIndependent };
 }
 
 // ---------------------------------------------------------------------------
@@ -1167,6 +1191,68 @@ function extractSegmentedLayer(
  * components, which is where Victory itself applies it: a child inherits the
  * chart's `polar` unless it declares its own.
  */
+/**
+ * The readings an inverted independent axis can be applied to here.
+ *
+ * All four draw one mark per datum, announce `layer.data` in the order it
+ * arrives, and are tagged by {@link tagDiscreteElements} -- which is what
+ * makes reordering expressible, since the payload and the selectors can be
+ * turned round together.
+ *
+ * Deliberately not in the list:
+ * - `line`, `area`, `stackedArea` and `polarArea` are drawn as one `<path>`,
+ *   and `LineTrace` pairs vertex `i` with point `i`. Both are in data order
+ *   today, so they agree; reversing the payload alone would break that
+ *   agreement rather than fix anything, and the adapter cannot rewrite the
+ *   path. That half is #1007's question, not this one's.
+ * - `scatter` is read by `ScatterTrace`, which sorts by ascending x whatever
+ *   order the layer arrived in. (A `VictoryScatter` over *categories* is
+ *   `dot` rather than `scatter`, and is in the list.)
+ * - `segmented` and `diverging` draw one mark per datum but are tagged with a
+ *   single selector the model flattens under a row/column-major convention
+ *   that is itself unsettled (#1003). Turning them round on top of that would
+ *   compound two uncertainties.
+ * - `box`, `candlestick` and `errorBar` have taggers of their own, and `pie`
+ *   has no axis to invert.
+ */
+const REVERSIBLE_KINDS = new Set(['bar', 'dot', 'histogram', 'waterfall']);
+
+/**
+ * Turns the layers of a chart round when its independent axis is inverted.
+ *
+ * `<VictoryAxis invertAxis />` draws the categories from the far end while
+ * Victory keeps rendering the marks in data order, so a layer emitted as
+ * written is announced as the mirror image of the chart (#1018). Reversing the
+ * points here puts the reading in drawn order; `categoriesReversed` tells the
+ * tagger to name the marks one by one so the highlight follows.
+ *
+ * @param layers - The layers as extracted, in data order
+ * @param inverted - Whether the independent axis is inverted
+ * @returns The same layers, turned round where that is expressible
+ */
+export function readInDrawnOrder(
+  layers: VictoryLayerInfo[],
+  inverted: boolean,
+): VictoryLayerInfo[] {
+  if (!inverted) {
+    return layers;
+  }
+
+  return layers.map((layer) => {
+    if (!REVERSIBLE_KINDS.has(layer.data.kind)) {
+      return layer;
+    }
+    return {
+      ...layer,
+      data: {
+        ...layer.data,
+        points: [...layer.data.points].reverse(),
+      } as VictoryLayerData,
+      categoriesReversed: true,
+    };
+  });
+}
+
 function collectDataLayers(
   childNodes: ReactNode,
   axisLabels: { x?: string; y?: string },
@@ -1233,13 +1319,16 @@ export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
 
     if (name === 'VictoryChart') {
       const chartProps = child.props as { children?: ReactNode; polar?: boolean; horizontal?: boolean };
-      const axisLabels = extractAxisLabels(chartProps.children);
-      layers.push(...collectDataLayers(
-        chartProps.children,
-        axisLabels,
-        n => String(layers.length + n),
-        chartProps.polar,
-        chartProps.horizontal,
+      const { labels, invertedIndependent } = extractAxisInfo(chartProps.children);
+      layers.push(...readInDrawnOrder(
+        collectDataLayers(
+          chartProps.children,
+          labels,
+          n => String(layers.length + n),
+          chartProps.polar,
+          chartProps.horizontal,
+        ),
+        invertedIndependent,
       ));
     } else {
       layers.push(...collectDataLayers(child, {}, n => String(layers.length + n)));
@@ -1307,14 +1396,17 @@ export function extractVictorySubplots(children: ReactNode): VictorySubplotInfo[
 
   return charts.map(({ element, svgIndex }, panelIndex) => {
     const chartProps = element.props as { children?: ReactNode; title?: string; polar?: boolean; horizontal?: boolean };
-    const axisLabels = extractAxisLabels(chartProps.children);
+    const { labels, invertedIndependent } = extractAxisInfo(chartProps.children);
     return {
-      layers: collectDataLayers(
-        chartProps.children,
-        axisLabels,
-        n => `${panelIndex}_${n}`,
-        chartProps.polar,
-        chartProps.horizontal,
+      layers: readInDrawnOrder(
+        collectDataLayers(
+          chartProps.children,
+          labels,
+          n => `${panelIndex}_${n}`,
+          chartProps.polar,
+          chartProps.horizontal,
+        ),
+        invertedIndependent,
       ),
       title: typeof chartProps.title === 'string' ? chartProps.title : undefined,
       svgIndex,

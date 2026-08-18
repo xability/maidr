@@ -148,6 +148,16 @@ export interface VictoryLayerInfo {
   /** Legend labels for multi-series segmented charts. */
   legend?: string[];
   /**
+   * Set when the layer's points were turned round to match an inverted
+   * independent axis (#1018).
+   *
+   * The marks themselves are not reordered -- Victory renders them in data
+   * order whichever way the axis runs -- so the tagger has to name them one
+   * by one instead of leaving a single selector to resolve positionally, or
+   * the reading and the highlight would point at opposite ends of the chart.
+   */
+  categoriesReversed?: boolean;
+  /**
    * Which way the layer is drawn, when the chart says so.
    *
    * Victory turns a bar chart on its side with `horizontal`, on the component
