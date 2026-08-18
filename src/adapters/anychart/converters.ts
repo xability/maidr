@@ -444,6 +444,25 @@ function hasOrdinalXScale(chart: AnyChartInstance): boolean {
  * @param series - The bar or column series being read
  * @returns True when the drawn order is the reverse of the listed order
  */
+/**
+ * The readings that turn round when the category scale is inverted.
+ *
+ * A bar names each mark with its own stamped attribute, so #1021 permutes the
+ * selector list. A line, a step and a band are named by one prefix covering
+ * every marker of the series, so there is nothing to permute -- those declare
+ * `domMapping.pointOrder` and `LineTrace` reverses what it resolved (#1035).
+ *
+ * A stacked area is built from every series at once by
+ * {@link buildStackedAreaLayer} and does not pass through here. A dot, a
+ * lollipop and a scatter are left where #1021 left them.
+ */
+const REVERSIBLE_ON_INVERSION = new Set<AnyChartTraceType>([
+  TraceType.BAR,
+  TraceType.LINE,
+  TraceType.AREA,
+  TraceType.STEP,
+]);
+
 function drawsCategoriesReversed(
   chart: AnyChartInstance,
   series: AnyChartSeries,
@@ -4272,17 +4291,26 @@ function buildLineLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  invertedCategories = false,
 ): MaidrLayer {
   const rows = extractRawRows(series);
-  const points: LinePoint[] = rows.map(r => ({
+  const written: LinePoint[] = rows.map(r => ({
     x: r.x !== undefined ? (typeof r.x === 'number' ? r.x : String(r.x)) : asNumber(r._index),
     y: asNumber(r.value ?? r.y),
   }));
+  // An inverted scale draws the series from its far end while AnyChart goes on
+  // stamping its markers in data order, so the written order announces the
+  // chart as its own mirror image (#1035). A line has no per-point selector to
+  // permute the way a bar does -- one prefix names every marker of the series
+  // -- so the layer declares the direction and `LineTrace` reverses the
+  // elements it resolved (#1007).
+  const points = invertedCategories ? [...written].reverse() : written;
   const data: LinePoint[][] = [points];
   return {
     id: String(seriesIndex),
     type: TraceType.LINE,
     ...(selectors ? { selectors } : {}),
+    ...(invertedCategories ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data,
   };
 }
@@ -4303,8 +4331,12 @@ function buildStepLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  invertedCategories = false,
 ): MaidrLayer {
-  return { ...buildLineLayer(series, seriesIndex, selectors), type: TraceType.STEP };
+  return {
+    ...buildLineLayer(series, seriesIndex, selectors, invertedCategories),
+    type: TraceType.STEP,
+  };
 }
 
 /**
@@ -4326,8 +4358,12 @@ function buildAreaLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  invertedCategories = false,
 ): MaidrLayer {
-  return { ...buildLineLayer(series, seriesIndex, selectors), type: TraceType.AREA };
+  return {
+    ...buildLineLayer(series, seriesIndex, selectors, invertedCategories),
+    type: TraceType.AREA,
+  };
 }
 
 /**
@@ -5386,11 +5422,11 @@ function buildLayer(
     case TraceType.DUMBBELL:
       return buildDumbbellLayer(series, seriesIndex, selectors);
     case TraceType.LINE:
-      return buildLineLayer(series, seriesIndex, selectors);
+      return buildLineLayer(series, seriesIndex, selectors, invertedCategories);
     case TraceType.AREA:
-      return buildAreaLayer(series, seriesIndex, selectors);
+      return buildAreaLayer(series, seriesIndex, selectors, invertedCategories);
     case TraceType.STEP:
-      return buildStepLayer(series, seriesIndex, selectors);
+      return buildStepLayer(series, seriesIndex, selectors, invertedCategories);
     case TraceType.SCATTER:
       return buildScatterLayer(series, seriesIndex, selectors);
     case TraceType.BOX:
@@ -5772,7 +5808,10 @@ function buildSubplot(
     // Only when the adapter owns the selectors: a caller who named the marks
     // themselves is describing their own chart, and replacing their list with
     // one built from the stamped attributes would discard what they said.
-    const invertedCategories = traceType === TraceType.BAR
+    // The bar family permutes its selectors; the line family declares its
+    // point order instead, because one prefix names every marker of a series
+    // and there is nothing to permute (#1035).
+    const invertedCategories = REVERSIBLE_ON_INVERSION.has(traceType)
       && !hasSelectorOverrides
       && drawsCategoriesReversed(chart, series);
     const layer = buildLayer(chart, series, i, traceType, selectors, panel, invertedCategories);
