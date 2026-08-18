@@ -185,6 +185,7 @@ That is why the adapter needs no configuration and works on charts written befor
 |-----------|-------------|-------|
 | `barY` / `barX` | Bar | Orientation comes from which axis is categorical |
 | `barY` / `barX` with `fill` | Stacked bar | One series per fill colour, with a legend |
+| the same under `stackY({offset: 'normalize'})` | 100% stacked bar | Announced as percentages |
 | `rectY` / `rectX` with `binX` / `binY` | Histogram | Bin edges are reconstructed exactly |
 | `rectY` / `rectX` with `binX` and a `fill` | Stacked bar | A stacked histogram, read over its bins |
 | `rectY` / `rectX` on a categorical axis | Bar | |
@@ -193,9 +194,18 @@ That is why the adapter needs no configuration and works on charts written befor
 | `tickX` / `tickY` on a categorical axis | Strip plot | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
 | `line` | Line | One series per drawn path |
 | `area` / `areaY` | Area | |
+| `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
+
+## 100% stacked charts
+
+`Plot.stackY({ offset: 'normalize' })` divides before it draws, so a chart drawn with it is read as `stacked_normalized_bar` — or `stacked_normalized_area` for an area — rather than as an ordinary stack. Its values are announced as **percentages**, which is what every 100% chart MAIDR reads announces, and the reader is told the columns are parts of a whole.
+
+What decides it is that **every column adds up to one**, not the shape of the y scale. A domain of exactly `[0, 1]` is the obvious signal and is the wrong one: widening the axis for headroom — `y: { domain: [0, 1.2] }` — draws a 100% chart whose domain is not `[0, 1]` and whose columns no longer span the frame, and a scale test misses it. Summing the columns catches that chart and needs no second signal.
+
+The same test does not separate Plot's own normalization from an author who divided their numbers before drawing, and there is nothing there to separate: both are charts of shares. Values already written as `0.3` and `0.7` are announced as 30 and 70, the same as Plot's own.
 
 ## Step curves
 
