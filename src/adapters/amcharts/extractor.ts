@@ -61,6 +61,42 @@ function hasCategoryY(series: AmXYSeries): boolean {
 }
 
 /**
+ * Hand over a series' data items in the order amCharts drew them.
+ *
+ * amCharts hands `dataItems` over in the axis' declared order whichever way
+ * the axis is drawn -- measured, `A, B, C, D` arrive in that order whether or
+ * not the renderer is `inversed`, and only the pixels move. So a series laid
+ * along an inversed axis is drawn from the far end, and reading its items as
+ * they arrive walks the chart backwards: `Right` moves leftwards across a
+ * vertical chart and downwards through a horizontal one (#1037).
+ *
+ * Only the axis the marks run **along** is asked. A line whose *value* axis is
+ * inversed is how a bump chart puts first place at the top ({@link hasRankAxis})
+ * and it moves nothing about the order the categories are laid out in.
+ *
+ * The heatmap deliberately does not come through here, and the difference is
+ * worth stating because it looks like a contradiction: it wants its rows
+ * top-first, so it is the **un**-inversed y that {@link extractHeatmapData} has
+ * to turn over. A bar or a line wants the order its axis runs in from its own
+ * origin, which is the un-inversed order on both axes. The conventions differ,
+ * not the axes.
+ *
+ * Both halves of the pairing read this: the extractors below for the payload,
+ * and `filterColumnItems` / `filterLineItems` in `navmap.ts` for the highlight
+ * the overlay draws. Reversing one without the other would trade a correct
+ * highlight for a wrong one (#1024).
+ *
+ * @param series - The series whose items are being read
+ * @returns The items in drawn order -- the same array when nothing moved
+ */
+export function orderedDataItems(series: AmXYSeries): AmDataItem[] {
+  const along = hasCategoryY(series) ? 'yAxis' : 'xAxis';
+  return isInversedAxis(series, along)
+    ? [...series.dataItems].reverse()
+    : series.dataItems;
+}
+
+/**
  * Determine whether a line series is drawn with the region between it and the
  * baseline filled in — which is what makes it an area chart.
  *
@@ -193,7 +229,7 @@ function readCategoryValues(series: AmXYSeries): CategoryValue[] {
   const valueField = isHorizontal ? 'valueX' : 'valueY';
 
   const marks: CategoryValue[] = [];
-  for (const item of series.dataItems) {
+  for (const item of orderedDataItems(series)) {
     const category = item.get(categoryField);
     const value = item.get(valueField);
 
@@ -691,7 +727,7 @@ export function extractLinePoints(series: AmXYSeries): LinePoint[] {
   const seriesName = series.get('name') as string | undefined;
   const points: LinePoint[] = [];
 
-  for (const item of series.dataItems) {
+  for (const item of orderedDataItems(series)) {
     const x = readXValue(item, series);
     const y = item.get('valueY');
 
