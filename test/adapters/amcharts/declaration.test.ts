@@ -900,6 +900,7 @@ describe('declared layers and the highlight', () => {
         pieSeriesList: [],
         funnelSeriesList: [],
         waterfallSeriesList: [],
+        candlestickSeriesList: [],
         dumbbellSeriesList: [],
         ganttSeriesList: [],
         hierarchySeriesList: [],

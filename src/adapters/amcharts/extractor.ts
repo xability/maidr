@@ -5,6 +5,7 @@
 
 import type {
   BarPoint,
+  CandlestickPoint,
   ChoroplethPoint,
   DumbbellPoint,
   FlowPoint,
@@ -438,6 +439,89 @@ export function extractDumbbellPoints(series: AmXYSeries): DumbbellPoint[] {
  * has to skip the same ones — otherwise a single incomplete record shifts
  * every later highlight onto its neighbour.
  */
+/**
+ * The two series amCharts draws a financial bar with.
+ *
+ * Listed for the reason {@link STANDALONE_KINDS} gives: `classifySeriesKind`
+ * answers `'bar'` for anything it does not know, so an unlisted one is
+ * described rather than declined. These escaped that only by accident -- a
+ * financial series is usually drawn against a date axis, where the bar path
+ * finds no categories and the chart fails loudly instead of quietly -- and a
+ * candlestick on a `CategoryAxis` would have been announced as a bar chart of
+ * its closing prices (#1053).
+ *
+ * An OHLC is read as the same trace as a candlestick deliberately: it is the
+ * same five numbers drawn with a different mark, and MAIDR announces the
+ * numbers. The Chart.js adapter makes the same call in one shared branch.
+ */
+const FINANCIAL_CLASSES = new Set([
+  'CandlestickSeries',
+  'OHLCSeries',
+]);
+
+/**
+ * A candle's position, as a reader should hear it.
+ *
+ * A date axis hands its position over as epoch milliseconds, which is a number
+ * nobody can place -- the same problem `formatCandlestickValue` solves for
+ * Chart.js, and solved the same way and at the same threshold so the two
+ * adapters do not disagree about what a date looks like.
+ *
+ * @param value - The position `readXValue` recovered
+ * @returns The label to announce
+ */
+function formatCandlePosition(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 1e11)
+    return new Date(value).toISOString().slice(0, 10);
+  return String(value);
+}
+
+/**
+ * Extract {@link CandlestickPoint} data from a candlestick or OHLC series.
+ *
+ * amCharts keeps the four prices on the item under the names its series
+ * settings bind: `openValueY`, `highValueY`, `lowValueY`, and the plain
+ * `valueY` for the close. Measured on a three-day chart, one item reads
+ * `{ valueX: 1704067200000, valueY: 12, openValueY: 10, highValueY: 14,
+ * lowValueY: 9 }` -- everything the point needs and nothing left over.
+ *
+ * `volume` is absent rather than zero: amCharts keeps it on a separate series
+ * when a chart draws one at all, so claiming zero would be reporting a
+ * measurement that was never taken. `CandlestickPoint.volume` is optional for
+ * exactly this.
+ *
+ * A candle missing any of the four is skipped, so an index into the result
+ * keeps naming the candle it addresses -- the same rule
+ * {@link readCategoryValues} follows.
+ *
+ * @param series - The financial series
+ * @returns One point per complete candle
+ */
+export function extractCandlestickPoints(series: AmXYSeries): CandlestickPoint[] {
+  const points: CandlestickPoint[] = [];
+
+  for (const item of series.dataItems) {
+    const open = toNumber(item.get('openValueY'));
+    const high = toNumber(item.get('highValueY'));
+    const low = toNumber(item.get('lowValueY'));
+    const close = toNumber(item.get('valueY'));
+    if (open == null || high == null || low == null || close == null)
+      continue;
+
+    points.push({
+      value: formatCandlePosition(readXValue(item, series)),
+      open,
+      high,
+      low,
+      close,
+      trend: close > open ? 'Bull' : close < open ? 'Bear' : 'Neutral',
+      volatility: high - low,
+    });
+  }
+
+  return points;
+}
+
 export function extractSpanItems(series: AmXYSeries): AmDataItem[] {
   return readSpans(series, 'categoryX', OPEN_Y_KEYS, VALUE_Y_KEYS).map(span => span.item);
 }
@@ -2069,6 +2153,7 @@ export type SeriesKind
     | 'radar'
     | 'polar'
     | 'waterfall'
+    | 'candlestick'
     | 'dumbbell'
     | 'gantt'
     | 'treemap'
@@ -2194,6 +2279,10 @@ export function classifySeriesKind(series: AmXYSeries): SeriesKind {
 
   if (FUNNEL_CLASSES.has(className)) {
     return 'funnel';
+  }
+
+  if (FINANCIAL_CLASSES.has(className)) {
+    return 'candlestick';
   }
 
   // Default to bar for category-based series.

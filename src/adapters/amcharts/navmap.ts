@@ -162,6 +162,14 @@ export interface SeriesGroups {
   funnelSeriesList: AmXYSeries[];
   /** One WATERFALL layer each, in series order. */
   waterfallSeriesList: AmXYSeries[];
+  /**
+   * One CANDLESTICK layer each, in series order.
+   *
+   * A candlestick and an OHLC share the bucket for the reason they share a
+   * trace type: the same five numbers, a different mark, and the same one
+   * column per candle for the highlight to point at (#1053).
+   */
+  candlestickSeriesList: AmXYSeries[];
   /** One DUMBBELL layer each, in series order. */
   dumbbellSeriesList: AmXYSeries[];
   /** One GANTT layer each, in series order. */
@@ -320,6 +328,22 @@ function filterPieItems(series: AmXYSeries): AmDataItem[] {
 function filterWordCloudItems(series: AmXYSeries): AmDataItem[] {
   return filterPieItems(series)
     .sort((a, b) => Number(b.get('value')) - Number(a.get('value')));
+}
+
+/**
+ * Mirror `extractCandlestickPoints`: keep the candles carrying all four
+ * prices, since the extractor skips the rest and MAIDR `col` indexes what is
+ * left rather than the raw items.
+ */
+function filterCandlestickItems(series: AmXYSeries): AmDataItem[] {
+  const kept: AmDataItem[] = [];
+  for (const item of orderedDataItems(series)) {
+    const prices = ['openValueY', 'highValueY', 'lowValueY', 'valueY']
+      .map(key => Number(item.get(key)));
+    if (prices.every(price => Number.isFinite(price)))
+      kept.push(item);
+  }
+  return kept;
 }
 
 /** Mirror `extractHistogramPoints`: keep items with finite valueX and valueY. */
@@ -813,6 +837,7 @@ export function groupSeries(chart: AmChart): SeriesGroups {
     pieSeriesList: [],
     funnelSeriesList: [],
     waterfallSeriesList: [],
+    candlestickSeriesList: [],
     dumbbellSeriesList: [],
     ganttSeriesList: [],
     hierarchySeriesList: [],
@@ -896,6 +921,9 @@ export function groupSeries(chart: AmChart): SeriesGroups {
       case 'waterfall':
         groups.waterfallSeriesList.push(series);
         break;
+      case 'candlestick':
+        groups.candlestickSeriesList.push(series);
+        break;
       case 'dumbbell':
         groups.dumbbellSeriesList.push(series);
         break;
@@ -970,6 +998,7 @@ function addEntryResolvers(
   const pieSeries = filterSeries(groups.pieSeriesList, filterPieItems);
   const funnelSeries = filterSeries(groups.funnelSeriesList, filterPieItems);
   const waterfallSeries = filterSeries(groups.waterfallSeriesList, extractSpanItems);
+  const candlestickSeries = filterSeries(groups.candlestickSeriesList, filterCandlestickItems);
   const dumbbellSeries = filterSeries(groups.dumbbellSeriesList, extractSpanItems);
   const wordCloudSeries = filterSeries(groups.wordCloudSeriesList, filterWordCloudItems);
 
@@ -1008,6 +1037,7 @@ function addEntryResolvers(
   let pieIdx = 0;
   let funnelIdx = 0;
   let waterfallIdx = 0;
+  let candlestickIdx = 0;
   let dumbbellIdx = 0;
   let ganttIdx = 0;
   let hierarchyIdx = 0;
@@ -1112,6 +1142,15 @@ function addEntryResolvers(
       case TraceType.WATERFALL: {
         // A bridge is a single row of steps, so only the column moves.
         const entry = waterfallSeries[waterfallIdx++];
+        register(layer.id, (_row, col) => columnTargetFrom(entry, col));
+        break;
+      }
+      case TraceType.CANDLESTICK: {
+        // MAIDR's row picks which of the five numbers is announced -- open,
+        // high, low, close or volatility -- and every one of them belongs to
+        // the same candle, so only the column decides what is outlined. The
+        // reading a dumbbell already gives its two ends, for the same reason.
+        const entry = candlestickSeries[candlestickIdx++];
         register(layer.id, (_row, col) => columnTargetFrom(entry, col));
         break;
       }
