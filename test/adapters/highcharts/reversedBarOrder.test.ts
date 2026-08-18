@@ -39,9 +39,13 @@
  */
 
 import type { BarPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { TraceState } from '@type/state';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
+import { BarTrace } from '@model/bar';
+import { SegmentedTrace } from '@model/segmented';
 import { TraceType } from '@type/grammar';
+import { JSDOM } from 'jsdom';
 import { fakeAxis, fakeChart, fakeSeries } from './helpers';
 
 const CATEGORIES = ['alpha', 'bravo', 'charlie'];
@@ -233,5 +237,101 @@ describe('a segmented Highcharts bar group on a reversed category axis', () => {
     expect(categoriesOf(layer)).toEqual(['charlie', 'bravo', 'alpha']);
     expect((layer.data as SegmentedPoint[][])[1].map(cell => cell.y))
       .toEqual([-3, -2, -1]);
+  });
+});
+
+/**
+ * A document holding one element per bar, under the structure the emitted
+ * selectors reach through and in the order Highcharts lays them out: each
+ * series' points together, in the series' own data order, whichever way the
+ * axis runs.
+ *
+ * jsdom builds every SVG child as a plain `SVGElement` and defines neither
+ * `SVGPathElement` nor `SVGRectElement`, so which branch of
+ * `SegmentedTrace.mapToSvgElements` runs is decided by these bindings rather
+ * than by the markup. A grid is resolved before that branch and so is not
+ * affected either way, but the path branch is bound here regardless, since
+ * `<path>` is what Highcharts 11 and 12 draw (#1003).
+ *
+ * @param seriesCount - How many series the chart drew
+ */
+function installDom(seriesCount: number): void {
+  const groups = Array
+    .from({ length: seriesCount }, (_, series) =>
+      `<g class="highcharts-series-${series}">${
+        CATEGORIES
+          .map(category =>
+            `<path class="highcharts-point" id="S${series}-${category}"/>`)
+          .join('')
+      }</g>`)
+    .join('');
+
+  const dom = new JSDOM(
+    `<!doctype html><body><div id="${CONTAINER}">`
+    + `<svg xmlns="http://www.w3.org/2000/svg"><g class="highcharts-series-group">`
+    + `${groups}</g></svg></div></body>`,
+  );
+
+  const globals = globalThis as unknown as Record<string, unknown>;
+  globals.document = dom.window.document;
+  globals.SVGElement = dom.window.SVGElement;
+  globals.SVGPathElement = dom.window.SVGElement;
+  globals.SVGRectElement = class NeverMatches {};
+}
+
+afterEach(() => {
+  const globals = globalThis as unknown as Record<string, unknown>;
+  delete globals.document;
+  delete globals.SVGElement;
+  delete globals.SVGPathElement;
+  delete globals.SVGRectElement;
+});
+
+/**
+ * The id of the bar a trace outlines at each cell, row by row.
+ * @param trace - The trace to drive
+ * @param rows - How many series it carries
+ * @returns One id per cell, or a marker where nothing was outlined
+ */
+function outlined(trace: BarTrace | SegmentedTrace, rows: number): string[] {
+  const seen = new Array<string>();
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < CATEGORIES.length; column++) {
+      trace.moveToIndex(row, column);
+      const state = trace.state as Extract<TraceState, { empty: false }>;
+      const highlight = state.highlight as { empty?: boolean; elements?: unknown };
+      const element = highlight.elements as { id?: string } | undefined;
+      seen.push(element?.id || (highlight.empty ? '(empty)' : '(none)'));
+    }
+  }
+  return seen;
+}
+
+describe('what a reversed Highcharts bar chart actually outlines', () => {
+  // Asserting the selector strings says the payload is right; only resolving
+  // them says the reader sees the right bar. #990 was a layer that emitted a
+  // sound-looking selector shape and lost its highlight entirely, so the
+  // resolution is worth pinning rather than inferring.
+
+  it('outlines each bar of a plain reversed chart in the drawn order', () => {
+    const layer = layerFor([[10, 20, 30]], true);
+    installDom(1);
+
+    expect(outlined(new BarTrace(layer), 1))
+      .toEqual(['S0-charlie', 'S0-bravo', 'S0-alpha']);
+  });
+
+  it('outlines each cell of a reversed stacked group in the drawn order', () => {
+    const layer = layerFor([[10, 20, 30], [1, 2, 3]], true, 'column', 'normal');
+    installDom(2);
+
+    expect(outlined(new SegmentedTrace(layer), 2)).toEqual([
+      'S0-charlie',
+      'S0-bravo',
+      'S0-alpha',
+      'S1-charlie',
+      'S1-bravo',
+      'S1-alpha',
+    ]);
   });
 });
