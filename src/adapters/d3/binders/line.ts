@@ -61,7 +61,12 @@ import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart
  * ```
  */
 export function bindD3Line(svg: Element, config: D3LineConfig): D3BinderResult {
-  return finalizeSingleChart(svg, config, buildLineLayer(svg, config));
+  // A declared step convention is what makes the chart a staircase rather than
+  // a line -- the same rule the Victory adapter uses, since the extraction is
+  // identical and only the reading differs: navigated by transition rather
+  // than by sample, and described in terms of its runs.
+  const type = config.stepDirection ? TraceType.STEP : TraceType.LINE;
+  return finalizeSingleChart(svg, config, buildLineLayer(svg, config, undefined, type));
 }
 
 /**
@@ -404,6 +409,12 @@ export function buildLineLayer(
     // too -- `LineTrace` does that on this word (#1026). The same holds for a
     // `pointSelector` bind, whose markers sit in the DOM in datum order.
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
+    // Declared rather than derived: `d3.curveStep*` leaves no trace in the
+    // rendered path a reader could tell from a line whose samples happen to
+    // land on a staircase, and the curve is the author's own choice. `StepTrace`
+    // announces it; `AreaTrace` reads it to tell the risers of a stepped band
+    // from its samples (#1066).
+    ...(config.stepDirection ? { stepDirection: config.stepDirection } : {}),
     axes: buildAxes(axes, format),
     data,
   };
