@@ -68,6 +68,7 @@ import {
   warnUnresolvedRef,
 } from '../shared/traceDeclaration';
 import {
+  barPointSelector,
   barSelector,
   boxplotSelectors,
   bulletSelector,
@@ -799,20 +800,34 @@ function convertSingleBar(
   // `point.x` when HORIZONTAL, so emit the value in `x` and category in `y`,
   // and swap the axis labels so `axes.x` names the value axis.
   const isHorizontal = orientation === Orientation.HORIZONTAL;
+  // Highcharts draws no element for a null point, so dropping them here is
+  // also what keeps `data[i]` and the i-th drawn bar the same bar.
   const data: BarPoint[] = series.data
     .filter(p => p.y !== null)
     .map(p => (isHorizontal
       ? { x: p.y as number, y: pointLabel(p) }
       : { x: pointLabel(p), y: p.y as number }));
 
+  // A reversed category axis draws the first category at the right-hand end,
+  // so the reading runs backwards over a chart that is otherwise correct. The
+  // DOM does not move with the axis, so naming the bars one by one is what
+  // stops the reversed data from outlining somebody else's bar (#995).
+  const reversed = isReversedCategoryAxis(series, orientation) && data.length > 0;
+  const selectors: MaidrLayer['selectors'] = reversed
+    ? data
+        .map((_, drawnIndex) =>
+          barPointSelector(containerId, series.index, drawnIndex))
+        .reverse()
+    : barSelector(containerId, series.index);
+
   return {
     id: String(series.index),
     type: TraceType.BAR,
     title: series.name || undefined,
     orientation,
-    selectors: barSelector(containerId, series.index),
+    selectors,
     axes: barAxes(series, isHorizontal),
-    data,
+    data: reversed ? [...data].reverse() : data,
   };
 }
 
@@ -828,6 +843,36 @@ function barAxes(
   return isHorizontal
     ? { x: getAxisLabel(series, 'y'), y: getAxisLabel(series, 'x') }
     : { x: getAxisLabel(series, 'x'), y: getAxisLabel(series, 'y') };
+}
+
+/**
+ * Which row of a segmented group a point belongs to, by its `x`.
+ *
+ * A category axis indexes its points 0..n-1, so `x` doubles as the row index.
+ * A numeric axis carries raw values (years, say), which are mapped to dense
+ * indices instead — indexing rows by `Math.round(1990)` would fabricate some
+ * two thousand zero cells.
+ *
+ * Shared so that the rows and the DOM positions {@link drawnCellIndices}
+ * computes for them cannot drift apart: a cell addressed under one rule and
+ * filled under another would highlight a bar belonging to a different
+ * category.
+ *
+ * @param seriesList - The series of one bar group
+ * @returns A function from a point's `x` to its category index, or -1
+ */
+function categoryIndexer(seriesList: HighchartsSeries[]): (x: number) => number {
+  const axisCategories = seriesList[0]?.xAxis?.categories;
+  if (axisCategories) {
+    return (x: number) => Math.round(x);
+  }
+
+  const xToIndex = new Map<number, number>();
+  const uniqueXs = [...new Set(
+    seriesList.flatMap(series => series.data.map(p => Math.round(p.x))),
+  )].sort((a, b) => a - b);
+  uniqueXs.forEach((x, i) => xToIndex.set(x, i));
+  return (x: number) => xToIndex.get(Math.round(x)) ?? -1;
 }
 
 /**
@@ -849,19 +894,7 @@ function buildSegmentedRows(
   // Build the shared category-label list (index → label), preferring the axis
   // categories, then per-point category/name, then the x value itself.
   const axisCategories = seriesList[0]?.xAxis?.categories;
-
-  // Category axes index points 0..n-1, so x doubles as the row index. Numeric
-  // axes carry raw x values (e.g. years); map those to dense indices instead —
-  // indexing rows by Math.round(1990) would fabricate ~2000 zero cells.
-  const xToIndex = new Map<number, number>();
-  if (!axisCategories) {
-    const uniqueXs = [...new Set(
-      seriesList.flatMap(series => series.data.map(p => Math.round(p.x))),
-    )].sort((a, b) => a - b);
-    uniqueXs.forEach((x, i) => xToIndex.set(x, i));
-  }
-  const indexForX = (x: number): number =>
-    axisCategories ? Math.round(x) : (xToIndex.get(Math.round(x)) ?? -1);
+  const indexForX = categoryIndexer(seriesList);
 
   const categoryLabels: (string | number)[] = [];
   for (const series of seriesList) {
@@ -904,6 +937,128 @@ function buildSegmentedRows(
 }
 
 /**
+ * Whether the category axis of an upright bar group runs the other way.
+ *
+ * Scoped to a vertical layer on purpose. Every chart Highcharts draws sideways
+ * has `xAxis.reversed` set — by the author on a reversed column chart, and by
+ * Highcharts itself on an inverted one — so the flag alone cannot tell the two
+ * apart. What separates them is the resolved orientation, which since #997
+ * answers `horz` for all four of the sideways combinations. Which end of a
+ * horizontal* bar's category axis `data[0]` should sit at is a convention
+ * `MaidrLayer.orientation` does not fix, and is deliberately left alone.
+ *
+ * @param series - Any series of the group, read for its category axis
+ * @param orientation - The orientation the group resolved to
+ * @returns True when the drawn order is the reverse of the data's
+ */
+function isReversedCategoryAxis(
+  series: HighchartsSeries | undefined,
+  orientation: Orientation,
+): boolean {
+  return orientation === Orientation.VERTICAL && isReversedAxis(series?.xAxis);
+}
+
+/**
+ * The DOM position of every cell of a segmented group, or `null` when some
+ * cell has no element to point at.
+ *
+ * Highcharts draws no `.highcharts-point` for a `null` point — but it does
+ * draw one for a genuine `0` — so a series' elements run one per *non-null*
+ * point while {@link buildSegmentedRows} pads its row out to one cell per
+ * category. Counting the drawn points is what bridges the two.
+ *
+ * Declining on a gap is what keeps the reversal safe. A grid names an element
+ * for every cell and `SegmentedTrace` rejects the whole grid if any one of
+ * them resolves to nothing, which would cost the layer its highlight
+ * altogether — worse than the wrong-direction reading it set out to fix. A
+ * group with a gap is therefore left as it is.
+ *
+ * @param seriesList - The series of one bar group
+ * @param categoryCount - The number of cells each row was padded to
+ * @returns One DOM position per cell, or null if any cell was never drawn
+ */
+function drawnCellIndices(
+  seriesList: HighchartsSeries[],
+  categoryCount: number,
+): number[][] | null {
+  const indexForX = categoryIndexer(seriesList);
+  const rows = new Array<number[]>();
+
+  for (const series of seriesList) {
+    const row = Array.from({ length: categoryCount }, () => -1);
+    let drawn = 0;
+    for (const point of series.data) {
+      if (point.y === null || point.y === undefined) {
+        continue;
+      }
+      const index = indexForX(point.x);
+      if (index >= 0 && index < categoryCount) {
+        row[index] = drawn;
+      }
+      // Counted even when the point falls outside the group's categories: it
+      // still took a place in the DOM, and every later position shifts by it.
+      drawn += 1;
+    }
+    if (row.includes(-1)) {
+      return null;
+    }
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+/**
+ * Puts a segmented group's cells in the order the chart draws them, naming one
+ * element per cell so the highlight follows the announcements.
+ *
+ * The rows already carry each value under its own category — that is what
+ * makes Highcharts immune to the data-order bug plotly (#987) and Vega-Lite
+ * (#994) have — but the categories themselves are the axis', and a reversed
+ * axis draws `categories[0]` at the right-hand end. So the reading runs
+ * backwards over a chart that is otherwise correct.
+ *
+ * Reversing the rows alone would make it worse rather than better: the DOM
+ * does *not* move with the axis, so a reversed row paired against document
+ * order would announce one category and outline another. Both halves move
+ * together, as in #988.
+ *
+ * @param seriesList - The series of one bar group
+ * @param containerId - The id of the element the chart is rendered into
+ * @param orientation - The orientation the group resolved to
+ * @param data - The rows {@link buildSegmentedRows} produced
+ * @returns The rows and selectors to emit
+ */
+function orderSegmentedByAxis(
+  seriesList: HighchartsSeries[],
+  containerId: string,
+  orientation: Orientation,
+  data: SegmentedPoint[][],
+): { data: SegmentedPoint[][]; selectors: MaidrLayer['selectors'] } {
+  const joined = seriesList
+    .map(series => barSelector(containerId, series.index))
+    .join(', ');
+
+  const categoryCount = data[0]?.length ?? 0;
+  if (categoryCount === 0 || !isReversedCategoryAxis(seriesList[0], orientation)) {
+    return { data, selectors: joined };
+  }
+
+  const drawn = drawnCellIndices(seriesList, categoryCount);
+  if (drawn === null) {
+    return { data, selectors: joined };
+  }
+
+  return {
+    data: data.map(row => [...row].reverse()),
+    selectors: drawn.map((row, series) => [...row]
+      .reverse()
+      .map(drawnIndex =>
+        barPointSelector(containerId, seriesList[series].index, drawnIndex))),
+  };
+}
+
+/**
  * Converts multiple bar/column series with `stacking: 'normal'` or `'percent'`
  * into a MAIDR segmented (stacked/normalized) layer.
  *
@@ -917,13 +1072,11 @@ function convertStackedBar(
   traceType: TraceType.STACKED | TraceType.NORMALIZED,
 ): MaidrLayer {
   // Each series is one "group" (fill level). Points within share x-categories.
-  const data = buildSegmentedRows(seriesList, orientation, traceType);
+  const rows = buildSegmentedRows(seriesList, orientation, traceType);
+  const { data, selectors }
+    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
-  // Combine selectors for all series — MAIDR's SegmentedTrace expects a single selector string.
-  const selectors = seriesList
-    .map(s => barSelector(containerId, s.index))
-    .join(', ');
 
   return {
     id: String(first.index),
@@ -947,12 +1100,11 @@ function convertDodgedBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
-  const data = buildSegmentedRows(seriesList, orientation, TraceType.DODGED);
+  const rows = buildSegmentedRows(seriesList, orientation, TraceType.DODGED);
+  const { data, selectors }
+    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
-  const selectors = seriesList
-    .map(s => barSelector(containerId, s.index))
-    .join(', ');
 
   return {
     id: String(first.index),
@@ -1038,12 +1190,11 @@ function convertDivergingBar(
   containerId: string,
   orientation: Orientation,
 ): MaidrLayer {
-  const data = buildSegmentedRows(seriesList, orientation, TraceType.DIVERGING);
+  const rows = buildSegmentedRows(seriesList, orientation, TraceType.DIVERGING);
+  const { data, selectors }
+    = orderSegmentedByAxis(seriesList, containerId, orientation, rows);
 
   const first = seriesList[0];
-  const selectors = seriesList
-    .map(s => barSelector(containerId, s.index))
-    .join(', ');
 
   return {
     id: String(first.index),

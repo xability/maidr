@@ -77,6 +77,38 @@ export function barSelector(containerId: string, seriesIndex: number): string {
 }
 
 /**
+ * Generates a CSS selector for **one** point of a bar/column series, by its
+ * position among the points the series actually drew.
+ *
+ * `barSelector` names every point at once and leaves the pairing to document
+ * order, which is the series' data order. That is only good enough while the
+ * announced order and the drawn order agree; a reversed category axis makes
+ * them disagree, and then each bar has to be named outright (#995).
+ *
+ * Counted with `:nth-child`, not `:nth-of-type`. The tag varies — `<rect>` for
+ * square corners, `<path>` for rounded ones, the default since v11 — so
+ * `rect.highcharts-point:nth-of-type(k)` matches nothing on a modern default
+ * chart. The series group holds its points and nothing else, so counting all
+ * children is both tag-agnostic and exact.
+ *
+ * `drawnIndex` is a position in the DOM, not a category index: Highcharts
+ * renders no element at all for a `null` point, so a series with a gap has
+ * fewer points than categories.
+ *
+ * @param containerId - The id of the element the chart is rendered into
+ * @param seriesIndex - The Highcharts index of the series
+ * @param drawnIndex - Zero-based position among the points the series drew
+ * @returns A selector matching exactly that one point
+ */
+export function barPointSelector(
+  containerId: string,
+  seriesIndex: number,
+  drawnIndex: number,
+): string {
+  return `${barSelector(containerId, seriesIndex)}:nth-child(${drawnIndex + 1})`;
+}
+
+/**
  * Generates CSS selectors for line chart series.
  *
  * For line charts, MAIDR expects one selector per line (the `<path>` element),
