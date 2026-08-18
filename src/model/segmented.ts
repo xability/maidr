@@ -331,44 +331,65 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * @returns One element per cell, or null when the grid does not fit
    */
   private mapGridToSvgElements(
-    grid: (string | string[])[],
+    grid: (string | (string | null)[])[],
   ): SVGElement[][] | null {
-    const created = new Array<SVGElement>();
-    const discard = (): null => {
-      created.forEach(element => element.remove());
-      return null;
-    };
-
+    // Nothing has to be undone on a bad grid any more: the lookups all finish
+    // before the first clone is inserted, so declining leaves the document
+    // exactly as it was found.
     if (grid.length !== this.barValues.length) {
       return null;
     }
 
-    const svgElements = new Array<Array<SVGElement>>();
+    // Resolved in two passes, and it has to be. `Svg.selectElement` inserts
+    // its clone straight after the element it matched, so a query that runs
+    // after it counts one more sibling than the chart drew -- and a positional
+    // selector then answers with the clone of an earlier bar instead. Measured
+    // on three points addressed by `:nth-child`, resolving them 1, 2, 3 as the
+    // rows are read returns the *first* element three times; only 3, 2, 1
+    // survives, which is a property of the order a caller happens to emit in
+    // rather than of the selectors being right. So every cell is looked up
+    // before anything is inserted (#1004).
+    const originals = new Array<Array<SVGElement | null>>();
     for (let row = 0; row < grid.length; row++) {
       const cells = grid[row];
       if (!Array.isArray(cells) || cells.length !== this.barValues[row]?.length) {
-        return discard();
+        return null;
       }
 
-      const elements = new Array<SVGElement>();
+      const found = new Array<SVGElement | null>();
       for (const cell of cells) {
+        // A `null` cell says the chart drew nothing there -- a category this
+        // series has no bar at. It stands in with a placeholder, the same way
+        // the inferred path does for a cell it decides was omitted. A cell
+        // that names an element and fails to resolve is a different thing: a
+        // mistake, and still fatal to the whole grid.
+        if (cell === null) {
+          found.push(null);
+          continue;
+        }
         const element = typeof cell === 'string'
-          ? Svg.selectElement<SVGElement>(cell)
+          ? Svg.selectElement<SVGElement>(cell, false)
           : null;
         if (element === null) {
-          return discard();
+          return null;
         }
-        created.push(element);
-        elements.push(element);
+        found.push(element);
       }
-      svgElements.push(elements);
+      originals.push(found);
     }
+
+    const svgElements = originals.map(row => row.map((element) => {
+      if (element === null) {
+        return Svg.createEmptyElement();
+      }
+      return Svg.cloneHidden(element);
+    }));
 
     return svgElements;
   }
 
   protected override mapToSvgElements(
-    selector?: string | string[] | string[][],
+    selector?: string | string[] | (string | null)[][],
   ): SVGElement[][] | null {
     if (!selector) {
       return null;
