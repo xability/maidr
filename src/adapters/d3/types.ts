@@ -367,6 +367,24 @@ export interface D3HeatmapConfig extends D3BinderConfig {
    * row the chart draws.
    */
   yOrder?: string[];
+
+  /**
+   * The column labels in the order the chart draws them, left first —
+   * usually `xScale.domain()`, or its reverse for a band scale that runs the
+   * other way. Without it the columns are taken in order of appearance in the
+   * DOM, which is the order the join happened to run in and need not be the
+   * order anything is drawn in (#1013).
+   *
+   * The same reasoning as {@link D3HeatmapConfig.yOrder}, and the same silence
+   * when it is wrong — what suffers is the reader's model of the chart rather
+   * than any value, with <kbd>→</kbd> walking left along a grid whose columns
+   * arrived right-first.
+   *
+   * Labels the cells do not carry are ignored, and an order that does not name
+   * every column is declined in favour of appearance order rather than
+   * dropping a column the chart draws.
+   */
+  xOrder?: string[];
 }
 
 /**
