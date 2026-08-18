@@ -898,6 +898,33 @@ function isDivergingSplit(datasets: ChartJsDataset[]): boolean {
 }
 
 /**
+ * The positions in a chart's data, in the order its categories are drawn.
+ *
+ * A category axis with `reverse: true` is drawn from the far end -- the
+ * last-listed category leftmost on a vertical chart, topmost on a horizontal
+ * one -- while `chart.data.labels` and every dataset stay in the order they
+ * were written. Nothing in the bar family re-sorts what it is handed:
+ * `BarTrace` and `SegmentedTrace` announce `layer.data` as it arrives, unlike
+ * `ScatterTrace`, which sorts by ascending x and so cannot be steered from an
+ * adapter at all (#1007). Emitting the written order therefore reads a
+ * reversed chart backwards (#1015).
+ *
+ * Chart.js paints to canvas and none of these layers carry `selectors`, so no
+ * highlight index is keyed to this order: reordering the payload is the whole
+ * of the fix, with none of the both-halves-must-move hazard of #988 or #1000.
+ *
+ * @param chart - The chart being read
+ * @param count - How many category positions it has
+ * @returns `0..count-1`, turned round when the category axis is reversed
+ */
+function drawnCategoryPositions(chart: ChartJsChart, count: number): number[] {
+  const positions = Array.from({ length: count }, (_, i) => i);
+  return chart.options.scales?.[categoryAxis(chart)]?.reverse === true
+    ? positions.reverse()
+    : positions;
+}
+
+/**
  * Builds a one-value-per-category layer from a single dataset.
  *
  * Serves the mark variants that differ only in what is drawn at the category:
@@ -918,14 +945,14 @@ function singleDatasetToBarLayer(
   // sonified as fabricated zeros.
   const isHorizontal = chart.options.indexAxis === 'y';
   const points: BarPoint[] = [];
-  dataset.data.forEach((value, i) => {
-    const num = toFiniteNumber(value);
+  for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
+    const num = toFiniteNumber(dataset.data[i]);
     if (num === null)
-      return;
+      continue;
     points.push(isHorizontal
       ? { x: num, y: labels[i] ?? i }
       : { x: labels[i] ?? i, y: num });
-  });
+  }
 
   return {
     id: String(id),
@@ -954,10 +981,11 @@ function extractSegmentedBarLayers(
   // (group) first, then categories within each group, to match that shape.
   // Horizontal bars (`indexAxis: 'y'`) swap value/category between X and Y.
   const isHorizontal = chart.options.indexAxis === 'y';
+  const drawn = drawnCategoryPositions(chart, numCategories);
   const points: SegmentedPoint[][] = [];
   for (const dataset of data.datasets) {
     const groupPoints: SegmentedPoint[] = [];
-    for (let j = 0; j < numCategories; j++) {
+    for (const j of drawn) {
       // The grid must stay rectangular (the model's stacked-summary row sums
       // across equal-length groups), so gaps collapse to 0 — a missing segment
       // contributes nothing — while still guarding against NaN poisoning.
@@ -1075,12 +1103,13 @@ function extractDumbbellLayer(
   // a gantt lane, an empty dumbbell row has no pair and so no comparison to
   // announce, and the trace's grid is a plain rows x ends rectangle.
   const points: DumbbellPoint[] = [];
-  dataset.data.forEach((value, i) => {
+  for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
+    const value = dataset.data[i];
     if (!isRangeValue(value))
-      return;
+      continue;
     const [start, end] = rangeBounds(value);
     points.push({ x: labels[i] ?? i, start, end });
-  });
+  }
 
   const data: DumbbellData = {
     points,
@@ -1129,9 +1158,16 @@ function extractWaterfallLayer(
   const labels = chart.data.labels ?? [];
   const points: WaterfallPoint[] = [];
 
-  chart.data.datasets[0].data.forEach((value, i) => {
+  // The steps are read in the order they are drawn, so a reversed axis is
+  // announced the way it is laid out. `isWaterfallSequence` has already run on
+  // the written order, where the chaining that identifies a waterfall lives,
+  // and each step's own start, end and kind are properties of the step rather
+  // than of its neighbours -- so nothing here depends on the order it is
+  // walked in.
+  for (const i of drawnCategoryPositions(chart, chart.data.datasets[0].data.length)) {
+    const value = chart.data.datasets[0].data[i];
     if (!isRangeValue(value))
-      return;
+      continue;
     const [start, end] = rangeBounds(value);
     points.push({
       x: labels[i] ?? i,
@@ -1140,7 +1176,7 @@ function extractWaterfallLayer(
       delta: end - start,
       kind: waterfallKind(start, end),
     });
-  });
+  }
 
   return {
     id: '0',
@@ -1202,8 +1238,12 @@ function extractGanttLayer(
   // twice, a phase that pauses and resumes — so it is named rather than left
   // to be told apart by position.
   const namesIntervals = datasets.length > 1;
+  // One order for both: `lanes` names the lanes `points` holds, position for
+  // position, so a reversed axis has to turn the two of them over together or
+  // every lane would be announced under its neighbour's name.
+  const drawn = drawnCategoryPositions(chart, laneCount);
   const points: GanttPoint[][] = [];
-  for (let lane = 0; lane < laneCount; lane++) {
+  for (const lane of drawn) {
     const intervals: GanttPoint[] = [];
     for (const dataset of datasets) {
       const value = dataset.data[lane];
@@ -1225,7 +1265,7 @@ function extractGanttLayer(
     points,
     // Carried for the lanes that hold nothing: an empty lane is a real
     // statement about a schedule and has no interval to name itself with.
-    lanes: Array.from({ length: laneCount }, (_, lane) => labels[lane] ?? lane),
+    lanes: drawn.map(lane => labels[lane] ?? lane),
     ...(unit ? { unit } : {}),
   };
 
@@ -1453,7 +1493,7 @@ function isBumpGroup(group: LineGroup, chart: ChartJsChart): boolean {
   return true;
 }
 
-/** Which scale a line chart's categories run along. */
+/** Which scale a chart's categories run along, rather than its values. */
 function categoryAxis(chart: ChartJsChart): AxisKind {
   return chart.options.indexAxis === 'y' ? 'y' : 'x';
 }
