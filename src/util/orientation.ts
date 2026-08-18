@@ -120,9 +120,15 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.POLAR_AREA]: false,
   [TraceType.RADAR]: false,
   // The groups run one way and the value axis the other, and a ridgeline is
-  // drawn with its groups down the page as often as across it -- the same
-  // reason the violin it shares a point shape with is oriented.
-  [TraceType.RIDGELINE]: true,
+  // drawn with its groups down the page as often as across it -- but the
+  // trace reads the same either way round, so there is nothing for the key to
+  // change and no orientation to announce. `RidgelineTrace` extends
+  // `AbstractTrace` rather than `ViolinTrace`, so it neither resolves
+  // `layer.orientation` nor inherits anything that does: this entry was `true`
+  // by analogy with the violin it shares a point shape with, and the analogy
+  // does not reach the class where that handling lives (#949). The answer
+  // WATERFALL gives, for the same reason.
+  [TraceType.RIDGELINE]: false,
   // Two continuous axes, so there is no main and cross axis to swap -- the
   // answer a scatter already gives, and both of these are scatters.
   [TraceType.MANHATTAN]: false,

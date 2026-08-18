@@ -3,7 +3,7 @@ import type { NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { RidgelineTrace } from '@model/ridgeline';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Three groups sampled on *different* grids, which is what a KDE evaluated
@@ -88,6 +88,43 @@ describe('ridgeline registration', () => {
 
   test('it names itself a ridgeline rather than a violin', () => {
     expect(ridgeline().description.chartType).toBe('Ridgeline Plot');
+  });
+});
+
+describe('the orientation key', () => {
+  /**
+   * Build a positioned ridgeline whose layer declares an orientation.
+   * @param orientation What the producer declared, or nothing
+   * @returns The trace, moved onto the first sample of the first group
+   */
+  function declaring(orientation?: Orientation): RidgelineTrace {
+    const trace = TraceFactory.create({
+      ...createLayer(),
+      ...(orientation ? { orientation } : {}),
+    }) as RidgelineTrace;
+    trace.moveToIndex(0, 1);
+    return trace;
+  }
+
+  test('changes nothing about how the chart is read', () => {
+    // `RidgelineTrace` extends `AbstractTrace`, not `ViolinTrace`, so it
+    // neither resolves `layer.orientation` nor inherits anything that does.
+    // The record in `src/util/orientation.ts` said otherwise, and the word it
+    // put in front of every announcement described nothing a reader could act
+    // on (#949). This is what says the two now agree: a producer declaring
+    // `horz` gets the same reading, so there is nothing to announce.
+    const vertical = nonEmptyState(declaring(Orientation.VERTICAL));
+    const horizontal = nonEmptyState(declaring(Orientation.HORIZONTAL));
+
+    expect(horizontal.text).toEqual(vertical.text);
+    expect(horizontal.audio).toEqual(vertical.audio);
+    expect(horizontal.braille).toEqual(vertical.braille);
+  });
+
+  test('is not announced as part of the chart type', () => {
+    expect(declaring(Orientation.HORIZONTAL).description.chartType)
+      .toBe('Ridgeline Plot');
+    expect(declaring().description.chartType).toBe('Ridgeline Plot');
   });
 });
 
