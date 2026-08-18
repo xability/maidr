@@ -990,7 +990,16 @@ function resolveTraceType(
     }
     // Three charts share the `line` mark and are told apart by what fed
     // it, since the mark itself says only "join these points up".
-    case 'line': {
+    //
+    // A `trail` joins them: Vega-Lite's own description is a line whose width
+    // can vary, and both compile to one `<path>` per series over the same
+    // channels, so every reading below applies to it unchanged. The width is
+    // the one thing lost -- `LinePoint` carries a coordinate pair and no
+    // thickness -- which is a second encoding of something a reader reaches by
+    // navigating, and better lost than the whole chart, which is what the
+    // default branch used to cost it (#1063).
+    case 'line':
+    case 'trail': {
       if (stepDirection) {
         return TraceType.STEP;
       }
