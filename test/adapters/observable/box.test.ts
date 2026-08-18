@@ -28,7 +28,7 @@ import { mountFixture } from './helpers';
  * @returns The layer, or `undefined` when the chart produced none.
  */
 function boxLayer(
-  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxesOnBaseline',
+  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxesOnBaseline' | 'boxPastItsWhisker' | 'referenceLinesThenBox',
 ): {
   data: BoxPoint[];
   selectors: BoxSelector[];
@@ -105,6 +105,37 @@ describe('reading a box plot', () => {
 
     expect(layer?.data.map(point => point.q1)).toEqual([0, 0]);
     expect(layer?.data.map(point => point.q3)).toEqual([6.75, 11.25]);
+  });
+
+  it('reads a box whose outliers pulled a quartile past its whisker', () => {
+    // Over 4, 10, 40, 42, 44, 46, 48, 50 the first quartile is 32.5 and the
+    // lower whisker stops at 40, the smallest value that is not an outlier — so
+    // the box sticks out below the whisker rather than sitting inside it. That
+    // is an ordinary box plot, and requiring the whisker to contain the box left
+    // it unrecognised, with its medians announced as a dot plot (#1088).
+    const layer = boxLayer('boxPastItsWhisker');
+
+    expect(layer?.data[0]).toEqual({
+      z: 'A',
+      lowerOutliers: [4, 10],
+      min: 40,
+      q1: 32.5,
+      q2: 43,
+      q3: 46.5,
+      max: 50,
+      upperOutliers: [],
+    });
+  });
+
+  it('takes the whiskers from the rule that runs along the box', () => {
+    // Reference lines drawn before the box plot give the composite two rule
+    // groups with the same number of lines, so counting cannot choose between
+    // them. Taking the first would announce 12 and 26 — the two reference
+    // lines — as A's and B's extremes.
+    const layer = boxLayer('referenceLinesThenBox');
+
+    expect(layer?.data.map(point => [point.min, point.max])).toEqual([[10, 20], [20, 30]]);
+    expect(layer?.data.map(point => point.q2)).toEqual([15, 25]);
   });
 
   it('gives a facet only the outliers drawn in it', () => {
@@ -210,6 +241,20 @@ describe('declining a box plot that cannot be paired up', () => {
       expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
     },
   );
+
+  it('reads the bar chart under a bullet chart rather than skipping it', () => {
+    // Recognising the composite is what decides whether the marks are read at
+    // all, so a chart wrongly claimed as a box plot used to go out silent — the
+    // measure, the target and the range all unreadable. Declining to claim it
+    // hands the marks back, and the measure and target are announced as the bar
+    // chart and the dots they are.
+    const { element } = mountFixture('bulletChart');
+    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.BAR, TraceType.DOT]);
+    expect((layers[0].data as { x: string; y: number }[]).map(point => point.y))
+      .toEqual([6, 10]);
+  });
 
   it('leaves the chart unread when a part sits beyond the last box', () => {
     // Recognition asks whether every *box* has a median, not whether every
