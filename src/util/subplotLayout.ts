@@ -261,6 +261,11 @@ function buildOrderMap(
   for (const row of rowOrder) {
     for (const col of colOrder) {
       // Ragged grids are allowed: a shorter row simply has no cell there.
+      // The length is enough to say which, because a row is left-packed --
+      // a producer fills every position it emits, and a cell with nothing
+      // drawn in it is a `Subplot` carrying `layers: []` rather than a hole
+      // in the array. A row missing its *leading* column is not a shape the
+      // grammar can express.
       if (col < subplots[row].length) {
         map.set(`${row},${col}`, index++);
       }
