@@ -11,7 +11,7 @@
 import type { GanttData, HeatmapData, MaidrLayer } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
-import { isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
+import { drawnCategoryPositions, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -71,6 +71,33 @@ function isSegmentedType(type: string): boolean {
 }
 
 /**
+ * The dataset positions a bar-family layer's columns map to, in the order the
+ * layer emits them.
+ *
+ * The bar family is read in the order its categories are *drawn*, which a
+ * reversed axis turns round (#1015). Chart.js carries no CSS selectors, so
+ * that looked like a one-sided change -- but the plugin outlines by index
+ * through this table, and a table built in the written order names a
+ * different bar from the one the reader was just told about (#1024).
+ *
+ * Built by the same walk the extractor emits the payload with, rather than by
+ * reversing a written-order list: the two lists have to agree, and the surest
+ * way for them to agree is for them to be the same walk.
+ *
+ * @param chart - The chart being read
+ * @param data - The backing dataset's entries
+ * @param keep - Which entries the payload kept, gaps having been skipped
+ * @returns The dataset positions, in the payload's column order
+ */
+function drawnEntryIndices(
+  chart: ChartJsChart,
+  data: ChartJsDataValue[],
+  keep: (value: ChartJsDataValue) => boolean,
+): number[] {
+  return drawnCategoryPositions(chart, data.length).filter(i => keep(data[i]));
+}
+
+/**
  * Original indices of a dataset's finite (non-gap) entries, in dataset order.
  * Mirrors the extractor's gap-skipping so MAIDR's `col` (an index into the
  * skipped list) maps back to the Chart.js element index.
@@ -79,20 +106,6 @@ function finiteIndices(data: ChartJsDataValue[]): number[] {
   const indices: number[] = [];
   data.forEach((value, i) => {
     if (toFiniteNumber(value) !== null)
-      indices.push(i);
-  });
-  return indices;
-}
-
-/**
- * Original indices of a dataset's floating-bar entries, in dataset order.
- * The same job {@link finiteIndices} does for a magnitude: a `[start, end]`
- * pair is not a number, so the gap-skipping test has to be its own.
- */
-function rangeIndices(data: ChartJsDataValue[]): number[] {
-  const indices: number[] = [];
-  data.forEach((value, i) => {
-    if (isRangeValue(value))
       indices.push(i);
   });
   return indices;
@@ -233,14 +246,36 @@ export function computeTargetMaps(
         break;
       }
       case TraceType.BAR:
-      case TraceType.DOT:
+      case TraceType.DOT: {
+        // Single-dataset bar, and the dot plot drawn by the same builder: a
+        // single MAIDR row backed by the layer's own dataset, its columns in
+        // the order the categories are drawn.
+        const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
+        const data = datasets[dsIdx]?.data ?? [];
+        barLineIndices.set(
+          layer.id,
+          [drawnEntryIndices(chart, data, value => toFiniteNumber(value) !== null)],
+        );
+        break;
+      }
+      case TraceType.STACKED:
+      case TraceType.DODGED:
+      case TraceType.NORMALIZED:
+      case TraceType.DIVERGING: {
+        // A segmented grid is kept rectangular -- a gap collapses to 0 rather
+        // than being skipped -- so every row shares one column map, and the
+        // payload's own width is the category count that map has to cover.
+        const width = Array.isArray(layer.data) && Array.isArray(layer.data[0])
+          ? layer.data[0].length
+          : 0;
+        barLineIndices.set(layer.id, [drawnCategoryPositions(chart, width)]);
+        break;
+      }
       case TraceType.GAUGE:
       case TraceType.PIE: {
-        // Single-dataset bar, or one pie/doughnut ring: a single MAIDR row
-        // backed by the layer's own dataset. A pie's row is always 0 and its
-        // col is the slice, which is the same shape — and so are a dot plot's
-        // one series of points and a gauge's single measure, whose only
-        // position is the ring's first arc.
+        // A pie's row is always 0 and its col is the slice; a gauge's only
+        // position is the ring's first arc. Neither has a category axis to
+        // reverse, so both keep the written order.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         barLineIndices.set(layer.id, [finiteIndices(datasets[dsIdx]?.data ?? [])]);
         break;
@@ -252,7 +287,8 @@ export function computeTargetMaps(
         // `[start, end]` pairs, so the finite test a magnitude uses would skip
         // every one of them.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
-        barLineIndices.set(layer.id, [rangeIndices(datasets[dsIdx]?.data ?? [])]);
+        const data = datasets[dsIdx]?.data ?? [];
+        barLineIndices.set(layer.id, [drawnEntryIndices(chart, data, isRangeValue)]);
         break;
       }
       case TraceType.GANTT: {
@@ -260,7 +296,14 @@ export function computeTargetMaps(
         // lane keeps its row — the extractor emits one per category.
         const lanes = (layer.data as GanttData).points.length;
         const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
-        ganttTargets.set(layer.id, buildGanttTargets(datasets, dsIndices, lanes));
+        // `points` and `lanes` were emitted in drawn order, so the targets are
+        // reordered to match rather than left in the order the rows were
+        // written.
+        const written = buildGanttTargets(datasets, dsIndices, lanes);
+        ganttTargets.set(
+          layer.id,
+          drawnCategoryPositions(chart, lanes).map(lane => written[lane] ?? []),
+        );
         break;
       }
       // A filled band is drawn from the same dataset a line is, one per
@@ -325,11 +368,15 @@ export function resolveActiveTargets(
   if (!layer)
     return [];
 
-  // Segmented bars: MAIDR row = group (dataset), col = category (index).
-  // The category grid is kept rectangular (gaps collapse to 0), so col is the
-  // native Chart.js element index and needs no remapping.
-  if (isSegmentedType(layer.type))
-    return [{ datasetIndex: rowDatasetIndex(layerDatasetIndices, layerId, row), index: col }];
+  // Segmented bars: MAIDR row = group (dataset), col = category. The grid is
+  // kept rectangular (gaps collapse to 0 rather than being skipped), so the
+  // only thing between `col` and the Chart.js element index is the drawn
+  // order of the categories -- which a reversed axis turns round (#1024).
+  if (isSegmentedType(layer.type)) {
+    const datasetIndex = rowDatasetIndex(layerDatasetIndices, layerId, row);
+    const index = maps.barLineIndices.get(layer.id)?.[0]?.[col];
+    return index === undefined ? [] : [{ datasetIndex, index }];
+  }
 
   // A point cloud names its selection by `layer.data` index, not by position:
   // the model navigates it through five different index spaces (x-bucket,
