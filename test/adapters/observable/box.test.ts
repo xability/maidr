@@ -219,29 +219,6 @@ describe('highlighting a box plot', () => {
 });
 
 describe('declining a box plot that cannot be paired up', () => {
-  it.each(['barRangeAndTarget', 'bulletChart', 'floatingRangeBar'] as const)(
-    'leaves %s alone when its parts only look like a box',
-    (key) => {
-      // Both satisfy every geometric relation a box plot's parts have: the tick
-      // lies inside the bar, the rule runs along it and past both ends. Read as
-      // a box they announce the bar's height as the third quartile and the
-      // target line as the median — numbers that are quartiles of nothing.
-      //
-      // Each defeats a different guess at what a box plot is. The first two
-      // stand on the baseline, which is what a magnitude does and a quartile
-      // does not; the third does not stand on anything, because a candlestick's
-      // body floats exactly as an interquartile box does. All three are drawn
-      // in the very order `boxY` emits its parts, which is also the order
-      // someone draws them in, so nothing about the arrangement separates them
-      // either. What does is that Plot draws a box plot's median twice as thick
-      // as an ordinary tick.
-      const { element } = mountFixture(key);
-      const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
-
-      expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
-    },
-  );
-
   it.each([
     { key: 'bulletChart' as const, types: [TraceType.BAR, TraceType.DOT] },
     { key: 'barRangeAndTarget' as const, types: [TraceType.BAR, TraceType.DOT] },
@@ -249,11 +226,23 @@ describe('declining a box plot that cannot be paired up', () => {
     // declines it on its own account — a ranged bar has two ends and a bar
     // point has room for one. Its marker is still read.
     { key: 'floatingRangeBar' as const, types: [TraceType.DOT] },
-  ])('hands $key back to be read rather than skipping it', ({ key, types }) => {
-    // Recognising the composite is what decides whether the marks are read at
-    // all, so a chart wrongly claimed as a box plot used to go out silent — the
-    // measure, the target and the range all unreadable. Declining to claim it
-    // hands the marks back to the readings they belong to.
+  ])('hands $key back to be read rather than reading it as a box', ({ key, types }) => {
+    // All three satisfy every geometric relation a box plot's parts have: the
+    // tick lies inside the bar, the rule runs along it. Read as a box they
+    // announce the bar's height as the third quartile and the target line as
+    // the median — numbers that are quartiles of nothing.
+    //
+    // Each also defeats a different guess at what else might separate them. The
+    // first two stand on the baseline, which is what a magnitude does and a
+    // quartile does not; the third stands on nothing, because a candlestick's
+    // body floats exactly as an interquartile box does. All three are drawn in
+    // the very order `boxY` emits its parts, which is also the order someone
+    // draws them in. What settles it is that Plot draws a box plot's median
+    // twice as thick as an ordinary tick.
+    //
+    // And declining to claim them is not the same as skipping them: their marks
+    // go back to the readings they belong to, so the chart is announced instead
+    // of going out silent.
     const { element } = mountFixture(key);
     const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 
