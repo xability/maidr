@@ -68,6 +68,16 @@ describe('a hexbin the author has declared', () => {
     expect(ys[1]).toBeLessThan(ys[2]);
   });
 
+  it('reads a row holding several bins left to right', () => {
+    // Plot draws the hexagons largest first, so this fixture's DOM order is
+    // 7, 5, 4, 3, 2 — the two rows interleaved and neither in reading order.
+    // Grouping on the shared y pixel and sorting each row by x is what turns
+    // that back into a lattice; either half left out reorders this.
+    const rows = layerOf('crowdedHexbin')?.data as HexbinPoint[][];
+
+    expect(rows.map(row => row.map(bin => bin.count))).toEqual([[3, 7, 2], [5, 4]]);
+  });
+
   it('places each bin at its lattice centre, not at a data point', () => {
     // A bin's centre is where the lattice put it, which is the honest answer:
     // the observations behind it are at neither end of that hexagon.
