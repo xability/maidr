@@ -38,9 +38,6 @@ describe('resolveOrientation', () => {
     // Categories run one way and segments the other, either way round.
     TraceType.MOSAIC,
     TraceType.NORMALIZED,
-    // Groups run one way and the value axis the other, and a ridgeline is
-    // drawn with its groups down the page as often as across it.
-    TraceType.RIDGELINE,
     TraceType.STACKED,
     TraceType.VIOLIN_BOX,
     TraceType.VIOLIN_KDE,
@@ -56,6 +53,11 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    // Groups run one way and the value axis the other, but `RidgelineTrace`
+    // reads the same either way round -- it never consults the key, and
+    // announcing an adjective for it named something no reader could act on
+    // (#949).
+    TraceType.RIDGELINE,
     // An area trace is navigated along its series and then between series,
     // exactly as a line is, whichever way the band is drawn.
     TraceType.AREA,
