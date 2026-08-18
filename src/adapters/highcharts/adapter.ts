@@ -1648,17 +1648,25 @@ function convertLineSeries(
   if (seriesList.length === 0)
     return null;
 
-  const data: LinePoint[][] = seriesList.map(series =>
-    series.data
+  const first = seriesList[0];
+
+  // A reversed axis draws the series from its far end while `series.data`
+  // stays in the order it was written, so the written order reads the chart
+  // as its own mirror image (#1007). Reversing the payload is only half of
+  // it: the path's vertices still come out in the library's order, so the
+  // trace is told to pair them back up.
+  const reversed = drawsSeriesReversed(first, chart);
+  const data: LinePoint[][] = seriesList.map((series) => {
+    const points = series.data
       .filter(p => p.y !== null)
       .map(p => ({
         x: pointLabel(p),
         y: p.y as number,
         z: series.name || undefined,
-      })),
-  );
+      }));
+    return reversed ? points.reverse() : points;
+  });
 
-  const first = seriesList[0];
   const selectors = lineSelectors(containerId, seriesList.map(s => s.index));
 
   // Use a combined title for multi-line layers so all series are represented.
@@ -1676,8 +1684,34 @@ function convertLineSeries(
       y: getAxisLabel(first, 'y'),
     },
     ...(stepDirection ? { stepDirection } : {}),
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data,
   };
+}
+
+/**
+ * Whether a line-family group is drawn from the far end of its x axis.
+ *
+ * Separate from {@link isReversedCategoryAxis}, which answers the same
+ * question for a bar group and is scoped to a vertical layer because a bar's
+ * orientation decides which field of a point holds the magnitude. A line
+ * swaps nothing, so what has to be excluded here instead is the *inverted*
+ * chart: Highcharts sets `xAxis.reversed` by itself when it turns a chart
+ * sideways, so the flag alone would report every inverted line as reversed.
+ * Which end of a sideways line's axis `data[0]` belongs at was not measured
+ * (#1007) and is left alone rather than guessed at.
+ *
+ * @param series - Any series of the group, read for its x axis
+ * @param chart - The chart, read for whether it is drawn sideways
+ * @returns True when the drawn order is the reverse of the data's
+ */
+function drawsSeriesReversed(
+  series: HighchartsSeries | undefined,
+  chart: HighchartsChart,
+): boolean {
+  if (chart.options.chart?.inverted === true)
+    return false;
+  return isReversedAxis(series?.xAxis);
 }
 
 /**
