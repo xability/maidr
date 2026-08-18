@@ -501,6 +501,127 @@ function reorderSegmentedSeriesByVisualBottom(
 }
 
 /**
+ * For each segmented layer, put the **columns** in the order the chart draws
+ * them.
+ *
+ * Vega sorts a nominal domain rather than keeping the rows' own order. That is
+ * the same fact `orderedHeatmapAxis` documents for the heatmap (#977) and
+ * {@link sortSimpleBarsByVisualOrder} fixes for a plain bar, and neither
+ * reaches a segmented layer — whose two existing passes reorder *series* and
+ * never columns. So every stacked, dodged and normalised bar announced its
+ * categories in whatever order the rows happened to be listed in, which is the
+ * drawn order only by luck (#994).
+ *
+ * Not a `sort`-only case, which is what makes it worth a pass of its own.
+ * Measured with vega 6 on rows listed `charlie, alpha, bravo` and **no `sort`
+ * in the spec at all**: the x domain resolves `alpha, bravo, charlie`, and the
+ * marks are emitted in the rows' order at x = 205, 5, 105 respectively — so
+ * `charlie` is announced first and drawn last.
+ *
+ * A segmented layer is read by column — column `c` is one category across
+ * every series, and the summary row sums down it — so this permutes every
+ * series the same way rather than each on its own.
+ *
+ * Runs after the two series passes so it reads the DOM as they left it, and
+ * permutes *within* the grouping `domMapping` describes so that grouping
+ * stays valid. Vega positions marks by their path data, so re-appending moves
+ * nothing on screen.
+ */
+function reorderSegmentedColumnsByVisualOrder(
+  svg: SVGSVGElement,
+  layers: MaidrLayer[],
+): void {
+  for (const layer of layers) {
+    if (
+      layer.type !== TraceType.STACKED
+      && layer.type !== TraceType.DODGED
+      && layer.type !== TraceType.NORMALIZED
+    ) {
+      continue;
+    }
+    if (typeof layer.selectors !== 'string') {
+      continue;
+    }
+    if (!Array.isArray(layer.data) || layer.data.length === 0) {
+      continue;
+    }
+
+    const data = layer.data as unknown[][];
+    const seriesCount = data.length;
+    const categoryCount = data[0]?.length ?? 0;
+    // One column has no order, and a ragged layer has no column at all: its
+    // series do not line up, so there is nothing a shared permutation means.
+    if (categoryCount < 2 || !data.every(row => row.length === categoryCount)) {
+      continue;
+    }
+
+    const elements = Array.from(
+      svg.querySelectorAll<SVGGraphicsElement>(layer.selectors),
+    );
+    if (elements.length !== seriesCount * categoryCount) {
+      debugLog(
+        `segmented layer "${layer.id}": skipping column sort (DOM has `
+        + `${elements.length} elements but data has ${seriesCount * categoryCount} cells)`,
+      );
+      continue;
+    }
+
+    if (!isLaidOutForSort(elements[0])) {
+      debugLog(`segmented layer "${layer.id}": skipping column sort (chart not laid out)`);
+      continue;
+    }
+
+    const order = layer.domMapping?.order ?? 'row';
+    const domIndex = (series: number, category: number): number =>
+      order === 'column'
+        ? category * seriesCount + series
+        : series * categoryCount + category;
+
+    // Series 0's bar places the whole column: a stack's segments share their
+    // category's position outright, and a dodged group's are side by side
+    // within it, so neither can cross into another category.
+    const isHorizontal = layer.orientation === Orientation.HORIZONTAL;
+    const newOrder = Array
+      .from({ length: categoryCount }, (_, category) => {
+        const rect = elements[domIndex(0, category)].getBoundingClientRect();
+        return { category, at: isHorizontal ? rect.y : rect.x };
+      })
+      .sort((a, b) => a.at - b.at)
+      .map(entry => entry.category);
+
+    if (newOrder.every((category, at) => category === at)) {
+      debugLog(`segmented layer "${layer.id}": columns already in drawn order`);
+      continue;
+    }
+
+    debugLog(
+      `segmented layer "${layer.id}": re-sorting ${categoryCount} categories by `
+      + `${isHorizontal ? 'visual y' : 'visual x'} to align the announcement with the chart`,
+    );
+
+    // 1. Every series permuted the same way, so the columns stay aligned.
+    layer.data = data.map(row => newOrder.map(category => row[category])) as MaidrLayer['data'];
+
+    // 2. The DOM follows, keeping whichever grouping `domMapping` declares.
+    const newElements: SVGGraphicsElement[] = [];
+    if (order === 'column') {
+      for (const category of newOrder) {
+        for (let series = 0; series < seriesCount; series++) {
+          newElements.push(elements[domIndex(series, category)]);
+        }
+      }
+    } else {
+      for (let series = 0; series < seriesCount; series++) {
+        for (const category of newOrder) {
+          newElements.push(elements[domIndex(series, category)]);
+        }
+      }
+    }
+    reappendInOrder(newElements);
+  }
+}
+
+/**
  * For each DODGED layer, ensure that **`data[0]` is the visually
  * left-most series** (the subgroup whose bars are drawn at the smallest
  * x-coordinate within each x-category). Mirrors
@@ -1705,6 +1826,13 @@ export function bindVegaLite(
   // ("first" = leftmost). Must run AFTER `applySegmentedDomMappings`
   // for the same reason as the segmented bottom-reorder above.
   reorderDodgedBarsByVisualPosition(svg as SVGSVGElement, layers);
+
+  // For every segmented layer, put the COLUMNS in the order the chart draws
+  // them. The two passes above settle which series is first; nothing settled
+  // which category was, so a chart whose rows were not listed in the scale's
+  // order announced them in the wrong one (#994). Runs last of the three so it
+  // reads the DOM as they left it.
+  reorderSegmentedColumnsByVisualOrder(svg as SVGSVGElement, layers);
 
   // For HISTOGRAM layers, pair data bins with DOM elements and sort by
   // visual position so `data[i]` lines up with the i-th left-to-right
