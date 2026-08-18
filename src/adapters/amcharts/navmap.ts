@@ -34,6 +34,7 @@ import {
   findNetworkLink,
   flowRibbonOf,
   isColumnSeries,
+  orderedDataItems,
 } from './extractor';
 
 /**
@@ -233,13 +234,18 @@ function isHorizontalColumn(series: AmXYSeries): boolean {
  * non-null category and a finite value on the series' orientation field pair.
  * The extractor skips the rest, so MAIDR `col` indexes this filtered list — not
  * the raw `series.dataItems` (which retains a slot per null/gap record).
+ *
+ * Read through {@link orderedDataItems} for the same reason: a series laid
+ * along an inversed axis is drawn from the far end, and the extractor reads it
+ * that way (#1037). This is the highlight half of that pairing, and it has to
+ * move with the payload or the overlay outlines the wrong mark (#1024).
  */
 function filterColumnItems(series: AmXYSeries): AmDataItem[] {
   const horizontal = isHorizontalColumn(series);
   const categoryField = horizontal ? 'categoryY' : 'categoryX';
   const valueField = horizontal ? 'valueX' : 'valueY';
   const kept: AmDataItem[] = [];
-  for (const item of series.dataItems) {
+  for (const item of orderedDataItems(series)) {
     const category = item.get(categoryField);
     const value = item.get(valueField);
     if (category == null || value == null)
@@ -263,10 +269,14 @@ function hasLineX(item: AmDataItem, series: AmXYSeries): boolean {
   return typeof fieldName === 'string' && item.get(fieldName) != null;
 }
 
-/** Mirror `extractLinePoints`: keep items with a present X and a finite valueY. */
+/**
+ * Mirror `extractLinePoints`: keep items with a present X and a finite valueY,
+ * in the order they were drawn — see {@link filterColumnItems} on why the
+ * order is read from {@link orderedDataItems} rather than from the series.
+ */
 function filterLineItems(series: AmXYSeries): AmDataItem[] {
   const kept: AmDataItem[] = [];
-  for (const item of series.dataItems) {
+  for (const item of orderedDataItems(series)) {
     const y = item.get('valueY');
     if (!hasLineX(item, series) || y == null)
       continue;
