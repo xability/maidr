@@ -60,7 +60,7 @@ import { toCategoryShares } from '@adapters/shared/normalize';
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
-import { getPanelClassSelector, getRechartsSelector } from './selectors';
+import { getPanelClassSelector, getRechartsSelector, reversedBarSelectors } from './selectors';
 
 /**
  * Converts a Recharts adapter config into MAIDR's root data structure.
@@ -325,6 +325,21 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
     const resolvedOrientation = layerOrientation(chartType, orientation);
     const horizontal = resolvedOrientation === Orientation.HORIZONTAL
       && swapsUnderHorizontal(chartType);
+    const oriented = horizontal ? swapBarFamilyPoints(layerData) : layerData;
+
+    // A reversed category axis draws the bars from the far end while Recharts
+    // renders them in data order, so the payload and the selectors turn round
+    // together -- reversing one alone announces a bar and outlines another
+    // (#1017, and #988 / #1000 before it). Only where the adapter owns the
+    // selector and the reading is one mark per category: a caller who named
+    // the marks is describing their own chart.
+    const perBar = config.categoryAxisReversed === true
+      && maidrType === TraceType.BAR
+      && selectorOverride === undefined
+      && typeof selector === 'string'
+      && oriented.length > 0
+      ? reversedBarSelectors(selector, oriented.length)
+      : null;
 
     return {
       id: String(index),
@@ -332,10 +347,10 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
       title: hasMultipleSeries ? (fillKeys?.[index] ?? yKey) : undefined,
       ...layerOptions(chartType, config),
       // LineTrace expects selectors as string[] (one per series), not a single string
-      selectors: isLineType(chartType) ? (selector ? [selector] : undefined) : selector,
+      selectors: perBar ?? (isLineType(chartType) ? (selector ? [selector] : undefined) : selector),
       orientation: resolvedOrientation,
       axes: barAxes(xLabel, yLabel, horizontal),
-      data: horizontal ? swapBarFamilyPoints(layerData) : layerData,
+      data: perBar ? [...oriented].reverse() : oriented,
     } as MaidrLayer;
   });
 }

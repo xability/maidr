@@ -42,6 +42,8 @@ import type { JSX, ReactNode } from 'react';
 import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
+import { Orientation } from '../../type/grammar';
+import { categoryAxisReversedFor } from './axisDirection';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -141,6 +143,7 @@ export function MaidrRecharts({
 }: MaidrRechartsProps): JSX.Element {
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
+      categoryAxisReversed: categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
       id,
       title,
       subtitle,
@@ -171,7 +174,9 @@ export function MaidrRecharts({
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    // `children` joins the list because the schema now reads the axes out of
+    // it; without that a chart that flips `reversed` would keep the old order.
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride, children],
   );
 
   return (
