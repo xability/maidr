@@ -295,7 +295,13 @@ export function buildSubplot(
   const lineTypes = new Set(radialType
     ? ['line', 'spline', 'area', 'areaspline']
     : ['line', 'spline']);
-  const areaTypes = new Set(radialType ? [] : ['area', 'areaspline']);
+  // A streamgraph is a stacked area floated off the baseline: Highcharts
+  // registers it as its own series type, so it fell into no bucket at all and
+  // the chart came out with no layers (#1046). It reads as one of these --
+  // `point.y` is each band's own value, the same field `convertAreaSeries`
+  // already takes, and the centred offsets live on `stackY` where nothing
+  // needs them. No radial variant exists, so `radialType` keeps its empty set.
+  const areaTypes = new Set(radialType ? [] : ['area', 'areaspline', 'streamgraph']);
   const barTypes = new Set(['bar', 'column']);
 
   const lineSeries = convertible.filter(s => lineTypes.has(resolveSeriesType(s, chart)));
@@ -2087,6 +2093,17 @@ function convertBumpSeries(
  * and the fill is the more consequential half of a stepped area: reading a
  * stacked one as a step layer would drop the totals entirely.
  */
+/**
+ * The stacking modes that pile bands on one another.
+ *
+ * `'normal'` is the ordinary stacked area. `'stream'` is the same stack with
+ * its baseline floated so the shape is centred, which is a fact about where
+ * the bands are drawn rather than about what they say -- `AreaTrace`
+ * announces each band's own value and the column's total, and both hold at any
+ * baseline (#1046).
+ */
+const STACKING_MODES = new Set<string | undefined>(['normal', 'stream']);
+
 function convertAreaSeries(
   seriesList: HighchartsSeries[],
   chart: HighchartsChart,
@@ -2102,9 +2119,13 @@ function convertAreaSeries(
     ? undefined
     : resolveGroupStacking(seriesList, chart);
   const isNormalized = stacking === 'percent';
+  // `'stream'` is what the streamgraph module sets, and it stacks: the bands
+  // sit on one another and only the baseline they start from is moved. Not
+  // normalized -- a stream is not rescaled to a constant total, so announcing
+  // shares of 100% would be a different chart.
   const traceType = isNormalized
     ? TraceType.NORMALIZED_AREA
-    : (stacking === 'normal' ? TraceType.STACKED_AREA : TraceType.AREA);
+    : (STACKING_MODES.has(stacking) ? TraceType.STACKED_AREA : TraceType.AREA);
 
   const data: LinePoint[][] = seriesList.map(series =>
     series.data
