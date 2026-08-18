@@ -18,7 +18,7 @@
 import type { BoxPoint, BoxSelector } from '@type/grammar';
 import { observablePlotToMaidr } from '@adapters/observable/converters';
 import { describe, expect, it } from '@jest/globals';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { mountFixture } from './helpers';
 
 /**
@@ -174,6 +174,20 @@ describe('highlighting a box plot', () => {
 });
 
 describe('declining a box plot that cannot be paired up', () => {
+  it('leaves a bar chart alone when its parts only look like a box', () => {
+    // A bar chart with a target tick inside each bar and a range rule that
+    // happens to reach the baseline satisfies every geometric relation a box
+    // plot's parts have: the tick lies inside the bar, the rule runs along it
+    // and past both ends. Read as a box it announces the bar's height as the
+    // third quartile and the target line as the median — numbers that are not
+    // quartiles of anything. What it does not have is the draw order `boxY`
+    // emits, because nobody called `boxY`.
+    const { element } = mountFixture('barRangeAndTarget');
+    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+
+    expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
+  });
+
   it('leaves the chart unread when a part sits beyond the last box', () => {
     // Recognition asks whether every *box* has a median, not whether every
     // median has a box, so an extra tick drawn past the last category leaves

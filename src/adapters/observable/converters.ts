@@ -466,6 +466,22 @@ function convertBoxComposite(
     shift: translateOf(groups[index].group) ?? { x: 0, y: 0 },
   });
 
+  // `Plot.boxY` emits its parts in one fixed order — rule, bar, tick, then the
+  // outliers — because they come from one call rather than from three the
+  // author wrote. Three marks that overlap the way a box plot's do but arrive
+  // in some other order were written separately, and the numbers behind them
+  // are not quartiles: a bar chart with a target line inside each bar and a
+  // range rule reaching the baseline satisfies the geometry exactly, and would
+  // otherwise be announced with a five-number summary in which the bar's height
+  // is the third quartile and the target line is the median.
+  //
+  // Narrowing rather than widening: a composite refused here is skipped, as it
+  // was before any of it was read (#1074). Detection is not changed to match,
+  // because what it should do with such a chart — skip it, or hand it back to
+  // be read as the bar chart it is — belongs with #1088.
+  if (composite.rule > composite.bar || composite.bar > composite.tick)
+    return [];
+
   const boxes = shifted(composite.bar);
   const whiskers = shifted(composite.rule);
   const medians = shifted(composite.tick);

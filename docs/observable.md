@@ -283,9 +283,15 @@ lies **inside** its box and every whisker runs **along** it and past both ends.
 Nothing that merely shares the mark types satisfies both, so no author sentence
 is needed and none is offered.
 
-That check is also the floor. A chart it recognises but whose parts cannot be
-matched up one-to-one — an extra tick, a whisker with no box — is left unread
-rather than announced with a part borrowed from the wrong category.
+Two more things have to hold before anything is announced. The parts must pair
+up one-to-one along the category axis — a chart with an extra tick, or a whisker
+with no box, is left unread rather than announced with a part borrowed from the
+wrong category. And the marks must arrive in the order `boxY` emits them, which
+is always rule, bar, tick, then the outliers. Three marks an author wrote
+separately can sit exactly the way a box plot's do: a bar chart with a target
+line inside each bar and a range rule reaching the baseline satisfies every
+geometric relation above, and reading it as a box would announce the bar's
+height as the third quartile and the target line as the median.
 
 Two details worth knowing:
 
