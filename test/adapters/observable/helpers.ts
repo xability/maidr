@@ -50,8 +50,32 @@ export function mountFixture(key: keyof typeof FIXTURES, withScales = true): Mou
 
   if (withScales)
     attachScales(element, fixture.scales);
+  if (fixture.samples !== undefined)
+    attachDatumIndices(svg, fixture.samples);
 
   return { dom, document, element, svg };
+}
+
+/**
+ * Gives each mark path back the datum indices Plot bound to it.
+ *
+ * Plot leaves `__data__` on the element, and markup cannot carry it — so
+ * without this the adapter cannot tell how many samples a path was drawn
+ * from, and every check that compares the two is unreachable from a fixture.
+ * Only the mark groups are touched; an axis group's paths are tick marks and
+ * were stripped when the fixture was captured.
+ *
+ * @param svg     - The mounted chart.
+ * @param samples - How many samples each mark path carries.
+ */
+function attachDatumIndices(svg: Element, samples: number): void {
+  const indices = Array.from({ length: samples }, (_, index) => index);
+  for (const group of svg.querySelectorAll('g[aria-label]')) {
+    if (/axis|label|grid|frame/.test(group.getAttribute('aria-label') ?? ''))
+      continue;
+    for (const path of group.querySelectorAll('path'))
+      (path as Element & { __data__?: unknown }).__data__ = indices;
+  }
 }
 
 /**
