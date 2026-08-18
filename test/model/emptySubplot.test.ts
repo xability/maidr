@@ -158,16 +158,41 @@ describe('TextService wording for a panel with no layers', () => {
  * and the key that starts navigation did nothing at all.
  */
 describe('subplot with no layers key', () => {
-  /** A cell as a producer emits it when it forgets the contract. */
-  const BARE_SUBPLOT = {} as unknown as MaidrSubplot;
+  /**
+   * The shapes a producer actually emits when it forgets the contract.
+   *
+   * The non-array cases are not hypothetical padding: `{ layers: {} }` is
+   * truthy, so a guard written for the missing key alone lets it through and
+   * `layers.map` throws one line later — the same abort, wearing a different
+   * hat.
+   */
+  const MALFORMED: ReadonlyArray<readonly [string, MaidrSubplot]> = [
+    ['no layers key', {} as unknown as MaidrSubplot],
+    ['a null cell', null as unknown as MaidrSubplot],
+    ['layers as an object', { layers: {} } as unknown as MaidrSubplot],
+    ['layers as a string', { layers: 'bar' } as unknown as MaidrSubplot],
+  ];
 
-  function createFigureWithABareCell(): Figure {
+  function createFigureWith(cell: MaidrSubplot): Figure {
     const maidr: Maidr = {
       id: 'bare-cell',
-      subplots: [[barSubplot('sp-1', 1), BARE_SUBPLOT, barSubplot('sp-3', 3)]],
+      subplots: [[barSubplot('sp-1', 1), cell, barSubplot('sp-3', 3)]],
     } as Maidr;
     return new Figure(maidr);
   }
+
+  function createFigureWithABareCell(): Figure {
+    return createFigureWith(MALFORMED[0][1]);
+  }
+
+  test.each(MALFORMED)('a cell with %s does not abort the figure', (_name, cell) => {
+    expect(() => createFigureWith(cell)).not.toThrow();
+
+    const [row] = createFigureWith(cell).subplots;
+    expect(row[0].activeTrace).not.toBeNull();
+    expect(row[1].activeTrace).toBeNull();
+    expect(row[2].activeTrace).not.toBeNull();
+  });
 
   test('constructing the figure does not throw', () => {
     expect(() => createFigureWithABareCell()).not.toThrow();
@@ -205,12 +230,24 @@ describe('subplot with no layers key', () => {
       createFigureWithABareCell();
 
       const messages = warn.mock.calls.map(call => String(call[0]));
-      const reported = messages.filter(m => m.includes('has no `layers`'));
+      const reported = messages.filter(m => m.includes('has no `layers` array'));
 
       expect(reported).toHaveLength(1);
       // The coordinates matter more than the wording: without them the
       // warning cannot be acted on in a grid of any size.
       expect(reported[0]).toContain('[0][1]');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test.each(MALFORMED)('a cell with %s is reported, not just survived', (_name, cell) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      createFigureWith(cell);
+
+      const messages = warn.mock.calls.map(call => String(call[0]));
+      expect(messages.filter(m => m.includes('has no `layers` array'))).toHaveLength(1);
     } finally {
       warn.mockRestore();
     }
@@ -226,7 +263,7 @@ describe('subplot with no layers key', () => {
       expect(figure.subplots[0]).toHaveLength(2);
 
       const messages = warn.mock.calls.map(call => String(call[0]));
-      expect(messages.filter(m => m.includes('has no `layers`'))).toHaveLength(0);
+      expect(messages.filter(m => m.includes('has no `layers` array'))).toHaveLength(0);
     } finally {
       warn.mockRestore();
     }
