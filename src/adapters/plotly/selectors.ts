@@ -11,8 +11,15 @@
  * NOTE: UID-based per-trace scoping is intentionally omitted.
  * Plotly concatenates UIDs into compound classes (`trace{uid}`) for
  * scatter, and omits them entirely for bars — making UID selectors
- * unreliable.  Subplot-level scoping is sufficient and matches
- * py-maidr's proven approach.
+ * unreliable.  Subplot-level scoping matches py-maidr's proven
+ * approach and is what the scatter and line families use.
+ *
+ * The bar family is scoped one level finer, to the trace's own group
+ * within its layer. Subplot level was not sufficient there: a panel can
+ * draw several traces into one `barlayer` — two bars in `overlay` mode, a
+ * bar beside a histogram, two funnels — and one selector then named all of
+ * their bars at once (#993). Bars carry no uid to scope by, so the group is
+ * counted rather than named; see {@link barGroupSelector}.
  */
 
 import type { PlotlyGraphDiv, PlotlyTrace, PolarSeries } from './types';

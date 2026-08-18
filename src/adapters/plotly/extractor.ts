@@ -5147,6 +5147,11 @@ function extractSegmentedBarLayer(
   // which cell each answer belongs to. `SegmentedTrace` reads that shape
   // directly instead of inferring the mapping from one selector.
   const prefix = subplotCssPrefix(emitted[0].trace.xaxis, emitted[0].trace.yaxis);
+  // `barlayer` outright rather than the map `generatePlotlySelectors` reads,
+  // because only bars reach this: `barTraces` is filled from `TraceType.BAR`
+  // entries alone, and a funnel or waterfall maps to its own type and is built
+  // by `extractLayer` instead. An invariant of the caller rather than of this
+  // function, so it is written down here where the hardcoding is.
   const positions = emitted.map(entry => barLayerPosition(group, entry.calcIdx));
 
   // One group per trace, and this layer spans several, so its selector is a
