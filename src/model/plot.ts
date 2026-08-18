@@ -139,8 +139,23 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.yLabel = maidr.axes?.y?.label ?? DEFAULT_FIGURE_AXIS;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map(row =>
-      row.map(subplot => new Subplot(subplot)),
+    this.subplots = subplots.map((row, r) =>
+      row.map((subplot, c) => {
+        // `layers` is required in `MaidrSubplot`, but that is a claim about
+        // TypeScript callers and the schema arrives as JSON -- from Python,
+        // from R, from a hand-authored `maidr` attribute. Reporting the
+        // position is the only signal a producer author ever gets, and
+        // treating the cell as empty silently would trade a loud failure
+        // for an invisible one.
+        if (!subplot?.layers) {
+          console.warn(
+            `[Figure] Subplot [${r}][${c}] has no \`layers\`; reading it as `
+            + `an empty subplot. The producer of this schema should emit `
+            + `\`{ id, layers: [] }\` for positions no chart occupies.`,
+          );
+        }
+        return new Subplot(subplot);
+      }),
     );
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
 
@@ -385,7 +400,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   public constructor(subplot: MaidrSubplot) {
     super();
 
-    const layers = subplot.layers;
+    // Tolerated rather than trusted: `Figure` maps every cell through this
+    // eagerly, so throwing here aborts the whole figure -- every well-formed
+    // subplot with it -- and leaves a chart that draws but cannot be driven.
+    // An empty subplot is already a supported state (`isFigureLevel`,
+    // `MovableGrid`, `getActiveTrace` all handle one), so degrading to it
+    // costs the rest of the figure nothing. `Figure` warns about the cell.
+    const layers = subplot?.layers ?? [];
     this.size = layers.length;
     this.primaryTitle = layers[0]?.title ?? '';
 
@@ -412,7 +433,7 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     // on every construction (including every live-data rebuild).
     this.traceTypes = this.traces.flat().map(trace => trace.traceType);
 
-    this.highlightValue = this.mapToSvgElement(subplot.selector);
+    this.highlightValue = this.mapToSvgElement(subplot?.selector);
     this.movable = new MovableGrid<Trace>(this.traces);
   }
 
