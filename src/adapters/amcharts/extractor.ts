@@ -619,31 +619,47 @@ export function extractHeatmapData(series: AmXYSeries): HeatmapData | null {
     xLabels.map((_, xi) => valueMap.get(`${xi},${yi}`) ?? 0),
   );
 
-  // {@link HeatmapData} runs top-first, and the core turns the rows over so
-  // its own row 0 is the bottom of the drawn grid -- which is what makes
-  // ArrowUp move visually up. amCharts counts a category axis from the
-  // *bottom*, and the data items above arrive in that order, so the rows are
-  // turned over here. An inversed renderer already counts from the top and is
-  // left alone (#981).
-  if (drawsFirstRowAtTop(series)) {
-    return { x: xLabels, y: yLabels, points };
-  }
+  // {@link HeatmapData} runs top-first and left-first, so each axis is asked
+  // the same question: does amCharts already draw its first category at that
+  // end? The data items arrive in the axis' own order either way -- measured,
+  // a 3x2 grid hands them over as `c0, c1, c2` whether or not the x renderer
+  // is inversed -- so the drawing is the only thing that moves, and the answer
+  // has to come from the renderer rather than from the items.
+  //
+  // The two answers are opposite for the *same* chart, because amCharts counts
+  // a y axis from the bottom and an x axis from the left. So an unreversed y
+  // has to be turned over (#981) while an unreversed x is already the way
+  // round the payload wants, and it is the *inversed* x that moves (#1012).
+  const topFirst = isInversedAxis(series, 'yAxis');
+  const leftFirst = !isInversedAxis(series, 'xAxis');
 
-  return { x: xLabels, y: [...yLabels].reverse(), points: [...points].reverse() };
+  const byRow = topFirst ? points : [...points].reverse();
+
+  return {
+    x: leftFirst ? xLabels : [...xLabels].reverse(),
+    y: topFirst ? yLabels : [...yLabels].reverse(),
+    points: leftFirst ? byRow : byRow.map(row => [...row].reverse()),
+  };
 }
 
 /**
- * Whether amCharts draws this series' first y category at the top.
+ * Whether one of a series' axes is stood on its head.
  *
- * True only for an inversed renderer, the setting amCharts uses to stand an
- * axis on its head -- the same one {@link hasRankAxis} reads to spot a bump
- * chart, asked here of the one series that owns the grid.
+ * `inversed` is the setting amCharts uses for that -- the same one
+ * {@link hasRankAxis} reads to spot a bump chart, asked here of the one series
+ * that owns the grid.
+ *
+ * What it *means* is the caller's business, and differs by axis: an inversed y
+ * draws its first category at the top, an inversed x draws its first at the
+ * right. Answering only the flag here keeps that asymmetry in one place rather
+ * than buried in two similarly-named helpers.
  *
  * @param series - The heatmap series
- * @returns Whether row 0 is already the top row
+ * @param axis - Which of the series' axes to ask
+ * @returns Whether that axis' renderer is inversed
  */
-function drawsFirstRowAtTop(series: AmXYSeries): boolean {
-  const renderer = settingOf(series.get('yAxis'), 'renderer');
+function isInversedAxis(series: AmXYSeries, axis: 'xAxis' | 'yAxis'): boolean {
+  const renderer = settingOf(series.get(axis), 'renderer');
   return settingOf(renderer, 'inversed') === true;
 }
 
