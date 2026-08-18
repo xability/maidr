@@ -359,6 +359,24 @@ export function buildLineLayer(
     }
   }
 
+  // A series whose `<path>` runs right to left was drawn from the far end, and
+  // reading it as the datum lists it walks the chart backwards (#1044). Only
+  // the drawing can say so here: the binders never see a scale, because the
+  // caller passes selectors and accessors rather than `d3.scaleLinear()`. The
+  // rendered `d` says it anyway, which is the move `drawsCategoriesReversed`
+  // makes for Google Charts (#1040) — ask where the marks landed, not what the
+  // author asked for.
+  //
+  // Excluded for RADAR, whose "x" is an angle around a circle rather than a
+  // position along an axis. Its closed outline is not monotonic and would
+  // decline on its own; naming it keeps that from being an accident.
+  const reversed = type !== TraceType.RADAR && drawsRightToLeft(rowPaths, data);
+  if (reversed) {
+    for (const row of data) {
+      row.reverse();
+    }
+  }
+
   // Extract legend labels from fill values (stored as `z` on each LinePoint)
   const legend: string[] = [];
   for (const lineData of data) {
@@ -381,11 +399,97 @@ export function buildLineLayer(
     type,
     title,
     selectors: selectorValue,
+    // `d3.line()` emits its vertices in the array's order rather than sorting
+    // them, so a turned-over payload needs the resolved elements turned over
+    // too -- `LineTrace` does that on this word (#1026). The same holds for a
+    // `pointSelector` bind, whose markers sit in the DOM in datum order.
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     axes: buildAxes(axes, format),
     data,
   };
 
   return { layer, legend };
+}
+
+/** The x of each vertex of a path's `d`, in the order it was written. */
+function pathVertexXs(element: Element): number[] {
+  const d = element.getAttribute('d') ?? '';
+  const xs: number[] = [];
+  for (const match of d.matchAll(/[ML]\s*(-?[\d.]+)[,\s]/g)) {
+    const x = Number.parseFloat(match[1]);
+    if (Number.isFinite(x)) {
+      xs.push(x);
+    }
+  }
+  return xs;
+}
+
+/**
+ * Whether a run of coordinates never goes back on itself, and which way it ran.
+ *
+ * Non-strict on purpose: a staircase repeats an x at every tread, and a
+ * survival curve is a staircase. What is rejected is a run that turns around
+ * -- a connected scatter or a loop -- because neither end of it is the order
+ * the chart was drawn in.
+ *
+ * @param xs - The coordinates, in the order they were written
+ * @returns `'asc'`, `'desc'`, or null when the run is flat or doubles back
+ */
+function runDirection(xs: readonly number[]): 'asc' | 'desc' | null {
+  if (xs.length < 2) {
+    return null;
+  }
+  let rising = false;
+  let falling = false;
+  for (let at = 1; at < xs.length; at++) {
+    if (xs[at] > xs[at - 1])
+      rising = true;
+    if (xs[at] < xs[at - 1])
+      falling = true;
+  }
+  if (rising === falling) {
+    return null;
+  }
+  return rising ? 'asc' : 'desc';
+}
+
+/**
+ * Whether every series of this layer was drawn from the right-hand end.
+ *
+ * Each row is asked of its own `<path>`, and they all have to agree: one
+ * series descending while another ascends is not a reversed axis, and turning
+ * only one over would put two series' column `c` at opposite ends of the
+ * chart. A row whose path could not be identified leaves the question
+ * unanswerable, so the layer keeps the order it arrived in.
+ *
+ * Only the leading vertices are read -- as many as the row has points. An
+ * `d3.area()` path runs out along the top edge and back along the baseline,
+ * so the whole list doubles back while the part that matters does not; and
+ * `LineTrace.reconcilePathCoordinates` drops the surplus from the end, so
+ * these are exactly the vertices the highlight will be built from.
+ *
+ * @param rowPaths - The `<path>` that produced each row, parallel to `data`
+ * @param data - The rows the layer is emitting
+ * @returns Whether every series runs right to left
+ */
+function drawsRightToLeft(
+  rowPaths: readonly (Element | null)[],
+  data: readonly LinePoint[][],
+): boolean {
+  if (data.length === 0 || rowPaths.length !== data.length) {
+    return false;
+  }
+  for (let row = 0; row < data.length; row++) {
+    const path = rowPaths[row];
+    if (!path) {
+      return false;
+    }
+    const xs = pathVertexXs(path).slice(0, data[row].length);
+    if (runDirection(xs) !== 'desc') {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
