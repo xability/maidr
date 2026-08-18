@@ -379,11 +379,32 @@ function spans(range: [number, number], other: [number, number]): boolean {
  * @returns The mark's leaf elements.
  */
 function leafElements(group: Element): Element[] {
+  const facets = facetGroupsOf(group);
+  if (facets.length > 0)
+    return facets.flatMap(facet => Array.from(facet.children));
+  return Array.from(group.children);
+}
+
+/**
+ * A mark's facet containers, or none when the mark is not faceted.
+ *
+ * Plot nests each facet's elements in a translated `<g>`, so a mark is faceted
+ * when *every* child is a group; a mixed set means the groups are part of the
+ * mark itself — an axis tick's line and label, say — rather than facet
+ * containers.
+ *
+ * Three separate readings turn on that distinction: what a mark's leaf elements
+ * are, how it splits into facets, and where Plot wrote the styling that says a
+ * `tick` is a box plot's median (#1074). They have to agree, so the rule lives
+ * here rather than being spelled out at each of them.
+ *
+ * @param group - A mark group.
+ * @returns The facet groups, or an empty array when the mark has none.
+ */
+export function facetGroupsOf(group: Element): Element[] {
   const children = Array.from(group.children);
   const facets = children.filter(child => child.tagName.toLowerCase() === 'g');
-  if (facets.length > 0 && facets.length === children.length)
-    return facets.flatMap(facet => Array.from(facet.children));
-  return children;
+  return facets.length > 0 && facets.length === children.length ? facets : [];
 }
 
 /**
@@ -410,20 +431,15 @@ export interface MarkFacet {
  * @returns One entry per facet, or a single entry for an unfaceted mark.
  */
 export function splitFacets(group: Element): MarkFacet[] {
-  const children = Array.from(group.children);
-  const facetGroups = children.filter(child => child.tagName.toLowerCase() === 'g');
-
-  // A mark is faceted when *every* child is a group; a mixed set means the
-  // groups are part of the mark itself (an axis tick's line and label, say)
-  // rather than facet containers.
-  if (facetGroups.length > 0 && facetGroups.length === children.length) {
+  const facetGroups = facetGroupsOf(group);
+  if (facetGroups.length > 0) {
     return facetGroups.map((facet) => {
       const [offsetX, offsetY] = translateOf(facet);
       return { offsetX, offsetY, elements: Array.from(facet.children) };
     });
   }
 
-  return [{ offsetX: 0, offsetY: 0, elements: children }];
+  return [{ offsetX: 0, offsetY: 0, elements: Array.from(group.children) }];
 }
 
 /**

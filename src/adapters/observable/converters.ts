@@ -53,6 +53,7 @@ import { Orientation, TraceType } from '@type/grammar';
 import { toCategoryShares, toSegmentedShares } from '../shared/normalize';
 import {
   boxComposites,
+  facetGroupsOf,
   findMarkGroups,
   readAxisLabel,
   readTitles,
@@ -522,13 +523,10 @@ const BOX_MEDIAN_STROKE = 2;
  * @returns True when Plot drew it as a box plot's median.
  */
 function drawnAsMedian(group: Element): boolean {
-  // Where the styling sits depends on whether the mark was faceted, and the
-  // rule for that is `splitFacets`': a mark is faceted when *every* child is a
-  // group, and Plot then writes the styling onto each of those rather than onto
-  // the mark.
-  const children = Array.from(group.children);
-  const facets = children.filter(child => child.tagName.toLowerCase() === 'g');
-  const carriers = facets.length > 0 && facets.length === children.length ? facets : [group];
+  // A faceted mark carries its styling on each facet container rather than on
+  // the mark, so that is where to look when there are any.
+  const facets = facetGroupsOf(group);
+  const carriers = facets.length > 0 ? facets : [group];
   return carriers.every(element =>
     attributeNumber(element, 'stroke-width') === BOX_MEDIAN_STROKE);
 }
