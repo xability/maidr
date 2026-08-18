@@ -1356,6 +1356,35 @@ export interface MaidrLayer {
      * 'reverse' => Q1=top, Q3=bottom (for Base R vertical boxplots)
      */
     iqrDirection?: 'forward' | 'reverse';
+    /**
+     * For a line-family layer, whether the chart draws the series' points in
+     * the opposite order from the one `data` lists them in.
+     * `'data'` (the default) => the r-th mark drawn is `data[r]`.
+     * `'reverse'` => the marks run the other way, so the last one drawn is
+     * `data[0]`.
+     *
+     * A reversed category axis draws a series from its far end while the
+     * library goes on reporting its points in the order they were written, so
+     * a chart read in the written order is announced as its own mirror image:
+     * every value right, the shape backwards, and with it the stereo pan, the
+     * braille line and the direction autoplay sweeps (#1007).
+     *
+     * A bar layer fixes that adapter-side, by reversing the rows and naming
+     * each bar outright so the highlight follows (#995). A line cannot: it has
+     * no per-point selector to permute -- `LineTrace` reads its points out of
+     * one `<path>`'s geometry, in path order, which is the *library's* data
+     * order whichever way the axis runs. Reversing the payload alone would
+     * pair `data[0]` with the vertex at the other end of the chart, trading a
+     * correct highlight for a wrong one (#988, #990). This is how an adapter
+     * says it has reversed the payload, so the trace can pair the two halves
+     * back up.
+     *
+     * Read by `LineTrace` (and the traces built on it) and ignored by every
+     * other type. Omit it unless the drawn direction is known: a layer that
+     * declares `'reverse'` and is not drawn that way outlines the wrong end
+     * of the series, which is worse than the direction being wrong on its own.
+     */
+    pointOrder?: 'data' | 'reverse';
   };
   /**
    * Axis configuration. Every axis (x, y, z) is specified as an {@link AxisConfig}

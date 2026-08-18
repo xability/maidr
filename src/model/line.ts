@@ -794,13 +794,33 @@ export class LineTrace extends AbstractTrace {
     // If the selector matches multiple DOM elements whose count equals the
     // expected data points, use them directly — no path parsing needed.
     const elementBased = this.mapViaDomElements(selectors);
-    if (elementBased) {
-      return elementBased;
-    }
-
     // Fall back to path-based approach: parse coordinates from a single
     // <path> or <polyline> element per series and create synthetic circles.
-    return this.mapViaPathParsing(selectors);
+    const mapped = elementBased ?? this.mapViaPathParsing(selectors);
+
+    return this.drawsPointsReversed && mapped !== null
+      ? mapped.map(row => [...row].reverse())
+      : mapped;
+  }
+
+  /**
+   * Whether the chart draws this layer's points in the opposite order from the
+   * one the payload lists them in.
+   *
+   * Both mappers above hand back one element per point in the order the
+   * library* drew them: a path's vertices come out in path order, and a
+   * series' markers sit in the DOM in the order they were added. Neither
+   * notices that a reversed axis put the first-listed point at the far end of
+   * the chart. An adapter that has reversed its payload to read the chart the
+   * way it is drawn says so with `domMapping.pointOrder`, and the two lists
+   * are paired back up here (#1007).
+   *
+   * Reversing the resolved elements rather than the payload keeps this to the
+   * highlight: the announcement, the pan and the braille all follow
+   * `layer.data`, which the adapter has already put in drawn order.
+   */
+  private get drawsPointsReversed(): boolean {
+    return this.layer.domMapping?.pointOrder === 'reverse';
   }
 
   /**
