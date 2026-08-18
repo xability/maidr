@@ -95,10 +95,10 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `bar` | `color`/`fill`, `stack: null` or `false` | Dodged (grouped) bar | [vegalite-binddodged.html](https://github.com/xability/maidr/blob/main/examples/vegalite-binddodged.html) |
 | `bar` | `color`/`fill`, `stack: 'normalize'` | Normalized stacked bar | [vegalite-bindnormalized.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) |
 | `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
-| `line`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
-| `line`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
-| `line` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
-| `line` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
+| `line`, `trail`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
+| `line`, `trail`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
+| `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
+| `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
 | `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
 | `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
 | `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) | — |
@@ -112,6 +112,13 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
 | `rule` + `point` layers | shared category and value channels | Lollipop | — |
 | `rule` + `point` layers, or `line` + `point` where the `line` has a `detail` naming the category | two values per category, told apart by `color` | Dumbbell | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
+
+A `trail` is read as the line it is: Vega-Lite describes it as a line whose
+width can vary, and the two compile to the same one-path-per-series geometry
+over the same channels, so every line reading above applies to a trail
+unchanged. The varying width is the one thing lost — a line point carries a
+coordinate pair and no thickness — which is a second encoding of something a
+reader already reaches by navigating.
 
 An `arc` mark is only a pie when it has a `theta` encoding: `theta` is the channel carrying the slice magnitudes, and an `arc` without one has no values to sonify, announce, or take percentages of. Such a spec is left unbound rather than announced as a pie whose numbers MAIDR would have to invent. An `arc` whose `radius` reads a data field is a polar area instead, where the wedge's length is the magnitude and its angle only says which category it is.
 
