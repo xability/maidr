@@ -28,7 +28,7 @@ import { mountFixture } from './helpers';
  * @returns The layer, or `undefined` when the chart produced none.
  */
 function boxLayer(
-  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxesOnBaseline',
+  key: 'boxPlot' | 'boxHorizontal' | 'facetedBox' | 'boxTails' | 'boxesOnBaseline' | 'boxPastItsWhisker' | 'referenceLinesThenBox',
 ): {
   data: BoxPoint[];
   selectors: BoxSelector[];
@@ -105,6 +105,37 @@ describe('reading a box plot', () => {
 
     expect(layer?.data.map(point => point.q1)).toEqual([0, 0]);
     expect(layer?.data.map(point => point.q3)).toEqual([6.75, 11.25]);
+  });
+
+  it('reads a box whose outliers pulled a quartile past its whisker', () => {
+    // Over 4, 10, 40, 42, 44, 46, 48, 50 the first quartile is 32.5 and the
+    // lower whisker stops at 40, the smallest value that is not an outlier — so
+    // the box sticks out below the whisker rather than sitting inside it. That
+    // is an ordinary box plot, and requiring the whisker to contain the box left
+    // it unrecognised, with its medians announced as a dot plot (#1088).
+    const layer = boxLayer('boxPastItsWhisker');
+
+    expect(layer?.data[0]).toEqual({
+      z: 'A',
+      lowerOutliers: [4, 10],
+      min: 40,
+      q1: 32.5,
+      q2: 43,
+      q3: 46.5,
+      max: 50,
+      upperOutliers: [],
+    });
+  });
+
+  it('takes the whiskers from the rule that runs along the box', () => {
+    // Reference lines drawn before the box plot give the composite two rule
+    // groups with the same number of lines, so counting cannot choose between
+    // them. Taking the first would announce 12 and 26 — the two reference
+    // lines — as A's and B's extremes.
+    const layer = boxLayer('referenceLinesThenBox');
+
+    expect(layer?.data.map(point => [point.min, point.max])).toEqual([[10, 20], [20, 30]]);
+    expect(layer?.data.map(point => point.q2)).toEqual([15, 25]);
   });
 
   it('gives a facet only the outliers drawn in it', () => {
@@ -188,28 +219,43 @@ describe('highlighting a box plot', () => {
 });
 
 describe('declining a box plot that cannot be paired up', () => {
-  it.each(['barRangeAndTarget', 'bulletChart', 'floatingRangeBar'] as const)(
-    'leaves %s alone when its parts only look like a box',
-    (key) => {
-      // Both satisfy every geometric relation a box plot's parts have: the tick
-      // lies inside the bar, the rule runs along it and past both ends. Read as
-      // a box they announce the bar's height as the third quartile and the
-      // target line as the median — numbers that are quartiles of nothing.
-      //
-      // Each defeats a different guess at what a box plot is. The first two
-      // stand on the baseline, which is what a magnitude does and a quartile
-      // does not; the third does not stand on anything, because a candlestick's
-      // body floats exactly as an interquartile box does. All three are drawn
-      // in the very order `boxY` emits its parts, which is also the order
-      // someone draws them in, so nothing about the arrangement separates them
-      // either. What does is that Plot draws a box plot's median twice as thick
-      // as an ordinary tick.
-      const { element } = mountFixture(key);
-      const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+  it.each([
+    { key: 'bulletChart' as const, types: [TraceType.BAR, TraceType.DOT] },
+    { key: 'barRangeAndTarget' as const, types: [TraceType.BAR, TraceType.DOT] },
+    // The candlestick's bar floats free of the baseline, so the bar reading
+    // declines it on its own account — a ranged bar has two ends and a bar
+    // point has room for one. Its marker is still read.
+    { key: 'floatingRangeBar' as const, types: [TraceType.DOT] },
+  ])('hands $key back to be read rather than reading it as a box', ({ key, types }) => {
+    // All three satisfy every geometric relation a box plot's parts have: the
+    // tick lies inside the bar, the rule runs along it. Read as a box they
+    // announce the bar's height as the third quartile and the target line as
+    // the median — numbers that are quartiles of nothing.
+    //
+    // Each also defeats a different guess at what else might separate them. The
+    // first two stand on the baseline, which is what a magnitude does and a
+    // quartile does not; the third stands on nothing, because a candlestick's
+    // body floats exactly as an interquartile box does. All three are drawn in
+    // the very order `boxY` emits its parts, which is also the order someone
+    // draws them in. What settles it is that Plot draws a box plot's median
+    // twice as thick as an ordinary tick.
+    //
+    // And declining to claim them is not the same as skipping them: their marks
+    // go back to the readings they belong to, so the chart is announced instead
+    // of going out silent.
+    const { element } = mountFixture(key);
+    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 
-      expect(layers.map(layer => layer.type)).not.toContain(TraceType.BOX);
-    },
-  );
+    expect(layers.map(layer => layer.type)).toEqual(types);
+  });
+
+  it('reads the measure under a bullet chart as the bar it is', () => {
+    const { element } = mountFixture('bulletChart');
+    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+
+    expect((layers[0].data as { x: string; y: number }[]).map(point => point.y))
+      .toEqual([6, 10]);
+  });
 
   it('leaves the chart unread when a part sits beyond the last box', () => {
     // Recognition asks whether every *box* has a median, not whether every

@@ -53,7 +53,6 @@ import { Orientation, TraceType } from '@type/grammar';
 import { toCategoryShares, toSegmentedShares } from '../shared/normalize';
 import {
   boxComposites,
-  facetGroupsOf,
   findMarkGroups,
   readAxisLabel,
   readTitles,
@@ -440,10 +439,10 @@ interface ConvertedBox {
  * Reads a box plot's four marks as one `box` layer, facet by facet.
  *
  * {@link boxComposites} has already established that these groups are a box
- * plot: every median lies inside its box and every whisker runs past both of
- * its ends. What is left is pairing them up category by category, which the
- * detection does not do — it asks whether *some* median crosses each box, and
- * a reading needs to know *which*.
+ * plot — the medians lie inside the boxes, the whiskers run along them, and
+ * Plot drew the medians the way `boxY` draws them. What is left is pairing them
+ * up category by category, which the detection does not do: it asks whether
+ * each box has some median crossing it, and a reading needs to know which one.
  *
  * A facet is matched across the four groups by its offset rather than by its
  * index. Plot emits a facet's `dot` group only where that facet has outliers,
@@ -460,9 +459,6 @@ function convertBoxComposite(
   groups: readonly { label: string; group: Element }[],
   context: ConversionContext,
 ): ConvertedBox[] {
-  if (!drawnAsMedian(groups[composite.tick].group))
-    return [];
-
   const shifted = (index: number): { facets: MarkFacet[]; shift: { x: number; y: number } } => ({
     facets: splitFacets(groups[index].group),
     // Plot centres a rule and a dot on the band by translating their whole
@@ -494,41 +490,6 @@ function convertBoxComposite(
       converted.push({ facet, converted: layer });
   }
   return converted;
-}
-
-/** The stroke width `Plot.boxY` gives its median tick. */
-const BOX_MEDIAN_STROKE = 2;
-
-/**
- * Whether a tick mark is a box plot's median rather than one an author drew.
- *
- * Geometry alone cannot answer this. A floating rect inside a rule with a line
- * across it *is* a box plot's shape, and it is equally a candlestick's body
- * with a marker on it, or any range-bar-and-target chart drawn on a categorical
- * axis. Reading one of those as a distribution announces its two ends as the
- * quartiles — numbers that are quartiles of nothing.
- *
- * What settles it is that `Plot.boxY` builds its median from a `tick` with
- * `strokeWidth: 2`, which a tick mark does not otherwise carry. Measured
- * against Plot 0.6.17, that survives both `fill` and `stroke` being overridden
- * on the box, so a chart styled by its author still reads; `fill` does not,
- * which is why the grey `#ccc` of the interquartile box is not used here.
- *
- * The evidence that justifies *withholding* a composite is not the same as the
- * evidence that justifies reading one: a false positive costs a skipped chart
- * in the first case and invented statistics in the second. This is the reading
- * asking for more than {@link boxComposites} needs (#1074, #1088).
- *
- * @param group - The `tick` mark's group.
- * @returns True when Plot drew it as a box plot's median.
- */
-function drawnAsMedian(group: Element): boolean {
-  // A faceted mark carries its styling on each facet container rather than on
-  // the mark, so that is where to look when there are any.
-  const facets = facetGroupsOf(group);
-  const carriers = facets.length > 0 ? facets : [group];
-  return carriers.every(element =>
-    attributeNumber(element, 'stroke-width') === BOX_MEDIAN_STROKE);
 }
 
 /**

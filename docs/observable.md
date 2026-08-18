@@ -275,34 +275,39 @@ every one of those numbers is recovered from the pixels the chart was drawn at.
 
 A box plot is not a mark in Plot: it is a `rule` for the whiskers, a `bar` for
 the interquartile box, a `tick` for the median and a `dot` for the outliers,
-drawn as four independent groups whose labels and attributes are exactly those
-of a hand-drawn rule, bar and tick. What identifies it is not that those marks
-are present — an error-bar chart and a bar chart with a target line each draw
-the same three — but how they sit on one another: in a box plot every median
-lies **inside** its box and every whisker runs **along** it and past both ends.
-Nothing that merely shares the mark types satisfies both, so no author sentence
-is needed and none is offered.
+drawn as four independent groups whose labels are exactly those of a hand-drawn
+rule, bar and tick. Two things identify it.
 
-Two more things have to hold before anything is announced. The parts must pair
-up one-to-one along the category axis — a chart with an extra tick, or a whisker
+**How the parts sit on one another.** Every median lies inside its box and every
+whisker runs along it. An error-bar chart and a bar chart with a target line
+draw the same three marks without either holding.
+
+**That Plot drew the median as a box plot's median.** The arrangement alone is
+not conclusive: a floating rect inside a rule with a line across it is a box
+plot's shape, and equally a bullet chart's (a qualitative range, a measure, a
+target) or a candlestick's with a marker in its body. Those are ordinary charts
+and reading one as a distribution would announce its two ends as the quartiles.
+`Plot.boxY` builds its median from a `tick` with `strokeWidth: 2`, which a tick
+mark does not otherwise carry, so the adapter asks Plot what it drew rather than
+inferring it from where things sit. Overriding the box's `fill` or `stroke` does
+not disturb this; a box plot styled by its author still reads.
+
+Because the second answers what the geometry cannot, the first can stay loose
+enough to be true of every box plot. A whisker usually reaches past both ends of
+its box, but outliers move a quartile, and enough of them on one side pull it
+beyond the whisker — so the box sticks out, and requiring containment left that
+chart unread with its medians announced as a dot plot instead. A whisker now
+only has to run along its box, not around it.
+
+No author declaration is involved, and a chart that fails either test is not
+claimed at all: its marks are handed back and read as whatever they are, so a
+bullet chart is announced as the bar chart and target it is rather than going
+out silent.
+
+One more thing has to hold before anything is announced: the parts must pair up
+one-to-one along the category axis. A chart with an extra tick, or a whisker
 with no box, is left unread rather than announced with a part borrowed from the
-wrong category. And Plot must have drawn the median as a box plot's median.
-
-That second one exists because **the geometry above is not conclusive**. A
-floating rect inside a rule with a line across it is a box plot's shape, and it
-is equally a bullet chart (a qualitative range, a measure, a target) or a
-candlestick with a marker in its body. Those are ordinary charts, drawn in the
-same order and arranged the same way, and reading one as a distribution would
-announce its two ends as the quartiles. What settles it is that `Plot.boxY`
-draws its median with `strokeWidth: 2`, which a `tick` mark does not otherwise
-carry — so the adapter asks Plot what it drew rather than inferring it from
-where things sit. Overriding the box's `fill` or `stroke` does not disturb this;
-a box plot styled by its author still reads.
-
-The evidence that justifies *withholding* a composite is not the same as the
-evidence that justifies reading one. A false positive costs a skipped chart in
-the first case and invented statistics in the second, which is why the reading
-asks for more than the recognition does.
+wrong category.
 
 Two details worth knowing:
 

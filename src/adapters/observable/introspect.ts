@@ -158,17 +158,24 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
  * that appears nowhere in the data and never hears the median or the whiskers
  * at all.
  *
- * What identifies the composite is not that those three marks are present —
- * an error bar chart, a candlestick and a bar chart with a target line each
- * draw the same three — but how they sit on top of each other. In a box plot
- * every median tick lies *inside* its box and every whisker rule *contains*
- * it. Nothing that merely shares the mark types satisfies both.
+ * Two things identify it, and neither would do alone. How the parts sit on one
+ * another narrows the field: every median lies inside its box and every whisker
+ * runs along it, which an error bar chart and a bar chart with a target line do
+ * not satisfy. And the median's own stroke width says which of the charts that
+ * also satisfy it this is — a bullet chart and a candlestick with a marker in
+ * its body arrange their parts exactly as a box plot does, because a floating
+ * rect inside a rule with a line across it simply is that shape (#1088).
  *
- * That is conclusive enough to read the composite as a box plot rather than
- * merely to skip it, which is what the caller does with the answer. It stays
- * the outer gate either way: a composite this refuses is four marks that were
- * never a box plot, and one it finds but the reader cannot pair up is skipped
- * as it was before (#1074).
+ * Because the second answers what the arrangement cannot, the first is only as
+ * strict as every box plot really is: a whisker has to run along its box rather
+ * than around it. Outliers move a quartile, and enough of them on one side pull it
+ * past the whisker's end, so a perfectly ordinary box plot can have its box
+ * stick out.
+ *
+ * This is the outer gate. A composite it refuses is four marks that were never
+ * a box plot, and is left to be read as whatever they are; one it finds but the
+ * reader cannot pair up is skipped as it was before any of this was read
+ * (#1074).
  *
  * @param groups - The plot's mark groups, in draw order.
  * @returns One entry per box plot found, in draw order.
@@ -226,7 +233,18 @@ export interface BoxComposite {
  * @param tick - The candidate medians.
  * @returns True when every box has a median inside it and a whisker around it.
  */
+/** The stroke width `Plot.boxY` gives its median tick. */
+const BOX_MEDIAN_STROKE = 2;
+
 function isBoxComposite(bar: Element, rule: Element, tick: Element): boolean {
+  // Geometry cannot finish this on its own. A floating rect inside a rule with
+  // a line across it is a box plot's shape, and equally a bullet chart's or a
+  // candlestick-with-a-marker's, so the arrangement narrows the field and this
+  // says which of them it is: `Plot.boxY` builds its median from a tick with
+  // `strokeWidth: 2`, which a tick mark does not otherwise carry (#1088).
+  if (!drawnAsMedian(tick))
+    return false;
+
   const boxes = leafElements(bar).map(boxOf).filter((box): box is Box => box !== null);
   const ticks = leafElements(tick).map(segmentOf).filter((one): one is Segment => one !== null);
   const rules = leafElements(rule).map(segmentOf).filter((one): one is Segment => one !== null);
@@ -235,10 +253,31 @@ function isBoxComposite(bar: Element, rule: Element, tick: Element): boolean {
 
   // Either way round: `boxY` stacks its parts vertically and `boxX`
   // horizontally, and both draw the same relationship — the median across the
-  // box, the whisker along it and past both ends.
+  // box, the whisker running along it.
   return boxes.every(box =>
     ticks.some(median => crosses(box, median))
-    && rules.some(whisker => runsThrough(box, whisker)));
+    && rules.some(whisker => runsAlong(box, whisker)));
+}
+
+/**
+ * Whether a tick mark is a box plot's median rather than one an author drew.
+ *
+ * Measured against Plot 0.6.17, the stroke width survives the box's `fill` and
+ * `stroke` being overridden, so a chart styled by its author is still
+ * recognised; `fill` does not, which is why the grey `#ccc` interquartile box
+ * is not what is tested. A faceted mark carries its styling on each facet
+ * container rather than on the mark itself.
+ *
+ * @param tick - The candidate medians' mark group.
+ * @returns True when Plot drew them as a box plot's medians.
+ */
+function drawnAsMedian(tick: Element): boolean {
+  const facets = facetGroupsOf(tick);
+  const carriers = facets.length > 0 ? facets : [tick];
+  return carriers.every((element) => {
+    const width = numberOf(element, 'stroke-width');
+    return width === BOX_MEDIAN_STROKE;
+  });
 }
 
 /**
@@ -254,16 +293,20 @@ function crosses(box: Box, line: Segment): boolean {
 }
 
 /**
- * Whether a line runs along a box and past both of its ends, the way a whisker
- * does.
+ * Whether a line runs along a box the way a whisker does.
+ *
+ * Overlapping rather than containing. A whisker usually does reach past both
+ * ends of its box, and requiring that was the original test — but outliers
+ * move a quartile, and enough of them on one side pull it beyond the whisker's
+ * end, so a perfectly ordinary box plot can have its box stick out (#1088).
+ * What holds either way is that the two run along the same axis and meet.
  *
  * @param box  - The interquartile box.
  * @param line - The candidate whisker.
  * @returns True on either axis.
  */
-function runsThrough(box: Box, line: Segment): boolean {
-  return (spans(box.x, line.x) && contains(line.y, box.y))
-    || (spans(box.y, line.y) && contains(line.x, box.x));
+function runsAlong(box: Box, line: Segment): boolean {
+  return spans(box.x, line.x) && spans(box.y, line.y);
 }
 
 /**
@@ -357,11 +400,6 @@ function midpoint(range: [number, number]): number {
 /** Whether a value lies within a range. */
 function within(range: [number, number], value: number): boolean {
   return value >= range[0] - SLACK && value <= range[1] + SLACK;
-}
-
-/** Whether an outer range covers an inner one. */
-function contains(outer: [number, number], inner: [number, number]): boolean {
-  return outer[0] <= inner[0] + SLACK && outer[1] >= inner[1] - SLACK;
 }
 
 /** Whether two ranges overlap along an axis. */
