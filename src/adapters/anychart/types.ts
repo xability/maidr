@@ -162,6 +162,18 @@ export interface AnyChartScale {
    * itself says so.
    */
   getType?: () => string;
+
+  /**
+   * Whether the scale is drawn from its far end.
+   *
+   * Read on the X scale only, and only to answer where a bar chart's
+   * categories start. AnyChart's own defaults differ by chart type -- a `bar`
+   * (horizontal) starts inverted so its first category sits at the top, a
+   * `column` does not -- so this is `true` on an ordinary horizontal bar
+   * chart and says nothing is wrong; what matters is that it disagrees with
+   * the order the marks are rendered in (#1021).
+   */
+  inverted?: () => boolean;
 }
 
 /** Rendering stage / container element. */
