@@ -60,8 +60,9 @@ export type MaidrVictoryProps = VictoryAdapterConfig;
 /**
  * Victory chart component types that MAIDR can extract data from.
  *
- * VictoryStack is a container component (handled separately from the
- * individual data components) that maps to a stacked bar chart.
+ * VictoryStack and VictoryGroup are container components (handled separately
+ * from the individual data components) that map to a stacked and a dodged bar
+ * chart respectively.
  */
 export type VictoryComponentType
   = | 'VictoryArea'
@@ -73,7 +74,8 @@ export type VictoryComponentType
     | 'VictoryErrorBar'
     | 'VictoryHistogram'
     | 'VictoryPie'
-    | 'VictoryStack';
+    | 'VictoryStack'
+    | 'VictoryGroup';
 
 /**
  * Discriminated union of all supported layer data shapes.
@@ -121,6 +123,16 @@ export type VictoryLayerData
     /** A `VictoryPie` (or a doughnut — the same component with an `innerRadius`). */
     | { kind: 'pie'; points: PiePoint[] }
     | { kind: 'segmented'; points: SegmentedPoint[][] }
+    /**
+     * A `VictoryGroup` of `VictoryBar` children -- the grouped bar chart that
+     * is `VictoryStack`'s direct counterpart, and that used to emit no layer
+     * at all because the walk never descended into the group (#1057).
+     *
+     * The same per-series points a stack carries: what differs is that the
+     * bars sit side by side rather than on one another, so nothing accumulates
+     * and the values are read as they are.
+     */
+    | { kind: 'dodged'; points: SegmentedPoint[][] }
     /**
      * A `VictoryStack` of two `VictoryBar` children signed against each other
      * — a population pyramid. The values stay signed as the chart draws them,
