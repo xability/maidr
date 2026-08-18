@@ -139,3 +139,133 @@ describe('TextService wording for a panel with no layers', () => {
     expect(text.emptySubplotText(1, 2, '')).toBeNull();
   });
 });
+
+/**
+ * The stricter cousin of the case above: a subplot with no `layers` *key*
+ * at all, rather than an empty array.
+ *
+ * `layers` is required in `MaidrSubplot`, but that is a claim about
+ * TypeScript callers and the schema arrives at runtime as JSON — from
+ * py-maidr, from r-maidr, from a hand-authored `maidr` attribute. Any of
+ * them can emit a cell the type says is impossible; py-maidr did, for
+ * every unoccupied position of a sparse subplot grid
+ * (xability/py-maidr#512).
+ *
+ * This one failed earlier and harder than #749 did. `Figure`'s constructor
+ * maps every cell through `new Subplot`, which read `layers.length`
+ * unguarded — so one bare cell threw during construction and *no* part of
+ * the chart initialised. The SVG still drew, so the page looked finished
+ * and the key that starts navigation did nothing at all.
+ */
+describe('subplot with no layers key', () => {
+  /**
+   * The shapes a producer actually emits when it forgets the contract.
+   *
+   * The non-array cases are not hypothetical padding: `{ layers: {} }` is
+   * truthy, so a guard written for the missing key alone lets it through and
+   * `layers.map` throws one line later — the same abort, wearing a different
+   * hat.
+   */
+  const MALFORMED: ReadonlyArray<readonly [string, MaidrSubplot]> = [
+    ['no layers key', {} as unknown as MaidrSubplot],
+    ['a null cell', null as unknown as MaidrSubplot],
+    ['layers as an object', { layers: {} } as unknown as MaidrSubplot],
+    ['layers as a string', { layers: 'bar' } as unknown as MaidrSubplot],
+  ];
+
+  function createFigureWith(cell: MaidrSubplot): Figure {
+    const maidr: Maidr = {
+      id: 'bare-cell',
+      subplots: [[barSubplot('sp-1', 1), cell, barSubplot('sp-3', 3)]],
+    } as Maidr;
+    return new Figure(maidr);
+  }
+
+  function createFigureWithABareCell(): Figure {
+    return createFigureWith(MALFORMED[0][1]);
+  }
+
+  test.each(MALFORMED)('a cell with %s does not abort the figure', (_name, cell) => {
+    expect(() => createFigureWith(cell)).not.toThrow();
+
+    const [row] = createFigureWith(cell).subplots;
+    expect(row[0].activeTrace).not.toBeNull();
+    expect(row[1].activeTrace).toBeNull();
+    expect(row[2].activeTrace).not.toBeNull();
+  });
+
+  test('constructing the figure does not throw', () => {
+    expect(() => createFigureWithABareCell()).not.toThrow();
+  });
+
+  test('the well-formed cells either side are still built', () => {
+    const [row] = createFigureWithABareCell().subplots;
+
+    expect(row).toHaveLength(3);
+    expect(row[0].activeTrace).not.toBeNull();
+    expect(row[2].activeTrace).not.toBeNull();
+  });
+
+  test('the bare cell reads as empty rather than as something broken', () => {
+    const bare = createFigureWithABareCell().subplots[0][1];
+
+    expect(bare.activeTrace).toBeNull();
+    expect(bare.state).toEqual({ empty: true, type: 'subplot' });
+  });
+
+  test('the figure is navigable, which is the whole point', () => {
+    const figure = createFigureWithABareCell();
+    const context = new Context(figure);
+
+    expect(context.state.type).toBe('figure');
+    // Past the bare cell and into the far one.
+    expect(figure.moveToIndex(0, 2)).toBe(true);
+    expect(context.enterSubplot()).toBe(true);
+    expect(context.state.type).toBe('trace');
+  });
+
+  test('the position is named on the console, so a producer can find it', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      createFigureWithABareCell();
+
+      const messages = warn.mock.calls.map(call => String(call[0]));
+      const reported = messages.filter(m => m.includes('has no `layers` array'));
+
+      expect(reported).toHaveLength(1);
+      // The coordinates matter more than the wording: without them the
+      // warning cannot be acted on in a grid of any size.
+      expect(reported[0]).toContain('[0][1]');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test.each(MALFORMED)('a cell with %s is reported, not just survived', (_name, cell) => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      createFigureWith(cell);
+
+      const messages = warn.mock.calls.map(call => String(call[0]));
+      expect(messages.filter(m => m.includes('has no `layers` array'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test('a well-formed figure says nothing', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const figure = new Figure({
+        id: 'all-well-formed',
+        subplots: [[barSubplot('sp-1', 1), EMPTY_SUBPLOT]],
+      } as Maidr);
+      expect(figure.subplots[0]).toHaveLength(2);
+
+      const messages = warn.mock.calls.map(call => String(call[0]));
+      expect(messages.filter(m => m.includes('has no `layers` array'))).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
