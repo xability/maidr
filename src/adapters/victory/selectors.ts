@@ -161,8 +161,11 @@ export function clearTaggedElements(container: HTMLElement): void {
  *                     page-wide
  * @param panelIndex - Panel index in multi-panel mode; `null` keeps the
  *                     original single-panel attribute naming
- * @returns A CSS selector string, or `undefined` if elements could not be
- *          matched (highlighting will gracefully degrade).
+ * @returns Whatever names this layer's marks: one CSS selector for a series
+ *          the model can walk positionally, a `string[]` when the marks have
+ *          to be named one by one, or the structured selector a box or a
+ *          candle needs. `undefined` if the elements could not be matched, in
+ *          which case highlighting degrades gracefully.
  */
 export function tagLayerElements(
   svg: SVGElement,
@@ -247,7 +250,11 @@ function tagDiscreteElements(
   }
 
   for (const el of matched) {
-    el.setAttribute(attrName, '');
+    // A reversed layer names its marks one by one below, and the shared
+    // attribute would then be a second, wrongly-ordered way to select them.
+    if (!layer.categoriesReversed) {
+      el.setAttribute(attrName, '');
+    }
     claimed.add(el);
     // Scatter points are <path> elements positioned by their `d` moveto, so
     // they expose no x/y or cx/cy. Stamp cx/cy from the path centre so MAIDR's

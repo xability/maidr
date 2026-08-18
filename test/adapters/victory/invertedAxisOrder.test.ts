@@ -69,6 +69,7 @@ const DATA = LISTED.map((x, i) => ({ x, y: (i + 1) * 10 }));
  * @param options.dependentInvert - Whether the *dependent* axis is inverted
  * @param options.label - A label for the independent axis, when it has one
  * @param options.line - Draw a `VictoryLine` instead of a `VictoryBar`
+ * @param options.horizontal - Turn the chart on its side
  * @returns The extracted layers
  */
 function layersFor(options: {
@@ -76,12 +77,13 @@ function layersFor(options: {
   dependentInvert?: boolean;
   label?: string;
   line?: boolean;
+  horizontal?: boolean;
 } = {}): VictoryLayerInfo[] {
   const mark = options.line ? VictoryLine : VictoryBar;
   return extractVictoryLayers(
     createElement(
       VictoryChart,
-      null,
+      options.horizontal ? { horizontal: true } : null,
       createElement(VictoryAxis, {
         ...(options.invert ? { invertAxis: true } : {}),
         ...(options.label ? { label: options.label } : {}),
@@ -158,6 +160,24 @@ describe('a victory chart on an inverted independent axis', () => {
     expect(categoriesOf(layersFor({ dependentInvert: true })[0])).toEqual(LISTED);
   });
 
+  it('turns a horizontal chart round too', () => {
+    // `horizontal` swaps which screen axis the categories run along, but not
+    // which `<VictoryAxis>` declares them: the independent one is still the
+    // element without `dependentAxis`. Measured only on a vertical bar, so
+    // this pins that the fix does not quietly depend on the orientation.
+    const layer = layersFor({ invert: true, horizontal: true })[0];
+
+    expect(categoriesOf(layer)).toEqual(DRAWN);
+    expect(layer.orientation).toBe('horz');
+  });
+
+  it('leaves a horizontal chart alone when nothing is inverted', () => {
+    const layer = layersFor({ horizontal: true })[0];
+
+    expect(categoriesOf(layer)).toEqual(LISTED);
+    expect(layer.categoriesReversed).toBeUndefined();
+  });
+
   it('leaves a line alone, whose order the adapter cannot give', () => {
     // A line is one `<path>`, and `LineTrace` pairs vertex i with point i.
     // Both are in data order and so agree; reversing the payload alone would
@@ -206,6 +226,26 @@ describe('the highlight follows the categories', () => {
     const found = selectors.map(s => doc.querySelector(s)?.getAttribute('data-datum'));
 
     expect(found).toEqual(categoriesOf(layer));
+  });
+
+  it('leaves no shared attribute behind to select them wrongly', () => {
+    // The shared attribute is what a single selector resolves positionally.
+    // Left on a reversed layer it would be a second, oppositely-ordered way to
+    // reach the same marks — harmless only until something used it.
+    const { container } = buildContainer(4);
+    const svg = container.querySelector('svg') as SVGElement;
+    tagLayerElements(svg, layersFor({ invert: true })[0], 0, new Set(), '');
+
+    expect(svg.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(0);
+    expect(svg.querySelectorAll('[data-maidr-victory-0-0]')).toHaveLength(1);
+  });
+
+  it('keeps the shared attribute on an ordinary chart', () => {
+    const { container } = buildContainer(4);
+    const svg = container.querySelector('svg') as SVGElement;
+    tagLayerElements(svg, layersFor()[0], 0, new Set(), '');
+
+    expect(svg.querySelectorAll('[data-maidr-victory-0]')).toHaveLength(4);
   });
 
   it('leaves an ordinary chart on its single selector', () => {

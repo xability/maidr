@@ -1230,7 +1230,7 @@ const REVERSIBLE_KINDS = new Set(['bar', 'dot', 'histogram', 'waterfall']);
  * @param inverted - Whether the independent axis is inverted
  * @returns The same layers, turned round where that is expressible
  */
-export function readInDrawnOrder(
+function readInDrawnOrder(
   layers: VictoryLayerInfo[],
   inverted: boolean,
 ): VictoryLayerInfo[] {
