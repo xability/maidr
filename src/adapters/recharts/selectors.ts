@@ -269,6 +269,50 @@ export function getPanelClassSelector(row: number, col: number): string {
  *                     panel's container within the article (subplot mode)
  * @returns CSS selector string, or undefined for multi-series targeting
  */
+/** The wrapper Recharts puts round each bar, and what `:nth-child` counts. */
+const BAR_WRAPPER_CLASS = '.recharts-bar-rectangle';
+
+/**
+ * One selector per bar, naming the marks in the order the payload lists them.
+ *
+ * The default bar selector matches every `.recharts-bar-rectangle`, which the
+ * model resolves in document order -- and Recharts renders its rectangles in
+ * data order whichever way the axis runs. A layer read from the far end
+ * therefore cannot use it: point 0 would outline the bar at the other end
+ * (#1017).
+ *
+ * Recharts stamps nothing per point and the schema is built before the chart
+ * has rendered, so there is no attribute to name; position is what there is.
+ * The bars are the only children of their own `<g class="recharts-layer">` --
+ * measured on Recharts 3.8.1 -- so `:nth-child` counts exactly them.
+ *
+ * The list this returns runs **descending** in `:nth-child`, because payload
+ * position 0 is the last bar drawn. That is the direction #1004 requires:
+ * `Svg.selectElement` inserts its clone next to the match while the list is
+ * still being resolved, so an ascending positional list returns the first
+ * element over and over.
+ *
+ * @param base - The default selector for this chart type, scope and all
+ * @param pointCount - How many bars the series drew
+ * @returns One selector per point in the payload's order, or `null` when the
+ *          base is not one this can count -- the caller then keeps it whole
+ *          rather than emitting a list that names nothing
+ */
+export function reversedBarSelectors(base: string, pointCount: number): string[] | null {
+  // Inserted after the wrapper class rather than after the first token: the
+  // base carries the chart's own `#maidr-article-…` scope, and in multi-panel
+  // mode a panel scope as well, so counting the first thing in the string
+  // would number the article instead of the bars.
+  if (!base.includes(BAR_WRAPPER_CLASS)) {
+    return null;
+  }
+  return Array.from({ length: pointCount }, (_, i) =>
+    base.replace(
+      BAR_WRAPPER_CLASS,
+      `${BAR_WRAPPER_CLASS}:nth-child(${pointCount - i})`,
+    ));
+}
+
 export function getRechartsSelector(
   chartType: RechartsChartType,
   seriesIndex?: number,

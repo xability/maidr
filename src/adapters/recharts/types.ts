@@ -1090,6 +1090,25 @@ export interface RechartsAdapterConfig {
    */
   chartType?: RechartsChartType;
 
+  /**
+   * Whether the axis carrying the categories is drawn from its far end.
+   *
+   * Not a prop an author sets: {@link MaidrRecharts} derives it by reading
+   * `reversed` off the `<XAxis>` / `<YAxis>` inside its own children, which is
+   * where Recharts states it and where the converter cannot otherwise see it
+   * (#1017).
+   */
+  categoryAxisReversed?: boolean;
+
+  /**
+   * The same answer per panel, in the grid's row-major order, in subplot mode.
+   *
+   * A panel has its own chart and so its own axes: one verdict for the whole
+   * grid would apply the first panel's answer to every other. Derived by
+   * {@link MaidrRecharts} from each panel's own child element.
+   */
+  categoryAxisReversedPerPanel?: boolean[];
+
   /** Key in data objects for x-axis values. */
   xKey: string;
 

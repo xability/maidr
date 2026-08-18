@@ -42,6 +42,8 @@ import type { JSX, ReactNode } from 'react';
 import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
+import { Orientation } from '../../type/grammar';
+import { categoryAxisReversedFor } from './axisDirection';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -141,6 +143,16 @@ export function MaidrRecharts({
 }: MaidrRechartsProps): JSX.Element {
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
+      // Simple and composed mode read the one chart's axes; subplot mode reads
+      // each panel's own, since a panel is its own chart with its own axes and
+      // the walk would otherwise stop at whichever axis it met first.
+      categoryAxisReversed: subplots
+        ? undefined
+        : categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
+      categoryAxisReversedPerPanel: subplots
+        ? Children.toArray(children).map(panel =>
+            categoryAxisReversedFor(panel, orientation === Orientation.HORIZONTAL))
+        : undefined,
       id,
       title,
       subtitle,
@@ -171,7 +183,9 @@ export function MaidrRecharts({
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    // `children` joins the list because the schema now reads the axes out of
+    // it; without that a chart that flips `reversed` would keep the old order.
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride, children],
   );
 
   return (

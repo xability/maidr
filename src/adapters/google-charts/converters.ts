@@ -800,11 +800,27 @@ function buildBarLayer(
     ? markPointMarkerElements(chart, container, rows, 'data-maidr-dot', 'Dot plot point')
     : markBarElements(chart, container, rows, 1);
 
+  // A reversed category axis draws the bars from the far end while Google goes
+  // on emitting the rects in row order, so the payload and the selectors turn
+  // round together -- reversing one alone announces a bar and outlines another
+  // (#1020, and #988 / #1000 before it). Only for the rect-drawn readings,
+  // whose marks `markBarElements` stamped one by one; a funnel has no axis to
+  // reverse and a dot plot's markers are stamped by another pass.
+  const turnRound = (traceType === TraceType.BAR || traceType === TraceType.LOLLIPOP)
+    && typeof selector === 'string'
+    && selector.includes('data-maidr-bar')
+    && drawsCategoriesReversed(chart, rows, horizontal);
+  if (turnRound) {
+    data.reverse();
+  }
+
   return {
     id: nextId('layer'),
     type: traceType,
     orientation,
-    ...(selector ? { selectors: selector } : {}),
+    ...(turnRound
+      ? { selectors: reversedBarSelectors(container.id, rows) }
+      : (selector ? { selectors: selector } : {})),
     axes: barAxes(
       dt.getColumnLabel(0) || undefined,
       dt.getColumnLabel(dataCol) || undefined,
@@ -2651,6 +2667,88 @@ function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
  * @param seriesCount - Number of data series
  * @returns CSS selector for the marked elements, or undefined if no elements found
  */
+/**
+ * Whether the chart draws its categories in the opposite order to the rows.
+ *
+ * `hAxis: {direction: -1}` (or `vAxis` on a bar chart) reverses which end the
+ * categories start at, while Google goes on emitting the rects in row order --
+ * so a layer emitted as written is announced as the mirror image of the chart
+ * (#1020).
+ *
+ * The draw options never reach this adapter, but they do not have to: the
+ * layout interface reports where each row was actually placed, and the drawing
+ * is what the reading has to follow. This is the same interface
+ * {@link markBarElements} already uses to find the rects, so nothing new is
+ * asked of the chart or of the caller.
+ *
+ * **Which location is asked follows the orientation**, because Google puts the
+ * categories on whichever axis the bars do not run along: a `ColumnChart` has
+ * them on x, a `BarChart` on y. Asking x on a horizontal chart reads the
+ * magnitude* axis, which is virtually never itself reversed -- so the check
+ * would answer no however the categories were drawn. Measured on four rows:
+ *
+ *   ColumnChart, plain                  getXLocation(0) = 162  (3) = 439
+ *   ColumnChart, hAxis: {direction:-1}  getXLocation(0) = 439  (3) = 162
+ *   BarChart,    plain                  getYLocation(0) = 108  (3) = 293
+ *   BarChart,    vAxis: {direction:-1}  getYLocation(0) = 293  (3) = 108
+ *
+ * and, on that same reversed `BarChart`, `getXLocation` reads 116 then 127 --
+ * ascending, and unchanged from the plain chart, which is what asking the
+ * wrong axis buys.
+ *
+ * The comparison itself is the same either way. Google numbers y downward, so
+ * a smaller number is nearer the top, and "the last row lands before the
+ * first" reads as `last < first` on both axes.
+ *
+ * A chart that answers neither location -- one drawn without a cartesian
+ * layout, or a build whose interface differs -- keeps the reading it has today
+ * rather than being turned round on a guess.
+ *
+ * @param chart - The drawn Google Chart
+ * @param rowCount - How many rows the DataTable holds
+ * @param horizontal - Whether the bars run along x, putting categories on y
+ * @returns True when the last row is drawn before the first
+ */
+function drawsCategoriesReversed(
+  chart: GoogleChart,
+  rowCount: number,
+  horizontal: boolean,
+): boolean {
+  if (rowCount < 2)
+    return false;
+  try {
+    const layout = chart.getChartLayoutInterface();
+    const locate = horizontal ? layout?.getYLocation : layout?.getXLocation;
+    const first = locate?.call(layout, 0);
+    const last = locate?.call(layout, rowCount - 1);
+    if (typeof first !== 'number' || typeof last !== 'number'
+      || !Number.isFinite(first) || !Number.isFinite(last)) {
+      return false;
+    }
+    return last < first;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One selector per bar, naming the marks in the order the payload lists them.
+ *
+ * {@link markBarElements} stamps `data-maidr-bar="<series>-<row>"` on every
+ * rect, so a reversed reading needs no new attribute -- only the list, built
+ * from the far end (#1020).
+ *
+ * @param containerId - The chart container's id
+ * @param rowCount - How many rows the DataTable holds
+ * @returns One selector per row, in the payload's order
+ */
+function reversedBarSelectors(containerId: string, rowCount: number): string[] {
+  return Array.from(
+    { length: rowCount },
+    (_, i) => `#${containerId} svg rect[data-maidr-bar="0-${rowCount - 1 - i}"]`,
+  );
+}
+
 function markBarElements(
   chart: GoogleChart,
   container: HTMLElement,
