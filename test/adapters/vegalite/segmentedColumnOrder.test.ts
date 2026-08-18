@@ -95,7 +95,11 @@ const SORTED_ROWS = [
  * @param horizontal - Whether the bars grow sideways
  * @returns The spec
  */
-function specFor(values: typeof ROWS, horizontal = false): VegaLiteSpec {
+function specFor(
+  values: typeof ROWS,
+  horizontal = false,
+  dodged = false,
+): VegaLiteSpec {
   const category = { field: 'cat', type: 'nominal' };
   const measure = { field: 'v', type: 'quantitative' };
   return {
@@ -105,6 +109,7 @@ function specFor(values: typeof ROWS, horizontal = false): VegaLiteSpec {
       x: horizontal ? measure : category,
       y: horizontal ? category : measure,
       color: { field: 'grp', type: 'nominal' },
+      ...(dodged ? { xOffset: { field: 'grp', type: 'nominal' } } : {}),
     },
   } as unknown as VegaLiteSpec;
 }
@@ -118,6 +123,7 @@ function specFor(values: typeof ROWS, horizontal = false): VegaLiteSpec {
 function chart(
   rows: typeof ROWS = ROWS,
   horizontal = false,
+  withFill = true,
 ): { container: HTMLElement; view: VegaView } {
   const container = document.createElement('div');
   container.id = 'chart';
@@ -131,7 +137,9 @@ function chart(
     // `detectSegmentedDomOrder` reads the first two marks' fills to tell
     // series-major emission from subject-major, and reports nothing at all
     // when a mark has no fill — which is how `domMapping` comes to be set.
-    path.setAttribute('fill', row.grp === 'A' ? '#4c78a8' : '#f58518');
+    if (withFill) {
+      path.setAttribute('fill', row.grp === 'A' ? '#4c78a8' : '#f58518');
+    }
     // Turned on its side the categories run down the page, so the measured
     // position rides y instead of x.
     const along = DRAWN_X[row.cat];
@@ -266,6 +274,30 @@ describe('a Vega-Lite segmented bar', () => {
     // reading depends on no longer describes the DOM.
     const { view } = chart(COLUMN_MAJOR_ROWS);
     bindVegaLite(view, specFor(COLUMN_MAJOR_ROWS));
+
+    expect(domOrder()).toEqual([
+      'alpha',
+      'alpha',
+      'bravo',
+      'bravo',
+      'charlie',
+      'charlie',
+    ]);
+  });
+
+  it('falls back to a dodged chart\'s own grouping when detection declines', () => {
+    // `applySegmentedDomMappings` normally settles `domMapping` first, but
+    // `detectSegmentedDomOrder` declines when it cannot resolve the first two
+    // marks' fills — so each pass falls back to its type's default, and a
+    // dodged chart's is subject-major. Defaulting to `'row'` for every type
+    // here would put this pass at odds with
+    // `reorderDodgedBarsByVisualPosition`, which assumes `'column'` when it
+    // re-appends just above.
+    //
+    // Marks are emitted subject-major and carry no fill, which is what makes
+    // the detection decline rather than merely disagree.
+    const { view } = chart(COLUMN_MAJOR_ROWS, false, false);
+    bindVegaLite(view, specFor(COLUMN_MAJOR_ROWS, false, true));
 
     expect(domOrder()).toEqual([
       'alpha',

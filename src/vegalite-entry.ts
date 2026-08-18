@@ -571,7 +571,16 @@ function reorderSegmentedColumnsByVisualOrder(
       continue;
     }
 
-    const order = layer.domMapping?.order ?? 'row';
+    // `applySegmentedDomMappings` normally settles this before any of the
+    // three passes run, but `detectSegmentedDomOrder` declines when it cannot
+    // resolve the first two marks' fills — and then each pass falls back to
+    // its own type's default. A dodged chart's is subject-major, which is what
+    // `reorderDodgedBarsByVisualPosition` assumes when it re-appends just
+    // above; defaulting to `'row'` for every type here would leave the two
+    // disagreeing about how the flat list chunks, and this one would regroup
+    // the DOM the other pass had just arranged.
+    const order = layer.domMapping?.order
+      ?? (layer.type === TraceType.DODGED ? 'column' : 'row');
     const domIndex = (series: number, category: number): number =>
       order === 'column'
         ? category * seriesCount + series
