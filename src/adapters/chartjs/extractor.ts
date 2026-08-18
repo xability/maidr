@@ -1696,20 +1696,26 @@ function extractLineLayers(
   if (isDotPlot(chart, declared))
     return extractDotLayers(chart, pluginOptions, datasetIndices);
 
+  // Read in the order the categories are *drawn*, which a reversed axis turns
+  // round (#1029): the written order announces the chart as its own mirror
+  // image -- every value right, the shape backwards, and with it the stereo
+  // pan, the braille line and the direction autoplay sweeps.
+  //
   // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
-  // the plugin re-derives the original Chart.js indices for highlight alignment.
+  // the plugin re-derives the original Chart.js indices for highlight
+  // alignment, from this same walk so the two cannot disagree (#1024).
   const linePoints = (dataset: ChartJsDataset, dsIdx: number): LinePoint[] => {
     const points: LinePoint[] = [];
-    dataset.data.forEach((value, i) => {
-      const num = toFiniteNumber(value);
+    for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
+      const num = toFiniteNumber(dataset.data[i]);
       if (num === null)
-        return;
+        continue;
       points.push({
         x: labels[i] ?? i,
         y: num,
         z: dataset.label ?? `Line ${dsIdx + 1}`,
       });
-    });
+    }
     return points;
   };
 

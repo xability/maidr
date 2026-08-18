@@ -309,18 +309,34 @@ export function computeTargetMaps(
       // A filled band is drawn from the same dataset a line is, one per
       // series, so it indexes identically — the fill changes the mark, not
       // where a point lives. A staircase is the same again, and so are the
-      // spokes of a radar, the ranks of a bump chart and the arms of a
-      // survival curve: one row per series, one column per position along it.
+      // ranks of a bump chart: one row per series, one column per position
+      // along it. All six come out of `extractLineLayers`' one walk, so they
+      // are read in the order the categories are drawn (#1029) and their map
+      // is built by that same walk.
       case TraceType.LINE:
       case TraceType.AREA:
       case TraceType.STACKED_AREA:
       case TraceType.NORMALIZED_AREA:
       case TraceType.STEP:
+      case TraceType.BUMP: {
+        // One MAIDR row per backing dataset, in MAIDR row order.
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        barLineIndices.set(
+          layer.id,
+          dsIndices.map(dsIdx =>
+            drawnEntryIndices(chart, datasets[dsIdx]?.data ?? [], value =>
+              toFiniteNumber(value) !== null)),
+        );
+        break;
+      }
+      // The same row-and-column shape, from walks of their own -- a survival
+      // curve is extracted by `extractSurvivalLayer`, and the spokes of a
+      // radar or a polar area are laid out around a radial `r` scale, which
+      // has no Cartesian category axis to reverse. Keeping the written order
+      // here is what keeps each of them paired with its own payload.
       case TraceType.SURVIVAL:
-      case TraceType.BUMP:
       case TraceType.RADAR:
       case TraceType.POLAR_AREA: {
-        // One MAIDR row per backing dataset, in MAIDR row order.
         const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
         barLineIndices.set(
           layer.id,
