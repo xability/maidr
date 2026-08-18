@@ -21,8 +21,9 @@
  *   step        M65,128.75 L127.5,128.75 L127.5,16.25 L252.5,16.25 …
  *
  * So `stepAfter` risers at the next sample (`hv`), `stepBefore` at the current
- * one (`vh`), and `step` at 127.5 — the midpoint of 65 and 190, which is
- * neither convention and which `StepDirection` cannot name.
+ * one (`vh`), and `step` at 127.5 — the midpoint of 65 and 190, which the
+ * grammar names `mid`. That third case was left unmapped until #1075, on the
+ * mistaken belief that `StepDirection` had no name for it.
  */
 
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';

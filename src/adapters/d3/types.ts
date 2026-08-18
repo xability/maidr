@@ -158,15 +158,18 @@ export interface D3LineConfig extends D3BinderConfig {
    * Which way the risers of a step curve go, when the line is drawn as one.
    *
    * `'hv'` holds the level and jumps at the next sample, which is
-   * `d3.curveStepAfter`; `'vh'` jumps at the current one, `d3.curveStepBefore`.
-   * Declaring it is what turns a `bindD3Line` bind into a step reading —
-   * navigated by transition rather than by sample, and described in terms of
-   * its runs — and what tells an area's trace that the extra vertices in the
-   * rendered path are risers rather than samples.
+   * `d3.curveStepAfter`; `'vh'` jumps at the current one, `d3.curveStepBefore`;
+   * `'mid'` jumps halfway between the two, `d3.curveStep`. Declaring it is what
+   * turns a `bindD3Line` bind into a step reading — navigated by transition
+   * rather than by sample, and described in terms of its runs — and what tells
+   * an area's trace that the extra vertices in the rendered path are risers
+   * rather than samples.
    *
-   * Left undefined by default rather than guessed: `d3.curveStep` puts the
-   * riser midway between the samples, which is neither convention, and
-   * `StepTrace` announces no direction rather than claiming a wrong one.
+   * Left undefined by default rather than guessed, because this binder reads
+   * its data off `__data__` and never looks at the path: which curve you drew
+   * is your own knowledge, not something the drawing gives back. All three of
+   * d3's step curves have a name here, so leaving it out is a caller saying
+   * nothing rather than a convention MAIDR cannot express.
    */
   stepDirection?: StepDirection;
 }
