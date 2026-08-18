@@ -66,6 +66,7 @@ Unlike config-driven adapters, you do not pass `data`/`chartType` props to `<Mai
 | `VictoryLine` | Step chart | ✅ | With `interpolation="step"`, `"stepBefore"` or `"stepAfter"`. |
 | `VictoryScatter` | Scatter plot | ✅ | |
 | `VictoryStack` | Stacked bar chart | ✅ | Each child `<VictoryBar name="...">` becomes one series. |
+| `VictoryGroup` | Dodged bar chart | ✅ | A group of `<VictoryBar>` children. Wrapping anything else, the group is read through: each child becomes the layer it would be on its own. |
 | `VictoryHistogram` | Histogram | ⚠️ | The adapter derives equal-width bins from the raw values, which may not exactly match Victory's rendered bins. |
 | `VictoryBoxPlot` | Box plot | ✅ | Per-section highlight (min, Q1, median, Q3, max). Requires pre-computed statistics. |
 | `VictoryCandlestick` | Candlestick chart | ✅ | Per-section highlight (open, high, low, close, volatility). |
@@ -155,6 +156,38 @@ Wrap multiple `<VictoryBar>` series in `<VictoryStack>`. Each child's `name` pro
   </VictoryChart>
 </MaidrVictory>
 ```
+
+### Dodged (Grouped) Bar Chart
+
+Wrap multiple `<VictoryBar>` series in `<VictoryGroup>`. Each child's `name`
+prop becomes the series label, exactly as in a stack — what differs is that the
+bars sit side by side rather than on one another, so the values are announced as
+written instead of accumulating.
+
+```tsx
+<MaidrVictory id="dodged-example" title="Revenue by Product">
+  <VictoryChart domainPadding={24}>
+    <VictoryAxis label="Quarter" />
+    <VictoryAxis dependentAxis label="Revenue ($)" />
+    <VictoryGroup offset={20}>
+      <VictoryBar
+        name="Product A"
+        data={[{ x: 'Q1', y: 2400 }, { x: 'Q2', y: 3100 }]}
+      />
+      <VictoryBar
+        name="Product B"
+        data={[{ x: 'Q1', y: 1800 }, { x: 'Q2', y: 2700 }]}
+      />
+    </VictoryGroup>
+  </VictoryChart>
+</MaidrVictory>
+```
+
+A `<VictoryGroup>` around anything but bars is Victory offsetting and colouring
+its children without changing what they mean, so each is read as the layer it
+would be on its own — a group of `<VictoryLine>` children is the multi-series
+line it draws. The same applies to a polar group, whose bars draw a coxcomb:
+each becomes its own polar area rather than a band of one dodged layer.
 
 ### Histogram
 
@@ -331,14 +364,17 @@ import {
 
 ```typescript
 type VictoryComponentType =
+  | 'VictoryArea'
   | 'VictoryBar'
   | 'VictoryLine'
   | 'VictoryScatter'
   | 'VictoryBoxPlot'
   | 'VictoryCandlestick'
+  | 'VictoryErrorBar'
   | 'VictoryHistogram'
+  | 'VictoryPie'
   | 'VictoryStack'
-  | 'VictoryPie';
+  | 'VictoryGroup';
 ```
 
 ## Advanced
