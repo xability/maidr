@@ -195,9 +195,20 @@ That is why the adapter needs no configuration and works on charts written befor
 | `line` | Line | One series per drawn path |
 | `area` / `areaY` | Area | |
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
+| `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
+
+## Regression lines
+
+`Plot.linearRegressionY` and `Plot.linearRegressionX` are read as smooth curves. This is the one mark Plot names after what it *means* rather than after what it draws — its group is `aria-label="linear-regression"`, which nothing else produces — so it needs neither a heuristic nor an option, unlike the box marks below.
+
+The group holds two paths per series: the confidence band, drawn with `stroke="none"`, and the fitted line, drawn with `fill="none"`. They are told apart by that rather than by their order. A mark split by `stroke` gives one fit per series, each named from the colour scale.
+
+The fitted line has exactly two vertices, its ends, and both are read along with the pixels they were drawn at. That is not a loss: a straight line is completely described by its ends, and what a reader gets is where the trend starts, where it finishes, and the slope between.
+
+**The confidence band is not read.** `SmoothPoint` carries `x`, `y`, `svg_x` and `svg_y` and no bounds, and the smooth trace announces none, so an interval has nowhere to go on a smooth layer. Giving it one would serve r-maidr's `geom_smooth(se = TRUE)` and py-maidr's plotly trendline as much as this mark, and is a decision about the grammar rather than about Plot.
 
 ## 100% stacked charts
 
@@ -230,7 +241,7 @@ A **date axis** works: values travel as epoch milliseconds — every trace's poi
 ## What it does not read
 
 - **`cell` marks (heatmaps).** A cell keeps its magnitude in an 8-bit fill colour, so several distinct values render as the same colour and no inversion can tell them apart. Announcing an approximation to a reader who cannot check it against the picture is worse than announcing nothing, so these marks are skipped.
-- **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`).
+- **Composite marks** such as `boxY` and `boxX`, which Plot draws as three separate marks (`rule`, `bar`, `tick`) plus a `dot` for the outliers. Every number a box needs is there and readable, but nothing in the markup says the four groups are one chart — their labels and attributes are exactly a hand-drawn rule, bar and tick's — so reading them as a box would take a heuristic that fires on charts that are not one. Tracked in #1074.
 - **A `tick` with no cross-channel.** `Plot.tickX(data, {x: 'v'})` draws every tick across the whole frame, which is a one-dimensional distribution with no category to announce — and a dot plot's point has a second field the chart has nothing to put in. A tick given a categorical `y` (or `x`) is read; one without is not.
 - **Lines whose path does not pass through the data.** `curveBasis` and `curveBundle` draw through control points that are not data points. The adapter detects the mismatch — Plot binds the datum indices to the path, so the expected vertex count is known — and skips the mark rather than announcing the smoothing. `curveLinear` (the default), `curveCatmullRom`, `curveMonotoneX`, `curveNatural` and `curveCardinal` are read normally, and the step curves are read as **step charts** (below).
 - **A stack whose rows were not aggregated.** Two rows sharing a category and a series draw two segments that the stack transform left separate; there is one cell in a stacked layer for them and two marks on screen. The layer is read as a plain bar chart instead, which announces both.

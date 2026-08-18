@@ -41,6 +41,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  SmoothPoint,
   StepDirection,
 } from '@type/grammar';
 import type { MarkFacet } from './introspect';
@@ -387,9 +388,101 @@ function convertMark(
       return convertLine(facet, context, TraceType.LINE);
     case 'area':
       return convertLine(facet, context, TraceType.AREA);
+    // The one mark Plot names after what it means rather than after what it
+    // draws, which is what makes it readable without a heuristic (#1081).
+    case 'linear-regression':
+      return convertRegression(facet, context);
     default:
       return null;
   }
+}
+
+/**
+ * Reads a `linearRegressionY` / `linearRegressionX` mark as a smooth curve.
+ *
+ * Plot gives this mark a group of its own, `aria-label="linear-regression"`,
+ * which no other mark produces — so unlike a box plot, whose parts arrive as
+ * ordinary `rule`, `bar` and `tick` groups (#1074), nothing here has to be
+ * guessed at or declared.
+ *
+ * The group holds two paths per series: the confidence band, drawn with
+ * `stroke="none"`, and the fitted line, drawn with `fill="none"`. They are
+ * told apart by that rather than by their order, so a future Plot that draws
+ * them the other way round still reads.
+ *
+ * **The band is not read.** `SmoothPoint` carries `x`, `y`, `svg_x` and
+ * `svg_y` and no bounds, and `SmoothTrace` announces none, so there is nowhere
+ * for the interval to go on a smooth layer. Widening the grammar would serve
+ * r-maidr's `geom_smooth(se = TRUE)` and py-maidr's plotly trendline as much
+ * as this mark, and is a decision about the grammar rather than about Plot.
+ *
+ * The fitted line has exactly two vertices, its ends. That is not a loss: a
+ * straight line is completely described by them, and what a reader gets is the
+ * trend's start, its finish, and the slope between.
+ *
+ * @param facet   - The mark's paths.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when no fitted line can be read.
+ */
+function convertRegression(
+  facet: MarkFacet,
+  context: ConversionContext,
+): ConvertedMark | null {
+  const { scales } = context;
+  const data: SmoothPoint[][] = [];
+  const elements: Element[][] = [];
+  const legend: string[] = [];
+
+  for (const element of facet.elements) {
+    // The band is the filled half; the fit is the stroked one. A path that is
+    // neither is not one of the two this mark draws.
+    if (element.tagName.toLowerCase() !== 'path' || element.getAttribute('fill') !== 'none')
+      continue;
+
+    // The geometry alone: a fit's bound datum indices are the observations it
+    // was computed from, not its two vertices, so the count check
+    // `parsePathVertices` applies would refuse every fit.
+    const path = readPathGeometry(element);
+    if (path === null)
+      continue;
+
+    const points: SmoothPoint[] = [];
+    for (const vertex of path.vertices) {
+      const x = toNumber(pathValue(scales.x, vertex.x, path.pixelError));
+      const y = toNumber(pathValue(scales.y, vertex.y, path.pixelError));
+      if (x === null || y === null)
+        continue;
+      // The pixels as drawn, which is what `svg_x`/`svg_y` are for: the trace
+      // reports where on the page the fit runs, not only what it says.
+      points.push({ x, y, svg_x: vertex.x, svg_y: vertex.y });
+    }
+    if (points.length === 0)
+      continue;
+
+    // The stroke, not `strokeOrFill`: that helper prefers `fill`, and a fitted
+    // line's fill is `none` by construction — which is the very thing that
+    // identified it. A split mark puts the series colour on the stroke.
+    const name = valueAtColor(scales.color, element.getAttribute('stroke'));
+    if (name !== null && !legend.includes(String(name)))
+      legend.push(String(name));
+    data.push(points);
+    elements.push([element]);
+  }
+
+  if (data.length === 0)
+    return null;
+
+  const token = `L${context.layerCount++}`;
+  return {
+    legend,
+    layer: {
+      id: token,
+      type: TraceType.SMOOTH,
+      selectors: stampSeries(elements, context.containerId, token),
+      axes: axisConfig(context),
+      data,
+    },
+  };
 }
 
 /**
@@ -1550,26 +1643,21 @@ function tickCentre(element: Element): { x: number; y: number } | null {
 }
 
 /**
- * Parses the vertices of a line or area path.
+ * Reads where a path goes, and how precisely it says so.
  *
- * Plot draws a line through a curve, and only an interpolating curve passes
- * through its data points — `curveBasis` and friends draw a smoothed path
- * whose command endpoints are not the data. Plot binds the datum indices to
- * the path element, which gives the count the parse has to match: when it does
- * not, the curve is not interpolating and the mark is skipped rather than
- * announced wrongly.
- *
- * An area path is a closed loop — the series, then the baseline back — so only
- * its first half is data.
+ * Just the geometry: no comparison against the datum indices bound to the
+ * element, because what those mean depends on the mark. On a line they are its
+ * samples, so a mismatch says the curve does not pass through them. On a
+ * regression fit they are the *observations the fit was computed from*, and
+ * the path is the fitted line through them — two vertices for any number of
+ * observations — so the same comparison would refuse every fit ever drawn.
  *
  * @param element - The `<path>`.
- * @param isArea  - Whether the path closes back along a baseline.
- * @returns The vertices, or `null` when they are not the data points.
+ * @returns Its vertices and their rounding quantum, or `null` when it has none.
  */
-function parsePathVertices(
+function readPathGeometry(
   element: Element,
-  isArea: boolean,
-): ParsedPath | null {
+): { vertices: { x: number; y: number }[]; pixelError: number } | null {
   const d = element.getAttribute('d');
   if (!d)
     return null;
@@ -1596,7 +1684,34 @@ function parsePathVertices(
 
   // Half the smallest step the coordinates were written at: the most the
   // serializer can have moved a point when it rounded it.
-  const pixelError = 0.5 * 10 ** -decimals;
+  return { vertices, pixelError: 0.5 * 10 ** -decimals };
+}
+
+/**
+ * Parses the vertices of a line or area path.
+ *
+ * Plot draws a line through a curve, and only an interpolating curve passes
+ * through its data points — `curveBasis` and friends draw a smoothed path
+ * whose command endpoints are not the data. Plot binds the datum indices to
+ * the path element, which gives the count the parse has to match: when it does
+ * not, the curve is not interpolating and the mark is skipped rather than
+ * announced wrongly.
+ *
+ * An area path is a closed loop — the series, then the baseline back — so only
+ * its first half is data.
+ *
+ * @param element - The `<path>`.
+ * @param isArea  - Whether the path closes back along a baseline.
+ * @returns The vertices, or `null` when they are not the data points.
+ */
+function parsePathVertices(
+  element: Element,
+  isArea: boolean,
+): ParsedPath | null {
+  const drawn = readPathGeometry(element);
+  if (drawn === null)
+    return null;
+  const { vertices, pixelError } = drawn;
   const data = (element as Element & { __data__?: unknown }).__data__;
   const expected = Array.isArray(data) ? data.length : null;
 
