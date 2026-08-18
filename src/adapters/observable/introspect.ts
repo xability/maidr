@@ -158,17 +158,24 @@ export function findMarkGroups(svg: Element): { label: string; group: Element }[
  * that appears nowhere in the data and never hears the median or the whiskers
  * at all.
  *
- * What identifies the composite is not that those three marks are present —
- * an error bar chart, a candlestick and a bar chart with a target line each
- * draw the same three — but how they sit on top of each other. In a box plot
- * every median tick lies *inside* its box and every whisker rule *contains*
- * it. Nothing that merely shares the mark types satisfies both.
+ * Two things identify it, and neither would do alone. How the parts sit on one
+ * another narrows the field: every median lies inside its box and every whisker
+ * runs along it, which an error bar chart and a bar chart with a target line do
+ * not satisfy. And the median's own stroke width says which of the charts that
+ * also satisfy it this is — a bullet chart and a candlestick with a marker in
+ * its body arrange their parts exactly as a box plot does, because a floating
+ * rect inside a rule with a line across it simply is that shape (#1088).
  *
- * That is conclusive enough to read the composite as a box plot rather than
- * merely to skip it, which is what the caller does with the answer. It stays
- * the outer gate either way: a composite this refuses is four marks that were
- * never a box plot, and one it finds but the reader cannot pair up is skipped
- * as it was before (#1074).
+ * Because the second answers what the arrangement cannot, the first is only as
+ * strict as every box plot really is: a whisker has to run along its box rather
+ * than around it. Outliers move a quartile, and enough of them on one side pull it
+ * past the whisker's end, so a perfectly ordinary box plot can have its box
+ * stick out.
+ *
+ * This is the outer gate. A composite it refuses is four marks that were never
+ * a box plot, and is left to be read as whatever they are; one it finds but the
+ * reader cannot pair up is skipped as it was before any of this was read
+ * (#1074).
  *
  * @param groups - The plot's mark groups, in draw order.
  * @returns One entry per box plot found, in draw order.

@@ -242,16 +242,28 @@ describe('declining a box plot that cannot be paired up', () => {
     },
   );
 
-  it('reads the bar chart under a bullet chart rather than skipping it', () => {
+  it.each([
+    { key: 'bulletChart' as const, types: [TraceType.BAR, TraceType.DOT] },
+    { key: 'barRangeAndTarget' as const, types: [TraceType.BAR, TraceType.DOT] },
+    // The candlestick's bar floats free of the baseline, so the bar reading
+    // declines it on its own account — a ranged bar has two ends and a bar
+    // point has room for one. Its marker is still read.
+    { key: 'floatingRangeBar' as const, types: [TraceType.DOT] },
+  ])('hands $key back to be read rather than skipping it', ({ key, types }) => {
     // Recognising the composite is what decides whether the marks are read at
     // all, so a chart wrongly claimed as a box plot used to go out silent — the
     // measure, the target and the range all unreadable. Declining to claim it
-    // hands the marks back, and the measure and target are announced as the bar
-    // chart and the dots they are.
+    // hands the marks back to the readings they belong to.
+    const { element } = mountFixture(key);
+    const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
+
+    expect(layers.map(layer => layer.type)).toEqual(types);
+  });
+
+  it('reads the measure under a bullet chart as the bar it is', () => {
     const { element } = mountFixture('bulletChart');
     const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 
-    expect(layers.map(layer => layer.type)).toEqual([TraceType.BAR, TraceType.DOT]);
     expect((layers[0].data as { x: string; y: number }[]).map(point => point.y))
       .toEqual([6, 10]);
   });
