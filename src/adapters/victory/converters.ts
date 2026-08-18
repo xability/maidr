@@ -1081,7 +1081,7 @@ function isDivergingPair(series: SegmentedPoint[][]): boolean {
 }
 
 /**
- * Extracts a layer from a VictoryStack container.
+ * Extracts a layer from a `VictoryStack` or a bar `VictoryGroup`.
  *
  * The stack's children decide what it is: `VictoryBar` children make a
  * segmented (stacked) bar, where each child becomes one series (row) of
@@ -1090,10 +1090,16 @@ function isDivergingPair(series: SegmentedPoint[][]): boolean {
  * bar stack, which is what its bars draw. Two bar series signed against each
  * other are not stacked on one another at all — they are the two sides of a
  * diverging chart, and are emitted as one.
+ *
+ * A `VictoryGroup` of bars is the same grid read as `dodged` rather than
+ * `segmented`: the bars sit side by side rather than on one another, so
+ * nothing accumulates. Only `isBarGroup` groups arrive here — see the caller —
+ * so the area and diverging readings, which are things a *stack* does, cannot
+ * be reached by a group.
  */
 function extractSegmentedLayer(
   containerElement: ReactElement,
-  containerType: 'VictoryStack',
+  containerType: 'VictoryStack' | 'VictoryGroup',
   layerId: string,
   axisLabels: { x?: string; y?: string },
   chartHorizontal: boolean | undefined,
@@ -1142,7 +1148,11 @@ function extractSegmentedLayer(
     return null;
 
   const traceType: VictoryComponentType = containerType;
-  const diverging = isDivergingPair(series);
+  const grouped = containerType === 'VictoryGroup';
+  // A diverging chart is two sides of a *stack* signed against each other. A
+  // group's bars sit side by side, so two of them growing opposite ways is a
+  // grouped chart of signed values and nothing more.
+  const diverging = !grouped && isDivergingPair(series);
 
   // The sides are emitted in the order Victory paints them, which is the
   // reverse of the order they are declared in (`VictoryStack` reverses its
@@ -1167,7 +1177,7 @@ function extractSegmentedLayer(
     victoryType: traceType,
     data: diverging
       ? { kind: 'diverging', points: series }
-      : { kind: 'segmented', points: series },
+      : { kind: grouped ? 'dodged' : 'segmented', points: series },
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
@@ -1181,11 +1191,47 @@ function extractSegmentedLayer(
 // ---------------------------------------------------------------------------
 
 /**
+ * Whether a `VictoryGroup` is the grouped bar chart that reads as one dodged
+ * layer.
+ *
+ * Every data child has to be a bar. A group is also Victory's way of offsetting
+ * and colouring children it does not otherwise change the meaning of, and one
+ * mixing a bar with a line is a combo chart: merging that would announce the
+ * bars and lose the line entirely, since `extractSegmentedLayer` reads only the
+ * bar children. Anything else is descended into instead.
+ *
+ * @param children - The group's children
+ * @returns True when the group holds bars and nothing else that draws
+ */
+function isBarGroup(children: ReactNode): boolean {
+  let bars = 0;
+  let others = 0;
+
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child))
+      return;
+    const name = getVictoryDisplayName(child.type);
+    // A label or a shared tooltip draws no series of its own, so it neither
+    // makes a group dodged nor stops it from being.
+    if (!name || (!isDataComponent(name) && name !== 'VictoryStack' && name !== 'VictoryGroup'))
+      return;
+    if (name === 'VictoryBar')
+      bars += 1;
+    else
+      others += 1;
+  });
+
+  return bars > 0 && others === 0;
+}
+
+/**
  * Collects the supported Victory data layers among `childNodes`.
  *
- * Handles individual data components (e.g. `<VictoryScatter>`) and
- * `<VictoryStack>` for stacked bar charts. Layer ids are produced by
- * `makeId`, called with the layer's local index among the collected layers.
+ * Handles individual data components (e.g. `<VictoryScatter>`), `<VictoryStack>`
+ * for stacked bar charts, and `<VictoryGroup>` — a dodged bar chart when it
+ * groups bars, and otherwise a container whose children are collected as the
+ * layers they would be on their own. Layer ids are produced by `makeId`, called
+ * with the layer's local index among the collected layers.
  *
  * `chartPolar` carries the enclosing `<VictoryChart polar>` down to the data
  * components, which is where Victory itself applies it: a child inherits the
@@ -1309,6 +1355,56 @@ function collectDataLayers(
       return;
     }
 
+    // VictoryGroup of bars → dodged bar
+    if (name === 'VictoryGroup') {
+      const groupProps = child.props as Record<string, unknown>;
+      const groupChildren = groupProps.children as ReactNode;
+      // A group clones its children with its own resolved `polar`, exactly as
+      // `VictoryChart` does, so the outermost declaration wins here too and the
+      // resolved value — not the chart's — is what the children inherit.
+      // Measured by rendering each arrangement and reading whether the bars
+      // came out as wedges or as rectangles:
+      //
+      // | arrangement                                          | Victory draws |
+      // | ---------------------------------------------------- | ------------- |
+      // | `<VictoryGroup polar><VictoryBar/>`                   | polar         |
+      // | `<VictoryGroup><VictoryBar polar/>`                   | cartesian     |
+      // | `<VictoryGroup polar={false}><VictoryBar polar/>`     | cartesian     |
+      // | `<VictoryChart><VictoryGroup><VictoryBar polar/>`     | cartesian     |
+      // | `<VictoryChart polar><VictoryGroup><VictoryBar/>`     | polar         |
+      const groupPolar = isPolarComponent(groupProps, chartPolar);
+      // A polar group draws a coxcomb, whose wedges are read one ring at a
+      // time — and whose selectors have to leave the polar axis alone, which
+      // only the polar-area tagging does. So it descends rather than merging,
+      // and each bar is the ring it draws.
+      const dodged = !groupPolar && isBarGroup(groupChildren)
+        ? extractSegmentedLayer(
+            child,
+            name,
+            makeId(layers.length),
+            axisLabels,
+            chartHorizontal,
+          )
+        : null;
+      if (dodged) {
+        layers.push(dodged);
+        return;
+      }
+      // Anything else a group wraps, it is only offsetting and colouring
+      // without changing what its children mean, so they are read as the layers
+      // they would be on their own — a group of lines is the multi-series line
+      // it draws. Descending is what keeps them from being lost: the walk used
+      // to stop at the group and never reach them at all (#1057).
+      layers.push(...collectDataLayers(
+        groupChildren,
+        axisLabels,
+        index => makeId(layers.length + index),
+        groupPolar,
+        chartHorizontal,
+      ));
+      return;
+    }
+
     // Individual data components
     const layer = extractLayerFromElement(
       child,
@@ -1332,6 +1428,7 @@ function collectDataLayers(
  * - `<VictoryChart>` wrappers (processes children)
  * - Standalone data components (e.g. `<VictoryScatter>`)
  * - `<VictoryStack>` for stacked bar charts
+ * - `<VictoryGroup>` for dodged bar charts, and as a container otherwise
  */
 export function extractVictoryLayers(children: ReactNode): VictoryLayerInfo[] {
   const layers: VictoryLayerInfo[] = [];
@@ -1651,6 +1748,18 @@ export function toMaidrLayer(
         },
         selectors: selector,
         data: data.points,
+      };
+
+    // Side by side rather than on one another: nothing accumulates, so the
+    // values are announced as they are. Otherwise the same grid a stack walks.
+    case 'dodged':
+      return {
+        id: layer.id,
+        type: TraceType.DODGED,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
+        axes,
+        selectors: selector,
+        data: horizontal ? data.points.map(swapSeries) : data.points,
       };
 
     case 'segmented':

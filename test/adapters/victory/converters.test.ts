@@ -38,6 +38,7 @@ const VictoryErrorBar = stub('VictoryErrorBar');
 const VictoryLine = stub('VictoryLine');
 const VictoryScatter = stub('VictoryScatter');
 const VictoryStack = stub('VictoryStack');
+const VictoryGroup = stub('VictoryGroup');
 const VictoryPie = stub('VictoryPie');
 
 const barData = [
@@ -956,5 +957,231 @@ describe('diverging bar', () => {
     ]));
 
     expect(toMaidrLayer(info).type).toBe(TraceType.STACKED);
+  });
+});
+
+describe('dodged bar', () => {
+  const s1 = [{ x: 'A', y: 1 }, { x: 'B', y: 2 }];
+  const s2 = [{ x: 'A', y: 3 }, { x: 'B', y: 4 }];
+
+  function group(props: Record<string, unknown>, ...children: ReactNode[]): ReactNode {
+    return chart({}, createElement(VictoryGroup, props, ...children));
+  }
+
+  it('reads a group of bars as a dodged bar chart', () => {
+    const [info] = extractVictoryLayers(group(
+      {},
+      createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+    ));
+
+    expect(info.victoryType).toBe('VictoryGroup');
+    expect(info.legend).toEqual(['S1', 'S2']);
+    expect(info.dataCount).toBe(4);
+
+    const layer = toMaidrLayer(info, '#mv [data-maidr-victory-0]');
+    expect(layer.type).toBe(TraceType.DODGED);
+    expect(layer.selectors).toBe('#mv [data-maidr-victory-0]');
+    // Side by side rather than on one another: nothing accumulates, so every
+    // value is the one the author wrote.
+    expect(layer.data).toEqual([
+      [{ x: 'A', y: 1, z: 'S1' }, { x: 'B', y: 2, z: 'S1' }],
+      [{ x: 'A', y: 3, z: 'S2' }, { x: 'B', y: 4, z: 'S2' }],
+    ]);
+  });
+
+  it('keeps two oppositely signed groups a dodged chart', () => {
+    // Diverging is a *stack* signed against itself. Two grouped bars growing
+    // opposite ways are side by side either way, so nothing is folded.
+    const [info] = extractVictoryLayers(group(
+      {},
+      createElement(VictoryBar, { key: 'm', name: 'Men', data: [{ x: '0-14', y: -1200 }, { x: '15-29', y: -1150 }] }),
+      createElement(VictoryBar, { key: 'w', name: 'Women', data: [{ x: '0-14', y: 1140 }, { x: '15-29', y: 1100 }] }),
+    ));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.DODGED);
+    expect(info.legend).toEqual(['Men', 'Women']);
+  });
+
+  it('emits the horizontal orientation a group declares', () => {
+    const [info] = extractVictoryLayers(group(
+      { horizontal: true },
+      createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+    ));
+
+    const layer = toMaidrLayer(info);
+    expect(layer.orientation).toBe('horz');
+    // `x` carries the magnitude and `y` the category, the arrangement the core
+    // reads a horizontal bar in.
+    expect(layer.data).toEqual([
+      [{ x: 1, y: 'A', z: 'S1' }, { x: 2, y: 'B', z: 'S1' }],
+      [{ x: 3, y: 'A', z: 'S2' }, { x: 4, y: 'B', z: 'S2' }],
+    ]);
+  });
+
+  it('inherits the horizontal a chart around the group declares', () => {
+    const [info] = extractVictoryLayers(chart(
+      { horizontal: true },
+      createElement(
+        VictoryGroup,
+        {},
+        createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+        createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+      ),
+    ));
+
+    expect(toMaidrLayer(info).orientation).toBe('horz');
+  });
+
+  it('reads a polar group of bars as the rings it draws', () => {
+    // A coxcomb's wedges are read one ring at a time, and only the polar-area
+    // tagging leaves the polar axis out of the selector.
+    const layers = extractVictoryLayers(chart(
+      { polar: true },
+      createElement(
+        VictoryGroup,
+        {},
+        createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+        createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+      ),
+    ));
+
+    expect(layers.map(l => toMaidrLayer(l).type))
+      .toEqual([TraceType.POLAR_AREA, TraceType.POLAR_AREA]);
+  });
+
+  it('reads a group that declares polar itself as polar', () => {
+    const layers = extractVictoryLayers(chart(
+      {},
+      createElement(
+        VictoryGroup,
+        { polar: true },
+        createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      ),
+    ));
+
+    expect(layers.map(l => toMaidrLayer(l).type)).toEqual([TraceType.POLAR_AREA]);
+  });
+
+  it('lets a group override the polar a child asks for', () => {
+    // A group clones its children with its own resolved `polar`, so the
+    // outermost declaration wins here as it does on a chart (#954): the bar
+    // draws as a rectangle, not a wedge, however it asks.
+    const layers = extractVictoryLayers(chart(
+      {},
+      createElement(
+        VictoryGroup,
+        {},
+        createElement(VictoryBar, { key: 'a', polar: true, data: barData }),
+        createElement(VictoryLine, { key: 'b', data: lineData }),
+      ),
+    ));
+
+    expect(layers.map(l => toMaidrLayer(l).type)).toEqual([TraceType.BAR, TraceType.LINE]);
+  });
+
+  it('reads a group of lines as the lines it draws', () => {
+    // A group of anything but bars is Victory offsetting and colouring its
+    // children without changing what they mean. Before #1057 the walk stopped
+    // at the group and these were lost entirely.
+    const layers = extractVictoryLayers(group(
+      {},
+      createElement(VictoryLine, { key: 'a', data: lineData }),
+      createElement(VictoryLine, { key: 'b', data: lineData }),
+    ));
+
+    expect(layers.map(l => l.victoryType)).toEqual(['VictoryLine', 'VictoryLine']);
+    expect(layers.map(l => l.id)).toEqual(['0', '1']);
+  });
+
+  it('reads a group of areas as separate areas, not a stack', () => {
+    // A stack accumulates its bands; a group paints them over one another, so
+    // each is the area it is.
+    const layers = extractVictoryLayers(group(
+      {},
+      createElement(VictoryArea, { key: 'a', data: lineData }),
+      createElement(VictoryArea, { key: 'b', data: lineData }),
+    ));
+
+    expect(layers.map(l => toMaidrLayer(l).type)).toEqual([TraceType.AREA, TraceType.AREA]);
+  });
+
+  it('keeps both halves of a group mixing a bar with a line', () => {
+    // Merging would read the bars and drop the line, since only bar children
+    // reach the segmented payload.
+    const layers = extractVictoryLayers(group(
+      {},
+      createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      createElement(VictoryLine, { key: 'b', data: lineData }),
+    ));
+
+    expect(layers.map(l => l.victoryType)).toEqual(['VictoryBar', 'VictoryLine']);
+  });
+
+  it('does not swallow a stack nested inside a group', () => {
+    const layers = extractVictoryLayers(group(
+      {},
+      createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      createElement(
+        VictoryStack,
+        { key: 'b' },
+        createElement(VictoryBar, { key: 'x', name: 'X', data: s1 }),
+        createElement(VictoryBar, { key: 'y', name: 'Y', data: s2 }),
+      ),
+    ));
+
+    expect(layers.map(l => l.victoryType)).toEqual(['VictoryBar', 'VictoryStack']);
+  });
+
+  it('numbers a descended group\'s layers after its siblings', () => {
+    const layers = extractVictoryLayers(chart(
+      {},
+      createElement(VictoryBar, { key: 'first', data: barData }),
+      createElement(
+        VictoryGroup,
+        { key: 'g' },
+        createElement(VictoryLine, { key: 'a', data: lineData }),
+        createElement(VictoryLine, { key: 'b', data: lineData }),
+      ),
+      createElement(VictoryScatter, { key: 'last', data: scatterData }),
+    ));
+
+    expect(layers.map(l => l.id)).toEqual(['0', '1', '2', '3']);
+    expect(layers.map(l => l.victoryType))
+      .toEqual(['VictoryBar', 'VictoryLine', 'VictoryLine', 'VictoryScatter']);
+  });
+
+  it('ignores a label the group draws no series for', () => {
+    const VictoryLabel = stub('VictoryLabel');
+    const [info] = extractVictoryLayers(group(
+      {},
+      createElement(VictoryLabel, { key: 'l', text: 'note' }),
+      createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+      createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+    ));
+
+    expect(toMaidrLayer(info).type).toBe(TraceType.DODGED);
+  });
+
+  it('handles a group inside a panel', () => {
+    const children = [
+      chart({ key: 'a' }, createElement(VictoryBar, { data: barData })),
+      chart(
+        { key: 'b' },
+        createElement(
+          VictoryGroup,
+          {},
+          createElement(VictoryBar, { key: 'a', name: 'S1', data: s1 }),
+          createElement(VictoryBar, { key: 'b', name: 'S2', data: s2 }),
+        ),
+      ),
+    ];
+
+    const subplots = extractVictorySubplots(children);
+
+    expect(subplots[1].layers).toHaveLength(1);
+    expect(subplots[1].layers[0].id).toBe('1_0');
+    expect(subplots[1].layers[0].victoryType).toBe('VictoryGroup');
   });
 });

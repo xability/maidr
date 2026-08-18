@@ -29,6 +29,8 @@ import {
   VictoryBar,
   VictoryChart,
   VictoryErrorBar,
+  VictoryGroup,
+  VictoryLine,
   VictoryPolarAxis,
   VictoryScatter,
   VictoryStack,
@@ -279,5 +281,99 @@ describe('victory diverging bar', () => {
       .map(match => Number.parseFloat(match[1]))
       .filter(y => Number.isFinite(y));
     return (Math.min(...ys) + Math.max(...ys)) / 2;
+  }
+});
+
+describe('victory dodged bar', () => {
+  it('lists the series in the order the bars are painted', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryGroup,
+        { offset: 20 },
+        createElement(VictoryBar, {
+          key: 'low',
+          name: 'Low',
+          data: [{ x: 'a', y: 1 }, { x: 'b', y: 2 }],
+        }),
+        createElement(VictoryBar, {
+          key: 'high',
+          name: 'High',
+          data: [{ x: 'a', y: 30 }, { x: 'b', y: 40 }],
+        }),
+      ),
+    ));
+
+    expect(layers[0].type).toBe(TraceType.DODGED);
+
+    const bars = Array.from(doc.querySelectorAll(layers[0].selectors as string));
+    expect(bars).toHaveLength(4);
+
+    // `SegmentedTrace` splits one flat selector's result across the series in
+    // payload order, and the DOM answers it in document order. Unlike
+    // `VictoryStack`, a group paints its children as declared, so the payload
+    // is left in declaration order — this is the assertion that fails if that
+    // ever stops being true. A short bar for each of the first two marks and a
+    // tall one for each of the last two is the group having been read
+    // series-major.
+    expect(barHeight(bars[0])).toBeLessThan(barHeight(bars[2]));
+    expect(barHeight(bars[1])).toBeLessThan(barHeight(bars[3]));
+  });
+
+  it('leaves the polar axis out of a coxcomb group', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      { polar: true },
+      createElement(VictoryPolarAxis, { key: 'axis' }),
+      createElement(
+        VictoryGroup,
+        { key: 'group' },
+        createElement(VictoryBar, { key: 'a', name: 'S1', data: [{ x: 'a', y: 1 }, { x: 'b', y: 2 }] }),
+        createElement(VictoryBar, { key: 'b', name: 'S2', data: [{ x: 'a', y: 3 }, { x: 'b', y: 4 }] }),
+      ),
+    ));
+
+    // Read as one dodged layer, the flat selector would take the first four
+    // presentation paths in document order -- and the polar axis is the first
+    // of them, so every wedge would be highlighted one place along and the
+    // last one never at all. Each ring is its own polar-area layer instead,
+    // which is the only tagging that knows to skip the axis.
+    expect(layers.map(layer => layer.type))
+      .toEqual([TraceType.POLAR_AREA, TraceType.POLAR_AREA]);
+    for (const layer of layers) {
+      const [wedges] = resolveSeries(doc, layer);
+      expect(wedges).toHaveLength(2);
+      expect(wedges.every(wedge => wedge.hasAttribute('transform'))).toBe(true);
+    }
+  });
+
+  it('reads a group of lines as one layer each', () => {
+    const { doc, layers } = renderAndTag(createElement(
+      VictoryChart,
+      null,
+      createElement(
+        VictoryGroup,
+        null,
+        createElement(VictoryLine, { key: 'a', data: [{ x: 1, y: 2 }, { x: 2, y: 3 }] }),
+        createElement(VictoryLine, { key: 'b', data: [{ x: 1, y: 4 }, { x: 2, y: 5 }] }),
+      ),
+    ));
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE, TraceType.LINE]);
+    // Each line is its own `<path>`, and the two must not resolve to the same
+    // one -- the tagger claims as it goes, so a second layer finding nothing
+    // would come back undefined rather than wrong.
+    const paths = layers.map(layer => doc.querySelectorAll((layer.selectors as string[])[0]));
+    expect(paths.map(found => found.length)).toEqual([1, 1]);
+    expect(paths[0][0]).not.toBe(paths[1][0]);
+  });
+
+  /** The height of a Victory bar `<path>`, from the extremes of its own `d`. */
+  function barHeight(bar: Element): number {
+    const ys = Array.from((bar.getAttribute('d') ?? '').matchAll(/[\s,](-?[\d.]+)\s*(?:[a-z]|$)/gi))
+      .map(match => Number.parseFloat(match[1]))
+      .filter(y => Number.isFinite(y));
+    return Math.max(...ys) - Math.min(...ys);
   }
 });
