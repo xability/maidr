@@ -1574,6 +1574,12 @@ function convertLine(
     stepDirection ??= path.stepDirection;
 
     drawn.push({ element, path, name });
+    // Every parsed band counts towards the stack question, including one whose
+    // vertices go on to invert to nothing and leave it with no points. Whether
+    // the bands rest on one another is a fact about what was drawn, and a band
+    // drawn on a scale that cannot invert it is still holding up the one above.
+    // Collected before the reading rather than after it, which is a change from
+    // when the two were one pass: such a band used to be invisible here.
     if (path.lower) {
       bands.push({
         upper: path.vertices.map(vertex => vertex.y),
