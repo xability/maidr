@@ -261,6 +261,23 @@ This is the one reading in the adapter that is *detected* rather than declared, 
 
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
+## Waffle charts
+
+`Plot.waffleY` and `Plot.waffleX` are read as bar charts of their tallies:
+
+```js
+const chart = Plot.plot({ marks: [Plot.waffleY(sales, { x: 'region', y: 'units' })] });
+observablePlotToMaidr(chart);
+```
+
+The tally is measured rather than approximated. A waffle draws each category as one `<path>` around its filled cells — a rectangle when they fill whole rows, a staircase when the last row is partial — and fills it with a `<pattern>` that gives the cell's size, so the count is the outline's area over the cell's. Nothing is inverted from a colour.
+
+What gets announced is the height those cells would have as a solid bar, put back through the y scale. That matters because a cell is not always one unit: `unit: 5` draws 12 as 2.4 cells, and announcing the cell count would report 2.4. Going through the scale returns what the axis shows and never has to know what `unit` was.
+
+The lattice's width is taken across the whole mark, not off one path. A category holding less than a full row is only as wide as the cells it drew, so on its own it understates how many columns there are — and some category always fills a row, because Plot sizes the lattice to the largest value.
+
+`waffleX` needs no separate arithmetic: it lays its cells along the band rather than up it, so each outline is a plain rectangle and the same area gives the same count. A `fill` channel puts one path per segment in the same band and is read as a stacked bar; the series colour is on the pattern's swatch rather than on the path, which carries only `url(#…)`. A category holding nothing is still drawn — every vertex on the origin — and is announced as the zero it is rather than dropped. A fractional tally stays fractional.
+
 ## Box plots
 
 `Plot.boxY` and `Plot.boxX` are read as a MAIDR box trace, with no option to set:
