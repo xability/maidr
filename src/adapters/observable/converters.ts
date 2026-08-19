@@ -1831,9 +1831,13 @@ function columnsAreShares(columns: readonly number[][]): boolean {
  * Compared exactly, unlike {@link bandsStack}, which needs a pixel of slack
  * because it compares two *different* paths' edges and Plot offsets a stroked
  * mark by half a pixel. There is nothing to absorb inside one path: a floor's
- * vertices are read from the `d` attribute rather than computed, and a channel
- * that does not vary is one pixel through any scale, written as one number.
- * Slack here would only admit a band whose bound moves too little to see.
+ * vertices are read from the `d` attribute rather than computed, so Plot's
+ * output rounding has already erased any noise below the quantum. Measured on
+ * 0.6.17, a `y1` of `1/3`, of `Math.PI`, of `-2.7`, one alternating between
+ * `0.1 + 0.2` and `0.3`, and one stepping by `1e-9` all write the same number
+ * at every vertex; a `y1` stepping by `0.4` writes `314 328 342 356 370`. A
+ * floor either does not move or moves in whole pixels, so slack here would
+ * only admit a band whose bound moves too little to see.
  *
  * @param floor - The band's lower edge, in pixels.
  * @returns True when every floor vertex sits at one height.
