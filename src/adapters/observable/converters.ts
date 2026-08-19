@@ -412,6 +412,10 @@ function convertMark(
     // draws, which is what makes it readable without a heuristic (#1081).
     case 'linear-regression':
       return convertRegression(facet, context);
+    // A waffle is a bar chart drawn as a count of cells, and the count is in
+    // the markup exactly rather than approximated from a colour (#1093).
+    case 'waffle':
+      return convertWaffle(facet, context);
     default:
       return null;
   }
@@ -1531,6 +1535,211 @@ function convertDot(
     return null;
 
   return buildBarLayer(data, context, orientation, TraceType.DOT);
+}
+
+/**
+ * Reads a waffle mark as a bar chart of tallies.
+ *
+ * A waffle says its value by how many cells it fills, and both halves of that
+ * are written down: the `<pattern>` a path is filled with gives the cell's
+ * size, and the path itself is the outline around the filled cells — a
+ * rectangle when they fill whole rows, a staircase when the last row is
+ * partial. Nothing here is inverted from a colour or approximated.
+ *
+ * The tally is not announced directly, because a cell is not always one unit:
+ * `unit: 5` draws 12 as 2.4 cells. What is announced is the height those cells
+ * would have as a solid bar — their total area over the width of the lattice —
+ * put back through the scale, which is the same reading a bar gets and needs no
+ * knowledge of `unit` at all.
+ *
+ * The lattice's width has to be taken across the whole mark. A category holding
+ * less than a full row is only as wide as the cells it drew, so on its own it
+ * understates how many lanes there are; some category always fills a row,
+ * because Plot sizes the lattice to the largest value.
+ *
+ * Measured on `@observablehq/plot@0.6.17` against `waffleY` and `waffleX`, a
+ * `fill`-stacked waffle, `unit` of 2 and 5, a partial row, and a fractional
+ * value: every tally comes back exactly.
+ *
+ * @param facet   - The mark's paths and patterns.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when the mark is not a readable waffle.
+ */
+function convertWaffle(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  const { scales } = context;
+  const orientation = barOrientation(scales);
+  if (!orientation)
+    return null;
+
+  const vertical = orientation === Orientation.VERTICAL;
+  const patches = facet.elements
+    .map(element => readWafflePatch(element))
+    .filter((patch): patch is WafflePatch => patch !== null);
+  if (patches.length === 0)
+    return null;
+
+  // The cell's size across the lattice, which is the axis the lanes run along:
+  // a `waffleY` stacks rows up the band and lays its cells out across it, and
+  // a `waffleX` does the same thing turned on its side.
+  const laneSize = vertical ? patches[0].cell.width : patches[0].cell.height;
+  if (!(laneSize > 0))
+    return null;
+  const widest = Math.max(...patches.map(patch => (vertical ? patch.across.x : patch.across.y)));
+  const lanes = Math.round(widest / laneSize);
+  // Only a mark whose every category tallies zero has nothing to size the
+  // lattice from, and Plot does not draw one: measured on 0.6.17, a waffle of
+  // all zeroes — one category or three, `waffleY` or `waffleX` — emits no
+  // group at all, so there is no mark here to arrive with. Guarded anyway, so
+  // that a lattice of no lanes cannot divide a tally.
+  if (!(lanes >= 1))
+    return null;
+
+  const magnitude = vertical ? scales.y : scales.x;
+  const category = vertical ? scales.x : scales.y;
+  const data: MarkDatum[] = [];
+  for (const patch of patches) {
+    // The height this many cells would have as a solid bar: their area spread
+    // across the lattice's full width.
+    const depth = patch.area / (lanes * laneSize);
+    const from = vertical ? patch.origin.y : patch.origin.x;
+    // A vertical waffle grows upward, which is towards smaller pixels.
+    const to = vertical ? from - depth : from + depth;
+    const base = toNumber(valueAtPixel(magnitude, from));
+    const tip = toNumber(valueAtPixel(magnitude, to));
+    const where = valueAtPixel(category, vertical ? patch.origin.x : patch.origin.y);
+    if (base === null || tip === null || where === null)
+      continue;
+
+    // The colour lives on the pattern's swatch rather than on the path, so the
+    // series is named the same way every other mark names one — through the
+    // colour scale — just from a step further in.
+    const series = valueAtColor(scales.color, patch.colour);
+
+    data.push({
+      element: patch.element,
+      x: where,
+      y: signedMagnitude(tip, base),
+      ...(series === null ? {} : { series: String(series) }),
+    });
+  }
+  if (data.length === 0)
+    return null;
+
+  return buildBarLayer(data, context, orientation, TraceType.BAR);
+}
+
+/** One filled region of a waffle, and the lattice it was drawn on. */
+interface WafflePatch {
+  element: Element;
+  /** Area of the filled outline, in square pixels. */
+  area: number;
+  /** How far the outline reaches along each axis, in pixels. */
+  across: { x: number; y: number };
+  /** Where the mark placed this patch, from its `transform`. */
+  origin: { x: number; y: number };
+  /** The lattice cell, from the `<pattern>` the patch is filled with. */
+  cell: { width: number; height: number };
+  /** The swatch colour on the patch's pattern, when a `fill` split the mark. */
+  colour: string | null;
+}
+
+/**
+ * Reads one waffle path, together with the pattern it is filled with.
+ *
+ * The pattern is where the cell's size lives, and — when a `fill` channel split
+ * the mark — where its colour lives too: Plot puts the series colour on the
+ * `<rect>` inside the pattern rather than on the path, which carries only
+ * `url(#…)`.
+ *
+ * @param element - A child of the waffle group.
+ * @returns The patch, or `null` when this is not a filled waffle path.
+ */
+function readWafflePatch(element: Element): WafflePatch | null {
+  if (element.tagName.toLowerCase() !== 'path')
+    return null;
+
+  const pattern = patternOf(element);
+  if (!pattern)
+    return null;
+  const width = attributeNumber(pattern, 'width');
+  const height = attributeNumber(pattern, 'height');
+  if (width === null || height === null || width <= 0 || height <= 0)
+    return null;
+
+  const drawn = readPathGeometry(element);
+  // One outline, not several: a waffle draws its filled cells as a single
+  // closed region, and a `d` in pieces is some other mark in this group whose
+  // vertices would enclose an area belonging to neither piece.
+  //
+  // No minimum vertex count, deliberately. A category holding nothing is still
+  // drawn — `M0,0L0,0…Z`, every vertex on the origin — and encloses no area,
+  // so it reads as the zero it is rather than being dropped from the chart.
+  // Anything degenerate enough to have fewer vertices encloses no area either
+  // and arrives at the same answer.
+  if (drawn === null || drawn.subpaths !== 1)
+    return null;
+
+  const swatch = pattern.querySelector('rect');
+  const colour = swatch?.getAttribute('fill') ?? null;
+
+  return {
+    element,
+    area: polygonArea(drawn.vertices),
+    across: { x: extentOf(drawn.vertices, 'x'), y: extentOf(drawn.vertices, 'y') },
+    origin: translateOf(element) ?? { x: 0, y: 0 },
+    cell: { width, height },
+    colour,
+  };
+}
+
+/**
+ * The `<pattern>` an element's `fill` points at.
+ *
+ * @param element - The filled element.
+ * @returns The pattern, or `null` when the fill is not a pattern reference.
+ */
+function patternOf(element: Element): Element | null {
+  const reference = /^url\(#(.+)\)$/.exec(element.getAttribute('fill') ?? '');
+  if (!reference)
+    return null;
+
+  // Scanned rather than selected by id: an id goes into a selector unescaped
+  // only if it happens to be a valid identifier, and `CSS.escape` is not
+  // something this adapter can count on in every document it is handed.
+  const scope = element.closest('svg') ?? element.parentElement;
+  const patterns = Array.from(scope?.querySelectorAll('pattern') ?? []);
+  return patterns.find(pattern => pattern.getAttribute('id') === reference[1]) ?? null;
+}
+
+/**
+ * The area a closed outline encloses, by the shoelace formula.
+ *
+ * Taken as a magnitude, because the sign only says which way round the outline
+ * was drawn.
+ *
+ * @param vertices - The outline's vertices, in drawing order.
+ * @returns The area in square pixels.
+ */
+function polygonArea(vertices: readonly { x: number; y: number }[]): number {
+  let twice = 0;
+  for (let index = 0; index < vertices.length; index++) {
+    const here = vertices[index];
+    const next = vertices[(index + 1) % vertices.length];
+    twice += here.x * next.y - next.x * here.y;
+  }
+  return Math.abs(twice) / 2;
+}
+
+/**
+ * How far a set of vertices reaches along one axis.
+ *
+ * @param vertices - The vertices.
+ * @param axis     - Which coordinate to measure.
+ * @returns The extent in pixels.
+ */
+function extentOf(vertices: readonly { x: number; y: number }[], axis: 'x' | 'y'): number {
+  const values = vertices.map(vertex => vertex[axis]);
+  return Math.max(...values) - Math.min(...values);
 }
 
 /**
