@@ -1586,6 +1586,11 @@ function convertWaffle(facet: MarkFacet, context: ConversionContext): ConvertedM
     return null;
   const widest = Math.max(...patches.map(patch => (vertical ? patch.across.x : patch.across.y)));
   const lanes = Math.round(widest / laneSize);
+  // Only a mark whose every category tallies zero has nothing to size the
+  // lattice from, and Plot does not draw one: measured on 0.6.17, a waffle of
+  // all zeroes — one category or three, `waffleY` or `waffleX` — emits no
+  // group at all, so there is no mark here to arrive with. Guarded anyway, so
+  // that a lattice of no lanes cannot divide a tally.
   if (!(lanes >= 1))
     return null;
 
