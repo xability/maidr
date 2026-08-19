@@ -36,6 +36,8 @@ import type {
   BarPoint,
   BoxPoint,
   BoxSelector,
+  GanttData,
+  GanttPoint,
   HistogramPoint,
   LinePoint,
   Maidr,
@@ -416,6 +418,12 @@ function convertMark(
     // the markup exactly rather than approximated from a colour (#1093).
     case 'waffle':
       return convertWaffle(facet, context);
+    // A link is a segment between two points, which is a span along one axis
+    // when both of its ends share the other — and an arrow is the same segment
+    // with a head on it (#1094).
+    case 'link':
+    case 'arrow':
+      return convertLink(facet, context);
     default:
       return null;
   }
@@ -1535,6 +1543,197 @@ function convertDot(
     return null;
 
   return buildBarLayer(data, context, orientation, TraceType.DOT);
+}
+
+/**
+ * Reads a `link` or `arrow` mark as a gantt of the spans it draws.
+ *
+ * A link joins two points, which says nothing on its own. It says something
+ * when both ends share a coordinate: the segment is then a **span** along the
+ * other axis, at one position on this one — an interval in a lane, which is
+ * what a gantt, a timeline and a swimlane diagram all are.
+ *
+ * A gantt rather than a dumbbell, deliberately. The dumbbell shape asserts that
+ * the two ends are a comparison — before and after, two groups, two years — and
+ * nothing in a `link` says so. The dots that usually sit at each end are a
+ * separate mark with its own `aria-label`, so reading them as one chart would
+ * mean inferring a composite out of two independently labelled groups, which is
+ * the inference that went wrong in #1088. There it was settled by provenance;
+ * here Plot leaves none. `GanttPoint` claims only `{lane, start, end}`, which is
+ * exactly what was drawn, and the dots stay the scatter they are.
+ *
+ * The question is asked of the **whole mark**, not of each path. One `link` can
+ * hold both spans and diagonals, and three spans plus one diagonal is not a
+ * gantt with a stray element — it is a chart this reading does not understand,
+ * and announcing three quarters of it would be worse than declining it.
+ *
+ * @param facet   - The mark's paths.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when the mark is not a set of spans.
+ */
+function convertLink(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  const { scales } = context;
+  const orientation = barOrientation(scales);
+  if (!orientation)
+    return null;
+
+  // A lane runs along the axis the two ends agree on, so a horizontal span —
+  // the ordinary gantt — sits on a discrete y, which is what `barOrientation`
+  // calls horizontal.
+  const alongX = orientation === Orientation.HORIZONTAL;
+  const spans = facet.elements
+    .map(element => readSpan(element, alongX))
+    .filter((span): span is Span => span !== null);
+  // Every path or none: a mark holding one diagonal is handed back whole.
+  if (spans.length === 0 || spans.length !== facet.elements.filter(isPath).length)
+    return null;
+
+  const laneScale = alongX ? scales.y : scales.x;
+  const spanScale = alongX ? scales.x : scales.y;
+  const lanes = laneScale?.domain;
+  if (!Array.isArray(lanes) || lanes.length === 0)
+    return null;
+
+  // Nested by lane, in the scale's order rather than the drawing's, so a lane
+  // holding nothing is an empty row rather than a row that is not there. That
+  // is a real statement about a schedule, and the one row a flat list cannot
+  // make.
+  const rows: GanttPoint[][] = lanes.map(() => []);
+  const elements: Element[][] = lanes.map(() => []);
+  for (const span of spans) {
+    const lane = valueAtPixel(laneScale, span.at);
+    // Through the path's own quantum, not the raw pixel: a `link` writes its
+    // `d` at three decimals, so inverting 88.333 in full announced 2.9999931
+    // for a span drawn from 3. A rect's attributes are exact and need no such
+    // care; a path's have already been rounded once.
+    const start = toNumber(pathValue(spanScale, span.from, span.pixelError));
+    const end = toNumber(pathValue(spanScale, span.to, span.pixelError));
+    if (lane === null || start === null || end === null)
+      continue;
+    const row = lanes.indexOf(lane);
+    if (row < 0)
+      continue;
+    rows[row].push({ x: lane, start, end });
+    elements[row].push(span.element);
+  }
+  if (rows.every(row => row.length === 0))
+    return null;
+
+  const token = `L${context.layerCount++}`;
+  const data: GanttData = { points: rows, lanes: lanes as (string | number)[] };
+
+  return {
+    legend: [],
+    layer: {
+      id: token,
+      type: TraceType.GANTT,
+      orientation,
+      selectors: stampSeries(elements, context.containerId, token),
+      axes: axisConfig(context),
+      data,
+    },
+  };
+}
+
+/** One drawn span: where along its lane axis it sits, and the two ends. */
+interface Span {
+  element: Element;
+  /** Position on the axis both ends share. */
+  at: number;
+  /** Pixel of the end drawn first. */
+  from: number;
+  /** Pixel of the end drawn last. */
+  to: number;
+  /** The quantum the path's coordinates were written at. */
+  pixelError: number;
+}
+
+/** Whether an element is a `<path>`. */
+function isPath(element: Element): boolean {
+  return element.tagName.toLowerCase() === 'path';
+}
+
+/**
+ * Reads one link as a span, or refuses it.
+ *
+ * Only the **first subpath** is the segment. `Plot.arrow` writes its head into
+ * the same `d` as a second subpath, and those vertices are decoration rather
+ * than data. Within that subpath only the two ends are data either: a `curve`
+ * puts control points between them — `bump-x` writes
+ * `M88.333,32C233.333,32,233.333,32,378.333,32` — which are the shape of the
+ * connector and not positions anything was measured at.
+ *
+ * @param element - A child of the mark's group.
+ * @param alongX  - Whether the span is expected to run along x.
+ * @returns The span, or `null` when this path is not one.
+ */
+function readSpan(element: Element, alongX: boolean): Span | null {
+  if (!isPath(element))
+    return null;
+
+  const ends = firstSubpathEnds(element.getAttribute('d') ?? '');
+  if (!ends)
+    return null;
+
+  const { from, to } = ends;
+  // The ends have to agree on the lane axis exactly. Both come from the same
+  // `d`, written at one precision, so a span really drawn across one lane says
+  // so in the same digits — the argument {@link floorIsLevel} rests on.
+  const at = alongX ? from.y : from.x;
+  const other = alongX ? to.y : to.x;
+  if (at !== other)
+    return null;
+
+  return {
+    element,
+    at,
+    from: alongX ? from.x : from.y,
+    to: alongX ? to.x : to.y,
+    pixelError: ends.pixelError,
+  };
+}
+
+/**
+ * The first and last vertex of a path's first subpath, and their precision.
+ *
+ * @param d - The `d` attribute.
+ * @returns The two ends and their quantum, or `null` when there are not two.
+ */
+function firstSubpathEnds(
+  d: string,
+): { from: { x: number; y: number }; to: { x: number; y: number }; pixelError: number } | null {
+  const vertices: { x: number; y: number }[] = [];
+  let decimals = 0;
+  const commands = d.match(/[MLC][^MLCZ]*/gi) ?? [];
+  for (const [index, command] of commands.entries()) {
+    // A second `M` opens the next subpath, which for an arrow is its head.
+    if (index > 0 && command[0].toUpperCase() === 'M')
+      break;
+    const written = command.slice(1).match(/-?\d*\.?\d+(?:e[+-]?\d+)?/gi) ?? [];
+    const numbers = written.map(Number.parseFloat);
+    if (numbers.length < 2)
+      continue;
+    for (const text of written)
+      decimals = Math.max(decimals, (text.split('.')[1] ?? '').length);
+    const x = numbers[numbers.length - 2];
+    const y = numbers[numbers.length - 1];
+    if (Number.isFinite(x) && Number.isFinite(y))
+      vertices.push({ x, y });
+  }
+  // Exactly two. A link has two endpoints and a `curve` joins them with a
+  // single command — `bump-x` writes one `C`, whose control points are not
+  // separate vertices — so a first subpath carrying more than two is not a
+  // link, and guessing which of them were the ends would be inventing a span.
+  if (vertices.length !== 2)
+    return null;
+
+  return {
+    from: vertices[0],
+    to: vertices[1],
+    // Half the smallest step the coordinates were written at, as
+    // {@link readPathGeometry} computes it for the same reason.
+    pixelError: 0.5 * 10 ** -decimals,
+  };
 }
 
 /**
