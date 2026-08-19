@@ -1559,6 +1559,10 @@ function convertLine(
    */
   let stepDirection: StepDirection | undefined;
 
+  // Parsed first, read second: whether a band's floor is the series below it
+  // or a lower bound of its own is a question about the whole mark, and the
+  // answer decides how each band's own value is read.
+  const drawn: { element: Element; path: ParsedPath; name: unknown }[] = [];
   for (const element of facet.elements) {
     if (element.tagName.toLowerCase() !== 'path')
       continue;
@@ -1568,6 +1572,45 @@ function convertLine(
     if (path === null)
       continue;
     stepDirection ??= path.stepDirection;
+
+    drawn.push({ element, path, name });
+    // Every parsed band counts towards the stack question, including one whose
+    // vertices go on to invert to nothing and leave it with no points. Whether
+    // the bands rest on one another is a fact about what was drawn, and a band
+    // drawn on a scale that cannot invert it is still holding up the one above.
+    // Collected before the reading rather than after it, which is a change from
+    // when the two were one pass: such a band used to be invisible here.
+    if (path.lower) {
+      bands.push({
+        upper: path.vertices.map(vertex => vertex.y),
+        lower: path.lower.map(vertex => vertex.y),
+      });
+    }
+  }
+
+  // A stacked area draws two magnitudes per sample — the band's own height and
+  // the running total its top edge traces — and `AreaTrace` announces the
+  // second only when it is told the layer is stacked. Typed as a plain area the
+  // values are right and half the chart's meaning is missing, because a reader
+  // is never told what the bands add up to or what share this one is. The
+  // totals are summed there rather than sent from here, which is what the
+  // per-series values read off the band are.
+  const stacked = type === TraceType.AREA && bandsStack(bands);
+
+  for (const { element, path, name } of drawn) {
+    // Subtracting the floor turns a stack's running total back into each
+    // series' own value, and it says something quite different about a band
+    // that stacks on nothing. A floor that follows the data is a lower bound —
+    // a confidence band, a min/max range, a Bollinger band — and the distance
+    // up to the ceiling is the interval's width, not a value: measured, a band
+    // drawn at 8/12, 11/15, 9/13 and 13/17 announced a flat 4, which its own y
+    // axis contradicts (#1092).
+    //
+    // MAIDR has a shape for a value with an interval around it — `SmoothPoint`'s
+    // `yMin`/`yMax` — but a band on its own has no centre to carry one, so this
+    // hands the mark back rather than choosing a value for it.
+    if (type === TraceType.AREA && !stacked && path.lower && !floorIsLevel(path.lower))
+      continue;
 
     const points: LinePoint[] = [];
     for (const [index, vertex] of path.vertices.entries()) {
@@ -1605,13 +1648,6 @@ function convertLine(
     if (points.length === 0)
       continue;
 
-    if (path.lower) {
-      bands.push({
-        upper: path.vertices.map(vertex => vertex.y),
-        lower: path.lower.map(vertex => vertex.y),
-      });
-    }
-
     series.push(points);
     elements.push([element]);
     if (name !== null && !legend.includes(String(name)))
@@ -1622,14 +1658,6 @@ function convertLine(
     return null;
 
   const token = `L${context.layerCount++}`;
-  // A stacked area draws two magnitudes per sample — the band's own height and
-  // the running total its top edge traces — and `AreaTrace` announces the
-  // second only when it is told the layer is stacked. Typed as a plain area the
-  // values are right and half the chart's meaning is missing, because a reader
-  // is never told what the bands add up to or what share this one is. The
-  // totals are summed there rather than sent from here, which is what the
-  // per-series values read off the band are.
-  const stacked = type === TraceType.AREA && bandsStack(bands);
   // The same question of a stacked area, asked per sample rather than per
   // column: bands that add to one at every x are a 100% area.
   const heights = series[0]?.map((_, sample) =>
@@ -1779,6 +1807,43 @@ function columnsAreShares(columns: readonly number[][]): boolean {
     // whole-number total is two.
     return Math.abs(total - 1) < 1e-6;
   });
+}
+
+/**
+ * Whether an area's floor is a base it was given rather than data of its own.
+ *
+ * A level floor is one the chart chose: the baseline, which `Plot.areaY` draws
+ * at the value zero whatever the y domain says — measured on 0.6.17 at pixel
+ * 486.667 for a domain of `[5, 20]` whose range ends at 370, off the frame and
+ * inverting to exactly zero — or a constant `y1`, which is the same thing at a
+ * different height. Either way the band's height is a magnitude above a base,
+ * which is what the reading announces.
+ *
+ * A floor that moves is following something. Given `y1` and `y2` off the data
+ * an area is an interval, and its floor traces the lower bound sample by
+ * sample — so the height is the width of that interval and not a value.
+ *
+ * The one case this cannot separate is a genuine interval around a flat
+ * series, whose lower bound is constant and so looks exactly like a chosen
+ * base. Nothing in the drawing tells those apart, which is where the test
+ * stops rather than where it guesses.
+ *
+ * Compared exactly, unlike {@link bandsStack}, which needs a pixel of slack
+ * because it compares two *different* paths' edges and Plot offsets a stroked
+ * mark by half a pixel. There is nothing to absorb inside one path: a floor's
+ * vertices are read from the `d` attribute rather than computed, so Plot's
+ * output rounding has already erased any noise below the quantum. Measured on
+ * 0.6.17, a `y1` of `1/3`, of `Math.PI`, of `-2.7`, one alternating between
+ * `0.1 + 0.2` and `0.3`, and one stepping by `1e-9` all write the same number
+ * at every vertex; a `y1` stepping by `0.4` writes `314 328 342 356 370`. A
+ * floor either does not move or moves in whole pixels, so slack here would
+ * only admit a band whose bound moves too little to see.
+ *
+ * @param floor - The band's lower edge, in pixels.
+ * @returns True when every floor vertex sits at one height.
+ */
+function floorIsLevel(floor: readonly { x: number; y: number }[]): boolean {
+  return floor.every(vertex => vertex.y === floor[0].y);
 }
 
 /**
