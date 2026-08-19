@@ -54,6 +54,9 @@ export enum Scope {
   GRID_CELL = 'GRID_CELL',
   HELP = 'HELP',
   FIGURE_LABEL = 'FIGURE_LABEL',
+  MARK_JUMP = 'MARK_JUMP',
+  MARK_PLAY = 'MARK_PLAY',
+  MARK_SET = 'MARK_SET',
   SUBPLOT = 'SUBPLOT',
   TRACE = 'TRACE',
   TRACE_LABEL = 'TRACE_LABEL',
@@ -63,8 +66,9 @@ export enum Scope {
 
 /**
  * Focusable scopes excluding label-only scopes that cannot receive keyboard focus.
+ * Note: MARK_JUMP is included as it now renders a dialog UI.
  */
-export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.TRACE_LABEL>;
+export type Focus = Exclude<Scope, Scope.FIGURE_LABEL | Scope.MARK_PLAY | Scope.MARK_SET | Scope.TRACE_LABEL>;
 
 /**
  * Scopes the user opens on top of the chart and dismisses with Escape, as
@@ -79,6 +83,7 @@ export const MODAL_SCOPES: ReadonlySet<Focus> = new Set<Focus>([
   Scope.DESCRIPTION,
   Scope.GO_TO_EXTREMA,
   Scope.HELP,
+  Scope.MARK_JUMP,
   Scope.REVIEW,
   Scope.SETTINGS,
 ]);
