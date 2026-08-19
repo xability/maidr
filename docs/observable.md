@@ -261,6 +261,23 @@ This is the one reading in the adapter that is *detected* rather than declared, 
 
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
+## Link and arrow marks
+
+A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:
+
+```js
+const chart = Plot.plot({ marks: [Plot.link(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
+observablePlotToMaidr(chart);
+```
+
+A gantt rather than a dumbbell, deliberately. The dumbbell shape says the two ends are a comparison — before and after, two groups, two years — and only the dots that usually sit at each end suggest that. Those are a separate mark with their own label, so pairing them would mean inferring a composite out of two independently labelled groups, and Plot leaves nothing behind that says they belong together. `GanttPoint` claims only a lane and two positions, which is exactly what a link draws; the dots keep being read as the scatter they are.
+
+Both orientations work, and so does a `curve`: Plot joins a link's two endpoints with a single command whatever the curve, so the connector's shape never becomes a position. `Plot.arrow` is read the same way — its head goes into the same `d` as a second subpath, and those vertices are dropped rather than taken for an end.
+
+A lane holding several intervals and a lane holding none are both kept: the intervals nest under their lane, and an empty lane stays as an empty row, named from the scale's domain. That is a real statement about a schedule and the one a flat list cannot make.
+
+What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
+
 ## Waffle charts
 
 `Plot.waffleY` and `Plot.waffleX` are read as bar charts of their tallies:
