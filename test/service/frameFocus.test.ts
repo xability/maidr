@@ -3,7 +3,7 @@
  */
 
 /**
- * Tests for the frame focus handoff (#…).
+ * Tests for the frame focus handoff.
  *
  * A chart in an iframe hears every key the reader presses and the host page
  * hears none of them, so Shift + Tab off the chart is the reader's way back to
