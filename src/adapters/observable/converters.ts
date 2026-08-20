@@ -1787,7 +1787,6 @@ function convertSpans(
   };
 }
 
-/** One drawn span: where along its lane axis it sits, and the two ends. */
 /**
  * Reads a `rule` mark as a gantt of the intervals it draws.
  *
@@ -1885,6 +1884,7 @@ function lineSpan(element: Element, alongX: boolean): Span | null {
   };
 }
 
+/** One drawn span: where along its lane axis it sits, and the two ends. */
 interface Span {
   element: Element;
   /** Position on the axis both ends share. */
@@ -1893,7 +1893,11 @@ interface Span {
   from: number;
   /** Pixel of the end drawn last. */
   to: number;
-  /** The quantum the path's coordinates were written at. */
+  /**
+   * The quantum the coordinates were written at, or `0` when they were not
+   * written at one — a `<line>`'s ends are attributes rather than a serialised
+   * `d`, so there is no rounding to undo.
+   */
   pixelError: number;
 }
 
