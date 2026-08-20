@@ -14,6 +14,7 @@ import { CommandPaletteService } from '@service/commandPalette';
 import { DescriptionService } from '@service/description';
 import { DisplayService } from '@service/display';
 import { FormatterService } from '@service/formatter';
+import { FrameFocusService } from '@service/frameFocus';
 import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
@@ -55,6 +56,7 @@ export class Controller implements Disposable {
   private readonly notificationService: NotificationService;
   private readonly settingsService: SettingsService;
   private readonly formatterService: FormatterService;
+  private readonly frameFocusService: FrameFocusService;
 
   private readonly audioService: AudioService;
   private readonly brailleService: BrailleService;
@@ -104,6 +106,7 @@ export class Controller implements Disposable {
 
     this.notificationService = new NotificationService();
     this.formatterService = new FormatterService(maidr);
+    this.frameFocusService = new FrameFocusService();
     this.textService = new TextService(this.notificationService, this.formatterService);
     this.displayService = new DisplayService(this.context, plot, this.textService);
     this.settingsService = new SettingsService(
@@ -502,6 +505,7 @@ export class Controller implements Disposable {
     this.brailleService.dispose();
     this.audioService.dispose();
     this.formatterService.dispose();
+    this.frameFocusService.dispose();
 
     this.settingsService.dispose();
     this.notificationService.dispose();
