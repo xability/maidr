@@ -261,6 +261,23 @@ This is the one reading in the adapter that is *detected* rather than declared, 
 
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
+## Spike and vector marks
+
+`Plot.spike` stands a magnitude at a place, and both halves are in the markup — the place is the mark's `transform`, and the magnitude is how far the spike reaches, put back through the `length` scale that sized it:
+
+```js
+const chart = Plot.plot({ marks: [Plot.spike(cities, { x: 'lon', y: 'lat', length: 'net' })] });
+observablePlotToMaidr(chart);
+```
+
+It is announced as a scatter carrying `z`, which the trace speaks alongside the position *and* scales into an audio intensity across the layer's range, so the magnitude is both said and heard.
+
+The scale sizes a distance, so the direction of the reach carries the sign: a magnitude of −8 is drawn reaching down by the same pixels a magnitude of 8 reaches up. Taken as a raw height, a spike map of net migration would announce every loss as a gain.
+
+`Plot.vector` draws the same magnitude with a shaft and an arrowhead, and is read the same way — **unless it points somewhere**. A flow field's direction is usually what it was drawn for, and there is no field in the grammar for a bearing, so a vector given a `rotate` channel is turned away rather than announced as a spike with its direction silently dropped. Plot writes `rotate()` into the transform exactly when that channel was given, even where every value is zero, so what the reading asks is whether a direction was *encoded* — not whether it happened to vary.
+
+A vector with no `length` channel is turned away too: every arrow is then drawn the same default height, and the only number available is the mark's own styling.
+
 ## Link and arrow marks
 
 A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:

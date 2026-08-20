@@ -51,6 +51,8 @@ export interface PlotScales {
   fy?: PlotScale;
   color?: PlotScale;
   r?: PlotScale;
+  /** Sizes a `spike` or `vector`'s drawn length from its magnitude channel. */
+  length?: PlotScale;
 }
 
 /**

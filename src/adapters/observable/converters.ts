@@ -424,6 +424,10 @@ function convertMark(
     case 'link':
     case 'arrow':
       return convertLink(facet, context);
+    // `Plot.spike` and `Plot.vector` share this label. A magnitude standing at
+    // a position is readable; one that also points somewhere is not (#1098).
+    case 'vector':
+      return convertSpike(facet, context);
     default:
       return null;
   }
@@ -1543,6 +1547,117 @@ function convertDot(
     return null;
 
   return buildBarLayer(data, context, orientation, TraceType.DOT);
+}
+
+/**
+ * Reads a `spike` mark as positions carrying a magnitude.
+ *
+ * A spike map stands a magnitude at a place, and both halves are written down:
+ * the place is the mark's `translate`, and the magnitude is how far the spike
+ * reaches, inverted through the `length` scale that sized it. Measured on
+ * `@observablehq/plot@0.6.17` against a scale of `[0, 12] → [0, 18]`, spikes
+ * drawn 7.5, 18 and 12 pixels tall return 5, 12 and 8 exactly.
+ *
+ * It is announced as a scatter carrying `z`, which is a labelled third
+ * measurement: the trace speaks it alongside the position and scales it into
+ * an audio intensity across the layer's range, so the magnitude is both said
+ * and heard.
+ *
+ * **A vector that points somewhere is refused.** `Plot.vector` draws the same
+ * length with a `rotate`, and a flow field's direction is usually the thing it
+ * was drawn for — there is no field in the grammar for a bearing, so reading
+ * only the magnitude would announce half a chart without saying which half.
+ * Plot writes `rotate()` into the transform exactly when a rotation channel was
+ * given, even where its value is zero, so the mark says which it is: measured,
+ * `vector(pts, {x, y, length})` produces `translate(40,253.333) translate(0,3.75)`
+ * and `vector(pts, {…, rotate: 'r'})` produces
+ * `translate(40,253.333) rotate(0) translate(0,3.75)`.
+ *
+ * @param facet   - The mark's paths.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when the mark is not a set of plain spikes.
+ */
+function convertSpike(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  const { scales } = context;
+  const points: ScatterPoint[] = [];
+  const elements: Element[] = [];
+  for (const element of facet.elements) {
+    if (!isPath(element))
+      continue;
+    // Asked of the mark rather than of the path: one rotated vector among
+    // straight ones is still a chart about direction.
+    if (/\brotate\(/.test(element.getAttribute('transform') ?? ''))
+      return null;
+
+    const at = translateOf(element);
+    const rise = spikeRise(element);
+    if (at === null || rise === null)
+      continue;
+
+    const x = toNumber(valueAtPixel(scales.x, at.x));
+    const y = toNumber(valueAtPixel(scales.y, at.y));
+    // The scale is sized from the magnitude's size, so it inverts a distance
+    // and the direction of the rise carries the sign: measured, a magnitude of
+    // -8 draws `M-3.5,0L0,12L3.5,0`, reaching *down* by the same 12 pixels a
+    // magnitude of 8 reaches up. Read off the raw `y` instead, a spike map of
+    // net migration would announce every loss as a gain.
+    //
+    // A mark with no `length` channel has no such scale, and this is where it
+    // is turned away: `Plot.vector(pts, {x, y})` draws every arrow the same
+    // default height, so the only number to hand is the mark's own styling.
+    // No separate guard, because inverting through a scale that is not there
+    // already yields nothing and drops the point.
+    const size = toNumber(pathValue(scales.length, Math.abs(rise), PATH_QUANTUM / 2));
+    if (x === null || y === null || size === null)
+      continue;
+    const z = rise < 0 ? size : -size;
+
+    points.push({ x, y, z });
+    elements.push(element);
+  }
+  if (points.length === 0)
+    return null;
+
+  const token = `L${context.layerCount++}`;
+
+  return {
+    legend: [],
+    layer: {
+      id: token,
+      type: TraceType.SCATTER,
+      selectors: stampLayer(elements, context.containerId, token),
+      axes: axisConfig(context),
+      data: points,
+    },
+  };
+}
+
+/**
+ * How far a spike rises from its base, in pixels, and which way.
+ *
+ * Both shapes grow from the origin they are translated to — a spike is a
+ * triangle, `M-3.5,0L0,-7.5L3.5,0`, and a vector is a shaft with a head,
+ * `M0,0L0,-7.5M-1.5,-6L0,-7.5L1.5,-6` — so the apex is the vertex furthest
+ * from that base. Its sign is kept because it is the magnitude's: a negative
+ * magnitude reaches down rather than up.
+ *
+ * Taken across the whole `d` rather than the first subpath. A vector's head is
+ * drawn at the far end, so it cannot reach past the apex, and a spike has no
+ * second subpath at all.
+ *
+ * @param element - The mark's `<path>`.
+ * @returns The signed rise in pixels, or `null` when the mark has no height.
+ */
+function spikeRise(element: Element): number | null {
+  const drawn = readPathGeometry(element);
+  if (drawn === null)
+    return null;
+
+  const apex = drawn.vertices.reduce(
+    (far, vertex) => (Math.abs(vertex.y) > Math.abs(far) ? vertex.y : far),
+    0,
+  );
+  return apex === 0 ? null : apex;
 }
 
 /**

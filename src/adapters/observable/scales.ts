@@ -25,7 +25,7 @@ import type { ObservablePlotElement, PlotScale, PlotScales } from './types';
 import { parseTranslate } from './introspect';
 
 /** Scale names the adapter reads off a plot. */
-const SCALE_NAMES = ['x', 'y', 'fx', 'fy', 'color', 'r'] as const;
+const SCALE_NAMES = ['x', 'y', 'fx', 'fy', 'color', 'r', 'length'] as const;
 
 /** Plot's scale types that map a continuous domain onto pixels. */
 const CONTINUOUS_TYPES = new Set([
