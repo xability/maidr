@@ -224,8 +224,8 @@ describe('declining a box plot that cannot be paired up', () => {
     { key: 'barRangeAndTarget' as const, types: [TraceType.BAR, TraceType.DOT] },
     // The candlestick's bar floats free of the baseline, so the bar reading
     // declines it on its own account — a ranged bar has two ends and a bar
-    // point has room for one. Its marker is still read.
-    { key: 'floatingRangeBar' as const, types: [TraceType.DOT] },
+    // point has room for one. Its wicks and its marker are both still read.
+    { key: 'floatingRangeBar' as const, types: [TraceType.GANTT, TraceType.DOT] },
   ])('hands $key back to be read rather than reading it as a box', ({ key, types }) => {
     // All three satisfy every geometric relation a box plot's parts have: the
     // tick lies inside the bar, the rule runs along it. Read as a box they
@@ -242,7 +242,11 @@ describe('declining a box plot that cannot be paired up', () => {
     //
     // And declining to claim them is not the same as skipping them: their marks
     // go back to the readings they belong to, so the chart is announced instead
-    // of going out silent.
+    // of going out silent. The first two rules stand on the baseline, so the
+    // rule reading declines them for its own reason (#1100) — a span every one
+    // of whose lines starts in the same place is a stem, not an interval. The
+    // candlestick's wicks float at both ends, which is what a high and a low
+    // are, so they come back as the gantt they draw.
     const { element } = mountFixture(key);
     const layers = observablePlotToMaidr(element)?.subplots[0][0].layers ?? [];
 

@@ -428,6 +428,10 @@ function convertMark(
     // a position is readable; one that also points somewhere is not (#1098).
     case 'vector':
       return convertSpike(facet, context);
+    // The same span a `link` draws, drawn as a `<line>` instead — which is how
+    // Plot writes a high-low chart, a gantt and a range plot (#1100).
+    case 'rule':
+      return convertRule(facet, context);
     default:
       return null;
   }
@@ -1696,6 +1700,30 @@ function spikeRise(element: Element): number | null {
  * @returns The layer, or `null` when the mark is not a set of spans.
  */
 function convertLink(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  return convertSpans(facet, context, readSpan, isPath);
+}
+
+/**
+ * Reads a mark whose elements are spans as a gantt of them.
+ *
+ * The two callers differ only in what a span is drawn as — a `link` writes a
+ * `<path>`, a `rule` writes a `<line>` — and in what each has to refuse before
+ * getting here. Everything downstream of that is one reading, so it is one
+ * function.
+ *
+ * @param facet   - The mark's elements.
+ * @param context - The conversion context.
+ * @param read    - How to take a span off one element.
+ * @param drawn   - Which of the mark's elements were meant to carry a span, so
+ *                  that "every one or none" counts the right denominator.
+ * @returns The layer, or `null` when the mark is not a set of spans.
+ */
+function convertSpans(
+  facet: MarkFacet,
+  context: ConversionContext,
+  read: (element: Element, alongX: boolean) => Span | null,
+  drawn: (element: Element) => boolean,
+): ConvertedMark | null {
   const { scales } = context;
   const orientation = barOrientation(scales);
   if (!orientation)
@@ -1706,10 +1734,10 @@ function convertLink(facet: MarkFacet, context: ConversionContext): ConvertedMar
   // calls horizontal.
   const alongX = orientation === Orientation.HORIZONTAL;
   const spans = facet.elements
-    .map(element => readSpan(element, alongX))
+    .map(element => read(element, alongX))
     .filter((span): span is Span => span !== null);
-  // Every path or none: a mark holding one diagonal is handed back whole.
-  if (spans.length === 0 || spans.length !== facet.elements.filter(isPath).length)
+  // Every element or none: a mark holding one diagonal is handed back whole.
+  if (spans.length === 0 || spans.length !== facet.elements.filter(drawn).length)
     return null;
 
   const laneScale = alongX ? scales.y : scales.x;
@@ -1760,6 +1788,103 @@ function convertLink(facet: MarkFacet, context: ConversionContext): ConvertedMar
 }
 
 /** One drawn span: where along its lane axis it sits, and the two ends. */
+/**
+ * Reads a `rule` mark as a gantt of the intervals it draws.
+ *
+ * `Plot.ruleX` and `Plot.ruleY` are how Plot draws a high-low chart, a range
+ * plot and a gantt, and they draw them exactly: a `<line>` carries both of its
+ * ends as attributes, so there is no `d` to tokenise and nothing rounded to
+ * undo. Measured on `@observablehq/plot@0.6.17`, `ruleY(rows, {y, x1, x2})`
+ * over lanes Mon/Tue/Wed writes `x1="98" x2="446" y1="32" y2="32"`, which on a
+ * scale of `[1, 11] → [40, 620]` is the interval 2 to 8 in the first lane.
+ *
+ * **A rule that agrees with itself is not a measurement.** Three other things
+ * wear this same label, and all three give themselves away the same way — every
+ * line ends where every other one does:
+ *
+ * - `Plot.ruleY([5])`, a reference line, is drawn once from the x range's
+ *   minimum to its maximum. It spans the frame because Plot handed it the
+ *   frame, not because a row said so, and announcing it as an interval would
+ *   put a span in the reading that no row of the data contains.
+ * - `Plot.ruleX(rows, {x})`, positions with no value, draws every line the
+ *   same full height of the frame.
+ * - `Plot.ruleX(rows, {x, y})`, a lollipop's stems, all start at the baseline:
+ *   measured, `y1="370"` on every line, which is 0 on a domain of `[0, 11]`.
+ *   Read as spans they announce "0 to 8" where the chart means "8", and the
+ *   `dot` mark at their tips is already read as a scatter carrying that 8.
+ *
+ * So the question is asked of the whole mark, as it is for a `link` (#1094):
+ * if every line shares an end, that end is the frame or the baseline rather
+ * than anything measured, and the mark is handed back.
+ *
+ * The cost is a rule mark holding one line, and a gantt whose rows genuinely
+ * all begin together — both are drawn exactly as the cases above and the markup
+ * cannot separate them. That trade goes the other way from the constant floor
+ * in #1095, because there refusing cost the chart its only reading, while here
+ * the shapes being refused are either not data at all or already announced by
+ * the mark beside them.
+ *
+ * @param facet   - The mark's lines.
+ * @param context - The conversion context.
+ * @returns The layer, or `null` when the mark is not a set of intervals.
+ */
+function convertRule(facet: MarkFacet, context: ConversionContext): ConvertedMark | null {
+  // Read through the same projector the shared body will use, so the two agree
+  // on what a span is: a line lying across the lanes rather than along one is
+  // refused there, and never reaches the question below.
+  const alongX = barOrientation(context.scales) === Orientation.HORIZONTAL;
+  const spans = facet.elements
+    .filter(isLine)
+    .map(line => lineSpan(line, alongX))
+    .filter((span): span is Span => span !== null);
+
+  // Vacuously true on no spans, which refuses a mark holding nothing readable
+  // for the same reason it refuses one holding nothing measured.
+  const agrees = (pick: (span: Span) => number): boolean =>
+    spans.every(span => pick(span) === pick(spans[0]));
+  if (agrees(span => span.from) || agrees(span => span.to))
+    return null;
+
+  return convertSpans(facet, context, lineSpan, isLine);
+}
+
+/**
+ * The span a `<line>` draws, or `null` when its ends disagree on the lane axis.
+ *
+ * A line writes both of its ends as attributes, at whatever precision they were
+ * computed to — `y2="125.00000000000001"` for a value of 8 — so there is no
+ * serialiser to have rounded them and `pixelError` is zero. The cleaning that
+ * turns that back into 8 is the scale's, and it happens downstream.
+ *
+ * @param element - The mark's `<line>`.
+ * @param alongX  - Whether the span runs along x.
+ * @returns The span, or `null` when this is not one.
+ */
+function lineSpan(element: Element, alongX: boolean): Span | null {
+  if (!isLine(element))
+    return null;
+
+  const x1 = attributeNumber(element, 'x1');
+  const y1 = attributeNumber(element, 'y1');
+  const x2 = attributeNumber(element, 'x2');
+  const y2 = attributeNumber(element, 'y2');
+  if (x1 === null || y1 === null || x2 === null || y2 === null)
+    return null;
+
+  const at = alongX ? y1 : x1;
+  const other = alongX ? y2 : x2;
+  if (at !== other)
+    return null;
+
+  return {
+    element,
+    at,
+    from: alongX ? x1 : y1,
+    to: alongX ? x2 : y2,
+    pixelError: 0,
+  };
+}
+
 interface Span {
   element: Element;
   /** Position on the axis both ends share. */
@@ -1775,6 +1900,11 @@ interface Span {
 /** Whether an element is a `<path>`. */
 function isPath(element: Element): boolean {
   return element.tagName.toLowerCase() === 'path';
+}
+
+/** Whether an element is a `<line>`. */
+function isLine(element: Element): boolean {
+  return element.tagName.toLowerCase() === 'line';
 }
 
 /**
