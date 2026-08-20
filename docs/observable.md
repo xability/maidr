@@ -297,6 +297,31 @@ A lane holding several intervals and a lane holding none are both kept: the inte
 
 What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
 
+## Rule marks
+
+`Plot.ruleX` and `Plot.ruleY` are how Plot draws a high–low chart, a range plot and a gantt, and a rule carrying an interval is read as the same gantt a `link` produces:
+
+```js
+const chart = Plot.plot({ marks: [Plot.ruleY(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
+observablePlotToMaidr(chart);
+```
+
+A rule is exact. A `<line>` carries both of its ends as attributes, so there is no path to tokenise and nothing rounded to undo — unlike a link, whose `d` is written at three decimals and has to be cleaned back to the value it came from.
+
+Both orientations work, and a lane holding several intervals keeps them nested under that lane, as a link's do.
+
+**A rule that agrees with itself is not a measurement.** Three other things wear the same label, and each gives itself away by ending where every other line ends:
+
+- a reference line, `Plot.ruleY([5])`, drawn from the x range's minimum to its maximum because Plot handed it the frame — and drawn *across* the lanes of the chart it annotates rather than along one, which is the shape that turns it away;
+- a positional rule, `Plot.ruleX(data, {x})`, drawn the full height of the frame at every position, with no value in it at all;
+- a lollipop's stems, `Plot.ruleX(data, {x, y})`, which all start at the baseline — announced as intervals they would say “0 to 8” where the chart means “8”, and the `dot` at each tip is already read as the value.
+
+Both ends are asked the same question, because which one Plot writes a constant into is the caller's spelling: `y1: 'v', y2: 0` and `y1: 0, y2: 'v'` are the same lollipop.
+
+A candlestick's wicks are read this way too. `Plot.boxY`'s own whiskers are not, because a box plot is claimed as one composite and read as a box; but a chart that only *looks* like a box plot — a bullet chart, a candlestick with a marker in its body — is declined as a box and its marks go back to the readings they belong to. A bullet's rule stands on the baseline and is declined again here; a candlestick's wick floats at both ends, which is what a high and a low are, so it comes back as the range it draws.
+
+The cost is a rule mark holding one line, and a gantt whose rows genuinely all begin — or all end — together. Those are drawn exactly as the cases above and the markup cannot separate them. The trade goes the other way from the constant floor above, because there refusing would cost a chart its only reading, while here what is being refused is either not data at all or already announced by the mark beside it.
+
 ## Waffle charts
 
 `Plot.waffleY` and `Plot.waffleX` are read as bar charts of their tallies:
