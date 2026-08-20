@@ -16,10 +16,22 @@
  *
  * ### Marks it reads
  *
- * `barX` / `barY` (plain and stacked), `rectX` / `rectY` including binned
- * histograms, `dot` (as a scatter, or as a Cleveland dot plot on a categorical
- * axis), `line` and `area` (one series per drawn path), and any of those split
- * into facets with `fx` / `fy`, which become MAIDR subplots.
+ * `barX` / `barY` (plain, stacked, and 100% stacked), `rectX` / `rectY`
+ * including binned histograms, `dot` (a scatter, a Cleveland dot plot on a
+ * categorical axis, or a hexbin lattice when the caller declares one), `tick`
+ * given a categorical axis (a strip plot, read as a dot plot), `line` and
+ * `area` (one series per drawn path, with the step curves read as steps),
+ * `linearRegressionX` / `linearRegressionY` (the fitted line, as a smooth),
+ * `waffle` (counted from the cells rather than inverted from a colour),
+ * `link` / `arrow`, `rule`, `vector` (which is also what `Plot.spike` draws),
+ * and `boxX` / `boxY`, which Plot draws as four separate marks that are
+ * recognised and read as one distribution. Any of them split into facets with
+ * `fx` / `fy` become MAIDR subplots.
+ *
+ * A `link`, an `arrow` and a `rule` each draw a segment between two points,
+ * which is a span in a lane when its ends share the other coordinate — read as
+ * a gantt. A spike stands a magnitude at a place, read as a scatter carrying
+ * `z`, which the trace speaks and sounds alongside the position.
  *
  * ### Marks it does not
  *
@@ -28,11 +40,15 @@
  * Announcing an approximation to a reader who cannot check it against the
  * picture is worse than announcing nothing, so those marks are skipped.
  *
- * Box plots are skipped too, and for the same reason. `Plot.boxY` is not one
- * mark but four, and nothing in the DOM says they belong together: read
- * individually its interquartile box is an ordinary bar whose height is
- * `q3 - q1`, a number that appears nowhere in the data, while the median and
- * the whiskers go unannounced.
+ * A mark of a kind listed above is handed back when reading it would mean
+ * announcing something the drawing does not state: a `vector` that points
+ * somewhere, since the grammar has no field for a bearing; an `area` whose
+ * floor follows the data, which is an interval rather than a magnitude; a
+ * `rule` whose lines all share an end, which is a reference line or a
+ * lollipop's stem rather than a measurement; a `tick` with no cross-channel,
+ * which has no category to announce; a line drawn through control points that
+ * are not data points; and a line or area broken by a gap. `docs/observable.md`
+ * gives each case and the reasoning behind it.
  *
  * @example
  * ```html
