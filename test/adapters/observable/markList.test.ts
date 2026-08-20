@@ -18,7 +18,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
 
-const ADAPTER = join(__dirname, '../../../src/adapters/observable');
+const ROOT = join(__dirname, '../../..');
+const ADAPTER = join(ROOT, 'src/adapters/observable');
 
 function source(file: string): string {
   return readFileSync(join(ADAPTER, file), 'utf8');
@@ -52,6 +53,24 @@ function namesRead(): string[] {
     .map(([, name]) => name.toLowerCase().replace(/[^a-z0-9]/g, ''));
 }
 
+/**
+ * The backticked names in the guide's "What it reads" table.
+ *
+ * Sliced to the table rather than searched for in the whole file, because
+ * every mark below it has a prose section that mentions it by name -- a
+ * file-wide search would pass on a table that lists none of them.
+ */
+function namesTabulated(): string[] {
+  const guide = readFileSync(join(ROOT, 'docs/observable.md'), 'utf8');
+  const start = guide.indexOf('## What it reads');
+  const end = guide.indexOf('## Hexbins');
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+
+  return [...guide.slice(start, end).matchAll(/`([^`]+)`/g)]
+    .map(([, name]) => name.toLowerCase().replace(/[^a-z0-9]/g, ''));
+}
+
 /** Whether the prose names a mark: `linear-regression` is `linearRegressionY`. */
 function isNamed(label: string, names: string[]): boolean {
   const wanted = label.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -71,6 +90,17 @@ describe('the observable adapter\'s documented mark list', () => {
     // the slice would leave the assertion above passing over nothing.
     expect(dispatchedLabels().length).toBeGreaterThanOrEqual(10);
     expect(namesRead().length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('is matched by the guide\'s own summary table', () => {
+    // The two are maintained separately and drifted separately. Held to the
+    // same list so a new reading has to reach the table as well as the module
+    // documentation, which is the half a reader is most likely to scan.
+    const tabulated = namesTabulated();
+    const missing = dispatchedLabels().filter(label => !isNamed(label, tabulated));
+
+    expect(missing).toEqual([]);
+    expect(isNamed('box', tabulated)).toBe(true);
   });
 
   it('names the box plot, which is read without a branch of its own', () => {

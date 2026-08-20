@@ -195,8 +195,14 @@ That is why the adapter needs no configuration and works on charts written befor
 | `line` | Line | One series per drawn path |
 | `area` / `areaY` | Area | |
 | `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
+| `line` under `curveStep` / `curveStepAfter` / `curveStepBefore` | Step | Which side the value is held on is announced; see below |
 | `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
 | `dot` under `hexbin` | Hexbin | Only when declared — see below |
+| `spike`, and `vector` with a `length` | Scatter carrying `z` | The magnitude is said and heard; a vector that points somewhere is refused — see below |
+| `link` / `arrow` whose ends share a coordinate | Gantt | An interval in a lane; see below |
+| `ruleX` / `ruleY` carrying an interval | Gantt | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
+| `waffleY` / `waffleX` | Bar | Counted from the cells rather than inverted from a colour; see below |
+| `waffleY` / `waffleX` with `fill` | Stacked bar | One path per segment in a band |
 | `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
