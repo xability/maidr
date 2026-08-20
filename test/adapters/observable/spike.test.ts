@@ -55,6 +55,25 @@ describe('a spike that reaches downward', () => {
   });
 });
 
+describe('a spike with no magnitude at all', () => {
+  it('reads the zero rather than dropping the place', () => {
+    // Magnitudes 5, 0 and 12. A magnitude of exactly zero is still drawn --
+    // `M-3.5,0L0,0L3.5,0`, a triangle with no height -- so the chart has an
+    // answer at that place. Dropped instead, a spike map of net migration
+    // would leave out every county with no net change, and a reader sweeping
+    // the map would hear a hole where the answer is "none".
+    expect(spikesOf('zeroSpike')).toEqual([[1, 2, 5], [3, 4, 0], [5, 1, 12]]);
+  });
+
+  it('reads it as a positive zero, not a negative one', () => {
+    // The sign comes off the direction of the rise, and a flat spike rises
+    // neither way. Signing a magnitude of zero downward would put a minus in
+    // front of a number that has no side to be on.
+    const [, [, , z]] = spikesOf('zeroSpike');
+    expect(Object.is(z, 0)).toBe(true);
+  });
+});
+
 describe('a vector with no magnitude channel', () => {
   it('is handed back rather than measured in pixels', () => {
     // Every arrow is the same default height and there is no length scale, so

@@ -1610,7 +1610,10 @@ function convertSpike(facet: MarkFacet, context: ConversionContext): ConvertedMa
     const size = toNumber(pathValue(scales.length, Math.abs(rise), PATH_QUANTUM / 2));
     if (x === null || y === null || size === null)
       continue;
-    const z = rise < 0 ? size : -size;
+    // `rise > 0` rather than `rise < 0` so that a flat spike keeps a positive
+    // zero: `-size` on a size of `0` is `-0`, which is a magnitude of zero
+    // wearing a minus sign.
+    const z = rise > 0 ? -size : size;
 
     points.push({ x, y, z });
     elements.push(element);
@@ -1645,19 +1648,25 @@ function convertSpike(facet: MarkFacet, context: ConversionContext): ConvertedMa
  * drawn at the far end, so it cannot reach past the apex, and a spike has no
  * second subpath at all.
  *
+ * A rise of zero is a rise, not a failure to find one. A magnitude of exactly
+ * `0` is still drawn — measured, `M-3.5,0L0,0L3.5,0` for a spike and
+ * `M0,0L0,0M0,0L0,0L0,0` for a vector — and a spike map of net migration that
+ * dropped every place with no net change would be missing the places the
+ * reader most wants to hear are there. `null` is reserved for a path that
+ * could not be read at all, which `readPathGeometry` already reports.
+ *
  * @param element - The mark's `<path>`.
- * @returns The signed rise in pixels, or `null` when the mark has no height.
+ * @returns The signed rise in pixels, or `null` when the path cannot be read.
  */
 function spikeRise(element: Element): number | null {
   const drawn = readPathGeometry(element);
   if (drawn === null)
     return null;
 
-  const apex = drawn.vertices.reduce(
+  return drawn.vertices.reduce(
     (far, vertex) => (Math.abs(vertex.y) > Math.abs(far) ? vertex.y : far),
     0,
   );
-  return apex === 0 ? null : apex;
 }
 
 /**

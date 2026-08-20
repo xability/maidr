@@ -274,6 +274,8 @@ It is announced as a scatter carrying `z`, which the trace speaks alongside the 
 
 The scale sizes a distance, so the direction of the reach carries the sign: a magnitude of −8 is drawn reaching down by the same pixels a magnitude of 8 reaches up. Taken as a raw height, a spike map of net migration would announce every loss as a gain.
 
+A magnitude of exactly zero is still a reading. Plot draws it as a triangle with no height, so the place is on the chart and the answer there is “none” — it is announced as `z: 0` rather than left out, which would put a silent hole in the middle of a map a reader is sweeping.
+
 `Plot.vector` draws the same magnitude with a shaft and an arrowhead, and is read the same way — **unless it points somewhere**. A flow field's direction is usually what it was drawn for, and there is no field in the grammar for a bearing, so a vector given a `rotate` channel is turned away rather than announced as a spike with its direction silently dropped. Plot writes `rotate()` into the transform exactly when that channel was given, even where every value is zero, so what the reading asks is whether a direction was *encoded* — not whether it happened to vary.
 
 A vector with no `length` channel is turned away too: every arrow is then drawn the same default height, and the only number available is the mark's own styling.
