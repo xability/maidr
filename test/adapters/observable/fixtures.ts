@@ -417,6 +417,20 @@ export const FIXTURES: Record<string, Fixture> = {
     html: '<svg class="plot-d6a7b5" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" text-anchor="middle" width="640" height="60" viewBox="0 0 640 60"><g aria-label="x-axis tick label" transform="translate(0.5,9.5)"><text y="0.71em" transform="translate(120,30)">Mon</text><text y="0.71em" transform="translate(320,30)">Tue</text><text y="0.71em" transform="translate(520,30)">Wed</text></g><g aria-label="x-axis label" transform="translate(0.5,27.5)"><text transform="translate(320,30)">day</text></g><g aria-label="rule" stroke="currentColor" transform="translate(0.5,0)"><line x1="120" x2="120" y1="0" y2="30"></line><line x1="320" x2="320" y1="0" y2="30"></line><line x1="520" x2="520" y1="0" y2="30"></line></g></svg>',
     scales: { x: { type: 'point', domain: ['Mon', 'Tue', 'Wed'], range: [20, 620], bandwidth: 0, step: 200, positions: [120, 320, 520] } },
   },
+  hierarchyTree: {
+    // `Plot.tree(['a', 'a/b', 'a/c', 'a/b/d', 'a/b/e'])` -- the first
+    // node-link diagram to reach these tests, and the case #1094's
+    // whole-mark span question exists for. Its `link` mark holds four
+    // curves whose ends differ on both axes, which is what an edge is and
+    // what a span is not.
+    //
+    // Drawn with `axis: null`, and the scales say why: the x domain is
+    // [0, 2] -- tree depth -- and the y domain [-0.5, 1] -- sibling
+    // offset. Neither is anything a reader plotted, which is the other
+    // half of #1106.
+    html: '<svg class="plot-d6a7b5" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" text-anchor="middle" width="640" height="400" viewBox="0 0 640 400"><g aria-label="link" fill="none" stroke-width="1.5" stroke-opacity="0.5" stroke-miterlimit="1" transform="translate(0.5,0.5)"><path d="M0,266C159.75,266,159.75,133,319.5,133" stroke="#636363"></path><path d="M0,266C159.75,266,159.75,399,319.5,399" stroke="#bdbdbd"></path><path d="M319.5,133C479.25,133,479.25,0,639,0" stroke="#bdbdbd"></path><path d="M319.5,133C479.25,133,479.25,266,639,266" stroke="#bdbdbd"></path></g><g aria-label="dot" transform="translate(0.5,0.5)"><circle cx="0" cy="266.00000000000006" r="3" fill="#636363"><title>/a</title></circle><circle cx="319.5" cy="133.00000000000003" r="3" fill="#636363"><title>/a/b</title></circle><circle cx="319.5" cy="399" r="3" fill="#bdbdbd"><title>/a/c</title></circle><circle cx="639" cy="0" r="3" fill="#bdbdbd"><title>/a/b/d</title></circle><circle cx="639" cy="266.00000000000006" r="3" fill="#bdbdbd"><title>/a/b/e</title></circle></g><g aria-label="text" stroke="var(--plot-background)" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="start" transform="translate(6.5,0.5)"><text y="0.32em" transform="translate(319.5,399)">c<title>/a/c</title></text><text y="0.32em" transform="translate(639,0)">d<title>/a/b/d</title></text><text y="0.32em" transform="translate(639,266.00000000000006)">e<title>/a/b/e</title></text></g><g aria-label="text" stroke="var(--plot-background)" stroke-width="3" stroke-linejoin="round" paint-order="stroke" text-anchor="end" transform="translate(-5.5,0.5)"><text y="0.32em" transform="translate(0,266.00000000000006)">a<title>/a</title></text><text y="0.32em" transform="translate(319.5,133.00000000000003)">b<title>/a/b</title></text></g></svg>',
+    scales: { x: { type: 'linear', domain: [0, 2], range: [0, 639] }, y: { type: 'linear', domain: [-0.5, 1], range: [399, 0] } },
+  },
   spikeMap: {
     // `Plot.spike` over magnitudes 5, 12 and 8, on a length scale of
     // [0, 12] -> [0, 18]. Each spike is a triangle reaching 7.5, 18 and 12
