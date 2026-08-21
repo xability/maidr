@@ -36,6 +36,17 @@ interface ScatterXPoint {
    * exists.
    */
   yLabels: (string | undefined)[];
+  /**
+   * Index-aligned with `y`: what each point in the column *is*, per
+   * {@link ScatterPoint.label}.
+   *
+   * Separate from {@link ScatterXPoint.label}, which names the column --
+   * "this slot is called Norway" against "this point is Norway". A column
+   * holding several points has several names and no single one, which is
+   * why this is an array and why it is announced only where the cursor
+   * lands on exactly one.
+   */
+  names: (string | undefined)[];
 }
 
 /**
@@ -50,6 +61,8 @@ interface ScatterYPoint {
   label?: string;
   /** Index-aligned with `x`; see {@link ScatterXPoint.yLabels}. */
   xLabels: (string | undefined)[];
+  /** Index-aligned with `x`; see {@link ScatterXPoint.names}. */
+  names: (string | undefined)[];
 }
 
 /**
@@ -131,6 +144,8 @@ interface FlatPoint {
   xLabel?: string;
   /** See {@link ScatterPoint.yLabel}; undefined on a continuous axis. */
   yLabel?: string;
+  /** See {@link ScatterPoint.label}; undefined on an unnamed point. */
+  label?: string;
   svg: SVGElement | null;
   /** Index of this point's x among the sorted unique x values (`xPoints`). */
   xIndex: number;
@@ -268,11 +283,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     let currentX: ScatterXPoint | null = null;
     for (const point of sortedByX) {
       if (!currentX || currentX.x !== point.x) {
-        currentX = { x: point.x, y: [], z: [], label: nameOf(point.xLabel), yLabels: [] };
+        currentX = {
+          x: point.x,
+          y: [],
+          z: [],
+          label: nameOf(point.xLabel),
+          yLabels: [],
+          names: [],
+        };
         this.xPoints.push(currentX);
       }
       currentX.y.push(point.y);
       currentX.yLabels.push(nameOf(point.yLabel));
+      currentX.names.push(nameOf(point.label));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
@@ -281,11 +304,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     let currentY: ScatterYPoint | null = null;
     for (const point of sortedByY) {
       if (!currentY || currentY.y !== point.y) {
-        currentY = { y: point.y, x: [], z: [], label: nameOf(point.yLabel), xLabels: [] };
+        currentY = {
+          y: point.y,
+          x: [],
+          z: [],
+          label: nameOf(point.yLabel),
+          xLabels: [],
+          names: [],
+        };
         this.yPoints.push(currentY);
       }
       currentY.x.push(point.x);
       currentY.xLabels.push(nameOf(point.xLabel));
+      currentY.names.push(nameOf(point.label));
       currentY.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
     }
 
@@ -363,6 +394,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         z: typeof p.z === 'number' ? p.z : Number.NaN,
         xLabel: nameOf(p.xLabel),
         yLabel: nameOf(p.yLabel),
+        label: nameOf(p.label),
         svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
         xIndex,
         yIndexInColumn: Math.max(0, column.indexOf(p.y)),
@@ -805,6 +837,51 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     return { label: this.z, value };
   }
 
+  /**
+   * The `asides` naming the point the cursor is on, when it names one.
+   *
+   * A name identifies a *point*, so it is announced only where the cursor
+   * identifies one -- the same rule the volcano trace states, applied to
+   * every scatter now that {@link ScatterPoint.label} lives there. Column
+   * and row modes sit on a stack of points at once, and naming any of them
+   * there would name the wrong one; a stack of exactly one has no wrong one
+   * to pick, which is the ordinary case for a labelled scatter, where every
+   * point has its own x.
+   *
+   * An aside rather than part of `main`: `main` carries the value on an
+   * axis, formatted as that axis formats, and a country's name is not a
+   * value on one.
+   *
+   * @param names - The names of the points the cursor is on
+   * @returns The aside list, or undefined when nothing is named
+   */
+  private nameAside(
+    names: readonly (string | undefined)[],
+  ): { label: string; value: string }[] | undefined {
+    if (names.length !== 1) {
+      return undefined;
+    }
+    const only = names[0];
+    return only === undefined || only === ''
+      ? undefined
+      : [{ label: 'Name', value: only }];
+  }
+
+  /**
+   * `state` with the point's name attached, where it has one.
+   *
+   * @param state - The announcement so far
+   * @param names - The names of the points the cursor is on
+   * @returns The announcement, named or unchanged
+   */
+  private named(
+    state: TextState,
+    names: readonly (string | undefined)[],
+  ): TextState {
+    const asides = this.nameAside(names);
+    return asides === undefined ? state : { ...state, asides };
+  }
+
   protected get text(): TextState {
     if (this.isInIntersectionMode) {
       // One (x, y) pair, with main/cross labels swapped to match the base
@@ -818,9 +895,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // index-aligned label array, so the cursor announces the category the
       // chart drew rather than the slot it was drawn at.
       const stackLabels = this.getIntersectionStackLabels();
+      // The stack index picks out one point, so a name here names it.
+      const stackName = [this.getIntersectionStackNames()[idx]];
       if (this.mode === NavMode.COL) {
         const xPoint = this.xPoints[this.col];
-        return {
+        return this.named({
           main: {
             label: this.xAxis,
             value: xPoint === undefined ? '' : named(xPoint.x, xPoint.label),
@@ -830,10 +909,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
             value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
           },
           z,
-        };
+        }, stackName);
       }
       const yPoint = this.yPoints[this.row];
-      return {
+      return this.named({
         main: {
           label: this.yAxis,
           value: yPoint === undefined ? '' : named(yPoint.y, yPoint.label),
@@ -843,18 +922,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
         },
         z,
-      };
+      }, stackName);
     }
 
     if (this.isInPointMode) {
       const point = this.flatPoints[this.pointModeIndex];
       // The echo train carries z as density; without this the number itself is
       // unreachable in the one mode built for reading a single 3D point.
-      return {
+      return this.named({
         main: { label: this.xAxis, value: named(point.x, point.xLabel) },
         cross: { label: this.yAxis, value: named(point.y, point.yLabel) },
         z: this.textZ([point.z]),
-      };
+      }, [point.label]);
     }
 
     if (this.isInGridMode && this.gridCells) {
@@ -863,7 +942,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // Grid cell point navigation mode - use COL mode format (X value + array of Y values)
       if (this.isInGridCellMode && this.cellXPoints.length > 0) {
         const currentPoint = this.cellXPoints[this.cellPointIndex];
-        return {
+        return this.named({
           main: { label: this.xAxis, value: named(currentPoint.x, currentPoint.label) },
           cross: {
             label: this.yAxis,
@@ -871,7 +950,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           },
           z: this.textZ(currentPoint.z),
           gridPosition: { row: this.gridRow + 1, col: this.gridCol + 1 },
-        };
+        }, currentPoint.names);
       }
 
       // Grid cell navigation mode (cell overview) - z omitted to keep summary compact
@@ -887,18 +966,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     if (this.mode === NavMode.COL) {
       const current = this.xPoints[this.col];
-      return {
+      return this.named({
         main: { label: this.xAxis, value: named(current.x, current.label) },
         cross: { label: this.yAxis, value: namedAll(current.y, current.yLabels) },
         z: this.textZ(current.z),
-      };
+      }, current.names);
     } else {
       const current = this.yPoints[this.row];
-      return {
+      return this.named({
         main: { label: this.yAxis, value: named(current.y, current.label) },
         cross: { label: this.xAxis, value: namedAll(current.x, current.xLabels) },
         z: this.textZ(current.z),
-      };
+      }, current.names);
     }
   }
 
@@ -1673,12 +1752,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           this.cellSvgGroups.push(currentSvgGroup);
           this.cellIndexGroups.push(currentIndexGroup);
         }
-        currentX = { x: point.x, y: [], z: [], label: nameOf(point.xLabel), yLabels: [] };
+        currentX = {
+          x: point.x,
+          y: [],
+          z: [],
+          label: nameOf(point.xLabel),
+          yLabels: [],
+          names: [],
+        };
         currentSvgGroup = [];
         currentIndexGroup = [];
       }
       currentX.y.push(point.y);
       currentX.yLabels.push(nameOf(point.yLabel));
+      currentX.names.push(nameOf(point.label));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
       if (svg)
         currentSvgGroup.push(svg);
@@ -1887,6 +1974,22 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return this.xPoints[this.col]?.yLabels ?? [];
     }
     return this.yPoints[this.row]?.xLabels ?? [];
+  }
+
+  /**
+   * What each point of the stack *is*, index-aligned with the stack.
+   *
+   * The same array in both modes -- a point's name does not depend on which
+   * axis the cursor came in on, unlike the *category* names, which are the
+   * other axis' by construction.
+   *
+   * @returns One name per stacked point, `undefined` where it has none
+   */
+  private getIntersectionStackNames(): (string | undefined)[] {
+    if (this.mode === NavMode.COL) {
+      return this.xPoints[this.col]?.names ?? [];
+    }
+    return this.yPoints[this.row]?.names ?? [];
   }
 
   // ── Point navigation (POINT_MODE) ─────────────────────────────────────

@@ -281,9 +281,24 @@ describe('the announcement names the point', () => {
     ]);
   });
 
-  test('says nothing extra where the cursor is not on one point', () => {
-    // The scatter's column mode sits on a whole stack at once, and naming
-    // any of them there would name the wrong one.
-    expect(nonEmptyState(volcano()).text.asides).toBeUndefined();
+  test('names the point where a column holds exactly one', () => {
+    // Every gene in the fixture has its own x, so a column IS one point and
+    // the cursor identifies it. This used to withhold the name here, on a
+    // rule about stacks that this fixture never forms -- the name now comes
+    // from the scatter, which owns `label` since #1106.
+    expect(nonEmptyState(volcano()).text.asides).toEqual([
+      { label: 'Name', value: 'DOWN1' },
+    ]);
+  });
+
+  test('says nothing extra where the cursor is on more than one point', () => {
+    // Two genes at one x. Now the column mode cursor sits on a stack, and
+    // naming either of them would name the wrong one -- which is the case
+    // the rule was always about.
+    const stacked: VolcanoPoint[] = [
+      { x: 1, y: 8, label: 'rs1' },
+      { x: 1, y: 9, label: 'rs2' },
+    ];
+    expect(nonEmptyState(volcano(stacked)).text.asides).toBeUndefined();
   });
 });
