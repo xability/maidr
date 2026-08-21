@@ -499,6 +499,24 @@ export function resolveActiveTargets(
     return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index }];
   }
 
+  // Sankey: nothing is outlined, deliberately.
+  //
+  // A `FlowTrace` navigates **nodes** -- `row` and `col` address a node in a
+  // stage grid it derives by walking the graph -- while the Chart.js elements
+  // are **flows**. Nothing in `NavigateCallback` carries the node's identity,
+  // so the only way to pair the two here would be to re-derive the stage
+  // assignment in the adapter, which is exactly the drift the treemap branch
+  // above avoids by reproducing the model's addressing rather than its
+  // algorithm.
+  //
+  // Falling through instead would be worse than declining: the bar/line
+  // branch at the bottom answers `{ index: col }` for a layer it has no map
+  // for, so a node in the second column would outline the second *ribbon* --
+  // audio, text and braille all correct while the wrong element lights up,
+  // which is the one failure an accessibility suite cannot hear (#814).
+  if (layer.type === TraceType.SANKEY)
+    return [];
+
   // Heatmap / Matrix: look the active cell up by coordinate (the matrix data
   // order is arbitrary). MAIDR's Heatmap model reverses the Y axis (row 0 =
   // bottom), so un-reverse to recover the original yLabel before the lookup.

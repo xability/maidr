@@ -84,7 +84,9 @@ export type ChartJsDataValue
      * `tree` in `dataset.data` during `chart.update()`, so this union has to
      * admit it for the dataset to be read at all.
      */
-    | ChartJsTreemapValue;
+    | ChartJsTreemapValue
+    /** One weighted flow of a sankey dataset. */
+    | ChartJsSankeyValue;
 
 /**
  * Minimal representation of a Chart.js chart instance.
@@ -192,6 +194,11 @@ export interface ChartJsDataset {
   groups?: string[];
   /** Which field of a row carries the value the rectangles are sized by. */
   key?: string;
+  /**
+   * `chartjs-chart-sankey`'s display names, keyed by node key — e.g.
+   * `{ a: 'Apple' }`. A key with no entry is announced as itself.
+   */
+  labels?: Record<string, string>;
 }
 
 /**
@@ -319,6 +326,28 @@ export interface ChartJsTreemapValue {
    * it is the source number itself.
    */
   _data?: unknown;
+}
+
+/**
+ * One flow of a `chartjs-chart-sankey` dataset.
+ *
+ * Unlike the treemap plugin, the sankey controller leaves `dataset.data`
+ * exactly as the caller wrote it — measured, the `{from, to, flow}` rows come
+ * back verbatim after `chart.update()`. So the reading is the rows, and the
+ * nodes the controller derives are never read: MAIDR derives its own from the
+ * same edges, and a second list would be a second source of truth.
+ *
+ * A row with no `flow` is not a case to handle — the plugin itself throws
+ * laying it out, before MAIDR sees the chart. Zero and negative flows draw
+ * fine and are read.
+ */
+export interface ChartJsSankeyValue {
+  /** The node the flow leaves. */
+  from: string | number;
+  /** The node it arrives at. */
+  to: string | number;
+  /** How much flows. */
+  flow: number;
 }
 
 /**
