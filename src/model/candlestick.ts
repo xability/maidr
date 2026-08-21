@@ -12,6 +12,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState, TraceState 
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
+import { candleShape } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
@@ -22,6 +23,13 @@ import { MovableGrid } from './movable';
 type HighlightValue = SVGElement | SVGElement[];
 
 const TREND = 'trend';
+/**
+ * What the candle's own shape is announced as -- a doji, a marubozu, a
+ * spinning top. It is the half of a candlestick chart a sighted reader takes
+ * in at a glance and a listener would otherwise have to reconstruct from four
+ * numbers (#731, #732, #733).
+ */
+const SHAPE = 'shape';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
 /** Rotor unit that walks only bullish (close > open) candles. */
@@ -797,6 +805,14 @@ export class Candlestick extends AbstractTrace {
       crossValue = point.open;
     }
 
+    // The shape is a fact about the candle rather than about the price the
+    // cursor is on, so it travels as an aside -- `section` fuses onto the
+    // cross-axis label and `z` is taken by the trend. It repeats across the
+    // five segments of one candle for the same reason the trend does: both
+    // describe the candle, and which segment you happen to be reading does
+    // not change either.
+    const shape = candleShape(point);
+
     return {
       main: {
         label: isHorizontal ? this.yAxis : this.xAxis,
@@ -808,6 +824,7 @@ export class Candlestick extends AbstractTrace {
       },
       section: this.currentSegmentType ?? 'open',
       z: { label: TREND, value: point.trend },
+      ...(shape === null ? {} : { asides: [{ label: SHAPE, value: shape }] }),
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };
