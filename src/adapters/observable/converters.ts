@@ -95,6 +95,15 @@ interface ConversionContext {
   temporal: { x: boolean; y: boolean };
   /** Running count of emitted layers, used to make selector tokens unique. */
   layerCount: number;
+  /**
+   * What each drawn point *is*, keyed by the element that draws it.
+   *
+   * Filled by {@link labelOverlays} from a `text` mark that turned out to be
+   * another mark's labels rather than a series of its own. A mark that names
+   * its own points -- a tree's dots carry the node path in a `<title>` --
+   * needs no entry here; {@link markName} finds those on the element.
+   */
+  pointNames: Map<Element, string>;
 }
 
 /**
@@ -127,6 +136,7 @@ export function observablePlotToMaidr(
     markTypes: options.markTypes ?? {},
     temporal: { x: isTemporal(scales.x), y: isTemporal(scales.y) },
     layerCount: 0,
+    pointNames: new Map<Element, string>(),
   };
 
   const cells = collectFacetCells(svg, context);
@@ -199,6 +209,16 @@ function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[
   const composites = boxComposites(groups);
   const claimed = new Set(composites.flatMap(({ bar, rule, tick, dot }) =>
     dot === undefined ? [bar, rule, tick] : [bar, rule, tick, dot]));
+
+  // A `text` mark sitting on another mark labels it rather than being a
+  // series of its own. Its names move onto the mark it labels and its group
+  // is skipped below, where it would otherwise be read as a second scatter
+  // at the same coordinates (#1106).
+  const overlays = labelOverlays(groups);
+  for (const index of overlays.claimed)
+    claimed.add(index);
+  for (const [element, name] of overlays.names)
+    context.pointNames.set(element, name);
 
   const place = (facet: MarkFacet, converted: ConvertedMark): void => {
     const position = facetPosition(facet, context.scales);
@@ -432,6 +452,12 @@ function convertMark(
     // Plot writes a high-low chart, a gantt and a range plot (#1100).
     case 'rule':
       return convertRule(facet, context);
+    // A `text` mark that labels another one never arrives -- `labelOverlays`
+    // claims it and gives its names away. What is left is a `Plot.text` that
+    // stands alone, which is how a labelled scatter is drawn: a position per
+    // point and a name at it, both exact in the markup (#1106).
+    case 'text':
+      return convertText(facet, context);
     default:
       return null;
   }
@@ -1497,6 +1523,34 @@ function uniformBinEdges(bins: MarkDatum[], scale: PlotScale | undefined): numbe
  * @param context - The conversion context.
  * @returns The layer, or `null` when the dots cannot be positioned.
  */
+/**
+ * Reads a standalone `Plot.text` as the labelled scatter it draws.
+ *
+ * Both halves are exact rather than inferred. The position is the mark's
+ * `transform`, the same place `dot`, `tick` and `vector` take theirs from,
+ * and the name is what the element draws -- nothing inverted, nothing
+ * rounded, no colour involved.
+ *
+ * Only on two continuous scales, which is what a labelled scatter is. A
+ * `text` on a categorical axis is a value written over a bar, and the bar
+ * mark already carries that value; reading it here would announce every
+ * count twice, once as a bar and once as a point standing at the same
+ * place.
+ *
+ * @param facet   - The mark's elements within one facet.
+ * @param context - The conversion context.
+ * @returns The layer, or null when the mark is not a labelled scatter.
+ */
+function convertText(
+  facet: MarkFacet,
+  context: ConversionContext,
+): ConvertedMark | null {
+  const { scales } = context;
+  return isContinuous(scales.x) && isContinuous(scales.y)
+    ? convertDot(facet, context)
+    : null;
+}
+
 function convertDot(
   facet: MarkFacet,
   context: ConversionContext,
@@ -1515,7 +1569,10 @@ function convertDot(
       const y = toNumber(valueAtPixel(scales.y, centre.y));
       if (x === null || y === null)
         continue;
-      points.push({ x, y });
+      // A label the mark carries itself -- a tree node's path, in a
+      // `<title>` -- or one a `text` mark handed over.
+      const name = context.pointNames.get(element) ?? markName(element);
+      points.push(name === null ? { x, y } : { x, y, label: name });
       elements.push(element);
     }
     if (points.length === 0)
@@ -2927,6 +2984,154 @@ function barOrientation(scales: PlotScales): Orientation | null {
  * @param element - The dot's element.
  * @returns The centre in pixels, or `null`.
  */
+/**
+ * How far apart a label and the point it names may sit and still be paired.
+ *
+ * Plot writes a label's position into the same `transform` it writes the
+ * point's, so the two coincide exactly -- a `dy` offset is applied when the
+ * text is laid out, not to the transform. Measured on a `Plot.dot` +
+ * `Plot.text` scatter with `dy: -8`: both marks at `translate(40,238.376)`.
+ * The tolerance is here for the half-pixel Plot nudges stroked marks by,
+ * not because anything is expected to be further off than that.
+ */
+const LABEL_TOLERANCE = 1;
+
+/**
+ * What a mark says the point it drew *is*.
+ *
+ * Two places carry it, and the `<title>` wins where both do. `Plot.tree`
+ * draws `<circle><title>/a/b</title></circle>` for the node and a `text`
+ * showing only `b`, so the title is the unambiguous one -- and reading
+ * `textContent` off that text element would give `"b/a/b"`, since a
+ * `<title>` child's text is part of its parent's `textContent`. Own text
+ * nodes only, therefore, when there is no title.
+ *
+ * @param element - The element the mark drew.
+ * @returns The name, or null when the mark drew no name.
+ */
+function markName(element: Element): string | null {
+  const title = element.querySelector('title')?.textContent?.trim();
+  if (title)
+    return title;
+
+  const own = Array.from(element.childNodes)
+    .filter(node => node.nodeType === 3 /* Node.TEXT_NODE */)
+    .map(node => node.textContent ?? '')
+    .join('')
+    .trim();
+  return own === '' ? null : own;
+}
+
+/**
+ * Pairs each `text` mark that labels another mark with what it labels.
+ *
+ * `Plot.text` draws a labelled scatter on its own, and it also draws the
+ * labels *of* another mark -- `Plot.tree` is four marks, of which two are
+ * `text` sitting exactly on the `dot` it drew for each node. Read
+ * independently the second case emits a second and third series at the same
+ * coordinates as the first, so a five-node tree becomes three layers a
+ * reader has to walk separately to learn one thing.
+ *
+ * Position is what tells them apart, and it tells them apart exactly:
+ * Plot writes the label's transform from the same channel it writes the
+ * point's, so a label of a mark lands on it. A `Plot.text` that is its own
+ * series has no mark under it to land on.
+ *
+ * The names travel onto the labelled mark rather than the `text` group
+ * being merely dropped, so a `Plot.dot` + `Plot.text` scatter -- the
+ * ordinary way to draw one -- reads as one named series rather than as an
+ * unnamed one beside a nameless duplicate.
+ *
+ * Compared facet by facet, through `splitFacets`, because a faceted mark's
+ * own children are per-facet wrappers rather than the elements it drew.
+ * Reading positions off those compares the *facets'* offsets, which
+ * coincide between any two marks faceted alike -- so every pairing appears
+ * to succeed, the `text` group is claimed, and the names are keyed by
+ * wrappers that nothing ever looks up. Measured: a faceted `Plot.dot` +
+ * `Plot.text` came out as one unnamed layer per panel, having lost the
+ * names rather than duplicated them.
+ *
+ * @param groups - The plot's mark groups, in draw order.
+ * @returns The `text` groups to skip, and the names they give away.
+ */
+export function labelOverlays(
+  groups: readonly { label: string; group: Element }[],
+): { claimed: Set<number>; names: Map<Element, string> } {
+  const claimed = new Set<number>();
+  const names = new Map<Element, string>();
+
+  groups.forEach(({ label, group }, index) => {
+    if (label !== 'text')
+      return;
+    const labelFacets = splitFacets(group);
+    if (labelFacets.every(facet => facet.elements.length === 0))
+      return;
+
+    for (const [target, entry] of groups.entries()) {
+      if (target === index || entry.label === 'text')
+        continue;
+      const pointFacets = splitFacets(entry.group);
+      if (pointFacets.length !== labelFacets.length)
+        continue;
+
+      const paired = new Map<Element, string>();
+      const everyFacetPairs = labelFacets.every((facet, at) =>
+        pairLabels(facet.elements, pointFacets[at].elements, paired));
+      if (!everyFacetPairs)
+        continue;
+
+      claimed.add(index);
+      for (const [element, name] of paired)
+        names.set(element, name);
+      break;
+    }
+  });
+
+  return { claimed, names };
+}
+
+/**
+ * Matches every label in one facet to a point of its own in another.
+ *
+ * @param labels - The `text` elements drawn in the facet.
+ * @param points - The elements of the mark they might label.
+ * @param into   - Collects the name each matched point is given.
+ * @returns True when every label found a point of its own.
+ */
+function pairLabels(
+  labels: readonly Element[],
+  points: readonly Element[],
+  into: Map<Element, string>,
+): boolean {
+  const centres = points
+    .map((element) => {
+      const centre = dotCentre(element);
+      return centre === null ? null : { element, ...centre };
+    })
+    .filter((entry): entry is { element: Element; x: number; y: number } =>
+      entry !== null);
+
+  const taken = new Set<Element>();
+  for (const element of labels) {
+    const at = dotCentre(element);
+    if (at === null)
+      return false;
+    const match = centres.find(point => !taken.has(point.element)
+      && Math.abs(point.x - at.x) <= LABEL_TOLERANCE
+      && Math.abs(point.y - at.y) <= LABEL_TOLERANCE);
+    if (!match)
+      return false;
+    taken.add(match.element);
+    const name = markName(element);
+    if (name !== null)
+      into.set(match.element, name);
+  }
+
+  // Every label had to find a point of its own. One that did not is a series
+  // in its own right that happens to pass near another mark.
+  return labels.length > 0;
+}
+
 function dotCentre(element: Element): { x: number; y: number } | null {
   const cx = attributeNumber(element, 'cx');
   const cy = attributeNumber(element, 'cy');

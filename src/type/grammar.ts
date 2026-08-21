@@ -971,6 +971,32 @@ export interface ScatterPoint {
   y: number;
   z?: number;
   /**
+   * What the point *is* -- a country, a gene, a node of a tree.
+   *
+   * Distinct from {@link ScatterPoint.xLabel} and
+   * {@link ScatterPoint.yLabel}, which name *the category a coordinate is a
+   * position for*. \"This slot on the x axis is called Norway\" and \"this
+   * point is Norway\" are different statements, and a chart can make either
+   * one: a strip plot makes the first, a labelled scatter the second.
+   *
+   * On some charts identity is the whole payload rather than a decoration.
+   * A reader told \"x is 2.3, y is 14.1\" has been given the two numbers they
+   * can see the shape of already and withheld the one thing they came for --
+   * which is why a volcano plot, a Manhattan plot and Observable's canonical
+   * country-names-against-GDP scatter are all drawn this way, and why
+   * `Plot.text` exists as a mark at all.
+   *
+   * Declared here rather than on {@link VolcanoPoint}, where it began: the
+   * field is a property of *a point that has a name*, not of one chart type,
+   * and `VolcanoPoint` inherits it unchanged.
+   *
+   * An empty string counts as absent, per {@link ScatterPoint.xLabel}.
+   *
+   * @example
+   * { x: 3.1, y: 14.2, label: 'Norway' }
+   */
+  label?: string;
+  /**
    * The name of the category `x` is a position for, when the x axis carries
    * names rather than measurements.
    *
@@ -1024,15 +1050,6 @@ export interface ScatterPoint {
  * "which points cross the line, and what are they called".
  */
 export interface VolcanoPoint extends ScatterPoint {
-  /**
-   * What the point *is* -- a gene, a SNP, a probe.
-   *
-   * Identity is the payload on these charts, not the coordinates. A reader
-   * told "x is 2.3, y is 14.1" has been given the two numbers they can see
-   * the shape of already and withheld the one thing they came for.
-   */
-  label?: string;
-
   /**
    * The region the point belongs to -- a chromosome on a Manhattan plot.
    *
