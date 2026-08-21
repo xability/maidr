@@ -67,13 +67,24 @@ export function markToCssClass(mark: string): string {
  * The SVG element Vega draws one of each mark's instances as.
  *
  * Vega's SVG renderer gives `rule` marks — and the `errorbar` whip, which
- * is a rule — a `<line>` each, while every other mark this adapter reaches
- * is drawn as a `<path>`. Selecting the wrong tag matches nothing, which
- * costs the layer its highlighting without costing it anything else, so the
- * failure is invisible from every other channel.
+ * is a rule — a `<line>` each, and a `text` mark a `<text>` each, while
+ * every other mark this adapter reaches is drawn as a `<path>`. Selecting
+ * the wrong tag matches nothing, which costs the layer its highlighting
+ * without costing it anything else, so the failure is invisible from every
+ * other channel.
+ *
+ * `text` reached here for the first time in #1124, which gave the mark a
+ * trace type; before that `buildSelector` was never called with it, and the
+ * default branch's `<path>` was a guess nothing exercised. What it renders
+ * as is not in doubt — `facets.ts` reads a facet's header out of
+ * `g.mark-text.role-title-text text`.
  */
 function markToChildElement(mark: string): string {
-  return mark === 'rule' || mark === 'errorbar' ? 'line' : 'path';
+  if (mark === 'rule' || mark === 'errorbar')
+    return 'line';
+  if (mark === 'text')
+    return 'text';
+  return 'path';
 }
 
 /**
