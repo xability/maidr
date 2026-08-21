@@ -1220,11 +1220,15 @@ function convertDivergingBar(
     title: first.name || undefined,
     orientation,
     selectors,
-    // Highcharts lays one series group out after another, so the elements the
-    // selector list resolves to run series by series. `SegmentedTrace` assumes
-    // the opposite for `<rect>` marks (the shape Highcharts draws whenever a
-    // bar has square corners), and would pair the first side's announcements
-    // with alternating bars from both sides.
+    // Inert while `nameSegmentedCells` names every cell: `mapToSvgElements`
+    // routes a grid before it ever looks at a mark's tag, so nothing here
+    // reaches the branch this answers. It stays because it is the right answer
+    // if that changes -- Highcharts lays one series group out after another,
+    // which `SegmentedTrace` assumes only for `<path>` marks. On the `<rect>`
+    // marks Highcharts drew through v10, an undeclared order means the
+    // opposite, and each side's announcements would land on alternating bars
+    // (#1003). `test/adapters/highcharts/segmentedMarkTag.test.ts` measures
+    // both branches, with and without this line.
     domMapping: { order: 'row' },
     axes: barAxes(first, orientation === Orientation.HORIZONTAL),
     data,
