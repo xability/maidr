@@ -2940,6 +2940,12 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
  * or after the mark it labels, and a `text` layer over *different* channels
  * is a chart of its own rather than an annotation.
  *
+ * Any non-`text` sibling counts, not only one that would itself read as a
+ * scatter. A `line` with per-point annotations over the same two channels is
+ * the same double-announcement -- the coordinates are the line's, and the
+ * text is written on top of them -- so what matters is that another mark
+ * already draws those positions, not what that mark resolved to.
+ *
  * @param specs - The layered spec's children
  * @param index - Position of the candidate label layer
  * @param parentEncoding - Encoding hoisted onto the layered parent

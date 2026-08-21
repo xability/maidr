@@ -2,6 +2,7 @@ import type { VegaLiteSpec } from '@adapters/vegalite/types';
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import { vegaLiteToMaidr } from '@adapters/vegalite/converters';
 import { TraceType } from '@type/grammar';
+import { JSDOM } from 'jsdom';
 
 /**
  * A `text` mark read as nothing, so a labelled scatter announced nothing
@@ -74,9 +75,25 @@ describe('vega-Lite text marks', () => {
   });
 
   it('highlights through the element Vega draws a text mark as', () => {
+    // Asserted against a rendered group rather than against the selector
+    // string. Vega draws a `text` mark as a `<text>` each, where every mark
+    // this adapter reached before is a `<path>` -- and a selector naming the
+    // wrong tag matches nothing, which costs the layer its highlighting and
+    // nothing else, so `toContain('mark-text')` passed either way.
+    //
+    // The shape is the codebase's own: `facets.ts` reads a facet header out
+    // of `g.mark-text.role-title-text text`.
     const layer = onlyLayer(labelledScatter);
 
-    expect(layer.selectors).toContain('mark-text');
+    const dom = new JSDOM(
+      '<svg><g class="mark-text role-mark marks">'
+      + '<text>Aa</text><text>Bb</text><text>Cc</text>'
+      + '</g></svg>',
+    );
+
+    const drawn = dom.window.document.querySelectorAll(layer.selectors as string);
+    expect(Array.from(drawn).map(node => node.textContent))
+      .toEqual(['Aa', 'Bb', 'Cc']);
   });
 
   it('leaves a text mark with nothing written in it unread', () => {
