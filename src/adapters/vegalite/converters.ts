@@ -155,7 +155,18 @@ export function vegaLiteToMaidr(
     // as a segment layer plus a dot layer, and neither half is the chart.
     // Converting them separately dropped the segment (a `rule` resolves to
     // no trace type at all) and announced the dots as a scatter.
-    const layerSpecs = spec.layer ?? [];
+    // A layer inherits the parent's `data` unless it brings its own, which
+    // is Vega-Lite's own rule and the form every layered example is written
+    // in -- `data` once at the top, `layer:` beneath it. Applied here, to
+    // the specs themselves, so that every downstream `resolveData` sees it
+    // without a parent-data parameter being threaded through each of them.
+    //
+    // Without it the inline-data fallback looked at a child spec that has
+    // no `data` and returned nothing, so a layered chart resolved to empty
+    // layers whenever the compiled view could not supply rows -- and every
+    // spec-only test of one was asserting against no data at all (#1126).
+    // The facet path already did this; the plain layered path did not.
+    const layerSpecs = inheritData(spec.layer ?? [], spec.data);
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
       const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
@@ -1366,6 +1377,30 @@ function rowsCarryFields(
  * caller that knows which columns must be present says so; every other
  * caller keeps the previous first-non-empty behaviour.
  */
+/**
+ * Give each layer of a layered spec its parent's data, where it has none.
+ *
+ * Vega-Lite's own resolution rule: a layer uses its own `data` when it
+ * declares one and the enclosing spec's otherwise. The specs are rewritten
+ * rather than the rule being applied at every point that reads data,
+ * because `resolveData` is reached from several places -- per-layer
+ * conversion, and the paired lollipop/dumbbell pass on either side of it --
+ * and each would otherwise need the parent threaded to it separately.
+ *
+ * @param layers - The layered spec's children
+ * @param parentData - The `data` of the spec enclosing them
+ * @returns The children, each carrying data it can resolve
+ */
+function inheritData(
+  layers: readonly VegaLiteSpec[],
+  parentData: VegaLiteSpec['data'],
+): VegaLiteSpec[] {
+  if (parentData == null)
+    return [...layers];
+  return layers.map(layer =>
+    layer.data == null ? { ...layer, data: parentData } : layer);
+}
+
 function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
@@ -3546,27 +3581,29 @@ function buildConcatMaidr(
     // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
     const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
     if (childSpec.layer) {
-      const layers = childSpec.layer.map((layerSpec, j) => {
-        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
-        // (local layer index `j`, not the global data index), so drive the
-        // selector off those while keeping `globalLayerIndex` for the data
-        // lookup, which follows Vega's sequential dataset numbering.
-        const layer = convertLayerSpec(
-          layerSpec,
-          globalLayerIndex,
-          view,
-          childSpec.encoding,
-          true,
-          domOrder,
-          { layerIndex: j, markGroupPrefix: `concat_${i}_` },
-        );
-        // Assign a unique ID that encodes both the concat index and the
-        // layer index within the child to avoid duplicates across subplots.
-        if (layer)
-          layer.id = `${i}_${j}`;
-        globalLayerIndex++;
-        return layer;
-      }).filter(Boolean) as MaidrLayer[];
+      const layers = inheritData(childSpec.layer, childSpec.data)
+        .map((layerSpec, j) => {
+          // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+          // (local layer index `j`, not the global data index), so drive the
+          // selector off those while keeping `globalLayerIndex` for the data
+          // lookup, which follows Vega's sequential dataset numbering.
+          const layer = convertLayerSpec(
+            layerSpec,
+            globalLayerIndex,
+            view,
+            childSpec.encoding,
+            true,
+            domOrder,
+            { layerIndex: j, markGroupPrefix: `concat_${i}_` },
+          );
+          // Assign a unique ID that encodes both the concat index and the
+          // layer index within the child to avoid duplicates across subplots.
+          if (layer)
+            layer.id = `${i}_${j}`;
+          globalLayerIndex++;
+          return layer;
+        })
+        .filter(Boolean) as MaidrLayer[];
       return { layers, selector };
     }
     // A single-view concat child renders under `concat_<i>_marks` (or the
@@ -3986,7 +4023,14 @@ function buildFacetMaidr(
     warnCompositeDeclaration(spec.spec);
   }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
-  const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
+  // Both branches, not only the layered one: a facet's single child is
+  // itself the spec whose data sits on the enclosing `spec`, so wrapping
+  // only `childSpec.layer` left the unlayered case with none -- measured,
+  // panel enumeration then saw one cell where the chart has three.
+  const layerSpecs = inheritData(
+    isLayered ? childSpec.layer! : [childSpec],
+    childSpec.data ?? spec.data,
+  );
   const facetFields = [
     descriptor.rowChannel?.field,
     descriptor.columnChannel?.field,
@@ -4008,10 +4052,7 @@ function buildFacetMaidr(
   const layerRows = layerSpecs.map((layerSpec, j) => {
     if (perLayerDatasets)
       return perLayerDatasets[j];
-    const specForData: VegaLiteSpec = layerSpec.data != null
-      ? layerSpec
-      : { ...layerSpec, data: childSpec.data ?? spec.data };
-    let rows = resolveData(specForData, j, view);
+    let rows = resolveData(layerSpec, j, view);
     if (rows.length > 0 && !facetFields.every(field => field in rows[0])) {
       const source = resolveSourceRows(spec, view);
       if (source.length > 0 && facetFields.every(field => field in source[0])) {
@@ -4231,15 +4272,15 @@ function buildRepeatMaidr(
     }
     const childName = repeatChildName(cell.mapping);
     const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
-    const layerSpecs = isLayered ? cellSpec.layer! : [cellSpec];
+    const layerSpecs = inheritData(
+      isLayered ? cellSpec.layer! : [cellSpec],
+      cellSpec.data,
+    );
     const parentEncoding = isLayered ? cellSpec.encoding : undefined;
 
     const rawLayers = layerSpecs.map((layerSpec, j) => {
-      const specForData: VegaLiteSpec = layerSpec.data != null
-        ? layerSpec
-        : { ...layerSpec, data: cellSpec.data };
       const layer = convertLayerSpec(
-        specForData,
+        layerSpec,
         globalLayerIndex,
         view,
         parentEncoding,
@@ -4248,7 +4289,7 @@ function buildRepeatMaidr(
         { layerIndex: j, markGroupPrefix: `${childName}_` },
       );
       globalLayerIndex++;
-      return layer ? { layer, spec: specForData } : null;
+      return layer ? { layer, spec: layerSpec } : null;
     }).filter(Boolean) as ConvertedLayer[];
     const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
     layers.forEach((layer, j) => {
