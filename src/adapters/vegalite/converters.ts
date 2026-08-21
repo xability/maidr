@@ -699,8 +699,10 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  * Some marks produce different MAIDR types depending on encoding:
  *   - `bar` with `bin` on x/y          → HISTOGRAM
  *   - `bar` with color/fill + stack    → STACKED / NORMALIZED / DODGED
- *   - `bar` spanning x–x2 / y–y2       → GANTT, or WATERFALL when the
+ *   - `bar` or `rule` spanning x–x2 / y–y2 → GANTT, or WATERFALL when the
  *     bounds are consecutive running totals
+ *   - `rule` with one positional field → nothing: a reference line or a
+ *     lollipop's stem states no interval of its own
  *   - `rect`                           → HEATMAP
  *   - `point` / `circle` / `square` / `tick` → SCATTER, or DOT when one
  *     positional channel is a category
@@ -913,18 +915,26 @@ function resolveFoldedAxes(
 }
 
 /**
- * Classify a bar that spans a range on one axis instead of standing on a
+ * Classify a mark that spans a range on one axis instead of standing on a
  * baseline.
  *
- * Both shapes draw a floating bar from a positional channel to its `2`
+ * Both shapes draw a floating span from a positional channel to its `2`
  * counterpart, with the remaining axis naming the row: a gantt lane, a
  * waterfall step. They are told apart by {@link hasRunningSumTransform}.
  *
+ * `bar` and `rule` both reach this. Which of the two an author writes is a
+ * choice about how thick the span is drawn, not about what it means — the
+ * same two bounds on the same two channels — and reading only one of them
+ * left an ordinary range chart unread for the sake of its mark's name
+ * (#1122).
+ *
+ * @param mark - The mark being classified, named only for the warning
  * @param encoding - The layer's encoding, merged with any parent's
  * @param transform - The transforms in scope for the layer
- * @returns The trace type, or `null` when the bar is an ordinary one
+ * @returns The trace type, or `null` when the mark spans no range
  */
 function resolveRangedBarType(
+  mark: string,
   encoding?: VegaLiteEncoding,
   transform?: VegaLiteTransform[],
 ): TraceType | null {
@@ -939,15 +949,20 @@ function resolveRangedBarType(
   }
   // Both bounds are there but the axis opposite them left its type to
   // Vega-Lite's inference, which the spec alone cannot recover — see
-  // `isCategorical`. The bar then reads as an ordinary one, whose magnitude
-  // is the lower bound by itself: a silent misread rather than an
-  // unsupported chart, so say which one line of the spec would fix it.
+  // `isCategorical`. Say which one line of the spec would fix it, and say
+  // what the mark falls back to, which is not the same for the two: a `bar`
+  // reads as an ordinary one whose magnitude is the lower bound by itself —
+  // a silent misread — while a `rule` has no other reading and is left out
+  // of the figure altogether.
   if ((hasField(encoding?.y) && hasField(encoding?.y2))
     || (hasField(encoding?.x) && hasField(encoding?.x2))) {
+    const fallback = mark === 'bar'
+      ? 'reading it as an ordinary bar.'
+      : `leaving the ${mark} unread.`;
     console.warn(
-      '[maidr/vegalite] A bar spanning two positional bounds needs an explicit '
+      `[maidr/vegalite] A ${mark} spanning two positional bounds needs an explicit `
       + '"nominal" or "ordinal" type on the axis opposite them to read as a gantt '
-      + 'or a waterfall; reading it as an ordinary bar.',
+      + `or a waterfall; ${fallback}`,
     );
   }
   return null;
@@ -964,7 +979,7 @@ function resolveTraceType(
       // Before the binning and stacking tests: a bar drawn between two
       // positions on one axis carries no magnitude for either of them to
       // read.
-      const ranged = resolveRangedBarType(encoding, transform);
+      const ranged = resolveRangedBarType(mark, encoding, transform);
       if (ranged) {
         return ranged;
       }
@@ -1056,6 +1071,21 @@ function resolveTraceType(
       }
       return TraceType.SCATTER;
     }
+    // A `rule` draws a segment, and `x`–`x2` (or `y`–`y2`) makes that segment
+    // an interval per row — the same chart `bar` draws with the same two
+    // channels, differing only in how thick it is painted. Vega-Lite's own
+    // gallery reaches for `rule` to draw one, and the mark resolved to
+    // nothing, so the chart went unread for the sake of its mark's name
+    // (#1122).
+    //
+    // Only when both bounds are there. A `rule` with one positional field is
+    // a reference line drawn across the frame, and one with `x` and `y` is a
+    // lollipop's stem running up from the baseline — neither carries an
+    // interval any row of the data states, and both keep resolving to `null`
+    // here. A stem under a dot layer is collapsed into the lollipop or
+    // dumbbell it draws before this runs, by `convertPairedLayers`.
+    case 'rule':
+      return resolveRangedBarType(mark, encoding, transform);
     case 'rect':
       return TraceType.HEATMAP;
     case 'boxplot':
@@ -2857,9 +2887,14 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
  *
  * Vega-Lite has no lollipop mark and no dumbbell mark: both are authored as
  * a `layer:` of a segment and its dots. Read layer by layer, the segment is
- * dropped — a bare `rule` resolves to no trace type — and the dots are
- * announced as a scatter, so the chart loses the thing it is drawn to show:
- * the stem's magnitude, or the gap between the pair.
+ * dropped — a `rule` with one positional field resolves to no trace type,
+ * which is every stem this pairs — and the dots are announced as a scatter,
+ * so the chart loses the thing it is drawn to show: the stem's magnitude, or
+ * the gap between the pair.
+ *
+ * This pass runs *before* per-layer conversion, which is what keeps a genuine
+ * ranged dot plot reading as a dumbbell now that a `rule` spanning two bounds
+ * has a reading of its own (#1122).
  *
  * The two are told apart by the data. Two values at every category, told
  * apart by a grouping field, is a dumbbell; one value at each is a
