@@ -102,3 +102,25 @@ describe('a Plot.text that labels another mark', () => {
     ]);
   });
 });
+
+describe('a faceted chart', () => {
+  it('pairs the labels within each panel rather than across panels', () => {
+    // A faceted mark's own children are the per-facet wrappers, not the
+    // elements it drew. Reading positions off them compares the *panels'*
+    // offsets, which coincide between any two marks faceted alike -- so every
+    // pairing appears to succeed, the `text` group is claimed, and the names
+    // are keyed by wrappers nothing ever looks up.
+    //
+    // Measured before the fix: two panels, each holding one dot layer with
+    // its two points and no names at all. The labels were not duplicated;
+    // they were lost.
+    const { element } = mountFixture('facetedDotWithLabels');
+    const grid = observablePlotToMaidr(element)?.subplots ?? [];
+    const cells = grid.flat();
+
+    expect(cells).toHaveLength(2);
+    expect(cells.map(cell => cell.layers.length)).toEqual([1, 1]);
+    expect(cells.map(cell => pointsOf(cell.layers[0]).map(point => point.label)))
+      .toEqual([['a', 'b'], ['c', 'd']]);
+  });
+});

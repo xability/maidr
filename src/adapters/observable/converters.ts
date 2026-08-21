@@ -3042,6 +3042,15 @@ function markName(element: Element): string | null {
  * ordinary way to draw one -- reads as one named series rather than as an
  * unnamed one beside a nameless duplicate.
  *
+ * Compared facet by facet, through `splitFacets`, because a faceted mark's
+ * own children are per-facet wrappers rather than the elements it drew.
+ * Reading positions off those compares the *facets'* offsets, which
+ * coincide between any two marks faceted alike -- so every pairing appears
+ * to succeed, the `text` group is claimed, and the names are keyed by
+ * wrappers that nothing ever looks up. Measured: a faceted `Plot.dot` +
+ * `Plot.text` came out as one unnamed layer per panel, having lost the
+ * names rather than duplicated them.
+ *
  * @param groups - The plot's mark groups, in draw order.
  * @returns The `text` groups to skip, and the names they give away.
  */
@@ -3051,44 +3060,24 @@ export function labelOverlays(
   const claimed = new Set<number>();
   const names = new Map<Element, string>();
 
-  const centresOf = (group: Element): { element: Element; x: number; y: number }[] =>
-    Array.from(group.children)
-      .map((element) => {
-        const centre = dotCentre(element);
-        return centre === null ? null : { element, ...centre };
-      })
-      .filter((entry): entry is { element: Element; x: number; y: number } => entry !== null);
-
   groups.forEach(({ label, group }, index) => {
     if (label !== 'text')
       return;
-    const labels = centresOf(group);
-    if (labels.length === 0)
+    const labelFacets = splitFacets(group);
+    if (labelFacets.every(facet => facet.elements.length === 0))
       return;
 
     for (const [target, entry] of groups.entries()) {
       if (target === index || entry.label === 'text')
         continue;
-      const points = centresOf(entry.group);
-      if (points.length === 0)
+      const pointFacets = splitFacets(entry.group);
+      if (pointFacets.length !== labelFacets.length)
         continue;
 
-      const taken = new Set<Element>();
       const paired = new Map<Element, string>();
-      for (const { element, x, y } of labels) {
-        const match = points.find(point => !taken.has(point.element)
-          && Math.abs(point.x - x) <= LABEL_TOLERANCE
-          && Math.abs(point.y - y) <= LABEL_TOLERANCE);
-        if (!match)
-          break;
-        taken.add(match.element);
-        const name = markName(element);
-        if (name !== null)
-          paired.set(match.element, name);
-      }
-      // Every label had to find a point of its own. One that did not is a
-      // series in its own right that happens to pass near another mark.
-      if (taken.size !== labels.length)
+      const everyFacetPairs = labelFacets.every((facet, at) =>
+        pairLabels(facet.elements, pointFacets[at].elements, paired));
+      if (!everyFacetPairs)
         continue;
 
       claimed.add(index);
@@ -3099,6 +3088,48 @@ export function labelOverlays(
   });
 
   return { claimed, names };
+}
+
+/**
+ * Matches every label in one facet to a point of its own in another.
+ *
+ * @param labels - The `text` elements drawn in the facet.
+ * @param points - The elements of the mark they might label.
+ * @param into   - Collects the name each matched point is given.
+ * @returns True when every label found a point of its own.
+ */
+function pairLabels(
+  labels: readonly Element[],
+  points: readonly Element[],
+  into: Map<Element, string>,
+): boolean {
+  const centres = points
+    .map((element) => {
+      const centre = dotCentre(element);
+      return centre === null ? null : { element, ...centre };
+    })
+    .filter((entry): entry is { element: Element; x: number; y: number } =>
+      entry !== null);
+
+  const taken = new Set<Element>();
+  for (const element of labels) {
+    const at = dotCentre(element);
+    if (at === null)
+      return false;
+    const match = centres.find(point => !taken.has(point.element)
+      && Math.abs(point.x - at.x) <= LABEL_TOLERANCE
+      && Math.abs(point.y - at.y) <= LABEL_TOLERANCE);
+    if (!match)
+      return false;
+    taken.add(match.element);
+    const name = markName(element);
+    if (name !== null)
+      into.set(match.element, name);
+  }
+
+  // Every label had to find a point of its own. One that did not is a series
+  // in its own right that happens to pass near another mark.
+  return labels.length > 0;
 }
 
 function dotCentre(element: Element): { x: number; y: number } | null {
