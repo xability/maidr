@@ -15,7 +15,9 @@
  *
  * {@link candlePairPatterns} does the same for the two-candle patterns, which
  * describe how a candle sits against the one before it rather than how it is
- * drawn on its own (#735, #736, #737, #738).
+ * drawn on its own (#735, #736, #737, #738), and {@link candleTrendPattern}
+ * for the one pair of names that a run of earlier closes decides between
+ * (#734).
  *
  * The thresholds are the ones the requests specify, and they are parameters
  * rather than literals because strictness is a matter of trading style. There
@@ -65,6 +67,14 @@ export interface CandleShapeThresholds {
    * fraction of the two ranges' mean (#737).
    */
   tweezerLevel: number;
+  /** A hammer's lower shadow must be at least this many bodies (#734). */
+  hammerLowerShadow: number;
+  /** A hammer's upper shadow may be at most this much of the range (#734). */
+  hammerUpperShadow: number;
+  /** A hammer's body must sit at least this far up the range (#734). */
+  hammerBodyFloor: number;
+  /** How many earlier closes a hammer's run is read from (#734). */
+  trendLookback: number;
 }
 
 /** The thresholds each request names, and what applies when none are given. */
@@ -76,6 +86,10 @@ export const DEFAULT_CANDLE_SHAPE_THRESHOLDS: CandleShapeThresholds = {
   spinningBody: 0.33,
   spinningShadowGap: 0.15,
   tweezerLevel: 0.1,
+  hammerLowerShadow: 2,
+  hammerUpperShadow: 0.1,
+  hammerBodyFloor: 0.66,
+  trendLookback: 3,
 };
 
 /** The four quantities every test below is written in terms of. */
@@ -321,4 +335,102 @@ export function candlePairPatterns(
   }
 
   return found;
+}
+
+/**
+ * The two names one candle shape carries, told apart by what came before it.
+ */
+export type CandleTrendPattern = 'hammer' | 'hanging man';
+
+/**
+ * Whether a candle is drawn in the hammer shape: a small body high in the
+ * range, over a long lower shadow, with next to nothing above it.
+ *
+ * @param candle     - The candle's four prices
+ * @param thresholds - How strict to be
+ * @returns True when the candle is that shape
+ */
+function isHammerShape(
+  candle: Ohlc,
+  thresholds: CandleShapeThresholds,
+): boolean {
+  const parts = partsOf(candle);
+
+  // A candle drawn at a single price satisfies every clause below -- a lower
+  // shadow of zero is `2 * 0`, an upper shadow of zero is under a tenth of
+  // zero, and its body sits at the low, which is also two thirds of the way
+  // up a range of nothing. It has no long lower shadow, which is the whole of
+  // what a hammer names, so it is turned away before any of that is asked.
+  if (parts.range === 0) {
+    return false;
+  }
+
+  return parts.lower >= thresholds.hammerLowerShadow * parts.body
+    && parts.upper <= thresholds.hammerUpperShadow * parts.range
+    && Math.min(candle.open, candle.close)
+    >= candle.low + thresholds.hammerBodyFloor * parts.range;
+}
+
+/**
+ * Whether a run of closes moves one way throughout.
+ *
+ * @param closes    - The closes, oldest first
+ * @param direction - Whether they must fall or rise
+ * @returns True when every step goes that way
+ */
+function runsOneWay(closes: readonly number[], direction: 'down' | 'up'): boolean {
+  for (let i = 1; i < closes.length; i++) {
+    const fell = closes[i] < closes[i - 1];
+    if (direction === 'down' ? !fell : !(closes[i] > closes[i - 1])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Names a hammer or a hanging man, which are one shape under two readings.
+ *
+ * The shape does not decide it: an identical candle is a hammer at the bottom
+ * of a fall and a hanging man at the top of a rise. So this is the one place
+ * where the run of earlier closes has to be read, and it is read by the rule
+ * #734 gives -- the last {@link CandleShapeThresholds.trendLookback} closes
+ * before the candle, each strictly under or over the one before it.
+ *
+ * That is a narrow rule and deliberately so. It is the request's own, it can
+ * be stated to a reader in one sentence, and a candle that meets the shape
+ * after an unsteady run is left unnamed rather than given whichever name the
+ * last two closes happen to suggest. Nothing here forecasts anything: the
+ * name says what the drawing is, and a reader who wants to know whether the
+ * fall really was a downtrend can navigate back through it.
+ *
+ * A run shorter than the lookback -- the first few candles of any chart --
+ * establishes nothing, and gets no name.
+ *
+ * @param previousCloses - Every close before this candle, oldest first
+ * @param candle         - The candle's four prices
+ * @param thresholds     - How strict to be; the request's figures by default
+ * @returns The name, or `null` when the shape or the run does not hold
+ */
+export function candleTrendPattern(
+  previousCloses: readonly number[],
+  candle: Ohlc,
+  thresholds: CandleShapeThresholds = DEFAULT_CANDLE_SHAPE_THRESHOLDS,
+): CandleTrendPattern | null {
+  if (!isHammerShape(candle, thresholds)) {
+    return null;
+  }
+
+  const run = previousCloses.slice(-thresholds.trendLookback);
+  if (run.length < thresholds.trendLookback) {
+    return null;
+  }
+
+  if (runsOneWay(run, 'down')) {
+    return 'hammer';
+  }
+  if (runsOneWay(run, 'up')) {
+    return 'hanging man';
+  }
+  return null;
 }
