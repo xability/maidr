@@ -167,6 +167,10 @@ export function vegaLiteToMaidr(
     // spec-only test of one was asserting against no data at all (#1126).
     // The facet path already did this; the plain layered path did not.
     const layerSpecs = inheritData(spec.layer ?? [], spec.data);
+    // Which `text` layers label another, and what each labelled layer should
+    // be told to call its points. Computed once, before conversion, because
+    // a layer has to know its names while its data is being read.
+    const overlays = labelOverlays(layerSpecs, spec.encoding);
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
       const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
@@ -176,13 +180,22 @@ export function vegaLiteToMaidr(
         continue;
       }
       // A `text` layer written over the mark it labels is not a second
-      // chart -- see `labelsAnotherLayer`.
-      if (labelsAnotherLayer(layerSpecs, i, spec.encoding)) {
+      // chart -- its names are given to that mark instead. See
+      // `labelOverlays`.
+      if (overlays.claimed.has(i)) {
         i += 1;
         continue;
       }
+      // A labelled layer is converted carrying the `text` channel of the
+      // layer that labels it, which is all `extractScatterData` needs to
+      // fill `ScatterPoint.label` -- the same field a standalone `text`
+      // mark fills, reached the same way.
+      const named = overlays.names.get(i);
+      const layerSpec = named === undefined
+        ? layerSpecs[i]
+        : { ...layerSpecs[i], encoding: { ...layerSpecs[i].encoding, text: named } };
       const layer = convertLayerSpec(
-        layerSpecs[i],
+        layerSpec,
         i,
         view,
         spec.encoding,
@@ -2986,24 +2999,47 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
  * @param parentEncoding - Encoding hoisted onto the layered parent
  * @returns True when this layer only names another layer's marks
  */
-function labelsAnotherLayer(
+function labelOverlays(
   specs: VegaLiteSpec[],
-  index: number,
   parentEncoding: VegaLiteEncoding | undefined,
-): boolean {
-  if (getMarkType(specs[index]) !== 'text')
-    return false;
+): { claimed: Set<number>; names: Map<number, VegaLiteEncoding['text']> } {
+  const claimed = new Set<number>();
+  const names = new Map<number, VegaLiteEncoding['text']>();
 
-  const labels: VegaLiteEncoding = { ...parentEncoding, ...specs[index].encoding };
-  if (!hasField(labels.x) || !hasField(labels.y))
-    return false;
+  specs.forEach((spec, index) => {
+    if (getMarkType(spec) !== 'text')
+      return;
 
-  return specs.some((sibling, at) => {
-    if (at === index || getMarkType(sibling) === 'text')
-      return false;
-    const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
-    return drawn.x?.field === labels.x?.field && drawn.y?.field === labels.y?.field;
+    const labels: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    if (!hasField(labels.x) || !hasField(labels.y))
+      return;
+
+    specs.forEach((sibling, at) => {
+      if (at === index || getMarkType(sibling) === 'text' || claimed.has(index))
+        return;
+      const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
+      if (drawn.x?.field !== labels.x?.field || drawn.y?.field !== labels.y?.field)
+        return;
+
+      claimed.add(index);
+
+      // The names are handed to the labelled layer whatever it is, and only
+      // a scatter ends up carrying them: `ScatterPoint.label` is the one
+      // field in the grammar that holds a name, and `extractScatterData`
+      // the one extractor that reads `encoding.text`. A `bar` or `line`
+      // underneath is given the channel and ignores it, so its payload is
+      // unchanged and its labels stay declined.
+      //
+      // Guarding on `resolveTraceType(...) === SCATTER` here was tried and
+      // removed: no test could tell the two apart, because nothing else
+      // reads the channel. The outcome is pinned by the bar and line cases
+      // in `labelledText.test.ts` instead, which is where it would be
+      // noticed if another extractor ever started reading it.
+      names.set(at, labels.text);
+    });
   });
+
+  return { claimed, names };
 }
 
 /**
