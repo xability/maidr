@@ -7,18 +7,17 @@
  *   waterfall, dumbbell), line (plain, stepped, area, stacked and normalized
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
- * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap), treemap
+ * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap), treemap, sankey,
+ *   wordCloud
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
- * rather than silently mapped to a bar chart. That list keeps shrinking:
- * `treemap` and `sankey` are read here now that `TraceType.TREEMAP` and
- * `TraceType.SANKEY` carry the navigation they need (#1108). The word cloud
- * plugin has a trace too and is still refused — it needs its own pass over a
- * running chart, and a reading written from published types alone is a guess.
+ * rather than silently mapped to a bar chart. The three plugins #1108 named
+ * are all read now that `TraceType.TREEMAP`, `SANKEY` and `WORD_CLOUD` carry
+ * the navigation they need.
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -820,11 +819,14 @@ function extractLayers(
       return extractTreemapLayers(chart, pluginOptions);
     case 'sankey':
       return extractSankeyLayers(chart);
+    case 'wordCloud':
+      return extractWordCloudLayers(chart);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
-        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey.',
+        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
+        + 'wordCloud.',
       );
   }
 }
@@ -2837,6 +2839,59 @@ function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
     {
       id: '0',
       type: TraceType.SANKEY,
+      title: dataset.label,
+      data,
+    },
+  ];
+}
+
+/**
+ * Read a `chartjs-chart-wordcloud` dataset as the terms it draws.
+ *
+ * The plugin puts the words in `data.labels` and their weights in
+ * `dataset.data` -- the ordinary Chart.js split, kept untouched through
+ * `chart.update()`, so this is the same reading a bar chart gets. Measured on
+ * `chartjs-chart-wordcloud@4` under jsdom (the controller measures text and so
+ * needs a real DOM, unlike the treemap and sankey ones): three terms in,
+ * `labels` back verbatim, `data` back verbatim, and `meta.data[i].text` equal
+ * to `labels[i]`.
+ *
+ * The drawn geometry is never read. A word cloud encodes its weight as glyph
+ * size, and recovering it from `scale` would be inverting a rendering when the
+ * number is sitting in the dataset -- the same reason the treemap's rectangles
+ * go unread.
+ *
+ * A word with no weight is dropped rather than announced as zero: `y` is what
+ * a reader compares terms by, and inventing one makes a term look like the
+ * least common rather than like a term the chart has no count for.
+ *
+ * @param chart - The Chart.js chart instance
+ * @returns A single word-cloud layer, or none when the dataset drew nothing
+ */
+function extractWordCloudLayers(chart: ChartJsChart): MaidrLayer[] {
+  const dataset = chart.data.datasets[0];
+  if (!dataset)
+    return [];
+
+  const labels = chart.data.labels ?? [];
+  const data: WordCloudPoint[] = [];
+  dataset.data.forEach((weight, index) => {
+    const word = labels[index];
+    const value = toFiniteNumber(weight);
+    if (typeof word !== 'string' || word === '' || value === null)
+      return;
+    data.push({ x: word, y: value });
+  });
+
+  if (data.length === 0)
+    return [];
+
+  // No `axes`: a word cloud has no scales, and `WordCloudTrace` names its own
+  // term and weight. Same reasoning as the treemap and sankey branches.
+  return [
+    {
+      id: '0',
+      type: TraceType.WORD_CLOUD,
       title: dataset.label,
       data,
     },

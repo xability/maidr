@@ -94,6 +94,7 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
 | Sankey | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
+| Word Cloud | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 | Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
@@ -566,6 +567,35 @@ Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey
 `labels` maps a node key to the name the chart displays, and MAIDR announces the label rather than the key.
 
 > **Sankey note:** a sankey is the one supported Chart.js type MAIDR does **not** outline. A flow diagram is navigated by *node* while the chart's elements are *flows*, and nothing in the navigation event names the node — so the adapter declines rather than outlining a ribbon chosen by position. Audio, text and braille are unaffected.
+
+### Word Cloud
+
+Requires [`chartjs-chart-wordcloud`](https://github.com/sgratzl/chartjs-chart-wordcloud). The terms go in `data.labels` and their weights in the dataset, which is the ordinary Chart.js split — and it is the reading, so a word's weight is announced as the number the author gave rather than recovered from how large it was drawn.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="wordcloud-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('wordcloud-chart'), {
+    type: 'wordCloud',
+    data: {
+      labels: ['accessible', 'chart', 'audio', 'braille'],
+      datasets: [{ label: 'Terms', data: [40, 25, 12, 8] }],
+    },
+  });
+</script>
+```
+
+Terms are read in the order they were declared, not in the order the layout happened to place them — the largest word is drawn first on screen, but a reader sweeping left and right gets the author's order.
+
+A term whose weight is `null` is skipped rather than announced as zero: a weight is what terms are compared by, and a zero would make the term look like the least common one rather than one the chart has no count for.
 
 ### Heatmap (Matrix)
 

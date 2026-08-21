@@ -188,10 +188,14 @@ describe('chart.js sankey', () => {
     }
   });
 
-  it('still refuses the word cloud plugin', () => {
+  it('still refuses a type nothing reads', () => {
+    // This named `wordCloud` when it was written, one PR before the word
+    // cloud was read -- so it expired immediately, which is the fourth time
+    // this assertion has broken by naming a real-but-not-yet-supported type.
+    // A name no plugin registers is the only version that cannot.
     const chart = sankeyChart({ label: 'x', data: [] } as unknown as ChartJsDataset);
-    (chart as unknown as { config: { type: string } }).config.type = 'wordCloud';
+    (chart as unknown as { config: { type: string } }).config.type = 'notAChartType';
 
-    expect(() => extractChartData(chart)).toThrow(/unsupported chart type "wordCloud"/);
+    expect(() => extractChartData(chart)).toThrow(/unsupported chart type "notAChartType"/);
   });
 });
