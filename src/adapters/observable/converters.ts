@@ -16,8 +16,11 @@
  *
  * - **Marks whose value lives in a colour.** A `cell` mark encodes its
  *   magnitude as an 8-bit fill, so several distinct values render as one
- *   colour and no inversion can tell them apart. Heatmaps are skipped rather
- *   than announced approximately.
+ *   colour and no inversion can tell them apart. `contour` is the same
+ *   problem — the level is carried only by the band's fill, sampled from a
+ *   continuous scale rather than a thresholded one — and `density` is worse,
+ *   drawing every isoline in one stroke colour so the level is not encoded at
+ *   all. All three are skipped rather than announced approximately (#1084).
  * - **Lines drawn with a non-interpolating curve.** `curveBasis` and
  *   `curveBundle` draw through control points that are not data points. The
  *   adapter detects the mismatch — Plot binds the datum indices to the path,

@@ -44,8 +44,12 @@
  *
  * ### Marks it does not
  *
- * `cell` — a heatmap keeps its magnitude in an 8-bit fill colour, so several
- * distinct values render as the same pixel and no inversion can separate them.
+ * `cell`, `contour` and `density` — one exclusion rather than three, because
+ * Plot puts the magnitude in a colour and its colour scales are continuous. A
+ * heatmap keeps its value in an 8-bit fill, so several distinct values render
+ * as the same pixel; a contour band carries its level only in that fill,
+ * sampled from a linear scale rather than a thresholded one; and a density's
+ * isolines share a single stroke colour, encoding the level nowhere at all.
  * Announcing an approximation to a reader who cannot check it against the
  * picture is worse than announcing nothing, so those marks are skipped.
  *
