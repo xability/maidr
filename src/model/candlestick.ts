@@ -12,7 +12,12 @@ import type { AudioState, BrailleState, DescriptionState, TextState, TraceState 
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
-import { candlePairPatterns, candleShape, candleTrendPattern } from '@util/candlePattern';
+import {
+  candlePairPatterns,
+  candleShape,
+  candleTrendPattern,
+  candleTrioPatterns,
+} from '@util/candlePattern';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
@@ -830,10 +835,17 @@ export class Candlestick extends AbstractTrace {
       .slice(0, this.currentPointIndex)
       .map(earlier => earlier.close);
     const named = candleTrendPattern(run, point);
+    // The three-candle formations need two candles behind the cursor, so the
+    // first two of any chart carry none (#739, #740, #741, #742).
+    const earlier = this.candles[this.currentPointIndex - 2];
+    const trios = earlier === undefined || previous === undefined
+      ? []
+      : candleTrioPatterns(earlier, previous, point);
     const asides = [
       ...(shape === null ? [] : [{ label: SHAPE, value: shape }]),
       ...pairs.map(pattern => ({ label: PATTERN, value: pattern })),
       ...(named === null ? [] : [{ label: PATTERN, value: named }]),
+      ...trios.map(pattern => ({ label: PATTERN, value: pattern })),
     ];
 
     return {
