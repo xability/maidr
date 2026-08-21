@@ -15,6 +15,7 @@
 
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import type { TraceState } from '@type/state';
+import type { Ohlc } from '@util/candlePattern';
 import { describe, expect, it } from '@jest/globals';
 import { Candlestick } from '@model/candlestick';
 import { Orientation, TraceType } from '@type/grammar';
@@ -28,10 +29,7 @@ import { Orientation, TraceType } from '@type/grammar';
  * @param ohlc  - The four prices
  * @returns A candlestick point
  */
-function candle(
-  value: string,
-  ohlc: { open: number; high: number; low: number; close: number },
-): CandlestickPoint {
+function candle(value: string, ohlc: Ohlc): CandlestickPoint {
   return { value, ...ohlc, trend: 'Neutral', volatility: 0 };
 }
 
