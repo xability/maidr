@@ -17,7 +17,8 @@
  * describe how a candle sits against the one before it rather than how it is
  * drawn on its own (#735, #736, #737, #738), and {@link candleTrendPattern}
  * for the one pair of names that a run of earlier closes decides between
- * (#734).
+ * (#734). {@link candleTrioPatterns} covers the three-candle formations
+ * (#739, #740, #741, #742).
  *
  * The thresholds are the ones the requests specify, and they are parameters
  * rather than literals because strictness is a matter of trading style. There
@@ -75,6 +76,12 @@ export interface CandleShapeThresholds {
   hammerBodyFloor: number;
   /** How many earlier closes a hammer's run is read from (#734). */
   trendLookback: number;
+  /** A star's outer candles fill at least this much of their range (#739). */
+  starLargeBody: number;
+  /** A star's middle candle fills at most this much of its range (#739). */
+  starSmallBody: number;
+  /** A soldier's or crow's shadow, at most this much of its range (#740). */
+  soldierShadow: number;
 }
 
 /** The thresholds each request names, and what applies when none are given. */
@@ -90,6 +97,15 @@ export const DEFAULT_CANDLE_SHAPE_THRESHOLDS: CandleShapeThresholds = {
   hammerUpperShadow: 0.1,
   hammerBodyFloor: 0.66,
   trendLookback: 3,
+  // #739 asks for "large" and "small" relative to recent candle size, and
+  // suggests an ATR. That needs a lookback window the chart does not state
+  // and would leave the first candles of any chart unreadable; a body against
+  // its own range says the same thing about each candle -- decisive, or not
+  // -- and needs nothing beyond the three the pattern is about. #740 leaves
+  // "small shadows" without a figure at all and asks for one to be chosen.
+  starLargeBody: 0.6,
+  starSmallBody: 0.3,
+  soldierShadow: 0.15,
 };
 
 /** The four quantities every test below is written in terms of. */
@@ -433,4 +449,188 @@ export function candleTrendPattern(
     return 'hanging man';
   }
   return null;
+}
+
+/** The three-candle formations. */
+export type CandleTrioPattern
+  = | 'morning star'
+    | 'evening star'
+    | 'three white soldiers'
+    | 'three black crows'
+    | 'upside tasuki gap'
+    | 'upside tasuki gap filled'
+    | 'three inside down'
+    | 'three outside down';
+
+/**
+ * Whether a candle's body fills enough of its range to be a decisive one.
+ *
+ * @param candle - The candle's four prices
+ * @param share  - The fraction of the range the body must reach
+ * @returns True when the body is at least that much of the range
+ */
+function bodyFills(candle: Ohlc, share: number): boolean {
+  const parts = partsOf(candle);
+  return parts.range > 0 && parts.body >= share * parts.range;
+}
+
+/**
+ * Whether a candle's body is small enough against its range to be a star.
+ *
+ * A candle drawn at one price counts: it has no body at all, which is the
+ * indecision a star's middle candle stands for, and unlike the hammer shape
+ * there is no long shadow being claimed that it does not have.
+ *
+ * @param candle - The candle's four prices
+ * @param share  - The fraction of the range the body must stay under
+ * @returns True when the body is at most that much of the range
+ */
+function bodyStaysUnder(candle: Ohlc, share: number): boolean {
+  const parts = partsOf(candle);
+  return parts.body <= share * parts.range;
+}
+
+/**
+ * Whether three candles all run one way, each closing past the last and
+ * opening inside the body before it, with short shadows on the leading side.
+ *
+ * @param candles    - The three candles, oldest first
+ * @param direction  - Whether they rise (soldiers) or fall (crows)
+ * @param thresholds - How strict to be
+ * @returns True when all three march that way
+ */
+function marchesOneWay(
+  candles: readonly [Ohlc, Ohlc, Ohlc],
+  direction: 'up' | 'down',
+  thresholds: CandleShapeThresholds,
+): boolean {
+  const rising = direction === 'up';
+
+  for (const candle of candles) {
+    if (rising ? candle.close <= candle.open : candle.close >= candle.open) {
+      return false;
+    }
+    // The shadow that matters is the one ahead of the march: a soldier that
+    // rose and left a long wick above it gave the gain back before the close,
+    // which is the opposite of the steady control the name is about.
+    const parts = partsOf(candle);
+    const leading = rising ? parts.upper : parts.lower;
+    if (parts.range === 0 || leading > thresholds.soldierShadow * parts.range) {
+      return false;
+    }
+  }
+
+  const [one, two, three] = candles;
+  const closesOn = rising
+    ? one.close < two.close && two.close < three.close
+    : one.close > two.close && two.close > three.close;
+  if (!closesOn) {
+    return false;
+  }
+
+  // "Opens within the prior body", written from the body's own ends rather
+  // than by flipping the inequalities: a rising candle's body runs open to
+  // close, a falling one's runs close to open.
+  const insideFirst = rising
+    ? two.open >= one.open && two.open <= one.close
+    : two.open <= one.open && two.open >= one.close;
+  const insideSecond = rising
+    ? three.open >= two.open && three.open <= two.close
+    : three.open <= two.open && three.open >= two.close;
+
+  return insideFirst && insideSecond;
+}
+
+/**
+ * Names every three-candle formation a trio satisfies.
+ *
+ * An array for the reason {@link candlePairPatterns} returns one: these are
+ * separate statements rather than one statement at several strictnesses. Most
+ * of them cannot co-occur — a formation that needs its first candle bullish
+ * excludes every one that needs it bearish — but a filled Tasuki gap and an
+ * evening star can both describe the same three candles, and neither is the
+ * other said more precisely.
+ *
+ * @param first      - The earliest of the three
+ * @param second     - The middle one
+ * @param third      - The candle the cursor is on
+ * @param thresholds - How strict to be; the requests' figures by default
+ * @returns Every formation the trio satisfies, possibly none
+ */
+export function candleTrioPatterns(
+  first: Ohlc,
+  second: Ohlc,
+  third: Ohlc,
+  thresholds: CandleShapeThresholds = DEFAULT_CANDLE_SHAPE_THRESHOLDS,
+): CandleTrioPattern[] {
+  const found = new Array<CandleTrioPattern>();
+
+  const firstTop = Math.max(first.open, first.close);
+  const firstBottom = Math.min(first.open, first.close);
+  const midpoint = (first.open + first.close) / 2;
+  const secondTop = Math.max(second.open, second.close);
+  const secondBottom = Math.min(second.open, second.close);
+
+  const large = (candle: Ohlc): boolean => bodyFills(candle, thresholds.starLargeBody);
+  const small = (candle: Ohlc): boolean => bodyStaysUnder(candle, thresholds.starSmallBody);
+
+  // #739: decisive, then a pause clear of it, then decisive back through the
+  // middle of the first candle's body.
+  if (
+    first.close < first.open && large(first)
+    && small(second) && secondTop < firstBottom
+    && third.close > third.open && large(third) && third.close > midpoint
+  ) {
+    found.push('morning star');
+  }
+  if (
+    first.close > first.open && large(first)
+    && small(second) && secondBottom > firstTop
+    && third.close < third.open && large(third) && third.close < midpoint
+  ) {
+    found.push('evening star');
+  }
+
+  // #740: three steady steps the same way.
+  if (marchesOneWay([first, second, third], 'up', thresholds)) {
+    found.push('three white soldiers');
+  }
+  if (marchesOneWay([first, second, third], 'down', thresholds)) {
+    found.push('three black crows');
+  }
+
+  // #741: two rising candles with a gap between them, then a fall back into
+  // the gap. Whether the gap survives is the whole of what the two names say,
+  // so both are returned rather than a flag on one.
+  if (
+    first.close > first.open
+    && second.close > second.open && second.low > first.high
+    && third.close < third.open
+    && third.open >= second.open && third.open <= second.close
+  ) {
+    found.push(
+      third.close > first.high ? 'upside tasuki gap' : 'upside tasuki gap filled',
+    );
+  }
+
+  // #742: a rise, then a turn either tucked inside it or swallowing it, then
+  // a lower close confirming the turn.
+  if (
+    first.close > first.open
+    && second.close < second.open
+    && first.open <= second.close && second.open <= first.close
+    && third.close < second.close
+  ) {
+    found.push('three inside down');
+  }
+  if (
+    first.close > first.open
+    && second.close < second.open
+    && second.open > first.close && second.close < first.open
+    && third.close < second.close
+  ) {
+    found.push('three outside down');
+  }
+
+  return found;
 }
