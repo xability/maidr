@@ -3583,10 +3583,10 @@ function buildConcatMaidr(
     if (childSpec.layer) {
       const layers = inheritData(childSpec.layer, childSpec.data)
         .map((layerSpec, j) => {
-        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
-        // (local layer index `j`, not the global data index), so drive the
-        // selector off those while keeping `globalLayerIndex` for the data
-        // lookup, which follows Vega's sequential dataset numbering.
+          // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+          // (local layer index `j`, not the global data index), so drive the
+          // selector off those while keeping `globalLayerIndex` for the data
+          // lookup, which follows Vega's sequential dataset numbering.
           const layer = convertLayerSpec(
             layerSpec,
             globalLayerIndex,
@@ -4023,7 +4023,14 @@ function buildFacetMaidr(
     warnCompositeDeclaration(spec.spec);
   }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
-  const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
+  // Both branches, not only the layered one: a facet's single child is
+  // itself the spec whose data sits on the enclosing `spec`, so wrapping
+  // only `childSpec.layer` left the unlayered case with none -- measured,
+  // panel enumeration then saw one cell where the chart has three.
+  const layerSpecs = inheritData(
+    isLayered ? childSpec.layer! : [childSpec],
+    childSpec.data ?? spec.data,
+  );
   const facetFields = [
     descriptor.rowChannel?.field,
     descriptor.columnChannel?.field,
@@ -4045,10 +4052,7 @@ function buildFacetMaidr(
   const layerRows = layerSpecs.map((layerSpec, j) => {
     if (perLayerDatasets)
       return perLayerDatasets[j];
-    const specForData: VegaLiteSpec = layerSpec.data != null
-      ? layerSpec
-      : { ...layerSpec, data: childSpec.data ?? spec.data };
-    let rows = resolveData(specForData, j, view);
+    let rows = resolveData(layerSpec, j, view);
     if (rows.length > 0 && !facetFields.every(field => field in rows[0])) {
       const source = resolveSourceRows(spec, view);
       if (source.length > 0 && facetFields.every(field => field in source[0])) {
@@ -4268,15 +4272,15 @@ function buildRepeatMaidr(
     }
     const childName = repeatChildName(cell.mapping);
     const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
-    const layerSpecs = isLayered ? cellSpec.layer! : [cellSpec];
+    const layerSpecs = inheritData(
+      isLayered ? cellSpec.layer! : [cellSpec],
+      cellSpec.data,
+    );
     const parentEncoding = isLayered ? cellSpec.encoding : undefined;
 
     const rawLayers = layerSpecs.map((layerSpec, j) => {
-      const specForData: VegaLiteSpec = layerSpec.data != null
-        ? layerSpec
-        : { ...layerSpec, data: cellSpec.data };
       const layer = convertLayerSpec(
-        specForData,
+        layerSpec,
         globalLayerIndex,
         view,
         parentEncoding,
@@ -4285,7 +4289,7 @@ function buildRepeatMaidr(
         { layerIndex: j, markGroupPrefix: `${childName}_` },
       );
       globalLayerIndex++;
-      return layer ? { layer, spec: specForData } : null;
+      return layer ? { layer, spec: layerSpec } : null;
     }).filter(Boolean) as ConvertedLayer[];
     const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
     layers.forEach((layer, j) => {
