@@ -2887,9 +2887,14 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
  *
  * Vega-Lite has no lollipop mark and no dumbbell mark: both are authored as
  * a `layer:` of a segment and its dots. Read layer by layer, the segment is
- * dropped — a bare `rule` resolves to no trace type — and the dots are
- * announced as a scatter, so the chart loses the thing it is drawn to show:
- * the stem's magnitude, or the gap between the pair.
+ * dropped — a `rule` with one positional field resolves to no trace type,
+ * which is every stem this pairs — and the dots are announced as a scatter,
+ * so the chart loses the thing it is drawn to show: the stem's magnitude, or
+ * the gap between the pair.
+ *
+ * This pass runs *before* per-layer conversion, which is what keeps a genuine
+ * ranged dot plot reading as a dumbbell now that a `rule` spanning two bounds
+ * has a reading of its own (#1122).
  *
  * The two are told apart by the data. Two values at every category, told
  * apart by a grouping field, is a dumbbell; one value at each is a

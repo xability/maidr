@@ -117,6 +117,35 @@ describe('vega-Lite rules that span a range', () => {
     expect(layer.selectors).not.toContain('path');
   });
 
+  it('reads a rule over a running total as the waterfall a bar would be', () => {
+    // `resolveRangedBarType` separates the two by `hasRunningSumTransform`,
+    // and that branch is reachable from this mark now. Nobody draws a
+    // waterfall with a `rule`, which is exactly why it is pinned: the
+    // mark's name reaches only the warning string, and a future change that
+    // gave it its own branch would be silent otherwise.
+    const layer = onlyLayer({
+      data: {
+        values: [
+          { label: 'Begin', amount: 4000 },
+          { label: 'Jan', amount: 1707 },
+          { label: 'Feb', amount: -1425 },
+        ],
+      },
+      transform: [
+        { window: [{ op: 'sum', field: 'amount', as: 'sum' }] },
+        { calculate: 'datum.sum - datum.amount', as: 'previous_sum' },
+      ],
+      mark: 'rule',
+      encoding: {
+        x: { field: 'label', type: 'ordinal', title: 'Month' },
+        y: { field: 'previous_sum', type: 'quantitative', title: 'Amount' },
+        y2: { field: 'sum' },
+      },
+    });
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+  });
+
   it('leaves a reference line unread', () => {
     // One positional field: Vega-Lite draws it across the whole frame
     // because it was given the frame, not because a row said so.
