@@ -92,6 +92,7 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
+| Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 | Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
@@ -487,6 +488,46 @@ Requires [`chartjs-chart-financial`](https://github.com/chartjs/chartjs-chart-fi
 ```
 
 The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from `high - low`. Chart.js's financial plugin does not carry volume data, so the MAIDR payload records volume as `0`.
+
+### Treemap
+
+Requires [`chartjs-chart-treemap`](https://github.com/kurkle/chartjs-chart-treemap). Declare `groups` and `key` and the hierarchy is read as it is drawn: each rectangle's group name becomes the node's name, its value becomes the magnitude, and the grouping fields give the ancestry. Arrow keys walk siblings; Up and Down move between levels.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="treemap-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('treemap-chart'), {
+    type: 'treemap',
+    data: {
+      datasets: [{
+        label: 'Population',
+        tree: [
+          { continent: 'Asia', country: 'Japan', pop: 125 },
+          { continent: 'Asia', country: 'Korea', pop: 52 },
+          { continent: 'Europe', country: 'France', pop: 67 },
+          { continent: 'Europe', country: 'Spain', pop: 47 },
+        ],
+        groups: ['continent', 'country'],
+        key: 'pop',
+      }],
+    },
+  });
+</script>
+```
+
+A node's value is announced only where it is its own: a group whose value is exactly its children's total is left for the trace to sum, and a group whose declared value differs is announced as declared rather than corrected.
+
+A treemap has no Chart.js scales, so the axes are named after the dataset instead — `groups` joined for `axes.x` and `key` for `axes.y`. Set `plugins.maidr.axes` to override either.
+
+A **flat** `tree` of numbers draws rectangles the plugin gives no names to, and `data.labels` is not read by the controller. Those nodes are announced by their position — 1, 2, 3 — so declare `groups` whenever the nodes have names worth hearing.
 
 ### Heatmap (Matrix)
 
