@@ -93,6 +93,7 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
+| Sankey | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 | Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
@@ -528,6 +529,43 @@ A node's value is announced only where it is its own: a group whose value is exa
 A treemap has no Chart.js scales, so the axes are named after the dataset instead — `groups` joined for `axes.x` and `key` for `axes.y`. Set `plugins.maidr.axes` to override either.
 
 A **flat** `tree` of numbers draws rectangles the plugin gives no names to, and `data.labels` is not read by the controller. Those nodes are announced by their position — 1, 2, 3 — so declare `groups` whenever the nodes have names worth hearing.
+
+### Sankey
+
+Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey). The plugin's `{from, to, flow}` rows are read as they are written — the nodes are derived from the edges, so nothing has to be declared twice. Left and right follow the largest ribbon; up and down walk the other nodes in the same column.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.15"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="sankey-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('sankey-chart'), {
+    type: 'sankey',
+    data: {
+      datasets: [{
+        label: 'Energy',
+        data: [
+          { from: 'Coal', to: 'Electricity', flow: 34 },
+          { from: 'Gas', to: 'Electricity', flow: 20 },
+          { from: 'Electricity', to: 'Homes', flow: 30 },
+          { from: 'Electricity', to: 'Industry', flow: 24 },
+        ],
+        labels: { Homes: 'Residential' },
+      }],
+    },
+  });
+</script>
+```
+
+`labels` maps a node key to the name the chart displays, and MAIDR announces the label rather than the key.
+
+> **Sankey note:** a sankey is the one supported Chart.js type MAIDR does **not** outline. A flow diagram is navigated by *node* while the chart's elements are *flows*, and nothing in the navigation event names the node — so the adapter declines rather than outlining a ribbon chosen by position. Audio, text and braille are unaffected.
 
 ### Heatmap (Matrix)
 

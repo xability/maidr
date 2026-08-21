@@ -10,18 +10,17 @@
  * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap), treemap
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
- * rather than silently mapped to a bar chart. That list is shorter than it
- * was: `treemap` is read here now that `TraceType.TREEMAP` carries the
- * hierarchical navigation it needs (#1108). `sankey` and the word cloud
- * plugin have traces too and are still refused — each needs its own pass over
- * a running chart, and a reading written from published types alone is a
- * guess.
+ * rather than silently mapped to a bar chart. That list keeps shrinking:
+ * `treemap` and `sankey` are read here now that `TraceType.TREEMAP` and
+ * `TraceType.SANKEY` carry the navigation they need (#1108). The word cloud
+ * plugin has a trace too and is still refused — it needs its own pass over a
+ * running chart, and a reading written from published types alone is a guess.
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsTreemapValue, MaidrPluginOptions } from './types';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
 
@@ -819,11 +818,13 @@ function extractLayers(
       return extractHeatmapLayers(chart, pluginOptions);
     case 'treemap':
       return extractTreemapLayers(chart, pluginOptions);
+    case 'sankey':
+      return extractSankeyLayers(chart);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
-        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap.',
+        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey.',
       );
   }
 }
@@ -2760,6 +2761,84 @@ function extractTreemapLayers(
         y: { label: pluginOptions?.axes?.y ?? dataset.key },
       },
       data: points,
+    },
+  ];
+}
+
+/**
+ * Whether a dataset value is one of the sankey plugin's flows.
+ *
+ * All three fields, because all three are load-bearing: a flow with no ends
+ * names nothing, and one with no magnitude is not a case that reaches here —
+ * the plugin throws laying it out — so a row missing any of them is not a
+ * sankey row at all.
+ *
+ * @param value - A dataset value
+ * @returns True when it is a flow
+ */
+function isSankeyFlow(value: ChartJsDataValue): value is ChartJsSankeyValue {
+  if (typeof value !== 'object' || value === null)
+    return false;
+  const flow = value as ChartJsSankeyValue;
+  return (typeof flow.from === 'string' || typeof flow.from === 'number')
+    && (typeof flow.to === 'string' || typeof flow.to === 'number')
+    && typeof flow.flow === 'number'
+    && Number.isFinite(flow.flow);
+}
+
+/**
+ * Read a `chartjs-chart-sankey` dataset as the weighted graph it draws.
+ *
+ * Almost a rename: the plugin leaves `dataset.data` exactly as the caller
+ * wrote it — measured, the `{from, to, flow}` rows come back verbatim after
+ * `chart.update()` — and `FlowPoint` is `{source, target, value}`. The
+ * controller's own derived node map is deliberately not read: `FlowPoint`
+ * documents that the nodes come from the edges, and MAIDR derives its own
+ * from the same rows, so reading the plugin's would be a second source of
+ * truth for something the data already says. Node order is first appearance,
+ * which the emitted edge order gives for free.
+ *
+ * **Cycles need no handling.** Measured, `a → b` and `b → a` in one dataset
+ * draw two flows over two nodes without complaint, so a cycle is just two
+ * edges and nothing here has to break one.
+ *
+ * `dataset.labels` maps a node key to a display name. It is applied, because
+ * the key is an identifier and the label is what the chart puts on screen —
+ * announcing `'a'` where the chart says `'Apple'` describes a different chart.
+ *
+ * @param chart - The Chart.js chart instance
+ * @returns A single sankey layer, or none when the dataset drew nothing
+ */
+function extractSankeyLayers(chart: ChartJsChart): MaidrLayer[] {
+  const dataset = chart.data.datasets[0];
+  if (!dataset)
+    return [];
+
+  const flows = dataset.data.filter(isSankeyFlow);
+  if (flows.length === 0)
+    return [];
+
+  const labels = dataset.labels;
+  const named = (key: string | number): string | number => {
+    const label = labels?.[String(key)];
+    return typeof label === 'string' && label !== '' ? label : key;
+  };
+
+  const data: FlowPoint[] = flows.map(flow => ({
+    source: named(flow.from),
+    target: named(flow.to),
+    value: flow.flow,
+  }));
+
+  // No `axes`: a sankey has no scales, and naming two it does not have is
+  // what the treemap branch above avoids for the same reason. `FlowTrace`
+  // labels its own throughput.
+  return [
+    {
+      id: '0',
+      type: TraceType.SANKEY,
+      title: dataset.label,
+      data,
     },
   ];
 }

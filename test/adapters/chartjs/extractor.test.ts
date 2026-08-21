@@ -458,14 +458,16 @@ describe('chart.js extractor', () => {
     });
 
     it('still throws for unsupported chart types', () => {
-      // 'sankey', not 'treemap' — a treemap is supported now (#1108), the
-      // same way this line already moved off 'radar' once. A supported type
-      // here would assert nothing about the unsupported path, and it fails
-      // quietly rather than loudly: a treemap dataset of plain numbers holds
-      // no laid-out rectangles, so the reading returns no layers instead of
-      // throwing.
+      // A name no plugin will ever register, rather than a real one that is
+      // merely unsupported today. This line has already moved twice --
+      // 'radar' when radar landed, 'treemap' when treemap did (#1108) -- and
+      // each move was prompted by a *failing* test rather than by noticing:
+      // a supported type here asserts nothing about the default branch, and
+      // fails quietly, since a dataset shaped for one plugin holds nothing
+      // another can read and the reading returns no layers instead of
+      // throwing. Naming a non-type is what stops the expiry.
       const chart = createChart({
-        type: 'sankey',
+        type: 'notAChartTypeAnyPluginRegisters',
         data: { datasets: [{ data: [1, 2] }] },
         options: {
           scales: { x: {}, y: { stack: 'demo' }, y2: { stack: 'demo' } },

@@ -207,10 +207,13 @@ describe('chart.js treemap', () => {
     expect(at(5, 0)).toEqual([]);
   });
 
-  it('still refuses a plugin type nothing reads', () => {
+  it('still refuses a type nothing reads', () => {
+    // A name no plugin registers, so this cannot expire the way the same
+    // assertion in `extractor.test.ts` did twice over as the adapter gained
+    // types.
     const chart = treemapChart({ label: 'x', data: [] } as unknown as ChartJsDataset);
-    (chart as unknown as { config: { type: string } }).config.type = 'sankey';
+    (chart as unknown as { config: { type: string } }).config.type = 'notAChartType';
 
-    expect(() => extractChartData(chart)).toThrow(/unsupported chart type "sankey"/);
+    expect(() => extractChartData(chart)).toThrow(/unsupported chart type "notAChartType"/);
   });
 });
