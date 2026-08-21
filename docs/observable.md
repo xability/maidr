@@ -203,6 +203,8 @@ That is why the adapter needs no configuration and works on charts written befor
 | `ruleX` / `ruleY` carrying an interval | Gantt | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
 | `waffleY` / `waffleX` | Bar | Counted from the cells rather than inverted from a colour; see below |
 | `waffleY` / `waffleX` with `fill` | Stacked bar | One path per segment in a band |
+| `text` on two continuous axes | Scatter carrying each point's name | A labelled scatter; see below |
+| `text` sitting on another mark | — | Read as that mark's names rather than as a series; see below |
 | `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
@@ -344,6 +346,53 @@ What gets announced is the height those cells would have as a solid bar, put bac
 The lattice's width is taken across the whole mark, not off one path. A category holding less than a full row is only as wide as the cells it drew, so on its own it understates how many columns there are — and some category always fills a row, because Plot sizes the lattice to the largest value.
 
 `waffleX` needs no separate arithmetic: it lays its cells along the band rather than up it, so each outline is a plain rectangle and the same area gives the same count. A `fill` channel puts one path per segment in the same band and is read as a stacked bar; the series colour is on the pattern's swatch rather than on the path, which carries only `url(#…)`. A category holding nothing is still drawn — every vertex on the origin — and is announced as the zero it is rather than dropped. A fractional tally stays fractional.
+
+## Text marks
+
+`Plot.text` draws a name at a position, and both halves are exact in the
+markup — the position is the element's `transform`, the same place `dot`,
+`tick` and `vector` take theirs from, and the name is what the element draws.
+Nothing is inverted from a colour or inferred from a shape.
+
+```js
+Plot.plot({marks: [Plot.text(countries, {x: 'gdp', y: 'life', text: 'name'})]})
+```
+
+reads as a scatter whose every point carries its name, announced wherever the
+cursor is on exactly one point — which, on a chart where each point has its
+own x, is the ordinary sweep.
+
+The same mark is also how another mark's labels are drawn, and where it sits
+says which it is. Plot writes a label's position from the same channel it
+writes the labelled point's, so a label lands on what it labels — a `dy`
+offset moves the glyph when the text is laid out, not the `transform`. A
+`text` mark under which another mark's points lie is therefore that mark's
+names: they move onto it, and the group is not read a second time.
+
+That is what keeps a labelled scatter drawn by hand
+
+```js
+Plot.plot({marks: [
+  Plot.dot(data, {x: 'x', y: 'y'}),
+  Plot.text(data, {x: 'x', y: 'y', text: 'name', dy: -8}),
+]})
+```
+
+to one named series rather than a nameless one beside a second copy of the
+same coordinates. It is also what `Plot.tree` needs: a tree is a `link`, a
+`dot`, and two `text` marks sitting on the dots, so a five-node tree would
+otherwise be three layers a reader has to walk separately to learn one thing.
+
+A tree's dots name themselves as well — each carries its node's full path in a
+`<title>`, which is preferred over the glyph, since the glyph shows only the
+leaf. Its `x` and `y` stay what the chart drew, which are d3 tree layout
+coordinates on scales `Plot.tree` renders with `axis: null`; reading the names
+does not make those meaningful, it stops them being all a reader gets.
+
+A `text` on a categorical axis is skipped. That is a value written over a bar,
+and the bar mark already carries the value — reading it here would announce
+every count twice, once as a bar and once as a point standing at the same
+place.
 
 ## Box plots
 

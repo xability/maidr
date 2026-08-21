@@ -24,14 +24,23 @@
  * `linearRegressionX` / `linearRegressionY` (the fitted line, as a smooth),
  * `waffle` (counted from the cells rather than inverted from a colour),
  * `link` / `arrow`, `rule`, `vector` (which is also what `Plot.spike` draws),
- * and `boxX` / `boxY`, which Plot draws as four separate marks that are
- * recognised and read as one distribution. Any of them split into facets with
+ * `text` (a labelled scatter when it stands alone, and another mark's names
+ * when it sits on one), and `boxX` / `boxY`, which Plot draws as four
+ * separate marks that are recognised and read as one distribution. Any of them split into facets with
  * `fx` / `fy` become MAIDR subplots.
  *
  * A `link`, an `arrow` and a `rule` each draw a segment between two points,
  * which is a span in a lane when its ends share the other coordinate — read as
  * a gantt. A spike stands a magnitude at a place, read as a scatter carrying
  * `z`, which the trace speaks and sounds alongside the position.
+ *
+ * A `text` mark is the same markup put to two uses, and where it sits says
+ * which: Plot writes a label's position from the same channel it writes the
+ * labelled point's, so a `text` under which another mark's points lie is that
+ * mark's names — they move onto it and the group is not read again — and one
+ * with nothing beneath it is a series, which is how `Plot.tree` and a
+ * hand-drawn `Plot.dot` + `Plot.text` scatter come out as one named layer
+ * each rather than as two or three at the same coordinates.
  *
  * ### Marks it does not
  *
