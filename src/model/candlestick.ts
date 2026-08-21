@@ -12,7 +12,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState, TraceState 
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
-import { candlePairPatterns, candleShape } from '@util/candlePattern';
+import { candlePairPatterns, candleShape, candleTrendPattern } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
@@ -824,9 +824,16 @@ export class Candlestick extends AbstractTrace {
     const pairs = previous === undefined
       ? []
       : candlePairPatterns(previous, point);
+    // A hammer and a hanging man are one shape read two ways, and only the
+    // run of closes before the candle separates them (#734).
+    const run = this.candles
+      .slice(0, this.currentPointIndex)
+      .map(earlier => earlier.close);
+    const named = candleTrendPattern(run, point);
     const asides = [
       ...(shape === null ? [] : [{ label: SHAPE, value: shape }]),
       ...pairs.map(pattern => ({ label: PATTERN, value: pattern })),
+      ...(named === null ? [] : [{ label: PATTERN, value: named }]),
     ];
 
     return {
