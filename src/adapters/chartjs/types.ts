@@ -78,7 +78,13 @@ export type ChartJsDataValue
       max: number;
       outliers?: number[];
     }
-    | { x: string | number; y: string | number; v: number };
+    | { x: string | number; y: string | number; v: number }
+    /**
+     * A rectangle the treemap plugin laid out. It replaces the caller's
+     * `tree` in `dataset.data` during `chart.update()`, so this union has to
+     * admit it for the dataset to be read at all.
+     */
+    | ChartJsTreemapValue;
 
 /**
  * Minimal representation of a Chart.js chart instance.
@@ -171,6 +177,21 @@ export interface ChartJsDataset {
    * the chart is read as if it carried none.
    */
   maidr?: MaidrTraceDeclaration;
+  /**
+   * The `chartjs-chart-treemap` source: an array of numbers, an array of rows,
+   * or an object. After `chart.update()` the plugin has replaced `data` with
+   * one {@link ChartJsTreemapValue} per drawn rectangle, so this is the
+   * caller's input rather than what is read.
+   */
+  tree?: unknown;
+  /**
+   * The fields the treemap groups by, outermost first — e.g.
+   * `['continent', 'country']`. Absent for a flat tree, which draws one
+   * unnamed rectangle per entry.
+   */
+  groups?: string[];
+  /** Which field of a row carries the value the rectangles are sized by. */
+  key?: string;
 }
 
 /**
@@ -252,6 +273,52 @@ export interface ChartJsRuntimeScale {
   bottom: number;
   left: number;
   right: number;
+}
+
+/**
+ * One drawn rectangle of a `chartjs-chart-treemap` dataset.
+ *
+ * The plugin replaces `dataset.data` with these during `chart.update()`, one
+ * per rectangle it laid out — measured on `chartjs-chart-treemap@4.2.0`, they
+ * are the identical objects each element's `$context.raw` points at, so the
+ * dataset is read directly and no element walk is needed.
+ *
+ * The layout reorders: a two-row source listing France then Japan comes back
+ * Japan first, largest rectangle first. That is the order the chart draws in
+ * and so the order the nodes are emitted in.
+ *
+ * A **flat** tree carries only `v`, `s` and a numeric `_data`: no `g`, no `l`,
+ * no `isLeaf`. Those three fields arrive together, once `groups` is declared.
+ */
+export interface ChartJsTreemapValue {
+  /** The rectangle, in pixels. */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  /** The node's magnitude: a leaf's own value, or a group's sum. */
+  v: number;
+  /** The value the layout sized by, which `sumKeys` can separate from `v`. */
+  s?: number;
+  /** Its depth, 0 at the outermost declared group. */
+  l?: number;
+  /** Its name at that level — the value of `groups[l]` on its rows. */
+  g?: string;
+  /** Its parent group's sum. */
+  gs?: number;
+  /**
+   * Whether it sits at the **deepest declared group**, which is not the same
+   * as having no children in the source: measured with `groups: ['continent']`
+   * over rows that also carry a country, `Asia` comes back `isLeaf: true` with
+   * two children. It says where the drawn hierarchy stops.
+   */
+  isLeaf?: boolean;
+  /**
+   * The plugin's own record for the node. For a grouped tree it is an object
+   * whose `children` are the source rows that fell under it; for a flat tree
+   * it is the source number itself.
+   */
+  _data?: unknown;
 }
 
 /**

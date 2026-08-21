@@ -8,7 +8,7 @@
  * highlight resolution O(1) and aligned with the original chart elements.
  */
 
-import type { GanttData, HeatmapData, MaidrLayer } from '../../type/grammar';
+import type { GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
 import { drawnCategoryPositions, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
@@ -46,6 +46,18 @@ export interface TargetMaps {
   heatmapIndices: Map<string, Map<string, number>>;
   /** Gantt: `ganttTargets[layerId][lane][interval]` is the element drawing it. */
   ganttTargets: Map<string, ChartJsActiveElement[][]>;
+  /**
+   * Treemap: `treemapIndices[layerId]` maps `"depth\0index"` to the flat
+   * Chart.js element index.
+   *
+   * `TreemapTrace` addresses a node by depth and by its position within that
+   * depth *across parents*, and the position is the order the nodes were
+   * declared in. The extractor emits one point per drawn rectangle in the
+   * plugin's own layout order, so counting the points per depth reproduces
+   * exactly the addresses the model will use -- without re-deriving the tree,
+   * which would drift from the model silently.
+   */
+  treemapIndices: Map<string, Map<string, number>>;
 }
 
 /**
@@ -214,6 +226,40 @@ function firstDatasetIndex(
  * Chart.js element indices even though MAIDR extraction skips gap markers and
  * axis-stacked panels see only a partition of the datasets.
  */
+/**
+ * Address every declared node the way `TreemapTrace` will.
+ *
+ * The model places a node at `(depth, position)` where depth is its path
+ * length and position is its index *within that depth, across parents*, in
+ * declaration order. Counting per depth over the declared list reproduces
+ * that: the extractor emits one point per drawn rectangle in the plugin's
+ * layout order, so a point's index in the list is also its Chart.js element
+ * index.
+ *
+ * This holds because the treemap plugin draws every group level it was given
+ * -- measured, a two-level chart yields elements for the continents as well as
+ * the countries -- so the model never has to invent an ancestor that no
+ * rectangle exists for. A producer that emitted leaves only would shift every
+ * position, which is why the addresses are built from the emitted points
+ * rather than from the chart.
+ *
+ * @param points - The layer's declared nodes, in emission order
+ * @returns `"depth\0position"` to the element index drawing that node
+ */
+function buildTreemapIndex(points: readonly TreemapPoint[]): Map<string, number> {
+  const index = new Map<string, number>();
+  const seen = new Map<number, number>();
+
+  points.forEach((point, element) => {
+    const depth = point.path?.length ?? 0;
+    const position = seen.get(depth) ?? 0;
+    seen.set(depth, position + 1);
+    index.set(`${depth}\0${position}`, element);
+  });
+
+  return index;
+}
+
 export function computeTargetMaps(
   chart: ChartJsChart,
   layers: MaidrLayer[],
@@ -223,6 +269,7 @@ export function computeTargetMaps(
   const barLineIndices = new Map<string, number[][]>();
   const heatmapIndices = new Map<string, Map<string, number>>();
   const ganttTargets = new Map<string, ChartJsActiveElement[][]>();
+  const treemapIndices = new Map<string, Map<string, number>>();
   const datasets = chart.data.datasets;
 
   for (const layer of layers) {
@@ -349,12 +396,17 @@ export function computeTargetMaps(
         heatmapIndices.set(layer.id, buildHeatmapIndex(datasets[dsIdx]?.data ?? []));
         break;
       }
+      case TraceType.TREEMAP: {
+        if (Array.isArray(layer.data))
+          treemapIndices.set(layer.id, buildTreemapIndex(layer.data as TreemapPoint[]));
+        break;
+      }
       default:
         break;
     }
   }
 
-  return { pointTargets, barLineIndices, heatmapIndices, ganttTargets };
+  return { pointTargets, barLineIndices, heatmapIndices, ganttTargets, treemapIndices };
 }
 
 /**
@@ -435,6 +487,17 @@ export function resolveActiveTargets(
   // for audio/text and does NOT change which element to highlight.
   if (layer.type === TraceType.CANDLESTICK)
     return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index: col }];
+
+  // Treemap: MAIDR row = depth, col = position within that depth. The nodes
+  // were emitted one per drawn rectangle, so the prebuilt pair is the whole
+  // answer -- there is no dataset partition to undo, a treemap being a single
+  // dataset by construction.
+  if (layer.type === TraceType.TREEMAP) {
+    const index = maps.treemapIndices.get(layer.id)?.get(`${row}\0${col}`);
+    if (index === undefined)
+      return [];
+    return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index }];
+  }
 
   // Heatmap / Matrix: look the active cell up by coordinate (the matrix data
   // order is arbitrary). MAIDR's Heatmap model reverses the Y axis (row 0 =

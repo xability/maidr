@@ -7,17 +7,21 @@
  *   waterfall, dumbbell), line (plain, stepped, area, stacked and normalized
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
- * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap)
+ * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap), treemap
  *
- * Unsupported types (treemap, sankey, etc.) are rejected with an explicit
- * error rather than silently mapped to a bar chart, because MAIDR has no
- * semantically equivalent trace for them.
+ * A type with no MAIDR trace behind it is rejected with an explicit error
+ * rather than silently mapped to a bar chart. That list is shorter than it
+ * was: `treemap` is read here now that `TraceType.TREEMAP` carries the
+ * hierarchical navigation it needs (#1108). `sankey` and the word cloud
+ * plugin have traces too and are still refused — each needs its own pass over
+ * a running chart, and a reading written from published types alone is a
+ * guess.
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, MaidrPluginOptions } from './types';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
 
@@ -813,11 +817,13 @@ function extractLayers(
       return extractCandlestickLayers(chart, pluginOptions);
     case 'matrix':
       return extractHeatmapLayers(chart, pluginOptions);
+    case 'treemap':
+      return extractTreemapLayers(chart, pluginOptions);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
-        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix.',
+        + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap.',
       );
   }
 }
@@ -2584,6 +2590,178 @@ function drawnCategoryOrder(
   // is the safer answer.
   const filled = drawn.filter(label => present.has(label));
   return filled.length === listed.length ? filled : listed;
+}
+
+/**
+ * Whether a dataset value is one of the treemap plugin's drawn rectangles.
+ *
+ * `v` alone is the test that matters: it is the only field every form
+ * produces. A flat tree of numbers yields `{v, s, _data}` and nothing else,
+ * so requiring `g` or `l` would silently drop the simplest chart the plugin
+ * draws.
+ *
+ * @param value - A dataset value
+ * @returns True when it is a treemap rectangle
+ */
+function isTreemapValue(value: ChartJsDataValue): value is ChartJsTreemapValue {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as ChartJsTreemapValue).v === 'number';
+}
+
+/**
+ * The source row one drawn node was built from, when it has one.
+ *
+ * A grouped node's `_data.children` are the rows that fell under it, and every
+ * one of them carries the whole grouping — so the first is enough to read any
+ * ancestor's name off. The node's own `_data` is not: measured, a node at
+ * `A.x.p` carries `c: 'p'` and neither `a` nor `b`.
+ *
+ * @param value - A drawn rectangle
+ * @returns The first source row under it, or null
+ */
+function treemapSourceRow(value: ChartJsTreemapValue): Record<string, unknown> | null {
+  const data = value._data;
+  if (typeof data !== 'object' || data === null)
+    return null;
+  const children = (data as { children?: unknown }).children;
+  if (!Array.isArray(children) || children.length === 0)
+    return null;
+  const first = children[0];
+  return typeof first === 'object' && first !== null
+    ? first as Record<string, unknown>
+    : null;
+}
+
+/**
+ * A node's ancestors, root first and excluding itself.
+ *
+ * Built from `dataset.groups` and the node's depth rather than from the
+ * plugin's own dot-joined `_data.path`, which reads `"Europe.France"` and
+ * cannot be split back when a group's name contains a dot. The fields are
+ * declared, the depth is declared, and the row carries both — so nothing is
+ * parsed out of a string.
+ *
+ * @param value - A drawn rectangle
+ * @param groups - The dataset's grouping fields, outermost first
+ * @returns The ancestor names, or an empty array for a top-level node
+ */
+function treemapPath(
+  value: ChartJsTreemapValue,
+  groups: readonly string[],
+): (string | number)[] {
+  const depth = typeof value.l === 'number' ? value.l : 0;
+  if (depth <= 0 || groups.length === 0)
+    return [];
+
+  const row = treemapSourceRow(value);
+  if (!row)
+    return [];
+
+  const path: (string | number)[] = [];
+  for (const field of groups.slice(0, depth)) {
+    const name = row[field];
+    // A row missing one of its own grouping fields would silently shorten the
+    // path and re-parent the node under its grandparent. Give up on the whole
+    // ancestry instead, which leaves the node top-level and visibly wrong
+    // rather than plausibly misplaced.
+    if (typeof name !== 'string' && typeof name !== 'number')
+      return [];
+    path.push(name);
+  }
+  return path;
+}
+
+/**
+ * Read a `chartjs-chart-treemap` dataset as the hierarchy it draws.
+ *
+ * Every field the trace needs is stated by the plugin rather than inferred
+ * from the rectangles: `g` names the node, `v` is its magnitude, `l` is its
+ * depth, and `dataset.groups` with the node's own source row give the
+ * ancestry. The pixel geometry (`x`, `y`, `w`, `h`) is never read — a
+ * treemap's areas are a rendering of the values, and reading them back would
+ * recover the values less exactly than the values themselves.
+ *
+ * **An interior node's `y` is omitted only when it really is the sum.**
+ * `TreemapPoint` documents that as the ordinary case and says a declared value
+ * that disagrees must be kept, because a parent may carry mass no child
+ * accounts for. The sum is therefore computed from the drawn children rather
+ * than assumed, so a plugin version that ever stops aggregating is announced
+ * truthfully instead of silently.
+ *
+ * **A flat tree has no names.** `tree: [6, 3, 1]` draws three rectangles the
+ * plugin labels with nothing but their own values, and `data.labels` is
+ * ignored by the controller — measured. The position among its siblings is the
+ * only identity such a node has, so that is what it is called: 1, 2, 3, which
+ * is what a reader would say about a rectangle that has no name.
+ *
+ * @param chart - The Chart.js chart instance
+ * @param pluginOptions - Optional per-chart plugin options
+ * @returns A single treemap layer, or none when the dataset drew nothing
+ */
+function extractTreemapLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer[] {
+  const dataset = chart.data.datasets[0];
+  if (!dataset)
+    return [];
+
+  const drawn = dataset.data.filter(isTreemapValue);
+  if (drawn.length === 0)
+    return [];
+
+  const groups = Array.isArray(dataset.groups) ? dataset.groups : [];
+
+  // Keyed by depth then by the joined ancestry, so a parent can ask what its
+  // own children add up to without a second pass per node.
+  const childSums = new Map<string, number>();
+  for (const value of drawn) {
+    const depth = typeof value.l === 'number' ? value.l : 0;
+    if (depth === 0)
+      continue;
+    const key = JSON.stringify(treemapPath(value, groups));
+    childSums.set(key, (childSums.get(key) ?? 0) + value.v);
+  }
+
+  const points: TreemapPoint[] = drawn.map((value, index) => {
+    const path = treemapPath(value, groups);
+    const name = typeof value.g === 'string' && value.g !== ''
+      ? value.g
+      : index + 1;
+
+    const point: TreemapPoint = { x: name };
+    if (path.length > 0)
+      point.path = path;
+
+    const ownKey = JSON.stringify([...path, name]);
+    const sum = childSums.get(ownKey);
+    // `undefined` means nothing was drawn beneath it, so its value is its own
+    // and belongs on the point. A sum that matches is the omittable case.
+    if (sum === undefined || sum !== value.v)
+      point.y = value.v;
+
+    return point;
+  });
+
+  return [
+    {
+      id: '0',
+      type: TraceType.TREEMAP,
+      title: dataset.label,
+      // A treemap has no scales, so `getAxisLabel`'s fallback would announce
+      // the two dimensions of a hierarchy as "X" and "Y". The dataset says
+      // what they actually are -- the fields it groups by name the nodes, and
+      // `key` names what they are sized by -- which is the same reading the
+      // Google Charts treemap gives, off its name and size columns. A plugin
+      // override still wins over both.
+      axes: {
+        x: { label: pluginOptions?.axes?.x ?? (groups.length > 0 ? groups.join(' / ') : undefined) },
+        y: { label: pluginOptions?.axes?.y ?? dataset.key },
+      },
+      data: points,
+    },
+  ];
 }
 
 function extractHeatmapLayers(
