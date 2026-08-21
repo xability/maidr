@@ -99,13 +99,20 @@ describe('in a frame the host has nothing before', () => {
     service = new FrameFocusService();
   });
 
-  it('hands focus to the element holding the frame', () => {
+  it('hands focus to the element holding the frame, in the same event', () => {
+    const posted = jest.spyOn(window.parent, 'postMessage');
+
     expect(pressShiftTab().defaultPrevented).toBe(true);
 
-    jest.advanceTimersByTime(100);
+    // Nothing to wait for: a host whose DOM this frame can reach is served
+    // directly, so no message goes out and no deadline is armed.
     const slide = hostDocument.getElementById('slide')!;
     expect(slide.getAttribute('tabindex')).toBe('-1');
     expect(hostDocument.activeElement).toBe(slide);
+    expect(posted).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+
+    posted.mockRestore();
   });
 
   it('ignores Tab in the forward direction, which already lands in the host', () => {
@@ -178,6 +185,23 @@ describe('with a host on another origin', () => {
     // so the reader's next Shift + Tab does what the browser would have done.
     jest.advanceTimersByTime(100);
     expect(document.activeElement).not.toBe(plot);
+
+    posted.mockRestore();
+  });
+
+  it('asks once while a handoff is in flight, however long the key is held', () => {
+    pretendFramedBy(null);
+    const posted = jest.spyOn(window.parent, 'postMessage').mockImplementation(() => {});
+    service = new FrameFocusService();
+
+    plot.focus();
+    pressShiftTab();
+    pressShiftTab();
+    pressShiftTab();
+
+    // Re-arming the deadline on every auto-repeat would hold the handoff off
+    // for as long as the reader keeps the key down.
+    expect(posted).toHaveBeenCalledTimes(1);
 
     posted.mockRestore();
   });

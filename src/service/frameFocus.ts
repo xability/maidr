@@ -209,21 +209,30 @@ export class FrameFocusService implements Disposable {
   }
 
   /**
-   * Asks the host to take focus, and takes it for the host if it does not.
+   * Moves focus into the host, by whichever channel that host allows.
    */
   private requestHostFocus(): void {
-    // A cooperating host knows its own page and can pick a better landing
-    // place than this frame can, so it gets the first say. It is also the only
-    // channel to a host on another origin, where the fallback cannot reach.
+    if (FrameFocusService.hostFrameElement() !== null) {
+      // The host's DOM is reachable, which is both faster and surer than
+      // asking: focus moves in this same event, with nothing to wait for.
+      this.focusHostContainer();
+      return;
+    }
+
+    // A host on another origin can only be asked. Once a handoff is in flight
+    // there is nothing to add by asking again — which is what a held Shift +
+    // Tab would otherwise do on every auto-repeat, pushing the deadline out
+    // for as long as the key is down.
+    if (this.fallbackTimer !== null) {
+      return;
+    }
+
     try {
       window.parent.postMessage({ type: FRAME_FOCUS_ESCAPE_MESSAGE, direction: 'backward' }, '*');
     } catch {
-      // A host that refuses messages still gets the DOM fallback below.
+      // A host that refuses messages still gets the fallback below.
     }
 
-    if (this.fallbackTimer !== null) {
-      clearTimeout(this.fallbackTimer);
-    }
     this.fallbackTimer = setTimeout(() => {
       this.fallbackTimer = null;
       // The host took focus if this document no longer has it. Checking the
@@ -238,8 +247,15 @@ export class FrameFocusService implements Disposable {
   /**
    * Moves focus to the element that holds this frame in the host document.
    *
-   * Reachable only for a same-origin host: `frameElement` is null across
-   * origins, which is exactly when the message above is the only channel.
+   * Reaches the host's DOM directly, which `rules/service.md` otherwise
+   * reserves for the services that own their own output. The rule's remedy —
+   * fire an event and let a ViewModel render the result — cannot apply here:
+   * the element focus has to land on belongs to another document, which no
+   * ViewModel of ours renders and no React tree of ours contains. Writing to
+   * it is the whole operation, so there is nothing left to delegate.
+   *
+   * Falls back to letting go of focus when the host cannot be reached, which
+   * is the cross-origin case the posted message exists for.
    */
   private focusHostContainer(): void {
     const frame = FrameFocusService.hostFrameElement();
