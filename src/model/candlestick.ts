@@ -12,7 +12,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState, TraceState 
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
-import { candleShape } from '@util/candlePattern';
+import { candlePairPatterns, candleShape } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
@@ -30,6 +30,13 @@ const TREND = 'trend';
  * numbers (#731, #732, #733).
  */
 const SHAPE = 'shape';
+/**
+ * What the candle makes of the one before it -- an engulfing, a piercing
+ * line, a tweezer. Unlike {@link SHAPE} there may be more than one at a time,
+ * because these say different things about the same pair rather than the same
+ * thing at different strictnesses (#735, #736, #737, #738).
+ */
+const PATTERN = 'pattern';
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
 /** Rotor unit that walks only bullish (close > open) candles. */
@@ -812,6 +819,15 @@ export class Candlestick extends AbstractTrace {
     // describe the candle, and which segment you happen to be reading does
     // not change either.
     const shape = candleShape(point);
+    // The first candle has nothing before it, so it carries no pair pattern.
+    const previous = this.candles[this.currentPointIndex - 1];
+    const pairs = previous === undefined
+      ? []
+      : candlePairPatterns(previous, point);
+    const asides = [
+      ...(shape === null ? [] : [{ label: SHAPE, value: shape }]),
+      ...pairs.map(pattern => ({ label: PATTERN, value: pattern })),
+    ];
 
     return {
       main: {
@@ -824,7 +840,7 @@ export class Candlestick extends AbstractTrace {
       },
       section: this.currentSegmentType ?? 'open',
       z: { label: TREND, value: point.trend },
-      ...(shape === null ? {} : { asides: [{ label: SHAPE, value: shape }] }),
+      ...(asides.length === 0 ? {} : { asides }),
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
     };
