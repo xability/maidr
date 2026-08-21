@@ -207,6 +207,14 @@ export interface VegaLiteEncoding {
    * Everywhere else the positional channels already say what a point is, and
    * the tooltip repeats them.
    */
+  /**
+   * What a `text` mark writes at each position.
+   *
+   * The mark's whole payload: a labelled scatter's point is a country or a
+   * gene, and the two coordinates are what the reader can already see the
+   * shape of. Read into `ScatterPoint.label` (#1124).
+   */
+  text?: VegaLiteChannelDef;
   tooltip?: VegaLiteChannelDef | VegaLiteChannelDef[];
   row?: VegaLiteChannelDef;
   column?: VegaLiteChannelDef;

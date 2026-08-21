@@ -164,6 +164,12 @@ export function vegaLiteToMaidr(
         i += 2;
         continue;
       }
+      // A `text` layer written over the mark it labels is not a second
+      // chart -- see `labelsAnotherLayer`.
+      if (labelsAnotherLayer(layerSpecs, i, spec.encoding)) {
+        i += 1;
+        continue;
+      }
       const layer = convertLayerSpec(
         layerSpecs[i],
         i,
@@ -703,6 +709,9 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  *     bounds are consecutive running totals
  *   - `rule` with one positional field → nothing: a reference line or a
  *     lollipop's stem states no interval of its own
+ *   - `text` on two continuous axes    → SCATTER whose points carry `label`
+ *   - `text` on a categorical axis, or with no `text` channel → nothing:
+ *     a value written over a bar, which the bar already announces
  *   - `rect`                           → HEATMAP
  *   - `point` / `circle` / `square` / `tick` → SCATTER, or DOT when one
  *     positional channel is a category
@@ -1086,6 +1095,28 @@ function resolveTraceType(
     // dumbbell it draws before this runs, by `convertPairedLayers`.
     case 'rule':
       return resolveRangedBarType(mark, encoding, transform);
+    // A `text` mark writes a name at a position, and on two continuous axes
+    // that is a labelled scatter -- the country-names-against-GDP chart
+    // `ScatterPoint.label` exists for. It resolved to nothing, so such a
+    // figure came back with no layers at all (#1124).
+    //
+    // Only on two continuous scales, which is the rule #1106 settled for the
+    // Observable side and settles here for the same reason: a `text` on a
+    // categorical axis is a value written over a bar or into a heatmap cell,
+    // and the mark beside it already announces that number. Reading it here
+    // would announce every count twice, once as a bar and once as a point
+    // standing at the same place.
+    //
+    // A `text` with no `text` channel draws nothing to read, and a `text`
+    // layer that labels another layer is declined before this runs -- see
+    // `labelsAnotherLayer`.
+    case 'text':
+      if (!hasField(encoding?.text))
+        return null;
+      return hasField(encoding?.x) && hasField(encoding?.y)
+        && !isCategorical(encoding?.x) && !isCategorical(encoding?.y)
+        ? TraceType.SCATTER
+        : null;
     case 'rect':
       return TraceType.HEATMAP;
     case 'boxplot':
@@ -1872,11 +1903,21 @@ function extractScatterData(
 ): ScatterPoint[] {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
+  // What the `text` mark writes at each position, which is the thing that
+  // mark is drawn for. Absent on every other mark that reaches here, and an
+  // empty string counts as absent per `ScatterPoint.label` (#1124).
+  const labelField = hasField(encoding.text) ? encoding.text?.field : undefined;
 
-  return rows.map(row => ({
-    x: Number(row[xField] ?? 0),
-    y: Number(row[yField] ?? 0),
-  }));
+  return rows.map((row) => {
+    const point: ScatterPoint = {
+      x: Number(row[xField] ?? 0),
+      y: Number(row[yField] ?? 0),
+    };
+    const label = labelField === undefined ? undefined : row[labelField];
+    if (label !== undefined && label !== null && String(label) !== '')
+      point.label = String(label);
+    return point;
+  });
 }
 
 /**
@@ -2879,6 +2920,49 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
     + `names no one layer; move it onto the layer, concat or facet child it `
     + `describes. Ignored.`,
   );
+}
+
+/**
+ * Whether a layer is a `text` mark written over the mark it labels.
+ *
+ * Vega-Lite's way of labelling points is a `layer:` of the mark and a `text`
+ * on the same two positional channels. Both halves then satisfy the labelled
+ * scatter test in {@link resolveTraceType}, and the figure would come back
+ * with two scatters over one set of points -- the same numbers announced
+ * twice, once with names and once without.
+ *
+ * The labels belong *on* the points rather than beside them, which is what
+ * the Observable adapter's `labelOverlays` does. Declining is the smaller
+ * half of that: the layered chart reads exactly as it did before #1124,
+ * while a standalone `text` gains the reading it never had.
+ *
+ * Told by the fields, not by the order: a label layer may be written before
+ * or after the mark it labels, and a `text` layer over *different* channels
+ * is a chart of its own rather than an annotation.
+ *
+ * @param specs - The layered spec's children
+ * @param index - Position of the candidate label layer
+ * @param parentEncoding - Encoding hoisted onto the layered parent
+ * @returns True when this layer only names another layer's marks
+ */
+function labelsAnotherLayer(
+  specs: VegaLiteSpec[],
+  index: number,
+  parentEncoding: VegaLiteEncoding | undefined,
+): boolean {
+  if (getMarkType(specs[index]) !== 'text')
+    return false;
+
+  const labels: VegaLiteEncoding = { ...parentEncoding, ...specs[index].encoding };
+  if (!hasField(labels.x) || !hasField(labels.y))
+    return false;
+
+  return specs.some((sibling, at) => {
+    if (at === index || getMarkType(sibling) === 'text')
+      return false;
+    const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
+    return drawn.x?.field === labels.x?.field && drawn.y?.field === labels.y?.field;
+  });
 }
 
 /**
