@@ -138,6 +138,35 @@ describe('in a frame the host has nothing before', () => {
   });
 });
 
+describe('when the host element holding the frame cannot take focus', () => {
+  it('walks past it rather than leaving the reader in the frame', () => {
+    // Shiny's shape: every output is wrapped in a `display: contents` div, and
+    // the chart's frame sits directly inside one with no sectioning element
+    // anywhere above it. `focus()` on a box that is not rendered is a silent
+    // no-op, so a handoff that only made the call would leave the reader in
+    // the chart with nothing to show for the keypress.
+    hostDocument.body.innerHTML
+      = '<div id="page"><div id="wrapper"><span id="frame"></span></div></div>';
+    hostFrame = hostDocument.getElementById('frame')!;
+    const page = hostDocument.getElementById('page')!;
+    const wrapper = hostDocument.getElementById('wrapper')!;
+    wrapper.style.display = 'contents';
+    // jsdom has no layout, so it would focus an element a browser refuses.
+    // Stubbing the call is what reproduces the browser: the call goes through
+    // and focus does not move.
+    wrapper.focus = (): void => {};
+
+    pretendFramedBy(hostFrame);
+    service = new FrameFocusService();
+
+    expect(pressShiftTab().defaultPrevented).toBe(true);
+
+    expect(hostDocument.activeElement).toBe(page);
+    // And nothing is left behind on the element that refused.
+    expect(wrapper.hasAttribute('tabindex')).toBe(false);
+  });
+});
+
 describe('in a frame the host has something before', () => {
   it('leaves the native tab order alone', () => {
     hostDocument.body.insertBefore(

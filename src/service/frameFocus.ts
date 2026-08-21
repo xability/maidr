@@ -259,37 +259,80 @@ export class FrameFocusService implements Disposable {
    */
   private focusHostContainer(): void {
     const frame = FrameFocusService.hostFrameElement();
-    const container = frame === null
-      ? null
-      : frame.closest(HOST_CONTAINER_SELECTOR) ?? frame.parentElement ?? frame.ownerDocument.body;
-
-    if (container === null || !FrameFocusService.isFocusable(container)) {
-      // Nothing more this side can do. Blurring means the next Shift + Tab
-      // behaves as it would have without this service, so the reader is
-      // left no worse off than before — never trapped.
-      (document.activeElement as HTMLElement | null)?.blur();
-      return;
+    if (frame !== null) {
+      for (const candidate of FrameFocusService.hostCandidates(frame)) {
+        if (FrameFocusService.takeFocus(candidate)) {
+          return;
+        }
+      }
     }
 
-    // `tabindex="-1"` makes the container focusable without adding a tab stop
-    // to the host's own order.
-    if (!container.hasAttribute('tabindex')) {
-      container.setAttribute('tabindex', '-1');
-    }
-    container.focus();
+    // Nothing in the host would take it. Blurring means the next Shift + Tab
+    // behaves as it would have without this service, so the reader is left no
+    // worse off than before — never trapped.
+    (document.activeElement as HTMLElement | null)?.blur();
   }
 
   /**
-   * Whether a host element can be told to take focus.
+   * The host elements worth handing focus to, nearest meaningful first.
    *
-   * Duck-typed on purpose: everything reached through `frameElement` lives in
-   * the host's realm, where `instanceof HTMLElement` — which resolves to *this*
-   * frame's constructor — is false for every element the host owns.
-   * @param {Element} element - An element belonging to the host document
-   * @returns {boolean} True when the element exposes `focus()`
+   * The whole ancestor chain follows the sectioning element, because the
+   * nearest wrapper is not always able to hold focus: Shiny wraps every output
+   * in a `display: contents` div, which has no box for focus to land in, and
+   * the chart's frame sits directly inside one.
+   * @param {Element} frame - This document's frame, in the host's DOM
+   * @returns {Element[]} Candidates in the order they should be tried
    */
-  private static isFocusable(element: Element): element is HTMLElement {
-    return typeof (element as HTMLElement).focus === 'function';
+  private static hostCandidates(frame: Element): Element[] {
+    const section = frame.closest(HOST_CONTAINER_SELECTOR);
+    const candidates = section === null ? [] : [section];
+    for (let element = frame.parentElement; element !== null; element = element.parentElement) {
+      if (element !== section) {
+        candidates.push(element);
+      }
+    }
+    return candidates;
+  }
+
+  /**
+   * Gives a host element focus, and reports whether it actually took it.
+   *
+   * Asking is not enough: `focus()` on an element with no rendered box — a
+   * `display: contents` wrapper, most of all — is a silent no-op, so a caller
+   * that only checked the call went through would leave the reader inside the
+   * frame with nothing to show for the keypress. Reading `activeElement` back
+   * is what tells the two apart.
+   *
+   * A `tabindex` this added is removed again when the element refuses, so a
+   * host that cannot hold focus is not left carrying an attribute that says it
+   * can.
+   * @param {Element} element - An element belonging to the host document
+   * @returns {boolean} True when the element now holds focus
+   */
+  private static takeFocus(element: Element): boolean {
+    // Duck-typed: everything reached through `frameElement` lives in the host's
+    // realm, where `instanceof HTMLElement` — which resolves to *this* frame's
+    // constructor — is false for every element the host owns.
+    if (typeof (element as HTMLElement).focus !== 'function') {
+      return false;
+    }
+
+    // `tabindex="-1"` makes the element focusable without adding a tab stop to
+    // the host's own order.
+    const added = !element.hasAttribute('tabindex');
+    if (added) {
+      element.setAttribute('tabindex', '-1');
+    }
+
+    (element as HTMLElement).focus();
+    if (element.ownerDocument.activeElement === element) {
+      return true;
+    }
+
+    if (added) {
+      element.removeAttribute('tabindex');
+    }
+    return false;
   }
 
   /**
