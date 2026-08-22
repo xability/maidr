@@ -83,12 +83,19 @@ split is what makes the picture readable — a field of solid shapes gives a
 fingertip nothing to tell them apart, while one solid shape among hollow ones is
 found at once. Arrow keys move the focus and the filled mark follows.
 
-The plot's data region is drawn as a border, so there is something to orient
-against when the view is zoomed into a corner.
+**Nothing else is drawn.** No frame around the plot, no axis lines, no tick
+marks, no titles or labels — only the data. Two reasons. A tick mark is a pin or
+two long here, the same size as a small mark, so a row of them reads as a row of
+data that is not there. And every pin spent on furniture is a pin the chart is
+not using: a border alone costs two whole rows and two whole columns of a grid
+that has forty of one and sixty of the other.
 
-Axis labels, tick labels and titles are deliberately **not** drawn. A tick label
-is about one pin tall at this resolution, so drawing it produces noise that
-reads as data. Text belongs on the braille line and in speech.
+So the marks get the whole grid. Their own extent is what is scaled onto the
+pins, edge to edge — not the plot region, which would leave the display with a
+margin sized by however long the axis labels happened to be.
+
+What the axes mean belongs on the braille line and in speech, where it can be
+read rather than guessed at from a shape a fingertip cannot resolve.
 
 ### Zooming
 
@@ -102,7 +109,8 @@ into the same pin. Zooming spends the same pins on a smaller slice of the chart.
 
 Both are live only while the braille panel is open. The numeric keypad's
 <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with the new
-zoom level and where in the chart the view now sits.
+zoom level and where in the chart the view now sits — with nothing on the grid
+but marks, there is no border left to say which slice you are on.
 
 ### Panning
 

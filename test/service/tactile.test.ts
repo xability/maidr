@@ -161,14 +161,16 @@ const GEOMETRY: DotPadGeometry = {
 const REGION = { left: 0, top: 0, width: 200, height: 100 };
 
 /**
- * The marks' client rectangles. Mark 1 is deliberately small and centred, so a
- * pan step does not take it out of the window and trigger the follow-the-focus
- * recentring that would undo the pan under test.
+ * The marks' client rectangles: one in each corner and one in the middle,
+ * chosen so their combined extent is exactly {@link REGION}. That is the rect
+ * the service maps onto the pins — the marks' own extent, not the plot
+ * region's — so making the two coincide keeps the zoom and pan positions in
+ * these tests readable as fractions of the chart.
  */
 const MARK_RECTS = [
-  { left: 20, top: 20, width: 10, height: 10 },
-  { left: 90, top: 45, width: 10, height: 10 },
-  { left: 160, top: 70, width: 10, height: 10 },
+  { left: 0, top: 0, width: 10, height: 10 },
+  { left: 95, top: 45, width: 10, height: 10 },
+  { left: 190, top: 90, width: 10, height: 10 },
 ];
 
 interface Rect {
@@ -213,19 +215,27 @@ function stubRect(element: Element, rect: Rect): void {
 }
 
 /**
- * A square ring in dot coordinates, one per mark, far enough apart that a
- * change of focus changes the frame.
+ * The mark's own rectangle, projected through the viewport.
+ *
+ * Stands in for the real `ringsOf`, which needs `getScreenCTM`. Going through
+ * the viewport rather than returning fixed dot coordinates is what makes zoom
+ * and pan visible in the frame: a stub that ignores the viewport draws the same
+ * pins at every zoom level, and a test asserting that zooming redraws then
+ * passes on a service that never redrew.
+ *
  * @param element - The mark being reduced
+ * @param viewport - The active zoom and pan
  */
-function ringFor(element: SVGGraphicsElement): DotRing[] {
-  const index = Number.parseInt(element.getAttribute('data-index') ?? '0', 10);
-  const left = 4 + index * 10;
+function ringFor(element: SVGGraphicsElement, viewport: TactileViewport): DotRing[] {
+  const box = element.getBoundingClientRect();
+  const right = box.left + box.width;
+  const bottom = box.top + box.height;
   return [{
     points: [
-      { x: left, y: 10 },
-      { x: left + 6, y: 10 },
-      { x: left + 6, y: 16 },
-      { x: left, y: 16 },
+      viewport.toDot(box.left, box.top),
+      viewport.toDot(right, box.top),
+      viewport.toDot(right, bottom),
+      viewport.toDot(box.left, bottom),
     ],
     closed: true,
   }];
@@ -256,11 +266,48 @@ function createChart(): Chart {
 }
 
 /**
- * A figure whose active subplot points at the given axes element.
- * @param axesElement - The axes group, or null to fall back to the whole SVG
+ * Adds to a chart the things a plotting library draws around the data: the four
+ * axis spines, a tick mark, and the plot background.
+ *
+ * Given real bounding boxes, because the point of the test using this is that
+ * they are measurable and still do not reach the pins.
+ *
+ * @param on - The chart to furnish
  */
-function createFigure(axesElement: SVGElement | null): Figure {
-  return { activeSubplot: { axesElement } } as unknown as Figure;
+function addFurniture(on: Chart): void {
+  const furniture: [string, string, Rect][] = [
+    ['rect', 'patch_2', REGION],
+    ['path', 'patch_6', { left: 0, top: 0, width: 0, height: 100 }],
+    ['path', 'patch_7', { left: 200, top: 0, width: 0, height: 100 }],
+    ['path', 'patch_8', { left: 0, top: 100, width: 200, height: 0 }],
+    ['path', 'patch_9', { left: 0, top: 0, width: 200, height: 0 }],
+    ['line', 'xtick_1', { left: 100, top: 100, width: 0, height: 4 }],
+  ];
+  for (const [tag, id, rect] of furniture) {
+    const element = document.createElementNS(SVG_NS, tag);
+    element.setAttribute('id', id);
+    stubRect(element, rect);
+    on.axes.append(element);
+  }
+}
+
+/**
+ * A figure whose active subplot points at the given axes element and holds one
+ * trace over the given marks.
+ *
+ * The marks matter more than the axes element does: the service asks the model
+ * which elements are the data rather than sifting the DOM for them, so this is
+ * where the chart it draws comes from. Passing an empty list is how a test
+ * reaches the fallback that walks the region instead.
+ *
+ * @param axesElement - The axes group, or null to fall back to the whole SVG
+ * @param marks - The trace's own rendered elements
+ */
+function createFigure(axesElement: SVGElement | null, marks: SVGElement[] = []): Figure {
+  const trace = { getAllOriginalElements: () => marks };
+  return {
+    activeSubplot: { axesElement, traces: [[trace]] },
+  } as unknown as Figure;
 }
 
 /**
@@ -311,7 +358,7 @@ describe('tactileService', () => {
     session.writeText.mockClear();
     session.disconnect.mockClear();
     ringsOf.mockReset();
-    ringsOf.mockImplementation(element => ringFor(element));
+    ringsOf.mockImplementation((element, viewport) => ringFor(element, viewport));
 
     chart = createChart();
     notify = jest.fn();
@@ -330,7 +377,7 @@ describe('tactileService', () => {
     const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
     const display = { plot: chart.plot } as unknown as DisplayService;
 
-    service = new TactileService(display, braille, notification, textService, createFigure(chart.axes));
+    service = new TactileService(display, braille, notification, textService, createFigure(chart.axes, chart.marks));
   });
 
   afterEach(() => {
@@ -353,6 +400,18 @@ describe('tactileService', () => {
     const state = traceState(chart, focus);
     service.update(state);
     return state;
+  }
+
+  /**
+   * Replaces the service under test with one driving a different chart.
+   * @param on - The chart the new service should draw
+   * @param figure - The figure to give it, defaulting to one over `on`
+   */
+  function rebuild(on: Chart, figure: Figure = createFigure(on.axes, on.marks)): void {
+    const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
+    const display = { plot: on.plot } as unknown as DisplayService;
+    service.dispose();
+    service = new TactileService(display, braille, notification, textService, figure);
   }
 
   /**
@@ -485,23 +544,80 @@ describe('tactileService', () => {
     });
 
     it('should fall back to the whole SVG when the subplot exposes no axes element', () => {
-      const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
-      const display = { plot: chart.plot } as unknown as DisplayService;
-      service.dispose();
-      service = new TactileService(display, braille, notification, textService, createFigure(null));
+      rebuild(chart, createFigure(null, chart.marks));
 
       activate();
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
     });
 
-    it('should write nothing when the chart region has no size', () => {
-      stubRect(chart.axes, { left: 0, top: 0, width: 0, height: 0 });
+    it('should walk the region when the model has no elements to give', () => {
+      // A trace authored without selectors has none. There is then no way to
+      // tell the chart from its furniture, so the fallback draws whatever the
+      // region holds rather than nothing at all.
+      rebuild(chart, createFigure(chart.axes, []));
+
+      activate();
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+
+    it('should draw the trace marks rather than everything in the axes subtree', () => {
+      activate();
+      const marksOnly = session.writeGraphic.mock.calls[0][0];
+      session.writeGraphic.mockClear();
+
+      // The same marks, plus what a chart library draws around them: an axis
+      // spine along each edge, a tick below one of them, and the plot
+      // background behind the lot. The model calls none of it data, so none of
+      // it reaches the pins — and the frame is the one the bare chart gave.
+      const furnished = createChart();
+      addFurniture(furnished);
+      rebuild(furnished);
+      service.update(traceState(furnished, 1));
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+      expect(session.writeGraphic.mock.calls[0][0]).toBe(marksOnly);
+    });
+
+    it('should map the marks onto the pins whatever room the region takes around them', () => {
+      // The region carries the tick labels and the title, so it is larger than
+      // the marks and by a different amount on every chart. If it decided the
+      // mapping, the same data would land on different pins depending on how
+      // long the axis labels were.
+      activate();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      stubRect(chart.axes, { left: -200, top: -100, width: 800, height: 400 });
+      service.update(traceState(chart, 1, 'b', 13));
+
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
+    });
+
+    it('should write nothing when there is no area to draw in', () => {
+      const flat = { left: 0, top: 0, width: 0, height: 0 };
+      chart.marks.forEach(mark => stubRect(mark, flat));
+      stubRect(chart.axes, flat);
 
       activate();
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
       expect(session.writeText).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to the plot region when every value is the same', () => {
+      // A flat trace -- every bar the same height -- has marks sharing a line
+      // with no height at all. Mapping that onto the pins divides by zero and
+      // the chart disappears, so the region supplies the window instead.
+      chart.marks.forEach((mark, index) => {
+        stubRect(mark, { left: index * 60, top: 50, width: 10, height: 0 });
+      });
+
+      activate();
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
     });
 
     it('should redraw from the last state when a device connects', () => {
@@ -943,7 +1059,7 @@ describe('tactileService', () => {
       const first = session.writeGraphic.mock.calls[0][0];
       session.writeGraphic.mockClear();
 
-      service.setFigure(createFigure(chart.axes));
+      service.setFigure(createFigure(chart.axes, chart.marks));
       service.update(traceState(chart, 1));
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
@@ -956,7 +1072,7 @@ describe('tactileService', () => {
       service.zoomIn();
       session.writeGraphic.mockClear();
 
-      service.setFigure(createFigure(chart.axes));
+      service.setFigure(createFigure(chart.axes, chart.marks));
       service.update(traceState(chart, 1));
 
       expect(session.writeGraphic.mock.calls[0][0]).toBe(wholePlot);

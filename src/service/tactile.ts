@@ -1,4 +1,4 @@
-import type { Figure } from '@model/plot';
+import type { Figure, Subplot } from '@model/plot';
 import type { Disposable } from '@type/disposable';
 import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
@@ -133,7 +133,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * underneath: a new figure, the display being switched on, or a device
    * connecting.
    */
-  private shapeCache: { region: Element; shapes: SVGGraphicsElement[] } | null = null;
+  private shapeCache: { region: Element; subplot: Subplot; shapes: SVGGraphicsElement[] } | null = null;
 
   private readonly disposables: Disposable[] = [];
 
@@ -446,15 +446,51 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * The data marks of every trace in the active subplot.
+   *
+   * Asked of the model rather than found in the DOM. The model already knows
+   * which elements are data — that is what it highlights — so taking the list
+   * from there draws the chart and nothing else: no axis spines, no tick marks,
+   * no plot background, no title. Sifting the axes subtree for the same answer
+   * would mean guessing at each library's markup, and guessing wrong either
+   * leaves furniture on the pins or drops a mark.
+   */
+  private modelShapes(): SVGGraphicsElement[] {
+    const shapes: SVGGraphicsElement[] = [];
+    for (const row of this.figure.activeSubplot.traces) {
+      for (const trace of row) {
+        for (const element of trace.getAllOriginalElements()) {
+          if (TactileSvgGeometry.isRenderable(element)) {
+            shapes.push(element as SVGGraphicsElement);
+          }
+        }
+      }
+    }
+    return shapes;
+  }
+
+  /**
    * The chart's shapes, collected once per region and reused.
+   *
+   * Falls back to walking the region's subtree when the model has no elements
+   * to give — a trace authored without selectors has none. That path draws
+   * whatever the chart drew, minus the axis furniture
+   * {@link TactileSvgGeometry.isRenderable} can name, which is the best that
+   * can be done without knowing which shapes are the data.
+   *
    * @param region - The element whose subtree holds the chart
    */
   private shapesOf(region: Element): SVGGraphicsElement[] {
-    if (this.shapeCache !== null && this.shapeCache.region === region) {
+    // Keyed on the subplot as well as the region: a figure whose subplots
+    // expose no axes element gives every one of them the same region, and the
+    // marks would then be whichever subplot was drawn first.
+    const subplot = this.figure.activeSubplot;
+    if (this.shapeCache !== null && this.shapeCache.region === region && this.shapeCache.subplot === subplot) {
       return this.shapeCache.shapes;
     }
-    const shapes = TactileService.collectShapes(region);
-    this.shapeCache = { region, shapes };
+    const fromModel = this.modelShapes();
+    const shapes = fromModel.length > 0 ? fromModel : TactileService.collectShapes(region);
+    this.shapeCache = { region, subplot, shapes };
     return shapes;
   }
 
@@ -506,7 +542,20 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
 
-    const source = TactileService.rectOf(region);
+    const marks = this.shapesOf(region);
+
+    // The window is the marks' own extent, not the plot region's. The region
+    // carries tick labels, the axis spines and the title, and giving those pins
+    // spends a fifth of the display on things this renderer does not draw. A
+    // grid this small has no pins to spare for margins.
+    //
+    // Unless that extent is flat: a trace whose values are all equal has marks
+    // sharing a line with no height at all, and there is no window to be drawn
+    // in. The region is what gives one back.
+    const markBounds = TactileService.boundsOf(marks);
+    const source = markBounds !== null && markBounds.width > 0 && markBounds.height > 0
+      ? markBounds
+      : TactileService.rectOf(region);
     if (source === null) {
       return;
     }
@@ -532,11 +581,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       }
     }
 
-    const scene: TactileScene = {
-      marks: this.shapesOf(region),
-      focused,
-      dataRegion: source,
-    };
+    // `focused` is whatever the trace highlights, which for many trace types
+    // is a hidden clone of the mark rather than the mark itself; the renderer's
+    // identity check then does not pair the two. It does not need to. The clone
+    // sits at the original's geometry, and every primitive raises pins, so the
+    // mark is outlined and then filled to exactly the pins the fill alone would
+    // have raised.
+    const scene: TactileScene = { marks, focused };
 
     const raster = TactileRenderer.render(
       scene,

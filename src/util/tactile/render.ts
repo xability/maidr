@@ -1,5 +1,5 @@
 import type { DotRing } from './svgGeometry';
-import type { ClientRect, TactileViewport } from './viewport';
+import type { TactileViewport } from './viewport';
 import { DotRaster } from './raster';
 import { TactileSvgGeometry } from './svgGeometry';
 
@@ -16,12 +16,6 @@ export interface TactileScene {
    * The mark or marks the reader is currently on, drawn filled.
    */
   focused: readonly SVGGraphicsElement[];
-
-  /**
-   * The plot's data region, drawn as a border so the reader has an anchor for
-   * where the marks sit. Null when the region could not be located.
-   */
-  dataRegion: ClientRect | null;
 }
 
 /**
@@ -104,48 +98,6 @@ export abstract class TactileRenderer {
   }
 
   /**
-   * Draws the border of the plot's data region.
-   *
-   * Clipped to the buffer rather than skipped when it falls outside, so a
-   * zoomed-in reader still meets whichever edges are in view and can tell which
-   * part of the chart they are on.
-   *
-   * @param raster - The pin buffer to draw into
-   * @param region - The data region in viewport pixels
-   * @param viewport - The active zoom and pan
-   */
-  private static drawDataRegion(raster: DotRaster, region: ClientRect, viewport: TactileViewport): void {
-    const topLeft = viewport.toDot(region.left, region.top);
-    const bottomRight = viewport.toDot(region.left + region.width, region.top + region.height);
-    if (!Number.isFinite(topLeft.x) || !Number.isFinite(bottomRight.x)) {
-      return;
-    }
-
-    // A run is only worth drawing when the perpendicular edge is in view; the
-    // parallel extent is clamped so a partially visible border still appears.
-    const left = Math.max(0, Math.min(topLeft.x, bottomRight.x));
-    const right = Math.min(raster.width - 1, Math.max(topLeft.x, bottomRight.x));
-    const top = Math.max(0, Math.min(topLeft.y, bottomRight.y));
-    const bottom = Math.min(raster.height - 1, Math.max(topLeft.y, bottomRight.y));
-    if (left > right || top > bottom) {
-      return;
-    }
-
-    if (topLeft.x >= 0) {
-      raster.vLine(topLeft.x, top, bottom);
-    }
-    if (bottomRight.x <= raster.width - 1) {
-      raster.vLine(bottomRight.x, top, bottom);
-    }
-    if (topLeft.y >= 0) {
-      raster.hLine(left, right, topLeft.y);
-    }
-    if (bottomRight.y <= raster.height - 1) {
-      raster.hLine(left, right, bottomRight.y);
-    }
-  }
-
-  /**
    * Renders a scene to a new pin buffer.
    *
    * Every primitive raises pins and none lowers them, so drawing is a union
@@ -153,7 +105,7 @@ export abstract class TactileRenderer {
    * mark still goes last, for the reader of this code rather than the reader
    * of the display: it is what the frame is about.
    *
-   * @param scene - The marks, the focus and the data region
+   * @param scene - The marks and the focus
    * @param viewport - The active zoom and pan
    * @param width - Dots across the display
    * @param height - Dots down the display
@@ -165,11 +117,6 @@ export abstract class TactileRenderer {
     height: number,
   ): DotRaster {
     const raster = new DotRaster(width, height);
-
-    if (scene.dataRegion !== null) {
-      this.drawDataRegion(raster, scene.dataRegion, viewport);
-    }
-
     const focused = new Set(scene.focused);
 
     for (const mark of scene.marks) {

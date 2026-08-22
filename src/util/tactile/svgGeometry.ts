@@ -78,11 +78,71 @@ export abstract class TactileSvgGeometry {
   ]);
 
   /**
+   * Words that name axis furniture rather than data, matched against whole
+   * tokens of an element's `id` and `class`.
+   *
+   * Chart libraries label this part of their output and nothing else does:
+   * matplotlib groups every tick under `matplotlib.axis_1`, Plotly classes its
+   * ticks `xtick` and its grid lines `xgrid`, D3 and Vega use `tick` and
+   * `domain`, Recharts and Highcharts spell out `axis-tick` and `grid-line`.
+   *
+   * Whole tokens rather than substrings, because `candlestick` contains
+   * "tick" and a candlestick chart is data. Splitting on non-alphanumerics
+   * first is what keeps the two apart.
+   *
+   * `axes` is deliberately absent even though `axis` is here. matplotlib names
+   * the group holding the entire plot `axes_1`, so matching it would skip the
+   * chart itself wherever the fallback walk starts above that group.
+   */
+  private static readonly FURNITURE_WORDS: ReadonlySet<string> = new Set([
+    'axis',
+    'tick',
+    'ticks',
+    'ticklabel',
+    'ticklabels',
+    'grid',
+    'grids',
+    'gridline',
+    'gridlines',
+    'spine',
+    'spines',
+    'domain',
+    'zeroline',
+  ]);
+
+  /**
+   * Reports whether an `id` or `class` names axis furniture.
+   *
+   * A leading `x` or `y` is dropped before matching, since that is how the
+   * axis it belongs to is spelt — `xtick`, `ygrid` — and it is never a word on
+   * its own.
+   *
+   * @param value - The attribute value to inspect
+   */
+  private static namesFurniture(value: string): boolean {
+    for (const raw of value.toLowerCase().split(/[^a-z0-9]+/)) {
+      const token = raw.replace(/\d+$/, '');
+      if (this.FURNITURE_WORDS.has(token)) {
+        return true;
+      }
+      if ((token.startsWith('x') || token.startsWith('y')) && this.FURNITURE_WORDS.has(token.slice(1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Reports whether an element should contribute geometry.
    *
    * Skips MAIDR's own injected shapes — hidden highlight clones, overlay
    * markers — so the tactile view shows the chart rather than a doubled copy of
    * every mark plus whatever the visual highlight is currently drawing.
+   *
+   * Skips axis furniture too. A tick mark is one or two pins long here, so a
+   * row of them reads as a row of marks; and the pins an axis spine takes are
+   * pins the data is not using. What the axes mean belongs on the braille line,
+   * where it can be read rather than guessed at.
    *
    * @param element - The element to test
    */
@@ -97,7 +157,15 @@ export abstract class TactileSvgGeometry {
     if (element.getAttribute('visibility') === 'hidden') {
       return false;
     }
-    return element.getAttribute('display') !== 'none';
+    if (element.getAttribute('display') === 'none') {
+      return false;
+    }
+    const id = element.getAttribute('id');
+    if (id !== null && this.namesFurniture(id)) {
+      return false;
+    }
+    const className = element.getAttribute('class');
+    return className === null || !this.namesFurniture(className);
   }
 
   /**

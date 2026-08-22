@@ -34,7 +34,6 @@
  */
 
 import type { DotRing } from '@util/tactile/svgGeometry';
-import type { ClientRect } from '@util/tactile/viewport';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { DotRaster } from '@util/tactile/raster';
 import { TactileRenderer } from '@util/tactile/render';
@@ -430,7 +429,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([square]);
 
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [], dataRegion: null },
+      { marks: [mark], focused: [] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -447,7 +446,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([square]);
 
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [mark], dataRegion: null },
+      { marks: [mark], focused: [mark] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -464,13 +463,13 @@ describe('tactileRenderer.render', () => {
     const viewport = identityViewport();
 
     const outlined = TactileRenderer.render(
-      { marks: [mark], focused: [], dataRegion: null },
+      { marks: [mark], focused: [] },
       viewport,
       DOTS_ACROSS,
       DOTS_DOWN,
     );
     const filled = TactileRenderer.render(
-      { marks: [], focused: [mark], dataRegion: null },
+      { marks: [], focused: [mark] },
       viewport,
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -486,7 +485,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockImplementation(element => [element === left ? square : shifted(square, 9, 0)]);
 
     const raster = TactileRenderer.render(
-      { marks: [left, right], focused: [right], dataRegion: null },
+      { marks: [left, right], focused: [right] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -501,7 +500,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([square]);
     const viewport = identityViewport();
     const focusedOnly = TactileRenderer.render(
-      { marks: [], focused: [mark], dataRegion: null },
+      { marks: [], focused: [mark] },
       viewport,
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -509,7 +508,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockClear();
 
     const both = TactileRenderer.render(
-      { marks: [mark], focused: [mark], dataRegion: null },
+      { marks: [mark], focused: [mark] },
       viewport,
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -519,49 +518,30 @@ describe('tactileRenderer.render', () => {
     expect(both.equals(focusedOnly)).toBe(true);
   });
 
-  it('should draw a border around the data region so the reader has an anchor', () => {
-    const region: ClientRect = { left: 3, top: 4, width: 10, height: 8 };
+  it('should draw nothing but the marks, leaving no frame around them', () => {
+    // The plot region used to be outlined so the reader had an anchor. On
+    // sixty pins across, that border is two whole columns and two whole rows
+    // spent on something that carries no data, and it boxes the marks into a
+    // smaller grid than the display has. The marks get the pins instead.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([square]);
 
     const raster = TactileRenderer.render(
-      { marks: [], focused: [], dataRegion: region },
+      { marks: [mark], focused: [] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
     );
 
-    expect(raster.get(3, 4)).toBe(true);
-    expect(raster.get(13, 4)).toBe(true);
-    expect(raster.get(3, 12)).toBe(true);
-    expect(raster.get(13, 12)).toBe(true);
-    expect(raster.get(8, 8)).toBe(false);
-  });
-
-  it('should clip a data region that runs past the grid rather than skipping it', () => {
-    const region: ClientRect = { left: -5, top: 2, width: 30, height: 10 };
-
-    const raster = TactileRenderer.render(
-      { marks: [], focused: [], dataRegion: region },
-      identityViewport(),
-      DOTS_ACROSS,
-      DOTS_DOWN,
-    );
-
-    expect(raster.get(0, 2)).toBe(true);
-    expect(raster.get(19, 2)).toBe(true);
-    expect(raster.get(0, 12)).toBe(true);
-    expect(raster.get(19, 12)).toBe(true);
-    expect(raster.get(10, 7)).toBe(false);
-  });
-
-  it('should draw no region border when the scene could not locate one', () => {
-    const raster = TactileRenderer.render(
-      { marks: [], focused: [], dataRegion: null },
-      identityViewport(),
-      DOTS_ACROSS,
-      DOTS_DOWN,
-    );
-
-    expect(raster.isEmpty()).toBe(true);
+    for (let x = 0; x < DOTS_ACROSS; x++) {
+      expect(raster.get(x, 0)).toBe(false);
+      expect(raster.get(x, DOTS_DOWN - 1)).toBe(false);
+    }
+    for (let y = 0; y < DOTS_DOWN; y++) {
+      expect(raster.get(0, y)).toBe(false);
+      expect(raster.get(DOTS_ACROSS - 1, y)).toBe(false);
+    }
+    expect(raster.get(2, 2)).toBe(true);
   });
 
   it('should render a ring below the hollow threshold as its own pins rather than nothing', () => {
@@ -578,7 +558,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([tiny]);
 
     const raster = TactileRenderer.render(
-      { marks: [], focused: [mark], dataRegion: null },
+      { marks: [], focused: [mark] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -594,7 +574,7 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([{ points: [{ x: 7, y: 9 }], closed: false }]);
 
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [], dataRegion: null },
+      { marks: [mark], focused: [] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -612,7 +592,7 @@ describe('tactileRenderer.render', () => {
     }]);
 
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [mark], dataRegion: null },
+      { marks: [mark], focused: [mark] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -625,7 +605,7 @@ describe('tactileRenderer.render', () => {
 
   it('should render an empty scene as an empty raster', () => {
     const raster = TactileRenderer.render(
-      { marks: [], focused: [], dataRegion: null },
+      { marks: [], focused: [] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -643,7 +623,7 @@ describe('tactileRenderer.render', () => {
     }]);
 
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [mark], dataRegion: null },
+      { marks: [mark], focused: [mark] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
