@@ -41,6 +41,25 @@ const BRAILLE_KEYMAP = {
   SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
   RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
 
+  // Tactile display
+  //
+  // Bound only in braille scope, so the tactile view is adjustable exactly
+  // while the reader has it open. `plus` and `minus` are not hotkeys-js key
+  // names, and a literal `+` cannot appear in a chord because `+` is the chord
+  // separator -- so each direction lists the keys a reader actually presses to
+  // mean it: the unshifted key, the shifted form the `+` legend sits on, and
+  // the numeric keypad.
+  TACTILE_ZOOM_IN: key(
+    `${Platform.ctrl}+=, ${Platform.ctrl}+shift+=, ${Platform.ctrl}+num_add`,
+    'Zoom In Tactile Display',
+    { helpKey: `${Platform.ctrl} + +` },
+  ),
+  TACTILE_ZOOM_OUT: key(
+    `${Platform.ctrl}+-, ${Platform.ctrl}+num_subtract`,
+    'Zoom Out Tactile Display',
+    { helpKey: `${Platform.ctrl} + -` },
+  ),
+
   // Navigation
   MOVE_UP: key(`up`, 'Navigate Up'),
   MOVE_DOWN: key(`down`, 'Navigate Down'),

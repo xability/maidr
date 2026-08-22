@@ -10,6 +10,7 @@ import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
 import type { SettingsService } from '@service/settings';
+import type { TactileService } from '@service/tactile';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
@@ -60,6 +61,8 @@ export interface CommandContext {
   /** Rotor navigation service for alternative navigation. */
   rotorNavigationService: RotorNavigationService;
   settingsService: SettingsService;
+  /** Tactile service driving a connected refreshable tactile display. */
+  tactileService: TactileService;
   /** Text service for mode-aware text formatting. */
   textService: TextService;
   /** Notification service for user feedback messages. */

@@ -27,6 +27,7 @@ import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
 import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
+import { TactileService } from '@service/tactile';
 import { TextService } from '@service/text';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
@@ -70,6 +71,7 @@ export class Controller implements Disposable {
   private readonly highContrastService: HighContrastService;
   private readonly monitorService: MonitorService;
   private readonly highlightService: HighlightService;
+  private readonly tactileService: TactileService;
   private readonly descriptionService: DescriptionService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
@@ -151,6 +153,12 @@ export class Controller implements Disposable {
       this.context,
     );
     this.highlightService = new HighlightService(this.settingsService);
+    this.tactileService = new TactileService(
+      this.displayService,
+      this.brailleService,
+      this.notificationService,
+      this.figure,
+    );
     this.descriptionService = new DescriptionService(this.context, this.displayService);
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
@@ -202,6 +210,7 @@ export class Controller implements Disposable {
       trace.addObserver(this.textService);
       trace.addObserver(this.reviewService);
       trace.addObserver(this.highlightService);
+      trace.addObserver(this.tactileService);
     });
     this.candlestickDeltaViewModel = new CandlestickDeltaViewModel(
       store,
@@ -237,6 +246,7 @@ export class Controller implements Disposable {
       notificationService: this.notificationService,
       rotorNavigationService: this.rotorNavigationService,
       settingsService: this.settingsService,
+      tactileService: this.tactileService,
       textService: this.textService,
 
       brailleViewModel: this.brailleViewModel,
@@ -266,6 +276,7 @@ export class Controller implements Disposable {
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        tactileService: this.tactileService,
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
@@ -299,6 +310,7 @@ export class Controller implements Disposable {
         notificationService: this.notificationService,
         rotorNavigationService: this.rotorNavigationService,
         settingsService: this.settingsService,
+        tactileService: this.tactileService,
         textService: this.textService,
 
         brailleViewModel: this.brailleViewModel,
@@ -397,6 +409,7 @@ export class Controller implements Disposable {
     }, { activeColShift });
 
     this.highContrastService.setFigure(this.figure);
+    this.tactileService.setFigure(this.figure);
     this.formatterService.refresh(maidr);
     this.chatService.updateData(maidr);
     this.monitorService.setLive(maidr.live === true);
@@ -495,6 +508,7 @@ export class Controller implements Disposable {
 
     this.highContrastService.dispose();
     this.highlightService.dispose();
+    this.tactileService.dispose();
     this.autoplayService.dispose();
     this.monitorService.dispose();
 
@@ -557,6 +571,7 @@ export class Controller implements Disposable {
       subplot.addObserver(this.audioService);
       subplot.addObserver(this.brailleService);
       subplot.addObserver(this.highlightService);
+      subplot.addObserver(this.tactileService);
       subplot.addObserver(this.reviewService);
       subplot.traces.forEach(traceRow => traceRow.forEach((trace) => {
         trace.addObserver(this.audioService);
@@ -564,6 +579,7 @@ export class Controller implements Disposable {
         trace.addObserver(this.textService);
         trace.addObserver(this.reviewService);
         trace.addObserver(this.highlightService);
+        trace.addObserver(this.tactileService);
       }));
     }));
   }

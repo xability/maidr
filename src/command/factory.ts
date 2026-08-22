@@ -9,6 +9,7 @@ import type { HighlightService } from '@service/highlight';
 import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
+import type { TactileService } from '@service/tactile';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
@@ -90,6 +91,7 @@ import {
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
 import { SubplotCue } from './subplotCue';
+import { TactileZoomInCommand, TactileZoomOutCommand } from './tactile';
 import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
@@ -131,6 +133,7 @@ export class CommandFactory {
   private readonly monitorService: MonitorService;
   private readonly notificationService: NotificationService;
   private readonly rotorService: RotorNavigationService;
+  private readonly tactileService: TactileService;
   private readonly textService: TextService;
 
   private readonly brailleViewModel: BrailleViewModel;
@@ -164,6 +167,7 @@ export class CommandFactory {
     this.monitorService = commandContext.monitorService;
     this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
+    this.tactileService = commandContext.tactileService;
     this.textService = commandContext.textService;
 
     this.subplotCue = new SubplotCue(this.audioService, this.notificationService, this.textService);
@@ -246,6 +250,11 @@ export class CommandFactory {
         return new ToggleReviewCommand(this.context, this.reviewViewModel);
       case 'TOGGLE_HIGH_CONTRAST':
         return new ToggleHighContrast(this.highContrastService);
+      case 'TACTILE_ZOOM_IN':
+        return new TactileZoomInCommand(this.tactileService);
+      case 'TACTILE_ZOOM_OUT':
+        return new TactileZoomOutCommand(this.tactileService);
+
       case 'TOGGLE_MONITOR':
         return new ToggleMonitorCommand(this.monitorService);
 

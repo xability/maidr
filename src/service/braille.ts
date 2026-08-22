@@ -140,6 +140,19 @@ interface BrailleChangedEvent {
 }
 
 /**
+ * Event emitted when braille mode is switched on or off.
+ *
+ * Distinct from {@link BrailleChangedEvent}, which reports a new braille string
+ * while the mode is already on and therefore never fires when the mode is
+ * switched off. A consumer that mirrors braille onto other output — a tactile
+ * display, say — needs to hear about both edges.
+ */
+interface BrailleToggledEvent {
+  enabled: boolean;
+  state: TraceState;
+}
+
+/**
  * Represents encoded braille with bidirectional cell-to-index mapping.
  */
 interface EncodedBraille {
@@ -1070,6 +1083,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly encoders: Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
+  private readonly onToggleEmitter: Emitter<BrailleToggledEvent>;
+  public readonly onToggle: Event<BrailleToggledEvent>;
 
   /**
    * Creates an instance of BrailleService.
@@ -1260,6 +1275,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+    this.onToggleEmitter = new Emitter<BrailleToggledEvent>();
+    this.onToggle = this.onToggleEmitter.event;
 
     this.disposables.push(settings.onChange((event) => {
       const affectsSize = event.affectsSetting(BRAILLE_DISPLAY_SIZE_SETTING);
@@ -1301,6 +1318,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.onToggleEmitter.dispose();
     this.disposables.forEach(disposable => disposable.dispose());
     this.disposables.length = 0;
 
@@ -1457,6 +1475,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.enabled = !this.enabled;
     this.update(state);
+    this.onToggleEmitter.fire({ enabled: this.enabled, state });
     this.display.toggleFocus(Scope.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
