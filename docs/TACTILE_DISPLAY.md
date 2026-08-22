@@ -97,6 +97,18 @@ margin sized by however long the axis labels happened to be.
 What the axes mean belongs on the braille line and in speech, where it can be
 read rather than guessed at from a shape a fingertip cannot resolve.
 
+### Layers
+
+A subplot with several layers puts **one layer on the pins at a time** — the
+one you are navigating. <kbd>Page Up</kbd> and <kbd>Page Down</kbd> change it,
+and the picture changes with it. Two series overlaid on sixty pins land on each
+other and read as neither.
+
+The view does not rescale when you switch. It is sized to every layer in the
+subplot, so the marks move and nothing else does — a series running 0 to 2 stays
+visibly shorter than one running 0 to 20, which is most of what there is to
+compare between them.
+
 ### Zooming
 
 A whole chart scaled onto a few thousand pins can collapse neighbouring marks

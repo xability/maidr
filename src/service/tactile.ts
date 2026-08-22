@@ -1,4 +1,4 @@
-import type { Figure, Subplot } from '@model/plot';
+import type { Figure, Subplot, Trace } from '@model/plot';
 import type { Disposable } from '@type/disposable';
 import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
@@ -133,7 +133,22 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * underneath: a new figure, the display being switched on, or a device
    * connecting.
    */
-  private shapeCache: { region: Element; subplot: Subplot; shapes: SVGGraphicsElement[] } | null = null;
+  private shapeCache: {
+    region: Element;
+    subplot: Subplot;
+    trace: Trace | null;
+    /**
+     * The active layer's marks, which are what gets drawn.
+     */
+    shapes: SVGGraphicsElement[];
+    /**
+     * Every layer's marks, which are what the window is sized to. Held as
+     * elements rather than as a rectangle: the chart moves when the page
+     * scrolls or resizes, so the bounds have to be re-read each frame even
+     * though the elements they belong to have not changed.
+     */
+    allLayers: SVGGraphicsElement[];
+  } | null = null;
 
   private readonly disposables: Disposable[] = [];
 
@@ -455,15 +470,46 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * would mean guessing at each library's markup, and guessing wrong either
    * leaves furniture on the pins or drops a mark.
    */
+  private static traceShapes(trace: Trace): SVGGraphicsElement[] {
+    const shapes: SVGGraphicsElement[] = [];
+    for (const element of trace.getAllOriginalElements()) {
+      if (TactileSvgGeometry.isRenderable(element)) {
+        shapes.push(element as SVGGraphicsElement);
+      }
+    }
+    return shapes;
+  }
+
+  /**
+   * The marks of the layer the reader is on.
+   *
+   * One layer, not the subplot's whole stack. Sixty pins across cannot hold
+   * three overlaid series and still be read — they land on each other and the
+   * result is a smear no fingertip can take apart. It would also make the
+   * layer keys do nothing a reader could feel: PageUp would move the focus
+   * from one series to another while the picture under their hand stayed
+   * exactly as it was.
+   */
   private modelShapes(): SVGGraphicsElement[] {
+    const trace = this.figure.activeSubplot.activeTrace;
+    return trace === null ? [] : TactileService.traceShapes(trace);
+  }
+
+  /**
+   * The marks of every layer in the subplot.
+   *
+   * The window is sized to all of them even though only one is drawn, so that
+   * changing layer changes which marks are on the pins and nothing else. Scale
+   * the drawn layer to fill the grid instead and a series running 0 to 2 would
+   * come out the same height as one running 0 to 20 — the layers stop being
+   * comparable at the exact moment the reader switches between them to compare
+   * them.
+   */
+  private allLayerShapes(): SVGGraphicsElement[] {
     const shapes: SVGGraphicsElement[] = [];
     for (const row of this.figure.activeSubplot.traces) {
       for (const trace of row) {
-        for (const element of trace.getAllOriginalElements()) {
-          if (TactileSvgGeometry.isRenderable(element)) {
-            shapes.push(element as SVGGraphicsElement);
-          }
-        }
+        shapes.push(...TactileService.traceShapes(trace));
       }
     }
     return shapes;
@@ -480,18 +526,25 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    *
    * @param region - The element whose subtree holds the chart
    */
-  private shapesOf(region: Element): SVGGraphicsElement[] {
-    // Keyed on the subplot as well as the region: a figure whose subplots
-    // expose no axes element gives every one of them the same region, and the
-    // marks would then be whichever subplot was drawn first.
+  private shapesOf(region: Element): { shapes: SVGGraphicsElement[]; allLayers: SVGGraphicsElement[] } {
+    // Keyed on the active trace, not just the region: a layer switch keeps the
+    // same region and the same subplot, so a region-keyed cache hands back the
+    // outgoing layer's marks and the display never changes. Keyed on the
+    // subplot too, since a figure whose subplots expose no axes element gives
+    // every one of them the same region and the same null trace.
     const subplot = this.figure.activeSubplot;
-    if (this.shapeCache !== null && this.shapeCache.region === region && this.shapeCache.subplot === subplot) {
-      return this.shapeCache.shapes;
+    const trace = subplot.activeTrace;
+    if (this.shapeCache !== null
+      && this.shapeCache.region === region
+      && this.shapeCache.subplot === subplot
+      && this.shapeCache.trace === trace) {
+      return this.shapeCache;
     }
     const fromModel = this.modelShapes();
     const shapes = fromModel.length > 0 ? fromModel : TactileService.collectShapes(region);
-    this.shapeCache = { region, subplot, shapes };
-    return shapes;
+    const allLayers = fromModel.length > 0 ? this.allLayerShapes() : shapes;
+    this.shapeCache = { region, subplot, trace, shapes, allLayers };
+    return this.shapeCache;
   }
 
   /**
@@ -542,7 +595,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
 
-    const marks = this.shapesOf(region);
+    const { shapes: marks, allLayers } = this.shapesOf(region);
 
     // The window is the marks' own extent, not the plot region's. The region
     // carries tick labels, the axis spines and the title, and giving those pins
@@ -552,7 +605,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // Unless that extent is flat: a trace whose values are all equal has marks
     // sharing a line with no height at all, and there is no window to be drawn
     // in. The region is what gives one back.
-    const markBounds = TactileService.boundsOf(marks);
+    const markBounds = TactileService.boundsOf(allLayers);
     const source = markBounds !== null && markBounds.width > 0 && markBounds.height > 0
       ? markBounds
       : TactileService.rectOf(region);

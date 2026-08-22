@@ -292,22 +292,44 @@ function addFurniture(on: Chart): void {
 }
 
 /**
+ * A subplot stub whose active layer can be changed, as PageUp changes it.
+ */
+interface FakeSubplot {
+  axesElement: SVGElement | null;
+  traces: { getAllOriginalElements: () => SVGElement[] }[][];
+  activeTrace: { getAllOriginalElements: () => SVGElement[] } | null;
+}
+
+/**
  * A figure whose active subplot points at the given axes element and holds one
- * trace over the given marks.
+ * trace per layer, starting on the first.
  *
  * The marks matter more than the axes element does: the service asks the model
  * which elements are the data rather than sifting the DOM for them, so this is
- * where the chart it draws comes from. Passing an empty list is how a test
- * reaches the fallback that walks the region instead.
+ * where the chart it draws comes from. Passing a layer with no marks is how a
+ * test reaches the fallback that walks the region instead.
  *
  * @param axesElement - The axes group, or null to fall back to the whole SVG
- * @param marks - The trace's own rendered elements
+ * @param layers - Each layer's own rendered elements
  */
-function createFigure(axesElement: SVGElement | null, marks: SVGElement[] = []): Figure {
-  const trace = { getAllOriginalElements: () => marks };
-  return {
-    activeSubplot: { axesElement, traces: [[trace]] },
-  } as unknown as Figure;
+function createFigure(axesElement: SVGElement | null, layers: SVGElement[][] = [[]]): Figure {
+  const traces = layers.map(marks => [{ getAllOriginalElements: () => marks }]);
+  const subplot: FakeSubplot = {
+    axesElement,
+    traces,
+    activeTrace: traces[0]?.[0] ?? null,
+  };
+  return { activeSubplot: subplot } as unknown as Figure;
+}
+
+/**
+ * Moves a figure onto another layer, the way PageUp does.
+ * @param figure - The figure to move
+ * @param layer - Index of the layer to make active
+ */
+function switchLayer(figure: Figure, layer: number): void {
+  const subplot = (figure as unknown as { activeSubplot: FakeSubplot }).activeSubplot;
+  subplot.activeTrace = subplot.traces[layer][0];
 }
 
 /**
@@ -377,7 +399,7 @@ describe('tactileService', () => {
     const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
     const display = { plot: chart.plot } as unknown as DisplayService;
 
-    service = new TactileService(display, braille, notification, textService, createFigure(chart.axes, chart.marks));
+    service = new TactileService(display, braille, notification, textService, createFigure(chart.axes, [chart.marks]));
   });
 
   afterEach(() => {
@@ -407,7 +429,7 @@ describe('tactileService', () => {
    * @param on - The chart the new service should draw
    * @param figure - The figure to give it, defaulting to one over `on`
    */
-  function rebuild(on: Chart, figure: Figure = createFigure(on.axes, on.marks)): void {
+  function rebuild(on: Chart, figure: Figure = createFigure(on.axes, [on.marks])): void {
     const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
     const display = { plot: on.plot } as unknown as DisplayService;
     service.dispose();
@@ -544,7 +566,7 @@ describe('tactileService', () => {
     });
 
     it('should fall back to the whole SVG when the subplot exposes no axes element', () => {
-      rebuild(chart, createFigure(null, chart.marks));
+      rebuild(chart, createFigure(null, [chart.marks]));
 
       activate();
 
@@ -555,7 +577,7 @@ describe('tactileService', () => {
       // A trace authored without selectors has none. There is then no way to
       // tell the chart from its furniture, so the fallback draws whatever the
       // region holds rather than nothing at all.
-      rebuild(chart, createFigure(chart.axes, []));
+      rebuild(chart, createFigure(chart.axes, [[]]));
 
       activate();
 
@@ -628,6 +650,119 @@ describe('tactileService', () => {
       session.fireState({ status: 'connected', deviceName: 'DotPad 320', transport: 'bluetooth', geometry: GEOMETRY, message: '' });
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('layers', () => {
+    /**
+     * A two-layer chart: three marks in the first layer and three more, at
+     * different places, in the second. Both are in the DOM at once, as a
+     * multi-layer chart draws them.
+     */
+    function twoLayers(): { figure: Figure; second: SVGElement[] } {
+      const second = [
+        { left: 40, top: 60, width: 10, height: 10 },
+        { left: 120, top: 20, width: 10, height: 10 },
+      ].map((rect, index) => {
+        const mark = document.createElementNS(SVG_NS, 'circle');
+        mark.setAttribute('data-index', String(index + 10));
+        stubRect(mark, rect);
+        chart.axes.append(mark);
+        return mark;
+      });
+      return { figure: createFigure(chart.axes, [chart.marks, second]), second };
+    }
+
+    /**
+     * The elements the renderer was actually asked to reduce to rings — which
+     * is to say, everything that reached the pins.
+     */
+    function drawnElements(): SVGGraphicsElement[] {
+      return ringsOf.mock.calls.map(call => call[0]);
+    }
+
+    /**
+     * A trace state focused on an element outside {@link MARK_RECTS}.
+     * @param element - The mark the reader is on
+     */
+    function focusedOn(element: SVGElement): NonEmptyTraceState {
+      return {
+        ...traceState(chart, 1),
+        highlight: { empty: false, elements: element },
+      } as unknown as NonEmptyTraceState;
+    }
+
+    it('should draw the incoming layer rather than the one it had cached', () => {
+      // The reported failure. A layer switch keeps the same subplot and the
+      // same axes element, so a cache keyed on those hands back the outgoing
+      // layer's marks: the reader navigates one series while the pins hold
+      // another, and nothing on the device says so.
+      const { figure, second } = twoLayers();
+      rebuild(chart, figure);
+      activate();
+      ringsOf.mockClear();
+
+      switchLayer(figure, 1);
+      service.update(focusedOn(second[0]));
+
+      expect(drawnElements()).toEqual(expect.arrayContaining(second));
+      for (const mark of chart.marks) {
+        expect(drawnElements()).not.toContain(mark);
+      }
+    });
+
+    it('should draw only the layer the reader is on', () => {
+      // Sixty pins across cannot hold two series at once and stay readable.
+      // Drawing both would also leave the picture the same whichever layer is
+      // active, which is the same failure as not redrawing at all.
+      const { figure, second } = twoLayers();
+      rebuild(chart, figure);
+      switchLayer(figure, 1);
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+      ringsOf.mockClear();
+
+      service.update(focusedOn(second[1]));
+
+      expect(drawnElements()).toEqual(expect.arrayContaining(second));
+      for (const mark of chart.marks) {
+        expect(drawnElements()).not.toContain(mark);
+      }
+    });
+
+    it('should size the window to every layer, not just the drawn one', () => {
+      const { figure, second } = twoLayers();
+      rebuild(chart, figure);
+      switchLayer(figure, 1);
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+      service.update(focusedOn(second[1]));
+      const acrossBothLayers = session.writeGraphic.mock.calls[0][0];
+      session.writeGraphic.mockClear();
+
+      // The same layer, alone in its subplot. Its marks now have the window to
+      // themselves and land on different pins. Were the window sized to the
+      // drawn layer, the two frames would be identical — and a series running
+      // 0 to 2 would come out the same height as one running 0 to 20, so the
+      // layers stop being comparable at the moment the reader compares them.
+      rebuild(chart, createFigure(chart.axes, [second]));
+      service.update(focusedOn(second[1]));
+
+      expect(session.writeGraphic.mock.calls[0][0]).not.toBe(acrossBothLayers);
+    });
+
+    it('should put the new layer description on the braille line', () => {
+      const { figure } = twoLayers();
+      rebuild(chart, figure);
+      activate();
+      const first = session.writeText.mock.calls[0][0];
+      session.writeText.mockClear();
+
+      switchLayer(figure, 1);
+      service.update(traceState(chart, 1, 'b', 99));
+
+      expect(session.writeText).toHaveBeenCalled();
+      expect(session.writeText.mock.calls[0][0]).not.toBe(first);
     });
   });
 
@@ -1059,7 +1194,7 @@ describe('tactileService', () => {
       const first = session.writeGraphic.mock.calls[0][0];
       session.writeGraphic.mockClear();
 
-      service.setFigure(createFigure(chart.axes, chart.marks));
+      service.setFigure(createFigure(chart.axes, [chart.marks]));
       service.update(traceState(chart, 1));
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
@@ -1072,7 +1207,7 @@ describe('tactileService', () => {
       service.zoomIn();
       session.writeGraphic.mockClear();
 
-      service.setFigure(createFigure(chart.axes, chart.marks));
+      service.setFigure(createFigure(chart.axes, [chart.marks]));
       service.update(traceState(chart, 1));
 
       expect(session.writeGraphic.mock.calls[0][0]).toBe(wholePlot);
