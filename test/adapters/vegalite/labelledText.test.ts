@@ -348,6 +348,28 @@ describe('a text layer that labels another', () => {
     expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE]);
   });
 
+  it('claims both of two label layers, and the last one names the points', () => {
+    // A degenerate spec, measured rather than reasoned about. Two `text`
+    // layers over one mark: both are claimed, so the figure is still one
+    // layer rather than three, and `names` is keyed by the labelled layer
+    // so the later one wins. Not reconciled -- there is no right answer to
+    // "which of two names is the name" -- but pinned so it is known.
+    const layers = layersOf({
+      data: CITIES,
+      layer: [
+        { mark: 'point', encoding: XY },
+        { mark: 'text', encoding: { ...XY, text: NAMES } },
+        {
+          mark: 'text',
+          encoding: { ...XY, text: { field: 'pop', type: 'nominal' } },
+        },
+      ],
+    });
+
+    expect(layers).toHaveLength(1);
+    expect((layers[0].data as ScatterPoint[])[0].label).toBe('3');
+  });
+
   it('adds nothing when the label layer names no field', () => {
     // Still declined -- it draws nothing to read -- and the points it sat
     // over are unchanged rather than gaining an empty name.

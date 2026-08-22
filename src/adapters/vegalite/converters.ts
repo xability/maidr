@@ -1132,8 +1132,8 @@ function resolveTraceType(
     // standing at the same place.
     //
     // A `text` with no `text` channel draws nothing to read, and a `text`
-    // layer that labels another layer is declined before this runs -- see
-    // `labelsAnotherLayer`.
+    // layer that labels another layer is claimed before this runs, its names
+    // handed to the layer it labels -- see `labelOverlays`.
     case 'text':
       if (!hasField(encoding?.text))
         return null;
@@ -2971,33 +2971,40 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
 }
 
 /**
- * Whether a layer is a `text` mark written over the mark it labels.
+ * Pairs each `text` layer that labels another with the layer it labels.
  *
  * Vega-Lite's way of labelling points is a `layer:` of the mark and a `text`
- * on the same two positional channels. Both halves then satisfy the labelled
- * scatter test in {@link resolveTraceType}, and the figure would come back
- * with two scatters over one set of points -- the same numbers announced
- * twice, once with names and once without.
+ * on the same two positional channels. Both halves satisfy the labelled
+ * scatter test in {@link resolveTraceType}, so read independently the figure
+ * comes back with two scatters over one set of points -- the same numbers
+ * announced twice, once with names and once without.
  *
  * The labels belong *on* the points rather than beside them, which is what
- * the Observable adapter's `labelOverlays` does. Declining is the smaller
- * half of that: the layered chart reads exactly as it did before #1124,
- * while a standalone `text` gains the reading it never had.
+ * the Observable adapter's function of this name does (#1124). That one
+ * pairs by DOM geometry because Plot hands it no data; here the spec says
+ * outright which rows both layers draw, so they are paired by field.
  *
  * Told by the fields, not by the order: a label layer may be written before
  * or after the mark it labels, and a `text` layer over *different* channels
  * is a chart of its own rather than an annotation.
  *
- * Any non-`text` sibling counts, not only one that would itself read as a
- * scatter. A `line` with per-point annotations over the same two channels is
- * the same double-announcement -- the coordinates are the line's, and the
+ * Any non-`text` sibling is claimed, not only one that would itself read as
+ * a scatter. A `line` with per-point annotations over the same two channels
+ * is the same double-announcement -- the coordinates are the line's, and the
  * text is written on top of them -- so what matters is that another mark
  * already draws those positions, not what that mark resolved to.
  *
+ * Only a scatter ends up *carrying* the names, though the channel is handed
+ * over either way; see the note at the assignment.
+ *
+ * Two `text` layers over one mark is a degenerate spec this does not try to
+ * reconcile: the last one wins, since `names` is keyed by the labelled
+ * layer. Both are still claimed, so neither is announced twice.
+ *
  * @param specs - The layered spec's children
- * @param index - Position of the candidate label layer
  * @param parentEncoding - Encoding hoisted onto the layered parent
- * @returns True when this layer only names another layer's marks
+ * @returns The `text` layers to skip, and the `text` channel each labelled
+ * layer should be converted with
  */
 function labelOverlays(
   specs: VegaLiteSpec[],
