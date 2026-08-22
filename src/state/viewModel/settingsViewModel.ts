@@ -135,6 +135,14 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   /**
+   * Fetches the tactile display SDK ahead of any connect attempt, so the
+   * connect click is not spent waiting for it.
+   */
+  public preloadTactileDisplay(): void {
+    void dotPadSession.preload();
+  }
+
+  /**
    * Opens the browser's device picker and connects to a tactile display.
    *
    * Must be reached synchronously from the user's click: the browser only shows

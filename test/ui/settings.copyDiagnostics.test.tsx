@@ -49,6 +49,7 @@ type SettingsStub = Pick<
   | 'supportsTactileTransport'
   | 'connectTactileDisplay'
   | 'disconnectTactileDisplay'
+  | 'preloadTactileDisplay'
 >;
 
 /** The `ChatViewModel` surface `Settings` actually calls. */
@@ -105,6 +106,7 @@ function renderSettings(): void {
       message: '',
     })),
     disconnectTactileDisplay: jest.fn(),
+    preloadTactileDisplay: jest.fn(),
   };
   const chat: ChatStub = {
     updateWelcomeMessage: jest.fn(),

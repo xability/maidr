@@ -181,6 +181,26 @@ class DotPadSession {
   }
 
   /**
+   * Fetches the SDK ahead of any connect attempt.
+   *
+   * {@link connect} has to await the module before it can open the device
+   * picker, and awaiting a network fetch spends the transient user activation
+   * the picker needs — on a cold cache over a slow link the click is consumed
+   * and no picker ever appears. Calling this when the settings dialog opens
+   * means the module is already in hand by the time the reader presses a
+   * button, and the await costs nothing.
+   *
+   * Safe to call repeatedly and safe to ignore: a failure here just leaves
+   * {@link connect} to try again and report it.
+   */
+  public async preload(): Promise<void> {
+    if (this.vendor !== null || !this.isSupported) {
+      return;
+    }
+    await this.loadVendor();
+  }
+
+  /**
    * True when the braille line can be translated into contracted braille.
    *
    * False before the first connection, and on a page whose SDK build has no
@@ -317,12 +337,12 @@ class DotPadSession {
   /**
    * Reports whether the browser can reach a tactile display over one transport.
    *
-   * Both APIs are gated by Permissions Policy, so an iframe without the
-   * matching `allow` attribute reports no support even in a browser that has
-   * them. Detecting rather than assuming is what keeps the feature from
-   * announcing itself where it cannot work — and detecting per transport is
-   * what stops a page that permits only one of the two from looking as though
-   * it permits neither.
+   * Both APIs are gated by Permissions Policy, and being gated out does not
+   * reliably remove them: the policy has to be asked, not inferred from
+   * whether the object exists. Detecting rather than assuming is what keeps
+   * the feature from announcing itself where it cannot work — and detecting
+   * per transport is what stops a page that permits only one of the two from
+   * looking as though it permits neither.
    *
    * @param transport - The connection to test
    */
@@ -330,7 +350,31 @@ class DotPadSession {
     if (typeof navigator === 'undefined') {
       return false;
     }
-    return transport === 'bluetooth' ? 'bluetooth' in navigator : 'serial' in navigator;
+
+    const feature = transport === 'bluetooth' ? 'bluetooth' : 'serial';
+    // Presence is not permission. A frame denied the feature by Permissions
+    // Policy can still expose the API -- measured in Chromium, a cross-origin
+    // frame without `allow` keeps `navigator.serial` and only loses
+    // `navigator.bluetooth` -- so a presence check alone lets MAIDR offer a
+    // control that answers with a raw SecurityError. The policy is the
+    // authority where the browser will state it.
+    const policy = typeof document === 'undefined'
+      ? undefined
+      : (document as unknown as {
+          featurePolicy?: { allowsFeature: (name: string) => boolean };
+        }).featurePolicy;
+    if (policy !== undefined) {
+      try {
+        if (!policy.allowsFeature(feature)) {
+          return false;
+        }
+      } catch {
+        // A browser that does not know the feature name throws rather than
+        // answering; fall through to the presence check.
+      }
+    }
+
+    return feature in navigator;
   }
 
   /**
@@ -411,8 +455,8 @@ class DotPadSession {
         transport: null,
         geometry: null,
         message: transport === 'bluetooth'
-          ? 'This browser cannot reach a DotPad over Bluetooth. Web Bluetooth is available in Chrome and other Chromium browsers, and only on pages permitted to use it.'
-          : 'This browser cannot reach a DotPad over USB. Web Serial is available in Chrome and other Chromium browsers on desktop, and only on pages permitted to use it.',
+          ? 'This page cannot reach a DotPad over Bluetooth. Web Bluetooth needs a Chromium browser, and a page — or an iframe — permitted to use it.'
+          : 'This page cannot reach a DotPad over USB. Web Serial needs a Chromium browser on desktop, and a page — or an iframe — permitted to use it.',
       });
       return this.state;
     }
@@ -466,10 +510,15 @@ class DotPadSession {
       });
     } catch (error) {
       this.device = null;
+      const denied = error instanceof Error && error.name === 'SecurityError';
       this.setState({
-        status: 'failed',
+        status: denied ? 'unavailable' : 'failed',
         transport: null,
-        message: error instanceof Error ? error.message : 'Could not connect to the DotPad.',
+        // A SecurityError here is the page being refused the device, not the
+        // device refusing the page, and "try again" is the wrong advice for it.
+        message: denied
+          ? 'This page is not permitted to reach a DotPad. It needs to be served over HTTPS, and an iframe needs the matching allow attribute.'
+          : error instanceof Error ? error.message : 'Could not connect to the DotPad.',
       });
     }
 

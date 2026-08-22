@@ -282,6 +282,27 @@ function pageScope(): Record<string, unknown> {
 }
 
 /**
+ * Replaces `document.featurePolicy` for one test. This suite runs without a
+ * DOM, so a `document` is put in place only where the policy is what is under
+ * test; `unsetPolicy` takes it away again.
+ * @param allowsFeature - Answers the policy gives, keyed by feature name
+ */
+function setPolicy(allowsFeature: (name: string) => boolean): void {
+  Object.defineProperty(globalThis, 'document', {
+    value: { featurePolicy: { allowsFeature } },
+    configurable: true,
+    writable: true,
+  });
+}
+
+/**
+ * Removes the stand-in `document` again.
+ */
+function unsetPolicy(): void {
+  delete pageScope().document;
+}
+
+/**
  * Replaces `navigator` for one test.
  * @param value - The stand-in navigator, or undefined to remove it entirely
  */
@@ -365,6 +386,7 @@ describe('dotPadSession', () => {
   afterEach(() => {
     delete pageScope().DotPadSDK;
     delete pageScope().window;
+    unsetPolicy();
     if (navigatorDescriptor === undefined) {
       delete pageScope().navigator;
     } else {
@@ -431,6 +453,57 @@ describe('dotPadSession', () => {
       const session = await loadSession();
 
       expect(session.isSupported).toBe(false);
+    });
+
+    it('should report no support when Permissions Policy denies the feature', async () => {
+      // Presence is not permission. Measured in Chromium, a cross-origin frame
+      // without `allow` keeps `navigator.serial` and only loses
+      // `navigator.bluetooth`, so trusting the object would put a USB button in
+      // front of a reader that can only answer with a SecurityError.
+      setNavigator({ bluetooth: {}, serial: {} });
+      setPolicy(() => false);
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(false);
+      expect(session.supports('serial')).toBe(false);
+    });
+
+    it('should ask the policy about each feature by name', async () => {
+      setNavigator({ bluetooth: {}, serial: {} });
+      setPolicy(name => name === 'serial');
+
+      const session = await loadSession();
+
+      expect(session.supports('serial')).toBe(true);
+      expect(session.supports('bluetooth')).toBe(false);
+    });
+
+    it('should fall back to the presence check when the policy does not know the feature', async () => {
+      // Browsers that predate a feature name throw on it rather than answering
+      // false, and a throw is not a denial.
+      setNavigator({ bluetooth: {} });
+      setPolicy(() => {
+        throw new TypeError('unrecognised feature name');
+      });
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(true);
+      expect(session.supports('serial')).toBe(false);
+    });
+
+    it('should fall back to the presence check where there is no policy to ask', async () => {
+      setNavigator({ bluetooth: {} });
+      Object.defineProperty(globalThis, 'document', {
+        value: {},
+        configurable: true,
+        writable: true,
+      });
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(true);
     });
   });
 

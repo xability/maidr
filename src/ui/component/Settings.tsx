@@ -521,6 +521,10 @@ const Settings: React.FC = () => {
       setTactileState(state);
       setTactileAttempt(previous => previous + 1);
     });
+    // Fetch the SDK now rather than on the connect click. The browser only
+    // opens a device picker while the click's activation is still live, and
+    // awaiting a cold network fetch first spends it.
+    viewModel.preloadTactileDisplay();
     return () => subscription.dispose();
   }, [viewModel]);
 
