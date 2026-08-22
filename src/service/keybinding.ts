@@ -522,8 +522,15 @@ export class KeybindingService {
 
         hotkeys(hotkey, { scope }, (event: KeyboardEvent): void => {
           if (commandName !== 'ALLOW_DEFAULT') {
-            event.preventDefault();
+            // The command is built before the default is suppressed so it can
+            // decline the key. Only commands bound to a chord the browser
+            // owns implement that, and declining has to leave the event
+            // untouched — a `preventDefault` already called cannot be undone.
             const command = this.commandFactory.create(commandName);
+            if (command.claimsKey?.() === false) {
+              return;
+            }
+            event.preventDefault();
             command.execute(event);
           }
         });

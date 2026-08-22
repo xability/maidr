@@ -112,8 +112,13 @@ export class DotRaster {
    * @param on - True to raise, false to lower
    */
   public hLine(x0: number, x1: number, y: number, on: boolean = true): void {
-    const from = Math.round(Math.min(x0, x1));
-    const to = Math.round(Math.max(x0, x1));
+    // Clamped to the buffer before looping, not inside `set`. A zoomed-in view
+    // projects geometry far outside the display, so an un-clamped run costs one
+    // iteration per pin of the *chart* rather than of the *display* — and an
+    // endpoint of Infinity, which a path with an out-of-range coordinate
+    // produces, never reaches its bound at all: the loop hangs the tab.
+    const from = Math.max(0, Math.round(Math.min(x0, x1)));
+    const to = Math.min(this.width - 1, Math.round(Math.max(x0, x1)));
     for (let x = from; x <= to; x++) {
       this.set(x, y, on);
     }
@@ -127,8 +132,9 @@ export class DotRaster {
    * @param on - True to raise, false to lower
    */
   public vLine(x: number, y0: number, y1: number, on: boolean = true): void {
-    const from = Math.round(Math.min(y0, y1));
-    const to = Math.round(Math.max(y0, y1));
+    // Clamped for the reason given on {@link hLine}.
+    const from = Math.max(0, Math.round(Math.min(y0, y1)));
+    const to = Math.min(this.height - 1, Math.round(Math.max(y0, y1)));
     for (let y = from; y <= to; y++) {
       this.set(x, y, on);
     }
@@ -337,10 +343,17 @@ export class DotRaster {
         for (let i = 0; i < ring.length; i++) {
           const from = ring[i];
           const to = ring[(i + 1) % ring.length];
+          // Both coordinates are checked, not just the one the scan line is
+          // compared against: an edge with a finite `y` and a non-finite `x`
+          // still crosses the row, and the crossing it contributes would be
+          // the value that runs the fill off the end of the buffer.
           if (!Number.isFinite(from.y) || !Number.isFinite(to.y)) {
             continue;
           }
           if ((from.y <= scanY) === (to.y <= scanY)) {
+            continue;
+          }
+          if (!Number.isFinite(from.x) || !Number.isFinite(to.x)) {
             continue;
           }
           const t = (scanY - from.y) / (to.y - from.y);

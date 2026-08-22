@@ -64,13 +64,25 @@ redistribution. Instead MAIDR loads it from the copy Dot Inc. publish
 themselves, pinned by commit so the bytes cannot change under a release.
 
 A host page that would rather serve its own copy — an air-gapped deployment, or
-one whose Content-Security-Policy admits no third-party origin — can point
-MAIDR at it, or expose the SDK as `window.DotPadSDK`, and nothing is fetched:
+one whose Content-Security-Policy admits no third-party origin — points MAIDR at
+it before MAIDR loads, and nothing is fetched:
 
-```js
-dotPadSession.setModuleUrl('/vendor/DotPadSDK-3.0.2.js');
-dotPadSession.setAssetBaseUrl('/vendor/lib/');
+```html
+<script>
+  window.MAIDR_DOTPAD_SDK_URL = '/vendor/DotPadSDK-3.0.2.js';
+  window.MAIDR_DOTPAD_ASSET_BASE_URL = '/vendor/lib/';
+</script>
 ```
+
+Setting the SDK URL and not the asset one leaves the braille engine unfetched
+rather than reaching for the CDN: a page that serves its own SDK usually does so
+because of a policy that would refuse the CDN too, and the line falls back to
+uncontracted braille instead of failing. A page that already has the SDK loaded
+can expose it as `window.DotPadSDK` and skip the import entirely.
+
+The pin is a commit, not a digest. It means the bytes at that URL cannot change
+under a release — it is not a runtime integrity check, which a dynamic `import()`
+cannot carry.
 
 ## Using the display
 
@@ -119,10 +131,12 @@ into the same pin. Zooming spends the same pins on a smaller slice of the chart.
 | Zoom in  | <kbd>Ctrl</kbd> + <kbd>+</kbd>         |
 | Zoom out | <kbd>Ctrl</kbd> + <kbd>-</kbd>         |
 
-Both are live only while the braille panel is open. The numeric keypad's
-<kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with the new
-zoom level and where in the chart the view now sits — with nothing on the grid
-but marks, there is no border left to say which slice you are on.
+Both are live only while the braille panel is open **and a display is
+connected**. With no display these keys stay the browser's own page zoom, which
+is what a low-vision reader is reaching for when they press them. The numeric
+keypad's <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with
+the new zoom level and where in the chart the view now sits — with nothing on
+the grid but marks, there is no border left to say which slice you are on.
 
 ### Panning
 

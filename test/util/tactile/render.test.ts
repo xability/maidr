@@ -114,6 +114,57 @@ describe('dotRaster', () => {
     });
   });
 
+  describe('runs that reach past the buffer', () => {
+    // These are hang tests as much as correctness tests. `hLine`/`vLine` used
+    // to loop from the caller's endpoint to the caller's endpoint with no
+    // bound, and a zoomed-in view projects chart geometry far outside a
+    // sixty-pin display -- so the loop ran once per pin of the *chart*. With an
+    // endpoint of Infinity, which a path carrying an out-of-range coordinate
+    // produces, `x++` never advances and the tab is gone. Each case below
+    // hangs rather than fails if the clamp is removed, and jest's per-test
+    // timeout is what turns that back into a failure.
+    it('should terminate on a horizontal run with an infinite endpoint', () => {
+      const raster = new DotRaster(20, 20);
+
+      raster.hLine(0, Number.POSITIVE_INFINITY, 5);
+
+      expect(raster.raisedCount).toBe(20);
+    });
+
+    it('should terminate on a vertical run with an infinite endpoint', () => {
+      const raster = new DotRaster(20, 20);
+
+      raster.vLine(5, Number.NEGATIVE_INFINITY, 3);
+
+      expect(raster.raisedCount).toBe(4);
+    });
+
+    it('should cost one step per pin of the display, not of the chart', () => {
+      const raster = new DotRaster(20, 20);
+
+      raster.hLine(-5_000_000, 5_000_000, 7);
+
+      expect(raster.raisedCount).toBe(20);
+    });
+
+    it('should skip a polygon edge whose x is not a number rather than filling to infinity', () => {
+      // Only `y` used to be checked, on the reasoning that `y` is what the
+      // scan line is compared against. But an edge with a finite `y` and an
+      // infinite `x` still crosses the row, and the crossing it contributes is
+      // the endpoint the fill then runs to.
+      const raster = new DotRaster(20, 20);
+
+      raster.fillPolygon([[
+        { x: 2, y: 2 },
+        { x: Number.POSITIVE_INFINITY, y: 2 },
+        { x: 8, y: 8 },
+        { x: 2, y: 8 },
+      ]]);
+
+      expect(raster.get(19, 5)).toBe(false);
+    });
+  });
+
   describe('line', () => {
     it('should raise a pin in every row a steep diagonal crosses', () => {
       const raster = new DotRaster(12, 12);

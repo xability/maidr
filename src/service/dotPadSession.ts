@@ -35,6 +35,34 @@ const VENDOR_KEYS: Readonly<Record<string, DotPadKey>> = {
 const GLOBAL_KEYS = ['DotPadSDK', 'dotPadSDK', 'DotPad'] as const;
 
 /**
+ * Page globals a host sets to serve the SDK itself.
+ *
+ * The setters below are the same configuration, but `dotPadSession` is not on
+ * any of the package's export paths, so an application that installs MAIDR
+ * from npm has no way to reach them. These are what such a host actually has:
+ * two values assigned before MAIDR loads. Without them the only working
+ * escape hatch is pre-defining the whole SDK as {@link GLOBAL_KEYS}, which is
+ * a much larger thing to ask of a page that simply wants the file served from
+ * its own origin.
+ */
+const CONFIG_KEYS = {
+  moduleUrl: 'MAIDR_DOTPAD_SDK_URL',
+  assetBaseUrl: 'MAIDR_DOTPAD_ASSET_BASE_URL',
+} as const;
+
+/**
+ * Reads one of {@link CONFIG_KEYS} off the page, or null when unset.
+ * @param key - The global to read
+ */
+function readGlobalConfig(key: string): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const value = (window as unknown as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
  * The vendor's own published copy of the SDK, pinned by commit.
  *
  * MAIDR does not bundle the SDK -- it ships without a licence permitting
@@ -45,8 +73,8 @@ const GLOBAL_KEYS = ['DotPadSDK', 'dotPadSDK', 'DotPad'] as const;
  *
  * Only a default. A host page that would rather serve its own copy -- an
  * air-gapped deployment, a page whose Content-Security-Policy admits no
- * third-party origin -- sets {@link DotPadSession.setModuleUrl} or exposes the
- * SDK as a global, and this is never fetched.
+ * third-party origin -- sets {@link CONFIG_KEYS} on the page or exposes the
+ * SDK itself as a global, and this is never fetched.
  */
 const VENDOR_BASE_URL = 'https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@437210b1e5b3f4cc5aaa8db5759206067b4edd6e/Web/3.0.2';
 
@@ -159,8 +187,11 @@ class DotPadSession {
 
   /**
    * Points MAIDR at an SDK module to import when connecting. Call before the
-   * first connect attempt; a host page that instead exposes the SDK as a global
-   * needs no configuration.
+   * first connect attempt.
+   *
+   * Reachable only from inside the bundle. A host page sets
+   * `window.MAIDR_DOTPAD_SDK_URL` instead, which this takes precedence over.
+   *
    * @param url - URL of the vendor SDK ES module
    */
   public setModuleUrl(url: string): void {
@@ -172,12 +203,27 @@ class DotPadSession {
    *
    * Defaults to the `lib/` beside the module, which is where the vendor keeps
    * it. A host serving its own copy of the SDK needs this only if it puts the
-   * engine somewhere else.
+   * engine somewhere else. From a page, `window.MAIDR_DOTPAD_ASSET_BASE_URL`.
    *
    * @param url - Directory holding `liblouis.js`, `.wasm` and `.data`
    */
   public setAssetBaseUrl(url: string): void {
     this.assetBaseUrl = url;
+  }
+
+  /**
+   * Where to import the SDK from: what a caller set, else what the page
+   * declares, else nothing (the vendor default applies).
+   */
+  private get configuredModuleUrl(): string | null {
+    return this.moduleUrl ?? readGlobalConfig(CONFIG_KEYS.moduleUrl);
+  }
+
+  /**
+   * Where the braille engine's files are, on the same terms.
+   */
+  private get configuredAssetBaseUrl(): string | null {
+    return this.assetBaseUrl ?? readGlobalConfig(CONFIG_KEYS.assetBaseUrl);
   }
 
   /**
@@ -265,7 +311,7 @@ class DotPadSession {
       return global;
     }
 
-    const url = this.moduleUrl ?? `${VENDOR_BASE_URL}/DotPadSDK-3.0.2.js`;
+    const url = this.configuredModuleUrl ?? `${VENDOR_BASE_URL}/DotPadSDK-3.0.2.js`;
     try {
       const imported: unknown = await import(/* @vite-ignore */ url);
       if (this.isVendorModule(imported)) {
@@ -297,7 +343,12 @@ class DotPadSession {
     }
 
     try {
-      const assets = this.assetBaseUrl ?? (this.moduleUrl === null ? `${VENDOR_BASE_URL}/lib/` : null);
+      // A host serving its own SDK and saying nothing about the engine gets
+      // nothing rather than the CDN: the reason to serve your own copy is
+      // usually a policy that would refuse the CDN anyway, and pointing
+      // liblouis at it would fail at the one moment there is no fallback left.
+      const assets = this.configuredAssetBaseUrl
+        ?? (this.configuredModuleUrl === null ? `${VENDOR_BASE_URL}/lib/` : null);
       if (assets !== null) {
         vendor.LiblouisManager?.setAssetBaseUrl(assets);
       }

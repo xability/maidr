@@ -21,6 +21,20 @@ export class TactileZoomInCommand implements Command {
   }
 
   /**
+   * Takes {@link Platform.ctrl}+`+` only while a display is actually
+   * connected.
+   *
+   * That chord is the browser's own page zoom, and a low-vision reader — one
+   * of the people this whole feature exists for — reaches for it constantly.
+   * Swallowing it to say "no tactile display is connected" costs them the zoom
+   * they asked for and gives them nothing back. With no display, MAIDR has
+   * nothing to do with the key and should not be holding it.
+   */
+  public claimsKey(): boolean {
+    return this.tactileService.isActive;
+  }
+
+  /**
    * Zooms the tactile view in one step.
    */
   public execute(): void {
@@ -40,6 +54,14 @@ export class TactileZoomOutCommand implements Command {
    */
   public constructor(tactileService: TactileService) {
     this.tactileService = tactileService;
+  }
+
+  /**
+   * Leaves the browser's page zoom alone when no display is connected, for the
+   * reason given on {@link TactileZoomInCommand.claimsKey}.
+   */
+  public claimsKey(): boolean {
+    return this.tactileService.isActive;
   }
 
   /**

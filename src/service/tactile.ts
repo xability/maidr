@@ -471,13 +471,22 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * leaves furniture on the pins or drops a mark.
    */
   private static traceShapes(trace: Trace): SVGGraphicsElement[] {
-    const shapes: SVGGraphicsElement[] = [];
-    for (const element of trace.getAllOriginalElements()) {
-      if (TactileSvgGeometry.isRenderable(element)) {
-        shapes.push(element as SVGGraphicsElement);
-      }
-    }
-    return shapes;
+    // `getAllHighlightElements`, not `getAllOriginalElements`. The latter
+    // reaches an element's `previousElementSibling`, which is only the mark
+    // for traces whose highlight values are hidden clones inserted after it.
+    // Twenty call sites across box, heatmap, line, violin and bar select with
+    // `shouldClone: false` and hold the live element itself, and there the
+    // sibling is the neighbouring mark: the list comes back shifted by one,
+    // the last mark missing and something that is not a mark drawn in its
+    // place — silently, on exactly the trace types whose marks are hardest to
+    // count by touch.
+    //
+    // Not filtered through `isRenderable` either. These are the model's own
+    // data elements, so there is nothing to sift out, and a clone would fail
+    // that test on both counts: it is MAIDR-owned and it is hidden. Hidden is
+    // no obstacle to measuring one — `visibility: hidden` still takes part in
+    // layout, and the clone sits at its original's geometry.
+    return trace.getAllHighlightElements() as SVGGraphicsElement[];
   }
 
   /**
@@ -572,6 +581,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     for (const element of elements) {
       const box = element.getBoundingClientRect();
+      // An element with no box at all is not somewhere the chart reaches. A
+      // stylesheet can hide one in ways the attribute checks do not see, and
+      // an unrendered element reports a zero rect at the viewport origin —
+      // which, folded into the extent, drags the window off to the top-left
+      // corner and shrinks every real mark to nothing.
+      if (box.width === 0 && box.height === 0) {
+        continue;
+      }
       left = Math.min(left, box.left);
       top = Math.min(top, box.top);
       right = Math.max(right, box.right);
@@ -634,12 +651,9 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       }
     }
 
-    // `focused` is whatever the trace highlights, which for many trace types
-    // is a hidden clone of the mark rather than the mark itself; the renderer's
-    // identity check then does not pair the two. It does not need to. The clone
-    // sits at the original's geometry, and every primitive raises pins, so the
-    // mark is outlined and then filled to exactly the pins the fill alone would
-    // have raised.
+    // Both lists come from the trace's highlight values, so the focused mark is
+    // the same object in each and the renderer's identity check pairs them:
+    // the mark the reader is on is drawn once, filled.
     const scene: TactileScene = { marks, focused };
 
     const raster = TactileRenderer.render(

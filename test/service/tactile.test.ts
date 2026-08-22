@@ -292,12 +292,30 @@ function addFurniture(on: Chart): void {
 }
 
 /**
+ * The two ways a trace can be asked for its elements.
+ *
+ * Both are on the real `Trace`, and only one of them is right here.
+ * `getAllHighlightElements` returns the trace's highlight values as they are.
+ * `getAllOriginalElements` walks each one to its `previousElementSibling`,
+ * which is the mark only for traces whose highlight values are hidden clones
+ * inserted after it — and twenty call sites across box, heatmap, line, violin
+ * and bar select with `shouldClone: false` and hold the live element itself.
+ * For those, the sibling is the neighbouring mark and the list comes back
+ * shifted. The stub reproduces that so a switch back to the wrong accessor
+ * fails here rather than on a reader's display.
+ */
+interface FakeTrace {
+  getAllHighlightElements: () => SVGElement[];
+  getAllOriginalElements: () => SVGElement[];
+}
+
+/**
  * A subplot stub whose active layer can be changed, as PageUp changes it.
  */
 interface FakeSubplot {
   axesElement: SVGElement | null;
-  traces: { getAllOriginalElements: () => SVGElement[] }[][];
-  activeTrace: { getAllOriginalElements: () => SVGElement[] } | null;
+  traces: FakeTrace[][];
+  activeTrace: FakeTrace | null;
 }
 
 /**
@@ -313,7 +331,12 @@ interface FakeSubplot {
  * @param layers - Each layer's own rendered elements
  */
 function createFigure(axesElement: SVGElement | null, layers: SVGElement[][] = [[]]): Figure {
-  const traces = layers.map(marks => [{ getAllOriginalElements: () => marks }]);
+  const traces = layers.map(marks => [{
+    getAllHighlightElements: () => marks,
+    getAllOriginalElements: () => marks
+      .map(mark => mark.previousElementSibling as SVGElement | null)
+      .filter((mark): mark is SVGElement => mark !== null),
+  }]);
   const subplot: FakeSubplot = {
     axesElement,
     traces,
@@ -627,6 +650,33 @@ describe('tactileService', () => {
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
       expect(session.writeText).not.toHaveBeenCalled();
+    });
+
+    it('should ignore a mark with no box rather than letting it drag the window', () => {
+      // A stylesheet can hide an element in ways the attribute checks do not
+      // see, and an unrendered one reports a zero rect at the viewport origin.
+      // Folded into the extent that pulls the window off to the top-left
+      // corner, and every real mark shrinks to nothing.
+      // Away from the viewport origin, which is where an unrendered element
+      // reports its zero rect — marks that already reach the origin would hide
+      // the effect.
+      chart.marks.forEach((mark, index) => {
+        stubRect(mark, { left: 100 + index * 40, top: 50, width: 10, height: 20 });
+      });
+      rebuild(chart);
+      activate();
+      const framed = session.writeGraphic.mock.calls[0][0];
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      const ghost = document.createElementNS(SVG_NS, 'rect');
+      stubRect(ghost, { left: 0, top: 0, width: 0, height: 0 });
+      chart.axes.append(ghost);
+      chart.marks.push(ghost);
+      rebuild(chart);
+      service.update(traceState(chart, 1));
+
+      expect(session.writeGraphic.mock.calls[0][0]).toBe(framed);
     });
 
     it('should fall back to the plot region when every value is the same', () => {
