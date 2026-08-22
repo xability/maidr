@@ -6,8 +6,8 @@ per data point, magnitude encoded in the dot pattern. See
 
 A **tactile graphics display** is a different device: it has a grid of pins that
 the chart itself is drawn onto, plus a separate braille line for text. MAIDR
-drives one over Bluetooth, scaling the chart's own SVG down onto the pins while
-the braille panel is open.
+drives one over Bluetooth or USB, scaling the chart's own SVG down onto the
+pins while the braille panel is open.
 
 Currently supported: **Dot Pad X** (Dot Inc.).
 
@@ -17,18 +17,39 @@ Currently supported: **Dot Pad X** (Dot Inc.).
 2. Choose your device. MAIDR opens the browser's Bluetooth picker immediately.
 3. Pick the display in the picker and pair it.
 
-The status line under the picker reports what happened, and **Connect** retries
-if the picker is dismissed or the pairing fails.
+For a cabled display, use **Connect over USB** instead; either button works at
+any time. The status line reports what happened and which way you are
+connected, and both buttons retry if a picker is dismissed or a connection
+fails.
+
+### Bluetooth or USB
+
+Both work. They differ in ways worth knowing:
+
+|                | Bluetooth              | USB                          |
+| -------------- | ---------------------- | ---------------------------- |
+| Speed          | A full frame costs a second or more | Considerably faster |
+| Setup          | Pairs once, then wireless | Plug in; no pairing        |
+| Power          | The display runs on battery | Powered over the cable  |
+| Android        | Works                  | Web Serial does not exist there |
+
+If arrow-key navigation feels like it lags behind your fingers, the cable is
+the fix — the pin refresh is the bottleneck, and Bluetooth has the least
+headroom above it.
 
 ### Requirements
 
-Bluetooth access is a browser capability MAIDR cannot supply on its own:
+Reaching the device at all is a browser capability MAIDR cannot supply on its
+own:
 
-- **A Chromium browser.** Web Bluetooth is not implemented in Firefox or
-  Safari.
+- **A Chromium browser.** Neither Web Bluetooth nor Web Serial is implemented
+  in Firefox or Safari.
 - **A page permitted to use it.** Inside an iframe — which is how charts are
-  embedded in notebooks — the frame needs `allow="bluetooth"`. A frame without
-  it cannot reach the device however the page is served.
+  embedded in notebooks — the frame needs `allow="bluetooth"` for the wireless
+  path and `allow="serial"` for the cabled one. A frame without them cannot
+  reach the device however the page is served. The two are gated separately, so
+  a page may permit one and not the other; MAIDR greys out whichever button
+  cannot work rather than letting you press it and fail.
 - **A click.** The browser only opens its picker while a user gesture is in
   progress, which is why connecting is a button in Settings and cannot happen
   automatically on load.
@@ -38,7 +59,7 @@ the chart works exactly as before.
 
 ### The SDK
 
-MAIDR does not bundle the vendor's Bluetooth SDK; it discovers one the host page
+MAIDR does not bundle the vendor's SDK; it discovers one the host page
 provides, as `window.DotPadSDK` or through a module URL. Host pages that want
 the feature load the SDK themselves.
 

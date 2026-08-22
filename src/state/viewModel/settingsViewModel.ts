@@ -1,7 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
-import type { DotPadState } from '@type/dotPad';
+import type { DotPadState, DotPadTransport } from '@type/dotPad';
 import type { Settings } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
@@ -127,16 +127,25 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   }
 
   /**
-   * Opens the browser's Bluetooth picker and connects to a tactile display.
+   * Reports whether the page can reach a tactile display over one transport.
+   * @param transport - The connection to test
+   */
+  public supportsTactileTransport(transport: DotPadTransport): boolean {
+    return dotPadSession.supports(transport);
+  }
+
+  /**
+   * Opens the browser's device picker and connects to a tactile display.
    *
    * Must be reached synchronously from the user's click: the browser only shows
    * the picker while a gesture is still in progress, and anything awaited first
    * spends that activation.
    *
+   * @param transport - Whether to look for the device over Bluetooth or USB
    * @returns The connection state once the attempt settles
    */
-  public async connectTactileDisplay(): Promise<DotPadState> {
-    return dotPadSession.connect();
+  public async connectTactileDisplay(transport: DotPadTransport): Promise<DotPadState> {
+    return dotPadSession.connect(transport);
   }
 
   /**

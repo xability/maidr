@@ -467,7 +467,7 @@ describe('tactileService', () => {
       service.update(traceState(chart, 1));
       session.isConnected = true;
 
-      session.fireState({ status: 'connected', deviceName: 'DotPad 320', geometry: GEOMETRY, message: '' });
+      session.fireState({ status: 'connected', deviceName: 'DotPad 320', transport: 'bluetooth', geometry: GEOMETRY, message: '' });
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
     });

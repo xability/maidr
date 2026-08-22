@@ -2,6 +2,7 @@ import type {
   DotPadGeometry,
   DotPadKey,
   DotPadState,
+  DotPadTransport,
   DotPadVendorDevice,
   DotPadVendorModule,
   DotPadVendorSdk,
@@ -71,6 +72,7 @@ class DotPadSession {
   private state: DotPadState = {
     status: 'disconnected',
     deviceName: null,
+    transport: null,
     geometry: null,
     message: '',
   };
@@ -200,15 +202,29 @@ class DotPadSession {
   }
 
   /**
-   * Reports whether the browser can reach a tactile display at all.
+   * Reports whether the browser can reach a tactile display over one transport.
    *
-   * Web Bluetooth is gated by Permissions Policy, so an iframe without the
+   * Both APIs are gated by Permissions Policy, so an iframe without the
    * matching `allow` attribute reports no support even in a browser that has
-   * it. Detecting rather than assuming is what keeps the feature from
-   * announcing itself where it cannot work.
+   * them. Detecting rather than assuming is what keeps the feature from
+   * announcing itself where it cannot work — and detecting per transport is
+   * what stops a page that permits only one of the two from looking as though
+   * it permits neither.
+   *
+   * @param transport - The connection to test
+   */
+  public supports(transport: DotPadTransport): boolean {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    return transport === 'bluetooth' ? 'bluetooth' in navigator : 'serial' in navigator;
+  }
+
+  /**
+   * Reports whether either transport is available.
    */
   public get isSupported(): boolean {
-    return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
+    return this.supports('bluetooth') || this.supports('serial');
   }
 
   /**
@@ -239,6 +255,7 @@ class DotPadSession {
           this.setState({
             status: 'disconnected',
             deviceName: null,
+            transport: null,
             geometry: null,
             message: 'DotPad disconnected',
           });
@@ -260,24 +277,29 @@ class DotPadSession {
   }
 
   /**
-   * Opens the browser's Bluetooth picker and connects to the chosen device.
+   * Opens the browser's device picker and connects to the chosen display.
    *
    * Must be called from a user gesture — the browser will not show the picker
    * otherwise. Returns the resulting state rather than throwing, because every
    * failure here is something the user needs told, not an exception to swallow.
+   *
+   * @param transport - Whether to look for the device over Bluetooth or USB
    */
-  public async connect(): Promise<DotPadState> {
+  public async connect(transport: DotPadTransport = 'bluetooth'): Promise<DotPadState> {
     if (this.isConnected || this.state.status === 'connecting') {
       // A second attempt while a picker is already open would open another one,
       // leaving the reader with two dialogs and no way to tell which took.
       return this.state;
     }
-    if (!this.isSupported) {
+    if (!this.supports(transport)) {
       this.setState({
         status: 'unavailable',
         deviceName: null,
+        transport: null,
         geometry: null,
-        message: 'This browser cannot reach a DotPad. Web Bluetooth is available in Chrome and other Chromium browsers, and only on pages permitted to use it.',
+        message: transport === 'bluetooth'
+          ? 'This browser cannot reach a DotPad over Bluetooth. Web Bluetooth is available in Chrome and other Chromium browsers, and only on pages permitted to use it.'
+          : 'This browser cannot reach a DotPad over USB. Web Serial is available in Chrome and other Chromium browsers on desktop, and only on pages permitted to use it.',
       });
       return this.state;
     }
@@ -289,6 +311,7 @@ class DotPadSession {
       this.setState({
         status: 'unavailable',
         deviceName: null,
+        transport: null,
         geometry: null,
         message: 'The DotPad SDK was not found on this page.',
       });
@@ -303,13 +326,17 @@ class DotPadSession {
       }
 
       const scanner = new vendor.DotPadScanner();
-      const selected = await scanner.startBleScan();
+      const selected = transport === 'bluetooth'
+        ? await scanner.startBleScan()
+        : await scanner.startUsbScan();
       if (selected === undefined || selected === null) {
         this.setState({ status: 'disconnected', message: 'No DotPad was selected.' });
         return this.state;
       }
 
-      const device = await sdk.connectBleDevice(selected);
+      const device = transport === 'bluetooth'
+        ? await sdk.connectBleDevice(selected)
+        : await sdk.connectUsbDevice(selected);
       if (device === null || device === undefined) {
         this.setState({ status: 'failed', message: 'Could not connect to the DotPad.' });
         return this.state;
@@ -319,6 +346,7 @@ class DotPadSession {
       this.setState({
         status: 'connected',
         deviceName: device.cellType,
+        transport,
         geometry: this.readGeometry(device),
         message: '',
       });
@@ -326,6 +354,7 @@ class DotPadSession {
       this.device = null;
       this.setState({
         status: 'failed',
+        transport: null,
         message: error instanceof Error ? error.message : 'Could not connect to the DotPad.',
       });
     }
@@ -345,7 +374,13 @@ class DotPadSession {
       }
     }
     this.device = null;
-    this.setState({ status: 'disconnected', deviceName: null, geometry: null, message: '' });
+    this.setState({
+      status: 'disconnected',
+      deviceName: null,
+      transport: null,
+      geometry: null,
+      message: '',
+    });
   }
 
   /**

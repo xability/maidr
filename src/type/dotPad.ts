@@ -42,6 +42,18 @@ export interface DotPadGeometry {
 export type DotPadKey = 'panLeft' | 'panRight' | 'function1' | 'function2' | 'function3' | 'function4';
 
 /**
+ * How MAIDR reaches a tactile display.
+ *
+ * Not interchangeable, and neither one covers every reader. USB has the
+ * headroom — a full frame over Bluetooth costs a second or more, against a
+ * reader pressing arrow keys several times a second — and needs no pairing and
+ * no charge. Bluetooth is the one that works on Android, where Web Serial does
+ * not exist, and the one that leaves the desk free of a cable. So both are
+ * offered and the reader picks.
+ */
+export type DotPadTransport = 'bluetooth' | 'serial';
+
+/**
  * Lifecycle of the connection to a tactile display.
  */
 export type DotPadStatus = 'unavailable' | 'disconnected' | 'connecting' | 'connected' | 'failed';
@@ -56,6 +68,13 @@ export interface DotPadState {
    * Model name reported by the device, or null when nothing is connected.
    */
   deviceName: string | null;
+
+  /**
+   * How the connected device is attached, or null when nothing is connected.
+   * Worth saying out loud in the UI: the two differ enough in responsiveness
+   * that a reader on a slow display should be able to see which one they got.
+   */
+  transport: DotPadTransport | null;
 
   /**
    * Layout of the connected device, or null when nothing is connected.
@@ -89,6 +108,7 @@ export interface DotPadVendorDevice {
  */
 export interface DotPadVendorScanner {
   startBleScan: () => Promise<unknown>;
+  startUsbScan: () => Promise<unknown>;
 }
 
 /**
@@ -97,6 +117,7 @@ export interface DotPadVendorScanner {
 export interface DotPadVendorSdk {
   getConnectedDevices: () => DotPadVendorDevice[];
   connectBleDevice: (device: unknown) => Promise<DotPadVendorDevice | null | undefined>;
+  connectUsbDevice: (device: unknown) => Promise<DotPadVendorDevice | null | undefined>;
   disconnect: (device?: DotPadVendorDevice | null) => void;
   displayGraphicData: (hexData: string, device?: DotPadVendorDevice | null, displayMode?: string) => void;
   displayTextData: (

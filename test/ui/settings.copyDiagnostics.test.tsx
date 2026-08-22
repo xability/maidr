@@ -46,6 +46,7 @@ type SettingsStub = Pick<
   | 'saveAndClose'
   | 'tactileDisplayState'
   | 'onTactileDisplayStateChange'
+  | 'supportsTactileTransport'
   | 'connectTactileDisplay'
   | 'disconnectTactileDisplay'
 >;
@@ -90,13 +91,16 @@ function renderSettings(): void {
     tactileDisplayState: {
       status: 'disconnected',
       deviceName: null,
+      transport: null,
       geometry: null,
       message: '',
     },
     onTactileDisplayStateChange: jest.fn(() => ({ dispose: jest.fn() })),
+    supportsTactileTransport: jest.fn(() => false),
     connectTactileDisplay: jest.fn(async () => ({
       status: 'disconnected' as const,
       deviceName: null,
+      transport: null,
       geometry: null,
       message: '',
     })),

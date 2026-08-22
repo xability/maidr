@@ -1,5 +1,6 @@
 import type {
   DotPadState,
+  DotPadTransport,
   DotPadVendorDevice,
   DotPadVendorModule,
   DotPadVendorScanner,
@@ -91,7 +92,7 @@ interface Vendor {
   readonly hooks: VendorHooks;
   readonly writes: RecordedWrite[];
   readonly disconnected: (DotPadVendorDevice | null | undefined)[];
-  readonly counts: { sdks: number; scanners: number; scans: number };
+  readonly counts: { sdks: number; scanners: number; scans: number; bleScans: number; usbScans: number; bleConnects: number; usbConnects: number };
   fireMessage: (dataCode: string, device?: DotPadVendorDevice) => void;
   fireKeyDown: (key: string) => void;
 }
@@ -121,7 +122,7 @@ const SELECTION = { id: 'selected-dotpad' };
 function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
   const writes: RecordedWrite[] = [];
   const disconnected: (DotPadVendorDevice | null | undefined)[] = [];
-  const counts = { sdks: 0, scanners: 0, scans: 0 };
+  const counts = { sdks: 0, scanners: 0, scans: 0, bleScans: 0, usbScans: 0, bleConnects: 0, usbConnects: 0 };
   let messageCallback: MessageCallback | null = null;
   let keyDownCallback: KeyDownCallback | null = null;
 
@@ -139,6 +140,13 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
 
     public startBleScan(): Promise<unknown> {
       counts.scans += 1;
+      counts.bleScans += 1;
+      return hooks.scan();
+    }
+
+    public startUsbScan(): Promise<unknown> {
+      counts.scans += 1;
+      counts.usbScans += 1;
       return hooks.scan();
     }
   }
@@ -153,6 +161,12 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
     }
 
     public connectBleDevice(_selected: unknown): Promise<DotPadVendorDevice | null | undefined> {
+      counts.bleConnects += 1;
+      return hooks.connectDevice();
+    }
+
+    public connectUsbDevice(_selected: unknown): Promise<DotPadVendorDevice | null | undefined> {
+      counts.usbConnects += 1;
       return hooks.connectDevice();
     }
 
@@ -272,11 +286,14 @@ async function flushWrites(): Promise<void> {
  * @param vendor - The fake vendor to connect through
  * @returns The connected session and the state it settled on
  */
-async function connectSession(vendor: Vendor): Promise<{ session: Session; state: DotPadState }> {
-  setNavigator({ bluetooth: {} });
+async function connectSession(
+  vendor: Vendor,
+  transport: DotPadTransport = 'bluetooth',
+): Promise<{ session: Session; state: DotPadState }> {
+  setNavigator(transport === 'bluetooth' ? { bluetooth: {} } : { serial: {} });
   installVendor(vendor);
   const session = await loadSession();
-  const state = await session.connect();
+  const state = await session.connect(transport);
   return { session, state };
 }
 
@@ -323,12 +340,115 @@ describe('dotPadSession', () => {
       expect(session.isSupported).toBe(true);
     });
 
+    it('should report each transport separately', async () => {
+      // A page may permit one and not the other -- Permissions Policy gates
+      // them independently, and Web Serial does not exist on Android at all.
+      // Collapsing the two into one answer would make a USB-only page look as
+      // though it could reach nothing.
+      setNavigator({ serial: {} });
+
+      const session = await loadSession();
+
+      expect(session.supports('serial')).toBe(true);
+      expect(session.supports('bluetooth')).toBe(false);
+      expect(session.isSupported).toBe(true);
+    });
+
+    it('should report support when only Bluetooth is available', async () => {
+      setNavigator({ bluetooth: {} });
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(true);
+      expect(session.supports('serial')).toBe(false);
+    });
+
+    it('should report no support for either transport without a navigator', async () => {
+      setNavigator(undefined);
+
+      const session = await loadSession();
+
+      expect(session.supports('bluetooth')).toBe(false);
+      expect(session.supports('serial')).toBe(false);
+    });
+
     it('should report no support when there is no navigator at all', async () => {
       setNavigator(undefined);
 
       const session = await loadSession();
 
       expect(session.isSupported).toBe(false);
+    });
+  });
+
+  describe('connect over USB', () => {
+    it('should scan and connect over serial rather than Bluetooth', async () => {
+      const vendor = createVendor();
+
+      const { session, state } = await connectSession(vendor, 'serial');
+
+      expect(state.status).toBe('connected');
+      expect(state.transport).toBe('serial');
+      expect(vendor.counts.usbScans).toBe(1);
+      expect(vendor.counts.usbConnects).toBe(1);
+      expect(vendor.counts.bleScans).toBe(0);
+      expect(vendor.counts.bleConnects).toBe(0);
+      expect(session.isConnected).toBe(true);
+    });
+
+    it('should record the transport it connected over', async () => {
+      const vendor = createVendor();
+
+      const { state } = await connectSession(vendor, 'bluetooth');
+
+      // The two differ enough in responsiveness that a reader on a slow
+      // display should be able to see which one they got.
+      expect(state.transport).toBe('bluetooth');
+    });
+
+    it('should refuse USB on a page that only permits Bluetooth', async () => {
+      const vendor = createVendor();
+      setNavigator({ bluetooth: {} });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const state = await session.connect('serial');
+
+      expect(state.status).toBe('unavailable');
+      expect(state.message).toContain('USB');
+      expect(vendor.counts.scans).toBe(0);
+    });
+
+    it('should refuse Bluetooth on a page that only permits USB', async () => {
+      const vendor = createVendor();
+      setNavigator({ serial: {} });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const state = await session.connect('bluetooth');
+
+      expect(state.status).toBe('unavailable');
+      expect(state.message).toContain('Bluetooth');
+      expect(vendor.counts.scans).toBe(0);
+    });
+
+    it('should clear the transport when the device drops', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor, 'serial');
+
+      vendor.fireMessage('Disconnected');
+
+      expect(session.current.transport).toBeNull();
+      expect(session.isConnected).toBe(false);
+    });
+
+    it('should clear the transport on an explicit disconnect', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor, 'serial');
+
+      session.disconnect();
+
+      expect(session.current.transport).toBeNull();
     });
   });
 

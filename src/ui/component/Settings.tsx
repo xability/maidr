@@ -1,5 +1,5 @@
 import type { SelectChangeEvent } from '@mui/material';
-import type { DotPadState } from '@type/dotPad';
+import type { DotPadState, DotPadTransport } from '@type/dotPad';
 import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
@@ -117,8 +117,10 @@ interface SettingRowProps {
  */
 function describeTactileState(state: DotPadState): string {
   switch (state.status) {
-    case 'connected':
-      return `Connected to ${state.deviceName ?? 'a tactile display'}. Press b on the chart to show it.`;
+    case 'connected': {
+      const over = state.transport === 'serial' ? 'over USB' : 'over Bluetooth';
+      return `Connected to ${state.deviceName ?? 'a tactile display'} ${over}. Press b on the chart to show it.`;
+    }
     case 'connecting':
       return 'Connecting…';
     case 'unavailable':
@@ -540,13 +542,17 @@ const Settings: React.FC = () => {
   // Called straight from the click or the select's change, never after an
   // await: the browser only opens the Bluetooth picker while the user's gesture
   // is still in progress.
-  const handleTactileConnect = useCallback((): void => {
-    void viewModel.connectTactileDisplay();
+  const handleTactileConnect = useCallback((transport: DotPadTransport): void => {
+    void viewModel.connectTactileDisplay(transport);
   }, [viewModel]);
 
   const handleTactileDeviceChange = useCallback((deviceId: string): void => {
     setGeneralSettings(prev => ({ ...prev, tactileDisplayDeviceId: deviceId }));
-    handleTactileConnect();
+    // Picking a device is itself the gesture, so the picker can open straight
+    // from it. Bluetooth is the attempt made here because it is the transport
+    // every supported platform has; a reader on a cable takes the USB button
+    // beside it, which is one click either way.
+    handleTactileConnect('bluetooth');
   }, [handleTactileConnect]);
 
   const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
@@ -1157,10 +1163,24 @@ const Settings: React.FC = () => {
                     <Button
                       size="small"
                       variant="outlined"
-                      onClick={handleTactileConnect}
-                      disabled={tactileState.status === 'connecting'}
+                      onClick={() => handleTactileConnect('bluetooth')}
+                      disabled={
+                        tactileState.status === 'connecting'
+                        || !viewModel.supportsTactileTransport('bluetooth')
+                      }
                     >
-                      {tactileState.status === 'connected' ? 'Reconnect' : 'Connect'}
+                      Connect over Bluetooth
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleTactileConnect('serial')}
+                      disabled={
+                        tactileState.status === 'connecting'
+                        || !viewModel.supportsTactileTransport('serial')
+                      }
+                    >
+                      Connect over USB
                     </Button>
                     {tactileState.status === 'connected' && (
                       <Button
