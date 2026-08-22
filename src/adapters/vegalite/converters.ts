@@ -167,6 +167,10 @@ export function vegaLiteToMaidr(
     // spec-only test of one was asserting against no data at all (#1126).
     // The facet path already did this; the plain layered path did not.
     const layerSpecs = inheritData(spec.layer ?? [], spec.data);
+    // Which `text` layers label another, and what each labelled layer should
+    // be told to call its points. Computed once, before conversion, because
+    // a layer has to know its names while its data is being read.
+    const overlays = labelOverlays(layerSpecs, spec.encoding);
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
       const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
@@ -176,13 +180,22 @@ export function vegaLiteToMaidr(
         continue;
       }
       // A `text` layer written over the mark it labels is not a second
-      // chart -- see `labelsAnotherLayer`.
-      if (labelsAnotherLayer(layerSpecs, i, spec.encoding)) {
+      // chart -- its names are given to that mark instead. See
+      // `labelOverlays`.
+      if (overlays.claimed.has(i)) {
         i += 1;
         continue;
       }
+      // A labelled layer is converted carrying the `text` channel of the
+      // layer that labels it, which is all `extractScatterData` needs to
+      // fill `ScatterPoint.label` -- the same field a standalone `text`
+      // mark fills, reached the same way.
+      const named = overlays.names.get(i);
+      const layerSpec = named === undefined
+        ? layerSpecs[i]
+        : { ...layerSpecs[i], encoding: { ...layerSpecs[i].encoding, text: named } };
       const layer = convertLayerSpec(
-        layerSpecs[i],
+        layerSpec,
         i,
         view,
         spec.encoding,
@@ -1119,8 +1132,8 @@ function resolveTraceType(
     // standing at the same place.
     //
     // A `text` with no `text` channel draws nothing to read, and a `text`
-    // layer that labels another layer is declined before this runs -- see
-    // `labelsAnotherLayer`.
+    // layer that labels another layer is claimed before this runs, its names
+    // handed to the layer it labels -- see `labelOverlays`.
     case 'text':
       if (!hasField(encoding?.text))
         return null;
@@ -2958,52 +2971,82 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
 }
 
 /**
- * Whether a layer is a `text` mark written over the mark it labels.
+ * Pairs each `text` layer that labels another with the layer it labels.
  *
  * Vega-Lite's way of labelling points is a `layer:` of the mark and a `text`
- * on the same two positional channels. Both halves then satisfy the labelled
- * scatter test in {@link resolveTraceType}, and the figure would come back
- * with two scatters over one set of points -- the same numbers announced
- * twice, once with names and once without.
+ * on the same two positional channels. Both halves satisfy the labelled
+ * scatter test in {@link resolveTraceType}, so read independently the figure
+ * comes back with two scatters over one set of points -- the same numbers
+ * announced twice, once with names and once without.
  *
  * The labels belong *on* the points rather than beside them, which is what
- * the Observable adapter's `labelOverlays` does. Declining is the smaller
- * half of that: the layered chart reads exactly as it did before #1124,
- * while a standalone `text` gains the reading it never had.
+ * the Observable adapter's function of this name does (#1124). That one
+ * pairs by DOM geometry because Plot hands it no data; here the spec says
+ * outright which rows both layers draw, so they are paired by field.
  *
  * Told by the fields, not by the order: a label layer may be written before
  * or after the mark it labels, and a `text` layer over *different* channels
  * is a chart of its own rather than an annotation.
  *
- * Any non-`text` sibling counts, not only one that would itself read as a
- * scatter. A `line` with per-point annotations over the same two channels is
- * the same double-announcement -- the coordinates are the line's, and the
+ * Any non-`text` sibling is claimed, not only one that would itself read as
+ * a scatter. A `line` with per-point annotations over the same two channels
+ * is the same double-announcement -- the coordinates are the line's, and the
  * text is written on top of them -- so what matters is that another mark
  * already draws those positions, not what that mark resolved to.
  *
+ * Only a scatter ends up *carrying* the names, though the channel is handed
+ * over either way; see the note at the assignment.
+ *
+ * Two `text` layers over one mark is a degenerate spec this does not try to
+ * reconcile: the last one wins, since `names` is keyed by the labelled
+ * layer. Both are still claimed, so neither is announced twice.
+ *
  * @param specs - The layered spec's children
- * @param index - Position of the candidate label layer
  * @param parentEncoding - Encoding hoisted onto the layered parent
- * @returns True when this layer only names another layer's marks
+ * @returns The `text` layers to skip, and the `text` channel each labelled
+ * layer should be converted with
  */
-function labelsAnotherLayer(
+function labelOverlays(
   specs: VegaLiteSpec[],
-  index: number,
   parentEncoding: VegaLiteEncoding | undefined,
-): boolean {
-  if (getMarkType(specs[index]) !== 'text')
-    return false;
+): { claimed: Set<number>; names: Map<number, VegaLiteEncoding['text']> } {
+  const claimed = new Set<number>();
+  const names = new Map<number, VegaLiteEncoding['text']>();
 
-  const labels: VegaLiteEncoding = { ...parentEncoding, ...specs[index].encoding };
-  if (!hasField(labels.x) || !hasField(labels.y))
-    return false;
+  specs.forEach((spec, index) => {
+    if (getMarkType(spec) !== 'text')
+      return;
 
-  return specs.some((sibling, at) => {
-    if (at === index || getMarkType(sibling) === 'text')
-      return false;
-    const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
-    return drawn.x?.field === labels.x?.field && drawn.y?.field === labels.y?.field;
+    const labels: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    if (!hasField(labels.x) || !hasField(labels.y))
+      return;
+
+    specs.forEach((sibling, at) => {
+      if (at === index || getMarkType(sibling) === 'text' || claimed.has(index))
+        return;
+      const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
+      if (drawn.x?.field !== labels.x?.field || drawn.y?.field !== labels.y?.field)
+        return;
+
+      claimed.add(index);
+
+      // The names are handed to the labelled layer whatever it is, and only
+      // a scatter ends up carrying them: `ScatterPoint.label` is the one
+      // field in the grammar that holds a name, and `extractScatterData`
+      // the one extractor that reads `encoding.text`. A `bar` or `line`
+      // underneath is given the channel and ignores it, so its payload is
+      // unchanged and its labels stay declined.
+      //
+      // Guarding on `resolveTraceType(...) === SCATTER` here was tried and
+      // removed: no test could tell the two apart, because nothing else
+      // reads the channel. The outcome is pinned by the bar and line cases
+      // in `labelledText.test.ts` instead, which is where it would be
+      // noticed if another extractor ever started reading it.
+      names.set(at, labels.text);
+    });
   });
+
+  return { claimed, names };
 }
 
 /**
