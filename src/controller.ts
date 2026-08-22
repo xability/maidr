@@ -157,6 +157,7 @@ export class Controller implements Disposable {
       this.displayService,
       this.brailleService,
       this.notificationService,
+      this.textService,
       this.figure,
     );
     this.descriptionService = new DescriptionService(this.context, this.displayService);

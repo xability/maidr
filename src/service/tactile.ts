@@ -2,12 +2,13 @@ import type { Figure } from '@model/plot';
 import type { Disposable } from '@type/disposable';
 import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
-import type { FigureState, HighlightState, NonEmptyTraceState, SubplotState, TextState, TraceState } from '@type/state';
+import type { FigureState, HighlightState, NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
 import type { TactileScene } from '@util/tactile/render';
 import type { ClientRect, PanDirection } from '@util/tactile/viewport';
 import type { BrailleService } from './braille';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
+import type { TextService } from './text';
 import { TactileBraille } from '@util/tactile/brailleText';
 import { DotPack } from '@util/tactile/pack';
 import { DotRaster } from '@util/tactile/raster';
@@ -23,23 +24,36 @@ import { dotPadSession } from './dotPadSession';
 type TactileStateUnion = SubplotState | TraceState | FigureState;
 
 /**
- * How hardware keys move the tactile view.
+ * How hardware keys move the pin graphic.
  *
  * The display's own panning keys pan horizontally, which is what a reader
- * reaches for first, and function keys 1 and 4 — the outermost pair, at the two
- * ends of the row — pan vertically. Putting all four on the device means a
- * zoomed-in reader can cross the whole chart without taking a hand off it.
+ * reaches for first, and the two inner function keys pan vertically — together
+ * they let a zoomed-in reader cross the whole chart without taking a hand off
+ * it. The outer function keys are left for the text line below, so the two
+ * things a reader scrolls have their own pairs of keys and neither steals the
+ * other's.
  */
 const KEY_PAN: Readonly<Partial<Record<DotPadKey, PanDirection>>> = {
   panLeft: 'left',
   panRight: 'right',
-  function1: 'up',
-  function4: 'down',
+  function2: 'up',
+  function3: 'down',
+};
+
+/**
+ * How hardware keys move along the braille text line.
+ *
+ * The line carries the same description review mode reads out, which runs well
+ * past twenty cells, so it has to be scrollable in its own right.
+ */
+const KEY_TEXT_SCROLL: Readonly<Partial<Record<DotPadKey, number>>> = {
+  function1: -1,
+  function4: 1,
 };
 
 /**
  * Draws the focused chart onto a connected tactile display, and puts the
- * focused value on its braille text line.
+ * focused point's description on its braille text line.
  *
  * The display mirrors braille mode: it comes up when the reader turns braille
  * on and goes down when they turn it off, so there is one mental switch for
@@ -63,6 +77,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private readonly display: DisplayService;
   private readonly braille: BrailleService;
   private readonly notification: NotificationService;
+  private readonly text: TextService;
 
   private figure: Figure;
 
@@ -91,6 +106,18 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private lastText: string | null = null;
 
   /**
+   * The full description of the focused point, translated to braille cells.
+   * Kept whole so the reader can scroll along a line that runs past the
+   * device's width.
+   */
+  private textCells: number[] = [];
+
+  /**
+   * Which slice of {@link textCells} is on the line.
+   */
+  private textWindow = 0;
+
+  /**
    * The chart's drawable shapes, and the region they were collected from.
    *
    * Walking the SVG and measuring every shape costs a layout pass, and this
@@ -108,17 +135,20 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param display - Provides the chart's DOM root
    * @param braille - Supplies the braille on/off state this display mirrors
    * @param notification - Announces zoom, pan and connection changes
+   * @param text - Formats the description the braille text line carries
    * @param figure - The figure being displayed, for locating the active subplot
    */
   public constructor(
     display: DisplayService,
     braille: BrailleService,
     notification: NotificationService,
+    text: TextService,
     figure: Figure,
   ) {
     this.display = display;
     this.braille = braille;
     this.notification = notification;
+    this.text = text;
     this.figure = figure;
 
     this.disposables.push(braille.onToggle((event) => {
@@ -154,6 +184,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.viewport = null;
     this.lastRaster = null;
     this.lastText = null;
+    this.textCells = [];
+    this.textWindow = 0;
     this.shapeCache = null;
   }
 
@@ -274,10 +306,51 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param key - The key the device reported
    */
   private handleDeviceKey(key: DotPadKey): void {
-    const direction = KEY_PAN[key];
-    if (direction !== undefined && this.isActive) {
-      this.pan(direction);
+    if (!this.isActive) {
+      return;
     }
+
+    const direction = KEY_PAN[key];
+    if (direction !== undefined) {
+      this.pan(direction);
+      return;
+    }
+
+    const step = KEY_TEXT_SCROLL[key];
+    if (step !== undefined) {
+      this.scrollText(step);
+    }
+  }
+
+  /**
+   * Moves along the braille text line by one window.
+   *
+   * The device reports its keys but never scrolls its own buffer, so each
+   * window is re-sent from the first cell of the line.
+   *
+   * @param step - Windows to move; negative moves back toward the start
+   */
+  public scrollText(step: number): void {
+    const cellCount = dotPadSession.geometry?.textCells ?? 0;
+    if (!this.isActive || cellCount <= 0) {
+      return;
+    }
+
+    const lastWindow = TactileBraille.windowCount(this.textCells, cellCount) - 1;
+    if (lastWindow <= 0) {
+      this.notification.notify('The whole line is already shown');
+      return;
+    }
+
+    const next = Math.min(Math.max(this.textWindow + step, 0), lastWindow);
+    if (next === this.textWindow) {
+      this.notification.notify(step < 0 ? 'Start of the line' : 'End of the line');
+      return;
+    }
+
+    this.textWindow = next;
+    this.writeTextWindow(cellCount);
+    this.notification.notify(`Line part ${next + 1} of ${lastWindow + 1}`);
   }
 
   /**
@@ -442,7 +515,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     );
 
     this.send(raster, geometry.cellColumns, geometry.cellRows);
-    this.sendText(state.text, geometry.textCells);
+    this.sendText(state, geometry.textCells);
   }
 
   /**
@@ -479,45 +552,41 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
-   * Formats one axis value for the text line.
-   * @param value - The value as the trace reported it
-   */
-  private static formatValue(value: number | number[] | string | string[]): string {
-    if (Array.isArray(value)) {
-      return value.map(entry => TactileService.formatValue(entry)).join(' ');
-    }
-    if (typeof value === 'number') {
-      return Number.isFinite(value) ? String(Number.parseFloat(value.toFixed(4))) : '';
-    }
-    return value;
-  }
-
-  /**
-   * Puts the focused point's values on the braille text line.
+   * Puts the focused point's description on the braille text line.
    *
-   * Values only, without their axis labels. The labels do not change as the
-   * reader navigates, so repeating them would spend most of a twenty-cell line
-   * restating what the reader already knows; the labels are carried by speech
-   * and by the braille panel instead.
+   * The description is the same one review mode reads out, verbatim — one
+   * account of the focused point rather than a separate abbreviated phrasing
+   * for the device, so what a reader meets under their fingers matches what
+   * they hear and what review shows.
    *
-   * @param text - The focused point's labels and values
+   * It runs well past twenty cells, so only the first window goes out and the
+   * reader scrolls the rest with the device's outer function keys.
+   *
+   * @param state - The focused trace state
    * @param cellCount - Cells on the device's text line
    */
-  private sendText(text: TextState, cellCount: number): void {
+  private sendText(state: NonEmptyTraceState, cellCount: number): void {
     if (cellCount <= 0) {
       return;
     }
 
-    const parts = [
-      TactileService.formatValue(text.main.value),
-      TactileService.formatValue(text.cross.value),
-    ];
-    if (text.z !== undefined) {
-      parts.push(TactileService.formatValue(text.z.value));
-    }
+    this.textCells = TactileBraille.toCells(this.text.format(state));
+    // Back to the start on every move: the line now describes a different
+    // point, and leaving the window where it was would drop the reader into
+    // the middle of a sentence they have not read the beginning of.
+    this.textWindow = 0;
+    this.writeTextWindow(cellCount);
+  }
 
-    const cells = TactileBraille.toCells(parts.filter(part => part !== '').join(' '));
-    const hex = DotPack.brailleCells(TactileBraille.window(cells, cellCount, 0), cellCount);
+  /**
+   * Sends the current window of the text line, skipping an unchanged payload.
+   * @param cellCount - Cells on the device's text line
+   */
+  private writeTextWindow(cellCount: number): void {
+    const hex = DotPack.brailleCells(
+      TactileBraille.window(this.textCells, cellCount, this.textWindow),
+      cellCount,
+    );
     if (hex === this.lastText) {
       return;
     }
@@ -538,6 +607,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     dotPadSession.writeGraphic(DotPack.graphic(blank, geometry.cellColumns, geometry.cellRows));
     if (geometry.textCells > 0) {
       const blankText = DotPack.brailleCells([], geometry.textCells);
+      this.textCells = [];
+      this.textWindow = 0;
       this.lastText = blankText;
       dotPadSession.writeText(blankText);
     }
@@ -559,6 +630,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.disposables.length = 0;
     this.lastRaster = null;
     this.lastText = null;
+    this.textCells = [];
+    this.textWindow = 0;
     this.lastState = null;
     this.viewport = null;
     this.shapeCache = null;

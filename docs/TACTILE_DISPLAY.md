@@ -83,12 +83,16 @@ the device itself, without taking a hand off it:
 | ---------- | -------------------- |
 | Pan left   | Panning Left         |
 | Pan right  | Panning Right        |
-| Pan up     | Function 1           |
-| Pan down   | Function 4           |
+| Pan up     | Function 2           |
+| Pan down   | Function 3           |
 
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
 silently.
+
+The two inner function keys move the picture and the two outer ones move the
+braille line below it, so the two things you scroll never take each other's
+keys.
 
 Navigation also pans on its own, but only when it has to: if an arrow key takes
 the focus off the visible window, the view recentres on it. A pan you chose
@@ -96,14 +100,22 @@ deliberately is left alone for as long as it still shows the mark you are on.
 
 ### The braille line
 
-The device's braille text line shows the **values** of the focused point — the
-main value, the cross value, and the third value where a chart has one — without
-their axis labels.
+The device's braille text line carries the **description of the focused point** —
+the same one review mode (<kbd>R</kbd>) reads out, verbatim. There is one
+account of where you are, whether you hear it, read it in review, or meet it
+under your fingers.
 
-The labels do not change as you navigate, so repeating them would spend most of
-a twenty-cell line restating what you already know. Speech and the braille panel
-carry the labels. When the values still overrun the line, the final cell shows
-dots 7 and 8 to say the text continues.
+That description runs well past twenty cells, so the line scrolls:
+
+| Action              | Device key  |
+| ------------------- | ----------- |
+| Back along the line | Function 1  |
+| On along the line   | Function 4  |
+
+When more text follows, the final cell shows dots 7 and 8. MAIDR announces
+which part of the line you are on, and says so rather than moving silently when
+you reach either end. Moving to another data point returns the line to its
+start, since it now describes something else.
 
 MAIDR translates with its own uncontracted (grade 1) table rather than a
 translation library, so the line keeps working with nothing else installed.

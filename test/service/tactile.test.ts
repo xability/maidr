@@ -51,6 +51,7 @@ import type { Figure } from '@model/plot';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { DotPadGeometry, DotPadKey, DotPadState } from '@type/dotPad';
 import type { NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
@@ -60,6 +61,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@je
 import { dotPadSession } from '@service/dotPadSession';
 import { TactileService } from '@service/tactile';
 import { Emitter } from '@type/event';
+import { TactileBraille } from '@util/tactile/brailleText';
+import { DotPack } from '@util/tactile/pack';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 
 jest.mock('@service/dotPadSession', () => {
@@ -286,6 +289,8 @@ describe('tactileService', () => {
   let chart: Chart;
   let notification: NotificationService;
   let notify: jest.Mock<(text: string) => void>;
+  let textService: TextService;
+  let format: jest.Mock<(state: NonEmptyTraceState) => string>;
   let brailleStub: { isEnabled: boolean; onToggle: BrailleService['onToggle'] };
   let toggle: Emitter<{ enabled: boolean; state: TraceState }>;
   let service: TactileService;
@@ -304,13 +309,21 @@ describe('tactileService', () => {
     chart = createChart();
     notify = jest.fn();
     notification = { notify } as unknown as NotificationService;
+    // The line carries whatever review mode would read out, so the stub stands
+    // in for TextService the same way review does — one description per state,
+    // long enough that it needs more than one window on a 20-cell line.
+    format = jest.fn((state: NonEmptyTraceState) =>
+      `${state.text.main.label} is ${String(state.text.main.value)}, `
+      + `${state.text.cross.label} is ${String(state.text.cross.value)}, `
+      + `in the bar plot of units sold by fruit`);
+    textService = { format } as unknown as TextService;
     toggle = new Emitter<{ enabled: boolean; state: TraceState }>();
     brailleStub = { isEnabled: false, onToggle: toggle.event };
 
     const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
     const display = { plot: chart.plot } as unknown as DisplayService;
 
-    service = new TactileService(display, braille, notification, createFigure(chart.axes));
+    service = new TactileService(display, braille, notification, textService, createFigure(chart.axes));
   });
 
   afterEach(() => {
@@ -433,7 +446,7 @@ describe('tactileService', () => {
       const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
       const display = { plot: chart.plot } as unknown as DisplayService;
       service.dispose();
-      service = new TactileService(display, braille, notification, createFigure(null));
+      service = new TactileService(display, braille, notification, textService, createFigure(null));
 
       activate();
 
@@ -486,6 +499,82 @@ describe('tactileService', () => {
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
       expect(session.writeText).not.toHaveBeenCalled();
+    });
+
+    it('should carry the same description review mode reads out', () => {
+      activate();
+
+      // Not a separate abbreviated phrasing for the device: what the reader
+      // meets under their fingers is the account review shows, verbatim.
+      expect(format).toHaveBeenCalled();
+      const described = format.mock.results[0].value as string;
+      const expected = DotPack.brailleCells(
+        TactileBraille.window(TactileBraille.toCells(described), GEOMETRY.textCells, 0),
+        GEOMETRY.textCells,
+      );
+      expect(session.writeText).toHaveBeenCalledWith(expected);
+    });
+
+    it('should scroll forward through the line on function key 4', () => {
+      activate();
+      const first = session.writeText.mock.calls[0][0];
+      notify.mockClear();
+
+      session.fireKey('function4');
+
+      expect(session.writeText).toHaveBeenCalledTimes(2);
+      expect(session.writeText.mock.calls[1][0]).not.toBe(first);
+      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 2 of'));
+    });
+
+    it('should scroll back through the line on function key 1', () => {
+      activate();
+      session.fireKey('function4');
+      const second = session.writeText.mock.calls[1][0];
+      notify.mockClear();
+
+      session.fireKey('function1');
+
+      expect(session.writeText.mock.calls[2][0]).not.toBe(second);
+      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 1 of'));
+    });
+
+    it('should say when there is no more line in that direction', () => {
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function1');
+
+      expect(notify).toHaveBeenCalledWith('Start of the line');
+    });
+
+    it('should say the whole line is shown when it fits the device', () => {
+      format.mockReturnValue('a');
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function4');
+
+      expect(notify).toHaveBeenCalledWith('The whole line is already shown');
+    });
+
+    it('should return to the start of the line on the next navigation move', () => {
+      activate();
+      session.fireKey('function4');
+      const firstWindow = session.writeText.mock.calls[0][0];
+      session.writeText.mockClear();
+
+      service.update(traceState(chart, 0, 'c', 56));
+
+      // A move describes a different point; leaving the window where it was
+      // would drop the reader into the middle of a sentence.
+      expect(session.writeText).toHaveBeenCalledTimes(1);
+      const described = format.mock.results[format.mock.results.length - 1].value as string;
+      expect(session.writeText.mock.calls[0][0]).toBe(DotPack.brailleCells(
+        TactileBraille.window(TactileBraille.toCells(described), GEOMETRY.textCells, 0),
+        GEOMETRY.textCells,
+      ));
+      expect(session.writeText.mock.calls[0][0]).not.toBe(firstWindow);
     });
   });
 
@@ -559,24 +648,36 @@ describe('tactileService', () => {
       expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 33% across and 50% down');
     });
 
-    it('should pan up on function key 1', () => {
+    it('should pan up on function key 2', () => {
       activate();
       service.zoomIn();
       notify.mockClear();
 
-      session.fireKey('function1');
+      session.fireKey('function2');
 
       expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 50% across and 33% down');
     });
 
-    it('should pan down on function key 4', () => {
+    it('should pan down on function key 3', () => {
       activate();
       service.zoomIn();
       notify.mockClear();
 
-      session.fireKey('function4');
+      session.fireKey('function3');
 
       expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 50% across and 67% down');
+    });
+
+    it('should leave the graphic alone on the text-line scroll keys', () => {
+      activate();
+      service.zoomIn();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      session.fireKey('function4');
+
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
     });
 
     it('should say there is nothing more that way at the edge of the plot', () => {
@@ -605,7 +706,7 @@ describe('tactileService', () => {
       notify.mockClear();
       session.writeGraphic.mockClear();
 
-      session.fireKey('function2');
+      session.fireKey('panAll' as DotPadKey);
 
       expect(notify).not.toHaveBeenCalled();
       expect(session.writeGraphic).not.toHaveBeenCalled();
