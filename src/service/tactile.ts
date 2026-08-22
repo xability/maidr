@@ -176,6 +176,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         this.lastRaster = null;
         this.lastText = null;
         this.shapeCache = null;
+        // Rebuilt rather than kept: a different device reports a different pin
+        // count, and a viewport still mapped to the old grid would quietly
+        // drop everything past the new one's edge.
+        this.viewport = null;
         this.refresh();
       }
     }));
@@ -218,7 +222,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     try {
-      this.draw(state);
+      this.draw(state, true);
     } catch (error) {
       // A hardware or geometry failure must not break the navigation the
       // reader is in the middle of; the audio and text channels carry on.
@@ -231,8 +235,23 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * navigation move — a zoom step, a pan, or the device connecting.
    */
   public refresh(): void {
-    if (this.lastState !== null) {
-      this.update(this.lastState);
+    this.redraw(true);
+  }
+
+  /**
+   * Redraws from the last known state.
+   * @param followFocus - Whether a focus outside the view should recentre it;
+   * false for a redraw the reader asked for by panning or zooming
+   */
+  private redraw(followFocus: boolean): void {
+    const state = this.lastState;
+    if (state === null || !this.isActive) {
+      return;
+    }
+    try {
+      this.draw(state, followFocus);
+    } catch (error) {
+      console.error('Tactile render failed:', error instanceof Error ? error.message : error);
     }
   }
 
@@ -268,7 +287,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.notification.notify(refusal);
       return;
     }
-    this.refresh();
+    this.redraw(false);
     this.notification.notify(viewport.describe());
   }
 
@@ -291,7 +310,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         : `No more to show to the ${direction}`);
       return;
     }
-    this.refresh();
+    this.redraw(false);
     this.notification.notify(viewport.describe());
   }
 
@@ -480,7 +499,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
    */
-  private draw(state: NonEmptyTraceState): void {
+  private draw(state: NonEmptyTraceState, followFocus: boolean): void {
     const geometry = dotPadSession.geometry;
     const region = this.findRegionElement();
     if (geometry === null || region === null) {
@@ -500,12 +519,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     const focused = TactileService.focusedElements(state.highlight);
 
-    // Follow the focus only when it has left the view. Recentring on every move
-    // would keep overriding a pan the reader chose deliberately, while it still
-    // showed what they were pointing at.
-    const focusBounds = TactileService.boundsOf(focused);
-    if (focusBounds !== null && !this.viewport.containsRect(focusBounds)) {
-      this.viewport.centreOn(focusBounds);
+    // Follow the focus only when a navigation move took it off the view, and
+    // never on the redraw a pan or zoom asks for. Panning is what moves the
+    // focus out of view, so recentring here would undo the reader's own pan on
+    // the very redraw it triggered — and for a mark bigger than the window,
+    // which can never be contained, panning would never move at all while
+    // still announcing that it had.
+    if (followFocus) {
+      const focusBounds = TactileService.boundsOf(focused);
+      if (focusBounds !== null && !this.viewport.containsRect(focusBounds)) {
+        this.viewport.centreOn(focusBounds);
+      }
     }
 
     const scene: TactileScene = {
@@ -601,6 +625,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.textCells = hex === null
         ? TactileBraille.toCells(description)
         : TactileService.cellsFromHex(hex);
+      // Back to the start again: a scroll key pressed while this was in flight
+      // moved the window, and honouring it would open the new description
+      // partway through a sentence the reader has not met the start of.
+      this.textWindow = 0;
       this.writeTextWindow(cellCount);
     });
   }

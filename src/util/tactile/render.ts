@@ -148,8 +148,10 @@ export abstract class TactileRenderer {
   /**
    * Renders a scene to a new pin buffer.
    *
-   * The focused mark is drawn last so its fill covers any outline a
-   * neighbouring mark laid over the same pins.
+   * Every primitive raises pins and none lowers them, so drawing is a union
+   * and the order marks are drawn in does not change the result. The focused
+   * mark still goes last, for the reader of this code rather than the reader
+   * of the display: it is what the frame is about.
    *
    * @param scene - The marks, the focus and the data region
    * @param viewport - The active zoom and pan

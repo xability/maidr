@@ -134,13 +134,36 @@ describe('dotRaster', () => {
       expect(columnsWithPins).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     });
 
-    it('should terminate instead of hanging when an endpoint is NaN', () => {
+    it('should draw nothing when an endpoint is not a number', () => {
       const raster = new DotRaster(12, 12);
 
       raster.line(0, 0, Number.NaN, 5);
 
-      expect(raster.get(0, 0)).toBe(true);
-      expect(raster.raisedCount).toBe(1);
+      // A line to an unknown endpoint has no path, so raising the pin it
+      // happened to start from would put a mark on the display that stands
+      // for nothing in the chart.
+      expect(raster.raisedCount).toBe(0);
+    });
+
+    it('should draw the visible part of a line that starts far off the buffer', () => {
+      const raster = new DotRaster(60, 40);
+
+      raster.line(-300, 20, 420, 20);
+
+      // Zooming in projects chart geometry a long way outside the display, so
+      // most lines crossing the view arrive from well off one edge. Bounding
+      // the plot by the buffer size drops those entirely: this raised nothing
+      // at all before the endpoints were checked for finiteness instead.
+      expect(columnsHoldingAPin(raster)).toHaveLength(60);
+    });
+
+    it('should draw a line that leaves the buffer partway across', () => {
+      const raster = new DotRaster(60, 40);
+
+      raster.line(30, 20, 900, 20);
+
+      expect(raster.get(30, 20)).toBe(true);
+      expect(raster.get(59, 20)).toBe(true);
     });
   });
 

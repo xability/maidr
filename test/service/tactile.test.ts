@@ -355,6 +355,14 @@ describe('tactileService', () => {
     return state;
   }
 
+  /**
+   * The most recent thing said, which for a zoom or a pan is the new position.
+   */
+  function lastAnnouncement(): string {
+    const calls = notify.mock.calls;
+    return calls[calls.length - 1][0];
+  }
+
   describe('braille toggle', () => {
     it('should draw the focused chart when braille is turned on', () => {
       session.isConnected = true;
@@ -447,6 +455,33 @@ describe('tactileService', () => {
 
       expect(session.writeGraphicRow).toHaveBeenCalled();
       expect(session.writeGraphic).not.toHaveBeenCalled();
+    });
+
+    it('should follow the focus onto a mark an arrow key took off the view', () => {
+      // The counterpart to the pan tests: a pan the reader chose is left
+      // alone, but a move they made with the arrow keys has to bring the view
+      // with it, or the mark being described is not on the pins at all.
+      activate(0);
+      service.zoomIn();
+      notify.mockClear();
+
+      service.update(traceState(chart, 2));
+      session.fireKey('panLeft');
+
+      expect(lastAnnouncement()).toBe('Zoom 1.5x, centred 33% across and 67% down');
+    });
+
+    it('should leave the view alone when the focus is still on it', () => {
+      activate(1);
+      service.zoomIn();
+      session.fireKey('panLeft');
+      const panned = lastAnnouncement();
+
+      service.update(traceState(chart, 1, 'b', 13));
+      session.fireKey('function2');
+
+      expect(lastAnnouncement()).not.toBe(panned);
+      expect(lastAnnouncement()).toBe('Zoom 1.5x, centred 33% across and 33% down');
     });
 
     it('should fall back to the whole SVG when the subplot exposes no axes element', () => {
@@ -795,6 +830,39 @@ describe('tactileService', () => {
 
       expect(notify).not.toHaveBeenCalled();
       expect(session.writeGraphic).not.toHaveBeenCalled();
+    });
+
+    it('should keep a pan step that leaves the focused mark behind', () => {
+      // Mark 0 sits at the left edge, so panning right takes it off the view.
+      // The view has to stay where the reader put it: a redraw that follows
+      // the focus undoes the very pan that asked for it, and the second step
+      // then announces the same position as the first.
+      activate(0);
+      service.zoomIn();
+      service.zoomIn();
+      service.zoomIn();
+      notify.mockClear();
+
+      session.fireKey('panRight');
+      const first = lastAnnouncement();
+      session.fireKey('panRight');
+
+      expect(first).toBe('Zoom 3x, centred 67% across and 50% down');
+      expect(lastAnnouncement()).toBe('Zoom 3x, centred 83% across and 50% down');
+    });
+
+    it('should pan a mark larger than the window', () => {
+      // A mark filling the plot can never fit a zoomed window, so following
+      // the focus on every redraw would pin the view to it for good — every
+      // pan announcing a move it had not made.
+      stubRect(chart.marks[1], REGION);
+      activate();
+      service.zoomIn();
+      notify.mockClear();
+
+      session.fireKey('panRight');
+
+      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 50% down');
     });
   });
 

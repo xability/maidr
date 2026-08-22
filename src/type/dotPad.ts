@@ -35,9 +35,10 @@ export interface DotPadGeometry {
 /**
  * Hardware keys MAIDR responds to.
  *
- * The panning keys pan the tactile view horizontally and function keys 1 and 4
- * pan it vertically, which together let a reader reach the whole chart while
- * zoomed in without leaving the display.
+ * The panning keys pan the tactile view horizontally and the inner function
+ * keys pan it vertically, which together let a reader reach the whole chart
+ * while zoomed in without leaving the display. The outer function keys scroll
+ * the braille text line below it.
  */
 export type DotPadKey = 'panLeft' | 'panRight' | 'function1' | 'function2' | 'function3' | 'function4';
 

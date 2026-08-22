@@ -149,15 +149,26 @@ export class DotRaster {
     const endX = Math.round(x1);
     const endY = Math.round(y1);
 
+    // Reject non-finite endpoints up front rather than bounding the loop. A
+    // cap sized to the buffer looks like it only stops a NaN, but a zoomed-in
+    // view projects geometry far outside the display: a line entering from
+    // well off one edge exhausts the cap before it arrives and draws nothing
+    // at all, so rect edges and axis lines crossing the view simply vanish.
+    if (!Number.isFinite(x) || !Number.isFinite(y)
+      || !Number.isFinite(endX) || !Number.isFinite(endY)) {
+      return;
+    }
+
     const dx = Math.abs(endX - x);
     const dy = -Math.abs(endY - y);
     const stepX = x < endX ? 1 : -1;
     const stepY = y < endY ? 1 : -1;
     let error = dx + dy;
 
-    // Bounded by the buffer diagonal so a NaN coordinate cannot spin forever.
-    const limit = (this.width + this.height) * 2;
-    for (let guard = 0; guard <= limit; guard++) {
+    // One step per pin along the longer axis is exactly how many Bresenham
+    // needs, so this ends the loop rather than truncating the line.
+    const steps = Math.max(dx, -dy);
+    for (let guard = 0; guard <= steps; guard++) {
       this.set(x, y, on);
       if (x === endX && y === endY) {
         return;
@@ -350,9 +361,10 @@ export class DotRaster {
   /**
    * Flips every pin inside a rectangle.
    *
-   * Inversion is how the focused mark is distinguished from its neighbours: a
-   * tactile "hole" in an otherwise solid shape is easier to find with a
-   * fingertip than a shape that is merely denser than the ones beside it.
+   * Not currently how focus is drawn — the renderer fills the focused mark
+   * instead, which reads as solid among hollow neighbours. Kept because it is
+   * the other way of marking a region on a one-bit display, and the choice
+   * between them is worth being able to revisit against real hardware.
    *
    * @param x0 - Left dot column (inclusive)
    * @param y0 - Top dot row (inclusive)
