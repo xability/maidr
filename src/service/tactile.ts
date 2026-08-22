@@ -118,6 +118,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private textWindow = 0;
 
   /**
+   * Counts translation requests so a slow one cannot overwrite the line with
+   * the description of a point the reader has already moved off.
+   */
+  private textRequest = 0;
+
+  /**
    * The chart's drawable shapes, and the region they were collected from.
    *
    * Walking the SVG and measuring every shape costs a layout pass, and this
@@ -186,6 +192,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.lastText = null;
     this.textCells = [];
     this.textWindow = 0;
+    this.textRequest++;
     this.shapeCache = null;
   }
 
@@ -570,12 +577,46 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
 
-    this.textCells = TactileBraille.toCells(this.text.format(state));
+    const description = this.text.format(state);
     // Back to the start on every move: the line now describes a different
     // point, and leaving the window where it was would drop the reader into
     // the middle of a sentence they have not read the beginning of.
     this.textWindow = 0;
-    this.writeTextWindow(cellCount);
+    const request = ++this.textRequest;
+
+    if (!dotPadSession.canTranslate) {
+      this.textCells = TactileBraille.toCells(description);
+      this.writeTextWindow(cellCount);
+      return;
+    }
+
+    // Contracted braille comes from the device's own engine, so nothing is
+    // written until it answers. The wait is a few milliseconds against a
+    // graphic frame that costs a second, and writing uncontracted cells first
+    // would spend a device write on a line about to be replaced.
+    void dotPadSession.translate(description).then((hex) => {
+      if (request !== this.textRequest) {
+        return;
+      }
+      this.textCells = hex === null
+        ? TactileBraille.toCells(description)
+        : TactileService.cellsFromHex(hex);
+      this.writeTextWindow(cellCount);
+    });
+  }
+
+  /**
+   * Reads a hex braille payload back into cell patterns, so a translated line
+   * windows and scrolls exactly like a locally translated one.
+   * @param hex - Hex braille cells, two characters each
+   */
+  private static cellsFromHex(hex: string): number[] {
+    const cells: number[] = [];
+    for (let i = 0; i + 1 < hex.length; i += 2) {
+      const cell = Number.parseInt(hex.slice(i, i + 2), 16);
+      cells.push(Number.isNaN(cell) ? 0 : cell);
+    }
+    return cells;
   }
 
   /**
@@ -609,6 +650,9 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       const blankText = DotPack.brailleCells([], geometry.textCells);
       this.textCells = [];
       this.textWindow = 0;
+      // Any translation still in flight would otherwise land on a display the
+      // reader has just switched off.
+      this.textRequest++;
       this.lastText = blankText;
       dotPadSession.writeText(blankText);
     }
@@ -632,6 +676,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.lastText = null;
     this.textCells = [];
     this.textWindow = 0;
+    this.textRequest++;
     this.lastState = null;
     this.viewport = null;
     this.shapeCache = null;

@@ -134,6 +134,9 @@ export interface DotPadVendorSdk {
     displayMode: string,
     device?: DotPadVendorDevice | null,
   ) => void;
+  setBrailleLanguage: (language: unknown, gradeOption?: number | null) => void;
+  setNumberOfBraillePerLine: (count: number) => void;
+  translateText: (inputText: string, applyWordWrap?: boolean) => Promise<string>;
   setCallBack: (
     messageCallBack: ((device: DotPadVendorDevice, dataCode: string, msg: string) => void) | null,
     keyCallBack: ((device: DotPadVendorDevice, keyCode: string, msg: string) => void) | null,
@@ -143,9 +146,36 @@ export interface DotPadVendorSdk {
 }
 
 /**
+ * The vendor SDK's braille-translation surface.
+ *
+ * Optional, and checked at runtime rather than required: a host page may supply
+ * an older SDK build without it, and the braille line has to keep working when
+ * it does. MAIDR falls back to its own uncontracted table in that case.
+ */
+export interface DotPadVendorTranslation {
+  /**
+   * Language table entries, keyed by display name -- `English`, `한국어`, and
+   * the rest. Passed straight back to `setBrailleLanguage`; MAIDR never looks
+   * inside one.
+   */
+  BrailleLanguage?: Readonly<Record<string, unknown>>;
+
+  /**
+   * Contraction grades, positional per language.
+   */
+  GradeOption?: Readonly<{ Grade1: number; Grade2: number; Grade3: number }>;
+
+  /**
+   * Points the SDK's liblouis build at the directory serving its `.js`,
+   * `.wasm` and `.data` files.
+   */
+  LiblouisManager?: { setAssetBaseUrl: (url: string) => void };
+}
+
+/**
  * The module shape MAIDR expects the vendor SDK to expose.
  */
-export interface DotPadVendorModule {
+export interface DotPadVendorModule extends DotPadVendorTranslation {
   DotPadSDK: new () => DotPadVendorSdk;
   DotPadScanner: new () => DotPadVendorScanner;
 }

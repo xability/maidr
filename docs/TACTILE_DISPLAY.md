@@ -59,9 +59,18 @@ the chart works exactly as before.
 
 ### The SDK
 
-MAIDR does not bundle the vendor's SDK; it discovers one the host page
-provides, as `window.DotPadSDK` or through a module URL. Host pages that want
-the feature load the SDK themselves.
+MAIDR does not bundle the vendor's SDK — it ships without a licence permitting
+redistribution. Instead MAIDR loads it from the copy Dot Inc. publish
+themselves, pinned by commit so the bytes cannot change under a release.
+
+A host page that would rather serve its own copy — an air-gapped deployment, or
+one whose Content-Security-Policy admits no third-party origin — can point
+MAIDR at it, or expose the SDK as `window.DotPadSDK`, and nothing is fetched:
+
+```js
+dotPadSession.setModuleUrl('/vendor/DotPadSDK-3.0.2.js');
+dotPadSession.setAssetBaseUrl('/vendor/lib/');
+```
 
 ## Using the display
 
@@ -138,8 +147,20 @@ which part of the line you are on, and says so rather than moving silently when
 you reach either end. Moving to another data point returns the line to its
 start, since it now describes something else.
 
-MAIDR translates with its own uncontracted (grade 1) table rather than a
-translation library, so the line keeps working with nothing else installed.
+### Contracted braille
+
+The line is translated into **UEB grade 2** by the device SDK's own braille
+engine. On twenty cells the contractions are not a nicety — they are most of
+the difference between a value fitting and having to be panned for.
+
+The engine (liblouis) is fetched alongside the SDK rather than bundled; it is
+about 14 MB, which a single inlined bundle cannot carry. It downloads once and
+is then cached by the browser.
+
+Where it cannot be reached — no network, a Content-Security-Policy that blocks
+it, an older SDK build without the translation surface — MAIDR falls back to
+its own uncontracted (grade 1) table. That is worse to read, but the line never
+goes blank for want of a translator.
 
 ## What the display does not show
 

@@ -82,7 +82,26 @@ interface VendorHooks {
   connectDevice: () => Promise<DotPadVendorDevice | null | undefined>;
   onGraphic: () => void;
   onText: () => Promise<void> | void;
+  translate: (text: string) => Promise<string>;
 }
+
+/**
+ * What the SDK was told about braille translation, and what it was asked to
+ * translate.
+ */
+interface Translation {
+  language: unknown;
+  grade: number | null;
+  perLine: number | null;
+  assetBaseUrl: string | null;
+  requests: { text: string; wordWrap?: boolean }[];
+}
+
+/**
+ * Stands in for a `BrailleLanguage` entry. MAIDR passes these straight back to
+ * the SDK without looking inside, so an opaque marker is the honest fake.
+ */
+const ENGLISH_TABLE = { name: 'English' };
 
 /**
  * A fake vendor module plus everything the assertions need to see through it.
@@ -93,6 +112,7 @@ interface Vendor {
   readonly writes: RecordedWrite[];
   readonly disconnected: (DotPadVendorDevice | null | undefined)[];
   readonly counts: { sdks: number; scanners: number; scans: number; bleScans: number; usbScans: number; bleConnects: number; usbConnects: number };
+  readonly translation: Translation;
   fireMessage: (dataCode: string, device?: DotPadVendorDevice) => void;
   fireKeyDown: (key: string) => void;
 }
@@ -123,6 +143,13 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
   const writes: RecordedWrite[] = [];
   const disconnected: (DotPadVendorDevice | null | undefined)[] = [];
   const counts = { sdks: 0, scanners: 0, scans: 0, bleScans: 0, usbScans: 0, bleConnects: 0, usbConnects: 0 };
+  const translation: Translation = {
+    language: undefined,
+    grade: null,
+    perLine: null,
+    assetBaseUrl: null,
+    requests: [],
+  };
   let messageCallback: MessageCallback | null = null;
   let keyDownCallback: KeyDownCallback | null = null;
 
@@ -131,6 +158,7 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
     connectDevice: (): Promise<DotPadVendorDevice | null | undefined> => Promise.resolve(device),
     onGraphic: (): void => {},
     onText: (): Promise<void> | void => {},
+    translate: (): Promise<string> => Promise.resolve('1e15'),
   };
 
   class FakeScanner implements DotPadVendorScanner {
@@ -158,6 +186,20 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
 
     public getConnectedDevices(): DotPadVendorDevice[] {
       return [];
+    }
+
+    public setBrailleLanguage(language: unknown, gradeOption?: number | null): void {
+      translation.language = language;
+      translation.grade = gradeOption ?? null;
+    }
+
+    public setNumberOfBraillePerLine(count: number): void {
+      translation.perLine = count;
+    }
+
+    public translateText(inputText: string, applyWordWrap?: boolean): Promise<string> {
+      translation.requests.push({ text: inputText, wordWrap: applyWordWrap });
+      return hooks.translate(inputText);
     }
 
     public connectBleDevice(_selected: unknown): Promise<DotPadVendorDevice | null | undefined> {
@@ -206,8 +248,19 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
   }
 
   return {
-    module: { DotPadSDK: FakeSdk, DotPadScanner: FakeScanner },
+    module: {
+      DotPadSDK: FakeSdk,
+      DotPadScanner: FakeScanner,
+      BrailleLanguage: { English: ENGLISH_TABLE },
+      GradeOption: { Grade1: 1, Grade2: 2, Grade3: 3 },
+      LiblouisManager: {
+        setAssetBaseUrl: (url: string): void => {
+          translation.assetBaseUrl = url;
+        },
+      },
+    },
     hooks,
+    translation,
     writes,
     disconnected,
     counts,
@@ -378,6 +431,79 @@ describe('dotPadSession', () => {
       const session = await loadSession();
 
       expect(session.isSupported).toBe(false);
+    });
+  });
+
+  describe('braille translation', () => {
+    it('should ask the SDK for contracted braille once connected', async () => {
+      const vendor = createVendor();
+
+      const { session } = await connectSession(vendor);
+
+      // Grade 2 rather than grade 1: contractions are most of the difference
+      // between a value fitting a twenty-cell line and needing to be panned.
+      expect(vendor.translation.grade).toBe(2);
+      expect(vendor.translation.language).toBe(ENGLISH_TABLE);
+      expect(session.canTranslate).toBe(true);
+    });
+
+    it('should point the SDK at a liblouis build', async () => {
+      const vendor = createVendor();
+
+      await connectSession(vendor);
+
+      expect(vendor.translation.assetBaseUrl).toContain('lib/');
+    });
+
+    it('should translate through the SDK rather than word-wrapping there', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+
+      const hex = await session.translate('the');
+
+      // MAIDR windows the line itself against the cell count the device
+      // reported, so a wrap inserted by the SDK would fight that.
+      expect(hex).toBe('1e15');
+      expect(vendor.translation.requests).toEqual([{ text: 'the', wordWrap: false }]);
+    });
+
+    it('should report no translation when the SDK has no language tables', async () => {
+      const vendor = createVendor();
+      const bare = { DotPadSDK: vendor.module.DotPadSDK, DotPadScanner: vendor.module.DotPadScanner };
+      setNavigator({ bluetooth: {} });
+      pageScope().window = globalThis;
+      pageScope().DotPadSDK = bare;
+      const session = await loadSession();
+      await session.connect();
+
+      // An older SDK build still drives the pins; only the contracted text
+      // line is lost, and the caller falls back rather than going silent.
+      expect(session.isConnected).toBe(true);
+      expect(session.canTranslate).toBe(false);
+      expect(await session.translate('the')).toBeNull();
+    });
+
+    it('should fall back rather than throw when translation fails', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      vendor.hooks.translate = (): Promise<string> => Promise.reject(new Error('no tables'));
+
+      expect(await session.translate('the')).toBeNull();
+    });
+
+    it('should fall back when the SDK answers with nothing', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      vendor.hooks.translate = (): Promise<string> => Promise.resolve('');
+
+      expect(await session.translate('the')).toBeNull();
+    });
+
+    it('should not translate before anything is connected', async () => {
+      const session = await loadSession();
+
+      expect(session.canTranslate).toBe(false);
+      expect(await session.translate('the')).toBeNull();
     });
   });
 

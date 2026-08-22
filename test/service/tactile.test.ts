@@ -96,6 +96,8 @@ jest.mock('@service/dotPadSession', () => {
       writeText: jest.fn(),
       connect: jest.fn(),
       disconnect: jest.fn(),
+      canTranslate: false,
+      translate: jest.fn(async (_text: string): Promise<string | null> => null),
       fireKey: (key: DotPadKey): void => {
         for (const listener of Array.from(keyListeners)) {
           listener(key);
@@ -124,6 +126,8 @@ jest.mock('@util/tactile/svgGeometry', () => ({
 interface FakeSession {
   isConnected: boolean;
   geometry: DotPadGeometry | null;
+  canTranslate: boolean;
+  translate: jest.Mock<(text: string) => Promise<string | null>>;
   current: DotPadState;
   writeGraphic: jest.Mock<(hex: string) => void>;
   writeGraphicRow: jest.Mock<(cellRow: number, hex: string) => void>;
@@ -299,6 +303,9 @@ describe('tactileService', () => {
     consoleError.mockClear();
     session.isConnected = false;
     session.geometry = GEOMETRY;
+    session.canTranslate = false;
+    session.translate.mockReset();
+    session.translate.mockImplementation(async (): Promise<string | null> => null);
     session.writeGraphic.mockClear();
     session.writeGraphicRow.mockClear();
     session.writeText.mockClear();
@@ -556,6 +563,84 @@ describe('tactileService', () => {
       session.fireKey('function4');
 
       expect(notify).toHaveBeenCalledWith('The whole line is already shown');
+    });
+
+    it('should carry contracted braille from the device engine when it has one', async () => {
+      session.canTranslate = true;
+      session.translate.mockResolvedValue('1e15ff');
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(traceState(chart, 1));
+      await Promise.resolve();
+
+      // The device's own engine, not MAIDR's uncontracted table: on twenty
+      // cells the contractions are most of the difference between a value
+      // fitting and needing to be panned.
+      expect(session.translate).toHaveBeenCalledWith(format.mock.results[0].value);
+      expect(session.writeText).toHaveBeenCalledWith(
+        `1e15ff${'00'.repeat(GEOMETRY.textCells - 3)}`,
+      );
+    });
+
+    it('should fall back to its own table when the engine declines', async () => {
+      session.canTranslate = true;
+      session.translate.mockResolvedValue(null);
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(traceState(chart, 1));
+      await Promise.resolve();
+
+      // Worse to read than contracted braille, but the line must never go
+      // blank for want of a translator.
+      const described = format.mock.results[0].value as string;
+      expect(session.writeText).toHaveBeenCalledWith(DotPack.brailleCells(
+        TactileBraille.window(TactileBraille.toCells(described), GEOMETRY.textCells, 0),
+        GEOMETRY.textCells,
+      ));
+    });
+
+    it('should not let a slow translation overwrite a newer point', async () => {
+      session.canTranslate = true;
+      const pending: ((hex: string | null) => void)[] = [];
+      session.translate.mockImplementation(
+        () => new Promise<string | null>(resolve => pending.push(resolve)),
+      );
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(traceState(chart, 1, 'a', 12));
+      service.update(traceState(chart, 0, 'b', 34));
+      pending[1]?.('2222');
+      await Promise.resolve();
+      session.writeText.mockClear();
+      pending[0]?.('1111');
+      await Promise.resolve();
+
+      // The first request answers last. Writing it would put the previous
+      // point's description under the reader's fingers while the pins show
+      // the current one.
+      expect(session.writeText).not.toHaveBeenCalled();
+    });
+
+    it('should drop a translation that lands after braille is switched off', async () => {
+      session.canTranslate = true;
+      const pending: ((hex: string | null) => void)[] = [];
+      session.translate.mockImplementation(
+        () => new Promise<string | null>(resolve => pending.push(resolve)),
+      );
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+      service.update(traceState(chart, 1));
+
+      brailleStub.isEnabled = false;
+      toggle.fire({ enabled: false, state: traceState(chart, 1) });
+      session.writeText.mockClear();
+      pending[0]?.('1111');
+      await Promise.resolve();
+
+      expect(session.writeText).not.toHaveBeenCalled();
     });
 
     it('should return to the start of the line on the next navigation move', () => {

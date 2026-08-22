@@ -35,6 +35,31 @@ const VENDOR_KEYS: Readonly<Record<string, DotPadKey>> = {
 const GLOBAL_KEYS = ['DotPadSDK', 'dotPadSDK', 'DotPad'] as const;
 
 /**
+ * The vendor's own published copy of the SDK, pinned by commit.
+ *
+ * MAIDR does not bundle the SDK -- it ships without a licence permitting
+ * redistribution -- so this points at the files Dot Inc. publish themselves,
+ * mirrored by a CDN. Referencing is not redistributing, and the pin means the
+ * bytes cannot change underneath a release: this commit's `DotPadSDK-3.0.2.js`
+ * is byte-identical to the one this integration was written against.
+ *
+ * Only a default. A host page that would rather serve its own copy -- an
+ * air-gapped deployment, a page whose Content-Security-Policy admits no
+ * third-party origin -- sets {@link DotPadSession.setModuleUrl} or exposes the
+ * SDK as a global, and this is never fetched.
+ */
+const VENDOR_BASE_URL = 'https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@437210b1e5b3f4cc5aaa8db5759206067b4edd6e/Web/3.0.2';
+
+/**
+ * Language table the braille text line is translated with.
+ *
+ * Contracted braille is what a fluent reader actually reads, and on a
+ * twenty-cell line the contractions are not a nicety -- they are most of the
+ * difference between a value fitting and needing to be panned.
+ */
+const BRAILLE_LANGUAGE = 'English';
+
+/**
  * Owns the connection to a tactile display, for as long as the page lives.
  *
  * Deliberately a module-level singleton rather than a service on the MAIDR
@@ -68,6 +93,17 @@ class DotPadSession {
    * URL a host page may set to point MAIDR at the SDK module.
    */
   private moduleUrl: string | null = null;
+
+  /**
+   * Directory the SDK loads its liblouis build from, alongside the module.
+   */
+  private assetBaseUrl: string | null = null;
+
+  /**
+   * True once the SDK has been pointed at a liblouis build and a grade, so
+   * {@link translate} can be trusted to return contracted braille.
+   */
+  private translationReady = false;
 
   private state: DotPadState = {
     status: 'disconnected',
@@ -132,6 +168,30 @@ class DotPadSession {
   }
 
   /**
+   * Points the SDK's braille engine at a directory serving its liblouis build.
+   *
+   * Defaults to the `lib/` beside the module, which is where the vendor keeps
+   * it. A host serving its own copy of the SDK needs this only if it puts the
+   * engine somewhere else.
+   *
+   * @param url - Directory holding `liblouis.js`, `.wasm` and `.data`
+   */
+  public setAssetBaseUrl(url: string): void {
+    this.assetBaseUrl = url;
+  }
+
+  /**
+   * True when the braille line can be translated into contracted braille.
+   *
+   * False before the first connection, and on a page whose SDK build has no
+   * translation surface or whose liblouis assets could not be reached -- where
+   * MAIDR falls back to its own uncontracted table rather than going silent.
+   */
+  public get canTranslate(): boolean {
+    return this.translationReady && this.sdk !== null;
+  }
+
+  /**
    * Publishes a state change.
    * @param patch - Fields to change
    */
@@ -185,12 +245,9 @@ class DotPadSession {
       return global;
     }
 
-    if (this.moduleUrl === null) {
-      return null;
-    }
-
+    const url = this.moduleUrl ?? `${VENDOR_BASE_URL}/DotPadSDK-3.0.2.js`;
     try {
-      const imported: unknown = await import(/* @vite-ignore */ this.moduleUrl);
+      const imported: unknown = await import(/* @vite-ignore */ url);
       if (this.isVendorModule(imported)) {
         this.vendor = imported;
         return imported;
@@ -199,6 +256,62 @@ class DotPadSession {
       console.error('DotPad SDK could not be loaded:', error instanceof Error ? error.message : error);
     }
     return null;
+  }
+
+  /**
+   * Points the SDK's braille engine at its liblouis build and asks for
+   * contracted braille.
+   *
+   * Failure here is not fatal and is not reported to the reader: the text line
+   * falls back to MAIDR's own uncontracted table, which is worse to read but
+   * still readable, and the graphic area is unaffected.
+   *
+   * @param vendor - The loaded vendor module
+   * @param sdk - The SDK instance to configure
+   */
+  private prepareTranslation(vendor: DotPadVendorModule, sdk: DotPadVendorSdk): void {
+    const language = vendor.BrailleLanguage?.[BRAILLE_LANGUAGE];
+    const grade = vendor.GradeOption?.Grade2;
+    if (language === undefined || grade === undefined) {
+      return;
+    }
+
+    try {
+      const assets = this.assetBaseUrl ?? (this.moduleUrl === null ? `${VENDOR_BASE_URL}/lib/` : null);
+      if (assets !== null) {
+        vendor.LiblouisManager?.setAssetBaseUrl(assets);
+      }
+      sdk.setBrailleLanguage(language, grade);
+      this.translationReady = true;
+    } catch (error) {
+      console.error('DotPad braille translation unavailable:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  /**
+   * Translates text into braille cells using the device SDK's own engine.
+   *
+   * Returns null rather than throwing when translation is unavailable or
+   * fails, so the caller can fall back without having to distinguish the
+   * reasons -- from the reader's side they are the same event.
+   *
+   * @param text - The text to translate
+   * @returns Hex braille cells, or null when the caller should fall back
+   */
+  public async translate(text: string): Promise<string | null> {
+    const sdk = this.sdk;
+    if (!this.translationReady || sdk === null) {
+      return null;
+    }
+    try {
+      // Word wrap off: MAIDR windows the line itself, against the cell count
+      // the device reported, and a wrap inserted here would fight that.
+      const hex = await sdk.translateText(text, false);
+      return typeof hex === 'string' && hex !== '' ? hex : null;
+    } catch (error) {
+      console.error('DotPad braille translation failed:', error instanceof Error ? error.message : error);
+      return null;
+    }
   }
 
   /**
@@ -323,6 +436,7 @@ class DotPadSession {
       if (this.sdk === null) {
         this.sdk = sdk;
         this.registerCallbacks(sdk);
+        this.prepareTranslation(vendor, sdk);
       }
 
       const scanner = new vendor.DotPadScanner();
