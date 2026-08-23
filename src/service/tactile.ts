@@ -142,6 +142,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * underneath: a new figure, the display being switched on, or a device
    * connecting.
    */
+  /**
+   * True once this service has been torn down.
+   *
+   * The controller is disposed on focus-out, which is a 0ms timer, while
+   * taking up a display is a network round trip — so a reader who presses `b`
+   * and tabs away can easily have a newer controller running in this frame by
+   * the time the old adoption resolves. Both share the one session, so acting
+   * on that stale result would reach past this service and disturb a live one.
+   */
+  private disposed = false;
+
   private shapeCache: {
     region: Element;
     subplot: Subplot;
@@ -200,6 +211,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
             // so it has to happen here instead: otherwise the display stays
             // checked out to a chart whose panel is shut, and the next chart
             // to want it finds the device already open and gives up quietly.
+            // A newer controller may own this frame by now — focus-out
+            // disposes on a 0ms timer and this took a round trip. It shares
+            // the same session, so handing the device back here would take it
+            // from a chart that is using it.
+            if (this.disposed) {
+              return;
+            }
             if (this.braille.isEnabled) {
               this.refresh();
             } else {
@@ -858,6 +876,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * unusable in ordinary use.
    */
   public dispose(): void {
+    this.disposed = true;
     for (const disposable of this.disposables) {
       disposable.dispose();
     }

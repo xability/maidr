@@ -923,6 +923,30 @@ describe('tactileService', () => {
       expect(session.releaseIfAdopted).not.toHaveBeenCalled();
     });
 
+    it('should not take the display from a newer chart after being disposed', async () => {
+      // Focus-out disposes the controller on a 0ms timer while taking up a
+      // display is a round trip, so a reader who presses `b` and tabs away can
+      // have a newer controller running in this frame before the old adoption
+      // resolves. Both share the one session: handing the device back here
+      // would take it from the chart that now has it.
+      session.isConnected = false;
+      let settle: (adopted: boolean) => void = () => {};
+      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
+        settle = resolve;
+      }));
+
+      brailleStub.isEnabled = true;
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+      service.dispose();
+      brailleStub.isEnabled = false;
+      session.releaseIfAdopted.mockClear();
+
+      settle(true);
+      await flushMicrotasks();
+
+      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
+    });
+
     it('should hand the display back when this chart stops using it', () => {
       activate();
 
