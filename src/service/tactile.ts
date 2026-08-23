@@ -758,9 +758,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       }
     }
 
-    // Both lists come from the trace's highlight values, so the focused mark is
-    // the same object in each and the renderer's identity check pairs them:
-    // the mark the reader is on is drawn once, filled.
+    // The renderer pairs the two lists by object identity, so a mark that is
+    // also the focus is drawn once, filled, rather than outlined and then
+    // filled over. That pairing does its work where both lists come from the
+    // same place -- a bar, a point, a box, whose highlight values are the marks
+    // themselves.
+    //
+    // Where they do not, it is a no-op rather than a fault. A line's marks are
+    // its rendered path and its focus is the synthesised circle on one vertex
+    // of that path: no element is in both, so the path is outlined and the
+    // circle filled, which is the picture wanted anyway -- a line you can trace
+    // with one raised dot where you are standing on it.
     const scene: TactileScene = { marks, focused };
 
     const raster = TactileRenderer.render(
