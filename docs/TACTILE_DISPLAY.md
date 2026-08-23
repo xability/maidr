@@ -159,10 +159,16 @@ blind reader describe the same chart the same way. It is coarse; a fingertip
 separates perhaps four levels. Four levels is the difference between reading a
 heatmap and reading graph paper.
 
-Charts where fill is decoration are left alone. A bar's colour is its series,
-not its height, and texturing those would fill in the interiors that tell an
-ordinary mark from the solid focused one. maidr decides from the colours
-themselves: a trace whose marks are all one blue keeps its hollow outlines.
+Charts where fill is decoration are left alone, and so are charts that paint
+from a palette rather than a ramp. A bar's colour is its series, not its height;
+a pie's colour names the slice while the value is the angle. maidr decides from
+the colours themselves — a trace whose marks are all one blue, or that uses a
+handful of distinct hues rather than a graded scale, keeps its hollow outlines.
+
+The same principle bounds the fill: a mark that covers the whole grid is
+outlined rather than filled even when none of its edges have left it, because
+filling it would raise every pin and leave nothing to feel but the edge of the
+device.
 
 Ordinary strokes are two pins across, not one. A single-pin diagonal steps in
 pins that touch only at their corners, so a finger sweeping across it meets a

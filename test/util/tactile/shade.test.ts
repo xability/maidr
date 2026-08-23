@@ -58,24 +58,52 @@ describe('tactileShade.densities', () => {
   it('should raise more pins for a darker mark', () => {
     // Darker means denser: the eye reads a dark cell as more and a hand reads
     // a crowded one as more, so the two agree.
-    const densities = TactileShade.densities(['#ffffff', '#808080', '#000000']);
+    const densities = TactileShade.densities([
+      '#ffffff',
+      '#cccccc',
+      '#999999',
+      '#666666',
+      '#333333',
+      '#000000',
+    ]);
 
     expect(densities).not.toBeNull();
-    const [light, mid, dark] = densities as (number | null)[];
-    expect(light).toBeCloseTo(0);
-    expect(dark).toBeCloseTo(1);
-    expect(mid as number).toBeGreaterThan(light as number);
-    expect(mid as number).toBeLessThan(dark as number);
+    const values = densities as number[];
+    expect(values[0]).toBeCloseTo(0);
+    expect(values[values.length - 1]).toBeCloseTo(1);
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]).toBeGreaterThan(values[i - 1]);
+    }
   });
 
   it('should spread over the colours present rather than over black to white', () => {
     // A heatmap using the pale half of a ramp would otherwise come out
     // uniformly blank. It is the ordering between cells a reader needs.
-    const densities = TactileShade.densities(['#eeeeee', '#dddddd', '#bbbbbb']);
+    const densities = TactileShade.densities([
+      '#eeeeee',
+      '#eaeaea',
+      '#e4e4e4',
+      '#dddddd',
+      '#cccccc',
+      '#bbbbbb',
+    ]);
 
     expect(densities).not.toBeNull();
     expect((densities as number[])[0]).toBeCloseTo(0);
-    expect((densities as number[])[2]).toBeCloseTo(1);
+    expect((densities as number[])[5]).toBeCloseTo(1);
+  });
+
+  it('should decline a palette, where colour names a category and not a value', () => {
+    // A pie paints one colour per slice and puts the value in the angle.
+    // Texturing it put two of four wedges at full density and left a third
+    // empty: two solid wedges, one of them the reader's, and no way to tell.
+    expect(TactileShade.densities(['#4c72b0', '#dd8452', '#55a868', '#c44e52'])).toBeNull();
+  });
+
+  it('should take a ramp, where colour is the value', () => {
+    const ramp = ['#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff'];
+
+    expect(TactileShade.densities(ramp)).not.toBeNull();
   });
 
   it('should decline when fill is decoration rather than data', () => {
@@ -95,10 +123,18 @@ describe('tactileShade.densities', () => {
   });
 
   it('should keep unpainted marks out of the result without dropping the rest', () => {
-    const densities = TactileShade.densities(['#ffffff', 'none', '#000000']);
+    const densities = TactileShade.densities([
+      '#ffffff',
+      'none',
+      '#cccccc',
+      '#999999',
+      '#666666',
+      '#333333',
+      '#000000',
+    ]);
 
     expect(densities).not.toBeNull();
     expect((densities as (number | null)[])[1]).toBeNull();
-    expect((densities as (number | null)[])[2]).toBeCloseTo(1);
+    expect((densities as (number | null)[])[6]).toBeCloseTo(1);
   });
 });

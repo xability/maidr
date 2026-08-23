@@ -83,6 +83,12 @@ export abstract class TactileRenderer {
   private static readonly FOCUS_DISC_RADIUS = 2;
 
   /**
+   * How much of an axis a mark must cover for that axis to count as filled
+   * edge to edge.
+   */
+  private static readonly FULL_SPAN = 0.9;
+
+  /**
    * Bounding box of a ring in dot coordinates, ignoring points that failed to
    * project.
    * @param ring - The ring to measure
@@ -217,10 +223,19 @@ export abstract class TactileRenderer {
     box: { left: number; top: number; right: number; bottom: number },
     raster: DotRaster,
   ): boolean {
-    return box.left < 0
-      || box.top < 0
-      || box.right > raster.width - 1
-      || box.bottom > raster.height - 1;
+    if (box.left < 0 || box.top < 0
+      || box.right > raster.width - 1 || box.bottom > raster.height - 1) {
+      return true;
+    }
+
+    // Or it fits, and is the whole display. A mark can cover the grid without
+    // any edge leaving it, and filling that raises every pin: a gauge came back
+    // from the audit as 2204 of 2400 pins with nothing to feel but the edge of
+    // the device. Both axes have to be covered — a bar chart's tallest bar
+    // covers one of them by construction, and is exactly the mark that must
+    // stay filled.
+    return (box.right - box.left) / raster.width > this.FULL_SPAN
+      && (box.bottom - box.top) / raster.height > this.FULL_SPAN;
   }
 
   /**

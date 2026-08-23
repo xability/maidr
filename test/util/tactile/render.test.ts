@@ -679,6 +679,31 @@ describe('tactileRenderer.render', () => {
     expect(raster.get(6, Math.floor(DOTS_DOWN / 2))).toBe(true);
   });
 
+  it('should outline a focused mark that covers the whole grid without leaving it', () => {
+    // A mark can cover the display without any edge crossing its boundary, and
+    // filling that raises every pin. A gauge came back from the audit as 2204
+    // of 2400 pins with nothing to feel but the edge of the device.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: 0, y: 0 },
+        { x: DOTS_ACROSS - 1, y: 0 },
+        { x: DOTS_ACROSS - 1, y: DOTS_DOWN - 1 },
+        { x: 0, y: DOTS_DOWN - 1 },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(Math.floor(DOTS_ACROSS / 2), Math.floor(DOTS_DOWN / 2))).toBe(false);
+  });
+
   it('should outline a focused mark whose edges have run off the grid', () => {
     // A bar zoomed into: its top and bottom are both past the edge of the
     // grid, so a fill would leave the reader inside a shape whose boundary
