@@ -5,35 +5,43 @@ import { TestConstants } from '../utils/constants';
 import { extractMaidrData } from '../utils/maidr-data';
 
 /**
- * The x label of the bar carrying the layer's lowest or highest y value.
+ * The x label and column of the bar carrying the layer's lowest or highest
+ * y value.
  *
  * Read from the example's own data rather than hardcoded: the assertion is
  * "the cursor is on the extreme bar", and pinning a label here would keep
  * passing if the example's numbers changed underneath it.
  * @param layer - The bar layer to search.
  * @param extreme - Which end of the range to find.
- * @returns The x label of that bar.
+ * @returns The bar's x label and its index in the row.
  */
-function extremeBarLabel(layer: MaidrLayer | undefined, extreme: 'min' | 'max'): string {
+function extremeBar(
+  layer: MaidrLayer | undefined,
+  extreme: 'min' | 'max',
+): { label: string; index: number } {
   if (!Array.isArray(layer?.data) || layer.data.length === 0) {
     throw new TypeError('Bar layer data is missing or not an array');
   }
 
-  const winner = layer.data.reduce((best, point) => {
+  let index = 0;
+  const winner = layer.data.reduce((best, point, at) => {
     const value = Number((point as { y: number }).y);
     const bestValue = Number((best as { y: number }).y);
-    return extreme === 'min'
-      ? (value < bestValue ? point : best)
-      : (value > bestValue ? point : best);
+    const wins = extreme === 'min' ? value < bestValue : value > bestValue;
+    if (wins) {
+      index = at;
+      return point;
+    }
+    return best;
   });
 
-  return String((winner as { x: unknown }).x);
+  return { label: String((winner as { x: unknown }).x), index };
 }
 
 test.describe('Go to extreme value', () => {
   let barLayer: MaidrLayer;
-  let minLabel: string;
-  let maxLabel: string;
+  let min: { label: string; index: number };
+  let max: { label: string; index: number };
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -46,8 +54,8 @@ test.describe('Go to extreme value', () => {
 
       const maidrData: Maidr = await extractMaidrData(page);
       barLayer = maidrData.subplots[0][0].layers[0];
-      minLabel = extremeBarLabel(barLayer, 'min');
-      maxLabel = extremeBarLabel(barLayer, 'max');
+      min = extremeBar(barLayer, 'min');
+      max = extremeBar(barLayer, 'max');
     } finally {
       await context.close();
     }
@@ -60,7 +68,7 @@ test.describe('Go to extreme value', () => {
   test('should distinguish the two extremes', async () => {
     // A layer whose lowest and highest bar were the same one would let a
     // broken binding pass both cases below.
-    expect(minLabel).not.toEqual(maxLabel);
+    expect(min.label).not.toEqual(max.label);
   });
 
   test('should jump to the highest bar on the close bracket', async ({ page }) => {
@@ -69,7 +77,7 @@ test.describe('Go to extreme value', () => {
 
     await barPlotPage.goToMaximumValue();
 
-    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(maxLabel);
+    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(max.label);
   });
 
   test('should jump to the lowest bar on the open bracket', async ({ page }) => {
@@ -78,7 +86,7 @@ test.describe('Go to extreme value', () => {
 
     await barPlotPage.goToMinimumValue();
 
-    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(minLabel);
+    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(min.label);
   });
 
   test('should reach an extreme from anywhere, not just from the entry point', async ({ page }) => {
@@ -90,9 +98,34 @@ test.describe('Go to extreme value', () => {
 
     await barPlotPage.moveToLastDataPoint();
     await barPlotPage.goToMinimumValue();
-    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(minLabel);
+    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(min.label);
 
     await barPlotPage.goToMaximumValue();
-    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(maxLabel);
+    expect(await barPlotPage.getCurrentDataPointInfo()).toContain(max.label);
+  });
+
+  test('should jump from braille mode without typing into the text area', async ({ page }) => {
+    // The brackets are bound in BRAILLE scope, where the focused element is a
+    // text area. Two things have to hold at once and only a browser can show
+    // it: the keypress moves the braille cursor to the extreme cell, and the
+    // bracket character never reaches the field.
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+    await barPlotPage.toggleBrailleMode();
+
+    const brailleField = page.locator(`textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`);
+    const before = await brailleField.inputValue();
+
+    await barPlotPage.goToMaximumValue();
+
+    expect(await brailleField.inputValue()).toEqual(before);
+    expect(await brailleField.evaluate(field => (field as HTMLTextAreaElement).selectionStart))
+      .toEqual(max.index);
+
+    await barPlotPage.goToMinimumValue();
+
+    expect(await brailleField.inputValue()).toEqual(before);
+    expect(await brailleField.evaluate(field => (field as HTMLTextAreaElement).selectionStart))
+      .toEqual(min.index);
   });
 });
