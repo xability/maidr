@@ -90,11 +90,21 @@ const SHAPE_IS_THE_DATA: ReadonlySet<string> = new Set([
   'polar_area',
   'radar',
   'sunburst',
+  'gauge',
   'chord',
   'choropleth',
   'network',
   'hexbin',
 ]);
+
+// Every one of these reads by angle or by outline. A treemap and an icicle
+// draw the same tree a sunburst does and are deliberately *not* here: they
+// encode value as rectangle area, and area survives an uneven stretch intact.
+// Scaling x by `a` and y by `b` multiplies every area by `ab`, so two tiles
+// that matched before still match after — a 4x1 and a 1x4 both come out at 12
+// under a 3x horizontal stretch. An angle does not survive it: the 45 degrees
+// that divides a pie in eighths arrives as 18. Letterboxing a treemap would
+// spend pins to protect something that was never at risk.
 
 /**
  * Draws the focused chart onto a connected tactile display, and puts the

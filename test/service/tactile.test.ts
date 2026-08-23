@@ -385,10 +385,12 @@ function traceState(
   focus: number,
   main: string = 'a',
   cross: number = 12,
+  traceType: string = 'bar',
 ): NonEmptyTraceState {
   return {
     empty: false,
     type: 'trace',
+    traceType,
     text: {
       main: { label: 'x', value: main },
       cross: { label: 'y', value: cross },
@@ -1425,6 +1427,76 @@ describe('tactileService', () => {
       // Mark 0 sits at the left edge, so a window that followed it reports a
       // centre left of the middle. One that did not stays at 50%.
       expect(lastAnnouncement()).toBe('Zoom 2x, centred 25% across and 25% down');
+    });
+  });
+
+  describe('charts read by their shape', () => {
+    /**
+     * The viewport the renderer was last handed, so a test can ask it directly
+     * how a rectangle lands on the pins.
+     */
+    function lastViewport(): TactileViewport {
+      const calls = ringsOf.mock.calls;
+      return calls[calls.length - 1][1];
+    }
+
+    /**
+     * How square a patch of pins a square region maps to. 1 is undistorted.
+     * @param viewport - The viewport to measure
+     */
+    function squareness(viewport: TactileViewport): number {
+      const origin = viewport.toDot(REGION.left, REGION.top);
+      const corner = viewport.toDot(REGION.left + 100, REGION.top + 100);
+      return (corner.x - origin.x) / (corner.y - origin.y);
+    }
+
+    it('should keep a pie round rather than stretching it to fill the grid', () => {
+      // A wedge at the top would otherwise subtend a different arc from the
+      // same wedge at the side, so the reader concludes one slice is bigger
+      // when the data says they are equal.
+      activate();
+      ringsOf.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'pie'));
+
+      expect(squareness(lastViewport())).toBeCloseTo(1);
+    });
+
+    it('should still spend every pin on a chart whose shape carries nothing', () => {
+      activate();
+      ringsOf.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+
+      // The grid is wider than it is tall, so an undistorted mapping is not
+      // what a stretched one produces.
+      expect(squareness(lastViewport())).not.toBeCloseTo(1);
+    });
+
+    it('should rebuild the view when a layer switch changes what the shape means', () => {
+      // Page Up can move between a bar layer and a pie layer in one subplot.
+      // A viewport built for one maps the same rect onto different pins from
+      // one built for the other, so it cannot simply be re-pointed.
+      activate();
+      service.update(traceState(chart, 1, 'a', 12, 'pie'));
+      ringsOf.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+
+      expect(squareness(lastViewport())).not.toBeCloseTo(1);
+    });
+
+    it('should keep the lobby stretched, since no trace type is settled yet', () => {
+      // A panel is a rectangle of chart. Which trace type is inside it is not
+      // settled until the reader enters one.
+      session.isConnected = true;
+      turnOn();
+      ringsOf.mockClear();
+      service.update({
+        empty: false,
+        type: 'figure',
+        traceTypes: ['pie'],
+        highlight: { empty: false, elements: chart.axes },
+      } as unknown as FigureState);
+
+      expect(squareness(lastViewport())).not.toBeCloseTo(1);
     });
   });
 

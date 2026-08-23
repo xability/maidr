@@ -287,7 +287,7 @@ export class TactileViewport {
     // sits in the middle of the grid rather than in a corner. `width / height`
     // is the shape the chart was drawn in; the scale that fits it is whichever
     // of the two leaves it inside the grid.
-    const scale = Math.min(usableWidth / width, usableHeight / height) * (width > 0 ? 1 : 0);
+    const scale = Math.min(usableWidth / width, usableHeight / height);
     const drawnWidth = width * scale;
     const drawnHeight = height * scale;
     return {
