@@ -221,6 +221,24 @@ const HELP_KEYMAP = {
  * Keymap configuration for subplot scope interactions.
  */
 const SUBPLOT_KEYMAP = {
+
+  // Tactile display
+  //
+  // Also here, not only in braille scope. The display comes up wherever the
+  // reader asks for it, and braille cannot open on every plot type — a scatter
+  // has no braille table. Leaving these in braille scope alone left the zoom
+  // dead on exactly the charts the display had just been unlocked for, and on
+  // the multi-panel lobby, where pressing them did nothing and said nothing.
+  TACTILE_ZOOM_IN: key(
+    `=, shift+=, num_add`,
+    'Zoom In Tactile Display',
+    { helpKey: '=' },
+  ),
+  TACTILE_ZOOM_OUT: key(
+    `-, num_subtract`,
+    'Zoom Out Tactile Display',
+    { helpKey: '-' },
+  ),
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
@@ -313,6 +331,24 @@ const SETTINGS_KEYMAP = {} as const;
  * Keymap configuration for trace scope interactions and navigation.
  */
 const TRACE_KEYMAP = {
+
+  // Tactile display
+  //
+  // Also here, not only in braille scope. The display comes up wherever the
+  // reader asks for it, and braille cannot open on every plot type — a scatter
+  // has no braille table. Leaving these in braille scope alone left the zoom
+  // dead on exactly the charts the display had just been unlocked for, and on
+  // the multi-panel lobby, where pressing them did nothing and said nothing.
+  TACTILE_ZOOM_IN: key(
+    `=, shift+=, num_add`,
+    'Zoom In Tactile Display',
+    { helpKey: '=' },
+  ),
+  TACTILE_ZOOM_OUT: key(
+    `-, num_subtract`,
+    'Zoom Out Tactile Display',
+    { helpKey: '-' },
+  ),
   ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Autoplay

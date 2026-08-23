@@ -74,17 +74,29 @@ export abstract class TactileRenderer {
   private static readonly FOCUS_STROKE_WEIGHT = 4;
 
   /**
-   * Largest share of the grid a focused mark may fill solid.
+   * Radius, in pins, of the disc that stands for a focused mark too small to
+   * have an inside.
    *
-   * Past this the fill stops being a cue and becomes the display: a bar zoomed
-   * into covers every pin, and a reader's hand meets a featureless plateau
-   * with the mark's own edges pushed off the grid. Measured across the example
-   * gallery, zooming onto a filled mark routinely raised 65-95% of the pins
-   * and left nothing to feel. Beyond this share the mark is drawn as a heavy
-   * outline instead — its boundary is what carries the information once the
-   * reader is inside it.
+   * Two pins across is the floor for something a fingertip registers as its
+   * own object rather than as a thickening of whatever it is sitting on.
    */
-  private static readonly MAX_FILL_SHARE = 0.5;
+  private static readonly FOCUS_DISC_RADIUS = 2;
+
+  /**
+   * How much of one axis a focused mark may span and still be filled.
+   *
+   * Extent, not area. A bar zoomed into covers every row of the display while
+   * taking only two-fifths of its area, and area was what this used to
+   * measure — so the rule never fired on exactly the case it was written for,
+   * and the reader's hand met a 1000-pin plateau with the bar's top and bottom
+   * both off the grid. What decides whether a fill can still be read is
+   * whether its boundary is reachable, and a mark spanning the display in
+   * either direction has already lost two of its edges.
+   *
+   * Beyond this the mark is drawn as a heavy outline instead: the sides that
+   * are still on the grid are the only thing left that says where it is.
+   */
+  private static readonly MAX_FILL_SPAN = 0.9;
 
   /**
    * Bounding box of a ring in dot coordinates, ignoring points that failed to
@@ -174,21 +186,28 @@ export abstract class TactileRenderer {
       return;
     }
 
+    if (filled && isTiny) {
+      // A point, or a mark too small to have an inside. Filling it is not
+      // enough to find it: on a line chart the focused vertex sat as a one-pin
+      // spur against a two-pin stroke, which under a finger is the same line
+      // slightly thicker. A solid disc is the smallest thing that reads as a
+      // separate object.
+      raster.fillDisc(box.left + (box.right - box.left) / 2, box.top + (box.bottom - box.top) / 2, this.FOCUS_DISC_RADIUS);
+      return;
+    }
+
     if (path.length === 1) {
-      // A mark with no extent at all. Grown to the focus weight when it is the
-      // one the reader is on — a small cross of pins rather than a filled
-      // square, since the offsets are cardinal — so it is findable among its
-      // neighbours; left as the single pin it is otherwise, so a cloud of them
-      // does not smear into one mass.
-      raster.strokePath([path[0], path[0]], weight);
+      // A mark with no extent at all, unfocused: left as the single pin it is,
+      // so a cloud of them does not smear into one mass.
+      raster.set(path[0].x, path[0].y);
       return;
     }
     raster.strokePath(path, weight);
   }
 
   /**
-   * Reports whether a ring would cover more of the grid than
-   * {@link MAX_FILL_SHARE} allows.
+   * Reports whether a ring spans more of either axis than
+   * {@link MAX_FILL_SPAN} allows.
    * @param box - The ring's bounding box in dot coordinates
    * @param box.left - Leftmost dot the ring reaches
    * @param box.top - Topmost dot the ring reaches
@@ -200,13 +219,9 @@ export abstract class TactileRenderer {
     box: { left: number; top: number; right: number; bottom: number },
     raster: DotRaster,
   ): boolean {
-    const clippedWidth = Math.min(box.right, raster.width - 1) - Math.max(box.left, 0);
-    const clippedHeight = Math.min(box.bottom, raster.height - 1) - Math.max(box.top, 0);
-    if (clippedWidth <= 0 || clippedHeight <= 0) {
-      return false;
-    }
-    const share = (clippedWidth * clippedHeight) / (raster.width * raster.height);
-    return share > this.MAX_FILL_SHARE;
+    const acrossSpan = (box.right - box.left) / raster.width;
+    const downSpan = (box.bottom - box.top) / raster.height;
+    return acrossSpan > this.MAX_FILL_SPAN || downSpan > this.MAX_FILL_SPAN;
   }
 
   /**

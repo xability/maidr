@@ -185,3 +185,65 @@ describe('tactileSvgGeometry.ringsOf on a mark the model supplied', () => {
     expect(TactileSvgGeometry.ringsOf(group as SVGGraphicsElement, viewport)).toEqual([]);
   });
 });
+
+describe('tactileSvgGeometry.ringsOf on a path that walks back to its start', () => {
+  const viewport = new TactileViewport({ left: 0, top: 0, width: 60, height: 40 }, 60, 40);
+
+  /**
+   * Gives a path element the two methods `ringsOf` reads, plus the sampled
+   * geometry jsdom cannot produce.
+   *
+   * @param d - The `d` attribute to report
+   * @param corners - Points `getPointAtLength` should walk through, in order
+   */
+  function sampledPath(d: string, corners: { x: number; y: number }[]): SVGGraphicsElement {
+    const element = document.createElementNS(SVG_NS, 'path');
+    element.setAttribute('d', d);
+    const graphics = element as unknown as Record<string, unknown>;
+    graphics.getScreenCTM = (): unknown => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    graphics.getTotalLength = (): number => corners.length - 1;
+    graphics.getPointAtLength = (length: number): unknown => {
+      const index = Math.min(corners.length - 1, Math.max(0, Math.round(length)));
+      return corners[index];
+    };
+    return element as unknown as SVGGraphicsElement;
+  }
+
+  const square = [
+    { x: 4, y: 4 },
+    { x: 10, y: 4 },
+    { x: 10, y: 10 },
+    { x: 4, y: 10 },
+    { x: 4, y: 4 },
+  ];
+
+  it('should call it closed even without a z', () => {
+    // matplotlib's heatmap draws every cell this way. Calling it an open
+    // stroke stroked the border at the weight meant for lines, tripling it,
+    // and skipped the fill that carries the cell's value — only a shape with
+    // an inside can be given a texture. All 64 values went missing.
+    const cell = sampledPath('M 4 4 L 10 4 L 10 10 L 4 10 L 4 4', square);
+
+    expect(TactileSvgGeometry.ringsOf(cell, viewport)[0].closed).toBe(true);
+  });
+
+  it('should still call a path that ends somewhere else open', () => {
+    const line = sampledPath('M 4 4 L 10 4 L 10 10', [
+      { x: 4, y: 4 },
+      { x: 10, y: 4 },
+      { x: 10, y: 10 },
+    ]);
+
+    expect(TactileSvgGeometry.ringsOf(line, viewport)[0].closed).toBe(false);
+  });
+
+  it('should take a z at its word', () => {
+    const closed = sampledPath('M 4 4 L 10 4 L 10 10 z', [
+      { x: 4, y: 4 },
+      { x: 10, y: 4 },
+      { x: 10, y: 10 },
+    ]);
+
+    expect(TactileSvgGeometry.ringsOf(closed, viewport)[0].closed).toBe(true);
+  });
+});

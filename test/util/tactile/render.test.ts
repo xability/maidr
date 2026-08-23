@@ -652,6 +652,53 @@ describe('tactileRenderer.render', () => {
     expect(focused.equals(plain)).toBe(false);
   });
 
+  it('should outline a focused mark that spans the grid even when its area is small', () => {
+    // A bar zoomed into covers every row while taking two fifths of the area.
+    // Measuring area meant the rule never fired on the case it was written for,
+    // and the reader met a thousand-pin plateau with the bar's top and bottom
+    // both off the grid.
+    const mark = {} as SVGGraphicsElement;
+    const narrow = Math.round(DOTS_ACROSS * 0.4);
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: 2, y: -5 },
+        { x: 2 + narrow, y: -5 },
+        { x: 2 + narrow, y: DOTS_DOWN + 5 },
+        { x: 2, y: DOTS_DOWN + 5 },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Its middle is left down: the sides are what still say where it is.
+    expect(raster.get(2 + Math.floor(narrow / 2), Math.floor(DOTS_DOWN / 2))).toBe(false);
+  });
+
+  it('should mark a focused point as a disc rather than a thickening of its line', () => {
+    // On a line chart the focused vertex sat as a one-pin spur against a
+    // two-pin stroke, which under a finger is the same line slightly thicker.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{ points: [{ x: 10, y: 10 }], closed: false }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Solid across its middle, not a cross with a hollow between the arms.
+    expect(raster.get(9, 9)).toBe(true);
+    expect(raster.get(11, 11)).toBe(true);
+    expect(raster.raisedCount).toBeGreaterThan(8);
+  });
+
   it('should outline rather than fill a focused mark that would swamp the grid', () => {
     // Zoomed in, a filled mark stops being a cue and becomes the display: the
     // reader's hand meets a featureless plateau with the mark's own edges

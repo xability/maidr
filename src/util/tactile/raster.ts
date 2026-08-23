@@ -370,6 +370,29 @@ export class DotRaster {
   }
 
   /**
+   * Raises a filled disc.
+   *
+   * For a mark with no interior of its own — a scatter point, a line's vertex
+   * — where the focus has to read as a separate object rather than as a
+   * thickening of the stroke it sits on.
+   *
+   * @param cx - Centre, in dot coordinates
+   * @param cy - Centre, in dot coordinates
+   * @param radius - Radius in pins
+   */
+  public fillDisc(cx: number, cy: number, radius: number): void {
+    if (!Number.isFinite(cx) || !Number.isFinite(cy) || radius <= 0) {
+      return;
+    }
+    const first = Math.max(0, Math.round(cy - radius));
+    const last = Math.min(this.height - 1, Math.round(cy + radius));
+    for (let y = first; y <= last; y++) {
+      const span = Math.sqrt(Math.max(0, radius * radius - (y - cy) * (y - cy)));
+      this.hLine(cx - span, cx + span, y);
+    }
+  }
+
+  /**
    * Reports whether two rasters hold identical pin states. Used to skip a
    * transmission when a navigation move did not change the picture.
    * @param other - The raster to compare against

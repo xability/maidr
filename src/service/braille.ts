@@ -1457,6 +1457,35 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   /**
+   * Turns braille off without asking whether this layer could have turned it
+   * on.
+   *
+   * {@link toggle} refuses on a layer with no braille table, which is right for
+   * a press that means "open this" and wrong for one that means "close it":
+   * Page Up can move a reader from a bar layer onto a scatter layer in the
+   * same subplot, and from there the panel they opened could never be shut.
+   * Every press answered "Braille is not supported for plot type: point" while
+   * the panel stayed open.
+   *
+   * Does nothing when braille is already off, so it is safe to call on the way
+   * past.
+   *
+   * @param state - Current trace state, passed on to whatever follows the
+   * change
+   */
+  public close(state: TraceState): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    this.enabled = false;
+    this.update(state);
+    this.onToggleEmitter.fire({ enabled: false, state });
+    this.display.toggleFocus(Scope.BRAILLE);
+    this.notification.notify('Braille is off');
+  }
+
+  /**
    * Toggles braille mode on or off for the current trace.
    * @param state - Current trace state
    */

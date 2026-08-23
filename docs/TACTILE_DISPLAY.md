@@ -123,10 +123,16 @@ Two things a mark's shape decides for it:
 - **A line, a curve, a whisker or an error bar has no interior to fill.** The
   focused one is drawn with a heavier stroke instead. Without that, a reader on
   a line chart had no tactile answer at all to which point they were on.
-- **A mark too big to fit is outlined rather than filled.** Zoomed in, a filled
-  mark stops being a cue and becomes the display: the hand meets a featureless
-  plateau with the mark's own edges pushed off the grid. Once you are *inside* a
-  mark, its boundary is the thing that still carries information.
+- **A mark too big to fit is outlined rather than filled.** What counts as too
+  big is how far it *spans*, not its area: a bar zoomed into covers every row of
+  the display while taking only two-fifths of its area, and it is the reachable
+  boundary that decides whether a fill can still be read. Once you are *inside*
+  a mark, its sides are the thing that still says where it is. This means the
+  mark you are on can feel solid at one zoom level and hollow at the next —
+  that change is itself the signal that you have gone inside it.
+- **A focused point is drawn as a small disc.** A point has nothing to fill and
+  nothing to thicken; a heavier stroke on one just makes the line it sits on
+  locally fatter, which is not something a finger reads as a separate thing.
 
 If a zoom or a pan leaves the window somewhere with nothing in it, the
 announcement says *"nothing is in view"*. Every pin down is also what a
@@ -235,8 +241,10 @@ Zoom in is <kbd>=</kbd> rather than <kbd>+</kbd> — the same key, without the
 shift. <kbd>Shift</kbd> + <kbd>=</kbd> works too, for anyone reaching for the
 <kbd>+</kbd> printed on the keycap.
 
-Both are live only while the braille panel is open, and only zoom when a
-display is connected — with none, they say so rather than doing nothing. The
+Both are live wherever the display can be, not only while the braille panel is
+open — braille cannot open on every plot type, and leaving these keys in
+braille's scope alone left the zoom dead on exactly the charts the display had
+just been unlocked for. They only zoom when a display is connected — with none, they say so rather than doing nothing. The
 numeric keypad's <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is
 announced with the new zoom level and where in the chart the view now sits —
 with nothing on the grid but marks, there is no border left to say which slice

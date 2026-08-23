@@ -102,6 +102,14 @@ export class BrailleViewModel extends AbstractViewModel<BrailleState> {
   public toggle(state: TraceState): void {
     this.brailleService.toggle(state);
   }
+
+  /**
+   * Closes the braille display, whatever the current layer can encode.
+   * @param {TraceState} state - The trace state to close against.
+   */
+  public close(state: TraceState): void {
+    this.brailleService.close(state);
+  }
 }
 
 export default brailleSlice.reducer;

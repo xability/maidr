@@ -510,7 +510,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
 
   test('warns and plays a warning tone when no trace is active and no display is connected', () => {
     const context = { state: lobby } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const notificationService = createMockNotificationService();
     const audioService = createMockAudioService();
     const tactile = createTactile(false);
@@ -541,7 +541,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
     // exactly the place they are most useful: feeling the shape of each panel
     // before choosing which to enter.
     const context = { state: lobby } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const notificationService = createMockNotificationService();
     const audioService = createMockAudioService();
     const tactile = createTactile(true);
@@ -572,7 +572,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       braille: { empty: true, traceType: 'point' },
     } as unknown as PlotState;
     const context = { state: noBraille } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const tactile = createTactile(true);
 
     const command = new ToggleBrailleCommand(
@@ -599,7 +599,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       braille: { empty: true, traceType: 'point' },
     } as unknown as PlotState;
     const context = { state: noBraille } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const tactile = createTactile(false);
 
     const command = new ToggleBrailleCommand(
@@ -626,7 +626,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
     // braille instead, which opened the panel and shifted focus — the opposite
     // of what they asked for, and a third press needed to undo it.
     const barLayer = { state: trace } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const tactile = createTactile(true, true);
 
     const command = new ToggleBrailleCommand(
@@ -644,15 +644,19 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
     expect(brailleViewModel.toggle).not.toHaveBeenCalled();
   });
 
-  test('leaves the key to braille while the braille panel is open', () => {
-    // Braille carries the pins with it, so lowering them from under an open
-    // panel would leave the two saying different things.
+  test('closes the braille panel after a layer change onto a layer it cannot encode', () => {
+    // The mirror of the case above. The reader opened braille on a bar layer,
+    // paged to a scatter layer in the same subplot, and pressed the key to
+    // close it. Braille's own toggle refuses on a layer it cannot encode —
+    // right for a press that means "open this", wrong for one that means
+    // "close it" — so every press answered "not supported" while the panel
+    // stayed open and the pins stayed up.
     const noBraille = {
       type: 'trace',
       empty: false,
       braille: { empty: true, traceType: 'point' },
     } as unknown as PlotState;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const tactile = createTactile(true, true);
 
     const command = new ToggleBrailleCommand(
@@ -666,14 +670,36 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
 
     command.execute();
 
+    expect(brailleViewModel.close).toHaveBeenCalledWith(noBraille);
+    // Not the tactile service's toggle: braille carries the pins with it, and
+    // lowering them separately would leave the two saying different things.
     expect(tactile.toggle).not.toHaveBeenCalled();
-    expect(brailleViewModel.toggle).toHaveBeenCalledWith(noBraille);
+    expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+  });
+
+  test('closes braille normally when the layer can still encode it', () => {
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(true, true);
+
+    const command = new ToggleBrailleCommand(
+      { state: trace } as unknown as Context,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+      createBraille(true),
+    );
+
+    command.execute();
+
+    expect(brailleViewModel.toggle).toHaveBeenCalledWith(trace);
+    expect(brailleViewModel.close).not.toHaveBeenCalled();
   });
 
   test('leaves a trace with no data to braille, which can say why', () => {
     // "No info for braille" says more than pins that cannot change.
     const nothing = { type: 'trace', empty: true } as unknown as PlotState;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const tactile = createTactile(true);
 
     const command = new ToggleBrailleCommand(
@@ -693,7 +719,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
 
   test('toggles braille normally when a trace is active', () => {
     const context = { state: trace } as unknown as Context;
-    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const brailleViewModel = { toggle: jest.fn(), close: jest.fn() } as unknown as BrailleViewModel;
     const notificationService = createMockNotificationService();
     const audioService = createMockAudioService();
     const tactile = createTactile(true);

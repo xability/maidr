@@ -73,28 +73,39 @@ export class ToggleBrailleCommand implements Command {
    */
   public execute(): void {
     const state = this.context.state;
+    const onTrace = state.type === 'trace' && !state.empty;
 
     // Turning it off again is not a fresh decision. Whatever this key brought
     // up has to go down on the next press from wherever the reader is standing
     // — and Page Up can move them onto a layer whose braille capability
     // differs from the one they switched on from. Deciding by the current
-    // layer alone sent that second press to the other service, so a reader
-    // asking for the pins to go down got the braille panel opened instead, and
-    // needed a third press to undo it.
+    // layer alone broke that in both directions: from the braille-capable side
+    // the press opened the panel instead of lowering the pins, and from the
+    // other side nothing could close the panel at all.
+    if (this.brailleService.isEnabled && onTrace) {
+      if (state.braille.empty) {
+        // Braille's own toggle refuses on a layer it cannot encode, which is
+        // right for opening and would leave this panel open for good.
+        this.brailleViewModel.close(state);
+      } else {
+        this.brailleViewModel.toggle(state);
+      }
+      return;
+    }
+
     if (this.tactileService.isActive && !this.brailleService.isEnabled) {
       this.tactileService.toggle();
       return;
     }
 
-    if (state.type === 'trace' && !state.empty && !state.braille.empty) {
+    if (onTrace && !state.braille.empty) {
       this.brailleViewModel.toggle(state);
       return;
     }
 
-    // Not while braille is on: braille owns the key then, and its own refusal
-    // is the reader's account of why it will not close from this layer.
-    // Lowering the pins from under an open braille panel would leave the two
-    // saying different things.
+    // Not while braille is on: braille owns the key then, and lowering the
+    // pins from under an open panel would leave the two saying different
+    // things.
     const emptyTrace = state.type === 'trace' && state.empty;
     if (this.tactileService.canShow && !this.brailleService.isEnabled && !emptyTrace) {
       this.tactileService.toggle();

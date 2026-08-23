@@ -302,6 +302,42 @@ export abstract class TactileSvgGeometry {
   }
 
   /**
+   * Largest gap, in dots, between a path's ends that still counts as closed.
+   */
+  private static readonly CLOSE_TOLERANCE = 0.5;
+
+  /**
+   * Reports whether a path encloses an area.
+   *
+   * A `z` says so outright, but plenty of charts do not write one and simply
+   * walk back to where they started. matplotlib's heatmap is the case that
+   * matters: every cell is a four-corner path returning to its first point with
+   * no `z`, so reading the attribute alone called each cell an open stroke.
+   * Two things then went wrong at once — the cell was stroked at the weight
+   * meant for lines, tripling its border, and the fill that carries its value
+   * was skipped, because only a shape with an inside can be given a texture. A
+   * heatmap arrived as a thick lattice with all 64 of its values missing.
+   *
+   * @param element - The path element
+   * @param points - Its sampled points, in dot coordinates
+   */
+  private static pathCloses(element: SVGGraphicsElement, points: readonly DotPoint[]): boolean {
+    if (/z\s*$/i.test(element.getAttribute('d') ?? '')) {
+      return true;
+    }
+    if (points.length < 3) {
+      return false;
+    }
+    const first = points[0];
+    const last = points[points.length - 1];
+    if (!Number.isFinite(first.x) || !Number.isFinite(last.x)) {
+      return false;
+    }
+    return Math.abs(first.x - last.x) <= this.CLOSE_TOLERANCE
+      && Math.abs(first.y - last.y) <= this.CLOSE_TOLERANCE;
+  }
+
+  /**
    * Falls back to the shape's bounding box when its geometry cannot be read
    * directly — an image, a nested group, a `use` reference.
    * @param element - The shape to measure
@@ -456,8 +492,7 @@ export abstract class TactileSvgGeometry {
         if (points.length === 0) {
           break;
         }
-        const closed = /z\s*$/i.test(element.getAttribute('d') ?? '');
-        return [{ points, closed }];
+        return [{ points, closed: this.pathCloses(element, points) }];
       }
     }
 
