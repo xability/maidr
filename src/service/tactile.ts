@@ -191,8 +191,19 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         // pair once for the page rather than once for every chart.
         if (!dotPadSession.isConnected) {
           void dotPadSession.adopt().then((adopted) => {
-            if (adopted) {
+            if (!adopted) {
+              return;
+            }
+            // Braille may have gone off again while this was in flight — a
+            // double press of `b` is enough. The release on the way out found
+            // nothing to release, because the adoption had not happened yet,
+            // so it has to happen here instead: otherwise the display stays
+            // checked out to a chart whose panel is shut, and the next chart
+            // to want it finds the device already open and gives up quietly.
+            if (this.braille.isEnabled) {
               this.refresh();
+            } else {
+              dotPadSession.releaseIfAdopted();
             }
           });
         }

@@ -477,6 +477,14 @@ describe('tactileService', () => {
   }
 
   /**
+   * Lets every queued microtask run, so a promise chain the service started
+   * has finished by the time an assertion looks at its effects.
+   */
+  async function flushMicrotasks(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+
+  /**
    * The elements the renderer was actually asked to reduce to rings — which is
    * to say, everything that reached the pins.
    */
@@ -872,6 +880,47 @@ describe('tactileService', () => {
       await Promise.resolve();
 
       expect(session.writeGraphic).toHaveBeenCalled();
+    });
+
+    it('should hand back a display that arrived after the panel had closed', async () => {
+      // Taking one up is asynchronous, and a double press of `b` is enough to
+      // outrun it. The release on the way out finds nothing to release,
+      // because the adoption has not happened yet — so without a second look
+      // the display stays checked out to a chart whose panel is shut, and the
+      // next chart to want it finds the device open and gives up quietly.
+      session.isConnected = false;
+      let settle: (adopted: boolean) => void = () => {};
+      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
+        settle = resolve;
+      }));
+
+      brailleStub.isEnabled = true;
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+      brailleStub.isEnabled = false;
+      toggle.fire({ enabled: false, state: traceState(chart, 1) });
+      session.releaseIfAdopted.mockClear();
+
+      settle(true);
+      await flushMicrotasks();
+
+      expect(session.releaseIfAdopted).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep a display that arrived while the panel was still open', async () => {
+      session.isConnected = false;
+      let settle: (adopted: boolean) => void = () => {};
+      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
+        settle = resolve;
+      }));
+
+      brailleStub.isEnabled = true;
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+      session.releaseIfAdopted.mockClear();
+
+      settle(true);
+      await flushMicrotasks();
+
+      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
     });
 
     it('should hand the display back when this chart stops using it', () => {

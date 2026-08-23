@@ -492,18 +492,22 @@ class DotPadSession {
       return false;
     }
 
-    try {
-      const sdk = this.sdk ?? new vendor.DotPadSDK();
-      if (this.sdk === null) {
-        this.sdk = sdk;
-        this.registerCallbacks(sdk);
-        this.prepareTranslation(vendor, sdk);
-      }
+    const sdk = this.sdk ?? new vendor.DotPadSDK();
+    if (this.sdk === null) {
+      this.sdk = sdk;
+      this.registerCallbacks(sdk);
+      this.prepareTranslation(vendor, sdk);
+    }
 
-      for (const transport of ['bluetooth', 'serial'] as const) {
-        if (!this.supports(transport)) {
-          continue;
-        }
+    for (const transport of ['bluetooth', 'serial'] as const) {
+      if (!this.supports(transport)) {
+        continue;
+      }
+      // Caught per transport, not around the loop. The likeliest failure is
+      // another frame already holding that device, and that says nothing about
+      // the other transport: a reader who granted both should not lose the
+      // cabled display because the wireless one is busy.
+      try {
         const granted = await this.grantedDevice(vendor, transport);
         if (granted === null) {
           continue;
@@ -512,12 +516,11 @@ class DotPadSession {
           this.adopted = true;
           return true;
         }
+      } catch (error) {
+        // An ordinary outcome here, not a fault to report: opening a device a
+        // second time throws, and this runs unprompted.
+        console.error('DotPad could not be reconnected:', error instanceof Error ? error.message : error);
       }
-    } catch (error) {
-      // Another frame may already hold the device — opening a serial port a
-      // second time throws — and that is an ordinary outcome here, not a
-      // fault to report.
-      console.error('DotPad could not be reconnected:', error instanceof Error ? error.message : error);
     }
     return false;
   }

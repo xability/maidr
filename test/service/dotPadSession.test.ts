@@ -162,6 +162,13 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
   };
 
   class FakeScanner implements DotPadVendorScanner {
+    /**
+     * The name prefix the real scanner filters its picker by. Adoption reads
+     * it off the scanner rather than hardcoding a copy, so the fake carries it
+     * too or that path is never really tested.
+     */
+    public readonly DOTPAD_PREFIX = 'Dot';
+
     public constructor() {
       counts.scanners += 1;
     }
@@ -371,6 +378,41 @@ async function connectSession(
   return { session, state };
 }
 
+/**
+ * A Web Serial port the page has already been granted.
+ * @param usbVendorId - Vendor identifier the port reports
+ * @param usbProductId - Product identifier the port reports
+ */
+function grantedPort(usbVendorId: number, usbProductId: number): object {
+  return { getInfo: () => ({ usbVendorId, usbProductId }) };
+}
+
+/**
+ * A navigator whose previously-granted devices are the given ones.
+ *
+ * `getDevices`/`getPorts` are the whole point of adoption: they hand back a
+ * device the origin was granted earlier without opening a picker and without
+ * a user gesture, which is what lets a second chart on the page take up the
+ * display the reader paired at the first.
+ *
+ * @param options - What the origin has already been granted
+ * @param options.devices - Granted Bluetooth devices
+ * @param options.ports - Granted serial ports
+ */
+function setGrantedNavigator(options: {
+  devices?: { name?: string }[];
+  ports?: object[];
+}): void {
+  const value: Record<string, unknown> = {};
+  if (options.devices !== undefined) {
+    value.bluetooth = { getDevices: async () => options.devices };
+  }
+  if (options.ports !== undefined) {
+    value.serial = { getPorts: async () => options.ports };
+  }
+  setNavigator(value);
+}
+
 const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 
 // The failure paths log on purpose; a file-scope spy keeps the expected noise
@@ -504,6 +546,132 @@ describe('dotPadSession', () => {
       const session = await loadSession();
 
       expect(session.supports('bluetooth')).toBe(true);
+    });
+  });
+
+  describe('taking up a display the page was already granted', () => {
+    // Every chart in a notebook is its own iframe, so every chart is its own
+    // copy of this module with its own connection — a live BluetoothDevice or
+    // SerialPort cannot cross a frame boundary. The permission can: `srcdoc`
+    // frames inherit the embedder's origin. These cases hold the consequence
+    // to its contract, which is that the reader pairs once for the page.
+
+    it('should connect to a granted DotPad without opening a picker', async () => {
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const adopted = await session.adopt();
+
+      expect(adopted).toBe(true);
+      expect(session.isConnected).toBe(true);
+      // The whole point: no picker was opened, so no user gesture was needed.
+      expect(vendor.counts.scans).toBe(0);
+    });
+
+    it('should leave alone a granted port that is not a DotPad', async () => {
+      // A page may hold a serial permission for something else entirely.
+      // Opening that would be worse than doing nothing.
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(9999, 1)] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const adopted = await session.adopt();
+
+      expect(adopted).toBe(false);
+      expect(session.isConnected).toBe(false);
+    });
+
+    it('should match a granted Bluetooth device by the scanner own prefix', async () => {
+      const vendor = createVendor();
+      setGrantedNavigator({ devices: [{ name: 'Nothing' }, { name: 'DotPad 320' }] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const adopted = await session.adopt();
+
+      expect(adopted).toBe(true);
+      expect(vendor.counts.bleConnects).toBe(1);
+    });
+
+    it('should leave alone a granted Bluetooth device that is not a DotPad', async () => {
+      const vendor = createVendor();
+      setGrantedNavigator({ devices: [{ name: 'Some Keyboard' }] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+    });
+
+    it('should do nothing when a display is already connected here', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+
+      expect(await session.adopt()).toBe(false);
+    });
+
+    it('should try the cabled display when the wireless one cannot be opened', async () => {
+      // The likeliest failure is another frame already holding that device,
+      // and that says nothing about the other transport. A reader who granted
+      // both should not lose the cable because the radio is busy.
+      const vendor = createVendor();
+      let attempted = 0;
+      vendor.hooks.connectDevice = (): Promise<DotPadVendorDevice> => {
+        attempted += 1;
+        if (attempted === 1) {
+          throw new Error('already open in another frame');
+        }
+        return Promise.resolve(DEVICE);
+      };
+      setGrantedNavigator({
+        devices: [{ name: 'DotPad 320' }],
+        ports: [grantedPort(1027, 24592)],
+      });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const adopted = await session.adopt();
+
+      expect(adopted).toBe(true);
+      expect(attempted).toBe(2);
+    });
+
+    it('should report no support rather than throwing where the lookups do not exist', async () => {
+      // `getDevices` is not in every Chromium build.
+      const vendor = createVendor();
+      setNavigator({ bluetooth: {}, serial: {} });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+    });
+  });
+
+  describe('handing a display back', () => {
+    it('should release one it took up on its own', async () => {
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const session = await loadSession();
+      await session.adopt();
+
+      session.releaseIfAdopted();
+
+      expect(session.isConnected).toBe(false);
+    });
+
+    it('should keep one the reader connected here themselves', async () => {
+      // They chose this chart. Taking the display away because braille went
+      // off would undo a decision they made deliberately.
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+
+      session.releaseIfAdopted();
+
+      expect(session.isConnected).toBe(true);
     });
   });
 
