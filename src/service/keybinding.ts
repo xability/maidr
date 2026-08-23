@@ -53,14 +53,15 @@ const BRAILLE_KEYMAP = {
   // leaving it alone lets a reader enlarge the page and the pin view
   // independently, which is the point.
   //
-  // `plus` and `minus` are not hotkeys-js key names, and a literal `+` cannot
-  // appear in a chord because `+` is the chord separator -- so zoom in lists
-  // the keys a reader actually presses to mean it: the unshifted key, the
-  // shifted form the `+` legend sits on, and the numeric keypad.
+  // Zoom in is `=`, the unshifted key the `+` legend sits on, so neither
+  // direction needs a modifier -- pressing shift for one of a matched pair is
+  // the kind of asymmetry a hand notices. `shift+=` and the keypad stay bound
+  // as well, since a reader who reaches for the `+` they can see should not
+  // find it dead.
   TACTILE_ZOOM_IN: key(
     `=, shift+=, num_add`,
     'Zoom In Tactile Display',
-    { helpKey: '+' },
+    { helpKey: '=' },
   ),
   TACTILE_ZOOM_OUT: key(
     `-, num_subtract`,

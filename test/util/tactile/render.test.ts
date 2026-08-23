@@ -15,7 +15,7 @@
  * only detector is a reader who can no longer find where they are.
  *
  * The `DotRaster` cases below guard the primitives that split depends on:
- * `strokeRect` really leaving an interior lowered, `fillPolygon` really filling
+ * `polyline` really leaving an interior lowered, `fillPolygon` really filling
  * one (and keeping a hole where two rings nest), and the degenerate sizes where
  * hollow is not expressible and the code deliberately falls back to solid. They
  * also cover the guards that exist because callers draw off the edge on purpose
@@ -46,6 +46,24 @@ jest.mock('@util/tactile/svgGeometry', () => ({
     isRenderable: jest.fn(() => true),
   },
 }));
+
+/**
+ * A closed square ring, as `ringsOf` hands one to the renderer.
+ * @param left - Left dot column
+ * @param top - Top dot row
+ * @param size - Side length in dots
+ */
+function boxRing(left: number, top: number, size: number): { x: number; y: number }[] {
+  const right = left + size;
+  const bottom = top + size;
+  return [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+    { x: left, y: top },
+  ];
+}
 
 describe('dotRaster', () => {
   describe('set and get', () => {
@@ -217,48 +235,6 @@ describe('dotRaster', () => {
     });
   });
 
-  describe('strokeRect and fillRect', () => {
-    it('should leave the interior of a stroked rectangle lowered', () => {
-      const raster = new DotRaster(8, 8);
-
-      raster.strokeRect(1, 1, 6, 6);
-
-      expect(raster.get(1, 1)).toBe(true);
-      expect(raster.get(6, 6)).toBe(true);
-      expect(raster.get(3, 3)).toBe(false);
-      expect(raster.raisedCount).toBe(20);
-    });
-
-    it('should raise the interior of a filled rectangle', () => {
-      const raster = new DotRaster(8, 8);
-
-      raster.fillRect(1, 1, 6, 6);
-
-      expect(raster.get(3, 3)).toBe(true);
-      expect(raster.raisedCount).toBe(36);
-    });
-
-    it('should degenerate to a filled run when a rectangle is under three pins wide', () => {
-      const stroked = new DotRaster(8, 8);
-      const filled = new DotRaster(8, 8);
-
-      stroked.strokeRect(2, 1, 3, 6);
-      filled.fillRect(2, 1, 3, 6);
-
-      expect(stroked.equals(filled)).toBe(true);
-    });
-
-    it('should degenerate to a filled run when a rectangle is under three pins tall', () => {
-      const stroked = new DotRaster(8, 8);
-      const filled = new DotRaster(8, 8);
-
-      stroked.strokeRect(1, 2, 6, 3);
-      filled.fillRect(1, 2, 6, 3);
-
-      expect(stroked.equals(filled)).toBe(true);
-    });
-  });
-
   describe('fillPolygon', () => {
     it('should raise the interior of a triangle and leave the outside lowered', () => {
       const raster = new DotRaster(12, 12);
@@ -301,29 +277,6 @@ describe('dotRaster', () => {
     });
   });
 
-  describe('invertRect', () => {
-    it('should flip both raised and lowered pins inside the rectangle', () => {
-      const raster = new DotRaster(6, 6);
-      raster.set(1, 1);
-
-      raster.invertRect(0, 0, 2, 2);
-
-      expect(raster.get(1, 1)).toBe(false);
-      expect(raster.get(0, 0)).toBe(true);
-      expect(raster.get(2, 2)).toBe(true);
-      expect(raster.raisedCount).toBe(8);
-    });
-
-    it('should leave pins outside the rectangle alone', () => {
-      const raster = new DotRaster(6, 6);
-      raster.set(4, 4);
-
-      raster.invertRect(0, 0, 2, 2);
-
-      expect(raster.get(4, 4)).toBe(true);
-    });
-  });
-
   describe('buffer operations', () => {
     it('should report an untouched raster as empty and a written one as not', () => {
       const raster = new DotRaster(4, 4);
@@ -338,7 +291,7 @@ describe('dotRaster', () => {
 
     it('should return to empty after clear', () => {
       const raster = new DotRaster(4, 4);
-      raster.fillRect(0, 0, 3, 3);
+      raster.fillPolygon([boxRing(0, 0, 3)]);
 
       raster.clear();
 
@@ -355,35 +308,12 @@ describe('dotRaster', () => {
       expect(raster.raisedCount).toBe(4);
     });
 
-    it('should raise the pins of the other raster on union and leave the rest', () => {
-      const target = new DotRaster(4, 4);
-      const other = new DotRaster(4, 4);
-      target.set(0, 0);
-      other.set(3, 3);
-
-      target.union(other);
-
-      expect(target.get(0, 0)).toBe(true);
-      expect(target.get(3, 3)).toBe(true);
-      expect(target.raisedCount).toBe(2);
-    });
-
-    it('should ignore a union with a raster of different dimensions', () => {
-      const target = new DotRaster(4, 4);
-      const other = new DotRaster(5, 5);
-      other.fillRect(0, 0, 4, 4);
-
-      target.union(other);
-
-      expect(target.isEmpty()).toBe(true);
-    });
-
     it('should report two identically drawn rasters as equal', () => {
       const left = new DotRaster(5, 5);
       const right = new DotRaster(5, 5);
 
-      left.strokeRect(0, 0, 4, 4);
-      right.strokeRect(0, 0, 4, 4);
+      left.polyline(boxRing(0, 0, 4));
+      right.polyline(boxRing(0, 0, 4));
 
       expect(left.equals(right)).toBe(true);
     });
@@ -391,8 +321,8 @@ describe('dotRaster', () => {
     it('should report a one-pin difference as unequal so the frame is still sent', () => {
       const left = new DotRaster(5, 5);
       const right = new DotRaster(5, 5);
-      left.strokeRect(0, 0, 4, 4);
-      right.strokeRect(0, 0, 4, 4);
+      left.polyline(boxRing(0, 0, 4));
+      right.polyline(boxRing(0, 0, 4));
 
       right.set(2, 2);
 
@@ -410,7 +340,7 @@ describe('dotRaster', () => {
 
     it('should copy the pins on clone without sharing the buffer', () => {
       const original = new DotRaster(5, 5);
-      original.strokeRect(0, 0, 4, 4);
+      original.polyline(boxRing(0, 0, 4));
 
       const copy = original.clone();
       copy.set(2, 2);
@@ -425,7 +355,10 @@ describe('dotRaster', () => {
     it('should render a stroked rectangle as a hollow picture', () => {
       const raster = new DotRaster(5, 3);
 
-      raster.strokeRect(0, 0, 4, 2);
+      raster.hLine(0, 4, 0);
+      raster.hLine(0, 4, 2);
+      raster.vLine(0, 0, 2);
+      raster.vLine(4, 0, 2);
 
       expect(raster.toString()).toBe([
         'OOOOO',

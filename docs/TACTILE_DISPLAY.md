@@ -121,6 +121,16 @@ subplot, so the marks move and nothing else does — a series running 0 to 2 sta
 visibly shorter than one running 0 to 20, which is most of what there is to
 compare between them.
 
+### Multi-panel plots
+
+A figure with several panels opens at a lobby, where the arrow keys move
+between panels rather than between data points. The pins follow: each panel you
+move onto is drawn as you reach it, so you can feel the shape of each one before
+choosing which to enter.
+
+Nothing is filled there, because nothing inside a panel is focused yet — the
+solid mark appears once you enter and start moving through the data.
+
 ### Zooming
 
 A whole chart scaled onto a few thousand pins can collapse neighbouring marks
@@ -128,7 +138,7 @@ into the same pin. Zooming spends the same pins on a smaller slice of the chart.
 
 | Action   | Key            |
 | -------- | -------------- |
-| Zoom in  | <kbd>+</kbd>   |
+| Zoom in  | <kbd>=</kbd>   |
 | Zoom out | <kbd>-</kbd>   |
 
 Plain keys, not <kbd>Ctrl</kbd> chords, on purpose: <kbd>Ctrl</kbd> + <kbd>+</kbd>
@@ -136,6 +146,10 @@ is the browser's own page zoom, and the reader most likely to want it is a
 low-vision reader — who is also the one most likely to have the braille panel
 open. So the two zooms stay on separate keys and you can enlarge the page and
 the pin view independently.
+
+Zoom in is <kbd>=</kbd> rather than <kbd>+</kbd> — the same key, without the
+shift. <kbd>Shift</kbd> + <kbd>=</kbd> works too, for anyone reaching for the
+<kbd>+</kbd> printed on the keycap.
 
 Both are live only while the braille panel is open, and only zoom when a
 display is connected — with none, they say so rather than doing nothing. The

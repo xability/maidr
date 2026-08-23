@@ -107,6 +107,41 @@ function singlePinCell(x: number, y: number): DotRaster {
   return raster;
 }
 
+/**
+ * Fills a rectangle of pins.
+ *
+ * `DotRaster` no longer carries rectangle primitives — every shape reaches it
+ * as polygon rings, so they had no production caller — but a solid or hollow
+ * box is still the clearest thing to pack in a bit-order test, where the point
+ * is which byte comes out rather than how the pins were raised.
+ *
+ * @param raster - The buffer to draw into
+ * @param x0 - Left dot column (inclusive)
+ * @param y0 - Top dot row (inclusive)
+ * @param x1 - Right dot column (inclusive)
+ * @param y1 - Bottom dot row (inclusive)
+ */
+function fillBox(raster: DotRaster, x0: number, y0: number, x1: number, y1: number): void {
+  for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+    raster.hLine(x0, x1, y);
+  }
+}
+
+/**
+ * Outlines a rectangle of pins, leaving the interior lowered.
+ * @param raster - The buffer to draw into
+ * @param x0 - Left dot column (inclusive)
+ * @param y0 - Top dot row (inclusive)
+ * @param x1 - Right dot column (inclusive)
+ * @param y1 - Bottom dot row (inclusive)
+ */
+function strokeBox(raster: DotRaster, x0: number, y0: number, x1: number, y1: number): void {
+  raster.hLine(x0, x1, y0);
+  raster.hLine(x0, x1, y1);
+  raster.vLine(x0, y0, y1);
+  raster.vLine(x1, y0, y1);
+}
+
 describe('dotPack.graphic against the vendor sample', () => {
   it('should re-pack the SDK demo pattern byte for byte at 30 by 10 cells', () => {
     const raster = decodeGraphic(CELL300_GRAPHIC_FULL, GOLDEN_CELL_COLUMNS, GOLDEN_CELL_ROWS);
@@ -177,7 +212,7 @@ describe('dotPack.graphic bit weights within a cell', () => {
 
   it('should pack a cell with every pin raised as ff', () => {
     const raster = new DotRaster(DotPack.PINS_PER_CELL_X, DotPack.PINS_PER_CELL_Y);
-    raster.fillRect(0, 0, DotPack.PINS_PER_CELL_X - 1, DotPack.PINS_PER_CELL_Y - 1, true);
+    fillBox(raster, 0, 0, DotPack.PINS_PER_CELL_X - 1, DotPack.PINS_PER_CELL_Y - 1);
 
     const packed = DotPack.graphic(raster, 1, 1);
 
@@ -216,7 +251,7 @@ describe('dotPack.graphic cell ordering', () => {
 describe('dotPack.graphicRow', () => {
   it('should return exactly cellColumns bytes', () => {
     const raster = new DotRaster(8, 8);
-    raster.fillRect(0, 0, 7, 7, true);
+    fillBox(raster, 0, 0, 7, 7);
 
     const packed = DotPack.graphicRow(raster, 0, 4);
 
@@ -227,7 +262,7 @@ describe('dotPack.graphicRow', () => {
     const cellColumns = 4;
     const cellRows = 3;
     const raster = new DotRaster(8, 12);
-    raster.strokeRect(1, 1, 6, 10, true);
+    strokeBox(raster, 1, 1, 6, 10);
     raster.line(0, 0, 7, 11, true);
     const full = DotPack.graphic(raster, cellColumns, cellRows);
 
@@ -247,7 +282,7 @@ describe('dotPack.graphicRow', () => {
 
   it('should pack a row past the bottom of the raster as lowered pins', () => {
     const raster = new DotRaster(4, 4);
-    raster.fillRect(0, 0, 3, 3, true);
+    fillBox(raster, 0, 0, 3, 3);
 
     const packed = DotPack.graphicRow(raster, 1, 2);
 
@@ -258,7 +293,12 @@ describe('dotPack.graphicRow', () => {
 describe('dotPack.changedRows', () => {
   it('should report no rows when the two frames are identical', () => {
     const previous = new DotRaster(8, 16);
-    previous.fillEllipse(4, 8, 3, 5, true);
+    previous.fillPolygon([[
+      { x: 1, y: 3 },
+      { x: 6, y: 3 },
+      { x: 6, y: 12 },
+      { x: 1, y: 12 },
+    ]]);
     const next = previous.clone();
 
     const changed = DotPack.changedRows(previous, next, 4);
@@ -312,7 +352,7 @@ describe('dotPack.changedRows', () => {
   it('should report nothing when asked about zero cell rows', () => {
     const previous = new DotRaster(8, 16);
     const next = previous.clone();
-    next.fillRect(0, 0, 7, 15, true);
+    fillBox(next, 0, 0, 7, 15);
 
     const changed = DotPack.changedRows(previous, next, 0);
 
@@ -350,7 +390,7 @@ describe('dotPack.graphic cropping and padding', () => {
     const cellColumns = 4;
     const cellRows = 3;
     const raster = new DotRaster(width, height);
-    raster.fillRect(0, 0, width - 1, height - 1, true);
+    fillBox(raster, 0, 0, width - 1, height - 1);
 
     const packed = DotPack.graphic(raster, cellColumns, cellRows);
 
@@ -359,7 +399,7 @@ describe('dotPack.graphic cropping and padding', () => {
 
   it('should emit an empty payload for a zero-cell grid', () => {
     const raster = new DotRaster(8, 8);
-    raster.fillRect(0, 0, 7, 7, true);
+    fillBox(raster, 0, 0, 7, 7);
 
     const packed = DotPack.graphic(raster, 0, 0);
 
@@ -390,66 +430,5 @@ describe('dotPack.brailleCells', () => {
     const packed = DotPack.brailleCells([0x01, 0x02], 0);
 
     expect(packed).toBe('');
-  });
-});
-
-describe('dotPack.brailleUnicode', () => {
-  it('should map the first braille pattern to 01', () => {
-    const packed = DotPack.brailleUnicode('⠁', 1);
-
-    expect(packed).toBe('01');
-  });
-
-  it('should map the all-dots braille pattern to ff', () => {
-    const packed = DotPack.brailleUnicode('⣿', 1);
-
-    expect(packed).toBe('ff');
-  });
-
-  it('should map the blank braille pattern to 00', () => {
-    const packed = DotPack.brailleUnicode('⠀', 1);
-
-    expect(packed).toBe('00');
-  });
-
-  it('should keep the dot order of a mixed run of braille characters', () => {
-    const packed = DotPack.brailleUnicode('⠁⠃⠉⣿', 4);
-
-    expect(packed).toBe('010309ff');
-  });
-
-  it.each([
-    { label: 'an ASCII letter below the block', character: 'A' },
-    { label: 'a code point just below the block', character: '⟿' },
-    { label: 'a code point just above the block', character: '⤀' },
-    { label: 'an astral emoji far above the block', character: '\u{1F600}' },
-  ])('should emit a blank cell for $label rather than garbage dots', ({ character }) => {
-    const packed = DotPack.brailleUnicode(character, 1);
-
-    expect(packed).toBe('00');
-  });
-
-  it('should blank only the out-of-block character and keep its neighbours', () => {
-    const packed = DotPack.brailleUnicode('⠁A⣿', 3);
-
-    expect(packed).toBe('0100ff');
-  });
-
-  it('should pad a short braille string out to the full line', () => {
-    const packed = DotPack.brailleUnicode('⠁', 3);
-
-    expect(packed).toBe('010000');
-  });
-
-  it('should crop a braille string longer than the line', () => {
-    const packed = DotPack.brailleUnicode('⠁⠃⠉', 2);
-
-    expect(packed).toBe('0103');
-  });
-
-  it('should emit an entirely blank line for an empty string', () => {
-    const packed = DotPack.brailleUnicode('', 2);
-
-    expect(packed).toBe('0000');
   });
 });

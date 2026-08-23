@@ -166,23 +166,4 @@ export abstract class DotPack {
     }
     return hex;
   }
-
-  /**
-   * Packs a string of Unicode braille characters into a text-mode hex payload.
-   *
-   * Any character outside the Braille Patterns block is emitted as a blank cell
-   * rather than as garbage dots — a wrong character under a fingertip reads as
-   * data, whereas a blank reads as absence.
-   *
-   * @param braille - String of characters in U+2800..U+28FF
-   * @param cellCount - Cells on the device's text line
-   */
-  public static brailleUnicode(braille: string, cellCount: number): string {
-    const cells = Array.from(braille).map((character) => {
-      const codePoint = character.codePointAt(0) ?? this.BRAILLE_BASE;
-      const pattern = codePoint - this.BRAILLE_BASE;
-      return pattern >= 0 && pattern <= 0xFF ? pattern : 0;
-    });
-    return this.brailleCells(cells, cellCount);
-  }
 }

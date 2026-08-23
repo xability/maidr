@@ -31,7 +31,7 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
 | Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
-| Zoom in tactile display (Braille mode)  | +                           | +                           |
+| Zoom in tactile display (Braille mode)  | =                           | =                           |
 | Zoom out tactile display (Braille mode) | -                           | -                           |
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |

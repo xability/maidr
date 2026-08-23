@@ -24,6 +24,15 @@ import { dotPadSession } from './dotPadSession';
 type TactileStateUnion = SubplotState | TraceState | FigureState;
 
 /**
+ * The states the display draws from.
+ *
+ * A trace is the ordinary case. A figure state is the multi-panel lobby, where
+ * the reader is moving between panels and has not entered one: there is a chart
+ * to show — the panel under the cursor — but nothing inside it is focused yet.
+ */
+type DrawableState = NonEmptyTraceState | Extract<FigureState, { empty: false }>;
+
+/**
  * How hardware keys move the pin graphic.
  *
  * The display's own panning keys pan horizontally, which is what a reader
@@ -95,7 +104,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * The most recent trace state, so zoom and pan can redraw without waiting for
    * the reader to navigate.
    */
-  private lastState: NonEmptyTraceState | null = null;
+  private lastState: DrawableState | null = null;
 
   /**
    * The payload currently on the braille text line, so an unchanged value is
@@ -228,7 +237,11 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param state - The new figure, subplot or trace state
    */
   public update(state: TactileStateUnion): void {
-    if (state.empty || state.type !== 'trace') {
+    // Figure states as well as trace states. In a multi-panel plot the reader
+    // arrives at the lobby first and moves between panels there, and without
+    // this the pins keep whatever chart was last drawn — a panel they may have
+    // left, presented as though it were the one under the cursor.
+    if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
       return;
     }
     this.lastState = state;
@@ -605,7 +618,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
    */
-  private draw(state: NonEmptyTraceState, followFocus: boolean): void {
+  private draw(state: DrawableState, followFocus: boolean): void {
     const geometry = dotPadSession.geometry;
     const region = this.findRegionElement();
     if (geometry === null || region === null) {
@@ -636,7 +649,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.viewport.setSource(source);
     }
 
-    const focused = TactileService.focusedElements(state.highlight);
+    // The lobby has no focused mark: its highlight is the whole panel, and
+    // filling that would raise every pin the panel covers. Its marks are drawn
+    // as outlines and nothing is solid, which is the truth — the reader has not
+    // chosen a point yet.
+    const focused = state.type === 'trace'
+      ? TactileService.focusedElements(state.highlight)
+      : [];
 
     // Follow the focus only when a navigation move took it off the view, and
     // never on the redraw a pan or zoom asks for. Panning is what moves the
@@ -714,7 +733,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param state - The focused trace state
    * @param cellCount - Cells on the device's text line
    */
-  private sendText(state: NonEmptyTraceState, cellCount: number): void {
+  private sendText(state: DrawableState, cellCount: number): void {
     if (cellCount <= 0) {
       return;
     }

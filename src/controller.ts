@@ -567,6 +567,7 @@ export class Controller implements Disposable {
     this.figure.addObserver(this.audioService);
     this.figure.addObserver(this.highlightService);
     this.figure.addObserver(this.reviewService);
+    this.figure.addObserver(this.tactileService);
     this.figure.subplots.forEach(subplotRow => subplotRow.forEach((subplot) => {
       subplot.addObserver(this.textService);
       subplot.addObserver(this.audioService);

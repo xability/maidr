@@ -54,7 +54,7 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { Disposable } from '@type/disposable';
 import type { DotPadGeometry, DotPadKey, DotPadState } from '@type/dotPad';
-import type { NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
+import type { FigureState, NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
 import type { DotRing } from '@util/tactile/svgGeometry';
 import type { TactileViewport } from '@util/tactile/viewport';
 import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -411,10 +411,20 @@ describe('tactileService', () => {
     // The line carries whatever review mode would read out, so the stub stands
     // in for TextService the same way review does — one description per state,
     // long enough that it needs more than one window on a 20-cell line.
-    format = jest.fn((state: NonEmptyTraceState) =>
-      `${state.text.main.label} is ${String(state.text.main.value)}, `
-      + `${state.text.cross.label} is ${String(state.text.cross.value)}, `
-      + `in the bar plot of units sold by fruit`);
+    format = jest.fn((state: NonEmptyTraceState | { type: string; index: number; size: number }) => {
+      // The real TextService formats a figure state as well as a trace one,
+      // and the lobby hands it the former. A stub that only knows traces
+      // throws there, and the throw is swallowed by the draw guard — so the
+      // braille line silently goes missing and the test says nothing.
+      if (state.type === 'figure') {
+        const figure = state as { index: number; size: number };
+        return `Subplot ${figure.index} of ${figure.size}, a bar plot of units sold by fruit`;
+      }
+      const trace = state as NonEmptyTraceState;
+      return `${trace.text.main.label} is ${String(trace.text.main.value)}, `
+        + `${trace.text.cross.label} is ${String(trace.text.cross.value)}, `
+        + `in the bar plot of units sold by fruit`;
+    });
     textService = { format } as unknown as TextService;
     toggle = new Emitter<{ enabled: boolean; state: TraceState }>();
     brailleStub = { isEnabled: false, onToggle: toggle.event };
@@ -457,6 +467,14 @@ describe('tactileService', () => {
     const display = { plot: on.plot } as unknown as DisplayService;
     service.dispose();
     service = new TactileService(display, braille, notification, textService, figure);
+  }
+
+  /**
+   * The elements the renderer was actually asked to reduce to rings — which is
+   * to say, everything that reached the pins.
+   */
+  function drawnElements(): SVGGraphicsElement[] {
+    return ringsOf.mock.calls.map(call => call[0]);
   }
 
   /**
@@ -724,14 +742,6 @@ describe('tactileService', () => {
     }
 
     /**
-     * The elements the renderer was actually asked to reduce to rings — which
-     * is to say, everything that reached the pins.
-     */
-    function drawnElements(): SVGGraphicsElement[] {
-      return ringsOf.mock.calls.map(call => call[0]);
-    }
-
-    /**
      * A trace state focused on an element outside {@link MARK_RECTS}.
      * @param element - The mark the reader is on
      */
@@ -813,6 +823,89 @@ describe('tactileService', () => {
 
       expect(session.writeText).toHaveBeenCalled();
       expect(session.writeText.mock.calls[0][0]).not.toBe(first);
+    });
+  });
+
+  describe('the multi-panel lobby', () => {
+    /**
+     * A figure state, as the lobby of a multi-panel plot emits one.
+     *
+     * Its highlight is the whole panel under the cursor, not a mark inside it:
+     * in the lobby the reader has chosen a panel but not a point.
+     * @param panel - The axes element of the focused panel
+     */
+    function figureState(panel: SVGElement): FigureState {
+      return {
+        empty: false,
+        type: 'figure',
+        title: 'Sales',
+        subtitle: '',
+        caption: '',
+        xAxis: 'x',
+        yAxis: 'y',
+        size: 4,
+        index: 2,
+        traceTypes: ['bar'],
+        highlight: { empty: false, elements: panel },
+      } as unknown as FigureState;
+    }
+
+    it('should draw the panel under the cursor', () => {
+      // Without this the pins keep the last chart drawn — a panel the reader
+      // may have left — and present it as the one they are on. A stale picture
+      // is worse than none: nothing on the device says it is stale.
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(figureState(chart.axes));
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+      expect(drawnElements()).toEqual(expect.arrayContaining(chart.marks));
+    });
+
+    it('should leave every mark hollow, since no point is focused yet', () => {
+      // Marks wide enough to have an interior. At the default size they are
+      // two dots across, where a fill and an outline raise the same pins and
+      // the comparison below could not tell them apart.
+      chart.marks.forEach((mark, index) => {
+        stubRect(mark, { left: index * 70, top: 0, width: 60, height: 100 });
+      });
+      rebuild(chart);
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(figureState(chart.axes));
+      const lobby = session.writeGraphic.mock.calls[0][0];
+
+      // The same panel with a mark focused raises strictly more pins: the
+      // focused one is filled. If the lobby had filled anything, the two
+      // frames would match.
+      session.writeGraphic.mockClear();
+      rebuild(chart);
+      activate();
+
+      expect(session.writeGraphic.mock.calls[0][0]).not.toBe(lobby);
+    });
+
+    it('should not fill the whole panel just because the panel is highlighted', () => {
+      // The lobby's highlight is the axes element. Treating that as the
+      // focused mark would fill every pin the panel covers.
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(figureState(chart.axes));
+
+      expect(drawnElements()).not.toContain(chart.axes);
+    });
+
+    it('should put the figure description on the braille line', () => {
+      brailleStub.isEnabled = true;
+      session.isConnected = true;
+
+      service.update(figureState(chart.axes));
+
+      expect(format).toHaveBeenCalledWith(expect.objectContaining({ type: 'figure' }));
+      expect(session.writeText).toHaveBeenCalled();
     });
   });
 
