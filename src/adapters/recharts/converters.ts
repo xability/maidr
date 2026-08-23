@@ -33,6 +33,7 @@ import type {
   DumbbellData,
   DumbbellPoint,
   ErrorBarPoint,
+  EstimatedPoint,
   FlowPoint,
   ForestPoint,
   GanttData,
@@ -1611,9 +1612,12 @@ function toErrorBarPoint(
   xKey: string,
   yKey: string,
   errorConfig?: RechartsAdapterConfig['errorConfig'],
-): ErrorBarPoint {
+): EstimatedPoint {
+  // `EstimatedPoint` rather than `ErrorBarPoint`: `toNumber` always answers
+  // with one, and saying so is what lets a forest row be built from this
+  // without an assertion (#1047).
   const y = toNumber(item[yKey]);
-  const point: ErrorBarPoint = { x: item[xKey] as string | number, y };
+  const point: EstimatedPoint = { x: item[xKey] as string | number, y };
 
   const { errorKey, yMinKey, yMaxKey } = errorConfig ?? {};
   const error = errorKey === undefined ? undefined : item[errorKey];

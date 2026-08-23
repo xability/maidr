@@ -1579,6 +1579,14 @@ function convertSeries(
       return convertWaterfallSeries(series, containerId);
     case 'errorbar':
       return convertErrorBarSeries(series, chart, containerId);
+    // A band with two bounds and nothing between them. Same `low`/`high`
+    // shape as an error bar and the same trace, minus the estimate -- which
+    // is why these emitted no layer at all until `ErrorBarPoint.y` became
+    // optional (#1047). `areasplinerange` is `arearange` with a smoothed
+    // outline; the curve between the samples is drawing, not data.
+    case 'arearange':
+    case 'areasplinerange':
+      return convertRangeSeries(series, chart, containerId);
     case 'dumbbell':
       return convertDumbbellSeries(series, containerId, options);
     // A gantt series is an xrange with dates and lanes — `GanttSeries` extends
@@ -3048,6 +3056,60 @@ function convertErrorBarSeries(
     id: String(series.index),
     type: TraceType.ERROR_BAR,
     title: series.name || parent?.name || undefined,
+    ...(chart.options.chart?.inverted === true
+      ? { orientation: Orientation.HORIZONTAL }
+      : {}),
+    selectors: errorBarSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts an `arearange` or `areasplinerange` series into an error bar layer.
+ *
+ * A band, not an interval around an estimate: Highcharts gives each point a
+ * `low` and a `high` and draws the region between them, with nothing in the
+ * middle. So the layer carries the two bounds and **no** `y`, and the trace
+ * walks `lower` then `upper` at each sample, pitching each by its own
+ * magnitude.
+ *
+ * Deliberately not the midpoint {@link convertErrorBarSeries} falls back to
+ * for an unlinked whip. That fallback is defensible there because an error
+ * bar *is* drawn about a centre, so the midpoint is where the chart put the
+ * estimate visually. A band is drawn about nothing, and `(low + high) / 2`
+ * would be a number the chart never shows -- a reader told "10" at a region
+ * spanning 5 to 15 has been told something false, which is worse than being
+ * told only the two numbers that are true (#1047).
+ *
+ * A point Highcharts drew no band segment for is dropped rather than carried
+ * as a gap, for the reason {@link convertErrorBarSeries} drops one: keeping
+ * it would slide every later highlight onto its neighbour.
+ */
+function convertRangeSeries(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer {
+  const data: ErrorBarPoint[] = series.data
+    .filter(point => typeof point.low === 'number' || typeof point.high === 'number')
+    .map((p) => {
+      const low = typeof p.low === 'number' ? p.low : undefined;
+      const high = typeof p.high === 'number' ? p.high : undefined;
+      return {
+        x: pointLabel(p),
+        ...(low === undefined ? {} : { yMin: low }),
+        ...(high === undefined ? {} : { yMax: high }),
+      };
+    });
+
+  return {
+    id: String(series.index),
+    type: TraceType.ERROR_BAR,
+    title: series.name || undefined,
     ...(chart.options.chart?.inverted === true
       ? { orientation: Orientation.HORIZONTAL }
       : {}),

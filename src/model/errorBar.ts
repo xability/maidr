@@ -48,7 +48,7 @@ function magnitudeOf(point: ErrorBarPoint, section: Section): number {
     case 'upper':
       return point.yMax ?? Number.NaN;
     default:
-      return point.y;
+      return point.y ?? Number.NaN;
   }
 }
 
@@ -175,9 +175,16 @@ export class ErrorBarTrace extends AbstractTrace {
     this.groups = toGroups(layer.data as ErrorBarPoint[] | ErrorBarPoint[][]);
     this.points = this.groups.flat();
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+    // Every section earns its row by having been drawn, the estimate no
+    // differently from the bounds. A band with two bounds and nothing between
+    // them -- Highcharts' `arearange`, `geom_ribbon`, `fill_between` without
+    // a centre line -- then walks `lower` then `upper` and is pitched by its
+    // own bounds, which are positions the chart actually drew. The estimate
+    // used to be kept unconditionally, so such a band got a `value` row of
+    // `NaN`: a third of every interval announcing nothing, and a pointer
+    // entering on it (#1047).
     this.sections = SECTIONS.filter(section =>
-      section === 'value'
-      || this.points.some(point => isMeasured(magnitudeOf(point, section))),
+      this.points.some(point => isMeasured(magnitudeOf(point, section))),
     );
 
     // Rows run group-major: each group's sections are contiguous and in
@@ -456,7 +463,7 @@ export class ErrorBarTrace extends AbstractTrace {
       group.map((point) => {
         const cells: (string | number)[] = [
           point.x,
-          point.y,
+          point.y ?? '',
           point.yMin ?? '',
           point.yMax ?? '',
         ];

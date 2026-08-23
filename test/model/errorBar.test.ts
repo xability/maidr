@@ -17,6 +17,20 @@ const MEANS: ErrorBarPoint[] = [
 ];
 
 /**
+ * A band with bounds and nothing between them.
+ *
+ * What Highcharts' `arearange` draws, and what `geom_ribbon`,
+ * `Plot.areaY` with `y1`/`y2`, and `fill_between` without a centre line all
+ * arrive as. There is no honest estimate to put at these samples: the
+ * midpoint is a number the chart never draws, and either bound announced as
+ * the estimate loses the other (#1047).
+ */
+const BAND: ErrorBarPoint[] = [
+  { x: 'jan', yMin: 5, yMax: 15 },
+  { x: 'feb', yMin: 30, yMax: 50 },
+];
+
+/**
  * Create a minimal error bar layer for model-only tests.
  * @param data The points the layer carries
  * @returns Error bar layer definition
@@ -115,6 +129,54 @@ describe('sections', () => {
     const { text } = nonEmptyState(trace);
     expect(text.section).toBe('value');
     expect(text.cross.value).toBe(2);
+  });
+
+  test('omits the estimate a band never carries', () => {
+    // The mirror of `omits a bound the data never carries`, and the whole of
+    // #1047: a band draws two bounds and nothing between them, so a `value`
+    // row would be one a cursor can enter and hear nothing in. The estimate
+    // now earns its row the same way the bounds do -- by having been drawn.
+    const trace = TraceFactory.create(createLayer(BAND)) as ErrorBarTrace;
+
+    trace.moveToIndex(0, 0);
+    expect(nonEmptyState(trace).text.section).toBe('lower bound');
+    expect(nonEmptyState(trace).text.cross.value).toBe(5);
+
+    trace.moveToIndex(1, 0);
+    expect(nonEmptyState(trace).text.section).toBe('upper bound');
+    expect(nonEmptyState(trace).text.cross.value).toBe(15);
+  });
+
+  test('gives a band two rows, not three', () => {
+    // A third row of `NaN` was what the unconditional `value` section
+    // produced, and it would be a third of every interval announcing nothing.
+    const trace = TraceFactory.create(createLayer(BAND)) as ErrorBarTrace;
+
+    trace.moveToIndex(1, 0);
+    expect(nonEmptyState(trace).text.section).toBe('upper bound');
+
+    // There is no row above the upper bound to reach.
+    trace.moveToIndex(2, 0);
+    expect(nonEmptyState(trace).text.section).toBe('upper bound');
+  });
+
+  test('pitches a band by its own bounds', () => {
+    // The sonification question #1047 raised, answered by not needing an
+    // answer: with no estimate there is no invented midpoint to pitch, and
+    // the two bounds are themselves positions the chart drew. The scale runs
+    // from the lowest bound drawn to the highest, exactly as it does when
+    // there is an estimate.
+    const trace = TraceFactory.create(createLayer(BAND)) as ErrorBarTrace;
+
+    trace.moveToIndex(0, 0);
+    const bottom = nonEmptyState(trace).audio;
+    trace.moveToIndex(1, 1);
+    const top = nonEmptyState(trace).audio;
+
+    expect(bottom.freq.min).toBe(5);
+    expect(bottom.freq.max).toBe(50);
+    expect(bottom.freq.raw).toBe(5);
+    expect(top.freq.raw).toBe(50);
   });
 });
 
