@@ -548,9 +548,21 @@ describe('tactileRenderer.render', () => {
       DOTS_DOWN,
     );
 
-    expect(raster.raisedCount).toBe(4);
+    // Findable, and heavier than the same mark unfocused. A mark this small
+    // has no interior to fill, so filling cannot be what marks it out — and a
+    // one-pin dot among one-pin dots leaves the reader no answer at all to
+    // which point they are on, which is the state a scatter or a dot plot was
+    // in.
+    const unfocused = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
     expect(raster.get(4, 4)).toBe(true);
     expect(raster.get(5, 5)).toBe(true);
+    expect(raster.raisedCount).toBeGreaterThan(unfocused.raisedCount);
   });
 
   it('should render a single-point ring as one pin', () => {
@@ -575,8 +587,11 @@ describe('tactileRenderer.render', () => {
       closed: false,
     }]);
 
+    // Unfocused, so the stroke is the ordinary two pins. (4, 4) sits on the
+    // diagonal a closing segment would take and clear of the two-pin band
+    // around either real segment, so it stays down unless the ring was closed.
     const raster = TactileRenderer.render(
-      { marks: [mark], focused: [mark] },
+      { marks: [mark], focused: [] },
       identityViewport(),
       DOTS_ACROSS,
       DOTS_DOWN,
@@ -585,6 +600,155 @@ describe('tactileRenderer.render', () => {
     expect(raster.get(4, 2)).toBe(true);
     expect(raster.get(6, 4)).toBe(true);
     expect(raster.get(4, 4)).toBe(false);
+  });
+
+  it('should give a line-like mark a stroke a fingertip can follow', () => {
+    // A one-pin diagonal is below the resolution of a fingertip: Bresenham
+    // steps it in pins that touch only at their corners, so a finger sweeping
+    // across meets separate bumps rather than a line and loses the trail on
+    // any drift. Every line-family chart is drawn entirely out of these.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{
+      points: [{ x: 2, y: 2 }, { x: 12, y: 12 }],
+      closed: false,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Every pin along the diagonal has a raised neighbour beside it, so the
+    // stroke is continuous across a finger's width rather than a dotted trail.
+    for (let step = 3; step < 12; step++) {
+      expect(raster.get(step - 1, step) || raster.get(step + 1, step)).toBe(true);
+    }
+  });
+
+  it('should mark the focused line without an interior to fill', () => {
+    // Filling is what says "you are here", and a line has nothing to fill. On
+    // line charts, survival curves, error bars and whiskers the reader had no
+    // tactile answer at all to which mark they were on.
+    const mark = {} as SVGGraphicsElement;
+    const stroke = { points: [{ x: 2, y: 6 }, { x: 16, y: 6 }], closed: false };
+    ringsOf.mockReturnValue([stroke]);
+
+    const plain = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+    const focused = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(focused.raisedCount).toBeGreaterThan(plain.raisedCount);
+    expect(focused.equals(plain)).toBe(false);
+  });
+
+  it('should outline rather than fill a focused mark that would swamp the grid', () => {
+    // Zoomed in, a filled mark stops being a cue and becomes the display: the
+    // reader's hand meets a featureless plateau with the mark's own edges
+    // pushed off the grid. Across the example gallery this raised 65-95% of
+    // the pins and left nothing to feel. Its boundary is what still carries
+    // information once the reader is inside it.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: -4, y: -4 },
+        { x: DOTS_ACROSS + 4, y: -4 },
+        { x: DOTS_ACROSS + 4, y: DOTS_DOWN + 4 },
+        { x: -4, y: DOTS_DOWN + 4 },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Not every pin: a mark bigger than the grid, filled, is every pin.
+    expect(raster.raisedCount).toBeLessThan(DOTS_ACROSS * DOTS_DOWN);
+  });
+
+  it('should still fill a focused mark small enough to leave something around it', () => {
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([square]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Interior raised, which is what a fill means.
+    expect(raster.get(5, 5)).toBe(true);
+    expect(raster.get(4, 6)).toBe(true);
+  });
+
+  it('should texture a mark by the value its chart drew as a colour', () => {
+    // The pin grid has two states, so a value drawn as a colour has nowhere
+    // else to go. A heatmap cell, a choropleth region and a mosaic tile are all
+    // the same size and shape as their neighbours — without this the display
+    // carries their lattice and none of their numbers.
+    const pale = {} as SVGGraphicsElement;
+    const dark = {} as SVGGraphicsElement;
+    ringsOf.mockImplementation(element => [element === pale ? square : shifted(square, 9, 0)]);
+
+    const raster = TactileRenderer.render(
+      {
+        marks: [pale, dark],
+        focused: [],
+        shades: new Map([[pale, 0.1], [dark, 0.9]]),
+      },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Same shape, same size, different crowding — which is the only difference
+    // a fingertip can read between two cells that differ only in value.
+    let paleInterior = 0;
+    let darkInterior = 0;
+    for (let y = 3; y < 8; y++) {
+      for (let x = 3; x < 8; x++) {
+        if (raster.get(x, y)) {
+          paleInterior++;
+        }
+        if (raster.get(x + 9, y)) {
+          darkInterior++;
+        }
+      }
+    }
+
+    expect(darkInterior).toBeGreaterThan(paleInterior);
+  });
+
+  it('should leave a mark hollow when its chart gave it no value to carry', () => {
+    // Fill is decoration on a bar chart — a bar's colour is its series, not its
+    // height. Texturing those would fill in the interiors that tell an ordinary
+    // mark from the solid focused one.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([square]);
+
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(5, 5)).toBe(false);
   });
 
   it('should render an empty scene as an empty raster', () => {

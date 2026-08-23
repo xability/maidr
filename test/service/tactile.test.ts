@@ -470,9 +470,25 @@ describe('tactileService', () => {
    * braille on with a device connected and moved onto a mark.
    * @param focus - Index of the focused mark
    */
-  function activate(focus: number = 1): NonEmptyTraceState {
+  /**
+   * Turns the display on the way the reader does, through braille's toggle
+   * event. The display keeps its own on/off state — it has to, since braille
+   * declines in the lobby and on plot types it has no table for — so setting
+   * the braille flag alone no longer puts anything on the pins.
+   */
+  function turnOn(): void {
     brailleStub.isEnabled = true;
+    toggle.fire({ enabled: true, state: traceState(chart, 1) });
+  }
+
+  function activate(focus: number = 1): NonEmptyTraceState {
     session.isConnected = true;
+    turnOn();
+    // Through the toggle event, as the real braille service raises it. The
+    // display keeps its own on/off state — it has to, since braille declines
+    // in the lobby and on plot types it has no table for — so setting the
+    // braille flag alone no longer puts anything on the pins.
+    toggle.fire({ enabled: true, state: traceState(chart, focus) });
     const state = traceState(chart, focus);
     service.update(state);
     return state;
@@ -488,6 +504,12 @@ describe('tactileService', () => {
     const display = { plot: on.plot } as unknown as DisplayService;
     service.dispose();
     service = new TactileService(display, braille, notification, textService, figure);
+    if (brailleStub.isEnabled) {
+      // The replacement subscribes in its constructor and starts with the
+      // display off, as a freshly built controller does. A test that had the
+      // pins up before the swap wants them up after it.
+      toggle.fire({ enabled: true, state: traceState(on, 1) });
+    }
   }
 
   /**
@@ -568,15 +590,28 @@ describe('tactileService', () => {
       expect(session.writeText).not.toHaveBeenCalled();
     });
 
-    it('should report that it is active only when braille is on and a device is connected', () => {
-      brailleStub.isEnabled = true;
+    it('should report that it is active only when it has been asked for and a device is connected', () => {
       session.isConnected = false;
+      turnOn();
 
       const withoutDevice = service.isActive;
       session.isConnected = true;
 
       expect(withoutDevice).toBe(false);
       expect(service.isActive).toBe(true);
+    });
+
+    it('should come up where braille declines, since it needs no braille table', () => {
+      // The lobby and the plot types with no braille table — scatter,
+      // manhattan, volcano. Braille never turns on there, so a display gated
+      // on it was unreachable in exactly the places a pin grid is most worth
+      // having.
+      session.isConnected = true;
+
+      service.toggle();
+
+      expect(service.isActive).toBe(true);
+      expect(brailleStub.isEnabled).toBe(false);
     });
   });
 
@@ -740,7 +775,11 @@ describe('tactileService', () => {
     });
 
     it('should redraw from the last state when a device connects', () => {
-      brailleStub.isEnabled = true;
+      // The reader asks for the display before plugging one in, and navigates
+      // meanwhile. Nothing can be drawn until the device arrives, and when it
+      // does the pins have to catch up to where the reader already is rather
+      // than wait for the next arrow key.
+      turnOn();
       service.update(traceState(chart, 1));
       session.isConnected = true;
 
@@ -807,8 +846,8 @@ describe('tactileService', () => {
       const { figure, second } = twoLayers();
       rebuild(chart, figure);
       switchLayer(figure, 1);
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
       ringsOf.mockClear();
 
       service.update(focusedOn(second[1]));
@@ -823,8 +862,8 @@ describe('tactileService', () => {
       const { figure, second } = twoLayers();
       rebuild(chart, figure);
       switchLayer(figure, 1);
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
       service.update(focusedOn(second[1]));
       const acrossBothLayers = session.writeGraphic.mock.calls[0][0];
       session.writeGraphic.mockClear();
@@ -1026,8 +1065,8 @@ describe('tactileService', () => {
       // Without this the pins keep the last chart drawn — a panel the reader
       // may have left — and present it as the one they are on. A stale picture
       // is worse than none: nothing on the device says it is stale.
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(figureState(chart.axes));
 
@@ -1043,8 +1082,8 @@ describe('tactileService', () => {
         stubRect(mark, { left: index * 70, top: 0, width: 60, height: 100 });
       });
       rebuild(chart);
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(figureState(chart.axes));
       const lobby = session.writeGraphic.mock.calls[0][0];
@@ -1062,8 +1101,8 @@ describe('tactileService', () => {
     it('should not fill the whole panel just because the panel is highlighted', () => {
       // The lobby's highlight is the axes element. Treating that as the
       // focused mark would fill every pin the panel covers.
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(figureState(chart.axes));
 
@@ -1071,8 +1110,8 @@ describe('tactileService', () => {
     });
 
     it('should put the figure description on the braille line', () => {
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(figureState(chart.axes));
 
@@ -1090,8 +1129,8 @@ describe('tactileService', () => {
     });
 
     it('should change the payload when the focused value changes', () => {
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
       service.update(traceState(chart, 1, 'a', 12));
       const first = session.writeText.mock.calls[0][0];
 
@@ -1169,8 +1208,8 @@ describe('tactileService', () => {
     it('should carry contracted braille from the device engine when it has one', async () => {
       session.canTranslate = true;
       session.translate.mockResolvedValue('1e15ff');
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(traceState(chart, 1));
       await Promise.resolve();
@@ -1187,8 +1226,8 @@ describe('tactileService', () => {
     it('should fall back to its own table when the engine declines', async () => {
       session.canTranslate = true;
       session.translate.mockResolvedValue(null);
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(traceState(chart, 1));
       await Promise.resolve();
@@ -1208,8 +1247,8 @@ describe('tactileService', () => {
       session.translate.mockImplementation(
         () => new Promise<string | null>(resolve => pending.push(resolve)),
       );
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update(traceState(chart, 1, 'a', 12));
       service.update(traceState(chart, 0, 'b', 34));
@@ -1231,8 +1270,8 @@ describe('tactileService', () => {
       session.translate.mockImplementation(
         () => new Promise<string | null>(resolve => pending.push(resolve)),
       );
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
       service.update(traceState(chart, 1));
 
       brailleStub.isEnabled = false;
@@ -1325,20 +1364,40 @@ describe('tactileService', () => {
 
   describe('a view that cannot move', () => {
     it('should say when a pan left the pins exactly as they were', () => {
-      // One mark covering the whole plot: every window onto it is the same
-      // field of raised pins, so the frame cannot change however far the view
-      // travels. A reader's fingers then find what they found before, which is
-      // indistinguishable from a key that did nothing — and past a few zoom
-      // steps a window is often entirely inside one mark, so this is the
-      // common case at close zoom rather than a corner of it.
-      stubRect(chart.marks[1], REGION);
+      // A mark whose projection does not move with the window — a stripe that
+      // runs past both edges at a fixed height. Panning across it redraws a
+      // frame identical to the one it replaced, and not an empty one, so the
+      // reader's fingers find exactly what they found before. That is
+      // indistinguishable from a key that did nothing unless it is said.
       activate();
+      service.zoomIn();
+      ringsOf.mockImplementation(() => [{
+        points: [{ x: -20, y: 20 }, { x: 80, y: 20 }],
+        closed: false,
+      }]);
       service.zoomIn();
       notify.mockClear();
 
       session.fireKey('panRight');
 
       expect(lastAnnouncement()).toContain('; the pins are unchanged');
+    });
+
+    it('should say when a zoom left nothing in view at all', () => {
+      // Every pin down is also what a display that has stopped working feels
+      // like, so a reader who zooms into an empty patch of chart and is told
+      // nothing cannot tell the two apart.
+      activate(0);
+      service.zoomIn();
+      service.zoomIn();
+      service.zoomIn();
+      session.fireKey('panRight');
+      session.fireKey('panRight');
+      notify.mockClear();
+
+      session.fireKey('panRight');
+
+      expect(lastAnnouncement()).toContain('; nothing is in view');
     });
 
     it('should not say it of a pan that did change the pins', () => {
@@ -1491,10 +1550,10 @@ describe('tactileService', () => {
       const first = lastAnnouncement();
       session.fireKey('panRight');
 
-      expect(first).toBe('Zoom 3x, centred 33% across and 17% down');
+      expect(first).toBe('Zoom 3x, centred 33% across and 17% down; nothing is in view');
       // Past the marks there is nothing left to draw, so the frame repeats and
       // is said to — but the position still advances, which is the point here.
-      expect(lastAnnouncement()).toBe('Zoom 3x, centred 50% across and 17% down; the pins are unchanged');
+      expect(lastAnnouncement()).toBe('Zoom 3x, centred 50% across and 17% down; nothing is in view');
     });
 
     it('should pan a mark larger than the window', () => {
@@ -1509,20 +1568,18 @@ describe('tactileService', () => {
       session.fireKey('panRight');
 
       // Centred 67%, not 50%: the pan moved and was not pulled back onto the
-      // focus. The frame cannot change — one mark covers the whole plot, so
-      // every window onto it is the same field of raised pins — which is
-      // exactly the case the reader has to be told about, or a working key is
-      // indistinguishable from a dead one.
-      expect(notify).toHaveBeenCalledWith(
-        'Zoom 1.5x, centred 67% across and 50% down; the pins are unchanged',
-      );
+      // focus, which is the whole point here. A mark this size can never be
+      // contained by a zoomed window, so a redraw that followed the focus
+      // would pin the view to it for good and every pan would announce a move
+      // it had not made.
+      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 50% down');
     });
   });
 
   describe('states it does not draw', () => {
     it('should ignore an empty trace state', () => {
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update({ empty: true, type: 'trace' } as unknown as TraceState);
 
@@ -1531,8 +1588,8 @@ describe('tactileService', () => {
     });
 
     it('should ignore a subplot state', () => {
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
 
       service.update({ empty: false, type: 'subplot' } as unknown as SubplotState);
 
@@ -1543,8 +1600,8 @@ describe('tactileService', () => {
 
   describe('failures', () => {
     it('should contain a render failure so navigation carries on', () => {
-      brailleStub.isEnabled = true;
       session.isConnected = true;
+      turnOn();
       ringsOf.mockImplementation(() => {
         throw new Error('no screen CTM');
       });

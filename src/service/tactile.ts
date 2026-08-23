@@ -13,6 +13,7 @@ import { TactileBraille } from '@util/tactile/brailleText';
 import { DotPack } from '@util/tactile/pack';
 import { DotRaster } from '@util/tactile/raster';
 import { TactileRenderer } from '@util/tactile/render';
+import { TactileShade } from '@util/tactile/shade';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 import { TactileViewport } from '@util/tactile/viewport';
 import { dotPadSession } from './dotPadSession';
@@ -31,6 +32,15 @@ type TactileStateUnion = SubplotState | TraceState | FigureState;
  * to show — the panel under the cursor — but nothing inside it is focused yet.
  */
 type DrawableState = NonEmptyTraceState | Extract<FigureState, { empty: false }>;
+
+/**
+ * What a redraw did to the pins, as far as the reader can tell.
+ *
+ * `empty` outranks the other two: a window that lands somewhere with nothing in
+ * it is the one outcome a reader cannot diagnose by touch, since a display with
+ * every pin down is what a disconnected one also feels like.
+ */
+type FrameOutcome = 'changed' | 'unchanged' | 'empty';
 
 /**
  * How hardware keys move the pin graphic.
@@ -84,11 +94,16 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private static readonly NO_VIEW = 'Nothing is on the tactile display yet';
 
   private readonly display: DisplayService;
-  private readonly braille: BrailleService;
   private readonly notification: NotificationService;
   private readonly text: TextService;
 
   private figure: Figure;
+
+  /**
+   * Whether the reader has asked for the display, independently of whether
+   * braille itself could be encoded. See {@link toggle}.
+   */
+  private showing = false;
 
   /**
    * Zoom and pan over the chart. Rebuilt when the chart region changes size.
@@ -187,51 +202,15 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     figure: Figure,
   ) {
     this.display = display;
-    this.braille = braille;
     this.notification = notification;
     this.text = text;
     this.figure = figure;
 
+    // Braille turning on or off carries the display with it, which is the
+    // one-switch behaviour the reader is told about. It is a follower, not the
+    // gate: see {@link toggle}.
     this.disposables.push(braille.onToggle((event) => {
-      if (event.enabled) {
-        this.viewport?.reset();
-        this.shapeCache = null;
-        // Every chart in a notebook is its own iframe and so its own
-        // connection, but the permission behind it belongs to the page. Taking
-        // the display up here — silently, no picker — is what makes the reader
-        // pair once for the page rather than once for every chart.
-        if (!dotPadSession.isConnected) {
-          void dotPadSession.adopt().then((adopted) => {
-            if (!adopted) {
-              return;
-            }
-            // Braille may have gone off again while this was in flight — a
-            // double press of `b` is enough. The release on the way out found
-            // nothing to release, because the adoption had not happened yet,
-            // so it has to happen here instead: otherwise the display stays
-            // checked out to a chart whose panel is shut, and the next chart
-            // to want it finds the device already open and gives up quietly.
-            // A newer controller may own this frame by now — focus-out
-            // disposes on a 0ms timer and this took a round trip. It shares
-            // the same session, so handing the device back here would take it
-            // from a chart that is using it.
-            if (this.disposed) {
-              return;
-            }
-            if (this.braille.isEnabled) {
-              this.refresh();
-            } else {
-              dotPadSession.releaseIfAdopted();
-            }
-          });
-        }
-        this.refresh();
-      } else {
-        this.blank();
-        // Handed back so the next chart can take it. Only if it was adopted:
-        // a display the reader connected here on purpose stays here.
-        dotPadSession.releaseIfAdopted();
-      }
+      this.setShowing(event.enabled);
     }));
 
     this.disposables.push(dotPadSession.onKey((key) => {
@@ -272,7 +251,87 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * and a device is connected.
    */
   public get isActive(): boolean {
-    return this.braille.isEnabled && dotPadSession.isConnected;
+    return this.showing && dotPadSession.isConnected;
+  }
+
+  /**
+   * Whether a display is there to be shown anything.
+   *
+   * The key handler asks before taking `b` over from braille: with no device
+   * connected there is nothing to offer, and the reader is better served by
+   * braille's own account of why it cannot open.
+   */
+  public get canShow(): boolean {
+    return dotPadSession.isConnected;
+  }
+
+  /**
+   * Turns the display on or off at the reader's request.
+   *
+   * `b` is the one switch for "show me this by touch", and braille normally
+   * carries the display with it. But braille has to encode the data, and there
+   * are places it cannot: the multi-panel lobby, where no series is selected
+   * yet, and the plot types with no braille table -- scatter, manhattan,
+   * volcano. Gating the pins on that made the display unreachable in exactly
+   * those places, and a scatter is the chart a pin grid draws best of all: a
+   * cloud of points is what the grid natively is.
+   *
+   * So this exists to be called where braille declines, and the display comes
+   * up on the chart's own geometry, which never needed a braille table.
+   */
+  public toggle(): void {
+    this.setShowing(!this.showing);
+  }
+
+  /**
+   * Raises or lowers the whole display.
+   * @param next - True to show the chart, false to lower every pin
+   */
+  private setShowing(next: boolean): void {
+    if (next === this.showing) {
+      return;
+    }
+    this.showing = next;
+
+    if (!next) {
+      this.blank();
+      // Handed back so the next chart can take it. Only if it was adopted:
+      // a display the reader connected here on purpose stays here.
+      dotPadSession.releaseIfAdopted();
+      return;
+    }
+
+    this.viewport?.reset();
+    this.shapeCache = null;
+    // Every chart in a notebook is its own iframe and so its own connection,
+    // but the permission behind it belongs to the page. Taking the display up
+    // here — silently, no picker — is what makes the reader pair once for the
+    // page rather than once for every chart.
+    if (!dotPadSession.isConnected) {
+      void dotPadSession.adopt().then((adopted) => {
+        if (!adopted) {
+          return;
+        }
+        // The display may have gone off again while this was in flight — a
+        // double press of `b` is enough. The release on the way out found
+        // nothing to release, because the adoption had not happened yet, so it
+        // has to happen here instead: otherwise the display stays checked out
+        // to a chart whose panel is shut, and the next chart to want it finds
+        // the device already open and gives up quietly. A newer controller may
+        // own this frame by now — focus-out disposes on a 0ms timer and this
+        // took a round trip. It shares the same session, so handing the device
+        // back here would take it from a chart that is using it.
+        if (this.disposed) {
+          return;
+        }
+        if (this.showing) {
+          this.refresh();
+        } else {
+          dotPadSession.releaseIfAdopted();
+        }
+      });
+    }
+    this.refresh();
   }
 
   /**
@@ -316,16 +375,16 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @returns True when the frame that reached the pins differed from the one
    * already there
    */
-  private redraw(followFocus: boolean): boolean {
+  private redraw(followFocus: boolean): FrameOutcome {
     const state = this.lastState;
     if (state === null || !this.isActive) {
-      return false;
+      return 'unchanged';
     }
     try {
       return this.draw(state, followFocus);
     } catch (error) {
       console.error('Tactile render failed:', error instanceof Error ? error.message : error);
-      return false;
+      return 'unchanged';
     }
   }
 
@@ -404,13 +463,19 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * again. This is the common case at close zoom, not an edge case: past a few
    * steps in, a window is often entirely inside one mark.
    *
+   * A window holding nothing at all gets its own wording. Every pin down is
+   * also what a display that has stopped working feels like, so silence there
+   * would leave the reader unable to tell an empty patch of chart from a dead
+   * device.
+   *
    * @param viewport - The viewport that just moved
-   * @param changed - Whether the redraw actually altered the pins
+   * @param outcome - What the redraw did to the pins
    */
-  private announceView(viewport: TactileViewport, changed: boolean): void {
-    this.notification.notify(changed
-      ? viewport.describe()
-      : `${viewport.describe()}; the pins are unchanged`);
+  private announceView(viewport: TactileViewport, outcome: FrameOutcome): void {
+    const suffix = outcome === 'empty'
+      ? '; nothing is in view'
+      : (outcome === 'unchanged' ? '; the pins are unchanged' : '');
+    this.notification.notify(`${viewport.describe()}${suffix}`);
   }
 
   /**
@@ -656,6 +721,49 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * How much of each mark's interior to raise, where the chart put a value in
+   * its fill colour rather than in its shape.
+   *
+   * A heatmap, a choropleth, a hexbin and a mosaic draw every cell the same
+   * size and shape, so the geometry that reaches the pins is a lattice and
+   * nothing else — 819 pins spent on an 8x8 grid, measured, delivering none of
+   * its 64 values. Density is the one substitute a hand can read.
+   *
+   * Empty when fill is decoration rather than data. `densities` decides that
+   * from the spread of the colours themselves, so a bar chart whose bars are
+   * all one blue keeps its hollow interiors and the solid focused mark stays
+   * the only solid thing on the display.
+   *
+   * @param marks - The marks about to be drawn
+   */
+  private static shadesOf(marks: readonly SVGGraphicsElement[]): Map<SVGGraphicsElement, number> | undefined {
+    if (marks.length < 2 || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const colours = marks.map((mark) => {
+      try {
+        return window.getComputedStyle(mark).fill || mark.getAttribute('fill');
+      } catch {
+        return null;
+      }
+    });
+
+    const densities = TactileShade.densities(colours);
+    if (densities === null) {
+      return undefined;
+    }
+
+    const shades = new Map<SVGGraphicsElement, number>();
+    densities.forEach((density, index) => {
+      if (density !== null) {
+        shades.set(marks[index], density);
+      }
+    });
+    return shades.size > 0 ? shades : undefined;
+  }
+
+  /**
    * Normalizes a highlight state to a list of elements.
    * @param highlight - The highlight state from a trace
    */
@@ -706,11 +814,11 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param followFocus - Whether a focus outside the view should recentre it
    * @returns True when the frame differed from the one already on the device
    */
-  private draw(state: DrawableState, followFocus: boolean): boolean {
+  private draw(state: DrawableState, followFocus: boolean): FrameOutcome {
     const geometry = dotPadSession.geometry;
     const region = this.findRegionElement();
     if (geometry === null || region === null) {
-      return false;
+      return 'unchanged';
     }
 
     const { shapes: marks, allLayers } = this.shapesOf(region);
@@ -728,7 +836,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       ? markBounds
       : TactileService.rectOf(region);
     if (source === null) {
-      return false;
+      return 'unchanged';
     }
 
     if (this.viewport === null) {
@@ -769,7 +877,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // of that path: no element is in both, so the path is outlined and the
     // circle filled, which is the picture wanted anyway -- a line you can trace
     // with one raised dot where you are standing on it.
-    const scene: TactileScene = { marks, focused };
+    const scene: TactileScene = { marks, focused, shades: TactileService.shadesOf(marks) };
 
     const raster = TactileRenderer.render(
       scene,
@@ -780,7 +888,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     const changed = this.send(raster, geometry.cellColumns, geometry.cellRows);
     this.sendText(state, geometry.textCells);
-    return changed;
+    if (raster.raisedCount === 0) {
+      return 'empty';
+    }
+    return changed ? 'changed' : 'unchanged';
   }
 
   /**

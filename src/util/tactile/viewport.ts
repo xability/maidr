@@ -58,6 +58,20 @@ export class TactileViewport {
   private static readonly PAN_EPSILON = 1e-9;
 
   /**
+   * Pins left clear around the drawn area, on every side.
+   *
+   * Without it the plot is mapped edge to edge and a mark on the boundary sits
+   * on the outermost pin row, where three things go wrong at once: a bar's
+   * baseline falls off the grid so its outline never closes and it reads as an
+   * open channel; a curve that touches the top is indistinguishable from one
+   * clipped by it, so the reader cannot tell a real maximum from a truncated
+   * one; and a mark lying along an edge is felt as the frame of the device
+   * rather than as data. One pin costs 5% of the height and buys the
+   * difference between a closed shape and an open one.
+   */
+  private static readonly MARGIN_DOTS = 1;
+
+  /**
    * The chart region being mapped, in viewport pixels.
    */
   private source: ClientRect;
@@ -225,9 +239,14 @@ export class TactileViewport {
     const normalizedX = (clientX - left) / width;
     const normalizedY = (clientY - top) / height;
 
+    // Into the inset grid, not the whole one — see {@link MARGIN_DOTS}.
+    const margin = TactileViewport.MARGIN_DOTS;
+    const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
+    const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
+
     return {
-      x: ((normalizedX - (this.centre.x - half)) / span) * (this.dotWidth - 1),
-      y: ((normalizedY - (this.centre.y - half)) / span) * (this.dotHeight - 1),
+      x: margin + ((normalizedX - (this.centre.x - half)) / span) * usableWidth,
+      y: margin + ((normalizedY - (this.centre.y - half)) / span) * usableHeight,
     };
   }
 

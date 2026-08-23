@@ -52,16 +52,10 @@ export abstract class TactileSvgGeometry {
   private static readonly ELLIPSE_SAMPLES = 48;
 
   /**
-   * SVG tags that carry no geometry worth raising pins for.
-   *
-   * Text is excluded on purpose rather than by omission: a tick label is about
-   * one pin tall at this scale, so rendering it produces noise that reads as
-   * data. Labels belong on the braille text line, where they can be read.
+   * SVG tags that draw nothing on their own — definitions, paint servers and
+   * document metadata. Never worth pins, wherever they appear.
    */
-  private static readonly SKIPPED_TAGS: ReadonlySet<string> = new Set([
-    'text',
-    'tspan',
-    'textpath',
+  private static readonly NON_GRAPHICAL_TAGS: ReadonlySet<string> = new Set([
     'defs',
     'clippath',
     'mask',
@@ -75,6 +69,26 @@ export abstract class TactileSvgGeometry {
     'desc',
     'metadata',
     'symbol',
+  ]);
+
+  /**
+   * Tags that draw lettering.
+   *
+   * Skipped when sifting a chart's subtree for its data, and only there. A
+   * tick label is about one pin tall at this scale, so raising pins for it
+   * produces noise that reads as data; labels belong on the braille text line,
+   * where they can be read.
+   *
+   * But a mark the model hands over is data by definition, whatever it is made
+   * of, and a word cloud is made of exactly this: the words *are* the marks and
+   * their size is the value. Skipping those left the display flat — not a
+   * degraded picture but no picture at all, indistinguishable to a reader from
+   * a device that is switched off.
+   */
+  private static readonly LABEL_TAGS: ReadonlySet<string> = new Set([
+    'text',
+    'tspan',
+    'textpath',
   ]);
 
   /**
@@ -147,17 +161,13 @@ export abstract class TactileSvgGeometry {
    * @param element - The element to test
    */
   public static isRenderable(element: Element): boolean {
-    const tag = element.tagName.toLowerCase();
-    if (this.SKIPPED_TAGS.has(tag)) {
+    if (this.LABEL_TAGS.has(element.tagName.toLowerCase())) {
       return false;
     }
     if (element.hasAttribute('data-maidr-owned')) {
       return false;
     }
-    if (element.getAttribute('visibility') === 'hidden') {
-      return false;
-    }
-    if (element.getAttribute('display') === 'none') {
+    if (!this.isDrawable(element)) {
       return false;
     }
     const id = element.getAttribute('id');
@@ -166,6 +176,28 @@ export abstract class TactileSvgGeometry {
     }
     const className = element.getAttribute('class');
     return className === null || !this.namesFurniture(className);
+  }
+
+  /**
+   * Reports whether an element inside a mark the model supplied is worth
+   * drawing.
+   *
+   * Weaker than {@link isRenderable} on purpose. That one sifts a chart's whole
+   * subtree, where furniture and data are mixed and lettering is almost always
+   * a label. Here the enclosing mark is already known to be data, so the only
+   * things to drop are the tags that draw nothing at all and anything the chart
+   * has hidden.
+   *
+   * @param element - The element to test
+   */
+  private static isDrawable(element: Element): boolean {
+    if (this.NON_GRAPHICAL_TAGS.has(element.tagName.toLowerCase())) {
+      return false;
+    }
+    if (element.getAttribute('visibility') === 'hidden') {
+      return false;
+    }
+    return element.getAttribute('display') !== 'none';
   }
 
   /**
@@ -343,7 +375,9 @@ export abstract class TactileSvgGeometry {
     if (tag === 'g' || tag === 'svg') {
       const rings: DotRing[] = [];
       for (const child of Array.from(element.children)) {
-        if (!this.isRenderable(child)) {
+        // `isDrawable`, not `isRenderable`: this group is a mark the model
+        // handed over, so its parts are data whatever they are made of.
+        if (!this.isDrawable(child)) {
           continue;
         }
         rings.push(...this.ringsOf(child as SVGGraphicsElement, viewport));

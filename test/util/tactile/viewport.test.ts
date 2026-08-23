@@ -18,10 +18,11 @@
  *
  * Four properties carry the weight:
  *
- * - At zoom 1 the source rect maps onto the grid corner to corner, dot 0 to
- *   dot 59 inclusive. The grid is addressed by pin index, so the last dot is
- *   `dotWidth - 1`; scaling by `dotWidth` instead loses the right-hand column
- *   off the end of the display.
+ * - At zoom 1 the source rect maps onto the grid one pin in from each edge,
+ *   dot 1 to dot 58 across. The grid is addressed by pin index, so the last
+ *   dot is `dotWidth - 1`; scaling by `dotWidth` instead loses the right-hand
+ *   column off the end of the display. The inset is what lets a mark on the
+ *   boundary close its own outline and be told apart from the frame.
  * - Panning clamps the window inside the chart. The refusal matters as much as
  *   the move: `pan` returning false is what tells the service to announce an
  *   edge rather than re-send an identical frame, and a window allowed past the
@@ -47,8 +48,22 @@ const DOT_WIDTH = 60;
 const DOT_HEIGHT = 40;
 
 /** Last addressable pin on each axis. */
-const LAST_X = DOT_WIDTH - 1;
-const LAST_Y = DOT_HEIGHT - 1;
+/**
+ * The outermost pin the drawn area may reach, on each axis.
+ *
+ * One pin in from the physical edge on every side. A mark on the boundary pin
+ * cannot close its own outline — a bar loses its baseline and reads as an open
+ * channel — and cannot be told apart from a mark the grid clipped, or from the
+ * frame of the device itself.
+ */
+const MARGIN = 1;
+const FIRST_X = MARGIN;
+/** Dot the middle of the drawn area lands on. */
+const CENTRE_X = (MARGIN + (DOT_WIDTH - 1 - MARGIN)) / 2;
+const CENTRE_Y = (MARGIN + (DOT_HEIGHT - 1 - MARGIN)) / 2;
+const FIRST_Y = MARGIN;
+const LAST_X = DOT_WIDTH - 1 - MARGIN;
+const LAST_Y = DOT_HEIGHT - 1 - MARGIN;
 
 /** Corners and centre of {@link SOURCE}, in viewport pixels. */
 const RIGHT = SOURCE.left + SOURCE.width;
@@ -98,19 +113,19 @@ describe('tactileViewport at the default zoom', () => {
     viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT);
   });
 
-  it('should map the whole source rect onto the grid corner to corner', () => {
+  it('should map the whole source rect onto the grid, one pin in from each edge', () => {
     const topLeft = viewport.toDot(SOURCE.left, SOURCE.top);
     const bottomRight = viewport.toDot(RIGHT, BOTTOM);
 
-    expect(topLeft).toEqual({ x: 0, y: 0 });
+    expect(topLeft).toEqual({ x: FIRST_X, y: FIRST_Y });
     expect(bottomRight).toEqual({ x: LAST_X, y: LAST_Y });
   });
 
   it('should map the centre of the source rect to the middle of the grid', () => {
     const centre = viewport.toDot(MID_X, MID_Y);
 
-    expect(centre.x).toBeCloseTo(LAST_X / 2);
-    expect(centre.y).toBeCloseTo(LAST_Y / 2);
+    expect(centre.x).toBeCloseTo(CENTRE_X);
+    expect(centre.y).toBeCloseTo(CENTRE_Y);
   });
 
   it('should report the whole plot visible at zoom 1', () => {
@@ -232,8 +247,8 @@ describe('tactileViewport panning', () => {
     const steps = panToEdge(viewport, 'left');
 
     expect(steps).toBeGreaterThan(0);
-    expect(viewport.toDot(SOURCE.left, MID_Y).x).toBeGreaterThanOrEqual(0);
-    expect(viewport.toDot(SOURCE.left, MID_Y).x).toBeCloseTo(0);
+    expect(viewport.toDot(SOURCE.left, MID_Y).x).toBeGreaterThanOrEqual(FIRST_X);
+    expect(viewport.toDot(SOURCE.left, MID_Y).x).toBeCloseTo(FIRST_X);
   });
 
   it('should clamp the window to the top edge of the source rect', () => {
@@ -243,8 +258,8 @@ describe('tactileViewport panning', () => {
     const steps = panToEdge(viewport, 'up');
 
     expect(steps).toBeGreaterThan(0);
-    expect(viewport.toDot(MID_X, SOURCE.top).y).toBeGreaterThanOrEqual(0);
-    expect(viewport.toDot(MID_X, SOURCE.top).y).toBeCloseTo(0);
+    expect(viewport.toDot(MID_X, SOURCE.top).y).toBeGreaterThanOrEqual(FIRST_Y);
+    expect(viewport.toDot(MID_X, SOURCE.top).y).toBeCloseTo(FIRST_Y);
   });
 
   it('should clamp the window to the bottom edge of the source rect', () => {
@@ -332,8 +347,8 @@ describe('tactileViewport centreOn', () => {
     viewport.centreOn({ left: 190, top: 90, width: 20, height: 20 });
 
     const centre = viewport.toDot(200, 100);
-    expect(centre.x).toBeCloseTo(LAST_X / 2);
-    expect(centre.y).toBeCloseTo(LAST_Y / 2);
+    expect(centre.x).toBeCloseTo(CENTRE_X);
+    expect(centre.y).toBeCloseTo(CENTRE_Y);
   });
 
   it('should bring a mark outside the window back into view', () => {
@@ -353,15 +368,15 @@ describe('tactileViewport centreOn', () => {
 
     viewport.centreOn(corner);
 
-    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: 0, y: 0 });
+    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: FIRST_X, y: FIRST_Y });
     expect(viewport.toDot(104, 52).x).toBeGreaterThan(0);
-    expect(viewport.toDot(104, 52).x).toBeLessThan(LAST_X / 2);
+    expect(viewport.toDot(104, 52).x).toBeLessThan(CENTRE_X);
   });
 
   it('should keep the whole plot centred when zoom 1 leaves nowhere to move', () => {
     viewport.centreOn({ left: SOURCE.left, top: SOURCE.top, width: 8, height: 4 });
 
-    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: 0, y: 0 });
+    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: FIRST_X, y: FIRST_Y });
     expect(viewport.toDot(RIGHT, BOTTOM)).toEqual({ x: LAST_X, y: LAST_Y });
   });
 });
@@ -382,7 +397,7 @@ describe('tactileViewport reset and setSource', () => {
 
     expect(viewport.zoom).toBe(1);
     expect(viewport.isWholePlotVisible).toBe(true);
-    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: 0, y: 0 });
+    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: FIRST_X, y: FIRST_Y });
     expect(viewport.toDot(RIGHT, BOTTOM)).toEqual({ x: LAST_X, y: LAST_Y });
   });
 
@@ -403,8 +418,8 @@ describe('tactileViewport reset and setSource', () => {
     viewport.setSource({ left: 0, top: 0, width: 800, height: 400 });
 
     const centre = viewport.toDot(400, 200);
-    expect(centre.x).toBeCloseTo(LAST_X / 2);
-    expect(centre.y).toBeCloseTo(LAST_Y / 2);
+    expect(centre.x).toBeCloseTo(CENTRE_X);
+    expect(centre.y).toBeCloseTo(CENTRE_Y);
   });
 });
 
@@ -440,7 +455,7 @@ describe('tactileViewport with a degenerate source rect', () => {
     viewport.centreOn({ left: 100, top: 50, width: 10, height: 10 });
 
     viewport.setSource(SOURCE);
-    expect(viewport.toDot(MID_X, MID_Y).x).toBeCloseTo(LAST_X / 2);
+    expect(viewport.toDot(MID_X, MID_Y).x).toBeCloseTo(CENTRE_X);
   });
 });
 

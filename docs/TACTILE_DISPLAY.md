@@ -105,10 +105,53 @@ Press <kbd>b</kbd> on the chart. The braille panel opens and, if a display is
 connected, the chart appears on the pins at the same time. Pressing <kbd>b</kbd>
 again lowers every pin.
 
+<kbd>b</kbd> raises the pins **even where braille itself cannot open** — in a
+multi-panel figure's lobby, and on the plot types with no braille table
+(scatter, manhattan, volcano). Only braille needs the data reduced to cells; a
+tactile display draws the chart's own geometry. A scatter is the chart a pin
+grid draws best of all — a cloud of points is what the grid natively *is* — so
+those are the last cases that should be missing from it. In those places the
+braille panel stays shut and the pins come up on their own.
+
 **Marks are drawn as outlines; the mark you are focused on is filled.** That
 split is what makes the picture readable — a field of solid shapes gives a
 fingertip nothing to tell them apart, while one solid shape among hollow ones is
 found at once. Arrow keys move the focus and the filled mark follows.
+
+Two things a mark's shape decides for it:
+
+- **A line, a curve, a whisker or an error bar has no interior to fill.** The
+  focused one is drawn with a heavier stroke instead. Without that, a reader on
+  a line chart had no tactile answer at all to which point they were on.
+- **A mark too big to fit is outlined rather than filled.** Zoomed in, a filled
+  mark stops being a cue and becomes the display: the hand meets a featureless
+  plateau with the mark's own edges pushed off the grid. Once you are *inside* a
+  mark, its boundary is the thing that still carries information.
+
+If a zoom or a pan leaves the window somewhere with nothing in it, the
+announcement says *"nothing is in view"*. Every pin down is also what a
+disconnected display feels like, so silence there would leave you unable to tell
+an empty patch of chart from a dead device.
+
+**Where a chart put its value in a colour, the pins carry it as texture.** A
+heatmap, a choropleth, a hexbin, a mosaic: every cell is the same size and
+shape, so the shape that reaches the pins is a lattice and the numbers are all
+in the colour. Those marks are filled with a texture instead of left hollow —
+the darker the cell, the more crowded it feels, so a sighted colleague and a
+blind reader describe the same chart the same way. It is coarse; a fingertip
+separates perhaps four levels. Four levels is the difference between reading a
+heatmap and reading graph paper.
+
+Charts where fill is decoration are left alone. A bar's colour is its series,
+not its height, and texturing those would fill in the interiors that tell an
+ordinary mark from the solid focused one. maidr decides from the colours
+themselves: a trace whose marks are all one blue keeps its hollow outlines.
+
+Ordinary strokes are two pins across, not one. A single-pin diagonal steps in
+pins that touch only at their corners, so a finger sweeping across it meets a
+row of separate bumps rather than a line, and loses the trail on any drift.
+Closed outlines stay at one pin — thickening those would fill in the very
+interior that tells a hollow mark from a solid one.
 
 **Nothing else is drawn.** No frame around the plot, no axis lines, no tick
 marks, no titles or labels — only the data. Two reasons. A tick mark is a pin or
@@ -117,9 +160,17 @@ data that is not there. And every pin spent on furniture is a pin the chart is
 not using: a border alone costs two whole rows and two whole columns of a grid
 that has forty of one and sixty of the other.
 
-So the marks get the whole grid. Their own extent is what is scaled onto the
-pins, edge to edge — not the plot region, which would leave the display with a
-margin sized by however long the axis labels happened to be.
+So the marks get the whole grid — their own extent is what is scaled onto the
+pins, not the plot region, which would leave the display with a margin sized by
+however long the axis labels happened to be.
+
+One pin is kept clear around the edge, and only one. Without it a mark on the
+boundary sits on the outermost pin row, where three things go wrong at once: a
+bar's baseline falls off the grid so its outline never closes and it reads as an
+open channel; a curve touching the top cannot be told from one the grid cut off,
+so a real maximum and a truncated one feel the same; and a mark lying along an
+edge is felt as the frame of the device rather than as data. One pin costs 5% of
+the height and buys the difference between a closed shape and an open one.
 
 What the axes mean belongs on the braille line and in speech, where it can be
 read rather than guessed at from a shape a fingertip cannot resolve.

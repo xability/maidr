@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { TactileService } from '@service/tactile';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { PlotState } from '@type/state';
 import {
@@ -480,47 +481,147 @@ describe('MoveToSubplotContextCommand exit cue', () => {
 });
 
 describe('ToggleBrailleCommand at the figure lobby', () => {
-  test('warns and plays a warning tone when no trace is active', () => {
-    const context = {
-      state: { type: 'figure', empty: false } as unknown as PlotState,
-    } as unknown as Context;
+  /**
+   * A tactile display, in the two states that decide who takes the key.
+   * @param connected - Whether a display is connected
+   */
+  function createTactile(connected: boolean): { canShow: boolean; toggle: jest.Mock } {
+    return { canShow: connected, toggle: jest.fn() };
+  }
+
+  const lobby = { type: 'figure', empty: false } as unknown as PlotState;
+  const trace = {
+    type: 'trace',
+    empty: false,
+    braille: { empty: false },
+  } as unknown as PlotState;
+
+  test('warns and plays a warning tone when no trace is active and no display is connected', () => {
+    const context = { state: lobby } as unknown as Context;
     const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
     const notificationService = createMockNotificationService();
     const audioService = createMockAudioService();
+    const tactile = createTactile(false);
 
     const command = new ToggleBrailleCommand(
       context,
       brailleViewModel,
       notificationService,
       audioService,
+      tactile as unknown as TactileService,
     );
 
     command.execute();
 
     expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+    expect(tactile.toggle).not.toHaveBeenCalled();
     expect(notificationService.notify).toHaveBeenCalledWith(
       'Braille is not available here. Press Enter to select a subplot first.',
     );
     expect(audioService.playWarningTone).toHaveBeenCalled();
   });
 
-  test('toggles braille normally when a trace is active', () => {
-    const traceState = { type: 'trace', empty: false } as unknown as PlotState;
-    const context = { state: traceState } as unknown as Context;
+  test('shows the chart on a connected display instead of refusing at the lobby', () => {
+    // The lobby has no series selected, so braille has nothing to encode. A
+    // tactile display needs no encoding — it draws the panel's own geometry —
+    // and refusing on braille's behalf is what made the pins unreachable in
+    // exactly the place they are most useful: feeling the shape of each panel
+    // before choosing which to enter.
+    const context = { state: lobby } as unknown as Context;
     const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
     const notificationService = createMockNotificationService();
     const audioService = createMockAudioService();
+    const tactile = createTactile(true);
 
     const command = new ToggleBrailleCommand(
       context,
       brailleViewModel,
       notificationService,
       audioService,
+      tactile as unknown as TactileService,
     );
 
     command.execute();
 
-    expect(brailleViewModel.toggle).toHaveBeenCalledWith(traceState);
+    expect(tactile.toggle).toHaveBeenCalledTimes(1);
+    expect(notificationService.notify).not.toHaveBeenCalled();
+    expect(audioService.playWarningTone).not.toHaveBeenCalled();
+  });
+
+  test('shows a plot type braille cannot encode, rather than nothing at all', () => {
+    // Scatter, manhattan and volcano have no braille table. A pin grid draws a
+    // cloud of points better than it draws anything else, so this is the case
+    // where gating the display on braille cost the most.
+    const noBraille = {
+      type: 'trace',
+      empty: false,
+      braille: { empty: true, traceType: 'point' },
+    } as unknown as PlotState;
+    const context = { state: noBraille } as unknown as Context;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(true);
+
+    const command = new ToggleBrailleCommand(
+      context,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+    );
+
+    command.execute();
+
+    expect(tactile.toggle).toHaveBeenCalledTimes(1);
+    expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+  });
+
+  test('lets braille explain itself when no display is connected to offer instead', () => {
+    // Braille's own refusal names the plot type, which is more use to the
+    // reader than a second-hand version of it from here.
+    const noBraille = {
+      type: 'trace',
+      empty: false,
+      braille: { empty: true, traceType: 'point' },
+    } as unknown as PlotState;
+    const context = { state: noBraille } as unknown as Context;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(false);
+
+    const command = new ToggleBrailleCommand(
+      context,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+    );
+
+    command.execute();
+
+    expect(brailleViewModel.toggle).toHaveBeenCalledWith(noBraille);
+    expect(tactile.toggle).not.toHaveBeenCalled();
+  });
+
+  test('toggles braille normally when a trace is active', () => {
+    const context = { state: trace } as unknown as Context;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const notificationService = createMockNotificationService();
+    const audioService = createMockAudioService();
+    const tactile = createTactile(true);
+
+    const command = new ToggleBrailleCommand(
+      context,
+      brailleViewModel,
+      notificationService,
+      audioService,
+      tactile as unknown as TactileService,
+    );
+
+    command.execute();
+
+    expect(brailleViewModel.toggle).toHaveBeenCalledWith(trace);
+    // Braille carries the display with it through its own toggle event, so
+    // taking the key here as well would turn the pins straight back off.
+    expect(tactile.toggle).not.toHaveBeenCalled();
     expect(notificationService.notify).not.toHaveBeenCalled();
     expect(audioService.playWarningTone).not.toHaveBeenCalled();
   });

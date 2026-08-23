@@ -23,6 +23,7 @@
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
+import { TactileViewport } from '@util/tactile/viewport';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -123,5 +124,64 @@ describe('tactileSvgGeometry.isRenderable', () => {
       // chart wherever the walk starts above that group.
       expect(TactileSvgGeometry.isRenderable(element('g', { id: 'axes_1' }))).toBe(true);
     });
+  });
+});
+
+describe('tactileSvgGeometry.ringsOf on a mark the model supplied', () => {
+  /**
+   * Puts an element in a state `ringsOf` can measure. jsdom implements neither
+   * `getScreenCTM` nor `getBBox`, and both are read directly, so a stand-in for
+   * each is the whole of what is needed — the identity transform and a known
+   * box, so a returned ring reads as the box it came from.
+   *
+   * @param target - The element to make measurable
+   * @param box - The box `getBBox` should report
+   * @param box.x - Left edge in user space
+   * @param box.y - Top edge in user space
+   * @param box.width - Width in user space
+   * @param box.height - Height in user space
+   */
+  function measurable(
+    target: Element,
+    box: { x: number; y: number; width: number; height: number },
+  ): SVGGraphicsElement {
+    const graphics = target as unknown as Record<string, unknown>;
+    graphics.getScreenCTM = (): unknown => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    graphics.getBBox = (): unknown => box;
+    return target as unknown as SVGGraphicsElement;
+  }
+
+  const viewport = new TactileViewport({ left: 0, top: 0, width: 100, height: 100 }, 60, 40);
+
+  it('should draw a word rather than skipping it as a label', () => {
+    // A word cloud is made of `<text>`: the words are the marks and their size
+    // is the value. Sifting a chart's subtree drops lettering, because a tick
+    // label at this scale is a pin of noise that reads as data — but a mark the
+    // model hands over is data whatever it is made of, and applying the same
+    // rule there left the display flat. Not a degraded picture: no picture, and
+    // to a reader indistinguishable from a device that is switched off.
+    const word = measurable(element('text'), { x: 10, y: 10, width: 30, height: 20 });
+
+    expect(TactileSvgGeometry.ringsOf(word, viewport).length).toBeGreaterThan(0);
+  });
+
+  it('should draw the lettering inside a mark drawn as a group', () => {
+    const group = element('g');
+    const word = measurable(element('text'), { x: 10, y: 10, width: 30, height: 20 });
+    group.appendChild(word);
+
+    expect(TactileSvgGeometry.ringsOf(group as SVGGraphicsElement, viewport).length)
+      .toBeGreaterThan(0);
+  });
+
+  it('should still skip what a chart hides inside a mark', () => {
+    const group = element('g');
+    const hidden = measurable(
+      element('text', { visibility: 'hidden' }),
+      { x: 10, y: 10, width: 30, height: 20 },
+    );
+    group.appendChild(hidden);
+
+    expect(TactileSvgGeometry.ringsOf(group as SVGGraphicsElement, viewport)).toEqual([]);
   });
 });

@@ -205,6 +205,47 @@ export class DotRaster {
   }
 
   /**
+   * Connects a run of points with a stroke several pins wide.
+   *
+   * A one-pin stroke is at the floor of what a fingertip resolves, and a
+   * diagonal one is below it: Bresenham steps a shallow diagonal in single
+   * pins that touch only at their corners, so a finger sweeping across meets a
+   * row of separate bumps rather than a line, and loses the trail whenever it
+   * drifts by a pin. Widening the stroke is what turns a run of bumps into
+   * something that can be followed.
+   *
+   * Drawn as repeated offset passes rather than as a thick-line primitive: the
+   * grid is binary, so a union of one-pin strokes is exactly a wide stroke,
+   * and it costs a few passes over an area the size of a postcard.
+   *
+   * @param points - Points in dot coordinates
+   * @param weight - Pins across the stroke; 1 draws a plain polyline
+   * @param on - True to raise, false to lower
+   */
+  public strokePath(
+    points: readonly { x: number; y: number }[],
+    weight: number,
+    on: boolean = true,
+  ): void {
+    this.polyline(points, on);
+    if (weight <= 1) {
+      return;
+    }
+
+    // Offsets spiral outward from the path so an even weight grows to one side
+    // by the same amount it grows to the other, give or take a pin. Both axes
+    // are offset because a stroke may run in any direction and only the
+    // perpendicular offset thickens it — applying both costs a pass and leaves
+    // the stroke the same width whichever way it turns.
+    const reach = Math.floor(weight / 2);
+    for (let step = 1; step <= reach; step++) {
+      for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
+        this.polyline(points.map(point => ({ x: point.x + dx, y: point.y + dy })), on);
+      }
+    }
+  }
+
+  /**
    * Fills the interior of one or more closed rings using the even-odd rule.
    *
    * Rings are filled together rather than one at a time so a shape with a hole
@@ -268,6 +309,62 @@ export class DotRaster {
       crossings.sort((a, b) => a - b);
       for (let i = 0; i + 1 < crossings.length; i += 2) {
         this.hLine(crossings[i], crossings[i + 1], y, on);
+      }
+    }
+  }
+
+  /**
+   * Ordered-dither thresholds, one per pin position in a repeating 4x4 tile.
+   *
+   * A Bayer matrix rather than a random or a clustered pattern. Its raised pins
+   * spread as evenly as the density allows, which is what a fingertip reads as
+   * "how crowded is this" — clustered dots read instead as a pattern of blobs,
+   * and a random one reads as noise whose density is hard to judge against the
+   * cell beside it.
+   */
+  private static readonly DITHER: readonly (readonly number[])[] = [
+    [0, 8, 2, 10],
+    [12, 4, 14, 6],
+    [3, 11, 1, 9],
+    [15, 7, 13, 5],
+  ];
+
+  /**
+   * Fills rings with a texture whose crowding stands for a value.
+   *
+   * The pin grid has two states, so a value a chart drew as a colour has
+   * nowhere else to go. Density is the substitute a hand can read: a heatmap
+   * cell, a choropleth region, a hexbin cell and a mosaic tile are all the
+   * same size and shape as their neighbours, so without this the display
+   * carries their lattice and none of their numbers.
+   *
+   * @param rings - Closed rings in dot coordinates
+   * @param density - How much of the interior to raise, 0 to 1
+   */
+  public fillDithered(
+    rings: readonly (readonly { x: number; y: number }[])[],
+    density: number,
+  ): void {
+    const level = Math.round(Math.min(1, Math.max(0, density)) * 16);
+    if (level <= 0) {
+      return;
+    }
+    if (level >= 16) {
+      this.fillPolygon(rings);
+      return;
+    }
+
+    // Filled into a scratch buffer and then transferred through the dither, so
+    // the even-odd rule that gives a ring its holes is applied once, by the
+    // code that already knows how, rather than reimplemented per pin.
+    const solid = new DotRaster(this.width, this.height);
+    solid.fillPolygon(rings);
+    const tile = DotRaster.DITHER;
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (solid.get(x, y) && tile[y % 4][x % 4] < level) {
+          this.set(x, y);
+        }
       }
     }
   }

@@ -4,6 +4,7 @@ import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
+import type { TactileService } from '@service/tactile';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -23,6 +24,7 @@ export class ToggleBrailleCommand implements Command {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly notificationService: NotificationService;
   private readonly audioService: AudioService;
+  private readonly tactileService: TactileService;
 
   /**
    * Creates an instance of ToggleBrailleCommand.
@@ -30,28 +32,54 @@ export class ToggleBrailleCommand implements Command {
    * @param {BrailleViewModel} brailleViewModel - The braille view model.
    * @param {NotificationService} notificationService - Announces the unsupported warning.
    * @param {AudioService} audioService - Plays the warning tone.
+   * @param {TactileService} tactileService - Takes the key where braille declines.
    */
   public constructor(
     context: Context,
     brailleViewModel: BrailleViewModel,
     notificationService: NotificationService,
     audioService: AudioService,
+    tactileService: TactileService,
   ) {
     this.context = context;
     this.brailleViewModel = brailleViewModel;
     this.notificationService = notificationService;
     this.audioService = audioService;
+    this.tactileService = tactileService;
   }
 
   /**
-   * Toggles the braille display when a trace is active. Above the trace level
-   * (e.g. the multi-panel figure lobby) there is no data series to render as
-   * braille, so instead of silently ignoring the key it announces a warning and
-   * plays a warning tone — mirroring how `l t` warns when text mode is off.
+   * Toggles the braille display when a trace is active and has something to
+   * encode, and otherwise offers the same key to a connected tactile display.
+   *
+   * The two are one switch — "show me this by touch" — but only braille needs
+   * the data reduced to cells, and there are places it cannot be: the
+   * multi-panel lobby, where no series is selected yet, and the plot types
+   * with no braille table. A tactile display draws the chart's own geometry
+   * and needs none of that, so refusing on braille's behalf would hide the
+   * pins in exactly the cases they are most worth having — a scatter is the
+   * chart a pin grid draws best of all.
+   *
+   * With no display connected there is nothing to offer, and the reader is
+   * better served by braille's own account of why it cannot open: a warning
+   * announcement and a warning tone, mirroring how `l t` warns when text mode
+   * is off.
    */
   public execute(): void {
     const state = this.context.state;
+    if (state.type === 'trace' && !state.empty && !state.braille.empty) {
+      this.brailleViewModel.toggle(state);
+      return;
+    }
+
+    if (this.tactileService.canShow) {
+      this.tactileService.toggle();
+      return;
+    }
+
     if (state.type === 'trace') {
+      // Braille's own refusal names the plot type, which is more use than a
+      // second-hand version of it.
       this.brailleViewModel.toggle(state);
       return;
     }
