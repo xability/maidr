@@ -204,6 +204,44 @@ test.describe('Walking values tied at an extreme', () => {
     expect(info).toContain('1 of 3');
   });
 
+  test('should keep saying the position after text mode is made terse', async ({ page }) => {
+    // Terse shortens the point description; it does not drop navigational
+    // position — `Layer n of m` is announced in either mode. Here the count
+    // is the only thing that says how many ties there are and when the walk
+    // has come back round, and nothing in the point text carries that in
+    // either mode, so terse is if anything where it matters more.
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    // Assert the mode rather than trusting the cycle: `t` runs
+    // verbose -> terse -> off, and a reordering there would otherwise leave
+    // this passing from verbose and proving nothing.
+    await plot.toggleTextMode();
+    expect(await plot.getCurrentDataPointInfo()).toContain(TestConstants.TEXT_MODE_TERSE);
+
+    await plot.goToMaximumValue();
+    expect(await plot.getCurrentDataPointInfo()).toContain('1 of 3');
+
+    await plot.goToMaximumValue();
+    expect(await plot.getCurrentDataPointInfo()).toContain('2 of 3');
+  });
+
+  test('should stay silent about the position once text mode is off', async ({ page }) => {
+    // Off is a choice to navigate by tone and braille. A notification
+    // announces regardless of the text setting, so the position is the one
+    // thing that could speak over that choice.
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    await plot.toggleTextMode();
+    await plot.toggleTextMode();
+    expect(await plot.getCurrentDataPointInfo()).toContain(TestConstants.TEXT_MODE_OFF);
+
+    await plot.goToMaximumValue();
+
+    expect(await plot.getCurrentDataPointInfo()).not.toContain('of 3');
+  });
+
   test('should walk the ties from braille mode too', async ({ page }) => {
     const plot = new TiedExtremesPage(page);
     await plot.activateMaidr();
