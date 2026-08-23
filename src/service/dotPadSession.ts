@@ -45,6 +45,26 @@ const GLOBAL_KEYS = ['DotPadSDK', 'dotPadSDK', 'DotPad'] as const;
  * a much larger thing to ask of a page that simply wants the file served from
  * its own origin.
  */
+/**
+ * USB identifiers the SDK's own picker filters by.
+ *
+ * Duplicated from its `startUsbScan`, which inlines them rather than exposing
+ * them. Used only to tell a granted DotPad port from some other device the
+ * page happens to have been granted.
+ */
+const DOTPAD_USB_IDS: readonly { usbVendorId: number; usbProductId: number }[] = [
+  { usbVendorId: 1027, usbProductId: 24592 },
+  { usbVendorId: 1027, usbProductId: 24597 },
+];
+
+/**
+ * The part of a Web Serial port MAIDR reads when deciding whether a granted
+ * port is a DotPad.
+ */
+interface SerialPortLike {
+  getInfo?: () => { usbVendorId?: number; usbProductId?: number };
+}
+
 const CONFIG_KEYS = {
   moduleUrl: 'MAIDR_DOTPAD_SDK_URL',
   assetBaseUrl: 'MAIDR_DOTPAD_ASSET_BASE_URL',
@@ -120,6 +140,13 @@ class DotPadSession {
   /**
    * URL a host page may set to point MAIDR at the SDK module.
    */
+  /**
+   * True when the current connection was adopted silently rather than chosen
+   * by the reader. Only an adopted one is released again on going idle, so a
+   * device the reader deliberately connected is never taken from under them.
+   */
+  private adopted = false;
+
   private moduleUrl: string | null = null;
 
   /**
@@ -386,6 +413,171 @@ class DotPadSession {
   }
 
   /**
+   * Opens a device the caller has already obtained and records the connection.
+   *
+   * The half of connecting that is the same whether the device came from a
+   * picker or from a permission the origin was granted earlier.
+   *
+   * @param sdk - The vendor SDK instance
+   * @param transport - How the device is attached
+   * @param selected - The device or port to open
+   * @returns True when the device is connected
+   */
+  private async attach(
+    sdk: DotPadVendorSdk,
+    transport: DotPadTransport,
+    selected: unknown,
+  ): Promise<boolean> {
+    const device = transport === 'bluetooth'
+      ? await sdk.connectBleDevice(selected)
+      : await sdk.connectUsbDevice(selected);
+    if (device === null || device === undefined) {
+      return false;
+    }
+
+    this.device = device;
+    this.setState({
+      status: 'connected',
+      deviceName: device.cellType,
+      transport,
+      geometry: this.readGeometry(device),
+      message: '',
+    });
+    return true;
+  }
+
+  /**
+   * Hands back a silently adopted display so another chart can take it.
+   *
+   * A device can only be open in one frame at a time, and every chart is its
+   * own frame. Releasing when this chart stops using the display is what lets
+   * the next one adopt it — without this, the first chart a reader opens keeps
+   * the device for as long as its frame lives.
+   *
+   * A connection the reader made themselves is left alone: they chose this
+   * chart, and taking the device away because they turned braille off would
+   * undo a decision they made deliberately.
+   */
+  public releaseIfAdopted(): void {
+    if (this.adopted) {
+      this.disconnect();
+    }
+  }
+
+  /**
+   * Connects to a display this origin was already granted, without a picker.
+   *
+   * Every chart in a notebook is its own iframe, so every chart is its own
+   * copy of this module with its own connection — and a live `BluetoothDevice`
+   * or `SerialPort` cannot be passed between frames. What does cross the
+   * boundary is the *permission*: `srcdoc` frames inherit the embedder's
+   * origin, so a device the reader picked in one chart is already granted to
+   * every other chart on the page. `getPorts` and `getDevices` hand it back
+   * without a dialog and without a user gesture, which is the difference
+   * between pairing once per page and pairing once per chart.
+   *
+   * Quiet on failure by design: this runs on its own, not because the reader
+   * asked, so it must not put an error next to a control they did not touch.
+   * The Connect buttons remain the way to be told what went wrong.
+   *
+   * @returns True when a display was adopted
+   */
+  public async adopt(): Promise<boolean> {
+    if (this.isConnected || this.state.status === 'connecting') {
+      return false;
+    }
+
+    const vendor = await this.loadVendor();
+    if (vendor === null) {
+      return false;
+    }
+
+    try {
+      const sdk = this.sdk ?? new vendor.DotPadSDK();
+      if (this.sdk === null) {
+        this.sdk = sdk;
+        this.registerCallbacks(sdk);
+        this.prepareTranslation(vendor, sdk);
+      }
+
+      for (const transport of ['bluetooth', 'serial'] as const) {
+        if (!this.supports(transport)) {
+          continue;
+        }
+        const granted = await this.grantedDevice(vendor, transport);
+        if (granted === null) {
+          continue;
+        }
+        if (await this.attach(sdk, transport, granted)) {
+          this.adopted = true;
+          return true;
+        }
+      }
+    } catch (error) {
+      // Another frame may already hold the device — opening a serial port a
+      // second time throws — and that is an ordinary outcome here, not a
+      // fault to report.
+      console.error('DotPad could not be reconnected:', error instanceof Error ? error.message : error);
+    }
+    return false;
+  }
+
+  /**
+   * A display this origin was granted earlier, or null when there is none.
+   *
+   * Filtered rather than taken on trust: a page may have been granted some
+   * other device entirely, and opening that would be worse than doing nothing.
+   * The Bluetooth filter is the SDK's own name prefix, read off its scanner so
+   * the two cannot drift.
+   *
+   * @param vendor - The loaded vendor module
+   * @param transport - Which kind of device to look for
+   */
+  private async grantedDevice(vendor: DotPadVendorModule, transport: DotPadTransport): Promise<unknown> {
+    if (transport === 'bluetooth') {
+      const bluetooth = (navigator as unknown as {
+        bluetooth?: { getDevices?: () => Promise<{ name?: string }[]> };
+      }).bluetooth;
+      if (bluetooth?.getDevices === undefined) {
+        return null;
+      }
+      const scanner = new vendor.DotPadScanner() as unknown as { DOTPAD_PREFIX?: string };
+      const prefix = scanner.DOTPAD_PREFIX ?? 'Dot';
+      const devices = await bluetooth.getDevices();
+      return devices.find(device => device.name?.startsWith(prefix)) ?? null;
+    }
+
+    const serial = (navigator as unknown as {
+      serial?: { getPorts?: () => Promise<SerialPortLike[]> };
+    }).serial;
+    if (serial?.getPorts === undefined) {
+      return null;
+    }
+    const ports = await serial.getPorts();
+    return ports.find(port => DotPadSession.isDotPadPort(port)) ?? null;
+  }
+
+  /**
+   * Reports whether a granted serial port is a DotPad.
+   *
+   * The identifiers are the ones the SDK's own `startUsbScan` filters its
+   * picker by. They are duplicated here because the SDK inlines them rather
+   * than exposing them; a port that does not match is some other device the
+   * page was granted and must be left alone.
+   *
+   * @param port - The granted port to test
+   */
+  private static isDotPadPort(port: SerialPortLike): boolean {
+    const info = port.getInfo?.();
+    if (info === undefined) {
+      return false;
+    }
+    return DOTPAD_USB_IDS.some(
+      id => id.usbVendorId === info.usbVendorId && id.usbProductId === info.usbProductId,
+    );
+  }
+
+  /**
    * Reports whether the browser can reach a tactile display over one transport.
    *
    * Both APIs are gated by Permissions Policy, and being gated out does not
@@ -543,22 +735,11 @@ class DotPadSession {
         return this.state;
       }
 
-      const device = transport === 'bluetooth'
-        ? await sdk.connectBleDevice(selected)
-        : await sdk.connectUsbDevice(selected);
-      if (device === null || device === undefined) {
+      if (!await this.attach(sdk, transport, selected)) {
         this.setState({ status: 'failed', message: 'Could not connect to the DotPad.' });
         return this.state;
       }
-
-      this.device = device;
-      this.setState({
-        status: 'connected',
-        deviceName: device.cellType,
-        transport,
-        geometry: this.readGeometry(device),
-        message: '',
-      });
+      this.adopted = false;
     } catch (error) {
       this.device = null;
       const denied = error instanceof Error && error.name === 'SecurityError';

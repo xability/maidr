@@ -185,9 +185,23 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       if (event.enabled) {
         this.viewport?.reset();
         this.shapeCache = null;
+        // Every chart in a notebook is its own iframe and so its own
+        // connection, but the permission behind it belongs to the page. Taking
+        // the display up here — silently, no picker — is what makes the reader
+        // pair once for the page rather than once for every chart.
+        if (!dotPadSession.isConnected) {
+          void dotPadSession.adopt().then((adopted) => {
+            if (adopted) {
+              this.refresh();
+            }
+          });
+        }
         this.refresh();
       } else {
         this.blank();
+        // Handed back so the next chart can take it. Only if it was adopted:
+        // a display the reader connected here on purpose stays here.
+        dotPadSession.releaseIfAdopted();
       }
     }));
 

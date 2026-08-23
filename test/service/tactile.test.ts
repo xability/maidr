@@ -96,6 +96,8 @@ jest.mock('@service/dotPadSession', () => {
       writeText: jest.fn(),
       connect: jest.fn(),
       disconnect: jest.fn(),
+      adopt: jest.fn(async (): Promise<boolean> => false),
+      releaseIfAdopted: jest.fn(),
       canTranslate: false,
       translate: jest.fn(async (_text: string): Promise<string | null> => null),
       fireKey: (key: DotPadKey): void => {
@@ -133,6 +135,8 @@ interface FakeSession {
   writeGraphicRow: jest.Mock<(cellRow: number, hex: string) => void>;
   writeText: jest.Mock<(hex: string) => void>;
   disconnect: jest.Mock<() => void>;
+  adopt: jest.Mock<() => Promise<boolean>>;
+  releaseIfAdopted: jest.Mock<() => void>;
   fireKey: (key: DotPadKey) => void;
   fireState: (state: DotPadState) => void;
 }
@@ -402,6 +406,9 @@ describe('tactileService', () => {
     session.writeGraphicRow.mockClear();
     session.writeText.mockClear();
     session.disconnect.mockClear();
+    session.releaseIfAdopted.mockClear();
+    session.adopt.mockReset();
+    session.adopt.mockImplementation(async (): Promise<boolean> => false);
     ringsOf.mockReset();
     ringsOf.mockImplementation((element, viewport) => ringFor(element, viewport));
 
@@ -823,6 +830,57 @@ describe('tactileService', () => {
 
       expect(session.writeText).toHaveBeenCalled();
       expect(session.writeText.mock.calls[0][0]).not.toBe(first);
+    });
+  });
+
+  describe('sharing one display between charts', () => {
+    // Every chart in a notebook is its own iframe, so every chart is its own
+    // copy of the session with its own connection — a live BluetoothDevice or
+    // SerialPort cannot cross a frame boundary. What does cross is the
+    // permission, which belongs to the page. These cases pin the consequence:
+    // the reader pairs once for the page, not once per chart.
+
+    it('should take up a display the page was already granted', () => {
+      session.isConnected = false;
+
+      brailleStub.isEnabled = true;
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+
+      expect(session.adopt).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not reach for one when this chart already has it', () => {
+      session.isConnected = true;
+
+      brailleStub.isEnabled = true;
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+
+      expect(session.adopt).not.toHaveBeenCalled();
+    });
+
+    it('should draw as soon as one is taken up', async () => {
+      session.isConnected = false;
+      session.adopt.mockImplementation(async () => {
+        session.isConnected = true;
+        return true;
+      });
+      brailleStub.isEnabled = true;
+      service.update(traceState(chart, 1));
+
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(session.writeGraphic).toHaveBeenCalled();
+    });
+
+    it('should hand the display back when this chart stops using it', () => {
+      activate();
+
+      brailleStub.isEnabled = false;
+      toggle.fire({ enabled: false, state: traceState(chart, 1) });
+
+      expect(session.releaseIfAdopted).toHaveBeenCalledTimes(1);
     });
   });
 

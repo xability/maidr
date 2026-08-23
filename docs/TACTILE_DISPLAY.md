@@ -22,6 +22,21 @@ any time. The status line reports what happened and which way you are
 connected, and both buttons retry if a picker is dismissed or a connection
 fails.
 
+### Several charts on one page
+
+A notebook puts every chart in its own frame, and a connected device belongs to
+one frame at a time — a live Bluetooth or serial handle cannot be passed between
+them. The *permission* is not frame-bound, though: it belongs to the page. So
+you pick your device once, and from then on every other chart takes it up
+silently as you open its braille panel, with no picker and nothing to press.
+
+A chart hands the device back when you close its braille panel, which is what
+lets the next one take it. A connection you made yourself with the Connect
+buttons stays where you made it — only a silently adopted one is handed on.
+
+Two charts both holding their braille panels open is the one case this does not
+cover: the first keeps the device. Close its panel and the other takes it.
+
 ### Bluetooth or USB
 
 Both work. They differ in ways worth knowing:
