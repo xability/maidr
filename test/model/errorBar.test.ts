@@ -270,6 +270,56 @@ describe('extrema navigation', () => {
     expect(text.cross.value).toBe(7.3);
   });
 
+  test('ranks a band across both its bounds', () => {
+    // A band has no estimate, so the fallback row put `getExtremaTargets` on
+    // `lower` alone: the highest *lower* bound was offered as the maximum --
+    // 30 at feb, when the chart's highest drawn point is feb's upper bound at
+    // 50, which the trace's own `max` stat already reports. "Go to max" and
+    // the description contradicted each other (#1133 review).
+    const targets = at(BAND, 0, 0).getExtremaTargets();
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toMatchObject({
+      type: 'max',
+      value: 50,
+      pointIndex: 1,
+      segment: 'upper',
+      label: 'Max upper bound at feb',
+    });
+    expect(targets[1]).toMatchObject({
+      type: 'min',
+      value: 5,
+      pointIndex: 0,
+      segment: 'lower',
+      label: 'Min lower bound at jan',
+    });
+  });
+
+  test('lands a band\'s maximum on its upper bound', () => {
+    // The row has to follow the target's section, not the fallback: landing
+    // on `lower` would announce feb's 30 under the name "max".
+    const trace = at(BAND, 0, 0);
+    const [highest] = trace.getExtremaTargets();
+
+    trace.navigateToExtrema(highest);
+
+    const { text } = nonEmptyState(trace);
+    expect(text.section).toBe('upper bound');
+    expect(text.cross.value).toBe(50);
+  });
+
+  test('offers both ends of a one-sample band', () => {
+    // Its two bounds share a column and a group, so a same-sample check that
+    // did not compare the section would drop the minimum and report a band
+    // with no spread at all.
+    const single: ErrorBarPoint[] = [{ x: 'jan', yMin: 5, yMax: 15 }];
+    const targets = at(single, 0, 0).getExtremaTargets();
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toMatchObject({ type: 'max', value: 15 });
+    expect(targets[1]).toMatchObject({ type: 'min', value: 5 });
+  });
+
   test('offers one target when every estimate is equal', () => {
     // Naming the same sample as both the highest and the lowest would report
     // a spread the chart does not have.

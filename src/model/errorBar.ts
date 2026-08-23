@@ -151,6 +151,9 @@ export class ErrorBarTrace extends AbstractTrace {
    */
   private readonly groups: ErrorBarPoint[][];
   private readonly sections: readonly Section[];
+
+  /** Whether any sample carries an estimate, as opposed to bounds alone. */
+  private readonly hasEstimate: boolean;
   private readonly sectionValues: number[][];
   private readonly orientation: Orientation;
 
@@ -159,7 +162,15 @@ export class ErrorBarTrace extends AbstractTrace {
   private readonly perRowMin: number[];
   private readonly perRowMax: number[];
 
-  /** Row the estimate lives on — the entry row, and the pointer's target. */
+  /**
+   * Row the estimate lives on — the entry row, and the pointer's target.
+   *
+   * A band carries no estimate, so there is no such row and this falls back
+   * to `lower`: the bottom of the interval, which is where entering from
+   * below and stepping up starts. Anything that means "the estimate
+   * specifically" has to ask {@link ErrorBarTrace.hasEstimate} first, since
+   * this answers `0` either way.
+   */
   private readonly valueRow: number;
 
   protected readonly highlightValues: SVGElement[][] | null;
@@ -217,6 +228,7 @@ export class ErrorBarTrace extends AbstractTrace {
       MathUtil.safeMax(row.filter(isMeasured)),
     );
 
+    this.hasEstimate = this.sections.includes('value');
     this.valueRow = Math.max(0, this.sections.indexOf('value'));
     this.highlightValues = this.mapToSvgElements(layer.selectors);
     // Enter on the estimate, not on whichever section happens to be last.
@@ -483,19 +495,46 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   /**
-   * Offers the highest and lowest estimate as extrema targets.
+   * Which sections one group's extrema are ranked over.
    *
-   * The estimates are what a reader compares across samples, so they are what
-   * "go to the extreme" should mean here. The bounds are deliberately not
-   * ranked: the widest interval is a different question from the largest
-   * value, and offering both under one menu would leave the reader unable to
-   * tell which sense of "extreme" they had just jumped to.
+   * The estimate alone when there is one: the estimates are what a reader
+   * compares across samples, so they are what "go to the extreme" means on a
+   * chart that has them, and ranking the bounds alongside would mix that with
+   * "which interval reaches furthest" -- a different question, and one a
+   * reader could not tell they had jumped to.
    *
-   * Both targets land on the estimate row, so a reader arriving there hears
-   * the value and can step up or down into its interval — the same motion the
-   * trace exists for.
+   * A band has no estimate, and pinning to the fallback row would rank its
+   * lower bounds alone: `getExtremaTargets` then called the highest *lower*
+   * bound the maximum, sending a reader to a number the trace's own stats
+   * contradict, since {@link ErrorBarTrace.max} already spans both bounds.
+   * So the bounds are ranked together there, and the reader is sent to the
+   * highest and lowest positions the chart actually drew.
    *
-   * @returns The maximum and minimum estimate, when any sample carries one
+   * @param group - Which group to rank
+   * @returns The grid rows to rank, and the section each one reads
+   */
+  private extremaRowsOf(group: number): { row: number; section: Section }[] {
+    if (this.hasEstimate) {
+      return [{ row: this.valueRowOf(group), section: 'value' }];
+    }
+    return this.sections.map((section, offset) => ({
+      row: group * this.sections.length + offset,
+      section,
+    }));
+  }
+
+  /**
+   * Offers the highest and lowest reading as extrema targets.
+   *
+   * What counts as a reading is {@link ErrorBarTrace.extremaRowsOf}'s
+   * decision: the estimates on a chart that has them, the bounds together on
+   * a band that does not.
+   *
+   * Each target lands on the row it was found in, so a reader arriving there
+   * hears that reading and can step up or down through the rest of its
+   * interval — the same motion the trace exists for.
+   *
+   * @returns The maximum and minimum reading, when any sample carries one
    */
   public override getExtremaTargets(): ExtremaTarget[] {
     // Across every group, not just the first. A chart whose largest estimate
@@ -503,9 +542,11 @@ export class ErrorBarTrace extends AbstractTrace {
     // under the name "max", sending a reader somewhere the maximum is not --
     // and saying nothing about it.
     const measured = this.groups.flatMap((group, groupIndex) =>
-      this.sectionValues[this.valueRowOf(groupIndex)]
-        .map((value, index) => ({ value, index, groupIndex }))
-        .filter(({ value }) => isMeasured(value)),
+      this.extremaRowsOf(groupIndex).flatMap(({ row, section }) =>
+        this.sectionValues[row]
+          .map((value, index) => ({ value, index, groupIndex, section }))
+          .filter(({ value }) => isMeasured(value)),
+      ),
     );
 
     if (measured.length === 0) {
@@ -519,11 +560,17 @@ export class ErrorBarTrace extends AbstractTrace {
       this.extremaTarget(highest, 'max'),
     ];
 
-    // One sample, or a chart where every estimate is equal, has a single
-    // extreme. Naming the same sample as both would report a spread the chart
-    // does not have. Compared on both coordinates, since two groups can share
-    // a column index without being the same reading.
-    if (lowest.index !== highest.index || lowest.groupIndex !== highest.groupIndex) {
+    // One sample, or a chart where every reading is equal, has a single
+    // extreme. Naming the same reading as both would report a spread the
+    // chart does not have. Compared on all three coordinates: two groups can
+    // share a column index without being the same reading, and on a band one
+    // sample's two bounds share both index and group while being the two ends
+    // of the spread this is reporting.
+    if (
+      lowest.index !== highest.index
+      || lowest.groupIndex !== highest.groupIndex
+      || lowest.section !== highest.section
+    ) {
       targets.push(this.extremaTarget(lowest, 'min'));
     }
 
@@ -531,34 +578,46 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   /**
-   * Builds one extrema target from a located estimate.
+   * Builds one extrema target from a located reading.
    *
    * The group's name joins the label on a grouped chart, because the groups
    * share their category names: "Max value at c" alone does not say which
    * series it means, and the menu offering it is read without the chart in
    * view.
    *
-   * @param found - Where the estimate was located
-   * @param found.value - The estimate itself
+   * The section names itself too. On a chart with estimates that is the word
+   * "value" and the label is what it always was; on a band it is "upper
+   * bound" or "lower bound", which is the difference between "Max upper bound
+   * at feb" and a menu entry claiming a band has a value.
+   *
+   * @param found - Where the reading was located
+   * @param found.value - The reading itself
    * @param found.index - Its column within its group
    * @param found.groupIndex - Which group it belongs to
+   * @param found.section - Which section of the interval it is
    * @param type - Whether it is the maximum or the minimum
    * @returns The target a reader can navigate to
    */
   private extremaTarget(
-    found: { value: number; index: number; groupIndex: number },
+    found: {
+      value: number;
+      index: number;
+      groupIndex: number;
+      section: Section;
+    },
     type: 'max' | 'min',
   ): ExtremaTarget {
     const point = this.groups[found.groupIndex][found.index];
     const group = this.groupNameAt(found.groupIndex);
     const where = group === undefined ? `${point.x}` : `${point.x}, ${group}`;
+    const what = SECTION_LABEL[found.section];
 
     return {
-      label: `${type === 'max' ? 'Max' : 'Min'} value at ${where}`,
+      label: `${type === 'max' ? 'Max' : 'Min'} ${what} at ${where}`,
       value: found.value,
       pointIndex: found.index,
       groupIndex: found.groupIndex,
-      segment: 'value',
+      segment: found.section,
       type,
       navigationType: 'point',
       xValue: point.x,
@@ -566,7 +625,7 @@ export class ErrorBarTrace extends AbstractTrace {
   }
 
   /**
-   * Moves the cursor to a chosen extrema target, on the estimate row.
+   * Moves the cursor to a chosen extrema target, on the row it was found on.
    *
    * @param target - The extrema target to navigate to
    */
@@ -574,7 +633,13 @@ export class ErrorBarTrace extends AbstractTrace {
     // The target's own group, not the first: landing on the first group's
     // estimate row would announce a different series' value at the category
     // the target named, which reads as the extreme without being it.
-    this.row = this.valueRowOf(target.groupIndex ?? 0);
+    //
+    // And its own section, not the estimate's: a band's maximum is an upper
+    // bound, and sending the reader to the fallback row would announce that
+    // sample's lower bound under the name "max".
+    const offset = this.sections.indexOf(target.segment as Section);
+    const section = offset === -1 ? this.valueRow : offset;
+    this.row = (target.groupIndex ?? 0) * this.sections.length + section;
     this.col = target.pointIndex;
     this.finalizeNavigation();
   }
