@@ -115,17 +115,26 @@ test.describe('Go to extreme value', () => {
 
     const brailleField = page.locator(`textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`);
     const before = await brailleField.inputValue();
+    const cursor = async (): Promise<number | null> => brailleField.evaluate(
+      field => (field as HTMLTextAreaElement).selectionStart,
+    );
 
-    await barPlotPage.goToMaximumValue();
-
-    expect(await brailleField.inputValue()).toEqual(before);
-    expect(await brailleField.evaluate(field => (field as HTMLTextAreaElement).selectionStart))
-      .toEqual(max.index);
+    // Entering a chart puts the cursor on the first cell, and in this example
+    // the first bar is also the tallest — so jumping to the maximum first
+    // would assert a position the cursor already held, and a key that did
+    // nothing at all would pass. Going to the minimum first moves it away,
+    // and only then does either direction have to travel.
+    expect(await cursor()).toEqual(0);
+    expect(min.index).not.toEqual(0);
 
     await barPlotPage.goToMinimumValue();
 
     expect(await brailleField.inputValue()).toEqual(before);
-    expect(await brailleField.evaluate(field => (field as HTMLTextAreaElement).selectionStart))
-      .toEqual(min.index);
+    expect(await cursor()).toEqual(min.index);
+
+    await barPlotPage.goToMaximumValue();
+
+    expect(await brailleField.inputValue()).toEqual(before);
+    expect(await cursor()).toEqual(max.index);
   });
 });
