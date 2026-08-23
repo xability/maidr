@@ -123,13 +123,14 @@ Two things a mark's shape decides for it:
 - **A line, a curve, a whisker or an error bar has no interior to fill.** The
   focused one is drawn with a heavier stroke instead. Without that, a reader on
   a line chart had no tactile answer at all to which point they were on.
-- **A mark too big to fit is outlined rather than filled.** What counts as too
-  big is how far it *spans*, not its area: a bar zoomed into covers every row of
-  the display while taking only two-fifths of its area, and it is the reachable
-  boundary that decides whether a fill can still be read. Once you are *inside*
-  a mark, its sides are the thing that still says where it is. This means the
-  mark you are on can feel solid at one zoom level and hollow at the next —
-  that change is itself the signal that you have gone inside it.
+- **A mark that has run off the grid is outlined rather than filled.** What
+  counts is whether its boundary is still reachable — not how much of the
+  display it covers. A bar at rest reaches nearly the full height and is filled,
+  because you can still find its top and bottom. The same bar zoomed into has
+  both of those past the edge, and filling it would leave you inside a shape
+  with nothing to feel, so its sides are drawn instead. The mark you are on can
+  therefore feel solid at one zoom level and hollow at the next: that change is
+  itself the signal that you have gone inside it.
 - **A focused point is drawn as a small disc.** A point has nothing to fill and
   nothing to thicken; a heavier stroke on one just makes the line it sits on
   locally fatter, which is not something a finger reads as a separate thing.
