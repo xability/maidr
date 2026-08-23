@@ -71,19 +71,34 @@ const KEY_TEXT_SCROLL: Readonly<Partial<Record<DotPadKey, number>>> = {
 };
 
 /**
+ * Trace types whose value is the fill colour rather than the mark's shape.
+ *
+ * Every cell of a heatmap or a hexbin is the same size and shape, and a
+ * choropleth's regions are fixed by geography — so the shape that reaches the
+ * pins carries nothing and the numbers are all in the colour. Those are the
+ * charts worth spending texture on.
+ *
+ * An explicit list rather than something inferred from the colours themselves.
+ * Counting distinct shades looked principled and is not: a qualitative palette
+ * is chosen to be *maximally* distinguishable, so Tableau10 offers ten shades
+ * and would have been read as a scale, while a two-value heatmap offers two and
+ * would have been read as decoration. The question is what the chart meant by
+ * its colours, and only the chart knows.
+ *
+ * A pie, a bar and a treemap are deliberately absent: their colour names a
+ * category and their size is the value. Texturing a pie put two of four wedges
+ * at full density and left a third empty — two solid wedges, one of them the
+ * one the reader was standing on, and no way to tell which.
+ */
+const COLOUR_IS_THE_VALUE: ReadonlySet<string> = new Set([
+  'heat',
+  'choropleth',
+  'hexbin',
+]);
+
+/**
  * Trace types read by their shape, where the chart's own proportions have to
  * survive the mapping onto the pins.
- *
- * Stretching one of these does not blur it, it misreports it. A pie arriving
- * as a 1.5:1 ellipse makes a wedge at the top subtend a different arc from the
- * same wedge at the side, so the reader concludes one slice is bigger when the
- * data says they are equal — and the round silhouette that says "pie" at all
- * is gone with it. The same goes for a radar's polygon, a chord ring, a
- * sunburst's concentric bands, a hexbin's hexagons and the outline of a map.
- *
- * Everything else stretches to fill. A bar chart's shape carries nothing, and
- * letterboxing it would throw away rows a fingertip could have used to tell
- * two bar heights apart.
  */
 const SHAPE_IS_THE_DATA: ReadonlySet<string> = new Set([
   'pie',
@@ -792,9 +807,16 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * the only solid thing on the display.
    *
    * @param marks - The marks about to be drawn
+   * @param state - The state being drawn, which says what its colours mean
    */
-  private static shadesOf(marks: readonly SVGGraphicsElement[]): Map<SVGGraphicsElement, number> | undefined {
+  private static shadesOf(
+    marks: readonly SVGGraphicsElement[],
+    state: DrawableState,
+  ): Map<SVGGraphicsElement, number> | undefined {
     if (marks.length < 2 || typeof window === 'undefined') {
+      return undefined;
+    }
+    if (state.type !== 'trace' || !COLOUR_IS_THE_VALUE.has(state.traceType)) {
       return undefined;
     }
 
@@ -939,7 +961,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // of that path: no element is in both, so the path is outlined and the
     // circle filled, which is the picture wanted anyway -- a line you can trace
     // with one raised dot where you are standing on it.
-    const scene: TactileScene = { marks, focused, shades: TactileService.shadesOf(marks) };
+    const scene: TactileScene = { marks, focused, shades: TactileService.shadesOf(marks, state) };
 
     const raster = TactileRenderer.render(
       scene,

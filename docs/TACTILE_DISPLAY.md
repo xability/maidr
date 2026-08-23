@@ -159,11 +159,13 @@ blind reader describe the same chart the same way. It is coarse; a fingertip
 separates perhaps four levels. Four levels is the difference between reading a
 heatmap and reading graph paper.
 
-Charts where fill is decoration are left alone, and so are charts that paint
-from a palette rather than a ramp. A bar's colour is its series, not its height;
-a pie's colour names the slice while the value is the angle. maidr decides from
-the colours themselves — a trace whose marks are all one blue, or that uses a
-handful of distinct hues rather than a graded scale, keeps its hollow outlines.
+Only those charts. A bar's colour is its series, not its height; a pie's colour
+names the slice while the value is the angle; a treemap's is decoration over an
+area that already says everything. Those keep their hollow outlines. Which is
+which is settled by the kind of chart, not guessed from the colours — a
+qualitative palette is chosen to be *maximally* distinguishable, so counting
+distinct shades would read a ten-colour pie as a scale and a two-value heatmap
+as decoration, which is backwards in both directions.
 
 The same principle bounds the fill: a mark that covers the whole grid is
 outlined rather than filled even when none of its edges have left it, because

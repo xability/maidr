@@ -93,17 +93,17 @@ describe('tactileShade.densities', () => {
     expect((densities as number[])[5]).toBeCloseTo(1);
   });
 
-  it('should decline a palette, where colour names a category and not a value', () => {
-    // A pie paints one colour per slice and puts the value in the angle.
-    // Texturing it put two of four wedges at full density and left a third
-    // empty: two solid wedges, one of them the reader's, and no way to tell.
-    expect(TactileShade.densities(['#4c72b0', '#dd8452', '#55a868', '#c44e52'])).toBeNull();
-  });
+  it('should read a scale with only two values on it', () => {
+    // Whether the colours mean anything is settled by the trace type before
+    // this is reached. Counting distinct shades here looked principled and is
+    // not, in both directions: a qualitative palette is chosen to be maximally
+    // distinguishable and so offers more shades than a small heatmap, which
+    // would have lost its texture entirely for having too few.
+    const densities = TactileShade.densities(['#eeeeee', '#222222']);
 
-  it('should take a ramp, where colour is the value', () => {
-    const ramp = ['#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff'];
-
-    expect(TactileShade.densities(ramp)).not.toBeNull();
+    expect(densities).not.toBeNull();
+    expect((densities as number[])[0]).toBeCloseTo(0);
+    expect((densities as number[])[1]).toBeCloseTo(1);
   });
 
   it('should decline when fill is decoration rather than data', () => {

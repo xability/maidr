@@ -36,19 +36,6 @@ export abstract class TactileShade {
   private static readonly MIN_SPREAD = 0.15;
 
   /**
-   * Fewest distinct shades that count as a scale rather than a palette.
-   *
-   * Density stands for a quantity, so it may only be spent where the colour was
-   * one. A heatmap or a choropleth paints from a ramp and has as many shades as
-   * it has cells; a pie paints from a palette and has one per category, where
-   * the value is the wedge's angle and the colour says only which fruit it is.
-   * Texturing a pie put two of its four wedges at full density and left a third
-   * empty — a reader met two solid wedges, one of them the one they were on and
-   * no way to tell which, and a hole where the palest slice should have been.
-   */
-  private static readonly MIN_LEVELS = 5;
-
-  /**
    * Parses a CSS colour into a 0-1 luminance, or null when the mark is not
    * painted at all.
    *
@@ -107,6 +94,11 @@ export abstract class TactileShade {
    * Turns a trace's fill colours into how much of each mark's interior to
    * raise, or null when the colours carry no value.
    *
+   * Whether the colours mean anything is decided before this is called, by the
+   * trace type — counting distinct shades here looked principled and is not, in
+   * both directions: a qualitative palette is chosen to be maximally
+   * distinguishable and so offers *more* shades than a two-value heatmap.
+   *
    * Normalised across the marks actually present rather than against absolute
    * black and white: a heatmap using the pale half of a colour ramp would
    * otherwise come out uniformly blank, and it is the ordering between cells
@@ -127,13 +119,6 @@ export abstract class TactileShade {
     const darkest = Math.min(...measured);
     const spread = lightest - darkest;
     if (spread < this.MIN_SPREAD) {
-      return null;
-    }
-
-    // A ramp, not a palette — see {@link MIN_LEVELS}. Counted with a tolerance,
-    // since a chart rendering the same colour twice may differ in the last bit.
-    const levels = new Set(measured.map(value => Math.round(value * 64)));
-    if (levels.size < this.MIN_LEVELS) {
       return null;
     }
 

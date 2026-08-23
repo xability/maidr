@@ -1500,6 +1500,60 @@ describe('tactileService', () => {
     });
   });
 
+  describe('the value a chart put in a colour', () => {
+    /**
+     * Paints the marks along a scale, as a heatmap or a choropleth does.
+     */
+    function paintScale(): void {
+      const shades = ['#ffffff', '#888888', '#000000'];
+      chart.marks.forEach((mark, index) => {
+        (mark as SVGElement).setAttribute('fill', shades[index % shades.length]);
+        (mark as SVGElement).style.fill = shades[index % shades.length];
+        // Wide enough to have an interior. A mark too small to hollow out has
+        // nowhere to put a texture either.
+        stubRect(mark, { left: REGION.left + index * 90, top: REGION.top, width: 80, height: 80 });
+      });
+    }
+
+    it('should texture a heatmap, whose cells are all the same shape', () => {
+      // Every cell is the same size, so the shape reaching the pins carries
+      // nothing and the numbers are all in the colour. A heatmap spent 819
+      // pins on an 8x8 lattice and delivered none of its 64 values.
+      paintScale();
+      activate();
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'heat'));
+      const textured = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+      const plain = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      expect(textured).toBeDefined();
+      expect(plain).toBeDefined();
+      expect(textured).not.toBe(plain);
+    });
+
+    it('should leave a pie hollow, where colour names the slice and the angle is the value', () => {
+      // Texturing a pie put two of four wedges at full density and left a
+      // third empty: two solid wedges, one of them the one the reader was
+      // standing on, and no way to tell which.
+      paintScale();
+      activate();
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'pie'));
+      const pie = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'heat'));
+      const heat = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      expect(pie).toBeDefined();
+      expect(heat).toBeDefined();
+      expect(pie).not.toBe(heat);
+    });
+  });
+
   describe('trace geometry', () => {
     it('should draw the shape a trace drew rather than the markers on it', () => {
       // A line: maidr makes one circle per vertex out of the rendered path, so
