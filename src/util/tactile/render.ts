@@ -83,22 +83,6 @@ export abstract class TactileRenderer {
   private static readonly FOCUS_DISC_RADIUS = 2;
 
   /**
-   * How much of one axis a focused mark may span and still be filled.
-   *
-   * Extent, not area. A bar zoomed into covers every row of the display while
-   * taking only two-fifths of its area, and area was what this used to
-   * measure — so the rule never fired on exactly the case it was written for,
-   * and the reader's hand met a 1000-pin plateau with the bar's top and bottom
-   * both off the grid. What decides whether a fill can still be read is
-   * whether its boundary is reachable, and a mark spanning the display in
-   * either direction has already lost two of its edges.
-   *
-   * Beyond this the mark is drawn as a heavy outline instead: the sides that
-   * are still on the grid are the only thing left that says where it is.
-   */
-  private static readonly MAX_FILL_SPAN = 0.9;
-
-  /**
    * Bounding box of a ring in dot coordinates, ignoring points that failed to
    * project.
    * @param ring - The ring to measure
@@ -206,8 +190,22 @@ export abstract class TactileRenderer {
   }
 
   /**
-   * Reports whether a ring spans more of either axis than
-   * {@link MAX_FILL_SPAN} allows.
+   * Reports whether a ring has run off the grid, so that filling it would
+   * leave the reader inside a shape with no reachable boundary.
+   *
+   * The test is whether an edge is actually off the grid, not how much of an
+   * axis the mark covers. Those come apart on the commonest chart there is: a
+   * trace is mapped onto the pins by the extent of all its marks, so a bar
+   * chart's tallest bar spans nearly the whole height by construction, at rest,
+   * with nothing zoomed into. Measuring the span outlined that bar — the single
+   * mark a reader is likeliest to land on — and left them with no solid shape
+   * among the hollow ones anywhere on the display.
+   *
+   * A mark whose top and bottom are both still on the grid can be filled and
+   * read, however tall it is. One whose edges have gone past it cannot, and is
+   * given a heavy outline instead: the sides still in view are the only thing
+   * left that says where it is.
+   *
    * @param box - The ring's bounding box in dot coordinates
    * @param box.left - Leftmost dot the ring reaches
    * @param box.top - Topmost dot the ring reaches
@@ -219,9 +217,10 @@ export abstract class TactileRenderer {
     box: { left: number; top: number; right: number; bottom: number },
     raster: DotRaster,
   ): boolean {
-    const acrossSpan = (box.right - box.left) / raster.width;
-    const downSpan = (box.bottom - box.top) / raster.height;
-    return acrossSpan > this.MAX_FILL_SPAN || downSpan > this.MAX_FILL_SPAN;
+    return box.left < 0
+      || box.top < 0
+      || box.right > raster.width - 1
+      || box.bottom > raster.height - 1;
   }
 
   /**

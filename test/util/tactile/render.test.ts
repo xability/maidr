@@ -652,11 +652,37 @@ describe('tactileRenderer.render', () => {
     expect(focused.equals(plain)).toBe(false);
   });
 
-  it('should outline a focused mark that spans the grid even when its area is small', () => {
-    // A bar zoomed into covers every row while taking two fifths of the area.
-    // Measuring area meant the rule never fired on the case it was written for,
-    // and the reader met a thousand-pin plateau with the bar's top and bottom
-    // both off the grid.
+  it('should still fill a focused mark that is tall but wholly on the grid', () => {
+    // A trace is mapped onto the pins by the extent of all its marks, so a bar
+    // chart's tallest bar spans nearly the whole height by construction, at
+    // rest, with nothing zoomed into. Judging by span outlined that bar — the
+    // single mark a reader is likeliest to land on — and left no solid shape
+    // among the hollow ones anywhere on the display.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: 2, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: DOTS_DOWN - 1 },
+        { x: 2, y: DOTS_DOWN - 1 },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(6, Math.floor(DOTS_DOWN / 2))).toBe(true);
+  });
+
+  it('should outline a focused mark whose edges have run off the grid', () => {
+    // A bar zoomed into: its top and bottom are both past the edge of the
+    // grid, so a fill would leave the reader inside a shape whose boundary
+    // they cannot reach — a thousand-pin plateau with nothing to feel.
     const mark = {} as SVGGraphicsElement;
     const narrow = Math.round(DOTS_ACROSS * 0.4);
     ringsOf.mockReturnValue([{
