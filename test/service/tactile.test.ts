@@ -947,6 +947,33 @@ describe('tactileService', () => {
       expect(session.releaseIfAdopted).not.toHaveBeenCalled();
     });
 
+    it('should not draw onto a newer chart display after being disposed', () => {
+      // Pins the invariant rather than one mechanism: a disposed service never
+      // reaches the pins. Two things uphold it — the disposal guard in the
+      // adoption callback, and `dispose()` nulling the last state, which
+      // `redraw` returns on. Removing either alone leaves this passing, which
+      // is the point: it is the outcome that must hold, not the route to it.
+      session.isConnected = false;
+      let settle: (adopted: boolean) => void = () => {};
+      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
+        settle = resolve;
+      }));
+      brailleStub.isEnabled = true;
+      service.update(traceState(chart, 1));
+      toggle.fire({ enabled: true, state: traceState(chart, 1) });
+      service.dispose();
+      session.isConnected = true;
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      settle(true);
+
+      return flushMicrotasks().then(() => {
+        expect(session.writeGraphic).not.toHaveBeenCalled();
+        expect(session.writeGraphicRow).not.toHaveBeenCalled();
+      });
+    });
+
     it('should hand the display back when this chart stops using it', () => {
       activate();
 
