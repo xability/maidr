@@ -22,6 +22,22 @@ export interface DotPoint {
 export type PanDirection = 'left' | 'right' | 'up' | 'down';
 
 /**
+ * How a chart's own proportions are treated when it is mapped onto the pins.
+ *
+ * `stretch` spends every pin, which is what most charts want: a bar chart's
+ * shape carries nothing, and letterboxing it would throw away rows a fingertip
+ * could have used to tell two bar heights apart.
+ *
+ * `preserve` keeps the chart's aspect ratio at the cost of leaving pins unused.
+ * A pie, a radar, a chord diagram and a map are read by their shape, and
+ * stretching one does not blur it — it misreports it. A circle arriving as a
+ * 1.5:1 ellipse makes a wedge at the top subtend a different arc from the same
+ * wedge at the side, so the reader concludes one slice is bigger than the
+ * other when the data says they are equal.
+ */
+export type TactileAspect = 'stretch' | 'preserve';
+
+/**
  * Maps a region of a chart, in viewport pixels, onto a tactile display's dot
  * grid, with a zoom level and a pan position.
  *
@@ -97,14 +113,27 @@ export class TactileViewport {
   private centre: DotPoint = { x: 0.5, y: 0.5 };
 
   /**
+   * Whether the chart's own proportions are kept.
+   */
+  private readonly aspect: TactileAspect;
+
+  /**
    * @param source - The chart region to map, in viewport pixels
    * @param dotWidth - Dots across the display
    * @param dotHeight - Dots down the display
+   * @param aspect - Whether to keep the chart's proportions; defaults to
+   * spending every pin
    */
-  public constructor(source: ClientRect, dotWidth: number, dotHeight: number) {
+  public constructor(
+    source: ClientRect,
+    dotWidth: number,
+    dotHeight: number,
+    aspect: TactileAspect = 'stretch',
+  ) {
     this.source = source;
     this.dotWidth = dotWidth;
     this.dotHeight = dotHeight;
+    this.aspect = aspect;
   }
 
   /**
@@ -244,9 +273,26 @@ export class TactileViewport {
     const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
     const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
 
+    const unitX = (normalizedX - (this.centre.x - half)) / span;
+    const unitY = (normalizedY - (this.centre.y - half)) / span;
+
+    if (this.aspect === 'stretch') {
+      return {
+        x: margin + unitX * usableWidth,
+        y: margin + unitY * usableHeight,
+      };
+    }
+
+    // One scale for both axes, and the leftover pins split evenly so the chart
+    // sits in the middle of the grid rather than in a corner. `width / height`
+    // is the shape the chart was drawn in; the scale that fits it is whichever
+    // of the two leaves it inside the grid.
+    const scale = Math.min(usableWidth / width, usableHeight / height) * (width > 0 ? 1 : 0);
+    const drawnWidth = width * scale;
+    const drawnHeight = height * scale;
     return {
-      x: margin + ((normalizedX - (this.centre.x - half)) / span) * usableWidth,
-      y: margin + ((normalizedY - (this.centre.y - half)) / span) * usableHeight,
+      x: margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
+      y: margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
     };
   }
 

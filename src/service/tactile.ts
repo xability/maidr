@@ -4,7 +4,7 @@ import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
 import type { FigureState, HighlightState, NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
 import type { TactileScene } from '@util/tactile/render';
-import type { ClientRect, PanDirection } from '@util/tactile/viewport';
+import type { ClientRect, PanDirection, TactileAspect } from '@util/tactile/viewport';
 import type { BrailleService } from './braille';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
@@ -71,6 +71,32 @@ const KEY_TEXT_SCROLL: Readonly<Partial<Record<DotPadKey, number>>> = {
 };
 
 /**
+ * Trace types read by their shape, where the chart's own proportions have to
+ * survive the mapping onto the pins.
+ *
+ * Stretching one of these does not blur it, it misreports it. A pie arriving
+ * as a 1.5:1 ellipse makes a wedge at the top subtend a different arc from the
+ * same wedge at the side, so the reader concludes one slice is bigger when the
+ * data says they are equal — and the round silhouette that says "pie" at all
+ * is gone with it. The same goes for a radar's polygon, a chord ring, a
+ * sunburst's concentric bands, a hexbin's hexagons and the outline of a map.
+ *
+ * Everything else stretches to fill. A bar chart's shape carries nothing, and
+ * letterboxing it would throw away rows a fingertip could have used to tell
+ * two bar heights apart.
+ */
+const SHAPE_IS_THE_DATA: ReadonlySet<string> = new Set([
+  'pie',
+  'polar_area',
+  'radar',
+  'sunburst',
+  'chord',
+  'choropleth',
+  'network',
+  'hexbin',
+]);
+
+/**
  * Draws the focused chart onto a connected tactile display, and puts the
  * focused point's description on its braille text line.
  *
@@ -109,6 +135,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Zoom and pan over the chart. Rebuilt when the chart region changes size.
    */
   private viewport: TactileViewport | null = null;
+
+  /**
+   * How the current viewport treats the chart's proportions, so a move onto a
+   * trace that wants the other mode rebuilds it.
+   */
+  private aspect: TactileAspect = 'stretch';
 
   /**
    * The frame currently on the device, so only changed rows are re-sent.
@@ -721,6 +753,21 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * Whether this chart's own proportions have to survive the mapping.
+   *
+   * The lobby stretches: a panel is a rectangle of chart, and which trace type
+   * is inside it is not settled until the reader enters one.
+   *
+   * @param state - The state about to be drawn
+   */
+  private static aspectFor(state: DrawableState): TactileAspect {
+    if (state.type !== 'trace') {
+      return 'stretch';
+    }
+    return SHAPE_IS_THE_DATA.has(state.traceType) ? 'preserve' : 'stretch';
+  }
+
+  /**
    * How much of each mark's interior to raise, where the chart put a value in
    * its fill colour rather than in its shape.
    *
@@ -839,8 +886,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return 'unchanged';
     }
 
-    if (this.viewport === null) {
-      this.viewport = new TactileViewport(source, geometry.dotWidth, geometry.dotHeight);
+    const aspect = TactileService.aspectFor(state);
+    if (this.viewport === null || this.aspect !== aspect) {
+      // Rebuilt rather than adjusted when the mode changes: a layer switch can
+      // move between a shape chart and an ordinary one, and the two map the
+      // same rect onto different pins.
+      this.viewport = new TactileViewport(source, geometry.dotWidth, geometry.dotHeight, aspect);
+      this.aspect = aspect;
     } else {
       this.viewport.setSource(source);
     }

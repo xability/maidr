@@ -497,3 +497,55 @@ describe('tactileViewport describe', () => {
     expect(viewport.describe()).toBe('Whole plot');
   });
 });
+
+describe('tactileViewport with the chart\'s proportions preserved', () => {
+  /**
+   * A source rect twice as wide as it is tall, onto a grid that is 60 by 40 —
+   * so stretching and preserving give visibly different answers.
+   */
+  const WIDE: ClientRect = { left: 0, top: 0, width: 400, height: 200 };
+
+  it('should map a square region to a square patch of pins', () => {
+    // A pie, a radar, a chord ring, a map. Stretching one of these does not
+    // blur it, it misreports it: a circle arriving as a 1.5:1 ellipse makes a
+    // wedge at the top subtend a different arc from the same wedge at the
+    // side, so the reader concludes one slice is bigger when the data says
+    // they are equal.
+    const square: ClientRect = { left: 0, top: 0, width: 200, height: 200 };
+    const viewport = new TactileViewport(square, DOT_WIDTH, DOT_HEIGHT, 'preserve');
+
+    const topLeft = viewport.toDot(square.left, square.top);
+    const bottomRight = viewport.toDot(square.left + square.width, square.top + square.height);
+
+    expect(bottomRight.x - topLeft.x).toBeCloseTo(bottomRight.y - topLeft.y);
+  });
+
+  it('should centre the leftover pins rather than pushing the chart into a corner', () => {
+    const square: ClientRect = { left: 0, top: 0, width: 200, height: 200 };
+    const viewport = new TactileViewport(square, DOT_WIDTH, DOT_HEIGHT, 'preserve');
+
+    const left = viewport.toDot(square.left, square.top).x;
+    const right = viewport.toDot(square.left + square.width, square.top).x;
+
+    expect(left - MARGIN).toBeCloseTo((DOT_WIDTH - 1 - MARGIN) - right);
+  });
+
+  it('should still spend every pin when the shape carries nothing', () => {
+    // A bar chart. Letterboxing it would throw away rows a fingertip could
+    // have used to tell two bar heights apart.
+    const viewport = new TactileViewport(WIDE, DOT_WIDTH, DOT_HEIGHT, 'stretch');
+
+    const topLeft = viewport.toDot(WIDE.left, WIDE.top);
+    const bottomRight = viewport.toDot(WIDE.left + WIDE.width, WIDE.top + WIDE.height);
+
+    expect(topLeft).toEqual({ x: FIRST_X, y: FIRST_Y });
+    expect(bottomRight).toEqual({ x: LAST_X, y: LAST_Y });
+  });
+
+  it('should default to spending every pin', () => {
+    const stretched = new TactileViewport(WIDE, DOT_WIDTH, DOT_HEIGHT);
+
+    expect(stretched.toDot(WIDE.left + WIDE.width, WIDE.top + WIDE.height))
+      .toEqual({ x: LAST_X, y: LAST_Y });
+  });
+});

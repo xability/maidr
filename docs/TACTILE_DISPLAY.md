@@ -133,6 +133,16 @@ announcement says *"nothing is in view"*. Every pin down is also what a
 disconnected display feels like, so silence there would leave you unable to tell
 an empty patch of chart from a dead device.
 
+**Where a chart is read by its shape, its proportions are kept.** A pie, a
+radar, a chord ring, a sunburst, a hexbin, a map: stretching one of these to
+fill the grid does not blur it, it misreports it. A circle arriving as a 1.5:1
+ellipse makes a wedge at the top subtend a different arc from the same wedge at
+the side, so you would conclude one slice is bigger when the data says they are
+equal — and the round silhouette that says "pie" at all is gone with it. Those
+charts are letterboxed; every other chart still spends every pin, because a bar
+chart's shape carries nothing and losing rows to a margin would cost you
+comparisons between bar heights.
+
 **Where a chart put its value in a colour, the pins carry it as texture.** A
 heatmap, a choropleth, a hexbin, a mosaic: every cell is the same size and
 shape, so the shape that reaches the pins is a lattice and the numbers are all
