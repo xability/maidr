@@ -311,6 +311,13 @@ function addFurniture(on: Chart): void {
 interface FakeTrace {
   getAllHighlightElements: () => SVGElement[];
   getAllOriginalElements: () => SVGElement[];
+
+  /**
+   * What the trace itself drew, when that is not the same thing as its
+   * highlight markers. A line synthesises one marker per vertex out of its
+   * rendered path, so its markers are the points and the path is the shape.
+   */
+  getGeometryElements?: () => SVGElement[];
 }
 
 /**
@@ -332,14 +339,21 @@ interface FakeSubplot {
  * test reaches the fallback that walks the region instead.
  *
  * @param axesElement - The axes group, or null to fall back to the whole SVG
- * @param layers - Each layer's own rendered elements
+ * @param layers - Each layer's own highlight markers
+ * @param geometry - Each layer's own drawn shape, where it has one distinct
+ * from its markers; omitted layers offer none and fall back to their markers
  */
-function createFigure(axesElement: SVGElement | null, layers: SVGElement[][] = [[]]): Figure {
-  const traces = layers.map(marks => [{
+function createFigure(
+  axesElement: SVGElement | null,
+  layers: SVGElement[][] = [[]],
+  geometry: SVGElement[][] = [],
+): Figure {
+  const traces = layers.map((marks, layer) => [{
     getAllHighlightElements: () => marks,
     getAllOriginalElements: () => marks
       .map(mark => mark.previousElementSibling as SVGElement | null)
       .filter((mark): mark is SVGElement => mark !== null),
+    getGeometryElements: () => geometry[layer] ?? [],
   }]);
   const subplot: FakeSubplot = {
     axesElement,
@@ -1309,6 +1323,83 @@ describe('tactileService', () => {
     });
   });
 
+  describe('a view that cannot move', () => {
+    it('should say when a pan left the pins exactly as they were', () => {
+      // One mark covering the whole plot: every window onto it is the same
+      // field of raised pins, so the frame cannot change however far the view
+      // travels. A reader's fingers then find what they found before, which is
+      // indistinguishable from a key that did nothing — and past a few zoom
+      // steps a window is often entirely inside one mark, so this is the
+      // common case at close zoom rather than a corner of it.
+      stubRect(chart.marks[1], REGION);
+      activate();
+      service.zoomIn();
+      notify.mockClear();
+
+      session.fireKey('panRight');
+
+      expect(lastAnnouncement()).toContain('; the pins are unchanged');
+    });
+
+    it('should not say it of a pan that did change the pins', () => {
+      activate();
+      service.zoomIn();
+      notify.mockClear();
+
+      session.fireKey('panRight');
+
+      expect(lastAnnouncement()).not.toContain('unchanged');
+    });
+
+    it('should zoom in on the mark the reader is on, not the middle of the plot', () => {
+      // Zoom is asked for to feel one mark more closely. Holding the window on
+      // the plot's centre instead leaves the reader's own mark off the edge
+      // after a step or two, on a display that cannot say what is missing —
+      // and the middle of a plot is usually a patch with nothing in it, so
+      // what they get is blank pins and no account of why.
+      activate(0);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      // Mark 0 sits at the left edge, so a window that followed it reports a
+      // centre left of the middle. One that did not stays at 50%.
+      expect(lastAnnouncement()).toBe('Zoom 2x, centred 25% across and 25% down');
+    });
+  });
+
+  describe('trace geometry', () => {
+    it('should draw the shape a trace drew rather than the markers on it', () => {
+      // A line: maidr makes one circle per vertex out of the rendered path, so
+      // the trace's highlight list is the points and never the line between
+      // them. Drawn from those alone the display is a scatter of dots — and a
+      // zoomed window landing between two of them holds nothing, so every pan
+      // from there redraws the same empty frame and the keys feel dead.
+      const line = document.createElementNS(SVG_NS, 'path') as SVGElement;
+      chart.axes.appendChild(line);
+      stubRect(line, REGION);
+      rebuild(chart, createFigure(chart.axes, [chart.marks], [[line]]));
+      activate();
+
+      expect(drawnElements()).toContain(line);
+      // The vertices are not drawn as marks in their own right. The focused
+      // one still is — it is what tells the reader where they are — so this
+      // names an unfocused vertex.
+      expect(drawnElements()).not.toContain(chart.marks[0]);
+    });
+
+    it('should fall back to the markers when a trace drew no shape of its own', () => {
+      // Bars, points, boxes: the highlight elements are the marks. A trace
+      // with nothing extra to offer returns an empty list rather than being
+      // absent, so this is one check rather than two.
+      rebuild(chart, createFigure(chart.axes, [chart.marks], [[]]));
+      activate();
+
+      expect(drawnElements()).toEqual(expect.arrayContaining(chart.marks));
+    });
+  });
+
   describe('panning', () => {
     it('should pan left on the device panning key', () => {
       activate();
@@ -1385,10 +1476,11 @@ describe('tactileService', () => {
     });
 
     it('should keep a pan step that leaves the focused mark behind', () => {
-      // Mark 0 sits at the left edge, so panning right takes it off the view.
-      // The view has to stay where the reader put it: a redraw that follows
-      // the focus undoes the very pan that asked for it, and the second step
-      // then announces the same position as the first.
+      // Mark 0 sits at the left edge, so zooming settles the window on it and
+      // panning right takes it off the view. The view has to stay where the
+      // reader put it: a redraw that follows the focus undoes the very pan
+      // that asked for it, and the second step then announces the same
+      // position as the first rather than a further one.
       activate(0);
       service.zoomIn();
       service.zoomIn();
@@ -1399,8 +1491,10 @@ describe('tactileService', () => {
       const first = lastAnnouncement();
       session.fireKey('panRight');
 
-      expect(first).toBe('Zoom 3x, centred 67% across and 50% down');
-      expect(lastAnnouncement()).toBe('Zoom 3x, centred 83% across and 50% down');
+      expect(first).toBe('Zoom 3x, centred 33% across and 17% down');
+      // Past the marks there is nothing left to draw, so the frame repeats and
+      // is said to — but the position still advances, which is the point here.
+      expect(lastAnnouncement()).toBe('Zoom 3x, centred 50% across and 17% down; the pins are unchanged');
     });
 
     it('should pan a mark larger than the window', () => {
@@ -1414,7 +1508,14 @@ describe('tactileService', () => {
 
       session.fireKey('panRight');
 
-      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 50% down');
+      // Centred 67%, not 50%: the pan moved and was not pulled back onto the
+      // focus. The frame cannot change — one mark covers the whole plot, so
+      // every window onto it is the same field of raised pins — which is
+      // exactly the case the reader has to be told about, or a working key is
+      // indistinguishable from a dead one.
+      expect(notify).toHaveBeenCalledWith(
+        'Zoom 1.5x, centred 67% across and 50% down; the pins are unchanged',
+      );
     });
   });
 

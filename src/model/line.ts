@@ -96,6 +96,25 @@ export class LineTrace extends AbstractTrace {
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
   protected readonly highlightValues: SVGElement[][] | null;
+
+  /**
+   * The rendered `<path>` or `<polyline>` of each series, when the highlight
+   * markers were synthesised from one.
+   *
+   * {@link mapViaPathParsing} builds a circle per data point and throws the
+   * element it read them out of away, so the trace's own highlight list holds
+   * the vertices of the line and nothing of the line itself. Anything drawing
+   * the trace from those markers therefore draws a scatter of dots where the
+   * chart drew a continuous line -- which on a tactile display is not a
+   * cosmetic difference: the segments between vertices are most of the
+   * geometry, and without them a zoomed-in view whose window falls between two
+   * points has nothing in it at all.
+   *
+   * Empty when the markers are the chart's own dot elements
+   * ({@link mapViaDomElements}), where the connecting line is a separate
+   * element this trace never resolved and so cannot offer.
+   */
+  private readonly lineElements: SVGElement[] = [];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -824,6 +843,18 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
+   * The elements whose geometry is the line itself, for renderers that need
+   * the drawn shape rather than the points on it.
+   *
+   * See {@link lineElements} for why the highlight markers are not that shape.
+   * Empty when this trace's markers are the chart's own, in which case the
+   * caller should fall back to them.
+   */
+  public getGeometryElements(): SVGElement[] {
+    return [...this.lineElements];
+  }
+
+  /**
    * Element-based SVG mapping: select all matching elements per selector
    * and use them directly for highlighting (like BarTrace does).
    * Works when the charting library renders individual dot/circle elements.
@@ -889,6 +920,8 @@ export class LineTrace extends AbstractTrace {
         svgElements.push([]);
         continue;
       }
+
+      this.lineElements.push(lineElement as SVGElement);
 
       const coordinates: LinePoint[] = [];
       if (lineElement instanceof SVGPathElement) {

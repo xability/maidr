@@ -124,6 +124,14 @@ margin sized by however long the axis labels happened to be.
 What the axes mean belongs on the braille line and in speech, where it can be
 read rather than guessed at from a shape a fingertip cannot resolve.
 
+**A line is drawn as a line**, not as the points along it. MAIDR makes a
+highlight marker per data point out of the rendered path, and those markers are
+what the focus moves between — but the shape that reaches the pins is the path
+itself, so the series stays continuous under a finger at any zoom. Where a
+chart library draws its own dot per point and the connecting line separately
+(Recharts and the like), the dots are what MAIDR resolved and the dots are what
+you feel.
+
 ### Layers
 
 A subplot with several layers puts **one layer on the pins at a time** — the
@@ -173,6 +181,11 @@ announced with the new zoom level and where in the chart the view now sits —
 with nothing on the grid but marks, there is no border left to say which slice
 you are on.
 
+Zooming closes in on **the mark you are on**, not on the middle of the chart.
+That is the mark you asked to feel more closely, and after a step or two the
+middle of a chart is usually a patch with nothing in it — so holding the view
+there would hand you blank pins and no account of why.
+
 ### Panning
 
 Zooming in means the rest of the chart is off the pins, so the view pans — from
@@ -188,6 +201,16 @@ the device itself, without taking a hand off it:
 Each step moves half a window, so some of what you were reading stays in view.
 At an edge, MAIDR says there is no more chart that way rather than moving
 silently.
+
+Zoomed in close, a window can sit somewhere with nothing to feel — inside a
+bar's fill, or on a stretch of chart with no mark in it — and the next step
+lands somewhere just as featureless. The pins then hold exactly what they held
+before, which under a fingertip is indistinguishable from a key that did
+nothing, so the announcement says so: *"Zoom 4x, centred 58% across and 50%
+down; the pins are unchanged"*. The key worked; there was nothing new to put
+on the display. This is normal at close zoom on a bar chart in particular,
+where the bars have no vertical detail to pan through — the information is all
+across.
 
 The two inner function keys move the picture and the two outer ones move the
 braille line below it, so the two things you scroll never take each other's

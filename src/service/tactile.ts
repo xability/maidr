@@ -313,16 +313,19 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Redraws from the last known state.
    * @param followFocus - Whether a focus outside the view should recentre it;
    * false for a redraw the reader asked for by panning or zooming
+   * @returns True when the frame that reached the pins differed from the one
+   * already there
    */
-  private redraw(followFocus: boolean): void {
+  private redraw(followFocus: boolean): boolean {
     const state = this.lastState;
     if (state === null || !this.isActive) {
-      return;
+      return false;
     }
     try {
-      this.draw(state, followFocus);
+      return this.draw(state, followFocus);
     } catch (error) {
       console.error('Tactile render failed:', error instanceof Error ? error.message : error);
+      return false;
     }
   }
 
@@ -358,8 +361,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.notification.notify(refusal);
       return;
     }
-    this.redraw(false);
-    this.notification.notify(viewport.describe());
+    // Follows the focus, unlike a pan. Zoom is asked for to feel one mark more
+    // closely, and the mark meant is the one the reader is on -- so the window
+    // has to close in on that rather than on the middle of the plot, which is
+    // where it would otherwise stay. Two steps in, the middle of a plot is
+    // usually a patch with nothing in it, and the reader who zoomed to feel
+    // their point in more detail gets a blank display and no way to tell that
+    // their point is simply somewhere off the edge of it.
+    this.announceView(viewport, this.redraw(true));
   }
 
   /**
@@ -381,8 +390,27 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         : `No more to show to the ${direction}`);
       return;
     }
-    this.redraw(false);
-    this.notification.notify(viewport.describe());
+    this.announceView(viewport, this.redraw(false));
+  }
+
+  /**
+   * Says where the view now sits, and whether the pins moved with it.
+   *
+   * A window that lands somewhere featureless -- inside a bar's fill, or on a
+   * stretch of chart with no mark in it -- redraws to the same frame it
+   * replaced. The reader's fingers then find exactly what they found before,
+   * which is indistinguishable from a key that did nothing, and the honest
+   * thing is to say which of the two it was rather than leave them pressing it
+   * again. This is the common case at close zoom, not an edge case: past a few
+   * steps in, a window is often entirely inside one mark.
+   *
+   * @param viewport - The viewport that just moved
+   * @param changed - Whether the redraw actually altered the pins
+   */
+  private announceView(viewport: TactileViewport, changed: boolean): void {
+    this.notification.notify(changed
+      ? viewport.describe()
+      : `${viewport.describe()}; the pins are unchanged`);
   }
 
   /**
@@ -542,6 +570,21 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // that test on both counts: it is MAIDR-owned and it is hidden. Hidden is
     // no obstacle to measuring one — `visibility: hidden` still takes part in
     // layout, and the clone sits at its original's geometry.
+    //
+    // A trace that draws a shape its highlight markers only sit on is asked for
+    // that shape first. A line is the case that matters: maidr synthesises one
+    // circle per vertex out of the rendered `<path>`, so the highlight list is
+    // the points and never the line between them. Drawn from those alone the
+    // display shows a scatter of dots where the chart shows a line -- and
+    // zoomed in, a window landing between two vertices holds nothing at all,
+    // so every pan from there redraws the same empty frame and the panning keys
+    // feel dead. The path is one element covering the whole series, so it is
+    // still there at any zoom the reader picks.
+    const geometry = trace.getGeometryElements?.() ?? [];
+    if (geometry.length > 0) {
+      return geometry as SVGGraphicsElement[];
+    }
+
     return trace.getAllHighlightElements() as SVGGraphicsElement[];
   }
 
@@ -660,12 +703,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   /**
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
+   * @param followFocus - Whether a focus outside the view should recentre it
+   * @returns True when the frame differed from the one already on the device
    */
-  private draw(state: DrawableState, followFocus: boolean): void {
+  private draw(state: DrawableState, followFocus: boolean): boolean {
     const geometry = dotPadSession.geometry;
     const region = this.findRegionElement();
     if (geometry === null || region === null) {
-      return;
+      return false;
     }
 
     const { shapes: marks, allLayers } = this.shapesOf(region);
@@ -683,7 +728,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       ? markBounds
       : TactileService.rectOf(region);
     if (source === null) {
-      return;
+      return false;
     }
 
     if (this.viewport === null) {
@@ -700,12 +745,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       ? TactileService.focusedElements(state.highlight)
       : [];
 
-    // Follow the focus only when a navigation move took it off the view, and
-    // never on the redraw a pan or zoom asks for. Panning is what moves the
-    // focus out of view, so recentring here would undo the reader's own pan on
-    // the very redraw it triggered — and for a mark bigger than the window,
-    // which can never be contained, panning would never move at all while
-    // still announcing that it had.
+    // Follow the focus when a navigation move or a zoom step took it off the
+    // view, and never on the redraw a pan asks for. Panning is what moves the
+    // focus out of view deliberately, so recentring there would undo the
+    // reader's own pan on the very redraw it triggered — and for a mark bigger
+    // than the window, which can never be contained, panning would never move
+    // at all while still announcing that it had.
     if (followFocus) {
       const focusBounds = TactileService.boundsOf(focused);
       if (focusBounds !== null && !this.viewport.containsRect(focusBounds)) {
@@ -725,8 +770,9 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       geometry.dotHeight,
     );
 
-    this.send(raster, geometry.cellColumns, geometry.cellRows);
+    const changed = this.send(raster, geometry.cellColumns, geometry.cellRows);
     this.sendText(state, geometry.textCells);
+    return changed;
   }
 
   /**
@@ -739,11 +785,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param raster - The frame to display
    * @param cellColumns - Cells across the device
    * @param cellRows - Cells down the device
+   * @returns True when the frame differed from the one already on the device
    */
-  private send(raster: DotRaster, cellColumns: number, cellRows: number): void {
+  private send(raster: DotRaster, cellColumns: number, cellRows: number): boolean {
     const previous = this.lastRaster;
     if (previous !== null && previous.equals(raster)) {
-      return;
+      return false;
     }
 
     if (previous === null) {
@@ -760,6 +807,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     this.lastRaster = raster;
+    return true;
   }
 
   /**
