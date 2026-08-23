@@ -255,6 +255,14 @@ export interface HighchartsPoint {
    * read the same way.
    */
   x2?: number;
+  /**
+   * A bubble's size, as the third quantity the marker's area encodes.
+   *
+   * Highcharts names it `z` and so does `ScatterPoint`, which reads it through
+   * `zIntensityFor()` -- so a bubble's size is a measurement to be announced
+   * and sonified rather than a drawing parameter (#1138).
+   */
+  z?: number;
   /** Boxplot / candlestick high value, error bar upper bound, dumbbell high. */
   high?: number;
   /** Boxplot / candlestick low value, error bar lower bound, dumbbell low. */
