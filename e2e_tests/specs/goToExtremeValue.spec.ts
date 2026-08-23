@@ -1,6 +1,7 @@
 import type { Maidr, MaidrLayer } from '../../src/type/grammar';
 import { expect, test } from '@playwright/test';
 import { BarPlotPage } from '../page-objects/plots/barplot-page';
+import { TiedExtremesPage } from '../page-objects/plots/tiedExtremes-page';
 import { TestConstants } from '../utils/constants';
 import { extractMaidrData } from '../utils/maidr-data';
 
@@ -136,5 +137,91 @@ test.describe('Go to extreme value', () => {
 
     expect(await brailleField.inputValue()).toEqual(before);
     expect(await cursor()).toEqual(max.index);
+  });
+});
+
+test.describe('Walking values tied at an extreme', () => {
+  // The fixture's row is A=90, B=10, C=90, D=50, E=90, F=10 — no chart in
+  // examples/ has a shared high or low, so nothing there can show a press
+  // that has somewhere further to go.
+  const MAX_SLOTS = ['A', 'C', 'E'];
+  const MIN_SLOTS = ['B', 'F'];
+
+  test.beforeEach(async ({ page }) => {
+    await new TiedExtremesPage(page).navigateToTiedExtremes();
+  });
+
+  test('should step through every tied high and wrap back to the first', async ({ page }) => {
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    for (const [press, slot] of [...MAX_SLOTS, MAX_SLOTS[0]].entries()) {
+      await plot.goToMaximumValue();
+      const info = await plot.getCurrentDataPointInfo();
+
+      expect(info, `press ${press + 1} should land on ${slot}`).toContain(slot);
+    }
+  });
+
+  test('should step through every tied low and wrap back to the first', async ({ page }) => {
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    for (const [press, slot] of [...MIN_SLOTS, MIN_SLOTS[0]].entries()) {
+      await plot.goToMinimumValue();
+      const info = await plot.getCurrentDataPointInfo();
+
+      expect(info, `press ${press + 1} should land on ${slot}`).toContain(slot);
+    }
+  });
+
+  test('should say which tie it is on and how many there are', async ({ page }) => {
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    await plot.goToMaximumValue();
+    expect(await plot.getCurrentDataPointInfo()).toContain('1 of 3');
+
+    await plot.goToMaximumValue();
+    expect(await plot.getCurrentDataPointInfo()).toContain('2 of 3');
+
+    // The count follows the value pressed for, not the last one walked.
+    await plot.goToMinimumValue();
+    expect(await plot.getCurrentDataPointInfo()).toContain('1 of 2');
+  });
+
+  test('should keep the point in the announcement alongside the position', async ({ page }) => {
+    // The live region holds one message at a time, so appending the position
+    // is what stops it replacing the point the reader pressed for.
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+
+    await plot.goToMaximumValue();
+    const info = await plot.getCurrentDataPointInfo();
+
+    expect(info).toContain('A');
+    expect(info).toContain('90');
+    expect(info).toContain('1 of 3');
+  });
+
+  test('should walk the ties from braille mode too', async ({ page }) => {
+    const plot = new TiedExtremesPage(page);
+    await plot.activateMaidr();
+    await plot.toggleBrailleMode();
+
+    const brailleField = page.locator(`textarea[id^="${TestConstants.BRAILLE_TEXTAREA}"]`);
+    const before = await brailleField.inputValue();
+    const cursor = async (): Promise<number | null> => brailleField.evaluate(
+      field => (field as HTMLTextAreaElement).selectionStart,
+    );
+
+    // A=90 is index 0 and also the first tie, so the walk has to start there
+    // rather than skipping it, then step to C and E.
+    for (const [press, index] of [0, 2, 4, 0].entries()) {
+      await plot.goToMaximumValue();
+
+      expect(await cursor(), `press ${press + 1} should sit on cell ${index}`).toEqual(index);
+      expect(await brailleField.inputValue()).toEqual(before);
+    }
   });
 });

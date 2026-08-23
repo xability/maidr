@@ -291,9 +291,9 @@ export class CommandFactory {
           this.goToExtremaViewModel,
         );
       case 'GO_TO_MIN_VALUE':
-        return new GoToMinValueCommand(this.goToExtremaService, this.notificationService);
+        return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
       case 'GO_TO_MAX_VALUE':
-        return new GoToMaxValueCommand(this.goToExtremaService, this.notificationService);
+        return new GoToMaxValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
       case 'COMMAND_PALETTE_MOVE_UP':
         return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_MOVE_DOWN':
