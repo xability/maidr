@@ -137,10 +137,12 @@ low-vision reader — who is also the one most likely to have the braille panel
 open. So the two zooms stay on separate keys and you can enlarge the page and
 the pin view independently.
 
-Both are live only while the braille panel is open. The numeric keypad's
-<kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with the new
-zoom level and where in the chart the view now sits — with nothing on the grid
-but marks, there is no border left to say which slice you are on.
+Both are live only while the braille panel is open, and only zoom when a
+display is connected — with none, they say so rather than doing nothing. The
+numeric keypad's <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is
+announced with the new zoom level and where in the chart the view now sits —
+with nothing on the grid but marks, there is no border left to say which slice
+you are on.
 
 ### Panning
 
