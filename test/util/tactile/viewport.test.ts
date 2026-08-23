@@ -549,3 +549,34 @@ describe('tactileViewport with the chart\'s proportions preserved', () => {
       .toEqual({ x: LAST_X, y: LAST_Y });
   });
 });
+
+describe('tactileViewport when keeping proportions would cost too much', () => {
+  it('should spend every pin on a chart far too long to fit whole', () => {
+    // A trace type is not always one shape. `gauge` covers both the dial and
+    // the bullet chart, and nothing in the model tells them apart — a bullet
+    // chart's target marker is drawn on plenty of dials too. Fitted whole, an
+    // eight-to-one bar comes out a few pins tall: not a more faithful picture,
+    // just a smaller one.
+    const long: ClientRect = { left: 0, top: 0, width: 800, height: 100 };
+    const viewport = new TactileViewport(long, DOT_WIDTH, DOT_HEIGHT, 'preserve');
+
+    const topLeft = viewport.toDot(long.left, long.top);
+    const bottomRight = viewport.toDot(long.left + long.width, long.top + long.height);
+
+    expect(topLeft).toEqual({ x: FIRST_X, y: FIRST_Y });
+    expect(bottomRight).toEqual({ x: LAST_X, y: LAST_Y });
+  });
+
+  it('should still keep the proportions of a chart that nearly fits', () => {
+    // A dial is about as tall as it is wide and loses a third of the width,
+    // which is worth paying: a stretched dial misreports the reading it exists
+    // to give.
+    const square: ClientRect = { left: 0, top: 0, width: 200, height: 200 };
+    const viewport = new TactileViewport(square, DOT_WIDTH, DOT_HEIGHT, 'preserve');
+
+    const origin = viewport.toDot(square.left, square.top);
+    const corner = viewport.toDot(square.left + square.width, square.top + square.height);
+
+    expect(corner.x - origin.x).toBeCloseTo(corner.y - origin.y);
+  });
+});

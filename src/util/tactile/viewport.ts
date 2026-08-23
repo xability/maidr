@@ -88,6 +88,24 @@ export class TactileViewport {
   private static readonly MARGIN_DOTS = 1;
 
   /**
+   * Least of the grid a shape-preserving mapping may leave in use.
+   *
+   * Keeping a chart's proportions costs pins, and how many depends on how far
+   * its own shape is from the grid's. A dial is about as tall as it is wide and
+   * loses a third of the width — worth it, since a stretched dial misreports
+   * the reading it exists to give. A long thin chart would lose almost
+   * everything: fitted whole, an eight-to-one bar comes out five pins tall,
+   * which is not a more faithful picture but a smaller one.
+   *
+   * This matters because a trace type is not always one shape. `gauge` covers
+   * both the dial and the bullet chart, and the model carries nothing that
+   * tells them apart — a bullet chart's target marker is also drawn on plenty
+   * of dials. Rather than guess from the type, this measures what preserving
+   * would actually cost and declines when the answer is most of the display.
+   */
+  private static readonly MIN_PRESERVED_SHARE = 0.25;
+
+  /**
    * The chart region being mapped, in viewport pixels.
    */
   private source: ClientRect;
@@ -290,6 +308,14 @@ export class TactileViewport {
     const scale = Math.min(usableWidth / width, usableHeight / height);
     const drawnWidth = width * scale;
     const drawnHeight = height * scale;
+    if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
+      < TactileViewport.MIN_PRESERVED_SHARE) {
+      // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
+      return {
+        x: margin + unitX * usableWidth,
+        y: margin + unitY * usableHeight,
+      };
+    }
     return {
       x: margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
       y: margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
