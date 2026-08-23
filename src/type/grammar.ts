@@ -388,12 +388,28 @@ export interface CandlestickPoint {
  * The bounds are optional and independently so: a one-sided interval — an
  * upper bound with no lower, say — is a real chart, and dropping the point
  * for want of its other half would lose the estimate too.
+ *
+ * The *estimate* is optional for the mirror-image reason. A band with two
+ * bounds and nothing between them is a real chart too — Highcharts draws it
+ * as `arearange`, and the same shape arrives from `Plot.areaY` with
+ * `y1`/`y2`, from `geom_ribbon`, and from `fill_between` without a centre
+ * line. There is no honest number to put here for one: the midpoint is a
+ * value the chart never draws, and either bound announced as the estimate
+ * loses the other and implies a point reading the chart does not make
+ * (#1047).
  */
 export interface ErrorBarPoint {
   /** Position along the main axis. */
   x: number | string;
-  /** The estimate itself: a mean, a median, a fitted value. */
-  y: number;
+  /**
+   * The estimate itself: a mean, a median, a fitted value.
+   *
+   * Absent on a band that draws only bounds. {@link ForestPoint} re-declares
+   * it required, because a forest plot's whole reading is whether the
+   * interval crosses the null *relative to the estimate* — so the shape that
+   * needs it says so, rather than every reader of this one assuming it.
+   */
+  y?: number;
   /** Absolute lower bound of the interval, when the chart draws one. */
   yMin?: number;
   /** Absolute upper bound of the interval, when the chart draws one. */
@@ -421,6 +437,17 @@ export interface ErrorBarPoint {
 }
 
 /**
+ * An {@link ErrorBarPoint} whose estimate is known.
+ *
+ * {@link ErrorBarPoint.y} is optional because a band may draw only bounds,
+ * but most producers of an interval do compute an estimate and drop the
+ * sample when they cannot — and a {@link ForestPoint} requires one. This
+ * names that guarantee so a producer can state it once, at the point where
+ * it is actually enforced, instead of every consumer asserting it (#1047).
+ */
+export type EstimatedPoint = ErrorBarPoint & { y: number };
+
+/**
  * One row of a forest plot: a study's effect estimate with its interval.
  *
  * A meta-analysis draws one of these per study against a shared null line,
@@ -429,6 +456,16 @@ export interface ErrorBarPoint {
  * forest plot rather than a row of intervals.
  */
 export interface ForestPoint extends ErrorBarPoint {
+  /**
+   * The study's effect estimate.
+   *
+   * Required here where {@link ErrorBarPoint.y} is optional. A forest plot
+   * is read by whether each interval crosses the null, and that question is
+   * only answerable *relative to the estimate* — a row without one is not a
+   * study with a missing number, it is not a forest plot row at all (#1047).
+   */
+  y: number;
+
   /**
    * The study's weight in the pooled estimate, as a fraction of one.
    *

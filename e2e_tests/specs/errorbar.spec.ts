@@ -73,10 +73,15 @@ test.describe('Error Bar Plot', () => {
 
       expect(points).toHaveLength(3);
       for (const point of points) {
+        // The estimate is optional on the shape since #1047, because a band
+        // may draw only bounds. This chart is not one -- it draws all three,
+        // and asserting so is what makes the two comparisons below mean
+        // something rather than compare against `undefined`.
+        expect(typeof point.y).toBe('number');
         expect(typeof point.yMin).toBe('number');
         expect(typeof point.yMax).toBe('number');
-        expect(point.yMin!).toBeLessThan(point.y);
-        expect(point.y).toBeLessThan(point.yMax!);
+        expect(point.yMin!).toBeLessThan(point.y!);
+        expect(point.y!).toBeLessThan(point.yMax!);
       }
     });
 
