@@ -302,7 +302,17 @@ export function buildSubplot(
   // already takes, and the centred offsets live on `stackY` where nothing
   // needs them. No radial variant exists, so `radialType` keeps its empty set.
   const areaTypes = new Set(radialType ? [] : ['area', 'areaspline', 'streamgraph']);
-  const barTypes = new Set(['bar', 'column']);
+  // `columnpyramid` and `pictorial` are a column drawn differently -- a
+  // tapered outline, and a repeated icon -- and carry the same `point.y` per
+  // category that `column` does. Highcharts registers each as its own series
+  // type, so both fell past every bucket and their charts came out with no
+  // layers at all, the same way `streamgraph` did (#1138).
+  const barTypes = new Set([
+    'bar',
+    'column',
+    'columnpyramid',
+    'pictorial',
+  ]);
 
   const lineSeries = convertible.filter(s => lineTypes.has(resolveSeriesType(s, chart)));
   const areaSeries = convertible.filter(s => areaTypes.has(resolveSeriesType(s, chart)));
@@ -1547,6 +1557,20 @@ function convertSeries(
       return isCategoryScatter(series)
         ? convertDotSeries(series, containerId)
         : convertScatterSeries(series, containerId);
+    // A scatter whose markers carry a third quantity in their size.
+    // `ScatterPoint.z` already holds it and already drives `zIntensityFor()`,
+    // so the trace side needed nothing -- this adapter simply never reached
+    // it, and a bubble chart came out silent (#1138). The same gap Chart.js
+    // had in #826, one step worse.
+    //
+    // Read as a scatter even on a category axis, where a plain scatter reads
+    // as a dot plot instead. That branch exists because a scatter pinned to
+    // ticks really is one value per category -- which a bubble is not: it has
+    // two, and `convertDotSeries` emits `BarPoint`s, which have nowhere to
+    // put the second. The category name is not lost either way; it travels as
+    // `xLabel`.
+    case 'bubble':
+      return convertScatterSeries(series, containerId);
     case 'lollipop':
       return convertLollipopSeries(series, containerId);
     case 'funnel':
@@ -1584,8 +1608,14 @@ function convertSeries(
     // is why these emitted no layer at all until `ErrorBarPoint.y` became
     // optional (#1047). `areasplinerange` is `arearange` with a smoothed
     // outline; the curve between the samples is drawing, not data.
+    //
+    // `columnrange` draws the same band as bars rather than as a filled
+    // ribbon, and carries the same two fields, so it reads through the same
+    // converter. It was silent for the same reason the other two were, and
+    // stayed silent after #1047 only because nothing dispatched it (#1138).
     case 'arearange':
     case 'areasplinerange':
+    case 'columnrange':
       return convertRangeSeries(series, chart, containerId);
     case 'dumbbell':
       return convertDumbbellSeries(series, containerId, options);
@@ -3585,15 +3615,40 @@ function stampGanttIndices(laneSources: HighchartsPoint[][]): void {
   stampPointIndices(laneSources, 'data-maidr-task-index');
 }
 
+/**
+ * A scatter, or a bubble chart -- a scatter whose markers carry a size.
+ *
+ * `z` is kept where the series has one, because it is a third measured
+ * quantity and not decoration: `ScatterTrace` reads it through
+ * `zIntensityFor()`, so the size becomes audible as well as readable. Dropping
+ * it is what #826 fixed for Chart.js, and what this adapter did to every
+ * `bubble` series until #1138 -- though there the size was the lesser loss,
+ * since the series reached no converter at all and the chart was silent.
+ *
+ * A `bubble` point without a `z` is still a point: it is filtered on `y`
+ * alone, so a series that mixes sized and unsized markers keeps both, and the
+ * unsized ones simply carry no third quantity.
+ *
+ * @param series - The scatter or bubble series
+ * @param containerId - The chart's container, for the selector
+ * @returns The layer
+ */
 function convertScatterSeries(
   series: HighchartsSeries,
   containerId: string,
 ): MaidrLayer {
+  // A category axis names the slot each point sits in, and `xLabel` is the
+  // field for that -- "this position on x is called Norway", as against
+  // `label`, which names the point itself. A continuous axis has no such name,
+  // so nothing is invented where there is none.
+  const named = isCategoryScatter(series);
   const data: ScatterPoint[] = series.data
     .filter(p => p.y !== null)
     .map(p => ({
       x: p.x,
       y: p.y as number,
+      ...(typeof p.z === 'number' ? { z: p.z } : {}),
+      ...(named ? { xLabel: String(pointLabel(p)) } : {}),
     }));
 
   return {
