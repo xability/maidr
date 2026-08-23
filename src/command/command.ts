@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { GoToExtremaService } from '@service/goToExtrema';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { MonitorService } from '@service/monitor';
@@ -51,6 +52,8 @@ export interface CommandContext {
   candlestickDeltaService: CandlestickDeltaService;
   /** Display service for managing display state. */
   displayService: DisplayService;
+  /** Go-to-extrema service for jumping to a layer's extreme points. */
+  goToExtremaService: GoToExtremaService;
   /** High contrast service for accessibility. */
   highContrastService: HighContrastService;
   /** Highlight service for visual highlighting. */
