@@ -153,37 +153,6 @@ interface FlatPoint {
   yIndexInColumn: number;
 }
 
-/**
- * How an axis's extent reads: a span, or the one value it never leaves.
- *
- * `0 to 0` is true and says nothing. It is what a rug plot's cross axis
- * prints, because both bindings read a rug as a point trace with a constant
- * on that axis -- the tick's own length is a fraction of the panel rather
- * than data, so there is nothing else to put there (#1132,
- * xability/py-maidr#250, xability/r-maidr#222).
- *
- * That constant is also why pitch carries nothing on such a chart: every
- * sample sonifies at the bottom of the range, because the range has no
- * height. Saying so here is the smallest thing that removes the surprise --
- * a reader who has been told the axis does not move knows the identical
- * tones are the chart rather than a fault -- and it needs no new
- * announcement convention, because it is a stat that already existed and was
- * merely uninformative.
- *
- * What it deliberately does not do is change what pitch *means* mid-chart.
- * Mapping it to the varying axis instead would hand a reader who has learnt
- * "pitch is y" a chart where pitch is x, unannounced, which is the kind of
- * silent mode change #855 and #947 were both about. That option, and a trace
- * type of its own, are still open on #1132.
- *
- * @param min - The axis minimum
- * @param max - The axis maximum
- * @returns `constant <value>` when the axis never moves, `<min> to <max>` otherwise
- */
-function spanned(min: number, max: number): string {
-  return min === max ? `constant ${min}` : `${min} to ${max}`;
-}
-
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
   private mode: NavMode;
   protected readonly movable: MovablePlane;
@@ -1023,8 +992,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       { label: 'Total points', value: totalPoints },
       { label: 'Unique X values', value: this.xPoints.length },
       { label: 'Unique Y values', value: this.yPoints.length },
-      { label: 'X range', value: spanned(this.minX, this.maxX) },
-      { label: 'Y range', value: spanned(this.minY, this.maxY) },
+      { label: 'X range', value: MathUtil.spanned(this.minX, this.maxX) },
+      { label: 'Y range', value: MathUtil.spanned(this.minY, this.maxY) },
     ];
 
     const headers = [this.xAxis, this.yAxis];

@@ -10,6 +10,7 @@ import type {
   TraceState,
 } from '@type/state';
 import type { CompareModeInfo, Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { MathUtil } from '@util/math';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
@@ -508,7 +509,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       { label: 'Points above line', value: aboveCount },
       { label: 'Points below line', value: belowCount },
       { label: 'Points on line', value: onLineCount },
-      { label: 'Delta range', value: `${minDelta} to ${maxDelta}` },
+      { label: 'Delta range', value: MathUtil.spanned(minDelta, maxDelta) },
     ];
 
     const headers = [
