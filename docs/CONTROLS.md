@@ -31,8 +31,8 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Auto-play speed up                      | Period                      | Period                      |
 | Auto-play speed down                    | Comma                       | Comma                       |
 | Move to next navigation mode            | Shift + Alt + Up/Down       | Shift + Alt + Up/Down       |
-| Zoom in tactile display (Braille mode)  | Control + +                 | Command + +                 |
-| Zoom out tactile display (Braille mode) | Control + -                 | Command + -                 |
+| Zoom in tactile display (Braille mode)  | +                           | +                           |
+| Zoom out tactile display (Braille mode) | -                           | -                           |
 | Open Settings                           | Control + ,                 | Command + ,                 |
 | Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
 
@@ -82,6 +82,8 @@ Up, Down, Left, and Right controls function similar to a grid:
 Note that there are also pseudo layers at the top of each layer stack: a Summary layer representing a sum of all that bar's values, and a Combined layer that plays a separated or combined run of tones of all the layers. The standard 'S' key that controls sonification now has an extra setting to play either combined tones or separated tones.
 
 The two tactile-display shortcuts are live only while Braille mode is open, and
-only do something when a tactile graphics display is connected. See
-[Tactile Graphics Display](TACTILE_DISPLAY.md) for setup and for the panning
-keys on the device itself.
+only do something when a tactile graphics display is connected. They are bare
+keys rather than Control chords so that Control + plus/minus stays the browser's
+own page zoom — a low-vision reader can enlarge the page and the pin view
+independently. See [Tactile Graphics Display](TACTILE_DISPLAY.md) for setup and
+for the panning keys on the device itself.

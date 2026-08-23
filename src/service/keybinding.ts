@@ -44,20 +44,28 @@ const BRAILLE_KEYMAP = {
   // Tactile display
   //
   // Bound only in braille scope, so the tactile view is adjustable exactly
-  // while the reader has it open. `plus` and `minus` are not hotkeys-js key
-  // names, and a literal `+` cannot appear in a chord because `+` is the chord
-  // separator -- so each direction lists the keys a reader actually presses to
-  // mean it: the unshifted key, the shifted form the `+` legend sits on, and
-  // the numeric keypad.
+  // while the reader has it open.
+  //
+  // Bare keys rather than a Ctrl chord, deliberately. Ctrl and plus/minus is
+  // the browser's own page zoom, and the reader most likely to want it is a
+  // low-vision reader -- who is also the one most likely to be in braille
+  // mode. Taking that chord would make the two zooms compete for one gesture;
+  // leaving it alone lets a reader enlarge the page and the pin view
+  // independently, which is the point.
+  //
+  // `plus` and `minus` are not hotkeys-js key names, and a literal `+` cannot
+  // appear in a chord because `+` is the chord separator -- so zoom in lists
+  // the keys a reader actually presses to mean it: the unshifted key, the
+  // shifted form the `+` legend sits on, and the numeric keypad.
   TACTILE_ZOOM_IN: key(
-    `${Platform.ctrl}+=, ${Platform.ctrl}+shift+=, ${Platform.ctrl}+num_add`,
+    `=, shift+=, num_add`,
     'Zoom In Tactile Display',
-    { helpKey: `${Platform.ctrl} + +` },
+    { helpKey: '+' },
   ),
   TACTILE_ZOOM_OUT: key(
-    `${Platform.ctrl}+-, ${Platform.ctrl}+num_subtract`,
+    `-, num_subtract`,
     'Zoom Out Tactile Display',
-    { helpKey: `${Platform.ctrl} + -` },
+    { helpKey: '-' },
   ),
 
   // Navigation
@@ -522,15 +530,8 @@ export class KeybindingService {
 
         hotkeys(hotkey, { scope }, (event: KeyboardEvent): void => {
           if (commandName !== 'ALLOW_DEFAULT') {
-            // The command is built before the default is suppressed so it can
-            // decline the key. Only commands bound to a chord the browser
-            // owns implement that, and declining has to leave the event
-            // untouched — a `preventDefault` already called cannot be undone.
-            const command = this.commandFactory.create(commandName);
-            if (command.claimsKey?.() === false) {
-              return;
-            }
             event.preventDefault();
+            const command = this.commandFactory.create(commandName);
             command.execute(event);
           }
         });

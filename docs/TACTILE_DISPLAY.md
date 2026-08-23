@@ -126,17 +126,21 @@ compare between them.
 A whole chart scaled onto a few thousand pins can collapse neighbouring marks
 into the same pin. Zooming spends the same pins on a smaller slice of the chart.
 
-| Action   | Key                                    |
-| -------- | -------------------------------------- |
-| Zoom in  | <kbd>Ctrl</kbd> + <kbd>+</kbd>         |
-| Zoom out | <kbd>Ctrl</kbd> + <kbd>-</kbd>         |
+| Action   | Key            |
+| -------- | -------------- |
+| Zoom in  | <kbd>+</kbd>   |
+| Zoom out | <kbd>-</kbd>   |
 
-Both are live only while the braille panel is open **and a display is
-connected**. With no display these keys stay the browser's own page zoom, which
-is what a low-vision reader is reaching for when they press them. The numeric
-keypad's <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with
-the new zoom level and where in the chart the view now sits — with nothing on
-the grid but marks, there is no border left to say which slice you are on.
+Plain keys, not <kbd>Ctrl</kbd> chords, on purpose: <kbd>Ctrl</kbd> + <kbd>+</kbd>
+is the browser's own page zoom, and the reader most likely to want it is a
+low-vision reader — who is also the one most likely to have the braille panel
+open. So the two zooms stay on separate keys and you can enlarge the page and
+the pin view independently.
+
+Both are live only while the braille panel is open. The numeric keypad's
+<kbd>+</kbd> and <kbd>-</kbd> work too. Each change is announced with the new
+zoom level and where in the chart the view now sits — with nothing on the grid
+but marks, there is no border left to say which slice you are on.
 
 ### Panning
 

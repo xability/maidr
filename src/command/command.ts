@@ -33,20 +33,6 @@ export interface Command {
    * @param {Event} [event] - Optional event that triggered the command.
    */
   execute: (event?: Event) => void;
-
-  /**
-   * Whether this command wants the keystroke that would run it.
-   *
-   * Optional, and almost never needed: a binding exists because MAIDR owns
-   * that key in that scope, and the browser's default for it is suppressed.
-   * Implement this only where the chord is one the browser itself owns and
-   * MAIDR can have nothing to do with it — returning false there leaves the
-   * key to the browser rather than swallowing it to announce that MAIDR
-   * cannot help.
-   *
-   * @returns True to take the key; false to let the default happen.
-   */
-  claimsKey?: () => boolean;
 }
 
 /**
