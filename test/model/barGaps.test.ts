@@ -232,6 +232,14 @@ describe('segmented bar gap DOM alignment', () => {
 
     const layer = stackedLayer(values[0], values[1]);
     layer.selectors = 'rect.bar';
+    // Declared rather than inherited. This case is about a gap standing
+    // aside, not about which way the pairing walks, and it was written
+    // against the walk `<rect>` marks used to get by default -- each category
+    // through its series in reverse. The tag decides nothing now (#1003), so
+    // the walk it depends on is said outright; the assertion below is
+    // unchanged, and this is the one line a producer that draws that way
+    // needs.
+    layer.domMapping = { order: 'column' };
     const trace = new SegmentedTrace(layer);
 
     trace.moveToIndex(row, col);
