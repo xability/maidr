@@ -243,7 +243,7 @@ export class CommandFactory {
       case 'TOGGLE_AUDIO':
         return new ToggleAudioCommand(this.audioService);
       case 'TOGGLE_BRAILLE':
-        return new ToggleBrailleCommand(this.context, this.brailleViewModel, this.notificationService, this.audioService, this.tactileService);
+        return new ToggleBrailleCommand(this.context, this.brailleViewModel, this.notificationService, this.audioService, this.tactileService, this.brailleService);
       case 'TOGGLE_TEXT':
         return new ToggleTextCommand(this.textViewModel);
       case 'TOGGLE_REVIEW':

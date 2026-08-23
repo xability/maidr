@@ -485,8 +485,20 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
    * A tactile display, in the two states that decide who takes the key.
    * @param connected - Whether a display is connected
    */
-  function createTactile(connected: boolean): { canShow: boolean; toggle: jest.Mock } {
-    return { canShow: connected, toggle: jest.fn() };
+  function createTactile(connected: boolean, showing: boolean = false): {
+    canShow: boolean;
+    isActive: boolean;
+    toggle: jest.Mock;
+  } {
+    return { canShow: connected, isActive: showing, toggle: jest.fn() };
+  }
+
+  /**
+   * Braille, in the only state this command reads: whether it is already on.
+   * @param enabled - Whether the braille panel is open
+   */
+  function createBraille(enabled: boolean): BrailleService {
+    return { isEnabled: enabled } as unknown as BrailleService;
   }
 
   const lobby = { type: 'figure', empty: false } as unknown as PlotState;
@@ -509,6 +521,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       notificationService,
       audioService,
       tactile as unknown as TactileService,
+      createBraille(false),
     );
 
     command.execute();
@@ -539,6 +552,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       notificationService,
       audioService,
       tactile as unknown as TactileService,
+      createBraille(false),
     );
 
     command.execute();
@@ -567,6 +581,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       createMockNotificationService(),
       createMockAudioService(),
       tactile as unknown as TactileService,
+      createBraille(false),
     );
 
     command.execute();
@@ -593,12 +608,87 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       createMockNotificationService(),
       createMockAudioService(),
       tactile as unknown as TactileService,
+      createBraille(false),
     );
 
     command.execute();
 
     expect(brailleViewModel.toggle).toHaveBeenCalledWith(noBraille);
     expect(tactile.toggle).not.toHaveBeenCalled();
+  });
+
+  test('turns the pins off after a layer change, rather than opening braille', () => {
+    // A subplot whose layers differ in braille capability — a scatter layer
+    // beside a bar one — is exactly what Page Up is built to move between.
+    // The reader turns the pins on from the scatter layer, where braille has
+    // no table, moves to the bar layer, and presses the key again to turn them
+    // off. Deciding by the layer they are standing on *now* sent that press to
+    // braille instead, which opened the panel and shifted focus — the opposite
+    // of what they asked for, and a third press needed to undo it.
+    const barLayer = { state: trace } as unknown as Context;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(true, true);
+
+    const command = new ToggleBrailleCommand(
+      barLayer,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+      createBraille(false),
+    );
+
+    command.execute();
+
+    expect(tactile.toggle).toHaveBeenCalledTimes(1);
+    expect(brailleViewModel.toggle).not.toHaveBeenCalled();
+  });
+
+  test('leaves the key to braille while the braille panel is open', () => {
+    // Braille carries the pins with it, so lowering them from under an open
+    // panel would leave the two saying different things.
+    const noBraille = {
+      type: 'trace',
+      empty: false,
+      braille: { empty: true, traceType: 'point' },
+    } as unknown as PlotState;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(true, true);
+
+    const command = new ToggleBrailleCommand(
+      { state: noBraille } as unknown as Context,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+      createBraille(true),
+    );
+
+    command.execute();
+
+    expect(tactile.toggle).not.toHaveBeenCalled();
+    expect(brailleViewModel.toggle).toHaveBeenCalledWith(noBraille);
+  });
+
+  test('leaves a trace with no data to braille, which can say why', () => {
+    // "No info for braille" says more than pins that cannot change.
+    const nothing = { type: 'trace', empty: true } as unknown as PlotState;
+    const brailleViewModel = { toggle: jest.fn() } as unknown as BrailleViewModel;
+    const tactile = createTactile(true);
+
+    const command = new ToggleBrailleCommand(
+      { state: nothing } as unknown as Context,
+      brailleViewModel,
+      createMockNotificationService(),
+      createMockAudioService(),
+      tactile as unknown as TactileService,
+      createBraille(false),
+    );
+
+    command.execute();
+
+    expect(tactile.toggle).not.toHaveBeenCalled();
+    expect(brailleViewModel.toggle).toHaveBeenCalledWith(nothing);
   });
 
   test('toggles braille normally when a trace is active', () => {
@@ -614,6 +704,7 @@ describe('ToggleBrailleCommand at the figure lobby', () => {
       notificationService,
       audioService,
       tactile as unknown as TactileService,
+      createBraille(false),
     );
 
     command.execute();

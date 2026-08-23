@@ -175,8 +175,11 @@ export abstract class TactileRenderer {
     }
 
     if (path.length === 1) {
-      // A mark with no extent at all. Drawn as a block at the focus weight so
-      // it is still findable, and as a single pin otherwise.
+      // A mark with no extent at all. Grown to the focus weight when it is the
+      // one the reader is on — a small cross of pins rather than a filled
+      // square, since the offsets are cardinal — so it is findable among its
+      // neighbours; left as the single pin it is otherwise, so a cloud of them
+      // does not smear into one mass.
       raster.strokePath([path[0], path[0]], weight);
       return;
     }
