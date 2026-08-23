@@ -1,12 +1,17 @@
+import type { CommandContext } from '@command/command';
 import type { Context } from '@model/context';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { NotificationService } from '@service/notification';
+import type { Keys } from '@type/event';
 import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer } from '@type/grammar';
+import { CommandFactory } from '@command/factory';
 import { GoToMaxValueCommand, GoToMinValueCommand } from '@command/goTo';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BarTrace } from '@model/bar';
 import { GoToExtremaService as RealGoToExtremaService } from '@service/goToExtrema';
+import { getKeymapForScope } from '@service/keybinding';
+import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
 /** A single-series bar layer whose extreme bars sit away from the ends. */
@@ -145,5 +150,40 @@ describe('bracket key commands', () => {
 
     expect(min.notification.notify).toHaveBeenCalledWith('No minimum value to go to in this layer');
     expect(max.notification.notify).toHaveBeenCalledWith('No maximum value to go to in this layer');
+  });
+});
+
+describe('bracket key wiring', () => {
+  // A keymap name and its `CommandFactory` case are matched by string alone:
+  // `create` throws `Invalid command name` on a mismatch, and it throws when
+  // the key is pressed, not when anything is built. Nothing else in the suite
+  // presses a key, so a rename on one side would ship green.
+  const SCOPES = [Scope.TRACE, Scope.BRAILLE, Scope.CANDLESTICK_DELTA];
+
+  test.each(SCOPES)('%s binds the brackets to the min and max commands', (scope) => {
+    const keymap = getKeymapForScope(scope);
+
+    expect(keymap.GO_TO_MIN_VALUE?.hotkey).toBe('[');
+    expect(keymap.GO_TO_MAX_VALUE?.hotkey).toBe(']');
+  });
+
+  test('the factory resolves both keymap names to their commands', () => {
+    const factory = new CommandFactory({} as unknown as CommandContext);
+
+    // `Keys` is the intersection of every scope's keymap keys, and one of
+    // those keymaps is empty, so it narrows to `never`. KeybindingService
+    // casts at the same boundary when it walks SCOPED_KEYMAP; this mirrors it
+    // rather than working around a quirk this test did not introduce.
+    expect(factory.create('GO_TO_MIN_VALUE' as Keys)).toBeInstanceOf(GoToMinValueCommand);
+    expect(factory.create('GO_TO_MAX_VALUE' as Keys)).toBeInstanceOf(GoToMaxValueCommand);
+  });
+
+  test('both carry a description so the generated help menu lists them', () => {
+    const keymap = getKeymapForScope(Scope.TRACE);
+
+    expect(keymap.GO_TO_MIN_VALUE.description).toBe('Go to Minimum Value');
+    expect(keymap.GO_TO_MAX_VALUE.description).toBe('Go to Maximum Value');
+    expect(keymap.GO_TO_MIN_VALUE.showInHelp).not.toBe(false);
+    expect(keymap.GO_TO_MAX_VALUE.showInHelp).not.toBe(false);
   });
 });
