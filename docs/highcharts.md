@@ -120,6 +120,8 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Treemap | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](examples/highcharts-treemap.html) |
 | Sunburst | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](examples/highcharts-sunburst.html) |
 | Tree | `organization` (requires `modules/sankey.js` and `modules/organization.js`), read as a hierarchy with no magnitude | — |
+| Tree | `treegraph` (requires `modules/treegraph.js`, which ships treemap) | — |
+| Pack | `packedbubble` (requires `highcharts-more.js`) | — |
 | Gauge | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](examples/highcharts-gauge.html) |
 | Waterfall | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](examples/highcharts-waterfall.html) |
 | Error Bar | `errorbar` (requires `highcharts-more.js`), reading its estimates from the series it is `linkedTo`; `arearange`, `areasplinerange`, `columnrange` (require `highcharts-more.js`), each read as the band of intervals it draws | [highcharts-errorbar.html](examples/highcharts-errorbar.html) |
@@ -171,6 +173,10 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 > **Hierarchy note:** Highcharts declares a treemap or sunburst with `id`/`parent` pointers, and MAIDR declares one as a path — a node's ancestors, root first, itself excluded — so the adapter walks each node's parent chain to build it. A parent id that was never declared ends the path there, matching how Highcharts attaches such a node to the root, and a cyclic chain is broken with a warning rather than followed. Interior nodes keep whatever value they declared and are otherwise left valueless, since MAIDR derives an interior total from the children the paths give it. Both series file their marks into one DOM group per depth ordered by z-index, so document order says nothing about declaration order; the adapter stamps `data-maidr-node-index` onto each rendered node and the selectors address the stamp. A node Highcharts did not draw leaves MAIDR with fewer elements than nodes, and highlighting is withdrawn for that layer rather than paired with the wrong rectangles.
 
+> **Treegraph note:** a treegraph declares exactly what a treemap does — `id`, `parent`, `name` — and draws it as boxes joined by links rather than nested rectangles, so it shares the parent-chain walk above and is read as a `tree` for the same reason `organization` is: the trace type is what the reader is told is on the page. What it does **not** share is where the magnitude comes from. A treegraph's layout sizes nothing by value and Highcharts fills the field in regardless — measured on a five-node chart in Highcharts 13, every node came back with `value === 0` and `options.value === undefined` — so the adapter reads the author's declaration instead. With nothing declared, no node carries a `y` and the layer names no value axis; with values declared, they are read as written, and an undeclared node beside declared siblings is left valueless so the trace derives its total from the children. A treemap keeps reading the computed field, where it is a real total rather than an artefact: an interior node with no declared value comes back carrying the sum of its children, and a treemap with no values anywhere renders no nodes at all.
+>
+> **Packed bubble note:** a `packedbubble` series is a group of circles sized by value, with no `parent` on anything — the grouping is which series a bubble is in, and each series already becomes its own layer named after it. So the paths are empty and each layer is the flat pack the chart draws. It is read as `pack`, the name #1159 added for circle packing, rather than as a treemap: the navigation is the same and the picture is not. Note that Highcharts classes its legend swatches `highcharts-point` too; the selectors are scoped inside `.highcharts-series-group`, which the legend is not part of.
+>
 > **Organization note:** an organization chart is a pure hierarchy and carries no magnitude at all. Measured on a six-node chart in Highcharts 11, every node came back with **no `value` field** and with Highcharts' own internal `sum` at `1` for every node alike, because the layout assigns one unit per link. It is read as a `tree` layer -- the same hierarchy a treemap is, under the name of the painting that is actually on the page -- declaring no `y`, which the trace recognises as a tree with nothing to announce on a second axis: no value clause, no shares, no total, and the empty tone rather than a flat one. What a reader gets is the structure — moving up to a manager, down to a report, across to a peer, the ancestry, and how many people report to whoever the cursor is on.
 >
 > The structure comes from `series.nodes` rather than from the links, because that is where Highcharts resolves `linksTo`, the display `name`, the `title` drawn under it, and the box itself. A node's label joins its name and its title, which is what the box says; a name Highcharts fell back to the id for is not repeated. A cyclic chain is cut with a warning, as it is for a treemap.
@@ -205,14 +211,15 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 ### Series types that are deliberately not read
 
-Every other Highcharts series type either has a reading above or is a spelling of one. These four are drawn, understood, and declined — a chart containing one gets no layer for it. They are listed so that a later sweep finds the reasons rather than re-deriving them.
+Every other Highcharts series type either has a reading above or is a spelling of one. These three are drawn, understood, and declined — a chart containing one gets no layer for it. They are listed so that a later sweep finds the reasons rather than re-deriving them.
 
 | Series | Why it is declined |
 | --- | --- |
 | `venn` | Its magnitudes are overlap areas and its positions are a layout. There is no axis to announce a coordinate against. |
 | `polygon` | An arbitrary closed shape with no statistical reading — already noted in `test/adapters/highcharts/arearange.test.ts`. |
 | `vector`, `windbarb`, `flags` | Direction and annotation rather than a measured series. A vector's payload is an angle and a length at a position; a flag is a note pinned to a date. |
-| `packedbubble` | It has a magnitude, but the positions are a packing rather than data — announcing a bubble's x and y would report where the layout put it. |
+
+`packedbubble` was a fourth entry here, declined because "it has a magnitude, but the positions are a packing rather than data — announcing a bubble's x and y would report where the layout put it." That reason was right about the chart and is now answered by the grammar: `pack` (#1159) is a trace whose points carry a magnitude and **no** coordinate at all, so nothing announces where the layout put a bubble. It is read as one, per the packed bubble note above.
 
 ## Declaring What a Series Means
 
