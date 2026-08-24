@@ -60,7 +60,7 @@ import type {
   WordCloudPoint,
 } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
+import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsNode, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   isFlagValue,
@@ -1671,6 +1671,10 @@ function convertSeries(
       return convertTreeSeries(series, containerId, TraceType.TREEMAP);
     case 'sunburst':
       return convertTreeSeries(series, containerId, TraceType.SUNBURST);
+    // An organization chart is a hierarchy with no magnitude on it at all,
+    // which the treemap trace could not express until #1153.
+    case 'organization':
+      return convertOrganizationSeries(series, containerId);
     case 'gauge':
     case 'solidgauge':
     case 'bullet':
@@ -3096,6 +3100,160 @@ function convertTreeSeries(
 }
 
 /**
+ * Converts an `organization` series into a valueless treemap layer.
+ *
+ * An organization chart is a hierarchy and nothing else. Measured on a
+ * six-node chart in Highcharts 11 plus `modules/sankey.js` and
+ * `modules/organization.js`, every node came back with **no `value` field at
+ * all** and with Highcharts' own internal `sum` at `1` for every node alike,
+ * because the layout assigns one unit per link. There is no magnitude in the
+ * declaration and none in the drawing.
+ *
+ * That is why this was declined until now, and #1153 recorded why the two
+ * available spellings were both wrong: omitting `y` announced `0` on every
+ * node over a `freq { min: 0, max: 0 }`, and declaring the layout's `1`
+ * announced two siblings as 100% of their parent each. `TreemapTrace` now
+ * recognises a tree that declares no magnitude anywhere and reads it for what
+ * it has -- the navigation, the ancestry, and how many people report to
+ * whoever the cursor is on -- so the payload here declares no `y` and means
+ * it.
+ *
+ * The structure comes from `series.nodes` rather than from the links. An
+ * organization series is declared as `from`/`to` pairs, and Highcharts
+ * resolves them into node objects carrying `linksTo`, `linksFrom`, the
+ * display `name` and the `title` -- which is also the only place the drawn
+ * box can be reached from, for the selectors.
+ *
+ * **A node with two parents declines the whole series.** A tree cannot say
+ * that someone reports to two managers, and reading it as a tree would drop
+ * one of the two links from a chart that plainly draws both. A silently
+ * missing edge is worse than the fallback, which at least says what it is --
+ * the same line `qqline` is held to in xability/r-maidr#251.
+ *
+ * @param series - The organization series
+ * @param containerId - The chart container's DOM id
+ * @returns The layer, or null when the hierarchy is not a tree
+ */
+function convertOrganizationSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer | null {
+  const nodes = series.nodes ?? [];
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  // Keyed by the id as a string. A chart declaring its links as `[[1, 2]]`
+  // gives numeric ids, draws correctly, and would otherwise have every path
+  // come back empty -- the whole hierarchy silently gone, announced as a
+  // flat list of roots.
+  const byId = new Map<string, HighchartsNode>();
+  for (const node of nodes) {
+    byId.set(String(node.id), node);
+  }
+
+  const multiParent = nodes.find(node => (node.linksTo ?? []).length > 1);
+  if (multiParent !== undefined) {
+    console.warn(
+      `[MAIDR Highcharts] "${series.name}" has a node with more than one `
+      + `parent ("${multiParent.id}"); a tree cannot carry that, so the `
+      + `series is skipped rather than read with an edge missing.`,
+    );
+    return null;
+  }
+
+  const data: TreemapPoint[] = nodes.map(node => ({
+    x: organizationNodeLabel(node),
+    path: organizationAncestors(node, byId, series.name),
+  }));
+
+  // The same stamping the treemap uses, over the nodes rather than the
+  // points: an organization series' `data` is its links, and what a reader
+  // navigates is the boxes.
+  stampPointIndices([nodes], 'data-maidr-node-index');
+
+  return {
+    id: String(series.index),
+    type: TraceType.TREEMAP,
+    title: series.name || undefined,
+    selectors: treemapSelectors(containerId, series.index, data.length),
+    // No `y` axis. The chart has no second dimension to name, and
+    // `TreemapTrace` never reads the label on a tree that declares no
+    // magnitude, so naming one would claim an axis that is not drawn.
+    axes: { x: { label: TREE_NODE_AXIS } },
+    data,
+  };
+}
+
+/**
+ * What an organization box says, as one string.
+ *
+ * The box draws the node's name and, under it, the `title` the node option
+ * carries -- measured, a role such as "CEO". Both are joined because either
+ * alone loses half of what a sighted reader is given, and duplicates are
+ * dropped because Highcharts falls `name` back to `id`, so a node declared
+ * with neither would otherwise repeat itself.
+ *
+ * @param node - The node to name
+ * @returns The label, never empty
+ */
+function organizationNodeLabel(node: HighchartsNode): string {
+  const parts = [node.name, node.options?.title]
+    .filter((part): part is string => typeof part === 'string' && part !== '');
+  const unique = parts.filter((part, i) => parts.indexOf(part) === i);
+  return unique.length > 0 ? unique.join(', ') : String(node.id);
+}
+
+/**
+ * The labels of a node's ancestors, root first and the node itself excluded.
+ *
+ * Walks the single incoming link up to the root. A cycle -- which an
+ * organization chart can declare, since nothing stops a link pointing back up
+ * -- would otherwise loop forever, so a node already passed ends the walk and
+ * says so once.
+ *
+ * @param node - The node to trace back from
+ * @param byId - Every node of the series, keyed by id
+ * @param seriesName - The owning series, for the cycle warning
+ * @returns The path MAIDR addresses the node by, empty at the root
+ */
+function organizationAncestors(
+  node: HighchartsNode,
+  byId: Map<string, HighchartsNode>,
+  seriesName: string,
+): string[] {
+  const path: string[] = [];
+  const seen = new Set<string>([String(node.id)]);
+  let at: HighchartsNode | undefined = node;
+
+  while (at !== undefined) {
+    const parentId = at.linksTo?.[0]?.from;
+    if (parentId === undefined || parentId === null) {
+      break;
+    }
+    // As a string, matching how `byId` is keyed: a numerically declared id
+    // is a real id, and treating it as "no parent" would flatten the tree.
+    const key = String(parentId);
+    if (seen.has(key)) {
+      console.warn(
+        `[MAIDR Highcharts] "${seriesName}" reports a cycle through `
+        + `"${key}"; the path is cut there.`,
+      );
+      break;
+    }
+    seen.add(key);
+    const parent = byId.get(key);
+    if (parent === undefined) {
+      break;
+    }
+    path.unshift(organizationNodeLabel(parent));
+    at = parent;
+  }
+
+  return path;
+}
+
+/**
  * The names of a node's ancestors, root first and the node itself excluded.
  *
  * @param point - The node to trace back from
@@ -3171,10 +3329,19 @@ function stampTreeIndices(series: HighchartsSeries): void {
  * than shifting the indices, so the missing element makes its own selector
  * match nothing instead of pairing every later point with a neighbour's mark.
  *
- * @param groups - The points, in the order MAIDR reads them
+ * The parameter is narrowed to the one field this touches rather than taking
+ * a `HighchartsPoint`, because an organization series stamps its **nodes**:
+ * its points are the links, and what a reader navigates is the boxes. A cast
+ * between the two would have compiled only for as long as their `graphic`
+ * fields happened to agree.
+ *
+ * @param groups - The elements to stamp, in the order MAIDR reads them
  * @param attribute - The data attribute the selectors address
  */
-function stampPointIndices(groups: HighchartsPoint[][], attribute: string): void {
+function stampPointIndices(
+  groups: { graphic?: { element: SVGElement } }[][],
+  attribute: string,
+): void {
   let index = 0;
   for (const group of groups) {
     for (const point of group) {
