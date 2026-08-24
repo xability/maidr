@@ -1639,6 +1639,9 @@ function convertSeries(
     // this family a bar layer has nowhere to put.
     case 'variwide':
       return convertVariwideSeries(series, chart, containerId);
+    // A fitted normal curve, evaluated wherever the renderer chose to.
+    case 'bellcurve':
+      return convertBellCurveSeries(series, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -2486,6 +2489,67 @@ function convertLollipopSeries(
     type: TraceType.LOLLIPOP,
     title: series.name || undefined,
     selectors: lollipopSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts a `bellcurve` series into a smooth layer.
+ *
+ * A bell curve is not a series of observations. It fits a normal
+ * distribution to another series and evaluates it at points the *renderer*
+ * chooses, so the sample count is a drawing parameter rather than a fact
+ * about the data. Measured on Highcharts 11.4.8 in Chromium, the same nine
+ * observations:
+ *
+ *     options                  points in series.data
+ *     (default)                19
+ *     pointsInInterval: 5      31
+ *     intervals: 5             31
+ *
+ * That is what `smooth` is for, and the same reading `stat_function` gets in
+ * r-maidr (xability/r-maidr#202): the trace announces a fitted curve, and
+ * nothing presents nineteen renderer-chosen samples as data.
+ *
+ * The observations are a **separate series** -- reachable as
+ * `series.baseSeries`, and the adapter already reads it on its own terms, so
+ * a chart drawing both gets both. `zIndex: -1` and a hidden base series are
+ * drawing choices this does not follow: a hidden series is declined by
+ * `buildSubplot` for every type alike.
+ *
+ * The curve draws one `highcharts-graph` path and no point marks (measured:
+ * zero `.highcharts-point`), so the graph is the handle -- the same one every
+ * line-family layer takes. `SmoothTrace` reads plain `{x, y}` points;
+ * `svg_x`/`svg_y` belong to the producers that read a fit back off the page,
+ * and this one has the curve's own coordinates.
+ *
+ * The axes are the curve's own, which is where a bell curve is conventionally
+ * drawn: `getAxisLabel` reads `series.xAxis`, so a curve bound to a secondary
+ * pair is named by that pair's titles rather than by the base series'.
+ *
+ * @param series - The bellcurve series to convert
+ * @param containerId - The chart container's id, for the selectors
+ * @returns The smooth layer
+ */
+function convertBellCurveSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: LinePoint[][] = [
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({ x: p.x, y: p.y as number })),
+  ];
+
+  return {
+    id: String(series.index),
+    type: TraceType.SMOOTH,
+    title: series.name || undefined,
+    selectors: lineSelectors(containerId, [series.index]),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
