@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Pareto Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/pareto.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Pareto Chart</h1>
+    <p>
+      A Highcharts Pareto chart made accessible by the MAIDR Highcharts
+      adapter. Two layers are read: the columns, which are the counts, and
+      the cumulative curve drawn over them. Click on the chart and use left
+      and right arrow keys to move between causes, and the layer keys to move
+      between the two readings. The curve's numbers are
+      <em>percentages of the total</em>, not a running count — which is what
+      a Pareto chart is read for, since the point at which it crosses 80% is
+      the answer the chart exists to give.
+    </p>
+
+    <div id="pareto-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('pareto-chart', {
+        title: { text: 'Reported Defects by Cause' },
+        legend: { enabled: false },
+        xAxis: {
+          categories: ['Assembly', 'Material', 'Machine', 'Method', 'Other'],
+          title: { text: 'Cause' },
+        },
+        yAxis: [
+          { title: { text: 'Defects' } },
+          {
+            title: { text: 'Cumulative %' },
+            min: 0,
+            max: 100,
+            opposite: true,
+            labels: { format: '{value}%' },
+          },
+        ],
+        series: [
+          {
+            name: 'Cumulative %',
+            type: 'pareto',
+            yAxis: 1,
+            zIndex: 10,
+            baseSeries: 1,
+            tooltip: { valueDecimals: 1, valueSuffix: '%' },
+          },
+          {
+            name: 'Defects',
+            type: 'column',
+            zIndex: 2,
+            data: [80, 60, 40, 20, 10],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'pareto-chart' });
+      document.getElementById('pareto-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>

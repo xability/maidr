@@ -1642,6 +1642,9 @@ function convertSeries(
     // A fitted normal curve, evaluated wherever the renderer chose to.
     case 'bellcurve':
       return convertBellCurveSeries(series, containerId);
+    // The cumulative percentage drawn over a bar chart's columns.
+    case 'pareto':
+      return convertParetoSeries(series, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -2489,6 +2492,71 @@ function convertLollipopSeries(
     type: TraceType.LOLLIPOP,
     title: series.name || undefined,
     selectors: lollipopSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
+ * Converts a `pareto` series into a line layer.
+ *
+ * A Pareto chart is a bar chart with a cumulative curve drawn over it, and
+ * Highcharts draws the curve as its own series -- so it reads as a second
+ * layer beside the bar layer the columns already produce, which is what the
+ * chart is.
+ *
+ * **The curve's numbers are percentages, not a running total.** That is the
+ * part worth pinning, and it is measured rather than assumed. Highcharts
+ * 11.4.8 in Chromium, over a base whose total is not 100 so that the two
+ * candidate readings differ:
+ *
+ *     base column counts   80, 60, 40, 20    (total 200)
+ *     pareto series.data   40, 70, 90, 100
+ *     a running total would be   80, 140, 180, 200
+ *
+ * So nothing here may convert the values back into counts: the chart does
+ * not draw counts. The axis they are bound to is the secondary one the
+ * author titled -- "Cumulative %" by convention -- which `getAxisLabel`
+ * reads off `series.yAxis` without needing to be told.
+ *
+ * The handle is the `highcharts-graph` path, which is what every
+ * line-family layer takes and what `LineTrace` parses for its vertices.
+ * The curve draws markers too -- measured at four, five and twenty points,
+ * always one marker per step -- in a `highcharts-markers` group that is a
+ * sibling of the series group rather than inside it. They are the same
+ * decoration an ordinary `line` series draws and `convertLineSeries`
+ * likewise does not address.
+ *
+ * `series.linkedParent` is null and the columns are reached through
+ * `series.baseSeries`, which the adapter reads on its own terms -- so a
+ * chart drawing both gets both.
+ *
+ * @param series - The pareto series to convert
+ * @param containerId - The chart container's id, for the selectors
+ * @returns The line layer
+ */
+function convertParetoSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: LinePoint[][] = [
+    series.data
+      .filter(p => p.y !== null)
+      .map(p => ({
+        x: pointLabel(p),
+        y: p.y as number,
+        z: series.name || undefined,
+      })),
+  ];
+
+  return {
+    id: String(series.index),
+    type: TraceType.LINE,
+    title: series.name || undefined,
+    selectors: lineSelectors(containerId, [series.index]),
     axes: {
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
