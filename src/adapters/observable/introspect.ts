@@ -213,6 +213,108 @@ export function boxComposites(
   return found;
 }
 
+/**
+ * How Plot joins a tree node's ancestors in the `<title>` it draws.
+ *
+ * Not the caller's `delimiter`: measured on `Plot.tree(…, {delimiter: '.'})`,
+ * the titles still came back `/`-joined, because Plot normalises the path it
+ * parsed rather than echoing the spelling it was given.
+ */
+export const TREE_PATH_SEPARATOR = '/';
+
+/**
+ * Finds the mark groups that make up a `Plot.tree` or `Plot.cluster`.
+ *
+ * Neither is a mark. Both are three of them — a `link` for the edges, a `dot`
+ * for the nodes, and a `text` for the names, which Plot draws as *two* text
+ * marks because leaf labels and internal-node labels sit on opposite sides of
+ * their dot. Read individually the hierarchy disappears: the dots become a
+ * scatter whose coordinates are where the layout algorithm put each node, and
+ * the links, which are the only place the structure lives, produce no layer at
+ * all (#1168).
+ *
+ * What identifies it is not the arrangement but a fact in the markup. Plot
+ * gives every tree node a `<title>` holding its **full path from the root**,
+ * and — measured across delimiters — always joined with `/` whatever the
+ * caller's own `delimiter` was:
+ *
+ *     Plot.tree(['Company', 'Company/Sales', …])           <title>/Company/Sales</title>
+ *     Plot.tree(['Company.Sales', …], {delimiter: '.'})    <title>/Company/Sales</title>
+ *
+ * So the test is whether the titles form a rooted hierarchy: every one begins
+ * with `/`, and every one's parent prefix is either empty or another title.
+ * A labelled scatter whose labels happen to look like paths fails that as soon
+ * as one of its parents is missing, and a `link` mark on its own keeps the
+ * span reading #1094 gave it.
+ *
+ * @param groups - The plot's mark groups, in draw order.
+ * @returns The tree's groups, or `null` when the plot does not draw one.
+ */
+export function treeComposite(
+  groups: readonly { label: string; group: Element }[],
+): TreeComposite | null {
+  const indices = (label: string): number[] => groups
+    .map((entry, index) => (entry.label === label ? index : -1))
+    .filter(index => index >= 0);
+
+  const link = indices('link')[0];
+  const dot = indices('dot')[0];
+  const texts = indices('text');
+  if (link === undefined || dot === undefined || texts.length === 0)
+    return null;
+
+  const titles = texts.flatMap(index => nodePathsOf(groups[index].group));
+  if (!isRootedHierarchy(titles))
+    return null;
+
+  return { link, dot, texts };
+}
+
+/** The mark groups of one tree, as indices into the plot's groups. */
+export interface TreeComposite {
+  /** The edges. */
+  link: number;
+  /** The nodes. */
+  dot: number;
+  /** The names — two marks, leaf labels and internal-node labels. */
+  texts: number[];
+}
+
+/**
+ * The `<title>` path of every labelled node in a text mark.
+ *
+ * @param group - A `text` mark group.
+ * @returns One path per `<text>` that carries a title, in document order.
+ */
+function nodePathsOf(group: Element): string[] {
+  return Array.from(group.querySelectorAll('text'))
+    .map(text => textOf(text.querySelector('title')))
+    .filter((path): path is string => path !== undefined);
+}
+
+/**
+ * Whether a set of paths describes a hierarchy rather than a list of strings.
+ *
+ * Every path has to start at the root and every parent has to be present, so
+ * a node cannot be announced under an ancestor the chart never drew. A forest
+ * passes: `Plot.tree(['x/1', 'y/2'])` draws two roots, and two roots is what
+ * it is.
+ *
+ * @param paths - The node paths found in the plot's text marks.
+ * @returns Whether they form one.
+ */
+function isRootedHierarchy(paths: readonly string[]): boolean {
+  if (paths.length === 0)
+    return false;
+  const known = new Set(paths);
+  return paths.every((path) => {
+    if (!path.startsWith(TREE_PATH_SEPARATOR))
+      return false;
+    const parent = path.slice(0, path.lastIndexOf(TREE_PATH_SEPARATOR));
+    return parent === '' || known.has(parent);
+  });
+}
+
 /** The mark groups of one box plot, as indices into the plot's groups. */
 export interface BoxComposite {
   /** The interquartile boxes. */
