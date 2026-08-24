@@ -826,6 +826,24 @@ const GANTT_ATTR = 'data-maidr-anychart-task-bar';
 const SUNBURST_ATTR = 'data-maidr-anychart-sunburst-node';
 
 /**
+ * Attribute name stamped onto each circle of an AnyChart circle packing by
+ * {@link stampPackAttributes}. The value encodes the node's position in the
+ * order the packing draws in -- depth first, siblings largest first (#1170).
+ */
+const PACK_ATTR = 'data-maidr-anychart-pack-node';
+
+/**
+ * How far a circle's radius may sit from the one its magnitude implies before
+ * the pairing is refused, as a fraction of the radius.
+ *
+ * A packing sizes a circle by the square root of its magnitude, so the ratio
+ * `r / sqrt(value)` is one constant across a parent's children. Measured
+ * across four tree shapes it held to better than one part in ten thousand;
+ * this leaves room for the serializer's rounding and nothing else.
+ */
+const PACK_RADIUS_TOLERANCE = 0.01;
+
+/**
  * Attribute name stamped onto each panel's own `<svg>` root by
  * {@link bindAnyCharts}. Its value is the panel token
  * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
@@ -1180,6 +1198,7 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
     || isWordCloudChart(chart)
     || isSankeyChart(chart)
     || isSunburstChart(chart)
+    || isCirclePackingChart(chart)
     || isGanttChart(chart)
   ) {
     return false;
@@ -2524,6 +2543,28 @@ function isSunburstChart(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether a chart is a circle packing.
+ *
+ * Not by name: `anychart.circlePacking()` is the one chart here that reports
+ * no `getType()` at all, and `toJson()` throws on it too, so the name every
+ * other detection asks for does not exist (#1170). What it does have is
+ * `labelsMode()` -- its own label placement, and the only public method the
+ * other two hierarchy charts lack.
+ *
+ * Corroborated structurally, as the gantt's name is: a packing has no series
+ * API and its `data()` hands back a tree. Requiring the type name to be
+ * absent as well keeps an undrawn treemap out, since {@link readChartType}
+ * answers `''` on a chart that has not been drawn.
+ */
+function isCirclePackingChart(chart: AnyChartInstance): boolean {
+  if (typeof chart.labelsMode !== 'function')
+    return false;
+  if (readChartType(chart) !== '')
+    return false;
+  return readChartTree(chart) !== null;
+}
+
+/**
  * Whether a chart draws a map.
  *
  * Asked only by the paths that need a CHART-level answer — which stampers to
@@ -2763,6 +2804,8 @@ function resolveStampers(
     return [['sankey', stampSankeyAttributes]];
   if (isSunburstChart(chart))
     return [['sunburst', stampSunburstAttributes]];
+  if (isCirclePackingChart(chart))
+    return [['circle packing', stampPackAttributes]];
   // A map does have a series API, and its regions are a mark family no XY
   // stamper writes — so a map running the XY set would be stamped by nothing
   // at all. Running the region stamper ALONE is the second half of that: a
@@ -4140,6 +4183,120 @@ function resolveGanttScale(lanes: GanttLane[]): GanttScale {
  * On any other chart type this is a no-op.
  */
 /**
+ * Stamp `data-maidr-anychart-pack-node="<index>"` on every circle of an
+ * AnyChart circle packing.
+ *
+ * The circles are paired with the nodes by position, in the order
+ * {@link collectPackLayout} puts them -- and then that pairing is CHECKED
+ * against the drawing rather than trusted. A packing sizes a circle by the
+ * square root of its magnitude, so within one parent's children the ratio
+ * `r / sqrt(total)` is a single constant; if the pairing is right that holds,
+ * and if the layout ever ordered its siblings differently it would not.
+ *
+ * That is the difference between this and reading the order off the library's
+ * documentation: a change in AnyChart's packing would make the chart fall
+ * back to no highlight rather than silently outline the wrong circle.
+ *
+ * On any other chart type this is a no-op.
+ *
+ * @param chart       - The chart being bound
+ * @param svg         - Its rendered `<svg>` root
+ * @param stampPrefix - Panel token prefix, in multi-panel mode
+ */
+function stampPackAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isCirclePackingChart(chart))
+    return;
+
+  const tree = readChartTree(chart);
+  if (!tree)
+    return;
+
+  const layout = collectPackLayout(tree);
+  if (!layout)
+    return;
+
+  const circles = Array.from(
+    svg.querySelectorAll<SVGElement>('circle'),
+  ).filter(circle => Number.isFinite(readCircleRadius(circle)));
+
+  if (circles.length !== layout.nodes.length || !packRadiiAgree(layout, circles)) {
+    console.warn(
+      `[maidr/anychart] Could not match this circle packing's `
+      + `${layout.nodes.length} nodes to the ${circles.length} circles its SVG `
+      + 'holds. Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
+
+  circles.forEach((circle, i) => {
+    circle.setAttribute(PACK_ATTR, `${stampPrefix}${i}`);
+  });
+}
+
+/**
+ * One circle's radius, as the drawing states it.
+ *
+ * @param circle - The `<circle>` to measure
+ * @returns Its radius, or `NaN` where it carries none
+ */
+function readCircleRadius(circle: SVGElement): number {
+  const raw = circle.getAttribute('r');
+  if (raw === null)
+    return Number.NaN;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) && value > 0 ? value : Number.NaN;
+}
+
+/**
+ * Whether the circles are sized the way the paired nodes' magnitudes say.
+ *
+ * Asked per parent, because a packing rescales each nesting level to fit
+ * inside its own circle: `r / sqrt(total)` is constant among one parent's
+ * children and differs between parents. A parent with a single child states
+ * nothing -- one ratio is always constant with itself -- so those pass, and
+ * what they would have caught is caught by the parent above.
+ *
+ * @param layout  - The hierarchy in the order the circles were paired with
+ * @param circles - The drawn circles, in document order
+ * @returns Whether every sibling group agrees with its circles
+ */
+function packRadiiAgree(layout: PackLayout, circles: SVGElement[]): boolean {
+  const groups = new Map<number, number[]>();
+  layout.parents.forEach((parent, index) => {
+    const group = groups.get(parent);
+    if (group)
+      group.push(index);
+    else
+      groups.set(parent, [index]);
+  });
+
+  for (const group of groups.values()) {
+    let expected: number | null = null;
+    for (const index of group) {
+      // Always positive: {@link collectPackLayout} drops a subtree with no
+      // magnitude, because the packing draws no circle for one.
+      const total = layout.totals[index];
+      const ratio = readCircleRadius(circles[index]) / Math.sqrt(total);
+      if (!Number.isFinite(ratio))
+        return false;
+      if (expected === null) {
+        expected = ratio;
+        continue;
+      }
+      if (Math.abs(ratio - expected) > expected * PACK_RADIUS_TOLERANCE)
+        return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Stamp `data-maidr-anychart-sunburst-node="<index>"` on every arc of an
  * AnyChart sunburst.
  *
@@ -5107,6 +5264,168 @@ function collectHierarchyNodes(tree: AnyChartTree): TreemapPoint[] {
   return nodes;
 }
 
+/** One hierarchy laid out the way a circle packing draws it. */
+interface PackLayout {
+  /** The nodes, depth first with each parent's children largest first. */
+  nodes: TreemapPoint[];
+  /** Each node's magnitude, its own or its subtree's. */
+  totals: number[];
+  /** Each node's parent, as an index into {@link nodes}; `-1` for a root. */
+  parents: number[];
+}
+
+/**
+ * A node's magnitude, its own where it declared one and its subtree's where
+ * it did not.
+ *
+ * The packing sizes every circle, interior ones included, so an interior node
+ * has a size on the chart whatever the data said. That derived figure is what
+ * orders the siblings and what the radius check is asked about; it is never
+ * emitted as the node's value, which stays absent exactly as it is written.
+ *
+ * @param item - The tree item to total
+ * @returns Its magnitude, or 0 where neither it nor its subtree declares one
+ */
+function packTotal(item: AnyChartTreeItem): number {
+  const declared = item.get('value');
+  const own = declared === null || declared === undefined || declared === ''
+    ? Number.NaN
+    : asNumber(declared, Number.NaN);
+  if (Number.isFinite(own))
+    return own;
+  let sum = 0;
+  const count = item.numChildren?.() ?? 0;
+  for (let i = 0; i < count; i++) {
+    const child = item.getChildAt?.(i);
+    if (child)
+      sum += packTotal(child);
+  }
+  return sum;
+}
+
+/**
+ * A hierarchy in the order a circle packing draws it, or `null` where that
+ * order is not determined.
+ *
+ * The packing does not draw the tree in the author's order: it sorts each
+ * parent's children by magnitude, largest first, and walks depth first.
+ * Measured across four tree shapes -- a deep chain beside a shallow sibling,
+ * an ascending declared order, two multi-child subtrees, and a pair of tied
+ * siblings -- the circles came back in exactly that order every time, with
+ * `r / sqrt(magnitude)` constant within each parent to four significant
+ * figures (#1170).
+ *
+ * **Tied siblings are refused.** Two children of one parent with the same
+ * magnitude are drawn as two circles of the same size, and nothing on the
+ * chart says which is which -- a packing labels only its root. Ordering them
+ * by anything would be a coin toss, and losing it announces one node's name
+ * while outlining another's circle. The chart is left unread instead.
+ *
+ * @param tree - The chart's data tree
+ * @returns The layout, or `null` where a parent has children of equal size
+ */
+function collectPackLayout(tree: AnyChartTree): PackLayout | null {
+  const nodes: TreemapPoint[] = [];
+  const totals: number[] = [];
+  const parents: number[] = [];
+  let tied = false;
+
+  const childrenOf = (item: AnyChartTreeItem): AnyChartTreeItem[] => {
+    const out: AnyChartTreeItem[] = [];
+    const count = item.numChildren?.() ?? 0;
+    for (let i = 0; i < count; i++) {
+      const child = item.getChildAt?.(i);
+      if (child)
+        out.push(child);
+    }
+    return out;
+  };
+
+  const largestFirst = (items: AnyChartTreeItem[]): AnyChartTreeItem[] => {
+    // A subtree with no magnitude anywhere in it is dropped, because the
+    // packing draws no circle for one. Measured: a four-node tree whose
+    // second branch declared no value came back as two circles, the root and
+    // the one branch that had a size. Keeping those nodes would announce a
+    // part of the chart the reader is not being shown, and it is also why
+    // they never reach the tie test -- every one of them totals zero.
+    const sized = items
+      .map(item => ({ item, total: packTotal(item) }))
+      .filter(entry => entry.total > 0);
+    const ordered = [...sized].sort((a, b) => b.total - a.total);
+    for (let i = 1; i < ordered.length; i++) {
+      if (ordered[i].total === ordered[i - 1].total)
+        tied = true;
+    }
+    return ordered.map(entry => entry.item);
+  };
+
+  const visit = (
+    item: AnyChartTreeItem,
+    path: (string | number)[],
+    parent: number,
+  ): void => {
+    const name = asString(item.get('name'));
+    const declared = item.get('value');
+    const magnitude = declared === null || declared === undefined || declared === ''
+      ? Number.NaN
+      : asNumber(declared, Number.NaN);
+    const index = nodes.length;
+    nodes.push({
+      x: name,
+      ...(Number.isFinite(magnitude) ? { y: magnitude } : {}),
+      path: [...path],
+    });
+    totals.push(packTotal(item));
+    parents.push(parent);
+    for (const child of largestFirst(childrenOf(item)))
+      visit(child, [...path, name], index);
+  };
+
+  const roots: AnyChartTreeItem[] = [];
+  const rootCount = tree.numChildren();
+  for (let i = 0; i < rootCount; i++) {
+    const root = tree.getChildAt(i);
+    if (root)
+      roots.push(root);
+  }
+  for (const root of largestFirst(roots))
+    visit(root, [], -1);
+
+  return tied || nodes.length === 0 ? null : { nodes, totals, parents };
+}
+
+/**
+ * Build a PACK layer from a hierarchy's nodes.
+ *
+ * `pack` rather than `treemap`: the same hierarchy, drawn as nested circles
+ * sized by magnitude, which is what the reader is told is on the page.
+ *
+ * The selectors are one per node, in the order the packing draws them, so a
+ * hierarchy can be navigated circle by circle.
+ *
+ * @param layout    - The hierarchy in the order the circles are drawn
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel     - The owning panel, in multi-panel mode
+ * @returns The MAIDR pack layer
+ */
+function buildPackLayer(
+  layout: PackLayout,
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const defaultSelectors = layout.nodes.map(
+    (_, i) => `${scope}[${PACK_ATTR}="${stamp}${i}"]`,
+  );
+  return {
+    id: '0',
+    type: TraceType.PACK,
+    selectors: selectors ?? defaultSelectors,
+    data: layout.nodes,
+  };
+}
+
 /**
  * Build a SUNBURST layer from a hierarchy's nodes.
  *
@@ -5729,6 +6048,13 @@ const SANKEY_AXIS_FALLBACKS = { x: 'Node', y: 'Flow' };
 const SUNBURST_AXIS_FALLBACKS = { x: 'Node', y: 'Value' };
 
 /**
+ * What a circle packing's two dimensions are called when the chart names
+ * neither. Like the sunburst it is bound to no axis: its circles are a
+ * hierarchy rather than positions on a scale.
+ */
+const PACK_AXIS_FALLBACKS = { x: 'Node', y: 'Value' };
+
+/**
  * What a choropleth's two dimensions are called when the chart names neither.
  * A map is bound to no axis: its regions are places rather than positions on a
  * scale, and AnyChart's map chart has no `xAxis()` / `yAxis()` to borrow a
@@ -5928,6 +6254,25 @@ function buildSubplot(
       return null;
     const layer = buildSunburstLayer(nodes, chartLevelSelector, panel);
     attachAxes(layer, SUNBURST_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
+  // A circle packing is the third tree chart, and the one that names itself
+  // least: no `getType()`, no series API, and a `data()` that hands back a
+  // tree (#1170).
+  if (isCirclePackingChart(chart)) {
+    const tree = readChartTree(chart);
+    if (!tree)
+      return null;
+    // `null` where a parent has two children of equal size: the packing draws
+    // them as two circles of the same radius and labels only its root, so
+    // which is which is not something the chart says. Announcing one node's
+    // name over another's circle is worse than announcing nothing.
+    const layout = collectPackLayout(tree);
+    if (!layout)
+      return null;
+    const layer = buildPackLayer(layout, chartLevelSelector, panel);
+    attachAxes(layer, PACK_AXIS_FALLBACKS);
     return finalize([layer]);
   }
 
