@@ -2008,27 +2008,27 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Sunburst: 'sunburst',
   // Three more paintings of the one hierarchy `extractHierarchyPoints`
   // already reads: `Tree` draws it as nodes and links, `Pack` as nested
-  // circles, `LinkedHierarchy` as its base class. They carry the same nested
-  // `children` shape the three above do, and reach the same converter -- the
-  // only thing that kept them out was this map, which gates discovery through
-  // `STANDALONE_SERIES_CLASSES`, so the series was never wrapped as a panel
-  // and the binder reported no supported chart (#1140).
+  // circles, `LinkedHierarchy` as the base class the first draws through.
+  // They carry the same nested `children` shape the three above do, and reach
+  // the same converter -- the only thing that kept them out was this map,
+  // which gates discovery through `STANDALONE_SERIES_CLASSES`, so the series
+  // was never wrapped as a panel and the binder reported no supported chart
+  // (#1140).
   //
-  // Read under `treemap` rather than a name of their own. The grammar already
-  // treats that as the general one -- `ICICLE` and `SUNBURST` are both
-  // documented as "the same hierarchy as a TREEMAP, drawn as ..." -- and the
-  // navigation is identical, since all three share one branch of the
-  // dispatch. The cost is that a circle-packing or node-link diagram
-  // announces itself as a treemap, which is a fourth and fifth painting
-  // reported under the first's name. Trace types of their own would say it
-  // exactly and are a grammar change; that option is open on #1140.
+  // Each under its own name, which is the half of #1140 the grammar had to
+  // grow for. They were read as `treemap` first, because the navigation is
+  // identical and the grammar treats that as the general name -- but the
+  // trace type is also what the reader is *told* the chart is, and a
+  // node-link diagram or a circle-packing diagram announced as a treemap is
+  // a chart type nobody drew. `TraceType.TREE` and `TraceType.PACK` say it
+  // exactly and still share the one branch of the dispatch.
   //
   // `Venn` is deliberately absent. An overlap diagram has no axis and no
   // per-category magnitude to walk, so declining it is the reading, not a
   // gap.
-  Tree: 'treemap',
-  Pack: 'treemap',
-  LinkedHierarchy: 'treemap',
+  Tree: 'tree',
+  Pack: 'pack',
+  LinkedHierarchy: 'tree',
   WordCloud: 'wordcloud',
   Sankey: 'sankey',
   ArcDiagram: 'sankey',
@@ -2182,6 +2182,8 @@ export type SeriesKind
     | 'treemap'
     | 'icicle'
     | 'sunburst'
+    | 'tree'
+    | 'pack'
     | 'wordcloud'
     | 'sankey'
     | 'chord'

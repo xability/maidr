@@ -25,6 +25,15 @@ import { fakeChart, fakeContainer, fakeRoot, fakeSeries } from './helpers';
  * Both throws are the binder's documented contract, so this was the adapter
  * declining rather than misreading -- the same shape as #1138's Highcharts
  * gap, reached through a discovery gate instead of a switch.
+ *
+ * The second half of #1140 is the name. Opening the gate first read all three
+ * as `treemap`, because the navigation is identical -- but the trace type is
+ * also what the reader is *told* is on the page, and a node-link diagram
+ * announced as a treemap is a chart type nobody drew. `Tree` and
+ * `LinkedHierarchy` are one mark (`Tree` draws by extending
+ * `LinkedHierarchy`) and take `TraceType.TREE`; `Pack` draws nested circles
+ * and takes `TraceType.PACK`. All five still share the one branch of the
+ * dispatch and the one converter, which is the part that was never in doubt.
  */
 
 const NODES = [
@@ -60,30 +69,57 @@ function layerTypes(root: unknown): string[] {
     .map(layer => layer.type);
 }
 
-const PAINTINGS = ['Tree', 'Pack', 'LinkedHierarchy'] as const;
+const PAINTINGS = [
+  ['Tree', TraceType.TREE],
+  ['Pack', TraceType.PACK],
+  ['LinkedHierarchy', TraceType.TREE],
+] as const;
 
 describe('amCharts hierarchy paintings', () => {
-  it.each(PAINTINGS)('reads a standalone %s as the hierarchy it is', (className) => {
+  it.each(PAINTINGS)('reads a standalone %s as the hierarchy it is', (className, type) => {
     // The am5hierarchy pattern: a series pushed straight into a container,
     // with no chart around it. This threw before the fix.
     const root = fakeRoot([fakeContainer([hierarchy(className)])]);
 
-    expect(layerTypes(root)).toEqual([TraceType.TREEMAP]);
+    expect(layerTypes(root)).toEqual([type]);
   });
 
-  it.each(PAINTINGS)('reads %s inside a chart too', (className) => {
+  it.each(PAINTINGS)('reads %s inside a chart too', (className, type) => {
     const root = fakeRoot([fakeChart({ series: [hierarchy(className)] })]);
 
-    expect(layerTypes(root)).toEqual([TraceType.TREEMAP]);
+    expect(layerTypes(root)).toEqual([type]);
   });
 
-  it('reads them the same way it reads a treemap', () => {
-    // The point of the change: these are one hierarchy, so they resolve to
-    // one reading rather than to five near-identical ones.
-    const drawn = PAINTINGS.map(c => classifySeriesKind({ className: c } as never));
+  it('names each after the painting on the page, not after the treemap', () => {
+    // The half of #1140 the grammar had to grow for. Reading all three as
+    // `treemap` navigated correctly and announced the wrong chart.
+    const drawn = PAINTINGS.map(([c]) => classifySeriesKind({ className: c } as never));
 
-    expect(drawn).toEqual(['treemap', 'treemap', 'treemap']);
+    expect(drawn).toEqual(['tree', 'pack', 'tree']);
     expect(classifySeriesKind({ className: 'Treemap' } as never)).toBe('treemap');
+  });
+
+  it('gives a Tree and a Pack different names', () => {
+    // Nailed down separately, because a mapping that collapsed the two back
+    // onto one name would still pass every per-class case above.
+    const tree = fakeRoot([fakeContainer([hierarchy('Tree')])]);
+    const pack = fakeRoot([fakeContainer([hierarchy('Pack')])]);
+
+    expect(layerTypes(tree)).not.toEqual(layerTypes(pack));
+  });
+
+  it('reads all five through the one converter', () => {
+    // The names differ; the data does not. A Tree's points are the treemap's
+    // points, which is why one branch of the dispatch still serves all five.
+    const of = (className: string): unknown =>
+      fromAmCharts(fakeRoot([fakeContainer([hierarchy(className)])]) as never)
+        ?.subplots
+        ?.flat()
+        .flatMap(s => s?.layers ?? [])[0]
+        ?.data;
+
+    expect(of('Tree')).toEqual(of('Treemap'));
+    expect(of('Pack')).toEqual(of('Treemap'));
   });
 
   it('still declines a Venn', () => {

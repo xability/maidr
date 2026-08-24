@@ -83,6 +83,13 @@ const BRAILLE_KEYMAP = {
   MOVE_TO_NEXT_TRACE: key(`pageup`, 'Move to Next Layer'),
   MOVE_TO_PREV_TRACE: key(`pagedown`, 'Move to Previous Layer'),
 
+  // Go To functionality
+  // The extrema dialog ('g') is not bound here — a modal would fight the
+  // braille text area for focus — but the bracket keys open nothing, so the
+  // jump itself is available while reading braille.
+  GO_TO_MIN_VALUE: key(`[`, 'Go to Minimum Value', { helpKey: '[ (open bracket)' }),
+  GO_TO_MAX_VALUE: key(`]`, 'Go to Maximum Value', { helpKey: '] (close bracket)' }),
+
   // Modes
   TOGGLE_BRAILLE: key(`b`, 'Toggle Braille Mode'),
   TOGGLE_TEXT: key(`t`, 'Toggle Text Mode'),
@@ -102,6 +109,16 @@ const BRAILLE_KEYMAP = {
 
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
+
+  // Go To functionality
+  //
+  // Bound here as well as in TRACE so jumping to an extremum does not require
+  // leaving braille first. The dialog opens on top of the braille scope and
+  // GoToExtremaService returns to whichever scope opened it, so braille is
+  // still on — and re-rendered at the new cursor — once the dialog closes.
+  // `preventDefault` in the hotkeys handler keeps the `g` out of the braille
+  // textarea's own value.
+  GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
 
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
@@ -161,6 +178,8 @@ const CANDLESTICK_DELTA_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
+  GO_TO_MIN_VALUE: key(`[`, 'Go to Minimum Value', { helpKey: '[ (open bracket)' }),
+  GO_TO_MAX_VALUE: key(`]`, 'Go to Maximum Value', { helpKey: '] (close bracket)' }),
 
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
@@ -402,6 +421,8 @@ const TRACE_KEYMAP = {
 
   // Go To functionality
   GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
+  GO_TO_MIN_VALUE: key(`[`, 'Go to Minimum Value', { helpKey: '[ (open bracket)' }),
+  GO_TO_MAX_VALUE: key(`]`, 'Go to Maximum Value', { helpKey: '] (close bracket)' }),
 
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),

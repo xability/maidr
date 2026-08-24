@@ -93,7 +93,7 @@ describe('survival registration', () => {
 
   test('it reads the curve a time at a time, as a step chart does', () => {
     expect(nonEmptyState(survival(0, 2)).text.main.value).toBe(6);
-    expect(nonEmptyState(survival(0, 2)).text.cross.value).toBe(0.71);
+    expect(nonEmptyState(survival(0, 2)).text.cross?.value).toBe(0.71);
   });
 });
 

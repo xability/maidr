@@ -134,6 +134,7 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.MANHATTAN]: false,
   [TraceType.VOLCANO]: false,
   [TraceType.SCATTER]: false,
+  [TraceType.SUNFLOWER]: false,
   [TraceType.SMOOTH]: false,
   [TraceType.STACKED]: true,
   [TraceType.STACKED_AREA]: false,
@@ -146,6 +147,8 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // there is no reading of the chart in which that is drawn sideways.
   [TraceType.ICICLE]: false,
   [TraceType.SUNBURST]: false,
+  [TraceType.TREE]: false,
+  [TraceType.PACK]: false,
   [TraceType.TREEMAP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,

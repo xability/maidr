@@ -251,7 +251,7 @@ describe('pie slices with a negative value', () => {
 
     const { text } = stateAtSlice(trace, 1);
 
-    expect(text.cross.value).toBe(-40);
+    expect(text.cross?.value).toBe(-40);
   });
 
   it('scales the pitch over a range that includes the negative', () => {

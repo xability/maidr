@@ -112,7 +112,7 @@ describe('the hierarchy is built from the paths', () => {
   });
 
   test('a derived node totals its children', () => {
-    expect(nonEmptyState(treemap()).text.cross.value).toBe(150);
+    expect(nonEmptyState(treemap()).text.cross?.value).toBe(150);
   });
 
   test('a declared total is kept even where the children disagree', () => {
@@ -124,7 +124,7 @@ describe('the hierarchy is built from the paths', () => {
       ...NATIONS,
     ];
 
-    expect(nonEmptyState(treemap(declared)).text.cross.value).toBe(200);
+    expect(nonEmptyState(treemap(declared)).text.cross?.value).toBe(200);
   });
 
   test('a leaf declared with no path is a top-level node', () => {
@@ -413,5 +413,90 @@ describe('the level rotor reads the band an icicle is drawn as', () => {
     const keys = treemap(chain).getRotorFilterUnits().map(unit => unit.key);
 
     expect(keys).not.toContain('level');
+  });
+});
+
+/**
+ * A tree in which no node declares a magnitude (#1153).
+ *
+ * `TreemapPoint.y` is optional so an interior node can take the sum of its
+ * children, but a tree where *nothing* declares one is a different thing: a
+ * pure hierarchy, which is what an org chart is. Measured on a Highcharts
+ * organization chart, every node's `value` and `weight` came back null and
+ * the library's own internal `sum` was 1 for every node alike, because it
+ * assigns one unit per link for layout.
+ *
+ * Read as an ordinary tree it announced `0` everywhere over a
+ * `freq { min: 0, max: 0 }`, and declaring Highcharts' 1 instead made two
+ * siblings each 100% of their parent. The announcement half of the fix is
+ * covered in `test/service/textValuelessTree.test.ts`; these cover the
+ * sonification and the description.
+ */
+const ORG: TreemapPoint[] = [
+  { x: 'Ada' },
+  { x: 'Bo', path: ['Ada'] },
+  { x: 'Cy', path: ['Ada'] },
+  { x: 'Engineering', path: ['Ada', 'Bo'] },
+  { x: 'Design', path: ['Ada', 'Bo'] },
+  { x: 'Finance', path: ['Ada', 'Cy'] },
+];
+
+describe('a tree that declares no magnitude', () => {
+  test('sounds as a point with no value rather than as a flat zero', () => {
+    // The contract #925 established and deliberately did not scope to the
+    // trace that first needed it: a non-finite magnitude means the point
+    // exists to navigate to and has no value, and `AudioService` answers it
+    // with the empty tone. A 0 would have been a real tone at the bottom of
+    // the range -- a claim that every node is equal and small.
+    const { freq } = nonEmptyState(treemap(ORG)).audio;
+
+    expect(Number.isFinite(freq.raw as number)).toBe(false);
+  });
+
+  test('a tree that does declare magnitudes still pitches by them', () => {
+    const { freq } = nonEmptyState(treemap()).audio;
+
+    expect(freq.raw).toBe(150);
+  });
+
+  test('the description keeps the shape and drops the totals', () => {
+    const labels = treemap(ORG).description.stats.map(entry => entry.label);
+
+    expect(labels).toEqual(['Levels', 'Number of nodes', 'Number of leaves']);
+  });
+
+  test('a valued tree keeps every stat it had', () => {
+    const labels = treemap().description.stats.map(entry => entry.label);
+
+    expect(labels).toContain('Total');
+    expect(labels).toContain('Top level');
+    expect(labels).toContain('Largest leaf');
+  });
+
+  test('the table drops the columns it would fill with zeroes', () => {
+    const { headers, rows } = treemap(ORG).description.dataTable;
+
+    expect(headers).toEqual(['Path', 'Region']);
+    expect(rows[0]).toEqual(['', 'Ada']);
+    expect(rows).toHaveLength(6);
+  });
+
+  test('a valued tree keeps its value and share columns', () => {
+    const { headers } = treemap().description.dataTable;
+
+    expect(headers).toEqual(['Path', 'Region', 'Population', 'Share of total']);
+  });
+
+  test('one declared magnitude anywhere makes the whole tree a valued one', () => {
+    // A mixed tree is the documented ordinary case, and must not be caught.
+    const mixed: TreemapPoint[] = [
+      { x: 'Ada' },
+      { x: 'Bo', y: 4, path: ['Ada'] },
+      { x: 'Cy', path: ['Ada'] },
+    ];
+
+    expect(treemap(mixed).description.stats.map(e => e.label)).toContain('Total');
+    expect(Number.isFinite(nonEmptyState(treemap(mixed)).audio.freq.raw as number))
+      .toBe(true);
   });
 });

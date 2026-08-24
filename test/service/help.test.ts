@@ -98,17 +98,18 @@ describe('help menu generation', () => {
     const trace = menuFor(Scope.TRACE).map(item => item.key);
 
     // Bound in TRACE only — braille must not offer them.
-    expect(trace).toContain('g');
     expect(trace.some(key => key.endsWith('shift + p'))).toBe(true);
     expect(trace.some(key => key.endsWith('+ L'))).toBe(true);
 
-    expect(braille).not.toContain('g');
     expect(braille.some(key => key.endsWith('shift + p'))).toBe(false);
     expect(braille.some(key => key.endsWith('+ L'))).toBe(false);
 
-    // Shared bindings still show up, including the `l` label chord.
+    // Shared bindings still show up, including the `l` label chord and the
+    // extrema dialog, which braille mode reaches without leaving braille.
     expect(braille).toContain('b');
+    expect(braille).toContain('g');
     expect(braille).toContain('l x');
+    expect(trace).toContain('g');
   });
 
   it('shows the label chord under the scope it is reached from', () => {

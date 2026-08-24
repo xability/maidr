@@ -94,6 +94,7 @@ describe('resolveOrientation', () => {
     TraceType.MANHATTAN,
     TraceType.VOLCANO,
     TraceType.SCATTER,
+    TraceType.SUNFLOWER,
     TraceType.SMOOTH,
     TraceType.STACKED_AREA,
     TraceType.STEP,
@@ -104,6 +105,8 @@ describe('resolveOrientation', () => {
     // rings answers the same way.
     TraceType.ICICLE,
     TraceType.SUNBURST,
+    TraceType.TREE,
+    TraceType.PACK,
     TraceType.TREEMAP,
     // A waterfall is navigated one column per step whichever way the bars
     // are drawn, so there is no main and cross axis to swap.

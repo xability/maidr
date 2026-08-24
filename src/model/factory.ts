@@ -155,6 +155,10 @@ export abstract class TraceFactory {
         return new RidgelineTrace(layer);
 
       case TraceType.SCATTER:
+      case TraceType.SUNFLOWER:
+        // One class for both: a sunflower plot is a scatter whose marks
+        // carry a count, and nothing a reader navigates differs. The name is
+        // what tells them the marks are not one-per-observation.
         return new ScatterTrace(layer);
 
       case TraceType.SMOOTH:
@@ -165,6 +169,8 @@ export abstract class TraceFactory {
 
       case TraceType.ICICLE:
       case TraceType.SUNBURST:
+      case TraceType.TREE:
+      case TraceType.PACK:
       case TraceType.TREEMAP:
         // One class for all three: they are the same tree drawn three ways,
         // and the layout changes nothing a reader navigates. The sunburst's

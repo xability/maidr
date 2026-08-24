@@ -86,9 +86,9 @@ describe('sections', () => {
     // Moving up the grid must move up the value axis, or the cursor's
     // direction contradicts the chart's.
     expect(at(MEANS, 0, 0).state).toMatchObject({ empty: false });
-    expect(nonEmptyState(at(MEANS, 0, 0)).text.cross.value).toBe(3.8);
-    expect(nonEmptyState(at(MEANS, 1, 0)).text.cross.value).toBe(4.2);
-    expect(nonEmptyState(at(MEANS, 2, 0)).text.cross.value).toBe(4.6);
+    expect(nonEmptyState(at(MEANS, 0, 0)).text.cross?.value).toBe(3.8);
+    expect(nonEmptyState(at(MEANS, 1, 0)).text.cross?.value).toBe(4.2);
+    expect(nonEmptyState(at(MEANS, 2, 0)).text.cross?.value).toBe(4.6);
   });
 
   test('names which magnitude is being read', () => {
@@ -103,7 +103,7 @@ describe('sections', () => {
     const { text } = nonEmptyState(at(MEANS, 2, 2));
 
     expect(text.main.value).toBe('high dose');
-    expect(text.cross.value).toBe(7.4);
+    expect(text.cross?.value).toBe(7.4);
   });
 
   test('omits a bound the data never carries', () => {
@@ -128,7 +128,7 @@ describe('sections', () => {
 
     const { text } = nonEmptyState(trace);
     expect(text.section).toBe('value');
-    expect(text.cross.value).toBe(2);
+    expect(text.cross?.value).toBe(2);
   });
 
   test('omits the estimate a band never carries', () => {
@@ -140,11 +140,11 @@ describe('sections', () => {
 
     trace.moveToIndex(0, 0);
     expect(nonEmptyState(trace).text.section).toBe('lower bound');
-    expect(nonEmptyState(trace).text.cross.value).toBe(5);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(5);
 
     trace.moveToIndex(1, 0);
     expect(nonEmptyState(trace).text.section).toBe('upper bound');
-    expect(nonEmptyState(trace).text.cross.value).toBe(15);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(15);
   });
 
   test('gives a band two rows, not three', () => {
@@ -200,7 +200,7 @@ describe('horizontal orientation', () => {
     const { text } = nonEmptyState(horizontal(1, 0));
 
     expect(text.main.label).toBe('Response');
-    expect(text.cross.label).toBe('Group');
+    expect(text.cross?.label).toBe('Group');
   });
 
   test('names the real axis each value came from', () => {
@@ -237,8 +237,8 @@ describe('horizontal orientation', () => {
   });
 
   test('reads the same magnitudes as the vertical chart', () => {
-    expect(nonEmptyState(horizontal(0, 0)).text.cross.value).toBe(3.8);
-    expect(nonEmptyState(horizontal(2, 0)).text.cross.value).toBe(4.6);
+    expect(nonEmptyState(horizontal(0, 0)).text.cross?.value).toBe(3.8);
+    expect(nonEmptyState(horizontal(2, 0)).text.cross?.value).toBe(4.6);
     expect(nonEmptyState(horizontal(2, 0)).text.section).toBe('upper bound');
   });
 });
@@ -267,7 +267,7 @@ describe('extrema navigation', () => {
 
     const { text } = nonEmptyState(trace);
     expect(text.section).toBe('value');
-    expect(text.cross.value).toBe(7.3);
+    expect(text.cross?.value).toBe(7.3);
   });
 
   test('ranks a band across both its bounds', () => {
@@ -305,7 +305,7 @@ describe('extrema navigation', () => {
 
     const { text } = nonEmptyState(trace);
     expect(text.section).toBe('upper bound');
-    expect(text.cross.value).toBe(50);
+    expect(text.cross?.value).toBe(50);
   });
 
   test('offers both ends of a one-sample band', () => {

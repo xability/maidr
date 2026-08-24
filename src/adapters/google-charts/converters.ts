@@ -26,7 +26,6 @@
  *                         — an object, not an array
  *   SurvivalPoint[][]   = [[{ x, y, censored?, yMin?, yMax? }, ...], ...]
  *   VolcanoPoint[]      = [{ x, y, label?, group? }, ...]  (also manhattan)
- *   NetworkPoint[]      = [{ source, target }, ...]
  */
 
 import type {
@@ -48,7 +47,6 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
-  NetworkPoint,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
@@ -736,7 +734,7 @@ function buildLayer(
     case 'GeoChart':
       return buildChoroplethLayer(dt);
     case 'OrgChart':
-      return buildNetworkLayer(dt);
+      return buildOrgChartLayer(dt);
     case 'Gantt':
       return buildGanttLayer(dt, container, 'Gantt');
     case 'Timeline':
@@ -2122,60 +2120,138 @@ function buildChoroplethLayer(dt: GoogleDataTable): MaidrLayer {
 }
 
 // ---------------------------------------------------------------------------
-// Network (OrgChart)
+// Tree (OrgChart)
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a network layer from a Google Charts OrgChart.
+ * Builds a tree layer from a Google Charts OrgChart.
  *
  * The DataTable is `[node id (+ optional formatted name), parent id, tooltip]`
- * and it maps straight onto {@link NetworkPoint}: one link per row that names
- * a parent, from the parent to the node. No node list is emitted —
- * `NetworkTrace` derives the nodes and their degrees from the links, exactly
- * as `FlowTrace` does, and a second list would be a second source of truth for
- * them.
+ * — the same declaration Highcharts' `organization` series carries — and it
+ * maps onto {@link TreemapPoint}: one node per row, addressed by the path of
+ * its ancestors, root first and itself excluded.
+ *
+ * ## Why not a network
+ *
+ * This was read as one, and the links were right: `{source: parent, target:
+ * node}`, one per row that names a parent. What a graph cannot say is which
+ * way up the chart is. Measured on a five-person chart, the position on Jim —
+ * who reports to Mike and manages Bob and Carol:
+ *
+ *     text  main  {"label":"Name","value":"Jim"}
+ *           cross {"label":"Links","value":3}
+ *           aside {"label":"Links","value":"3, to Mike, Bob, Carol"}
+ *     audio freq  {"raw":3}   panning {"rows":1,"cols":5}
+ *
+ * A manager and two reports in one undifferentiated list, which is the one
+ * thing an org chart is drawn to show. The number is wrong for the same
+ * reason: a leaf's degree counts its **parent**, so Bob announced "Links: 1"
+ * with nobody reporting to him. The pitch followed that degree, and the layout
+ * was one flat row of five ordered by connectedness.
+ *
+ * A tree says it: up is the manager, down is a report, and the count is of
+ * reports. #1158 reached the same conclusion for Highcharts' `organization`
+ * series, which declares its hierarchy the same way (#1166).
+ *
+ * ## What carries over unchanged
  *
  * Identity comes from the **raw** cell rather than the formatted one, because
  * a parent pointer has to match the id it names: an OrgChart routinely puts
  * markup in the formatted value (`{v: 'Mike', f: 'Mike<div>President</div>'}`)
- * and matching on that would leave every node a root.
+ * and matching on that would leave every node a root. It is also what the node
+ * is called, since the formatted value is markup rather than a name.
  *
- * A row whose parent is empty is the tree's root and contributes no link,
- * which is right rather than lossy: it reaches the graph as the source of its
- * children's links.
+ * No node carries a `y`. An org chart has no magnitude at all — there is no
+ * third column of numbers and nothing on the page is sized — and
+ * `TreemapTrace` recognises a tree that declares none (#1153), so the layer
+ * names no value axis either.
+ *
+ * A parent id that names no row ends the path there rather than naming a node
+ * that does not exist, and a cyclic chain is broken with a warning rather than
+ * followed — the same two guards the Highcharts hierarchies carry.
  *
  * **No highlighting.** An OrgChart renders an HTML `<table>` rather than SVG,
- * and draws no element per link at all — the connectors are cell borders. The
+ * and draws no element per node at all — the connectors are cell borders. The
  * selectors are typed for SVG elements throughout the model, so there is
- * nothing here to point at; audio, text and braille carry the whole graph.
+ * nothing here to point at; audio, text and braille carry the whole tree.
  *
  * @param dt - The DataTable the chart was drawn from
  * @returns The MAIDR layer
  */
-function buildNetworkLayer(dt: GoogleDataTable): MaidrLayer {
+function buildOrgChartLayer(dt: GoogleDataTable): MaidrLayer {
   const rows = dt.getNumberOfRows();
-  const data: NetworkPoint[] = [];
 
+  const parentOf = new Map<string, string>();
   for (let r = 0; r < rows; r++) {
     const parent = dt.getValue(r, 1);
-    if (parent === null || parent === undefined || parent === '') {
-      continue;
+    if (parent !== null && parent !== undefined && parent !== '') {
+      parentOf.set(rawKey(dt, r, 0), String(parent));
     }
-    data.push({ source: String(parent), target: rawKey(dt, r, 0) });
+  }
+  const declared = new Set<string>();
+  for (let r = 0; r < rows; r++) {
+    declared.add(rawKey(dt, r, 0));
+  }
+
+  const data: TreemapPoint[] = [];
+  for (let r = 0; r < rows; r++) {
+    const node = rawKey(dt, r, 0);
+    data.push({ x: node, path: orgChartAncestors(node, parentOf, declared) });
   }
 
   return {
     id: nextId('layer'),
-    type: TraceType.NETWORK,
-    axes: {
-      x: { label: dt.getColumnLabel(0) || undefined },
-      // A network has no second axis, and the trace announces the node's
-      // **degree** under this label on every move. "Links: 3" is what that
-      // number is; the schema's fallback would call it "Y".
-      y: { label: 'Links' },
-    },
+    type: TraceType.TREE,
+    // No `y`. Nothing in the table is a magnitude, and `TreemapTrace` reads a
+    // tree that declares none rather than announcing a second axis for it.
+    axes: { x: { label: dt.getColumnLabel(0) || undefined } },
     data,
   };
+}
+
+/**
+ * The names of a node's managers, the top of the chart first.
+ *
+ * @param node     - The node to trace back from
+ * @param parentOf - Each node's declared parent, by raw id
+ * @param declared - Every raw id the table declares a row for
+ * @returns The path MAIDR addresses the node by, empty at the top
+ */
+function orgChartAncestors(
+  node: string,
+  parentOf: Map<string, string>,
+  declared: Set<string>,
+): string[] {
+  const path: string[] = [];
+  // Seeded with the node itself so a row naming itself as its own manager
+  // stops here rather than naming itself as its own ancestor.
+  const seen = new Set<string>([node]);
+
+  let at = node;
+  for (;;) {
+    const parent = parentOf.get(at);
+    if (parent === undefined) {
+      break;
+    }
+    if (seen.has(parent)) {
+      console.warn(
+        `[MAIDR] OrgChart node "${node}" has a cyclic manager chain; `
+        + `its path stops at "${parent}".`,
+      );
+      break;
+    }
+    if (!declared.has(parent)) {
+      // Google draws a node whose manager names no row as a root of its own,
+      // so the path ends here rather than naming a person who is not on the
+      // chart.
+      break;
+    }
+    seen.add(parent);
+    path.unshift(parent);
+    at = parent;
+  }
+
+  return path;
 }
 
 // ---------------------------------------------------------------------------

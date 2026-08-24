@@ -60,7 +60,7 @@ import type {
   WordCloudPoint,
 } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsPoint, HighchartsSeries } from './types';
+import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsNode, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import {
   isFlagValue,
@@ -115,6 +115,7 @@ let chartCounter = 0;
  * - `scatter` → {@link TraceType.SCATTER}, or {@link TraceType.DOT} on a
  *   category axis (a Cleveland dot plot)
  * - `lollipop` → {@link TraceType.LOLLIPOP}
+ * - `timeline` → {@link TraceType.SCATTER}, each event named on its point
  * - `funnel`, `pyramid` → {@link TraceType.FUNNEL}
  * - `wordcloud` → {@link TraceType.WORD_CLOUD}
  * - `sankey`, `arcdiagram` → {@link TraceType.SANKEY}
@@ -1641,10 +1642,13 @@ function convertSeries(
       return convertVariwideSeries(series, chart, containerId);
     // A fitted normal curve, evaluated wherever the renderer chose to.
     case 'bellcurve':
-      return convertBellCurveSeries(series, containerId);
+      return convertBellCurveSeries(series, chart, containerId);
     // The cumulative percentage drawn over a bar chart's columns.
     case 'pareto':
       return convertParetoSeries(series, chart, containerId);
+    // A row of named events along one axis, with no magnitude to them.
+    case 'timeline':
+      return convertTimelineSeries(series, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -1667,6 +1671,20 @@ function convertSeries(
       return convertTreeSeries(series, containerId, TraceType.TREEMAP);
     case 'sunburst':
       return convertTreeSeries(series, containerId, TraceType.SUNBURST);
+    // A treegraph is the same `id`/`parent` hierarchy drawn as nodes and
+    // links rather than nested rectangles, and a packed bubble is the same
+    // points drawn as circles packed together. Both are hierarchies MAIDR
+    // now has names for, and the naming argument is #1140's: the trace type
+    // is what the reader is *told* is on the page, so a node-link diagram is
+    // a `tree` and a cluster of circles is a `pack`, not a treemap.
+    case 'treegraph':
+      return convertTreeGraphSeries(series, containerId);
+    case 'packedbubble':
+      return convertTreeSeries(series, containerId, TraceType.PACK);
+    // An organization chart is a hierarchy with no magnitude on it at all,
+    // which the treemap trace could not express until #1153.
+    case 'organization':
+      return convertOrganizationSeries(series, containerId);
     case 'gauge':
     case 'solidgauge':
     case 'bullet':
@@ -2577,6 +2595,90 @@ function convertParetoSeries(
 }
 
 /**
+ * The text a timeline's event box draws, as one string.
+ *
+ * Highcharts draws two: `name` on the first line and `label` on the second --
+ * measured as `"\u25CF First artificial satellite\u200B1957 Sputnik 1"` on a
+ * box declaring both. Neither alone is the box. On the ordinary timeline the
+ * x axis is hidden and `x` is a bare 0, 1, 2, 3, so `label` is the only place
+ * the *date* appears at all; on a `datetime` axis `x` carries it and `label`
+ * usually restates it. Joining them keeps the first case whole and costs the
+ * second a repetition.
+ *
+ * `description` is not drawn on the chart -- it is the tooltip's text -- and
+ * the grammar has one string per point, so it is not folded in here.
+ *
+ * @param point - The event to name
+ * @returns The drawn text, or undefined for an event declaring neither
+ */
+function timelineEventLabel(point: HighchartsPoint): string | undefined {
+  const parts = [point.name, point.label]
+    .filter((part): part is string => typeof part === 'string' && part !== '');
+  const unique = parts.filter((part, i) => parts.indexOf(part) === i);
+  return unique.length > 0 ? unique.join(', ') : undefined;
+}
+
+/**
+ * Converts a `timeline` series into a labelled scatter layer.
+ *
+ * A timeline is a row of events along one axis: each is drawn as a marker on
+ * a connecting line, with a box naming it. What it is *not* is a chart of
+ * magnitudes, and that is the whole design question here.
+ *
+ * **`y` is a constant.** Measured on every timeline built for this: four
+ * events, three events, dated and undated alike, `point.y` came back `1`
+ * each time. So the layer is emitted with the 1 the chart drew, and
+ * sonifying it plays one pitch for the whole row -- which is what a chart
+ * with no magnitude sounds like. Pitching by `x` instead would announce a
+ * magnitude the chart does not draw, and pitching by nothing would leave the
+ * layer silent. What the reader is actually given is the sequence, through
+ * `ScatterTrace`'s stereo pan over distinct x values, and the identity of
+ * each event, through {@link ScatterPoint.label}.
+ *
+ * `x` is whatever the author declared: a bare index -- 0, 1, 2, 3 -- on the
+ * ordinary timeline, whose x axis is usually hidden, or the real timestamp
+ * on a `datetime` axis. Nothing is invented for the first case; the dates
+ * live in the event's own text, which is where the chart draws them.
+ *
+ * The handle is the marker, and it needed nothing new: a timeline's markers
+ * carry `highcharts-point` in a `highcharts-markers` group that is a sibling
+ * of the series group but carries the same `highcharts-series-N` class, so
+ * {@link scatterSelector} reaches exactly them -- measured as one element per
+ * point, in point order, each identical to that point's own `graphic`.
+ *
+ * @param series - The timeline series to convert
+ * @param containerId - The chart container's id, for the selectors
+ * @returns The scatter layer
+ */
+function convertTimelineSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: ScatterPoint[] = series.data
+    .filter(p => p.y !== null)
+    .map((point) => {
+      const label = timelineEventLabel(point);
+      return {
+        x: point.x,
+        y: point.y as number,
+        ...(label !== undefined ? { label } : {}),
+      };
+    });
+
+  return {
+    id: String(series.index),
+    type: TraceType.SCATTER,
+    title: series.name || undefined,
+    selectors: scatterSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
+    data,
+  };
+}
+
+/**
  * Converts a `bellcurve` series into a smooth layer.
  *
  * A bell curve is not a series of observations. It fits a normal
@@ -2610,19 +2712,28 @@ function convertParetoSeries(
  * drawn: `getAxisLabel` reads `series.xAxis`, so a curve bound to a secondary
  * pair is named by that pair's titles rather than by the base series'.
  *
+ * **A reversed axis is re-paired the same way a line's is** (#1007, #1151).
+ * Nothing about the curve being *generated* exempts it: measured on a
+ * fifteen-value sample with `xAxis.reversed`, the payload came back
+ * 2.46 -> 4.18 while the chart drew it 4.18 -> 2.46, so a reader sweeping
+ * left to right was handed the curve back to front. `SmoothTrace` extends
+ * `LineTrace`, so it consumes `domMapping.pointOrder` unchanged.
+ *
  * @param series - The bellcurve series to convert
+ * @param chart - The chart, read for whether its axis is drawn reversed
  * @param containerId - The chart container's id, for the selectors
  * @returns The smooth layer
  */
 function convertBellCurveSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const data: LinePoint[][] = [
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({ x: p.x, y: p.y as number })),
-  ];
+  const reversed = drawsSeriesReversed(series, chart);
+  const points = series.data
+    .filter(p => p.y !== null)
+    .map(p => ({ x: p.x, y: p.y as number }));
+  const data: LinePoint[][] = [reversed ? points.reverse() : points];
 
   return {
     id: String(series.index),
@@ -2633,6 +2744,7 @@ function convertBellCurveSeries(
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data,
   };
 }
@@ -2947,7 +3059,70 @@ function treeNodeLabel(point: HighchartsPoint): string | number {
 }
 
 /**
- * Converts a `treemap` or `sunburst` series into a hierarchy layer.
+ * Converts a `treegraph` series into a node-link hierarchy layer.
+ *
+ * A treegraph declares exactly what a treemap does -- `id`, `parent`, `name`
+ * -- and draws it as boxes joined by links instead of nested rectangles. The
+ * walk up the `parent` chain is therefore the treemap's, and this delegates to
+ * it for everything except the one thing that differs: whether the chart has a
+ * magnitude at all.
+ *
+ * `point.value` cannot answer that here. A treegraph's layout does not size
+ * anything by value, and Highcharts fills the field in regardless: measured on
+ * a five-node chart in Highcharts 13 with `modules/treegraph.js`, every node
+ * came back with `value === 0` and `options.value === undefined`. Reading
+ * `point.value` would emit `y: 0` on every node and announce a magnitude of
+ * zero for a chart that has none -- which is #1153's defect, and the reason
+ * `convertOrganizationSeries` exists rather than reusing the treemap path.
+ *
+ * `point.options.value` is what the author wrote, so it separates the two:
+ *
+ *     treegraph, no values      options.value undefined   value 0
+ *     treegraph, values 1..5    options.value 1..5        value 1..5
+ *
+ * A treemap keeps reading `point.value` and is untouched by this. There the
+ * computed field is not an artefact: an interior node with no declared value
+ * comes back carrying the sum of its children (measured, 12 and 8 on a
+ * leaves-only tree), which is a real total the rectangles are sized by. And a
+ * treemap with no values anywhere draws nothing at all -- measured, zero
+ * rendered nodes -- so the case this guards against cannot arise there.
+ *
+ * @param series - The treegraph series to read
+ * @param containerId - The chart container's DOM id, for the selectors
+ * @returns The layer
+ */
+function convertTreeGraphSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const layer = convertTreeSeries(series, containerId, TraceType.TREE);
+  const declared = series.data.map(point => point.options?.value);
+  const anyDeclared = declared.some(value => typeof value === 'number');
+
+  const data = (layer.data as TreemapPoint[]).map((node, index) => {
+    const value = declared[index];
+    // An undeclared node carries no `y` at all rather than Highcharts' zero.
+    // Beside declared siblings that is the treemap's own behaviour --
+    // `TreemapTrace` derives the total from the children the paths give it --
+    // and with nothing declared anywhere it leaves the whole layer valueless,
+    // which is what the chart is.
+    const { y: _computed, ...rest } = node;
+    return typeof value === 'number' ? { ...rest, y: value } : rest;
+  });
+
+  return {
+    ...layer,
+    // No magnitude anywhere means no value axis either: naming one would
+    // claim an axis the chart does not draw, the same answer an organization
+    // chart already gets.
+    axes: anyDeclared ? layer.axes : { x: { label: TREE_NODE_AXIS } },
+    data,
+  };
+}
+
+/**
+ * Converts a `treemap`, `sunburst` or `packedbubble` series into a hierarchy
+ * layer.
  *
  * Highcharts declares the tree with `id` / `parent` pointers on each node,
  * while MAIDR declares it as a path — a node's ancestors, root first, itself
@@ -2960,11 +3135,18 @@ function treeNodeLabel(point: HighchartsPoint): string | number {
  * at all: `TreemapTrace` derives an undeclared interior total from the
  * children the paths give it, and keeps a declared one that disagrees, since a
  * parent may carry mass no child accounts for.
+ *
+ * A `packedbubble` series declares no `parent` on anything -- the grouping is
+ * which *series* a bubble is in, and the adapter already gives each series its
+ * own layer named after it. So every bubble walks back to an empty path and
+ * the layer is a flat pack of circles sized by value, which is what the chart
+ * draws. Nothing else about the walk changes, which is why it shares this
+ * converter rather than getting one of its own.
  */
 function convertTreeSeries(
   series: HighchartsSeries,
   containerId: string,
-  traceType: TraceType.TREEMAP | TraceType.SUNBURST,
+  traceType: TraceType.TREEMAP | TraceType.SUNBURST | TraceType.PACK | TraceType.TREE,
 ): MaidrLayer {
   const byId = new Map<string, HighchartsPoint>();
   for (const point of series.data) {
@@ -2995,6 +3177,163 @@ function convertTreeSeries(
     },
     data,
   };
+}
+
+/**
+ * Converts an `organization` series into a valueless treemap layer.
+ *
+ * An organization chart is a hierarchy and nothing else. Measured on a
+ * six-node chart in Highcharts 11 plus `modules/sankey.js` and
+ * `modules/organization.js`, every node came back with **no `value` field at
+ * all** and with Highcharts' own internal `sum` at `1` for every node alike,
+ * because the layout assigns one unit per link. There is no magnitude in the
+ * declaration and none in the drawing.
+ *
+ * That is why this was declined until now, and #1153 recorded why the two
+ * available spellings were both wrong: omitting `y` announced `0` on every
+ * node over a `freq { min: 0, max: 0 }`, and declaring the layout's `1`
+ * announced two siblings as 100% of their parent each. `TreemapTrace` now
+ * recognises a tree that declares no magnitude anywhere and reads it for what
+ * it has -- the navigation, the ancestry, and how many people report to
+ * whoever the cursor is on -- so the payload here declares no `y` and means
+ * it.
+ *
+ * The structure comes from `series.nodes` rather than from the links. An
+ * organization series is declared as `from`/`to` pairs, and Highcharts
+ * resolves them into node objects carrying `linksTo`, `linksFrom`, the
+ * display `name` and the `title` -- which is also the only place the drawn
+ * box can be reached from, for the selectors.
+ *
+ * **A node with two parents declines the whole series.** A tree cannot say
+ * that someone reports to two managers, and reading it as a tree would drop
+ * one of the two links from a chart that plainly draws both. A silently
+ * missing edge is worse than the fallback, which at least says what it is --
+ * the same line `qqline` is held to in xability/r-maidr#251.
+ *
+ * @param series - The organization series
+ * @param containerId - The chart container's DOM id
+ * @returns The layer, or null when the hierarchy is not a tree
+ */
+function convertOrganizationSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer | null {
+  const nodes = series.nodes ?? [];
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  // Keyed by the id as a string. A chart declaring its links as `[[1, 2]]`
+  // gives numeric ids, draws correctly, and would otherwise have every path
+  // come back empty -- the whole hierarchy silently gone, announced as a
+  // flat list of roots.
+  const byId = new Map<string, HighchartsNode>();
+  for (const node of nodes) {
+    byId.set(String(node.id), node);
+  }
+
+  const multiParent = nodes.find(node => (node.linksTo ?? []).length > 1);
+  if (multiParent !== undefined) {
+    console.warn(
+      `[MAIDR Highcharts] "${series.name}" has a node with more than one `
+      + `parent ("${multiParent.id}"); a tree cannot carry that, so the `
+      + `series is skipped rather than read with an edge missing.`,
+    );
+    return null;
+  }
+
+  const data: TreemapPoint[] = nodes.map(node => ({
+    x: organizationNodeLabel(node),
+    path: organizationAncestors(node, byId, series.name),
+  }));
+
+  // The same stamping the treemap uses, over the nodes rather than the
+  // points: an organization series' `data` is its links, and what a reader
+  // navigates is the boxes.
+  stampPointIndices([nodes], 'data-maidr-node-index');
+
+  return {
+    id: String(series.index),
+    // `TREE` rather than `TREEMAP`: the same trace reads both, and the name
+    // is what the reader is told the chart is. An org chart announced as a
+    // treemap names a painting nobody drew.
+    type: TraceType.TREE,
+    title: series.name || undefined,
+    selectors: treemapSelectors(containerId, series.index, data.length),
+    // No `y` axis. The chart has no second dimension to name, and
+    // `TreemapTrace` never reads the label on a tree that declares no
+    // magnitude, so naming one would claim an axis that is not drawn.
+    axes: { x: { label: TREE_NODE_AXIS } },
+    data,
+  };
+}
+
+/**
+ * What an organization box says, as one string.
+ *
+ * The box draws the node's name and, under it, the `title` the node option
+ * carries -- measured, a role such as "CEO". Both are joined because either
+ * alone loses half of what a sighted reader is given, and duplicates are
+ * dropped because Highcharts falls `name` back to `id`, so a node declared
+ * with neither would otherwise repeat itself.
+ *
+ * @param node - The node to name
+ * @returns The label, never empty
+ */
+function organizationNodeLabel(node: HighchartsNode): string {
+  const parts = [node.name, node.options?.title]
+    .filter((part): part is string => typeof part === 'string' && part !== '');
+  const unique = parts.filter((part, i) => parts.indexOf(part) === i);
+  return unique.length > 0 ? unique.join(', ') : String(node.id);
+}
+
+/**
+ * The labels of a node's ancestors, root first and the node itself excluded.
+ *
+ * Walks the single incoming link up to the root. A cycle -- which an
+ * organization chart can declare, since nothing stops a link pointing back up
+ * -- would otherwise loop forever, so a node already passed ends the walk and
+ * says so once.
+ *
+ * @param node - The node to trace back from
+ * @param byId - Every node of the series, keyed by id
+ * @param seriesName - The owning series, for the cycle warning
+ * @returns The path MAIDR addresses the node by, empty at the root
+ */
+function organizationAncestors(
+  node: HighchartsNode,
+  byId: Map<string, HighchartsNode>,
+  seriesName: string,
+): string[] {
+  const path: string[] = [];
+  const seen = new Set<string>([String(node.id)]);
+  let at: HighchartsNode | undefined = node;
+
+  while (at !== undefined) {
+    const parentId = at.linksTo?.[0]?.from;
+    if (parentId === undefined || parentId === null) {
+      break;
+    }
+    // As a string, matching how `byId` is keyed: a numerically declared id
+    // is a real id, and treating it as "no parent" would flatten the tree.
+    const key = String(parentId);
+    if (seen.has(key)) {
+      console.warn(
+        `[MAIDR Highcharts] "${seriesName}" reports a cycle through `
+        + `"${key}"; the path is cut there.`,
+      );
+      break;
+    }
+    seen.add(key);
+    const parent = byId.get(key);
+    if (parent === undefined) {
+      break;
+    }
+    path.unshift(organizationNodeLabel(parent));
+    at = parent;
+  }
+
+  return path;
 }
 
 /**
@@ -3073,10 +3412,19 @@ function stampTreeIndices(series: HighchartsSeries): void {
  * than shifting the indices, so the missing element makes its own selector
  * match nothing instead of pairing every later point with a neighbour's mark.
  *
- * @param groups - The points, in the order MAIDR reads them
+ * The parameter is narrowed to the one field this touches rather than taking
+ * a `HighchartsPoint`, because an organization series stamps its **nodes**:
+ * its points are the links, and what a reader navigates is the boxes. A cast
+ * between the two would have compiled only for as long as their `graphic`
+ * fields happened to agree.
+ *
+ * @param groups - The elements to stamp, in the order MAIDR reads them
  * @param attribute - The data attribute the selectors address
  */
-function stampPointIndices(groups: HighchartsPoint[][], attribute: string): void {
+function stampPointIndices(
+  groups: { graphic?: { element: SVGElement } }[][],
+  attribute: string,
+): void {
   let index = 0;
   for (const group of groups) {
     for (const point of group) {

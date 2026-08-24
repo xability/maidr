@@ -27,6 +27,17 @@
  * the handle, exactly as for every other line-family layer. The
  * observations are a separate series, reachable as `series.baseSeries`, and
  * the adapter reads that on its own terms.
+ *
+ * **A reversed axis read the curve backwards** — the same defect #1007 fixed
+ * for lines, filed for this one as #1151, and nothing about the curve being
+ * generated* exempted it. Measured on a fifteen-value sample, once plain
+ * and once with `xAxis.reversed`:
+ *
+ *   plain      payload x   2.46 … 4.18    chart draws  2.46 → 4.18
+ *   reversed   payload x   2.46 … 4.18    chart draws  4.18 → 2.46
+ *
+ * The payload did not move; the chart did. `SmoothTrace extends LineTrace`,
+ * so it consumes `domMapping.pointOrder` without anything being added to it.
  */
 import type { LinePoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
@@ -50,10 +61,17 @@ const CURVE = [
  * are the curve's own rather than the sample's.
  *
  * @param withSample - Whether the base scatter is on the chart as well
+ * @param reversed - Whether the curve's x axis is drawn from its far end
  * @returns The fake chart
  */
-function bellChart(withSample = false): ReturnType<typeof fakeChart> {
-  const curveX = fakeAxis({ options: { title: { text: 'Bell curve' } } });
+function bellChart(
+  withSample = false,
+  reversed = false,
+): ReturnType<typeof fakeChart> {
+  const curveX = fakeAxis({
+    reversed,
+    options: { title: { text: 'Bell curve' } },
+  });
   const curveY = fakeAxis({ options: { title: { text: 'Density' } } });
   const series = [fakeSeries({
     index: 0,
@@ -90,6 +108,25 @@ describe('highcharts bellcurve', () => {
     const layer = highchartsToMaidr(bellChart()).subplots[0][0].layers[0];
 
     expect(layer.data as LinePoint[][]).toEqual([CURVE]);
+  });
+
+  it('reads a reversed axis in the order the curve is drawn', () => {
+    // Measured: the payload came out 2.46 → 4.18 over a chart drawn
+    // 4.18 → 2.46, so a reader sweeping left to right was handed the curve
+    // back to front.
+    const layer = highchartsToMaidr(bellChart(false, true)).subplots[0][0].layers[0];
+
+    expect((layer.data as LinePoint[][])[0]).toEqual([...CURVE].reverse());
+  });
+
+  it('tells the trace to pair the path back up when reversed', () => {
+    // Reversing the payload is half of it: the path's vertices still come out
+    // of Highcharts in the library's order. `SmoothTrace` inherits
+    // `LineTrace`'s handling of this, so nothing in the trace changed.
+    expect(highchartsToMaidr(bellChart(false, true)).subplots[0][0].layers[0].domMapping)
+      .toEqual({ pointOrder: 'reverse' });
+    expect(highchartsToMaidr(bellChart()).subplots[0][0].layers[0].domMapping)
+      .toBeUndefined();
   });
 
   it('is not read as a line', () => {

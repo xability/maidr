@@ -1755,6 +1755,24 @@ export enum TraceType {
   SANKEY = 'sankey',
   SCATTER = 'point',
   SMOOTH = 'smooth',
+  /**
+   * A scatter for data with ties, where several observations landing on one
+   * coordinate are drawn as a single mark with that many petals.
+   *
+   * Read by {@link ScatterTrace}, over plain {@link ScatterPoint}s whose `z`
+   * is how many observations are on the mark -- `z` being announced with its
+   * axis label and driving the intensity, so the multiplicity is both spoken
+   * and audible rather than a field the reader has to go looking for.
+   *
+   * Named apart from {@link TraceType.SCATTER} for a reason stronger than the
+   * one {@link TraceType.TREE} gives. It is not only that "scatter plot"
+   * names a chart nobody drew: a sunflower plot's **marks are not its
+   * observations**. Sixty observations come back as twenty-one marks, because
+   * coincident ones were collapsed -- which is the single fact the chart was
+   * chosen to convey. A reader told "scatter" has been told the marks are the
+   * data, and here they are not.
+   */
+  SUNFLOWER = 'sunflower',
   STACKED = 'stacked_bar',
   /**
    * Area bands stacked on one another, so a band's *height* is its own
@@ -1772,6 +1790,26 @@ export enum TraceType {
    * parent, child and sibling rather than along rows and columns.
    */
   TREEMAP = 'treemap',
+  /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as boxes joined
+   * by links rather than as nested areas. The tree does not differ and the
+   * painting does, so it is read by the same trace and named apart only so
+   * that the reader is told what is on the page: an organization chart
+   * announced as a treemap is a chart type nobody drew.
+   *
+   * The magnitude is commonly absent here -- a reporting line has no size --
+   * which is the case {@link TreemapPoint.y} being optional exists for.
+   */
+  TREE = 'tree',
+  /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as circles
+   * nested inside circles rather than as nested rectangles. Sized by value
+   * like a treemap and navigated identically, and named apart for the reason
+   * {@link TraceType.TREE} is: the reader is told which chart is on the page,
+   * and a circle-packing diagram announced as a treemap is a chart type
+   * nobody drew.
+   */
+  PACK = 'pack',
   /**
    * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as rings around
    * a centre rather than as nested rectangles. The layout differs and the

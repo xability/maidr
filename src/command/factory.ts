@@ -4,6 +4,7 @@ import type { AutoplayService } from '@service/autoplay';
 import type { BrailleService } from '@service/braille';
 import type { CandlestickDeltaService } from '@service/candlestickDelta';
 import type { DisplayService } from '@service/display';
+import type { GoToExtremaService } from '@service/goToExtrema';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
 import type { MonitorService } from '@service/monitor';
@@ -54,7 +55,7 @@ import {
   AnnounceYCommand,
   AnnounceZCommand,
 } from './describe';
-import { GoToExtremaToggleCommand } from './goTo';
+import { GoToExtremaToggleCommand, GoToMaxValueCommand, GoToMinValueCommand } from './goTo';
 import {
   GoToExtremaCloseCommand,
   GoToExtremaMoveDownCommand,
@@ -128,6 +129,7 @@ export class CommandFactory {
   private readonly brailleService: BrailleService;
   private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly displayService: DisplayService;
+  private readonly goToExtremaService: GoToExtremaService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
   private readonly monitorService: MonitorService;
@@ -162,6 +164,7 @@ export class CommandFactory {
     this.brailleService = commandContext.brailleService;
     this.candlestickDeltaService = commandContext.candlestickDeltaService;
     this.displayService = commandContext.displayService;
+    this.goToExtremaService = commandContext.goToExtremaService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
     this.monitorService = commandContext.monitorService;
@@ -296,6 +299,10 @@ export class CommandFactory {
           this.context,
           this.goToExtremaViewModel,
         );
+      case 'GO_TO_MIN_VALUE':
+        return new GoToMinValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
+      case 'GO_TO_MAX_VALUE':
+        return new GoToMaxValueCommand(this.context, this.goToExtremaService, this.notificationService, this.textService);
       case 'COMMAND_PALETTE_MOVE_UP':
         return new CommandPaletteMoveUpCommand(this.commandPaletteViewModel);
       case 'COMMAND_PALETTE_MOVE_DOWN':

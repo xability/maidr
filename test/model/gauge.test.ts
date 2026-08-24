@@ -110,7 +110,7 @@ describe('the reading is relational', () => {
     // textual equivalent anywhere on the chart.
     const { text } = nonEmptyState(gauge());
 
-    expect(text.cross.value).toBe(73);
+    expect(text.cross?.value).toBe(73);
     expect(text.z).toEqual({ label: 'Range', value: '0 to 100' });
   });
 

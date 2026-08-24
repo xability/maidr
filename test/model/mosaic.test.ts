@@ -92,7 +92,7 @@ describe('mosaic registration', () => {
     const { text } = nonEmptyState(mosaic(0, 0));
 
     expect(text.main.value).toBe('First');
-    expect(text.cross.value).toBe(0.62);
+    expect(text.cross?.value).toBe(0.62);
     expect(text.z).toEqual({ label: 'Outcome', value: 'Survived' });
   });
 });

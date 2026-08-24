@@ -113,7 +113,7 @@ describe('unstacked area', () => {
     moveToColumn(trace, 1);
 
     const { text } = nonEmptyState(trace);
-    expect(text.cross.value).toBe(20);
+    expect(text.cross?.value).toBe(20);
     // Bands that do not stack have no total to report; announcing one would
     // claim an aggregate the chart never draws.
     expect(text.stack).toBeUndefined();
@@ -142,7 +142,7 @@ describe('stacked area', () => {
     // The regression this trace type exists to prevent: read as a line, the
     // announcement carried 20 alone with nothing to say whether that was the
     // band's height or the stack's top edge.
-    expect(text.cross.value).toBe(20);
+    expect(text.cross?.value).toBe(20);
     expect(text.stack?.value).toBe(TOTALS[1]);
   });
 
@@ -199,7 +199,7 @@ describe('stacked area', () => {
 
     const { text } = nonEmptyState(trace);
     expect(text.main.value).toBe('Q2');
-    expect(text.cross.value).toBe(20);
+    expect(text.cross?.value).toBe(20);
     expect(text.stack?.value).toBe(TOTALS[1]);
     expect(text.stack?.share).toBeCloseTo(20 / 40);
   });

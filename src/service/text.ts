@@ -486,6 +486,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Use axis identity from TextState, fallback to default mapping
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
+    // Bound once so the clause narrows for the whole method. Absent means
+    // the chart has no cross axis, not that this point has no reading on one
+    // -- see {@link TextState.cross}.
+    const cross = state.cross;
 
     // Format main-axis values.
     verbose.push(state.main.label, Constant.IS);
@@ -508,11 +512,12 @@ export class TextService implements Observer<PlotState>, Disposable {
       state.section
       && this.announcesSectionBeforeLabel(state)
       && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
-      && Array.isArray(state.cross.value)
+      && cross !== undefined
+      && Array.isArray(cross.value)
     ) {
       // e.g. 'upper outlier(s)' or 'lower outlier(s)' section
-      const label = state.cross.label;
-      const outliers = state.cross.value as (number | string)[];
+      const label = cross.label;
+      const outliers = cross.value as (number | string)[];
       const formattedOutliers = this.formatArrayValue(outliers, crossAxisType);
       const outlierStr = `[${formattedOutliers.join(', ')}]`;
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
@@ -526,47 +531,52 @@ export class TextService implements Observer<PlotState>, Disposable {
       }
     }
 
-    // Format cross-axis label.
-    if (state.section !== undefined) {
-      if (this.announcesSectionBeforeLabel(state)) {
-        const label = state.cross.label;
-        // Verbatim, as terse renders it. Lower-casing here meant the same
-        // point announced two different ways depending on the mode, and the
-        // difference was in a label that came from neither the user nor the
-        // data. It also destroyed case a producer chose: a dumbbell's end
-        // names and a ridgeline's group names are authored strings, so
-        // `Control` became `control` in one mode and stayed `Control` in the
-        // other.
-        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, label);
+    // Format cross-axis label. A trace with no cross axis at all skips both
+    // the label and the value: a pure hierarchy has no magnitude to name,
+    // and a bare label with nothing after it would be worse than silence
+    // (#1153).
+    if (cross !== undefined) {
+      if (state.section !== undefined) {
+        if (this.announcesSectionBeforeLabel(state)) {
+          const label = cross.label;
+          // Verbatim, as terse renders it. Lower-casing here meant the same
+          // point announced two different ways depending on the mode, and the
+          // difference was in a label that came from neither the user nor the
+          // data. It also destroyed case a producer chose: a dumbbell's end
+          // names and a ridgeline's group names are authored strings, so
+          // `Control` became `control` in one mode and stayed `Control` in
+          // the other.
+          verbose.push(Constant.COMMA_SPACE, state.section, Constant.SPACE, label);
+        } else {
+          // For candlestick plots: "section cross.label" (e.g., "high Price")
+          verbose.push(Constant.COMMA_SPACE, state.section, Constant.SPACE, cross.label);
+        }
       } else {
-        // For candlestick plots: "section cross.label" (e.g., "high Price")
-        verbose.push(Constant.COMMA_SPACE, state.section!, Constant.SPACE, state.cross.label);
+        verbose.push(Constant.COMMA_SPACE, cross.label);
       }
-    } else {
-      verbose.push(Constant.COMMA_SPACE, state.cross.label);
-    }
 
-    // Format cross-axis values.
-    //
-    // A span on the cross axis replaces the single value, the same way
-    // `state.range` replaces the main one for a histogram bin. A gantt
-    // interval is the case: what the chart draws is a start and an end, and
-    // announcing either alone names one edge of a bar as though it were the
-    // bar. Every trace that carries one value is unaffected -- `crossRange`
-    // is absent on all of them.
-    if (state.crossRange !== undefined) {
-      verbose.push(
-        Constant.IS,
-        this.formatSingleValue(state.crossRange.min, crossAxisType),
-        Constant.THROUGH,
-        this.formatSingleValue(state.crossRange.max, crossAxisType),
-      );
-    } else if (!Array.isArray(state.cross.value)) {
-      verbose.push(Constant.IS, this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-    } else if (state.cross.value.length > 1) {
-      verbose.push(Constant.ARE, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
-    } else if (state.cross.value.length > 0) {
-      verbose.push(Constant.IS, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
+      // Format cross-axis values.
+      //
+      // A span on the cross axis replaces the single value, the same way
+      // `state.range` replaces the main one for a histogram bin. A gantt
+      // interval is the case: what the chart draws is a start and an end, and
+      // announcing either alone names one edge of a bar as though it were the
+      // bar. Every trace that carries one value is unaffected -- `crossRange`
+      // is absent on all of them.
+      if (state.crossRange !== undefined) {
+        verbose.push(
+          Constant.IS,
+          this.formatSingleValue(state.crossRange.min, crossAxisType),
+          Constant.THROUGH,
+          this.formatSingleValue(state.crossRange.max, crossAxisType),
+        );
+      } else if (!Array.isArray(cross.value)) {
+        verbose.push(Constant.IS, this.formatSingleValue(cross.value as number | string, crossAxisType));
+      } else if (cross.value.length > 1) {
+        verbose.push(Constant.ARE, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
+      } else if (cross.value.length > 0) {
+        verbose.push(Constant.IS, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
+      }
     }
 
     // Format for the plots that carry a third value: the heatmap's cell value,
@@ -676,6 +686,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Use axis identity from state (supports orientation-aware formatting)
     const mainAxisType = state.mainAxis ?? 'x';
     const crossAxisType = state.crossAxis ?? 'y';
+    const cross = state.cross;
 
     if (Array.isArray(state.main.value)) {
       terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.main.value as (number | string)[], mainAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
@@ -688,9 +699,10 @@ export class TextService implements Observer<PlotState>, Disposable {
       state.section
       && this.announcesSectionBeforeLabel(state)
       && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
-      && Array.isArray(state.cross.value)
+      && cross !== undefined
+      && Array.isArray(cross.value)
     ) {
-      const outliers = state.cross.value as (number | string)[];
+      const outliers = cross.value as (number | string)[];
       const formattedOutliers = this.formatArrayValue(outliers, crossAxisType);
       const outlierStr = `[${formattedOutliers.join(', ')}]`;
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
@@ -718,10 +730,13 @@ export class TextService implements Observer<PlotState>, Disposable {
         Constant.TO_DASH,
         this.formatSingleValue(state.crossRange.max, crossAxisType),
       );
-    } else if (!Array.isArray(state.cross.value)) {
-      terse.push(this.formatSingleValue(state.cross.value as number | string, crossAxisType));
-    } else {
-      terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(state.cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+    } else if (cross !== undefined) {
+      // Skipped entirely when the chart has no cross axis (#1153).
+      if (!Array.isArray(cross.value)) {
+        terse.push(this.formatSingleValue(cross.value as number | string, crossAxisType));
+      } else {
+        terse.push(Constant.OPEN_BRACKET, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE), Constant.CLOSE_BRACKET);
+      }
     }
 
     // Format for heatmap, segmented and pie plots. Terse drops the label, so a
@@ -779,7 +794,7 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Y range
     parts.push(
       Constant.COMMA_SPACE,
-      state.cross.label,
+      state.cross?.label ?? '',
       Constant.IS,
       this.formatSingleValue(state.crossRange!.min, crossAxisType),
       Constant.THROUGH,

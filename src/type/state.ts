@@ -364,7 +364,22 @@ export interface TextState {
    * shape it has to learn.
    */
   main: { label: string; value: number | number[] | string | string[] };
-  cross: { label: string; value: number | number[] | string | string[] };
+  /**
+   * Optional, because a chart can have no cross axis to speak of.
+   *
+   * A pure hierarchy is the case that exists: `TreemapTrace` reads a tree
+   * whose nodes declare no magnitude at all -- an org chart -- and every
+   * value it could put here would be one the chart does not draw (#1153).
+   * `TextService` already tested for the clause before reading it in the
+   * terse and layer-switch paths; the verbose and grid paths now do too, and
+   * omit both the label and the value rather than announcing a bare label.
+   *
+   * Absent is not the same as empty. A trace that has a cross axis and no
+   * reading at this point sends the axis with a non-finite value, which is
+   * announced as "missing" (#925). Omitting the clause says the axis is not
+   * there at all.
+   */
+  cross?: { label: string; value: number | number[] | string | string[] };
   /**
    * Third-dimension value for heatmaps, segmented bars, pie slices and 3D
    * scatter. `number[]` when one navigation step covers several points that

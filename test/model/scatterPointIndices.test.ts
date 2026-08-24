@@ -132,7 +132,7 @@ describe('a scatter names the points it has highlighted', () => {
       if (state.empty) {
         throw new Error('expected a non-empty state');
       }
-      return { x: state.text.main.value, y: state.text.cross.value };
+      return { x: state.text.main.value, y: state.text.cross?.value };
     };
 
     /** The data point the published index names. */

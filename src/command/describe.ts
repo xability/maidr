@@ -790,7 +790,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       );
     } else {
       const xLabel = text.main.label || 'x';
-      const yLabel = text.cross.label || 'y';
+      const yLabel = text.cross?.label || 'y';
       this.textViewModel.update(
         `${xLabel} is ${xRange.min} through ${xRange.max}, ${yLabel} is ${yRange.min} through ${yRange.max}`,
       );

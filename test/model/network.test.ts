@@ -106,7 +106,7 @@ describe('network registration', () => {
     // distinct collaborators. Reading the links one way would halve every
     // degree on the chart.
     expect(nonEmptyState(network()).text.main.value).toBe('Ada');
-    expect(nonEmptyState(network()).text.cross.value).toBe(4);
+    expect(nonEmptyState(network()).text.cross?.value).toBe(4);
   });
 
   test('a link declared both ways counts once', () => {
@@ -117,7 +117,7 @@ describe('network registration', () => {
       { source: 'B', target: 'A' },
     ];
 
-    expect(nonEmptyState(network(doubled)).text.cross.value).toBe(1);
+    expect(nonEmptyState(network(doubled)).text.cross?.value).toBe(1);
   });
 
   test('a self-link is not a connection to anyone', () => {
