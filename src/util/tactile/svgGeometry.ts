@@ -1,4 +1,4 @@
-import type { DotPoint, TactileViewport } from './viewport';
+import type { ClientRect, DotPoint, TactileViewport } from './viewport';
 
 /**
  * A run of points in dot coordinates, taken from one SVG shape.
@@ -107,6 +107,19 @@ export abstract class TactileSvgGeometry {
    * `axes` is deliberately absent even though `axis` is here. matplotlib names
    * the group holding the entire plot `axes_1`, so matching it would skip the
    * chart itself wherever the fallback walk starts above that group.
+   *
+   * `text` is here because {@link LABEL_TAGS} does not catch lettering that is
+   * not spelt with a `text` tag. matplotlib draws every glyph as a `use` of a
+   * cached outline — `<g id="text_5"><use xlink:href="#DejaVuSans-35"/></g>` —
+   * so the tag test sees a `use` and keeps it. A scatter plot arrived with
+   * sixty-four of those on the pins: the tick labels and the title, each glyph
+   * the size of a mark and none of them distinguishable from one by touch.
+   * Matching the group is what reaches them, and it is safe on whole tokens —
+   * `context` is one token and does not match.
+   *
+   * `legend` is a key to the chart rather than part of it. Its swatches are
+   * drawn with the same marker as the data, so a legend reaching the pins is
+   * indistinguishable from a cluster of real points sitting in a corner.
    */
   private static readonly FURNITURE_WORDS: ReadonlySet<string> = new Set([
     'axis',
@@ -122,6 +135,8 @@ export abstract class TactileSvgGeometry {
     'spines',
     'domain',
     'zeroline',
+    'legend',
+    'text',
   ]);
 
   /**
@@ -198,6 +213,98 @@ export abstract class TactileSvgGeometry {
       return false;
     }
     return element.getAttribute('display') !== 'none';
+  }
+
+  /**
+   * How far apart two screen positions can be and still count as the same edge.
+   *
+   * A spine is drawn under a pixel wide, and its rect picks up the stroke, so
+   * an exact comparison would miss it.
+   */
+  private static readonly PANEL_TOLERANCE = 2;
+
+  /**
+   * Drops the shapes that draw the panel the chart sits in.
+   *
+   * The plot background and the axis spines carry no data, and between them
+   * they cost more pins than the marks do: on a scatter plot the background
+   * rectangle, the four spines and the frame around them arrived as a band
+   * three pins deep around the whole display, and the window was sized to the
+   * panel rather than to the marks, so the points were squeezed into what was
+   * left. Removing them lets the marks own the grid.
+   *
+   * They cannot be found by name here. {@link namesFurniture} handles the
+   * libraries that label their output, but a chart that has been through MAIDR
+   * has had its groups renamed to `maidr-<uuid>` for selector use, taking
+   * matplotlib's `patch_1` with it. What is left is the geometry, and the panel
+   * has a shape nothing else does: it either fills the whole extent or traces
+   * one of its edges.
+   *
+   * Never empties the list. A chart drawn as a single shape spanning its own
+   * extent — which is what any one shape does, measured against itself — would
+   * otherwise vanish entirely, and a blank display is the one outcome a reader
+   * cannot tell from a disconnected one.
+   *
+   * @param shapes - The candidates gathered from the chart's subtree
+   * @returns The candidates that are not panel furniture
+   */
+  public static withoutPanel(shapes: readonly SVGGraphicsElement[]): SVGGraphicsElement[] {
+    if (shapes.length < 2) {
+      return [...shapes];
+    }
+
+    const boxes = shapes.map(shape => shape.getBoundingClientRect());
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    for (const box of boxes) {
+      left = Math.min(left, box.left);
+      top = Math.min(top, box.top);
+      right = Math.max(right, box.left + box.width);
+      bottom = Math.max(bottom, box.top + box.height);
+    }
+    if (!Number.isFinite(left) || right <= left || bottom <= top) {
+      return [...shapes];
+    }
+
+    const kept = shapes.filter((_, index) => !this.tracesPanel(boxes[index], left, top, right, bottom));
+    return kept.length > 0 ? kept : [...shapes];
+  }
+
+  /**
+   * Reports whether a shape fills the chart's whole extent or runs along one of
+   * its edges.
+   *
+   * @param box - The shape's screen rect
+   * @param left - Left edge of every shape's combined extent
+   * @param top - Top edge of that extent
+   * @param right - Right edge of that extent
+   * @param bottom - Bottom edge of that extent
+   */
+  private static tracesPanel(
+    box: ClientRect,
+    left: number,
+    top: number,
+    right: number,
+    bottom: number,
+  ): boolean {
+    const tolerance = this.PANEL_TOLERANCE;
+    const spansX = box.width >= right - left - tolerance;
+    const spansY = box.height >= bottom - top - tolerance;
+    if (spansX && spansY) {
+      return true;
+    }
+
+    const flatX = box.width <= tolerance;
+    const flatY = box.height <= tolerance;
+    const onLeft = Math.abs(box.left - left) <= tolerance;
+    const onRight = Math.abs(box.left + box.width - right) <= tolerance;
+    const onTop = Math.abs(box.top - top) <= tolerance;
+    const onBottom = Math.abs(box.top + box.height - bottom) <= tolerance;
+
+    return (spansX && flatY && (onTop || onBottom))
+      || (spansY && flatX && (onLeft || onRight));
   }
 
   /**

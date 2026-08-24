@@ -189,6 +189,32 @@ So the marks get the whole grid — their own extent is what is scaled onto the
 pins, not the plot region, which would leave the display with a margin sized by
 however long the axis labels happened to be.
 
+The chart usually says which of its shapes are the data, and where it does that
+list is taken at its word. Where it does not — a trace authored without
+selectors — the subtree is sifted instead, and the sifting is where furniture
+has to be recognised rather than simply skipped. Names carry most of it: the
+libraries label their ticks, grids, spines, legends and lettering, and those
+words are matched whole, so `candlestick` stays data. Two things names cannot
+reach:
+
+- **Lettering that is not spelt as text.** matplotlib draws every glyph as a
+  reference to a cached outline, so a tick label is a group of `use` elements
+  and passes any test made on the tag. A scatter plot arrived with sixty-four
+  of them on the pins — the labels and the title, each glyph the size of a mark.
+  The group they sit in is what gets matched.
+- **The panel itself.** A chart that has been through MAIDR has had its groups
+  renamed for selector use, taking matplotlib's `patch_1` with it, so the plot
+  background and the four spines arrive anonymous. They are recognised by shape
+  instead: a shape that covers the whole extent, or a hairline lying along one
+  of its edges, is the box the chart is drawn in rather than something drawn in
+  the box. On the scatter plot that band cost 560 of the 1023 raised pins and
+  squeezed every point into what was left.
+
+Never at the cost of the last shape, though. A chart drawn as a single mark
+spans its own extent by definition, so the sift keeps everything rather than
+send a blank frame — which is the one thing a reader cannot tell from a display
+that is switched off.
+
 One pin is kept clear around the edge, and only one. Without it a mark on the
 boundary sits on the outermost pin row, where three things go wrong at once: a
 bar's baseline falls off the grid so its outline never closes and it reads as an

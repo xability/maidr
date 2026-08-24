@@ -114,12 +114,25 @@ jest.mock('@service/dotPadSession', () => {
   };
 });
 
-jest.mock('@util/tactile/svgGeometry', () => ({
-  TactileSvgGeometry: {
-    isRenderable: jest.fn(() => true),
-    ringsOf: jest.fn(() => []),
-  },
-}));
+jest.mock('@util/tactile/svgGeometry', () => {
+  // Only `ringsOf` is stubbed, because it needs `getScreenCTM` and the SVG
+  // geometry interfaces jsdom does not implement. The two sifts are the real
+  // ones: which of a chart's shapes reach the pins is a question the service
+  // answers by walking a subtree, so stubbing them to keep everything would
+  // leave "the fallback drew the chart and not the box around it" untestable
+  // here — and that sentence is only true of the service, not of either sift
+  // on its own.
+  const actual = jest.requireActual<typeof import('@util/tactile/svgGeometry')>(
+    '@util/tactile/svgGeometry',
+  );
+  return {
+    TactileSvgGeometry: {
+      isRenderable: actual.TactileSvgGeometry.isRenderable.bind(actual.TactileSvgGeometry),
+      ringsOf: jest.fn(() => []),
+      withoutPanel: actual.TactileSvgGeometry.withoutPanel.bind(actual.TactileSvgGeometry),
+    },
+  };
+});
 
 /**
  * The fake session's surface, including the two helpers that let a test act as
@@ -689,6 +702,24 @@ describe('tactileService', () => {
       activate();
 
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+
+    it('should leave the panel behind when it walks the region', () => {
+      // The fallback has no list of marks to trust, so it takes what the
+      // subtree holds — and on a chart that has been through MAIDR the plot
+      // background and the spines cannot be told apart by name, their groups
+      // having been renamed for selector use. Left in, they cost a band of
+      // pins around the whole display and the window is sized to the panel
+      // rather than to the marks, so the data is squeezed into what is left.
+      addFurniture(chart);
+      rebuild(chart, createFigure(chart.axes, [[]]));
+
+      activate();
+
+      // As a set: the frame is drawn more than once and the focused mark goes
+      // on last, so what is being asserted is which shapes reached the pins at
+      // all, not how often or in what order.
+      expect(new Set(drawnElements())).toEqual(new Set(chart.marks));
     });
 
     it('should draw the trace marks rather than everything in the axes subtree', () => {

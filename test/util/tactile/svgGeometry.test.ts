@@ -89,6 +89,16 @@ describe('tactileSvgGeometry.isRenderable', () => {
       ['vega, an axis tick', 'class', 'mark-rule role-axis-tick'],
       ['recharts, a tick line', 'class', 'recharts-cartesian-axis-tick-line'],
       ['highcharts, a grid line', 'class', 'highcharts-grid-line'],
+      // Lettering matplotlib draws as cached glyph outlines rather than as a
+      // `text` tag: `<g id="text_5"><use xlink:href="#DejaVuSans-35"/></g>`.
+      // The tag test sees the `use` and keeps it, so a scatter plot arrived
+      // with its tick labels and title on the pins — sixty-four glyphs, each
+      // the size of a mark and none of them tellable from one by touch.
+      ['matplotlib, a label group', 'id', 'text_5'],
+      ['plotly, the legend', 'class', 'legend'],
+      // A legend's swatches are drawn with the same marker as the data, so a
+      // legend that reaches the pins reads as a cluster of real points.
+      ['matplotlib, the legend', 'id', 'legend_1'],
     ])('should skip %s', (_case, attribute, value) => {
       expect(TactileSvgGeometry.isRenderable(element('path', { [attribute]: value }))).toBe(false);
     });
@@ -110,6 +120,9 @@ describe('tactileSvgGeometry.isRenderable', () => {
       'domainwall',
       'spineless',
       'sticker-count',
+      'context',
+      'textile',
+      'legendary',
     ])('should render a mark classed %s', (className) => {
       expect(TactileSvgGeometry.isRenderable(element('path', { class: className }))).toBe(true);
     });
@@ -245,5 +258,106 @@ describe('tactileSvgGeometry.ringsOf on a path that walks back to its start', ()
     ]);
 
     expect(TactileSvgGeometry.ringsOf(closed, viewport)[0].closed).toBe(true);
+  });
+});
+
+/**
+ * Tests for `TactileSvgGeometry.withoutPanel`, which drops the rectangle a
+ * chart is drawn on and the spines around it.
+ *
+ * This runs only on the fallback path, where the model named no marks and the
+ * whole subtree is a guess. The panel cannot be found by name there: a chart
+ * that has been through MAIDR has had its groups renamed for selector use, so
+ * matplotlib's `patch_1` is gone and only the geometry is left.
+ *
+ * The failure to guard against is dropping the chart itself. A background that
+ * stays costs a band of pins and squeezes the marks into what is left; a mark
+ * that goes leaves the reader with a chart they cannot tell from one that
+ * never had it.
+ */
+describe('tactileSvgGeometry.withoutPanel', () => {
+  /**
+   * A shape reporting the given screen rect.
+   * @param left - Left edge
+   * @param top - Top edge
+   * @param width - Width, which is zero for a vertical spine
+   * @param height - Height, which is zero for a horizontal spine
+   */
+  function shape(left: number, top: number, width: number, height: number): SVGGraphicsElement {
+    const created = element('path') as SVGGraphicsElement;
+    created.getBoundingClientRect = (): DOMRect => ({
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+      x: left,
+      y: top,
+      toJSON: () => ({}),
+    });
+    return created;
+  }
+
+  const background = shape(0, 0, 100, 100);
+  const leftSpine = shape(0, 0, 0, 100);
+  const rightSpine = shape(100, 0, 0, 100);
+  const topSpine = shape(0, 0, 100, 0);
+  const bottomSpine = shape(0, 100, 100, 0);
+  const marks = [shape(10, 20, 6, 6), shape(40, 55, 6, 6), shape(80, 30, 6, 6)];
+
+  it('should drop the background and keep the marks', () => {
+    const kept = TactileSvgGeometry.withoutPanel([background, ...marks]);
+
+    expect(kept).toEqual(marks);
+  });
+
+  it('should drop all four spines', () => {
+    const panel = [background, leftSpine, rightSpine, topSpine, bottomSpine];
+
+    const kept = TactileSvgGeometry.withoutPanel([...panel, ...marks]);
+
+    expect(kept).toEqual(marks);
+  });
+
+  it('should keep a mark that reaches an edge without tracing one', () => {
+    // A bar chart's leftmost bar starts at the panel's left edge and its
+    // tallest one reaches the top. Neither of those makes a bar furniture —
+    // a spine is a hairline, and a bar has width.
+    const tallestBar = shape(0, 0, 12, 100);
+    const shorterBar = shape(20, 60, 12, 40);
+
+    const kept = TactileSvgGeometry.withoutPanel([tallestBar, shorterBar]);
+
+    expect(kept).toEqual([tallestBar, shorterBar]);
+  });
+
+  it('should keep a hairline that does not lie along an edge', () => {
+    // A reference line drawn across the middle of a chart is data. Only one at
+    // the extremes is a spine.
+    const reference = shape(0, 50, 100, 0);
+
+    const kept = TactileSvgGeometry.withoutPanel([reference, ...marks]);
+
+    expect(kept).toContain(reference);
+  });
+
+  it('should keep everything rather than empty the display', () => {
+    // Two shapes each spanning the whole extent, which is what a pair of
+    // overlaid series does. Dropping both would send a blank frame, and a
+    // blank frame is the one thing a reader cannot tell from a display that
+    // is switched off.
+    const first = shape(0, 0, 100, 100);
+    const second = shape(0, 0, 100, 100);
+
+    const kept = TactileSvgGeometry.withoutPanel([first, second]);
+
+    expect(kept).toEqual([first, second]);
+  });
+
+  it('should keep a chart drawn as a single shape', () => {
+    const only = shape(0, 0, 100, 100);
+
+    expect(TactileSvgGeometry.withoutPanel([only])).toEqual([only]);
   });
 });

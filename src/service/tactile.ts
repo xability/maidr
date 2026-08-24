@@ -640,7 +640,11 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Groups are walked to their leaves so each shape is transformed by its own
    * matrix, and MAIDR's injected geometry — hidden highlight clones, the visual
    * highlight overlay — is left out so the tactile view shows the chart rather
-   * than a doubled copy of it.
+   * than a doubled copy of it. The panel the chart sits in goes too, since the
+   * background and the spines cost more pins here than the marks do.
+   *
+   * Only this path sifts. A mark the model hands over is data whatever it looks
+   * like, so nothing is dropped from that list.
    *
    * @param root - The element to walk
    * @returns Leaf shapes in document order
@@ -663,7 +667,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     };
 
     walk(root);
-    return shapes;
+    return TactileSvgGeometry.withoutPanel(shapes);
   }
 
   /**
