@@ -99,6 +99,7 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `line`, `trail`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
 | `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
+| `line`, `trail` | a `regression` or `loess` transform | Smooth — the rows are a fit rather than observations, which is the name every other adapter gives a fitted curve |
 | `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
 | `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
 | `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) | — |

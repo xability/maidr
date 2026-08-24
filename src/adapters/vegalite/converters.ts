@@ -822,6 +822,37 @@ function hasField(channel?: VegaLiteChannelDef): boolean {
  * @param transform - The transforms in scope for the layer, parent first
  * @returns True when one of them sums over a window
  */
+/**
+ * Whether a fitted curve is what the mark is drawing.
+ *
+ * `regression` and `loess` are the two Vega-Lite transforms that replace the
+ * rows with a fit: measured on twenty-four alternating points, `loess` hands
+ * back the smoothed curve and `regression` the fitted line's two endpoints,
+ * neither of which is an observation. So the mark is drawing a model, and
+ * `TraceType.SMOOTH` is the type for that.
+ *
+ * Read as `line`, such a layer announces itself as a series the chart does
+ * not draw -- the same defect `bellcurve` had on the Highcharts side (#1138)
+ * and `linearRegressionY` never had on the Observable one, which has always
+ * read it as a smooth. Four producers call a fitted curve a smooth; this
+ * makes Vega-Lite the fifth (#1162).
+ *
+ * `density` is deliberately absent. It also replaces the rows, but the
+ * author chooses `line` or `area` for it deliberately and both are ordinary
+ * readings of a curve, so overriding them would discard a statement the spec
+ * makes. That half is left open on #1162 rather than ridden in on this one.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns Whether a regression or loess fit feeds the mark
+ */
+function hasFittedCurveTransform(transform?: VegaLiteTransform[]): boolean {
+  if (!Array.isArray(transform))
+    return false;
+  return transform.some(entry =>
+    entry?.regression !== undefined || entry?.loess !== undefined,
+  );
+}
+
 function hasRunningSumTransform(transform?: VegaLiteTransform[]): boolean {
   if (!Array.isArray(transform))
     return false;
@@ -1064,6 +1095,11 @@ function resolveTraceType(
       const rank = rankedColumn(transform);
       if (rank !== undefined && encoding?.y?.field === rank) {
         return TraceType.BUMP;
+      }
+      // After the three above, which are all about *what was plotted*; this
+      // one is about the rows having been replaced by a fit.
+      if (hasFittedCurveTransform(transform)) {
+        return TraceType.SMOOTH;
       }
       return TraceType.LINE;
     }
@@ -3374,10 +3410,17 @@ function convertLayerSpec(
     // them; the stacked area variants differ only in what `AreaTrace`
     // announces on top of it. A bump chart joins the group for the same
     // reason: `BumpTrace` reads the multi-line payload unchanged and
-    // differs only in inverting the pitch, since its y axis is a rank.
+    // differs only in inverting the pitch, since its y axis is a rank. So
+    // does a smooth: `SmoothTrace extends LineTrace`, and a `regression` or
+    // `loess` fit arrives on the same channels as any other line -- what
+    // differs is only that the rows are a model rather than observations,
+    // which is what the name carries (#1162). Leaving it out of this group
+    // was measured: the layer resolved to `smooth` and then vanished, since
+    // the default branch returns null.
     case TraceType.LINE:
     case TraceType.AREA:
     case TraceType.BUMP:
+    case TraceType.SMOOTH:
     case TraceType.NORMALIZED_AREA:
     case TraceType.STACKED_AREA:
     case TraceType.STEP: {
