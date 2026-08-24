@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Timeline - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/timeline.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Timeline</h1>
+    <p>
+      A Highcharts timeline made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use left and right arrow keys to move along the
+      row of events. Each event announces its own name; the pitch does not
+      change, because a timeline draws no magnitude — every point sits at the
+      same height, and what moves from one event to the next is the position
+      in the sequence, which you hear as the stereo pan.
+    </p>
+
+    <div id="timeline-chart" style="width: 760px; height: 460px"></div>
+
+    <script>
+      const chart = Highcharts.chart('timeline-chart', {
+        chart: { type: 'timeline' },
+        title: { text: 'Milestones in Space Exploration' },
+        legend: { enabled: false },
+        xAxis: { visible: false },
+        yAxis: { visible: false },
+        series: [
+          {
+            name: 'Missions',
+            data: [
+              { name: 'First artificial satellite', label: '1957 Sputnik 1' },
+              { name: 'First human spaceflight', label: '1961 Vostok 1' },
+              { name: 'First Moon landing', label: '1969 Apollo 11' },
+              { name: 'First space station', label: '1971 Salyut 1' },
+              { name: 'First reusable spacecraft', label: '1981 Columbia' },
+            ],
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'timeline-chart' });
+      document.getElementById('timeline-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
