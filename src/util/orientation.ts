@@ -146,6 +146,7 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // there is no reading of the chart in which that is drawn sideways.
   [TraceType.ICICLE]: false,
   [TraceType.SUNBURST]: false,
+  [TraceType.TREE]: false,
   [TraceType.TREEMAP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,

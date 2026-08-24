@@ -1773,6 +1773,17 @@ export enum TraceType {
    */
   TREEMAP = 'treemap',
   /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as boxes joined
+   * by links rather than as nested areas. The tree does not differ and the
+   * painting does, so it is read by the same trace and named apart only so
+   * that the reader is told what is on the page: an organization chart
+   * announced as a treemap is a chart type nobody drew.
+   *
+   * The magnitude is commonly absent here -- a reporting line has no size --
+   * which is the case {@link TreemapPoint.y} being optional exists for.
+   */
+  TREE = 'tree',
+  /**
    * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as rings around
    * a centre rather than as nested rectangles. The layout differs and the
    * tree does not, so it is read by the same trace -- with one thing of its

@@ -3174,7 +3174,10 @@ function convertOrganizationSeries(
 
   return {
     id: String(series.index),
-    type: TraceType.TREEMAP,
+    // `TREE` rather than `TREEMAP`: the same trace reads both, and the name
+    // is what the reader is told the chart is. An org chart announced as a
+    // treemap names a painting nobody drew.
+    type: TraceType.TREE,
     title: series.name || undefined,
     selectors: treemapSelectors(containerId, series.index, data.length),
     // No `y` axis. The chart has no second dimension to name, and
