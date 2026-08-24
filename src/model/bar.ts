@@ -563,41 +563,54 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       return targets;
     }
 
-    // Find indices of min/max values
-    const maxIndex = groupValues.indexOf(groupMax);
-    const minIndex = groupValues.indexOf(groupMin);
+    // One target per bar holding the value, not just the first: two bars of
+    // equal height are two places a reader can be sent, and reporting only
+    // `indexOf`'s first match hides the others from both the dialog and the
+    // bracket keys. Line traces already list their ties this way.
+    const indicesAt = (value: number): number[] => {
+      const indices: number[] = [];
+      for (let index = 0; index < groupValues.length; index++) {
+        if (groupValues[index] === value) {
+          indices.push(index);
+        }
+      }
+      return indices;
+    };
 
     // Inline raw x-value lookup using currentGroup (avoids hidden this.row dependency)
-    const maxPoint = this.points[currentGroup]?.[maxIndex];
-    const minPoint = this.points[currentGroup]?.[minIndex];
-    const maxXValue = maxPoint
-      ? (this.orientation === Orientation.VERTICAL ? maxPoint.x : maxPoint.y)
-      : undefined;
-    const minXValue = minPoint
-      ? (this.orientation === Orientation.VERTICAL ? minPoint.x : minPoint.y)
-      : undefined;
+    const xValueAt = (index: number): number | string | undefined => {
+      const point = this.points[currentGroup]?.[index];
+      if (!point) {
+        return undefined;
+      }
+      return this.orientation === Orientation.VERTICAL ? point.x : point.y;
+    };
 
-    // Add max target
-    targets.push({
-      label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
-      value: groupMax,
-      pointIndex: maxIndex,
-      segment: 'bar',
-      type: 'max',
-      navigationType: 'point',
-      xValue: maxXValue,
-    });
+    // Add max targets
+    for (const maxIndex of indicesAt(groupMax)) {
+      targets.push({
+        label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
+        value: groupMax,
+        pointIndex: maxIndex,
+        segment: 'bar',
+        type: 'max',
+        navigationType: 'point',
+        xValue: xValueAt(maxIndex),
+      });
+    }
 
-    // Add min target
-    targets.push({
-      label: `Min Bar at ${this.getPointLabel(minIndex)}`,
-      value: groupMin,
-      pointIndex: minIndex,
-      segment: 'bar',
-      type: 'min',
-      navigationType: 'point',
-      xValue: minXValue,
-    });
+    // Add min targets
+    for (const minIndex of indicesAt(groupMin)) {
+      targets.push({
+        label: `Min Bar at ${this.getPointLabel(minIndex)}`,
+        value: groupMin,
+        pointIndex: minIndex,
+        segment: 'bar',
+        type: 'min',
+        navigationType: 'point',
+        xValue: xValueAt(minIndex),
+      });
+    }
 
     return targets;
   }

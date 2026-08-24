@@ -651,6 +651,28 @@ export class BasePage {
   }
 
   /**
+   * Jumps to the lowest value of the current layer.
+   * @throws KeypressError if operation fails
+   */
+  public async goToMinimumValue(): Promise<void> {
+    await this.moveToDataPoint(
+      TestConstants.OPEN_BRACKET_KEY,
+      'go to minimum value',
+    );
+  }
+
+  /**
+   * Jumps to the highest value of the current layer.
+   * @throws KeypressError if operation fails
+   */
+  public async goToMaximumValue(): Promise<void> {
+    await this.moveToDataPoint(
+      TestConstants.CLOSE_BRACKET_KEY,
+      'go to maximum value',
+    );
+  }
+
+  /**
    * Moves to the next data point in the chart
    * @throws KeypressError if operation fails
    */

@@ -85,6 +85,8 @@ export abstract class TestConstants {
   static readonly RIGHT_ARROW_KEY = 'ArrowRight';
   static readonly UP_ARROW_KEY = 'ArrowUp';
   static readonly DOWN_ARROW_KEY = 'ArrowDown';
+  static readonly OPEN_BRACKET_KEY = '[';
+  static readonly CLOSE_BRACKET_KEY = ']';
   static readonly BRAILLE_KEY = 'b';
   static readonly TEXT_KEY = 't';
   static readonly SOUND_KEY = 's';
