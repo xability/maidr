@@ -1616,6 +1616,48 @@ describe('tactileService', () => {
       expect(textured).not.toBe(plain);
     });
 
+    it('should texture against a body the chart left unpainted', () => {
+      // The hollow convention: the rising bodies carry `fill: none` and only
+      // the falling ones are painted. Leaving an unpainted body out of the
+      // comparison made the painted ones the only measured group — every one
+      // of them as light as the lightest — and the display fell back to
+      // outlines with no direction on it at all.
+      // Painted first, so the two textured bodies are ones the reader is not
+      // standing on: the focused mark is drawn solid and never takes a shade,
+      // so a fixture that painted only the focused body would pass whatever
+      // this code did.
+      paintBodies(['#d62728', 'none']);
+      activate();
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'candlestick'));
+      const textured = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+      const plain = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      expect(textured).toBeDefined();
+      expect(textured).not.toBe(plain);
+    });
+
+    it('should not read a wick as a body the chart left hollow', () => {
+      // Wicks arrive in the same list as the bodies and are always unpainted,
+      // being lines. Counted as hollow bodies they would put one in every
+      // chart, and every painted body would then be textured whatever the
+      // chart drew — including a chart drawing no direction at all.
+      paintBodies(['#d62728']);
+      stubRect(chart.marks[0], { left: REGION.left, top: REGION.top, width: 0, height: 80 });
+      (chart.marks[0] as SVGElement).style.fill = 'none';
+      activate();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      service.update(traceState(chart, 1, 'a', 12, 'candlestick'));
+
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
+    });
+
     it('should leave the bodies alone when the chart filled them all the same', () => {
       // No direction is being drawn, so there is none to feel. Texturing every
       // body would leave the focused one the only solid mark among a display

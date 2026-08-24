@@ -178,10 +178,15 @@ solid come back as a **half-density texture**, the hollow ones as outlines. Half
 and not more, because the focused mark is the only solid thing on the display
 and has to stay the only one — a texture at four fifths reads as a filled mark
 with a blemish and the reader loses where they are standing. Which group is
-which comes from the chart rather than from a convention: the lightest fill
-among the bodies is taken as the hollow one, and everything meaningfully darker
-is one the chart filled, so black-against-white and red-against-green both work
-and neither needs an agreement about which colour means falling. Bodies all
+which comes from the chart rather than from a convention: the lightest body is
+taken as the hollow one, and everything meaningfully darker is one the chart
+filled, so black-against-white and red-against-green both work and neither needs
+an agreement about which colour means falling. A body the chart left unpainted
+counts as the lightest thing there is, because what shows through it is the
+panel — that is the hollow-candle convention, where the rising bodies carry
+`fill: none` and only the falling ones are painted. Wicks are left out of the
+comparison: they arrive in the same list and are always unpainted, being lines,
+so counting them as hollow bodies would put one in every chart. Bodies all
 painted alike are left hollow — there is no direction being drawn then.
 
 Ordinary strokes are two pins across, not one. A single-pin diagonal steps in

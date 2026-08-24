@@ -134,6 +134,18 @@ const SOLID_BODY_DENSITY = 0.5;
 const SOLID_BODY_CONTRAST = 0.15;
 
 /**
+ * How thin a mark has to be, in screen pixels, to be a stroke rather than a
+ * body.
+ *
+ * A candlestick's wicks arrive in the same list as its bodies and are always
+ * unpainted, being lines. Reading them as unpainted *bodies* would put a hollow
+ * one in every chart and make the lightest-is-hollow comparison say the same
+ * thing about every chart, whatever it drew. They have no interior to texture
+ * either, so nothing is lost by leaving them out of the question entirely.
+ */
+const HAIRLINE_SPAN = 1;
+
+/**
  * Trace types read by their shape, where the chart's own proportions have to
  * survive the mapping onto the pins.
  */
@@ -899,10 +911,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * reading rather than decoration.
    *
    * Which group is which comes from the chart, not from a convention: the
-   * lightest fill among the marks is taken as the hollow one, and everything
-   * meaningfully darker than it is one the chart filled. That holds for a
-   * candlestick drawn black against white and for one drawn red against green,
-   * and it needs no agreement about which colour means falling.
+   * lightest body is taken as the hollow one, and everything meaningfully
+   * darker than it is one the chart filled. That holds for a candlestick drawn
+   * black against white, for one drawn red against green, and for the hollow
+   * convention where the rising bodies are `fill: none` and only the falling
+   * ones are painted — an unpainted body counts as the lightest thing there is,
+   * because what shows through it is the panel.
+   *
+   * Wicks are left out. They arrive in the same list, they are always unpainted
+   * being lines, and counting them as hollow bodies would put one in every
+   * chart — the comparison would then say the same thing about every chart
+   * whatever it drew.
    *
    * Nothing is textured when the marks share a single fill. There is no
    * direction being drawn then, and texturing every body would leave the
@@ -913,15 +932,30 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private static solidBodyShades(
     marks: readonly SVGGraphicsElement[],
   ): Map<SVGGraphicsElement, number> | undefined {
-    const luminances = marks.map((mark) => {
+    const lightness = marks.map((mark) => {
+      const box = mark.getBoundingClientRect();
+      if (box.width <= HAIRLINE_SPAN || box.height <= HAIRLINE_SPAN) {
+        return null;
+      }
       const fill = TactileService.fillOf(mark);
-      return fill === null ? null : TactileShade.luminanceOf(fill);
+      if (fill === null) {
+        return null;
+      }
+      // An unpainted body is not a body without a colour, it is one the chart
+      // drew hollow — the panel shows through it, which is as light as anything
+      // on the chart gets. Leaving it out of the comparison instead is what
+      // broke the hollow-candle convention, where the rising bodies carry
+      // `fill: none` and only the falling ones are painted: the painted ones
+      // were then the only measured group, every one of them as light as the
+      // lightest, and the display fell back to outlines with no direction on it
+      // at all.
+      return TactileShade.luminanceOf(fill) ?? 1;
     });
 
     let lightest: number | null = null;
-    for (const luminance of luminances) {
-      if (luminance !== null && (lightest === null || luminance > lightest)) {
-        lightest = luminance;
+    for (const value of lightness) {
+      if (value !== null && (lightest === null || value > lightest)) {
+        lightest = value;
       }
     }
     if (lightest === null) {
@@ -929,8 +963,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     const shades = new Map<SVGGraphicsElement, number>();
-    luminances.forEach((luminance, index) => {
-      if (luminance !== null && lightest - luminance > SOLID_BODY_CONTRAST) {
+    lightness.forEach((value, index) => {
+      if (value !== null && lightest - value > SOLID_BODY_CONTRAST) {
         shades.set(marks[index], SOLID_BODY_DENSITY);
       }
     });
