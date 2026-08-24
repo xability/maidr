@@ -1755,6 +1755,24 @@ export enum TraceType {
   SANKEY = 'sankey',
   SCATTER = 'point',
   SMOOTH = 'smooth',
+  /**
+   * A scatter for data with ties, where several observations landing on one
+   * coordinate are drawn as a single mark with that many petals.
+   *
+   * Read by {@link ScatterTrace}, over plain {@link ScatterPoint}s whose `z`
+   * is how many observations are on the mark -- `z` being announced with its
+   * axis label and driving the intensity, so the multiplicity is both spoken
+   * and audible rather than a field the reader has to go looking for.
+   *
+   * Named apart from {@link TraceType.SCATTER} for a reason stronger than the
+   * one {@link TraceType.TREE} gives. It is not only that "scatter plot"
+   * names a chart nobody drew: a sunflower plot's **marks are not its
+   * observations**. Sixty observations come back as twenty-one marks, because
+   * coincident ones were collapsed -- which is the single fact the chart was
+   * chosen to convey. A reader told "scatter" has been told the marks are the
+   * data, and here they are not.
+   */
+  SUNFLOWER = 'sunflower',
   STACKED = 'stacked_bar',
   /**
    * Area bands stacked on one another, so a band's *height* is its own
