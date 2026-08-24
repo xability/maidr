@@ -97,6 +97,43 @@ const COLOUR_IS_THE_VALUE: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Trace types where whether the chart filled a mark is itself the reading.
+ *
+ * A candlestick says which way the day went by drawing the body solid or
+ * hollow, and nothing else about the body carries it: a falling day and a
+ * rising day of the same range are the same rectangle in the same place. So an
+ * outline-only display drops the one thing the chart was drawing the body to
+ * say.
+ *
+ * Only the direction, not a scale. The bodies come back as two groups and the
+ * darker one is the one the chart drew solid, whether that is black against
+ * white or red against green.
+ */
+const FILL_IS_THE_DIRECTION: ReadonlySet<string> = new Set([
+  'candlestick',
+]);
+
+/**
+ * How much of a solid-drawn body to raise.
+ *
+ * Half. The focused mark is the only thing on the display that is solid, and it
+ * has to stay that way — a texture at four fifths is a filled mark with a
+ * blemish, and the reader loses where they are standing. Half reads as a
+ * distinctly coarse field under a fingertip and cannot be mistaken for solid.
+ */
+const SOLID_BODY_DENSITY = 0.5;
+
+/**
+ * How much darker than the lightest body a body has to be to count as one the
+ * chart filled.
+ *
+ * Enough to ignore the difference an anti-aliased edge or a fill-opacity makes,
+ * and far below the distance between any two colours a chart would pick to mean
+ * opposite things.
+ */
+const SOLID_BODY_CONTRAST = 0.15;
+
+/**
  * Trace types read by their shape, where the chart's own proportions have to
  * survive the mapping onto the pins.
  */
@@ -805,6 +842,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * nothing else — 819 pins spent on an 8x8 grid, measured, delivering none of
    * its 64 values. Density is the one substitute a hand can read.
    *
+   * A candlestick is the other case, and a different one: there the fill is not
+   * a quantity but a direction, so its bodies are textured at one density
+   * rather than graded. See {@link solidBodyShades}.
+   *
    * Empty when fill is decoration rather than data. `densities` decides that
    * from the spread of the colours themselves, so a bar chart whose bars are
    * all one blue keeps its hollow interiors and the solid focused mark stays
@@ -817,22 +858,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     marks: readonly SVGGraphicsElement[],
     state: DrawableState,
   ): Map<SVGGraphicsElement, number> | undefined {
-    if (marks.length < 2 || typeof window === 'undefined') {
+    if (marks.length < 2 || typeof window === 'undefined' || state.type !== 'trace') {
       return undefined;
     }
-    if (state.type !== 'trace' || !COLOUR_IS_THE_VALUE.has(state.traceType)) {
+    if (FILL_IS_THE_DIRECTION.has(state.traceType)) {
+      return TactileService.solidBodyShades(marks);
+    }
+    if (!COLOUR_IS_THE_VALUE.has(state.traceType)) {
       return undefined;
     }
 
-    const colours = marks.map((mark) => {
-      try {
-        return window.getComputedStyle(mark).fill || mark.getAttribute('fill');
-      } catch {
-        return null;
-      }
-    });
-
-    const densities = TactileShade.densities(colours);
+    const densities = TactileShade.densities(marks.map(mark => TactileService.fillOf(mark)));
     if (densities === null) {
       return undefined;
     }
@@ -841,6 +877,61 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     densities.forEach((density, index) => {
       if (density !== null) {
         shades.set(marks[index], density);
+      }
+    });
+    return shades.size > 0 ? shades : undefined;
+  }
+
+  /**
+   * The fill the chart painted a mark with, or null when it painted none.
+   * @param mark - The element to read
+   */
+  private static fillOf(mark: SVGGraphicsElement): string | null {
+    try {
+      return window.getComputedStyle(mark).fill || mark.getAttribute('fill');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Textures the marks the chart drew solid, on a chart where that is the
+   * reading rather than decoration.
+   *
+   * Which group is which comes from the chart, not from a convention: the
+   * lightest fill among the marks is taken as the hollow one, and everything
+   * meaningfully darker than it is one the chart filled. That holds for a
+   * candlestick drawn black against white and for one drawn red against green,
+   * and it needs no agreement about which colour means falling.
+   *
+   * Nothing is textured when the marks share a single fill. There is no
+   * direction being drawn then, and texturing every body would leave the
+   * focused one as the only solid mark among a display of near-solid ones.
+   *
+   * @param marks - The marks about to be drawn
+   */
+  private static solidBodyShades(
+    marks: readonly SVGGraphicsElement[],
+  ): Map<SVGGraphicsElement, number> | undefined {
+    const luminances = marks.map((mark) => {
+      const fill = TactileService.fillOf(mark);
+      return fill === null ? null : TactileShade.luminanceOf(fill);
+    });
+
+    let lightest: number | null = null;
+    for (const luminance of luminances) {
+      if (luminance !== null && (lightest === null || luminance > lightest)) {
+        lightest = luminance;
+      }
+    }
+    if (lightest === null) {
+      return undefined;
+    }
+
+    const shades = new Map<SVGGraphicsElement, number>();
+    luminances.forEach((luminance, index) => {
+      if (luminance !== null && lightest - luminance > SOLID_BODY_CONTRAST) {
+        shades.set(marks[index], SOLID_BODY_DENSITY);
       }
     });
     return shades.size > 0 ? shades : undefined;

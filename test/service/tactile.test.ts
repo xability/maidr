@@ -1565,6 +1565,74 @@ describe('tactileService', () => {
       expect(textured).not.toBe(plain);
     });
 
+    /**
+     * Paints the marks the way a candlestick paints its bodies: some solid,
+     * some hollow, and nothing in between.
+     * @param colours - One fill per mark, cycled if there are fewer
+     */
+    function paintBodies(colours: string[]): void {
+      chart.marks.forEach((mark, index) => {
+        const colour = colours[index % colours.length];
+        (mark as SVGElement).setAttribute('fill', colour);
+        (mark as SVGElement).style.fill = colour;
+        stubRect(mark, { left: REGION.left + index * 90, top: REGION.top, width: 80, height: 80 });
+      });
+    }
+
+    it('should texture the bodies a candlestick drew solid', () => {
+      // A falling day and a rising day of the same range are the same
+      // rectangle in the same place, and the chart tells them apart by filling
+      // one of them. Outlines alone drop the one thing the body was drawn to
+      // say.
+      paintBodies(['#000000', '#ffffff']);
+      activate();
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'candlestick'));
+      const textured = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+      const plain = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      expect(textured).toBeDefined();
+      expect(textured).not.toBe(plain);
+    });
+
+    it('should read the direction off the chart rather than off a convention', () => {
+      // Red against green, both mid-luminance and neither of them black. The
+      // darker group is the one the chart filled, whatever the two colours are,
+      // so an absolute threshold on darkness would texture both or neither.
+      paintBodies(['#d62728', '#2ca02c']);
+      activate();
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'candlestick'));
+      const textured = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      session.writeGraphic.mockClear();
+      service.update(traceState(chart, 1, 'a', 12, 'bar'));
+      const plain = session.writeGraphic.mock.calls.at(-1)?.[0];
+
+      expect(textured).toBeDefined();
+      expect(textured).not.toBe(plain);
+    });
+
+    it('should leave the bodies alone when the chart filled them all the same', () => {
+      // No direction is being drawn, so there is none to feel. Texturing every
+      // body would leave the focused one the only solid mark among a display
+      // of near-solid ones.
+      paintBodies(['#ffffff']);
+      activate();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      service.update(traceState(chart, 1, 'a', 12, 'candlestick'));
+
+      // Nothing is sent because nothing changed: the frame is the one the
+      // same marks drew as bars.
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
+    });
+
     it('should leave a pie hollow, where colour names the slice and the angle is the value', () => {
       // Texturing a pie put two of four wedges at full density and left a
       // third empty: two solid wedges, one of them the one the reader was

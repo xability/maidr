@@ -172,6 +172,18 @@ outlined rather than filled even when none of its edges have left it, because
 filling it would raise every pin and leave nothing to feel but the edge of the
 device.
 
+A candlestick is the one chart where a hollow mark and a solid one mean
+different things, so its bodies keep that difference: the ones the chart drew
+solid come back as a **half-density texture**, the hollow ones as outlines. Half
+and not more, because the focused mark is the only solid thing on the display
+and has to stay the only one — a texture at four fifths reads as a filled mark
+with a blemish and the reader loses where they are standing. Which group is
+which comes from the chart rather than from a convention: the lightest fill
+among the bodies is taken as the hollow one, and everything meaningfully darker
+is one the chart filled, so black-against-white and red-against-green both work
+and neither needs an agreement about which colour means falling. Bodies all
+painted alike are left hollow — there is no direction being drawn then.
+
 Ordinary strokes are two pins across, not one. A single-pin diagonal steps in
 pins that touch only at their corners, so a finger sweeping across it meets a
 row of separate bumps rather than a line, and loses the trail on any drift.
