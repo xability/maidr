@@ -1642,7 +1642,7 @@ function convertSeries(
       return convertVariwideSeries(series, chart, containerId);
     // A fitted normal curve, evaluated wherever the renderer chose to.
     case 'bellcurve':
-      return convertBellCurveSeries(series, containerId);
+      return convertBellCurveSeries(series, chart, containerId);
     // The cumulative percentage drawn over a bar chart's columns.
     case 'pareto':
       return convertParetoSeries(series, chart, containerId);
@@ -2698,19 +2698,28 @@ function convertTimelineSeries(
  * drawn: `getAxisLabel` reads `series.xAxis`, so a curve bound to a secondary
  * pair is named by that pair's titles rather than by the base series'.
  *
+ * **A reversed axis is re-paired the same way a line's is** (#1007, #1151).
+ * Nothing about the curve being *generated* exempts it: measured on a
+ * fifteen-value sample with `xAxis.reversed`, the payload came back
+ * 2.46 -> 4.18 while the chart drew it 4.18 -> 2.46, so a reader sweeping
+ * left to right was handed the curve back to front. `SmoothTrace` extends
+ * `LineTrace`, so it consumes `domMapping.pointOrder` unchanged.
+ *
  * @param series - The bellcurve series to convert
+ * @param chart - The chart, read for whether its axis is drawn reversed
  * @param containerId - The chart container's id, for the selectors
  * @returns The smooth layer
  */
 function convertBellCurveSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const data: LinePoint[][] = [
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({ x: p.x, y: p.y as number })),
-  ];
+  const reversed = drawsSeriesReversed(series, chart);
+  const points = series.data
+    .filter(p => p.y !== null)
+    .map(p => ({ x: p.x, y: p.y as number }));
+  const data: LinePoint[][] = [reversed ? points.reverse() : points];
 
   return {
     id: String(series.index),
@@ -2721,6 +2730,7 @@ function convertBellCurveSeries(
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data,
   };
 }
