@@ -103,7 +103,7 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 | MAIDR Type | Highcharts series type(s) | Example |
 |------------|---------------------------|---------|
-| Bar | `bar`, `column`, `columnpyramid` (requires `modules/pyramid3d.js` or `highcharts-more.js`), `pictorial` (requires `modules/pictorial.js`) | [highcharts-bar.html](examples/highcharts-bar.html) |
+| Bar | `bar`, `column`, `columnpyramid` (requires `highcharts-more.js`), `pictorial` (requires `modules/pictorial.js`) | [highcharts-bar.html](examples/highcharts-bar.html) |
 | Line | `line`, `spline` | [highcharts-line.html](examples/highcharts-line.html) |
 | Step | `line`, `spline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](examples/highcharts-line.html) |
 | Area | `area`, `areaspline` | [highcharts-area.html](examples/highcharts-area.html) |
