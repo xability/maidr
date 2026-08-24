@@ -250,6 +250,16 @@ export interface HighchartsPoint {
   category?: string;
   name?: string;
   /**
+   * The second line of a `timeline` event's box.
+   *
+   * A timeline draws two strings per event — `name` on the first line and
+   * this on the second — and on the ordinary timeline, whose x axis is
+   * hidden and whose `x` is a bare index, this is the only place the date
+   * appears. Highcharts uses the same key for a series-level label elsewhere;
+   * only the timeline converter reads it.
+   */
+  label?: string;
+  /**
    * The far end of an interval — a gantt task's finish, an xrange bar's right
    * edge. Highcharts aliases a gantt point's `end` onto it, so both series
    * read the same way.

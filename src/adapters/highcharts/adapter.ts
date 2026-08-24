@@ -115,6 +115,7 @@ let chartCounter = 0;
  * - `scatter` → {@link TraceType.SCATTER}, or {@link TraceType.DOT} on a
  *   category axis (a Cleveland dot plot)
  * - `lollipop` → {@link TraceType.LOLLIPOP}
+ * - `timeline` → {@link TraceType.SCATTER}, each event named on its point
  * - `funnel`, `pyramid` → {@link TraceType.FUNNEL}
  * - `wordcloud` → {@link TraceType.WORD_CLOUD}
  * - `sankey`, `arcdiagram` → {@link TraceType.SANKEY}
@@ -1645,6 +1646,9 @@ function convertSeries(
     // The cumulative percentage drawn over a bar chart's columns.
     case 'pareto':
       return convertParetoSeries(series, chart, containerId);
+    // A row of named events along one axis, with no magnitude to them.
+    case 'timeline':
+      return convertTimelineSeries(series, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -2572,6 +2576,90 @@ function convertParetoSeries(
       y: getAxisLabel(series, 'y'),
     },
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
+    data,
+  };
+}
+
+/**
+ * The text a timeline's event box draws, as one string.
+ *
+ * Highcharts draws two: `name` on the first line and `label` on the second --
+ * measured as `"\u25CF First artificial satellite\u200B1957 Sputnik 1"` on a
+ * box declaring both. Neither alone is the box. On the ordinary timeline the
+ * x axis is hidden and `x` is a bare 0, 1, 2, 3, so `label` is the only place
+ * the *date* appears at all; on a `datetime` axis `x` carries it and `label`
+ * usually restates it. Joining them keeps the first case whole and costs the
+ * second a repetition.
+ *
+ * `description` is not drawn on the chart -- it is the tooltip's text -- and
+ * the grammar has one string per point, so it is not folded in here.
+ *
+ * @param point - The event to name
+ * @returns The drawn text, or undefined for an event declaring neither
+ */
+function timelineEventLabel(point: HighchartsPoint): string | undefined {
+  const parts = [point.name, point.label]
+    .filter((part): part is string => typeof part === 'string' && part !== '');
+  const unique = parts.filter((part, i) => parts.indexOf(part) === i);
+  return unique.length > 0 ? unique.join(', ') : undefined;
+}
+
+/**
+ * Converts a `timeline` series into a labelled scatter layer.
+ *
+ * A timeline is a row of events along one axis: each is drawn as a marker on
+ * a connecting line, with a box naming it. What it is *not* is a chart of
+ * magnitudes, and that is the whole design question here.
+ *
+ * **`y` is a constant.** Measured on every timeline built for this: four
+ * events, three events, dated and undated alike, `point.y` came back `1`
+ * each time. So the layer is emitted with the 1 the chart drew, and
+ * sonifying it plays one pitch for the whole row -- which is what a chart
+ * with no magnitude sounds like. Pitching by `x` instead would announce a
+ * magnitude the chart does not draw, and pitching by nothing would leave the
+ * layer silent. What the reader is actually given is the sequence, through
+ * `ScatterTrace`'s stereo pan over distinct x values, and the identity of
+ * each event, through {@link ScatterPoint.label}.
+ *
+ * `x` is whatever the author declared: a bare index -- 0, 1, 2, 3 -- on the
+ * ordinary timeline, whose x axis is usually hidden, or the real timestamp
+ * on a `datetime` axis. Nothing is invented for the first case; the dates
+ * live in the event's own text, which is where the chart draws them.
+ *
+ * The handle is the marker, and it needed nothing new: a timeline's markers
+ * carry `highcharts-point` in a `highcharts-markers` group that is a sibling
+ * of the series group but carries the same `highcharts-series-N` class, so
+ * {@link scatterSelector} reaches exactly them -- measured as one element per
+ * point, in point order, each identical to that point's own `graphic`.
+ *
+ * @param series - The timeline series to convert
+ * @param containerId - The chart container's id, for the selectors
+ * @returns The scatter layer
+ */
+function convertTimelineSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const data: ScatterPoint[] = series.data
+    .filter(p => p.y !== null)
+    .map((point) => {
+      const label = timelineEventLabel(point);
+      return {
+        x: point.x,
+        y: point.y as number,
+        ...(label !== undefined ? { label } : {}),
+      };
+    });
+
+  return {
+    id: String(series.index),
+    type: TraceType.SCATTER,
+    title: series.name || undefined,
+    selectors: scatterSelector(containerId, series.index),
+    axes: {
+      x: getAxisLabel(series, 'x'),
+      y: getAxisLabel(series, 'y'),
+    },
     data,
   };
 }
