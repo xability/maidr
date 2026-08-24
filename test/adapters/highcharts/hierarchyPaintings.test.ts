@@ -151,6 +151,27 @@ describe('highcharts treegraph series', () => {
     expect(layer.axes?.x?.label).toBe('Node');
   });
 
+  it('keeps a declared zero, which is not the layout\'s zero', () => {
+    // The case that separates "declared" from "truthy". Highcharts hands
+    // over `value: 0` for a node that declared nothing *and* for a node that
+    // declared zero; only `options.value` tells them apart, and only a
+    // `typeof` test reads a declared zero as declared. Raised in review of
+    // #1165.
+    const [layer] = layersOf([treegraph([0, 0, 0, 0, 0])], 'treegraph-zeros');
+
+    expect(layer.data as TreemapPoint[]).toEqual([
+      { x: 'Company', y: 0, path: [] },
+      { x: 'Sales', y: 0, path: ['Company'] },
+      { x: 'Engineering', y: 0, path: ['Company'] },
+      { x: 'Frontend', y: 0, path: ['Company', 'Engineering'] },
+      { x: 'Backend', y: 0, path: ['Company', 'Engineering'] },
+    ]);
+    // Declared, so the axis naming the magnitude is drawn -- unlike the
+    // valueless chart above, whose identical `point.value` fields are the
+    // layout's own.
+    expect(layer.axes?.y?.label).toBe('Value');
+  });
+
   it('keeps a declared value beside an undeclared sibling', () => {
     // Leaves valued, interiors not -- the ordinary way a weighted tree is
     // written. The interiors carry no `y`, so `TreemapTrace` derives their
