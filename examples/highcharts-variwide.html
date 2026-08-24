@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Variwide Chart - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/variwide.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Variwide Chart</h1>
+    <p>
+      A Highcharts variwide chart made accessible by the MAIDR Highcharts
+      adapter. Click on the chart and use left and right arrow keys to move
+      between countries. Each column announces two numbers, because the chart
+      draws two: its <em>height</em> is GDP per capita, and its
+      <em>width</em> is the country's share of the whole population shown. A
+      reader given only the heights would have Norway and Germany sounding
+      alike, when one column is a fifteenth of the width of the other.
+    </p>
+
+    <div id="variwide-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const chart = Highcharts.chart('variwide-chart', {
+        chart: { type: 'variwide' },
+        title: { text: 'GDP per Capita, Column Width by Population' },
+        legend: { enabled: false },
+        xAxis: {
+          type: 'category',
+          categories: ['Norway', 'Germany', 'Poland', 'Greece'],
+          title: { text: 'Country' },
+        },
+        yAxis: { title: { text: 'GDP per capita (US$ thousands)' } },
+        series: [{
+          name: 'GDP per capita',
+          // [y, z] per category: the column's height, then its width.
+          data: [[42, 5.4], [39, 83.2], [27, 38.0], [20, 10.7]],
+        }],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'variwide-chart' });
+      document.getElementById('variwide-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
