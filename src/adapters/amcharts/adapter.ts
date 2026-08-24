@@ -405,7 +405,9 @@ function buildChartLayers(
       }
       case 'treemap':
       case 'icicle':
-      case 'sunburst': {
+      case 'sunburst':
+      case 'tree':
+      case 'pack': {
         const data = extractHierarchyPoints(series);
         if (data.length === 0)
           break;
@@ -984,6 +986,8 @@ const HIERARCHY_TRACE_TYPES = {
   treemap: TraceType.TREEMAP,
   icicle: TraceType.ICICLE,
   sunburst: TraceType.SUNBURST,
+  tree: TraceType.TREE,
+  pack: TraceType.PACK,
 } as const;
 
 /**
@@ -1002,7 +1006,7 @@ const HIERARCHY_TRACE_TYPES = {
  */
 function buildHierarchyLayer(
   series: AmXYSeries,
-  kind: 'treemap' | 'icicle' | 'sunburst',
+  kind: keyof typeof HIERARCHY_TRACE_TYPES,
   data: TreemapPoint[],
   options?: AmChartsBinderOptions,
 ): MaidrLayer {

@@ -84,7 +84,7 @@ Series are classified by their amCharts class name and field configuration:
 - `am5percent.FunnelSeries` (and `PyramidSeries`, `PictorialStackedSeries`) → **funnel**
 - `ColumnSeries` with `openValueYField` on a category X axis → **waterfall** when the bars chain (each opens where the previous one closed), **dumbbell** when they do not
 - `ColumnSeries` with `openValueXField` on a category Y axis → **gantt**
-- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**
+- `am5hierarchy.Treemap` → **treemap**; `am5hierarchy.Partition` → **icicle**; `am5hierarchy.Sunburst` → **sunburst**; `am5hierarchy.Tree` and `LinkedHierarchy` → **tree**; `am5hierarchy.Pack` → **pack**. One tree, five paintings, five names — `am5hierarchy.Venn` is declined, having no axis and no per-node magnitude to walk
 - two `ColumnSeries` on one category axis, one side's values all negative and the other's all positive → **diverging bar** (a population pyramid); any other unstacked group stays **dodged**
 - `LineSeries` with its stroke switched off and bullets pushed on, on a category axis → **dot** (a Cleveland dot plot)
 - `ColumnSeries` whose columns are narrowed to a hairline, with bullets → **lollipop**
@@ -125,6 +125,8 @@ A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time 
 | Treemap | `am5hierarchy.Treemap` | series class (requires `hierarchy.js`) |
 | Icicle | `am5hierarchy.Partition` | series class (requires `hierarchy.js`) |
 | Sunburst | `am5hierarchy.Sunburst` | series class (requires `hierarchy.js`) |
+| Tree (node-link) | `am5hierarchy.Tree`, `LinkedHierarchy` | series class (requires `hierarchy.js`) |
+| Circle Packing | `am5hierarchy.Pack` | series class (requires `hierarchy.js`) |
 | Diverging Bar / Population Pyramid | two `ColumnSeries` | shared categories, one series entirely negative and the other entirely positive |
 | Dot Plot (Cleveland) | `LineSeries` | category axis + `strokes.template` hidden + bullets |
 | Lollipop | `ColumnSeries` | category axis + hairline `columns.template` width + bullets |
@@ -467,7 +469,7 @@ The lanes come from the **category axis**, not from the bars, so a lane with not
 
 A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
 
-### Treemap / Icicle / Sunburst
+### Treemap / Icicle / Sunburst / Tree / Pack
 
 An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap, an icicle (amCharts calls it a `Partition`) and a sunburst draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page covering all three is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
 
@@ -486,7 +488,7 @@ series.data.setAll([{
 
 The single root object amCharts requires is dropped: it is a container for the chart rather than a finding, and keeping it would add a level that always holds one node worth 100% of the total. A branch is emitted without a value unless it declares one of its own, so its total is derived from what is under it and cannot disagree with its own children.
 
-A `Sunburst` extends `Partition` but carries its own class name, so it is recognised in its own right rather than inherited — which is also what keeps it from being announced as an icicle. The one thing the mark does change is the highlight: a treemap block and an icicle bar are rectangles, and a sunburst node is a `Slice`, which reports a degenerate box at its own centre and is therefore measured from its radius and sweep instead (the same reading a pie wedge gets).
+A `Sunburst` extends `Partition` but carries its own class name, so it is recognised in its own right rather than inherited — which is also what keeps it from being announced as an icicle. `Tree`, `LinkedHierarchy` and `Pack` are recognised the same way and read through the same converter, and each is named after the painting on the page rather than after the treemap they share their data shape with: a node-link diagram and a circle-packing diagram are both **tree**-shaped to navigate, but neither is a treemap to look at. `Tree` and `LinkedHierarchy` share the name **tree** because `Tree` is drawn by extending `LinkedHierarchy`, so the two are one mark rather than two. The one thing the mark does change is the highlight: a treemap block and an icicle bar are rectangles, and a sunburst node is a `Slice`, which reports a degenerate box at its own centre and is therefore measured from its radius and sweep instead (the same reading a pie wedge gets).
 
 ### Gauge
 

@@ -147,6 +147,7 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   [TraceType.ICICLE]: false,
   [TraceType.SUNBURST]: false,
   [TraceType.TREE]: false,
+  [TraceType.PACK]: false,
   [TraceType.TREEMAP]: false,
   [TraceType.VIOLIN_BOX]: true,
   [TraceType.VIOLIN_KDE]: true,
