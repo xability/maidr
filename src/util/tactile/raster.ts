@@ -283,8 +283,9 @@ export class DotRaster {
    * Quantised to whichever axis is more nearly perpendicular, because the
    * offset has to land on whole pins: a segment running mostly across is
    * thickened downward, one running mostly up and down is thickened sideways.
-   * A segment of no length has no direction to be perpendicular to and is
-   * thickened sideways by convention.
+   * A segment of no length has no direction to be perpendicular to, and falls
+   * to the same side as a horizontal one: the tie goes to `run`, so it is
+   * thickened downward.
    *
    * @param run - The segment's extent across
    * @param rise - The segment's extent down

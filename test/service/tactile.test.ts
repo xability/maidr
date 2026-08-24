@@ -457,9 +457,14 @@ describe('tactileService', () => {
         return `Subplot ${figure.index} of ${figure.size}, a bar plot of units sold by fruit`;
       }
       const trace = state as NonEmptyTraceState;
+      // `cross` is optional: a chart may have no cross axis to speak of. The
+      // fixture says so rather than asserting one, so this stub keeps working
+      // for a trace that has none.
+      const cross = trace.text.cross === undefined
+        ? ''
+        : `${trace.text.cross.label} is ${String(trace.text.cross.value)}, `;
       return `${trace.text.main.label} is ${String(trace.text.main.value)}, `
-        + `${trace.text.cross.label} is ${String(trace.text.cross.value)}, `
-        + `in the bar plot of units sold by fruit`;
+        + `${cross}in the bar plot of units sold by fruit`;
     });
     textService = { format } as unknown as TextService;
     toggle = new Emitter<{ enabled: boolean; state: TraceState }>();
