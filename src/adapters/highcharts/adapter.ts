@@ -3143,9 +3143,13 @@ function convertOrganizationSeries(
     return null;
   }
 
+  // Keyed by the id as a string. A chart declaring its links as `[[1, 2]]`
+  // gives numeric ids, draws correctly, and would otherwise have every path
+  // come back empty -- the whole hierarchy silently gone, announced as a
+  // flat list of roots.
   const byId = new Map<string, HighchartsNode>();
   for (const node of nodes) {
-    byId.set(node.id, node);
+    byId.set(String(node.id), node);
   }
 
   const multiParent = nodes.find(node => (node.linksTo ?? []).length > 1);
@@ -3166,7 +3170,7 @@ function convertOrganizationSeries(
   // The same stamping the treemap uses, over the nodes rather than the
   // points: an organization series' `data` is its links, and what a reader
   // navigates is the boxes.
-  stampPointIndices([nodes as unknown as HighchartsPoint[]], 'data-maidr-node-index');
+  stampPointIndices([nodes], 'data-maidr-node-index');
 
   return {
     id: String(series.index),
@@ -3197,7 +3201,7 @@ function organizationNodeLabel(node: HighchartsNode): string {
   const parts = [node.name, node.options?.title]
     .filter((part): part is string => typeof part === 'string' && part !== '');
   const unique = parts.filter((part, i) => parts.indexOf(part) === i);
-  return unique.length > 0 ? unique.join(', ') : node.id;
+  return unique.length > 0 ? unique.join(', ') : String(node.id);
 }
 
 /**
@@ -3219,23 +3223,26 @@ function organizationAncestors(
   seriesName: string,
 ): string[] {
   const path: string[] = [];
-  const seen = new Set<string>([node.id]);
+  const seen = new Set<string>([String(node.id)]);
   let at: HighchartsNode | undefined = node;
 
   while (at !== undefined) {
     const parentId = at.linksTo?.[0]?.from;
-    if (typeof parentId !== 'string') {
+    if (parentId === undefined || parentId === null) {
       break;
     }
-    if (seen.has(parentId)) {
+    // As a string, matching how `byId` is keyed: a numerically declared id
+    // is a real id, and treating it as "no parent" would flatten the tree.
+    const key = String(parentId);
+    if (seen.has(key)) {
       console.warn(
         `[MAIDR Highcharts] "${seriesName}" reports a cycle through `
-        + `"${parentId}"; the path is cut there.`,
+        + `"${key}"; the path is cut there.`,
       );
       break;
     }
-    seen.add(parentId);
-    const parent = byId.get(parentId);
+    seen.add(key);
+    const parent = byId.get(key);
     if (parent === undefined) {
       break;
     }
@@ -3322,10 +3329,19 @@ function stampTreeIndices(series: HighchartsSeries): void {
  * than shifting the indices, so the missing element makes its own selector
  * match nothing instead of pairing every later point with a neighbour's mark.
  *
- * @param groups - The points, in the order MAIDR reads them
+ * The parameter is narrowed to the one field this touches rather than taking
+ * a `HighchartsPoint`, because an organization series stamps its **nodes**:
+ * its points are the links, and what a reader navigates is the boxes. A cast
+ * between the two would have compiled only for as long as their `graphic`
+ * fields happened to agree.
+ *
+ * @param groups - The elements to stamp, in the order MAIDR reads them
  * @param attribute - The data attribute the selectors address
  */
-function stampPointIndices(groups: HighchartsPoint[][], attribute: string): void {
+function stampPointIndices(
+  groups: { graphic?: { element: SVGElement } }[][],
+  attribute: string,
+): void {
   let index = 0;
   for (const group of groups) {
     for (const point of group) {

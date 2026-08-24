@@ -150,6 +150,33 @@ describe('highcharts organization', () => {
     );
   });
 
+  it('reads a chart whose nodes are declared with numeric ids', () => {
+    // Highcharts accepts `data: [[1, 2], [1, 3]]` and draws the tree from
+    // it -- measured in Chromium, correctly. Treating a numeric parent id as
+    // "no parent" flattened the whole hierarchy into a list of roots, with
+    // no warning, which is the one failure this converter's decline paths
+    // exist to avoid.
+    const numeric: NodeInput[] = [
+      { id: '1', name: 'Ada' },
+      { id: '2', name: 'Bo', parents: ['1'] },
+      { id: '3', name: 'Eng', parents: ['2'] },
+    ];
+    const series = orgSeries(numeric);
+    // Re-declared as the numbers Highcharts would have handed over.
+    (series.nodes ?? []).forEach((node) => {
+      node.id = Number(node.id);
+      (node.linksTo ?? []).forEach((link) => {
+        link.from = Number(link.from);
+      });
+    });
+
+    const chart = fakeChart({ renderToId: 'numeric', series: [series] });
+    const data = highchartsToMaidr(chart).subplots[0][0].layers[0].data as TreemapPoint[];
+
+    expect(data[1].path).toEqual(['Ada']);
+    expect(data[2].path).toEqual(['Ada', 'Bo']);
+  });
+
   it('declines a chart where someone reports to two managers', () => {
     // A tree cannot say that, and reading it as one would drop a link the
     // chart plainly draws. A silently missing edge is worse than the

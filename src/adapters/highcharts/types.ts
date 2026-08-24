@@ -200,8 +200,15 @@ export type MapLonLat = [number, number] | { lon?: number; lat?: number };
  * its links, so nothing there needs the node objects.
  */
 export interface HighchartsNode {
-  /** The identifier the links name this node by. */
-  id: string;
+  /**
+   * The identifier the links name this node by.
+   *
+   * Numeric as well as textual, because a chart may declare its links as
+   * `[[1, 2], [1, 3]]` and Highcharts builds the nodes from whatever it is
+   * given -- measured, such a chart draws the tree correctly. Readers key on
+   * `String(id)` so both spellings resolve.
+   */
+  id: string | number;
   /** Display name, which Highcharts falls back to `id` for. */
   name?: string;
   /** The links whose `to` is this node — its parents, in an org chart. */
