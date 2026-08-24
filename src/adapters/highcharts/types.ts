@@ -338,6 +338,19 @@ export interface HighchartsPoint {
  */
 export interface HighchartsAxis {
   categories?: string[];
+  /**
+   * The other place Highcharts keeps a category axis' labels.
+   *
+   * An axis declared `categories: [...]` fills `categories` and leaves this
+   * empty. An axis declared `type: 'category'` -- the spelling Highcharts'
+   * own documentation uses for a chart of named tuples -- does the reverse:
+   * it collects the point names here and leaves `categories` an **empty
+   * array**, which is truthy and indexes to `undefined` (#1146).
+   *
+   * Read through `declaredCategories()` rather than directly, so that
+   * "what does the axis call slot 2" has one answer.
+   */
+  names?: string[];
   getExtremes: () => { min: number; max: number };
   isDatetimeAxis?: boolean;
   /**

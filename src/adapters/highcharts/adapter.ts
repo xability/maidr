@@ -556,8 +556,68 @@ function getAxisLabel(series: HighchartsSeries, axis: 'x' | 'y'): AxisConfig {
   return { label };
 }
 
+/**
+ * The labels an axis calls its slots by, from wherever Highcharts put them.
+ *
+ * There are two places, and which one is filled depends only on how the
+ * author spelled the axis. Measured on Highcharts 11.4.8 in Chromium, the
+ * same two-bar chart drawn twice:
+ *
+ *     declaration                  axis.categories   axis.names   drawn ticks
+ *     xAxis: { categories: [...] } ['A', 'B']        []           A, B
+ *     xAxis: { type: 'category' }  []                ['A', 'B']   A, B
+ *
+ * The second is the spelling Highcharts' own documentation uses for a chart
+ * of named tuples, and `categories` is an **empty array** there -- truthy,
+ * so `axis.categories?.[i]` reads as `undefined` rather than falling through
+ * a nullish check, and every label was lost (#1146).
+ *
+ * @param axis - The axis to ask, if there is one
+ * @returns Its category labels, or an empty array when it has none
+ */
+function declaredCategories(axis: HighchartsAxis | undefined): string[] {
+  const declared = axis?.categories;
+  if (declared !== undefined && declared.length > 0) {
+    return declared;
+  }
+  return axis?.names ?? [];
+}
+
+/**
+ * What an axis calls one of its slots.
+ *
+ * @param axis - The axis to ask, if there is one
+ * @param index - Which slot
+ * @returns The label, or undefined when the axis names no such slot
+ */
+function axisCategoryAt(
+  axis: HighchartsAxis | undefined,
+  index: number,
+): string | undefined {
+  const label = declaredCategories(axis)[Math.round(index)];
+  // A blank label names nothing, and announcing it would replace a position
+  // a reader can at least count with silence.
+  return typeof label === 'string' && label !== '' ? label : undefined;
+}
+
+/**
+ * What a point is called.
+ *
+ * The axis is asked first, because a category axis' labels are what the
+ * chart prints under the marks -- and because `point.category` is the label
+ * only on one of the two spellings. On the other it holds the point's
+ * **index**, which `??` will not fall through: `0` is neither null nor
+ * undefined, so the fallbacks below it were unreachable and every category
+ * came out as its own subscript (#1146).
+ *
+ * @param point - The point to name
+ * @returns Its label, or its `x` when nothing names it
+ */
 function pointLabel(point: HighchartsPoint): string | number {
-  return point.category ?? point.name ?? point.x;
+  return axisCategoryAt(point.series?.xAxis, point.x)
+    ?? point.category
+    ?? point.name
+    ?? point.x;
 }
 
 /**
@@ -879,8 +939,7 @@ function barAxes(
  * @returns A function from a point's `x` to its category index, or -1
  */
 function categoryIndexer(seriesList: HighchartsSeries[]): (x: number) => number {
-  const axisCategories = seriesList[0]?.xAxis?.categories;
-  if (axisCategories) {
+  if (declaredCategories(seriesList[0]?.xAxis).length > 0) {
     return (x: number) => Math.round(x);
   }
 
@@ -910,7 +969,7 @@ function buildSegmentedRows(
 
   // Build the shared category-label list (index → label), preferring the axis
   // categories, then per-point category/name, then the x value itself.
-  const axisCategories = seriesList[0]?.xAxis?.categories;
+  const axisCategories = declaredCategories(seriesList[0]?.xAxis);
   const indexForX = categoryIndexer(seriesList);
 
   const categoryLabels: (string | number)[] = [];
@@ -920,14 +979,16 @@ function buildSegmentedRows(
       if (index < 0)
         continue;
       if (categoryLabels[index] === undefined) {
-        categoryLabels[index] = axisCategories?.[index] ?? p.category ?? p.name ?? Math.round(p.x);
+        categoryLabels[index]
+          = axisCategoryAt(seriesList[0]?.xAxis, index)
+            ?? p.category ?? p.name ?? Math.round(p.x);
       }
     }
   }
-  const categoryCount = Math.max(axisCategories?.length ?? 0, categoryLabels.length);
+  const categoryCount = Math.max(axisCategories.length, categoryLabels.length);
   for (let j = 0; j < categoryCount; j++) {
     if (categoryLabels[j] === undefined) {
-      categoryLabels[j] = axisCategories?.[j] ?? j;
+      categoryLabels[j] = axisCategoryAt(seriesList[0]?.xAxis, j) ?? j;
     }
   }
 
@@ -2296,8 +2357,9 @@ function parallelColumnLabel(
   point: HighchartsPoint,
   chart: HighchartsChart,
 ): string | number {
-  if (point.category !== undefined) {
-    return point.category;
+  const declared = axisCategoryAt(point.series?.xAxis, point.x) ?? point.category;
+  if (declared !== undefined) {
+    return declared;
   }
   const axisTitle = chart.yAxis?.[Math.round(point.x)]?.options?.title?.text;
   return axisTitle || pointLabel(point);
@@ -2366,7 +2428,7 @@ function convertParallelSeries(
  * {@link BarPoint}s, whose `x` is that label.
  */
 function isCategoryScatter(series: HighchartsSeries): boolean {
-  return (series.xAxis?.categories?.length ?? 0) > 0;
+  return declaredCategories(series.xAxis).length > 0;
 }
 
 /**
