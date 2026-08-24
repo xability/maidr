@@ -98,6 +98,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.ICICLE]: 'Icicle Chart',
   [TraceType.SUNBURST]: 'Sunburst Chart',
   [TraceType.TREE]: 'Tree Diagram',
+  [TraceType.PACK]: 'Circle Packing',
   [TraceType.TREEMAP]: 'Treemap',
   [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
   [TraceType.VIOLIN_KDE]: 'Violin Plot',

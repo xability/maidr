@@ -105,6 +105,7 @@ describe('resolveOrientation', () => {
     TraceType.ICICLE,
     TraceType.SUNBURST,
     TraceType.TREE,
+    TraceType.PACK,
     TraceType.TREEMAP,
     // A waterfall is navigated one column per step whichever way the bars
     // are drawn, so there is no main and cross axis to swap.

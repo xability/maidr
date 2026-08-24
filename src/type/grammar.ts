@@ -1784,6 +1784,15 @@ export enum TraceType {
    */
   TREE = 'tree',
   /**
+   * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as circles
+   * nested inside circles rather than as nested rectangles. Sized by value
+   * like a treemap and navigated identically, and named apart for the reason
+   * {@link TraceType.TREE} is: the reader is told which chart is on the page,
+   * and a circle-packing diagram announced as a treemap is a chart type
+   * nobody drew.
+   */
+  PACK = 'pack',
+  /**
    * The same hierarchy as a {@link TraceType.TREEMAP}, drawn as rings around
    * a centre rather than as nested rectangles. The layout differs and the
    * tree does not, so it is read by the same trace -- with one thing of its
