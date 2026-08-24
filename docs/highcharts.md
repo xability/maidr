@@ -119,6 +119,7 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Network | `networkgraph` (requires `modules/networkgraph.js`) | [highcharts-network.html](examples/highcharts-network.html) |
 | Treemap | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](examples/highcharts-treemap.html) |
 | Sunburst | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](examples/highcharts-sunburst.html) |
+| Organization | `organization` (requires `modules/sankey.js` and `modules/organization.js`), read as a tree with no magnitude | — |
 | Gauge | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](examples/highcharts-gauge.html) |
 | Waterfall | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](examples/highcharts-waterfall.html) |
 | Error Bar | `errorbar` (requires `highcharts-more.js`), reading its estimates from the series it is `linkedTo`; `arearange`, `areasplinerange`, `columnrange` (require `highcharts-more.js`), each read as the band of intervals it draws | [highcharts-errorbar.html](examples/highcharts-errorbar.html) |
@@ -170,6 +171,12 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 > **Hierarchy note:** Highcharts declares a treemap or sunburst with `id`/`parent` pointers, and MAIDR declares one as a path — a node's ancestors, root first, itself excluded — so the adapter walks each node's parent chain to build it. A parent id that was never declared ends the path there, matching how Highcharts attaches such a node to the root, and a cyclic chain is broken with a warning rather than followed. Interior nodes keep whatever value they declared and are otherwise left valueless, since MAIDR derives an interior total from the children the paths give it. Both series file their marks into one DOM group per depth ordered by z-index, so document order says nothing about declaration order; the adapter stamps `data-maidr-node-index` onto each rendered node and the selectors address the stamp. A node Highcharts did not draw leaves MAIDR with fewer elements than nodes, and highlighting is withdrawn for that layer rather than paired with the wrong rectangles.
 
+> **Organization note:** an organization chart is a pure hierarchy and carries no magnitude at all. Measured on a six-node chart in Highcharts 11, every node came back with **no `value` field** and with Highcharts' own internal `sum` at `1` for every node alike, because the layout assigns one unit per link. It is read as a treemap that declares no `y`, which the trace recognises as a tree with nothing to announce on a second axis: no value clause, no shares, no total, and the empty tone rather than a flat one. What a reader gets is the structure — moving up to a manager, down to a report, across to a peer, the ancestry, and how many people report to whoever the cursor is on.
+>
+> The structure comes from `series.nodes` rather than from the links, because that is where Highcharts resolves `linksTo`, the display `name`, the `title` drawn under it, and the box itself. A node's label joins its name and its title, which is what the box says; a name Highcharts fell back to the id for is not repeated. A cyclic chain is cut with a warning, as it is for a treemap.
+>
+> **A node with more than one parent declines the whole series.** `TreemapPoint.path` is one ancestry, so a tree cannot say that someone reports to two managers, and reading it as one would drop a link the chart plainly draws. A silently missing edge is worse than the fallback, which at least says what it is.
+
 > **Gauge note:** a gauge layer's data is a single object rather than an array, because the chart draws exactly one measure; a series declaring several dials is read as its first. The dial's ends come from the value axis' extremes, a bullet chart's target from the point, and the qualitative bands from the axis' `plotBands`, sorted ascending because MAIDR carries only each band's upper edge. Highcharts bands are usually drawn in colour and named nowhere, so a band with neither a `label.text` nor a styled-mode `className` is numbered by its position in the partition. The three series draw the reading differently — a needle carrying no point class, an arc that is an ordinary point, a bar beside a target marker that also carries the point class — so each has its own highlight selector.
 
 > **Waterfall note:** Highcharts declares only what each step contributes, while MAIDR's step also carries the absolute positions its bar floats between, so the adapter accumulates the running total as it walks the series. The two kinds of restating bar are placed the way Highcharts draws them: an `isSum` step spans the baseline to the running total, an `isIntermediateSum` step spans the previous subtotal's edge to the current running total. Both are announced as `total` steps and are left out of "largest contribution", since they restate a number rather than contribute one.
@@ -198,7 +205,7 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 ### Series types that are deliberately not read
 
-Every other Highcharts series type either has a reading above or is a spelling of one. These five are drawn, understood, and declined — a chart containing one gets no layer for it. They are listed so that a later sweep finds the reasons rather than re-deriving them.
+Every other Highcharts series type either has a reading above or is a spelling of one. These four are drawn, understood, and declined — a chart containing one gets no layer for it. They are listed so that a later sweep finds the reasons rather than re-deriving them.
 
 | Series | Why it is declined |
 | --- | --- |
@@ -206,13 +213,6 @@ Every other Highcharts series type either has a reading above or is a spelling o
 | `polygon` | An arbitrary closed shape with no statistical reading — already noted in `test/adapters/highcharts/arearange.test.ts`. |
 | `vector`, `windbarb`, `flags` | Direction and annotation rather than a measured series. A vector's payload is an angle and a length at a position; a flag is a note pinned to a date. |
 | `packedbubble` | It has a magnitude, but the positions are a packing rather than data — announcing a bubble's x and y would report where the layout put it. |
-| `organization` | Blocked on the core rather than on the adapter — see below. |
-
-> **Organization note:** an organization chart is a pure hierarchy, and the hierarchy itself is exact and readable: `series.nodes` carries each node's `id`, `name` and `linksTo`, and every node draws its own `path.highcharts-node.highcharts-point` inside the series group in `series.nodes` order. What is missing is a magnitude. Measured on a six-node chart, every node's `value` and `weight` came back `null`, and Highcharts' own internal `sum` was `1` for every node alike because it assigns one unit per link for layout — so there is no number anywhere in the declaration.
->
-> `TraceType.TREEMAP` is the grammar's only hierarchy, and it cannot express that. Driving a valueless tree through `TreemapTrace`, **omitting `y`** announces `value: 0` on every node with `freq { min: 0, max: 0 }` — no pitch range at all — and **declaring `y: 1`** is worse: it announces `Share of Ada: 100.0%` for *both* of Ada's two children, because a declared parent value overrides the derived total that would have summed to 2. Either way every node states a magnitude the chart does not draw, which is the same objection this guide already makes about emitting `count` for a variwide.
->
-> An org chart read as a tree would be a real improvement on the nothing it gets today — navigation, the ancestry breadcrumb and the child count are all correct and useful. So this is declined pending [#1153](https://github.com/xability/maidr/issues/1153), which is about giving the tree a way to say it has no magnitude, rather than pending anything here. One further guard for whoever picks it up: `TreemapPoint.path` is *one* ancestry, so a node with two parents cannot be expressed and such a chart should be declined rather than have a parent picked for it.
 
 ## Declaring What a Series Means
 

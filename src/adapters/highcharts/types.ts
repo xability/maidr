@@ -187,10 +187,48 @@ export type MapLonLat = [number, number] | { lon?: number; lat?: number };
 /**
  * Represents a single data series within a Highcharts chart.
  */
+/**
+ * One node of a node-and-link series.
+ *
+ * A sankey, a dependency wheel and an organization chart all declare their
+ * data as links and let Highcharts build the nodes from them, so the nodes
+ * are a *resolved* structure rather than a declared one: `series.nodes` is
+ * what the chart drew, and it is the only place a node's own options and its
+ * drawn element can be reached.
+ *
+ * Only the organization converter reads this today. A sankey's payload is
+ * its links, so nothing there needs the node objects.
+ */
+export interface HighchartsNode {
+  /** The identifier the links name this node by. */
+  id: string;
+  /** Display name, which Highcharts falls back to `id` for. */
+  name?: string;
+  /** The links whose `to` is this node — its parents, in an org chart. */
+  linksTo?: HighchartsPoint[];
+  /** The links whose `from` is this node — its children. */
+  linksFrom?: HighchartsPoint[];
+  /** The rendered box, which the per-node selectors are stamped onto. */
+  graphic?: { element: SVGElement };
+  options?: {
+    /**
+     * The second line an organization box draws, under the name — a job
+     * title. Highcharts names it `title`, and it is a node option rather
+     * than a point one, which is why it is reached through here.
+     */
+    title?: string;
+  };
+}
+
 export interface HighchartsSeries {
   type: string;
   name: string;
   data: HighchartsPoint[];
+  /**
+   * The nodes of a node-and-link series, resolved by Highcharts from the
+   * links. Absent on every other series type.
+   */
+  nodes?: HighchartsNode[];
   xAxis: HighchartsAxis;
   yAxis: HighchartsAxis;
   index: number;
