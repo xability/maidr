@@ -1227,6 +1227,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
       [TraceType.MANHATTAN, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.VOLCANO, asGeneric(new HeatmapBrailleEncoder())],
       [TraceType.SCATTER, asGeneric(new HeatmapBrailleEncoder())],
+      [TraceType.SUNFLOWER, asGeneric(new HeatmapBrailleEncoder())],
       // A single row of signed contributions scaled against that row's own
       // range -- the bar encoder's input exactly, and the same magnitude the
       // audio plays and `cross` announces.

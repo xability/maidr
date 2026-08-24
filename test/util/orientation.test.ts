@@ -94,6 +94,7 @@ describe('resolveOrientation', () => {
     TraceType.MANHATTAN,
     TraceType.VOLCANO,
     TraceType.SCATTER,
+    TraceType.SUNFLOWER,
     TraceType.SMOOTH,
     TraceType.STACKED_AREA,
     TraceType.STEP,

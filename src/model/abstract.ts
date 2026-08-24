@@ -90,6 +90,7 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.RADAR]: 'Radar Chart',
   [TraceType.RIDGELINE]: 'Ridgeline Plot',
   [TraceType.SCATTER]: 'Scatter Plot',
+  [TraceType.SUNFLOWER]: 'Sunflower Plot',
   [TraceType.SMOOTH]: 'Smooth Line Chart',
   [TraceType.STACKED]: 'Stacked Bar Chart',
   [TraceType.STACKED_AREA]: 'Stacked Area Chart',
