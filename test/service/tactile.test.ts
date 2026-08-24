@@ -1281,6 +1281,21 @@ describe('tactileService', () => {
       );
     });
 
+    it('should say the line is uncontracted when the engine never came up', () => {
+      // The other way it happens, and the simpler one: no engine at all. The
+      // reader is told the same thing, because from their side it is the same
+      // event -- the cells under their fingers are uncontracted either way.
+      session.canTranslate = false;
+      session.isConnected = true;
+      turnOn();
+
+      service.update(traceState(chart, 1));
+
+      expect(notify).toHaveBeenCalledWith(
+        'Contracted braille is unavailable, so the tactile display\'s text line is uncontracted',
+      );
+    });
+
     it('should say it once rather than on every move', async () => {
       // A standing condition, not an event. Repeating it on every arrow key
       // would talk over the reading it is describing.
