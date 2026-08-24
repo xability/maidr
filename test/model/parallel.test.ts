@@ -321,7 +321,7 @@ describe('navigation is the multi-line model', () => {
     expect(trace.moveOnce('FORWARD')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe('hp');
     expect(trace.moveOnce('UPWARD')).toBe(true);
-    expect(nonEmptyState(trace).text.cross.value).toBe(110);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(110);
   });
 
   test('announces the axis name and the raw value, not the normalized one', () => {
@@ -330,6 +330,6 @@ describe('navigation is the multi-line model', () => {
     const { text } = nonEmptyState(parallel(2, 2));
 
     expect(text.main.value).toBe('weight');
-    expect(text.cross.value).toBe(3200);
+    expect(text.cross?.value).toBe(3200);
   });
 });

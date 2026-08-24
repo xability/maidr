@@ -157,7 +157,7 @@ describe('which axis is which follows the orientation', () => {
     const { text } = nonEmptyState(gantt());
 
     expect(text.main.label).toBe('Task');
-    expect(text.cross.label).toBe('Day');
+    expect(text.cross?.label).toBe('Day');
     expect(text.mainAxis).toBe('x');
     expect(text.crossAxis).toBe('y');
   });
@@ -172,7 +172,7 @@ describe('which axis is which follows the orientation', () => {
     );
 
     expect(text.main.label).toBe('Day');
-    expect(text.cross.label).toBe('Task');
+    expect(text.cross?.label).toBe('Task');
     expect(text.mainAxis).toBe('y');
     expect(text.crossAxis).toBe('x');
   });

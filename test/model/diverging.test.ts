@@ -131,7 +131,7 @@ describe('the sign is a direction, not a magnitude', () => {
     // are on, which the label beside it already said.
     const { text } = nonEmptyState(diverging(0, 0));
 
-    expect(text.cross.value).toBe(1200);
+    expect(text.cross?.value).toBe(1200);
     expect(text.z).toEqual({ label: 'Sex', value: 'Men' });
   });
 
@@ -181,8 +181,8 @@ describe('a chart drawn with its bands down the page', () => {
     // ordinary case rather than the exotic one.
     const { text } = nonEmptyState(horizontal(0, 0));
 
-    expect(text.cross.label).toBe('People');
-    expect(text.cross.value).toBe(1200);
+    expect(text.cross?.label).toBe('People');
+    expect(text.cross?.value).toBe(1200);
     expect(text.main.value).toBe('0-24');
     expect(text.z?.value).toBe('Men');
   });
@@ -204,7 +204,7 @@ describe('the balance row says which side is ahead', () => {
     // "Sum is 50" invites a reader to hear a total; the number is a lead.
     const { text } = nonEmptyState(diverging(BALANCE_ROW, 1));
 
-    expect(text.cross.value).toBe(50);
+    expect(text.cross?.value).toBe(50);
     expect(text.z).toEqual({ label: 'Balance', value: 'Women ahead' });
   });
 
@@ -248,7 +248,7 @@ describe('the balance row says which side is ahead', () => {
 
     expect(text.z).toEqual({ label: 'Sex', value: 'Sum' });
     // Signed, too: on a sum a minus sign really is a smaller number.
-    expect(text.cross.value).toBe(-300);
+    expect(text.cross?.value).toBe(-300);
   });
 
   test('says level rather than naming a winner at zero', () => {

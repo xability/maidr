@@ -163,11 +163,15 @@ export class DivergingTrace extends SegmentedTrace {
     const magnitude = Math.abs(value);
     // `cross` carries the bar's length in BOTH orientations -- the parent
     // swaps which point field feeds it, not which half of the announcement it
-    // is -- so there is one slot to replace rather than two.
-    const sized = (state: TextState): TextState => ({
-      ...state,
-      cross: { ...state.cross, value: magnitude },
-    });
+    // is -- so there is one slot to replace rather than two. The clause is
+    // optional on `TextState` for the traces that have no cross axis at all
+    // (#1153); a diverging bar always has one, so a state arriving without it
+    // is passed through rather than given a label invented here.
+    const sized = (state: TextState): TextState => (
+      state.cross === undefined
+        ? state
+        : { ...state, cross: { ...state.cross, value: magnitude } }
+    );
 
     if (this.isBalanceRow(this.row)) {
       if (!this.isTwoSided) {

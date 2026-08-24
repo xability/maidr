@@ -29,7 +29,7 @@ describe('abstractTrace.getStateAt', () => {
     expect(state.empty).toBe(false);
     if (!state.empty) {
       expect(state.text.main.value).toBe('C');
-      expect(state.text.cross.value).toBe(3);
+      expect(state.text.cross?.value).toBe(3);
     }
   });
 

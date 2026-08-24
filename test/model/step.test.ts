@@ -159,12 +159,12 @@ describe('step trace transition navigation', () => {
 
     expect(trace.moveToRotorFilter('transition', 'right')).toBe(true);
     expect(trace.col).toBe(1);
-    expect(nonEmptyState(trace).text.cross.value).toBe('N2');
+    expect(nonEmptyState(trace).text.cross?.value).toBe('N2');
 
     // Column 2 repeats N2, so the next transition is column 3, not column 2.
     expect(trace.moveToRotorFilter('transition', 'right')).toBe(true);
     expect(trace.col).toBe(3);
-    expect(nonEmptyState(trace).text.cross.value).toBe('REM');
+    expect(nonEmptyState(trace).text.cross?.value).toBe('REM');
   });
 
   test('jumps backward to the previous change and reports the boundary', () => {

@@ -119,6 +119,30 @@ export class TreemapTrace extends AbstractTrace {
   private readonly grandTotal: number;
 
   /**
+   * Whether any node declared a magnitude at all.
+   *
+   * `TreemapPoint.y` is optional because an interior node's value is
+   * ordinarily the sum of its children. A tree in which *no* node declares
+   * one is a different thing: a pure hierarchy, which is what an org chart
+   * is, and it has no magnitude to announce anywhere. Measured on a
+   * Highcharts organization chart, every node's `value` and `weight` came
+   * back null and the library's own internal `sum` was 1 for every node
+   * alike, because it assigns one unit per link for layout (#1153).
+   *
+   * Read as an ordinary tree, such a chart announced `0` on every node and
+   * derived shares from it -- and declaring Highcharts' own 1 instead was
+   * strictly worse, because two siblings were then each announced as 100% of
+   * their parent. What a reader actually wants from a pure hierarchy is
+   * already here and already right: the navigation, the `Path` and the
+   * `Children` count.
+   *
+   * A *mixed* tree is untouched. An undeclared interior node summing its
+   * children is the documented ordinary case, and one declared magnitude
+   * anywhere makes this true.
+   */
+  private readonly valued: boolean;
+
+  /**
    * Where each node sits around the dial, in radians, shaped as `nodes` is.
    *
    * A sunburst lays a node's children across its own arc in proportion to
@@ -139,6 +163,9 @@ export class TreemapTrace extends AbstractTrace {
     super(layer);
 
     const points = layer.data as TreemapPoint[];
+    this.valued = points.some(
+      point => typeof point.y === 'number' && Number.isFinite(point.y),
+    );
     this.nodes = TreemapTrace.buildTree(points);
     this.nodeValues = this.nodes.map(level =>
       level.map(node => node?.value ?? Number.NaN));
@@ -333,7 +360,15 @@ export class TreemapTrace extends AbstractTrace {
       freq: {
         min: this.depthMin[this.row] ?? 0,
         max: this.depthMax[this.row] ?? 0,
-        raw: node?.value ?? 0,
+        // A pure hierarchy has nothing to pitch, and this is the contract
+        // that already says so: a non-finite magnitude means "the point
+        // exists to navigate to, it just has no value", and `AudioService`
+        // sounds it with the empty tone rather than interpolating it -- #925,
+        // and deliberately not scoped there to the trace that first needed
+        // it. Leaving the 0 would have been a flat tone at the bottom of the
+        // range, which is a positive claim that every node is equal and
+        // small rather than an absence of one.
+        raw: this.valued ? (node?.value ?? 0) : Number.NaN,
       },
       panning: this.panning,
     };
@@ -437,7 +472,7 @@ export class TreemapTrace extends AbstractTrace {
     if (node === null) {
       return {
         main: { label: this.xAxis, value: '' },
-        cross: { label: this.yAxis, value: 0 },
+        ...(this.valued ? { cross: { label: this.yAxis, value: 0 } } : {}),
         mainAxis: 'x',
         crossAxis: 'y',
       };
@@ -456,6 +491,13 @@ export class TreemapTrace extends AbstractTrace {
       asides.push({ label: 'Path', value: ancestors.join(' > ') });
     }
 
+    // The two share clauses need no `valued` guard of their own, and one was
+    // written and then removed for being unfalsifiable. In a tree that
+    // declares no magnitude every node's value is a sum of zeroes, so both
+    // denominators below are 0 and both branches are already skipped -- and
+    // a tree with a genuine declared 0 in it is a *valued* tree, since one
+    // finite magnitude anywhere makes it one. There is no input the extra
+    // guard would change, so it is stated here rather than coded.
     const parent = node.parent === null
       ? null
       : this.nodes[node.parent.row]?.[node.parent.col] ?? null;
@@ -483,7 +525,9 @@ export class TreemapTrace extends AbstractTrace {
 
     return {
       main: { label: this.xAxis, value: node.name },
-      cross: { label: this.yAxis, value: node.value },
+      // Omitted rather than sent as 0, or as the layout's per-link 1: both
+      // announce a number no rectangle on the page stands for.
+      ...(this.valued ? { cross: { label: this.yAxis, value: node.value } } : {}),
       mainAxis: 'x',
       crossAxis: 'y',
       asides,
@@ -576,15 +620,18 @@ export class TreemapTrace extends AbstractTrace {
     const every = this.nodes.flat().filter((node): node is TreeNode => node !== null);
     const leaves = every.filter(node => node.children.length === 0);
 
+    // The shape of the tree is real whether or not it carries magnitudes;
+    // the total is not. A pure hierarchy keeps the three counts and loses
+    // every stat derived from a value it never declared (#1153).
     const stats: DescriptionState['stats'] = [
       { label: 'Levels', value: this.nodes.length },
       { label: 'Number of nodes', value: every.length },
       { label: 'Number of leaves', value: leaves.length },
-      { label: 'Total', value: this.grandTotal },
+      ...(this.valued ? [{ label: 'Total', value: this.grandTotal }] : []),
     ];
 
     const roots = this.nodes[0] ?? [];
-    if (roots.length > 0 && this.grandTotal !== 0) {
+    if (this.valued && roots.length > 0 && this.grandTotal !== 0) {
       // The top-level breakdown, which is the first thing a sighted reader
       // takes from the layout and the last thing a walk of thirty leaves
       // would assemble.
@@ -601,7 +648,7 @@ export class TreemapTrace extends AbstractTrace {
       (best, node) => (best === null || node.value > best.value ? node : best),
       null,
     );
-    if (largest !== null) {
+    if (this.valued && largest !== null) {
       // Named with its ancestry, because a leaf's name alone does not say
       // which branch it is the largest thing in.
       stats.push({
@@ -616,15 +663,26 @@ export class TreemapTrace extends AbstractTrace {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: {
-        headers: ['Path', this.xAxis, this.yAxis, 'Share of total'],
-        rows: every.map(node => [
-          this.ancestorsOf(node).join(' > '),
-          node.name,
-          node.value,
-          this.grandTotal === 0 ? '' : asPercent(node.value / this.grandTotal),
-        ]),
-      },
+      dataTable: this.valued
+        ? {
+            headers: ['Path', this.xAxis, this.yAxis, 'Share of total'],
+            rows: every.map(node => [
+              this.ancestorsOf(node).join(' > '),
+              node.name,
+              node.value,
+              this.grandTotal === 0 ? '' : asPercent(node.value / this.grandTotal),
+            ]),
+          }
+        : {
+            // Two columns rather than four, half of them zeroes and blanks:
+            // the ancestry and the name are the whole of what a pure
+            // hierarchy has to tabulate.
+            headers: ['Path', this.xAxis],
+            rows: every.map(node => [
+              this.ancestorsOf(node).join(' > '),
+              node.name,
+            ]),
+          },
     };
   }
 

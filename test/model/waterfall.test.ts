@@ -83,7 +83,7 @@ describe('reading a step', () => {
     const { text } = nonEmptyState(at(1));
 
     expect(text.main.value).toBe('Marketing');
-    expect(text.cross.value).toBe(-250);
+    expect(text.cross?.value).toBe(-250);
   });
 
   test('carries the running total alongside the contribution', () => {
@@ -107,7 +107,7 @@ describe('reading a step', () => {
     // two: at every step the two must not be the same value.
     for (let col = 1; col < 4; col++) {
       const { text } = nonEmptyState(at(col));
-      expect(text.cross.value).not.toBe(text.stack?.value);
+      expect(text.cross?.value).not.toBe(text.stack?.value);
     }
   });
 });

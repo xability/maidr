@@ -151,7 +151,7 @@ describe('a bin is announced by its centre', () => {
     const { text } = nonEmptyState(hexbin(1, 1));
 
     expect(text.main.value).toBe(3);
-    expect(text.cross.value).toBe(1);
+    expect(text.cross?.value).toBe(1);
     expect(text.z).toEqual({ label: 'Count', value: 12 });
   });
 });

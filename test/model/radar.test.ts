@@ -140,7 +140,7 @@ describe('navigation is the multi-line model', () => {
     expect(trace.moveOnce('DOWNWARD')).toBe(false);
     expect(trace.moveOnce('UPWARD')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe('range');
-    expect(nonEmptyState(trace).text.cross.value).toBe(7);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(7);
   });
 
   test('stops at the last spoke rather than wrapping', () => {
@@ -323,6 +323,6 @@ describe('the rest of the reading is unchanged', () => {
     const { text } = nonEmptyState(radar(1, 2));
 
     expect(text.main.value).toBe('comfort');
-    expect(text.cross.value).toBe(3);
+    expect(text.cross?.value).toBe(3);
   });
 });
