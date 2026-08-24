@@ -50,8 +50,9 @@ import type {
   SegmentedPoint,
   SmoothPoint,
   StepDirection,
+  TreemapPoint,
 } from '@type/grammar';
-import type { BoxComposite, MarkFacet } from './introspect';
+import type { BoxComposite, MarkFacet, TreeComposite } from './introspect';
 import type { MarkDatum, ObservablePlotOptions, PlotScale, PlotScales } from './types';
 import { ensureContainerId, nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
@@ -63,6 +64,8 @@ import {
   readTitles,
   resolveSvg,
   splitFacets,
+  TREE_PATH_SEPARATOR,
+  treeComposite,
 } from './introspect';
 import {
   bandIntervals,
@@ -223,6 +226,18 @@ function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[
   for (const [element, name] of overlays.names)
     context.pointNames.set(element, name);
 
+  // A tree is three marks that only mean anything together, and it is found
+  // after the labels have moved onto the dots, because the paths it is read
+  // from arrive that way. Its groups are skipped below, where the dots would
+  // be announced as a scatter of the coordinates the layout algorithm chose
+  // and the links would produce no layer at all (#1168).
+  const tree = treeComposite(groups);
+  if (tree) {
+    claimed.add(tree.link).add(tree.dot);
+    for (const index of tree.texts)
+      claimed.add(index);
+  }
+
   const place = (facet: MarkFacet, converted: ConvertedMark): void => {
     const position = facetPosition(facet, context.scales);
     const key = `${position.row}:${position.column}`;
@@ -241,6 +256,11 @@ function collectFacetCells(svg: Element, context: ConversionContext): FacetCell[
 
   for (const composite of composites) {
     for (const { facet, converted } of convertBoxComposite(composite, groups, context))
+      place(facet, converted);
+  }
+
+  if (tree) {
+    for (const { facet, converted } of convertTreeComposite(tree, groups, context))
       place(facet, converted);
   }
 
@@ -503,6 +523,99 @@ interface ConvertedBox {
  * @param context   - The conversion context.
  * @returns One entry per facet that could be read; empty when none could.
  */
+/** What a tree's one axis is called, there being no second one. */
+const TREE_NODE_AXIS = 'Node';
+
+/**
+ * Reads a `Plot.tree` or `Plot.cluster` as the hierarchy it draws.
+ *
+ * {@link treeComposite} has already established that these groups are a tree:
+ * every node carries a `<title>` holding its full path from the root, and
+ * every parent in those paths is itself a node. What is left is to turn each
+ * path into the shape MAIDR addresses a hierarchy by — the node's name, and
+ * its ancestors root first with itself excluded.
+ *
+ * The nodes come from the `dot` mark rather than from the text marks, for two
+ * reasons. Plot splits the labels across two marks — leaf and internal — so
+ * their document order is not the tree's, while the dots are one element per
+ * node in one group; and the dots are what a reader's highlight can point at.
+ * The paths reach them through `pointNames`, which {@link labelOverlays} has
+ * already filled in by pairing each label to the mark it sits on (#1106) —
+ * the same pairing that made this chart read as a labelled scatter before.
+ *
+ * No node carries a `y`. A tree layout sizes nothing by value and Plot draws
+ * every dot alike, so there is no magnitude to announce and the layer names no
+ * value axis — the reading `TreemapTrace` takes for a tree that declares none
+ * (#1153), and the one an `organization` series, a `treegraph` and an
+ * `OrgChart` all get.
+ *
+ * @param composite - The tree's groups, as indices into the plot's groups.
+ * @param groups    - The plot's mark groups, in draw order.
+ * @param context   - The conversion context.
+ * @returns One entry per facet the tree was drawn in.
+ */
+function convertTreeComposite(
+  composite: TreeComposite,
+  groups: readonly { label: string; group: Element }[],
+  context: ConversionContext,
+): { facet: MarkFacet; converted: ConvertedMark }[] {
+  const converted: { facet: MarkFacet; converted: ConvertedMark }[] = [];
+
+  for (const facet of splitFacets(groups[composite.dot].group)) {
+    const data: TreemapPoint[] = [];
+    const elements: Element[] = [];
+
+    for (const element of facet.elements) {
+      // The node's own title, ahead of any label paired onto it. Plot titles
+      // every tree dot with its full path, so the exact answer is on the mark
+      // being read; the pairing is a fallback for a tree drawn without one.
+      // It matters where two trees overlap -- sharing a pair of scales puts
+      // their roots on the same point, and the pairing then answers with the
+      // other tree's name.
+      const path = markName(element) ?? context.pointNames.get(element);
+      if (path === null || path === undefined || !path.startsWith(TREE_PATH_SEPARATOR))
+        continue;
+      const segments = path.split(TREE_PATH_SEPARATOR).slice(1);
+      const name = segments[segments.length - 1];
+      // Plot invents a root when the data has more than one, so that its
+      // layout has somewhere to start: measured on `Plot.tree(['x/1','y/2'])`
+      // it draws a sixth dot titled `/` and gives it no label, because it has
+      // no name to draw. It is drawing rather than data, and announcing it
+      // would put an unnamed node above two the reader can name, so it is
+      // dropped and the forest keeps the two roots it has.
+      if (name === undefined || name === '')
+        continue;
+      data.push({ x: name, path: segments.slice(0, -1) });
+      elements.push(element);
+    }
+
+    if (data.length === 0)
+      continue;
+
+    const token = `L${context.layerCount++}`;
+    converted.push({
+      facet,
+      converted: {
+        legend: [],
+        layer: {
+          id: token,
+          type: TraceType.TREE,
+          // One per node rather than one for the layer: a hierarchy is
+          // navigated node by node, and each has its own dot to outline.
+          selectors: elements.map((element, index) =>
+            stampLayer([element], context.containerId, `${token}-${index}`)),
+          // Only the node axis. The tree's own x and y are where the layout
+          // put each node, which is what reading this as a scatter announced.
+          axes: { x: { label: TREE_NODE_AXIS } },
+          data,
+        },
+      },
+    });
+  }
+
+  return converted;
+}
+
 function convertBoxComposite(
   composite: BoxComposite,
   groups: readonly { label: string; group: Element }[],

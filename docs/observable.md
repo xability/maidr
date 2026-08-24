@@ -206,6 +206,7 @@ That is why the adapter needs no configuration and works on charts written befor
 | `text` on two continuous axes | Scatter carrying each point's name | A labelled scatter; see below |
 | `text` sitting on another mark | — | Read as that mark's names rather than as a series; see below |
 | `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
+| `tree` / `cluster` | Tree | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
@@ -452,6 +453,28 @@ Two details worth knowing:
 - **Outlier values come from the pixels**, like everything else. Plot binds a
   datum *index* to an outlier rather than the observation, and the adapter never
   sees your source data.
+
+## Trees
+
+`Plot.tree` and `Plot.cluster` are not marks but three of them — a `link` for the edges, a `dot` for the nodes, and a `text` for their names, which Plot draws as **two** text marks because leaf labels and internal-node labels sit on opposite sides of their dot. Read individually the hierarchy disappears: the dots become a scatter whose coordinates are where d3's layout put each node, on scales Plot itself renders with `axis: null` because they mean nothing to a reader, and the links — the only place the structure lives — produce no layer at all (#1168).
+
+They are read as one `tree` layer, and what identifies one is a fact in the markup rather than an arrangement. Plot gives every tree node a `<title>` holding its **full path from the root**:
+
+```html
+<text y="0.32em" transform="translate(330,253)">Engineering<title>/Company/Engineering</title></text>
+```
+
+so the test is whether the **nodes'** titles form a rooted hierarchy — every one beginning with the separator, and every one's parent prefix either empty or another title. A labelled scatter whose labels happen to look like paths fails it as soon as one parent is missing, and a `link` mark on its own keeps the span reading above.
+
+Five details are worth knowing:
+
+- **The separator is always `/`**, whatever `delimiter` you passed. Measured on `Plot.tree(data, {delimiter: '.'})`, the titles still come back `/`-joined, because Plot normalises the path it parsed rather than echoing the spelling it was given.
+- **The nodes come from the `dot` mark**, not from the text marks. Plot splits the labels across two marks, so their document order is not the tree's — and the dots are what a reader's highlight can point at, one per node. Each node's name is read from its own `<title>` rather than from the label drawn beside it, which matters where two trees overlap: sharing a pair of scales puts both roots on the same point, and the nearest label is then as likely to be the other tree's.
+- **A forest keeps its roots.** Given more than one, Plot invents an unnamed root so its layout has somewhere to start, and draws a dot for it titled just `/`. That is drawing rather than data, so it is dropped and the roots you declared stay roots.
+- **Other marks on the chart do not hide the tree.** A tree found among them is read as one, and the marks around it are read as whatever they are: a `Plot.dot` scatter drawn before the tree does not take its nodes' place, and a `Plot.text` labelled from data of its own is not swallowed as the tree's names. Only the text marks titled from these nodes' paths belong to the tree.
+- **One tree per plot.** Two of them share a pair of scales and draw over one another, which is not a chart anyone makes; the first is read and the second is left as it was rather than the two being merged into a hierarchy neither draws.
+
+No node carries a magnitude. A tree layout sizes nothing by value and every dot is drawn alike, so the layer names only the node axis rather than claiming a second dimension the chart does not have.
 
 ## What it does not read
 

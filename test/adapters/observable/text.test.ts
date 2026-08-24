@@ -87,18 +87,19 @@ describe('a Plot.text that labels another mark', () => {
     // element would give "b/a/b" -- a `<title>` child's text is part of its
     // parent's `textContent`.
     //
-    // The coordinates stay what the chart drew: d3 tree layout depth and
-    // sibling offset, on scales `Plot.tree` renders with `axis: null`. This
-    // does not make them meaningful; it stops them being all a reader gets.
-    const nodes = layersOf('labelledTree').filter(layer => layer.type === TraceType.SCATTER);
+    // This pairing is what the hierarchy reading is built on (#1168): the
+    // paths it hands over are the tree, so the layer is a `tree` rather than
+    // the scatter of layout coordinates a labelled one used to be. The names
+    // are asserted here on the shape they arrive in, one node per path.
+    const nodes = layersOf('labelledTree').filter(layer => layer.type === TraceType.TREE);
 
     expect(nodes).toHaveLength(1);
-    expect(pointsOf(nodes[0]).map(point => point.label)).toEqual([
-      '/a',
-      '/a/b',
-      '/a/c',
-      '/a/b/d',
-      '/a/b/e',
+    expect((nodes[0] as { data: { x: string; path: string[] }[] }).data).toEqual([
+      { x: 'a', path: [] },
+      { x: 'b', path: ['a'] },
+      { x: 'c', path: ['a'] },
+      { x: 'd', path: ['a', 'b'] },
+      { x: 'e', path: ['a', 'b'] },
     ]);
   });
 });
