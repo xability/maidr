@@ -1644,7 +1644,7 @@ function convertSeries(
       return convertBellCurveSeries(series, containerId);
     // The cumulative percentage drawn over a bar chart's columns.
     case 'pareto':
-      return convertParetoSeries(series, containerId);
+      return convertParetoSeries(series, chart, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -2534,23 +2534,33 @@ function convertLollipopSeries(
  * `series.baseSeries`, which the adapter reads on its own terms -- so a
  * chart drawing both gets both.
  *
+ * **A reversed axis is re-paired the same way a line's is** (#1007). The
+ * curve is generated, but nothing about being generated exempts it: measured
+ * on the base above with `xAxis.reversed`, Highcharts still computes the
+ * cumulative in declared order and still lays the path's vertices down in
+ * that order, so the curve runs 100 -> 40 from left to right while the bar
+ * layer beneath it -- which *is* re-paired -- reads D, C, B, A. Left alone,
+ * one chart's two layers announce its categories in opposite orders.
+ *
  * @param series - The pareto series to convert
+ * @param chart - The chart, read for whether its axis is drawn reversed
  * @param containerId - The chart container's id, for the selectors
  * @returns The line layer
  */
 function convertParetoSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
-  const data: LinePoint[][] = [
-    series.data
-      .filter(p => p.y !== null)
-      .map(p => ({
-        x: pointLabel(p),
-        y: p.y as number,
-        z: series.name || undefined,
-      })),
-  ];
+  const reversed = drawsSeriesReversed(series, chart);
+  const points = series.data
+    .filter(p => p.y !== null)
+    .map(p => ({
+      x: pointLabel(p),
+      y: p.y as number,
+      z: series.name || undefined,
+    }));
+  const data: LinePoint[][] = [reversed ? points.reverse() : points];
 
   return {
     id: String(series.index),
@@ -2561,6 +2571,7 @@ function convertParetoSeries(
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
+    ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     data,
   };
 }

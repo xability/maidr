@@ -28,6 +28,19 @@
  *
  * `series.linkedParent` is null, and the columns are reached through
  * `series.baseSeries`, which the adapter reads on its own terms.
+ *
+ * **A reversed axis reads the curve backwards** — the same defect #1007
+ * fixed for lines, and nothing about the curve being *generated* exempts it.
+ * Measured in Chromium on the same four causes, once plain and once with
+ * `xAxis.reversed`:
+ *
+ *   plain      bar layer  A B C D    curve  A B C D  (40, 70, 90, 100)
+ *   reversed   bar layer  D C B A    curve  A B C D  (40, 70, 90, 100)
+ *
+ * Highcharts still accumulates in declared order and still lays the path's
+ * vertices down in that order, so left to right the curve descends from 100
+ * to 40 while the bar layer beneath it — which the adapter already re-pairs
+ * (#995) — reads D, C, B, A. One chart, two layers, opposite orders.
  */
 import type { BarPoint, LinePoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
@@ -45,11 +58,16 @@ const CUMULATIVE = [40, 70, 90, 100];
  * A Pareto chart: the cumulative curve on a secondary axis, over columns.
  *
  * @param withColumns - Whether the base column series is on the chart too
+ * @param reversed - Whether the category axis is drawn from its far end
  * @returns The fake chart
  */
-function paretoChart(withColumns = true): ReturnType<typeof fakeChart> {
+function paretoChart(
+  withColumns = true,
+  reversed = false,
+): ReturnType<typeof fakeChart> {
   const categories = fakeAxis({
     categories: [...CAUSES],
+    reversed,
     options: { title: { text: 'Cause' } },
   });
   const percent = fakeAxis({ options: { title: { text: 'Cumulative %' } } });
@@ -151,6 +169,40 @@ describe('highcharts pareto', () => {
     expect(layer.selectors).toEqual([
       '#pareto-chart .highcharts-series-group .highcharts-series-0 path.highcharts-graph',
     ]);
+  });
+
+  it('reads a reversed axis in the order it is drawn', () => {
+    // Measured: the payload came out A, B, C, D over a chart drawn D, C, B,
+    // A. Re-paired, the curve descends from 100 the way a reader sweeping
+    // left to right hears it.
+    const layer = curve(paretoChart(true, true));
+
+    expect((layer.data as LinePoint[][])[0].map(point => point.x))
+      .toEqual([...CAUSES].reverse());
+    expect((layer.data as LinePoint[][])[0].map(point => point.y))
+      .toEqual([...CUMULATIVE].reverse());
+  });
+
+  it('reads a reversed chart\'s two layers in one order', () => {
+    // The point of the previous test, said about the chart rather than the
+    // curve: a Pareto chart's columns and its curve are the same categories,
+    // and a reader moving through one must not be moving backwards through
+    // the other.
+    const layers = highchartsToMaidr(paretoChart(true, true)).subplots[0][0].layers;
+
+    const columns = (layers[0].data as BarPoint[]).map(point => point.x);
+    const cumulative = (layers[1].data as LinePoint[][])[0].map(point => point.x);
+    expect(columns).toEqual([...CAUSES].reverse());
+    expect(cumulative).toEqual(columns);
+  });
+
+  it('tells the trace to pair the path back up when reversed', () => {
+    // Reversing the payload is only half of it: the path's vertices still
+    // come out of Highcharts in the library's order, so highlighting would
+    // outline the mirror-image step without this.
+    expect(curve(paretoChart(true, true)).domMapping)
+      .toEqual({ pointOrder: 'reverse' });
+    expect(curve(paretoChart()).domMapping).toBeUndefined();
   });
 
   it('drops a step the curve has no value at', () => {
