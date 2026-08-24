@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Highcharts Bell Curve - MAIDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highcharts/modules/histogram-bellcurve.js"></script>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/highcharts.js"></script>
+  </head>
+  <body>
+    <h1>Highcharts Bell Curve</h1>
+    <p>
+      A Highcharts bell curve made accessible by the MAIDR Highcharts adapter.
+      Click on the chart and use left and right arrow keys to move along the
+      curve. Two layers are read: the fitted curve, and the observations it
+      was fitted to. The curve is announced as a <em>smooth</em> rather than
+      a line, because its points are not measurements — Highcharts evaluates
+      the fitted distribution wherever it chooses to, so the number of them is
+      a drawing setting rather than a sample size.
+    </p>
+
+    <div id="bellcurve-chart" style="width: 700px; height: 500px"></div>
+
+    <script>
+      const measurements = [
+        3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 3.0, 3.2,
+        3.5, 3.4, 3.2, 4.1, 4.2, 3.1, 3.2, 3.5, 3.6, 3.0,
+      ];
+
+      const chart = Highcharts.chart('bellcurve-chart', {
+        title: { text: 'Sepal Length, with a Fitted Normal Curve' },
+        legend: { enabled: false },
+        xAxis: [
+          { title: { text: 'Observation' } },
+          { title: { text: 'Sepal length (cm)' }, opposite: true },
+        ],
+        yAxis: [
+          { title: { text: 'Sepal length (cm)' } },
+          { title: { text: 'Density' }, opposite: true },
+        ],
+        series: [
+          {
+            name: 'Bell curve',
+            type: 'bellcurve',
+            xAxis: 1,
+            yAxis: 1,
+            baseSeries: 1,
+            zIndex: -1,
+          },
+          {
+            name: 'Measurements',
+            type: 'scatter',
+            data: measurements,
+            marker: { radius: 2 },
+          },
+        ],
+      });
+
+      const maidrData = maidrHighcharts.highchartsToMaidr(chart, { id: 'bellcurve-chart' });
+      document.getElementById('bellcurve-chart').setAttribute('maidr-data', JSON.stringify(maidrData));
+      maidrHighcharts.createHighchartsSync(chart);
+    </script>
+  </body>
+</html>
