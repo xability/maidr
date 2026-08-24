@@ -173,7 +173,7 @@ describe('candlestickDelta state', () => {
     expect(state.empty).toBe(false);
     if (!state.empty) {
       expect(state.text.main.value).toBe('2026-01-01');
-      expect(state.text.cross.value).toBe(2);
+      expect(state.text.cross?.value).toBe(2);
       expect(state.text.section).toBe('close');
       expect(state.text.z?.value).toBe('above line');
     }
@@ -184,12 +184,12 @@ describe('candlestickDelta state', () => {
     trace.setInitialPosition(1);
     const below = trace.state;
     expect(!below.empty && below.text.z?.value).toBe('below line');
-    expect(!below.empty && below.text.cross.value).toBe(1.5);
+    expect(!below.empty && below.text.cross?.value).toBe(1.5);
 
     trace.setInitialPosition(2);
     const onLine = trace.state;
     expect(!onLine.empty && onLine.text.z?.value).toBe('on line');
-    expect(!onLine.empty && onLine.text.cross.value).toBe(0);
+    expect(!onLine.empty && onLine.text.cross?.value).toBe(0);
   });
 
   test('audio encodes |delta| as pitch and glides up for above-line points', () => {

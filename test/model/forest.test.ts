@@ -93,9 +93,9 @@ describe('forest registration', () => {
   test('it reads the interval a bound at a time, as an error bar does', () => {
     // The navigation transfers wholesale: what this type adds is what the
     // figure is read *for*, not a different way through it.
-    expect(nonEmptyState(forest(0, 1)).text.cross.value).toBe(0.98);
-    expect(nonEmptyState(forest(1, 1)).text.cross.value).toBe(1.34);
-    expect(nonEmptyState(forest(2, 1)).text.cross.value).toBe(1.83);
+    expect(nonEmptyState(forest(0, 1)).text.cross?.value).toBe(0.98);
+    expect(nonEmptyState(forest(1, 1)).text.cross?.value).toBe(1.34);
+    expect(nonEmptyState(forest(2, 1)).text.cross?.value).toBe(1.83);
   });
 });
 

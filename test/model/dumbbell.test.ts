@@ -136,7 +136,7 @@ describe('navigation', () => {
     const declining = nonEmptyState(dumbbell(1, 1));
 
     expect(declining.text.section).toBe('2020');
-    expect(declining.text.cross.value).toBe(69.5);
+    expect(declining.text.cross?.value).toBe(69.5);
   });
 });
 
@@ -211,7 +211,7 @@ describe('orientation', () => {
     const horizontal = nonEmptyState(dumbbell(0, 0, GAINS, Orientation.HORIZONTAL));
 
     expect(horizontal.text.main.label).toBe('Years');
-    expect(horizontal.text.cross.label).toBe('Country');
+    expect(horizontal.text.cross?.label).toBe('Country');
     // Which real axis each value came from, so the formatter service picks
     // the right per-axis format.
     expect(horizontal.text.mainAxis).toBe('y');

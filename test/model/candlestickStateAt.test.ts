@@ -33,7 +33,7 @@ describe('candlestick.getStateAt', () => {
     expect(state.empty).toBe(false);
     if (!state.empty) {
       expect(state.text.main.value).toBe('2026-01-02');
-      expect(state.text.cross.value).toBe(17);
+      expect(state.text.cross?.value).toBe(17);
       expect(state.text.section).toBe('close');
     }
   });

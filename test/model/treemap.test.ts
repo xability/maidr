@@ -112,7 +112,7 @@ describe('the hierarchy is built from the paths', () => {
   });
 
   test('a derived node totals its children', () => {
-    expect(nonEmptyState(treemap()).text.cross.value).toBe(150);
+    expect(nonEmptyState(treemap()).text.cross?.value).toBe(150);
   });
 
   test('a declared total is kept even where the children disagree', () => {
@@ -124,7 +124,7 @@ describe('the hierarchy is built from the paths', () => {
       ...NATIONS,
     ];
 
-    expect(nonEmptyState(treemap(declared)).text.cross.value).toBe(200);
+    expect(nonEmptyState(treemap(declared)).text.cross?.value).toBe(200);
   });
 
   test('a leaf declared with no path is a top-level node', () => {

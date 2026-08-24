@@ -87,7 +87,7 @@ describe('a scatter whose x axis carries names', () => {
     const trace = new ScatterTrace(layerOf(stripPoints()));
     trace.col = 0;
 
-    expect(stateOf(trace).text.cross.value).toEqual([1, 2]);
+    expect(stateOf(trace).text.cross?.value).toEqual([1, 2]);
   });
 
   test('point mode announces the category too', () => {
@@ -111,7 +111,7 @@ describe('a scatter whose x axis carries names', () => {
     trace.moveOnce('UPWARD'); // Handshake.
     trace.moveOnce('UPWARD'); // Toggle to ROW mode, at the lowest y.
 
-    expect(stateOf(trace).text.cross.value).toEqual(['a', 'b']);
+    expect(stateOf(trace).text.cross?.value).toEqual(['a', 'b']);
   });
 
   test('intersection mode names the anchor category', () => {
@@ -181,7 +181,7 @@ describe('a scatter whose y axis carries names', () => {
     ]));
     trace.col = 0;
 
-    expect(stateOf(trace).text.cross.value).toEqual(['a', 'b']);
+    expect(stateOf(trace).text.cross?.value).toEqual(['a', 'b']);
   });
 
   test('point mode announces it on the cross axis', () => {
@@ -189,7 +189,7 @@ describe('a scatter whose y axis carries names', () => {
     trace.moveOnce('UPWARD');
     trace.setPointMode(true);
 
-    expect(stateOf(trace).text.cross.value).toBe('a');
+    expect(stateOf(trace).text.cross?.value).toBe('a');
   });
 });
 
@@ -202,7 +202,7 @@ describe('what must not change', () => {
     trace.col = 0;
 
     expect(stateOf(trace).text.main.value).toBe(1.5);
-    expect(stateOf(trace).text.cross.value).toEqual([10]);
+    expect(stateOf(trace).text.cross?.value).toEqual([10]);
   });
 
   test('an empty label is treated as absent', () => {
@@ -228,7 +228,7 @@ describe('what must not change', () => {
 
     trace.col = 0;
     expect(stateOf(trace).text.main.value).toBe('a');
-    expect(stateOf(trace).text.cross.value).toEqual([2, 3]);
+    expect(stateOf(trace).text.cross?.value).toEqual([2, 3]);
 
     trace.col = 1;
     expect(stateOf(trace).text.main.value).toBe('c');
@@ -244,6 +244,6 @@ describe('what must not change', () => {
     trace.moveOnce('UPWARD');
     trace.moveOnce('UPWARD');
 
-    expect(stateOf(trace).text.cross.value).toEqual(['a', '1']);
+    expect(stateOf(trace).text.cross?.value).toEqual(['a', '1']);
   });
 });

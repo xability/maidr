@@ -71,7 +71,7 @@ describe('chart.js payloads the core can build a trace from', () => {
     if (state.empty)
       return;
     expect(state.traceType).toBe(TraceType.POLAR_AREA);
-    expect(state.text.cross.value).toBe(20);
+    expect(state.text.cross?.value).toBe(20);
   });
 
   it('builds a gantt trace, empty lane and all', () => {
@@ -150,7 +150,7 @@ describe('chart.js payloads the core can build a trace from', () => {
     if (state.empty)
       return;
     expect(state.traceType).toBe(TraceType.NORMALIZED_AREA);
-    expect(state.text.cross.value).toBe(50);
+    expect(state.text.cross?.value).toBe(50);
   });
 
   it('builds a bump trace', () => {
@@ -206,7 +206,7 @@ describe('chart.js payloads the core can build a trace from', () => {
       return;
     expect(state.traceType).toBe(TraceType.DOT);
     expect(state.text.main.value).toBe('Safari');
-    expect(state.text.cross.value).toBe(19);
+    expect(state.text.cross?.value).toBe(19);
   });
 
   it('builds a dumbbell trace', () => {

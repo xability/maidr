@@ -208,12 +208,12 @@ describe('ScatterTrace point mode', () => {
     // point of reading order — a per-column walk would bound here instead.
     expect(trace.movePointRight()).toBe(true);
     expect(stateOf(trace).text.main.value).toBe(1);
-    expect(stateOf(trace).text.cross.value).toBe(2);
+    expect(stateOf(trace).text.cross?.value).toBe(2);
 
     // (1,2) -> (0,1): y drops, x wraps back to the leftmost column.
     expect(trace.movePointRight()).toBe(true);
     expect(stateOf(trace).text.main.value).toBe(0);
-    expect(stateOf(trace).text.cross.value).toBe(1);
+    expect(stateOf(trace).text.cross?.value).toBe(1);
 
     // Three points, so the third press has nowhere to go. No wrap.
     expect(trace.movePointRight()).toBe(false);
@@ -233,16 +233,16 @@ describe('ScatterTrace point mode', () => {
 
     expect(trace.movePointDown()).toBe(true);
     expect(stateOf(trace).text.main.value).toBe(0);
-    expect(stateOf(trace).text.cross.value).toBe(2);
+    expect(stateOf(trace).text.cross?.value).toBe(2);
 
     expect(trace.movePointDown()).toBe(true);
-    expect(stateOf(trace).text.cross.value).toBe(1);
+    expect(stateOf(trace).text.cross?.value).toBe(1);
 
     // Back up the same column, in the same order.
     expect(trace.movePointUp()).toBe(true);
-    expect(stateOf(trace).text.cross.value).toBe(2);
+    expect(stateOf(trace).text.cross?.value).toBe(2);
     expect(trace.movePointUp()).toBe(true);
-    expect(stateOf(trace).text.cross.value).toBe(3);
+    expect(stateOf(trace).text.cross?.value).toBe(3);
     expect(trace.movePointUp()).toBe(false);
   });
 
@@ -259,7 +259,7 @@ describe('ScatterTrace point mode', () => {
     trace.setPointMode(true);
 
     expect(stateOf(trace).text.main.value).toBe(5);
-    expect(stateOf(trace).text.cross.value).toBe(8);
+    expect(stateOf(trace).text.cross?.value).toBe(8);
   });
 
   test('setPointMode(true) seeds from the current ROW selection after a nav-mode toggle', () => {
@@ -280,7 +280,7 @@ describe('ScatterTrace point mode', () => {
 
     // A COL-seeded entry would still be sitting at (1,5).
     expect(stateOf(trace).text.main.value).toBe(7);
-    expect(stateOf(trace).text.cross.value).toBe(9);
+    expect(stateOf(trace).text.cross?.value).toBe(9);
   });
 
   test('point navigation is a no-op when point mode is not enabled', () => {
@@ -306,7 +306,7 @@ describe('ScatterTrace point mode', () => {
     trace.setPointMode(true);
 
     expect(stateOf(trace).text.main.value).toBe(0);
-    expect(stateOf(trace).text.cross.value).toBe(2);
+    expect(stateOf(trace).text.cross?.value).toBe(2);
     // Re-seeded to reading position 0, so the first left press should bound.
     expect(trace.movePointLeft()).toBe(false);
   });
@@ -363,7 +363,7 @@ describe('ScatterTrace 3D announcements', () => {
     expect(trace.moveOnce('FORWARD')).toBe(true);
 
     expect(stateOf(trace).text.main.value).toBe(1);
-    expect(stateOf(trace).text.cross.value).toBe(2);
+    expect(stateOf(trace).text.cross?.value).toBe(2);
     expect((trace as unknown as { mode: string }).mode).toBe(modeBefore);
   });
 

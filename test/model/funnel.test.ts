@@ -139,7 +139,7 @@ describe('the announcement keeps the count', () => {
     const { text } = nonEmptyState(funnel(1));
 
     expect(text.main.value).toBe('Signed up');
-    expect(text.cross.value).toBe(2400);
+    expect(text.cross?.value).toBe(2400);
     expect(text.z).toEqual({ label: 'Retained', value: '24.0%' });
     expect(text.stack?.label).toBe('Entered');
     expect(text.stack?.value).toBe(10000);
@@ -155,7 +155,7 @@ describe('the announcement keeps the count', () => {
     expect(text.z).toBeUndefined();
     expect(text.stack).toBeUndefined();
     // The count itself is still there.
-    expect(text.cross.value).toBe(10000);
+    expect(text.cross?.value).toBe(10000);
   });
 
   test('the description names the entry stage, since the announcement does not', () => {

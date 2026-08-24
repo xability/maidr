@@ -89,7 +89,7 @@ describe('reading a term', () => {
     const { text } = nonEmptyState(at(0));
 
     expect(text.main.value).toBe('machine');
-    expect(text.cross.value).toBe(412);
+    expect(text.cross?.value).toBe(412);
   });
 
   test('keeps ties in their authored order', () => {
@@ -120,7 +120,7 @@ describe('string weights', () => {
     const trace = at(0, asText);
 
     expect(nonEmptyState(trace).text.main.value).toBe('large');
-    expect(nonEmptyState(trace).text.cross.value).toBe(10);
+    expect(nonEmptyState(trace).text.cross?.value).toBe(10);
     expect(trace.description.stats).toContainEqual({
       label: 'Total weight',
       value: 12,

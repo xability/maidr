@@ -98,7 +98,7 @@ describe('contour registration', () => {
 
   test('it walks a curve the way a line layer does', () => {
     expect(nonEmptyState(contour(1, 2)).text.main.value).toBe(10);
-    expect(nonEmptyState(contour(1, 2)).text.cross.value).toBe(8);
+    expect(nonEmptyState(contour(1, 2)).text.cross?.value).toBe(8);
   });
 });
 

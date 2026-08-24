@@ -166,7 +166,7 @@ describe('the move travels with the rank', () => {
     // Cedar goes 3rd to 1st between R1 and R2.
     const { text } = nonEmptyState(bump(2, 1));
 
-    expect(text.cross.value).toBe(1);
+    expect(text.cross?.value).toBe(1);
     expect(text.stack).toEqual({ label: 'Places gained', value: 2 });
   });
 

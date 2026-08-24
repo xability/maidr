@@ -104,7 +104,7 @@ describe('the ladder is walked in value order', () => {
     // move monotonically through the distribution, or the pitch stops meaning
     // "further out".
     const values = [0, 1, 2, 3, 4].map(col =>
-      nonEmptyState(boxen(0, col)).text.cross.value);
+      nonEmptyState(boxen(0, col)).text.cross?.value);
 
     expect(values).toEqual([42, 45, 50, 55, 58]);
   });
@@ -132,7 +132,7 @@ describe('the ladder is walked in value order', () => {
       ],
     }];
     const values = [0, 1, 2, 3, 4].map(col =>
-      nonEmptyState(boxen(0, col, reversed)).text.cross.value);
+      nonEmptyState(boxen(0, col, reversed)).text.cross?.value);
 
     expect(values).toEqual([42, 45, 50, 55, 58]);
   });
@@ -231,7 +231,7 @@ describe('which axis is which follows the orientation', () => {
     const { text } = nonEmptyState(boxen());
 
     expect(text.main.label).toBe('Group');
-    expect(text.cross.label).toBe('Milliseconds');
+    expect(text.cross?.label).toBe('Milliseconds');
   });
 
   test('a chart whose distributions run across the page swaps them', () => {
@@ -240,7 +240,7 @@ describe('which axis is which follows the orientation', () => {
     );
 
     expect(text.main.label).toBe('Milliseconds');
-    expect(text.cross.label).toBe('Group');
+    expect(text.cross?.label).toBe('Group');
   });
 });
 
