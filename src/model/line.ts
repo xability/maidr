@@ -95,7 +95,14 @@ export class LineTrace extends AbstractTrace {
 
   protected readonly points: LinePoint[][];
   protected readonly lineValues: number[][];
-  protected readonly highlightValues: SVGElement[][] | null;
+  /**
+   * One entry per point, or -- where a series is drawn as several elements
+   * with no way to tell which is which -- the whole set behind every point of
+   * it, outlined together. {@link ContourTrace} is the case: a level with
+   * islands has one `<path>` per island and no dependable order among them
+   * (xability/maidr#1142).
+   */
+  protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
   /**
    * The rendered `<path>` or `<polyline>` of each series, when the highlight
@@ -804,7 +811,9 @@ export class LineTrace extends AbstractTrace {
     return this.points[row].findIndex(point => point.x === xValue);
   }
 
-  protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
+  protected mapToSvgElements(
+    selectors?: string[],
+  ): (SVGElement[] | SVGElement)[][] | null {
     if (!selectors || selectors.length !== this.lineValues.length) {
       return null;
     }

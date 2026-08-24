@@ -155,7 +155,22 @@ export function vegaLiteToMaidr(
     // as a segment layer plus a dot layer, and neither half is the chart.
     // Converting them separately dropped the segment (a `rule` resolves to
     // no trace type at all) and announced the dots as a scatter.
-    const layerSpecs = spec.layer ?? [];
+    // A layer inherits the parent's `data` unless it brings its own, which
+    // is Vega-Lite's own rule and the form every layered example is written
+    // in -- `data` once at the top, `layer:` beneath it. Applied here, to
+    // the specs themselves, so that every downstream `resolveData` sees it
+    // without a parent-data parameter being threaded through each of them.
+    //
+    // Without it the inline-data fallback looked at a child spec that has
+    // no `data` and returned nothing, so a layered chart resolved to empty
+    // layers whenever the compiled view could not supply rows -- and every
+    // spec-only test of one was asserting against no data at all (#1126).
+    // The facet path already did this; the plain layered path did not.
+    const layerSpecs = inheritData(spec.layer ?? [], spec.data);
+    // Which `text` layers label another, and what each labelled layer should
+    // be told to call its points. Computed once, before conversion, because
+    // a layer has to know its names while its data is being read.
+    const overlays = labelOverlays(layerSpecs, spec.encoding);
     const rawLayers: ConvertedLayer[] = [];
     for (let i = 0; i < layerSpecs.length;) {
       const paired = convertPairedLayers(layerSpecs, i, view, spec.encoding);
@@ -165,13 +180,22 @@ export function vegaLiteToMaidr(
         continue;
       }
       // A `text` layer written over the mark it labels is not a second
-      // chart -- see `labelsAnotherLayer`.
-      if (labelsAnotherLayer(layerSpecs, i, spec.encoding)) {
+      // chart -- its names are given to that mark instead. See
+      // `labelOverlays`.
+      if (overlays.claimed.has(i)) {
         i += 1;
         continue;
       }
+      // A labelled layer is converted carrying the `text` channel of the
+      // layer that labels it, which is all `extractScatterData` needs to
+      // fill `ScatterPoint.label` -- the same field a standalone `text`
+      // mark fills, reached the same way.
+      const named = overlays.names.get(i);
+      const layerSpec = named === undefined
+        ? layerSpecs[i]
+        : { ...layerSpecs[i], encoding: { ...layerSpecs[i].encoding, text: named } };
       const layer = convertLayerSpec(
-        layerSpecs[i],
+        layerSpec,
         i,
         view,
         spec.encoding,
@@ -1108,8 +1132,8 @@ function resolveTraceType(
     // standing at the same place.
     //
     // A `text` with no `text` channel draws nothing to read, and a `text`
-    // layer that labels another layer is declined before this runs -- see
-    // `labelsAnotherLayer`.
+    // layer that labels another layer is claimed before this runs, its names
+    // handed to the layer it labels -- see `labelOverlays`.
     case 'text':
       if (!hasField(encoding?.text))
         return null;
@@ -1366,6 +1390,30 @@ function rowsCarryFields(
  * caller that knows which columns must be present says so; every other
  * caller keeps the previous first-non-empty behaviour.
  */
+/**
+ * Give each layer of a layered spec its parent's data, where it has none.
+ *
+ * Vega-Lite's own resolution rule: a layer uses its own `data` when it
+ * declares one and the enclosing spec's otherwise. The specs are rewritten
+ * rather than the rule being applied at every point that reads data,
+ * because `resolveData` is reached from several places -- per-layer
+ * conversion, and the paired lollipop/dumbbell pass on either side of it --
+ * and each would otherwise need the parent threaded to it separately.
+ *
+ * @param layers - The layered spec's children
+ * @param parentData - The `data` of the spec enclosing them
+ * @returns The children, each carrying data it can resolve
+ */
+function inheritData(
+  layers: readonly VegaLiteSpec[],
+  parentData: VegaLiteSpec['data'],
+): VegaLiteSpec[] {
+  if (parentData == null)
+    return [...layers];
+  return layers.map(layer =>
+    layer.data == null ? { ...layer, data: parentData } : layer);
+}
+
 function resolveData(
   spec: VegaLiteSpec,
   layerIndex: number,
@@ -2923,52 +2971,82 @@ function warnCompositeDeclaration(spec: VegaLiteSpec): void {
 }
 
 /**
- * Whether a layer is a `text` mark written over the mark it labels.
+ * Pairs each `text` layer that labels another with the layer it labels.
  *
  * Vega-Lite's way of labelling points is a `layer:` of the mark and a `text`
- * on the same two positional channels. Both halves then satisfy the labelled
- * scatter test in {@link resolveTraceType}, and the figure would come back
- * with two scatters over one set of points -- the same numbers announced
- * twice, once with names and once without.
+ * on the same two positional channels. Both halves satisfy the labelled
+ * scatter test in {@link resolveTraceType}, so read independently the figure
+ * comes back with two scatters over one set of points -- the same numbers
+ * announced twice, once with names and once without.
  *
  * The labels belong *on* the points rather than beside them, which is what
- * the Observable adapter's `labelOverlays` does. Declining is the smaller
- * half of that: the layered chart reads exactly as it did before #1124,
- * while a standalone `text` gains the reading it never had.
+ * the Observable adapter's function of this name does (#1124). That one
+ * pairs by DOM geometry because Plot hands it no data; here the spec says
+ * outright which rows both layers draw, so they are paired by field.
  *
  * Told by the fields, not by the order: a label layer may be written before
  * or after the mark it labels, and a `text` layer over *different* channels
  * is a chart of its own rather than an annotation.
  *
- * Any non-`text` sibling counts, not only one that would itself read as a
- * scatter. A `line` with per-point annotations over the same two channels is
- * the same double-announcement -- the coordinates are the line's, and the
+ * Any non-`text` sibling is claimed, not only one that would itself read as
+ * a scatter. A `line` with per-point annotations over the same two channels
+ * is the same double-announcement -- the coordinates are the line's, and the
  * text is written on top of them -- so what matters is that another mark
  * already draws those positions, not what that mark resolved to.
  *
+ * Only a scatter ends up *carrying* the names, though the channel is handed
+ * over either way; see the note at the assignment.
+ *
+ * Two `text` layers over one mark is a degenerate spec this does not try to
+ * reconcile: the last one wins, since `names` is keyed by the labelled
+ * layer. Both are still claimed, so neither is announced twice.
+ *
  * @param specs - The layered spec's children
- * @param index - Position of the candidate label layer
  * @param parentEncoding - Encoding hoisted onto the layered parent
- * @returns True when this layer only names another layer's marks
+ * @returns The `text` layers to skip, and the `text` channel each labelled
+ * layer should be converted with
  */
-function labelsAnotherLayer(
+function labelOverlays(
   specs: VegaLiteSpec[],
-  index: number,
   parentEncoding: VegaLiteEncoding | undefined,
-): boolean {
-  if (getMarkType(specs[index]) !== 'text')
-    return false;
+): { claimed: Set<number>; names: Map<number, VegaLiteEncoding['text']> } {
+  const claimed = new Set<number>();
+  const names = new Map<number, VegaLiteEncoding['text']>();
 
-  const labels: VegaLiteEncoding = { ...parentEncoding, ...specs[index].encoding };
-  if (!hasField(labels.x) || !hasField(labels.y))
-    return false;
+  specs.forEach((spec, index) => {
+    if (getMarkType(spec) !== 'text')
+      return;
 
-  return specs.some((sibling, at) => {
-    if (at === index || getMarkType(sibling) === 'text')
-      return false;
-    const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
-    return drawn.x?.field === labels.x?.field && drawn.y?.field === labels.y?.field;
+    const labels: VegaLiteEncoding = { ...parentEncoding, ...spec.encoding };
+    if (!hasField(labels.x) || !hasField(labels.y))
+      return;
+
+    specs.forEach((sibling, at) => {
+      if (at === index || getMarkType(sibling) === 'text' || claimed.has(index))
+        return;
+      const drawn: VegaLiteEncoding = { ...parentEncoding, ...sibling.encoding };
+      if (drawn.x?.field !== labels.x?.field || drawn.y?.field !== labels.y?.field)
+        return;
+
+      claimed.add(index);
+
+      // The names are handed to the labelled layer whatever it is, and only
+      // a scatter ends up carrying them: `ScatterPoint.label` is the one
+      // field in the grammar that holds a name, and `extractScatterData`
+      // the one extractor that reads `encoding.text`. A `bar` or `line`
+      // underneath is given the channel and ignores it, so its payload is
+      // unchanged and its labels stay declined.
+      //
+      // Guarding on `resolveTraceType(...) === SCATTER` here was tried and
+      // removed: no test could tell the two apart, because nothing else
+      // reads the channel. The outcome is pinned by the bar and line cases
+      // in `labelledText.test.ts` instead, which is where it would be
+      // noticed if another extractor ever started reading it.
+      names.set(at, labels.text);
+    });
   });
+
+  return { claimed, names };
 }
 
 /**
@@ -3546,27 +3624,29 @@ function buildConcatMaidr(
     // vconcat / wrapped-concat grids — Vega SVGs carry no `axes_*` ids.
     const selector = `g.mark-group.role-scope.concat_${i}_group > g > path.background`;
     if (childSpec.layer) {
-      const layers = childSpec.layer.map((layerSpec, j) => {
-        // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
-        // (local layer index `j`, not the global data index), so drive the
-        // selector off those while keeping `globalLayerIndex` for the data
-        // lookup, which follows Vega's sequential dataset numbering.
-        const layer = convertLayerSpec(
-          layerSpec,
-          globalLayerIndex,
-          view,
-          childSpec.encoding,
-          true,
-          domOrder,
-          { layerIndex: j, markGroupPrefix: `concat_${i}_` },
-        );
-        // Assign a unique ID that encodes both the concat index and the
-        // layer index within the child to avoid duplicates across subplots.
-        if (layer)
-          layer.id = `${i}_${j}`;
-        globalLayerIndex++;
-        return layer;
-      }).filter(Boolean) as MaidrLayer[];
+      const layers = inheritData(childSpec.layer, childSpec.data)
+        .map((layerSpec, j) => {
+          // Vega names this child's mark groups `concat_<i>_layer_<j>_marks`
+          // (local layer index `j`, not the global data index), so drive the
+          // selector off those while keeping `globalLayerIndex` for the data
+          // lookup, which follows Vega's sequential dataset numbering.
+          const layer = convertLayerSpec(
+            layerSpec,
+            globalLayerIndex,
+            view,
+            childSpec.encoding,
+            true,
+            domOrder,
+            { layerIndex: j, markGroupPrefix: `concat_${i}_` },
+          );
+          // Assign a unique ID that encodes both the concat index and the
+          // layer index within the child to avoid duplicates across subplots.
+          if (layer)
+            layer.id = `${i}_${j}`;
+          globalLayerIndex++;
+          return layer;
+        })
+        .filter(Boolean) as MaidrLayer[];
       return { layers, selector };
     }
     // A single-view concat child renders under `concat_<i>_marks` (or the
@@ -3986,7 +4066,14 @@ function buildFacetMaidr(
     warnCompositeDeclaration(spec.spec);
   }
   const isLayered = childSpec.layer != null && childSpec.layer.length > 0;
-  const layerSpecs = isLayered ? childSpec.layer! : [childSpec];
+  // Both branches, not only the layered one: a facet's single child is
+  // itself the spec whose data sits on the enclosing `spec`, so wrapping
+  // only `childSpec.layer` left the unlayered case with none -- measured,
+  // panel enumeration then saw one cell where the chart has three.
+  const layerSpecs = inheritData(
+    isLayered ? childSpec.layer! : [childSpec],
+    childSpec.data ?? spec.data,
+  );
   const facetFields = [
     descriptor.rowChannel?.field,
     descriptor.columnChannel?.field,
@@ -4008,10 +4095,7 @@ function buildFacetMaidr(
   const layerRows = layerSpecs.map((layerSpec, j) => {
     if (perLayerDatasets)
       return perLayerDatasets[j];
-    const specForData: VegaLiteSpec = layerSpec.data != null
-      ? layerSpec
-      : { ...layerSpec, data: childSpec.data ?? spec.data };
-    let rows = resolveData(specForData, j, view);
+    let rows = resolveData(layerSpec, j, view);
     if (rows.length > 0 && !facetFields.every(field => field in rows[0])) {
       const source = resolveSourceRows(spec, view);
       if (source.length > 0 && facetFields.every(field => field in source[0])) {
@@ -4231,15 +4315,15 @@ function buildRepeatMaidr(
     }
     const childName = repeatChildName(cell.mapping);
     const isLayered = cellSpec.layer != null && cellSpec.layer.length > 0;
-    const layerSpecs = isLayered ? cellSpec.layer! : [cellSpec];
+    const layerSpecs = inheritData(
+      isLayered ? cellSpec.layer! : [cellSpec],
+      cellSpec.data,
+    );
     const parentEncoding = isLayered ? cellSpec.encoding : undefined;
 
     const rawLayers = layerSpecs.map((layerSpec, j) => {
-      const specForData: VegaLiteSpec = layerSpec.data != null
-        ? layerSpec
-        : { ...layerSpec, data: cellSpec.data };
       const layer = convertLayerSpec(
-        specForData,
+        layerSpec,
         globalLayerIndex,
         view,
         parentEncoding,
@@ -4248,7 +4332,7 @@ function buildRepeatMaidr(
         { layerIndex: j, markGroupPrefix: `${childName}_` },
       );
       globalLayerIndex++;
-      return layer ? { layer, spec: specForData } : null;
+      return layer ? { layer, spec: layerSpec } : null;
     }).filter(Boolean) as ConvertedLayer[];
     const layers = coalesceSiblingLineLayers(rawLayers, parentEncoding);
     layers.forEach((layer, j) => {

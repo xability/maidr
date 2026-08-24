@@ -39,7 +39,7 @@ import type {
   VolcanoDeclaration,
 } from '@type/declaration';
 import type {
-  ErrorBarPoint,
+  EstimatedPoint,
   ForestPoint,
   ScatterPoint,
   SurvivalPoint,
@@ -892,7 +892,7 @@ function readBounds(
  */
 export function extractErrorBarSamples(
   declared: AmDeclaredLayer,
-): DeclaredSamples<ErrorBarPoint> {
+): DeclaredSamples<EstimatedPoint> {
   const declaration = declared.declaration as ErrorBarDeclaration;
   const horizontal = isDeclaredHorizontal(declared);
   const misses = explicitRefs(declaration, ['yMin', 'yMax', 'error']);
@@ -901,7 +901,10 @@ export function extractErrorBarSamples(
     : null;
 
   const { value } = valueFields(horizontal);
-  const data: ErrorBarPoint[] = [];
+  // `EstimatedPoint`, because the loop below drops any sample whose estimate
+  // is missing -- so this promises what it already enforces, and a forest row
+  // can be built from it without an assertion (#1047).
+  const data: EstimatedPoint[] = [];
   const items: AmDataItem[] = [];
 
   for (const item of declared.series.dataItems) {

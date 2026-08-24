@@ -256,3 +256,133 @@ describe('vega-Lite text marks', () => {
     })).toHaveLength(0);
   });
 });
+
+describe('a text layer that labels another', () => {
+  const XY = {
+    x: { field: 'area', type: 'quantitative' as const },
+    y: { field: 'pop', type: 'quantitative' as const },
+  };
+  const NAMES = { field: 'city', type: 'nominal' as const };
+
+  function pointsOf(spec: VegaLiteSpec): ScatterPoint[] {
+    return onlyLayer(spec).data as ScatterPoint[];
+  }
+
+  it('gives its names to the points it labels', () => {
+    // The follow-up #1124 recorded and deliberately left out of #1125:
+    // declining the overlay left the chart reading as it always had, which
+    // is a scatter whose points are nameless. Vega-Lite's own way of
+    // labelling a scatter is this layer pair, so those names are the whole
+    // reason the second layer was written.
+    expect(pointsOf({
+      data: CITIES,
+      layer: [
+        { mark: 'point', encoding: XY },
+        { mark: 'text', encoding: { ...XY, text: NAMES } },
+      ],
+    })).toEqual([
+      { x: 10, y: 3, label: 'Aa' },
+      { x: 20, y: 5, label: 'Bb' },
+      { x: 30, y: 2, label: 'Cc' },
+    ]);
+  });
+
+  it('does so wherever the label layer is written', () => {
+    // Labels behind their marks rather than over them. Told by the fields,
+    // so the order cannot matter -- the same reason the decline is
+    // order-independent.
+    expect(pointsOf({
+      data: CITIES,
+      layer: [
+        { mark: 'text', encoding: { ...XY, text: NAMES } },
+        { mark: 'point', encoding: XY },
+      ],
+    })).toEqual([
+      { x: 10, y: 3, label: 'Aa' },
+      { x: 20, y: 5, label: 'Bb' },
+      { x: 30, y: 2, label: 'Cc' },
+    ]);
+  });
+
+  it('leaves a bar chart\'s labels where they were', () => {
+    // A `text` over a bar writes the bar's own value, and the bar already
+    // announces it. The layer is still declined and nothing is moved --
+    // `ScatterPoint.label` is the only field that carries a name, so there
+    // is nowhere on a bar for one to go and nothing gained by inventing
+    // one.
+    const layers = layersOf({
+      data: CITIES,
+      layer: [
+        {
+          mark: 'bar',
+          encoding: { x: { field: 'city', type: 'nominal' }, y: XY.y },
+        },
+        {
+          mark: 'text',
+          encoding: {
+            x: { field: 'city', type: 'nominal' },
+            y: XY.y,
+            text: NAMES,
+          },
+        },
+      ],
+    });
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.BAR]);
+    expect(layers[0].data).toEqual([
+      { x: 'Aa', y: 3 },
+      { x: 'Bb', y: 5 },
+      { x: 'Cc', y: 2 },
+    ]);
+  });
+
+  it('leaves a line chart alone too', () => {
+    const layers = layersOf({
+      data: CITIES,
+      layer: [
+        { mark: 'line', encoding: XY },
+        { mark: 'text', encoding: { ...XY, text: NAMES } },
+      ],
+    });
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.LINE]);
+  });
+
+  it('claims both of two label layers, and the last one names the points', () => {
+    // A degenerate spec, measured rather than reasoned about. Two `text`
+    // layers over one mark: both are claimed, so the figure is still one
+    // layer rather than three, and `names` is keyed by the labelled layer
+    // so the later one wins. Not reconciled -- there is no right answer to
+    // "which of two names is the name" -- but pinned so it is known.
+    const layers = layersOf({
+      data: CITIES,
+      layer: [
+        { mark: 'point', encoding: XY },
+        { mark: 'text', encoding: { ...XY, text: NAMES } },
+        {
+          mark: 'text',
+          encoding: { ...XY, text: { field: 'pop', type: 'nominal' } },
+        },
+      ],
+    });
+
+    expect(layers).toHaveLength(1);
+    expect((layers[0].data as ScatterPoint[])[0].label).toBe('3');
+  });
+
+  it('adds nothing when the label layer names no field', () => {
+    // Still declined -- it draws nothing to read -- and the points it sat
+    // over are unchanged rather than gaining an empty name.
+    expect(pointsOf({
+      data: CITIES,
+      layer: [
+        { mark: 'point', encoding: XY },
+        { mark: 'text', encoding: XY },
+      ],
+    })).toEqual([
+      { x: 10, y: 3 },
+      { x: 20, y: 5 },
+      { x: 30, y: 2 },
+    ]);
+  });
+});

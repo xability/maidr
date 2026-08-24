@@ -173,7 +173,7 @@ export class ParallelTrace extends LineTrace {
       for (const [column, name] of axisNames.entries()) {
         stats.push({
           label: name,
-          value: `${this.axisMin[column]} to ${this.axisMax[column]}`,
+          value: MathUtil.spanned(this.axisMin[column], this.axisMax[column]),
         });
       }
     }

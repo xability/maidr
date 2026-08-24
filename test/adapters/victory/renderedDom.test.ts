@@ -151,13 +151,18 @@ describe('victory error bar', () => {
     // falsify the mapping is one against the pixels Victory produced.
     // Two sample centres one data unit apart calibrate the y scale; screen y
     // grows downward, so the higher value sits at the smaller y.
+    // `?? NaN` on the estimate for the same reason the bounds already have
+    // it: the shape made `y` optional in #1047, and a missing one should fail
+    // the comparison rather than quietly compare against `undefined`. Victory
+    // error bars always draw an estimate, so this never fires here.
+    const estimate = (at: number): number => points[at].y ?? Number.NaN;
     const pxPerUnit = (asymmetric.centre - symmetric.centre)
-      / (points[1].y - points[0].y);
+      / (estimate(1) - estimate(0));
 
     expect(asymmetric.centre - asymmetric.top)
-      .toBeCloseTo(pxPerUnit * ((points[0].yMax ?? Number.NaN) - points[0].y), 6);
+      .toBeCloseTo(pxPerUnit * ((points[0].yMax ?? Number.NaN) - estimate(0)), 6);
     expect(asymmetric.bottom - asymmetric.centre)
-      .toBeCloseTo(pxPerUnit * (points[0].y - (points[0].yMin ?? Number.NaN)), 6);
+      .toBeCloseTo(pxPerUnit * (estimate(0) - (points[0].yMin ?? Number.NaN)), 6);
   });
 
   /**

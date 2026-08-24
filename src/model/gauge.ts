@@ -2,6 +2,7 @@ import type { GaugeBand, GaugePoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
@@ -163,7 +164,7 @@ export class GaugeTrace extends AbstractTrace {
       // way a histogram announces a bin's span instead of a single x. Setting
       // it here would drop the measure's name from every announcement and
       // render the dial's ends through the category axis's formatter.
-      z: { label: 'Range', value: `${this.min} to ${this.max}` },
+      z: { label: 'Range', value: MathUtil.spanned(this.min, this.max) },
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -185,7 +186,7 @@ export class GaugeTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const stats: DescriptionState['stats'] = [
       { label: 'Value', value: this.value },
-      { label: 'Range', value: `${this.min} to ${this.max}` },
+      { label: 'Range', value: MathUtil.spanned(this.min, this.max) },
     ];
 
     if (this.point.target !== undefined) {

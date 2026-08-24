@@ -6,6 +6,43 @@ export abstract class MathUtil {
   private constructor() { /* Prevent instantiation */ }
 
   /**
+   * How an axis's extent reads: a span, or the one value it never leaves.
+   *
+   * `5 to 5` is true and says nothing. A rug plot's cross axis prints it
+   * because both bindings read a rug as a point trace with a constant on that
+   * axis (#1132); a parallel-coordinates column that never varies prints it
+   * because the column really is constant; a one-bin histogram prints it
+   * because there is one bin. In every case the reader is told a range and
+   * handed a point.
+   *
+   * That constant is also why pitch carries nothing on such an axis: every
+   * sample sonifies at the bottom of the range, because the range has no
+   * height. Saying so is the smallest thing that removes the surprise -- a
+   * reader who has been told the axis does not move knows the identical tones
+   * are the chart rather than a fault -- and it needs no new announcement
+   * convention, because these are stats that already existed and were merely
+   * uninformative (#1136).
+   *
+   * What it deliberately does not do is change what pitch *means* mid-chart.
+   * Mapping it to a varying axis instead would hand a reader who has learnt
+   * "pitch is y" a chart where pitch is x, unannounced, which is the kind of
+   * silent mode change #855 and #947 were both about. That option, and a
+   * trace type of its own, are still open on #1132.
+   *
+   * Not for every `a to b` in a description. A choropleth's jump, a flow's
+   * source and target, and a ridgeline's narrowest and widest modes are a
+   * pair or a path rather than one axis's extent, and `constant x` would be
+   * the wrong sentence for all three.
+   *
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @returns `constant <value>` when the axis never moves, `<min> to <max>` otherwise
+   */
+  static spanned(min: number, max: number): string {
+    return min === max ? `constant ${min}` : `${min} to ${max}`;
+  }
+
+  /**
    * Safely finds the minimum value from an array of numbers.
    * Returns Infinity for empty arrays (mathematically correct: empty set has no minimum).
    * This prevents subtle bugs where 0 might be confused with actual data.

@@ -992,8 +992,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       { label: 'Total points', value: totalPoints },
       { label: 'Unique X values', value: this.xPoints.length },
       { label: 'Unique Y values', value: this.yPoints.length },
-      { label: 'X range', value: `${this.minX} to ${this.maxX}` },
-      { label: 'Y range', value: `${this.minY} to ${this.maxY}` },
+      { label: 'X range', value: MathUtil.spanned(this.minX, this.maxX) },
+      { label: 'Y range', value: MathUtil.spanned(this.minY, this.maxY) },
     ];
 
     const headers = [this.xAxis, this.yAxis];

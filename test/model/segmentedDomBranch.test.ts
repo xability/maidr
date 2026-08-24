@@ -1,41 +1,48 @@
 /**
- * Which element a segmented cell is paired with, on each branch (#1003).
+ * Which element a segmented cell is paired with, for each mark tag (#1003).
  *
- * `SegmentedTrace.mapToSvgElements` picks its pairing strategy from the tag of
- * the first element its selector resolves, and the two branches disagree about
- * what an undeclared `domMapping` means:
+ * `SegmentedTrace.mapToSvgElements` used to pick its pairing strategy from the
+ * tag of the first element its selector resolved, and the two branches
+ * disagreed about what an undeclared `domMapping` meant:
  *
  *   path branch:  `if (isRowMajor || !this.layer.domMapping)`   → row-major
  *   rect branch:  `const isRowMajor = ...?.order === 'row'`     → column-major
  *
- * Measured, one two-by-three group over a series-major DOM, every combination:
+ * Same layer, same DOM, same absent `domMapping`, opposite pairings — decided
+ * by the tag the charting library happened to draw. Highcharts drew `<rect>`
+ * through v10 and `<path>` from v11 with no change to its DOM order, so an
+ * upgrade flipped it in either direction with no code change on either side.
+ * A mark that was neither tag fell through both branches and left the layer
+ * with no highlight at all.
  *
- *   branch  declared    pairing
- *   path    (none)      row-major
- *   path    row         row-major
- *   path    column      column-major, series reversed within a category
- *   rect    (none)      column-major, series reversed within a category
- *   rect    row         row-major
- *   rect    column      column-major, series reversed within a category
+ * There is one strategy now, and one default. The tag decides nothing, which
+ * is what these cases hold: every combination of mark and declaration, and the
+ * two tags asserted against each other rather than one at a time.
  *
- * Only the undeclared row differs. That is the whole of the asymmetry, and it
- * is why a library changing its mark tag between majors — Highcharts drew
- * `<rect>` through v10 and `<path>` from v11, with the same DOM order — can
- * flip a layer's pairing with no code change on either side.
+ *   branch    declared    pairing
+ *   path      (none)      row-major
+ *   rect      (none)      row-major
+ *   neither   (none)      row-major
+ *   any       row         row-major
+ *   any       column      column-major, series reversed within a category
  *
- * Nothing in the tree relies on it: every `<rect>` producer declares
- * `order: 'row'`, and every producer that declares nothing draws `<path>`.
- * These cases pin the current answers so that a change to either default is a
- * decision someone makes rather than one that happens.
+ * Row-major is the default because no producer in the tree relies on the other
+ * answer: every `<rect>` producer declares `order: 'row'`, and every producer
+ * that declares nothing draws `<path>`, where row was already the default. A
+ * producer that draws each category's segments bottom-up -- the convention
+ * `groupsRunForward` describes -- declares `order: 'column'` and gets what the
+ * rect branch used to hand it silently.
  *
  * **jsdom decides the branch, not the markup.** It builds every SVG child as a
  * plain `SVGElement` and defines neither `SVGPathElement` nor `SVGRectElement`,
- * so `domElements[0] instanceof SVGPathElement` answers whatever the test binds
+ * so `domElements[0] instanceof SVGPathElement` answered whatever a test bound
  * those globals to. The idiom used elsewhere in `test/model` binds rect to
- * `SVGElement` and path to a stub that matches nothing, which pins the rect
- * branch for every test that copies it — regardless of whether its fixture says
+ * `SVGElement` and path to a stub that matches nothing, which pinned the rect
+ * branch for every test that copied it — regardless of whether its fixture said
  * `<rect>` or `<path>`. Reading such a result as though it described a
- * `<path>`-drawing library is how #1001 came to be filed and withdrawn.
+ * `<path>`-drawing library is how #1001 came to be filed and withdrawn. The
+ * bindings stay explicit here: they no longer choose a strategy, and a case
+ * that finds they do again is the regression.
  */
 
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
@@ -145,30 +152,38 @@ function pairedBars(
 }
 
 describe('how a segmented layer pairs its cells with the DOM', () => {
-  it('walks a path-marked layer series by series when nothing is declared', () => {
+  it('walks a series-major DOM series by series when nothing is declared', () => {
     expect(pairedBars('path')).toEqual(OWN_BAR);
   });
 
-  it('walks a rect-marked layer category by category when nothing is declared', () => {
-    // The same layer and the same DOM as above, and every cell paired with
-    // somebody else's bar. Only the mark's tag differs.
-    expect(pairedBars('rect')).toEqual(CATEGORY_MAJOR);
+  it('answers the same whichever tag the marks are', () => {
+    // The whole of #1003, as one assertion. Same layer, same DOM, same absent
+    // `domMapping`: a library that changes its mark tag between majors, as
+    // Highcharts did between v10 and v11, no longer flips how its cells pair.
+    expect(pairedBars('rect')).toEqual(pairedBars('path'));
+    expect(pairedBars('rect')).toEqual(OWN_BAR);
   });
 
-  it('answers the same on both branches once row is declared', () => {
+  it('pairs a mark that is neither tag like any other', () => {
+    // This used to fall through both branches and report no highlight at all
+    // — silently, which reads as a chart with no marks rather than as a
+    // mistake. Nothing in the tree draws such a mark; a d3 user could, since
+    // their DOM is their own.
+    expect(pairedBars('neither')).toEqual(OWN_BAR);
+  });
+
+  it('answers the same on every branch once row is declared', () => {
     expect(pairedBars('path', 'row')).toEqual(OWN_BAR);
     expect(pairedBars('rect', 'row')).toEqual(OWN_BAR);
+    expect(pairedBars('neither', 'row')).toEqual(OWN_BAR);
   });
 
-  it('answers the same on both branches once column is declared', () => {
+  it('answers the same on every branch once column is declared', () => {
+    // Column-major is still reachable, and is what a producer drawing each
+    // category's segments bottom-up asks for. It is just no longer something
+    // a layer can end up with by drawing the wrong tag.
     expect(pairedBars('path', 'column')).toEqual(CATEGORY_MAJOR);
     expect(pairedBars('rect', 'column')).toEqual(CATEGORY_MAJOR);
-  });
-
-  it('pairs nothing at all with a mark that is neither', () => {
-    // Not a wish: `mapToSvgElements` has a branch for each of the two tags and
-    // no fallback, so a layer drawn as anything else reports no highlight —
-    // silently, which reads as a chart with no marks rather than as a mistake.
-    expect(pairedBars('neither')).toEqual(Array.from({ length: 6 }, () => '(none)'));
+    expect(pairedBars('neither', 'column')).toEqual(CATEGORY_MAJOR);
   });
 });

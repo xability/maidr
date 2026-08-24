@@ -342,9 +342,17 @@ describe('the highlight lands on the bar the reader is on', () => {
     // while the highlight sits on the opposite bar.
     installDom(pyramidSvg());
 
+    // The fixture draws each band's two bars adjacent, so the layer says so.
+    // It used to be inferred: `<rect>` marks with no `domMapping` walked
+    // category-major by default while `<path>` marks walked series-major, and
+    // this case sat on the rect side of that split (#1003). Diverging
+    // producers do not agree on a layout -- Victory draws series-major and
+    // declares nothing -- so this is a fact about the fixture, not a
+    // convention to move onto the trace.
     const highlights = highlightsOf({
       ...createLayer(),
       selectors: 'g[id=\'bars\'] > rect',
+      domMapping: { order: 'column' },
     });
 
     expect(highlights).not.toBeNull();

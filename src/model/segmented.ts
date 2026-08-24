@@ -301,6 +301,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * element of a category is the *last* series -- which is why the default is
    * reverse, and has been since this was called `domOrder`.
    *
+   * Only consulted on a column-major layout, which is now declared rather
+   * than inferred: a producer that draws category by category says
+   * `order: 'column'`, and this then decides which end of the category its
+   * elements start from. It used to be reached by any `<rect>`-marked layer
+   * that declared nothing, which is what #1003 was about.
+   *
    * A subclass whose chart is not stacked has no such convention to inherit,
    * and overriding this is how it says so. `domMapping.groupDirection`
    * overrides either answer, so a producer that draws the other way round can
@@ -412,6 +418,9 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     if (domElements.length === 0) {
       return null;
     }
+    if (this.barValues.length === 0) {
+      return null;
+    }
 
     // Count total expected data points (excluding summary row added later).
     const totalExpected = this.barValues.reduce((sum, row) => sum + row.length, 0);
@@ -420,128 +429,63 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // (e.g. Plotly stacked bars render zero-height segments), map 1:1.
     const skipZeros = domElements.length < totalExpected;
 
-    const isRowMajor = this.layer.domMapping?.order === 'row';
+    // Column-major is opted into, not inferred. This used to be read the
+    // other way round -- as `order === 'row'` -- in a branch reached only by
+    // `<rect>` marks, while a `<path>` branch beside it read `isRowMajor ||
+    // !domMapping`. Same layer, same DOM, same absent `domMapping`, opposite
+    // pairings, decided by the tag the charting library happened to draw
+    // (#1003). Highcharts drew `<rect>` through v10 and `<path>` from v11
+    // with no change to its DOM order, so an upgrade flipped it.
+    //
+    // The tag now decides nothing: one strategy, one default. A mark that is
+    // neither tag is paired like any other rather than falling through both
+    // branches and leaving the layer with no highlight at all -- silently,
+    // which reads as a chart with no marks rather than as a mistake.
+    //
+    // Row-major is the default because every producer in the tree either
+    // declares its order or draws series-major, so nothing here relies on the
+    // other answer. A producer that draws each category's segments bottom-up
+    // -- the convention `groupsRunForward` describes -- says so with
+    // `order: 'column'` and gets exactly what the rect branch used to give it
+    // by default.
+    const isColumnMajor = this.layer.domMapping?.order === 'column';
     const isForward = this.groupsRunForward;
 
-    const svgElements = new Array<Array<SVGElement>>();
-    if (domElements[0] instanceof SVGPathElement) {
-      // Path-element branch (used by Vega-Lite, which renders bars as
-      // `<path>` elements). Honour `domMapping` the same way the rect
-      // branch below does, so adapters that detect runtime DOM order
-      // can correctly align segmented data with the rendered chart.
+    const svgElements = this.barValues.map(() => new Array<SVGElement>());
+
+    // One cursor over the DOM, wherever the walk below goes next. A cell whose
+    // mark the producer omitted, and a cell the DOM simply ran out for, both
+    // take a placeholder and leave the cursor where it was, so the cells after
+    // them still land on their own marks.
+    let domIndex = 0;
+    const claim = (r: number, c: number): SVGElement => {
+      if (skipZeros && isDomOmittable(this.barValues[r][c])) {
+        return Svg.createEmptyElement();
+      }
+      if (domIndex >= domElements.length) {
+        return Svg.createEmptyElement();
+      }
+      return domElements[domIndex++];
+    };
+
+    if (!isColumnMajor) {
+      // [series0-all-cats, series1-all-cats, ...]
       for (let r = 0; r < this.barValues.length; r++) {
-        svgElements.push(new Array<SVGElement>());
-      }
-
-      if (isRowMajor || !this.layer.domMapping) {
-        // Row-major DOM order (default for path marks): DOM is laid out
-        // [series0-all-cats, series1-all-cats, ...]. This was the
-        // pre-existing behaviour and is preserved as the fallback when
-        // no `domMapping` hint is supplied by an adapter.
-        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
-          for (let c = 0; c < this.barValues[r].length; c++) {
-            if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-              svgElements[r].push(Svg.createEmptyElement());
-            } else if (domIndex >= domElements.length) {
-              svgElements[r].push(Svg.createEmptyElement());
-            } else {
-              svgElements[r].push(domElements[domIndex++]);
-            }
-          }
-        }
-      } else {
-        // Column-major DOM order: DOM is laid out
-        // [cat0-all-series, cat1-all-series, ...].
-        if (!this.barValues[0]) {
-          return null;
-        }
-        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-          if (isForward) {
-            for (let r = 0; r < this.barValues.length; r++) {
-              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else if (domIndex >= domElements.length) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else {
-                svgElements[r].push(domElements[domIndex++]);
-              }
-            }
-          } else {
-            for (let r = this.barValues.length - 1; r >= 0; r--) {
-              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else if (domIndex >= domElements.length) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else {
-                svgElements[r].push(domElements[domIndex++]);
-              }
-            }
-          }
+        for (let c = 0; c < this.barValues[r].length; c++) {
+          svgElements[r].push(claim(r, c));
         }
       }
-    } else if (domElements[0] instanceof SVGRectElement) {
-      // Safety check: ensure barValues is valid
-      if (!this.barValues || this.barValues.length === 0) {
-        return null;
-      }
-
-      for (let r = 0; r < this.barValues.length; r++) {
-        svgElements.push(new Array<SVGElement>());
-      }
-
-      const isRowMajor = this.layer.domMapping?.order === 'row';
-      const isForward = this.groupsRunForward;
-
-      if (isRowMajor) {
-        // Row-major DOM order: DOM elements are [series0-all-cats, series1-all-cats, ...]
-        // This matches Google Charts rendering order.
-        for (let r = 0, domIndex = 0; r < this.barValues.length; r++) {
-          if (!this.barValues[r]) {
-            continue;
-          }
-          for (let c = 0; c < this.barValues[r].length; c++) {
-            if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-              svgElements[r].push(Svg.createEmptyElement());
-            } else if (domIndex >= domElements.length) {
-              // Fill with empty element instead of returning empty array
-              svgElements[r].push(Svg.createEmptyElement());
-            } else {
-              svgElements[r].push(domElements[domIndex++]);
-            }
-          }
-        }
-      } else {
-        // Column-major DOM order (default): DOM elements are [cat0-all-series, cat1-all-series, ...]
-        if (!this.barValues[0]) {
-          return null;
-        }
-        for (let c = 0, domIndex = 0; c < this.barValues[0].length; c++) {
-          if (isForward) {
-            for (let r = 0; r < this.barValues.length; r++) {
-              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else if (domIndex >= domElements.length) {
-                // Fill with empty element instead of returning empty array
-                svgElements[r].push(Svg.createEmptyElement());
-              } else {
-                svgElements[r].push(domElements[domIndex++]);
-              }
-            }
-          } else {
-            for (let r = this.barValues.length - 1; r >= 0; r--) {
-              if (skipZeros && isDomOmittable(this.barValues[r][c])) {
-                svgElements[r].push(Svg.createEmptyElement());
-              } else if (domIndex >= domElements.length) {
-                // Fill with empty element instead of returning empty array
-                svgElements[r].push(Svg.createEmptyElement());
-              } else {
-                svgElements[r].push(domElements[domIndex++]);
-              }
-            }
-          }
+    } else {
+      // [cat0-all-series, cat1-all-series, ...], each category walked from
+      // whichever end `groupsRunForward` says its producer starts at.
+      for (let c = 0; c < this.barValues[0].length; c++) {
+        for (let i = 0; i < this.barValues.length; i++) {
+          const r = isForward ? i : this.barValues.length - 1 - i;
+          svgElements[r].push(claim(r, c));
         }
       }
     }
+
     return svgElements;
   }
 }

@@ -2006,6 +2006,29 @@ const STANDALONE_KINDS: Record<string, SeriesKind> = {
   Treemap: 'treemap',
   Partition: 'icicle',
   Sunburst: 'sunburst',
+  // Three more paintings of the one hierarchy `extractHierarchyPoints`
+  // already reads: `Tree` draws it as nodes and links, `Pack` as nested
+  // circles, `LinkedHierarchy` as its base class. They carry the same nested
+  // `children` shape the three above do, and reach the same converter -- the
+  // only thing that kept them out was this map, which gates discovery through
+  // `STANDALONE_SERIES_CLASSES`, so the series was never wrapped as a panel
+  // and the binder reported no supported chart (#1140).
+  //
+  // Read under `treemap` rather than a name of their own. The grammar already
+  // treats that as the general one -- `ICICLE` and `SUNBURST` are both
+  // documented as "the same hierarchy as a TREEMAP, drawn as ..." -- and the
+  // navigation is identical, since all three share one branch of the
+  // dispatch. The cost is that a circle-packing or node-link diagram
+  // announces itself as a treemap, which is a fourth and fifth painting
+  // reported under the first's name. Trace types of their own would say it
+  // exactly and are a grammar change; that option is open on #1140.
+  //
+  // `Venn` is deliberately absent. An overlap diagram has no axis and no
+  // per-category magnitude to walk, so declining it is the reading, not a
+  // gap.
+  Tree: 'treemap',
+  Pack: 'treemap',
+  LinkedHierarchy: 'treemap',
   WordCloud: 'wordcloud',
   Sankey: 'sankey',
   ArcDiagram: 'sankey',
