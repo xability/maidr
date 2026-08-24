@@ -1,5 +1,6 @@
 import type { ContourPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
+import { Svg } from '@util/svg';
 import { LineTrace } from './line';
 
 /** Trims binary floating-point noise from a derived magnitude. */
@@ -76,6 +77,98 @@ export class ContourTrace extends LineTrace {
       }
     }
     return Number.NaN;
+  }
+
+  /**
+   * Where a level's highlight lands.
+   *
+   * A contour is the one line-shaped trace whose series is not reliably one
+   * drawn element. Plotly writes one `<path>` per **curve** under one
+   * `g.contourlevel` per **level**, and only the level is dependably
+   * addressable. Measured for xability/py-maidr#643 across 33 fields and 207
+   * levels -- random sums of gaussians, a saddle, a monkey saddle, ripples, a
+   * staircase, noise -- against what `contourpy` traces from the same grid:
+   *
+   * ```
+   * levels where the counts disagreed        0 / 207
+   * levels where the order within one did   18 / 207
+   * ```
+   *
+   * Five of the eighteen were ordinary two-peaked gaussian fields, so
+   * `g.contourlevel:nth-of-type(k)` is dependable and `... path:nth-of-type(j)`
+   * is not. Inherited, that left a producer two options: a per-curve selector
+   * that resolves to a real element and the wrong one, or no selector at all
+   * and no highlight (xability/maidr#1142).
+   *
+   * So a selector resolving to **several** elements is read as a level rather
+   * than a curve, and every point of that series outlines all of them. That is
+   * the reading matplotlib's contour has always given -- it draws one `<path>`
+   * per level, so naming the level names an element -- and a reader on one
+   * island of the 0.5 contour sees the 0.5 contour outlined.
+   *
+   * Decided per level rather than per layer, because a field usually has
+   * islands at some levels and not others, and a reader on a single-curve
+   * level keeps the per-point highlight that walks with them.
+   *
+   * Naming the `g.contourlevel` itself instead does not work, and is why the
+   * selector resolves to the paths: `Svg.createHighlightElement` sets `stroke`
+   * on the *clone*, and `stroke` is inherited only by a child that declares
+   * none -- plotly stamps one on every contour path, so the clone comes out
+   * colourless.
+   *
+   * @param selectors - One selector per level, as the layer declared them
+   * @returns The elements to outline, point by point
+   */
+  protected override mapToSvgElements(
+    selectors?: string[],
+  ): (SVGElement[] | SVGElement)[][] | null {
+    const perCurve = super.mapToSvgElements(selectors);
+    // The parent answers null when the selectors are unusable at all -- there
+    // are not one per series -- and that is a different answer from "one per
+    // series, resolving to nothing", so it is passed through rather than
+    // turned into a row of empties.
+    if (!selectors || perCurve === null) {
+      return perCurve;
+    }
+
+    // Resolved without cloning, the way `mapViaDomElements` does and for the
+    // same reason: a hidden copy beside each match shifts the positional
+    // selectors of every level after it (#1004).
+    const levels = selectors.map(selector =>
+      Svg.selectAllElements<SVGElement>(selector, false),
+    );
+
+    return levels.map((elements, row) => {
+      if (elements.length < 2) {
+        return perCurve[row];
+      }
+      // The parent has already synthesised a marker per point along whichever
+      // island it happened to resolve first -- the wrong-element highlight
+      // this override exists to replace. They are appended to the chart, so
+      // dropping the reference would leave them in it.
+      ContourTrace.discard(perCurve[row]);
+      // `lineValues` rather than `curves`: this runs from the parent's
+      // constructor, before this class's own fields are assigned.
+      return this.lineValues[row].map(() => elements);
+    });
+  }
+
+  /**
+   * Remove markers MAIDR synthesised and is about to stop referencing.
+   *
+   * Only MAIDR's own: the chart's live elements are highlighted in place and
+   * removing one would erase part of the drawing.
+   *
+   * @param cells - One series' worth of mapped highlight elements
+   */
+  private static discard(cells?: (SVGElement[] | SVGElement)[]): void {
+    for (const cell of cells ?? []) {
+      for (const element of Array.isArray(cell) ? cell : [cell]) {
+        if (Svg.isOwned(element)) {
+          element.remove();
+        }
+      }
+    }
   }
 
   protected override get groupFallbackLabel(): string {
