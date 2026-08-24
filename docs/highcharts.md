@@ -143,8 +143,11 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](examples/highcharts-dodged.html) |
 | Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](examples/highcharts-normalized.html) |
 | Pie | `pie` (a doughnut is a `pie` with an `innerSize`) | [highcharts-pie.html](examples/highcharts-pie.html) |
+| Mosaic | `variwide` (requires `modules/variwide.js`) | [highcharts-variwide.html](examples/highcharts-variwide.html) |
 
 > **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration. The same holds for funnel and word cloud layers, whose dimensions are named `Stage`/`Count` and `Term`/`Weight`.
+
+> **Variwide note:** a variwide is a column chart whose widths carry a second quantity, so it is read as a mosaic rather than as a bar: `BarPoint` is `{x, y}` and has nowhere to put the width, which is half of what the chart draws. `point.y` is the column's height and `point.z` its width, and the share `MosaicPoint.width` carries is `z / sum(z)` — measured on Highcharts 11 to be the fraction of the plot each column is drawn at, to the pixel. No `count` is emitted: a mosaic is usually drawn from a contingency table, but a variwide's `z` is any measure at all, and declaring one would announce "Count 83.2" for a chart of millions of people. Each series becomes its own mosaic, since two variwide series are drawn side by side and each sizes its columns from its own total.
 
 > **Area note:** every `area`/`areaspline` series in one panel becomes a single area layer, because a stacked band's running total only exists when all the bands share a layer. A stacked area is read as such — each point announces its own height alongside the total it sits in — and a percent stack carries the shares Highcharts computed, which is what the chart draws. `step` is not carried through on an area series: a layer holds one trace type, and announcing a stacked area as a step layer would drop the totals.
 

@@ -45,6 +45,7 @@ import type {
   Maidr,
   MaidrLayer,
   MaidrSubplot,
+  MosaicPoint,
   NetworkPoint,
   PiePoint,
   ScatterPoint,
@@ -1573,6 +1574,10 @@ function convertSeries(
       return convertScatterSeries(series, containerId);
     case 'lollipop':
       return convertLollipopSeries(series, containerId);
+    // A column chart whose widths carry a second quantity -- the one shape in
+    // this family a bar layer has nowhere to put.
+    case 'variwide':
+      return convertVariwideSeries(series, chart, containerId);
     case 'funnel':
     case 'pyramid':
       return convertFunnelSeries(series, containerId);
@@ -2423,6 +2428,104 @@ function convertLollipopSeries(
       x: getAxisLabel(series, 'x'),
       y: getAxisLabel(series, 'y'),
     },
+    data,
+  };
+}
+
+/**
+ * Converts a `variwide` series into a mosaic layer.
+ *
+ * A variwide is a column chart whose **widths carry a second quantity**:
+ * `point.y` is how tall a column is drawn and `point.z` is how wide, so the
+ * chart shows a measure against the size of the group it was measured over.
+ * That is the mosaic reading exactly -- a magnitude per category plus the
+ * category's share of the whole -- and it is why `bar` is the wrong home:
+ * `BarPoint` has nowhere to put `z`, so half the chart would be dropped
+ * silently, which is how it reached #1138 in the first place (the type is in
+ * no bucket at all today, so a variwide chart emits **zero layers** and is
+ * not navigable).
+ *
+ * The share is computed rather than read, because Highcharts computes it too.
+ * Measured on Highcharts 11.4.8 in Chromium, four columns over a 726px plot:
+ *
+ *     point      z      z / sum(z)   drawn width
+ *     Norway     5.4    0.0393       28px
+ *     Germany   83.2    0.6060       440px
+ *     Poland    38.0    0.2768       201px
+ *     Greece    10.7    0.0779       57px
+ *
+ * -- so `z / sum(z)` is the fraction each column is drawn at, to the pixel,
+ * and that is the number `MosaicPoint.width` is defined to hold.
+ *
+ * `count` is deliberately not emitted. A mosaic is usually drawn from a
+ * contingency table, but a variwide's `z` is any measure at all -- population,
+ * revenue, hours -- and declaring one would put "Count 83.2" in the
+ * announcement for a chart of millions of people.
+ *
+ * One layer per series rather than one table per chart: two variwide series on
+ * one chart are drawn side by side, each sizing its own columns from its own
+ * `z` total (measured: series totals of 4 and 6 gave each series its own
+ * widths), so folding them into shared mosaic columns would report shares of
+ * a total no column was drawn against.
+ *
+ * @param series - The variwide series to convert
+ * @param chart - The owning chart, for its `inverted` flag
+ * @param containerId - The chart container's id, for the selectors
+ * @returns The mosaic layer
+ */
+function convertVariwideSeries(
+  series: HighchartsSeries,
+  chart: HighchartsChart,
+  containerId: string,
+): MaidrLayer {
+  // A variwide honours `chart.inverted` -- measured, the same four columns
+  // laid across the page -- and a horizontal layer carries its category on
+  // `y` and its magnitude on `x`, which `MosaicTrace` already reads either
+  // way.
+  const isHorizontal = chart.options.chart?.inverted === true;
+  const orientation = isHorizontal ? Orientation.HORIZONTAL : Orientation.VERTICAL;
+
+  // A point with no value draws no column at all (measured: `point.graphic`
+  // is absent), so keeping it would slide every later highlight onto its
+  // neighbour's column.
+  const points = series.data.filter(p => p.y !== null);
+
+  // The shares are taken over EVERY declared point, including the ones with
+  // no value. Measured: dropping the middle of z = 4, 6, 10 left the two
+  // survivors at 145px and 363px of a 726px plot -- exactly the widths they
+  // had when all three were drawn. Highcharts keeps a valueless column's
+  // slice of the axis and simply draws nothing in it, so a share taken over
+  // the survivors alone would report 4/14 for a column drawn at 4/20.
+  const magnitudes = series.data.map(p => p.z);
+  // And a share is reported only when Highcharts sized the columns, which it
+  // does only when every point carries a width. Measured: one point declared
+  // without `z` collapses the whole series -- all three columns rendered at
+  // 0x0, not just the one -- so shares over the rest would describe a chart
+  // nobody was shown. A total of zero is the same case arrived at
+  // differently: every column drew at 0x0, and 0/0 would announce each of
+  // them as NaN% of the chart.
+  const sized = magnitudes.every(z => typeof z === 'number' && Number.isFinite(z));
+  const total = sized
+    ? magnitudes.reduce<number>((sum, z) => sum + (z as number), 0)
+    : 0;
+  const name = series.name || 'Series 1';
+
+  const data: MosaicPoint[][] = [points.map((point) => {
+    const label = pointLabel(point);
+    const value = point.y as number;
+    const share = total > 0 ? { width: (point.z as number) / total } : {};
+    return isHorizontal
+      ? { x: value, y: label, z: name, ...share }
+      : { x: label, y: value, z: name, ...share };
+  })];
+
+  return {
+    id: String(series.index),
+    type: TraceType.MOSAIC,
+    title: series.name || undefined,
+    orientation,
+    selectors: barSelector(containerId, series.index),
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
