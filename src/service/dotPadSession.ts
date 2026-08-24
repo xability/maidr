@@ -99,6 +99,33 @@ function readGlobalConfig(key: string): string | null {
 const VENDOR_BASE_URL = 'https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@437210b1e5b3f4cc5aaa8db5759206067b4edd6e/Web/3.0.2';
 
 /**
+ * Directory the braille engine's liblouis build is fetched from.
+ *
+ * Separate from {@link VENDOR_BASE_URL}, and pointing at a different copy of
+ * the same release, because the copy in the vendor's own repository tree is
+ * corrupt. `.gitattributes` there says `* text=auto`, and `liblouis.data` is
+ * braille-table text with no NUL byte in it, so git detects it as text and
+ * rewrites its line endings on commit -- 7,685 carriage returns gone.
+ *
+ * That is fatal rather than cosmetic. The file is an Emscripten file package:
+ * a flat concatenation addressed by absolute byte offsets held in
+ * `liblouis.js`. Drop bytes anywhere and every table after that point is read
+ * from the wrong place. `unicode.dis` lands mid-way through an Arabic table
+ * and liblouis rejects it at the first line ("opcode 'Name' not defined"),
+ * every table pairs with `unicode.dis`, so all 32 languages fail together and
+ * `translateText` resolves to an empty string. The line then falls back to the
+ * uncontracted table here, which is what a reader sees: grade 1, silently.
+ *
+ * These are still the vendor's own bytes. They are the ones in the release zip
+ * the vendor publishes beside the tree -- 13,751,594 bytes, matching what the
+ * package's own index declares -- restored into a fork with the file marked
+ * binary so the round trip stops eating it. The SDK module itself is unchanged
+ * and still comes from the vendor's tree above: the only thing served from
+ * elsewhere is a data file whose contents are byte-for-byte the vendor's.
+ */
+const VENDOR_ASSET_BASE_URL = 'https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@bd4955fff600f9878267466ed8887cfcf5d253bb/Web/3.0.2/lib/';
+
+/**
  * Language table the braille text line is translated with.
  *
  * Contracted braille is what a fluent reader actually reads, and on a
@@ -375,7 +402,7 @@ class DotPadSession {
       // usually a policy that would refuse the CDN anyway, and pointing
       // liblouis at it would fail at the one moment there is no fallback left.
       const assets = this.configuredAssetBaseUrl
-        ?? (this.configuredModuleUrl === null ? `${VENDOR_BASE_URL}/lib/` : null);
+        ?? (this.configuredModuleUrl === null ? VENDOR_ASSET_BASE_URL : null);
       if (assets !== null) {
         vendor.LiblouisManager?.setAssetBaseUrl(assets);
       }

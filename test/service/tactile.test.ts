@@ -1261,6 +1261,56 @@ describe('tactileService', () => {
       );
     });
 
+    it('should say once that the line is uncontracted when the engine declines', async () => {
+      // The failure that prompted this: the engine came up, accepted a
+      // language and a grade, and then returned nothing, because its table
+      // bundle was corrupt. `canTranslate` stays true down that path, so a
+      // check on it alone would have missed the case entirely -- and the
+      // reader met grade 1 with no way to tell it from a description that was
+      // simply that long.
+      session.canTranslate = true;
+      session.translate.mockResolvedValue(null);
+      session.isConnected = true;
+      turnOn();
+
+      service.update(traceState(chart, 1));
+      await Promise.resolve();
+
+      expect(notify).toHaveBeenCalledWith(
+        'Contracted braille is unavailable, so the tactile display\'s text line is uncontracted',
+      );
+    });
+
+    it('should say it once rather than on every move', async () => {
+      // A standing condition, not an event. Repeating it on every arrow key
+      // would talk over the reading it is describing.
+      session.canTranslate = true;
+      session.translate.mockResolvedValue(null);
+      session.isConnected = true;
+      turnOn();
+      service.update(traceState(chart, 1));
+      await Promise.resolve();
+
+      service.update(traceState(chart, 2));
+      await Promise.resolve();
+
+      const said = notify.mock.calls
+        .filter(call => String(call[0]).includes('uncontracted'));
+      expect(said).toHaveLength(1);
+    });
+
+    it('should say nothing about grade when the engine answers', async () => {
+      session.canTranslate = true;
+      session.translate.mockResolvedValue('1e15ff');
+      session.isConnected = true;
+      turnOn();
+
+      service.update(traceState(chart, 1));
+      await Promise.resolve();
+
+      expect(notify).not.toHaveBeenCalledWith(expect.stringContaining('uncontracted'));
+    });
+
     it('should fall back to its own table when the engine declines', async () => {
       session.canTranslate = true;
       session.translate.mockResolvedValue(null);

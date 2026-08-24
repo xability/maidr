@@ -228,6 +228,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private lastState: DrawableState | null = null;
 
   /**
+   * Whether the reader has been told the text line is uncontracted, so they
+   * are told once rather than on every move.
+   */
+  private warnedUncontracted = false;
+
+  /**
    * The payload currently on the braille text line, so an unchanged value is
    * not retransmitted. Writes share one serialised queue with the graphic
    * frames, so a redundant text write sits ahead of the next real frame and
@@ -1143,6 +1149,35 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * Tells the reader once that the text line is uncontracted.
+   *
+   * Grade 2 is what a fluent reader reads, and on twenty cells the
+   * contractions are most of the difference between a value fitting and having
+   * to be panned for -- so a line that quietly arrives uncontracted is not a
+   * cosmetic downgrade, and it looks exactly like a line that was always going
+   * to be that long. There is nothing in the cells themselves that says which
+   * of the two happened.
+   *
+   * Both ways it can happen are covered, which matters because they are not the
+   * same failure. The engine can be unreachable, and it can also come up,
+   * accept a language and a grade, and then return nothing when asked to
+   * translate -- a broken table compiles to an empty result rather than to an
+   * error, and that path leaves {@link DotPadSession.canTranslate} true.
+   *
+   * Once per session. It is a standing condition, not an event, and repeating
+   * it on every arrow key would talk over the reading it is describing.
+   */
+  private announceUncontracted(): void {
+    if (this.warnedUncontracted) {
+      return;
+    }
+    this.warnedUncontracted = true;
+    this.notification.notify(
+      'Contracted braille is unavailable, so the tactile display\'s text line is uncontracted',
+    );
+  }
+
+  /**
    * Puts the focused point's description on the braille text line.
    *
    * The description is the same one review mode reads out, verbatim — one
@@ -1169,6 +1204,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const request = ++this.textRequest;
 
     if (!dotPadSession.canTranslate) {
+      this.announceUncontracted();
       this.textCells = TactileBraille.toCells(description);
       this.writeTextWindow(cellCount);
       return;
@@ -1181,6 +1217,9 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     void dotPadSession.translate(description).then((hex) => {
       if (request !== this.textRequest) {
         return;
+      }
+      if (hex === null) {
+        this.announceUncontracted();
       }
       this.textCells = hex === null
         ? TactileBraille.toCells(description)

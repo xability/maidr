@@ -375,6 +375,28 @@ it, an older SDK build without the translation surface — MAIDR falls back to
 its own uncontracted (grade 1) table. That is worse to read, but the line never
 goes blank for want of a translator.
 
+Its **tables come from a different copy of the same release** than the SDK
+module does, and deliberately. The copy in the vendor's own repository tree is
+corrupt: `.gitattributes` there says `* text=auto`, and `liblouis.data` is
+braille-table text with no NUL byte in it, so git detects it as text and
+rewrites its line endings on commit — 7,685 carriage returns gone. The file is
+an Emscripten file package addressed by absolute byte offsets, so every table
+past that point is read from the wrong place: `unicode.dis` lands mid-way
+through an Arabic table, liblouis rejects it at its first line, every table
+pairs with `unicode.dis`, and all 32 languages fail together. `translateText`
+then resolves to an empty string rather than to an error, which is quieter than
+it sounds — the line falls back to grade 1 and nothing about the cells says
+whether the description was contracted or simply that long. The bytes served
+instead are the vendor's own, taken from the release zip published beside the
+tree and restored into a fork with the file marked binary. The SDK module
+itself is unchanged and still comes from the vendor's tree.
+
+Because that failure is silent by nature, the reader is **told once per
+session** when the line comes out uncontracted — from either cause, the engine
+being unreachable or the engine answering with nothing. Once, not per move: it
+is a standing condition rather than an event, and repeating it on every arrow
+key would talk over the reading it describes.
+
 ## What the display does not show
 
 - **Charts with no SVG.** Canvas- and WebGL-rendered charts have no shapes to
