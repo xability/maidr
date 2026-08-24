@@ -105,6 +105,41 @@ describe('a tree\'s nodes', () => {
     ]);
   });
 
+  it('are found with another mark drawn in front of them', () => {
+    // A scatter drawn before the tree puts a second `dot` group ahead of the
+    // tree's own. Looking at the first of each mark asked the hierarchy
+    // question of the scatter, got no for an answer, and gave up -- so the
+    // whole of #1168 came back on a chart one unrelated mark away from the
+    // one above. Both marks are read here, each as what it is.
+    const layers = layersOf('scatterBeforeTree');
+
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.TREE, TraceType.SCATTER]);
+    expect(layers[0].data).toEqual([
+      { x: 'a', path: [] },
+      { x: 'b', path: ['a'] },
+      { x: 'c', path: ['a'] },
+      { x: 'd', path: ['a', 'b'] },
+      { x: 'e', path: ['a', 'b'] },
+    ]);
+    expect(layers[1].data).toHaveLength(2);
+  });
+
+  it('are named from their own titles, not from a label paired onto them', () => {
+    // Two trees in one plot share a pair of scales, so both roots land on the
+    // same point and each tree's labels sit on the other's dots as squarely as
+    // on their own. Read from the pairing, the first tree announced the
+    // second's names. The dot's own `<title>` is on the mark being read and
+    // cannot be confused with a neighbour's.
+    //
+    // Only the first tree is read: two of them drawn over one another is not a
+    // chart anyone makes, and the second is left as it was rather than the two
+    // being merged into a hierarchy neither draws.
+    const [layer] = layersOf('twoTrees');
+
+    expect(layer.type).toBe(TraceType.TREE);
+    expect(layer.data.map(node => node.x)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+
   it('carry no magnitude, because a tree layout has none', () => {
     // Every dot is drawn the same size. Naming a value axis would claim a
     // second dimension the chart does not have (#1153).
@@ -206,6 +241,48 @@ describe('what is not a tree', () => {
       markGroup(document, 'link', [null]),
       markGroup(document, 'dot', ['a', 'a/b']),
       markGroup(document, 'text', ['a', 'a/b']),
+    ])).toBeNull();
+  });
+
+  it('looks past a mark drawn in front of the tree', () => {
+    // The index search, asked directly: the tree's groups are the second dot
+    // and the link before it, not the first of each.
+    expect(treeComposite([
+      markGroup(document, 'link', [null]),
+      markGroup(document, 'dot', [null, null]),
+      markGroup(document, 'link', [null]),
+      markGroup(document, 'dot', paths),
+      markGroup(document, 'text', paths),
+    ])).toEqual({ link: 2, dot: 3, texts: [4] });
+  });
+
+  it('claims only the text marks naming its own nodes', () => {
+    // A labelled mark beside the tree has titles of its own. Requiring every
+    // text mark in the plot to be titled with a path refused the tree because
+    // of a mark that has nothing to do with it; claiming that mark instead
+    // would swallow a layer the reader should have.
+    expect(treeComposite([
+      markGroup(document, 'link', [null]),
+      markGroup(document, 'dot', paths),
+      markGroup(document, 'text', paths),
+      // One title it shares with the tree and one it does not. A mark has to
+      // be titled from these nodes throughout to be their names; overlapping
+      // in part is what a chart drawn over a tree does.
+      markGroup(document, 'text', ['/a', 'q']),
+      // And no titles at all is not evidence either: a `Plot.text` scatter
+      // labelled from its content alone would be swallowed whole.
+      markGroup(document, 'text', [null, null]),
+    ])).toEqual({ link: 0, dot: 1, texts: [2] });
+  });
+
+  it('needs the edges drawn before the nodes, as Plot draws them', () => {
+    // Plot expands a tree into link, dot, text, text in one place and in that
+    // order. A link that comes after the nodes belongs to something else, and
+    // claiming it would leave the tree's own edges to be read as spans.
+    expect(treeComposite([
+      markGroup(document, 'dot', paths),
+      markGroup(document, 'text', paths),
+      markGroup(document, 'link', [null]),
     ])).toBeNull();
   });
 

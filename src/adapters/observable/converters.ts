@@ -566,7 +566,13 @@ function convertTreeComposite(
     const elements: Element[] = [];
 
     for (const element of facet.elements) {
-      const path = context.pointNames.get(element) ?? markName(element);
+      // The node's own title, ahead of any label paired onto it. Plot titles
+      // every tree dot with its full path, so the exact answer is on the mark
+      // being read; the pairing is a fallback for a tree drawn without one.
+      // It matters where two trees overlap -- sharing a pair of scales puts
+      // their roots on the same point, and the pairing then answers with the
+      // other tree's name.
+      const path = markName(element) ?? context.pointNames.get(element);
       if (path === null || path === undefined || !path.startsWith(TREE_PATH_SEPARATOR))
         continue;
       const segments = path.split(TREE_PATH_SEPARATOR).slice(1);

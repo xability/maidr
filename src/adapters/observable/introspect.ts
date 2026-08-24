@@ -241,11 +241,16 @@ export const TREE_PATH_SEPARATOR = '/';
  *     Plot.tree(['Company', 'Company/Sales', …])           <title>/Company/Sales</title>
  *     Plot.tree(['Company.Sales', …], {delimiter: '.'})    <title>/Company/Sales</title>
  *
- * So the test is whether the titles form a rooted hierarchy: every one begins
- * with `/`, and every one's parent prefix is either empty or another title.
- * A labelled scatter whose labels happen to look like paths fails that as soon
- * as one of its parents is missing, and a `link` mark on its own keeps the
- * span reading #1094 gave it.
+ * So the test is whether the node titles form a rooted hierarchy: every one
+ * begins with `/`, and every one's parent prefix is either empty or another
+ * title. A labelled scatter whose labels happen to look like paths fails that
+ * as soon as one of its parents is missing, and a `link` mark on its own keeps
+ * the span reading #1094 gave it.
+ *
+ * One tree per plot. Two of them share a pair of scales and draw on top of one
+ * another, so the chart is not one anybody makes; the first is read and the
+ * second is left as it was rather than the two being merged into a hierarchy
+ * neither draws.
  *
  * @param groups - The plot's mark groups, in draw order.
  * @returns The tree's groups, or `null` when the plot does not draw one.
@@ -257,17 +262,44 @@ export function treeComposite(
     .map((entry, index) => (entry.label === label ? index : -1))
     .filter(index => index >= 0);
 
-  const link = indices('link')[0];
-  const dot = indices('dot')[0];
-  const texts = indices('text');
-  if (link === undefined || dot === undefined || texts.length === 0)
-    return null;
+  // Every dot, not the first of them, for the reason {@link boxComposites}
+  // takes every combination: one other mark drawn before the tree shifts the
+  // nodes down the list, and a check that only looks once then asks the
+  // hierarchy question of that mark and gives up on a tree that is right
+  // there. Measured on `[Plot.dot(other), Plot.tree(paths)]` -- the whole of
+  // #1168 came back, layout coordinates and all.
+  for (const dot of indices('dot')) {
+    // Asked of the nodes themselves, which are the marks this reading hands
+    // over. Asking it of the text marks instead lets an unrelated labelled
+    // mark answer for the tree: one `Plot.text` with a `title` channel put a
+    // pair of names among the paths and refused the tree outright.
+    const paths = nodePathsOf(groups[dot].group);
+    if (!isRootedHierarchy(paths))
+      continue;
 
-  const titles = texts.flatMap(index => nodePathsOf(groups[index].group));
-  if (!isRootedHierarchy(titles))
-    return null;
+    // Plot expands a tree into its four marks in one place and in this order,
+    // so the edges are the last link drawn before the nodes. An earlier one
+    // belongs to another mark, and claiming it would leave the tree's own
+    // edges behind to be read as spans.
+    const link = indices('link').filter(index => index < dot).pop();
+    if (link === undefined)
+      continue;
 
-  return { link, dot, texts };
+    // Only the text marks naming *these* nodes. A tree's two are titled from
+    // the same paths as its dots; another mark's labels are its own, and stay
+    // its own rather than being swallowed by the tree.
+    const known = new Set(paths);
+    const texts = indices('text').filter((index) => {
+      const titles = nodePathsOf(groups[index].group);
+      return titles.length > 0 && titles.every(title => known.has(title));
+    });
+    if (texts.length === 0)
+      continue;
+
+    return { link, dot, texts };
+  }
+
+  return null;
 }
 
 /** The mark groups of one tree, as indices into the plot's groups. */
@@ -281,14 +313,18 @@ export interface TreeComposite {
 }
 
 /**
- * The `<title>` path of every labelled node in a text mark.
+ * The `<title>` path of every titled mark in a group.
  *
- * @param group - A `text` mark group.
- * @returns One path per `<text>` that carries a title, in document order.
+ * Asked of a tree's dots and of its text marks alike: Plot titles both from
+ * the node's full path, so the two answer the same list and the second can be
+ * checked against the first.
+ *
+ * @param group - Any mark group.
+ * @returns One path per element that carries a title, in document order.
  */
 function nodePathsOf(group: Element): string[] {
-  return Array.from(group.querySelectorAll('text'))
-    .map(text => textOf(text.querySelector('title')))
+  return Array.from(group.children)
+    .map(element => textOf(element.querySelector('title')))
     .filter((path): path is string => path !== undefined);
 }
 
@@ -300,7 +336,7 @@ function nodePathsOf(group: Element): string[] {
  * passes: `Plot.tree(['x/1', 'y/2'])` draws two roots, and two roots is what
  * it is.
  *
- * @param paths - The node paths found in the plot's text marks.
+ * @param paths - The node paths the candidate mark is titled with.
  * @returns Whether they form one.
  */
 function isRootedHierarchy(paths: readonly string[]): boolean {

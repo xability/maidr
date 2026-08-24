@@ -464,13 +464,15 @@ They are read as one `tree` layer, and what identifies one is a fact in the mark
 <text y="0.32em" transform="translate(330,253)">Engineering<title>/Company/Engineering</title></text>
 ```
 
-so the test is whether those titles form a rooted hierarchy — every one beginning with the separator, and every one's parent prefix either empty or another title. A labelled scatter whose labels happen to look like paths fails it as soon as one parent is missing, and a `link` mark on its own keeps the span reading above.
+so the test is whether the **nodes'** titles form a rooted hierarchy — every one beginning with the separator, and every one's parent prefix either empty or another title. A labelled scatter whose labels happen to look like paths fails it as soon as one parent is missing, and a `link` mark on its own keeps the span reading above.
 
-Three details are worth knowing:
+Five details are worth knowing:
 
 - **The separator is always `/`**, whatever `delimiter` you passed. Measured on `Plot.tree(data, {delimiter: '.'})`, the titles still come back `/`-joined, because Plot normalises the path it parsed rather than echoing the spelling it was given.
-- **The nodes come from the `dot` mark**, not from the text marks. Plot splits the labels across two marks, so their document order is not the tree's — and the dots are what a reader's highlight can point at, one per node.
+- **The nodes come from the `dot` mark**, not from the text marks. Plot splits the labels across two marks, so their document order is not the tree's — and the dots are what a reader's highlight can point at, one per node. Each node's name is read from its own `<title>` rather than from the label drawn beside it, which matters where two trees overlap: sharing a pair of scales puts both roots on the same point, and the nearest label is then as likely to be the other tree's.
 - **A forest keeps its roots.** Given more than one, Plot invents an unnamed root so its layout has somewhere to start, and draws a dot for it titled just `/`. That is drawing rather than data, so it is dropped and the roots you declared stay roots.
+- **Other marks on the chart do not hide the tree.** A tree found among them is read as one, and the marks around it are read as whatever they are: a `Plot.dot` scatter drawn before the tree does not take its nodes' place, and a `Plot.text` labelled from data of its own is not swallowed as the tree's names. Only the text marks titled from these nodes' paths belong to the tree.
+- **One tree per plot.** Two of them share a pair of scales and draw over one another, which is not a chart anyone makes; the first is read and the second is left as it was rather than the two being merged into a hierarchy neither draws.
 
 No node carries a magnitude. A tree layout sizes nothing by value and every dot is drawn alike, so the layer names only the node axis rather than claiming a second dimension the chart does not have.
 
