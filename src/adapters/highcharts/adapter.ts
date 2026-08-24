@@ -1671,6 +1671,16 @@ function convertSeries(
       return convertTreeSeries(series, containerId, TraceType.TREEMAP);
     case 'sunburst':
       return convertTreeSeries(series, containerId, TraceType.SUNBURST);
+    // A treegraph is the same `id`/`parent` hierarchy drawn as nodes and
+    // links rather than nested rectangles, and a packed bubble is the same
+    // points drawn as circles packed together. Both are hierarchies MAIDR
+    // now has names for, and the naming argument is #1140's: the trace type
+    // is what the reader is *told* is on the page, so a node-link diagram is
+    // a `tree` and a cluster of circles is a `pack`, not a treemap.
+    case 'treegraph':
+      return convertTreeGraphSeries(series, containerId);
+    case 'packedbubble':
+      return convertTreeSeries(series, containerId, TraceType.PACK);
     // An organization chart is a hierarchy with no magnitude on it at all,
     // which the treemap trace could not express until #1153.
     case 'organization':
@@ -3049,7 +3059,70 @@ function treeNodeLabel(point: HighchartsPoint): string | number {
 }
 
 /**
- * Converts a `treemap` or `sunburst` series into a hierarchy layer.
+ * Converts a `treegraph` series into a node-link hierarchy layer.
+ *
+ * A treegraph declares exactly what a treemap does -- `id`, `parent`, `name`
+ * -- and draws it as boxes joined by links instead of nested rectangles. The
+ * walk up the `parent` chain is therefore the treemap's, and this delegates to
+ * it for everything except the one thing that differs: whether the chart has a
+ * magnitude at all.
+ *
+ * `point.value` cannot answer that here. A treegraph's layout does not size
+ * anything by value, and Highcharts fills the field in regardless: measured on
+ * a five-node chart in Highcharts 13 with `modules/treegraph.js`, every node
+ * came back with `value === 0` and `options.value === undefined`. Reading
+ * `point.value` would emit `y: 0` on every node and announce a magnitude of
+ * zero for a chart that has none -- which is #1153's defect, and the reason
+ * `convertOrganizationSeries` exists rather than reusing the treemap path.
+ *
+ * `point.options.value` is what the author wrote, so it separates the two:
+ *
+ *     treegraph, no values      options.value undefined   value 0
+ *     treegraph, values 1..5    options.value 1..5        value 1..5
+ *
+ * A treemap keeps reading `point.value` and is untouched by this. There the
+ * computed field is not an artefact: an interior node with no declared value
+ * comes back carrying the sum of its children (measured, 12 and 8 on a
+ * leaves-only tree), which is a real total the rectangles are sized by. And a
+ * treemap with no values anywhere draws nothing at all -- measured, zero
+ * rendered nodes -- so the case this guards against cannot arise there.
+ *
+ * @param series - The treegraph series to read
+ * @param containerId - The chart container's DOM id, for the selectors
+ * @returns The layer
+ */
+function convertTreeGraphSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer {
+  const layer = convertTreeSeries(series, containerId, TraceType.TREE);
+  const declared = series.data.map(point => point.options?.value);
+  const anyDeclared = declared.some(value => typeof value === 'number');
+
+  const data = (layer.data as TreemapPoint[]).map((node, index) => {
+    const value = declared[index];
+    // An undeclared node carries no `y` at all rather than Highcharts' zero.
+    // Beside declared siblings that is the treemap's own behaviour --
+    // `TreemapTrace` derives the total from the children the paths give it --
+    // and with nothing declared anywhere it leaves the whole layer valueless,
+    // which is what the chart is.
+    const { y: _computed, ...rest } = node;
+    return typeof value === 'number' ? { ...rest, y: value } : rest;
+  });
+
+  return {
+    ...layer,
+    // No magnitude anywhere means no value axis either: naming one would
+    // claim an axis the chart does not draw, the same answer an organization
+    // chart already gets.
+    axes: anyDeclared ? layer.axes : { x: { label: TREE_NODE_AXIS } },
+    data,
+  };
+}
+
+/**
+ * Converts a `treemap`, `sunburst` or `packedbubble` series into a hierarchy
+ * layer.
  *
  * Highcharts declares the tree with `id` / `parent` pointers on each node,
  * while MAIDR declares it as a path — a node's ancestors, root first, itself
@@ -3062,11 +3135,18 @@ function treeNodeLabel(point: HighchartsPoint): string | number {
  * at all: `TreemapTrace` derives an undeclared interior total from the
  * children the paths give it, and keeps a declared one that disagrees, since a
  * parent may carry mass no child accounts for.
+ *
+ * A `packedbubble` series declares no `parent` on anything -- the grouping is
+ * which *series* a bubble is in, and the adapter already gives each series its
+ * own layer named after it. So every bubble walks back to an empty path and
+ * the layer is a flat pack of circles sized by value, which is what the chart
+ * draws. Nothing else about the walk changes, which is why it shares this
+ * converter rather than getting one of its own.
  */
 function convertTreeSeries(
   series: HighchartsSeries,
   containerId: string,
-  traceType: TraceType.TREEMAP | TraceType.SUNBURST,
+  traceType: TraceType.TREEMAP | TraceType.SUNBURST | TraceType.PACK | TraceType.TREE,
 ): MaidrLayer {
   const byId = new Map<string, HighchartsPoint>();
   for (const point of series.data) {
