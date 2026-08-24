@@ -218,6 +218,14 @@ export class DotRaster {
    * grid is binary, so a union of one-pin strokes is exactly a wide stroke,
    * and it costs a few passes over an area the size of a postcard.
    *
+   * The offsets are perpendicular to each segment, and only perpendicular. An
+   * earlier version offset along both axes at once, on the reasoning that a
+   * path may run in any direction and the pass that does not thicken it costs
+   * nothing. It costs the width: offsetting a diagonal by a pin in x and again
+   * in y lands on four distinct columns per row, so a stroke asked for at two
+   * pins arrived at four. A line chart came back as a band a fingertip could
+   * not find an edge of, which is most of what a line is for.
+   *
    * @param points - Points in dot coordinates
    * @param weight - Pins across the stroke; 1 draws a plain polyline
    * @param on - True to raise, false to lower
@@ -228,21 +236,62 @@ export class DotRaster {
     on: boolean = true,
   ): void {
     this.polyline(points, on);
-    if (weight <= 1) {
+    if (weight <= 1 || points.length < 2) {
       return;
     }
 
-    // Offsets spiral outward from the path so an even weight grows to one side
-    // by the same amount it grows to the other, give or take a pin. Both axes
-    // are offset because a stroke may run in any direction and only the
-    // perpendicular offset thickens it — applying both costs a pass and leaves
-    // the stroke the same width whichever way it turns.
-    const reach = Math.floor(weight / 2);
-    for (let step = 1; step <= reach; step++) {
-      for (const [dx, dy] of [[step, 0], [-step, 0], [0, step], [0, -step]]) {
-        this.polyline(points.map(point => ({ x: point.x + dx, y: point.y + dy })), on);
+    // Spiralling out from the path, so an even weight grows to one side by the
+    // same amount it grows to the other, give or take a pin: 2 is [1], 3 is
+    // [1, -1], 4 is [1, -1, 2].
+    const offsets: number[] = [];
+    for (let step = 1; offsets.length < weight - 1; step++) {
+      offsets.push(step);
+      if (offsets.length < weight - 1) {
+        offsets.push(-step);
       }
     }
+
+    for (const offset of offsets) {
+      for (let index = 0; index + 1 < points.length; index++) {
+        const from = points[index];
+        const to = points[index + 1];
+        const [dx, dy] = DotRaster.normalOf(to.x - from.x, to.y - from.y, offset);
+        this.polyline([
+          { x: from.x + dx, y: from.y + dy },
+          { x: to.x + dx, y: to.y + dy },
+        ], on);
+
+        // Stitch this segment's offset copy to the next one's. Where the path
+        // turns, the two copies sit on different sides of the vertex and would
+        // otherwise leave a notch in the stroke exactly where a reader is
+        // feeling for the corner.
+        if (index + 2 < points.length) {
+          const after = points[index + 2];
+          const [nextDx, nextDy] = DotRaster.normalOf(after.x - to.x, after.y - to.y, offset);
+          this.polyline([
+            { x: to.x + dx, y: to.y + dy },
+            { x: to.x + nextDx, y: to.y + nextDy },
+          ], on);
+        }
+      }
+    }
+  }
+
+  /**
+   * The offset that widens a segment without lengthening it.
+   *
+   * Quantised to whichever axis is more nearly perpendicular, because the
+   * offset has to land on whole pins: a segment running mostly across is
+   * thickened downward, one running mostly up and down is thickened sideways.
+   * A segment of no length has no direction to be perpendicular to and is
+   * thickened sideways by convention.
+   *
+   * @param run - The segment's extent across
+   * @param rise - The segment's extent down
+   * @param distance - Pins to offset by, signed
+   */
+  private static normalOf(run: number, rise: number, distance: number): [number, number] {
+    return Math.abs(run) >= Math.abs(rise) ? [0, distance] : [distance, 0];
   }
 
   /**

@@ -235,6 +235,72 @@ describe('dotRaster', () => {
     });
   });
 
+  describe('strokePath', () => {
+    /**
+     * How many pins the stroke raises on one row.
+     * @param raster - The raster to measure
+     * @param y - The row to count
+     */
+    function acrossRow(raster: DotRaster, y: number): number {
+      let count = 0;
+      for (let x = 0; x < raster.width; x++) {
+        if (raster.get(x, y)) {
+          count++;
+        }
+      }
+      return count;
+    }
+
+    it('should draw a horizontal stroke exactly as many pins deep as it was asked for', () => {
+      const raster = new DotRaster(12, 12);
+
+      raster.strokePath([{ x: 1, y: 5 }, { x: 10, y: 5 }], 2);
+
+      const rows = [4, 5, 6, 7].filter(y => acrossRow(raster, y) > 0);
+      expect(rows).toHaveLength(2);
+    });
+
+    it('should keep a diagonal stroke at its asked-for width', () => {
+      // The case that made a line chart unreadable. Offsetting a 45-degree
+      // diagonal by a pin in x and again in y lands on four distinct columns
+      // per row, so a stroke asked for at two pins arrived at four and the
+      // line came back as a band with no edge to follow.
+      const raster = new DotRaster(20, 20);
+
+      raster.strokePath([{ x: 2, y: 2 }, { x: 16, y: 16 }], 2);
+
+      const widths = [];
+      for (let y = 4; y <= 14; y++) {
+        widths.push(acrossRow(raster, y));
+      }
+      expect(Math.max(...widths)).toBeLessThanOrEqual(2);
+    });
+
+    it('should leave no notch where the path turns', () => {
+      // The offset copies of two segments sit on different sides of the
+      // vertex, so without a stitch the stroke opens up exactly where a reader
+      // is feeling for the corner.
+      const raster = new DotRaster(12, 12);
+
+      raster.strokePath([{ x: 2, y: 2 }, { x: 9, y: 2 }, { x: 9, y: 9 }], 2);
+
+      // The corner pin's offset copy, and the neighbour that joins it to the
+      // vertical run's offset copy.
+      expect(raster.get(9, 3)).toBe(true);
+      expect(raster.get(8, 3)).toBe(true);
+    });
+
+    it('should draw a plain polyline at weight one', () => {
+      const thin = new DotRaster(12, 12);
+      const plain = new DotRaster(12, 12);
+
+      thin.strokePath([{ x: 1, y: 5 }, { x: 10, y: 5 }], 1);
+      plain.polyline([{ x: 1, y: 5 }, { x: 10, y: 5 }]);
+
+      expect(thin.equals(plain)).toBe(true);
+    });
+  });
+
   describe('fillPolygon', () => {
     it('should raise the interior of a triangle and leave the outside lowered', () => {
       const raster = new DotRaster(12, 12);
