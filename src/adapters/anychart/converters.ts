@@ -40,6 +40,7 @@ import type {
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
+  TreemapPoint,
   WaterfallKind,
   WaterfallPoint,
   WordCloudPoint,
@@ -817,6 +818,14 @@ const CHOROPLETH_ATTR = 'data-maidr-anychart-region';
 const GANTT_ATTR = 'data-maidr-anychart-task-bar';
 
 /**
+ * Attribute name stamped onto each sunburst arc's SVG element by
+ * {@link stampSunburstAttributes}. The value encodes the node's position in
+ * the hierarchy's depth-first order, which is the order the arcs are drawn in
+ * and therefore the order the layer's data arrives in (#1170).
+ */
+const SUNBURST_ATTR = 'data-maidr-anychart-sunburst-node';
+
+/**
  * Attribute name stamped onto each panel's own `<svg>` root by
  * {@link bindAnyCharts}. Its value is the panel token
  * (`<figureId>-<row>-<col>`), which uniquely identifies one chart's SVG
@@ -1170,6 +1179,7 @@ function enableLineMarkersIfNeeded(chart: AnyChartInstance): boolean {
     isFunnelChart(chart)
     || isWordCloudChart(chart)
     || isSankeyChart(chart)
+    || isSunburstChart(chart)
     || isGanttChart(chart)
   ) {
     return false;
@@ -2488,6 +2498,32 @@ function isSankeyChart(chart: AnyChartInstance): boolean {
 }
 
 /**
+ * Whether a chart is a sunburst.
+ *
+ * `anychart.sunburst()` reports `'sunburst'`, and no other AnyChart chart type
+ * name contains the substring, so the same tolerant match the heatmap, pie,
+ * tag cloud and sankey paths use is safe here too.
+ *
+ * `anychart.treeMap()` and `anychart.circlePacking()` are deliberately NOT
+ * matched. All three draw the same hierarchy from the same tree, and what
+ * separates them is what they draw it with. A sunburst gives one arc per node
+ * in the tree's own depth-first order, so every node can be pointed at. A
+ * circle packing gives one circle per node but orders them by magnitude, and
+ * labels only its root, so nothing on the chart says which circle is which
+ * node. A treemap draws an aggregate: `maxDepth` defaults to 1, so an interior
+ * node stands in for its whole subtree and the nodes beneath it have no
+ * element at all. Reading either of those would put the highlight on a node
+ * the reader was not being told about (#1170).
+ */
+function isSunburstChart(chart: AnyChartInstance): boolean {
+  try {
+    return chart.getType?.().includes('sunburst') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Whether a chart draws a map.
  *
  * Asked only by the paths that need a CHART-level answer — which stampers to
@@ -2513,7 +2549,7 @@ function isMapChart(chart: AnyChartInstance): boolean {
  * constructors reporting their own names back, and neither shares anything
  * with the rest of the adapter: a gantt has no series API at all, and its
  * `data()` hands back a task tree rather than a data view. The type name is
- * therefore corroborated structurally by {@link readTaskTree} before anything
+ * therefore corroborated structurally by {@link readChartTree} before anything
  * is read — a chart naming itself a gantt with no tree behind it is bound as
  * nothing rather than as an empty schedule.
  *
@@ -2725,6 +2761,8 @@ function resolveStampers(
     return [['word cloud', stampWordCloudAttributes]];
   if (isSankeyChart(chart))
     return [['sankey', stampSankeyAttributes]];
+  if (isSunburstChart(chart))
+    return [['sunburst', stampSunburstAttributes]];
   // A map does have a series API, and its regions are a mark family no XY
   // stamper writes — so a map running the XY set would be stamped by nothing
   // at all. Running the region stamper ALONE is the second half of that: a
@@ -3874,18 +3912,19 @@ interface GanttScale {
 }
 
 /**
- * The task tree behind a gantt chart.
+ * The tree behind a chart whose data is a hierarchy rather than a table.
  *
- * The structural half of the detection: `chart.data()` answers with an
- * `anychart.data.Tree` on a gantt and with a flat data view on every other
- * chart-level type, and the two share no method. A chart naming itself a gantt
- * with no tree behind it has not been given its data, and binding it would
- * announce a schedule with no work in it.
+ * A gantt's schedule and a sunburst's rings are the two: `chart.data()`
+ * answers with an `anychart.data.Tree` on both and with a flat data view on
+ * every other chart-level type, and the two share no method. So this is also
+ * the structural half of each detection — a chart naming itself a gantt or a
+ * sunburst with no tree behind it has not been given its data, and binding it
+ * would announce a schedule with no work in it, or a hierarchy with no nodes.
  *
  * @param chart - The chart to ask
- * @returns Its task tree, or `null` when it has none
+ * @returns Its tree, or `null` when it has none
  */
-function readTaskTree(chart: AnyChartInstance): AnyChartTree | null {
+function readChartTree(chart: AnyChartInstance): AnyChartTree | null {
   let data: AnyChartDataView | AnyChartTree | undefined;
   try {
     data = chart.data?.();
@@ -4100,6 +4139,99 @@ function resolveGanttScale(lanes: GanttLane[]): GanttScale {
  *
  * On any other chart type this is a no-op.
  */
+/**
+ * Stamp `data-maidr-anychart-sunburst-node="<index>"` on every arc of an
+ * AnyChart sunburst.
+ *
+ * The arcs sit in one layer group, one per node, in the hierarchy's depth-first
+ * order -- so pairing them off with {@link collectHierarchyNodes}'s output by
+ * position is the drawing's own order rather than an assumption about it.
+ *
+ * The chart's backdrop is a filled path too, and it sits in a layer of its
+ * own, which is what {@link resolveHierarchyArcs} uses to tell the two apart:
+ * the arcs are the group holding exactly as many shapes as the tree has nodes.
+ * A chart where no group matches -- or where more than one does, so that which
+ * group is the arcs is not something the SVG says -- is left unstamped and
+ * says so, rather than outlining whatever happened to be in the right place.
+ *
+ * On any other chart type this is a no-op.
+ *
+ * @param chart       - The chart being bound
+ * @param svg         - Its rendered `<svg>` root
+ * @param stampPrefix - Panel token prefix, in multi-panel mode
+ */
+function stampSunburstAttributes(
+  chart: AnyChartInstance,
+  svg: SVGElement,
+  stampPrefix = '',
+): void {
+  if (!isSunburstChart(chart))
+    return;
+
+  const tree = readChartTree(chart);
+  if (!tree)
+    return;
+
+  const nodes = collectHierarchyNodes(tree);
+  if (nodes.length === 0)
+    return;
+
+  // Not filtered for arcs stamped on a prior bind, the way the gantt bars
+  // are: a second bind resolves the same group and writes the same values,
+  // and `setAttribute` with the value already there changes nothing. Skipping
+  // them would instead leave one shape to resolve against five nodes, and the
+  // rebind would warn that it could not find arcs it had already stamped.
+  const candidates = collectFilledDataPaths(svg);
+
+  const arcs = resolveHierarchyArcs(candidates, nodes.length);
+  if (!arcs) {
+    console.warn(
+      `[maidr/anychart] Could not tell this sunburst's ${nodes.length} arcs `
+      + `apart from the ${candidates.length} filled shapes its SVG holds. `
+      + 'Highlighting is disabled for this chart; pass an explicit '
+      + '`selectors` entry to override.',
+    );
+    return;
+  }
+
+  arcs.forEach((arc, i) => {
+    arc.setAttribute(SUNBURST_ATTR, `${stampPrefix}${i}`);
+  });
+}
+
+/**
+ * Pick a hierarchy's arcs out of a chart's filled shapes.
+ *
+ * @param candidates - Every filled path the SVG holds
+ * @param expected   - How many nodes the hierarchy has
+ * @returns The arcs, in document order, or `null` when they cannot be told
+ * apart from the rest of the chart
+ */
+function resolveHierarchyArcs(
+  candidates: SVGElement[],
+  expected: number,
+): SVGElement[] | null {
+  if (candidates.length === expected)
+    return candidates;
+
+  const byLayer = new Map<Element, SVGElement[]>();
+  for (const candidate of candidates) {
+    const layer = candidate.closest('g[id^="ac_layer_"]');
+    if (!layer)
+      continue;
+    const group = byLayer.get(layer);
+    if (group)
+      group.push(candidate);
+    else
+      byLayer.set(layer, [candidate]);
+  }
+
+  const matching = Array.from(byLayer.values()).filter(
+    group => group.length === expected,
+  );
+  return matching.length === 1 ? matching[0] : null;
+}
+
 function stampGanttAttributes(
   chart: AnyChartInstance,
   svg: SVGElement,
@@ -4108,7 +4240,7 @@ function stampGanttAttributes(
   if (!isGanttChart(chart))
     return;
 
-  const tree = readTaskTree(chart);
+  const tree = readChartTree(chart);
   if (!tree)
     return;
 
@@ -4919,6 +5051,92 @@ function buildWordCloudLayer(
  * @param panel - The owning panel, in multi-panel mode
  * @returns The MAIDR sankey layer
  */
+/**
+ * A hierarchy's nodes, depth first, one per drawn arc.
+ *
+ * Depth-first pre-order is not a convention chosen here: it is the order
+ * AnyChart draws a sunburst's arcs in. Measured on a deliberately unbalanced
+ * tree (`R -> A -> A1 -> A1a` beside a shallow `R -> B`), so that pre-order
+ * and breadth-first disagree, the arcs came back at radii 33, 66, 99, 132, 66
+ * -- `R, A, A1, A1a, B`, which is the first and not the second. `sort('asc')`
+ * and `sort('desc')` reorder the rings around the circle and leave the drawing
+ * order alone: all three variants produced identical path lists (#1170).
+ *
+ * A node's own `value` is kept and an interior node's is left off, which is
+ * what {@link TreemapPoint} asks for -- AnyChart derives an interior total for
+ * the layout, and a reader is better served by the chart's own silence there
+ * than by a sum restated as if the author had written it.
+ *
+ * @param tree - The chart's data tree
+ * @returns One point per node, in the order the arcs are drawn
+ */
+function collectHierarchyNodes(tree: AnyChartTree): TreemapPoint[] {
+  const nodes: TreemapPoint[] = [];
+
+  const visit = (item: AnyChartTreeItem, path: (string | number)[]): void => {
+    const name = asString(item.get('name'));
+    // The value the author declared, not one coerced from its absence.
+    // `asNumber` answers 0 for an interior node, which has none, and a node
+    // announced as 0 states a magnitude the chart does not -- while a leaf
+    // genuinely written as 0 has to keep it. Only the raw field separates the
+    // two, so it is asked first.
+    const declared = item.get('value');
+    const magnitude = declared === null || declared === undefined || declared === ''
+      ? Number.NaN
+      : asNumber(declared, Number.NaN);
+    nodes.push({
+      x: name,
+      ...(Number.isFinite(magnitude) ? { y: magnitude } : {}),
+      path: [...path],
+    });
+    const count = item.numChildren?.() ?? 0;
+    for (let i = 0; i < count; i++) {
+      const child = item.getChildAt?.(i);
+      if (child)
+        visit(child, [...path, name]);
+    }
+  };
+
+  const roots = tree.numChildren();
+  for (let i = 0; i < roots; i++) {
+    const root = tree.getChildAt(i);
+    if (root)
+      visit(root, []);
+  }
+
+  return nodes;
+}
+
+/**
+ * Build a SUNBURST layer from a hierarchy's nodes.
+ *
+ * The selectors are one per node rather than one for the layer, in the same
+ * depth-first order: a hierarchy is navigated node by node, and a single
+ * selector would outline every ring at once.
+ *
+ * @param nodes     - The hierarchy's nodes, in draw order
+ * @param selectors - Caller-supplied selector override, when there is one
+ * @param panel     - The owning panel, in multi-panel mode
+ * @returns The MAIDR sunburst layer
+ */
+function buildSunburstLayer(
+  nodes: TreemapPoint[],
+  selectors: string | string[] | undefined,
+  panel?: PanelContext,
+): MaidrLayer {
+  const scope = panelScope(panel);
+  const stamp = panelStampPrefix(panel);
+  const defaultSelectors = nodes.map(
+    (_, i) => `${scope}[${SUNBURST_ATTR}="${stamp}${i}"]`,
+  );
+  return {
+    id: '0',
+    type: TraceType.SUNBURST,
+    selectors: selectors ?? defaultSelectors,
+    data: nodes,
+  };
+}
+
 function buildSankeyLayer(
   rows: Array<Record<string, unknown>>,
   selectors: string | string[] | undefined,
@@ -5503,6 +5721,14 @@ const WORD_CLOUD_AXIS_FALLBACKS = { x: 'Term', y: 'Weight' };
 const SANKEY_AXIS_FALLBACKS = { x: 'Node', y: 'Flow' };
 
 /**
+ * What a sunburst's two dimensions are called when the chart names neither. A
+ * sunburst is bound to no axis: its rings are a hierarchy rather than
+ * positions on a scale, and AnyChart's sunburst has no `xAxis()` / `yAxis()`
+ * to borrow a title from.
+ */
+const SUNBURST_AXIS_FALLBACKS = { x: 'Node', y: 'Value' };
+
+/**
  * What a choropleth's two dimensions are called when the chart names neither.
  * A map is bound to no axis: its regions are places rather than positions on a
  * scale, and AnyChart's map chart has no `xAxis()` / `yAxis()` to borrow a
@@ -5690,13 +5916,28 @@ function buildSubplot(
     return finalize([layer]);
   }
 
+  // A sunburst is a tree chart like the gantt below rather than a table
+  // chart: it exposes no series API either, so the `getSeriesCount()` fallback
+  // would find nothing to read and bind the chart as an image (#1170).
+  if (isSunburstChart(chart)) {
+    const tree = readChartTree(chart);
+    if (!tree)
+      return null;
+    const nodes = collectHierarchyNodes(tree);
+    if (nodes.length === 0)
+      return null;
+    const layer = buildSunburstLayer(nodes, chartLevelSelector, panel);
+    attachAxes(layer, SUNBURST_AXIS_FALLBACKS);
+    return finalize([layer]);
+  }
+
   // A gantt is the last of the chart-level types, and the one furthest from
   // the rest: it has no series API to reach the loop below with, and its data
   // is a task tree rather than a data view — so the `getSeriesCount()`
   // fallback would route its schedule to the heatmap builder, which would find
   // no iterator and bind nothing at all.
   if (isGanttChart(chart)) {
-    const tree = readTaskTree(chart);
+    const tree = readChartTree(chart);
     if (!tree)
       return null;
     const lanes = collectGanttLanes(tree);

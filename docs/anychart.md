@@ -89,6 +89,7 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Mosaic | `anychart.mekko()`, `anychart.mosaic()`, `anychart.barmekko()` | [Marimekko chart](examples.html) |
 | Choropleth | a `choropleth` series on `anychart.map()` | [Choropleth map](examples.html) |
 | Gantt | `anychart.ganttProject()`, `anychart.ganttResource()` | [Gantt chart](examples.html) |
+| Sunburst | `anychart.sunburst()` | [Sunburst chart](examples.html) |
 
 `step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
@@ -128,6 +129,12 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 - **Gantt** charts come from `anychart-gantt.min.js`. `anychart.ganttProject()` and `anychart.ganttResource()` report `'gantt-project'` and `'gantt-resource'`, and the type name is corroborated structurally before anything is read: a gantt has no series API at all and its `chart.data()` hands back an `anychart.data.Tree` of tasks rather than a data view, so a chart naming itself a gantt with no tree behind it is bound as nothing rather than as an empty schedule. The tree is flattened depth-first — parents before their children, the order the chart stacks its rows in — into one lane per row. A parent task states no dates of its own, so the pair AnyChart derived for it (`autoStart` / `autoEnd`) is read instead; a task with a start and no end is a milestone and is emitted as the zero-length interval it is; a resource chart's `periods` array becomes several intervals in one lane. A task with no dates at all becomes an **empty lane** that still carries its name, which is what MAIDR's nested gantt shape exists to express. Axis labels fall back to `Date` and `Task` (`Resource` on a resource chart).
 
   The ends are restated in whole days — or hours, on a schedule spanning less than two days — and the unit is named alongside them, because a gantt is read for how long its intervals run and epoch milliseconds announce as an unreadable nine-digit figure. This is read rather than guessed: a gantt's timeline is a date-time scale, so what the tree holds is instants. The x axis carries a formatter that turns a position back into a date, so each end is still announced as one.
+
+- **Sunburst** charts come from `anychart-sunburst.min.js` and report `getType()` as `'sunburst'`. Like the gantt, their data is an `anychart.data.Tree` on `chart.data()` rather than a data view, and the type name is corroborated by that tree before anything is read. The tree is walked depth-first and emitted as one node per ring segment, each carrying its name, its ancestors, and its own value. An **interior node carries no value**: AnyChart derives a total for the layout, and a node announced with a total the author never wrote states a magnitude the chart does not — while a leaf genuinely written as `0` keeps it. Axis labels fall back to `Node` and `Value`.
+
+  Depth-first is not a convention chosen here; it is the order AnyChart draws the arcs in, which is what lets each node be pointed at individually. Measured on a deliberately unbalanced tree, so that depth-first and breadth-first disagree, the arcs came back depth-first — and `sort('asc')` / `sort('desc')` reorder the rings around the circle while leaving the drawing order alone.
+
+- **Treemaps** and **circle packings** are **not** read, though both draw the same hierarchy from the same tree (#1170). What separates them from the sunburst is what they draw it with. `anychart.treeMap()` shows an aggregate: `maxDepth` defaults to 1, so an interior node stands in for its whole subtree and the nodes beneath it have no element on the chart at all — announcing the full hierarchy over that would name nodes the reader is not being shown, and pointing at one would outline its parent. `anychart.circlePacking()` does draw one circle per node, but orders them by magnitude rather than by the tree and labels only its root, so nothing on the chart says which circle is which node. Both bind as nothing rather than as a hierarchy whose highlight lands elsewhere.
 
   `anychart.timeline()` is **not** read. It is a third constructor with a series API of its own whose `moment` series are instants rather than intervals, and announcing one as a schedule would describe work the chart never drew; it binds as nothing instead.
 
@@ -450,6 +457,7 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 | Marimekko | `data-maidr-anychart-tile` | `"<seriesIndex>-<categoryIndex>"` |
 | Choropleth | `data-maidr-anychart-region` | `"<seriesIndex>-<regionIndex>"` |
 | Gantt | `data-maidr-anychart-task-bar` | `"<laneIndex>-<intervalIndex>"` |
+| Sunburst | `data-maidr-anychart-sunburst-node` | `"<nodeIndex>"`, depth-first |
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
