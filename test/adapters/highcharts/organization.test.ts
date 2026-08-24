@@ -29,6 +29,8 @@ import type { HighchartsNode, HighchartsSeries } from '@adapters/highcharts/type
 import type { TreemapPoint } from '@type/grammar';
 import { highchartsToMaidr } from '@adapters/highcharts/adapter';
 import { describe, expect, it, jest } from '@jest/globals';
+import { TraceFactory } from '@model/factory';
+import { TreemapTrace } from '@model/treemap';
 import { TraceType } from '@type/grammar';
 import { fakeChart, fakeSeries } from './helpers';
 
@@ -85,9 +87,24 @@ describe('highcharts organization', () => {
   it('reads an org chart as a tree rather than declining it', () => {
     const layer = layerOf(ORG);
 
-    expect(layer.type).toBe(TraceType.TREEMAP);
+    expect(layer.type).toBe(TraceType.TREE);
     expect(layer.title).toBe('Org');
     expect(layer.data).toHaveLength(6);
+  });
+
+  it('is named a tree rather than a treemap', () => {
+    // Both are read by `TreemapTrace`, so the type name is not about which
+    // code runs -- it is what the reader is told the chart is, and nobody
+    // drew a treemap here.
+    // Built without the selectors, which resolve against a `document` this
+    // project does not have; what is under test is the name, not the marks.
+    const trace = TraceFactory.create({
+      ...layerOf(ORG),
+      selectors: undefined,
+    }) as TreemapTrace;
+
+    expect(trace).toBeInstanceOf(TreemapTrace);
+    expect(trace.description.chartType).toBe('Tree Diagram');
   });
 
   it('declares no magnitude, because the chart draws none', () => {
