@@ -810,19 +810,6 @@ function hasField(channel?: VegaLiteChannelDef): boolean {
 }
 
 /**
- * Whether a spec accumulates a running total.
- *
- * The one thing that separates a waterfall from any other bar spanning
- * `y`–`y2`: a waterfall's bounds are consecutive running totals, and
- * Vega-Lite has exactly one way to compute those — a `window` transform
- * summing the contributions. Without it the two bounds are two measured
- * values, and calling their difference a contribution to a total would
- * invent an accumulation the chart never drew.
- *
- * @param transform - The transforms in scope for the layer, parent first
- * @returns True when one of them sums over a window
- */
-/**
  * Whether a fitted curve is what the mark is drawing.
  *
  * `regression` and `loess` are the two Vega-Lite transforms that replace the
@@ -853,6 +840,19 @@ function hasFittedCurveTransform(transform?: VegaLiteTransform[]): boolean {
   );
 }
 
+/**
+ * Whether a spec accumulates a running total.
+ *
+ * The one thing that separates a waterfall from any other bar spanning
+ * `y`–`y2`: a waterfall's bounds are consecutive running totals, and
+ * Vega-Lite has exactly one way to compute those — a `window` transform
+ * summing the contributions. Without it the two bounds are two measured
+ * values, and calling their difference a contribution to a total would
+ * invent an accumulation the chart never drew.
+ *
+ * @param transform - The transforms in scope for the layer, parent first
+ * @returns True when one of them sums over a window
+ */
 function hasRunningSumTransform(transform?: VegaLiteTransform[]): boolean {
   if (!Array.isArray(transform))
     return false;
