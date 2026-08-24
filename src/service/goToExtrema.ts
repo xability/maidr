@@ -31,9 +31,19 @@ export class GoToExtremaService {
     return trace instanceof AbstractTrace && trace.supportsExtremaNavigation();
   }
 
+  /**
+   * Leaves the GO_TO_EXTREMA scope, returning to whichever scope opened the
+   * dialog. `toggleFocus` pops GO_TO_EXTREMA off the focus stack, so the
+   * restored scope is BRAILLE when the dialog was opened from braille mode and
+   * TRACE when it was opened from the chart.
+   *
+   * The guard tests for GO_TO_EXTREMA rather than "not TRACE": the dismissal
+   * paths call this both directly and after `hide()` has already restored the
+   * scope, and a "not TRACE" guard would read the restored BRAILLE scope as
+   * still-open and push GO_TO_EXTREMA back onto the stack.
+   */
   public returnToTraceScope(): void {
-    // Ensure we return to TRACE scope
-    if (this.context.scope !== Scope.TRACE) {
+    if (this.context.scope === Scope.GO_TO_EXTREMA) {
       this.display.toggleFocus(Scope.GO_TO_EXTREMA);
     }
   }

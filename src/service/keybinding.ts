@@ -75,6 +75,16 @@ const BRAILLE_KEYMAP = {
   // Chart description
   TOGGLE_DESCRIPTION: key(`d`, 'Open Chart Description'),
 
+  // Go To functionality
+  //
+  // Bound here as well as in TRACE so jumping to an extremum does not require
+  // leaving braille first. The dialog opens on top of the braille scope and
+  // GoToExtremaService returns to whichever scope opened it, so braille is
+  // still on — and re-rendered at the new cursor — once the dialog closes.
+  // `preventDefault` in the hotkeys handler keeps the `g` out of the braille
+  // textarea's own value.
+  GO_TO_EXTREMA_TOGGLE: key(`g`, 'Go To Extrema'),
+
   // rotor functionality
   ROTOR_NEXT_NAV: key(`${Platform.alt}+shift+up`, 'Next Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + up` }),
   ROTOR_PREV_NAV: key(`${Platform.alt}+shift+down`, 'Previous Navigation Mode (Rotor)', { helpKey: `${Platform.alt} + shift + down` }),
