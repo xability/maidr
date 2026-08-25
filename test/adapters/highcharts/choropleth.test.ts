@@ -190,8 +190,7 @@ describe('highcharts map series', () => {
     expect(data[0]).toEqual({ x: 'Nevada', y: 42.1, lon: -116.6, lat: 39.3 });
   });
 
-  it('does not read a mapbubble series as a choropleth', () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  it('reads a mapbubble series as a choropleth', () => {
     const chart = fakeChart({
       series: [fakeSeries({
         index: 0,
@@ -202,12 +201,20 @@ describe('highcharts map series', () => {
 
     const layers = highchartsToMaidr(chart).subplots[0][0].layers;
 
-    // A mapbubble sizes markers over a map; announcing its bubbles as shaded
-    // regions would report a magnitude the chart draws nowhere.
-    expect(layers).toHaveLength(0);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('Unsupported series type: "mapbubble"'),
-    );
-    warn.mockRestore();
+    // This series was declined until #1186, on the grounds that announcing
+    // its bubbles as shaded regions "would report a magnitude the chart draws
+    // nowhere". That was wrong twice: the magnitude *is* drawn, as the
+    // bubble's area, and the Chart.js adapter had meanwhile been reading
+    // `chartjs-chart-geo`'s `bubbleMap` as a choropleth all along -- so two
+    // adapters gave one chart two answers, and one of them was silence.
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.CHOROPLETH);
+    // The **size** is announced, not the `value` the same point also carries.
+    // A bubble joined to a map feature can hold both -- Highcharts colours it
+    // by `value` and sizes it by `z` -- and the bubble is what the chart is
+    // named for and what a sighted reader compares. It is also the field the
+    // Chart.js adapter reads for `chartjs-chart-geo`'s `bubbleMap`
+    // (`bubbleMap: 'size'`), so one chart gets one answer from both.
+    expect(layers[0].data).toEqual([{ x: 'Nevada', y: 12 }]);
   });
 });

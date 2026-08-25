@@ -132,6 +132,10 @@ let chartCounter = 0;
  * - `boxplot` → {@link TraceType.BOX}
  * - `heatmap` → {@link TraceType.HEATMAP}
  * - `map` (Highmaps) → {@link TraceType.CHOROPLETH}
+ * - `mapbubble` → {@link TraceType.CHOROPLETH}, taking its value from the
+ *   marker size Highcharts names `z`
+ * - `mappoint` → {@link TraceType.SCATTER} of degrees east against degrees
+ *   north, each place on {@link ScatterPoint.label}
  * - `tilemap` → {@link TraceType.HEXBIN}, or {@link TraceType.HEATMAP} when
  *   its `tileShape` is `square` (an aligned grid rather than a stagger)
  * - `histogram` → {@link TraceType.HISTOGRAM}
@@ -1720,10 +1724,25 @@ function convertSeries(
     case 'heatmap':
       return convertHeatmapSeries(series, containerId);
     // The Highmaps choropleth. It is the one deferred trace type that needs no
-    // declaration at all: `map` is a series type of its own, and its siblings
-    // `mapbubble` and `mappoint` are different charts under different names.
+    // declaration at all: `map` is a series type of its own.
     case 'map':
       return convertChoroplethSeries(series, chart, containerId);
+    // A map bubble is a named place with a magnitude and a position, which is
+    // `ChoroplethPoint` exactly. It was declined until now on the grounds
+    // that announcing its bubbles as shaded regions "would report a magnitude
+    // the chart draws nowhere" -- which is backwards twice over. The
+    // magnitude *is* drawn, as the bubble's area, and it is the same `z` the
+    // cartesian `bubble` case two branches up reads for that very reason
+    // (#1138). And the Chart.js adapter already reads `chartjs-chart-geo`'s
+    // `bubbleMap` as a choropleth, so the two adapters disagreed about one
+    // chart. `CHOROPLETH` is a *spatial walk over named places*, which is
+    // what both are.
+    case 'mapbubble':
+      return convertChoroplethSeries(series, chart, containerId, true);
+    // A map point is that chart with the magnitude taken away, which is why
+    // it reads as a scatter of degrees instead; see `convertMapPointSeries`.
+    case 'mappoint':
+      return convertMapPointSeries(series, containerId);
     // A tilemap is a heatmap with a configurable tile shape, and the shape
     // decides which it reads as: `square` tiles are the aligned grid a heatmap
     // already is, while every other shape staggers alternate columns by half a
@@ -1748,6 +1767,26 @@ function convertSeries(
     case 'item':
     case 'pie':
       return convertPieSeries(series, containerId);
+    // Reached deliberately by five series types, each for its own reason
+    // (xability/maidr#1186), and recorded here so the decline is a decision
+    // rather than an omission:
+    //
+    // - `vector` and `windbarb` carry a **length and a direction** at each
+    //   position. MAIDR has no directional quantity, so a reading would drop
+    //   `direction` and announce half the datum with full confidence.
+    // - `polygon` carries vertices and nothing else. Its canonical use is a
+    //   hull drawn over a scatter that is already read, so the shape is
+    //   drawing rather than data.
+    // - `mapline` is geometry for the same reason.
+    // - `hlc` draws a real price series -- measured, `low`, `high`, `close`
+    //   and no `open` -- and cannot go through `convertCandlestickSeries`,
+    //   which requires an open and would emit **zero** points. Reading it
+    //   needs `CandlestickPoint.open` to become optional the way
+    //   `ErrorBarPoint.y` did in #1047, which is a grammar change rather
+    //   than an adapter one.
+    // - `venn` and `euler` carry a declared size per set combination but no
+    //   set-membership navigation to ask what a Venn diagram is drawn to
+    //   ask. Left to a maintainer; the Chart.js side is declined too.
     default:
       console.warn(`[MAIDR Highcharts] Unsupported series type: "${seriesType}"; skipping.`);
       return null;
@@ -5048,6 +5087,78 @@ function stampHexbinIndices(rows: HighchartsPoint[][]): void {
  * regions along nothing at all — so {@link getAxisLabel}'s `'X'` / `'Y'`
  * fallback would name them after coordinates the chart does not have.
  */
+/** What a map marker's own coordinates are called when it has no other axis. */
+const MAP_LONGITUDE_AXIS = 'Longitude';
+const MAP_LATITUDE_AXIS = 'Latitude';
+
+/**
+ * Converts a `mappoint` series into a layer of named places.
+ *
+ * A map point is a marker put on a map at a stated position and given a name,
+ * and that is the whole of its data: measured on Highcharts 13.0.1, a point
+ * declared `{name, lat, lon}` comes back carrying exactly those three and an
+ * `x` that is its index in the series -- **no `y` at all**, because nothing
+ * about it is a magnitude.
+ *
+ * That is why it is a scatter rather than the choropleth its `mapbubble`
+ * sibling reads as. `ChoroplethPoint.y` is the value the region is shaded by
+ * and is required; a map point has none, and the only ways to give it one are
+ * to invent a constant or to promote its index, both of which announce a
+ * measurement the chart never made. Read as a scatter of degrees, every
+ * number announced is one the chart states, and the place name travels on
+ * `ScatterPoint.label` -- the field whose whole purpose is "this point is
+ * Norway" rather than "this slot is called Norway".
+ *
+ * @param series - The `mappoint` series
+ * @param containerId - The chart container's id, for the selector
+ * @returns The layer, or null when no marker states a position
+ */
+function convertMapPointSeries(
+  series: HighchartsSeries,
+  containerId: string,
+): MaidrLayer | null {
+  const data: ScatterPoint[] = [];
+  series.data.forEach((point) => {
+    const placed = degreesPair(point.lon, point.lat);
+    if (!placed) {
+      return;
+    }
+    const name = mapRegionName(point);
+    data.push({
+      x: placed.lon,
+      y: placed.lat,
+      ...(typeof name === 'string' && name !== '' ? { label: name } : {}),
+    });
+  });
+
+  // A series whose markers are placed in projected units rather than in
+  // degrees states nothing this can announce, and a layer of no points is the
+  // phantom row #421 describes -- one the reader can navigate into and which
+  // can say nothing. Declining leaves the rest of the chart readable, and it
+  // says so: a silent decline is indistinguishable from a bug to whoever
+  // drew the chart.
+  if (data.length === 0) {
+    console.warn(
+      '[MAIDR Highcharts] A "mappoint" series placed no marker by `lat`/`lon`; '
+      + 'its positions are in the map\'s projected units, which are not degrees. '
+      + 'Skipping the series rather than announcing them as coordinates.',
+    );
+    return null;
+  }
+
+  return {
+    id: String(series.index),
+    type: TraceType.SCATTER,
+    title: series.name || undefined,
+    selectors: scatterSelector(containerId, series.index),
+    axes: {
+      x: { label: MAP_LONGITUDE_AXIS },
+      y: { label: MAP_LATITUDE_AXIS },
+    },
+    data,
+  };
+}
+
 const CHOROPLETH_REGION_AXIS = 'Region';
 const CHOROPLETH_VALUE_AXIS = 'Value';
 
@@ -5087,6 +5198,7 @@ function convertChoroplethSeries(
   series: HighchartsSeries,
   chart: HighchartsChart,
   containerId: string,
+  sizeIsValue = false,
 ): MaidrLayer {
   const declared = declarationOf(series);
   const declaration: ChoroplethDeclaration | undefined
@@ -5109,7 +5221,7 @@ function convertChoroplethSeries(
   const announced: HighchartsPoint[] = [];
   const data: ChoroplethPoint[] = [];
   series.data.forEach((point, index) => {
-    const y = finiteNumber(values?.[index]) ?? mapValue(point);
+    const y = finiteNumber(values?.[index]) ?? mapValue(point, sizeIsValue);
     if (y === undefined) {
       return;
     }
@@ -5154,7 +5266,20 @@ function convertChoroplethSeries(
  * @param point - The region to read
  * @returns Its value, or undefined for a region the chart shades as null
  */
-function mapValue(point: HighchartsPoint): number | undefined {
+function mapValue(point: HighchartsPoint, sizeIsValue: boolean): number | undefined {
+  // A map bubble's magnitude is its marker size, which Highcharts names `z`.
+  // First rather than last, and only for that series: a bubble placed by
+  // `lat`/`lon` carries no `y` at all, but one placed in the map's projected
+  // units carries `y` as a **position** -- measured, `{name: 'A', x: 10,
+  // y: 20, z: 3}` announced 20 where the chart sizes the bubble by 3. A
+  // position read as a measurement is the failure #814 names, and the field
+  // order is the whole of what prevents it.
+  if (sizeIsValue) {
+    const size = finiteNumber(point.z);
+    if (size !== undefined) {
+      return size;
+    }
+  }
   return finiteNumber(point.value)
     ?? finiteNumber(point.y)
     ?? finiteNumber(point.options?.value);
@@ -5199,6 +5324,29 @@ function regionName(value: unknown): string | number | undefined {
  * @param limit - 180 for a longitude, 90 for a latitude
  * @returns The coordinate, or undefined
  */
+/**
+ * A longitude and latitude, when both are present and both are degrees.
+ *
+ * Both or neither: half a coordinate places nothing, and a point carrying one
+ * of the two is better read as having none than as sitting on the prime
+ * meridian.
+ *
+ * @param lon - Whatever the longitude field held
+ * @param lat - Whatever the latitude field held
+ * @returns The pair, or undefined
+ */
+function degreesPair(
+  lon: unknown,
+  lat: unknown,
+): { lon: number; lat: number } | undefined {
+  const east = degrees(lon, 180);
+  const north = degrees(lat, 90);
+  if (east === undefined || north === undefined) {
+    return undefined;
+  }
+  return { lon: east, lat: north };
+}
+
 function degrees(value: unknown, limit: number): number | undefined {
   const coordinate = finiteNumber(value);
   return coordinate === undefined || Math.abs(coordinate) > limit ? undefined : coordinate;
@@ -5230,6 +5378,15 @@ function mapCentroid(
   point: HighchartsPoint,
   chart: HighchartsChart,
 ): { lon: number; lat: number } | undefined {
+  // A marker that states its own position is already in degrees, and it is
+  // the only thing that knows: `mappoint` and `mapbubble` join to no map
+  // feature, so `properties` is empty and `bounds` unset, and both fall
+  // through everything below to `undefined`.
+  const declared = degreesPair(point.lon, point.lat);
+  if (declared) {
+    return declared;
+  }
+
   const properties = point.properties;
   if (properties) {
     const lon = degrees(properties['hc-middle-lon'], 180);
