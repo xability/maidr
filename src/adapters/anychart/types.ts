@@ -229,6 +229,13 @@ export interface AnyChartInstance {
 
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;
+  /**
+   * Circle packing's own label placement, and the one public method that
+   * separates it from the other two hierarchy charts: a treemap and a
+   * sunburst have neither it nor anything else readable of their own, and a
+   * circle packing reports no `getType()` at all (#1170).
+   */
+  labelsMode?: () => unknown;
 
   /**
    * How a waterfall chart reads its series values (`'diff'` by default, or

@@ -13,10 +13,12 @@
  * 99, 132, 66 -- `R, A, A1, A1a, B`, the first and not the second. `sort()`
  * reorders the rings around the circle and leaves the drawing order alone.
  *
- * A circle packing orders its circles by magnitude instead and labels only its
- * root, and a treemap draws an aggregate -- `maxDepth` defaults to 1, so an
- * interior node stands in for its whole subtree. Both are left unread rather
- * than half-read, which the last case here holds to.
+ * A treemap draws an aggregate instead -- `maxDepth` defaults to 1, so an
+ * interior node stands in for its whole subtree -- and is left unread rather
+ * than half-read, which the last case here holds to. A circle packing also
+ * orders its circles by magnitude rather than by the tree, which looked like
+ * the same refusal until the order turned out to be checkable against the
+ * radii; it has a reading of its own in `circlePacking.test.ts`.
  */
 
 import type { AnyChartInstance, AnyChartTreeItem } from '@adapters/anychart/types';
@@ -325,7 +327,7 @@ describe('a sunburst\'s highlight', () => {
   });
 });
 
-describe('the two hierarchy charts that are not read', () => {
+describe('the hierarchy chart that is not read', () => {
   it('leaves a treemap alone, because its default view is an aggregate', () => {
     // `maxDepth` defaults to 1, so a three-level tree draws two leaves and one
     // interior node carrying its children's total. Announcing the whole
@@ -335,10 +337,10 @@ describe('the two hierarchy charts that are not read', () => {
       .toBeNull();
   });
 
-  it('leaves a circle packing alone, because nothing says which circle is which', () => {
-    // One circle per node, but ordered by magnitude rather than by the tree,
-    // and only the root is labelled. Pairing them by position would give every
-    // node but the root the wrong outline.
+  it('does not claim a circle packing either, which has a reading of its own', () => {
+    // A packing names no type at all, so it never reaches the sunburst branch.
+    // It is read as a `pack` instead -- see `circlePacking.test.ts`, which
+    // covers why its order can be paired with its circles after all.
     expect(anyChartToMaidr(createHierarchyChart(COMPANY, { chartType: 'circle-packing' })))
       .toBeNull();
   });

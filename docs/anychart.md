@@ -90,6 +90,7 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Choropleth | a `choropleth` series on `anychart.map()` | [Choropleth map](examples.html) |
 | Gantt | `anychart.ganttProject()`, `anychart.ganttResource()` | [Gantt chart](examples.html) |
 | Sunburst | `anychart.sunburst()` | [Sunburst chart](examples.html) |
+| Pack | `anychart.circlePacking()` | [Circle packing](examples.html) |
 
 `step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
@@ -134,7 +135,13 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 
   Depth-first is not a convention chosen here; it is the order AnyChart draws the arcs in, which is what lets each node be pointed at individually. Measured on a deliberately unbalanced tree, so that depth-first and breadth-first disagree, the arcs came back depth-first — and `sort('asc')` / `sort('desc')` reorder the rings around the circle while leaving the drawing order alone.
 
-- **Treemaps** and **circle packings** are **not** read, though both draw the same hierarchy from the same tree (#1170). What separates them from the sunburst is what they draw it with. `anychart.treeMap()` shows an aggregate: `maxDepth` defaults to 1, so an interior node stands in for its whole subtree and the nodes beneath it have no element on the chart at all — announcing the full hierarchy over that would name nodes the reader is not being shown, and pointing at one would outline its parent. `anychart.circlePacking()` does draw one circle per node, but orders them by magnitude rather than by the tree and labels only its root, so nothing on the chart says which circle is which node. Both bind as nothing rather than as a hierarchy whose highlight lands elsewhere.
+- **Circle packings** come from `anychart-circle-packing.min.js` and are read as a `pack` — the same hierarchy as a treemap, drawn as nested circles sized by magnitude, which is what the reader is told is on the page. Two things make it the odd one out. It is the only chart here that reports **no `getType()` at all** (`toJson()` throws on it too), so it is identified by `labelsMode()` — its own label placement, and the one public method the other two hierarchy charts lack — corroborated by having no series API and a tree on `data()`. And it does not draw the tree in the author's order: it sorts each parent's children by magnitude, largest first, and walks depth first, which is the order the layer's nodes and selectors come back in.
+
+  That order is **checked rather than assumed**. A packing sizes a circle by the square root of its magnitude, so within one parent's children `r / sqrt(total)` is a single constant; measured across four tree shapes it held to four significant figures every time. The pairing is confirmed against those radii before anything is stamped, so a future change in AnyChart's packing would cost the chart its highlight rather than quietly move it onto the wrong circle.
+
+  **A tie is refused.** Two children of one parent with the same magnitude are drawn as two circles of the same radius, and a packing labels only its root — so nothing on the chart says which is which, and that chart binds as nothing rather than announcing one node's name over another's circle. An interior node is sized by its subtree, but that derived total is never emitted as its value: it orders the siblings and checks the circle, and the node's own value stays absent exactly as it is written.
+
+- **Treemaps** are **not** read, though they draw the same hierarchy from the same tree (#1170). `anychart.treeMap()` shows an aggregate: `maxDepth` defaults to 1, so an interior node stands in for its whole subtree and the nodes beneath it have no element on the chart at all. Announcing the full hierarchy over that would name nodes the reader is not being shown, and pointing at one would outline its parent, so it binds as nothing instead.
 
   `anychart.timeline()` is **not** read. It is a third constructor with a series API of its own whose `moment` series are instants rather than intervals, and announcing one as a schedule would describe work the chart never drew; it binds as nothing instead.
 
@@ -458,6 +465,7 @@ AnyChart's SVG output uses opaque, internally-generated ids (`ac_path_*`, `ac_re
 | Choropleth | `data-maidr-anychart-region` | `"<seriesIndex>-<regionIndex>"` |
 | Gantt | `data-maidr-anychart-task-bar` | `"<laneIndex>-<intervalIndex>"` |
 | Sunburst | `data-maidr-anychart-sunburst-node` | `"<nodeIndex>"`, depth-first |
+| Pack | `data-maidr-anychart-pack-node` | `"<nodeIndex>"`, depth-first, siblings largest first |
 
 The adapter's generated `selectors` then target those attributes (e.g. `[data-maidr-anychart-bar="0-3"]`), which keeps highlighting stable across re-renders.
 
