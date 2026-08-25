@@ -38,6 +38,17 @@ const DATUM_ATTRIBUTE = 'data-maidr-echart-mark';
 const SERIES_ATTRIBUTE = 'data-maidr-echart-line';
 
 /**
+ * Which series a per-datum mark belongs to.
+ *
+ * Written alongside {@link DATUM_ATTRIBUTE} in the same pass, because the two
+ * layer kinds want the marks addressed differently and neither shape can be
+ * derived from the other. A bar layer names one mark per bar; a scatter layer
+ * names its whole series at once, since `ScatterTrace` reads `layer.selectors`
+ * as a single string and an array matches nothing at all.
+ */
+const GROUP_ATTRIBUTE = 'data-maidr-echart-group';
+
+/**
  * Paints that are chart furniture rather than data.
  *
  * Black is the border artefact ECharts draws one of per series, and also the
@@ -150,7 +161,22 @@ function unstamp(container: HTMLElement, attribute: string): void {
 }
 
 /**
- * Stamps a chart's per-datum marks and returns one selector per datum.
+ * How a chart's per-datum marks can be addressed once they are stamped.
+ *
+ * Two views of the same marks, because the traces that consume them want
+ * different shapes and getting it wrong costs the layer its highlighting in
+ * silence (#990): `BarTrace` and `SegmentedTrace` resolve a selector per
+ * mark, while `ScatterTrace` resolves one selector for a whole series.
+ */
+export interface DatumMarks {
+  /** One selector per mark, grouped by series. */
+  points: string[][];
+  /** One selector naming a whole series' marks, in series order. */
+  series: string[];
+}
+
+/**
+ * Stamps a chart's per-datum marks and returns the ways they can be addressed.
  *
  * The marks of every series are found together, because they are painted the
  * same way and only their order tells them apart -- so the total is checked
@@ -159,14 +185,15 @@ function unstamp(container: HTMLElement, attribute: string): void {
  *
  * @param container - The element the chart was rendered into
  * @param drawn     - How many marks each series drew, in series order
- * @returns One selector list per series, or `undefined` when the drawing does
- *   not match what the model described
+ * @returns The addresses of the stamped marks, or `undefined` when the drawing
+ *   does not match what the model described
  */
 export function markPerDatum(
   container: HTMLElement,
   drawn: number[],
-): string[][] | undefined {
+): DatumMarks | undefined {
   unstamp(container, DATUM_ATTRIBUTE);
+  unstamp(container, GROUP_ATTRIBUTE);
 
   const expected = drawn.reduce((total, count) => total + count, 0);
   if (expected === 0) {
@@ -182,21 +209,26 @@ export function markPerDatum(
     return undefined;
   }
 
-  marks.forEach((mark, index) => mark.setAttribute(DATUM_ATTRIBUTE, `${index}`));
-
-  const selectors: string[][] = [];
+  const points: string[][] = [];
   let offset = 0;
-  for (const count of drawn) {
-    selectors.push(
-      Array.from(
-        { length: count },
-        (_, index) => selectorFor(container, DATUM_ATTRIBUTE, offset + index),
-      ),
-    );
-    offset += count;
+  for (let series = 0; series < drawn.length; series++) {
+    const row: string[] = [];
+    for (let index = 0; index < drawn[series]; index++) {
+      const mark = marks[offset + index];
+      mark.setAttribute(DATUM_ATTRIBUTE, `${offset + index}`);
+      mark.setAttribute(GROUP_ATTRIBUTE, `${series}`);
+      row.push(selectorFor(container, DATUM_ATTRIBUTE, offset + index));
+    }
+    points.push(row);
+    offset += drawn[series];
   }
 
-  return selectors;
+  return {
+    points,
+    series: drawn.map(
+      (_, series) => selectorFor(container, GROUP_ATTRIBUTE, series),
+    ),
+  };
 }
 
 /**

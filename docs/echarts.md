@@ -101,3 +101,28 @@ One consequence worth knowing: **a series painted pure black loses its
 highlighting.** Its marks are indistinguishable from the furniture, so they are
 excluded, the count check fails, and the chart reads without an outline. That
 is the conservative failure, not a silent wrong one.
+
+### Which shape each layer's selectors take
+
+A selector that resolves the right element is only half of it: each trace
+class accepts a different **shape**, and a layer whose selectors are
+individually right and collectively the wrong shape resolves nothing at all,
+silently.
+
+| layer | shape | what reads it |
+|---|---|---|
+| `bar` | one selector per bar | `AbstractBarPlot`'s array branch |
+| `stacked`, `dodged` | a row of selectors per series | `SegmentedTrace.mapGridToSvgElements` |
+| `scatter` | **one** selector naming the whole series | `ScatterTrace`, which casts `layer.selectors` to `string` |
+| `line`, `area` | one selector per series | `LineTrace.mapToSvgElements` |
+
+So the marks are stamped twice in one pass — once per mark and once per
+series — and each layer takes the address its own trace can use.
+
+A scatter needs one more thing from the model. ECharts does not move its
+symbols into place; it scales them there, with
+`transform="matrix(s, 0, 0, s, e, f)"` over a unit shape whose `d` always
+begins `M1 0`. `ScatterTrace` recovers a mark's position from the DOM rather
+than from the data's order, and it now reads that matrix — without it every
+symbol reported the same coordinate and the whole scatter grouped into one
+column (#1197).

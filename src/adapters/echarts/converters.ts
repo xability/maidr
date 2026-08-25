@@ -15,6 +15,7 @@ import type {
   EChartsSeriesModel,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import { nextId } from '../shared/selectorUtil';
 import { markPerDatum, markPerSeries } from './selectors';
 
 /**
@@ -25,13 +26,6 @@ export interface EChartsAdapterOptions {
   id?: string;
   /** The figure's title. Defaults to the chart's own `title.text`. */
   title?: string;
-}
-
-let generated = 0;
-
-function nextId(prefix: string): string {
-  generated += 1;
-  return `${prefix}-${generated}`;
 }
 
 /**
@@ -165,14 +159,21 @@ function buildLayers(
   const marked = series.filter(seriesModel => seriesModel.subType !== 'line');
   const perDatum = markPerDatum(
     container,
-    marked.map(seriesModel => drawnCount(seriesModel.getData(), axes.horizontal)),
+    marked.map(seriesModel => drawnCount(seriesModel, axes.horizontal)),
   );
-  const selectorFor = (seriesModel: EChartsSeriesModel): string[] | undefined =>
-    perDatum?.[marked.indexOf(seriesModel)];
+  // A bar names each of its marks; a scatter names its series in one string.
+  // Not a preference: `ScatterTrace` reads `layer.selectors as string` and
+  // `Svg.selectAllElements` guards on `typeof query === 'string'`, so an
+  // array there matches nothing and the layer loses its highlighting without
+  // saying so -- the failure `Svg.isUsableSelector` was written for (#990).
+  const eachMarkOf = (seriesModel: EChartsSeriesModel): string[] | undefined =>
+    perDatum?.points[marked.indexOf(seriesModel)];
+  const wholeSeriesOf = (seriesModel: EChartsSeriesModel): string | undefined =>
+    perDatum?.series[marked.indexOf(seriesModel)];
 
   const layers: MaidrLayer[] = [];
   if (bars.length > 0) {
-    layers.push(barLayer(bars, axes, selectorFor));
+    layers.push(barLayer(bars, axes, eachMarkOf));
   }
 
   const lines = others.filter(seriesModel => seriesModel.subType === 'line');
@@ -181,7 +182,7 @@ function buildLayers(
     layers.push(
       seriesModel.subType === 'line'
         ? lineLayer(seriesModel, axes, polylines?.[lines.indexOf(seriesModel)])
-        : scatterLayer(seriesModel, axes, selectorFor(seriesModel)),
+        : scatterLayer(seriesModel, axes, wholeSeriesOf(seriesModel)),
     );
   }
 
@@ -195,15 +196,62 @@ function buildLayers(
  * one `null` puts **two** rects on the page -- so counting the data list
  * would make every count check fail on a chart with a gap, and drop the
  * highlighting with it (#1002).
+ *
+ * Asked through {@link drewMark} rather than inline, so that the count and
+ * the layer that reads the same series agree on which data drew. They did
+ * not: this counted a scatter datum whose magnitude was a number, while
+ * `scatterLayer` emits a point only when **both** coordinates are, so a
+ * series with one such datum would stamp a mark no point stood for.
  */
-function drawnCount(data: EChartsList, horizontal: boolean): number {
+function drawnCount(seriesModel: EChartsSeriesModel, horizontal: boolean): number {
+  const data = seriesModel.getData();
   let drawn = 0;
   for (let index = 0; index < data.count(); index++) {
-    if (measured(magnitudeOf(data, index, horizontal))) {
+    if (drewMark(seriesModel.subType, data, index, horizontal)) {
       drawn += 1;
     }
   }
   return drawn;
+}
+
+/**
+ * Whether one datum put a mark on the page, asked the way its layer asks it.
+ *
+ * @param subType    - The series type, which decides the question
+ * @param data       - The series' data list
+ * @param index      - Which datum to ask about
+ * @param horizontal - Whether the chart's category axis is `y`
+ * @returns True when the datum drew
+ */
+function drewMark(
+  subType: string,
+  data: EChartsList,
+  index: number,
+  horizontal: boolean,
+): boolean {
+  if (subType === 'scatter') {
+    return placed(data, index) !== undefined;
+  }
+  return measured(magnitudeOf(data, index, horizontal));
+}
+
+/**
+ * A scatter point's coordinates, when it has both.
+ *
+ * @param data  - The series' data list
+ * @param index - Which datum to read
+ * @returns The pair, or `undefined` when either coordinate is not a number
+ */
+function placed(
+  data: EChartsList,
+  index: number,
+): { x: number; y: number } | undefined {
+  const x = data.get(data.dimensions[0], index);
+  const y = data.get(data.dimensions[1], index);
+  if (typeof x !== 'number' || typeof y !== 'number') {
+    return undefined;
+  }
+  return { x, y };
 }
 
 function measured(value: number | null): value is number {
@@ -273,8 +321,8 @@ function barLayer(
 ): MaidrLayer {
   const orientation = axes.horizontal ? Orientation.HORIZONTAL : Orientation.VERTICAL;
   const selectors = bars.map(selectorFor);
-  const highlight = selectors.every((list): list is string[] => list !== undefined)
-    ? selectors.flat()
+  const named = selectors.every((list): list is string[] => list !== undefined)
+    ? selectors
     : undefined;
 
   // One bar series is a plain bar chart; several are segmented, and `stack`
@@ -300,7 +348,9 @@ function barLayer(
       type: TraceType.BAR,
       orientation,
       ...(name ? { name } : {}),
-      ...(highlight ? { selectors: highlight } : {}),
+      // One row, flattened: `AbstractBarPlot`'s array branch takes a list of
+      // marks and declines a nested one outright.
+      ...(named ? { selectors: named[0] } : {}),
       axes: axisConfig(axes),
       data: points,
     };
@@ -330,7 +380,11 @@ function barLayer(
     id: nextId('layer'),
     type: stacked ? TraceType.STACKED : TraceType.DODGED,
     orientation,
-    ...(highlight ? { selectors: highlight } : {}),
+    // A row per series, not one flat list. `SegmentedTrace` routes an array
+    // to `mapGridToSvgElements`, which wants a row per series and declines a
+    // flat one -- for the reason it gives itself, that a flat list says which
+    // bars there are but not which cell each one is in.
+    ...(named ? { selectors: named } : {}),
     axes: axisConfig(axes),
     data,
   };
@@ -390,7 +444,7 @@ function stepDirectionOf(step: string): 'vh' | 'hv' {
 function scatterLayer(
   seriesModel: EChartsSeriesModel,
   axes: Axes,
-  selectors: string[] | undefined,
+  selectors: string | undefined,
 ): MaidrLayer {
   const data = seriesModel.getData();
   // A `symbolSize` reading a third column shows up as an extra dimension,
@@ -400,15 +454,13 @@ function scatterLayer(
 
   const points: ScatterPoint[] = [];
   for (let index = 0; index < data.count(); index++) {
-    const x = data.get(data.dimensions[0], index);
-    const y = data.get(data.dimensions[1], index);
-    if (typeof x !== 'number' || typeof y !== 'number') {
+    const at = placed(data, index);
+    if (!at) {
       continue;
     }
     const size = sized === undefined ? undefined : data.get(sized, index);
     points.push({
-      x,
-      y,
+      ...at,
       ...(typeof size === 'number' && Number.isFinite(size) ? { z: size } : {}),
     });
   }

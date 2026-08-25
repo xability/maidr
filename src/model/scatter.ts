@@ -2293,6 +2293,27 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         }
       }
 
+      // ECharts scales its symbols into place rather than moving them:
+      // `matrix(s, 0, 0, s, e, f)`, where the symbol's own path is a unit
+      // shape about the origin, so the mark's centre is `(e, f)` -- the last
+      // two numbers, which is what a matrix translates by whatever the other
+      // four are. Read before the `d` fallback below and not after, because
+      // ECharts writes both: every symbol's `d` begins `M1 0`, so the
+      // fallback would answer the same coordinate for every point on the
+      // chart and group the whole scatter into one column.
+      if (Number.isNaN(x) || Number.isNaN(y)) {
+        const transform = element.getAttribute('transform');
+        if (transform) {
+          const match = transform.match(
+            /matrix\s*\(\s*(?:[\d.eE+-]+[\s,]+){4}([\d.eE+-]+)[\s,]+([\d.eE+-]+)/,
+          );
+          if (match) {
+            x = Number.parseFloat(match[1]);
+            y = Number.parseFloat(match[2]);
+          }
+        }
+      }
+
       // Highcharts (and other path-rendered marker libraries) embed the
       // marker center in the `d` attribute as `M x y …`. Parse the initial
       // moveTo command to recover (x, y) when none of the explicit attribute

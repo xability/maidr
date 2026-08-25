@@ -33,7 +33,7 @@ interface FakeSeries {
   /** The magnitude at each position; `null` is a datum that drew nothing. */
   values: (number | null)[];
   /** The other coordinate, when the chart is not categorical. */
-  positions?: number[];
+  positions?: (number | null)[];
   /** A third column, which is what a sized symbol reads. */
   sizes?: number[];
   name?: string;
@@ -56,7 +56,9 @@ function fakeList(series: FakeSeries, horizontal: boolean): EChartsList {
         return series.values[index];
       }
       if (dimension === position) {
-        return series.positions?.[index] ?? index;
+        // Read verbatim when the case supplies them, so a `null` coordinate
+        // stays a `null` rather than falling back to the index.
+        return series.positions ? series.positions[index] : index;
       }
       return series.sizes?.[index];
     },
@@ -338,6 +340,32 @@ describe('an eCharts scatter chart', () => {
       { x: 2, y: 4 },
       { x: 3, y: 1 },
     ]);
+  });
+
+  it('counts only the points it will emit', () => {
+    // A point needs both coordinates to be drawn, and `scatterLayer` emits
+    // only the ones that have them. The count the marks are checked against
+    // has to ask the same question: counting the datum with no `x` would
+    // expect three marks on a drawing that has two, the check would fail,
+    // and the whole chart would lose its highlighting over a point that was
+    // never on it.
+    const [layer] = layersOf(
+      {
+        series: [{
+          type: 'scatter',
+          values: [2, 4, 1],
+          positions: [1, null, 3],
+        }],
+      },
+      drawnChart(2, 0),
+    );
+
+    expect(layer.data as ScatterPoint[]).toEqual([
+      { x: 1, y: 2 },
+      { x: 3, y: 1 },
+    ]);
+    expect(layer.selectors).toBeDefined();
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('makes a sized symbol audible', () => {
