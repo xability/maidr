@@ -757,6 +757,27 @@ describe('tactileService', () => {
       expect(session.writeGraphic).toHaveBeenCalledTimes(1);
     });
 
+    it('should give the repair budget back to a display that has just connected', async () => {
+      // The bound is there to stop writing to a device that cannot be written
+      // to. A device that has just connected is not that device, and until the
+      // reader navigates nothing else would restore the budget -- so the first
+      // failure on a fresh display would go unrepaired for no reason.
+      activate(1);
+      for (let attempt = 0; attempt < 4; attempt++) {
+        session.fireWriteFailure();
+        await Promise.resolve();
+      }
+
+      session.fireState({ status: 'connected', deviceName: 'DotPad 320', transport: 'bluetooth', geometry: GEOMETRY, message: '' });
+      await Promise.resolve();
+      session.writeGraphic.mockClear();
+
+      session.fireWriteFailure();
+      await Promise.resolve();
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+
     it('should not write to a device the reader has switched off', async () => {
       activate(1);
       service.toggle();

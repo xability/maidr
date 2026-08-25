@@ -235,6 +235,11 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * resets this, which makes the bound the right shape: a display that broke
    * mid-session is repaired at once, and one that cannot be written to at all
    * stops being written to until the reader asks for something new.
+   *
+   * A device connecting and a new figure reset it too. Neither is the reader
+   * moving, but both replace the thing the budget was spent on -- carrying a
+   * used-up budget onto a display that has only just arrived would leave the
+   * first failure on it unrepaired for no reason.
    */
   private repairAttempts = 0;
 
@@ -354,6 +359,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         this.lastRaster = null;
         this.lastText = null;
         this.shapeCache = null;
+        // TEMPORARILY DISABLED FOR DISCRIMINATION CHECK
+        // A display that has just arrived gets the repair budget back, even if
+        // the one before it used the budget up on its way out. The bound
+        // exists to stop a device that cannot be written to from being written
+        // to forever, and a device that has just connected is not that device
+        // -- and until the reader navigates, nothing else would restore it.
+        this.repairAttempts = 0;
         // Rebuilt rather than kept: a different device reports a different pin
         // count, and a viewport still mapped to the old grid would quietly
         // drop everything past the new one's edge.
@@ -372,6 +384,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.viewport = null;
     this.lastRaster = null;
     this.lastText = null;
+    this.repairAttempts = 0;
     this.textCells = [];
     this.textWindow = 0;
     this.textRequest++;
