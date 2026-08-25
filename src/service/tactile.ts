@@ -359,7 +359,6 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         this.lastRaster = null;
         this.lastText = null;
         this.shapeCache = null;
-        // TEMPORARILY DISABLED FOR DISCRIMINATION CHECK
         // A display that has just arrived gets the repair budget back, even if
         // the one before it used the budget up on its way out. The bound
         // exists to stop a device that cannot be written to from being written
