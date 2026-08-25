@@ -8,7 +8,7 @@
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
  * - Plugin: boxplot, violin, candlestick/ohlc, matrix (heatmap), treemap,
- *   sankey, wordCloud, and the cartesian error-bar controllers
+ *   sankey, wordCloud, funnel, and the cartesian error-bar controllers
  *   (barWithErrorBars, lineWithErrorBars, scatterWithErrorBars)
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
@@ -836,12 +836,15 @@ function extractLayers(
       return extractSankeyLayers(chart);
     case 'wordCloud':
       return extractWordCloudLayers(chart);
+    case 'funnel':
+      return extractFunnelLayers(chart, pluginOptions, datasetIndices);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
         + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
-        + 'wordCloud, barWithErrorBars, lineWithErrorBars, scatterWithErrorBars.',
+        + 'wordCloud, funnel, barWithErrorBars, lineWithErrorBars, '
+        + 'scatterWithErrorBars.',
       );
   }
 }
@@ -873,6 +876,65 @@ function extractBarLayers(
   }
 
   return [singleDatasetToBarLayer(data.datasets[0], data.labels ?? [], chart, pluginOptions)];
+}
+
+/**
+ * Reads a `chartjs-chart-funnel` chart as the stages it draws.
+ *
+ * A funnel is a bar chart the trace reads differently: `FunnelTrace` extends
+ * `BarTrace` and pitches the **retention** between adjacent stages rather
+ * than the count, announcing the counts alongside. So the payload is a bar's,
+ * `{x: stage, y: magnitude}`, and this borrows the bar family's own walk --
+ * which is also what keeps a gap and a reversed axis behaving the same way
+ * here as everywhere else.
+ *
+ * Measured against a running chart -- `chart.js@4` with
+ * `chartjs-chart-funnel@4`, driven headlessly through Chart.js's own
+ * BasicPlatform:
+ *
+ *   - the stages are `data.labels` and the magnitudes are `dataset.data`,
+ *     written as plain numbers or as `{x, y}`; both are what `toFiniteNumber`
+ *     already reads.
+ *
+ *   - `indexAxis: 'y'` draws the funnel on its side, and the raw data is
+ *     unchanged -- only the parse moves the magnitude to `x`. `funnel` is in
+ *     the bar family the grammar's `orientation` table names, so the same
+ *     exchange applies, and `singleDatasetToBarLayer` already makes it.
+ *
+ *   - a `null` stage parses to `y: null` and is skipped rather than announced
+ *     as a zero the chart does not draw.
+ *
+ * **One layer per dataset.** Two datasets are two funnels rather than one
+ * segmented chart: a funnel is one population shrinking across ordered
+ * stages, so a second series is a second population and not a second segment
+ * of the first. That is also the reading the amCharts adapter gives its own
+ * funnel series.
+ *
+ * @param chart - The Chart.js chart
+ * @param pluginOptions - The MAIDR plugin options, for the axis labels
+ * @param datasetIndices - Collects which dataset backs each emitted layer
+ * @returns One layer per dataset
+ */
+function extractFunnelLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  const labels = chart.data.labels ?? [];
+  return chart.data.datasets.map((dataset, index) => {
+    // Recorded rather than left to the per-type default, which is "every
+    // dataset, in order": with two funnels that hands both layers the same
+    // first dataset, so the second one outlines the first funnel's stages.
+    datasetIndices?.set(String(index), [index]);
+    return singleDatasetToBarLayer(
+      dataset,
+      labels,
+      chart,
+      pluginOptions,
+      index,
+      TraceType.FUNNEL,
+    );
+  });
 }
 
 /**

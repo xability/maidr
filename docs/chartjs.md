@@ -96,10 +96,13 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
 | Sankey | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
 | Word Cloud | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
+| Funnel | `'funnel'` | `chartjs-chart-funnel` | [Funnel](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 | Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
+
+> **Funnel note:** a funnel is read as the stages it draws, `data.labels` naming them and `dataset.data` carrying the magnitudes — plain numbers or `{x, y}` rows, either way. The reading MAIDR gives it is a bar's with one difference that matters: the pitch carries the **retention** between adjacent stages rather than the count, and the counts are announced alongside. `indexAxis: 'y'` draws it on its side and the payload is exchanged with it, as for any bar-family chart. Several datasets are several funnels, one layer each, rather than one segmented chart — a funnel is one population shrinking across ordered stages, so a second series is a second population.
 
 > **Error bar note:** the three cartesian controllers of `chartjs-chart-error-bars` all read the same way — an estimate and the interval around it — because the mark each draws at the estimate is not something a reader is told. Several datasets become one series each, every estimate naming its dataset, so a dodged interval chart keeps the comparison it was drawn for. A datum may carry **nested** intervals (`yMin: [8, 7]`); the outermost pair is announced, which is the interval the drawn whiskers reach, and the inner ones are not. A datum written as a plain number draws no whiskers and is announced as an estimate with no interval — which is not the same as an interval of width zero. `polarAreaWithErrorBars`, the plugin's fourth controller, is **not** read: a radial spoke has nowhere to carry a bound, so reading it would announce the estimate and drop the uncertainty.
 
