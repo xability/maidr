@@ -139,7 +139,8 @@ let chartCounter = 0;
  * - `tilemap` → {@link TraceType.HEXBIN}, or {@link TraceType.HEATMAP} when
  *   its `tileShape` is `square` (an aligned grid rather than a stagger)
  * - `histogram` → {@link TraceType.HISTOGRAM}
- * - `candlestick`, `ohlc` → {@link TraceType.CANDLESTICK}
+ * - `candlestick`, `ohlc`, `hlc` → {@link TraceType.CANDLESTICK}, the last
+ *   without an opening price and so without a body, a trend or a pattern
  * - `pie` (including doughnuts, which are a pie with an `innerSize`) →
  *   {@link TraceType.PIE}
  * - Stacked `column`/`bar` → {@link TraceType.STACKED}
@@ -1753,8 +1754,13 @@ function convertSeries(
         : convertHexbinSeries(series, containerId);
     case 'histogram':
       return convertHistogramSeries(series, containerId);
+    // `hlc` is the third of Highcharts' price series and reads through the
+    // same converter as its two siblings: it draws the same high, low and
+    // close, and only the opening price -- and so the body, the trend and
+    // the patterns that are statements about a body -- is missing (#1188).
     case 'candlestick':
     case 'ohlc':
+    case 'hlc':
       return convertCandlestickSeries(series, chart, containerId);
     // An `item` chart is a pie drawn as discrete symbols -- a parliament
     // diagram is the canonical one, each seat a dot. Highcharts registers it
@@ -1767,7 +1773,7 @@ function convertSeries(
     case 'item':
     case 'pie':
       return convertPieSeries(series, containerId);
-    // Reached deliberately by five series types, each for its own reason
+    // Reached deliberately by four series types, each for its own reason
     // (xability/maidr#1186), and recorded here so the decline is a decision
     // rather than an omission:
     //
@@ -1778,12 +1784,6 @@ function convertSeries(
     //   hull drawn over a scatter that is already read, so the shape is
     //   drawing rather than data.
     // - `mapline` is geometry for the same reason.
-    // - `hlc` draws a real price series -- measured, `low`, `high`, `close`
-    //   and no `open` -- and cannot go through `convertCandlestickSeries`,
-    //   which requires an open and would emit **zero** points. Reading it
-    //   needs `CandlestickPoint.open` to become optional the way
-    //   `ErrorBarPoint.y` did in #1047, which is a grammar change rather
-    //   than an adapter one.
     // - `venn` and `euler` carry a declared size per set combination but no
     //   set-membership navigation to ask what a Venn diagram is drawn to
     //   ask. Left to a maintainer; the Chart.js side is declined too.
@@ -5459,23 +5459,28 @@ function convertCandlestickSeries(
   chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
+  // The close is what every price series in this family carries; the open is
+  // not. `hlc` draws the same high, low and close without one -- measured,
+  // `{"x":0,"y":3,"low":1,"high":5,"close":3}` and no `open` at all -- so
+  // filtering on the open declined a real chart, and defaulting it would have
+  // announced an opening price the series never recorded. `CandlestickPoint`
+  // declares it optional for exactly this (#1188).
   const data: CandlestickPoint[] = series.data
-    .filter(p => p.open != null && p.close != null)
+    .filter(p => p.close != null)
     .map((p) => {
-      const open = p.open!;
+      const open = p.open ?? undefined;
       const close = p.close!;
-      const high = p.high ?? Math.max(open, close);
-      const low = p.low ?? Math.min(open, close);
+      const high = p.high ?? Math.max(open ?? close, close);
+      const low = p.low ?? Math.min(open ?? close, close);
 
-      let trend: CandlestickTrend = 'Neutral';
-      if (close > open)
-        trend = 'Bull';
-      else if (close < open)
-        trend = 'Bear';
+      let trend: CandlestickTrend | undefined;
+      if (open !== undefined) {
+        trend = close > open ? 'Bull' : close < open ? 'Bear' : 'Neutral';
+      }
 
       return {
         value: p.category ?? p.name ?? String(p.x),
-        open,
+        ...(open === undefined ? {} : { open }),
         high,
         low,
         close,

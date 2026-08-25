@@ -412,8 +412,14 @@ export class CandlestickDeltaService implements Disposable {
       if (reference === undefined) {
         continue;
       }
+      // A candle with no open is skipped rather than compared: the delta this
+      // service derives is against a reference *line*, and a chart drawn
+      // without an open (a high-low-close series) has no body for the
+      // comparison to be about. `undefined` is spelled out because
+      // `Number.isFinite` does not narrow it away for the compiler.
       if (
-        !Number.isFinite(candle.open)
+        candle.open === undefined
+        || !Number.isFinite(candle.open)
         || !Number.isFinite(candle.high)
         || !Number.isFinite(candle.low)
         || !Number.isFinite(candle.close)

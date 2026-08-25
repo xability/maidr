@@ -88,6 +88,73 @@ function createCandlestickMaidr(id = 'candle-chart'): Maidr {
   };
 }
 
+/**
+ * The same chart drawn without an opening price, as an `hlc` series gives it.
+ *
+ * `CandlestickPoint.open` became optional in #1188, and such a chart has
+ * **four** navigation rows rather than five. The row this service announces
+ * a streamed candle on therefore has to come from the chart's own sections,
+ * not from the superset.
+ * @returns A Maidr config with a single open-less candlestick layer
+ */
+function createHlcMaidr(id = 'hlc-chart'): Maidr {
+  return {
+    id,
+    live: true,
+    subplots: [[
+      {
+        layers: [
+          {
+            id: 'hlc-layer',
+            type: TraceType.CANDLESTICK,
+            axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+            data: [
+              { value: '2026-01-01', high: 15, low: 9, close: 14, volume: 100, volatility: 6 },
+              { value: '2026-01-02', high: 18, low: 13, close: 17, volume: 120, volatility: 5 },
+            ] as CandlestickPoint[],
+          },
+        ],
+      },
+    ]],
+  };
+}
+
+describe('a streamed candle on a chart with no opening price', () => {
+  test('is announced on a row that chart has', () => {
+    const result = appendPointToMaidr(createHlcMaidr(), {
+      value: '2026-01-03',
+      high: 20,
+      low: 15,
+      close: 19,
+      volume: 90,
+      volatility: 5,
+    } as CandlestickPoint);
+
+    // Four rows — volatility, high, low, close — so `close` is row 3. Read
+    // off `CANDLESTICK_SECTIONS`, which is the superset, it is 4: past the
+    // last row this chart has, and the announcement would target a row that
+    // does not exist.
+    expect(result).not.toBeNull();
+    expect(result!.appended.row).toBe(3);
+  });
+
+  test('is announced on row 4 where the chart does record an open', () => {
+    const result = appendPointToMaidr(createCandlestickMaidr(), {
+      value: '2026-01-03',
+      open: 17,
+      high: 20,
+      low: 15,
+      close: 19,
+      volume: 90,
+      trend: 'Bull',
+      volatility: 5,
+    } as CandlestickPoint);
+
+    expect(result).not.toBeNull();
+    expect(result!.appended.row).toBe(4);
+  });
+});
+
 describe('appendPointToMaidr', () => {
   test('appends a point to flat (bar) layer data', () => {
     const maidr = createBarMaidr();

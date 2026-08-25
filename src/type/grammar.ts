@@ -361,13 +361,37 @@ export interface BoxSelector {
  */
 export interface CandlestickPoint {
   value: string;
-  open: number;
+  /**
+   * The period's opening price, where the chart records one.
+   *
+   * Optional because a real and common price chart does not have it.
+   * Highcharts registers three price series and only two carry an open:
+   * `candlestick` and `ohlc` do, and `hlc` draws the same high, low and
+   * close without it. Required, the field forced that chart to be declined
+   * outright -- announcing it as an error bar would have been exact in the
+   * data and wrong in the name, which is the trade #1140 rules out.
+   *
+   * The same shape `ErrorBarPoint.y` took in #1047 for the band that draws
+   * only bounds: absent means the chart never had one, not that it is zero.
+   *
+   * Its absence removes more than a row. The **body** is what an open makes
+   * -- so a candle without one has no bullish/bearish/neutral trend, no
+   * shape, and no pattern with its neighbours, because every one of those is
+   * a statement about the body. {@link Candlestick} drops the section, the
+   * trend and all of the pattern asides together rather than announcing any
+   * of them empty.
+   */
+  open?: number;
   high: number;
   low: number;
   close: number;
   /** Optional volume data. May be undefined when source (e.g., Google Charts) doesn't provide it. */
   volume?: number;
-  trend: CandlestickTrend;
+  /**
+   * Which way the body ran, absent on a candle with no {@link
+   * CandlestickPoint.open} to measure it against.
+   */
+  trend?: CandlestickTrend;
   volatility: number;
 }
 
