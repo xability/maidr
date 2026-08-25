@@ -11,7 +11,7 @@
 import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
-import { drawnCategoryPositions, drawnErrorBarIndices, drawnGeoIndices, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
+import { drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -417,7 +417,7 @@ export function computeTargetMaps(
       // time in `resolveActiveTargets`.
       case TraceType.CHOROPLETH: {
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
-        barLineIndices.set(layer.id, [drawnGeoIndices(chart, dsIdx)]);
+        barLineIndices.set(layer.id, [drawnGeoRows(chart, dsIdx).map(row => row.index)]);
         break;
       }
       case TraceType.HEATMAP: {

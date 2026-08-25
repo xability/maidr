@@ -3240,13 +3240,10 @@ function extractGeoLayers(
   const layers: MaidrLayer[] = [];
 
   chart.data.datasets.forEach((dataset, index) => {
-    const parsed = chart.getDatasetMeta(index)?._parsed ?? [];
-    const data: ChoroplethPoint[] = drawnGeoIndices(chart, index).map(i => ({
-      x: geoRegionName(labels[i], dataset.data[i], i),
-      // `drawnGeoIndices` has already accepted the value; this is the
-      // narrowing rather than a second test of it.
-      y: parsed[i].r as number,
-      ...geoCentroid(chartType, dataset.data[i], parsed[i]),
+    const data: ChoroplethPoint[] = drawnGeoRows(chart, index).map(row => ({
+      x: geoRegionName(labels[row.index], dataset.data[row.index], row.index),
+      y: row.value,
+      ...geoCentroid(chartType, dataset.data[row.index], row.parsed),
     }));
 
     if (data.length === 0)
@@ -3377,8 +3374,18 @@ function geoValueLabel(
   return scale?.title?.text ? scale.title.text : 'Value';
 }
 
+/** One place a geo dataset drew a value at. */
+export interface DrawnGeoRow {
+  /** Its position in the dataset, which is also its element index. */
+  index: number;
+  /** The value the map shades or sizes it by. */
+  value: number;
+  /** What Chart.js parsed it into, which is where a bubble's degrees are. */
+  parsed: ChartJsParsedValue;
+}
+
 /**
- * The positions one geo dataset drew a value at, in dataset order.
+ * The places one geo dataset drew a value at, in dataset order.
  *
  * A region whose value is `null` is skipped. It is still on the map -- the
  * colour scale paints it with `options.missing` rather than a shade -- but
@@ -3386,7 +3393,12 @@ function geoValueLabel(
  * value the map declines to show. The same rule the bar family follows for a
  * gap.
  *
- * Exported because the highlight half has to walk them the same way: the
+ * Answers with the value and the parsed datum rather than the position alone,
+ * so the payload half needs no second reading of the same metadata -- and so
+ * the value arrives already narrowed, rather than as a cast asserting what
+ * this function has just tested.
+ *
+ * Exported because the highlight half has to walk these the same way: the
  * plugin outlines by index through the table `computeTargetMaps` builds, and
  * a table built by a different walk names a different mark from the one the
  * payload announces (#1024). Sharing this is what keeps the two paired.
@@ -3397,14 +3409,15 @@ function geoValueLabel(
  *
  * @param chart - The Chart.js chart
  * @param datasetIndex - Which dataset to walk
- * @returns Its positions, skipping any row with no value
+ * @returns One entry per place drawn, skipping any row with no value
  */
-export function drawnGeoIndices(chart: ChartJsChart, datasetIndex: number): number[] {
+export function drawnGeoRows(chart: ChartJsChart, datasetIndex: number): DrawnGeoRow[] {
   const parsed = chart.getDatasetMeta(datasetIndex)?._parsed ?? [];
-  const drawn: number[] = [];
-  parsed.forEach((datum, i) => {
-    if (typeof datum?.r === 'number' && Number.isFinite(datum.r))
-      drawn.push(i);
+  const drawn: DrawnGeoRow[] = [];
+  parsed.forEach((datum, index) => {
+    const value = datum?.r;
+    if (typeof value === 'number' && Number.isFinite(value))
+      drawn.push({ index, value, parsed: datum });
   });
   return drawn;
 }
