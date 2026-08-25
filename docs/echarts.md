@@ -52,11 +52,10 @@ Two things this example does on purpose:
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 
-**Not yet supported:** `boxplot`, `candlestick`, `heatmap`, `radar`,
-`treemap`, `sunburst`, `sankey`, `graph`, `parallel`, `themeRiver`,
-`pictorialBar`. Each of these is *refused by name* rather than
-mapped onto whichever trace is closest — most have a MAIDR trace waiting for
-them, and each wants its own measured layout first. See
+**Not yet supported:** `boxplot`, `radar`, `treemap`, `sunburst`, `sankey`,
+`graph`, `parallel`, `themeRiver`, `pictorialBar`. Each of these is *refused
+by name* rather than mapped onto whichever trace is closest — most have a MAIDR
+trace waiting for them, and each wants its own measured layout first. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
 > **Orientation note:** ECharts has no "horizontal" option. A bar chart is
@@ -92,6 +91,39 @@ gauge is read without an outline.
 `min` and `max` come off the series rather than being defaulted here.
 `getModel()` resolves ECharts' own `0` and `100` when the author wrote
 neither, so the dial the reader is told about is the dial that was drawn.
+
+## Grid-value charts
+
+A heat grid and a price chart sit on the same cartesian axes the bar family
+uses, and differ from it in the same way: a datum is not one magnitude but a
+set of them, and ECharts has already worked them out. Measured on 6.1.0 the
+model reports them under named dimensions, so nothing is recovered from the
+drawing:
+
+| ECharts | `data.dimensions` | read as | highlighted |
+|---|---|---|---|
+| `heatmap` | `['x', 'y', 'value']` | `heat` | yes — a selector per cell |
+| `candlestick` | `['base', 'open', 'close', 'lowest', 'highest']` | `candlestick` | yes — a selector per candle |
+
+Both draw exactly one filled mark per datum — a cell, a candle body with its
+wick — which is the same shape the bar reading already counts and stamps.
+
+**A heatmap numbers a cell by axis index, not by name,** and a category y axis
+runs bottom-up: a 2×2 grid reports its cells as `[0,0]`, `[0,1]`, `[1,0]`,
+`[1,1]` with `y = 0` along the bottom. `HeatmapData` is top-first, so the rows
+are turned over on the way out — and the selector grid is built by the same
+walk that places the values, so a cell's outline and its reading cannot
+disagree.
+
+**A cell the chart drew nothing at stays empty rather than becoming a zero.** A
+grid is a rectangle and the data need not fill it, so a missing cell reads as
+missing ([#1191](https://github.com/xability/maidr/issues/1191)) and carries no
+selector.
+
+**A candlestick's `volatility` is the day's range** (`high - low`), matching
+every other candlestick producer in this tree. A period missing any of the four
+prices draws no candle, so it is left out of the reading entirely — counting it
+would expect a mark that was never drawn.
 
 ## Highlighting
 
@@ -137,6 +169,8 @@ silently.
 | `stacked`, `dodged` | a row of selectors per series | `SegmentedTrace.mapGridToSvgElements` |
 | `scatter` | **one** selector naming the whole series | `ScatterTrace`, which casts `layer.selectors` to `string` |
 | `line`, `area` | one selector per series | `LineTrace.mapToSvgElements` |
+| `heat` | a row of selectors per grid row, bottom-first | `Heatmap`, which indexes by its own row |
+| `candlestick` | `{ body: [...] }`, one per candle | `Candlestick.mapToSvgElements` |
 
 So the marks are stamped twice in one pass — once per mark and once per
 series — and each layer takes the address its own trace can use.

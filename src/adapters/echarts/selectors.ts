@@ -104,7 +104,17 @@ function isFilledMark(element: Element): boolean {
     return false;
   }
 
-  return !FURNITURE_FILLS.has(normalise(fill));
+  // A `url(#…)` fill is a gradient, and ECharts paints exactly one thing with
+  // one: the `visualMap` legend beside a heat grid. Measured -- a 2x2 heatmap
+  // draws its four cells in flat `rgb(…)` and its legend in two
+  // `url(#zr6-g0)` bands -- so counting the legend would put six marks where
+  // the model says four and cost the grid its highlighting.
+  const paint = normalise(fill);
+  if (paint.startsWith('url(')) {
+    return false;
+  }
+
+  return !FURNITURE_FILLS.has(paint);
 }
 
 /**
