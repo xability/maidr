@@ -8,10 +8,10 @@
  * highlight resolution O(1) and aligned with the original chart elements.
  */
 
-import type { GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
+import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
-import { drawnCategoryPositions, drawnErrorBarIndices, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
+import { drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -411,6 +411,15 @@ export function computeTargetMaps(
         );
         break;
       }
+      // A map's regions, in the order the payload announced them. Built even
+      // for a banded map, because whether it is banded is a question about
+      // the payload rather than about the chart, and it is asked at resolve
+      // time in `resolveActiveTargets`.
+      case TraceType.CHOROPLETH: {
+        const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
+        barLineIndices.set(layer.id, [drawnGeoRows(chart, dsIdx).map(row => row.index)]);
+        break;
+      }
       case TraceType.HEATMAP: {
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         heatmapIndices.set(layer.id, buildHeatmapIndex(datasets[dsIdx]?.data ?? []));
@@ -536,6 +545,36 @@ export function resolveActiveTargets(
   // which is the one failure an accessibility suite cannot hear (#814).
   if (layer.type === TraceType.SANKEY)
     return [];
+
+  // Choropleth / bubble map: `col` is the region, but only when the model
+  // left the regions where the payload put them.
+  //
+  // `ChoroplethTrace` lays a *placed* map out geographically -- south to
+  // north in bands of equal count, west to east within each band -- so
+  // `(row, col)` there addresses a position on the globe and nothing in
+  // `NavigateCallback` carries the region's identity back. Re-deriving the
+  // banding here is the drift the treemap branch above avoids, so a placed
+  // map outlines nothing, the way the sankey branch declines for the same
+  // reason (#814): the bottom branch would answer `{index: col}` and outline
+  // a region chosen by where it happens to sit in its band.
+  //
+  // A map with no centroids is a different case and not a lesser one: the
+  // model keeps it "in declared order in one band", which is a documented
+  // contract of the trace rather than an artefact -- pinned by
+  // `test/model/choropleth.test.ts` -- so row 0, column `i` *is* the payload's
+  // `i`, and the prebuilt walk maps that back onto the drawn element.
+  if (layer.type === TraceType.CHOROPLETH) {
+    const regions = layer.data as ChoroplethPoint[];
+    const placed = regions.every(
+      region => Number.isFinite(region.lat) && Number.isFinite(region.lon),
+    );
+    if (placed)
+      return [];
+    const index = maps.barLineIndices.get(layer.id)?.[0]?.[col];
+    if (index === undefined)
+      return [];
+    return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index }];
+  }
 
   // Heatmap / Matrix: look the active cell up by coordinate (the matrix data
   // order is arbitrary). MAIDR's Heatmap model reverses the Y axis (row 0 =
