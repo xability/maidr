@@ -55,23 +55,31 @@ function readValues(seriesModel: EChartsSeriesModel): Reading[] {
 }
 
 /**
- * Builds the layer for one pie, funnel or gauge series.
+ * Builds the layers for one pie, funnel or gauge series.
+ *
+ * A pie and a funnel are one layer each; a gauge is one **per pointer**.
+ * ECharts draws a pointer for every entry in a gauge's `data` -- measured, a
+ * two-entry gauge reports `count() === 2` and puts two needles on one dial --
+ * and `GaugePoint` is a single reading, so two of them are two layers rather
+ * than one reading and one silently dropped. What that loses is that they
+ * share a dial; nothing in the grammar carries it, and both min and max come
+ * out the same on each, which is as close as it gets.
  *
  * @param seriesModel - The series to read
  * @param container   - The element the chart was rendered into
- * @returns The layer, or `undefined` when the series drew no reading
+ * @returns The layers, empty when the series drew no reading
  */
-export function singleValueLayer(
+export function singleValueLayers(
   seriesModel: EChartsSeriesModel,
   container: HTMLElement,
-): MaidrLayer | undefined {
+): MaidrLayer[] {
   const read = readValues(seriesModel);
   if (read.length === 0) {
-    return undefined;
+    return [];
   }
 
   if (seriesModel.subType === 'gauge') {
-    return gaugeLayer(seriesModel, read[0]);
+    return read.map(one => gaugeLayer(seriesModel, one));
   }
 
   // A pie and a funnel each draw exactly one filled mark per datum --
@@ -80,9 +88,11 @@ export function singleValueLayer(
   // declines.
   const marks = markPerDatum(container, [read.length]);
 
-  return seriesModel.subType === 'pie'
-    ? pieLayer(seriesModel, read, marks?.series[0])
-    : funnelLayer(seriesModel, read, marks?.points[0]);
+  return [
+    seriesModel.subType === 'pie'
+      ? pieLayer(seriesModel, read, marks?.series[0])
+      : funnelLayer(seriesModel, read, marks?.points[0]),
+  ];
 }
 
 /**

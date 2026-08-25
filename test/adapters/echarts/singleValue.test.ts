@@ -21,7 +21,7 @@ import type { EChartsInstance, EChartsList, EChartsSeriesModel } from '@adapters
 import type { BarPoint, GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import type { TraceState } from '@type/state';
 import { createMaidrFromEChart } from '@adapters/echarts/converters';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { FunnelTrace } from '@model/funnel';
 import { PieTrace } from '@model/pie';
 import { TraceType } from '@type/grammar';
@@ -144,8 +144,18 @@ function highlighted(
   return (elements as { id?: string }[]).map(element => element.id ?? '(unnamed)');
 }
 
+const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+beforeEach(() => {
+  warnSpy.mockClear();
+});
+
 afterEach(() => {
   document.body.innerHTML = '';
+});
+
+afterAll(() => {
+  warnSpy.mockRestore();
 });
 
 describe('an eCharts pie chart', () => {
@@ -298,6 +308,62 @@ describe('an eCharts gauge', () => {
     const layer = layerFor({ type: 'gauge', values: [70] }, 2);
 
     expect(layer.selectors).toBeUndefined();
+  });
+});
+
+describe('a gauge with more than one pointer', () => {
+  it('reads every needle rather than the first', () => {
+    // Measured: a two-entry gauge reports `count() === 2` and draws two
+    // needles on one dial. `GaugePoint` is a single reading, so the two come
+    // out as two layers -- what that loses is that they share a dial, and
+    // nothing in the grammar carries it.
+    const container = drawnChart(2);
+    const layers = createMaidrFromEChart(
+      fakeInstance([{
+        type: 'gauge',
+        names: ['A', 'B'],
+        values: [30, 70],
+        min: 0,
+        max: 100,
+      }]),
+      container,
+    ).subplots[0][0].layers;
+
+    expect(layers).toHaveLength(2);
+    expect(layers[0].data as GaugePoint).toEqual({
+      value: 30,
+      min: 0,
+      max: 100,
+      label: 'A',
+    });
+    expect(layers[1].data as GaugePoint).toEqual({
+      value: 70,
+      min: 0,
+      max: 100,
+      label: 'B',
+    });
+  });
+});
+
+describe('a chart that declares both families', () => {
+  it('reads the single-value half and says what it left out', () => {
+    // A pie has no grid to share with a bar, so this is not a chart ECharts
+    // is drawn to make -- but it is not invalid either, and dropping half of
+    // it in silence is the failure mode this adapter exists to avoid.
+    const container = drawnChart(3);
+    const layers = createMaidrFromEChart(
+      fakeInstance([
+        { type: 'pie', names: ['A', 'B', 'C'], values: [1, 2, 3] },
+        { type: 'bar', names: ['A'], values: [1] },
+      ]),
+      container,
+    ).subplots[0][0].layers;
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.PIE);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ignoring: bar'),
+    );
   });
 });
 

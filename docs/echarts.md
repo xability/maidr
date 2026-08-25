@@ -52,9 +52,9 @@ Two things this example does on purpose:
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 
-**Not yet supported:** `pie`, `boxplot`, `candlestick`, `heatmap`, `radar`,
-`funnel`, `gauge`, `treemap`, `sunburst`, `sankey`, `graph`, `parallel`,
-`themeRiver`, `pictorialBar`. Each of these is *refused by name* rather than
+**Not yet supported:** `boxplot`, `candlestick`, `heatmap`, `radar`,
+`treemap`, `sunburst`, `sankey`, `graph`, `parallel`, `themeRiver`,
+`pictorialBar`. Each of these is *refused by name* rather than
 mapped onto whichever trace is closest — most have a MAIDR trace waiting for
 them, and each wants its own measured layout first. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
