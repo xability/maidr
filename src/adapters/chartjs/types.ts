@@ -403,6 +403,31 @@ export interface ChartJsParsedValue {
   items?: number[];
   /** A violin's density curve; absent on a boxplot. */
   coords?: ChartJsKdeCoord[];
+  /**
+   * The interval bounds `chartjs-chart-error-bars` parses onto a datum.
+   *
+   * Whichever axis carries the measurement carries the bounds: a vertical
+   * chart parses to `yMin`/`yMax`, and `indexAxis: 'y'` moves them to
+   * `xMin`/`xMax` along with the value itself. That is why the reading comes
+   * from here rather than from `dataset.data`, where working out which axis
+   * is which would have to be done again.
+   *
+   * An array is the plugin's nested-interval form -- a 95% inside a 99%, say.
+   * `yMinMin`/`yMaxMax` are then the outermost pair, and are scalars whether
+   * or not the bound is an array.
+   *
+   * `null` is a datum written as a plain number, which draws a bar with no
+   * whiskers; an object datum with no bounds omits the keys entirely. Both
+   * mean "no interval", which is why the test is `!= null` (#1176).
+   */
+  xMin?: number | number[] | null;
+  xMax?: number | number[] | null;
+  xMinMin?: number;
+  xMaxMax?: number;
+  yMin?: number | number[] | null;
+  yMax?: number | number[] | null;
+  yMinMin?: number;
+  yMaxMax?: number;
 }
 
 /**

@@ -7,8 +7,9 @@
  *   waterfall, dumbbell), line (plain, stepped, area, stacked and normalized
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
- * - Plugin: boxplot, candlestick/ohlc, matrix (heatmap), treemap, sankey,
- *   wordCloud
+ * - Plugin: boxplot, violin, candlestick/ohlc, matrix (heatmap), treemap,
+ *   sankey, wordCloud, and the cartesian error-bar controllers
+ *   (barWithErrorBars, lineWithErrorBars, scatterWithErrorBars)
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
  * rather than silently mapped to a bar chart. The three plugins #1108 named
@@ -17,7 +18,7 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
@@ -804,6 +805,20 @@ function extractLayers(
       return extractRadarLayers(chart, TraceType.RADAR, pluginOptions);
     case 'polarArea':
       return extractRadarLayers(chart, TraceType.POLAR_AREA, pluginOptions);
+    // The three cartesian controllers of `chartjs-chart-error-bars`. All
+    // three parse the same way -- an estimate plus bounds on whichever axis
+    // carries the measurement -- so one reading serves them, and the mark
+    // each draws around the interval changes nothing a reader is told.
+    //
+    // `polarAreaWithErrorBars`, the plugin's fourth, is deliberately absent.
+    // It draws wedges with radial whiskers, and `RadarTrace` reads a spoke as
+    // `{x: angle, y: radius}` with nowhere to put a bound -- so reading it as
+    // a polar area would announce the estimate and drop the uncertainty the
+    // chart was drawn for. It keeps the explicit refusal below (#1176).
+    case 'barWithErrorBars':
+    case 'lineWithErrorBars':
+    case 'scatterWithErrorBars':
+      return extractErrorBarLayers(chart, pluginOptions, datasetIndices);
     case 'boxplot':
       return extractBoxplotLayers(chart, pluginOptions);
     // The boxplot plugin registers both, and a violin is the same summary with
@@ -826,7 +841,7 @@ function extractLayers(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
         + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
-        + 'wordCloud.',
+        + 'wordCloud, barWithErrorBars, lineWithErrorBars, scatterWithErrorBars.',
       );
   }
 }
@@ -2376,6 +2391,183 @@ function extractPieLayers(
       data: points,
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Error bar chart extraction (chartjs-chart-error-bars plugin)
+// ---------------------------------------------------------------------------
+
+/**
+ * One end of an interval, as a single number.
+ *
+ * The plugin draws nested intervals -- a 95% inside a 99%, say -- from an
+ * array bound, and `ErrorBarPoint.yMin` is one number. Measured, the parse
+ * keeps the array *and* adds a scalar `yMinMin`/`yMaxMax`, which is the
+ * outermost pair:
+ *
+ *     {y: 10, yMin: [8, 7], yMax: [13, 14], yMinMin: 7, yMaxMax: 14}
+ *
+ * The outermost is what is announced, because it is the interval the drawn
+ * whiskers reach. The inner ones are dropped, and that is a real loss rather
+ * than a rounding: a reader is told the widest interval and not that there
+ * were others.
+ *
+ * @param bound - The parsed bound, scalar or nested
+ * @param outermost - The parse's own `yMinMin`/`yMaxMax` for that bound
+ * @returns The bound to announce, or undefined when the datum has none
+ */
+function errorBarBound(
+  bound: number | number[] | null | undefined,
+  outermost: number | undefined,
+): number | undefined {
+  // `null` is a datum written as a plain number, which draws no whiskers;
+  // an object datum with no bounds omits the key. Both are "no interval",
+  // and neither is the same as an interval of width zero.
+  if (bound == null)
+    return undefined;
+  if (Array.isArray(bound))
+    return outermost;
+  return Number.isFinite(bound) ? bound : undefined;
+}
+
+/**
+ * The positions one error-bar dataset drew, in the order they are drawn.
+ *
+ * Exported because the highlight half has to walk them the same way: the
+ * plugin outlines by index through the table `computeTargetMaps` builds, and
+ * a table built by a different walk names a different mark from the one the
+ * payload announces (#1024). Sharing this is what keeps the two paired.
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndex - Which dataset to walk
+ * @returns Its drawn positions, skipping any datum with no estimate
+ */
+export function drawnErrorBarIndices(
+  chart: ChartJsChart,
+  datasetIndex: number,
+): number[] {
+  const isHorizontal = chart.options.indexAxis === 'y';
+  const parsed = chart.getDatasetMeta(datasetIndex)?._parsed ?? [];
+  const drawn: number[] = [];
+  for (const i of drawnCategoryPositions(chart, parsed.length)) {
+    const estimate = isHorizontal ? parsed[i]?.x : parsed[i]?.y;
+    if (typeof estimate === 'number' && Number.isFinite(estimate))
+      drawn.push(i);
+  }
+  return drawn;
+}
+
+/**
+ * Reads the cartesian error-bar controllers as the intervals they draw.
+ *
+ * `barWithErrorBars`, `lineWithErrorBars` and `scatterWithErrorBars` differ
+ * only in the mark drawn at the estimate, which is not something a reader is
+ * told -- all three announce an estimate and the interval around it, which is
+ * `TraceType.ERROR_BAR` exactly.
+ *
+ * ## Why the parse and not `dataset.data`
+ *
+ * Both are available; the controller leaves `dataset.data` verbatim. Only the
+ * parse resolves the horizontal case. Measured on `indexAxis: 'y'`, the datum
+ * `{x: 10, xMin: 8, xMax: 13}` parses to `{y: 0, x: 10, xMin: 8, xMax: 13}` --
+ * the bounds and the value on X, the category on Y. Reading the raw rows would
+ * mean working out which axis is which a second time, and the parse has
+ * already done it.
+ *
+ * ## One layer per dataset when there are several
+ *
+ * A dodged interval chart puts two estimates at every category, and #942 added
+ * `ErrorBarPoint.z` precisely so they arrive distinguishable. So several
+ * datasets emit the grouped shape, one series each, every point naming its
+ * dataset; a single dataset emits the flat one and needs no name for its one
+ * group.
+ *
+ * ## What is not handled, because the plugin gets there first
+ *
+ * A `null` entry is not a gap to skip: the controller throws laying the chart
+ * out ("Cannot read properties of null") before MAIDR ever sees it. Measured,
+ * the same shape the sankey rows have.
+ *
+ * @param chart - The Chart.js chart
+ * @param pluginOptions - The MAIDR plugin options, for the axis labels
+ * @param datasetIndices - Collects which datasets back the emitted layer
+ * @returns One error-bar layer
+ */
+function extractErrorBarLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  // `indexAxis: 'y'` is Chart.js's own name for the horizontal reading, and
+  // it is what decides which axis carries the measurement -- so it is read
+  // from there rather than inferred from which bounds the parse happens to
+  // hold.
+  const isHorizontal = chart.options.indexAxis === 'y';
+  const labels = chart.data.labels ?? [];
+  const series: ErrorBarPoint[][] = [];
+  // Which dataset each emitted series came from. A dataset that drew nothing
+  // contributes no row, and recording the survivors is what keeps MAIDR row
+  // `n` pointing at the dataset that actually drew it -- the default is
+  // "every dataset, in order", which a skipped one puts out by one.
+  const backing: number[] = [];
+  const grouped = chart.data.datasets.length > 1;
+
+  for (let d = 0; d < chart.data.datasets.length; d++) {
+    const dataset = chart.data.datasets[d];
+    const parsed = chart.getDatasetMeta(d)?._parsed ?? [];
+    const points: ErrorBarPoint[] = [];
+
+    // The categories in drawn order, so a reversed axis reads the way it is
+    // drawn rather than the way it was written (#1024).
+    for (const i of drawnErrorBarIndices(chart, d)) {
+      const value = parsed[i];
+      // `drawnErrorBarIndices` has already accepted the estimate; this is
+      // the narrowing rather than a second test of it.
+      const estimate = (isHorizontal ? value?.x : value?.y) as number;
+
+      const min = isHorizontal
+        ? errorBarBound(value.xMin, value.xMinMin)
+        : errorBarBound(value.yMin, value.yMinMin);
+      const max = isHorizontal
+        ? errorBarBound(value.xMax, value.xMaxMax)
+        : errorBarBound(value.yMax, value.yMaxMax);
+
+      // A scatter names no categories, so its position is the number the
+      // other axis parsed to; a bar or line names them, and the label is
+      // what the reader is shown.
+      const position = labels[i] ?? (isHorizontal ? value.y : value.x) ?? i;
+
+      points.push({
+        x: position,
+        y: estimate,
+        ...(min !== undefined ? { yMin: min } : {}),
+        ...(max !== undefined ? { yMax: max } : {}),
+        ...(grouped && dataset.label !== undefined ? { z: dataset.label } : {}),
+      });
+    }
+
+    if (points.length > 0) {
+      series.push(points);
+      backing.push(d);
+    }
+  }
+  datasetIndices?.set('0', backing);
+
+  return [
+    {
+      id: '0',
+      type: TraceType.ERROR_BAR,
+      ...(chart.data.datasets.length === 1 && chart.data.datasets[0]?.label !== undefined
+        ? { title: chart.data.datasets[0].label }
+        : {}),
+      ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+      axes: {
+        x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+        y: { label: getAxisLabel(chart, 'y', pluginOptions) },
+      },
+      data: grouped ? series : (series[0] ?? []),
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------

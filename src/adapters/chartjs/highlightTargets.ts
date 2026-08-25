@@ -11,7 +11,7 @@
 import type { GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
 import { TraceType } from '../../type/grammar';
-import { drawnCategoryPositions, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
+import { drawnCategoryPositions, drawnErrorBarIndices, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -388,6 +388,21 @@ export function computeTargetMaps(
         barLineIndices.set(
           layer.id,
           dsIndices.map(dsIdx => finiteIndices(datasets[dsIdx]?.data ?? [])),
+        );
+        break;
+      }
+      // An interval chart is one MAIDR row per dataset, columns along the
+      // category axis -- the shape a line has. It cannot borrow the line
+      // branch's walk, though: that tests the raw entries with
+      // `toFiniteNumber`, which reads `.y` and so finds nothing at all on a
+      // horizontal chart, whose data carry the estimate on `x`. The
+      // extractor's own walk is shared instead, so the table and the payload
+      // cannot drift (#1176).
+      case TraceType.ERROR_BAR: {
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        barLineIndices.set(
+          layer.id,
+          dsIndices.map(dsIdx => drawnErrorBarIndices(chart, dsIdx)),
         );
         break;
       }

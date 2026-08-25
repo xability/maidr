@@ -90,6 +90,7 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Radar | `'radar'` | — | [Radar chart](examples.html) |
 | Polar Area | `'polarArea'` | — | [Radar chart](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
+| Error Bar | `'barWithErrorBars'`, `'lineWithErrorBars'`, `'scatterWithErrorBars'` | `chartjs-chart-error-bars` | [Error bar](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
@@ -99,6 +100,8 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
+
+> **Error bar note:** the three cartesian controllers of `chartjs-chart-error-bars` all read the same way — an estimate and the interval around it — because the mark each draws at the estimate is not something a reader is told. Several datasets become one series each, every estimate naming its dataset, so a dodged interval chart keeps the comparison it was drawn for. A datum may carry **nested** intervals (`yMin: [8, 7]`); the outermost pair is announced, which is the interval the drawn whiskers reach, and the inner ones are not. A datum written as a plain number draws no whiskers and is announced as an estimate with no interval — which is not the same as an interval of width zero. `polarAreaWithErrorBars`, the plugin's fourth controller, is **not** read: a radial spoke has nowhere to carry a bound, so reading it would announce the estimate and drop the uncertainty.
 
 > **Radar note:** a radar and a polar area are drawn against a single radial `r` scale, so `axes.y` reads `scales.r.title.text` and `axes.x` defaults to `Category` — set `plugins.maidr.axes` to name what the spokes and their magnitudes mean. Both are read as a multi-series layer, one row per dataset and one column per spoke, with each spoke's stereo position following its angle rather than its index.
 
