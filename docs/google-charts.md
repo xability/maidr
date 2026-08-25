@@ -84,6 +84,7 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Column | `ColumnChart` | `'ColumnChart'` |
 | Line | `LineChart` | `'LineChart'` |
 | Scatter | `ScatterChart` | `'ScatterChart'` |
+| Bubble | `BubbleChart` | `'BubbleChart'` |
 | Candlestick | `CandlestickChart` | `'CandlestickChart'` |
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
@@ -113,9 +114,11 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Manhattan | `ScatterChart` with one series per chromosome | `'ManhattanChart'` |
 | Tree | `OrgChart` (`orgchart` package) — people joined by manager pointers | `'OrgChart'` |
 
-**Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
+**Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type), Calendar.
 
 > **Stacking note:** the adapter is handed the chart, the DataTable and the container, but never the draw options — so `isStacked` is invisible to it. That is why a stacked or percent-stacked chart is named by its own `chartType` string rather than detected. Passing `'AreaChart'` for a chart drawn with `isStacked: true` is not a cosmetic mistake: the bands would be announced as independent series, and the running total a sighted reader sees along the top edge would go missing entirely.
+
+> **Bubble note:** Google's bubble table is `[ID, x, y, group?, size?]`, and it is read as a scatter — which is what it is, with more carried per point. The ID becomes the point's **name**, announced alongside its coordinates, and the **size** becomes `z`, which is sonified as well as read, so a big bubble sounds like one. The last two columns are optional and are read by **type** rather than by position: Google lets column 3 be either a series name or a number picking a colour off a gradient, so a number there is treated as a magnitude and used for `z` when there is no size column, while a size column always wins over it — there is one `z`, and the size is what the chart is named for. Whichever column supplies it names the `z` axis, so a reader is told *Population* or *Temperature* rather than left to guess. `[ID, x, y]` alone is legal and reads as a plain named scatter. **The series column is not announced:** MAIDR's scatter reads a point's name, its two coordinates and `z`, and nothing else, so a group in the payload would be a field no reader is ever told about; recognising a string column 3 keeps it from being mistaken for a magnitude, and that is all it does.
 
 > **Interval note:** intervals are the one variant the adapter *can* detect, because `role: 'interval'` columns live in the DataTable rather than in the options. A single-series chart declaring them becomes an error bar layer: left and right walk the samples, up and down walk the lower bound, the estimate, and the upper bound. Two interval pairs (a 95% band drawn inside a 99% one) are read as the outermost, and a single interval column is read as the one bound it is, chosen by which side of the estimate it falls on. A **multi-series** chart with intervals keeps its previous reading — `ErrorBarPoint[]` is flat, so a second estimate column has nowhere to go, and losing a series is worse than losing its intervals. Highlighting uses the chart's own point markers, so draw with `pointSize` set; the audio, text and braille do not depend on it.
 
