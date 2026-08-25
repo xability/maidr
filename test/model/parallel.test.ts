@@ -314,6 +314,176 @@ describe('observations that do not all reach every axis', () => {
   });
 });
 
+describe('an observation with a gap in the middle (#1182)', () => {
+  /**
+   * Car B was never measured for power, so its row is one point shorter and
+   * its weight sits where every other row's horsepower is.
+   *
+   * This is the shape both adapters emit today: `extractParallelLayer` drops a
+   * null dimension value with `continue`, and `convertParallelSeries` filters
+   * `p.y !== null`. Neither holds the column open, so the gap is interior
+   * rather than trailing -- and an extent taken by column position then mixes
+   * horsepower with a weight in pounds.
+   */
+  const GAPPY: LinePoint[][] = [
+    [
+      { x: 'mpg', y: 33, z: 'car A' },
+      { x: 'hp', y: 65, z: 'car A' },
+      { x: 'weight', y: 1800, z: 'car A' },
+    ],
+    [
+      { x: 'mpg', y: 21, z: 'car B' },
+      { x: 'weight', y: 2600, z: 'car B' },
+    ],
+    [
+      { x: 'mpg', y: 15, z: 'car C' },
+      { x: 'hp', y: 230, z: 'car C' },
+      { x: 'weight', y: 3200, z: 'car C' },
+    ],
+  ];
+
+  test('a value is scaled by the axis its point names, not by its column', () => {
+    // Car A's 65 hp is the lowest power in the chart and car C's 230 the
+    // highest, so the two have to be the ends of the hp axis. Taken by column,
+    // the axis ran 65 to 2600 -- car B's weight -- and every real horsepower
+    // figure collapsed into the bottom sixteenth of it.
+    const power = nonEmptyState(parallel(0, 1, GAPPY)).audio.freq;
+
+    expect([power.min, power.max]).toEqual([65, 230]);
+  });
+
+  test('the axis a reader is told they are on is the one they hear', () => {
+    // Car B's second point announces `weight`, because that is what the point
+    // says. Pitched by column it was played against the hp axis, so the
+    // announcement and the sound named two different variables.
+    const weight = nonEmptyState(parallel(1, 1, GAPPY)).audio.freq;
+
+    expect([weight.min, weight.max]).toEqual([1800, 3200]);
+    expect(weight.raw).toBe(2600);
+  });
+
+  test('the shortened row does not widen an axis it never reached', () => {
+    // The failure in one number: 2600 is a weight, and it must not be able to
+    // become the top of a range measured in horsepower.
+    const power = nonEmptyState(parallel(2, 1, GAPPY)).audio.freq;
+
+    expect(power.max).not.toBe(2600);
+    expect(pitch(nonEmptyState(parallel(2, 1, GAPPY)))).toBeCloseTo(1);
+  });
+
+  test('the dialog reports each axis in its own units', () => {
+    const read = (label: string): unknown =>
+      parallel(0, 0, GAPPY).description.stats.find(stat => stat.label === label)?.value;
+
+    // Was "65 to 2600": a horsepower figure at one end and a car's weight at
+    // the other, given to a reader who opened the dialog to learn what the
+    // axes are.
+    expect(read('hp')).toBe('65 to 230');
+    expect(read('weight')).toBe('1800 to 3200');
+    expect(read('mpg')).toBe('15 to 33');
+  });
+
+  test('braille encodes each cell against the axis that cell names', () => {
+    // The grid is built from the same extents, so the gap moved every cell
+    // after it onto the wrong scale here too.
+    const grid = brailleGrid(parallel(0, 0, GAPPY));
+
+    // Car A is lowest on power, car C highest; car B's single interior cell is
+    // its weight, in the middle of 1800 to 3200.
+    expect(grid[0][1]).toBeCloseTo(0);
+    expect(grid[2][1]).toBeCloseTo(1);
+    expect(grid[1][1]).toBeCloseTo(0.5714, 3);
+  });
+
+  test('an axis no full-width observation reaches is still named', () => {
+    // Every row skips something, so there is no complete spine to read the
+    // order off. The axes still have to be named -- a cursor reaches all
+    // three.
+    const noSpine: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }],
+      [{ x: 'mpg', y: 21 }, { x: 'weight', y: 2600 }],
+    ];
+    const stats = parallel(0, 0, noSpine).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
+      .toBe('mpg, hp, weight');
+    expect(stats.map(stat => stat.label)).toContain('weight');
+  });
+
+  test('an axis every observation gapped is named without a range', () => {
+    // `y: null` is a position with no reading (#925), so the axis is drawn and
+    // reachable while nothing was ever measured on it. It has no extent, so a
+    // value there sits at the midpoint rather than at an end.
+    const unmeasured: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: null }],
+      [{ x: 'mpg', y: 21 }, { x: 'hp', y: null }],
+    ];
+    const stats = parallel(0, 0, unmeasured).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
+      .toBe('mpg, hp');
+    expect(brailleGrid(parallel(0, 0, unmeasured))[0][1]).toBe(0.5);
+  });
+  test('one observation gapping an axis does not silence it for the rest', () => {
+    // `Math.min` of anything holding a gap is `NaN`, so counting one into the
+    // extent would leave every value on that axis with a non-finite range to
+    // be scaled against -- silencing the whole variable rather than the one
+    // reading that is missing. This is the trap `LineTrace` filters for, and
+    // a per-axis extent has to filter for it too.
+    const oneGap: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }],
+      [{ x: 'mpg', y: 15 }, { x: 'hp', y: null }],
+      [{ x: 'mpg', y: 21 }, { x: 'hp', y: 230 }],
+    ];
+    const power = nonEmptyState(parallel(0, 1, oneGap)).audio.freq;
+
+    expect([power.min, power.max]).toEqual([65, 230]);
+  });
+
+  test('an axis only a short observation reaches, and only gaps, is still named', () => {
+    // Nothing was ever measured on it, and no full-width observation carries
+    // it -- so neither the extents nor the widest row would name it on their
+    // own. A cursor still reaches it.
+    const onlyShortAndGapped: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }],
+      [{ x: 'mpg', y: 21 }, { x: 'noise', y: null }],
+    ];
+    const stats = parallel(0, 0, onlyShortAndGapped).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
+      .toBe('mpg, hp, noise');
+  });
+
+  test('the drawn order comes from the widest row, not from what was seen first', () => {
+    // The gappy row is first and skips the middle axis, so reading the order
+    // off first appearance would put `weight` before `hp` -- which reverses
+    // which variables the dialog says sit next to each other, and so which
+    // crossings it implies are visible.
+    const widestSecond: LinePoint[][] = [
+      [{ x: 'mpg', y: 21 }, { x: 'weight', y: 2600 }],
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }, { x: 'weight', y: 1800 }],
+    ];
+    const stats = parallel(0, 0, widestSecond).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
+      .toBe('mpg, hp, weight');
+  });
+
+  test('an axis with no spread puts every value at the midpoint, not at an end', () => {
+    // 0 and 1 each claim a rank the data does not support. The braille grid is
+    // where it shows: an axis every observation ties on would otherwise draw a
+    // row of cells at the floor.
+    const flat: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }],
+      [{ x: 'mpg', y: 15 }, { x: 'hp', y: 65 }],
+    ];
+    const grid = brailleGrid(parallel(0, 0, flat));
+
+    expect(grid[0][1]).toBe(0.5);
+    expect(grid[1][1]).toBe(0.5);
+  });
+});
+
 describe('navigation is the multi-line model', () => {
   test('walks axes across and observations up', () => {
     const trace = parallel();

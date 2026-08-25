@@ -1,7 +1,38 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TraceState } from '@type/state';
 import { MathUtil } from '@util/math';
+import { isMeasured } from './bar';
 import { LineTrace } from './line';
+
+/**
+ * The axis names, in the order the chart draws them.
+ *
+ * The widest observation is the spine: whenever any observation carries a
+ * reading on every variable, its points are the chart's axes left to right.
+ * A name that observation lacks is appended rather than guessed into place --
+ * an axis only gappy observations reach has no neighbour the payload names,
+ * and putting it somewhere would assert a drawing order nobody wrote down.
+ *
+ * @param points - The observations the layer carries
+ * @param seen - Every axis name the layer used, in first-seen order
+ * @returns One name per axis
+ */
+function axisOrder(points: LinePoint[][], seen: Iterable<string>): string[] {
+  const widest = points.reduce(
+    (best: LinePoint[], row) => (row.length > best.length ? row : best),
+    [] as LinePoint[],
+  );
+
+  const order = widest.map(point => String(point.x));
+  const placed = new Set(order);
+  for (const axis of seen) {
+    if (!placed.has(axis)) {
+      order.push(axis);
+      placed.add(axis);
+    }
+  }
+  return order;
+}
 
 /**
  * Trace implementation for parallel coordinates plots.
@@ -30,9 +61,29 @@ import { LineTrace } from './line';
  * inaudible.
  */
 export class ParallelTrace extends LineTrace {
-  /** Per-axis extent, indexed by column rather than by row. */
-  private readonly axisMin: number[];
-  private readonly axisMax: number[];
+  /**
+   * Each axis's extent, keyed by the name its points carry.
+   *
+   * Keyed rather than indexed because a column position is not an axis. An
+   * observation with no reading on one variable is one point shorter, so from
+   * that gap onwards its values sit a column to the left of the axis they
+   * belong to -- and an extent taken by position would then be a horsepower
+   * range with a car's weight at the top of it, which is the exact mixing of
+   * units this class exists to prevent (#1182). Every point already names its
+   * own axis in `x`, so nothing has to be inferred from where it sits.
+   */
+  private readonly axisExtent: Map<string, { min: number; max: number }>;
+
+  /**
+   * The axis names, in the order the chart draws them.
+   *
+   * Taken from the widest observation, which is the chart's axes in order
+   * whenever any observation reaches all of them. A name no widest-row
+   * observation carries is appended: the payload says the axis exists but
+   * gives nothing that would place it between two others, and inventing a
+   * position would be a claim about the drawing that was never made.
+   */
+  private readonly axisOrder: string[];
 
   /**
    * Each value's position on its own axis, from 0 to 1.
@@ -50,21 +101,36 @@ export class ParallelTrace extends LineTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    const columns = this.lineValues.reduce(
-      (widest, row) => Math.max(widest, row.length),
-      0,
+    const perAxis = new Map<string, number[]>();
+    this.points.forEach((row, index) => {
+      row.forEach((point, column) => {
+        const axis = String(point.x);
+        // Registered even when every one of its readings is a gap, so an axis
+        // a cursor can still reach is still named rather than disappearing
+        // from the dialog.
+        const collected = perAxis.get(axis) ?? [];
+        perAxis.set(axis, collected);
+        // Gaps are filtered out of the extent rather than filtered in, for the
+        // reason `LineTrace` gives: `Math.min` of anything holding `NaN` is
+        // `NaN`, which would leave every value on the axis with a non-finite
+        // range and silence the whole variable rather than the one gap.
+        const value = this.lineValues[index][column];
+        if (isMeasured(value))
+          collected.push(value);
+      });
+    });
+
+    this.axisOrder = axisOrder(this.points, perAxis.keys());
+    this.axisExtent = new Map(
+      [...perAxis].map(([axis, values]) => [
+        axis,
+        { min: MathUtil.safeMin(values), max: MathUtil.safeMax(values) },
+      ]),
     );
 
-    const perColumn = Array.from({ length: columns }, (_, column) =>
-      this.lineValues
-        .map(row => row[column])
-        .filter(value => value !== undefined));
-
-    this.axisMin = perColumn.map(values => MathUtil.safeMin(values));
-    this.axisMax = perColumn.map(values => MathUtil.safeMax(values));
-
-    this.normalized = this.lineValues.map(row =>
-      row.map((value, column) => this.positionOnAxis(value, column)));
+    this.normalized = this.points.map((row, index) =>
+      row.map((point, column) =>
+        this.positionOnAxis(this.lineValues[index][column], String(point.x))));
   }
 
   /**
@@ -76,16 +142,37 @@ export class ParallelTrace extends LineTrace {
    * midpoint is the honest reading of "nothing distinguishes these".
    *
    * @param value - The raw value
-   * @param column - Which axis it belongs to
+   * @param axis - The name of the axis it belongs to
    * @returns Its position on that axis
    */
-  private positionOnAxis(value: number, column: number): number {
-    const min = this.axisMin[column];
-    const max = this.axisMax[column];
+  private positionOnAxis(value: number, axis: string): number {
+    const { min, max } = this.extentOf(axis);
     if (!Number.isFinite(min) || !Number.isFinite(max) || max === min) {
       return 0.5;
     }
     return (value - min) / (max - min);
+  }
+
+  /**
+   * One axis's extent, by name.
+   *
+   * The fallback is unreachable through either caller: both ask with a name
+   * taken from a point of this layer, and every point registered its own name
+   * when the extents were built. It is here so that a name from anywhere else
+   * degrades to "no spread" -- the midpoint -- rather than borrowing a range
+   * measured in another variable's units, which is the failure this whole
+   * class is arranged against.
+   *
+   * @param axis - The axis name a point carries
+   * @returns Its extent, or a non-finite pair for a name the layer never used
+   */
+  private extentOf(axis: string): { min: number; max: number } {
+    return this.axisExtent.get(axis) ?? { min: Number.NaN, max: Number.NaN };
+  }
+
+  /** The axis the cursor is on, by the name the point under it carries. */
+  private get axisAtCursor(): string {
+    return String(this.points[this.row]?.[this.col]?.x ?? '');
   }
 
   protected override get audio(): AudioState {
@@ -99,8 +186,7 @@ export class ParallelTrace extends LineTrace {
       ...base,
       freq: {
         ...base.freq,
-        min: this.axisMin[this.col],
-        max: this.axisMax[this.col],
+        ...this.extentOf(this.axisAtCursor),
       },
     };
   }
@@ -163,38 +249,19 @@ export class ParallelTrace extends LineTrace {
       stat => stat.label !== 'Min value' && stat.label !== 'Max value',
     );
 
-    const axisNames = this.axisNames();
-    if (axisNames.length > 0) {
+    if (this.axisOrder.length > 0) {
       // The order is part of the chart: which variables sit next to each other
       // decides which crossings are visible at all, and it is a choice the
       // author made rather than a property of the data.
-      stats.push({ label: 'Axes, in order', value: axisNames.join(', ') });
+      stats.push({ label: 'Axes, in order', value: this.axisOrder.join(', ') });
 
-      for (const [column, name] of axisNames.entries()) {
-        stats.push({
-          label: name,
-          value: MathUtil.spanned(this.axisMin[column], this.axisMax[column]),
-        });
+      for (const name of this.axisOrder) {
+        const { min, max } = this.extentOf(name);
+        stats.push({ label: name, value: MathUtil.spanned(min, max) });
       }
     }
 
     return { ...base, stats };
-  }
-
-  /**
-   * The axis names, in the order the chart draws them.
-   *
-   * Read from the longest observation rather than the first, so a chart whose
-   * rows run to different lengths still names every column a cursor can reach.
-   *
-   * @returns One name per axis
-   */
-  private axisNames(): string[] {
-    const widest = this.points.reduce(
-      (best: LinePoint[], row) => (row.length > best.length ? row : best),
-      [] as LinePoint[],
-    );
-    return widest.map(point => String(point.x));
   }
 
   public override get state(): TraceState {
