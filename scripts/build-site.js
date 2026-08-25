@@ -58,6 +58,7 @@ const PAGE_DESCRIPTIONS = {
   'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix), and pie / doughnut chart types.',
   'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, heatmap, and pie chart types.',
   'observable': 'How to make Observable Plot charts accessible with MAIDR — zero-configuration binding for bar, stacked bar, histogram, scatter, dot, line, area, and faceted plots, including the {ojs} cells of a Quarto document.',
+  'echarts': 'How to make Apache ECharts accessible with MAIDR — support for bar, stacked bar, dodged bar, line, area, step, and scatter series.',
   'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
   'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
@@ -151,6 +152,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{VEGALITE_ACTIVE\}\}/g, () => activePage === 'vegalite' ? 'active' : '')
     .replace(/\{\{CHARTJS_ACTIVE\}\}/g, () => activePage === 'chartjs' ? 'active' : '')
     .replace(/\{\{AMCHARTS_ACTIVE\}\}/g, () => activePage === 'amcharts' ? 'active' : '')
+    .replace(/\{\{ECHARTS_ACTIVE\}\}/g, () => activePage === 'echarts' ? 'active' : '')
     .replace(/\{\{FRAPPE_ACTIVE\}\}/g, () => activePage === 'frappe' ? 'active' : '')
     .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
@@ -307,6 +309,20 @@ if (fs.existsSync(observableMdPath)) {
 `;
   const observablePage = generatePage({ title: 'Observable Plot', content: observableHtml, activePage: 'observable', slug: 'observable.html', ogType: 'article' });
   fs.writeFileSync(path.join(SITE_DIR, 'observable.html'), observablePage);
+}
+
+// Build echarts.html from docs/echarts.md
+console.log('Building echarts.html from docs/echarts.md...');
+const echartsMdPath = path.join(ROOT, 'docs', 'echarts.md');
+if (fs.existsSync(echartsMdPath)) {
+  const echartsMd = fs.readFileSync(echartsMdPath, 'utf-8');
+  const echartsHtml = `
+<div class="content">
+  ${renderMarkdown(echartsMd)}
+</div>
+`;
+  const echartsPage = generatePage({ title: 'Apache ECharts', content: echartsHtml, activePage: 'echarts', slug: 'echarts.html', ogType: 'article' });
+  fs.writeFileSync(path.join(SITE_DIR, 'echarts.html'), echartsPage);
 }
 
 // Build frappe.html from docs/frappe.md

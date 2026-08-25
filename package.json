@@ -71,6 +71,11 @@
       "import": "./dist/amcharts.mjs",
       "default": "./dist/amcharts.js"
     },
+    "./echarts": {
+      "types": "./dist/echarts.d.mts",
+      "import": "./dist/echarts.mjs",
+      "default": "./dist/echarts.js"
+    },
     "./frappe": {
       "types": "./dist/frappe.d.mts",
       "import": "./dist/frappe.mjs",
