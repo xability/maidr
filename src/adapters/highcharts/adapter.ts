@@ -1737,6 +1737,15 @@ function convertSeries(
     case 'candlestick':
     case 'ohlc':
       return convertCandlestickSeries(series, chart, containerId);
+    // An `item` chart is a pie drawn as discrete symbols -- a parliament
+    // diagram is the canonical one, each seat a dot. Highcharts registers it
+    // as its own series type and documents it as inheriting from `pie`, and
+    // its points carry the same `name` and `y` a pie's do, so it reads
+    // through the same converter. Without this it fell to the `default:`
+    // below and the chart came out with no layers at all (#1138) -- the same
+    // gap `columnpyramid` and `pictorial` had against `column`, and the same
+    // answer: the drawing differs, the data does not.
+    case 'item':
     case 'pie':
       return convertPieSeries(series, containerId);
     default:
