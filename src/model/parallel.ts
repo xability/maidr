@@ -4,6 +4,9 @@ import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
 
+/** Reported for an axis the chart draws but never measured anything on. */
+const NOTHING_MEASURED = 'no readings';
+
 /**
  * The axis names, in the order the chart draws them.
  *
@@ -175,6 +178,41 @@ export class ParallelTrace extends LineTrace {
     return String(this.points[this.row]?.[this.col]?.x ?? '');
   }
 
+  /**
+   * The stereo position of a cell, placed by which axis it is rather than by
+   * where it sits in its row.
+   *
+   * `LineTrace` pans by column over the row's own length, which is right for
+   * a series sampling one quantity at successive positions. Here a column is
+   * an axis of the chart, and an observation missing a reading is a point
+   * shorter -- so every axis after the gap would sit one column earlier in
+   * that row than in a full one. Measured on four axes with one observation
+   * missing the second, `torque` panned at column 2 of 4 on a full row and
+   * column 1 of 3 on the short one: the same axis, in two places in the
+   * stereo field depending on which observation a reader is walking.
+   *
+   * The chart draws its axes in fixed positions left to right, so the pan has
+   * to as well. `axisOrder` is that arrangement, and a point's own name is
+   * where it belongs in it (#1182).
+   *
+   * @param row - The observation index
+   * @param col - The point's index within that observation
+   * @returns The panning for that cell
+   */
+  protected override panningFor(row: number, col: number): AudioState['panning'] {
+    const axis = String(this.points[row]?.[col]?.x ?? '');
+    const placed = this.axisOrder.indexOf(axis);
+    return {
+      // A name not in the order cannot happen -- it is built from these very
+      // points -- and falling back to the raw column keeps a cell somewhere
+      // in the field rather than at its left edge if it ever did.
+      x: placed === -1 ? col : placed,
+      y: row,
+      rows: this.points.length,
+      cols: this.axisOrder.length,
+    };
+  }
+
   protected override get audio(): AudioState {
     const base = super.audio;
 
@@ -257,7 +295,16 @@ export class ParallelTrace extends LineTrace {
 
       for (const name of this.axisOrder) {
         const { min, max } = this.extentOf(name);
-        stats.push({ label: name, value: MathUtil.spanned(min, max) });
+        // An axis every observation gapped has no extent to report, and
+        // `MathUtil.spanned` of an empty set is the literal "Infinity to
+        // -Infinity" -- a range in no units, offered to a reader who opened
+        // the dialog to find out what the axis measures.
+        stats.push({
+          label: name,
+          value: Number.isFinite(min) && Number.isFinite(max)
+            ? MathUtil.spanned(min, max)
+            : NOTHING_MEASURED,
+        });
       }
     }
 

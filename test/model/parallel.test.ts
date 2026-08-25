@@ -410,20 +410,6 @@ describe('an observation with a gap in the middle (#1182)', () => {
     expect(stats.map(stat => stat.label)).toContain('weight');
   });
 
-  test('an axis every observation gapped is named without a range', () => {
-    // `y: null` is a position with no reading (#925), so the axis is drawn and
-    // reachable while nothing was ever measured on it. It has no extent, so a
-    // value there sits at the midpoint rather than at an end.
-    const unmeasured: LinePoint[][] = [
-      [{ x: 'mpg', y: 33 }, { x: 'hp', y: null }],
-      [{ x: 'mpg', y: 21 }, { x: 'hp', y: null }],
-    ];
-    const stats = parallel(0, 0, unmeasured).description.stats;
-
-    expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
-      .toBe('mpg, hp');
-    expect(brailleGrid(parallel(0, 0, unmeasured))[0][1]).toBe(0.5);
-  });
   test('one observation gapping an axis does not silence it for the rest', () => {
     // `Math.min` of anything holding a gap is `NaN`, so counting one into the
     // extent would leave every value on that axis with a non-finite range to
@@ -481,6 +467,84 @@ describe('an observation with a gap in the middle (#1182)', () => {
 
     expect(grid[0][1]).toBe(0.5);
     expect(grid[1][1]).toBe(0.5);
+  });
+});
+
+describe('an axis sits in one place in the stereo field (#1182)', () => {
+  /** Four axes, with the second observation never measured for power. */
+  const FOUR_AXES: LinePoint[][] = [
+    [
+      { x: 'mpg', y: 33 },
+      { x: 'hp', y: 65 },
+      { x: 'torque', y: 100 },
+      { x: 'weight', y: 1800 },
+    ],
+    [{ x: 'mpg', y: 21 }, { x: 'torque', y: 150 }, { x: 'weight', y: 2600 }],
+  ];
+
+  /** Where a cell is panned, as (position, of how many). */
+  const panOf = (row: number, col: number): [number, number] => {
+    const { panning } = nonEmptyState(parallel(row, col, FOUR_AXES)).audio;
+    return [panning.x, panning.cols];
+  };
+
+  test('the same axis pans to the same place on every observation', () => {
+    // `torque` is the third axis the chart draws, whichever row a reader is
+    // on. Panned by column it was 2 of 4 on the full observation and 1 of 3
+    // on the short one -- one axis, two places in the stereo field, which is
+    // #1182 heard in the left-right dimension rather than in the pitch.
+    expect(panOf(0, 2)).toEqual([2, 4]);
+    expect(panOf(1, 1)).toEqual([2, 4]);
+  });
+
+  test('the axes either side of the gap keep their places too', () => {
+    // The whole tail shifts, not just the one after the gap, so the last
+    // axis is the sharpest case: rightmost of four on one row and rightmost
+    // of three on the other, which pans to the same edge for the wrong
+    // reason. `mpg` pins the untouched end.
+    expect(panOf(0, 3)).toEqual([3, 4]);
+    expect(panOf(1, 2)).toEqual([3, 4]);
+    expect(panOf(0, 0)).toEqual([0, 4]);
+    expect(panOf(1, 0)).toEqual([0, 4]);
+  });
+
+  test('the field is as wide as the chart, not as the row', () => {
+    // A reader on the short observation still hears three of four positions
+    // rather than three of three, so the gap is audible as a place nothing
+    // is played from.
+    expect(panOf(1, 0)[1]).toBe(4);
+  });
+});
+
+describe('an axis the chart never measured', () => {
+  const UNMEASURED: LinePoint[][] = [
+    [{ x: 'mpg', y: 33 }, { x: 'hp', y: null }],
+    [{ x: 'mpg', y: 21 }, { x: 'hp', y: null }],
+  ];
+
+  test('is reported as having no readings, not as a range in no units', () => {
+    // `MathUtil.spanned` of an empty set is the literal "Infinity to
+    // -Infinity". The dialog is where a reader goes to learn what an axis
+    // measures, so a range with no units in it is worse than saying plainly
+    // that nothing was measured.
+    const stats = parallel(0, 0, UNMEASURED).description.stats;
+
+    expect(stats.find(stat => stat.label === 'hp')?.value).toBe('no readings');
+  });
+
+  test('is still named and still in the drawn order', () => {
+    // `y: null` is a position with no reading (#925), so the axis is drawn
+    // and a cursor reaches it. Dropping it from the order would leave the
+    // dialog describing a chart with one fewer axis than the reader can walk.
+    const stats = parallel(0, 0, UNMEASURED).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Axes, in order')?.value).toBe('mpg, hp');
+  });
+
+  test('places every value on it at the midpoint rather than at an end', () => {
+    // No spread to place anything within, and either extreme would claim a
+    // rank the data does not have.
+    expect(brailleGrid(parallel(0, 0, UNMEASURED))[0][1]).toBe(0.5);
   });
 });
 
