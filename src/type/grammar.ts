@@ -1376,12 +1376,18 @@ export interface MaidrLayer {
    * element per point; a grid names one per cell of a segmented layer.
    *
    * A grid cell may be `null`, which says the chart drew **no element** for
-   * that cell — a category a series has no bar at. That is different from a
-   * selector that fails to resolve, which is a mistake and declines the whole
-   * grid: without a way to tell the two apart, a producer whose layer has a
-   * gap has to choose between losing the highlight everywhere and inferring
-   * the gaps from the values, and a value of zero is not evidence that a bar
-   * was never drawn (#1002).
+   * that cell — a category a series has no bar at, or a position a heat grid
+   * is not a rectangle at. That is different from a selector that fails to
+   * resolve, which is a mistake and declines the whole grid: without a way to
+   * tell the two apart, a producer whose layer has a gap has to choose between
+   * losing the highlight everywhere and inferring the gaps from the values,
+   * and a value of zero is not evidence that a bar was never drawn (#1002).
+   *
+   * It is also not the same as a `null` in {@link HeatmapData.points}, which
+   * says the chart drew no *value*. A calendar has both, at different cells:
+   * a day inside the year with no row is drawn as a white square, so it has
+   * an element and no value, while the slots outside the year have neither
+   * (#1174).
    */
   selectors?: string | string[] | (string | null)[][] | BoxSelector[] | CandlestickSelector;
   /**
