@@ -159,6 +159,15 @@ export type GoogleChartType
   = | 'AreaChart'
     | 'BarChart'
     /**
+     * A Google `BubbleChart`: a scatter whose points carry a name, a group
+     * and a size as well as a position.
+     *
+     * Read as a scatter rather than as a type of its own, because that is
+     * what it is — every extra column has a `ScatterPoint` field waiting for
+     * it, and the size becomes `z`, which is sonified.
+     */
+    | 'BubbleChart'
+    /**
      * A `LineChart` of ranks, drawn with `vAxis: {direction: -1}` so rank 1
      * sits at the top — a bump chart.
      *

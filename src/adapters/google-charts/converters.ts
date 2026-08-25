@@ -688,6 +688,11 @@ function buildLayer(
       return buildPieLayer(dt, container);
     case 'ScatterChart':
       return buildScatterLayer(chart, dt, container);
+    // A bubble is a scatter carrying more per point, not a different chart:
+    // the ID is the point's name, and the group and the size are fields
+    // `ScatterPoint` already has (#1174).
+    case 'BubbleChart':
+      return buildBubbleLayer(chart, dt, container);
     // Both are scatters read through a threshold, and one class reads them:
     // they differ in what the x axis means and in nothing a reader navigates.
     case 'VolcanoChart':
@@ -742,7 +747,8 @@ function buildLayer(
     default:
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
-        + 'Supported types: AreaChart, BarChart, BumpChart, CandlestickChart, ColumnChart, '
+        + 'Supported types: AreaChart, BarChart, BubbleChart, BumpChart, CandlestickChart, '
+        + 'ColumnChart, '
         + 'DivergingBarChart, DivergingColumnChart, DodgedBarChart, DodgedColumnChart, '
         + 'DotChart, DumbbellChart, FunnelChart, Gantt, Gauge, GeoChart, LineChart, '
         + 'LollipopChart, ManhattanChart, NormalizedAreaChart, OrgChart, PieChart, Sankey, '
@@ -1113,6 +1119,117 @@ function buildScatterLayer(
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
       y: { label: dt.getColumnLabel(1) || undefined },
+    },
+    data,
+  };
+}
+
+/**
+ * Builds a scatter layer from a Google Charts `BubbleChart`.
+ *
+ * A bubble chart is a scatter that carries more per point than a position,
+ * and every one of the extras already has a home. Google fixes the first
+ * three columns and admits two more (BubbleChart, "Data Format"):
+ *
+ * ```
+ * [ ID, x, y, group?, size? ]
+ * ```
+ *
+ * | column | field | what already reads it |
+ * |---|---|---|
+ * | 0 — ID | {@link ScatterPoint.label} | `ScatterTrace` announces it as the point's name |
+ * | 1 — x | {@link ScatterPoint.x} | |
+ * | 2 — y | {@link ScatterPoint.y} | |
+ * | 3 — group | *not emitted* — see below |
+ * | 4 — size | {@link ScatterPoint.z} | #826 — `zIntensityFor()`, so it is *audible* |
+ *
+ * The same reading Chart.js already gives its own `bubble` type, which
+ * `chartjs/extractor.ts` maps alongside `'scatter'` onto `TraceType.SCATTER`
+ * and whose radius it keeps.
+ *
+ * **Columns 3 and 4 are both optional and are read by type rather than by
+ * position.** Google lets column 3 be either a string, which names the
+ * series a bubble belongs to, or a number, which picks a colour off a
+ * gradient. A number there is a magnitude, and it becomes `z` only when
+ * column 4 — the size — is absent. When both are numbers the **size** wins,
+ * because the size is what the chart is named for and what a sighted reader
+ * takes off the mark's area, and there is one `z` to put it in. Whichever
+ * column supplies it also names `axes.z`, so a reader is told "Population"
+ * or "Temperature" rather than left to guess which third quantity they are
+ * hearing.
+ *
+ * `[ID, x, y]` alone is legal and reads as a plain named scatter.
+ *
+ * **The group is deliberately not emitted.** `group` is declared on
+ * {@link VolcanoPoint}, not on {@link ScatterPoint}, and `VolcanoTrace` is
+ * the only thing that reads it — `ScatterTrace` announces `label`, the two
+ * coordinates and `z`, and nothing else. Putting a series name in the
+ * payload would add a field no reader is told, which looks like coverage and
+ * is not. A string column 3 is therefore recognised only so it is not
+ * mistaken for a magnitude. Carrying it properly means promoting `group` to
+ * `ScatterPoint` and teaching `ScatterTrace` to announce it — the same move
+ * {@link ScatterPoint.label} records having already been made, and one that
+ * changes every adapter's scatter rather than this one converter, so it is
+ * left to its own change (#1174).
+ *
+ * A `BubbleChart` is a **corechart** class, so unlike Sankey, TreeMap and
+ * Gantt it does expose `getChartLayoutInterface()`, and its circles are
+ * marked by {@link markScatterElements} exactly as a scatter's are.
+ *
+ * @param chart     - The Google Chart instance
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @returns The MAIDR layer
+ */
+function buildBubbleLayer(
+  chart: GoogleChart,
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer {
+  const columns = dt.getNumberOfColumns();
+  // The size column when there is one, and otherwise a numeric column 3 --
+  // a gradient value is still a third magnitude, and naming the axis after
+  // its own column is what keeps that honest. A *string* column 3 is a
+  // series name and falls through to neither, which is what leaves it out.
+  const magnitudeCol = columns > 4 && dt.getColumnType(4) === 'number'
+    ? 4
+    : (columns > 3 && dt.getColumnType(3) === 'number' ? 3 : undefined);
+
+  const rows = dt.getNumberOfRows();
+  const data: ScatterPoint[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    const point: ScatterPoint = {
+      x: numericValue(dt, r, 1),
+      y: numericValue(dt, r, 2),
+    };
+
+    const id = dt.getValue(r, 0);
+    if (typeof id === 'string' && id !== '') {
+      point.label = id;
+    }
+    if (magnitudeCol !== undefined) {
+      const z = numericValue(dt, r, magnitudeCol);
+      if (Number.isFinite(z)) {
+        point.z = z;
+      }
+    }
+
+    data.push(point);
+  }
+
+  const selector = markScatterElements(chart, container, data);
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.SCATTER,
+    ...(selector ? { selectors: selector } : {}),
+    axes: {
+      x: { label: dt.getColumnLabel(1) || undefined },
+      y: { label: dt.getColumnLabel(2) || undefined },
+      ...(magnitudeCol !== undefined
+        ? { z: { label: dt.getColumnLabel(magnitudeCol) || undefined } }
+        : {}),
     },
     data,
   };
