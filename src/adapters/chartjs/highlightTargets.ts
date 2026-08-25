@@ -425,6 +425,11 @@ export function computeTargetMaps(
         heatmapIndices.set(layer.id, buildHeatmapIndex(datasets[dsIdx]?.data ?? []));
         break;
       }
+      // A `chartjs-chart-graph` tree reads through `TreemapTrace` like any
+      // other hierarchy, and its nodes are drawn one element each in dataset
+      // order -- which is the order the payload emits them in, so the
+      // treemap's own depth/position addressing applies unchanged.
+      case TraceType.TREE:
       case TraceType.TREEMAP: {
         if (Array.isArray(layer.data))
           treemapIndices.set(layer.id, buildTreemapIndex(layer.data as TreemapPoint[]));
@@ -521,7 +526,7 @@ export function resolveActiveTargets(
   // were emitted one per drawn rectangle, so the prebuilt pair is the whole
   // answer -- there is no dataset partition to undo, a treemap being a single
   // dataset by construction.
-  if (layer.type === TraceType.TREEMAP) {
+  if (layer.type === TraceType.TREEMAP || layer.type === TraceType.TREE) {
     const index = maps.treemapIndices.get(layer.id)?.get(`${row}\0${col}`);
     if (index === undefined)
       return [];
@@ -544,6 +549,21 @@ export function resolveActiveTargets(
   // audio, text and braille all correct while the wrong element lights up,
   // which is the one failure an accessibility suite cannot hear (#814).
   if (layer.type === TraceType.SANKEY)
+    return [];
+
+  // Network: nothing is outlined either, and for a sharper reason than the
+  // sankey's.
+  //
+  // `NetworkTrace` navigates **nodes** and names its highlight as one
+  // *link* -- `highlightedPointIndices` is an index into the declared link
+  // array, deliberately, so that the canvas and SVG channels cannot outline
+  // different lines. Chart.js's active-element mechanism addresses
+  // `meta.data`, and for `chartjs-chart-graph` those elements are the
+  // **nodes**: the links are drawn by the dataset element, which
+  // `setActiveElements` cannot name. So the one thing the trace asks to be
+  // outlined is the one thing this cannot outline, and answering with a node
+  // instead would light up a mark the reader was not told about.
+  if (layer.type === TraceType.NETWORK)
     return [];
 
   // Choropleth / bubble map: `col` is the region, but only when the model

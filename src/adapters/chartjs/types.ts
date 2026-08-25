@@ -88,7 +88,9 @@ export type ChartJsDataValue
     /** One weighted flow of a sankey dataset. */
     | ChartJsSankeyValue
     /** One region of a choropleth, or one bubble of a bubble map. */
-    | ChartJsGeoValue;
+    | ChartJsGeoValue
+    /** One node of a tree, dendrogram or force-directed graph. */
+    | ChartJsGraphValue;
 
 /**
  * Minimal representation of a Chart.js chart instance.
@@ -196,6 +198,11 @@ export interface ChartJsDataset {
   groups?: string[];
   /** Which field of a row carries the value the rectangles are sized by. */
   key?: string;
+  /**
+   * The links of a `chartjs-chart-graph` dataset, when its author declared
+   * them rather than leaving the plugin to derive them from `parent`.
+   */
+  edges?: ChartJsGraphEdge[];
   /**
    * `chartjs-chart-sankey`'s display names, keyed by node key — e.g.
    * `{ a: 'Apple' }`. A key with no entry is announced as itself.
@@ -353,6 +360,39 @@ export interface ChartJsSankeyValue {
 }
 
 /**
+ * One node of a `chartjs-chart-graph` dataset.
+ *
+ * All three of the plugin's controllers — `tree`, `dendrogram` and
+ * `forceDirectedGraph` — take the same flat node list, and a node names its
+ * parent by **position in that list** rather than by name. The field is not
+ * configurable: measured on `chartjs-chart-graph@4`, `IGraphDataPoint`
+ * declares `parent` and nothing else.
+ *
+ * A root has none. A `forceDirectedGraph` given an explicit
+ * {@link ChartJsDataset.edges} carries none on any node, the edges being the
+ * graph instead.
+ */
+export interface ChartJsGraphValue {
+  /** Which node is this one's parent, by index. */
+  parent?: number;
+  /** The author's own columns — a node's name among them. */
+  [column: string]: unknown;
+}
+
+/**
+ * One declared link of a `chartjs-chart-graph` dataset.
+ *
+ * Both ends by index into `dataset.data`, or by a key the plugin resolves.
+ * Read through the metadata rather than from here, because the plugin
+ * derives* this list from the nodes' `parent` when it is absent and both
+ * forms arrive resolved there.
+ */
+export interface ChartJsGraphEdge {
+  source: number | string;
+  target: number | string;
+}
+
+/**
  * One row of a `chartjs-chart-geo` dataset — a choropleth region, or a bubble
  * on a bubble map.
  *
@@ -403,6 +443,16 @@ export interface ChartJsDatasetMeta {
    * samples of the first form and nothing usable (#1049).
    */
   _parsed?: ChartJsParsedValue[];
+  /**
+   * The links a `chartjs-chart-graph` controller drew, both ends resolved to
+   * the element that draws that node.
+   *
+   * The one uniform source: measured, this is filled for all three
+   * controllers and whether the author declared `edges` or left the plugin to
+   * derive them from `parent`. The ends are **elements**, so a reader pairs
+   * them back to node positions by identity against {@link data}.
+   */
+  edges?: { source: ChartJsMetaElement; target: ChartJsMetaElement }[];
 }
 
 /**
