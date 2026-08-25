@@ -4840,9 +4840,12 @@ function buildHeatmapLayer(
   }
 
   // Build the 2D points matrix (y rows × x columns).
-  const points: number[][] = Array.from(
+  // Absent rather than zero: the labels come from the rows, so a cell no row
+  // names is a hole in the rectangle, and a hole filled with a zero is a
+  // reading the chart never drew (#1191).
+  const points: (number | null)[][] = Array.from(
     { length: yLabels.length },
-    () => Array.from<number>({ length: xLabels.length }).fill(0),
+    () => Array.from<number | null>({ length: xLabels.length }).fill(null),
   );
   for (const r of rows) {
     const xi = xLabels.indexOf(asString(r.x));
@@ -4921,9 +4924,12 @@ function buildHeatmapLayerFromChart(
   if (xLabels.length === 0 || yLabels.length === 0)
     return null;
 
-  const points: number[][] = Array.from(
+  // Absent rather than zero, for the reason the series-level builder above
+  // gives: the labels come from the rows, so a cell no row names is a hole in
+  // the rectangle rather than a reading of zero (#1191).
+  const points: (number | null)[][] = Array.from(
     { length: yLabels.length },
-    () => Array.from<number>({ length: xLabels.length }).fill(0),
+    () => Array.from<number | null>({ length: xLabels.length }).fill(null),
   );
   for (const r of rows) {
     const xi = xLabels.indexOf(r.x);

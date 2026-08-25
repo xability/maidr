@@ -2067,13 +2067,17 @@ function extractHeatmapData(
 
   const xIndex = new Map(xLabels.map((l, i) => [l, i]));
   const yIndex = new Map(yLabels.map((l, i) => [l, i]));
-  const points: number[][] = yLabels.map(() => xLabels.map(() => 0));
+  // Absent rather than zero: the labels are the union of what the rows
+  // mention, so any (x, y) pair the data skips is a hole in the rectangle, and
+  // a hole filled with a zero is a value the chart never drew (#1191).
+  const points: (number | null)[][] = yLabels.map(() => xLabels.map(() => null));
 
   for (const row of rows) {
     const xi = xIndex.get(String(row[xField] ?? ''));
     const yi = yIndex.get(String(row[yField] ?? ''));
     if (xi !== undefined && yi !== undefined) {
-      points[yi][xi] = Number(row[colorField] ?? 0);
+      const value = row[colorField];
+      points[yi][xi] = value === null || value === undefined ? null : Number(value);
     }
   }
 

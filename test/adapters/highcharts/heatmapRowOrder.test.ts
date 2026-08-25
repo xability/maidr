@@ -150,7 +150,7 @@ describe('either way round', () => {
     // break rather than the part it fixes.
     for (const reversed of [false, true]) {
       const { y, points } = layerFor(reversed).data as HeatmapData;
-      const valueOf = (label: string): number[] => points[y.indexOf(label)];
+      const valueOf = (label: string): (number | null)[] => points[y.indexOf(label)];
 
       expect(valueOf('first')).toEqual([1, 2]);
       expect(valueOf('second')).toEqual([3, 4]);

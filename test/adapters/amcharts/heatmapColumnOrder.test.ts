@@ -98,7 +98,7 @@ describe('which way an amcharts heatmap\'s columns are read', () => {
     const plain = dataFor(false);
     const inversed = dataFor(true);
 
-    const columnOf = (data: HeatmapData, label: string): number[] => {
+    const columnOf = (data: HeatmapData, label: string): (number | null)[] => {
       const index = data.x.indexOf(label);
       return data.points.map(row => row[index]);
     };

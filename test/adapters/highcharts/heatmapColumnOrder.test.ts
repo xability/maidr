@@ -102,7 +102,7 @@ describe('which way a Highcharts heatmap\'s columns are read', () => {
     const plain = layerFor(false, false).data as HeatmapData;
     const reversed = layerFor(true, false).data as HeatmapData;
 
-    const cellOf = (data: HeatmapData, label: string): number[] => {
+    const cellOf = (data: HeatmapData, label: string): (number | null)[] => {
       const column = data.x.indexOf(label);
       return data.points.map(row => row[column]);
     };

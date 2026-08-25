@@ -740,7 +740,13 @@ class HeatmapBrailleEncoder implements BrailleEncoder<HeatmapBrailleState> {
       (row, col) => {
         const value = state.values[row][col];
 
-        if (value === 0)
+        // A cell the chart drew no value at arrives as `NaN` (#1191). Every
+        // comparison below is false against one, so left alone it would fall
+        // through to the highest band -- an absent reading spelled as the
+        // strongest one. Blank, which is already this encoder's "nothing
+        // here": four glyphs cannot separate a hole from a zero, and the
+        // pitched and spoken channels do it instead.
+        if (value === 0 || !Number.isFinite(value))
           return ' ';
         if (value <= low)
           return '⠤';

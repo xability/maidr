@@ -776,8 +776,23 @@ export interface HeatmapData {
   x: string[];
   /** Row labels, **top row first**. */
   y: string[];
-  /** `points[row][col]`, rows **top-first**, aligned with `y` and `x`. */
-  points: number[][];
+  /**
+   * `points[row][col]`, rows **top-first**, aligned with `y` and `x`.
+   *
+   * A cell the chart drew no value at is `null`, or any non-finite number --
+   * the same spelling {@link BarPoint} uses for a gap, and read through the
+   * same `toBarValue`. It is not `0`: a grid is a rectangle, and an
+   * adapter whose data does not fill it had no way to say so, so three of
+   * them filled the holes with zeros and announced a value the chart never
+   * drew (#1191). Measured on Highcharts 13.0.1, a 3x2 heatmap omitting one
+   * cell and the same heatmap stating that cell as `0` produced byte-identical
+   * payloads, while the first drew five cells and the second six.
+   *
+   * A calendar heat map is the case that makes it unavoidable rather than
+   * merely wrong: Google draws every day of every year its data spans, so a
+   * two-year chart of ten records is 731 cells with 721 holes.
+   */
+  points: (number | null)[][];
 }
 
 /**

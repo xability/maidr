@@ -6,7 +6,34 @@ import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
+
+/** How an unmeasured cell is named in the data table, matching the text service. */
+const MISSING_CELL = 'missing';
+
+/**
+ * Reads one grid row, keeping a cell the chart drew nothing at out of the data.
+ *
+ * A heat grid is a rectangle and a chart's data need not fill it, so a hole
+ * arrives here as `null` -- or as a non-finite number, which is what a
+ * round trip through JSON leaves of a `NaN`. `Number(null)` is `0`, which
+ * would make an absent cell indistinguishable from one measured at zero: it
+ * would sound like a real low reading, could be reached as the grid's
+ * minimum, and would pull the range every other cell's pitch is scaled
+ * against (#1191).
+ *
+ * `toBarValue` is the bar trace's answer to the same question, reused rather
+ * than restated: `NaN` keeps the cell absent, which is what the audio service
+ * already sounds as an empty tone and the text service already announces as
+ * "missing".
+ *
+ * @param row - One row of `HeatmapData.points`
+ * @returns The row's magnitudes, with every hole as `NaN`
+ */
+function measuredRow(row: readonly (number | null)[]): number[] {
+  return row.map(cell => toBarValue(cell));
+}
 
 export class Heatmap extends AbstractTrace {
   protected get values(): number[][] {
@@ -37,9 +64,12 @@ export class Heatmap extends AbstractTrace {
     const data = layer.data as HeatmapData;
     this.x = data.x;
     this.y = [...data.y].reverse();
-    this.heatmapValues = [...data.points].reverse();
+    this.heatmapValues = [...data.points].reverse().map(measuredRow);
 
-    const { min, max } = MathUtil.minMaxFrom2D(this.heatmapValues);
+    // Measured cells only. `MathUtil.minMax` seeds from the first element and
+    // every comparison against a `NaN` is false, so one hole in the corner
+    // would leave both bounds `NaN` and silence the whole grid.
+    const { min, max } = MathUtil.minMax(this.heatmapValues.flat().filter(isMeasured));
     this.min = min;
     this.max = max;
 
@@ -107,14 +137,16 @@ export class Heatmap extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Rows', value: this.y.length },
       { label: 'Columns', value: this.x.length },
-      { label: 'Min value', value: this.min },
-      { label: 'Max value', value: this.max },
+      // A grid of nothing but holes has no range, and `-Infinity` is not one.
+      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_CELL },
+      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_CELL },
     ];
 
     const headers = [this.yAxis, ...this.x];
     const rows: (string | number)[][] = this.y.map((yLabel, r) => [
       yLabel,
-      ...this.heatmapValues[r],
+      // `NaN` in a table cell reads as the string "NaN", which is a value.
+      ...this.heatmapValues[r].map(cell => (isMeasured(cell) ? cell : MISSING_CELL)),
     ]);
 
     return {
@@ -580,19 +612,32 @@ export class Heatmap extends AbstractTrace {
       return null;
     }
 
-    let extremaRow = 0;
-    let extremaCol = 0;
-    let extremaValue = this.heatmapValues[0][0];
+    // Seeded from the first *measured* cell rather than from cell (0, 0).
+    // Every comparison against a `NaN` is false, so a hole in the corner would
+    // hold the seed and the extrema would be announced as "NaN at" its label
+    // -- a reading of a cell the chart drew nothing at (#1191).
+    let extremaRow = -1;
+    let extremaCol = -1;
+    let extremaValue = Number.NaN;
 
     for (let r = 0; r < this.heatmapValues.length; r++) {
       for (let c = 0; c < this.heatmapValues[r].length; c++) {
         const value = this.heatmapValues[r][c];
-        if (type === 'max' ? value > extremaValue : value < extremaValue) {
+        if (!isMeasured(value)) {
+          continue;
+        }
+        const better = extremaRow === -1
+          || (type === 'max' ? value > extremaValue : value < extremaValue);
+        if (better) {
           extremaValue = value;
           extremaRow = r;
           extremaCol = c;
         }
       }
+    }
+
+    if (extremaRow === -1) {
+      return null;
     }
 
     return { row: extremaRow, col: extremaCol, value: extremaValue };
@@ -614,15 +659,26 @@ export class Heatmap extends AbstractTrace {
       return null;
     }
 
-    let extremaCol = 0;
-    let extremaValue = row[0];
+    let extremaCol = -1;
+    let extremaValue = Number.NaN;
 
-    for (let c = 1; c < row.length; c++) {
+    for (let c = 0; c < row.length; c++) {
       const value = row[c];
-      if (type === 'max' ? value > extremaValue : value < extremaValue) {
+      if (!isMeasured(value)) {
+        continue;
+      }
+      const better = extremaCol === -1
+        || (type === 'max' ? value > extremaValue : value < extremaValue);
+      if (better) {
         extremaValue = value;
         extremaCol = c;
       }
+    }
+
+    if (extremaCol === -1) {
+      // A row of holes has no extreme, so it offers no target rather than one
+      // that lands on a cell with nothing to announce.
+      return null;
     }
 
     return { col: extremaCol, value: extremaValue };
@@ -639,15 +695,24 @@ export class Heatmap extends AbstractTrace {
       return null;
     }
 
-    let extremaRow = 0;
-    let extremaValue = this.heatmapValues[0][colIndex];
+    let extremaRow = -1;
+    let extremaValue = Number.NaN;
 
-    for (let r = 1; r < this.heatmapValues.length; r++) {
+    for (let r = 0; r < this.heatmapValues.length; r++) {
       const value = this.heatmapValues[r][colIndex];
-      if (type === 'max' ? value > extremaValue : value < extremaValue) {
+      if (!isMeasured(value)) {
+        continue;
+      }
+      const better = extremaRow === -1
+        || (type === 'max' ? value > extremaValue : value < extremaValue);
+      if (better) {
         extremaValue = value;
         extremaRow = r;
       }
+    }
+
+    if (extremaRow === -1) {
+      return null;
     }
 
     return { row: extremaRow, value: extremaValue };

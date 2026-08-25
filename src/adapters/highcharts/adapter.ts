@@ -4848,9 +4848,11 @@ function convertHeatmapSeries(
       rows = maxY + 1;
   }
 
-  // Build 2D points grid: points[y][x], initialized to 0.
-  const points: number[][] = Array.from({ length: rows }, () =>
-    Array.from({ length: cols }, () => 0));
+  // Build 2D points grid: points[y][x]. Every cell starts absent rather than
+  // zero — the grid is a rectangle and the series need not fill it, and a hole
+  // left as 0 is announced as a reading the chart never drew (#1191).
+  const points: (number | null)[][] = Array.from({ length: rows }, () =>
+    Array.from<number | null>({ length: cols }).fill(null));
 
   for (const p of series.data) {
     if (p.y === null)
@@ -4868,9 +4870,10 @@ function convertHeatmapSeries(
       ? opts.value
       : (typeof opts.colorValue === 'number' ? opts.colorValue : null);
 
-    // Only use p.y as fallback when it genuinely represents the cell value
-    // (single-row heatmaps where y IS the value); otherwise default to 0.
-    points[yIdx][xIdx] = cellValue ?? 0;
+    // A point whose colour metric is missing is still a drawn cell, so it
+    // stays absent rather than becoming a zero — the same distinction the
+    // grid is initialised with.
+    points[yIdx][xIdx] = cellValue;
   }
 
   // {@link HeatmapData} runs top-first and left-first, so each axis is asked
@@ -4893,7 +4896,7 @@ function convertHeatmapSeries(
     ? yCategories
     : Array.from({ length: rows }, (_, i) => String(i));
 
-  const byRow = topFirst ? points : [...points].reverse();
+  const byRow: (number | null)[][] = topFirst ? points : [...points].reverse();
 
   const data: HeatmapData = {
     x: leftFirst ? xLabels : [...xLabels].reverse(),
