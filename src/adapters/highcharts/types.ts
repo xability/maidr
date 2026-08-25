@@ -318,6 +318,29 @@ export interface HighchartsPoint {
    * and sonified rather than a drawing parameter (#1138).
    */
   z?: number;
+  /**
+   * A map marker's own position, in degrees east and degrees north.
+   *
+   * `mappoint` and `mapbubble` place their markers from these rather than by
+   * joining to a map feature, so they are filled exactly where `properties`
+   * and `bounds` -- the two places a `map` region's centroid comes from --
+   * are both empty. Measured on Highcharts 13.0.1, a `mappoint` declared
+   * `{name, lat, lon}` carries `lat`/`lon` on the point and no `y` at all.
+   */
+  lat?: number;
+  /** See {@link HighchartsPoint.lat}. */
+  lon?: number;
+  /**
+   * A flag's headline, drawn inside the marker Highcharts pins to the axis.
+   *
+   * A `flags` point carries this and `text` and no magnitude: measured, its
+   * `y` is absent on a flag placed against a base series and present on the
+   * next one, because it is where the marker was *put* rather than anything
+   * the chart measured.
+   */
+  title?: string;
+  /** A flag's body, drawn in its tooltip. See {@link HighchartsPoint.title}. */
+  text?: string;
   /** Boxplot / candlestick high value, error bar upper bound, dumbbell high. */
   high?: number;
   /** Boxplot / candlestick low value, error bar lower bound, dumbbell low. */

@@ -14,11 +14,18 @@ import { fakeAxis, fakeChart, fakeSeries } from './helpers';
  * each is a chart MAIDR already reads, drawn under a name this adapter did
  * not know.
  *
- * The other twelve are recorded on #1138 rather than here: four want a
+ * The other twelve were recorded on #1138 rather than here: four wanted a
  * judgement written down first (`bellcurve`, `pareto`, `timeline`,
- * `organization`), three have no honest reading at all (`venn`, `polygon`,
+ * `organization`), three had no honest reading at all (`venn`, `polygon`,
  * `vector`/`windbarb`/`flags`), and `variwide` is a mosaic, which is more
  * than a dispatch line.
+ *
+ * #1186 measured the `default:` again and found eight types still reaching
+ * it. `mappoint` and `mapbubble` left it there (`test/adapters/highcharts/
+ * mapMarkers.test.ts`). `vector`, `windbarb`, `polygon` and `mapline` are
+ * declines on record at the branch itself; `hlc` needs
+ * `CandlestickPoint.open` to become optional first, and `venn` is a
+ * maintainer's call.
  */
 
 const CATEGORIES = ['a', 'b', 'c'];
