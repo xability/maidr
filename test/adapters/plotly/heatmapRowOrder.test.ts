@@ -141,7 +141,7 @@ describe('either way round', () => {
     // so it is the part a fix must not break rather than the part it fixes.
     for (const range of [UPWARD, REVERSED]) {
       const { y, points } = dataFor(range);
-      const valueOf = (label: string): number[] => points[y.indexOf(label)];
+      const valueOf = (label: string): (number | null)[] => points[y.indexOf(label)];
 
       expect(valueOf('first')).toEqual([1, 2]);
       expect(valueOf('second')).toEqual([3, 4]);

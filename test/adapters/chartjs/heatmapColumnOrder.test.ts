@@ -99,7 +99,7 @@ describe('which order a chart.js matrix chart reads its columns in', () => {
     const declared = dataFor({ labels: ['c0', 'c1', 'c2'] });
     const reversed = dataFor({ labels: ['c0', 'c1', 'c2'], reverse: true });
 
-    const columnOf = (data: HeatmapData, label: string): number[] => {
+    const columnOf = (data: HeatmapData, label: string): (number | null)[] => {
       const index = data.x.indexOf(label);
       return data.points.map(row => row[index]);
     };

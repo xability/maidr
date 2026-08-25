@@ -135,7 +135,10 @@ function createBarTraceState(values: number[][], row: number, col: number): Trac
  * @returns Non-empty trace state for heatmap braille updates
  */
 function createHeatmapTraceState(values: number[][], row: number, col: number): TraceState {
-  const flattened = values.flat();
+  // Measured cells only, which is what `Heatmap` supplies: a hole travels as
+  // `NaN`, and `Math.min` of anything with a `NaN` in it is `NaN`, which would
+  // collapse every band threshold and put the whole row in one glyph.
+  const flattened = values.flat().filter(Number.isFinite);
   const braille: HeatmapBrailleState = {
     id: `heatmap-braille-${values[0]?.length ?? 0}-${row}-${col}`,
     empty: false,
@@ -677,6 +680,27 @@ describe('BrailleService display-size encoding', () => {
 
     service.moveToIndex(lastIndex);
     expect(contextMoveToIndex).toHaveBeenCalledWith(0, 5);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('leaves a heatmap cell the chart drew no value at blank', () => {
+    const { service } = createBrailleService(32);
+    // The middle cell is a hole, spelled `NaN` — the same way a gap in a bar
+    // chart travels. Every band test below is `value <= threshold`, and all
+    // of them are false against a `NaN`, so an unguarded encoder falls through
+    // to `⠉` and spells the absence as the strongest reading (#1191).
+    const state = createHeatmapTraceState([[1, Number.NaN, 9]], 0, 0);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+
+    expect(emitted.split('\n')[0]).toBe('⠤ ⠉');
 
     disposable.dispose();
     service.dispose();
