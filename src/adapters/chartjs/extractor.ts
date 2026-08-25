@@ -8,8 +8,9 @@
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
  * - Plugin: boxplot, violin, candlestick/ohlc, matrix (heatmap), treemap,
- *   sankey, wordCloud, funnel, and the cartesian error-bar controllers
- *   (barWithErrorBars, lineWithErrorBars, scatterWithErrorBars)
+ *   sankey, wordCloud, funnel, choropleth, bubbleMap, and the cartesian
+ *   error-bar controllers (barWithErrorBars, lineWithErrorBars,
+ *   scatterWithErrorBars)
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
  * rather than silently mapped to a bar chart. The three plugins #1108 named
@@ -18,9 +19,9 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
 
@@ -838,13 +839,21 @@ function extractLayers(
       return extractWordCloudLayers(chart);
     case 'funnel':
       return extractFunnelLayers(chart, pluginOptions, datasetIndices);
+    // Both `chartjs-chart-geo` controllers, read as the same trace. A map is
+    // a set of named places each carrying one value, whichever mark is drawn
+    // at them, and `ChoroplethTrace` walks that set geographically -- which
+    // is the reading a bubble map wants too, and the one a marker-mode Google
+    // Charts GeoChart already gets.
+    case 'choropleth':
+    case 'bubbleMap':
+      return extractGeoLayers(chart, chartType, pluginOptions, datasetIndices);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
         + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
-        + 'wordCloud, funnel, barWithErrorBars, lineWithErrorBars, '
-        + 'scatterWithErrorBars.',
+        + 'wordCloud, funnel, choropleth, bubbleMap, barWithErrorBars, '
+        + 'lineWithErrorBars, scatterWithErrorBars.',
       );
   }
 }
@@ -3150,6 +3159,254 @@ function extractWordCloudLayers(chart: ChartJsChart): MaidrLayer[] {
       data,
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Geo extraction (choropleth, bubbleMap)
+// ---------------------------------------------------------------------------
+
+/**
+ * The value scale a `chartjs-chart-geo` controller shades or sizes by.
+ *
+ * Neither controller has an `x` or a `y` scale: measured, a running geo chart
+ * carries `projection` plus one legend scale, and it is that scale's title
+ * that names what the map is *of*. `getAxisLabel` would answer "Y" for it.
+ */
+const GEO_VALUE_SCALE: Readonly<Record<string, string>> = {
+  choropleth: 'color',
+  bubbleMap: 'size',
+};
+
+/**
+ * Reads a `chartjs-chart-geo` chart as the map of named places it draws.
+ *
+ * Both controllers emit {@link TraceType.CHOROPLETH}: a map is a set of named
+ * places each carrying one value, and what is drawn at a place -- a shaded
+ * region or a sized bubble -- changes the picture rather than the reading.
+ * `ChoroplethTrace` walks that set geographically, which is what a bubble map
+ * wants too, and it is the reading a marker-mode Google Charts GeoChart
+ * already gets.
+ *
+ * Measured against a running chart -- `chart.js@4` with
+ * `chartjs-chart-geo@4`, driven headlessly through Chart.js's own
+ * `BasicPlatform`:
+ *
+ *   - **the value is on `_parsed[i].r`** for both, because both hand it to a
+ *     legend scale (`color` / `size`) whose axis is `r`. Read from there
+ *     rather than from `dataset.data` because the field's name is the
+ *     scale's `property` option -- `'value'` by default, but an author may
+ *     point it at `rate` -- and the parse has already applied it. A `null`
+ *     value parses to `r: null`.
+ *
+ *   - **the places are named by `chart.data.labels`.** Not a convention read
+ *     off the examples: the plugin's own tooltip callback is exactly
+ *     `chart.data.labels[dataIndex]` for both controllers, so this announces
+ *     what a sighted reader is shown on hover.
+ *
+ *   - **the centroids are asymmetric, and that is a fact about the plugin.**
+ *     A bubble map parses `longitude ?? x` and `latitude ?? y` straight onto
+ *     `_parsed[i].x`/`.y`, so it always carries the caller's degrees. A
+ *     choropleth carries none: its `GeoFeature.x`/`.y` and `getCenterPoint()`
+ *     are *pixels* on the canvas, and the only geographic thing on the row is
+ *     the raw GeoJSON. The one exception is a row that declares
+ *     `center: {longitude, latitude}` -- the field the plugin itself reads to
+ *     place a label -- which is a real centroid in degrees.
+ *
+ *     Inverting a projected centroid back through the projection was the
+ *     other option and is not taken: it would answer in degrees but they
+ *     would be the degrees of the *drawn* centre, which is not the region's
+ *     centroid on a projection that distorts, and the grammar asks for a
+ *     centroid rather than a plausible pair. A layer with none is read as a
+ *     region list in declared order, which the schema calls the poorer
+ *     reading and the one the data supports.
+ *
+ * **One layer per dataset**, each addressing its own. A geo chart with two
+ * datasets draws two maps of the same regions -- two years of the same
+ * measure -- rather than one map of twice as many places.
+ *
+ * @param chart - The Chart.js chart
+ * @param chartType - Which of the two controllers drew it
+ * @param pluginOptions - The MAIDR plugin options, for the axis labels
+ * @param datasetIndices - Collects which dataset backs each emitted layer
+ * @returns One layer per dataset that drew a value
+ */
+function extractGeoLayers(
+  chart: ChartJsChart,
+  chartType: string,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  const labels = chart.data.labels ?? [];
+  const layers: MaidrLayer[] = [];
+
+  chart.data.datasets.forEach((dataset, index) => {
+    const parsed = chart.getDatasetMeta(index)?._parsed ?? [];
+    const data: ChoroplethPoint[] = drawnGeoIndices(chart, index).map(i => ({
+      x: geoRegionName(labels[i], dataset.data[i], i),
+      // `drawnGeoIndices` has already accepted the value; this is the
+      // narrowing rather than a second test of it.
+      y: parsed[i].r as number,
+      ...geoCentroid(chartType, dataset.data[i], parsed[i]),
+    }));
+
+    if (data.length === 0)
+      return;
+
+    // Recorded rather than left to the per-type default, which is "every
+    // dataset, in order": with two maps that hands both layers the first
+    // dataset, so the second map would outline the first one's regions.
+    datasetIndices?.set(String(index), [index]);
+    layers.push({
+      id: String(index),
+      type: TraceType.CHOROPLETH,
+      title: dataset.label,
+      axes: {
+        x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : 'Region' },
+        y: { label: geoValueLabel(chart, chartType, pluginOptions) },
+      },
+      data,
+    });
+  });
+
+  return layers;
+}
+
+/**
+ * What one place on a map is called.
+ *
+ * `chart.data.labels` first, because that is what the plugin's own tooltip
+ * announces. A choropleth that declares none still names its regions inside
+ * the GeoJSON it shades, under whichever of the property names the shared
+ * chain covers -- `name`, `NAME`, `admin` and the rest -- which is the same
+ * chain a declared choropleth resolves its `region` field through.
+ *
+ * The position is the last resort, matching what the bar family does with a
+ * category the chart never labelled. It is a poor name, but the grammar makes
+ * `x` required and a place with no name is still a place on the map.
+ *
+ * @param label - The chart's label for this row, if it has one
+ * @param row - The dataset row, for a choropleth's GeoJSON feature
+ * @param index - Its position in the dataset
+ * @returns The name to announce
+ */
+function geoRegionName(
+  label: string | number | undefined,
+  row: ChartJsDataValue,
+  index: number,
+): string | number {
+  if (typeof label === 'number' || (typeof label === 'string' && label !== ''))
+    return label;
+
+  const properties = (row as ChartJsGeoValue | null)?.feature?.properties;
+  const named = resolveFieldRef<unknown>(
+    properties,
+    undefined,
+    'region',
+    TraceType.CHOROPLETH,
+  );
+  if (typeof named === 'string' && named !== '')
+    return named;
+  if (typeof named === 'number' && Number.isFinite(named))
+    return named;
+
+  return index;
+}
+
+/**
+ * Where on the globe a place sits, when the chart says.
+ *
+ * A bubble map always says: its parse puts the caller's `longitude`/`latitude`
+ * (or the `x`/`y` spelling of the same pair) straight onto the parsed datum,
+ * in degrees. A choropleth says only when the row declares a `center`, which
+ * is the field the plugin reads to place a label and the one geographic
+ * position it carries -- the drawn element's coordinates being pixels.
+ *
+ * Both halves are emitted only complete: a point with one of the pair is a
+ * point the model cannot place, and `ChoroplethTrace` bands a map only when
+ * every* region has both.
+ *
+ * @param chartType - Which controller drew the chart
+ * @param row - The dataset row
+ * @param parsed - What Chart.js parsed it into
+ * @returns `{lon, lat}`, or nothing when the chart carries no centroid
+ */
+function geoCentroid(
+  chartType: string,
+  row: ChartJsDataValue,
+  parsed: ChartJsParsedValue | undefined,
+): { lon: number; lat: number } | Record<string, never> {
+  const pair = chartType === 'bubbleMap'
+    ? { lon: parsed?.x, lat: parsed?.y }
+    : {
+        lon: (row as ChartJsGeoValue | null)?.center?.longitude,
+        lat: (row as ChartJsGeoValue | null)?.center?.latitude,
+      };
+
+  if (typeof pair.lon !== 'number' || !Number.isFinite(pair.lon))
+    return {};
+  if (typeof pair.lat !== 'number' || !Number.isFinite(pair.lat))
+    return {};
+  return { lon: pair.lon, lat: pair.lat };
+}
+
+/**
+ * What the map is a map of.
+ *
+ * The legend scale's title, which is the only place a geo chart writes it:
+ * there is no `x` or `y` scale to carry one, so `getAxisLabel` would answer
+ * "Y". An untitled scale is **materialised** by `chart.update()` as an empty
+ * string rather than left absent -- measured on a running chart -- so the
+ * test is for a title with something in it, the way `getAxisLabel` tests its
+ * own.
+ *
+ * @param chart - The Chart.js chart
+ * @param chartType - Which controller drew it
+ * @param pluginOptions - The MAIDR plugin options, whose override wins
+ * @returns The value's name
+ */
+function geoValueLabel(
+  chart: ChartJsChart,
+  chartType: string,
+  pluginOptions?: MaidrPluginOptions,
+): string {
+  const override = pluginOptions?.axes?.y;
+  if (override)
+    return override;
+
+  const scale = chart.options.scales?.[GEO_VALUE_SCALE[chartType] ?? ''];
+  return scale?.title?.text ? scale.title.text : 'Value';
+}
+
+/**
+ * The positions one geo dataset drew a value at, in dataset order.
+ *
+ * A region whose value is `null` is skipped. It is still on the map -- the
+ * colour scale paints it with `options.missing` rather than a shade -- but
+ * the grammar's `y` is a number, and emitting one would announce and sonify a
+ * value the map declines to show. The same rule the bar family follows for a
+ * gap.
+ *
+ * Exported because the highlight half has to walk them the same way: the
+ * plugin outlines by index through the table `computeTargetMaps` builds, and
+ * a table built by a different walk names a different mark from the one the
+ * payload announces (#1024). Sharing this is what keeps the two paired.
+ *
+ * Dataset order rather than a drawn order: a map has no category axis to
+ * reverse, so the projection draws the regions where the geometry puts them
+ * and `dataset.data` is the only order there is.
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndex - Which dataset to walk
+ * @returns Its positions, skipping any row with no value
+ */
+export function drawnGeoIndices(chart: ChartJsChart, datasetIndex: number): number[] {
+  const parsed = chart.getDatasetMeta(datasetIndex)?._parsed ?? [];
+  const drawn: number[] = [];
+  parsed.forEach((datum, i) => {
+    if (typeof datum?.r === 'number' && Number.isFinite(datum.r))
+      drawn.push(i);
+  });
+  return drawn;
 }
 
 function extractHeatmapLayers(

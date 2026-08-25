@@ -86,7 +86,9 @@ export type ChartJsDataValue
      */
     | ChartJsTreemapValue
     /** One weighted flow of a sankey dataset. */
-    | ChartJsSankeyValue;
+    | ChartJsSankeyValue
+    /** One region of a choropleth, or one bubble of a bubble map. */
+    | ChartJsGeoValue;
 
 /**
  * Minimal representation of a Chart.js chart instance.
@@ -351,6 +353,41 @@ export interface ChartJsSankeyValue {
 }
 
 /**
+ * One row of a `chartjs-chart-geo` dataset — a choropleth region, or a bubble
+ * on a bubble map.
+ *
+ * The two controllers take different rows and the fields say which: a
+ * choropleth shades a GeoJSON `feature` and may declare a `center` for it,
+ * while a bubble map carries its own position. Measured on
+ * `chartjs-chart-geo@4` against a running chart, the bubble map's parse reads
+ * `longitude ?? x` and `latitude ?? y`, so both spellings are the caller's
+ * degrees rather than pixels.
+ *
+ * The value itself is deliberately absent: its field name is whatever
+ * `scales.color.property` / `scales.size.property` names, defaulting to
+ * `'value'`, so it is read from {@link ChartJsParsedValue.r} where the parse
+ * has already resolved it.
+ */
+export interface ChartJsGeoValue {
+  /** The GeoJSON feature a choropleth row shades. */
+  feature?: { properties?: Record<string, unknown> };
+  /**
+   * A choropleth row's centroid, in degrees, when its author declared one.
+   *
+   * The only geographic position a choropleth carries. The drawn element's
+   * `x`/`y` are pixels on the canvas and its `getCenterPoint()` the same, so
+   * a row without this has no centroid to emit.
+   */
+  center?: { longitude: number; latitude: number };
+  /** A bubble map row's longitude, degrees east. */
+  longitude?: number;
+  /** A bubble map row's latitude, degrees north. */
+  latitude?: number;
+  /** The author's own columns, whichever of them carries the value. */
+  [column: string]: unknown;
+}
+
+/**
  * Metadata for a dataset (returned by `chart.getDatasetMeta()`).
  */
 export interface ChartJsDatasetMeta {
@@ -391,6 +428,20 @@ export interface ChartJsKdeCoord {
 export interface ChartJsParsedValue {
   x?: number;
   y?: number;
+  /**
+   * The value a `chartjs-chart-geo` row is drawn by — the shade of a
+   * choropleth region, the radius of a bubble on a bubble map.
+   *
+   * Both controllers parse onto `r` because both hand their value to a legend
+   * scale (`color` / `size`) whose axis is `r`. It is read from here rather
+   * than from `dataset.data` because the field's *name* is configurable —
+   * `scales.color.property` defaults to `'value'` but an author may point it
+   * at `rate` or `density` — and the parse has already applied it.
+   *
+   * `null` is a region the chart draws with no value, which the colour scale
+   * paints with `options.missing` rather than a shade.
+   */
+  r?: number | null;
   min?: number;
   max?: number;
   q1?: number;
