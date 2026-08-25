@@ -631,6 +631,12 @@ function buildLayers(
     return buildGaugeLayers(dt, container, reading.gaugeOptions);
   }
 
+  // A calendar draws one grid per year its dates span, which is the second
+  // chart answered here rather than in the single-layer switch below.
+  if (chartType === 'Calendar') {
+    return buildCalendarLayers(dt, container);
+  }
+
   return [buildLayer(chart, dt, container, chartType, reading)];
 }
 
@@ -638,7 +644,7 @@ function buildLayer(
   chart: GoogleChart,
   dt: GoogleDataTable,
   container: HTMLElement,
-  chartType: Exclude<GoogleChartType, 'Gauge'>,
+  chartType: Exclude<GoogleChartType, 'Gauge' | 'Calendar'>,
   reading: GoogleChartReadingOptions,
 ): MaidrLayer {
   // Intervals are the one reading model the DataTable itself decides: a
@@ -748,7 +754,7 @@ function buildLayer(
       throw new Error(
         `Unsupported Google Charts type: ${chartType as string}. `
         + 'Supported types: AreaChart, BarChart, BubbleChart, BumpChart, CandlestickChart, '
-        + 'ColumnChart, '
+        + 'Calendar, ColumnChart, '
         + 'DivergingBarChart, DivergingColumnChart, DodgedBarChart, DodgedColumnChart, '
         + 'DotChart, DumbbellChart, FunnelChart, Gantt, Gauge, GeoChart, LineChart, '
         + 'LollipopChart, ManhattanChart, NormalizedAreaChart, OrgChart, PieChart, Sankey, '
@@ -2483,6 +2489,341 @@ function gaugeBands(options: GoogleGaugeOptions, min: number): GaugeBand[] | und
     edge = band.to;
   }
   return bands;
+}
+
+// ---------------------------------------------------------------------------
+// Calendar (a heat grid over dates)
+// ---------------------------------------------------------------------------
+
+/** Row labels, top-first, matching the `S M T W T F S` Google draws. */
+const WEEKDAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+const DAYS_PER_WEEK = 7;
+
+/**
+ * Builds one heat grid per calendar year a Google Charts `Calendar` covers.
+ *
+ * The DataTable is `[date, value]`, and the chart draws it as day cells:
+ * weekday down the page, week across it, one block per year stacked
+ * vertically. That is a `heat` grid, and the two axes are the two the reader
+ * navigates -- <kbd>←</kbd>/<kbd>→</kbd> walks the weeks, <kbd>↑</kbd>/
+ * <kbd>↓</kbd> the weekdays.
+ *
+ * ## One layer per year, not one grid for all of them
+ *
+ * Google restarts the week columns at each January, so two years are two
+ * separate grids that happen to be drawn one above the other -- a chart
+ * spanning 2012 and 2013 has fourteen distinct cell rows, not seven. Stacking
+ * them into one 7-row grid would put two different days in one cell, and
+ * running the weeks straight through would give column 53 of 2012 and column
+ * 0 of 2013 the same reading. Each year is its own layer instead, named by
+ * its year so switching between them says which one you are in (#828).
+ *
+ * ## What a cell says
+ *
+ * The column is the date of the Sunday its week begins on and the row is the
+ * weekday, so every cell's own date is the column's date plus the row's
+ * offset -- uniform across the whole grid, including the first column, whose
+ * Sunday falls in the previous December whenever the year does not start on
+ * one.
+ *
+ * Two different absences meet here, and they are not the same:
+ *
+ *   a day inside the year with no row in the table -- Google draws a white
+ *   cell for it, so there is an element to outline but no value: `null` in
+ *   `points`, a selector in `selectors`;
+ *
+ *   a slot in the rectangle that is not a day at all -- the days before
+ *   January's first weekday and after December's last -- which Google draws
+ *   nothing for: `null` in both.
+ *
+ * The first needs #1191, the second the per-cell selector hole this change
+ * adds beside it. A calendar makes both unavoidable rather than merely
+ * tidy: a two-year chart of ten records is 731 cells with 721 holes.
+ *
+ * ## Why the values cannot come from the drawing
+ *
+ * Measured on `current` (2026-08): the **minimum** value in the range is
+ * painted `#ffffff`, the same white as a day with no row at all. The fills
+ * cannot tell the smallest reading from no reading, so the values are read
+ * from the DataTable and the drawing is used only to locate cells.
+ *
+ * Two rows naming the same date are not summed: measured with `90` then `20`
+ * on one day, the cell drew identically to a lone `20`, so the **last** row
+ * wins and this reads it the same way.
+ *
+ * @param dt        - The DataTable the chart was drawn from
+ * @param container - The DOM container element
+ * @returns One layer per calendar year, earliest first
+ */
+function buildCalendarLayers(
+  dt: GoogleDataTable,
+  container: HTMLElement,
+): MaidrLayer[] {
+  const dateCol = calendarDateColumn(dt);
+  const valueCol = nextDataColumn(dt, dateCol + 1) ?? dateCol + 1;
+  const valueLabel = dt.getColumnLabel(valueCol) || undefined;
+
+  // Last row wins, which is what Google draws.
+  const byDay = new Map<number, number>();
+  for (let r = 0; r < dt.getNumberOfRows(); r++) {
+    const day = dayNumber(dt.getValue(r, dateCol));
+    if (day === null) {
+      continue;
+    }
+    const value = numericValue(dt, r, valueCol);
+    byDay.set(day, value);
+  }
+
+  const years = calendarYears(byDay.keys());
+  if (years.length === 0) {
+    // Nothing dated, so there is no year to draw. The weekday rows are still
+    // the rows a calendar has; it simply has no weeks in it.
+    return [{
+      id: nextId('layer'),
+      type: TraceType.HEATMAP,
+      axes: calendarAxes(valueLabel),
+      data: { x: [], y: [...WEEKDAY_NAMES], points: WEEKDAY_NAMES.map(() => []) },
+    }];
+  }
+
+  const blocks = years.map(year => calendarBlock(year, byDay));
+  const drawn = blocks.reduce((total, block) => total + block.dayCount, 0);
+  const cellSelectors = markCalendarCells(container, drawn);
+
+  let offset = 0;
+  return blocks.map((block) => {
+    const base = offset;
+    offset += block.dayCount;
+    return {
+      id: nextId('layer'),
+      type: TraceType.HEATMAP,
+      title: String(block.year),
+      ...(cellSelectors
+        ? { selectors: calendarSelectors(block, cellSelectors, base) }
+        : {}),
+      axes: calendarAxes(valueLabel),
+      data: { x: block.x, y: [...WEEKDAY_NAMES], points: block.points },
+    };
+  });
+}
+
+/** The three axis names a calendar reads under. */
+function calendarAxes(valueLabel: string | undefined): MaidrLayer['axes'] {
+  return {
+    x: { label: 'Week beginning' },
+    y: { label: 'Day of week' },
+    ...(valueLabel ? { z: { label: valueLabel } } : {}),
+  };
+}
+
+/**
+ * One year's grid: seven weekday rows top-first, one column per week.
+ *
+ * The rectangle is ragged at both ends -- a year beginning on a Wednesday
+ * leaves the first column's Sunday, Monday and Tuesday undrawn -- so the DOM
+ * index of a day counts only the days actually drawn:
+ *
+ *     index = week * 7 + weekday - firstWeekday
+ *
+ * Verified against the DOM on a 2012+2013 chart: `2012-12-31` (a Monday in
+ * week 52 of a year starting Sunday) is index 365, and `2013-02-11` (a Monday
+ * in week 6 of a year starting Tuesday) is index 41 of its own block.
+ */
+function calendarBlock(year: number, byDay: Map<number, number>): CalendarBlock {
+  const firstDay = dayNumberOf(year, 0, 1);
+  const firstWeekday = weekdayOf(firstDay);
+  const dayCount = dayNumberOf(year + 1, 0, 1) - firstDay;
+  const columns = Math.floor((dayCount - 1 + firstWeekday) / DAYS_PER_WEEK) + 1;
+
+  const points: (number | null)[][] = WEEKDAY_NAMES.map(() =>
+    Array.from<number | null>({ length: columns }).fill(null),
+  );
+  for (let day = 0; day < dayCount; day++) {
+    const slot = day + firstWeekday;
+    const value = byDay.get(firstDay + day);
+    points[slot % DAYS_PER_WEEK][Math.floor(slot / DAYS_PER_WEEK)]
+      = value === undefined || !Number.isFinite(value) ? null : value;
+  }
+
+  // The Sunday each column begins on, which is in the previous December for
+  // column 0 of every year that does not start on one.
+  const x = Array.from(
+    { length: columns },
+    (_, week) => isoDay(firstDay + week * DAYS_PER_WEEK - firstWeekday),
+  );
+
+  return { year, firstWeekday, dayCount, columns, points, x };
+}
+
+interface CalendarBlock {
+  year: number;
+  firstWeekday: number;
+  dayCount: number;
+  columns: number;
+  points: (number | null)[][];
+  x: string[];
+}
+
+/**
+ * The per-cell selector grid for one year's block.
+ *
+ * `HeatmapTrace` turns the payload's rows over on construction and then
+ * indexes `selectors[r][c]` by its **own** row, so the grid is laid out
+ * bottom-first here while `points` is top-first -- the same inversion
+ * `heatmapSelectors` and `bindD3Heatmap` carry (#978).
+ *
+ * A slot the year does not reach is `null`: the chart drew no rect there, and
+ * saying so leaves the other days their highlight instead of failing the grid
+ * over a handful of corners.
+ */
+function calendarSelectors(
+  block: CalendarBlock,
+  selectorFor: (index: number) => string,
+  base: number,
+): (string | null)[][] {
+  const rows: (string | null)[][] = [];
+  for (let r = 0; r < DAYS_PER_WEEK; r++) {
+    const weekday = DAYS_PER_WEEK - 1 - r;
+    const row: (string | null)[] = [];
+    for (let week = 0; week < block.columns; week++) {
+      const day = week * DAYS_PER_WEEK + weekday - block.firstWeekday;
+      row.push(day >= 0 && day < block.dayCount ? selectorFor(base + day) : null);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** What each day cell is stamped with, so a selector names one by index. */
+const CALENDAR_DAY_ATTR = 'data-maidr-day';
+
+/**
+ * Stamps every day cell with its position and returns a lookup for one.
+ *
+ * A `Calendar` has no `getChartLayoutInterface()` and its cells carry no id,
+ * class, title or label, so position within the SVG is the only handle --
+ * measured, every day cell of every block is a direct `rect` child of one
+ * `g`, and the only other `rect` in the drawing lives inside a `<pattern>`.
+ * The count is checked against the days the years span before anything is
+ * stamped, so a drawing this no longer describes loses its highlighting
+ * rather than outlining the wrong day.
+ */
+function markCalendarCells(
+  container: HTMLElement,
+  expected: number,
+): ((index: number) => string) | undefined {
+  const svg = container.querySelector('svg');
+  if (!svg) {
+    return undefined;
+  }
+
+  svg.querySelectorAll(`rect[${CALENDAR_DAY_ATTR}]`)
+    .forEach(rect => rect.removeAttribute(CALENDAR_DAY_ATTR));
+
+  const cells = svg.querySelectorAll('g > rect');
+  if (cells.length === 0) {
+    return undefined;
+  }
+  if (cells.length !== expected) {
+    console.warn(
+      `[MAIDR] Calendar day count mismatch: expected ${expected}, found ${cells.length}. `
+      + 'Visual highlighting is disabled for this chart.',
+    );
+    return undefined;
+  }
+
+  cells.forEach((cell, index) => cell.setAttribute(CALENDAR_DAY_ATTR, `${index}`));
+
+  return index => `#${container.id} svg rect[${CALENDAR_DAY_ATTR}="${index}"]`;
+}
+
+/**
+ * The column the dates are in.
+ *
+ * By type rather than by position, so a DataView that put a role column first
+ * still reads; column 0 when nothing declares itself a date, which is where
+ * Google requires it.
+ */
+function calendarDateColumn(dt: GoogleDataTable): number {
+  for (let c = 0; c < dt.getNumberOfColumns(); c++) {
+    const type = dt.getColumnType(c);
+    if (!isRoleColumn(dt, c) && (type === 'date' || type === 'datetime')) {
+      return c;
+    }
+  }
+  return 0;
+}
+
+/** Every calendar year the dated rows fall in, earliest first and gapless. */
+function calendarYears(days: Iterable<number>): number[] {
+  let first = Number.POSITIVE_INFINITY;
+  let last = Number.NEGATIVE_INFINITY;
+  for (const day of days) {
+    first = Math.min(first, day);
+    last = Math.max(last, day);
+  }
+  if (!Number.isFinite(first)) {
+    return [];
+  }
+
+  // Gapless: Google draws a block for every year between the ends, including
+  // one that happens to hold no rows at all.
+  const from = yearOf(first);
+  const years: number[] = [];
+  for (let year = from; year <= yearOf(last); year++) {
+    years.push(year);
+  }
+  return years;
+}
+
+/**
+ * A cell's date as a whole number of days since the epoch, or `null`.
+ *
+ * Counted in **local** time, which is the calendar Google draws: a
+ * `new Date(2012, 0, 1)` is midnight where the reader is, and dividing its
+ * UTC timestamp would land on the previous day for anyone east of Greenwich.
+ */
+function dayNumber(raw: unknown): number | null {
+  // Narrowed before the `Date` rather than after it: `new Date(null)` is the
+  // epoch, not an invalid date, so a row with no date at all would otherwise
+  // land on 1970-01-01 and the chart would grow fifty-odd blocks nobody drew.
+  if (!(raw instanceof Date) && typeof raw !== 'string' && typeof raw !== 'number') {
+    return null;
+  }
+  const date = raw instanceof Date ? raw : new Date(raw);
+  const time = date.getTime();
+  if (!Number.isFinite(time)) {
+    return null;
+  }
+  return dayNumberOf(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** The same count, from a local calendar date. */
+function dayNumberOf(year: number, month: number, day: number): number {
+  return Math.round(Date.UTC(year, month, day) / MS_PER_DAY);
+}
+
+/** Sunday is 0, matching the top row Google draws. */
+function weekdayOf(day: number): number {
+  return new Date(day * MS_PER_DAY).getUTCDay();
+}
+
+function yearOf(day: number): number {
+  return new Date(day * MS_PER_DAY).getUTCFullYear();
+}
+
+/** `YYYY-MM-DD`, which is unambiguous wherever it is read out. */
+function isoDay(day: number): string {
+  return new Date(day * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
 // ---------------------------------------------------------------------------
