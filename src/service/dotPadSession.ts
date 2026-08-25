@@ -122,8 +122,14 @@ const VENDOR_BASE_URL = 'https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@
  * binary so the round trip stops eating it. The SDK module itself is unchanged
  * and still comes from the vendor's tree above: the only thing served from
  * elsewhere is a data file whose contents are byte-for-byte the vendor's.
+ *
+ * Pinned to a commit on that fork's default branch rather than to the branch
+ * the fix was written on. A commit reachable only from a topic branch stops
+ * being reachable when the branch is deleted, and an unreachable commit is
+ * eventually collected -- at which point this URL starts returning 404 and the
+ * braille line silently drops to grade 1 again.
  */
-const VENDOR_ASSET_BASE_URL = 'https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@bd4955fff600f9878267466ed8887cfcf5d253bb/Web/3.0.2/lib/';
+const VENDOR_ASSET_BASE_URL = 'https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@0e8577fb95869256a4485ad7b2427ae5ac619760/Web/3.0.2/lib/';
 
 /**
  * Language table the braille text line is translated with.
