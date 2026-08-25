@@ -71,6 +71,28 @@ them, and each wants its own measured layout first. See
 > samples either side stay in their places rather than the series closing over
 > the hole.
 
+## Single-value charts
+
+A pie, a funnel and a gauge sit on no grid and own the whole chart, and all
+three report `data.dimensions` as `['value']` with the label on `getName(i)` —
+so the reading is that pair.
+
+| ECharts | read as | highlighted |
+|---|---|---|
+| `pie` | `pie` | yes — one selector naming every slice |
+| `funnel` | `funnel` | yes — one selector per stage |
+| `gauge` | `gauge` | **no** — see below |
+
+A gauge draws **two** filled marks for its one datum: the track and the
+progress arc, measured as `#e8ebf0` and the series colour. The count check
+every other reading here relies on has nothing to check, and naming either
+mark would be a guess about which one the reader should be shown, so the
+gauge is read without an outline.
+
+`min` and `max` come off the series rather than being defaulted here.
+`getModel()` resolves ECharts' own `0` and `100` when the author wrote
+neither, so the dial the reader is told about is the dial that was drawn.
+
 ## Highlighting
 
 ECharts gives a reading almost nothing to address by. Measured on 6.1.0: the

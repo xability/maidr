@@ -17,6 +17,7 @@ import type {
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 import { markPerDatum, markPerSeries } from './selectors';
+import { SINGLE_VALUE, singleValueLayer } from './single';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -38,7 +39,16 @@ export interface EChartsAdapterOptions {
  * Most of them have a trace waiting and are the later tiers of #1195; each
  * wants its own measured layout before it claims to be readable.
  */
-const READ: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
+const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
+
+/**
+ * Everything the adapter reads, cartesian and single-valued together.
+ *
+ * The two families are read by different code because they are different
+ * shapes -- one has axes and positions, the other has names and magnitudes --
+ * and a chart cannot hold both: a pie has no grid to share with a bar.
+ */
+const READ: ReadonlySet<string> = new Set([...CARTESIAN, ...SINGLE_VALUE]);
 
 /**
  * Converts a rendered ECharts instance into a MAIDR figure.
@@ -77,8 +87,15 @@ export function createMaidrFromEChart(
     );
   }
 
-  const axes = axisNames(model);
-  const layers = buildLayers(readable, axes, container);
+  const single = readable.filter(seriesModel => SINGLE_VALUE.has(seriesModel.subType));
+  const layers = single.length > 0
+    // A pie, a funnel and a gauge each own the whole chart -- none of them
+    // sits on a grid -- so a figure holding one holds nothing else this
+    // adapter would stamp, and the two stamping passes never meet.
+    ? single
+        .map(seriesModel => singleValueLayer(seriesModel, container))
+        .filter((layer): layer is MaidrLayer => layer !== undefined)
+    : buildLayers(readable, axisNames(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
 

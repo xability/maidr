@@ -424,11 +424,13 @@ describe('what the adapter will not claim', () => {
   it('refuses a chart of series it has no reading for', () => {
     // By name, rather than mapped onto whichever trace is closest. ECharts
     // draws seventeen series types and most have a trace waiting for them,
-    // but each wants its own measured layout first (#1195).
+    // but each wants its own measured layout first (#1195). `pie` used to
+    // stand here and now reads; `treemap` is one of the hierarchies still
+    // waiting for tier 3.
     expect(() => layersOf(
-      { series: [{ type: 'pie', values: [1, 2, 3] }] },
+      { series: [{ type: 'treemap', values: [1, 2, 3] }] },
       drawnChart(3, 0),
-    )).toThrow(/Unsupported ECharts series type\(s\): pie/);
+    )).toThrow(/Unsupported ECharts series type\(s\): treemap/);
   });
 
   it('drops the highlighting when the drawing holds a different number of marks', () => {
