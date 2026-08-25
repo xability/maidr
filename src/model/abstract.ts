@@ -460,7 +460,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.highlightValues) {
       this.highlightValues.forEach(row =>
         row.forEach((el) => {
-          const elements = Array.isArray(el) ? el : [el];
+          const elements = Array.isArray(el) ? el : el ? [el] : [];
           elements.forEach((element) => {
             if (Svg.isOwned(element)) {
               element.remove();
@@ -581,10 +581,15 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       return this.outOfBoundsState;
     }
 
-    return {
-      empty: false,
-      elements: this.highlightValues[this.row][this.col],
-    };
+    // A grid position the chart drew no element at reports the same nothing
+    // an out-of-bounds cursor does, rather than an undefined element the
+    // highlight service would then try to outline.
+    const elements = this.highlightValues[this.row]?.[this.col];
+    if (!elements) {
+      return this.outOfBoundsState;
+    }
+
+    return { empty: false, elements };
   }
 
   /**
@@ -747,8 +752,19 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
 
   protected abstract override get dimension(): Dimension;
 
+  /**
+   * `highlightValues[row][col]`, or `null` for the whole trace when it
+   * highlights nothing.
+   *
+   * A single cell may also be `null`, meaning the chart drew no element
+   * there. That is a narrower claim than the trace-wide `null`: the rest of
+   * the grid still highlights, and only this position falls back to the
+   * out-of-bounds state. A Google Charts calendar is the case it exists for
+   * -- its first and last columns are ragged, so a handful of grid positions
+   * have no rect at all while every other day does (#1174).
+   */
   protected abstract get highlightValues():
-    | (SVGElement[] | SVGElement)[][]
+    | (SVGElement[] | SVGElement | null)[][]
     | null;
 
   /**

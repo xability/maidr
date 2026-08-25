@@ -43,7 +43,16 @@ export class Heatmap extends AbstractTrace {
   protected readonly supportsExtrema = true;
   protected readonly movable: Movable;
   private readonly heatmapValues: number[][];
-  protected readonly highlightValues: SVGElement[][] | null;
+  /**
+   * `highlightValues[r][c]`, or `null` where the chart drew no element.
+   *
+   * A hole is not the same thing as a hole in {@link HeatmapData.points}: a
+   * calendar draws a white cell for a day inside the year that carries no
+   * value -- no value, but an element -- and draws nothing at all for the
+   * ragged slots before its first weekday and after its last. Only the
+   * second kind is `null` here.
+   */
+  protected readonly highlightValues: (SVGElement | null)[][] | null;
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -73,7 +82,9 @@ export class Heatmap extends AbstractTrace {
     this.min = min;
     this.max = max;
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string | string[][] | undefined);
+    this.highlightValues = this.mapToSvgElements(
+      layer.selectors as string | (string | null)[][] | undefined,
+    );
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<number>(this.heatmapValues);
   }
@@ -165,7 +176,9 @@ export class Heatmap extends AbstractTrace {
     };
   }
 
-  private mapToSvgElements(selector?: string | string[][]): SVGElement[][] | null {
+  private mapToSvgElements(
+    selector?: string | (string | null)[][],
+  ): (SVGElement | null)[][] | null {
     if (!selector) {
       return null;
     }
@@ -181,18 +194,31 @@ export class Heatmap extends AbstractTrace {
       if (selector.length !== numRows) {
         return null;
       }
-      const svgElements: SVGElement[][] = [];
+      const svgElements: (SVGElement | null)[][] = [];
       for (let r = 0; r < numRows; r++) {
         const rowSelectors = selector[r];
         if (!Array.isArray(rowSelectors) || rowSelectors.length !== numCols) {
           return null;
         }
-        const row: SVGElement[] = [];
+        const row: (SVGElement | null)[] = [];
         for (let c = 0; c < numCols; c++) {
+          // A cell the chart drew nothing at. Kept as a hole rather than
+          // failing the grid: a calendar's first and last columns are ragged
+          // -- the slots before January's first weekday and after December's
+          // last are not drawn -- and dropping the whole grid over them would
+          // cost the other 360 days their highlight (#1174).
+          const cellSelector = rowSelectors[c];
+          if (cellSelector === null || cellSelector === undefined) {
+            row.push(null);
+            continue;
+          }
           // Routed through `Svg` rather than `document` so a grid cell holding
           // an unusable selector degrades to "no highlight" instead of throwing.
-          const el = Svg.selectElement<SVGElement>(rowSelectors[c], false);
+          const el = Svg.selectElement<SVGElement>(cellSelector, false);
           if (!el) {
+            // A named selector that resolves to nothing is a mapping the
+            // adapter got wrong, not a cell that was never drawn, so the grid
+            // still fails as a whole.
             return null;
           }
           row.push(el);
@@ -421,7 +447,7 @@ export class Heatmap extends AbstractTrace {
   protected mapSvgElementsToCenters():
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null {
-    const svgElements: (SVGElement | SVGElement[])[][] | null = this.highlightValues;
+    const svgElements: (SVGElement | SVGElement[] | null)[][] | null = this.highlightValues;
 
     if (!svgElements) {
       return null;

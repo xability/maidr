@@ -302,6 +302,13 @@ export type GoogleChartType
      * and only the caller knows that is what the steps are.
      */
     | 'SurvivalChart'
+    /**
+     * `google.visualization.Calendar`, from the `calendar` package.
+     *
+     * A year of days shaded by a value, one column per week and one row per
+     * weekday. Read as a heat grid; see `buildCalendarLayer`.
+     */
+    | 'Calendar'
     /** `google.visualization.Timeline`, from the `timeline` package. */
     | 'Timeline'
     /** `google.visualization.TreeMap`, from the `treemap` package. */

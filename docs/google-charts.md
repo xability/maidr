@@ -113,8 +113,22 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Volcano | `ScatterChart` of effect size against significance | `'VolcanoChart'` |
 | Manhattan | `ScatterChart` with one series per chromosome | `'ManhattanChart'` |
 | Tree | `OrgChart` (`orgchart` package) — people joined by manager pointers | `'OrgChart'` |
+| Calendar | `Calendar` (`calendar` package) — a year of days shaded by a value | `'Calendar'` |
 
-**Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type), Calendar.
+**Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
+
+> **Calendar note:** a `Calendar` becomes **one heat-grid layer per calendar
+> year its dates span**, because the package restarts its week columns each
+> January — a chart covering 2012 and 2013 draws fourteen cell rows, not seven.
+> Each layer is seven weekday rows (Sunday first, as drawn) by one column per
+> week, named by the Sunday the week begins on; <kbd>Page Down</kbd> moves to
+> the next year. Two absences meet in the grid and mean different things: a day
+> inside the year with no row in the table is drawn as a white cell — no value,
+> but an element to outline — while the slots before January's first weekday
+> and after December's last are not drawn at all, and carry neither. The values
+> come from the DataTable rather than the fills, because the **minimum** value
+> is painted the same `#ffffff` as a day with no data; two rows naming the same
+> day are not summed, and the last one wins, which is what the package draws.
 
 > **Stacking note:** the adapter is handed the chart, the DataTable and the container, but never the draw options — so `isStacked` is invisible to it. That is why a stacked or percent-stacked chart is named by its own `chartType` string rather than detected. Passing `'AreaChart'` for a chart drawn with `isStacked: true` is not a cosmetic mistake: the bands would be announced as independent series, and the running total a sighted reader sees along the top edge would go missing entirely.
 
