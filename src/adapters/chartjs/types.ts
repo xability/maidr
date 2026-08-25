@@ -96,6 +96,12 @@ export type ChartJsDataValue
  * Minimal representation of a Chart.js chart instance.
  */
 export interface ChartJsChart {
+  /**
+   * Whether a dataset is drawn. `chartjs-chart-pcp` needs it because a hidden
+   * dataset there is a hidden *axis*: Chart.js lays out no scale for it, so
+   * it is not a column of the drawn chart at all.
+   */
+  isDatasetVisible?: (index: number) => boolean;
   readonly canvas: HTMLCanvasElement;
   readonly data: ChartJsData;
   readonly options: ChartJsOptions;
@@ -433,6 +439,15 @@ export interface ChartJsGeoValue {
 export interface ChartJsDatasetMeta {
   data: ChartJsMetaElement[];
   type: string;
+  /**
+   * The scale a dataset's values are measured against.
+   *
+   * `chartjs-chart-pcp` is why this is read: its controller gives every
+   * dataset its own axis and assigns it here, so a parallel coordinates
+   * chart's axes live on the metas rather than in `chart.scales` -- which
+   * holds only the one `pcp` category scale (#1184).
+   */
+  vScale?: { id?: string; options?: { title?: { text?: string; display?: boolean } } };
   /**
    * What Chart.js parsed each of the dataset's values into.
    *

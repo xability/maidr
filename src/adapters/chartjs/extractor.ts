@@ -855,16 +855,139 @@ function extractLayers(
     case 'dendrogram':
     case 'forceDirectedGraph':
       return extractGraphLayers(chart, chartType, pluginOptions, datasetIndices);
+    // Both `chartjs-chart-pcp` controllers. They differ only in the axis
+    // element each draws, and the values they carry are the same either way,
+    // so one reading serves them -- see `extractParallelLayers` for what a
+    // logarithmic axis does and does not change about that.
+    case 'pcp':
+    case 'logarithmicPcp':
+      return extractParallelLayers(chart, pluginOptions);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
         + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
         + 'wordCloud, funnel, choropleth, bubbleMap, tree, dendrogram, '
-        + 'forceDirectedGraph, barWithErrorBars, lineWithErrorBars, '
-        + 'scatterWithErrorBars.',
+        + 'forceDirectedGraph, pcp, logarithmicPcp, barWithErrorBars, '
+        + 'lineWithErrorBars, scatterWithErrorBars.',
       );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Parallel coordinates extraction (chartjs-chart-pcp)
+// ---------------------------------------------------------------------------
+
+const PARALLEL_VARIABLE_AXIS = 'Variable';
+const PARALLEL_VALUE_AXIS = 'Value';
+
+/**
+ * Reads a `chartjs-chart-pcp` chart as the parallel coordinates it draws.
+ *
+ * **The layout is the transpose of the obvious one.** Measured, one dataset
+ * is one axis -- `dataset.label` names it, and the plugin gives each its own
+ * `LinearAxis` element -- while one entry of `data.labels` is one
+ * observation. `ParallelTrace` wants the opposite, a row per observation and
+ * a column per axis, so this transposes rather than walking.
+ *
+ * `PCPScale.getLabels()` is the plugin saying the same thing: it returns the
+ * datasets' labels, so its category scale is the list of axis names.
+ *
+ * **The parse is not read, and here it is actively wrong rather than merely
+ * unnecessary.** `_parsed.x` is that category scale parsing an *observation*
+ * name against a label list holding the *axis* names, so it never matches and
+ * falls back to the index -- capped at the dataset count. Four observations
+ * over three axes parse to `x: 0, 1, 2, null`. Only the raw rows say which
+ * observation a value belongs to.
+ *
+ * A hidden dataset is skipped: Chart.js lays out no axis for it, so it is not
+ * a column of the drawn chart. A gap is emitted as a positioned point with no
+ * reading rather than dropped, which holds the column open -- a point dropped
+ * from the middle of an observation used to slide every later value onto the
+ * axis before it (#1182).
+ *
+ * `logarithmicPcp` reads identically. The plugin changes where a value is
+ * drawn on its axis, not what the value is, and `ParallelTrace` places a
+ * value linearly within its own axis either way -- so a reader is told the
+ * right number and hears it at a position the drawing would put slightly
+ * elsewhere. Announcing the drawn position instead would mean sonifying a log
+ * of the data rather than the data.
+ *
+ * @param chart - The Chart.js instance
+ * @param pluginOptions - The caller's `maidr` plugin options, for axis names
+ * @returns One layer, or none when nothing was drawn
+ */
+function extractParallelLayers(
+  chart: ChartJsChart,
+  pluginOptions?: MaidrPluginOptions,
+): MaidrLayer[] {
+  const axes = chart.data.datasets
+    .map((dataset, index) => ({ dataset, index }))
+    .filter(({ index }) => chart.isDatasetVisible?.(index) !== false);
+
+  // How far the widest axis reaches, which is how many observations the
+  // chart draws. There is one emptiness check for this reading and it is the
+  // one below: a chart with no datasets, one whose datasets are all hidden,
+  // and one whose datasets carry no values all arrive at no rows here, and
+  // each is declined by finding none.
+  const observations = axes.reduce(
+    (widest, { dataset }) => Math.max(widest, dataset.data.length),
+    0,
+  );
+
+  const labels = chart.data.labels ?? [];
+  const data: LinePoint[][] = [];
+  for (let row = 0; row < observations; row++) {
+    const name = labels[row];
+    const points: LinePoint[] = axes.map(({ dataset, index }) => ({
+      x: parallelAxisName(chart, dataset, index),
+      // `null` rather than omitted: the axis is drawn and the cursor reaches
+      // it, so the observation has a position there and no reading.
+      y: toFiniteNumber(dataset.data[row]),
+      ...(name === undefined ? {} : { z: String(name) }),
+    }));
+    if (points.some(point => point.y !== null))
+      data.push(points);
+  }
+
+  if (data.length === 0)
+    return [];
+
+  return [{
+    id: '0',
+    type: TraceType.PARALLEL,
+    axes: {
+      x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : PARALLEL_VARIABLE_AXIS },
+      y: { label: pluginOptions?.axes?.y ? pluginOptions.axes.y : PARALLEL_VALUE_AXIS },
+    },
+    data,
+  }];
+}
+
+/**
+ * What one axis of a parallel coordinates chart is called.
+ *
+ * The dataset's label, which is what the plugin itself uses everywhere: it
+ * becomes the axis element's `id`, it is what `PCPScale.getLabels()` returns
+ * for the tick under each axis, and it is what the tooltip names. A displayed
+ * axis title takes precedence, being the more descriptive name an author went
+ * out of their way to set.
+ *
+ * @param chart - The Chart.js instance
+ * @param dataset - The dataset drawn as this axis
+ * @param index - Its position, for the last-resort name
+ * @returns The axis name
+ */
+function parallelAxisName(
+  chart: ChartJsChart,
+  dataset: ChartJsDataset,
+  index: number,
+): string {
+  const scale = chart.getDatasetMeta(index)?.vScale;
+  const title = scale?.options?.title;
+  if (title?.display && typeof title.text === 'string' && title.text)
+    return title.text;
+  return dataset.label ? dataset.label : `Axis ${index + 1}`;
 }
 
 // ---------------------------------------------------------------------------
