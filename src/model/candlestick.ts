@@ -9,6 +9,7 @@ import type {
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { Ohlc } from '@util/candlePattern';
 import { AbstractTrace } from '@model/abstract';
 import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
@@ -69,13 +70,45 @@ type CandlestickSegmentType = 'open' | 'high' | 'low' | 'close';
 const SECTIONS = ['volatility', 'open', 'high', 'low', 'close'] as const;
 
 /**
- * Navigation sections of a candlestick trace, in row order (vertical layout).
- * Exported so live-data tooling can target a specific section (e.g. 'close')
- * when announcing newly streamed candles.
+ * Every navigation section a candlestick trace can have, in row order
+ * (vertical layout).
+ *
+ * The **superset**, not what a given chart carries: `open` is optional, and a
+ * chart drawn without one has four rows rather than five. Ask
+ * {@link candlestickSectionsOf} for a particular chart's rows -- an index
+ * taken from this list against a chart that has no open is off by one from
+ * `high` onward, and off the end at `close`.
  */
 export const CANDLESTICK_SECTIONS = SECTIONS;
 
 type CandlestickNavSegmentType = 'volatility' | CandlestickSegmentType;
+
+/**
+ * The rows one chart's candles actually have, in order.
+ *
+ * One rule with two callers: the trace builds its grid, its braille and its
+ * section walk from this, and `LiveDataService` resolves the row to announce
+ * a newly streamed candle on. They must agree -- a `close` looked up in
+ * {@link CANDLESTICK_SECTIONS} is row 4, which on a chart with no open is
+ * past the last row there is.
+ *
+ * Asked of **every** candle rather than of any: the rows are a property of
+ * the chart, since the values form a rectangular grid, so an open is a row
+ * here only if every candle can fill it. A series stating one for some
+ * periods and not others is read as the high-low-close it can be read as
+ * throughout, which is what they have in common.
+ *
+ * @param data - The chart's candles
+ * @returns The sections, in row order
+ */
+export function candlestickSectionsOf(
+  data: readonly CandlestickPoint[],
+): readonly CandlestickNavSegmentType[] {
+  const hasOpen = data.length > 0
+    && data.every(candle => typeof candle.open === 'number'
+      && Number.isFinite(candle.open));
+  return hasOpen ? SECTIONS : SECTIONS.filter(section => section !== 'open');
+}
 
 export class Candlestick extends AbstractTrace {
   protected readonly supportsExtrema = true;
@@ -96,7 +129,10 @@ export class Candlestick extends AbstractTrace {
     number
   >[];
 
-  private readonly sections: typeof SECTIONS;
+  /** Whether every candle records an opening price; see the constructor. */
+  private readonly hasOpen: boolean;
+
+  private readonly sections: readonly CandlestickNavSegmentType[];
 
   private readonly min: number;
   private readonly max: number;
@@ -106,7 +142,7 @@ export class Candlestick extends AbstractTrace {
   // state emission (every keypress / autoplay tick).
   private readonly perRowMin: number[];
   private readonly perRowMax: number[];
-  private readonly trends: CandlestickTrend[];
+  private readonly trends: (CandlestickTrend | undefined)[];
 
   // Rotor trend-filter units present in the data, computed once. Candles are
   // immutable after construction, so this avoids rebuilding the present-trend
@@ -133,14 +169,25 @@ export class Candlestick extends AbstractTrace {
     this.navigationService = new NavigationService();
 
     const data = layer.data as CandlestickPoint[];
+    // A chart with no open has one row fewer, rather than a row that
+    // announces nothing. `candlestickSectionsOf` is the one place that
+    // decides, so `LiveDataService` resolves the same rows this does.
+    this.sections = candlestickSectionsOf(data);
+    this.hasOpen = this.sections.includes('open');
     this.candles = data.map(candle => ({
       ...candle,
       volatility:
         Math.round(
           (candle.high - candle.low) * VOLATILITY_PRECISION_MULTIPLIER,
         ) / VOLATILITY_PRECISION_MULTIPLIER,
-      trend:
-        candle.close > candle.open
+      // The trend is a statement about the **body**, and the body is what an
+      // open makes. Without one there is no bull, no bear and no neutral --
+      // not a neutral by default, which would announce that the price
+      // finished where it started on a chart that never said where it
+      // started.
+      trend: candle.open === undefined
+        ? undefined
+        : candle.close > candle.open
           ? 'Bull'
           : candle.close < candle.open
             ? 'Bear'
@@ -148,10 +195,9 @@ export class Candlestick extends AbstractTrace {
     }));
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
-    this.sections = SECTIONS;
 
     this.candleValues = this.sections.map(key =>
-      this.candles.map(c => c[key]),
+      this.candles.map(c => this.priceOf(c, key)),
     );
     const options = this.orientation === Orientation.HORIZONTAL
       ? { col: this.sections.length - 1 }
@@ -169,7 +215,11 @@ export class Candlestick extends AbstractTrace {
     this.perRowMax = this.candleValues.map(row => MathUtil.safeMax(row));
     this.trends = this.candles.map(candle => candle.trend);
 
-    const presentTrends = new Set<CandlestickTrend>(this.trends);
+    // A chart with no open contributes only `undefined` here, so no trend
+    // unit matches and the rotor offers none -- which is what keeps it from
+    // becoming a cycle that can never advance, the keyboard trap
+    // `test/model/extremaContract.test.ts` exists for.
+    const presentTrends = new Set(this.trends);
     this.rotorFilterUnits = TREND_ROTOR_UNITS.filter(unit =>
       presentTrends.has(unit.key),
     );
@@ -196,20 +246,60 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * The price one segment names on one candle.
+   *
+   * `open` is the only segment that can be absent, and on a chart without it
+   * the section is not in {@link sections} -- so no navigation state, sorted
+   * order or extrema walk ever names it there, and this cannot be reached
+   * with `undefined`. The close stands in so the types stay honest without
+   * an assertion; a chart with no open never asks for one.
+   *
+   * @param candle - The candle to read
+   * @param segment - Which of its prices, or its volatility
+   * @returns The price
+   */
+  private priceOf(
+    candle: CandlestickPoint,
+    segment: CandlestickNavSegmentType,
+  ): number {
+    if (segment === 'volatility') {
+      return candle.volatility ?? 0;
+    }
+    return candle[segment] ?? candle.close;
+  }
+
+  /**
+   * One candle as the four-price shape the pattern detectors take.
+   *
+   * They are written against a body, so their parameter requires an open.
+   * Only reached where {@link hasOpen} holds, which is what makes the
+   * fallback here unreachable rather than a substitution: a chart without
+   * an open asks for no pattern at all.
+   *
+   * @param candle - The candle to narrow
+   * @returns The same four prices, with the open no longer optional
+   */
+  private static asOhlcOf(candle: CandlestickPoint): Ohlc {
+    return {
+      open: candle.open ?? candle.close,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+    };
+  }
+
+  /**
    * Pre-computes sorted segments for all candlestick points for O(1) lookup
    * @returns Array of sorted segment types for each candlestick point
    */
   private precomputeSortedSegments(): CandlestickNavSegmentType[][] {
     return this.candles.map((candle) => {
       // Always put 'volatility' first, then sort OHLC by value ascending
-      const ohlcSegments: CandlestickSegmentType[] = [
-        'low',
-        'open',
-        'close',
-        'high',
-      ];
+      const ohlcSegments: CandlestickSegmentType[] = this.hasOpen
+        ? ['low', 'open', 'close', 'high']
+        : ['low', 'close', 'high'];
       const sortedOhlc = ohlcSegments
-        .map(seg => [seg, candle[seg]] as [CandlestickSegmentType, number])
+        .map(seg => [seg, this.priceOf(candle, seg)] as [CandlestickSegmentType, number])
         .sort((a, b) => a[1] - b[1])
         .map(pair => pair[0]);
       return ['volatility', ...sortedOhlc];
@@ -254,7 +344,7 @@ export class Candlestick extends AbstractTrace {
     position: number,
   ): CandlestickNavSegmentType {
     const sortedSegments = this.sortedSegmentsByPoint[pointIndex];
-    return sortedSegments[position] ?? 'open';
+    return sortedSegments[position] ?? this.sections[0];
   }
 
   /**
@@ -264,7 +354,7 @@ export class Candlestick extends AbstractTrace {
     // Use the sorted navigation order (with volatility first)
     const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
     const dynamicSegmentPosition = navOrder.indexOf(
-      this.currentSegmentType ?? 'open',
+      this.currentSegmentType ?? this.sections[0],
     );
     if (this.orientation === Orientation.HORIZONTAL) {
       this.col = dynamicSegmentPosition;
@@ -323,7 +413,7 @@ export class Candlestick extends AbstractTrace {
         // Vertical movement: navigate between segments within the same candlestick (value-sorted)
         const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
         const currentSegmentPosition = navOrder.indexOf(
-          this.currentSegmentType ?? 'open',
+          this.currentSegmentType ?? this.sections[0],
         );
         if (currentSegmentPosition === -1) {
           this.notifyOutOfBounds();
@@ -497,7 +587,7 @@ export class Candlestick extends AbstractTrace {
         // Vertical movement: check if we can move between segments within the same candlestick
         const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
         const currentSegmentPosition = navOrder.indexOf(
-          this.currentSegmentType ?? 'open',
+          this.currentSegmentType ?? this.sections[0],
         );
         const newSegmentPosition
           = target === 'UPWARD'
@@ -526,22 +616,38 @@ export class Candlestick extends AbstractTrace {
     const bullCount = this.candles.filter(c => c.trend === 'Bull').length;
     const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
 
+    // A chart with no open has no bodies to count, so the two trend tallies
+    // are left out rather than reported as zero -- "Bull count 0" says the
+    // chart rose on no day, which is a finding, where the truth is that it
+    // never said.
     const stats: DescriptionState['stats'] = [
       { label: 'Number of periods', value: this.candles.length },
       { label: 'Price range', value: `${this.min} to ${this.max}` },
-      { label: 'Bull count', value: bullCount },
-      { label: 'Bear count', value: bearCount },
+      ...(this.hasOpen
+        ? [
+            { label: 'Bull count', value: bullCount },
+            { label: 'Bear count', value: bearCount },
+          ]
+        : []),
     ];
 
-    const headers = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Trend'];
+    const headers = [
+      'Date',
+      ...(this.hasOpen ? ['Open'] : []),
+      'High',
+      'Low',
+      'Close',
+      'Volume',
+      ...(this.hasOpen ? ['Trend'] : []),
+    ];
     const rows: (string | number)[][] = this.candles.map(c => [
       c.value,
-      c.open,
+      ...(this.hasOpen ? [c.open ?? ''] : []),
       c.high,
       c.low,
       c.close,
       c.volume ?? '',
-      c.trend,
+      ...(this.hasOpen ? [c.trend ?? ''] : []),
     ]);
 
     return {
@@ -571,17 +677,17 @@ export class Candlestick extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
-    let value: number;
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const candleCount = this.candles.length;
     const sectionCount = this.candleValues.length;
-    if (this.currentSegmentType === 'volatility') {
-      value = this.candles[this.currentPointIndex].volatility;
-    } else if (this.currentSegmentType) {
-      value = this.candles[this.currentPointIndex][this.currentSegmentType];
-    } else {
-      value = this.candles[this.currentPointIndex].open;
-    }
+    // `?? this.sections[0]` rather than `?? 'open'`: the fallback has to be
+    // a section this chart *has*, and volatility is the one every chart
+    // leads with. The old default named the row a high-low-close chart does
+    // not draw.
+    const value = this.priceOf(
+      this.candles[this.currentPointIndex],
+      this.currentSegmentType ?? this.sections[0],
+    );
 
     return {
       freq: {
@@ -622,7 +728,9 @@ export class Candlestick extends AbstractTrace {
       max: this.perRowMax,
       row: this.sections.indexOf(this.currentSegmentType ?? this.sections[0]),
       col: this.currentPointIndex,
-      custom: this.trends,
+      // Empty on a chart with no open: there are no bodies, so there is no
+      // per-candle trend for the braille row to shade.
+      custom: this.hasOpen ? (this.trends as CandlestickTrend[]) : [],
     };
   }
 
@@ -719,8 +827,11 @@ export class Candlestick extends AbstractTrace {
       let openEl = this.getElementAt(opens, i);
       if (!openEl) {
         const body = this.getElementAt(bodies, i);
-        if (body) {
-          const { open, close } = this.candles[i];
+        const { open, close } = this.candles[i];
+        // Which edge of the body is the open depends on which way the body
+        // ran, so a candle with none has no edge to derive -- and no `open`
+        // section for the element to be reached through either.
+        if (body && open !== undefined) {
           const edge: 'top' | 'bottom'
             = close > open ? 'bottom' : close < open ? 'top' : 'bottom';
           openEl = Svg.createLineElement(body, edge);
@@ -734,8 +845,11 @@ export class Candlestick extends AbstractTrace {
       let closeEl = this.getElementAt(closes, i);
       if (!closeEl) {
         const body = this.getElementAt(bodies, i);
-        if (body) {
-          const { open, close } = this.candles[i];
+        const { open, close } = this.candles[i];
+        // The close is the body's other edge, so it is derivable on exactly
+        // the charts the open is. A high-low-close chart draws no body at
+        // all; its close comes from the explicit selector or from nothing.
+        if (body && open !== undefined) {
           const edge: 'top' | 'bottom'
             = close > open ? 'top' : close < open ? 'bottom' : 'top';
           closeEl = Svg.createLineElement(body, edge);
@@ -808,14 +922,10 @@ export class Candlestick extends AbstractTrace {
   protected get text(): TextState {
     const point = this.candles[this.currentPointIndex];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
-    let crossValue: number;
-    if (this.currentSegmentType === 'volatility') {
-      crossValue = point.volatility;
-    } else if (this.currentSegmentType) {
-      crossValue = point[this.currentSegmentType];
-    } else {
-      crossValue = point.open;
-    }
+    const crossValue = this.priceOf(
+      point,
+      this.currentSegmentType ?? this.sections[0],
+    );
 
     // The shape is a fact about the candle rather than about the price the
     // cursor is on, so it travels as an aside -- `section` fuses onto the
@@ -823,24 +933,39 @@ export class Candlestick extends AbstractTrace {
     // five segments of one candle for the same reason the trend does: both
     // describe the candle, and which segment you happen to be reading does
     // not change either.
-    const shape = candleShape(point);
+    // Every one of these is a statement about the **body** -- a doji is a
+    // body of no height, a hammer is a small body over a long lower wick, an
+    // engulfing is one body covering another. A chart with no open draws no
+    // body, so it has none of them, and `bodied` is what says so once
+    // instead of at each of the four call sites.
+    const bodied = this.hasOpen ? Candlestick.asOhlcOf(point) : undefined;
+    const shape = bodied === undefined ? null : candleShape(bodied);
     // The first candle has nothing before it, so it carries no pair pattern.
     const previous = this.candles[this.currentPointIndex - 1];
-    const pairs = previous === undefined
+    const before = previous === undefined || !this.hasOpen
+      ? undefined
+      : Candlestick.asOhlcOf(previous);
+    const pairs = before === undefined || bodied === undefined
       ? []
-      : candlePairPatterns(previous, point);
+      : candlePairPatterns(before, bodied);
     // A hammer and a hanging man are one shape read two ways, and only the
     // run of closes before the candle separates them (#734).
     const run = this.candles
       .slice(0, this.currentPointIndex)
       .map(earlier => earlier.close);
-    const named = candleTrendPattern(run, point);
+    const named = bodied === undefined
+      ? null
+      : candleTrendPattern(run, bodied);
     // The three-candle formations need two candles behind the cursor, so the
     // first two of any chart carry none (#739, #740, #741, #742).
     const earlier = this.candles[this.currentPointIndex - 2];
-    const trios = earlier === undefined || previous === undefined
+    const first = earlier === undefined || !this.hasOpen
+      ? undefined
+      : Candlestick.asOhlcOf(earlier);
+    const trios = first === undefined || before === undefined
+      || bodied === undefined
       ? []
-      : candleTrioPatterns(earlier, previous, point);
+      : candleTrioPatterns(first, before, bodied);
     const asides = [
       ...(shape === null ? [] : [{ label: SHAPE, value: shape }]),
       ...pairs.map(pattern => ({ label: PATTERN, value: pattern })),
@@ -857,8 +982,13 @@ export class Candlestick extends AbstractTrace {
         label: isHorizontal ? this.xAxis : this.yAxis,
         value: crossValue,
       },
-      section: this.currentSegmentType ?? 'open',
-      z: { label: TREND, value: point.trend },
+      section: this.currentSegmentType ?? this.sections[0],
+      // No `z` on a chart with no body: the field carries the trend, and a
+      // trend is what a body is. Announcing an empty one would put "trend"
+      // in every reading with nothing after it.
+      ...(point.trend === undefined
+        ? {}
+        : { z: { label: TREND, value: point.trend } }),
       ...(asides.length === 0 ? {} : { asides }),
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
@@ -869,7 +999,7 @@ export class Candlestick extends AbstractTrace {
    * Gets the current candlestick trend for audio palette selection
    * @returns The trend of the current candlestick point
    */
-  public getCurrentTrend(): CandlestickTrend {
+  public getCurrentTrend(): CandlestickTrend | undefined {
     return this.candles[this.currentPointIndex].trend;
   }
 
@@ -930,7 +1060,7 @@ export class Candlestick extends AbstractTrace {
    */
   public override getExtremaTargets(): ExtremaTarget[] {
     const targets: ExtremaTarget[] = [];
-    const currentSegment = this.currentSegmentType ?? 'open';
+    const currentSegment = this.currentSegmentType ?? this.sections[0];
 
     // Only add extrema for the current segment
     if (currentSegment === 'volatility') {
@@ -981,7 +1111,7 @@ export class Candlestick extends AbstractTrace {
     } else {
       // For OHLC segments, find all min and max values
       const segmentValues = this.candles.map((c, index) => ({
-        value: c[currentSegment],
+        value: this.priceOf(c, currentSegment),
         index,
         xValue: c.value,
       }));
@@ -1004,7 +1134,7 @@ export class Candlestick extends AbstractTrace {
           = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
         targets.push({
           label: `Max ${segmentLabel} at ${candle.value}`,
-          value: candle[currentSegment],
+          value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,
           type: 'max',
@@ -1020,7 +1150,7 @@ export class Candlestick extends AbstractTrace {
           = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
         targets.push({
           label: `Min ${segmentLabel} at ${candle.value}`,
-          value: candle[currentSegment],
+          value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,
           type: 'min',
@@ -1071,11 +1201,15 @@ export class Candlestick extends AbstractTrace {
     if (currentIndex < 0 || currentIndex >= this.candles.length) {
       return false;
     }
-    const currentSegment = this.currentSegmentType ?? 'open';
+    const currentSegment = this.currentSegmentType ?? this.sections[0];
 
     const step = direction === 'right' ? 1 : -1;
     for (let i = currentIndex + step; i >= 0 && i < this.candles.length; i += step) {
-      if (this.compare(this.candles[i][currentSegment], this.candles[currentIndex][currentSegment], type)) {
+      if (this.compare(
+        this.priceOf(this.candles[i], currentSegment),
+        this.priceOf(this.candles[currentIndex], currentSegment),
+        type,
+      )) {
         this.currentPointIndex = i;
         this.updateVisualPointPosition();
         this.notifyStateUpdate();

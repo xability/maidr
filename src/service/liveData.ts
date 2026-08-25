@@ -15,7 +15,7 @@ import type {
   StepPoint,
   ViolinKdePoint,
 } from '@type/grammar';
-import { CANDLESTICK_SECTIONS } from '@model/candlestick';
+import { candlestickSectionsOf } from '@model/candlestick';
 import { Orientation, TraceType } from '@type/grammar';
 
 /**
@@ -250,7 +250,13 @@ export function appendPointToMaidr(
     // Candlestick navigation maps one axis to OHLC sections: target the
     // 'close' section of the new candle for monitor announcements.
     if (layer.type === TraceType.CANDLESTICK) {
-      const closeSection = CANDLESTICK_SECTIONS.indexOf('close');
+      // Resolved against **this chart's** rows rather than against the
+      // superset. A chart drawn without an opening price has four rows, not
+      // five, so the static index of `close` is past the last row it has and
+      // the announcement would target one that does not exist (#1188).
+      const closeSection = candlestickSectionsOf(
+        newData as CandlestickPoint[],
+      ).indexOf('close');
       if (layer.orientation === Orientation.HORIZONTAL) {
         // Horizontal layout: rows index candles, columns index sections —
         // a window trim shifts rows, so no column shift applies.
