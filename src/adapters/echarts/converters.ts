@@ -7,6 +7,7 @@ import type {
   ScatterPoint,
   SegmentedPoint,
 } from '@type/grammar';
+import type { AxisCategories } from './grid';
 import type {
   EChartsComponentModel,
   EChartsInstance,
@@ -16,6 +17,14 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
+import {
+  candlestickLayer,
+  categoriesOf,
+  drawnCandleCount,
+  drawnGridCount,
+  GRID_VALUE,
+  heatmapLayer,
+} from './grid';
 import { markPerDatum, markPerSeries } from './selectors';
 import { SINGLE_VALUE, singleValueLayers } from './single';
 
@@ -49,7 +58,7 @@ const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
  * Most of them have a trace waiting and are the later tiers of #1195; each
  * wants its own measured layout before it claims to be readable.
  */
-const READ: ReadonlySet<string> = new Set([...CARTESIAN, ...SINGLE_VALUE]);
+const READ: ReadonlySet<string> = new Set([...CARTESIAN, ...SINGLE_VALUE, ...GRID_VALUE]);
 
 /**
  * Converts a rendered ECharts instance into a MAIDR figure.
@@ -96,7 +105,7 @@ export function createMaidrFromEChart(
     // that declares both families anyway is read as the single-valued half
     // and says so, rather than dropping the other half in silence.
     ? readSingle(single, readable, container)
-    : buildLayers(readable, axisNames(model), container);
+    : buildLayers(readable, axisNames(model), categories(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
 
@@ -193,6 +202,7 @@ function text(value: unknown): string {
 function buildLayers(
   series: EChartsSeriesModel[],
   axes: Axes,
+  grid: AxisCategories,
   container: HTMLElement,
 ): MaidrLayer[] {
   const bars = series.filter(seriesModel => seriesModel.subType === 'bar');
@@ -200,11 +210,13 @@ function buildLayers(
 
   // Every per-datum mark of the chart is painted alike and only its position
   // tells it apart, so they are located once for all of them, in the order
-  // the series were declared.
+  // the series were declared. A heat cell and a candle body join that pool:
+  // both are one filled mark per datum, which is the only thing the count
+  // check asks of a series.
   const marked = series.filter(seriesModel => seriesModel.subType !== 'line');
   const perDatum = markPerDatum(
     container,
-    marked.map(seriesModel => drawnCount(seriesModel, axes.horizontal)),
+    marked.map(seriesModel => drawnMarks(seriesModel, axes, grid)),
   );
   // A bar names each of its marks; a scatter names its series in one string.
   // Not a preference: `ScatterTrace` reads `layer.selectors as string` and
@@ -224,14 +236,87 @@ function buildLayers(
   const lines = others.filter(seriesModel => seriesModel.subType === 'line');
   const polylines = markPerSeries(container, lines.length);
   for (const seriesModel of others) {
-    layers.push(
-      seriesModel.subType === 'line'
-        ? lineLayer(seriesModel, axes, polylines?.[lines.indexOf(seriesModel)])
-        : scatterLayer(seriesModel, axes, wholeSeriesOf(seriesModel)),
+    const layer = otherLayer(
+      seriesModel,
+      axes,
+      grid,
+      polylines?.[lines.indexOf(seriesModel)],
+      eachMarkOf(seriesModel),
+      wholeSeriesOf(seriesModel),
     );
+    if (layer) {
+      layers.push(layer);
+    }
   }
 
   return layers;
+}
+
+/**
+ * The layer for one non-bar series.
+ *
+ * @param seriesModel  - The series to read
+ * @param axes         - The chart's orientation and axis names
+ * @param grid         - The category names of both axes
+ * @param polyline     - Its stroked line, when it drew one
+ * @param eachMark     - One selector per mark, when they were found
+ * @param wholeSeries  - One selector naming the whole series
+ * @returns The layer, or `undefined` when the series has no reading
+ */
+function otherLayer(
+  seriesModel: EChartsSeriesModel,
+  axes: Axes,
+  grid: AxisCategories,
+  polyline: string | undefined,
+  eachMark: string[] | undefined,
+  wholeSeries: string | undefined,
+): MaidrLayer | undefined {
+  switch (seriesModel.subType) {
+    case 'line':
+      return lineLayer(seriesModel, axes, polyline);
+    case 'heatmap':
+      return heatmapLayer(seriesModel, grid, axes, eachMark);
+    case 'candlestick':
+      return candlestickLayer(seriesModel, axes, eachMark);
+    default:
+      return scatterLayer(seriesModel, axes, wholeSeries);
+  }
+}
+
+/**
+ * The category names both axes were drawn with.
+ *
+ * @param model - The chart's model
+ * @returns The labels of each axis, empty where the axis carries numbers
+ */
+function categories(model: EChartsModel): AxisCategories {
+  return {
+    x: categoriesOf(firstComponent(model, 'xAxis')),
+    y: categoriesOf(firstComponent(model, 'yAxis')),
+  };
+}
+
+/**
+ * How many marks a series drew, asked the way its own layer asks it.
+ *
+ * @param seriesModel - The series to read
+ * @param axes        - The chart's orientation
+ * @param grid        - The category names of both axes
+ * @returns The number of marks the drawing should hold for this series
+ */
+function drawnMarks(
+  seriesModel: EChartsSeriesModel,
+  axes: Axes,
+  grid: AxisCategories,
+): number {
+  switch (seriesModel.subType) {
+    case 'heatmap':
+      return drawnGridCount(seriesModel, grid);
+    case 'candlestick':
+      return drawnCandleCount(seriesModel);
+    default:
+      return drawnCount(seriesModel, axes.horizontal);
+  }
 }
 
 /**
