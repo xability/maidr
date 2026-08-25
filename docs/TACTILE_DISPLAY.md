@@ -307,6 +307,27 @@ That is the mark you asked to feel more closely, and after a step or two the
 middle of a chart is usually a patch with nothing in it — so holding the view
 there would hand you blank pins and no account of why.
 
+Zooming out to where you started gives back the picture you started with,
+pin for pin. That is worth stating because it did not always hold. Only the
+rows that change are transmitted, so each frame is a difference against the
+one before it — which is correct exactly while the device received everything
+sent to it. A zoom step sends a whole frame, and a whole frame costs the
+device a second or more, so stepping in and back out in quick succession is
+the heaviest burst maidr produces. If one of those writes was refused, the
+rows it carried kept whatever they held; every later frame was a difference
+against what had been *sent* rather than what had *arrived*, so those rows
+were never named again and the display stayed wrong in a few places. Coming
+back to where you started made it worse rather than better: that frame is
+identical to the one maidr believed was already displayed, so it was skipped
+entirely.
+
+A refused write is now noticed. maidr forgets what it thought the device was
+showing, which makes the next write a whole frame — true whatever the device
+is actually holding — and sends one straight away rather than waiting for you
+to press something. If the device is not accepting writes at all it stops
+after a couple of attempts and tries again the next time you move, so a
+disconnected display does not turn into a stream of retries.
+
 ### Panning
 
 Zooming in means the rest of the chart is off the pins, so the view pans — from

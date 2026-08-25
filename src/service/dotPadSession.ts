@@ -209,6 +209,21 @@ class DotPadSession {
    */
   public readonly onStateChange: Event<DotPadState> = this.onStateChangeEmitter.event;
 
+  private readonly onWriteFailureEmitter = new Emitter<void>();
+
+  /**
+   * Fires when a write to the device did not land.
+   *
+   * A caller that sends only what changed is holding a model of what the
+   * device is showing, and a dropped write makes that model wrong about the
+   * rows it covered. Every later frame is then a difference against something
+   * the device never received, so those rows keep whatever they had and no
+   * amount of navigating repairs them. The failure has to be observable for
+   * that model to be rebuilt; swallowing it silently is what leaves a display
+   * half-right indefinitely.
+   */
+  public readonly onWriteFailure: Event<void> = this.onWriteFailureEmitter.event;
+
   private readonly onKeyEmitter = new Emitter<DotPadKey>();
 
   /**
@@ -819,7 +834,9 @@ class DotPadSession {
    *
    * Failures are logged and swallowed rather than propagated: a dropped frame
    * is a missing update, not a reason to break the navigation the reader is in
-   * the middle of.
+   * the middle of. They are announced on {@link onWriteFailure} all the same,
+   * because a caller sending partial updates cannot keep track of what the
+   * device holds without knowing which of its writes arrived.
    *
    * @param write - The write to perform
    */
@@ -828,6 +845,7 @@ class DotPadSession {
       .then(() => write())
       .catch((error: unknown) => {
         console.error('DotPad write failed:', error instanceof Error ? error.message : error);
+        this.onWriteFailureEmitter.fire();
       });
   }
 

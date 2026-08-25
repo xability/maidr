@@ -228,6 +228,22 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private lastState: DrawableState | null = null;
 
   /**
+   * Proactive repairs made since the reader last did anything.
+   *
+   * A repair is itself a write and can fail in turn, so healing a dead
+   * connection by redrawing would retry forever. Reader activity is what
+   * resets this, which makes the bound the right shape: a display that broke
+   * mid-session is repaired at once, and one that cannot be written to at all
+   * stops being written to until the reader asks for something new.
+   */
+  private repairAttempts = 0;
+
+  /**
+   * Most proactive repairs between reader actions.
+   */
+  private static readonly MAX_REPAIR_ATTEMPTS = 2;
+
+  /**
    * Whether the reader has been told the text line is uncontracted, so they
    * are told once rather than on every move.
    */
@@ -327,6 +343,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     this.disposables.push(dotPadSession.onKey((key) => {
       this.handleDeviceKey(key);
+    }));
+
+    this.disposables.push(dotPadSession.onWriteFailure(() => {
+      this.handleWriteFailure();
     }));
 
     this.disposables.push(dotPadSession.onStateChange((state) => {
@@ -459,6 +479,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
     this.lastState = state;
+    this.repairAttempts = 0;
     if (!this.isActive) {
       return;
     }
@@ -1111,6 +1132,47 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return 'empty';
     }
     return changed ? 'changed' : 'unchanged';
+  }
+
+  /**
+   * Rebuilds what this service believes the device is showing, after a write
+   * that did not land.
+   *
+   * Only the rows that changed are transmitted, which means every frame is a
+   * difference against the frame before it. That is worth a second or more of
+   * the reader's time per move, and it is correct exactly while the device
+   * received everything sent to it. A dropped write breaks that: the rows it
+   * carried keep whatever they held, and because the next frame is a
+   * difference against what was *sent* rather than what *arrived*, those rows
+   * are never named again. The display stays wrong in a few places -- a
+   * fragment of an older frame among the current one -- and navigating does
+   * not clear it, because navigating only ever sends differences.
+   *
+   * Worse, an unchanged frame is skipped entirely, so returning the view to
+   * where it started -- zooming in and back out -- transmits nothing at all.
+   * That is the one moment the reader is most certain of what they should be
+   * feeling, and it was the moment least able to repair itself.
+   *
+   * Forgetting the frame is what fixes both: with nothing to difference
+   * against, the next write is a whole frame, which is true whatever the
+   * device is currently holding. The text line is forgotten for the same
+   * reason -- it is cached against retransmission in exactly the same way.
+   */
+  private handleWriteFailure(): void {
+    this.lastRaster = null;
+    this.lastText = null;
+    if (!this.isActive || this.repairAttempts >= TactileService.MAX_REPAIR_ATTEMPTS) {
+      return;
+    }
+    this.repairAttempts++;
+    // After the failing write has left the queue, so the repair is not chained
+    // behind the state that provoked it.
+    queueMicrotask(() => {
+      if (this.disposed || !this.isActive) {
+        return;
+      }
+      this.redraw(false);
+    });
   }
 
   /**

@@ -68,6 +68,7 @@ import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 jest.mock('@service/dotPadSession', () => {
   const keyListeners = new Set<(key: DotPadKey) => void>();
   const stateListeners = new Set<(state: DotPadState) => void>();
+  const writeFailureListeners = new Set<() => void>();
 
   return {
     dotPadSession: {
@@ -91,6 +92,12 @@ jest.mock('@service/dotPadSession', () => {
           stateListeners.delete(listener);
         } };
       }),
+      onWriteFailure: jest.fn((listener: () => void): Disposable => {
+        writeFailureListeners.add(listener);
+        return { dispose: () => {
+          writeFailureListeners.delete(listener);
+        } };
+      }),
       writeGraphic: jest.fn(),
       writeGraphicRow: jest.fn(),
       writeText: jest.fn(),
@@ -108,6 +115,11 @@ jest.mock('@service/dotPadSession', () => {
       fireState: (state: DotPadState): void => {
         for (const listener of Array.from(stateListeners)) {
           listener(state);
+        }
+      },
+      fireWriteFailure: (): void => {
+        for (const listener of Array.from(writeFailureListeners)) {
+          listener();
         }
       },
     },
@@ -152,6 +164,7 @@ interface FakeSession {
   releaseIfAdopted: jest.Mock<() => void>;
   fireKey: (key: DotPadKey) => void;
   fireState: (state: DotPadState) => void;
+  fireWriteFailure: () => void;
 }
 
 const session = dotPadSession as unknown as FakeSession;
@@ -632,6 +645,129 @@ describe('tactileService', () => {
 
       expect(service.isActive).toBe(true);
       expect(brailleStub.isEnabled).toBe(false);
+    });
+  });
+
+  describe('a write that did not land', () => {
+    // Only the rows that changed are transmitted, which makes every frame a
+    // difference against the one before it. That is correct exactly while the
+    // device received everything sent to it. When a write is dropped -- and on
+    // a real device over Bluetooth they are, under the burst of full frames a
+    // zoom step produces -- the rows it carried keep whatever they held, and
+    // the next frame is a difference against what was *sent* rather than what
+    // *arrived*. Those rows are never named again, so the display stays wrong
+    // in a few places and navigating does not clear it.
+    //
+    // The worst of it is the unchanged-frame skip: returning the view to where
+    // it started transmits nothing at all, so the one moment the reader is
+    // most certain of what they should be feeling was the moment least able to
+    // repair itself.
+
+    it('should send a whole frame after a failed write, not a difference', () => {
+      activate(1);
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      session.fireWriteFailure();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      service.update(traceState(chart, 0));
+
+      // Without forgetting the dropped frame this is a row update, computed
+      // against a frame the device never received.
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
+    });
+
+    it('should redraw a view that came back to where it started', () => {
+      // The reported symptom: zoom in twice, zoom out twice, and the picture
+      // the reader returns to is not the one they left. The final frame equals
+      // the frame the service believes is on the device, so it is skipped --
+      // and if any of the four writes in between was dropped, that skip is
+      // what makes the wrong picture permanent.
+      activate(1);
+      service.zoomIn();
+      service.zoomIn();
+      service.zoomOut();
+      session.fireWriteFailure();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      service.zoomOut();
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+
+    it('should repair the display without waiting for the reader to move', () => {
+      // A reader who has stopped navigating is the one most likely to be
+      // reading, and a display left wrong until the next arrow key is a
+      // display they are reading wrong.
+      activate(1);
+      session.writeGraphic.mockClear();
+
+      session.fireWriteFailure();
+
+      return Promise.resolve().then(() => {
+        expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('should resend the text line as well', () => {
+      // The text line is cached against retransmission in exactly the same
+      // way, so it goes stale in exactly the same way.
+      activate(1);
+      session.writeText.mockClear();
+
+      session.fireWriteFailure();
+      service.update(traceState(chart, 0));
+
+      expect(session.writeText).toHaveBeenCalled();
+    });
+
+    it('should stop repairing a device that never accepts a write', async () => {
+      // A repair is itself a write and can fail in turn. Retrying on every
+      // failure would spin for as long as the device is unreachable.
+      activate(1);
+      session.writeGraphic.mockClear();
+
+      for (let attempt = 0; attempt < 12; attempt++) {
+        session.fireWriteFailure();
+        await Promise.resolve();
+      }
+
+      expect(session.writeGraphic.mock.calls.length).toBeLessThanOrEqual(2);
+    });
+
+    it('should repair again once the reader has moved', async () => {
+      // The bound is per reader action rather than per session: a display that
+      // broke, was given up on, and then was navigated is worth repairing
+      // again, because the reader is back and the device may not be.
+      activate(1);
+      for (let attempt = 0; attempt < 4; attempt++) {
+        session.fireWriteFailure();
+        await Promise.resolve();
+      }
+      service.update(traceState(chart, 0));
+      session.writeGraphic.mockClear();
+
+      session.fireWriteFailure();
+      await Promise.resolve();
+
+      expect(session.writeGraphic).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not write to a device the reader has switched off', async () => {
+      activate(1);
+      service.toggle();
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
+
+      session.fireWriteFailure();
+      await Promise.resolve();
+
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
     });
   });
 

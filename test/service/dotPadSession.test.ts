@@ -81,6 +81,7 @@ interface VendorHooks {
   scan: () => Promise<unknown>;
   connectDevice: () => Promise<DotPadVendorDevice | null | undefined>;
   onGraphic: () => void;
+  onLine: () => void;
   onText: () => Promise<void> | void;
   translate: (text: string) => Promise<string>;
 }
@@ -157,6 +158,7 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
     scan: (): Promise<unknown> => Promise.resolve(SELECTION),
     connectDevice: (): Promise<DotPadVendorDevice | null | undefined> => Promise.resolve(device),
     onGraphic: (): void => {},
+    onLine: (): void => {},
     onText: (): Promise<void> | void => {},
     translate: (): Promise<string> => Promise.resolve('1e15'),
   };
@@ -241,6 +243,7 @@ function createVendor(device: DotPadVendorDevice = DEVICE): Vendor {
       mode: string,
       _device?: DotPadVendorDevice | null,
     ): void {
+      hooks.onLine();
       writes.push({ kind: 'line', lineId, startCell: startCellIndex, hex, mode });
     }
 
@@ -1046,6 +1049,57 @@ describe('dotPadSession', () => {
 
       expect(vendor.writes).toEqual([{ kind: 'graphic', hex: '00', mode: 'GraphicMode' }]);
       expect(consoleError).toHaveBeenCalled();
+    });
+
+    it('should announce a failed write', async () => {
+      // Swallowing the error keeps the reader's navigation going, which is
+      // right, but it also hides the one fact a caller sending partial frames
+      // cannot do without. Anything holding a model of what the device shows
+      // has to be told the model is now wrong, or it will keep sending
+      // differences against a frame that never arrived.
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      const failures = jest.fn();
+      session.onWriteFailure(failures);
+      vendor.hooks.onGraphic = (): void => {
+        throw new Error('frame dropped');
+      };
+
+      session.writeGraphic('ff');
+      await flushWrites();
+
+      expect(failures).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not announce a write that landed', async () => {
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      const failures = jest.fn();
+      session.onWriteFailure(failures);
+
+      session.writeGraphic('ff');
+      session.writeGraphicRow(0, 'aa');
+      await flushWrites();
+
+      expect(failures).not.toHaveBeenCalled();
+    });
+
+    it('should announce a failed row write too', async () => {
+      // A dropped row is the quieter of the two and the harder to recover
+      // from: it leaves most of the picture right, so nothing about the
+      // display says it should not be trusted.
+      const vendor = createVendor();
+      const { session } = await connectSession(vendor);
+      const failures = jest.fn();
+      session.onWriteFailure(failures);
+      vendor.hooks.onLine = (): void => {
+        throw new Error('line dropped');
+      };
+
+      session.writeGraphicRow(0, 'aa');
+      await flushWrites();
+
+      expect(failures).toHaveBeenCalledTimes(1);
     });
   });
 
