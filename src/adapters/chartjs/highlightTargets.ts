@@ -293,10 +293,15 @@ export function computeTargetMaps(
         break;
       }
       case TraceType.BAR:
-      case TraceType.DOT: {
+      case TraceType.DOT:
+      case TraceType.FUNNEL: {
         // Single-dataset bar, and the dot plot drawn by the same builder: a
         // single MAIDR row backed by the layer's own dataset, its columns in
         // the order the categories are drawn.
+        //
+        // A funnel comes out of that same builder, one layer per dataset, so
+        // its row is its own dataset's -- which is why the extractor records
+        // the mapping rather than leaving it to the every-dataset default.
         const dsIdx = firstDatasetIndex(layerDatasetIndices, layer.id);
         const data = datasets[dsIdx]?.data ?? [];
         barLineIndices.set(
