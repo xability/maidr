@@ -86,36 +86,22 @@ export function heatmapLayer(
     return undefined;
   }
 
-  const data = seriesModel.getData();
   const rows = axes.y.length;
   const columns = axes.x.length;
   const points: (number | null)[][] = Array.from(
     { length: rows },
     () => Array.from({ length: columns }, () => null),
   );
-  // The same walk `drawnGridCount` makes, so a cell's selector and its value
-  // are placed by one rule rather than two that could disagree.
   const grid: (string | null)[][] = Array.from(
     { length: rows },
     () => Array.from({ length: columns }, () => null),
   );
 
-  let drawn = 0;
-  for (let index = 0; index < data.count(); index++) {
-    const column = whole(data.get('x', index));
-    const row = whole(data.get('y', index));
-    const value = data.get('value', index);
-    if (column === null || row === null || !measured(value)) {
-      continue;
-    }
-    if (row >= rows || column >= columns) {
-      continue;
-    }
-    // `points` is top-first and `row` counts up from the bottom.
-    points[rows - 1 - row][column] = value;
-    grid[row][column] = selectorFor?.[drawn] ?? null;
-    drawn += 1;
-  }
+  placedCells(seriesModel, axes).forEach((cell, drawn) => {
+    // `points` is top-first and `cell.row` counts up from the bottom.
+    points[rows - 1 - cell.row][cell.column] = cell.value;
+    grid[cell.row][cell.column] = selectorFor?.[drawn] ?? null;
+  });
 
   const named = seriesModel.get('name');
   const name = typeof named === 'string' ? named : '';
@@ -145,19 +131,53 @@ export function drawnGridCount(
   seriesModel: EChartsSeriesModel,
   axes: AxisCategories,
 ): number {
+  return placedCells(seriesModel, axes).length;
+}
+
+/** One cell that was drawn, at the axis indices ECharts placed it by. */
+interface PlacedCell {
+  row: number;
+  column: number;
+  value: number;
+}
+
+/**
+ * The cells a heatmap series drew, in data order.
+ *
+ * The count check and the layer ask the same question -- which cells reached
+ * the page -- so they ask it in one place. Two copies of this predicate would
+ * agree until one of them was edited, and the disagreement would show up as a
+ * selector list one longer than the marks it addresses: every cell after the
+ * first divergence outlined one place off, silently.
+ *
+ * A cell is drawn when it has whole, non-negative coordinates, a finite
+ * value, and a place inside the axes. Each of those was measured against a
+ * real chart: `[0.5, 0.5]` and `[5, 5]` on a 2x2 grid are both kept in the
+ * model, and a `null` or `'-'` value is kept as `null`.
+ *
+ * @param seriesModel - The series to read
+ * @param axes        - The category names of both axes
+ * @returns One entry per drawn cell, in the order the data declared them
+ */
+function placedCells(
+  seriesModel: EChartsSeriesModel,
+  axes: AxisCategories,
+): PlacedCell[] {
   const data = seriesModel.getData();
-  let drawn = 0;
+  const cells: PlacedCell[] = [];
   for (let index = 0; index < data.count(); index++) {
     const column = whole(data.get('x', index));
     const row = whole(data.get('y', index));
-    if (column === null || row === null || !measured(data.get('value', index))) {
+    const value = data.get('value', index);
+    if (column === null || row === null || !measured(value)) {
       continue;
     }
-    if (row < axes.y.length && column < axes.x.length) {
-      drawn += 1;
+    if (row >= axes.y.length || column >= axes.x.length) {
+      continue;
     }
+    cells.push({ row, column, value });
   }
-  return drawn;
+  return cells;
 }
 
 /**
