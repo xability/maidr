@@ -230,6 +230,24 @@ export const builds = [
     },
   },
   {
+    name: 'echarts',
+    entry: 'src/adapters/echarts/index.ts',
+    libName: 'maidrECharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'echarts.mjs' : 'echarts.js',
+    emptyOutDir: false,
+    // ECharts itself is never imported -- the adapter reads the model off the
+    // live instance the host page already created -- so there is nothing to
+    // externalise.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'd3',
     entry: 'src/adapters/d3/index.ts',
     libName: 'maidrD3',
