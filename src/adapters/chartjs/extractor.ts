@@ -8,9 +8,9 @@
  *   area, bump, dot, survival), scatter, bubble, pie, doughnut, gauge, radar,
  *   polarArea
  * - Plugin: boxplot, violin, candlestick/ohlc, matrix (heatmap), treemap,
- *   sankey, wordCloud, funnel, choropleth, bubbleMap, and the cartesian
- *   error-bar controllers (barWithErrorBars, lineWithErrorBars,
- *   scatterWithErrorBars)
+ *   sankey, wordCloud, funnel, choropleth, bubbleMap, tree, dendrogram,
+ *   forceDirectedGraph, and the cartesian error-bar controllers
+ *   (barWithErrorBars, lineWithErrorBars, scatterWithErrorBars)
  *
  * A type with no MAIDR trace behind it is rejected with an explicit error
  * rather than silently mapped to a bar chart. The three plugins #1108 named
@@ -19,9 +19,9 @@
  */
 
 import type { FieldRef, MaidrTraceDeclaration, ManhattanDeclaration, ScatterDeclaration, VolcanoDeclaration } from '../../type/declaration';
-import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, ChoroplethPoint, DumbbellData, DumbbellPoint, ErrorBarPoint, FlowPoint, GanttData, GanttPoint, GaugePoint, HeatmapData, LinePoint, Maidr, MaidrLayer, MaidrSubplot, NavigateCallback, NetworkPoint, PiePoint, ScatterPoint, SegmentedPoint, StepDirection, SurvivalPoint, ThresholdOptions, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallKind, WaterfallPoint, WordCloudPoint } from '../../type/grammar';
 import type { DeclarationContext } from '../shared/traceDeclaration';
-import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
+import type { ChartJsChart, ChartJsDataset, ChartJsDataValue, ChartJsGeoValue, ChartJsGraphValue, ChartJsParsedValue, ChartJsPointValue, ChartJsRangeBound, ChartJsSankeyValue, ChartJsTreemapValue, MaidrPluginOptions } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
 import { resolveFieldRef, validateDeclaration, warnUnresolvedRef } from '../shared/traceDeclaration';
 
@@ -847,13 +847,22 @@ function extractLayers(
     case 'choropleth':
     case 'bubbleMap':
       return extractGeoLayers(chart, chartType, pluginOptions, datasetIndices);
+    // All three `chartjs-chart-graph` controllers, over the same flat node
+    // list. `tree` and `dendrogram` are one hierarchy drawn two ways;
+    // `forceDirectedGraph` may carry an edge list that closes a cycle, which
+    // is a graph rather than a hierarchy.
+    case 'tree':
+    case 'dendrogram':
+    case 'forceDirectedGraph':
+      return extractGraphLayers(chart, chartType, pluginOptions, datasetIndices);
     default:
       throw new Error(
         `MAIDR Chart.js adapter: unsupported chart type "${chartType}". `
         + 'Supported types: bar, line, scatter, bubble, pie, doughnut, radar, '
         + 'polarArea, boxplot, violin, candlestick, ohlc, matrix, treemap, sankey, '
-        + 'wordCloud, funnel, choropleth, bubbleMap, barWithErrorBars, '
-        + 'lineWithErrorBars, scatterWithErrorBars.',
+        + 'wordCloud, funnel, choropleth, bubbleMap, tree, dendrogram, '
+        + 'forceDirectedGraph, barWithErrorBars, lineWithErrorBars, '
+        + 'scatterWithErrorBars.',
       );
   }
 }
@@ -3159,6 +3168,221 @@ function extractWordCloudLayers(chart: ChartJsChart): MaidrLayer[] {
       data,
     },
   ];
+}
+
+// ---------------------------------------------------------------------------
+// Graph extraction (tree, dendrogram, forceDirectedGraph)
+// ---------------------------------------------------------------------------
+
+/** What a graph's two dimensions are called when the chart names neither. */
+const GRAPH_NODE_AXIS = 'Node';
+const GRAPH_LINK_AXIS = 'Links';
+
+/**
+ * Reads a `chartjs-chart-graph` chart as the hierarchy or the graph it draws.
+ *
+ * All three controllers take the **same** flat node list — measured on
+ * `chartjs-chart-graph@4`, driven headlessly through Chart.js's own
+ * `BasicPlatform` — and differ in the layout they lay it out with. What
+ * separates the readings is not the layout but what the node list is allowed
+ * to be:
+ *
+ *   - **`tree` and `dendrogram` are one reading.** Each node names its parent
+ *     by index, so the data is a hierarchy by construction, and the two
+ *     controllers are one class with a `mode` option. The grammar already
+ *     says a hierarchy drawn as boxes joined by links is a
+ *     {@link TraceType.TREE} whatever the layout puts where — the same rule
+ *     that makes an icicle and a sunburst one reading — and a dendrogram *is*
+ *     a tree, drawn with its leaves levelled. Naming it apart would name a
+ *     layout, not a chart.
+ *
+ *   - **`forceDirectedGraph` is a graph.** Its author may declare `edges`
+ *     instead of parents, and measured, the plugin accepts an edge list that
+ *     closes a cycle — five links over five nodes, drawn without complaint.
+ *     A cycle is not a hierarchy, so reading it as a tree would announce
+ *     ancestry that is not there. {@link TraceType.NETWORK} is the grammar's
+ *     own word for it: "nodes joined by undirected links, laid out by a force
+ *     solver or similar".
+ *
+ * **The links come from the metadata** rather than from `dataset.edges`,
+ * because that is the one place both spellings arrive resolved: measured, a
+ * `forceDirectedGraph` with no declared edges has them derived from `parent`
+ * and filled in there just the same. The ends are elements, paired back to
+ * node positions by identity.
+ *
+ * **The hierarchy comes from `parent`** rather than from those same links,
+ * because a link is a pair and a path needs a direction: nothing in an edge
+ * says which end is the parent. `parent` says it outright, and the two tree
+ * controllers require it.
+ *
+ * @param chart - The Chart.js chart
+ * @param chartType - Which of the three controllers drew it
+ * @param pluginOptions - The MAIDR plugin options, for the axis labels
+ * @param datasetIndices - Collects which dataset backs each emitted layer
+ * @returns One layer per dataset that drew a node
+ */
+function extractGraphLayers(
+  chart: ChartJsChart,
+  chartType: string,
+  pluginOptions?: MaidrPluginOptions,
+  datasetIndices?: LocalDatasetIndices,
+): MaidrLayer[] {
+  const labels = chart.data.labels ?? [];
+  const layers: MaidrLayer[] = [];
+
+  chart.data.datasets.forEach((dataset, index) => {
+    const rows = dataset.data;
+    if (rows.length === 0)
+      return;
+    const names = rows.map((row, i) => graphNodeName(labels[i], i));
+    const data = chartType === 'forceDirectedGraph'
+      ? graphLinks(chart, index, names)
+      : treeNodes(rows, names);
+    if (data.length === 0)
+      return;
+
+    // Recorded rather than left to the per-type default, which is "every
+    // dataset, in order": two graphs would otherwise both address the first.
+    datasetIndices?.set(String(index), [index]);
+    layers.push({
+      id: String(index),
+      type: chartType === 'forceDirectedGraph' ? TraceType.NETWORK : TraceType.TREE,
+      title: dataset.label,
+      axes: chartType === 'forceDirectedGraph'
+        ? {
+            x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS },
+            y: { label: pluginOptions?.axes?.y ? pluginOptions.axes.y : GRAPH_LINK_AXIS },
+          }
+        : { x: { label: pluginOptions?.axes?.x ? pluginOptions.axes.x : GRAPH_NODE_AXIS } },
+      data,
+    });
+  });
+
+  return layers;
+}
+
+/**
+ * What one node is called.
+ *
+ * `chart.data.labels` and nothing else. A graph node carries no name of its
+ * own that the plugin reads — measured, `IGraphDataPoint` declares `parent`
+ * alone — so a name written anywhere on the row is the author's private
+ * convention rather than something the chart is drawn from, and every one of
+ * the plugin's own examples puts the names in `labels`.
+ *
+ * The position is the last resort, matching what the bar family does with a
+ * category the chart never labelled: a node with no name is still a node, and
+ * a tree's path is built out of these.
+ *
+ * @param label - The chart's label for this node, if it has one
+ * @param index - Its position in the dataset
+ * @returns The name to announce
+ */
+function graphNodeName(label: string | number | undefined, index: number): string | number {
+  if (typeof label === 'number' || (typeof label === 'string' && label !== ''))
+    return label;
+  return index;
+}
+
+/**
+ * The hierarchy a tree or dendrogram dataset declares, as nodes carrying
+ * their ancestors.
+ *
+ * The grammar takes a **path** rather than a parent pointer, so each node's
+ * chain is walked up to the root and reversed. No magnitude is emitted:
+ * `chartjs-chart-graph` sizes nothing by value, and
+ * {@link TreemapPoint.y} is optional precisely for the hierarchy that has no
+ * size — a reporting line, a taxonomy.
+ *
+ * **A cycle stops the walk.** `parent` is an index and nothing stops it
+ * naming a descendant, or a node naming itself; stopping at the first node
+ * already seen keeps the walk finite and leaves the partial path, which still
+ * places the node under the ancestors that are real. The same answer the
+ * Google Charts org-chart reading gives a malformed table.
+ *
+ * Measured, such a chart is already broken before this runs: the plugin's own
+ * `getTreeRoot` throws on a node list with no root. But it throws from the
+ * layout, which runs on an animation frame rather than inside `update()`, so
+ * extraction can still be asked about the chart afterwards -- and without the
+ * guard this would not return at all, which is a worse failure than a partial
+ * path.
+ *
+ * @param rows - The dataset's node list
+ * @param names - What each node is called, in the same order
+ * @returns One node per row, in the order they were declared
+ */
+function treeNodes(rows: ChartJsDataValue[], names: (string | number)[]): TreemapPoint[] {
+  return rows.map((_, index) => {
+    const path: (string | number)[] = [];
+    const seen = new Set<number>([index]);
+    let at = parentOf(rows[index]);
+
+    while (at !== undefined && !seen.has(at) && names[at] !== undefined) {
+      path.unshift(names[at]);
+      seen.add(at);
+      at = parentOf(rows[at]);
+    }
+
+    return { x: names[index], ...(path.length > 0 ? { path } : {}) };
+  });
+}
+
+/**
+ * Which node a row names as its parent, when it names one.
+ *
+ * Only that the field is a **number**, and that much is load-bearing: the walk
+ * looks a parent up as `names[at]`, and JavaScript would coerce a string index
+ * happily, so `parent: '0'` would place a node under the root. Measured, the
+ * plugin does no such thing -- it throws outright, so a string is not a parent
+ * and a chart carrying one is not a chart.
+ *
+ * Nothing else is asked here. Whether a number *places* anything is settled
+ * once, by that same lookup, which already covers every way an index can fail
+ * to name a node: past the end, negative, fractional. Repeating those as shape
+ * tests would be two spellings of one rule, and the pair would only drift.
+ *
+ * @param row - The dataset row
+ * @returns Its parent's position, or `undefined` for a root
+ */
+function parentOf(row: ChartJsDataValue): number | undefined {
+  const parent = (row as ChartJsGraphValue | null)?.parent;
+  return typeof parent === 'number' ? parent : undefined;
+}
+
+/**
+ * The links a force-directed graph drew, both ends by name.
+ *
+ * Read off the metadata because that is where both spellings meet: an author
+ * who declared `edges` and one who left the plugin to derive them from
+ * `parent` produce the same list there, with each end resolved to the element
+ * drawing that node. Pairing those elements back to positions by identity is
+ * what turns them into names.
+ *
+ * A link whose end this cannot place is dropped rather than half-announced.
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndex - Which dataset to read
+ * @param names - What each node is called, in dataset order
+ * @returns One entry per drawn link
+ */
+function graphLinks(
+  chart: ChartJsChart,
+  datasetIndex: number,
+  names: (string | number)[],
+): NetworkPoint[] {
+  const meta = chart.getDatasetMeta(datasetIndex);
+  const position = new Map(meta?.data?.map((element, index) => [element, index]) ?? []);
+  const links: NetworkPoint[] = [];
+
+  for (const edge of meta?.edges ?? []) {
+    const source = position.get(edge.source);
+    const target = position.get(edge.target);
+    if (source === undefined || target === undefined)
+      continue;
+    links.push({ source: names[source], target: names[target] });
+  }
+
+  return links;
 }
 
 // ---------------------------------------------------------------------------
