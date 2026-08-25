@@ -17,6 +17,7 @@ import type {
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 import { markPerDatum, markPerSeries } from './selectors';
+import { SINGLE_VALUE, singleValueLayers } from './single';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -29,16 +30,26 @@ export interface EChartsAdapterOptions {
 }
 
 /**
- * The series types this tier reads.
+ * The series types that live on a grid.
  *
- * ECharts draws seventeen. Every other one -- `pie`, `boxplot`,
- * `candlestick`, `heatmap`, `radar`, `funnel`, `gauge`, `treemap`,
- * `sunburst`, `sankey`, `graph`, `parallel`, `themeRiver`, `pictorialBar` --
- * is left unread by name rather than mapped onto whichever trace is closest.
+ * Not the whole of what the adapter reads -- see `READ` below, which is this
+ * set together with the single-valued ones. The two are kept apart because
+ * they are read by different code: one has axes and positions, the other
+ * names and magnitudes.
+ */
+const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
+
+/**
+ * Everything the adapter reads.
+ *
+ * ECharts draws seventeen series types. Every one outside this set --
+ * `boxplot`, `candlestick`, `heatmap`, `radar`, `treemap`, `sunburst`,
+ * `sankey`, `graph`, `parallel`, `themeRiver`, `pictorialBar` -- is left
+ * unread **by name** rather than mapped onto whichever trace is closest.
  * Most of them have a trace waiting and are the later tiers of #1195; each
  * wants its own measured layout before it claims to be readable.
  */
-const READ: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
+const READ: ReadonlySet<string> = new Set([...CARTESIAN, ...SINGLE_VALUE]);
 
 /**
  * Converts a rendered ECharts instance into a MAIDR figure.
@@ -77,8 +88,15 @@ export function createMaidrFromEChart(
     );
   }
 
-  const axes = axisNames(model);
-  const layers = buildLayers(readable, axes, container);
+  const single = readable.filter(seriesModel => SINGLE_VALUE.has(seriesModel.subType));
+  const layers = single.length > 0
+    // A pie, a funnel and a gauge each own the whole chart -- none of them
+    // sits on a grid -- so a figure holding one holds nothing else this
+    // adapter would stamp, and the two stamping passes never meet. A chart
+    // that declares both families anyway is read as the single-valued half
+    // and says so, rather than dropping the other half in silence.
+    ? readSingle(single, readable, container)
+    : buildLayers(readable, axisNames(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
 
@@ -87,6 +105,33 @@ export function createMaidrFromEChart(
     ...(title ? { title } : {}),
     subplots: [[subplot]],
   };
+}
+
+/**
+ * The layers of a chart whose series carry one magnitude per named thing.
+ *
+ * @param single   - The single-valued series
+ * @param readable - Every series the adapter reads, including those
+ * @param container - The element the chart was rendered into
+ * @returns One or more layers per series
+ */
+function readSingle(
+  single: EChartsSeriesModel[],
+  readable: EChartsSeriesModel[],
+  container: HTMLElement,
+): MaidrLayer[] {
+  if (single.length !== readable.length) {
+    const dropped = readable
+      .filter(seriesModel => !SINGLE_VALUE.has(seriesModel.subType))
+      .map(seriesModel => seriesModel.subType)
+      .join(', ');
+    console.warn(
+      `[MAIDR] ECharts chart mixes single-value and cartesian series. `
+      + `Reading the single-value ones; ignoring: ${dropped}.`,
+    );
+  }
+
+  return single.flatMap(seriesModel => singleValueLayers(seriesModel, container));
 }
 
 /**

@@ -52,9 +52,9 @@ Two things this example does on purpose:
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 
-**Not yet supported:** `pie`, `boxplot`, `candlestick`, `heatmap`, `radar`,
-`funnel`, `gauge`, `treemap`, `sunburst`, `sankey`, `graph`, `parallel`,
-`themeRiver`, `pictorialBar`. Each of these is *refused by name* rather than
+**Not yet supported:** `boxplot`, `candlestick`, `heatmap`, `radar`,
+`treemap`, `sunburst`, `sankey`, `graph`, `parallel`, `themeRiver`,
+`pictorialBar`. Each of these is *refused by name* rather than
 mapped onto whichever trace is closest — most have a MAIDR trace waiting for
 them, and each wants its own measured layout first. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
@@ -70,6 +70,28 @@ them, and each wants its own measured layout first. See
 > announce or outline; in a line chart it is kept, with no reading, so the
 > samples either side stay in their places rather than the series closing over
 > the hole.
+
+## Single-value charts
+
+A pie, a funnel and a gauge sit on no grid and own the whole chart, and all
+three report `data.dimensions` as `['value']` with the label on `getName(i)` —
+so the reading is that pair.
+
+| ECharts | read as | highlighted |
+|---|---|---|
+| `pie` | `pie` | yes — one selector naming every slice |
+| `funnel` | `funnel` | yes — one selector per stage |
+| `gauge` | `gauge` | **no** — see below |
+
+A gauge draws **two** filled marks for its one datum: the track and the
+progress arc, measured as `#e8ebf0` and the series colour. The count check
+every other reading here relies on has nothing to check, and naming either
+mark would be a guess about which one the reader should be shown, so the
+gauge is read without an outline.
+
+`min` and `max` come off the series rather than being defaulted here.
+`getModel()` resolves ECharts' own `0` and `100` when the author wrote
+neither, so the dial the reader is told about is the dial that was drawn.
 
 ## Highlighting
 
