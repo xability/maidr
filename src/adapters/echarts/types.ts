@@ -15,12 +15,14 @@
  * The series types this adapter reads.
  *
  * ECharts draws seventeen. Three are the cartesian ones (tier 1 of
- * xability/maidr#1195) and three carry one magnitude per named thing (tier
- * 2a). Every other series type is refused by name so that gaining a reading
- * later is a decision rather than an accident.
+ * xability/maidr#1195), three carry one magnitude per named thing (tier 2a),
+ * and two hand over a set of magnitudes already computed (tier 2b). Every
+ * other series type is refused by name so that gaining a reading later is a
+ * decision rather than an accident.
  *
- * Kept in step with `READ` in `converters.ts`, which is what actually decides
- * -- this type is the public statement of it.
+ * Kept in step with `READ` in `converters.ts`, which is what actually
+ * decides -- this type is the public statement of it, and
+ * `test/adapters/echarts/cartesian.test.ts` fails if the two stop agreeing.
  */
 export type EChartsSeriesType
   = | 'bar'
@@ -28,7 +30,9 @@ export type EChartsSeriesType
     | 'scatter'
     | 'pie'
     | 'funnel'
-    | 'gauge';
+    | 'gauge'
+    | 'heatmap'
+    | 'candlestick';
 
 /**
  * One column of a series' internal data list.
