@@ -53,9 +53,10 @@ Two things this example does on purpose:
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 | `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
 
-**Not yet supported:** `boxplot`, `radar`, `parallel`, `themeRiver`.
-Each of these is *refused by name* rather than mapped onto
-whichever trace is closest — each wants its own measured layout first. See
+**Not yet supported:** `boxplot` and `radar`. Both are *refused by name*
+rather than mapped onto whichever trace is closest — each wants its own
+measured layout first, and the footer of `src/adapters/echarts/grid.ts`
+records what stands in the way of each. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
 > **Orientation note:** ECharts has no "horizontal" option. A bar chart is
@@ -174,6 +175,49 @@ fills in document order — reading the default palette had suggested otherwise:
 - **`sankey` and `graph`** both navigate *links* while the marks are *nodes*.
   There is no per-link element to name, so the cursor and the marks would be
   addressing different things.
+
+## Theme rivers and parallel coordinates
+
+Two more series types own the chart without sitting on the x/y grid, and
+neither carries a hierarchy or a graph.
+
+| ECharts | read as | payload | highlighted |
+|---|---|---|---|
+| `themeRiver` | `stacked_area` | `SegmentedPoint[][]` | **no** — see below |
+| `parallel` | `parallel_coordinates` | `LinePoint[][]` | **no** — see below |
+
+**A theme river's rows are flat.** Measured, the series carries
+`['time', 'value', 'name']` with one row *per band per instant* — six rows
+for three instants of two bands — and `getName(i)` answers the band's name
+rather than a category label. Grouping those rows is the only way the bands
+come apart, and they are emitted in first-appearance order, which is the
+order the chart stacks them in.
+
+**Its `time` is epoch milliseconds.** Announced raw it would read as
+"1577836800000", so an instant is turned back into the date it is:
+`2020-01-01` when it lands exactly on a UTC midnight, and the full timestamp
+otherwise, so a chart drawn at finer than daily resolution is not rounded.
+
+**A parallel plot's axis names live off the series.** The series carries one
+row per observation and columns named `dim0`, `dim1`, … ; the names those
+columns are drawn under are on the `parallelAxis` components. Each is placed
+by its own `dim` rather than by the order it was declared in — an author may
+write them in any order, and taking them as written would label every value
+with its neighbour's variable. Every point names its own axis in `x`, which
+is what `ParallelTrace` needs: it keys each axis's extent by name rather than
+by column position, so a value is pitched against its own variable's range
+even when an observation is short a reading
+([#1182](https://github.com/xability/maidr/issues/1182)).
+
+**Neither is highlighted, and for different reasons.** A parallel plot's
+polylines are *stroked*, so the mark finder — which pairs filled marks with
+data — finds none at all: measured, zero marks for a two-observation chart.
+A theme river does paint filled marks, but one per **band**, not one per
+datum; `stacked_area` is a segmented trace, whose selectors are a row per
+series *aligned to that series' points*, and that pairing is not on offer.
+Repeating the band's one mark across its instants would resolve and would
+light the whole band on every move within it, which is not where the cursor
+is.
 
 ## Highlighting
 

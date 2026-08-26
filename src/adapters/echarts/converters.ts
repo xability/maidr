@@ -31,6 +31,12 @@ import {
   hierarchyLayer,
   OUTLINED_HIERARCHY,
 } from './hierarchy';
+import {
+  PARALLEL,
+  parallelLayer,
+  THEME_RIVER,
+  themeRiverLayer,
+} from './multiAxis';
 import { NETWORK, networkLayer } from './network';
 import { markPerDatum, markPerSeries } from './selectors';
 import { SINGLE_VALUE, singleValueLayers } from './single';
@@ -76,10 +82,11 @@ const BAR: ReadonlySet<string> = new Set(['bar', 'pictorialBar']);
 /**
  * Everything the adapter reads.
  *
- * ECharts draws seventeen series types. Every one outside this set --
- * `boxplot`, `radar`, `parallel`, `themeRiver`, `pictorialBar` -- is left
- * unread **by name** rather than mapped onto whichever trace is closest.
- * Each wants its own measured layout before it claims to be readable.
+ * ECharts draws seventeen series types. The two still outside this set --
+ * `boxplot` and `radar` -- are left unread **by name** rather than mapped
+ * onto whichever trace is closest. Each wants its own measured layout
+ * before it claims to be readable; `grid.ts`'s footer records what stands
+ * in the way of each.
  *
  * Exported because `EChartsSeriesType` is the public statement of this set
  * and the two have to agree. They drifted once already: tier 2b added
@@ -94,6 +101,8 @@ export const READ: ReadonlySet<string> = new Set([
   ...GRID_VALUE,
   ...HIERARCHY,
   ...NETWORK,
+  ...THEME_RIVER,
+  ...PARALLEL,
 ]);
 
 /**
@@ -101,12 +110,16 @@ export const READ: ReadonlySet<string> = new Set([
  *
  * A pie, a funnel and a gauge carry one magnitude per named thing; a
  * treemap, sunburst or tree carries a hierarchy; a sankey or graph carries
- * a graph. What they share is that the chart is theirs alone.
+ * a graph; a themeRiver sits on a `singleAxis` and a parallel on one
+ * `parallelAxis` per variable. What they share is that the chart is theirs
+ * alone -- none of them sits on the x/y grid.
  */
 const OWNS_CHART: ReadonlySet<string> = new Set([
   ...SINGLE_VALUE,
   ...HIERARCHY,
   ...NETWORK,
+  ...THEME_RIVER,
+  ...PARALLEL,
 ]);
 
 /**
@@ -153,7 +166,7 @@ export function createMaidrFromEChart(
     // nothing else this adapter would stamp, and the two stamping passes
     // never meet. A chart that declares both families anyway is read as the
     // owning half and says so, rather than dropping the other in silence.
-    ? readOwning(owning, readable, container)
+    ? readOwning(owning, readable, container, model)
     : buildLayers(readable, axisNames(model), categories(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
@@ -171,12 +184,15 @@ export function createMaidrFromEChart(
  * @param owning    - The series that own the chart
  * @param readable  - Every series the adapter reads, including those
  * @param container - The element the chart was rendered into
+ * @param model     - The chart's model, for the axes a themeRiver or a
+ *                    parallel is drawn against
  * @returns One or more layers per series
  */
 function readOwning(
   owning: EChartsSeriesModel[],
   readable: EChartsSeriesModel[],
   container: HTMLElement,
+  model: EChartsModel,
 ): MaidrLayer[] {
   if (owning.length !== readable.length) {
     const dropped = readable
@@ -184,7 +200,7 @@ function readOwning(
       .map(seriesModel => seriesModel.subType)
       .join(', ');
     console.warn(
-      `[MAIDR] ECharts chart mixes whole-chart and cartesian series. `
+      `[MAIDR] ECharts chart mixes whole-chart and gridded series. `
       + `Reading the whole-chart ones; ignoring: ${dropped}.`,
     );
   }
@@ -195,6 +211,14 @@ function readOwning(
     }
     if (NETWORK.has(seriesModel.subType)) {
       const layer = networkLayer(seriesModel);
+      return layer ? [layer] : [];
+    }
+    if (THEME_RIVER.has(seriesModel.subType)) {
+      const layer = themeRiverLayer(seriesModel, model);
+      return layer ? [layer] : [];
+    }
+    if (PARALLEL.has(seriesModel.subType)) {
+      const layer = parallelLayer(seriesModel, model);
       return layer ? [layer] : [];
     }
     const layer = hierarchyLayer(seriesModel, hierarchyMarks(seriesModel, container));

@@ -447,6 +447,8 @@ describe('what the adapter says it reads', () => {
     'sankey',
     'graph',
     'pictorialBar',
+    'themeRiver',
+    'parallel',
   ] as const;
 
   type Declared = typeof DECLARED[number];
