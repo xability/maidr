@@ -446,6 +446,7 @@ describe('what the adapter says it reads', () => {
     'tree',
     'sankey',
     'graph',
+    'pictorialBar',
   ] as const;
 
   type Declared = typeof DECLARED[number];
@@ -472,6 +473,46 @@ describe('what the adapter says it reads', () => {
 
   it('reads exactly the series types it publishes', () => {
     expect(new Set<string>(DECLARED)).toEqual(READ);
+  });
+});
+
+describe('an eCharts pictorial bar', () => {
+  // `pictorialBar` swaps the rectangle for a repeated symbol and changes
+  // nothing else. Measured on echarts 6.1.0: the model reports the same
+  // `['x', 'y']` a plain bar does, `getName(i)` gives the same category, and
+  // giving each datum its own `itemStyle.color` shows one filled mark per
+  // datum in data order. So it takes the bar reading whole rather than
+  // getting one of its own.
+  it('is read as the bar it is, marks and all', () => {
+    const [layer] = layersOf(
+      { series: [{ type: 'pictorialBar', names: CATEGORIES, values: [3, 5, 2] }] },
+      drawnChart(3, 0),
+    );
+
+    expect(layer.type).toBe(TraceType.BAR);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 'A', y: 3 },
+      { x: 'B', y: 5 },
+      { x: 'C', y: 2 },
+    ]);
+    expect(layer.selectors).toHaveLength(3);
+  });
+
+  it('shares one bar layer with a plain bar beside it', () => {
+    // The two are the same shape, so a chart declaring both is one bar
+    // reading rather than two that would each claim the whole category axis.
+    const layers = layersOf(
+      {
+        series: [
+          { type: 'bar', names: CATEGORIES, values: [1, 2, 3] },
+          { type: 'pictorialBar', names: CATEGORIES, values: [4, 5, 6] },
+        ],
+      },
+      drawnChart(6, 0),
+    );
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0].type).toBe(TraceType.DODGED);
   });
 });
 

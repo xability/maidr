@@ -53,7 +53,25 @@ export interface EChartsAdapterOptions {
  * they are read by different code: one has axes and positions, the other
  * names and magnitudes.
  */
-const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
+const CARTESIAN: ReadonlySet<string> = new Set([
+  'bar',
+  'line',
+  'scatter',
+  'pictorialBar',
+]);
+
+/**
+ * The series types read as a bar.
+ *
+ * `pictorialBar` swaps the rectangle for a repeated symbol and changes
+ * nothing else. Measured on echarts 6.1.0, its model reports the same
+ * `['x', 'y']` a plain bar does, `getName(i)` gives the same category, and it
+ * paints one filled mark per datum in data order -- confirmed by giving each
+ * datum its own `itemStyle.color` and reading the fills in document order.
+ * So it takes the bar reading whole, highlighting included, and the only
+ * thing this set exists for is to say so once rather than in two filters.
+ */
+const BAR: ReadonlySet<string> = new Set(['bar', 'pictorialBar']);
 
 /**
  * Everything the adapter reads.
@@ -267,8 +285,8 @@ function buildLayers(
   grid: AxisCategories,
   container: HTMLElement,
 ): MaidrLayer[] {
-  const bars = series.filter(seriesModel => seriesModel.subType === 'bar');
-  const others = series.filter(seriesModel => seriesModel.subType !== 'bar');
+  const bars = series.filter(seriesModel => BAR.has(seriesModel.subType));
+  const others = series.filter(seriesModel => !BAR.has(seriesModel.subType));
 
   // Every per-datum mark of the chart is painted alike and only its position
   // tells it apart, so they are located once for all of them, in the order
