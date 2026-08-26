@@ -25,6 +25,13 @@ import {
   GRID_VALUE,
   heatmapLayer,
 } from './grid';
+import {
+  drawnNodeCount,
+  HIERARCHY,
+  hierarchyLayer,
+  OUTLINED_HIERARCHY,
+} from './hierarchy';
+import { NETWORK, networkLayer } from './network';
 import { markPerDatum, markPerSeries } from './selectors';
 import { SINGLE_VALUE, singleValueLayers } from './single';
 
@@ -52,11 +59,9 @@ const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
  * Everything the adapter reads.
  *
  * ECharts draws seventeen series types. Every one outside this set --
- * `boxplot`, `radar`, `treemap`, `sunburst`, `sankey`, `graph`, `parallel`,
- * `themeRiver`, `pictorialBar` -- is left unread **by name** rather than
- * mapped onto whichever trace is closest. Most of them have a trace waiting
- * and are the later tiers of #1195; each wants its own measured layout
- * before it claims to be readable.
+ * `boxplot`, `radar`, `parallel`, `themeRiver`, `pictorialBar` -- is left
+ * unread **by name** rather than mapped onto whichever trace is closest.
+ * Each wants its own measured layout before it claims to be readable.
  *
  * Exported because `EChartsSeriesType` is the public statement of this set
  * and the two have to agree. They drifted once already: tier 2b added
@@ -69,6 +74,21 @@ export const READ: ReadonlySet<string> = new Set([
   ...CARTESIAN,
   ...SINGLE_VALUE,
   ...GRID_VALUE,
+  ...HIERARCHY,
+  ...NETWORK,
+]);
+
+/**
+ * The series types that take over the whole chart rather than sit on a grid.
+ *
+ * A pie, a funnel and a gauge carry one magnitude per named thing; a
+ * treemap, sunburst or tree carries a hierarchy; a sankey or graph carries
+ * a graph. What they share is that the chart is theirs alone.
+ */
+const OWNS_CHART: ReadonlySet<string> = new Set([
+  ...SINGLE_VALUE,
+  ...HIERARCHY,
+  ...NETWORK,
 ]);
 
 /**
@@ -108,14 +128,14 @@ export function createMaidrFromEChart(
     );
   }
 
-  const single = readable.filter(seriesModel => SINGLE_VALUE.has(seriesModel.subType));
-  const layers = single.length > 0
-    // A pie, a funnel and a gauge each own the whole chart -- none of them
-    // sits on a grid -- so a figure holding one holds nothing else this
-    // adapter would stamp, and the two stamping passes never meet. A chart
-    // that declares both families anyway is read as the single-valued half
-    // and says so, rather than dropping the other half in silence.
-    ? readSingle(single, readable, container)
+  const owning = readable.filter(seriesModel => OWNS_CHART.has(seriesModel.subType));
+  const layers = owning.length > 0
+    // A pie, a funnel, a gauge, a hierarchy and a graph each own the whole
+    // chart -- none of them sits on a grid -- so a figure holding one holds
+    // nothing else this adapter would stamp, and the two stamping passes
+    // never meet. A chart that declares both families anyway is read as the
+    // owning half and says so, rather than dropping the other in silence.
+    ? readOwning(owning, readable, container)
     : buildLayers(readable, axisNames(model), categories(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
@@ -128,30 +148,61 @@ export function createMaidrFromEChart(
 }
 
 /**
- * The layers of a chart whose series carry one magnitude per named thing.
+ * The layers of a chart whose series own it outright.
  *
- * @param single   - The single-valued series
- * @param readable - Every series the adapter reads, including those
+ * @param owning    - The series that own the chart
+ * @param readable  - Every series the adapter reads, including those
  * @param container - The element the chart was rendered into
  * @returns One or more layers per series
  */
-function readSingle(
-  single: EChartsSeriesModel[],
+function readOwning(
+  owning: EChartsSeriesModel[],
   readable: EChartsSeriesModel[],
   container: HTMLElement,
 ): MaidrLayer[] {
-  if (single.length !== readable.length) {
+  if (owning.length !== readable.length) {
     const dropped = readable
-      .filter(seriesModel => !SINGLE_VALUE.has(seriesModel.subType))
+      .filter(seriesModel => !OWNS_CHART.has(seriesModel.subType))
       .map(seriesModel => seriesModel.subType)
       .join(', ');
     console.warn(
-      `[MAIDR] ECharts chart mixes single-value and cartesian series. `
-      + `Reading the single-value ones; ignoring: ${dropped}.`,
+      `[MAIDR] ECharts chart mixes whole-chart and cartesian series. `
+      + `Reading the whole-chart ones; ignoring: ${dropped}.`,
     );
   }
 
-  return single.flatMap(seriesModel => singleValueLayers(seriesModel, container));
+  return owning.flatMap((seriesModel) => {
+    if (SINGLE_VALUE.has(seriesModel.subType)) {
+      return singleValueLayers(seriesModel, container);
+    }
+    if (NETWORK.has(seriesModel.subType)) {
+      const layer = networkLayer(seriesModel);
+      return layer ? [layer] : [];
+    }
+    const layer = hierarchyLayer(seriesModel, hierarchyMarks(seriesModel, container));
+    return layer ? [layer] : [];
+  });
+}
+
+/**
+ * One selector per node of a hierarchy, when its marks can be paired.
+ *
+ * Only a sunburst's can -- see `hierarchy.ts` -- so the others are not even
+ * counted, which keeps a treemap's leaf-only painting from being mistaken
+ * for a count that merely came out wrong.
+ *
+ * @param seriesModel - The series to read
+ * @param container   - The element the chart was rendered into
+ * @returns One selector per node in walk order, or `undefined`
+ */
+function hierarchyMarks(
+  seriesModel: EChartsSeriesModel,
+  container: HTMLElement,
+): string[] | undefined {
+  if (!OUTLINED_HIERARCHY.has(seriesModel.subType)) {
+    return undefined;
+  }
+  return markPerDatum(container, [drawnNodeCount(seriesModel)])?.points[0];
 }
 
 /**

@@ -368,13 +368,17 @@ describe('a chart that declares both families', () => {
 });
 
 describe('an eCharts chart of a type outside the set', () => {
+  // `treemap` stood here until tier 3 gave it a reading. `radar` is one of
+  // the five still refused, and it has its own measured reason: its ring
+  // backgrounds are neither furniture nor white, so it finds seven marks
+  // where six were expected.
   it('is refused rather than read as whichever trace is closest', () => {
-    expect(() => layerFor({ type: 'treemap', values: [1] }, 1))
+    expect(() => layerFor({ type: 'radar', values: [1] }, 1))
       .toThrow(/Unsupported ECharts series type/);
   });
 
   it('names the single-value types among the ones it does read', () => {
-    expect(() => layerFor({ type: 'treemap', values: [1] }, 1))
+    expect(() => layerFor({ type: 'radar', values: [1] }, 1))
       .toThrow(/pie, funnel, gauge/);
   });
 });
