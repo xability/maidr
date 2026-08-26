@@ -16,10 +16,10 @@
  *
  * ECharts draws seventeen. Three are the cartesian ones (tier 1 of
  * xability/maidr#1195), three carry one magnitude per named thing (tier 2a),
- * two hand over a set of magnitudes already computed (tier 2b), and five
- * carry a hierarchy or a graph (tier 3). Every other series type is refused
- * by name so that gaining a reading later is a decision rather than an
- * accident.
+ * two hand over a set of magnitudes already computed (tier 2b), five carry a
+ * hierarchy or a graph (tier 3), and `pictorialBar` is a bar wearing a
+ * symbol. Every other series type is refused by name so that gaining a
+ * reading later is a decision rather than an accident.
  *
  * Kept in step with `READ` in `converters.ts`, which is what actually
  * decides -- this type is the public statement of it, and
@@ -38,7 +38,8 @@ export type EChartsSeriesType
     | 'sunburst'
     | 'tree'
     | 'sankey'
-    | 'graph';
+    | 'graph'
+    | 'pictorialBar';
 
 /**
  * One column of a series' internal data list.

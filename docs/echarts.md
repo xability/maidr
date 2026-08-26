@@ -51,9 +51,10 @@ Two things this example does on purpose:
 | `line` + `areaStyle` | `area` | The fill is what makes it an area |
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
+| `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
 
-**Not yet supported:** `boxplot`, `radar`, `parallel`, `themeRiver`,
-`pictorialBar`. Each of these is *refused by name* rather than mapped onto
+**Not yet supported:** `boxplot`, `radar`, `parallel`, `themeRiver`.
+Each of these is *refused by name* rather than mapped onto
 whichever trace is closest — each wants its own measured layout first. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
