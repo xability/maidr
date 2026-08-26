@@ -52,10 +52,9 @@ Two things this example does on purpose:
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 
-**Not yet supported:** `boxplot`, `radar`, `treemap`, `sunburst`, `sankey`,
-`graph`, `parallel`, `themeRiver`, `pictorialBar`. Each of these is *refused
-by name* rather than mapped onto whichever trace is closest — most have a MAIDR
-trace waiting for them, and each wants its own measured layout first. See
+**Not yet supported:** `boxplot`, `radar`, `parallel`, `themeRiver`,
+`pictorialBar`. Each of these is *refused by name* rather than mapped onto
+whichever trace is closest — each wants its own measured layout first. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
 > **Orientation note:** ECharts has no "horizontal" option. A bar chart is
@@ -125,6 +124,56 @@ every other candlestick producer in this tree. A period missing any of the four
 prices draws no candle, so it is left out of the reading entirely — counting it
 would expect a mark that was never drawn.
 
+## Hierarchies and graphs
+
+Five more series types own the whole chart rather than sitting on a grid, and
+each maps onto a MAIDR trace that already exists.
+
+| ECharts | read as | payload | highlighted |
+|---|---|---|---|
+| `treemap` | `treemap` | `TreemapPoint[]` | **no** — see below |
+| `sunburst` | `sunburst` | `TreemapPoint[]` | yes — one selector per node |
+| `tree` | `tree` | `TreemapPoint[]` | **no** — see below |
+| `sankey` | `sankey` | `FlowPoint[]` | no |
+| `graph` | `network` | `NetworkPoint[]` | no |
+
+**The synthetic root is dropped.** Measured: `data.tree.root` is a node
+ECharts adds above whatever the author wrote — its name is the empty string
+and its value is the sum of everything below. The real forest is
+`root.children`, so the walk starts one level down and the `path` it records
+drops that empty name.
+
+**An interior node's value is only emitted when it is the author's.**
+`node.getValue()` answers the rolled-up sum for an interior node, and ECharts
+writes that sum back into the raw data, so reading the data back cannot tell a
+declared value from a derived one. `TreemapPoint.y` wants exactly that
+distinction, and it is recoverable by comparing: a node whose value equals its
+children's sum has none of its own, and one that differs is carrying mass no
+child accounts for. Measured on a chart with both — `A` (children 1 and 2,
+nothing declared) reports 3; `B` (declared 5, one child of 2) reports 5.
+
+**The nodes come from the links.** A `FlowPoint` and a `NetworkPoint` each
+name their two ends, so neither reading emits a node list — a separate one
+would be a second source of truth for something the links already say. Node
+names come from `data.getName(node.dataIndex)`; there is no `node.name`.
+
+### Why only a sunburst is outlined
+
+Established by giving every node an explicit `itemStyle.color` and reading the
+fills in document order — reading the default palette had suggested otherwise:
+
+- **`sunburst`** paints one mark per node, in exactly the order the tree walk
+  produces them. That is why the reading walks the tree rather than the data:
+  a sunburst reorders its children, so the two orders differ.
+- **`treemap`** paints only its **leaves**. Interior nodes are the white
+  borders between them, so a count against the node total can never match, and
+  the leaf order is not the walk order either.
+- **`tree`** draws its node symbols `#fff` whatever `itemStyle` says, and this
+  adapter counts white as furniture — so there is nothing to name.
+- **`sankey` and `graph`** both navigate *links* while the marks are *nodes*.
+  There is no per-link element to name, so the cursor and the marks would be
+  addressing different things.
+
 ## Highlighting
 
 ECharts gives a reading almost nothing to address by. Measured on 6.1.0: the
@@ -171,6 +220,7 @@ silently.
 | `line`, `area` | one selector per series | `LineTrace.mapToSvgElements` |
 | `heat` | a row of selectors per grid row, bottom-first | `Heatmap`, which indexes by its own row |
 | `candlestick` | `{ body: [...] }`, one per candle | `Candlestick.mapToSvgElements` |
+| `sunburst` | one selector per node, in tree-walk order | `TreemapTrace` |
 
 So the marks are stamped twice in one pass — once per mark and once per
 series — and each layer takes the address its own trace can use.

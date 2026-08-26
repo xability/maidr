@@ -16,9 +16,10 @@
  *
  * ECharts draws seventeen. Three are the cartesian ones (tier 1 of
  * xability/maidr#1195), three carry one magnitude per named thing (tier 2a),
- * and two hand over a set of magnitudes already computed (tier 2b). Every
- * other series type is refused by name so that gaining a reading later is a
- * decision rather than an accident.
+ * two hand over a set of magnitudes already computed (tier 2b), and five
+ * carry a hierarchy or a graph (tier 3). Every other series type is refused
+ * by name so that gaining a reading later is a decision rather than an
+ * accident.
  *
  * Kept in step with `READ` in `converters.ts`, which is what actually
  * decides -- this type is the public statement of it, and
@@ -32,7 +33,12 @@ export type EChartsSeriesType
     | 'funnel'
     | 'gauge'
     | 'heatmap'
-    | 'candlestick';
+    | 'candlestick'
+    | 'treemap'
+    | 'sunburst'
+    | 'tree'
+    | 'sankey'
+    | 'graph';
 
 /**
  * One column of a series' internal data list.
@@ -41,6 +47,60 @@ export type EChartsSeriesType
  * `symbolSize` reads a third column carries `['x', 'y', 'value']`.
  */
 export type EChartsDimension = string;
+
+/**
+ * One node of a hierarchy series' tree.
+ *
+ * Measured: `getValue()` answers the rolled-up sum for an interior node, so
+ * a declared value and a derived one are indistinguishable from the value
+ * alone -- see `hierarchy.ts` for what is done about that.
+ */
+export interface EChartsTreeNode {
+  /** The node's name. The synthetic root's is the empty string. */
+  name: string;
+  /** Its children, absent on a leaf. */
+  children?: EChartsTreeNode[];
+  /** Its magnitude, rolled up from the children where it has them. */
+  getValue: () => number | null | undefined;
+}
+
+/**
+ * A hierarchy series' tree.
+ *
+ * `root` is **synthetic** -- ECharts adds it above whatever the author wrote,
+ * names it `''`, and gives it the sum of everything below. The real forest is
+ * `root.children`.
+ */
+export interface EChartsTree {
+  root: EChartsTreeNode;
+}
+
+/**
+ * One node of a graph series.
+ *
+ * There is no `name`: reading one gives `undefined`. A node is named through
+ * `EChartsList.getName(node.dataIndex)`, or equivalently by its `id`.
+ */
+export interface EChartsGraphNode {
+  /** Its index into the series' data list, which is how it is named. */
+  dataIndex: number;
+}
+
+/** One link of a graph series. */
+export interface EChartsGraphEdge {
+  /** The node the link leaves. */
+  node1: EChartsGraphNode;
+  /** The node it arrives at. */
+  node2: EChartsGraphNode;
+  /** One of the link's own dimensions -- `'value'` is the flow. */
+  getValue: (dimension: string) => number | null | undefined;
+}
+
+/** A graph series' nodes and links. */
+export interface EChartsGraph {
+  nodes: EChartsGraphNode[];
+  edges: EChartsGraphEdge[];
+}
 
 /**
  * A series' data list.
@@ -68,6 +128,10 @@ export interface EChartsList {
    * name comes from {@link getName}.
    */
   get: (dimension: EChartsDimension, index: number) => number | null | undefined;
+  /** The hierarchy, on a `treemap`, `sunburst` or `tree` series. */
+  tree?: EChartsTree;
+  /** The graph, on a `sankey` or `graph` series. */
+  graph?: EChartsGraph;
 }
 
 /**

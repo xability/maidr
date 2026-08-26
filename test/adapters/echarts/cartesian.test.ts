@@ -441,6 +441,11 @@ describe('what the adapter says it reads', () => {
     'gauge',
     'heatmap',
     'candlestick',
+    'treemap',
+    'sunburst',
+    'tree',
+    'sankey',
+    'graph',
   ] as const;
 
   type Declared = typeof DECLARED[number];
@@ -473,14 +478,15 @@ describe('what the adapter says it reads', () => {
 describe('what the adapter will not claim', () => {
   it('refuses a chart of series it has no reading for', () => {
     // By name, rather than mapped onto whichever trace is closest. ECharts
-    // draws seventeen series types and most have a trace waiting for them,
-    // but each wants its own measured layout first (#1195). `pie` used to
-    // stand here and now reads; `treemap` is one of the hierarchies still
-    // waiting for tier 3.
+    // draws seventeen series types and each wanted its own measured layout
+    // first (#1195). `pie` used to stand here, then `treemap`; both read now.
+    // `radar` is one of the five left, and its own reason is recorded in
+    // `grid.ts` -- its ring backgrounds are neither furniture nor white, so
+    // it finds seven marks where six were expected.
     expect(() => layersOf(
-      { series: [{ type: 'treemap', values: [1, 2, 3] }] },
+      { series: [{ type: 'radar', values: [1, 2, 3] }] },
       drawnChart(3, 0),
-    )).toThrow(/Unsupported ECharts series type\(s\): treemap/);
+    )).toThrow(/Unsupported ECharts series type\(s\): radar/);
   });
 
   it('drops the highlighting when the drawing holds a different number of marks', () => {
