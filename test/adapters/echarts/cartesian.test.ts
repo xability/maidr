@@ -1,6 +1,6 @@
-import type { EChartsInstance, EChartsList, EChartsSeriesModel } from '@adapters/echarts/types';
+import type { EChartsInstance, EChartsList, EChartsSeriesModel, EChartsSeriesType } from '@adapters/echarts/types';
 import type { BarPoint, LinePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
-import { createMaidrFromEChart } from '@adapters/echarts/converters';
+import { createMaidrFromEChart, READ } from '@adapters/echarts/converters';
 import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Orientation, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
@@ -417,6 +417,56 @@ describe('a chart drawing more than one kind of mark', () => {
       expect(container.querySelector(selector)).not.toBeNull());
 
     expect(container.querySelector(line.selectors as string)).not.toBeNull();
+  });
+});
+
+describe('what the adapter says it reads', () => {
+  // `EChartsSeriesType` is exported from the package, so it is a promise to
+  // consumers about which series this adapter accepts -- and `READ` is what
+  // actually decides. They drifted once: tier 2b taught the adapter to read
+  // `heatmap` and `candlestick` and left the union naming six types, so the
+  // published type refused two series that work.
+  //
+  // Listing the union's members by hand is the only way to compare a type
+  // with a value, so the list is checked against the union in both
+  // directions at compile time, and against `READ` at run time. A type
+  // added to one and not the others now fails here rather than in a
+  // consumer's editor.
+  const DECLARED = [
+    'bar',
+    'line',
+    'scatter',
+    'pie',
+    'funnel',
+    'gauge',
+    'heatmap',
+    'candlestick',
+  ] as const;
+
+  type Declared = typeof DECLARED[number];
+  type Unlisted = Exclude<EChartsSeriesType, Declared>;
+  type Invented = Exclude<Declared, EChartsSeriesType>;
+
+  // The annotation is `true` only while the exclusion is `never`, so a type
+  // in one and not the other makes the annotation `false` and the assignment
+  // a compile error. `[T] extends [never]` rather than `T extends never`,
+  // because the bare form distributes over a union and answers `never` for
+  // every member rather than `false` once.
+  //
+  // Note what does *not* work here: annotating an empty array as
+  // `Unlisted[]`. An empty array satisfies any element type, so it compiles
+  // whatever the exclusion says -- a guard that cannot fail. This was
+  // written that way first and proved vacuous when tested.
+  const EVERY_TYPE_LISTED: [Unlisted] extends [never] ? true : false = true;
+  const NO_TYPE_INVENTED: [Invented] extends [never] ? true : false = true;
+
+  it('lists every member of the published union and no others', () => {
+    expect(EVERY_TYPE_LISTED).toBe(true);
+    expect(NO_TYPE_INVENTED).toBe(true);
+  });
+
+  it('reads exactly the series types it publishes', () => {
+    expect(new Set<string>(DECLARED)).toEqual(READ);
   });
 });
 

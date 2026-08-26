@@ -52,13 +52,24 @@ const CARTESIAN: ReadonlySet<string> = new Set(['bar', 'line', 'scatter']);
  * Everything the adapter reads.
  *
  * ECharts draws seventeen series types. Every one outside this set --
- * `boxplot`, `candlestick`, `heatmap`, `radar`, `treemap`, `sunburst`,
- * `sankey`, `graph`, `parallel`, `themeRiver`, `pictorialBar` -- is left
- * unread **by name** rather than mapped onto whichever trace is closest.
- * Most of them have a trace waiting and are the later tiers of #1195; each
- * wants its own measured layout before it claims to be readable.
+ * `boxplot`, `radar`, `treemap`, `sunburst`, `sankey`, `graph`, `parallel`,
+ * `themeRiver`, `pictorialBar` -- is left unread **by name** rather than
+ * mapped onto whichever trace is closest. Most of them have a trace waiting
+ * and are the later tiers of #1195; each wants its own measured layout
+ * before it claims to be readable.
+ *
+ * Exported because `EChartsSeriesType` is the public statement of this set
+ * and the two have to agree. They drifted once already: tier 2b added
+ * `heatmap` and `candlestick` here and left the union naming six types, so
+ * the published type refused a series the adapter reads.
+ * `test/adapters/echarts/cartesian.test.ts` now fails if they disagree in
+ * either direction.
  */
-const READ: ReadonlySet<string> = new Set([...CARTESIAN, ...SINGLE_VALUE, ...GRID_VALUE]);
+export const READ: ReadonlySet<string> = new Set([
+  ...CARTESIAN,
+  ...SINGLE_VALUE,
+  ...GRID_VALUE,
+]);
 
 /**
  * Converts a rendered ECharts instance into a MAIDR figure.
