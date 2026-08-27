@@ -26,16 +26,6 @@ export interface TactileScene {
    * interiors that tell a hollow mark from the solid focused one.
    */
   shades?: ReadonlyMap<SVGGraphicsElement, number>;
-
-  /**
-   * A dash pattern per mark, where the chart drew its strands in different
-   * colours and that colour is which series a strand belongs to.
-   *
-   * Absent where colour means something else, or nothing: a box plot draws its
-   * medians in a second colour without that colour naming a series, and
-   * dashing its whiskers would invent a distinction the chart never made.
-   */
-  patterns?: ReadonlyMap<SVGGraphicsElement, readonly number[]>;
 }
 
 /**
@@ -66,8 +56,12 @@ export abstract class TactileRenderer {
    *
    * What a second pin was buying — a line a finger can follow without losing
    * it — is bought instead by the focused stroke being heavier than everything
-   * around it, and, on a chart of several strands, by each strand carrying its
-   * own dash pattern.
+   * around it.
+   *
+   * Dash patterns per series were tried here and taken out again: read on a
+   * device they made a multi-line chart harder rather than easier, because a
+   * broken line has to be reassembled before it can be followed and every gap
+   * is a place to lose it.
    */
   private static readonly STROKE_WEIGHT = 1;
 
@@ -129,15 +123,12 @@ export abstract class TactileRenderer {
    * @param filled - True to fill the interior, false to draw only the edge
    * @param shade - How much of the interior to raise as texture, where the
    * chart encoded a value as fill colour; absent otherwise
-   * @param pattern - Dash pattern for an unfocused open stroke, where the
-   * chart's colours name its series; absent for a solid stroke
    */
   private static drawRing(
     raster: DotRaster,
     ring: DotRing,
     filled: boolean,
     shade?: number,
-    pattern?: readonly number[],
   ): void {
     const box = this.bounds(ring);
     if (box === null) {
@@ -203,15 +194,6 @@ export abstract class TactileRenderer {
       // A mark with no extent at all, unfocused: left as the single pin it is,
       // so a cloud of them does not smear into one mass.
       raster.set(path[0].x, path[0].y);
-      return;
-    }
-
-    // A pattern only ever applies to the thin unfocused strokes. The focused
-    // mark is drawn solid and heavy on purpose -- breaking it into dashes
-    // would take away the one thing that says which strand the reader is
-    // standing on, to repeat something they can already feel.
-    if (pattern !== undefined && pattern.length > 0 && !filled && !ring.closed && !isTiny) {
-      raster.dashedPolyline(path, pattern);
       return;
     }
     raster.strokePath(path, weight);
@@ -287,9 +269,8 @@ export abstract class TactileRenderer {
         continue;
       }
       const shade = scene.shades?.get(mark);
-      const pattern = scene.patterns?.get(mark);
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, false, shade, pattern);
+        this.drawRing(raster, ring, false, shade);
       }
     }
 

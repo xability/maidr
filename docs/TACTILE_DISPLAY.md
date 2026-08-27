@@ -328,7 +328,7 @@ to press something. If the device is not accepting writes at all it stops
 after a couple of attempts and tries again the next time you move, so a
 disconnected display does not turn into a stream of retries.
 
-### Line thickness, and telling several lines apart
+### Line thickness
 
 Every stroke — a line, a curve, a whisker, an error bar — is one pin thick.
 
@@ -339,41 +339,19 @@ problem for a worse one: at two pins a diagonal comes out three and four wide
 where the offset copies meet at a bend, a single line reads as a band rather
 than a line, and several of them read as one mass.
 
-What the second pin was buying is bought two other ways instead. The mark you
-are on is stroked heavily, so your own line is unmistakable among thin ones. And
-on a chart of several strands, each strand carries its own dash pattern.
+What the second pin was buying is bought instead by the mark you are on being
+stroked heavily, so your own line is unmistakable among thin ones.
 
-The patterns come from the chart's own colours. Where a chart draws its series
-in different colours — and that is exactly the case where the strands cross and
-you need to know which line leaving a junction is yours — each colour takes a
-pattern:
+Dash patterns were tried for the rest of that job — giving each series its own
+texture, taken from the chart's own colours, so crossing strands could be told
+apart. Read on a Dot Pad they made things worse, not better: a broken line has
+to be reassembled before it can be followed, and every gap is somewhere to lose
+it. Lines are solid.
 
-| Series | Pattern |
-| ------ | ------- |
-| first  | solid |
-| second | long dashes |
-| third  | short dashes |
-| fourth | long-short alternating |
-
-A fifth series repeats from the top. Four is as many as a hand can tell apart
-while moving along one strand, and past that the distinctions come down to
-lengths nobody can name without a ruler.
-
-Three things this deliberately does not do. It does not pattern the line you are
-on — that one stays solid and heavy, because breaking it up would take away the
-thing that says where you are standing. It does not pattern a chart whose
-strands share a colour, since there is no series distinction being drawn and
-dashing them all identically would cost every line its continuity to say
-nothing. And it does not pattern charts where colour means something other than
-series: a box plot draws its medians in a second colour without that colour
-naming a second series, and a parallel-coordinates plot has one strand per
-record, far more than any set of patterns could distinguish.
-
-The exact run lengths are a starting point rather than a measured optimum. How
-long a gap must be before a moving finger notices it, and how long before it
-loses the line, are questions about hands that a pin count cannot answer; they
-are kept as one list in the source so they can be moved on the strength of
-someone reading a chart.
+So on a chart of several lines, the strands are not distinguishable from one
+another by feel. What tells you which is yours is that it is the heavy one, and
+moving between series moves that weight. That is a real limit and worth knowing
+about rather than working around by making the picture harder to read.
 
 ### Panning
 
