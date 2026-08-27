@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
-import { TraceType } from '@type/grammar';
+import { declarableTypes, SCHEMA, typesInBackticks } from './schemaTypes';
 
 /**
  * `docs/SCHEMA.md` splits the declarable types into a stable set and an
@@ -22,7 +20,34 @@ import { TraceType } from '@type/grammar';
  * type a producer chooses and carries no stability promise either way.
  */
 
-const SCHEMA = readFileSync(resolve(__dirname, '../../docs/SCHEMA.md'), 'utf8');
+/**
+ * The stable set as it stood at `84d9003`, the last commit before #814.
+ *
+ * Written out rather than spot-checked, so the whole classification is what
+ * the suite verifies. A future contributor can otherwise misfile a type into
+ * the wrong list and still leave both lists internally consistent -- the
+ * partition check below would pass, and only this would notice.
+ *
+ * Re-derive with:
+ *   git show 84d9003:src/type/grammar.ts | grep -oE "= '[a-z_0-9]+'"
+ */
+const STABLE_AT_84D9003 = [
+  'bar',
+  'box',
+  'candlestick',
+  'dodged_bar',
+  'heat',
+  'hist',
+  'line',
+  'pie',
+  'point',
+  'smooth',
+  'stacked_bar',
+  'stacked_normalized_bar',
+  'step',
+  'violin_box',
+  'violin_kde',
+];
 
 /** The types named under one `###` heading of the stability section. */
 function listedUnder(heading: string): string[] {
@@ -32,14 +57,8 @@ function listedUnder(heading: string): string[] {
   }
   const rest = SCHEMA.slice(start + heading.length + 5);
   const end = rest.indexOf('\n#');
-  const body = end === -1 ? rest : rest.slice(0, end);
 
-  return [...body.matchAll(/`([a-z_0-9]+)`/g)].map(match => match[1]);
-}
-
-/** Every trace type a page may declare, per the enum. */
-function declarableTypes(): string[] {
-  return Object.values(TraceType).filter(type => type !== TraceType.CANDLESTICK_DELTA);
+  return typesInBackticks(end === -1 ? rest : rest.slice(0, end));
 }
 
 describe('docs/SCHEMA.md trace type stability', () => {
@@ -77,11 +96,16 @@ describe('docs/SCHEMA.md trace type stability', () => {
     expect(prose).toContain('without a deprecation period');
   });
 
-  test('the stable set is the one that predates the roadmap', () => {
-    // Spot-checked against `84d9003`, the commit the section names as the
-    // boundary. `violin_kde` is the last type added before it and `area` the
-    // first added after, so this pair is where an off-by-one would show.
-    expect(listedUnder('Stable')).toContain(TraceType.VIOLIN_KDE);
-    expect(listedUnder('Experimental')).toContain(TraceType.AREA);
+  test('the stable set is exactly the one that predates the roadmap', () => {
+    // The whole set, not a sample: the partition check above is satisfied by
+    // any split that covers the enum, including a wrong one.
+    expect(listedUnder('Stable').sort()).toEqual([...STABLE_AT_84D9003].sort());
+  });
+
+  test('everything else is experimental', () => {
+    const expected = declarableTypes()
+      .filter(type => !STABLE_AT_84D9003.includes(type));
+
+    expect(listedUnder('Experimental').sort()).toEqual(expected.sort());
   });
 });
