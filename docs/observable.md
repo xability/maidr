@@ -134,6 +134,50 @@ filters:
 maidr-version: "4.2.0"
 ```
 
+### revealjs slides
+
+An `{ojs}` cell draws its chart straight into the slide, so the deck's own tab
+order is the browser's: **Tab** reaches the chart, the arrow keys explore it,
+and **Shift+Tab** goes back to whatever precedes it on the slide, from where
+**Space** advances the deck.
+
+One reveal.js behaviour gets in the way, and it has nothing to do with MAIDR.
+reveal.js keeps the slides on either side of the current one rendered so that
+transitions stay smooth, and marking them `hidden` does not take them out of
+the tab order — reveal's own inline style overrides the attribute. On a deck
+with a chart on every slide, a single **Tab** therefore lands on an off-screen
+slide's chart rather than the one in front of the reader. This is
+[hakimel/reveal.js#1587](https://github.com/hakimel/reveal.js/issues/1587),
+open since 2016.
+
+The fix is now on reveal.js `master`, which marks every slide but the current
+one `inert`. It has not reached a published release yet, and Quarto carries its
+own copy of reveal.js — Quarto 1.10 ships 5.1.0 — so it will arrive in a Quarto
+release some time after reveal.js cuts one. Nothing will need to change in your
+deck when it does.
+
+Until then,
+[quarto-revealjs-a11y](https://github.com/mcanouil/quarto-revealjs-a11y) does
+the same thing for a Quarto deck. It is a separate extension, installed
+alongside this one:
+
+```bash
+quarto add mcanouil/quarto-revealjs-a11y
+```
+
+```yaml
+filters:
+  - maidr
+format:
+  revealjs:
+    revealjs-plugins:
+      - a11y
+```
+
+Use **0.2.3 or newer**. Earlier versions took off-slide elements out of the tab
+order by setting `tabindex="-1"` on them and could not find them again to put
+them back, which left the chart on the *current* slide unreachable as well.
+
 ## Observable's own runtimes
 
 The two quick starts cover a page you control. Observable ships two other ways
