@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares.
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -192,6 +192,70 @@ var maidr = {
   subplots: [ /* ... */ ]
 };
 ```
+
+## Trace type stability
+
+Not every declarable type carries the same promise, and that is not visible
+from the list above.
+
+Fifteen of them predate the chart-type coverage roadmap (#814). The other
+thirty-seven were added by it, most of them inside about two weeks, and
+**none of the thirty-seven has been through a user study**.
+
+### Stable
+
+`bar`, `box`, `candlestick`, `dodged_bar`, `heat`, `hist`, `line`, `pie`,
+`point`, `smooth`, `stacked_bar`, `stacked_normalized_bar`, `step`,
+`violin_box`, `violin_kde`
+
+These are what MAIDR was built around. Their readings, their announcements and
+their keyboard model have been exercised by real users over real charts, and a
+change to any of them changes behaviour people already depend on.
+
+### Experimental
+
+`alluvial`, `area`, `boxen`, `bump`, `chord`, `choropleth`, `contour`,
+`diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
+`gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
+`network`, `pack`, `parallel_coordinates`, `polar_area`, `radar`,
+`ridgeline`, `sankey`, `stacked_area`, `stacked_normalized_area`,
+`sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
+`waterfall`, `word_cloud`
+
+**These are prototypes. Treat them as prototypes.**
+
+- **Under active development.** They are being changed as they are used, not
+  maintained against a settled specification.
+- **Unstable.** Point shapes, field names, announcement wording and navigation
+  semantics may change without a deprecation period, including in a patch
+  release. A producer that emits one of these is pinned to the maidr version it
+  was written against.
+- **Not validated.** Each was measured against the drawing it reads, which is
+  what the issues and the tests record. But measuring that a reading is
+  *faithful to the chart* is a different claim from establishing that it is
+  *useful to a reader*. Nobody has asked a blind or low-vision reader whether
+  navigating a sunburst by depth, or hearing each parallel-coordinates axis on
+  its own scale, is the right way to read one. Until that happens these are
+  proposals about how a chart could be read, implemented and measured, not
+  answers.
+- **Not a support commitment.** A bug in one of these is worth reporting and is
+  not a promise to keep the current behaviour.
+
+If you are building something that has to keep working, build it on the stable
+set.
+
+### How the split is derived
+
+It is the diff of `TraceType` against `84d9003`, the last commit on `main`
+before #814 was filed:
+
+```bash
+git show 84d9003:src/type/grammar.ts | grep -oE "= '[a-z_0-9]+'"
+```
+
+`test/scripts/schemaStability.test.ts` fails if a declarable type appears in
+neither list or in both, so a new trace type has to be placed deliberately
+rather than inherit either promise by being forgotten.
 
 ## Data Formats by Plot Type
 
