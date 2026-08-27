@@ -134,7 +134,7 @@ filters:
 maidr-version: "4.2.0"
 ```
 
-### revealjs slides
+### Reveal.js slides
 
 An `{ojs}` cell draws its chart straight into the slide, so the deck's own tab
 order is the browser's: **Tab** reaches the chart, the arrow keys explore it,
