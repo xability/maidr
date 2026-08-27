@@ -449,6 +449,7 @@ describe('what the adapter says it reads', () => {
     'pictorialBar',
     'themeRiver',
     'parallel',
+    'radar',
   ] as const;
 
   type Declared = typeof DECLARED[number];
@@ -522,14 +523,15 @@ describe('what the adapter will not claim', () => {
   it('refuses a chart of series it has no reading for', () => {
     // By name, rather than mapped onto whichever trace is closest. ECharts
     // draws seventeen series types and each wanted its own measured layout
-    // first (#1195). `pie` used to stand here, then `treemap`; both read now.
-    // `radar` is one of the five left, and its own reason is recorded in
-    // `grid.ts` -- its ring backgrounds are neither furniture nor white, so
-    // it finds seven marks where six were expected.
+    // first (#1195). `pie` used to stand here, then `treemap`, then `radar`;
+    // all three read now. `boxplot` is the last one left, and its reason is
+    // recorded in `grid.ts` -- `BoxSelector` wants a selector per part and
+    // ECharts draws the box and both whiskers as one path, so there is
+    // nothing to name the parts with.
     expect(() => layersOf(
-      { series: [{ type: 'radar', values: [1, 2, 3] }] },
+      { series: [{ type: 'boxplot', values: [1, 2, 3] }] },
       drawnChart(3, 0),
-    )).toThrow(/Unsupported ECharts series type\(s\): radar/);
+    )).toThrow(/Unsupported ECharts series type\(s\): boxplot/);
   });
 
   it('drops the highlighting when the drawing holds a different number of marks', () => {

@@ -38,6 +38,7 @@ import {
   themeRiverLayer,
 } from './multiAxis';
 import { NETWORK, networkLayer } from './network';
+import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { markPerDatum, markPerSeries } from './selectors';
 import { SINGLE_VALUE, singleValueLayers } from './single';
 
@@ -82,11 +83,9 @@ const BAR: ReadonlySet<string> = new Set(['bar', 'pictorialBar']);
 /**
  * Everything the adapter reads.
  *
- * ECharts draws seventeen series types. The two still outside this set --
- * `boxplot` and `radar` -- are left unread **by name** rather than mapped
- * onto whichever trace is closest. Each wants its own measured layout
- * before it claims to be readable; `grid.ts`'s footer records what stands
- * in the way of each.
+ * ECharts draws seventeen series types. The one still outside this set --
+ * `boxplot` -- is left unread **by name** rather than mapped onto whichever
+ * trace is closest; `grid.ts`'s footer records what stands in the way.
  *
  * Exported because `EChartsSeriesType` is the public statement of this set
  * and the two have to agree. They drifted once already: tier 2b added
@@ -103,6 +102,7 @@ export const READ: ReadonlySet<string> = new Set([
   ...NETWORK,
   ...THEME_RIVER,
   ...PARALLEL,
+  ...RADAR,
 ]);
 
 /**
@@ -110,9 +110,10 @@ export const READ: ReadonlySet<string> = new Set([
  *
  * A pie, a funnel and a gauge carry one magnitude per named thing; a
  * treemap, sunburst or tree carries a hierarchy; a sankey or graph carries
- * a graph; a themeRiver sits on a `singleAxis` and a parallel on one
- * `parallelAxis` per variable. What they share is that the chart is theirs
- * alone -- none of them sits on the x/y grid.
+ * a graph; a themeRiver sits on a `singleAxis`, a parallel on one
+ * `parallelAxis` per variable, and a radar on a `radar` component. What they
+ * share is that the chart is theirs alone -- none of them sits on the x/y
+ * grid.
  */
 const OWNS_CHART: ReadonlySet<string> = new Set([
   ...SINGLE_VALUE,
@@ -120,6 +121,7 @@ const OWNS_CHART: ReadonlySet<string> = new Set([
   ...NETWORK,
   ...THEME_RIVER,
   ...PARALLEL,
+  ...RADAR,
 ]);
 
 /**
@@ -219,6 +221,11 @@ function readOwning(
     }
     if (PARALLEL.has(seriesModel.subType)) {
       const layer = parallelLayer(seriesModel, model);
+      return layer ? [layer] : [];
+    }
+    if (RADAR.has(seriesModel.subType)) {
+      const outlines = markPerSeries(container, drawnOutlineCount(seriesModel));
+      const layer = radarLayer(seriesModel, model, outlines);
       return layer ? [layer] : [];
     }
     const layer = hierarchyLayer(seriesModel, hierarchyMarks(seriesModel, container));

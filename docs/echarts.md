@@ -53,10 +53,9 @@ Two things this example does on purpose:
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 | `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
 
-**Not yet supported:** `boxplot` and `radar`. Both are *refused by name*
-rather than mapped onto whichever trace is closest — each wants its own
-measured layout first, and the footer of `src/adapters/echarts/grid.ts`
-records what stands in the way of each. See
+**Not yet supported:** `boxplot` alone. It is *refused by name* rather than
+mapped onto whichever trace is closest, and the footer of
+`src/adapters/echarts/grid.ts` records what stands in the way. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
 > **Orientation note:** ECharts has no "horizontal" option. A bar chart is
@@ -176,15 +175,16 @@ fills in document order — reading the default palette had suggested otherwise:
   There is no per-link element to name, so the cursor and the marks would be
   addressing different things.
 
-## Theme rivers and parallel coordinates
+## Theme rivers, parallel coordinates and radars
 
-Two more series types own the chart without sitting on the x/y grid, and
-neither carries a hierarchy or a graph.
+Three more series types own the chart without sitting on the x/y grid, and
+none of them carries a hierarchy or a graph.
 
 | ECharts | read as | payload | highlighted |
 |---|---|---|---|
 | `themeRiver` | `stacked_area` | `SegmentedPoint[][]` | **no** — see below |
 | `parallel` | `parallel_coordinates` | `LinePoint[][]` | **no** — see below |
+| `radar` | `radar` | `LinePoint[][]` | yes — one selector per series |
 
 **A theme river's rows are flat.** Measured, the series carries
 `['time', 'value', 'name']` with one row *per band per instant* — six rows
@@ -218,6 +218,32 @@ series *aligned to that series' points*, and that pairing is not on offer.
 Repeating the band's one mark across its instants would resolve and would
 light the whole band on every move within it, which is not where the cursor
 is.
+
+**A radar's outline is a stroke, not a fill.** This one is worth spelling out
+because the adapter got it wrong once. A radar was refused on the grounds
+that a two-series chart "draws six vertex symbols and also fills its
+alternating ring backgrounds, one of which (`rgb(234,237,245)`) is neither
+furniture nor white, so seven marks are found where six are expected". That
+counts the wrong mark class. `RadarTrace` wants one selector per **series**,
+and the filled marks are one per **vertex** — three per series — so they
+never fitted, ring background or not. Colour-tagging a two-series radar
+shows what does:
+
+```
+FILLED    rgb(234,237,245)  ring background
+          rgb(255,255,255)  ring background   (white -> furniture)
+          #111199 x3        series one's vertex symbols
+          #229922 x3        series two's vertex symbols
+STROKED   #dbdee4           ring outline      unweighted -> furniture
+          #cfd2d7 x3        spokes            unweighted -> furniture
+          #111199 width=2   series one        <- the mark
+          #229922 width=2   series two        <- the mark
+```
+
+One weighted stroke per series, in the series colour — the same shape
+`markPerSeries()` already finds for a line. Its spoke names come from the
+`radar` component's `indicator` array rather than from the series, whose own
+dimensions are the positions `indicator_0`, `indicator_1`, ….
 
 ## Highlighting
 
@@ -266,6 +292,7 @@ silently.
 | `heat` | a row of selectors per grid row, bottom-first | `Heatmap`, which indexes by its own row |
 | `candlestick` | `{ body: [...] }`, one per candle | `Candlestick.mapToSvgElements` |
 | `sunburst` | one selector per node, in tree-walk order | `TreemapTrace` |
+| `radar` | one selector per series, as a stroked outline | `RadarTrace` |
 
 So the marks are stamped twice in one pass — once per mark and once per
 series — and each layer takes the address its own trace can use.

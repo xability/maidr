@@ -18,9 +18,9 @@
  * xability/maidr#1195), three carry one magnitude per named thing (tier 2a),
  * two hand over a set of magnitudes already computed (tier 2b), five carry a
  * hierarchy or a graph (tier 3), `pictorialBar` is a bar wearing a symbol,
- * and `themeRiver` and `parallel` own the chart but are read as a set of
- * series. `boxplot` and `radar` are the two still refused by name, so that
- * gaining a reading later is a decision rather than an accident.
+ * and `themeRiver`, `parallel` and `radar` own the chart but are read as a
+ * set of series. `boxplot` is the one still refused by name, so that gaining
+ * a reading later is a decision rather than an accident.
  *
  * Kept in step with `READ` in `converters.ts`, which is what actually
  * decides -- this type is the public statement of it, and
@@ -42,7 +42,8 @@ export type EChartsSeriesType
     | 'graph'
     | 'pictorialBar'
     | 'themeRiver'
-    | 'parallel';
+    | 'parallel'
+    | 'radar';
 
 /**
  * One column of a series' internal data list.
