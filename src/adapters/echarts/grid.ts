@@ -304,8 +304,8 @@ function whole(value: unknown): number | null {
 }
 
 /*
- * `boxplot` and `radar` are measured and left for a later tier, both because
- * of how they are drawn rather than what they carry.
+ * `boxplot` is the one series type still refused, because of how it is drawn
+ * rather than what it carries.
  *
  * A **box plot** hands over its five-number summary outright --
  * `['base', 'min', 'Q1', 'median', 'Q3', 'max']` -- so the reading is easy and
@@ -315,12 +315,13 @@ function whole(value: unknown): number | null {
  * with. It is also painted `#fff`, which this adapter's paint filter counts as
  * furniture, so it would fail the mark check even if the shape fitted.
  *
- * A **radar** reports one dimension per indicator -- `['indicator_0', …]` --
- * and `RadarTrace` takes one selector per series, which would fit. What does
- * not is the count: measured, a two-series radar draws six vertex symbols and
- * also fills its alternating ring backgrounds, one of which (`rgb(234,237,245)`)
- * is neither furniture nor white, so seven marks are found where six are
- * expected and the check declines. Reading it without an outline is possible
- * and is what a later tier should do deliberately, rather than arriving there
- * by a count that happens to fail.
+ * A **radar** used to stand here beside it, and the reason recorded for it
+ * was wrong. It said a two-series radar draws six vertex symbols plus a ring
+ * background that is neither furniture nor white, so seven marks are found
+ * where six are expected. That counts the wrong mark class: `RadarTrace`
+ * wants one selector per *series*, and the filled marks are one per *vertex*
+ * -- three per series -- so they never fitted, ring background or not. The
+ * series outline is a **stroked** polyline, one per series, weighted and in
+ * the series colour, which is the shape `markPerSeries()` already finds for
+ * a line. See `radar.ts`; it is read, and highlighted.
  */
