@@ -474,6 +474,170 @@ describe('tactileRenderer.render', () => {
     ringsOf.mockReturnValue([]);
   });
 
+  describe('crowding', () => {
+    // A real DotPad 320's graphic area, because the budget is a share of the
+    // grid: two lines across sixty pins is a tenth of it, and the same two
+    // across a twenty-pin test grid would be a fifth. Sizing these cases to the
+    // device is what keeps "two lines is not crowded" a statement about the
+    // display rather than about the fixture.
+    const WIDE = 60;
+    const TALL = 40;
+    const wideViewport = (): TactileViewport => new TactileViewport(
+      { left: 0, top: 0, width: WIDE - 1, height: TALL - 1 },
+      WIDE,
+      TALL,
+    );
+
+    // Two pins across is what makes an open stroke followable, and on a chart
+    // drawn from one it costs nothing anyone can feel. It is charged once per
+    // strand though, and the strands are exactly what a reader of a multi-line
+    // chart is trying to tell apart -- so past a point the gaps between them
+    // close and the picture arrives as one mass with no lines in it.
+
+    /**
+     * An open stroke running the width of the grid at a given row.
+     * @param row - The row to run along
+     */
+    const strand = (row: number): DotRing => ({
+      points: [{ x: 0, y: row }, { x: WIDE - 1, y: row }],
+      closed: false,
+    });
+
+    /**
+     * Marks whose rings are the given strands, one strand each.
+     * @param rows - A row per mark
+     */
+    const strands = (rows: readonly number[]): SVGGraphicsElement[] => {
+      const marks = rows.map(() => ({} as SVGGraphicsElement));
+      ringsOf.mockImplementation(element => [strand(rows[marks.indexOf(element)])]);
+      return marks;
+    };
+
+    it('should thin the strokes when they would claim too much of the grid', () => {
+      // Ten strands two pins across is every other row raised: a hand meets a
+      // field of ridges with no gap wide enough to say where one line ends.
+      const rows = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+      const marks = strands(rows);
+
+      const raster = TactileRenderer.render(
+        { marks, focused: [] },
+        wideViewport(),
+        WIDE,
+        TALL,
+      );
+
+      // Each strand on its own row, and the row beneath it clear again.
+      for (const row of rows) {
+        expect(raster.get(5, row)).toBe(true);
+        expect(raster.get(5, row + 1)).toBe(false);
+      }
+    });
+
+    it('should leave a lone stroke at full weight however much it covers', () => {
+      // One stroke cannot be confused with another, so its thickness costs the
+      // reader nothing -- a step plot of a single line runs to a fifth of the
+      // pins and is perfectly legible. Thinning on ink alone would take pins
+      // off charts that are busy rather than crowded.
+      const points: { x: number; y: number }[] = [];
+      for (let row = 0; row < TALL; row++) {
+        points.push({ x: row % 2 === 0 ? 0 : WIDE - 1, y: row });
+      }
+      const mark = {} as SVGGraphicsElement;
+      ringsOf.mockReturnValue([{ points, closed: false }]);
+
+      const raster = TactileRenderer.render(
+        { marks: [mark], focused: [] },
+        wideViewport(),
+        WIDE,
+        TALL,
+      );
+
+      // A single stroke covering most of the grid still gets its second pin.
+      const thin = new DotRaster(WIDE, TALL);
+      thin.strokePath(points, 1);
+      expect(raster.raisedCount).toBeGreaterThan(thin.raisedCount);
+    });
+
+    it('should leave a few strokes alone when they are within the budget', () => {
+      const marks = strands([0, 10]);
+
+      const raster = TactileRenderer.render(
+        { marks, focused: [] },
+        wideViewport(),
+        WIDE,
+        TALL,
+      );
+
+      // Two strands across a twenty-pin grid is nowhere near crowded, so both
+      // keep the second pin that makes them followable.
+      expect(raster.get(5, 0)).toBe(true);
+      expect(raster.get(5, 1)).toBe(true);
+      expect(raster.get(5, 10)).toBe(true);
+      expect(raster.get(5, 11)).toBe(true);
+    });
+
+    it('should not thin a chart whose ink is fills rather than strokes', () => {
+      // Closed outlines are already a single pin and their interiors are not
+      // strokes at all, so a dense heat grid or bar chart is not crowded by
+      // this measure -- and must not lose anything to it.
+      const marks: SVGGraphicsElement[] = [];
+      const rings: DotRing[] = [];
+      for (let row = 0; row < 8; row++) {
+        for (let column = 0; column < 12; column++) {
+          marks.push({} as SVGGraphicsElement);
+          rings.push({
+            points: [
+              { x: column * 5, y: row * 5 },
+              { x: column * 5 + 4, y: row * 5 },
+              { x: column * 5 + 4, y: row * 5 + 4 },
+              { x: column * 5, y: row * 5 + 4 },
+            ],
+            closed: true,
+          });
+        }
+      }
+      ringsOf.mockImplementation(element => [rings[marks.indexOf(element)]]);
+
+      const raster = TactileRenderer.render(
+        { marks, focused: [] },
+        wideViewport(),
+        WIDE,
+        TALL,
+      );
+
+      // Every cell's outline is still there, interiors still hollow.
+      expect(raster.get(0, 0)).toBe(true);
+      expect(raster.get(4, 0)).toBe(true);
+      expect(raster.get(2, 2)).toBe(false);
+    });
+
+    it('should keep the focused mark at full weight on a crowded chart', () => {
+      // The thinning is spent on the strands the reader is not standing on.
+      // Theirs has to stay findable, and reads better for the thinning around
+      // it rather than worse.
+      const rows = [0, 2, 4, 6, 8, 10, 12, 14, 16, 20, 22, 24, 26, 28];
+      const marks = strands(rows);
+      const mine = {} as SVGGraphicsElement;
+      const all = [...marks, mine];
+      ringsOf.mockImplementation(element => [
+        element === mine ? strand(34) : strand(rows[marks.indexOf(element)]),
+      ]);
+
+      const raster = TactileRenderer.render(
+        { marks: all, focused: [mine] },
+        wideViewport(),
+        WIDE,
+        TALL,
+      );
+
+      // Context strands: one pin. The reader's own: heavier than that.
+      expect(raster.get(5, 0)).toBe(true);
+      expect(raster.get(5, 1)).toBe(false);
+      expect(raster.get(5, 34)).toBe(true);
+      expect(raster.get(5, 33)).toBe(true);
+    });
+  });
+
   it('should draw a mark the reader is not on as a hollow outline', () => {
     const mark = {} as SVGGraphicsElement;
     ringsOf.mockReturnValue([square]);

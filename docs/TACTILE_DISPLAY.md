@@ -328,6 +328,31 @@ to press something. If the device is not accepting writes at all it stops
 after a couple of attempts and tries again the next time you move, so a
 disconnected display does not turn into a stream of retries.
 
+### Several lines at once
+
+An open stroke — a line, a curve, a whisker — is drawn two pins across rather
+than one. A single pin is at the floor of what a fingertip resolves and a
+diagonal one is below it, so a lone line drawn that thin arrives as a row of
+separate bumps that the hand loses on the slightest drift.
+
+That second pin is charged once per strand, though, and on a chart of several
+lines the strands are the whole point: what the reader is doing is telling them
+apart. Four lines across a sixty-pin grid at two pins each closes the gaps
+between them, and the display hands back one mass with no lines in it.
+
+So the weight is measured rather than fixed. When a chart has more than one
+open stroke, and those strokes together would claim more than about a seventh
+of the pins, the ones the reader is *not* on drop to a single pin. The mark
+under the cursor keeps its full weight — and stands out more against thinned
+neighbours, not less.
+
+Two things this deliberately does not do. A chart drawn from a single stroke is
+never thinned, however much of the grid it covers: one line cannot be confused
+with another, so its thickness costs nothing — a step plot running to a fifth
+of the pins is perfectly legible. And a chart whose ink is fills rather than
+strokes — a heat grid, a bar chart — is untouched, because closed outlines are
+already a single pin and an interior is not a stroke at all.
+
 ### Panning
 
 Zooming in means the rest of the chart is off the pins, so the view pans — from
