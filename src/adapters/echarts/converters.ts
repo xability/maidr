@@ -18,6 +18,7 @@ import type {
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 import {
+  boxplotLayer,
   candlestickLayer,
   categoriesOf,
   drawnCandleCount,
@@ -83,9 +84,14 @@ const BAR: ReadonlySet<string> = new Set(['bar', 'pictorialBar']);
 /**
  * Everything the adapter reads.
  *
- * ECharts draws seventeen series types. The one still outside this set --
- * `boxplot` -- is left unread **by name** rather than mapped onto whichever
- * trace is closest; `grid.ts`'s footer records what stands in the way.
+ * Every series type this adapter has measured now has a reading, so nothing
+ * is refused for want of one. A type outside this set is still refused **by
+ * name** rather than mapped onto whichever trace is closest -- an ECharts
+ * extension such as `wordCloud` registers its own, and core gains types
+ * between releases.
+ *
+ * Two of the readings carry no outline, for reasons measured off the drawing
+ * rather than assumed; `grid.ts`'s footer records both.
  *
  * Exported because `EChartsSeriesType` is the public statement of this set
  * and the two have to agree. They drifted once already: tier 2b added
@@ -324,7 +330,11 @@ function buildLayers(
   // the series were declared. A heat cell and a candle body join that pool:
   // both are one filled mark per datum, which is the only thing the count
   // check asks of a series.
-  const marked = series.filter(seriesModel => seriesModel.subType !== 'line');
+  // A boxplot is excluded alongside a line: it paints one path per box, but
+  // that path is box AND whiskers together, which no selector shape wants --
+  // counting it would spend a slot and shift every later series' marks.
+  const marked = series.filter(seriesModel =>
+    seriesModel.subType !== 'line' && seriesModel.subType !== 'boxplot');
   const perDatum = markPerDatum(
     container,
     marked.map(seriesModel => drawnMarks(seriesModel, axes, grid)),
@@ -389,6 +399,9 @@ function otherLayer(
       return heatmapLayer(seriesModel, grid, axes, eachMark);
     case 'candlestick':
       return candlestickLayer(seriesModel, axes, eachMark);
+    case 'boxplot':
+      // Read without an outline; `grid.ts` records what was measured.
+      return boxplotLayer(seriesModel, axes);
     default:
       return scatterLayer(seriesModel, axes, wholeSeries);
   }

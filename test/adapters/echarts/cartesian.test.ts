@@ -450,6 +450,7 @@ describe('what the adapter says it reads', () => {
     'themeRiver',
     'parallel',
     'radar',
+    'boxplot',
   ] as const;
 
   type Declared = typeof DECLARED[number];
@@ -522,16 +523,17 @@ describe('an eCharts pictorial bar', () => {
 describe('what the adapter will not claim', () => {
   it('refuses a chart of series it has no reading for', () => {
     // By name, rather than mapped onto whichever trace is closest. ECharts
-    // draws seventeen series types and each wanted its own measured layout
-    // first (#1195). `pie` used to stand here, then `treemap`, then `radar`;
-    // all three read now. `boxplot` is the last one left, and its reason is
-    // recorded in `grid.ts` -- `BoxSelector` wants a selector per part and
-    // ECharts draws the box and both whiskers as one path, so there is
-    // nothing to name the parts with.
+    // and each wanted its own measured layout first (#1195). `pie` stood
+    // here, then `treemap`, then `radar`, then `boxplot` -- all read now.
+    // The subject is no longer a core type but one from outside it:
+    // `wordCloud` is an ECharts *extension*, which core does not register
+    // and this adapter has never measured. That is the case that has to keep
+    // refusing, and unlike the others it cannot be read out from under the
+    // test by the next tier.
     expect(() => layersOf(
-      { series: [{ type: 'boxplot', values: [1, 2, 3] }] },
+      { series: [{ type: 'wordCloud', values: [1, 2, 3] }] },
       drawnChart(3, 0),
-    )).toThrow(/Unsupported ECharts series type\(s\): boxplot/);
+    )).toThrow(/Unsupported ECharts series type\(s\): wordCloud/);
   });
 
   it('drops the highlighting when the drawing holds a different number of marks', () => {

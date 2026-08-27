@@ -53,9 +53,10 @@ Two things this example does on purpose:
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 | `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
 
-**Not yet supported:** `boxplot` alone. It is *refused by name* rather than
-mapped onto whichever trace is closest, and the footer of
-`src/adapters/echarts/grid.ts` records what stands in the way. See
+**Every series type the adapter has measured now has a reading.** A type
+outside that set is still refused *by name* rather than mapped onto whichever
+trace is closest — an ECharts extension such as `wordCloud` registers its own,
+and core gains types between releases. See
 [#1195](https://github.com/xability/maidr/issues/1195) for the tiers.
 
 > **Orientation note:** ECharts has no "horizontal" option. A bar chart is
@@ -104,6 +105,7 @@ drawing:
 |---|---|---|---|
 | `heatmap` | `['x', 'y', 'value']` | `heat` | yes — a selector per cell |
 | `candlestick` | `['base', 'open', 'close', 'lowest', 'highest']` | `candlestick` | yes — a selector per candle |
+| `boxplot` | `['base', 'min', 'Q1', 'median', 'Q3', 'max']` | `box` | **no** — see below |
 
 Both draw exactly one filled mark per datum — a cell, a candle body with its
 wick — which is the same shape the bar reading already counts and stamps.
@@ -124,6 +126,28 @@ selector.
 every other candlestick producer in this tree. A period missing any of the four
 prices draws no candle, so it is left out of the reading entirely — counting it
 would expect a mark that was never drawn.
+
+**A box plot is read but not outlined.** The values need no deriving — the
+five-number summary arrives already computed. The *highlight* is what cannot
+be had: `BoxSelector` wants a selector per part (the whiskers, the box, the
+median, each outlier) and ECharts draws all of them as **one path**.
+Colour-tagged, a two-box chart yields exactly two filled paths, and each `d`
+runs box-rectangle, `Z`, then the whiskers:
+
+```
+M177.5 234.59 L227.5 234.59 L227.5 150.41 L177.5 150.41 Z M202.5 27…
+```
+
+There is nothing to name the parts with. The default paint is also `#fff`,
+which the mark filter counts as furniture, so the mark would be dropped even
+if the shape fitted.
+
+**Its outliers are empty, because the series carries none.** ECharts draws
+them as a *separate* `scatter` series by its own convention — there is no
+seventh dimension holding them. An accompanying scatter is read as the
+scatter it is, and keeps its own highlighting: the boxplot is deliberately
+excluded from the per-datum mark pool, so it cannot spend a slot and shift
+the scatter's selectors onto the wrong elements.
 
 ## Hierarchies and graphs
 

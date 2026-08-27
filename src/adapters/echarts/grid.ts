@@ -18,11 +18,16 @@
  */
 
 import type {
+  BoxPoint,
   CandlestickPoint,
   HeatmapData,
   MaidrLayer,
 } from '@type/grammar';
-import type { EChartsComponentModel, EChartsSeriesModel } from './types';
+import type {
+  EChartsComponentModel,
+  EChartsList,
+  EChartsSeriesModel,
+} from './types';
 import { TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 
@@ -30,6 +35,7 @@ import { nextId } from '../shared/selectorUtil';
 export const GRID_VALUE: ReadonlySet<string> = new Set([
   'heatmap',
   'candlestick',
+  'boxplot',
 ]);
 
 /** The category names an axis was drawn with, in axis order. */
@@ -303,19 +309,113 @@ function whole(value: unknown): number | null {
   return value;
 }
 
+/**
+ * Reads a `boxplot` as the five-number summary it hands over.
+ *
+ * Measured, the series carries `['base', 'min', 'Q1', 'median', 'Q3', 'max']`
+ * with one row per box and `getName(i)` answering the category, so the
+ * reading is a transcription -- nothing is derived from the drawing.
+ *
+ * **It is read without an outline, and that is a property of the drawing
+ * rather than a gap in the measurement.** `BoxSelector` wants one selector
+ * for each part -- the whiskers, the box, the median, each outlier -- and ECharts
+ * draws all of them as **one path**. Colour-tagged, a two-box chart yields
+ * exactly two filled paths, and each one's `d` is the box rectangle, a `Z`,
+ * and then the whiskers:
+ *
+ *     M177.5 234.59 L227.5 234.59 L227.5 150.41 L177.5 150.41 Z M202.5 27...
+ *
+ * There is nothing to name the parts with. On top of that the default paint
+ * is `#fff`, which this adapter's filter counts as furniture, so the mark
+ * would be dropped even if the shape fitted. Reading without an outline is
+ * what `gauge`, `sankey`, `graph`, `parallel` and `themeRiver` already do
+ * here: the values, the text and the braille all still work; only the
+ * highlight is absent.
+ *
+ * **Outliers are empty rather than guessed.** ECharts draws them as a
+ * separate `scatter` series by its own convention, so a boxplot series
+ * carries none of them -- there is no seventh dimension holding them. An
+ * accompanying scatter is read as the scatter it is.
+ *
+ * @param seriesModel - The series to read
+ * @param names       - The axis titles
+ * @returns The layer
+ */
+export function boxplotLayer(
+  seriesModel: EChartsSeriesModel,
+  names: AxisNames,
+): MaidrLayer {
+  const data = seriesModel.getData();
+  const points: BoxPoint[] = [];
+
+  for (let index = 0; index < data.count(); index++) {
+    const summary = summaryOf(data, index);
+    if (!summary) {
+      continue;
+    }
+    points.push({
+      z: data.getName(index) || `${index + 1}`,
+      // ECharts draws outliers as a separate series; see the note above.
+      lowerOutliers: [],
+      min: summary.min,
+      q1: summary.q1,
+      q2: summary.q2,
+      q3: summary.q3,
+      max: summary.max,
+      upperOutliers: [],
+    });
+  }
+
+  const named = seriesModel.get('name');
+  const name = typeof named === 'string' ? named : '';
+
+  return {
+    id: nextId('layer'),
+    type: TraceType.BOX,
+    ...(name ? { name } : {}),
+    axes: {
+      x: { label: names.x || undefined },
+      y: { label: names.y || undefined },
+    },
+    data: points,
+  };
+}
+
+/**
+ * One box's five numbers, or `undefined` when it is short of them.
+ *
+ * @param data  - The series' data list
+ * @param index - The box to read
+ * @returns The summary, or `undefined` when any of the five is missing
+ */
+function summaryOf(
+  data: EChartsList,
+  index: number,
+): { min: number; q1: number; q2: number; q3: number; max: number } | undefined {
+  const min = data.get('min', index);
+  const q1 = data.get('Q1', index);
+  const q2 = data.get('median', index);
+  const q3 = data.get('Q3', index);
+  const max = data.get('max', index);
+  if (
+    !measured(min) || !measured(q1) || !measured(q2)
+    || !measured(q3) || !measured(max)
+  ) {
+    return undefined;
+  }
+  return { min, q1, q2, q3, max };
+}
+
 /*
- * `boxplot` is the one series type still refused, because of how it is drawn
- * rather than what it carries.
+ * Every one of ECharts' seventeen series types now has a reading.
  *
- * A **box plot** hands over its five-number summary outright --
- * `['base', 'min', 'Q1', 'median', 'Q3', 'max']` -- so the reading is easy and
- * the highlighting is not: `BoxSelector` wants a selector per part (the
- * whiskers, the box, the median, each outlier), and ECharts draws the whole
- * box and both whiskers as **one path**. There is nothing to name the parts
- * with. It is also painted `#fff`, which this adapter's paint filter counts as
- * furniture, so it would fail the mark check even if the shape fitted.
+ * Two of them are read **without an outline**, and both for reasons measured
+ * rather than assumed. A `boxplot` draws its box and both whiskers as one
+ * path, so there is nothing to give `BoxSelector` its per-part selectors --
+ * see `boxplotLayer` above. A `parallel` strokes its polylines rather than
+ * filling them, so the mark finder pairs nothing.
  *
- * A **radar** used to stand here beside it, and the reason recorded for it
+ * A **radar** used to stand here as refused, and the reason recorded for it
  * was wrong. It said a two-series radar draws six vertex symbols plus a ring
  * background that is neither furniture nor white, so seven marks are found
  * where six are expected. That counts the wrong mark class: `RadarTrace`
@@ -324,4 +424,8 @@ function whole(value: unknown): number | null {
  * series outline is a **stroked** polyline, one per series, weighted and in
  * the series colour, which is the shape `markPerSeries()` already finds for
  * a line. See `radar.ts`; it is read, and highlighted.
+ *
+ * The lesson generalises, and is why the boxplot note above records the `d`
+ * attribute it was measured from: a refusal is a claim about the drawing,
+ * and it has to be checked against the drawing rather than carried forward.
  */
