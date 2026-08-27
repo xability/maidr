@@ -278,10 +278,11 @@ solid mark appears once you enter and start moving through the data.
 A whole chart scaled onto a few thousand pins can collapse neighbouring marks
 into the same pin. Zooming spends the same pins on a smaller slice of the chart.
 
-| Action   | Key            |
-| -------- | -------------- |
-| Zoom in  | <kbd>=</kbd>   |
-| Zoom out | <kbd>-</kbd>   |
+| Action           | Key            |
+| ---------------- | -------------- |
+| Zoom in          | <kbd>=</kbd>   |
+| Zoom out         | <kbd>-</kbd>   |
+| Back to the whole plot | <kbd>0</kbd> |
 
 Plain keys, not <kbd>Ctrl</kbd> chords, on purpose: <kbd>Ctrl</kbd> + <kbd>+</kbd>
 is the browser's own page zoom, and the reader most likely to want it is a
@@ -301,6 +302,15 @@ numeric keypad's <kbd>+</kbd> and <kbd>-</kbd> work too. Each change is
 announced with the new zoom level and where in the chart the view now sits —
 with nothing on the grid but marks, there is no border left to say which slice
 you are on.
+
+<kbd>0</kbd> goes straight back to the whole plot, however far in you are. The
+zoom steps are multiplicative and there are eight of them, so stepping out from
+the closest one is seven presses — and each of those is a frame the device has
+to be waited on while it draws something you did not want to feel. Pressing it
+when the whole plot is already showing says so and sends nothing, rather than
+spending a second redrawing what is already there. The digit row reads the same
+way round as the zoom levels: <kbd>1</kbd> upwards is closer in, and
+<kbd>0</kbd> is the one before them.
 
 Zooming closes in on **the mark you are on**, not on the middle of the chart.
 That is the mark you asked to feel more closely, and after a step or two the

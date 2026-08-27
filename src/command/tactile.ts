@@ -49,3 +49,30 @@ export class TactileZoomOutCommand implements Command {
     this.tactileService.zoomOut();
   }
 }
+
+/**
+ * Command to return the tactile display to the whole plot.
+ *
+ * The zoom steps are multiplicative and there are eight of them, so stepping
+ * back from the closest one is seven presses -- each drawing a frame the
+ * reader does not want and waiting on the device to take it. This is the way
+ * back to a view they have lost.
+ */
+export class TactileResetZoomCommand implements Command {
+  private readonly tactileService: TactileService;
+
+  /**
+   * Creates an instance of TactileResetZoomCommand.
+   * @param tactileService - The service driving the tactile display.
+   */
+  public constructor(tactileService: TactileService) {
+    this.tactileService = tactileService;
+  }
+
+  /**
+   * Returns the tactile view to the whole plot.
+   */
+  public execute(): void {
+    this.tactileService.resetZoom();
+  }
+}

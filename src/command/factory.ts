@@ -92,7 +92,7 @@ import {
   RotorNavigationPrevNavUnitCommand,
 } from './rotorNavigation';
 import { SubplotCue } from './subplotCue';
-import { TactileZoomInCommand, TactileZoomOutCommand } from './tactile';
+import { TactileResetZoomCommand, TactileZoomInCommand, TactileZoomOutCommand } from './tactile';
 import {
   CommandPaletteCloseCommand,
   CommandPaletteMoveDownCommand,
@@ -257,6 +257,8 @@ export class CommandFactory {
         return new TactileZoomInCommand(this.tactileService);
       case 'TACTILE_ZOOM_OUT':
         return new TactileZoomOutCommand(this.tactileService);
+      case 'TACTILE_RESET_ZOOM':
+        return new TactileResetZoomCommand(this.tactileService);
 
       case 'TOGGLE_MONITOR':
         return new ToggleMonitorCommand(this.monitorService);

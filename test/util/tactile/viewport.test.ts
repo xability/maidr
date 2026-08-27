@@ -488,6 +488,31 @@ describe('tactileViewport describe', () => {
     expect(viewport.describe()).toBe('Zoom 2x, centred 75% across and 50% down');
   });
 
+  it('should report whether a reset had anything to do', () => {
+    // The service refuses on `false` and announces on `true`, so this is what
+    // separates "you are back at the whole plot" from a redundant frame sent
+    // to a device that is already showing it.
+    expect(viewport.reset()).toBe(false);
+
+    viewport.zoomIn();
+
+    expect(viewport.reset()).toBe(true);
+    expect(viewport.reset()).toBe(false);
+  });
+
+  it('should count a pan with no zoom as something to reset', () => {
+    // Panning at 1x is refused, so this cannot happen through the keys today.
+    // It is asserted because `reset` answers about the whole view, not just
+    // the zoom level, and a future pan that works at 1x should not silently
+    // become unresettable.
+    viewport.zoomIn();
+    viewport.pan('right');
+    viewport.zoomOut();
+
+    expect(viewport.isWholePlotVisible).toBe(true);
+    expect(viewport.reset()).toBe(false);
+  });
+
   it('should say the whole plot is shown again after reset', () => {
     viewport.zoomIn();
     viewport.pan('right');

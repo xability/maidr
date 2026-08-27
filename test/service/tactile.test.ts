@@ -1603,6 +1603,49 @@ describe('tactileService', () => {
       expect(notify).toHaveBeenCalledWith('Already showing the whole plot');
     });
 
+    it('should return to the whole plot in one press from the closest zoom', () => {
+      // The steps are multiplicative and there are eight of them, so stepping
+      // back is seven presses -- each drawing a frame the reader does not want
+      // and waiting on the device to take it.
+      activate();
+      for (let step = 0; step < 7; step++) {
+        service.zoomIn();
+      }
+      notify.mockClear();
+
+      service.resetZoom();
+
+      expect(notify).toHaveBeenLastCalledWith('Whole plot');
+    });
+
+    it('should put back the frame the reader started from', () => {
+      // Announcing the whole plot is not the same as showing it. The pins have
+      // to be what they were before the zoom, or the reader is told they are
+      // home while feeling something else.
+      activate();
+      const first = session.writeGraphic.mock.calls[0][0];
+      service.zoomIn();
+      service.zoomIn();
+      session.writeGraphic.mockClear();
+
+      service.resetZoom();
+
+      expect(session.writeGraphic).toHaveBeenCalledWith(first);
+    });
+
+    it('should refuse a reset when already showing the whole plot', () => {
+      // A device takes a second or more per frame, so the refusal is what
+      // stops a redundant press costing the reader that second.
+      activate();
+      session.writeGraphic.mockClear();
+      notify.mockClear();
+
+      service.resetZoom();
+
+      expect(notify).toHaveBeenCalledWith('Already showing the whole plot');
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+    });
+
     it('should say that no display is connected rather than zooming', () => {
       brailleStub.isEnabled = true;
 

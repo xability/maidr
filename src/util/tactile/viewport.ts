@@ -230,10 +230,15 @@ export class TactileViewport {
 
   /**
    * Resets to the whole plot, centred.
+   * @returns True when the view was not already there
    */
-  public reset(): void {
+  public reset(): boolean {
+    if (this.zoomIndex === 0 && this.centre.x === 0.5 && this.centre.y === 0.5) {
+      return false;
+    }
     this.zoomIndex = 0;
     this.centre = { x: 0.5, y: 0.5 };
+    return true;
   }
 
   /**

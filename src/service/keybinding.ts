@@ -68,6 +68,16 @@ const BRAILLE_KEYMAP = {
     'Zoom Out Tactile Display',
     { helpKey: '-' },
   ),
+  // `0` for the whole plot, on the reasoning that reads on a keyboard: the
+  // digit row runs `1` upwards through the zoom levels a reader might imagine,
+  // and `0` is the one before them. Stepping back out is seven presses from
+  // the closest zoom -- each a frame the device has to be waited on -- so this
+  // is not a shortcut for a thing that was already quick.
+  TACTILE_RESET_ZOOM: key(
+    `0, num_0`,
+    'Reset Tactile Display Zoom',
+    { helpKey: '0' },
+  ),
 
   // Navigation
   MOVE_UP: key(`up`, 'Navigate Up'),
@@ -258,6 +268,16 @@ const SUBPLOT_KEYMAP = {
     'Zoom Out Tactile Display',
     { helpKey: '-' },
   ),
+  // `0` for the whole plot, on the reasoning that reads on a keyboard: the
+  // digit row runs `1` upwards through the zoom levels a reader might imagine,
+  // and `0` is the one before them. Stepping back out is seven presses from
+  // the closest zoom -- each a frame the device has to be waited on -- so this
+  // is not a shortcut for a thing that was already quick.
+  TACTILE_RESET_ZOOM: key(
+    `0, num_0`,
+    'Reset Tactile Display Zoom',
+    { helpKey: '0' },
+  ),
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
@@ -367,6 +387,16 @@ const TRACE_KEYMAP = {
     `-, num_subtract`,
     'Zoom Out Tactile Display',
     { helpKey: '-' },
+  ),
+  // `0` for the whole plot, on the reasoning that reads on a keyboard: the
+  // digit row runs `1` upwards through the zoom levels a reader might imagine,
+  // and `0` is the one before them. Stepping back out is seven presses from
+  // the closest zoom -- each a frame the device has to be waited on -- so this
+  // is not a shortcut for a thing that was already quick.
+  TACTILE_RESET_ZOOM: key(
+    `0, num_0`,
+    'Reset Tactile Display Zoom',
+    { helpKey: '0' },
   ),
   ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 

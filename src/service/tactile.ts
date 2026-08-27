@@ -548,6 +548,19 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * Returns the tactile view to the whole plot.
+   *
+   * Stepping back out works, but the steps are multiplicative and there are
+   * eight of them: from the closest zoom that is seven presses, each redrawing
+   * a frame the reader does not want and waiting on the device to take it. One
+   * key is the difference between recovering a view you have lost and picking
+   * your way back to it.
+   */
+  public resetZoom(): void {
+    this.changeZoom(viewport => viewport.reset(), 'Already showing the whole plot');
+  }
+
+  /**
    * Applies a zoom step and announces the result.
    * @param step - The zoom operation, returning whether it changed anything
    * @param refusal - What to say when the zoom is already at that limit
