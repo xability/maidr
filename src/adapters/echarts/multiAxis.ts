@@ -46,23 +46,29 @@ export const PARALLEL: ReadonlySet<string> = new Set(['parallel']);
  * "1577836800000", so it is turned back into the date it is -- see
  * {@link instant}.
  *
- * **It is read without an outline.** Measured by colour, the drawing paints
- * one filled path per *band*, not one per datum: three instants of two bands
- * gave two marks. `TraceType.STACKED_AREA` is a segmented trace, and a
- * segmented trace's selectors are a row per series *aligned to that series'
- * points* -- which is a pairing the drawing does not offer. Repeating the
- * band's one mark across its instants would resolve, and would light the
- * whole band on every move within it, which is not what the cursor is on.
- * So the outline is left to a follow-up that can verify a shape against a
- * constructed trace rather than against a resolving string.
+ * **One selector per band, which took a correction to get right.** This was
+ * first shipped without an outline, on the reasoning that
+ * `TraceType.STACKED_AREA` is a segmented trace whose selectors are a row per
+ * series aligned to that series' points -- a pairing the drawing does not
+ * offer, since it paints one filled path per *band* rather than one per
+ * datum. The premise was wrong: `factory.ts` routes `STACKED_AREA` to
+ * `AreaTrace`, which extends `LineTrace`, and a line takes **one selector per
+ * series**. One filled path per band is exactly that shape.
+ *
+ * The marks are filled rather than stroked, so they are found with
+ * `markPerDatum` over a count of bands rather than with `markPerSeries`.
+ * Withheld unless there is one per band that was read: a list that does not
+ * line up pairs every band with the wrong path.
  *
  * @param seriesModel - The series to read
  * @param model       - The chart's model, for the axis name
+ * @param selectors   - One selector per band, when they were found
  * @returns The layer, or `undefined` when nothing measurable was drawn
  */
 export function themeRiverLayer(
   seriesModel: EChartsSeriesModel,
   model: EChartsModel,
+  selectors: string[] | undefined,
 ): MaidrLayer | undefined {
   const data = seriesModel.getData();
   const dated = axisType(model, 'singleAxis') === 'time';
@@ -104,10 +110,33 @@ export function themeRiverLayer(
       // not make.
       y: {},
     },
-    // A row per band. `SegmentedTrace` declines a flat list, and a flat one
-    // is what the series hands over.
+    // One per band, in the order the bands are stacked -- `AreaTrace`
+    // inherits `LineTrace`'s pairing, which takes the list row by row.
+    ...(selectors && selectors.length === order.length ? { selectors } : {}),
+    // A row per band; the series hands over a flat list.
     data: order.map(band => bands.get(band) ?? []),
   };
+}
+
+/**
+ * How many bands a theme river drew, which is how many marks to look for.
+ *
+ * Counted from the series by the same grouping the reading uses, so the count
+ * handed to the mark finder is the one the layer will carry.
+ *
+ * @param seriesModel - The series to read
+ * @returns The number of distinct bands that carry a measured value
+ */
+export function drawnBandCount(seriesModel: EChartsSeriesModel): number {
+  const data = seriesModel.getData();
+  const bands = new Set<string>();
+  for (let index = 0; index < data.count(); index++) {
+    if (!measured(data.get('value', index))) {
+      continue;
+    }
+    bands.add(data.getName(index) || `Band ${bands.size + 1}`);
+  }
+  return bands.size;
 }
 
 /**

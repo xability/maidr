@@ -114,8 +114,32 @@ function container(): HTMLElement {
   return dom.window.document.getElementById('chart') as HTMLElement;
 }
 
-function layersOf(chart: EChartsInstance) {
-  return createMaidrFromEChart(chart, container()).subplots[0][0].layers;
+/** A drawn theme river: `bands` filled paths, plus gridline furniture. */
+function drawnRiver(bands: number): HTMLElement {
+  const dom = new JSDOM('<!doctype html><body><div id="chart"></div></body>');
+  const doc = dom.window.document;
+  const host = doc.getElementById('chart') as HTMLElement;
+  const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+
+  const add = (attributes: Record<string, string>): void => {
+    const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+    Object.entries(attributes).forEach(([key, value]) =>
+      path.setAttribute(key, value));
+    svg.appendChild(path);
+  };
+
+  add({ fill: 'none', stroke: '#dbdee4' });
+  // One filled path per band -- what the drawing actually paints.
+  for (let index = 0; index < bands; index++) {
+    add({ fill: '#5070dd' });
+  }
+
+  host.appendChild(svg);
+  return host;
+}
+
+function layersOf(chart: EChartsInstance, host: HTMLElement = container()) {
+  return createMaidrFromEChart(chart, host).subplots[0][0].layers;
 }
 
 const RIVER: Band[] = [
@@ -221,12 +245,36 @@ describe('an eCharts theme river', () => {
     expect(data[0].map(point => point.y)).toEqual([10, 12]);
   });
 
-  it('is read without an outline', () => {
-    // Measured by colour: the drawing paints one filled path per band, not
-    // one per datum, so the per-point pairing a segmented trace's selectors
-    // need is not on offer. Emitting one anyway would light a whole band on
-    // every move within it.
-    expect(layersOf(themeRiverChart(RIVER))[0].selectors).toBeUndefined();
+  it('takes one selector per band', () => {
+    // This shipped without an outline first, on the reasoning that
+    // `STACKED_AREA` is a segmented trace needing a selector per *point*.
+    // The premise was wrong -- `factory.ts` routes it to `AreaTrace`, which
+    // extends `LineTrace` and takes one selector per *series*. One filled
+    // path per band is exactly that shape.
+    const layer = layersOf(themeRiverChart(RIVER), drawnRiver(2))[0];
+
+    expect(layer.selectors).toHaveLength(2);
+  });
+
+  it('withholds the selectors when they do not line up with the bands', () => {
+    // A list that does not match pairs every band with the wrong path,
+    // which is worse than no highlighting at all.
+    expect(layersOf(themeRiverChart(RIVER), drawnRiver(3))[0].selectors)
+      .toBeUndefined();
+  });
+
+  it('counts only the bands that carry a measured value', () => {
+    // The count handed to the mark finder has to be the one the layer will
+    // carry, or a band dropped for having nothing drawn would shift the
+    // pairing by one.
+    const layer = layersOf(themeRiverChart([
+      { time: january(1), value: 10, name: 'A' },
+      { time: january(1), value: null, name: 'ghost' },
+      { time: january(1), value: 5, name: 'B' },
+    ]), drawnRiver(2))[0];
+
+    expect(layer.data).toHaveLength(2);
+    expect(layer.selectors).toHaveLength(2);
   });
 
   it('is refused when nothing it drew was measurable', () => {
