@@ -122,6 +122,12 @@ const FILL_IS_THE_DIRECTION: ReadonlySet<string> = new Set([
  * junction is theirs. Sighted readers answer that from colour. On pins there
  * is no colour, so it becomes a dash pattern.
  *
+ * A chart of several lines is covered by `line`, not by a type of its own.
+ * `multiline` looks like it belongs here and does not: it is a `plotType`,
+ * which is what the announcements say, and a trace carrying several series is
+ * still a `LineTrace` reporting `traceType: 'line'`. These are `TraceType`
+ * values, so a `plotType` string here would simply never match.
+ *
  * A box plot is deliberately absent even though it draws in two colours: there
  * the second colour is the median, not a second series, and dashing the
  * whiskers would invent a distinction the chart never made. So is a parallel
@@ -130,7 +136,6 @@ const FILL_IS_THE_DIRECTION: ReadonlySet<string> = new Set([
  */
 const COLOUR_IS_THE_SERIES: ReadonlySet<string> = new Set([
   'line',
-  'multiline',
   'smooth',
   'step',
   'survival',
