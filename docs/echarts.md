@@ -206,7 +206,7 @@ none of them carries a hierarchy or a graph.
 
 | ECharts | read as | payload | highlighted |
 |---|---|---|---|
-| `themeRiver` | `stacked_area` | `SegmentedPoint[][]` | **no** — see below |
+| `themeRiver` | `stacked_area` | `SegmentedPoint[][]` | yes — one selector per band |
 | `parallel` | `parallel_coordinates` | `LinePoint[][]` | **no** — see below |
 | `radar` | `radar` | `LinePoint[][]` | yes — one selector per series |
 
@@ -233,15 +233,18 @@ by column position, so a value is pitched against its own variable's range
 even when an observation is short a reading
 ([#1182](https://github.com/xability/maidr/issues/1182)).
 
-**Neither is highlighted, and for different reasons.** A parallel plot's
+**A parallel plot is not highlighted; a theme river is.** A parallel plot's
 polylines are *stroked*, so the mark finder — which pairs filled marks with
 data — finds none at all: measured, zero marks for a two-observation chart.
-A theme river does paint filled marks, but one per **band**, not one per
-datum; `stacked_area` is a segmented trace, whose selectors are a row per
-series *aligned to that series' points*, and that pairing is not on offer.
-Repeating the band's one mark across its instants would resolve and would
-light the whole band on every move within it, which is not where the cursor
-is.
+
+The theme river took a correction. It shipped without an outline first, on
+the reasoning that `stacked_area` is a segmented trace whose selectors are a
+row per series *aligned to that series' points* — a pairing the drawing does
+not offer, since it paints one filled path per **band** rather than one per
+datum. The premise was wrong: `src/model/factory.ts` routes `STACKED_AREA` to
+`AreaTrace`, which extends `LineTrace`, and a line takes **one selector per
+series**. One filled path per band is exactly that shape. Verified live —
+three bands give three selectors that resolve to three *distinct* paths.
 
 **A radar's outline is a stroke, not a fill.** This one is worth spelling out
 because the adapter got it wrong once. A radar was refused on the grounds

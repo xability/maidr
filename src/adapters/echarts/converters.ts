@@ -33,6 +33,7 @@ import {
   OUTLINED_HIERARCHY,
 } from './hierarchy';
 import {
+  drawnBandCount,
   PARALLEL,
   parallelLayer,
   THEME_RIVER,
@@ -222,7 +223,8 @@ function readOwning(
       return layer ? [layer] : [];
     }
     if (THEME_RIVER.has(seriesModel.subType)) {
-      const layer = themeRiverLayer(seriesModel, model);
+      const bands = markPerDatum(container, [drawnBandCount(seriesModel)]);
+      const layer = themeRiverLayer(seriesModel, model, bands?.points[0]);
       return layer ? [layer] : [];
     }
     if (PARALLEL.has(seriesModel.subType)) {
