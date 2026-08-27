@@ -434,6 +434,8 @@ describe('tactileService', () => {
   let textService: TextService;
   let format: jest.Mock<(state: NonEmptyTraceState) => string>;
   let brailleStub: { isEnabled: boolean; onToggle: BrailleService['onToggle'] };
+  let braille: BrailleService;
+  let display: DisplayService;
   let toggle: Emitter<{ enabled: boolean; state: TraceState }>;
   let service: TactileService;
 
@@ -483,8 +485,8 @@ describe('tactileService', () => {
     toggle = new Emitter<{ enabled: boolean; state: TraceState }>();
     brailleStub = { isEnabled: false, onToggle: toggle.event };
 
-    const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
-    const display = { plot: chart.plot } as unknown as DisplayService;
+    braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
+    display = { plot: chart.plot } as unknown as DisplayService;
 
     service = new TactileService(display, braille, notification, textService, createFigure(chart.axes, [chart.marks]));
   });
@@ -514,15 +516,30 @@ describe('tactileService', () => {
     toggle.fire({ enabled: true, state: traceState(chart, 1) });
   }
 
-  function activate(focus: number = 1): NonEmptyTraceState {
+  /**
+   * A second service over the same chart, for a case that has to draw the same
+   * marks twice from a clean cache. `dispose()` is permanent, so the instance
+   * built in `beforeEach` cannot be reused once it has been torn down.
+   */
+  function freshService(): TactileService {
+    return new TactileService(
+      display,
+      braille,
+      notification,
+      textService,
+      createFigure(chart.axes, [chart.marks]),
+    );
+  }
+
+  function activate(focus: number = 1, traceType: string = 'bar'): NonEmptyTraceState {
     session.isConnected = true;
     turnOn();
     // Through the toggle event, as the real braille service raises it. The
     // display keeps its own on/off state — it has to, since braille declines
     // in the lobby and on plot types it has no table for — so setting the
     // braille flag alone no longer puts anything on the pins.
-    toggle.fire({ enabled: true, state: traceState(chart, focus) });
-    const state = traceState(chart, focus);
+    toggle.fire({ enabled: true, state: traceState(chart, focus, 'a', 12, traceType) });
+    const state = traceState(chart, focus, 'a', 12, traceType);
     service.update(state);
     return state;
   }
@@ -645,6 +662,104 @@ describe('tactileService', () => {
 
       expect(service.isActive).toBe(true);
       expect(brailleStub.isEnabled).toBe(false);
+    });
+  });
+
+  describe('telling several lines apart', () => {
+    // Strands laid over one another cross, and at every crossing a reader
+    // following one has to decide which of two lines leaving the junction is
+    // theirs. A sighted reader answers that from colour. On pins there is no
+    // colour, so the chart's own colours become dash patterns.
+
+    /**
+     * Paints the chart's marks with the given stroke colours, cycling if there
+     * are fewer colours than marks.
+     * @param colours - Stroke colours to apply
+     */
+    const paintStrokes = (colours: readonly string[]): void => {
+      chart.marks.forEach((mark, index) => {
+        mark.setAttribute('stroke', colours[index % colours.length]);
+        mark.setAttribute('fill', 'none');
+      });
+      // The shared fixture's marks are rectangles, and a pattern only ever
+      // applies to an open stroke. These cases are about strands, so the rings
+      // are re-stubbed as the open ones a line chart actually hands over.
+      ringsOf.mockImplementation((element, viewport) => {
+        const box = element.getBoundingClientRect();
+        return [{
+          points: [
+            viewport.toDot(box.left, box.top),
+            viewport.toDot(box.left + box.width, box.top + box.height),
+          ],
+          closed: false,
+        }];
+      });
+    };
+
+    /**
+     * Total pins raised by the frame the service last sent.
+     * @param hex - The graphic payload
+     */
+    const raisedIn = (hex: string): number => {
+      let count = 0;
+      for (let index = 0; index < hex.length; index += 2) {
+        let byte = Number.parseInt(hex.slice(index, index + 2), 16);
+        while (byte > 0) {
+          count += byte & 1;
+          byte >>= 1;
+        }
+      }
+      return count;
+    };
+
+    it('should break up the strands when the chart drew them in different colours', () => {
+      paintStrokes(['#1f77b4', '#ff7f0e', '#2ca02c']);
+      activate(0, 'line');
+      const patterned = raisedIn(session.writeGraphic.mock.calls[0][0]);
+
+      session.writeGraphic.mockClear();
+      service.dispose();
+      service = freshService();
+      paintStrokes(['#1f77b4']);
+      activate(0, 'line');
+      const uniform = raisedIn(session.writeGraphic.mock.calls[0][0]);
+
+      // Same geometry either way; the patterned frame is the one with gaps in
+      // it, so it raises strictly fewer pins.
+      expect(patterned).toBeLessThan(uniform);
+    });
+
+    it('should leave the strands solid when the chart drew them one colour', () => {
+      // No series distinction is being drawn, so dashing them all identically
+      // would cost every line its continuity to say nothing at all.
+      paintStrokes(['#1f77b4']);
+      activate(0, 'line');
+      const uniform = raisedIn(session.writeGraphic.mock.calls[0][0]);
+
+      session.writeGraphic.mockClear();
+      service.dispose();
+      service = freshService();
+      paintStrokes(['#1f77b4']);
+      activate(0, 'line');
+
+      expect(raisedIn(session.writeGraphic.mock.calls[0][0])).toBe(uniform);
+    });
+
+    it('should not pattern a chart whose colours do not name a series', () => {
+      // A box plot draws its medians in a second colour without that colour
+      // naming a second series, so dashing its whiskers would invent a
+      // distinction the chart never made.
+      paintStrokes(['#1f77b4', '#ff7f0e', '#2ca02c']);
+      activate(0, 'box');
+      const boxed = raisedIn(session.writeGraphic.mock.calls[0][0]);
+
+      session.writeGraphic.mockClear();
+      service.dispose();
+      service = freshService();
+      paintStrokes(['#1f77b4']);
+      activate(0, 'box');
+
+      expect(raisedIn(session.writeGraphic.mock.calls[0][0])).toBe(boxed);
     });
   });
 

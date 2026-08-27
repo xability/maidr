@@ -301,6 +301,61 @@ describe('dotRaster', () => {
     });
   });
 
+  describe('dashedPolyline', () => {
+    it('should carry the phase across a bend rather than restarting', () => {
+      // A line arrives as dozens of short segments. Restarting the pattern at
+      // each one would put a fresh mark at every joint -- densest exactly
+      // where the line bends and the reader is feeling for a corner -- and
+      // would make the same line come out differently on a chart that sampled
+      // it more finely.
+      const raster = new DotRaster(30, 10);
+      raster.dashedPolyline([{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 9, y: 0 }], [3, 2]);
+
+      const straight = new DotRaster(30, 10);
+      straight.dashedPolyline([{ x: 0, y: 0 }, { x: 9, y: 0 }], [3, 2]);
+
+      expect(raster.equals(straight)).toBe(true);
+    });
+
+    it('should draw solid when the pattern is empty', () => {
+      const raster = new DotRaster(30, 10);
+      raster.dashedPolyline([{ x: 0, y: 0 }, { x: 9, y: 0 }], []);
+
+      for (let x = 0; x <= 9; x++) {
+        expect(raster.get(x, 0)).toBe(true);
+      }
+    });
+
+    it('should repeat the pattern along the whole run', () => {
+      const raster = new DotRaster(30, 10);
+      raster.dashedPolyline([{ x: 0, y: 0 }, { x: 11, y: 0 }], [2, 2]);
+
+      const expected = [true, true, false, false, true, true, false, false, true, true, false, false];
+      expected.forEach((raised, x) => {
+        expect(raster.get(x, 0)).toBe(raised);
+      });
+    });
+
+    it('should step the same pins a solid stroke would', () => {
+      // The gaps have to fall on the line, not near it: a pattern computed
+      // from geometry walked separately could land half a pin off, which is
+      // the difference between a texture a hand can name and one it cannot.
+      const points = [{ x: 0, y: 0 }, { x: 9, y: 5 }, { x: 17, y: 2 }];
+      const dashed = new DotRaster(30, 10);
+      dashed.dashedPolyline(points, [3, 2]);
+      const solid = new DotRaster(30, 10);
+      solid.polyline(points);
+
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 30; x++) {
+          if (dashed.get(x, y)) {
+            expect(solid.get(x, y)).toBe(true);
+          }
+        }
+      }
+    });
+  });
+
   describe('fillPolygon', () => {
     it('should raise the interior of a triangle and leave the outside lowered', () => {
       const raster = new DotRaster(12, 12);
@@ -472,170 +527,6 @@ describe('tactileRenderer.render', () => {
   beforeEach(() => {
     ringsOf.mockReset();
     ringsOf.mockReturnValue([]);
-  });
-
-  describe('crowding', () => {
-    // A real DotPad 320's graphic area, because the budget is a share of the
-    // grid: two lines across sixty pins is a tenth of it, and the same two
-    // across a twenty-pin test grid would be a fifth. Sizing these cases to the
-    // device is what keeps "two lines is not crowded" a statement about the
-    // display rather than about the fixture.
-    const WIDE = 60;
-    const TALL = 40;
-    const wideViewport = (): TactileViewport => new TactileViewport(
-      { left: 0, top: 0, width: WIDE - 1, height: TALL - 1 },
-      WIDE,
-      TALL,
-    );
-
-    // Two pins across is what makes an open stroke followable, and on a chart
-    // drawn from one it costs nothing anyone can feel. It is charged once per
-    // strand though, and the strands are exactly what a reader of a multi-line
-    // chart is trying to tell apart -- so past a point the gaps between them
-    // close and the picture arrives as one mass with no lines in it.
-
-    /**
-     * An open stroke running the width of the grid at a given row.
-     * @param row - The row to run along
-     */
-    const strand = (row: number): DotRing => ({
-      points: [{ x: 0, y: row }, { x: WIDE - 1, y: row }],
-      closed: false,
-    });
-
-    /**
-     * Marks whose rings are the given strands, one strand each.
-     * @param rows - A row per mark
-     */
-    const strands = (rows: readonly number[]): SVGGraphicsElement[] => {
-      const marks = rows.map(() => ({} as SVGGraphicsElement));
-      ringsOf.mockImplementation(element => [strand(rows[marks.indexOf(element)])]);
-      return marks;
-    };
-
-    it('should thin the strokes when they would claim too much of the grid', () => {
-      // Ten strands two pins across is every other row raised: a hand meets a
-      // field of ridges with no gap wide enough to say where one line ends.
-      const rows = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
-      const marks = strands(rows);
-
-      const raster = TactileRenderer.render(
-        { marks, focused: [] },
-        wideViewport(),
-        WIDE,
-        TALL,
-      );
-
-      // Each strand on its own row, and the row beneath it clear again.
-      for (const row of rows) {
-        expect(raster.get(5, row)).toBe(true);
-        expect(raster.get(5, row + 1)).toBe(false);
-      }
-    });
-
-    it('should leave a lone stroke at full weight however much it covers', () => {
-      // One stroke cannot be confused with another, so its thickness costs the
-      // reader nothing -- a step plot of a single line runs to a fifth of the
-      // pins and is perfectly legible. Thinning on ink alone would take pins
-      // off charts that are busy rather than crowded.
-      const points: { x: number; y: number }[] = [];
-      for (let row = 0; row < TALL; row++) {
-        points.push({ x: row % 2 === 0 ? 0 : WIDE - 1, y: row });
-      }
-      const mark = {} as SVGGraphicsElement;
-      ringsOf.mockReturnValue([{ points, closed: false }]);
-
-      const raster = TactileRenderer.render(
-        { marks: [mark], focused: [] },
-        wideViewport(),
-        WIDE,
-        TALL,
-      );
-
-      // A single stroke covering most of the grid still gets its second pin.
-      const thin = new DotRaster(WIDE, TALL);
-      thin.strokePath(points, 1);
-      expect(raster.raisedCount).toBeGreaterThan(thin.raisedCount);
-    });
-
-    it('should leave a few strokes alone when they are within the budget', () => {
-      const marks = strands([0, 10]);
-
-      const raster = TactileRenderer.render(
-        { marks, focused: [] },
-        wideViewport(),
-        WIDE,
-        TALL,
-      );
-
-      // Two strands across a twenty-pin grid is nowhere near crowded, so both
-      // keep the second pin that makes them followable.
-      expect(raster.get(5, 0)).toBe(true);
-      expect(raster.get(5, 1)).toBe(true);
-      expect(raster.get(5, 10)).toBe(true);
-      expect(raster.get(5, 11)).toBe(true);
-    });
-
-    it('should not thin a chart whose ink is fills rather than strokes', () => {
-      // Closed outlines are already a single pin and their interiors are not
-      // strokes at all, so a dense heat grid or bar chart is not crowded by
-      // this measure -- and must not lose anything to it.
-      const marks: SVGGraphicsElement[] = [];
-      const rings: DotRing[] = [];
-      for (let row = 0; row < 8; row++) {
-        for (let column = 0; column < 12; column++) {
-          marks.push({} as SVGGraphicsElement);
-          rings.push({
-            points: [
-              { x: column * 5, y: row * 5 },
-              { x: column * 5 + 4, y: row * 5 },
-              { x: column * 5 + 4, y: row * 5 + 4 },
-              { x: column * 5, y: row * 5 + 4 },
-            ],
-            closed: true,
-          });
-        }
-      }
-      ringsOf.mockImplementation(element => [rings[marks.indexOf(element)]]);
-
-      const raster = TactileRenderer.render(
-        { marks, focused: [] },
-        wideViewport(),
-        WIDE,
-        TALL,
-      );
-
-      // Every cell's outline is still there, interiors still hollow.
-      expect(raster.get(0, 0)).toBe(true);
-      expect(raster.get(4, 0)).toBe(true);
-      expect(raster.get(2, 2)).toBe(false);
-    });
-
-    it('should keep the focused mark at full weight on a crowded chart', () => {
-      // The thinning is spent on the strands the reader is not standing on.
-      // Theirs has to stay findable, and reads better for the thinning around
-      // it rather than worse.
-      const rows = [0, 2, 4, 6, 8, 10, 12, 14, 16, 20, 22, 24, 26, 28];
-      const marks = strands(rows);
-      const mine = {} as SVGGraphicsElement;
-      const all = [...marks, mine];
-      ringsOf.mockImplementation(element => [
-        element === mine ? strand(34) : strand(rows[marks.indexOf(element)]),
-      ]);
-
-      const raster = TactileRenderer.render(
-        { marks: all, focused: [mine] },
-        wideViewport(),
-        WIDE,
-        TALL,
-      );
-
-      // Context strands: one pin. The reader's own: heavier than that.
-      expect(raster.get(5, 0)).toBe(true);
-      expect(raster.get(5, 1)).toBe(false);
-      expect(raster.get(5, 34)).toBe(true);
-      expect(raster.get(5, 33)).toBe(true);
-    });
   });
 
   it('should draw a mark the reader is not on as a hollow outline', () => {
@@ -832,11 +723,15 @@ describe('tactileRenderer.render', () => {
     expect(raster.get(4, 4)).toBe(false);
   });
 
-  it('should give a line-like mark a stroke a fingertip can follow', () => {
-    // A one-pin diagonal is below the resolution of a fingertip: Bresenham
-    // steps it in pins that touch only at their corners, so a finger sweeping
-    // across meets separate bumps rather than a line and loses the trail on
-    // any drift. Every line-family chart is drawn entirely out of these.
+  it('should draw an unfocused line exactly one pin thick', () => {
+    // Deliberately one pin, and deliberately a reversal: strokes were drawn at
+    // two for a while, on the reasoning that a one-pin diagonal steps in pins
+    // touching only at their corners and so reads as bumps rather than a line.
+    // Read on a device, that traded one problem for a worse one -- at two pins
+    // a diagonal comes out three and four wide where the offset copies meet at
+    // a bend, a single line reads as a band, and several read as one mass.
+    // What the second pin was buying is bought instead by the focused stroke
+    // being heavier and, on a multi-series chart, by dash patterns.
     const mark = {} as SVGGraphicsElement;
     ringsOf.mockReturnValue([{
       points: [{ x: 2, y: 2 }, { x: 12, y: 12 }],
@@ -850,11 +745,113 @@ describe('tactileRenderer.render', () => {
       DOTS_DOWN,
     );
 
-    // Every pin along the diagonal has a raised neighbour beside it, so the
-    // stroke is continuous across a finger's width rather than a dotted trail.
-    for (let step = 3; step < 12; step++) {
-      expect(raster.get(step - 1, step) || raster.get(step + 1, step)).toBe(true);
+    // The diagonal itself, and nothing beside it.
+    for (let step = 2; step <= 12; step++) {
+      expect(raster.get(step, step)).toBe(true);
+      expect(raster.get(step - 1, step)).toBe(false);
+      expect(raster.get(step + 1, step)).toBe(false);
     }
+  });
+
+  describe('dash patterns', () => {
+    // Several strands laid over one another cross, and at every crossing a
+    // reader following one has to decide which of two lines leaving the
+    // junction is theirs. A sighted reader answers from colour; on pins there
+    // is no colour, so the chart's colours become textures.
+
+    const horizontal = (row: number): DotRing => ({
+      points: [{ x: 1, y: row }, { x: 18, y: row }],
+      closed: false,
+    });
+
+    it('should break a patterned stroke and leave an unpatterned one solid', () => {
+      const solid = {} as SVGGraphicsElement;
+      const dashed = {} as SVGGraphicsElement;
+      ringsOf.mockImplementation(element => [horizontal(element === solid ? 4 : 10)]);
+
+      const raster = TactileRenderer.render(
+        {
+          marks: [solid, dashed],
+          focused: [],
+          patterns: new Map([[dashed, [3, 2]]]),
+        },
+        identityViewport(),
+        DOTS_ACROSS,
+        DOTS_DOWN,
+      );
+
+      let solidRun = 0;
+      let dashedRun = 0;
+      for (let x = 1; x <= 18; x++) {
+        if (raster.get(x, 4)) {
+          solidRun++;
+        }
+        if (raster.get(x, 10)) {
+          dashedRun++;
+        }
+      }
+      expect(solidRun).toBe(18);
+      expect(dashedRun).toBeLessThan(18);
+      expect(dashedRun).toBeGreaterThan(0);
+    });
+
+    it('should lay the pattern down in the order it was given', () => {
+      const mark = {} as SVGGraphicsElement;
+      ringsOf.mockReturnValue([horizontal(6)]);
+
+      const raster = TactileRenderer.render(
+        { marks: [mark], focused: [], patterns: new Map([[mark, [3, 2]]]) },
+        identityViewport(),
+        DOTS_ACROSS,
+        DOTS_DOWN,
+      );
+
+      // Three raised, two lowered, from the first pin of the stroke.
+      expect(raster.get(1, 6)).toBe(true);
+      expect(raster.get(2, 6)).toBe(true);
+      expect(raster.get(3, 6)).toBe(true);
+      expect(raster.get(4, 6)).toBe(false);
+      expect(raster.get(5, 6)).toBe(false);
+      expect(raster.get(6, 6)).toBe(true);
+    });
+
+    it('should never break the stroke the reader is standing on', () => {
+      // Filling is what says "you are here" and a line has nothing to fill, so
+      // the focused stroke carries that on its own. Dashing it would take away
+      // the one thing saying which strand the reader is on, to repeat
+      // something they can already feel.
+      const mine = {} as SVGGraphicsElement;
+      ringsOf.mockReturnValue([horizontal(9)]);
+
+      const raster = TactileRenderer.render(
+        { marks: [mine], focused: [mine], patterns: new Map([[mine, [3, 2]]]) },
+        identityViewport(),
+        DOTS_ACROSS,
+        DOTS_DOWN,
+      );
+
+      for (let x = 2; x <= 17; x++) {
+        expect(raster.get(x, 9)).toBe(true);
+      }
+    });
+
+    it('should leave a closed outline alone', () => {
+      // A pattern says which strand this is. A closed mark is not a strand,
+      // and breaking its outline would read as a gap in the shape.
+      const mark = {} as SVGGraphicsElement;
+      ringsOf.mockReturnValue([square]);
+
+      const raster = TactileRenderer.render(
+        { marks: [mark], focused: [], patterns: new Map([[mark, [3, 2]]]) },
+        identityViewport(),
+        DOTS_ACROSS,
+        DOTS_DOWN,
+      );
+
+      for (let x = 2; x <= 8; x++) {
+        expect(raster.get(x, 2)).toBe(true);
+      }
+    });
   });
 
   it('should mark the focused line without an interior to fill', () => {

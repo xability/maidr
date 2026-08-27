@@ -114,6 +114,63 @@ const FILL_IS_THE_DIRECTION: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Trace types where a stroke's colour says which series it belongs to.
+ *
+ * These are the charts drawn from several strands laid over one another, where
+ * the strands are not distinguishable by position -- they cross, and at every
+ * crossing a reader following one has to decide which of two lines leaving the
+ * junction is theirs. Sighted readers answer that from colour. On pins there
+ * is no colour, so it becomes a dash pattern.
+ *
+ * A box plot is deliberately absent even though it draws in two colours: there
+ * the second colour is the median, not a second series, and dashing the
+ * whiskers would invent a distinction the chart never made. So is a parallel
+ * coordinates plot, whose strands are one per record and far outnumber any set
+ * of patterns a hand could tell apart.
+ */
+const COLOUR_IS_THE_SERIES: ReadonlySet<string> = new Set([
+  'line',
+  'multiline',
+  'smooth',
+  'step',
+  'survival',
+]);
+
+/**
+ * Dash patterns, in the order series take them up.
+ *
+ * Run lengths in pins, alternating raised and lowered and starting raised. The
+ * first series is solid, so a chart that turns out to have only one strand
+ * after all is drawn exactly as it would have been without any of this.
+ *
+ * Gaps are two pins and raised runs are at least three. Both bounds pull the
+ * same way: a pattern has to be felt without the strand stopping being a
+ * strand. A single raised pin between gaps is at the floor of what a fingertip
+ * registers and reads as grit rather than as a line, and a gap much wider than
+ * the marks around it stops reading as a break in one line and starts reading
+ * as the end of one.
+ *
+ * These are a starting point rather than a measured optimum -- how long a gap
+ * has to be before a moving finger notices it, and how long before it loses
+ * the line, are questions about hands that a pin count cannot answer. They are
+ * kept here as data, in one list, so they can be moved on the strength of
+ * someone reading a chart rather than by editing the drawing code.
+ *
+ * Four patterns, not more. They are told apart by a hand moving along one
+ * strand, not by comparing two side by side, and past four the distinctions
+ * come down to eight-on against nine-on, which nobody can name without a
+ * ruler. A chart with more series repeats them: a repeat only costs anything
+ * where two strands sharing a pattern actually cross, and everywhere else it
+ * still beats every strand being identical.
+ */
+const DASH_PATTERNS: readonly (readonly number[])[] = [
+  [],
+  [9, 2],
+  [3, 2],
+  [9, 2, 3, 2],
+];
+
+/**
  * How much of a solid-drawn body to raise.
  *
  * Half. The focused mark is the only thing on the display that is solid, and it
@@ -934,6 +991,81 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * The colour the chart stroked a mark with, or null when it stroked none.
+   * @param mark - The element to read
+   */
+  private static strokeOf(mark: SVGGraphicsElement): string | null {
+    try {
+      const stroke = window.getComputedStyle(mark).stroke || mark.getAttribute('stroke');
+      return stroke === null || stroke === '' || stroke === 'none' ? null : stroke;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Gives each series its own dash pattern, on a chart whose strands are told
+   * apart by colour.
+   *
+   * Which strand is which is the reading on these charts, and on pins it was
+   * simply missing: several lines crossing one another came out as one set of
+   * ridges, and a reader following one had no way to say which of two lines
+   * leaving a junction was theirs. Colour is what a sighted reader answers
+   * that with, so colour is what becomes the texture.
+   *
+   * Taken from the chart's own strokes rather than from the order the marks
+   * arrive in, so two strands the chart drew the same colour -- the two halves
+   * of one series broken by a gap in the data -- keep one pattern between
+   * them, and a strand keeps its pattern when a layer switch changes how many
+   * marks there are.
+   *
+   * Nothing is patterned when the strands share a colour. There is no series
+   * distinction being drawn then, and dashing them all identically would cost
+   * every line its continuity to say nothing at all.
+   *
+   * @param marks - The marks about to be drawn
+   * @param state - The state being drawn, which says what its colours mean
+   */
+  private static patternsOf(
+    marks: readonly SVGGraphicsElement[],
+    state: DrawableState,
+  ): Map<SVGGraphicsElement, readonly number[]> | undefined {
+    if (typeof window === 'undefined' || state.type !== 'trace') {
+      return undefined;
+    }
+    if (!COLOUR_IS_THE_SERIES.has(state.traceType)) {
+      return undefined;
+    }
+
+    const series = new Map<string, number>();
+    const strokes = marks.map((mark) => {
+      const stroke = TactileService.strokeOf(mark);
+      if (stroke === null) {
+        return null;
+      }
+      if (!series.has(stroke)) {
+        series.set(stroke, series.size);
+      }
+      return stroke;
+    });
+    if (series.size < 2) {
+      return undefined;
+    }
+
+    const patterns = new Map<SVGGraphicsElement, readonly number[]>();
+    strokes.forEach((stroke, index) => {
+      if (stroke === null) {
+        return;
+      }
+      const pattern = DASH_PATTERNS[(series.get(stroke) ?? 0) % DASH_PATTERNS.length];
+      if (pattern.length > 0) {
+        patterns.set(marks[index], pattern);
+      }
+    });
+    return patterns.size > 0 ? patterns : undefined;
+  }
+
+  /**
    * The fill the chart painted a mark with, or null when it painted none.
    * @param mark - The element to read
    */
@@ -1129,7 +1261,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // of that path: no element is in both, so the path is outlined and the
     // circle filled, which is the picture wanted anyway -- a line you can trace
     // with one raised dot where you are standing on it.
-    const scene: TactileScene = { marks, focused, shades: TactileService.shadesOf(marks, state) };
+    const scene: TactileScene = {
+      marks,
+      focused,
+      shades: TactileService.shadesOf(marks, state),
+      patterns: TactileService.patternsOf(marks, state),
+    };
 
     const raster = TactileRenderer.render(
       scene,

@@ -26,6 +26,16 @@ export interface TactileScene {
    * interiors that tell a hollow mark from the solid focused one.
    */
   shades?: ReadonlyMap<SVGGraphicsElement, number>;
+
+  /**
+   * A dash pattern per mark, where the chart drew its strands in different
+   * colours and that colour is which series a strand belongs to.
+   *
+   * Absent where colour means something else, or nothing: a box plot draws its
+   * medians in a second colour without that colour naming a series, and
+   * dashing its whiskers would invent a distinction the chart never made.
+   */
+  patterns?: ReadonlyMap<SVGGraphicsElement, readonly number[]>;
 }
 
 /**
@@ -48,18 +58,18 @@ export abstract class TactileRenderer {
   /**
    * Pins across an open stroke — a line, a curve, a whisker, an error bar.
    *
-   * Two, not one. A single-pin stroke is at the floor of what a fingertip
-   * resolves and a diagonal one is below it — the pins touch only at their
-   * corners, so a finger sweeping across meets a row of separate bumps and
-   * loses the trail on the slightest drift. Every line-like chart is drawn
-   * entirely out of these strokes, so at one pin a line plot, a survival
-   * curve and a parallel-coordinates plot all arrive as dotted noise.
+   * One. A stroke is the thinnest thing the grid can draw and that is what it
+   * should be: at two pins a diagonal comes out three and four pins wide where
+   * the offset copies meet at a bend, so a single line reads as a band and
+   * several of them read as one mass. The pins a second pass would spend are
+   * worth more as the gap between one strand and the next.
    *
-   * Closed outlines are deliberately left at one pin. Their two edges already
-   * bound an interior, and thickening them fills that interior in — which
-   * takes away the very thing that tells a hollow mark from a solid one.
+   * What a second pin was buying — a line a finger can follow without losing
+   * it — is bought instead by the focused stroke being heavier than everything
+   * around it, and, on a chart of several strands, by each strand carrying its
+   * own dash pattern.
    */
-  private static readonly STROKE_WEIGHT = 2;
+  private static readonly STROKE_WEIGHT = 1;
 
   /**
    * Pins across the focused mark's stroke.
@@ -72,35 +82,6 @@ export abstract class TactileRenderer {
    * around it.
    */
   private static readonly FOCUS_STROKE_WEIGHT = 4;
-
-  /**
-   * Share of the grid the unfocused open strokes may claim before they are
-   * drawn at a single pin.
-   *
-   * Two pins is what makes a lone stroke followable, and on a chart drawn from
-   * one it costs nothing anyone can feel. On a chart drawn from several it is
-   * charged once per strand, and the strands are what the reader is trying to
-   * tell apart: at four lines across a sixty-pin grid the gaps between them
-   * close and the picture arrives as one mass with no lines in it at all.
-   *
-   * Below a single pin there is nothing left to give, so the trade is only
-   * available once -- which is why it is spent on the strands the reader is
-   * not standing on. The focused mark keeps whatever full-weight treatment it
-   * would have had, a heavier stroke or a disc, and reads better for the
-   * thinning around it rather than worse.
-   */
-  private static readonly STROKE_BUDGET_SHARE = 0.15;
-
-  /**
-   * Fewest unfocused open strokes before thinning is considered.
-   *
-   * A single stroke cannot be confused with another stroke, so its thickness
-   * costs the reader nothing however much of the grid it covers -- a step plot
-   * of one line runs to a fifth of the pins and is perfectly legible. Thinning
-   * on total ink alone would take pins off charts that are not crowded, only
-   * busy.
-   */
-  private static readonly CROWDED_STROKE_COUNT = 2;
 
   /**
    * Radius, in pins, of the disc that stands for a focused mark too small to
@@ -148,14 +129,15 @@ export abstract class TactileRenderer {
    * @param filled - True to fill the interior, false to draw only the edge
    * @param shade - How much of the interior to raise as texture, where the
    * chart encoded a value as fill colour; absent otherwise
-   * @param openWeight - Pins across an unfocused open stroke
+   * @param pattern - Dash pattern for an unfocused open stroke, where the
+   * chart's colours name its series; absent for a solid stroke
    */
   private static drawRing(
     raster: DotRaster,
     ring: DotRing,
     filled: boolean,
     shade?: number,
-    openWeight: number = this.STROKE_WEIGHT,
+    pattern?: readonly number[],
   ): void {
     const box = this.bounds(ring);
     if (box === null) {
@@ -175,7 +157,7 @@ export abstract class TactileRenderer {
     // not smear into a single mass.
     const weight = filled
       ? this.FOCUS_STROKE_WEIGHT
-      : (ring.closed || isTiny ? 1 : openWeight);
+      : (ring.closed || isTiny ? 1 : this.STROKE_WEIGHT);
 
     if (filled && ring.closed && !isTiny) {
       if (this.overfills(box, raster)) {
@@ -221,6 +203,15 @@ export abstract class TactileRenderer {
       // A mark with no extent at all, unfocused: left as the single pin it is,
       // so a cloud of them does not smear into one mass.
       raster.set(path[0].x, path[0].y);
+      return;
+    }
+
+    // A pattern only ever applies to the thin unfocused strokes. The focused
+    // mark is drawn solid and heavy on purpose -- breaking it into dashes
+    // would take away the one thing that says which strand the reader is
+    // standing on, to repeat something they can already feel.
+    if (pattern !== undefined && pattern.length > 0 && !filled && !ring.closed && !isTiny) {
+      raster.dashedPolyline(path, pattern);
       return;
     }
     raster.strokePath(path, weight);
@@ -270,67 +261,6 @@ export abstract class TactileRenderer {
   }
 
   /**
-   * Reports whether a ring is drawn as an open stroke — the only kind
-   * {@link STROKE_WEIGHT} applies to.
-   * @param ring - The ring to classify
-   */
-  private static isOpenStroke(ring: DotRing): boolean {
-    if (ring.closed || ring.points.length < 2) {
-      return false;
-    }
-    const box = this.bounds(ring);
-    if (box === null) {
-      return false;
-    }
-    return box.right - box.left >= this.MIN_HOLLOW_SPAN
-      || box.bottom - box.top >= this.MIN_HOLLOW_SPAN;
-  }
-
-  /**
-   * Pins to spend across each unfocused open stroke.
-   *
-   * Measured rather than guessed from the trace type, because what makes a
-   * chart crowded is how much of the grid its strokes actually land on, not
-   * how many there are. Fifteen short whiskers cost less than three long
-   * lines, and a chart whose ink is fills rather than strokes is not crowded
-   * by this at all — its answer here changes nothing it draws.
-   *
-   * The strokes are laid into a scratch grid to find that out. Counting their
-   * points instead would be cheaper and wrong: a stroke folded into a small
-   * corner of the chart can carry more points than one crossing the whole of
-   * it, and it is the pins under the finger that decide whether two strands
-   * still have a gap between them.
-   *
-   * @param background - The unfocused marks' rings
-   * @param width - Dots across the display
-   * @param height - Dots down the display
-   */
-  private static openWeightFor(
-    background: readonly { rings: readonly DotRing[] }[],
-    width: number,
-    height: number,
-  ): number {
-    const strokes: (readonly { x: number; y: number }[])[] = [];
-    for (const { rings } of background) {
-      for (const ring of rings) {
-        if (this.isOpenStroke(ring)) {
-          strokes.push(ring.points);
-        }
-      }
-    }
-    if (strokes.length < this.CROWDED_STROKE_COUNT) {
-      return this.STROKE_WEIGHT;
-    }
-
-    const scratch = new DotRaster(width, height);
-    for (const points of strokes) {
-      scratch.strokePath(points, this.STROKE_WEIGHT);
-    }
-    const share = scratch.raisedCount / (width * height);
-    return share > this.STROKE_BUDGET_SHARE ? 1 : this.STROKE_WEIGHT;
-  }
-
-  /**
    * Renders a scene to a new pin buffer.
    *
    * Every primitive raises pins and none lowers them, so drawing is a union
@@ -352,26 +282,14 @@ export abstract class TactileRenderer {
     const raster = new DotRaster(width, height);
     const focused = new Set(scene.focused);
 
-    // Rings are read once and kept. Projecting them walks the SVG and asks the
-    // browser for geometry, which is far and away the most expensive thing
-    // here -- and the weight the open strokes get cannot be decided until they
-    // have all been measured.
-    const background: { rings: readonly DotRing[]; shade: number | undefined }[] = [];
     for (const mark of scene.marks) {
       if (focused.has(mark)) {
         continue;
       }
-      background.push({
-        rings: TactileSvgGeometry.ringsOf(mark, viewport),
-        shade: scene.shades?.get(mark),
-      });
-    }
-
-    const openWeight = this.openWeightFor(background, width, height);
-
-    for (const { rings, shade } of background) {
-      for (const ring of rings) {
-        this.drawRing(raster, ring, false, shade, openWeight);
+      const shade = scene.shades?.get(mark);
+      const pattern = scene.patterns?.get(mark);
+      for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
+        this.drawRing(raster, ring, false, shade, pattern);
       }
     }
 

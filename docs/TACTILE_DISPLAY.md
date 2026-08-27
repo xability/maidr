@@ -328,30 +328,52 @@ to press something. If the device is not accepting writes at all it stops
 after a couple of attempts and tries again the next time you move, so a
 disconnected display does not turn into a stream of retries.
 
-### Several lines at once
+### Line thickness, and telling several lines apart
 
-An open stroke — a line, a curve, a whisker — is drawn two pins across rather
-than one. A single pin is at the floor of what a fingertip resolves and a
-diagonal one is below it, so a lone line drawn that thin arrives as a row of
-separate bumps that the hand loses on the slightest drift.
+Every stroke — a line, a curve, a whisker, an error bar — is one pin thick.
 
-That second pin is charged once per strand, though, and on a chart of several
-lines the strands are the whole point: what the reader is doing is telling them
-apart. Four lines across a sixty-pin grid at two pins each closes the gaps
-between them, and the display hands back one mass with no lines in it.
+It was two for a while. The reasoning was that a one-pin diagonal steps in pins
+that touch only at their corners, so a finger sweeping across meets separate
+bumps rather than a line. Read on an actual display that turned out to trade one
+problem for a worse one: at two pins a diagonal comes out three and four wide
+where the offset copies meet at a bend, a single line reads as a band rather
+than a line, and several of them read as one mass.
 
-So the weight is measured rather than fixed. When a chart has more than one
-open stroke, and those strokes together would claim more than about a seventh
-of the pins, the ones the reader is *not* on drop to a single pin. The mark
-under the cursor keeps its full weight — and stands out more against thinned
-neighbours, not less.
+What the second pin was buying is bought two other ways instead. The mark you
+are on is stroked heavily, so your own line is unmistakable among thin ones. And
+on a chart of several strands, each strand carries its own dash pattern.
 
-Two things this deliberately does not do. A chart drawn from a single stroke is
-never thinned, however much of the grid it covers: one line cannot be confused
-with another, so its thickness costs nothing — a step plot running to a fifth
-of the pins is perfectly legible. And a chart whose ink is fills rather than
-strokes — a heat grid, a bar chart — is untouched, because closed outlines are
-already a single pin and an interior is not a stroke at all.
+The patterns come from the chart's own colours. Where a chart draws its series
+in different colours — and that is exactly the case where the strands cross and
+you need to know which line leaving a junction is yours — each colour takes a
+pattern:
+
+| Series | Pattern |
+| ------ | ------- |
+| first  | solid |
+| second | long dashes |
+| third  | short dashes |
+| fourth | long-short alternating |
+
+A fifth series repeats from the top. Four is as many as a hand can tell apart
+while moving along one strand, and past that the distinctions come down to
+lengths nobody can name without a ruler.
+
+Three things this deliberately does not do. It does not pattern the line you are
+on — that one stays solid and heavy, because breaking it up would take away the
+thing that says where you are standing. It does not pattern a chart whose
+strands share a colour, since there is no series distinction being drawn and
+dashing them all identically would cost every line its continuity to say
+nothing. And it does not pattern charts where colour means something other than
+series: a box plot draws its medians in a second colour without that colour
+naming a second series, and a parallel-coordinates plot has one strand per
+record, far more than any set of patterns could distinguish.
+
+The exact run lengths are a starting point rather than a measured optimum. How
+long a gap must be before a moving finger notices it, and how long before it
+loses the line, are questions about hands that a pin count cannot answer; they
+are kept as one list in the source so they can be moved on the strength of
+someone reading a chart.
 
 ### Panning
 

@@ -150,6 +150,34 @@ export class DotRaster {
    * @param on - True to raise, false to lower
    */
   public line(x0: number, y0: number, x1: number, y1: number, on: boolean = true): void {
+    this.walk(x0, y0, x1, y1, (x, y) => {
+      this.set(x, y, on);
+    });
+  }
+
+  /**
+   * Steps the pins a straight line passes through, in order, handing each to a
+   * visitor.
+   *
+   * Split out of {@link line} so a dashed stroke steps exactly the pins a solid
+   * one would and simply declines to raise some of them. Walking the geometry
+   * twice -- once to draw, once to decide where the gaps fall -- would let the
+   * two disagree, and a gap landing half a pin off is the difference between a
+   * pattern a hand can name and one it cannot.
+   *
+   * @param x0 - Start dot column
+   * @param y0 - Start dot row
+   * @param x1 - End dot column
+   * @param y1 - End dot row
+   * @param visit - Called with each pin along the line
+   */
+  private walk(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    visit: (x: number, y: number) => void,
+  ): void {
     let x = Math.round(x0);
     let y = Math.round(y0);
     const endX = Math.round(x1);
@@ -175,7 +203,7 @@ export class DotRaster {
     // needs, so this ends the loop rather than truncating the line.
     const steps = Math.max(dx, -dy);
     for (let guard = 0; guard <= steps; guard++) {
-      this.set(x, y, on);
+      visit(x, y);
       if (x === endX && y === endY) {
         return;
       }
@@ -202,6 +230,71 @@ export class DotRaster {
       const to = points[i];
       this.line(from.x, from.y, to.x, to.y, on);
     }
+  }
+
+  /**
+   * Connects a run of points, raising only the pins a repeating pattern says
+   * to.
+   *
+   * The pattern is run lengths in pins, alternating raised and lowered and
+   * starting raised: `[3, 2]` is three up, two down, repeating. An empty
+   * pattern draws solid.
+   *
+   * The phase carries across the whole run rather than restarting at each
+   * vertex. A line arrives as dozens of short segments, and restarting at
+   * every one of them would put a fresh mark at each joint -- densest exactly
+   * where the line bends, which is where the reader is trying to feel a
+   * corner, and it would make the same line come out differently on a chart
+   * that happened to sample it more finely.
+   *
+   * @param points - Points in dot coordinates
+   * @param pattern - Alternating raised and lowered run lengths, in pins
+   */
+  public dashedPolyline(
+    points: readonly { x: number; y: number }[],
+    pattern: readonly number[],
+  ): void {
+    const period = pattern.reduce((total, run) => total + run, 0);
+    if (pattern.length === 0 || period <= 0) {
+      this.polyline(points);
+      return;
+    }
+
+    let phase = 0;
+    for (let index = 1; index < points.length; index++) {
+      const from = points[index - 1];
+      const to = points[index];
+      let first = true;
+      this.walk(from.x, from.y, to.x, to.y, (x, y) => {
+        // The joint pin belongs to both segments and would otherwise be
+        // counted twice, drifting the pattern by a pin at every bend.
+        if (first && index > 1) {
+          first = false;
+          return;
+        }
+        first = false;
+        if (DotRaster.raisedAt(phase % period, pattern)) {
+          this.set(x, y);
+        }
+        phase++;
+      });
+    }
+  }
+
+  /**
+   * Whether a position within one repeat of a pattern is a raised run.
+   * @param offset - Pins into the repeat
+   * @param pattern - Alternating raised and lowered run lengths
+   */
+  private static raisedAt(offset: number, pattern: readonly number[]): boolean {
+    let remaining = offset;
+    for (let index = 0; index < pattern.length; index++) {
+      remaining -= pattern[index];
+      if (remaining < 0) {
+        return index % 2 === 0;
+      }
+    }
+    return true;
   }
 
   /**
