@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, test } from '@jest/globals';
 import { TraceType } from '@type/grammar';
+import { declarableTypes, SCHEMA, typesInBackticks } from './schemaTypes';
 
 /**
  * `docs/SCHEMA.md` lists every declarable `type`, and nothing kept it in step.
@@ -25,8 +24,6 @@ import { TraceType } from '@type/grammar';
  * fails instead of passing silently.
  */
 
-const SCHEMA = readFileSync(resolve(__dirname, '../../docs/SCHEMA.md'), 'utf8');
-
 /** The types the document says a page may declare. */
 function declaredInDocs(): string[] {
   const line = SCHEMA.split('\n').find(l => l.includes('The declarable types are'));
@@ -34,14 +31,7 @@ function declaredInDocs(): string[] {
     throw new Error('docs/SCHEMA.md no longer names the declarable types');
   }
   const listed = line.slice(line.indexOf('The declarable types are'));
-  return [...listed.matchAll(/`([a-z_]+)`/g)]
-    .map(match => match[1])
-    .filter(name => name !== 'candlestick_delta');
-}
-
-/** Every trace type a page may declare, per the enum. */
-function declarableTypes(): string[] {
-  return Object.values(TraceType).filter(type => type !== TraceType.CANDLESTICK_DELTA);
+  return typesInBackticks(listed).filter(name => name !== 'candlestick_delta');
 }
 
 describe('docs/SCHEMA.md declarable types', () => {
