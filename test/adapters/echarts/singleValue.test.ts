@@ -369,16 +369,17 @@ describe('a chart that declares both families', () => {
 
 describe('an eCharts chart of a type outside the set', () => {
   // `treemap` stood here until tier 3 gave it a reading, then `radar` until
-  // its outline turned out to be a stroked polyline after all. `boxplot` is
-  // the last one refused: `BoxSelector` wants a selector per part and
-  // ECharts draws the box and both whiskers as one path.
+  // its outline turned out to be a stroked polyline after all, then
+  // `boxplot`. Every core type is read now, so the subject is `wordCloud` --
+  // an ECharts extension core does not register and this adapter has never
+  // measured.
   it('is refused rather than read as whichever trace is closest', () => {
-    expect(() => layerFor({ type: 'boxplot', values: [1] }, 1))
+    expect(() => layerFor({ type: 'wordCloud', values: [1] }, 1))
       .toThrow(/Unsupported ECharts series type/);
   });
 
   it('names the single-value types among the ones it does read', () => {
-    expect(() => layerFor({ type: 'boxplot', values: [1] }, 1))
+    expect(() => layerFor({ type: 'wordCloud', values: [1] }, 1))
       .toThrow(/pie, funnel, gauge/);
   });
 });
