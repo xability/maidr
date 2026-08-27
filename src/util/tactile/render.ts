@@ -270,19 +270,6 @@ export abstract class TactileRenderer {
   }
 
   /**
-   * Renders a scene to a new pin buffer.
-   *
-   * Every primitive raises pins and none lowers them, so drawing is a union
-   * and the order marks are drawn in does not change the result. The focused
-   * mark still goes last, for the reader of this code rather than the reader
-   * of the display: it is what the frame is about.
-   *
-   * @param scene - The marks and the focus
-   * @param viewport - The active zoom and pan
-   * @param width - Dots across the display
-   * @param height - Dots down the display
-   */
-  /**
    * Reports whether a ring is drawn as an open stroke — the only kind
    * {@link STROKE_WEIGHT} applies to.
    * @param ring - The ring to classify
@@ -343,6 +330,19 @@ export abstract class TactileRenderer {
     return share > this.STROKE_BUDGET_SHARE ? 1 : this.STROKE_WEIGHT;
   }
 
+  /**
+   * Renders a scene to a new pin buffer.
+   *
+   * Every primitive raises pins and none lowers them, so drawing is a union
+   * and the order marks are drawn in does not change the result. The focused
+   * mark still goes last, for the reader of this code rather than the reader
+   * of the display: it is what the frame is about.
+   *
+   * @param scene - The marks and the focus
+   * @param viewport - The active zoom and pan
+   * @param width - Dots across the display
+   * @param height - Dots down the display
+   */
   public static render(
     scene: TactileScene,
     viewport: TactileViewport,
