@@ -1717,9 +1717,18 @@ function extractPolarAreaData(
 function extractHistogramData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
+  isHorizontal: boolean = isBinnedHorizontally(encoding),
 ): HistogramPoint[] {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
+  // `binY` is the same figure on its side, so every lookup below is taken
+  // from the channel that carries the bins rather than from x. Reading the
+  // bin columns off x for a `binY` spec finds none of them, and every bin
+  // then falls back to the count's own extent — measured, "0 through 1" for
+  // all of them (#1209).
+  const binField = isHorizontal ? yField : xField;
+  const countChannel = isHorizontal ? encoding.x : encoding.y;
+  const countField = isHorizontal ? xField : yField;
 
   // Vega compiles binned data with `bin_maxbins_N_<field>` and
   // `bin_maxbins_N_<field>_end` fields.  The maxbins value varies
@@ -1729,28 +1738,57 @@ function extractHistogramData(
   if (rows.length > 0) {
     const keys = Object.keys(rows[0]);
     const binPrefix = `bin_`;
-    const binSuffix = `_${xField}`;
-    const endSuffix = `_${xField}_end`;
+    const binSuffix = `_${binField}`;
+    const endSuffix = `_${binField}_end`;
     binStart = keys.find(k => k.startsWith(binPrefix) && k.endsWith(binSuffix) && !k.endsWith(endSuffix));
     binEnd = keys.find(k => k.startsWith(binPrefix) && k.endsWith(endSuffix));
   }
 
   return rows.map((row) => {
-    const xMin = Number((binStart ? row[binStart] : undefined) ?? row[xField] ?? 0);
-    const xMax = Number((binEnd ? row[binEnd] : undefined) ?? xMin + 1);
+    const binMin = Number((binStart ? row[binStart] : undefined) ?? row[binField] ?? 0);
+    const binMax = Number((binEnd ? row[binEnd] : undefined) ?? binMin + 1);
     // Lookup order: explicit field FIRST, `__count` only as fallback. See
     // the matching note in `extractBarData` for why explicit fields win.
-    const yVal = Number(row[yField] ?? row.__count ?? 0);
+    const count = Number(readEncodedValue(row, countChannel, countField) ?? 0);
 
-    return {
-      x: `${xMin}-${xMax}`,
-      y: yVal,
-      xMin,
-      xMax,
-      yMin: 0,
-      yMax: yVal,
-    };
+    // `Histogram` takes the bin bounds from the axis the bins run along and
+    // the count from the other, so the horizontal payload is the vertical one
+    // transposed rather than a differently labelled copy of it.
+    return isHorizontal
+      ? {
+          x: count,
+          y: `${binMin}-${binMax}`,
+          xMin: 0,
+          xMax: count,
+          yMin: binMin,
+          yMax: binMax,
+        }
+      : {
+          x: `${binMin}-${binMax}`,
+          y: count,
+          xMin: binMin,
+          xMax: binMax,
+          yMin: 0,
+          yMax: count,
+        };
   });
+}
+
+/**
+ * Whether a binned bar mark's bins run up the y axis rather than across x.
+ *
+ * Not {@link isHorizontalEncoding}: that separates a measured channel from a
+ * naming one, and both of a histogram's channels are quantitative — the bins
+ * as much as the count. What tells the two apart is the `bin`, which is on
+ * exactly one of them.
+ *
+ * @param encoding - The layer's encoding, merged with any parent's
+ * @returns True when the bins are on y and the counts run along x
+ */
+function isBinnedHorizontally(encoding: VegaLiteEncoding): boolean {
+  const isBinned = (channel: VegaLiteChannelDef | undefined): boolean =>
+    channel?.bin != null && channel.bin !== false;
+  return isBinned(encoding.y) && !isBinned(encoding.x);
 }
 
 function extractSegmentedData(
@@ -3345,8 +3383,12 @@ function convertLayerSpec(
       break;
     }
     case TraceType.HISTOGRAM: {
-      data = extractHistogramData(rows, encoding);
+      const binnedHorizontally = isBinnedHorizontally(encoding);
+      data = extractHistogramData(rows, encoding, binnedHorizontally);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      if (binnedHorizontally) {
+        orientation = Orientation.HORIZONTAL;
+      }
       break;
     }
     case TraceType.STACKED:

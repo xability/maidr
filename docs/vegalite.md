@@ -277,6 +277,10 @@ const spec = {
 };
 ```
 
+Put the `bin` on `y` and the `count` on `x` and the same distribution is drawn
+on its side; MAIDR reads it as a horizontal histogram, announcing the bin range
+against the axis the bins run along.
+
 See [`examples/vegalite-bindhistogram.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindhistogram.html) for a runnable version.
 
 ### Line chart
