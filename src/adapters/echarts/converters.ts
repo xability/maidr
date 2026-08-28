@@ -402,8 +402,12 @@ function otherLayer(
     case 'candlestick':
       return candlestickLayer(seriesModel, axes, eachMark);
     case 'boxplot':
-      // Read without an outline; `grid.ts` records what was measured.
-      return boxplotLayer(seriesModel, axes);
+      // Read without an outline; `grid.ts` records what was measured. A
+      // category **y** axis is the whole of what says a chart is drawn
+      // sideways in ECharts -- the same question `axisNames` already asks for
+      // the bar family, and a distribution turned that way is read the same
+      // way round a bar is.
+      return boxplotLayer(seriesModel, axes, axes.horizontal);
     default:
       return scatterLayer(seriesModel, axes, wholeSeries);
   }

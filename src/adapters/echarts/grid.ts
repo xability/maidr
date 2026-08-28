@@ -28,7 +28,7 @@ import type {
   EChartsList,
   EChartsSeriesModel,
 } from './types';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 
 /** The series types this module reads. */
@@ -344,6 +344,7 @@ function whole(value: unknown): number | null {
 export function boxplotLayer(
   seriesModel: EChartsSeriesModel,
   names: AxisNames,
+  horizontal = false,
 ): MaidrLayer {
   const data = seriesModel.getData();
   const points: BoxPoint[] = [];
@@ -373,6 +374,7 @@ export function boxplotLayer(
     id: nextId('layer'),
     type: TraceType.BOX,
     ...(name ? { name } : {}),
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     axes: {
       x: { label: names.x || undefined },
       y: { label: names.y || undefined },
