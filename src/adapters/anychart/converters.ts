@@ -467,6 +467,33 @@ const REVERSIBLE_ON_INVERSION = new Set<AnyChartTraceType>([
   TraceType.STEP,
 ]);
 
+/**
+ * The chart types AnyChart draws with its categories running down the page.
+ *
+ * AnyChart names the two arrangements as separate chart types rather than as
+ * an option on one: `anychart.bar()` is the sideways chart and
+ * `anychart.column()` the upright one, and every series inside them follows --
+ * a `marker` in a bar chart is a Cleveland dot plot, a `stick` is a sideways
+ * lollipop, a `range-bar` a sideways dumbbell. So the question is the chart's
+ * rather than the series', which is why {@link drawsCategoriesReversed} can
+ * read the series' own name and this cannot.
+ *
+ * `barmekko` is deliberately absent: AnyChart's bar mekko is a column chart
+ * whose widths vary, drawn upright -- measured, `getType()` answers
+ * `'barmekko'` for a chart with its categories across the page.
+ */
+const HORIZONTAL_CHART_TYPES = new Set(['bar', 'bar-3d']);
+
+/**
+ * Whether the chart draws its categories down the page rather than across it.
+ *
+ * @param chart - The chart to ask
+ * @returns True for `anychart.bar()` and its 3D twin
+ */
+function drawsHorizontally(chart: AnyChartInstance): boolean {
+  return HORIZONTAL_CHART_TYPES.has(readChartType(chart));
+}
+
 function drawsCategoriesReversed(
   chart: AnyChartInstance,
   series: AnyChartSeries,
@@ -4509,12 +4536,22 @@ function buildBarLayer(
   selectors: string | string[] | undefined,
   invertedCategories = false,
   panel?: PanelContext,
+  horizontal = false,
 ): MaidrLayer {
   const rows = extractRawRows(series);
-  const data: BarPoint[] = rows.map(r => ({
-    x: asString(r.x ?? r.name ?? r._index),
-    y: asNumber(r.value ?? r.y),
-  }));
+  // The bar family carries its magnitude on `x` when the layer is horizontal,
+  // which is the half of `MaidrLayer.orientation`'s contract that is not
+  // cosmetic: declaring the key over AnyChart's own arrangement would hand
+  // `BarTrace` a category name where it expects a number, and every bar would
+  // go silent (#950 warns about exactly that payload).
+  const data: BarPoint[] = rows.map((r) => {
+    const category = asString(r.x ?? r.name ?? r._index);
+    const magnitude = asNumber(r.value ?? r.y);
+    return horizontal
+      ? { x: magnitude, y: category }
+      : { x: category, y: magnitude };
+  });
+  const orientation = horizontal ? { orientation: Orientation.HORIZONTAL } : {};
 
   // An inverted scale draws the categories from the far end while the marks
   // stay in data order, so both the reading and the selectors turn round
@@ -4525,6 +4562,7 @@ function buildBarLayer(
     return {
       id: String(seriesIndex),
       type: TraceType.BAR,
+      ...orientation,
       selectors: barSelectorsInDrawnOrder(seriesIndex, data.length, panel),
       data,
     };
@@ -4533,6 +4571,7 @@ function buildBarLayer(
   return {
     id: String(seriesIndex),
     type: TraceType.BAR,
+    ...orientation,
     ...(selectors ? { selectors } : {}),
     data,
   };
@@ -4557,8 +4596,12 @@ function buildDotLayer(
   seriesIndex: number,
   variant: TraceType.DOT | TraceType.LOLLIPOP,
   selectors: string | string[] | undefined,
+  horizontal = false,
 ): MaidrLayer {
-  return { ...buildBarLayer(series, seriesIndex, selectors), type: variant };
+  return {
+    ...buildBarLayer(series, seriesIndex, selectors, false, undefined, horizontal),
+    type: variant,
+  };
 }
 
 /**
@@ -4585,6 +4628,7 @@ function buildDumbbellLayer(
   series: AnyChartSeries,
   seriesIndex: number,
   selectors: string | string[] | undefined,
+  horizontal = false,
 ): MaidrLayer {
   const points: DumbbellPoint[] = extractRawRows(series)
     .filter(isDrawnPair)
@@ -4597,6 +4641,10 @@ function buildDumbbellLayer(
   return {
     id: String(seriesIndex),
     type: TraceType.DUMBBELL,
+    // A range series keeps its `x` and its two ends whichever way it is drawn
+    // -- `DumbbellData` has no pair to exchange. What the key changes is which
+    // axis names the subject and where each end is panned to.
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     ...(selectors ? { selectors } : {}),
     data,
   };
@@ -5893,20 +5941,28 @@ function buildDivergingLayer(
   entries: Array<{ series: AnyChartSeries; index: number }>,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
+  horizontal = false,
 ): MaidrLayer {
+  // A tornado chart is the ordinary way to draw one of these -- categories
+  // down the page, the two sides growing left and right -- and a diverging
+  // bar is in the bar family, so the exchange `buildBarLayer` makes applies
+  // here too rather than only the announcement.
   const data: SegmentedPoint[][] = entries.map(({ series }) => {
     const name = readSeriesName(series) ?? '';
-    return extractRawRows(series).map(r => ({
-      x: asString(r.x ?? r.name ?? r._index),
-      y: asNumber(r.value ?? r.y),
-      z: name,
-    }));
+    return extractRawRows(series).map((r) => {
+      const category = asString(r.x ?? r.name ?? r._index);
+      const magnitude = asNumber(r.value ?? r.y);
+      return horizontal
+        ? { x: magnitude, y: category, z: name }
+        : { x: category, y: magnitude, z: name };
+    });
   });
 
   const defaultSelector = `${panelScope(panel)}[${BAR_ATTR}]`;
   return {
     id: String(entries[0].index),
     type: TraceType.DIVERGING,
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: selectors ?? defaultSelector,
     data,
     // `stampBarAttributes` walks the bars series-major, which is the order
@@ -5981,15 +6037,16 @@ function buildLayer(
   selectors: string | string[] | undefined,
   panel?: PanelContext,
   invertedCategories = false,
+  horizontal = false,
 ): MaidrLayer {
   switch (traceType) {
     case TraceType.BAR:
-      return buildBarLayer(series, seriesIndex, selectors, invertedCategories, panel);
+      return buildBarLayer(series, seriesIndex, selectors, invertedCategories, panel, horizontal);
     case TraceType.DOT:
     case TraceType.LOLLIPOP:
-      return buildDotLayer(series, seriesIndex, traceType, selectors);
+      return buildDotLayer(series, seriesIndex, traceType, selectors, horizontal);
     case TraceType.DUMBBELL:
-      return buildDumbbellLayer(series, seriesIndex, selectors);
+      return buildDumbbellLayer(series, seriesIndex, selectors, horizontal);
     case TraceType.LINE:
       return buildLineLayer(series, seriesIndex, selectors, invertedCategories);
     case TraceType.AREA:
@@ -6116,6 +6173,7 @@ function buildSubplot(
 ): MaidrSubplot | null {
   const xAxisLabel = options?.axes?.x ?? extractAxisTitle(chart, 'x');
   const yAxisLabel = options?.axes?.y ?? extractAxisTitle(chart, 'y');
+  const horizontal = drawsHorizontally(chart);
 
   /**
    * `fallbacks` name the two dimensions of a trace that is bound to no axis
@@ -6125,8 +6183,18 @@ function buildSubplot(
     layer: MaidrLayer,
     fallbacks?: { x: string; y: string },
   ): void => {
-    const x = xAxisLabel ?? fallbacks?.x;
-    const y = yAxisLabel ?? fallbacks?.y;
+    // A sideways layer names its axes the other way round. AnyChart calls the
+    // category axis `xAxis()` on a bar chart as much as on a column chart --
+    // it is the same axis object, drawn down the page instead of across it --
+    // while MAIDR's `axes.x` names whichever axis the point's `x` is on, and
+    // that is the magnitude here. Keyed on the layer's own orientation as
+    // well as the chart's, so a line drawn inside a bar chart keeps naming
+    // its category `x`: `LineTrace` has no orientation and its points were
+    // not exchanged. A gantt declares `horz` on a chart type of its own,
+    // which is not one of these, so its `Date` / `Task` pair is left alone.
+    const swap = horizontal && layer.orientation === Orientation.HORIZONTAL;
+    const x = (swap ? yAxisLabel : xAxisLabel) ?? fallbacks?.x;
+    const y = (swap ? xAxisLabel : yAxisLabel) ?? fallbacks?.y;
     if (!x && !y)
       return;
     // Merged onto whatever the builder already put there, rather than
@@ -6436,7 +6504,16 @@ function buildSubplot(
     const invertedCategories = REVERSIBLE_ON_INVERSION.has(traceType)
       && !hasSelectorOverrides
       && drawsCategoriesReversed(chart, series);
-    const layer = buildLayer(chart, series, i, traceType, selectors, panel, invertedCategories);
+    const layer = buildLayer(
+      chart,
+      series,
+      i,
+      traceType,
+      selectors,
+      panel,
+      invertedCategories,
+      horizontal,
+    );
 
     // Attach axis labels.
     attachAxes(layer, AXIS_FALLBACKS_BY_TYPE[traceType]);
@@ -6478,7 +6555,7 @@ function buildSubplot(
     const divergingSelector = hasSelectorOverrides
       ? resolveSelector(divergings[0].index, TraceType.BAR, options, panel)
       : undefined;
-    const layer = buildDivergingLayer(divergings, divergingSelector, panel);
+    const layer = buildDivergingLayer(divergings, divergingSelector, panel, horizontal);
     // A side with no category is not a chart to bind.
     if ((layer.data as SegmentedPoint[][])[0]?.length > 0) {
       attachAxes(layer);

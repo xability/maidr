@@ -67,6 +67,7 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | MAIDR Type | AnyChart Series / Chart | Example |
 |-----------|----------------|---------|
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
+| Horizontal bar | any of the above inside `anychart.bar()` — see below | [Bar chart](examples.html) |
 | Line | `line`, `spline` | [Line chart](examples.html) |
 | Area | `area`, `spline-area` | [Area chart](examples.html) |
 | Stacked / Normalized Area | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
@@ -194,6 +195,8 @@ Adding multiple bar series to the same chart produces a dodged (grouped) bar tra
 ```
 
 Each `chart.bar(...)` call adds one series. The adapter walks every series via `chart.getSeriesCount()` / `chart.getSeriesAt(i)` and emits one MAIDR layer per series. Series names (set via `.name('Lunch')`) become the layer titles announced to screen readers.
+
+**`anychart.bar()` is the sideways chart and `anychart.column()` the upright one**, and MAIDR announces each as it is drawn — AnyChart names the two arrangements as separate chart types rather than as an option on one. Every mark inside a bar chart follows: a `marker` series is a Cleveland dot plot, a `stick` a sideways lollipop, a `range-bar` a sideways dumbbell. The bar family's magnitude then travels in the point's `x`, and the two axis titles are swapped with the axes they name, since `chart.xAxis()` is the category axis whichever way the chart is drawn. `anychart.barmekko()` is not affected: despite the name it draws its categories across the page.
 
 ### Line Chart
 
