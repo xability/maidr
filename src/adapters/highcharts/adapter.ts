@@ -5473,7 +5473,7 @@ function convertHistogramSeries(
   // transposed for the horizontal reading rather than merely labelled as one:
   // `Histogram` takes the bin bounds from `yMin`/`yMax` and the count from
   // `x` when the layer says `horz` (#997 did this for the bar family).
-  const isHorizontal = chart.options.chart?.inverted === true;
+  const isHorizontal = isInvertedChart(chart);
 
   const data: HistogramPoint[] = series.data
     .filter(p => p.y !== null)
