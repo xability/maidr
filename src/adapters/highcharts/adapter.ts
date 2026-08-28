@@ -929,6 +929,23 @@ function barAxes(
 }
 
 /**
+ * Whether the chart draws this series sideways.
+ *
+ * `chart.inverted` is the whole of the question for every series type except
+ * the column, which has `bar` as a second name for the same thing --
+ * `convertBarGroup` resolves that pair itself, and this is what everything
+ * else asks. A distribution, a dot, a lollipop and a dumbbell are all drawn
+ * by the same inversion, and each was announced upright through it (#997 did
+ * this for the bar family alone).
+ *
+ * @param chart - The chart the series belongs to
+ * @returns True when the chart is drawn on its side
+ */
+function isInvertedChart(chart: HighchartsChart): boolean {
+  return chart.options.chart?.inverted === true;
+}
+
+/**
  * Which row of a segmented group a point belongs to, by its `x`.
  *
  * A category axis indexes its points 0..n-1, so `x` doubles as the row index.
@@ -1623,7 +1640,7 @@ function convertSeries(
     case 'scatter':
       // A scatter pinned to category ticks is a dot plot, and reads as one.
       return isCategoryScatter(series)
-        ? convertDotSeries(series, containerId)
+        ? convertDotSeries(series, chart, containerId)
         : convertScatterSeries(series, containerId);
     // A scatter whose markers carry a third quantity in their size.
     // `ScatterPoint.z` already holds it and already drives `zIntensityFor()`,
@@ -1640,7 +1657,7 @@ function convertSeries(
     case 'bubble':
       return convertScatterSeries(series, containerId);
     case 'lollipop':
-      return convertLollipopSeries(series, containerId);
+      return convertLollipopSeries(series, chart, containerId);
     // A column chart whose widths carry a second quantity -- the one shape in
     // this family a bar layer has nowhere to put.
     case 'variwide':
@@ -1713,7 +1730,7 @@ function convertSeries(
     case 'columnrange':
       return convertRangeSeries(series, chart, containerId);
     case 'dumbbell':
-      return convertDumbbellSeries(series, containerId, options);
+      return convertDumbbellSeries(series, chart, containerId, options);
     // A gantt series is an xrange with dates and lanes — `GanttSeries` extends
     // `XRangeSeries` and aliases `start`/`end` onto the `x`/`x2` an xrange
     // already carries — so both read as the same schedule of intervals.
@@ -2512,25 +2529,28 @@ function isCategoryScatter(series: HighchartsSeries): boolean {
  */
 function convertDotSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
+  // A dot plot is in the bar family, so an inverted chart moves the magnitude
+  // to `x` exactly as it does for the bars -- and a Cleveland dot plot, drawn
+  // with its categories down the page, is the arrangement this type exists
+  // for rather than an exotic one.
+  const isHorizontal = isInvertedChart(chart);
   const data: BarPoint[] = series.data
     .filter(p => p.y !== null)
-    .map(p => ({
-      x: pointLabel(p),
-      y: p.y as number,
-    }));
+    .map(p => (isHorizontal
+      ? { x: p.y as number, y: pointLabel(p) }
+      : { x: pointLabel(p), y: p.y as number }));
 
   return {
     id: String(series.index),
     type: TraceType.DOT,
     title: series.name || undefined,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     // The marks are ordinary scatter markers, hidden tracker twins included.
     selectors: scatterSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
@@ -2544,24 +2564,26 @@ function convertDotSeries(
  */
 function convertLollipopSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
+  // The same exchange the dot above makes, for the same reason: a lollipop is
+  // a bar thinned to a stem, and the mark is not what decides which field
+  // holds the magnitude.
+  const isHorizontal = isInvertedChart(chart);
   const data: BarPoint[] = series.data
     .filter(p => p.y !== null)
-    .map(p => ({
-      x: pointLabel(p),
-      y: p.y as number,
-    }));
+    .map(p => (isHorizontal
+      ? { x: p.y as number, y: pointLabel(p) }
+      : { x: pointLabel(p), y: p.y as number }));
 
   return {
     id: String(series.index),
     type: TraceType.LOLLIPOP,
     title: series.name || undefined,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: lollipopSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
@@ -3790,14 +3812,17 @@ function convertErrorBarSeries(
     id: String(series.index),
     type: TraceType.ERROR_BAR,
     title: series.name || parent?.name || undefined,
-    ...(chart.options.chart?.inverted === true
+    ...(isInvertedChart(chart)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
     selectors: errorBarSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    // An interval keeps its `x` and `y` under `horz` -- only the labels move,
+    // and they have to: `ErrorBarTrace` announces the sample against
+    // `axes.y` when the layer is horizontal, and Highcharts calls the sample
+    // axis `xAxis` whichever way it draws it. Left unswapped, an inverted
+    // chart announced "Value is alpha, value Group is 10" -- both labels on
+    // the wrong number.
+    axes: barAxes(series, isInvertedChart(chart)),
     data,
   };
 }
@@ -3844,14 +3869,17 @@ function convertRangeSeries(
     id: String(series.index),
     type: TraceType.ERROR_BAR,
     title: series.name || undefined,
-    ...(chart.options.chart?.inverted === true
+    ...(isInvertedChart(chart)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
     selectors: errorBarSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    // An interval keeps its `x` and `y` under `horz` -- only the labels move,
+    // and they have to: `ErrorBarTrace` announces the sample against
+    // `axes.y` when the layer is horizontal, and Highcharts calls the sample
+    // axis `xAxis` whichever way it draws it. Left unswapped, an inverted
+    // chart announced "Value is alpha, value Group is 10" -- both labels on
+    // the wrong number.
+    axes: barAxes(series, isInvertedChart(chart)),
     data,
   };
 }
@@ -4001,10 +4029,11 @@ function convertForestSeries(
     ...(declaration.nullValue === undefined
       ? {}
       : { forestOptions: { nullValue: declaration.nullValue } }),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    // Swapped on the chart's own inversion rather than on the resolved
+    // orientation: which Highcharts axis is drawn across the page is a fact
+    // about the drawing, and a declaration that overrides the orientation
+    // does not move the axes under it.
+    axes: barAxes(series, isInvertedChart(chart)),
     data,
   };
 }
@@ -4166,6 +4195,7 @@ function errorOffset(value: unknown): [number, number] | undefined {
  */
 function convertDumbbellSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
   options?: HighchartsAdapterOptions,
 ): MaidrLayer {
@@ -4184,15 +4214,20 @@ function convertDumbbellSeries(
     ...(end ? { endLabel: end } : {}),
   };
 
+  // Highcharts' own name for a dumbbell drawn with its subjects down the page
+  // is `lollipop`'s: the chart is inverted. The pair of ends stays where it
+  // is -- `DumbbellData` has no `x`/`y` pair to exchange -- and what moves is
+  // which axis names the subject, plus the stereo position each end is panned
+  // to.
+  const isHorizontal = isInvertedChart(chart);
+
   return {
     id: String(series.index),
     type: TraceType.DUMBBELL,
     title: series.name || undefined,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: dumbbellSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
@@ -4612,15 +4647,21 @@ function convertBoxSeries(
   // it bail out with `highlightValues = null` and silently disable highlight.
   stampBoxIndices(chart, containerId, series.index, data.length);
 
+  // A distribution carries no `x` or `y` to exchange, so an inverted chart
+  // moves nothing in the payload -- what it moves is which axis label names
+  // the group and which names the measurement, and `BoxTrace` reads that off
+  // `orientation`. The labels are swapped with the pair they name for the
+  // same reason a bar's are: Highcharts calls the category axis `xAxis`
+  // whichever way it draws it.
+  const isHorizontal = isInvertedChart(chart);
+
   return {
     id: String(series.index),
     type: TraceType.BOX,
     title: series.name || undefined,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: boxplotSelectors(containerId, series.index, data.length),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
