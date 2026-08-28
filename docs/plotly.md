@@ -371,6 +371,10 @@ it is.
 </script>
 ```
 
+Give the samples on `x` instead and plotly draws the boxes on their side;
+MAIDR announces a horizontal box plot and reads the group off the y axis, which
+is where it is drawn. The five numbers themselves do not move.
+
 ### Violin Plot
 
 A violin becomes two layers in one subplot: the quartile summary (`violin_box`)
@@ -499,6 +503,11 @@ reads whichever one it resolved.
   });
 </script>
 ```
+
+Give the samples on `y` instead of `x` and plotly bins up the y axis, drawing
+the counts across the page. MAIDR reads that as a horizontal histogram — the
+bin range is announced against the axis the bins run along, and the count
+against the other — with no extra configuration.
 
 ### Candlestick
 

@@ -107,6 +107,13 @@ drawing:
 | `candlestick` | `['base', 'open', 'close', 'lowest', 'highest']` | `candlestick` | yes — a selector per candle |
 | `boxplot` | `['base', 'min', 'Q1', 'median', 'Q3', 'max']` | `box` | **no** — see below |
 
+A box plot follows the same `yAxis: {type: 'category'}` the bar family does:
+with the categories on the y axis it is announced as a horizontal box plot and
+read against the axes as drawn. The five numbers do not move with it — there is
+no pair to exchange — but the group is then announced against the y axis title,
+and the arrow keys walk the sections of one distribution rather than walking
+across the distributions.
+
 Both draw exactly one filled mark per datum — a cell, a candle body with its
 wick — which is the same shape the bar reading already counts and stamps.
 

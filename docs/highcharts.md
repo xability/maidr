@@ -470,6 +470,9 @@ const chart = Highcharts.chart('histogram-chart', {
 });
 ```
 
+`chart: { inverted: true }` draws the bins down the page, and MAIDR reads it as
+a horizontal histogram — the same flag it already reads for bars.
+
 ### Candlestick
 
 > Requires Highstock: `<script src="https://cdn.jsdelivr.net/npm/highcharts/highstock.js"></script>`.
@@ -576,6 +579,8 @@ Highcharts.chart('h-bar', {
   // ...
 });
 ```
+
+Every series type that has an orientation follows the flag, not the bars alone: a box plot, a histogram, a category scatter read as a dot plot, a lollipop, a dumbbell, an error bar and a forest plot are all announced as horizontal on an inverted chart, and each is read against the axis it is actually drawn on. Highcharts keeps calling the category axis `xAxis` whichever way it draws the chart, so MAIDR swaps the two axis titles with the axes they name.
 
 ### Filtering series
 

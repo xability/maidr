@@ -228,6 +228,8 @@ Provide pre-computed quartile statistics. The adapter reads these directly and d
 </MaidrVictory>
 ```
 
+`<VictoryBoxPlot horizontal>` — or any box plot inside a `<VictoryChart horizontal>` — is announced as a horizontal box plot and read against the axes as drawn: the group off the y axis, the measurement off the x. The same is true of `<VictoryErrorBar>`. Neither payload changes with it; only the bar family exchanges its `x` and `y`.
+
 ### Candlestick
 
 ```tsx

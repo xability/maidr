@@ -151,6 +151,26 @@ function isBarFamily(kind: VictoryLayerData['kind']): boolean {
 }
 
 /**
+ * The kinds that have an orientation worth declaring at all.
+ *
+ * A superset of {@link isBarFamily}, and the distinction matters: everything
+ * here is *announced* by its orientation and reads its axis labels through it,
+ * while only the bar family also has its `x` and `y` exchanged. A box plot and
+ * an error bar carry no pair to exchange -- `BoxTrace` and `ErrorBarTrace`
+ * read the group off `axes.y` when the layer is horizontal, and
+ * {@link toMaidrLayer} has already swapped the labels by then.
+ *
+ * Left out: a line, an area, a scatter and a candlestick, none of which the
+ * grammar's `IS_ORIENTED` table gives an orientation to.
+ *
+ * @param kind - The layer's extracted kind
+ * @returns True when `horizontal` should reach the emitted layer
+ */
+function isOrientedKind(kind: VictoryLayerData['kind']): boolean {
+  return isBarFamily(kind) || kind === 'box' || kind === 'errorBar';
+}
+
+/**
  * One bar point in the arrangement a horizontal layer is read in.
  *
  * @param point - The point as Victory holds it, `x = category`
@@ -901,7 +921,7 @@ function extractLayerFromElement(
     xAxisLabel: axisLabels.x,
     yAxisLabel: axisLabels.y,
     dataCount: extracted.count,
-    ...(horizontal && isBarFamily(extracted.data.kind)
+    ...(horizontal && isOrientedKind(extracted.data.kind)
       ? { orientation: Orientation.HORIZONTAL }
       : {}),
   };
@@ -1688,10 +1708,14 @@ export function toMaidrLayer(
         data: horizontal ? data.points.map(swapBarPoint) : data.points,
       };
 
+    // An interval keeps its `x` and its bounds under `horz` -- the grammar's
+    // table says so -- and reads the sample off `axes.y`, which the swap above
+    // has already put the category label on.
     case 'errorBar':
       return {
         id: layer.id,
         type: TraceType.ERROR_BAR,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector,
         data: data.points,
@@ -1706,10 +1730,17 @@ export function toMaidrLayer(
         data: data.points,
       };
 
+    // A `<VictoryBoxPlot horizontal>` draws its groups down the page, and the
+    // key says so. Nothing is exchanged in the payload -- a `BoxPoint` has no
+    // `x` or `y` -- but the labels above have already swapped with the axes
+    // they name, and `BoxTrace` reads the group off `axes.y` when the layer
+    // is horizontal. Without the key it read the group off `axes.x`, which by
+    // then held the measurement.
     case 'box':
       return {
         id: layer.id,
         type: TraceType.BOX,
+        ...(layer.orientation ? { orientation: layer.orientation } : {}),
         axes,
         selectors: selector as BoxSelector[] | undefined,
         data: data.points,
