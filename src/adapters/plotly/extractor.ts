@@ -4623,40 +4623,50 @@ function extractHistogramLayer(
   if (calcdata.length > 0 && calcdata[0] != null && 'p' in calcdata[0]) {
     const data: HistogramPoint[] = [];
 
-    // Prefer _fullData xbins (auto-computed) over user-supplied trace.xbins.
+    // Prefer _fullData (auto-computed) over the user-supplied trace: plotly
+    // resolves `orientation` there even when the author never wrote one, and
+    // a histogram given `y` alone is horizontal by that resolution rather
+    // than by anything on the trace.
     const fullTrace = gd._fullData?.[traceIndex];
-    const binSize = fullTrace?.xbins?.size ?? trace.xbins?.size;
+    const isHorizontal = (fullTrace?.orientation ?? trace.orientation) === 'h';
+    // The bin size moves to the axis the samples were put on, so a horizontal
+    // histogram carries it in `ybins` and reading `xbins` would find nothing
+    // and fall through to the neighbour inference below.
+    const binSize = isHorizontal
+      ? fullTrace?.ybins?.size ?? trace.ybins?.size
+      : fullTrace?.xbins?.size ?? trace.xbins?.size;
 
     for (let idx = 0; idx < calcdata.length; idx++) {
       const cd = calcdata[idx];
+      // `cd.p` is the bin's position on whichever axis the samples were
+      // binned along and `cd.s` its count, for both orientations -- the same
+      // orientation-independent pair `barPoint` reads.
       const center = Number(cd.p ?? 0);
       const count = Number(cd.s ?? 0);
 
       // Derive bin edges: use binSize if available, otherwise infer
       // from adjacent bin centers.
-      let xMin: number;
-      let xMax: number;
+      let binMin: number;
+      let binMax: number;
       if (binSize != null) {
         const halfBin = Number(binSize) / 2;
-        xMin = center - halfBin;
-        xMax = center + halfBin;
+        binMin = center - halfBin;
+        binMax = center + halfBin;
       } else {
         // Infer from neighbors. For first/last bins, mirror the gap.
         const prev = idx > 0 ? Number(calcdata[idx - 1].p ?? 0) : null;
         const next = idx < calcdata.length - 1 ? Number(calcdata[idx + 1].p ?? 0) : null;
         const gap = next != null ? next - center : prev != null ? center - prev : 1;
-        xMin = center - gap / 2;
-        xMax = center + gap / 2;
+        binMin = center - gap / 2;
+        binMax = center + gap / 2;
       }
 
-      data.push({
-        x: center,
-        y: count,
-        xMin,
-        xMax,
-        yMin: 0,
-        yMax: count,
-      });
+      // `Histogram` reads the bin bounds off the axis the bins run along and
+      // the count off the other one, so a horizontal histogram's pair is the
+      // vertical one transposed -- bounds in `yMin`/`yMax`, count on `x`.
+      data.push(isHorizontal
+        ? { x: count, y: center, xMin: 0, xMax: count, yMin: binMin, yMax: binMax }
+        : { x: center, y: count, xMin: binMin, xMax: binMax, yMin: 0, yMax: count });
     }
 
     return {
@@ -4665,6 +4675,7 @@ function extractHistogramLayer(
       title,
       selectors,
       axes,
+      ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
       data,
     };
   }

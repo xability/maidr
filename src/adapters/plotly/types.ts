@@ -124,6 +124,12 @@ export interface PlotlyTrace {
   // Histogram-specific
   xbins?: { start?: number; end?: number; size?: number };
   /**
+   * Bin bounds for a histogram binned up the y axis. Plotly puts the samples
+   * on `y` and the counts on `x` for `orientation: 'h'`, and the bin size
+   * moves to `ybins` with them.
+   */
+  ybins?: { start?: number; end?: number; size?: number };
+  /**
    * How a histogram reduces the samples that fall in a bin. Plotly's default
    * is `'count'`, which is why a 2D histogram's cells are counts unless the
    * trace says otherwise.

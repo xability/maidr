@@ -500,6 +500,11 @@ reads whichever one it resolved.
 </script>
 ```
 
+Give the samples on `y` instead of `x` and plotly bins up the y axis, drawing
+the counts across the page. MAIDR reads that as a horizontal histogram — the
+bin range is announced against the axis the bins run along, and the count
+against the other — with no extra configuration.
+
 ### Candlestick
 
 ```html
