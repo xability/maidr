@@ -470,6 +470,9 @@ const chart = Highcharts.chart('histogram-chart', {
 });
 ```
 
+`chart: { inverted: true }` draws the bins down the page, and MAIDR reads it as
+a horizontal histogram — the same flag it already reads for bars.
+
 ### Candlestick
 
 > Requires Highstock: `<script src="https://cdn.jsdelivr.net/npm/highcharts/highstock.js"></script>`.

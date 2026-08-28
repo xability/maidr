@@ -1753,7 +1753,7 @@ function convertSeries(
         ? convertHeatmapSeries(series, containerId)
         : convertHexbinSeries(series, containerId);
     case 'histogram':
-      return convertHistogramSeries(series, containerId);
+      return convertHistogramSeries(series, chart, containerId);
     // `hlc` is the third of Highcharts' price series and reads through the
     // same converter as its two siblings: it draws the same high, low and
     // close, and only the opening price -- and so the body, the trend and
@@ -5422,8 +5422,18 @@ function mapCentroid(
 
 function convertHistogramSeries(
   series: HighchartsSeries,
+  chart: HighchartsChart,
   containerId: string,
 ): MaidrLayer {
+  // A histogram has no sideways series type of its own the way a column has
+  // `bar`, so `inverted` is the whole of the question here -- and it is the
+  // same question `convertBarGroup` asks. Highcharts keeps the bin on `x` and
+  // the count on `y` whichever way it draws them, so the payload has to be
+  // transposed for the horizontal reading rather than merely labelled as one:
+  // `Histogram` takes the bin bounds from `yMin`/`yMax` and the count from
+  // `x` when the layer says `horz` (#997 did this for the bar family).
+  const isHorizontal = chart.options.chart?.inverted === true;
+
   const data: HistogramPoint[] = series.data
     .filter(p => p.y !== null)
     .map((p) => {
@@ -5431,25 +5441,35 @@ function convertHistogramSeries(
       // Highcharts histogram points have `x` (bin start) and `x2` (bin end).
       const binStart = typeof opts.x === 'number' ? opts.x : p.x;
       const binEnd = typeof opts.x2 === 'number' ? opts.x2 : binStart;
-      return {
-        x: pointLabel(p),
-        y: p.y as number,
-        xMin: binStart as number,
-        xMax: binEnd as number,
-        yMin: 0,
-        yMax: p.y as number,
-      };
+      const count = p.y as number;
+      return isHorizontal
+        ? {
+            x: count,
+            y: pointLabel(p),
+            xMin: 0,
+            xMax: count,
+            yMin: binStart as number,
+            yMax: binEnd as number,
+          }
+        : {
+            x: pointLabel(p),
+            y: count,
+            xMin: binStart as number,
+            xMax: binEnd as number,
+            yMin: 0,
+            yMax: count,
+          };
     });
 
   return {
     id: String(series.index),
     type: TraceType.HISTOGRAM,
     title: series.name || undefined,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: histogramSelector(containerId, series.index),
-    axes: {
-      x: getAxisLabel(series, 'x'),
-      y: getAxisLabel(series, 'y'),
-    },
+    // The value axis is `yAxis` in both orientations, so the labels are
+    // swapped with the pair they name -- the same swap `barAxes` makes.
+    axes: barAxes(series, isHorizontal),
     data,
   };
 }
