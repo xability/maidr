@@ -2838,6 +2838,7 @@ function extractBoxplotLayers(
     {
       id: '0',
       type: TraceType.BOX,
+      ...distributionOrientation(chart),
       axes: {
         x: { label: getAxisLabel(chart, 'x', pluginOptions) },
         y: { label: getAxisLabel(chart, 'y', pluginOptions) },
@@ -2845,6 +2846,27 @@ function extractBoxplotLayers(
       data: extractBoxSummaries(chart),
     },
   ];
+}
+
+/**
+ * Which way round a box or violin is drawn.
+ *
+ * `indexAxis: 'y'` is Chart.js's own name for the horizontal reading, the same
+ * flag the bar family reads, and the boxplot plugin honours it for both of the
+ * controllers it registers. Unlike a bar, neither payload moves: a `BoxPoint`
+ * has no `x` or `y` to exchange and a `ViolinKdePoint` names its violin the
+ * same way in both. What the key changes is which axis label names the group
+ * and which names the measurement -- `BoxTrace` and `ViolinTrace` read that
+ * off `orientation` themselves -- and, for a box, which way the arrow keys
+ * walk: along one distribution's sections, or across the distributions.
+ *
+ * @param chart - The Chart.js chart
+ * @returns The orientation key when the chart is drawn sideways, or nothing
+ */
+function distributionOrientation(chart: ChartJsChart): { orientation?: Orientation } {
+  return chart.options.indexAxis === 'y'
+    ? { orientation: Orientation.HORIZONTAL }
+    : {};
 }
 
 /**
@@ -2872,9 +2894,10 @@ function extractViolinLayers(
     x: { label: getAxisLabel(chart, 'x', pluginOptions) },
     y: { label: getAxisLabel(chart, 'y', pluginOptions) },
   };
+  const orientation = distributionOrientation(chart);
   const boxes = extractBoxSummaries(chart);
   const layers: MaidrLayer[] = [
-    { id: '0', type: TraceType.VIOLIN_BOX, axes, data: boxes },
+    { id: '0', type: TraceType.VIOLIN_BOX, ...orientation, axes, data: boxes },
   ];
 
   const labels = chart.data.labels ?? [];
@@ -2896,7 +2919,9 @@ function extractViolinLayers(
   }
 
   if (curves.length > 0) {
-    layers.push({ id: '1', type: TraceType.VIOLIN_KDE, axes, data: curves });
+    // Both layers or neither: they are one chart, and a reader who pages from
+    // the summary to the curve would otherwise be told the violin turned.
+    layers.push({ id: '1', type: TraceType.VIOLIN_KDE, ...orientation, axes, data: curves });
   }
 
   return layers;
