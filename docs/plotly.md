@@ -371,6 +371,10 @@ it is.
 </script>
 ```
 
+Give the samples on `x` instead and plotly draws the boxes on their side;
+MAIDR announces a horizontal box plot and reads the group off the y axis, which
+is where it is drawn. The five numbers themselves do not move.
+
 ### Violin Plot
 
 A violin becomes two layers in one subplot: the quartile summary (`violin_box`)

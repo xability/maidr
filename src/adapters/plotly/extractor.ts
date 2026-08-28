@@ -2616,6 +2616,13 @@ function extractMultiBoxLayer(
   // Derive subplot prefix from first trace's axis refs.
   const firstTrace = gd._fullData?.[boxTraces[0].globalIdx];
   const prefix = subplotCssPrefix(firstTrace?.xaxis, firstTrace?.yaxis);
+  // A box given its samples on `x` is drawn on its side, and plotly resolves
+  // that to `orientation: 'h'` on the full trace whether or not the author
+  // wrote it -- the same resolution the violin two functions down reads, and
+  // the same one a histogram reads. `BoxPoint` carries no x or y, so nothing
+  // is transposed here: what the key changes is which axis label names the
+  // group and which names the value, which `BoxTrace` decides for itself.
+  const isHorizontal = (firstTrace?.orientation ?? boxTraces[0].trace.orientation) === 'h';
 
   for (let boxIdx = 0; boxIdx < boxTraces.length; boxIdx++) {
     const { trace, calcIdx, globalIdx } = boxTraces[boxIdx];
@@ -2683,6 +2690,7 @@ function extractMultiBoxLayer(
   return {
     id: String(boxTraces[0].globalIdx),
     type: TraceType.BOX,
+    ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     selectors: boxSelectors,
     axes,
     data,
