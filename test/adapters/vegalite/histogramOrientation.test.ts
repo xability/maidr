@@ -115,4 +115,18 @@ describe('a vega-Lite histogram binned up y', () => {
 
     expect(points[0]).toEqual({ x: 3, y: '1-2', xMin: 0, xMax: 3, yMin: 1, yMax: 2 });
   });
+
+  it('leaves the channel titles where the spec put them', () => {
+    // No swap here, unlike the Highcharts adapter's: a Vega-Lite encoding
+    // names what is on each channel, so `x` already titles the count on a
+    // `binY` spec -- which is where the horizontal payload puts the count.
+    expect(sideways().axes).toEqual({
+      x: { label: 'Count' },
+      y: { label: 'Petal Length' },
+    });
+    expect(upright().axes).toEqual({
+      x: { label: 'Petal Length' },
+      y: { label: 'Count' },
+    });
+  });
 });

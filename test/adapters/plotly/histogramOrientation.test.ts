@@ -148,4 +148,19 @@ describe('a plotly histogram binned up y', () => {
 
     expect(points[1]).toEqual({ x: 33, y: 3, xMin: 0, xMax: 33, yMin: 2, yMax: 4 });
   });
+
+  it('leaves the axis titles as plotly wrote them', () => {
+    // No swap here, unlike the Highcharts adapter's: plotly's `xaxis` is the
+    // axis it draws across the page in both orientations, so the layout's own
+    // titles already name the axes as drawn -- the count's on `x`, which is
+    // where the horizontal payload puts the count.
+    expect(layerFor(true).axes).toEqual({
+      x: { label: 'Count' },
+      y: { label: 'Petal Length' },
+    });
+    expect(layerFor(false).axes).toEqual({
+      x: { label: 'Petal Length' },
+      y: { label: 'Count' },
+    });
+  });
 });

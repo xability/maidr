@@ -1717,7 +1717,7 @@ function extractPolarAreaData(
 function extractHistogramData(
   rows: Record<string, unknown>[],
   encoding: VegaLiteEncoding,
-  isHorizontal: boolean = isBinnedHorizontally(encoding),
+  isHorizontal: boolean,
 ): HistogramPoint[] {
   const xField = encoding.x?.field ?? 'x';
   const yField = encoding.y?.field ?? 'y';
