@@ -10,16 +10,23 @@
  *
  * That family test is the right one for the payload -- the grammar's table has
  * only the bar family exchanging `x` and `y` -- but it is the wrong one for
- * the *announcement*. A box plot and an interval read their axis labels
- * through the orientation instead: `BoxTrace` and `ErrorBarTrace` take the
- * group off `axes.y` and the measurement off `axes.x` when the layer is
- * horizontal, and `toMaidrLayer` has already swapped the labels by then --
- * Victory keeps `x = category` in its own data however the chart is drawn, so
- * the pair of axis labels moves with the drawing.
+ * the *announcement*, and for the walk that follows it.
  *
- * Without the key the two halves disagreed: the labels swapped and the reading
- * did not, so the group was announced against the measurement's axis title and
- * the measurement against the group's.
+ * **What was not wrong: the axis labels.** `toMaidrLayer` swaps them on the
+ * same key this attaches, so before it neither the labels nor the reading
+ * moved, and they agreed with each other. An earlier version of this file said
+ * the opposite -- that the labels had swapped and the reading had not -- which
+ * is impossible in the code as written. Measured in Chromium on the
+ * `Box Plot (horizontal)` example of `npm run dev:victory`, before and after:
+ *
+ *   before   "vertical box plot"     right -> Group is A, then Group is B
+ *   after    "horizontal box plot"   right -> C's sections; up -> B, then A
+ *
+ * Both readings name the group against `Group` and the measurement against
+ * `Value`. What the key fixes is that the first announces a chart drawn the
+ * other way round, and walks left and right across groups that are stacked
+ * down the page -- while the values, which are what left and right traverse on
+ * screen, are reached with up and down.
  */
 
 import type { BoxPoint, ErrorBarPoint, MaidrLayer } from '@type/grammar';

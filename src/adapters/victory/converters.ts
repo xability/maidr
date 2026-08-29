@@ -157,8 +157,11 @@ function isBarFamily(kind: VictoryLayerData['kind']): boolean {
  * here is *announced* by its orientation and reads its axis labels through it,
  * while only the bar family also has its `x` and `y` exchanged. A box plot and
  * an error bar carry no pair to exchange -- `BoxTrace` and `ErrorBarTrace`
- * read the group off `axes.y` when the layer is horizontal, and
- * {@link toMaidrLayer} has already swapped the labels by then.
+ * read the group off `axes.y` when the layer is horizontal, which is where
+ * {@link toMaidrLayer}'s swap has put it once this key is set. The swap and
+ * the reading are gated on the same key, so what a missing key cost was never
+ * a crossed label: it was a sideways chart announcing itself as an upright one
+ * and arrowing across its groups instead of along its measurement axis.
  *
  * Left out: a line, an area, a scatter and a candlestick, none of which the
  * grammar's `IS_ORIENTED` table gives an orientation to.
@@ -1710,7 +1713,10 @@ export function toMaidrLayer(
 
     // An interval keeps its `x` and its bounds under `horz` -- the grammar's
     // table says so -- and reads the sample off `axes.y`, which the swap above
-    // has already put the category label on.
+    // puts the category label on once this key is set. As with the box, the
+    // labels were not wrong before: the swap is gated on the same key, so both
+    // halves moved together either way. What the key buys is the announcement
+    // and the walk matching the chart as drawn.
     case 'errorBar':
       return {
         id: layer.id,
@@ -1732,10 +1738,18 @@ export function toMaidrLayer(
 
     // A `<VictoryBoxPlot horizontal>` draws its groups down the page, and the
     // key says so. Nothing is exchanged in the payload -- a `BoxPoint` has no
-    // `x` or `y` -- but the labels above have already swapped with the axes
-    // they name, and `BoxTrace` reads the group off `axes.y` when the layer
-    // is horizontal. Without the key it read the group off `axes.x`, which by
-    // then held the measurement.
+    // `x` or `y` -- and the labels do not move on their own either: the swap
+    // above is gated on this same key, so without it the pair stayed put and
+    // `BoxTrace`'s upright branch read the group off `axes.x`, which still
+    // held it. The labels were therefore right before this and are right
+    // after; what the key buys is the two things that were wrong -- the chart
+    // announced itself as a vertical box plot, and left and right walked
+    // across groups that are stacked down the page rather than along the
+    // measurement axis they are drawn on. Measured in Chromium on the
+    // `Box Plot (horizontal)` example, before and after:
+    //
+    //   before   "vertical box"     right: A -> B (across the groups)
+    //   after    "horizontal box"   right: C's minimum, quartiles ... ; up: C -> B
     case 'box':
       return {
         id: layer.id,
