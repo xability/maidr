@@ -1958,6 +1958,11 @@ const FUNNEL_COUNT_AXIS = 'Count';
  * whichever axis the point's `x` lies on and a horizontal funnel carries its
  * count there.
  *
+ * `Stage` and `Count` are the pair the Highcharts, ECharts and AnyChart
+ * adapters already fall back to. The amCharts one says `Stage` and `Value`,
+ * which is the odd one out and is left as it is here: renaming what a chart
+ * announces is not this fix's to make.
+ *
  * A title plotly *does* carry is left alone: an author who named the axes
  * means those names.
  *

@@ -13,8 +13,10 @@
  *   before   "Stage is Visits, X is 100"
  *   after    "Stage is Visits, Count is 100"
  *
- * The Highcharts, amCharts and ECharts adapters all name the same two
- * dimensions `Stage` and `Count` for the same reason.
+ * The Highcharts, ECharts and AnyChart adapters fall back to the same pair for
+ * the same reason. The amCharts one says `Stage` and `Value` instead -- the odd
+ * one out of the four, noted rather than changed here, since what a chart
+ * announces is not this fix's to rename.
  *
  * The pair is written in the order the payload puts them: `axes.x` names
  * whichever axis the point's `x` lies on, and a funnel drawn with its stages
