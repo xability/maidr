@@ -7,6 +7,7 @@ import { CandlestickExample } from './examples/CandlestickExample';
 import { DotPlotExample } from './examples/DotPlotExample';
 import { ErrorBarExample } from './examples/ErrorBarExample';
 import { HistogramExample } from './examples/HistogramExample';
+import { HorizontalBoxPlotExample } from './examples/HorizontalBoxPlotExample';
 import { LineChartExample } from './examples/LineChartExample';
 import { MultiPanelExample } from './examples/MultiPanelExample';
 import { PolarAreaExample } from './examples/PolarAreaExample';
@@ -27,6 +28,7 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Area', component: StackedAreaExample },
   { name: 'Histogram', component: HistogramExample },
   { name: 'Box Plot', component: BoxPlotExample },
+  { name: 'Box Plot (horizontal)', component: HorizontalBoxPlotExample },
   { name: 'Candlestick', component: CandlestickExample },
   { name: 'Error Bar', component: ErrorBarExample },
   { name: 'Waterfall', component: WaterfallExample },

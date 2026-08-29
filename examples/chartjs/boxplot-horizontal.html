@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Chart.js Horizontal Boxplot Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4"></script>
+    <script src="../../dist/chartjs.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + Chart.js Horizontal Boxplot</h1>
+    <p>
+      The same summaries as <a href="boxplot.html">the upright example</a>, with
+      <code>indexAxis: 'y'</code> — the groups run down the page and the
+      measurement across it. MAIDR announces a horizontal box plot and reads it
+      against the axes as drawn: left and right move through one group's
+      sections, up and down between the groups.
+    </p>
+
+    <div style="width: 700px; height: 400px">
+      <canvas id="boxplot-horizontal-chart"></canvas>
+    </div>
+
+    <script>
+      Chart.register(maidrChartjs.maidrPlugin);
+
+      new Chart(document.getElementById('boxplot-horizontal-chart'), {
+        type: 'boxplot',
+        data: {
+          labels: ['Group A', 'Group B', 'Group C'],
+          datasets: [{
+            label: 'Distribution',
+            data: [
+              { min: 15, q1: 25, median: 35, q3: 45, max: 55, outliers: [5, 8, 62, 70] },
+              { min: 20, q1: 30, median: 42, q3: 52, max: 65, outliers: [12, 72] },
+              { min: 10, q1: 22, median: 30, q3: 40, max: 50, outliers: [58] },
+            ],
+            backgroundColor: 'rgba(135, 206, 235, 0.5)',
+            borderColor: 'rgb(135, 206, 235)',
+            borderWidth: 1,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { title: { display: true, text: 'Distribution by Group' } },
+          scales: {
+            // With `indexAxis: 'y'` the x scale is the measured one, so the
+            // titles already name the axes as drawn and MAIDR passes them
+            // through unswapped.
+            x: { title: { display: true, text: 'Value' } },
+            y: { title: { display: true, text: 'Group' } },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
