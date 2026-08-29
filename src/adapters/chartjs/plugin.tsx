@@ -289,9 +289,20 @@ function renderMaidr(
 // Plugin lifecycle
 // ---------------------------------------------------------------------------
 
+/**
+ * Charts whose extraction has already been declined, so it is not retried.
+ *
+ * The binding runs on `afterUpdate`, which fires on every update rather than
+ * once -- a hover, a resize or a `chart.update()` each reach it. A chart that
+ * bound successfully is held in {@link chartBindings} and skipped by the guard
+ * below; a chart whose type has no reading is not, so it would be re-extracted
+ * and re-warned on every update without this.
+ */
+const declinedCharts = new WeakSet<ChartJsChart>();
+
 function initMaidrForChart(chart: ChartJsChart): void {
   // Guard against duplicate initialization
-  if (chartBindings.has(chart))
+  if (chartBindings.has(chart) || declinedCharts.has(chart))
     return;
 
   const pluginOptions = getPluginOptions(chart);
@@ -308,6 +319,7 @@ function initMaidrForChart(chart: ChartJsChart): void {
   try {
     ({ maidr: extracted, layerDatasetIndices } = extractChartData(chart, pluginOptions));
   } catch (error) {
+    declinedCharts.add(chart);
     console.warn(
       `MAIDR Chart.js plugin: skipping chart. ${
         error instanceof Error ? error.message : String(error)
@@ -449,7 +461,24 @@ function destroyMaidrForChart(chart: ChartJsChart): void {
 export const maidrPlugin: ChartJsPlugin = {
   id: 'maidr',
 
-  afterInit(chart: ChartJsChart) {
+  // `afterUpdate`, not `afterInit`: Chart.js parses its datasets during the
+  // first update, and several readings are taken from that parse rather than
+  // from the author's rows -- a box plot's and a violin's five-number
+  // summaries among them, which the plugin computes and `dataset.data` never
+  // holds, and an error bar's bounds with them.
+  //
+  // Measured on chart.js 4 with `@sgratzl/chartjs-chart-boxplot`, a
+  // three-box chart reports `getDatasetMeta(0)._parsed.length` as 0 at
+  // `afterInit` and 3 at `afterUpdate`. Binding at init therefore read an
+  // empty summary, and every Chart.js box plot, violin and error-bar chart --
+  // the repository's own `examples/chartjs/boxplot.html` included -- announced
+  // "No trace info available" and navigated nothing.
+  //
+  // Both hooks run inside `new Chart(...)`, so nothing arrives later than it
+  // did; what changes is that the parse has happened by the time the data is
+  // read. Repeat updates are cheap: a bound chart is held in `chartBindings`
+  // and a declined one in `declinedCharts`, and both are skipped above.
+  afterUpdate(chart: ChartJsChart) {
     initMaidrForChart(chart);
   },
 
