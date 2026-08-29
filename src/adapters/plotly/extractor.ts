@@ -1563,8 +1563,21 @@ function extractLayer(
     // A funnel is a bar chart whose order means something: same points, same
     // orientation handling, and the retention between stages is derived by
     // the trace rather than carried in the payload.
+    //
+    // Its axes are named rather than passed through: a funnel is drawn on a
+    // panel plotly gives no axis titles, so the layout carries none and the
+    // core's `X` / `Y` fallback would announce "X is 100" for a count. The
+    // same two names the Highcharts, amCharts and ECharts adapters give it.
     case TraceType.FUNNEL:
-      return extractBarLayer(trace, calcdata, TraceType.FUNNEL, id, title, selectors, axes);
+      return extractBarLayer(
+        trace,
+        calcdata,
+        TraceType.FUNNEL,
+        id,
+        title,
+        selectors,
+        funnelAxes(trace, axes),
+      );
 
     case TraceType.WATERFALL:
       return extractWaterfallLayer(trace, calcdata, id, title, selectors, axes);
@@ -1929,6 +1942,44 @@ function extractBarLayer(
     axes,
     ...(isHorizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     data: orderedData,
+  };
+}
+
+/** The two dimensions a funnel has, for a chart that names neither. */
+const FUNNEL_STAGE_AXIS = 'Stage';
+const FUNNEL_COUNT_AXIS = 'Count';
+
+/**
+ * What a funnel's two dimensions are called, when plotly names neither.
+ *
+ * A funnel sits on a panel whose axes carry no titles, so `axes` arrives empty
+ * and a reader is told the count is "X". These name what each side actually
+ * holds -- and in the order the payload puts them, since `axes.x` names
+ * whichever axis the point's `x` lies on and a horizontal funnel carries its
+ * count there.
+ *
+ * `Stage` and `Count` are the pair the Highcharts, ECharts and AnyChart
+ * adapters already fall back to. The amCharts one says `Stage` and `Value`,
+ * which is the odd one out and is left as it is here: renaming what a chart
+ * announces is not this fix's to make.
+ *
+ * A title plotly *does* carry is left alone: an author who named the axes
+ * means those names.
+ *
+ * @param trace - The funnel trace, read for which way it is drawn
+ * @param axes  - What the layout named, which is usually nothing
+ * @returns The axes to emit
+ */
+function funnelAxes(
+  trace: PlotlyTrace,
+  axes: MaidrLayer['axes'],
+): MaidrLayer['axes'] {
+  const horizontal = trace.orientation !== 'v';
+  const stage = { label: FUNNEL_STAGE_AXIS };
+  const count = { label: FUNNEL_COUNT_AXIS };
+  return {
+    x: axes?.x ?? (horizontal ? count : stage),
+    y: axes?.y ?? (horizontal ? stage : count),
   };
 }
 

@@ -80,8 +80,18 @@ so the reading is that pair.
 | ECharts | read as | highlighted |
 |---|---|---|
 | `pie` | `pie` | yes — one selector naming every slice |
-| `funnel` | `funnel` | yes — one selector per stage |
+| `funnel` | `funnel` | yes — one selector per stage. `orient` is read; see below |
 | `gauge` | `gauge` | **no** — see below |
+
+**A funnel's `orient` and MAIDR's `orientation` name opposite directions, on
+purpose.** ECharts names the direction its stages progress; MAIDR names the
+direction the magnitude runs — the convention by which a chart with its bars
+running left to right is a *horizontal* bar chart. Measured in Chromium for
+values 100/60/20, `orient: 'vertical'` (the default) draws uniform band heights
+of 80 against widths of 360/216/72, so the value is a horizontal extent and the
+layer is read with the count in `x` and the stage in `y`. `orient: 'horizontal'`
+is the transpose — uniform widths of 120 against heights of 240/144/48 — and is
+the one MAIDR calls upright.
 
 A gauge draws **two** filled marks for its one datum: the track and the
 progress arc, measured as `#e8ebf0` and the series colour. The count check

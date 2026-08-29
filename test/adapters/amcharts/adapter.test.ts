@@ -630,13 +630,50 @@ describe('fromAmCharts (sliced chart)', () => {
     const layer = result.subplots[0][0].layers[0];
     expect(layer.type).toBe(TraceType.FUNNEL);
     expect(layer.title).toBe('Checkout');
-    // A sliced chart is bound to no axis, so the dimensions name what they hold.
-    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Value' } });
+    // A `FunnelSeries` in its default `orientation: 'vertical'` stacks its
+    // stages down the page and encodes the value as each band's WIDTH --
+    // measured in Chromium through the series' own API, uniform heights of
+    // 100 against widths of 500/300/100 for values 100/60/20. The magnitude
+    // therefore runs horizontally, which is what MAIDR's `orientation` names,
+    // and `FunnelTrace` reads it off `x`.
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    // A sliced chart is bound to no axis, so the dimensions name what they
+    // hold -- in the order the payload puts them.
+    expect(layer.axes).toEqual({ x: { label: 'Value' }, y: { label: 'Stage' } });
     expect(layer.data as BarPoint[]).toEqual([
-      { x: 'Visited', y: 10000 },
-      { x: 'Signed up', y: 2400 },
-      { x: 'Purchased', y: 100 },
+      { x: 10000, y: 'Visited' },
+      { x: 2400, y: 'Signed up' },
+      { x: 100, y: 'Purchased' },
     ]);
+  });
+
+  it('leaves a horizontal funnel upright, which is the transpose of that', () => {
+    // amCharts' `orientation` names the direction the stages progress, so its
+    // 'horizontal' is the one whose value is a vertical extent -- measured,
+    // uniform widths of 160 against heights of 320/192/64.
+    const sliced = fakeSlicedChart({
+      series: [fakeFunnelSeries('Checkout', STAGES, 'FunnelSeries', 'horizontal')],
+    });
+
+    const layer = fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0];
+
+    expect(layer.orientation).toBeUndefined();
+    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Value' } });
+    expect((layer.data as BarPoint[])[0]).toEqual({ x: 'Visited', y: 10000 });
+  });
+
+  it('gives a pyramid no orientation, because it encodes an area', () => {
+    // Neither dimension of a pyramid is proportional to the value -- measured,
+    // widths 373/471/500 and heights 239/63/18 for 100/60/20 -- so there is no
+    // magnitude axis to name and it keeps the upright default.
+    const sliced = fakeSlicedChart({
+      series: [fakeFunnelSeries('Checkout', STAGES, 'PyramidSeries')],
+    });
+
+    const layer = fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0];
+
+    expect(layer.orientation).toBeUndefined();
+    expect((layer.data as BarPoint[])[0]).toEqual({ x: 'Visited', y: 10000 });
   });
 
   it('reads a pyramid as the same ordered stages a funnel is', () => {
@@ -660,8 +697,8 @@ describe('fromAmCharts (sliced chart)', () => {
     const layer = fromAmCharts(fakeRoot([sliced])).subplots[0][0].layers[0];
 
     expect(layer.data as BarPoint[]).toEqual([
-      { x: 'Visited', y: 10000 },
-      { x: 'Purchased', y: 100 },
+      { x: 10000, y: 'Visited' },
+      { x: 100, y: 'Purchased' },
     ]);
   });
 
@@ -679,8 +716,12 @@ describe('fromAmCharts (sliced chart)', () => {
       axisLabels: { x: 'Step', y: 'People' },
     });
 
+    // The caller names the two dimensions -- the stage and the count -- and
+    // the names travel with them rather than with the letters: `axes.x` is
+    // whichever axis the point's `x` lies on, which on this funnel is the
+    // count.
     expect(result.subplots[0][0].layers[0].axes)
-      .toEqual({ x: { label: 'Step' }, y: { label: 'People' } });
+      .toEqual({ x: { label: 'People' }, y: { label: 'Step' } });
   });
 });
 

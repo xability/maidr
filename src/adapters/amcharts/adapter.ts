@@ -1264,16 +1264,58 @@ function buildFunnelLayer(
   data: BarPoint[],
   options?: AmChartsBinderOptions,
 ): MaidrLayer {
+  const horizontal = drawsStagesDownThePage(series);
+  const stageLabel = options?.axisLabels?.x ?? FUNNEL_STAGE_AXIS;
+  const valueLabel = options?.axisLabels?.y ?? FUNNEL_VALUE_AXIS;
+
   return {
     id: layerId(series),
     type: TraceType.FUNNEL,
     title: seriesName(series),
-    axes: {
-      x: { label: options?.axisLabels?.x ?? FUNNEL_STAGE_AXIS },
-      y: { label: options?.axisLabels?.y ?? FUNNEL_VALUE_AXIS },
-    },
-    data,
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+    // `axes.x` names whichever axis the point's `x` lies on, so the pair is
+    // written in the order the payload puts them. The caller's own labels are
+    // a naming of the two dimensions -- stage and value -- and travel with
+    // them rather than with the letters.
+    axes: horizontal
+      ? { x: { label: valueLabel }, y: { label: stageLabel } }
+      : { x: { label: stageLabel }, y: { label: valueLabel } },
+    // `FunnelTrace` extends `BarTrace`, so a horizontal layer carries its
+    // magnitude in `x`.
+    data: horizontal ? data.map(point => ({ x: point.y, y: point.x })) : data,
   };
+}
+
+/**
+ * The one sliced series whose value is a horizontal extent.
+ *
+ * amCharts' `orientation` names the direction the STAGES progress; MAIDR's
+ * `orientation` names the direction the MAGNITUDE runs -- the convention a
+ * "horizontal bar chart" is named by. On a funnel the two are opposites.
+ * Measured in Chromium on amCharts 5 through the series' own API, values
+ * 100/60/20:
+ *
+ *   FunnelSeries, orientation 'vertical' (default)   heights 100 100 100   widths 500 300 100
+ *   FunnelSeries, orientation 'horizontal'           widths 160 160 160   heights 320 192 64
+ *   PyramidSeries (default)                          widths 373 471 500   heights 239 63 18
+ *
+ * So the default funnel stacks its stages down the page and encodes the value
+ * as the band's WIDTH: the magnitude runs horizontally, and the layer is
+ * `horz`. Its horizontal orientation is the transpose, which MAIDR calls
+ * vertical.
+ *
+ * A **pyramid** is neither: no dimension of it is proportional to the value --
+ * measured, 373/471/500 and 239/63/18 for 100/60/20 -- because a pyramid
+ * encodes the value as the band's AREA. It has no magnitude axis to name, so
+ * it keeps the upright default rather than being given a direction it does not
+ * have. The pictorial stack, which shares this builder, is left with it.
+ *
+ * @param series - The sliced series being read
+ * @returns True when the value is drawn as a horizontal extent
+ */
+function drawsStagesDownThePage(series: AmXYSeries): boolean {
+  return series.className === 'FunnelSeries'
+    && series.get('orientation') !== 'horizontal';
 }
 
 /**

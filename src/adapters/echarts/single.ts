@@ -16,7 +16,7 @@
 
 import type { BarPoint, GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import type { EChartsSeriesModel } from './types';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
 import { markPerDatum } from './selectors';
 
@@ -139,22 +139,58 @@ function pieLayer(
  * @param selectors   - One selector per stage, when the marks were found
  * @returns The layer
  */
+/**
+ * What a funnel's two dimensions are called. A funnel series sits on no axis,
+ * so there is no axis name to read and the core's `X` / `Y` fallback would
+ * name the stage and its count after coordinates the chart does not have.
+ */
+const FUNNEL_STAGE_AXIS = 'Stage';
+const FUNNEL_COUNT_AXIS = 'Count';
+
 function funnelLayer(
   seriesModel: EChartsSeriesModel,
   read: Reading[],
   selectors: string[] | undefined,
 ): MaidrLayer {
-  const data: BarPoint[] = read.map(({ name, value }, index) => ({
-    x: name || `Stage ${index + 1}`,
-    y: value,
-  }));
+  // ECharts' `orient` and MAIDR's `orientation` name two different directions,
+  // and on a funnel they are opposites -- deliberately, and this is the whole
+  // reason the mapping is spelled out here.
+  //
+  // ECharts names the direction the STAGES progress. MAIDR names the direction
+  // the MAGNITUDE runs, which is the convention a "horizontal bar chart" is
+  // named by and the one `MaidrLayer.orientation` is written against: `horz`
+  // means the value is in `x`. Measured in Chromium on echarts 5, values
+  // 100/60/20:
+  //
+  //   orient: 'vertical' (default)   heights 80, 80, 80   widths 360, 216, 72
+  //   orient: 'horizontal'           widths 120,120,120   heights 240,144,48
+  //
+  // The default stacks its stages down the page with uniform band heights and
+  // encodes the value as the band's WIDTH, so the magnitude runs horizontally
+  // and the layer is `horz`. `orient: 'horizontal'` is the transpose of that,
+  // and is the one MAIDR calls vertical.
+  const horizontal = seriesModel.get('orient') !== 'horizontal';
+
+  const data: BarPoint[] = read.map(({ name, value }, index) => {
+    const stage = name || `Stage ${index + 1}`;
+    // `FunnelTrace` extends `BarTrace`, so a horizontal layer carries its
+    // magnitude in `x` -- the exchange the grammar's table calls for.
+    return horizontal ? { x: value, y: stage } : { x: stage, y: value };
+  });
   const name = authored(seriesModel);
 
   return {
     id: nextId('layer'),
     type: TraceType.FUNNEL,
     ...(name ? { name } : {}),
+    ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
     ...(selectors ? { selectors } : {}),
+    // A funnel is bound to no axis, so without these the reader is told the
+    // stage's count is "X". Named in the order the payload puts them, so
+    // `axes.x` is whichever axis the point's `x` lies on.
+    axes: horizontal
+      ? { x: { label: FUNNEL_COUNT_AXIS }, y: { label: FUNNEL_STAGE_AXIS } }
+      : { x: { label: FUNNEL_STAGE_AXIS }, y: { label: FUNNEL_COUNT_AXIS } },
     data,
   };
 }

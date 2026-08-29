@@ -325,11 +325,19 @@ export function fakeFunnelSeries(
   name: string,
   stages: Array<{ category: string; value: number | null; slice?: unknown }>,
   className = 'FunnelSeries',
+  orientation?: 'vertical' | 'horizontal',
 ): AmXYSeries {
   return fakeSeries({
     className,
     name,
-    settings: { categoryField: 'category', valueField: 'value' },
+    settings: {
+      categoryField: 'category',
+      valueField: 'value',
+      // amCharts' own name for the direction the STAGES progress, which is
+      // the opposite of the one MAIDR's `orientation` names. Omitted for the
+      // default, exactly as a chart that never set it reports.
+      ...(orientation ? { orientation } : {}),
+    },
     data: stages,
   });
 }
