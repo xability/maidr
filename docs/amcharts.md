@@ -152,6 +152,8 @@ A `PieSeries` lives in amCharts' separate `percent.js` module and is bound to no
 
 A `FunnelSeries` lives in the same `percent.js` module, inside a `SlicedChart` rather than a `PieChart`, and is likewise bound to no axis — its dimensions default to `Stage` and `Value`. Its pyramid and pictorial-stack siblings carry the same ordered `category`/`value` stages and are read the same way.
 
+**A default funnel is announced as horizontal, and that is not a contradiction of amCharts' own `orientation`.** The two settings name different directions: amCharts' names the direction the stages progress, MAIDR's names the direction the magnitude runs — the convention by which a chart with its bars running left to right is a *horizontal* bar chart. Measured through the series' own API for values 100/60/20, a default `FunnelSeries` draws uniform band heights of 100 against widths of 500/300/100: the value is a horizontal extent, so MAIDR reads it with the count in `x` and the stage in `y`. Set `orientation: "horizontal"` and the two flip, giving the layer MAIDR calls upright. A `PyramidSeries` is neither — its bands encode the value as an *area*, with no dimension proportional to it — so it is left with no orientation at all.
+
 `RadarLineSeries` and `RadarColumnSeries` need `radar.js` on top of `xy.js`; a `RadarChart` extends `XYChart`, so the binder finds it with the rest.
 
 The **declared** rows are declared rather than detected — see [Declaring What a Chart Means](#declaring-what-a-chart-means) below.

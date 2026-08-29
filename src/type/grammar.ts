@@ -1400,6 +1400,24 @@ export interface MaidrLayer {
    * a reading is announced against, and the payload is written the same way
    * whichever value is set.
    *
+   * **What the two words name.** Orientation is the direction the *magnitude*
+   * runs, not which axis happens to be called `x`. That is the convention the
+   * whole field uses: a horizontal bar chart is one whose bars run left to
+   * right, with the categories down the y axis — and it is how the drawing
+   * libraries name the same switch. Chart.js: `indexAxis: 'y'` gives
+   * "horizontal bars", the y axis holding the categories and the x axis the
+   * values. Highcharts: `chart.inverted` makes "the x axis vertical and y axis
+   * horizontal". Matplotlib 3.10 replaced `boxplot(vert=False)` with
+   * `orientation='horizontal'`, which "plots the boxes horizontally". Plotly
+   * states it outright: with `'h'`, "the value of each bar spans along the
+   * horizontal".
+   *
+   * A producer therefore reads its chart, not its API's vocabulary. Where a
+   * library names the *other* direction — ECharts' and amCharts' funnel
+   * `orient`/`orientation` name the way the stages progress, so their default
+   * funnels encode the value as a band's width and are `horz` here — the
+   * adapter translates, and says so where it does.
+   *
    * The rule is: **the bar family swaps `x` and `y`; nothing else does.**
    *
    * | trace | `vert` | `horz` |

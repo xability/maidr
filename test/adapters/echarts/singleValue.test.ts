@@ -24,7 +24,7 @@ import { createMaidrFromEChart } from '@adapters/echarts/converters';
 import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { FunnelTrace } from '@model/funnel';
 import { PieTrace } from '@model/pie';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -35,6 +35,8 @@ interface FakeSeries {
   name?: string;
   min?: number;
   max?: number;
+  /** ECharts' own name for the direction a funnel's STAGES progress. */
+  orient?: 'vertical' | 'horizontal';
 }
 
 function fakeSeriesModel(series: FakeSeries): EChartsSeriesModel {
@@ -42,6 +44,7 @@ function fakeSeriesModel(series: FakeSeries): EChartsSeriesModel {
     name: series.name,
     min: series.min,
     max: series.max,
+    orient: series.orient,
   };
   const list: EChartsList = {
     dimensions: ['value'],
@@ -241,6 +244,13 @@ describe('an eCharts funnel chart', () => {
     // The order is the reading: MAIDR pitches each stage against the one
     // before it, so a sorted funnel would announce a retention the chart
     // never showed.
+    //
+    // The pair reads `{x: count, y: stage}` because an ECharts funnel's
+    // default `orient: 'vertical'` stacks its stages down the page and
+    // encodes the value as each band's WIDTH -- measured in Chromium,
+    // uniform heights of 80 against widths of 360/216/72 for values
+    // 100/60/20 -- so the magnitude runs horizontally and `FunnelTrace`,
+    // which extends `BarTrace`, reads it off `x`.
     const layer = layerFor(
       {
         type: 'funnel',
@@ -251,11 +261,38 @@ describe('an eCharts funnel chart', () => {
     );
 
     expect(layer.type).toBe(TraceType.FUNNEL);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.data as BarPoint[]).toEqual([
+      { x: 100, y: 'Visit' },
+      { x: 60, y: 'Cart' },
+      { x: 30, y: 'Buy' },
+    ]);
+  });
+
+  it('reads an `orient: horizontal` funnel as the upright one it is', () => {
+    // The transpose of the default, and the one place ECharts' word and
+    // MAIDR's agree on neither: ECharts names the direction the stages
+    // progress, MAIDR the direction the magnitude runs. Measured in Chromium,
+    // `orient: 'horizontal'` draws uniform widths of 120 against heights of
+    // 240/144/48 for values 100/60/30 -- the value is a vertical extent, so
+    // the layer is the upright one and keeps `{x: stage, y: count}`.
+    const layer = layerFor(
+      {
+        type: 'funnel',
+        orient: 'horizontal',
+        names: ['Visit', 'Cart', 'Buy'],
+        values: [100, 60, 30],
+      },
+      3,
+    );
+
+    expect(layer.orientation).toBeUndefined();
     expect(layer.data as BarPoint[]).toEqual([
       { x: 'Visit', y: 100 },
       { x: 'Cart', y: 60 },
       { x: 'Buy', y: 30 },
     ]);
+    expect(layer.axes).toEqual({ x: { label: 'Stage' }, y: { label: 'Count' } });
   });
 
   it('names each stage separately, which is the shape FunnelTrace reads', () => {
