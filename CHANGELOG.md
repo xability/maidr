@@ -1,3 +1,48 @@
+# [4.6.0](https://github.com/xability/maidr/compare/v4.5.0...v4.6.0) (2026-08-31)
+
+
+### Bug Fixes
+
+* **adapters:** read a chart drawn sideways as one, across every oriented trace type ([#1209](https://github.com/xability/maidr/issues/1209)) ([b97f379](https://github.com/xability/maidr/commit/b97f3791dcde5bb9f47c3f9688683705453648d5))
+* **chartjs:** bind after the first update, so a box plot, violin or error bar is read at all ([#1210](https://github.com/xability/maidr/issues/1210)) ([6ca7364](https://github.com/xability/maidr/commit/6ca736426237d65982fa63a49c39338ac0ac2f05))
+* **echarts:** give the theme river the outline it can have ([#1207](https://github.com/xability/maidr/issues/1207)) ([651e05b](https://github.com/xability/maidr/commit/651e05bd91ef5ee3a3b5ca13a87ec80ccd407982))
+* **echarts:** publish the two series types the adapter gained ([#1200](https://github.com/xability/maidr/issues/1200)) ([73408de](https://github.com/xability/maidr/commit/73408de12d6cc5af44fce017064592325e477051)), closes [#1195](https://github.com/xability/maidr/issues/1195)
+* **funnel:** read a funnel by the direction its magnitude runs ([#1211](https://github.com/xability/maidr/issues/1211)) ([79c8315](https://github.com/xability/maidr/commit/79c8315d7117f6c10e2772b6d5f7a9b1de76640d))
+* **heatmap:** let a grid say a cell has no value instead of reading it as zero ([#1192](https://github.com/xability/maidr/issues/1192)) ([15bb62c](https://github.com/xability/maidr/commit/15bb62cfcb929264ee791a94a4a6cb29a9137908))
+* **parallel:** scale and place a value by the axis its point names, not by its column ([#1183](https://github.com/xability/maidr/issues/1183)) ([00863eb](https://github.com/xability/maidr/commit/00863ebcd62d73d888062e97c47744d454bfae05))
+
+
+### Features
+
+* **amcharts:** name a Tree and a Pack after the painting on the page ([#1159](https://github.com/xability/maidr/issues/1159)) ([9f6102c](https://github.com/xability/maidr/commit/9f6102c496b9395fd60f67cba8e9001303adf15e))
+* **anychart:** read a circle packing as the hierarchy it draws ([#1172](https://github.com/xability/maidr/issues/1172)) ([c4beb56](https://github.com/xability/maidr/commit/c4beb56eea954387ca052107d727d7eb39bf31c9)), closes [#1171](https://github.com/xability/maidr/issues/1171) [#1171](https://github.com/xability/maidr/issues/1171)
+* **anychart:** read a sunburst as the hierarchy it draws ([#1171](https://github.com/xability/maidr/issues/1171)) ([57ae4df](https://github.com/xability/maidr/commit/57ae4dfed7fc15de49871b2e99e13033c933e429)), closes [#1170](https://github.com/xability/maidr/issues/1170)
+* **candlestick:** let a price chart record no opening price ([#1189](https://github.com/xability/maidr/issues/1189)) ([5ad3eb9](https://github.com/xability/maidr/commit/5ad3eb9c307c2de3eb8f64d9fc79f3829ccbe0ea)), closes [#1140](https://github.com/xability/maidr/issues/1140) [#1047](https://github.com/xability/maidr/issues/1047) [hi#low-close](https://github.com/hi/issues/low-close)
+* **chartjs:** read a funnel as the stages it draws ([#1179](https://github.com/xability/maidr/issues/1179)) ([fcc5058](https://github.com/xability/maidr/commit/fcc505843698255368d36be0d8904eca39c4d2d3)), closes [#1178](https://github.com/xability/maidr/issues/1178)
+* **chartjs:** read the error-bar controllers as the intervals they draw ([#1177](https://github.com/xability/maidr/issues/1177)) ([307c433](https://github.com/xability/maidr/commit/307c43357420bdca4fe2a13c92fcf74787b47a55)), closes [#1176](https://github.com/xability/maidr/issues/1176)
+* **chartjs:** read the geo controllers as the maps they draw ([#1180](https://github.com/xability/maidr/issues/1180)) ([e616b64](https://github.com/xability/maidr/commit/e616b64a0a4ab444eb8b6f56ac2cf9640f1e6185))
+* **chartjs:** read the graph controllers as the hierarchy or graph they draw ([#1181](https://github.com/xability/maidr/issues/1181)) ([5588b07](https://github.com/xability/maidr/commit/5588b07e6d5651d99e61e33e762d550f715eff83))
+* **chartjs:** read the pcp controllers as the parallel coordinates they draw ([#1185](https://github.com/xability/maidr/issues/1185)) ([1e16500](https://github.com/xability/maidr/commit/1e16500edddfde9615103192428776fe95d1a7da)), closes [#1178](https://github.com/xability/maidr/issues/1178) [#1182](https://github.com/xability/maidr/issues/1182)
+* **echarts:** add an adapter for cartesian ECharts charts ([#1196](https://github.com/xability/maidr/issues/1196)) ([2cc6072](https://github.com/xability/maidr/commit/2cc607220b7875c41dc1950c5fd29fa0c9e3bc2a)), closes [#1197](https://github.com/xability/maidr/issues/1197)
+* **echarts:** read a box plot, without the outline it cannot give ([#1206](https://github.com/xability/maidr/issues/1206)) ([25abc83](https://github.com/xability/maidr/commit/25abc83ce7fe29a0bbc58914c10e1a46dbd55cce))
+* **echarts:** read a heat grid and a price chart ([#1199](https://github.com/xability/maidr/issues/1199)) ([24996b7](https://github.com/xability/maidr/commit/24996b7d29030580e7772a586e489bbfd99de989)), closes [#1191](https://github.com/xability/maidr/issues/1191)
+* **echarts:** read a pictorial bar as the bar it is ([#1202](https://github.com/xability/maidr/issues/1202)) ([aa58b19](https://github.com/xability/maidr/commit/aa58b19701f5e82fe20528d84c8c820b5ca019ca))
+* **echarts:** read a pie, a funnel and a gauge ([#1198](https://github.com/xability/maidr/issues/1198)) ([8a7e42e](https://github.com/xability/maidr/commit/8a7e42e9e4347847b1260c2ca6403f8da40bb099))
+* **echarts:** read a radar, whose outline is a stroke not a fill ([#1205](https://github.com/xability/maidr/issues/1205)) ([0395b46](https://github.com/xability/maidr/commit/0395b4628da930d5e8148b60e114e4271f80f56b)), closes [#111199](https://github.com/xability/maidr/issues/111199) [#229922](https://github.com/xability/maidr/issues/229922) [#dbdee4](https://github.com/xability/maidr/issues/dbdee4) [#cfd2d7](https://github.com/xability/maidr/issues/cfd2d7)
+* **echarts:** read the hierarchies and the graphs ([#1201](https://github.com/xability/maidr/issues/1201)) ([a1bbeda](https://github.com/xability/maidr/commit/a1bbeda78aa7fe65154d4c239a97d86441742599)), closes [#1195](https://github.com/xability/maidr/issues/1195) [#fff](https://github.com/xability/maidr/issues/fff) [#1195](https://github.com/xability/maidr/issues/1195)
+* **echarts:** read the theme rivers and the parallel coordinates ([#1203](https://github.com/xability/maidr/issues/1203)) ([581f0ce](https://github.com/xability/maidr/commit/581f0ceb1e85f72166ea8e1bd89caa361552eb86)), closes [#1182](https://github.com/xability/maidr/issues/1182)
+* **google-charts:** read a BubbleChart as the scatter it draws ([#1175](https://github.com/xability/maidr/issues/1175)) ([676feb2](https://github.com/xability/maidr/commit/676feb207711fc53388d3486ebf63259982733ab)), closes [#1174](https://github.com/xability/maidr/issues/1174)
+* **google-charts:** read a Calendar as the heat grid it draws ([#1194](https://github.com/xability/maidr/issues/1194)) ([fdd5dda](https://github.com/xability/maidr/commit/fdd5dda06495e6e3aad82ed0225e6e61565fd2a1)), closes [#1174](https://github.com/xability/maidr/issues/1174)
+* **google-charts:** read an OrgChart as the hierarchy it is, not as a graph ([#1167](https://github.com/xability/maidr/issues/1167)) ([170b401](https://github.com/xability/maidr/commit/170b401b2641c4718260176232c65af902190af4)), closes [#1158](https://github.com/xability/maidr/issues/1158)
+* **grammar:** name a hierarchy drawn as linked boxes a tree, not a treemap ([#1158](https://github.com/xability/maidr/issues/1158)) ([eb6662e](https://github.com/xability/maidr/commit/eb6662ead2431d706f9b3eb3a0f6497e53b4fae6))
+* **grammar:** name a scatter whose marks are not its observations a sunflower ([#1161](https://github.com/xability/maidr/issues/1161)) ([4d0639a](https://github.com/xability/maidr/commit/4d0639afe78cae306158af3030d682af9746a115))
+* **highcharts:** read a treegraph and a packed bubble as the hierarchies they are ([#1165](https://github.com/xability/maidr/issues/1165)) ([f32a576](https://github.com/xability/maidr/commit/f32a576340fbc4f4303f06b4009d3b2f86bdc464)), closes [#1158](https://github.com/xability/maidr/issues/1158)
+* **highcharts:** read an item chart as the pie it is drawn from ([#1173](https://github.com/xability/maidr/issues/1173)) ([aa39077](https://github.com/xability/maidr/commit/aa39077dfe2ecefeac4fb0fe503ad4e6747d9495)), closes [#1138](https://github.com/xability/maidr/issues/1138) [#1138](https://github.com/xability/maidr/issues/1138)
+* **highcharts:** read an organization chart as the hierarchy it draws ([#1157](https://github.com/xability/maidr/issues/1157)) ([6362fba](https://github.com/xability/maidr/commit/6362fba14561fd327fec1b1075b23874bc1bbb2c)), closes [#1153](https://github.com/xability/maidr/issues/1153) [#1153](https://github.com/xability/maidr/issues/1153)
+* **highcharts:** read mappoint and mapbubble as the placed markers they draw ([#1187](https://github.com/xability/maidr/issues/1187)) ([beaf39e](https://github.com/xability/maidr/commit/beaf39e482933e45d8f69f9d94f3d5d49ca1f0f6))
+* **observable:** read a Plot.tree as the hierarchy it draws ([#1169](https://github.com/xability/maidr/issues/1169)) ([d92fdbf](https://github.com/xability/maidr/commit/d92fdbf64c0534025c9742628aea8234792190f7)), closes [#1168](https://github.com/xability/maidr/issues/1168)
+* **vegalite:** name a regression or loess curve a smooth, not a line ([#1163](https://github.com/xability/maidr/issues/1163)) ([195f8de](https://github.com/xability/maidr/commit/195f8dec876d62de7cded9dd5dc784aae12d78c7))
+
 # [4.5.0](https://github.com/xability/maidr/compare/v4.4.0...v4.5.0) (2026-08-24)
 
 
