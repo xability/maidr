@@ -147,6 +147,17 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
+   * Every ribbon the chart drew, in declared flow order.
+   *
+   * The highlight covers one ribbon per node -- the widest one touching it --
+   * because that is what an eye is drawn to. A renderer showing the chart's
+   * shape wants all of them: the thin cross-flows are most of what an
+   * alluvial has to say, and a display drawn from the highlight alone shows
+   * six blocks where the chart shows fourteen bands.
+   */
+  private ribbons: SVGElement[] = [];
+
+  /**
    * Creates a new flow trace.
    *
    * @param layer - The MAIDR layer carrying the flows
@@ -740,6 +751,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     if (flat.length !== declared) {
       return null;
     }
+    this.ribbons = flat;
 
     // Indexed by the edge's own declared position. Walking the sorted edge
     // lists to re-derive one would pair a node with whichever ribbon happens
@@ -752,6 +764,15 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
         const element = at === undefined ? undefined : flat[at];
         return element ?? Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * The ribbons as the chart drew them, all of them, for a renderer that wants
+   * the shape rather than the highlight. Empty when the selectors did not
+   * resolve, so a caller can fall back in one check.
+   */
+  public getGeometryElements(): SVGElement[] {
+    return [...this.ribbons];
   }
 
   /**

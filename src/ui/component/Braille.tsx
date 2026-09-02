@@ -69,6 +69,24 @@ const Braille: React.FC = () => {
         id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}
         defaultValue={value}
+        // Nothing a reader types here could mean anything: the content is
+        // braille this app generates from the data, and there is no edit that
+        // would be an edit *of* the chart. Left writable it did two things
+        // instead. A typed character moves the caret, and a moved caret is
+        // cursor routing -- so pressing a digit walked the reader to another
+        // data point, on a keyboard row nothing is bound to. And when the walk
+        // was refused at either end of the data, the value/index effect that
+        // normally overwrites the field never ran, so the character stayed:
+        // a chart whose braille line reads one cell of something that is not
+        // in the chart.
+        //
+        // `readOnly` rather than `disabled`, and rather than swallowing
+        // printable keys one class at a time: the field still has to take
+        // focus, still has to let the caret be placed, and still has to report
+        // where it was placed, because that is how a braille display's routing
+        // keys reach the data. `disabled` would take all three away, and a
+        // keydown filter would have to keep pace with every key that inserts.
+        readOnly
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}

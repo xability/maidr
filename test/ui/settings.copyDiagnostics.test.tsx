@@ -39,7 +39,17 @@ const FAILED_MESSAGE = 'Could not copy — select the values above and copy them
 /** The `SettingsViewModel` surface `Settings` actually calls. */
 type SettingsStub = Pick<
   SettingsViewModel,
-  'state' | 'load' | 'reset' | 'toggle' | 'saveAndClose'
+  | 'state'
+  | 'load'
+  | 'reset'
+  | 'toggle'
+  | 'saveAndClose'
+  | 'tactileDisplayState'
+  | 'onTactileDisplayStateChange'
+  | 'supportsTactileTransport'
+  | 'connectTactileDisplay'
+  | 'disconnectTactileDisplay'
+  | 'preloadTactileDisplay'
 >;
 
 /** The `ChatViewModel` surface `Settings` actually calls. */
@@ -76,6 +86,27 @@ function renderSettings(): void {
     reset: jest.fn(),
     toggle: jest.fn(),
     saveAndClose: jest.fn(),
+    // The tactile-display picker sits in the same dialog. Nothing here
+    // exercises it, but the component reads its state on every render and
+    // subscribes on mount, so the stub has to answer both.
+    tactileDisplayState: {
+      status: 'disconnected',
+      deviceName: null,
+      transport: null,
+      geometry: null,
+      message: '',
+    },
+    onTactileDisplayStateChange: jest.fn(() => ({ dispose: jest.fn() })),
+    supportsTactileTransport: jest.fn(() => false),
+    connectTactileDisplay: jest.fn(async () => ({
+      status: 'disconnected' as const,
+      deviceName: null,
+      transport: null,
+      geometry: null,
+      message: '',
+    })),
+    disconnectTactileDisplay: jest.fn(),
+    preloadTactileDisplay: jest.fn(),
   };
   const chat: ChatStub = {
     updateWelcomeMessage: jest.fn(),

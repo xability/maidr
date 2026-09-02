@@ -168,6 +168,13 @@ export interface GeneralSettings {
   brailleDisplayLines: number;
   brailleDisplayKind: BrailleDisplayKind;
   brailleDisplayPresetId: string | null;
+  /**
+   * Which tactile graphics display MAIDR drives over Bluetooth, or null when
+   * the reader has not chosen one. Separate from the braille-display preset:
+   * that one sizes the braille panel, this one names a device with a pin area
+   * to draw the chart onto.
+   */
+  tactileDisplayDeviceId: string | null;
   minFrequency: number;
   maxFrequency: number;
   autoplayDuration: number;
@@ -198,6 +205,7 @@ export const DEFAULT_SETTINGS: Settings = {
     brailleDisplayLines: DEFAULT_BRAILLE_LINES,
     brailleDisplayKind: DEFAULT_BRAILLE_DISPLAY_KIND,
     brailleDisplayPresetId: null,
+    tactileDisplayDeviceId: null,
     minFrequency: 200,
     maxFrequency: 1000,
     autoplayDuration: 4000,

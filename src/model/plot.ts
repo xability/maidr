@@ -707,6 +707,21 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   getAllOriginalElements: () => SVGElement[];
 
   /**
+   * The elements whose geometry is the trace as the chart drew it, when that
+   * differs from the highlight elements.
+   *
+   * Optional, and empty rather than absent when a trace has nothing extra to
+   * offer, so a caller can fall back to the highlight elements in one check.
+   * Implemented by traces whose highlight markers stand in for a shape rather
+   * than being it -- a line whose per-point circles maidr synthesised from the
+   * rendered `<path>`, where the path is the geometry and the circles are only
+   * the vertices on it.
+   *
+   * @returns The drawn elements, or an empty array when there are none
+   */
+  getGeometryElements?: () => SVGElement[];
+
+  /**
    * Moves to the nearest point at (x, y) and returns directional guidance
    * toward the nearest data geometry in a single call. Combining the two
    * operations avoids running `findNearestPoint` twice per pointer event.

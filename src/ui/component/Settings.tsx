@@ -1,4 +1,5 @@
 import type { SelectChangeEvent } from '@mui/material';
+import type { DotPadState, DotPadTransport } from '@type/dotPad';
 import type { Llm, LlmVersion } from '@type/llm';
 import type {
   AriaMode,
@@ -65,6 +66,7 @@ import {
   redactScriptUrl,
 } from '@util/diagnostics';
 import { resolveVersionOptions } from '@util/llm';
+import { formatTactilePreset, isTactileDisplayId, TACTILE_DISPLAY_PRESETS } from '@util/tactilePreset';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -102,6 +104,34 @@ interface SettingRowProps {
   // aria-labelledby instead of aria-label, avoiding duplicate
   // announcement of the same text by screen readers.
   labelId?: string;
+}
+
+/**
+ * Describes the tactile display connection for the settings live region.
+ *
+ * Every branch says what the reader can do next, because "failed" on its own
+ * leaves them with no way to tell a dismissed picker from a browser that cannot
+ * reach Bluetooth at all.
+ *
+ * @param state - The current connection state
+ */
+function describeTactileState(state: DotPadState): string {
+  switch (state.status) {
+    case 'connected': {
+      const over = state.transport === 'serial' ? 'over USB' : 'over Bluetooth';
+      return `Connected to ${state.deviceName ?? 'a tactile display'} ${over}. Press b on the chart to show it.`;
+    }
+    case 'connecting':
+      return 'Connecting…';
+    case 'unavailable':
+      return state.message;
+    case 'failed':
+      return `${state.message} Select the device again to retry.`;
+    default:
+      return state.message === ''
+        ? 'Not connected.'
+        : state.message;
+  }
 }
 
 const SettingRow: React.FC<SettingRowProps> = ({ label, input, alignLabel = 'center', labelId }) => (
@@ -445,8 +475,19 @@ const Settings: React.FC = () => {
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
+  // Connection progress lives here rather than in Redux: this dialog reads the
+  // view model directly, so a store update would not re-render it. The attempt
+  // counter forces the live region to mutate even when two attempts end with
+  // the same message, which is what makes the second one announce.
+  const [tactileState, setTactileState] = useState<DotPadState>(
+    () => viewModel.tactileDisplayState,
+  );
+  const [tactileAttempt, setTactileAttempt] = useState(0);
   const titleId = `${id}-title`;
   const copyStatusId = `${id}-copy-status`;
+  const tactileLabelId = `${id}-tactile-label`;
+  const tactileStatusId = `${id}-tactile-status`;
+  const tactileMenu = useModalContainer();
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
@@ -476,6 +517,32 @@ const Settings: React.FC = () => {
   }, [viewModel]);
 
   useEffect(() => {
+    const subscription = viewModel.onTactileDisplayStateChange((state) => {
+      setTactileState(state);
+      setTactileAttempt(previous => previous + 1);
+    });
+    return () => subscription.dispose();
+  }, [viewModel]);
+
+  // Fetch the SDK ahead of the connect click. The browser only opens a device
+  // picker while the click's activation is still live, and awaiting a cold
+  // network fetch first spends it.
+  //
+  // But not for everyone who opens this dialog: the SDK is third-party code
+  // fetched from a CDN, and most readers have no tactile display. It is
+  // fetched here for a reader who has already chosen one, and otherwise the
+  // moment they reach the tactile controls -- which is always before they
+  // press a button in them.
+  const preloadTactile = useCallback((): void => {
+    viewModel.preloadTactileDisplay();
+  }, [viewModel]);
+  useEffect(() => {
+    if (isTactileDisplayId(general.tactileDisplayDeviceId)) {
+      preloadTactile();
+    }
+  }, [general.tactileDisplayDeviceId, preloadTactile]);
+
+  useEffect(() => {
     setGeneralSettings(general);
     setLlmSettings(llm);
   }, [general, llm]);
@@ -489,6 +556,22 @@ const Settings: React.FC = () => {
       [key]: value,
     }));
   };
+
+  // Called straight from the click or the select's change, never after an
+  // await: the browser only opens the Bluetooth picker while the user's gesture
+  // is still in progress.
+  const handleTactileConnect = useCallback((transport: DotPadTransport): void => {
+    void viewModel.connectTactileDisplay(transport);
+  }, [viewModel]);
+
+  const handleTactileDeviceChange = useCallback((deviceId: string): void => {
+    setGeneralSettings(prev => ({ ...prev, tactileDisplayDeviceId: deviceId }));
+    // Picking a device is itself the gesture, so the picker can open straight
+    // from it. Bluetooth is the attempt made here because it is the transport
+    // every supported platform has; a reader on a cable takes the USB button
+    // beside it, which is one click either way.
+    handleTactileConnect('bluetooth');
+  }, [handleTactileConnect]);
 
   const handleBrailleKindChange = useCallback((kind: BrailleDisplayKind): void => {
     setGeneralSettings((prev) => {
@@ -1060,6 +1143,89 @@ const Settings: React.FC = () => {
               </Grid>
             </Grid>
           )}
+          <Grid size={12}>
+            <SettingRow
+              label="Tactile Graphics Display"
+              labelId={tactileLabelId}
+              alignLabel="flex-start"
+              input={(
+                <FormControl fullWidth onFocus={preloadTactile} onMouseEnter={preloadTactile}>
+                  <Select
+                    value={generalSettings.tactileDisplayDeviceId ?? ''}
+                    onChange={e => handleTactileDeviceChange(e.target.value)}
+                    fullWidth
+                    size="small"
+                    displayEmpty
+                    slotProps={{
+                      input: {
+                        'aria-labelledby': tactileLabelId,
+                        'aria-describedby': tactileStatusId,
+                      },
+                    }}
+                    MenuProps={{
+                      disablePortal: true,
+                      ref: tactileMenu.modalRef,
+                      container: tactileMenu.container,
+                    }}
+                  >
+                    <MenuItem value="" disabled>
+                      Select a tactile display
+                    </MenuItem>
+                    {TACTILE_DISPLAY_PRESETS.map(preset => (
+                      <MenuItem key={preset.id} value={preset.id}>
+                        {formatTactilePreset(preset)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleTactileConnect('bluetooth')}
+                      disabled={
+                        tactileState.status === 'connecting'
+                        || !viewModel.supportsTactileTransport('bluetooth')
+                      }
+                    >
+                      Connect over Bluetooth
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleTactileConnect('serial')}
+                      disabled={
+                        tactileState.status === 'connecting'
+                        || !viewModel.supportsTactileTransport('serial')
+                      }
+                    >
+                      Connect over USB
+                    </Button>
+                    {tactileState.status === 'connected' && (
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => viewModel.disconnectTactileDisplay()}
+                      >
+                        Disconnect
+                      </Button>
+                    )}
+                    {tactileState.status === 'connecting' && (
+                      <CircularProgress size={16} aria-hidden="true" />
+                    )}
+                  </Grid>
+                  <Typography
+                    id={tactileStatusId}
+                    role="status"
+                    aria-live="polite"
+                    variant="caption"
+                    sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}
+                  >
+                    <span key={tactileAttempt}>{describeTactileState(tactileState)}</span>
+                  </Typography>
+                </FormControl>
+              )}
+            />
+          </Grid>
           <Grid size={12}>
             <SettingRow
               label="Min Frequency (Hz)"

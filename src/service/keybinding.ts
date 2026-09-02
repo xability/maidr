@@ -24,6 +24,53 @@ function key(hotkey: string, description: string, options?: Partial<KeybindingEn
 }
 
 /**
+ * Tactile display bindings, shared by every scope the display can be up in.
+ *
+ * Braille scope, and the trace and subplot scopes too. The display comes up
+ * wherever the reader asks for it, and braille cannot open on every plot type
+ * — a scatter has no braille table. Binding these in braille scope alone left
+ * the zoom dead on exactly the charts the display had just been unlocked for,
+ * and on the multi-panel lobby, where pressing them did nothing and said
+ * nothing.
+ *
+ * Bare keys rather than a Ctrl chord, deliberately. Ctrl and plus/minus is
+ * the browser's own page zoom, and the reader most likely to want it is a
+ * low-vision reader -- who is also the one most likely to be in braille
+ * mode. Taking that chord would make the two zooms compete for one gesture;
+ * leaving it alone lets a reader enlarge the page and the pin view
+ * independently, which is the point.
+ *
+ * Zoom in is `=`, the unshifted key the `+` legend sits on, so neither
+ * direction needs a modifier -- pressing shift for one of a matched pair is
+ * the kind of asymmetry a hand notices. `shift+=` and the keypad stay bound
+ * as well, since a reader who reaches for the `+` they can see should not
+ * find it dead.
+ *
+ * `0` for the whole plot, on the reasoning that reads on a keyboard: the
+ * digit row runs `1` upwards through the zoom levels a reader might imagine,
+ * and `0` is the one before them. Stepping back out is seven presses from
+ * the closest zoom -- each a frame the device has to be waited on -- so this
+ * is not a shortcut for a thing that was already quick.
+ */
+const TACTILE_KEYMAP = {
+  TACTILE_ZOOM_IN: key(
+    `=, shift+=, num_add`,
+    'Zoom In Tactile Display',
+    { helpKey: '=' },
+  ),
+  TACTILE_ZOOM_OUT: key(
+    `-, num_subtract`,
+    'Zoom Out Tactile Display',
+    { helpKey: '-' },
+  ),
+  TACTILE_RESET_ZOOM: key(
+    `0, num_0`,
+    'Reset Tactile Display Zoom',
+    { helpKey: '0' },
+  ),
+} as const;
+
+/**
  * Keymap configuration for braille mode interactions.
  */
 const BRAILLE_KEYMAP = {
@@ -40,6 +87,8 @@ const BRAILLE_KEYMAP = {
   SPEED_UP_AUTOPLAY: key(`.`, 'Speed Up Autoplay', { helpKey: '. (period)' }),
   SPEED_DOWN_AUTOPLAY: key(`,`, 'Speed Down Autoplay', { helpKey: ', (comma)' }),
   RESET_AUTOPLAY_SPEED: key(`/`, 'Reset Autoplay Speed', { helpKey: '/ (slash)' }),
+
+  ...TACTILE_KEYMAP,
 
   // Navigation
   MOVE_UP: key(`up`, 'Navigate Up'),
@@ -212,6 +261,7 @@ const HELP_KEYMAP = {
  * Keymap configuration for subplot scope interactions.
  */
 const SUBPLOT_KEYMAP = {
+  ...TACTILE_KEYMAP,
   ACTIVATE_FIGURE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Description
@@ -304,6 +354,7 @@ const SETTINGS_KEYMAP = {} as const;
  * Keymap configuration for trace scope interactions and navigation.
  */
 const TRACE_KEYMAP = {
+  ...TACTILE_KEYMAP,
   ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
   // Autoplay

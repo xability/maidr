@@ -1,9 +1,11 @@
 import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
+import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { HighContrastService } from '@service/highContrast';
 import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
+import type { TactileService } from '@service/tactile';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { ChatViewModel } from '@state/viewModel/chatViewModel';
 import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteViewModel';
@@ -23,6 +25,8 @@ export class ToggleBrailleCommand implements Command {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly notificationService: NotificationService;
   private readonly audioService: AudioService;
+  private readonly tactileService: TactileService;
+  private readonly brailleService: BrailleService;
 
   /**
    * Creates an instance of ToggleBrailleCommand.
@@ -30,28 +34,87 @@ export class ToggleBrailleCommand implements Command {
    * @param {BrailleViewModel} brailleViewModel - The braille view model.
    * @param {NotificationService} notificationService - Announces the unsupported warning.
    * @param {AudioService} audioService - Plays the warning tone.
+   * @param {TactileService} tactileService - Takes the key where braille declines.
+   * @param {BrailleService} brailleService - Read for whether braille is already on.
    */
   public constructor(
     context: Context,
     brailleViewModel: BrailleViewModel,
     notificationService: NotificationService,
     audioService: AudioService,
+    tactileService: TactileService,
+    brailleService: BrailleService,
   ) {
     this.context = context;
     this.brailleViewModel = brailleViewModel;
     this.notificationService = notificationService;
     this.audioService = audioService;
+    this.tactileService = tactileService;
+    this.brailleService = brailleService;
   }
 
   /**
-   * Toggles the braille display when a trace is active. Above the trace level
-   * (e.g. the multi-panel figure lobby) there is no data series to render as
-   * braille, so instead of silently ignoring the key it announces a warning and
-   * plays a warning tone — mirroring how `l t` warns when text mode is off.
+   * Toggles the braille display when a trace is active and has something to
+   * encode, and otherwise offers the same key to a connected tactile display.
+   *
+   * The two are one switch — "show me this by touch" — but only braille needs
+   * the data reduced to cells, and there are places it cannot be: the
+   * multi-panel lobby, where no series is selected yet, and the plot types
+   * with no braille table. A tactile display draws the chart's own geometry
+   * and needs none of that, so refusing on braille's behalf would hide the
+   * pins in exactly the cases they are most worth having — a scatter is the
+   * chart a pin grid draws best of all.
+   *
+   * With no display connected there is nothing to offer, and the reader is
+   * better served by braille's own account of why it cannot open: a warning
+   * announcement and a warning tone, mirroring how `l t` warns when text mode
+   * is off. A trace with no data at all is left to braille for the same
+   * reason — "No info for braille" says more than pins that cannot change.
    */
   public execute(): void {
     const state = this.context.state;
+    const onTrace = state.type === 'trace' && !state.empty;
+
+    // Turning it off again is not a fresh decision. Whatever this key brought
+    // up has to go down on the next press from wherever the reader is standing
+    // — and Page Up can move them onto a layer whose braille capability
+    // differs from the one they switched on from. Deciding by the current
+    // layer alone broke that in both directions: from the braille-capable side
+    // the press opened the panel instead of lowering the pins, and from the
+    // other side nothing could close the panel at all.
+    if (this.brailleService.isEnabled && onTrace) {
+      if (state.braille.empty) {
+        // Braille's own toggle refuses on a layer it cannot encode, which is
+        // right for opening and would leave this panel open for good.
+        this.brailleViewModel.close(state);
+      } else {
+        this.brailleViewModel.toggle(state);
+      }
+      return;
+    }
+
+    if (this.tactileService.isActive && !this.brailleService.isEnabled) {
+      this.tactileService.toggle();
+      return;
+    }
+
+    if (onTrace && !state.braille.empty) {
+      this.brailleViewModel.toggle(state);
+      return;
+    }
+
+    // Not while braille is on: braille owns the key then, and lowering the
+    // pins from under an open panel would leave the two saying different
+    // things.
+    const emptyTrace = state.type === 'trace' && state.empty;
+    if (this.tactileService.canShow && !this.brailleService.isEnabled && !emptyTrace) {
+      this.tactileService.toggle();
+      return;
+    }
+
     if (state.type === 'trace') {
+      // Braille's own refusal names the plot type, which is more use than a
+      // second-hand version of it.
       this.brailleViewModel.toggle(state);
       return;
     }

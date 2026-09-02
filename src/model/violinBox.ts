@@ -37,6 +37,13 @@ export class ViolinBoxTrace extends AbstractTrace {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * The inner box as the chart drew it, with a whisker between each cap and
+   * the box. The highlight is built from the box's edges; see the same list
+   * on the box trace for why a renderer wants the shape instead.
+   */
+  private readonly geometry: SVGElement[] = [];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -541,6 +548,51 @@ export class ViolinBoxTrace extends AbstractTrace {
 
   // ── SVG highlight ───────────────────────────────────────────────────
 
+  /**
+   * The elements whose geometry is the inner box as the chart drew it. Empty
+   * when the selectors did not resolve, so a caller can fall back in one check.
+   */
+  public getGeometryElements(): SVGElement[] {
+    return [...this.geometry];
+  }
+
+  /**
+   * Records one inner box's drawn shape. See {@link geometry}.
+   * @param original - The chart's own elements for the box
+   * @param original.min - The lower cap
+   * @param original.max - The upper cap
+   * @param original.iq - The box body
+   * @param original.q2 - The median
+   * @param original.mean - The mean marker, where the chart drew one
+   * @param isVertical - Whether the box stands upright
+   */
+  private offerGeometry(
+    original: {
+      min: SVGElement | null;
+      max: SVGElement | null;
+      iq: SVGElement | null;
+      q2: SVGElement | null;
+      mean: SVGElement | null;
+    },
+    isVertical: boolean,
+  ): void {
+    const parts = new Set<SVGElement>();
+    for (const part of [original.iq, original.q2, original.mean, original.min, original.max]) {
+      if (part !== null) {
+        parts.add(part);
+      }
+    }
+    if (original.iq !== null) {
+      for (const cap of [original.min, original.max]) {
+        const whisker = cap === null ? null : Svg.createWhiskerElement(cap, original.iq, isVertical);
+        if (whisker !== null) {
+          parts.add(whisker);
+        }
+      }
+    }
+    this.geometry.push(...parts);
+  }
+
   private mapToSvgElements(
     selectors: BoxSelector[] | undefined,
   ): (SVGElement[] | SVGElement)[][] | null {
@@ -612,6 +664,8 @@ export class ViolinBoxTrace extends AbstractTrace {
             Svg.createEmptyElement('line'),
             Svg.createEmptyElement('line'),
           ];
+
+      this.offerGeometry(original, isVertical);
 
       // Build sections array matching this.sections (no outlier sections)
       const sectionElements: (SVGElement[] | SVGElement)[] = [];

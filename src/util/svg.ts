@@ -332,6 +332,61 @@ export abstract class Svg {
   }
 
   /**
+   * Draws the whisker between a box plot's cap and its box.
+   *
+   * A box plot's selectors name the caps and the box, and a highlight only
+   * ever needs those. A renderer showing the chart's shape needs the whisker
+   * between them as well, or a box arrives as a rectangle with two detached
+   * dashes floating beyond it. The whisker runs from the cap's centre to the
+   * nearer edge of the box, and it is hidden: it is geometry for a renderer
+   * to read, not a mark for the chart to show.
+   *
+   * @param cap - The whisker's end
+   * @param body - The box the whisker joins
+   * @param vertical - Whether the box stands upright, so the whisker does too
+   * @returns The hidden line, or null when the two do not sit apart along the
+   *   box's axis, or when the document cannot measure them
+   */
+  public static createWhiskerElement(cap: SVGElement, body: SVGElement, vertical: boolean): SVGElement | null {
+    let capBox: DOMRect;
+    let bodyBox: DOMRect;
+    try {
+      capBox = (cap as SVGGraphicsElement).getBBox();
+      bodyBox = (body as SVGGraphicsElement).getBBox();
+    } catch {
+      return null;
+    }
+
+    const cx = capBox.x + capBox.width / 2;
+    const cy = capBox.y + capBox.height / 2;
+    let x2: number;
+    let y2: number;
+    if (vertical) {
+      if (cy >= bodyBox.y && cy <= bodyBox.y + bodyBox.height) {
+        return null;
+      }
+      x2 = cx;
+      y2 = cy < bodyBox.y ? bodyBox.y : bodyBox.y + bodyBox.height;
+    } else {
+      if (cx >= bodyBox.x && cx <= bodyBox.x + bodyBox.width) {
+        return null;
+      }
+      x2 = cx < bodyBox.x ? bodyBox.x : bodyBox.x + bodyBox.width;
+      y2 = cy;
+    }
+
+    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
+    line.setAttribute(Constant.X1, String(cx));
+    line.setAttribute(Constant.Y1, String(cy));
+    line.setAttribute(Constant.X2, String(x2));
+    line.setAttribute(Constant.Y2, String(y2));
+    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+    this.markOwned(line);
+    body.insertAdjacentElement(Constant.AFTER_END, line);
+    return line;
+  }
+
+  /**
    * Minimum opacity value for fill to be considered visible.
    */
   private static readonly MIN_VISIBLE_FILL_OPACITY = 0.01;

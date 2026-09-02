@@ -140,6 +140,19 @@ interface BrailleChangedEvent {
 }
 
 /**
+ * Event emitted when braille mode is switched on or off.
+ *
+ * Distinct from {@link BrailleChangedEvent}, which reports a new braille string
+ * while the mode is already on and therefore never fires when the mode is
+ * switched off. A consumer that mirrors braille onto other output — a tactile
+ * display, say — needs to hear about both edges.
+ */
+interface BrailleToggledEvent {
+  enabled: boolean;
+  state: TraceState;
+}
+
+/**
  * Represents encoded braille with bidirectional cell-to-index mapping.
  */
 interface EncodedBraille {
@@ -1076,6 +1089,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
   private readonly encoders: Map<TraceType, BrailleEncoder<NonEmptyBrailleState>>;
   private readonly onChangeEmitter: Emitter<BrailleChangedEvent>;
   public readonly onChange: Event<BrailleChangedEvent>;
+  private readonly onToggleEmitter: Emitter<BrailleToggledEvent>;
+  public readonly onToggle: Event<BrailleToggledEvent>;
 
   /**
    * Creates an instance of BrailleService.
@@ -1269,6 +1284,8 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.onChangeEmitter = new Emitter<BrailleChangedEvent>();
     this.onChange = this.onChangeEmitter.event;
+    this.onToggleEmitter = new Emitter<BrailleToggledEvent>();
+    this.onToggle = this.onToggleEmitter.event;
 
     this.disposables.push(settings.onChange((event) => {
       const affectsSize = event.affectsSetting(BRAILLE_DISPLAY_SIZE_SETTING);
@@ -1310,6 +1327,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public dispose(): void {
     this.onChangeEmitter.dispose();
+    this.onToggleEmitter.dispose();
     this.disposables.forEach(disposable => disposable.dispose());
     this.disposables.length = 0;
 
@@ -1448,6 +1466,35 @@ implements Observer<SubplotState | TraceState>, Disposable {
   }
 
   /**
+   * Turns braille off without asking whether this layer could have turned it
+   * on.
+   *
+   * {@link toggle} refuses on a layer with no braille table, which is right for
+   * a press that means "open this" and wrong for one that means "close it":
+   * Page Up can move a reader from a bar layer onto a scatter layer in the
+   * same subplot, and from there the panel they opened could never be shut.
+   * Every press answered "Braille is not supported for plot type: point" while
+   * the panel stayed open.
+   *
+   * Does nothing when braille is already off, so it is safe to call on the way
+   * past.
+   *
+   * @param state - Current trace state, passed on to whatever follows the
+   * change
+   */
+  public close(state: TraceState): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    this.enabled = false;
+    this.update(state);
+    this.onToggleEmitter.fire({ enabled: false, state });
+    this.display.toggleFocus(Scope.BRAILLE);
+    this.notification.notify('Braille is off');
+  }
+
+  /**
    * Toggles braille mode on or off for the current trace.
    * @param state - Current trace state
    */
@@ -1466,6 +1513,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
 
     this.enabled = !this.enabled;
     this.update(state);
+    this.onToggleEmitter.fire({ enabled: this.enabled, state });
     this.display.toggleFocus(Scope.BRAILLE);
 
     const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
