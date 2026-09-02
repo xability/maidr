@@ -1561,6 +1561,32 @@ describe('tactileService', () => {
       ));
       expect(session.writeText.mock.calls[0][0]).not.toBe(firstWindow);
     });
+
+    it('should keep the text line where it was scrolled across a pan', () => {
+      activate();
+      service.zoomIn();
+      session.fireKey('function4');
+      session.writeText.mockClear();
+      session.translate.mockClear();
+
+      session.fireKey('panRight');
+
+      // The pan moved the graphic, not the reader: the line still describes
+      // the same point, so it is neither rewound to its start nor
+      // retranslated.
+      expect(session.writeText).not.toHaveBeenCalled();
+      expect(session.translate).not.toHaveBeenCalled();
+    });
+
+    it('should keep the text line where it was scrolled across a zoom', () => {
+      activate();
+      session.fireKey('function4');
+      session.writeText.mockClear();
+
+      service.zoomIn();
+
+      expect(session.writeText).not.toHaveBeenCalled();
+    });
   });
 
   describe('zoom', () => {
@@ -2048,6 +2074,17 @@ describe('tactileService', () => {
       session.fireKey('panLeft');
 
       expect(notify).toHaveBeenCalledWith('No more to show to the left');
+    });
+
+    it('should say there is nothing more above at the top of the plot', () => {
+      activate();
+      service.zoomIn();
+      session.fireKey('function2');
+      notify.mockClear();
+
+      session.fireKey('function2');
+
+      expect(notify).toHaveBeenCalledWith('No more to show above');
     });
 
     it('should say to zoom in first when the whole plot is already shown', () => {

@@ -66,7 +66,7 @@ import {
   redactScriptUrl,
 } from '@util/diagnostics';
 import { resolveVersionOptions } from '@util/llm';
-import { formatTactilePreset, TACTILE_DISPLAY_PRESETS } from '@util/tactilePreset';
+import { formatTactilePreset, isTactileDisplayId, TACTILE_DISPLAY_PRESETS } from '@util/tactilePreset';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
@@ -521,12 +521,26 @@ const Settings: React.FC = () => {
       setTactileState(state);
       setTactileAttempt(previous => previous + 1);
     });
-    // Fetch the SDK now rather than on the connect click. The browser only
-    // opens a device picker while the click's activation is still live, and
-    // awaiting a cold network fetch first spends it.
-    viewModel.preloadTactileDisplay();
     return () => subscription.dispose();
   }, [viewModel]);
+
+  // Fetch the SDK ahead of the connect click. The browser only opens a device
+  // picker while the click's activation is still live, and awaiting a cold
+  // network fetch first spends it.
+  //
+  // But not for everyone who opens this dialog: the SDK is third-party code
+  // fetched from a CDN, and most readers have no tactile display. It is
+  // fetched here for a reader who has already chosen one, and otherwise the
+  // moment they reach the tactile controls -- which is always before they
+  // press a button in them.
+  const preloadTactile = useCallback((): void => {
+    viewModel.preloadTactileDisplay();
+  }, [viewModel]);
+  useEffect(() => {
+    if (isTactileDisplayId(general.tactileDisplayDeviceId)) {
+      preloadTactile();
+    }
+  }, [general.tactileDisplayDeviceId, preloadTactile]);
 
   useEffect(() => {
     setGeneralSettings(general);
@@ -1135,7 +1149,7 @@ const Settings: React.FC = () => {
               labelId={tactileLabelId}
               alignLabel="flex-start"
               input={(
-                <FormControl fullWidth>
+                <FormControl fullWidth onFocus={preloadTactile} onMouseEnter={preloadTactile}>
                   <Select
                     value={generalSettings.tactileDisplayDeviceId ?? ''}
                     onChange={e => handleTactileDeviceChange(e.target.value)}

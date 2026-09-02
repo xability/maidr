@@ -180,6 +180,15 @@ class DotPadSession {
    */
   private adopted = false;
 
+  /**
+   * The adoption in flight, if any, so a second request joins it rather than
+   * opening the same device twice. Two quick presses of `b` are enough to ask
+   * twice before the first answer arrives, and two `connectBleDevice` calls on
+   * one device both pass the SDK's already-connected check while neither has
+   * finished.
+   */
+  private adopting: Promise<boolean> | null = null;
+
   private moduleUrl: string | null = null;
 
   /**
@@ -212,15 +221,25 @@ class DotPadSession {
   private readonly onWriteFailureEmitter = new Emitter<void>();
 
   /**
-   * Fires when a write to the device did not land.
+   * Fires when a write was refused before it reached the device.
    *
    * A caller that sends only what changed is holding a model of what the
-   * device is showing, and a dropped write makes that model wrong about the
-   * rows it covered. Every later frame is then a difference against something
-   * the device never received, so those rows keep whatever they had and no
-   * amount of navigating repairs them. The failure has to be observable for
-   * that model to be rebuilt; swallowing it silently is what leaves a display
-   * half-right indefinitely.
+   * device is showing, and a write that never went out makes that model wrong
+   * about the rows it covered. Every later frame is then a difference against
+   * something the device never received, so those rows keep whatever they had
+   * and no amount of navigating repairs them. The failure has to be observable
+   * for that model to be rebuilt; swallowing it silently is what leaves a
+   * display half-right indefinitely.
+   *
+   * What is observable is only what the vendor SDK reports, and it reports a
+   * write by throwing on it. Its display calls hand the payload to the
+   * transport and return without waiting, and the transport's own errors are
+   * caught and discarded inside the SDK, so a frame lost on the wire after the
+   * SDK accepted it is not seen here. Nor are the device's per-line
+   * acknowledgements: the SDK consumes those before its message callback. A
+   * transport that fails hard enough to drop the connection is seen through
+   * {@link onStateChange} instead, and the reconnect that follows starts from
+   * a whole frame.
    */
   public readonly onWriteFailure: Event<void> = this.onWriteFailureEmitter.event;
 
@@ -530,11 +549,22 @@ class DotPadSession {
    *
    * @returns True when a display was adopted
    */
-  public async adopt(): Promise<boolean> {
+  public adopt(): Promise<boolean> {
     if (this.isConnected || this.state.status === 'connecting') {
-      return false;
+      return Promise.resolve(false);
     }
+    if (this.adopting === null) {
+      this.adopting = this.adoptGranted().finally(() => {
+        this.adopting = null;
+      });
+    }
+    return this.adopting;
+  }
 
+  /**
+   * The body of {@link adopt}, run at most once at a time.
+   */
+  private async adoptGranted(): Promise<boolean> {
     const vendor = await this.loadVendor();
     if (vendor === null) {
       return false;
@@ -820,6 +850,9 @@ class DotPadSession {
       }
     }
     this.device = null;
+    // A released device is nobody's adoption, so the flag does not outlive
+    // the connection it described.
+    this.adopted = false;
     this.setState({
       status: 'disconnected',
       deviceName: null,
@@ -832,11 +865,12 @@ class DotPadSession {
   /**
    * Queues a write behind any write already in flight.
    *
-   * Failures are logged and swallowed rather than propagated: a dropped frame
+   * Failures are logged and swallowed rather than propagated: a refused write
    * is a missing update, not a reason to break the navigation the reader is in
    * the middle of. They are announced on {@link onWriteFailure} all the same,
    * because a caller sending partial updates cannot keep track of what the
-   * device holds without knowing which of its writes arrived.
+   * device holds without knowing which of its writes went out. Only a write
+   * the SDK throws on arrives here; {@link onWriteFailure} says what does not.
    *
    * @param write - The write to perform
    */

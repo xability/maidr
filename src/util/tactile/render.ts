@@ -72,7 +72,7 @@ export abstract class TactileRenderer {
    * be applied to a mark with no interior: a line, a curve, an error bar, a
    * whisker. On those charts the reader had no tactile answer at all to which
    * mark they were on. A heavier stroke is the answer that works on a shape
-   * without an inside, and it stays legible next to the two-pin strokes
+   * without an inside, and it stays legible next to the one-pin strokes
    * around it.
    */
   private static readonly FOCUS_STROKE_WEIGHT = 4;
@@ -142,13 +142,10 @@ export abstract class TactileRenderer {
       ? [...ring.points, ring.points[0]]
       : ring.points;
 
-    // Only open strokes are thickened, and only the focused mark is thickened
-    // beyond that. An unfocused closed outline stays one pin so its interior
-    // survives, and an unfocused point stays one pin so a cloud of them does
-    // not smear into a single mass.
-    const weight = filled
-      ? this.FOCUS_STROKE_WEIGHT
-      : (ring.closed || isTiny ? 1 : this.STROKE_WEIGHT);
+    // Only the focused mark is thickened. An unfocused outline stays one pin
+    // so its interior survives, and an unfocused point stays one pin so a
+    // cloud of them does not smear into a single mass.
+    const weight = filled ? this.FOCUS_STROKE_WEIGHT : this.STROKE_WEIGHT;
 
     if (filled && ring.closed && !isTiny) {
       if (this.overfills(box, raster)) {

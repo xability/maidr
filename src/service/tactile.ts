@@ -263,6 +263,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private lastText: string | null = null;
 
   /**
+   * The description the text line was last built from, so a redraw of the
+   * same state -- a zoom, a pan, a repair -- leaves the line alone. Only a
+   * different description sends the reader back to its start; see
+   * {@link sendText}.
+   */
+  private lastDescription: string | null = null;
+
+  /**
    * The full description of the focused point, translated to braille cells.
    * Kept whole so the reader can scroll along a line that runs past the
    * device's width.
@@ -383,6 +391,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.viewport = null;
     this.lastRaster = null;
     this.lastText = null;
+    this.lastDescription = null;
     this.repairAttempts = 0;
     this.textCells = [];
     this.textWindow = 0;
@@ -604,10 +613,29 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     if (!viewport.pan(direction)) {
       this.notification.notify(viewport.isWholePlotVisible
         ? 'The whole plot is already shown; zoom in to pan'
-        : `No more to show to the ${direction}`);
+        : TactileService.edgeRefusal(direction));
       return;
     }
     this.announceView(viewport, this.redraw(false));
+  }
+
+  /**
+   * What to say when a pan is refused at the edge of the plot.
+   *
+   * "Above" and "below" rather than "to the up": the direction names are the
+   * viewport's vocabulary, not a sentence.
+   *
+   * @param direction - The way the reader tried to move
+   */
+  private static edgeRefusal(direction: PanDirection): string {
+    switch (direction) {
+      case 'up':
+        return 'No more to show above';
+      case 'down':
+        return 'No more to show below';
+      default:
+        return `No more to show to the ${direction}`;
+    }
   }
 
   /**
@@ -1161,7 +1189,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
   /**
    * Rebuilds what this service believes the device is showing, after a write
-   * that did not land.
+   * the connection refused.
    *
    * Only the rows that changed are transmitted, which means every frame is a
    * difference against the frame before it. That is worth a second or more of
@@ -1182,6 +1210,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * against, the next write is a whole frame, which is true whatever the
    * device is currently holding. The text line is forgotten for the same
    * reason -- it is cached against retransmission in exactly the same way.
+   *
+   * This only ever hears about the writes the vendor SDK refuses; see
+   * {@link DotPadSession.onWriteFailure} for the frames it cannot see. A frame
+   * the SDK accepted and the wire then lost is recovered the other way round:
+   * a connection that fails hard enough is dropped by the SDK, and the
+   * reconnect handler above forgets the frame exactly as this does.
    */
   private handleWriteFailure(): void {
     this.lastRaster = null;
@@ -1284,6 +1318,15 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     const description = this.text.format(state);
+    // A redraw of the same state -- a zoom, a pan, a repair -- leaves the line
+    // where the reader scrolled it. The pan keys move the graphic, not the
+    // text, and sending the reader back to "Line part 1" on every one of them
+    // made the outer function keys unusable while zoomed in. Only a line that
+    // has nothing on it yet is written again.
+    if (description === this.lastDescription && this.lastText !== null) {
+      return;
+    }
+    this.lastDescription = description;
     // Back to the start on every move: the line now describes a different
     // point, and leaving the window where it was would drop the reader into
     // the middle of a sentence they have not read the beginning of.
@@ -1368,6 +1411,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       // reader has just switched off.
       this.textRequest++;
       this.lastText = blankText;
+      this.lastDescription = null;
       dotPadSession.writeText(blankText);
     }
     this.lastRaster = blank;
@@ -1389,6 +1433,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.disposables.length = 0;
     this.lastRaster = null;
     this.lastText = null;
+    this.lastDescription = null;
     this.textCells = [];
     this.textWindow = 0;
     this.textRequest++;

@@ -599,6 +599,22 @@ describe('dotPadSession', () => {
       expect(vendor.counts.bleConnects).toBe(1);
     });
 
+    it('should open the device once when asked twice before the first answers', async () => {
+      // Two quick presses of `b` ask twice before the first adoption has
+      // resolved. Both must get the one connection rather than each opening
+      // the device.
+      const vendor = createVendor();
+      setGrantedNavigator({ devices: [{ name: 'DotPad 320' }] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      const results = await Promise.all([session.adopt(), session.adopt()]);
+
+      expect(results).toEqual([true, true]);
+      expect(vendor.counts.bleConnects).toBe(1);
+      expect(session.isConnected).toBe(true);
+    });
+
     it('should leave alone a granted Bluetooth device that is not a DotPad', async () => {
       const vendor = createVendor();
       setGrantedNavigator({ devices: [{ name: 'Some Keyboard' }] });
