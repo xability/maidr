@@ -26,6 +26,18 @@ export interface TactileScene {
    * interiors that tell a hollow mark from the solid focused one.
    */
   shades?: ReadonlyMap<SVGGraphicsElement, number>;
+
+  /**
+   * Whether an open stroke gets a dot at each end.
+   *
+   * For the charts whose marks are connectors: a dumbbell's bar joins two
+   * values, and the values are its ends. Drawn as a bare line the bar says
+   * how far apart they are and nothing about where either one is -- a bar
+   * whose ends are two pins apart and a bar with none at all are the same
+   * thing under a finger. A dot at each end is the value; the line between is
+   * the distance.
+   */
+  endCaps?: boolean;
 }
 
 /**
@@ -87,6 +99,16 @@ export abstract class TactileRenderer {
   private static readonly FOCUS_DISC_RADIUS = 2;
 
   /**
+   * Radius, in pins, of the dot that marks the end of a connector.
+   *
+   * One: a three-pin cross, the smallest thing that still reads as a knob on
+   * the end of a one-pin line rather than as the line continuing. The focused
+   * connector's ends use {@link FOCUS_DISC_RADIUS} instead, since its stroke
+   * is already wider than this.
+   */
+  private static readonly END_CAP_RADIUS = 1;
+
+  /**
    * How much of an axis a mark must cover for that axis to count as filled
    * edge to edge.
    */
@@ -123,12 +145,14 @@ export abstract class TactileRenderer {
    * @param filled - True to fill the interior, false to draw only the edge
    * @param shade - How much of the interior to raise as texture, where the
    * chart encoded a value as fill colour; absent otherwise
+   * @param endCaps - Whether an open stroke gets a dot at each end
    */
   private static drawRing(
     raster: DotRaster,
     ring: DotRing,
     filled: boolean,
     shade?: number,
+    endCaps: boolean = false,
   ): void {
     const box = this.bounds(ring);
     if (box === null) {
@@ -189,11 +213,24 @@ export abstract class TactileRenderer {
 
     if (path.length === 1) {
       // A mark with no extent at all, unfocused: left as the single pin it is,
-      // so a cloud of them does not smear into one mass.
+      // so a cloud of them does not smear into one mass. A connector whose two
+      // ends coincide is the exception -- both its values sit on that pin, and
+      // a single pin is not a thing a finger finds.
+      if (endCaps) {
+        raster.fillDisc(path[0].x, path[0].y, this.END_CAP_RADIUS);
+        return;
+      }
       raster.set(path[0].x, path[0].y);
       return;
     }
     raster.strokePath(path, weight);
+    if (endCaps && !ring.closed) {
+      const radius = filled ? this.FOCUS_DISC_RADIUS : this.END_CAP_RADIUS;
+      const first = path[0];
+      const last = path[path.length - 1];
+      raster.fillDisc(first.x, first.y, radius);
+      raster.fillDisc(last.x, last.y, radius);
+    }
   }
 
   /**
@@ -261,19 +298,20 @@ export abstract class TactileRenderer {
     const raster = new DotRaster(width, height);
     const focused = new Set(scene.focused);
 
+    const endCaps = scene.endCaps === true;
     for (const mark of scene.marks) {
       if (focused.has(mark)) {
         continue;
       }
       const shade = scene.shades?.get(mark);
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, false, shade);
+        this.drawRing(raster, ring, false, shade, endCaps);
       }
     }
 
     for (const mark of scene.focused) {
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, true);
+        this.drawRing(raster, ring, true, undefined, endCaps);
       }
     }
 

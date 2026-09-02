@@ -245,8 +245,34 @@ highlight marker per data point out of the rendered path, and those markers are
 what the focus moves between — but the shape that reaches the pins is the path
 itself, so the series stays continuous under a finger at any zoom. Where a
 chart library draws its own dot per point and the connecting line separately
-(Recharts and the like), the dots are what MAIDR resolved and the dots are what
-you feel.
+(Recharts, a radar's polygon), the line is picked up too when it is the one
+stroke drawn beside those dots; a group holding two strokes — a line and the
+area under it — is left alone rather than guessed at, and you feel the dots.
+
+### What each kind of chart puts on the pins
+
+Most charts are their marks: bars, points, boxes, slices, cells. A few need
+more than the marks the cursor moves between, because those marks are not the
+chart's shape.
+
+- **A box plot** is drawn as the chart drew it — the box, its median, both caps,
+  the outliers, and a whisker joining each cap to the box. The cursor moves
+  between the box's statistics, so the section you are on (the lower quartile,
+  say) is a heavier line along that edge of the box. Without the whiskers a box
+  arrived as three stacked dashes with two more floating beyond them.
+- **A dumbbell's** connectors get a dot at each end. The bar is the distance
+  between two values, and the dots are the values; a bare line says how far
+  apart they are and nothing about where either is. Two equal values, which the
+  chart draws as a zero-length bar, become one dot.
+- **A gauge** is drawn against its panel: the bands behind it and the target
+  line beside it are on the pins, and the measure bar is the filled shape among
+  them. The bar alone, sized to the display, was a rectangle that said nothing.
+- **A violin** keeps its density curve on the pins while you are on the inner
+  box. The box is the layer you land on first, and drawn alone it is a bare
+  whisker; the curve is the shape that names the chart.
+- **A sankey or an alluvial** draws every ribbon, including the thin
+  cross-flows no node ever highlights, and fills the widest ribbon at the node
+  you are on — the one the arrow keys follow.
 
 ### Layers
 
@@ -455,6 +481,11 @@ key would talk over the reading it describes.
 - **Charts with no SVG.** Canvas- and WebGL-rendered charts have no shapes to
   scale down.
 - **Charts in a cross-origin frame.** Their geometry cannot be measured.
+- **Shapes the chart gave no element for.** A lollipop whose selectors name
+  the heads draws the heads and no stems; a treemap or icicle whose parent
+  tiles have no selector draws the leaves, and the focus on a parent has
+  nothing to fill. The display draws what the chart's own description of
+  itself reaches.
 
 In these cases the braille panel behaves normally and the pins stay down.
 

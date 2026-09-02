@@ -85,4 +85,22 @@ describe('a highlighted ribbon is the ribbon that was announced', () => {
 
     expect(first?.getAttribute('data-flow')).toBe('Coal-Electricity');
   });
+
+  test('every ribbon is offered as the shape, whichever one is highlighted', () => {
+    // A node highlights the widest ribbon touching it, which is one of
+    // several. A renderer drawing the chart's shape needs all of them, in
+    // the order the flows were declared, so a thin cross-flow is on the
+    // display even though no node ever highlights it.
+    const trace = new FlowTrace(createLayer());
+
+    expect(trace.getGeometryElements().map(ribbon => ribbon.id))
+      .toEqual(['ribbon-0', 'ribbon-1', 'ribbon-2']);
+  });
+
+  test('no shape is offered when the ribbons did not resolve', () => {
+    document.body.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    const trace = new FlowTrace(createLayer());
+
+    expect(trace.getGeometryElements()).toEqual([]);
+  });
 });

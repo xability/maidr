@@ -268,14 +268,53 @@ export abstract class TactileSvgGeometry {
       return [...shapes];
     }
 
-    const kept = shapes.filter((_, index) => !this.tracesPanel(boxes[index], left, top, right, bottom));
+    const kept = shapes.filter((shape, index) => !this.tracesPanel(shape, boxes[index], left, top, right, bottom));
     return kept.length > 0 ? kept : [...shapes];
+  }
+
+  /**
+   * Reports whether a shape could be the plot background at all.
+   *
+   * A background has an inside: it is a rectangle, a polygon, an image, or a
+   * path that closes on itself. A stroke has none, and a stroke that reaches
+   * every edge of the chart is not a panel but the data at its widest -- the
+   * series on a bump chart that goes from first place to last runs corner to
+   * corner by definition, and the one line spanning a line chart's whole
+   * range is the line the chart is about. Dropping those as furniture left a
+   * four-series bump chart with one series on the pins and the reader with no
+   * way to know three were missing.
+   *
+   * @param shape - The candidate
+   */
+  private static canBePanel(shape: SVGGraphicsElement): boolean {
+    switch (shape.tagName.toLowerCase()) {
+      case 'rect':
+      case 'polygon':
+      case 'image':
+      case 'use':
+      case 'g':
+        return true;
+      case 'path': {
+        if (/z\s*$/i.test(shape.getAttribute('d') ?? '')) {
+          return true;
+        }
+        const fill = shape.getAttribute('fill') ?? shape.style.fill;
+        return fill !== '' && fill !== 'none';
+      }
+      default:
+        return false;
+    }
   }
 
   /**
    * Reports whether a shape fills the chart's whole extent or runs along one of
    * its edges.
    *
+   * Only a shape with an inside can fill the extent; see {@link canBePanel}.
+   * Running along an edge is a spine's signature and is tested whatever the
+   * shape is drawn with, because a spine is a stroke.
+   *
+   * @param shape - The shape itself
    * @param box - The shape's screen rect
    * @param left - Left edge of every shape's combined extent
    * @param top - Top edge of that extent
@@ -283,6 +322,7 @@ export abstract class TactileSvgGeometry {
    * @param bottom - Bottom edge of that extent
    */
   private static tracesPanel(
+    shape: SVGGraphicsElement,
     box: ClientRect,
     left: number,
     top: number,
@@ -293,7 +333,7 @@ export abstract class TactileSvgGeometry {
     const spansX = box.width >= right - left - tolerance;
     const spansY = box.height >= bottom - top - tolerance;
     if (spansX && spansY) {
-      return true;
+      return this.canBePanel(shape);
     }
 
     const flatX = box.width <= tolerance;

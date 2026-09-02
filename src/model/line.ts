@@ -121,7 +121,7 @@ export class LineTrace extends AbstractTrace {
    * ({@link mapViaDomElements}), where the connecting line is a separate
    * element this trace never resolved and so cannot offer.
    */
-  private readonly lineElements: SVGElement[] = [];
+  protected readonly lineElements: SVGElement[] = [];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -891,9 +891,83 @@ export class LineTrace extends AbstractTrace {
       }
       allFailed = false;
       svgElements.push(elements);
+      this.offerStrokeBeside(elements);
     }
 
     return allFailed ? null : svgElements;
+  }
+
+  /**
+   * Records the stroke the chart drew through a series' own markers, when
+   * there is one to find.
+   *
+   * A chart that renders a dot per point usually draws the line through them
+   * as well, in the same group -- a radar's polygon, a Recharts line's path --
+   * and that line is the series' shape where the dots are only its vertices.
+   * The selector named the dots, so the line is the one sibling of theirs that
+   * draws a stroke. It is offered as geometry so a renderer that wants the
+   * shape has it; nothing else about the trace reads it.
+   *
+   * Nothing is offered when the answer is unclear: markers spread over several
+   * groups, a group with two strokes in it (a line and its area), a stroke
+   * that does not reach the markers. A wrong shape on the display is worse
+   * than none.
+   *
+   * @param markers - The chart's own elements for one series
+   */
+  protected offerStrokeBeside(markers: readonly SVGElement[]): void {
+    const stroke = LineTrace.strokeBeside(markers);
+    if (stroke !== null) {
+      this.lineElements.push(stroke);
+    }
+  }
+
+  /**
+   * The one stroke drawn alongside a series' markers, or null.
+   * @param markers - The chart's own elements for one series
+   */
+  private static strokeBeside(markers: readonly SVGElement[]): SVGElement | null {
+    const parent = markers[0]?.parentElement ?? null;
+    if (parent === null || markers.some(marker => marker.parentElement !== parent)) {
+      return null;
+    }
+
+    const isStroke = (element: Element | null): element is SVGElement => {
+      if (element === null) {
+        return false;
+      }
+      const tag = element.tagName.toLowerCase();
+      return (tag === 'path' || tag === 'polyline' || tag === 'polygon')
+        && !markers.includes(element as SVGElement)
+        && !Svg.isOwned(element as SVGElement);
+    };
+
+    // In the markers' own group first. Failing that, the group's immediate
+    // neighbours: a chart that keeps the dots in a group of their own draws
+    // the stroke right beside that group, and a radar's polygon sits before
+    // the group of its vertices. Only the neighbours -- further out is the
+    // whole chart, where every other series' stroke is a candidate too.
+    let strokes = Array.from(parent.children).filter(isStroke);
+    if (strokes.length === 0) {
+      strokes = [parent.previousElementSibling, parent.nextElementSibling].filter(isStroke);
+    }
+
+    // The stroke has to run through the markers. A spine or a gridline that
+    // happens to share the group is a stroke too, and it lies along an edge
+    // the markers never reach; and of the two polygons either side of a
+    // radar series' dots, only its own spans every one of them.
+    const slack = 4;
+    const reaching = strokes.filter((stroke) => {
+      const box = stroke.getBoundingClientRect();
+      return markers.every((marker) => {
+        const mark = marker.getBoundingClientRect();
+        const cx = mark.left + mark.width / 2;
+        const cy = mark.top + mark.height / 2;
+        return cx >= box.left - slack && cx <= box.right + slack
+          && cy >= box.top - slack && cy <= box.bottom + slack;
+      });
+    });
+    return reaching.length === 1 ? reaching[0] : null;
   }
 
   /**

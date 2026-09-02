@@ -24,6 +24,18 @@ export class BoxTrace extends AbstractTrace {
   private readonly points: BoxPoint[];
   private readonly boxValues: (number[] | number)[][];
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
+
+  /**
+   * The box as the chart drew it: each body, median and cap, the outliers,
+   * and a whisker between each cap and its box.
+   *
+   * The highlight is built from edges -- the top and bottom of the box are
+   * lines derived from it, because a section is what the cursor stands on.
+   * Drawn from those alone a box is three stacked dashes with two more
+   * floating beyond them, and nothing joins them into the shape the chart
+   * has. This list is the shape, for a renderer that wants it.
+   */
+  private readonly geometry: SVGElement[] = [];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -382,6 +394,8 @@ export class BoxTrace extends AbstractTrace {
             ];
       }
 
+      this.offerGeometry(original, isVertical);
+
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
       if (isVertical) {
@@ -394,6 +408,67 @@ export class BoxTrace extends AbstractTrace {
     });
 
     return svgElements;
+  }
+
+  /**
+   * The elements whose geometry is the box as the chart drew it. Empty when
+   * the selectors did not resolve, so a caller can fall back in one check.
+   */
+  public getGeometryElements(): SVGElement[] {
+    return [...this.geometry];
+  }
+
+  /**
+   * Records one box's drawn shape. See {@link geometry}.
+   * @param original - The chart's own elements for the box
+   * @param original.lowerOutliers - Points below the lower whisker
+   * @param original.upperOutliers - Points above the upper whisker
+   * @param original.min - The lower cap
+   * @param original.max - The upper cap
+   * @param original.iq - The box body, where the chart drew one shape for it
+   * @param original.q2 - The median
+   * @param original.q1Direct - The lower quartile, where the chart drew it
+   * @param original.q3Direct - The upper quartile, where the chart drew it
+   * @param isVertical - Whether the box stands upright
+   */
+  private offerGeometry(
+    original: {
+      lowerOutliers: SVGElement[];
+      upperOutliers: SVGElement[];
+      min: SVGElement | null;
+      max: SVGElement | null;
+      iq: SVGElement | null;
+      q2: SVGElement | null;
+      q1Direct: SVGElement | null;
+      q3Direct: SVGElement | null;
+    },
+    isVertical: boolean,
+  ): void {
+    const body = original.iq ?? original.q1Direct;
+    const parts = new Set<SVGElement>();
+    for (const part of [
+      body,
+      original.q1Direct,
+      original.q3Direct,
+      original.q2,
+      original.min,
+      original.max,
+      ...original.lowerOutliers,
+      ...original.upperOutliers,
+    ]) {
+      if (part !== null) {
+        parts.add(part);
+      }
+    }
+    if (body !== null) {
+      for (const cap of [original.min, original.max]) {
+        const whisker = cap === null ? null : Svg.createWhiskerElement(cap, body, isVertical);
+        if (whisker !== null) {
+          parts.add(whisker);
+        }
+      }
+    }
+    this.geometry.push(...parts);
   }
 
   /**

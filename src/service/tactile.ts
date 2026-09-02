@@ -97,6 +97,48 @@ const COLOUR_IS_THE_VALUE: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Trace types whose one mark only means something against the panel around
+ * it.
+ *
+ * A gauge is a single bar, and the bar is not the reading -- where it ends
+ * against the bands behind it and the target line beside it is. The model
+ * hands over the bar alone, so drawn from the model the window is the bar,
+ * the bar is the window, and the reader is handed a rectangle the size of the
+ * display that says nothing. For these the chart's own subtree is drawn as
+ * well, furniture sifted out, so the bands and the target are on the pins and
+ * the bar is filled among them.
+ */
+const READ_AGAINST_THE_PANEL: ReadonlySet<string> = new Set([
+  'gauge',
+]);
+
+/**
+ * Trace types whose marks are connectors between two values.
+ *
+ * A dumbbell's bar joins its start and its end, and those are what the reader
+ * is after; the bar is the distance between them. See
+ * {@link TactileScene.endCaps}.
+ */
+const CONNECTOR_MARKS: ReadonlySet<string> = new Set([
+  'dumbbell',
+]);
+
+/**
+ * Layers drawn under whichever layer is active.
+ *
+ * One layer at a time is the rule, because sixty pins cannot hold three
+ * overlaid series. A violin is the exception the rule is not about: its
+ * density curve and its inner box are two layers of one mark, and the reader
+ * lands on the box first. Drawn alone the box is a bare whisker with no
+ * violin around it -- the shape that names the chart is on the layer they
+ * have not reached yet. The curve is an outline and costs the pins an outline
+ * does, so it stays under the box as the thing the box is inside.
+ */
+const ALWAYS_SHOWN_LAYERS: ReadonlySet<string> = new Set([
+  'violin_kde',
+]);
+
+/**
  * Trace types where whether the chart filled a mark is itself the reading.
  *
  * A candlestick says which way the day went by drawing the body solid or
@@ -903,11 +945,54 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       && this.shapeCache.trace === trace) {
       return this.shapeCache;
     }
+    const context = this.contextShapes(region);
     const fromModel = this.modelShapes();
-    const shapes = fromModel.length > 0 ? fromModel : TactileService.collectShapes(region);
-    const allLayers = fromModel.length > 0 ? this.allLayerShapes() : shapes;
+    const own = fromModel.length > 0 ? fromModel : TactileService.collectShapes(region);
+    const shapes = TactileService.distinct([...context, ...own]);
+    const allLayers = fromModel.length > 0
+      ? TactileService.distinct([...context, ...this.allLayerShapes()])
+      : shapes;
     this.shapeCache = { region, subplot, trace, shapes, allLayers };
     return this.shapeCache;
+  }
+
+  /**
+   * What is drawn around the active layer's marks, on the charts that need
+   * it: the panel a gauge is read against, and the layers a violin keeps under
+   * whichever one is active. Empty for everything else, which is nearly
+   * everything.
+   *
+   * @param region - The element whose subtree holds the chart
+   */
+  private contextShapes(region: Element): SVGGraphicsElement[] {
+    const subplot = this.figure.activeSubplot;
+    const active = subplot.activeTrace;
+    const context: SVGGraphicsElement[] = [];
+    if (active !== null && READ_AGAINST_THE_PANEL.has(active.traceType)) {
+      context.push(...TactileService.collectShapes(region));
+    }
+    for (const row of subplot.traces) {
+      for (const trace of row) {
+        if (trace !== active && ALWAYS_SHOWN_LAYERS.has(trace.traceType)) {
+          context.push(...TactileService.traceShapes(trace));
+        }
+      }
+    }
+    return context;
+  }
+
+  /**
+   * The elements with duplicates removed, first occurrence kept.
+   *
+   * The renderer draws a union, so a mark listed twice costs pins and nothing
+   * else; but a mark in both the context and the model's own list would be
+   * outlined by one and filled by the other, and the pairing that draws a
+   * focused mark once relies on it appearing once.
+   *
+   * @param elements - Elements in drawing order
+   */
+  private static distinct(elements: readonly SVGGraphicsElement[]): SVGGraphicsElement[] {
+    return Array.from(new Set(elements));
   }
 
   /**
@@ -1170,7 +1255,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // of that path: no element is in both, so the path is outlined and the
     // circle filled, which is the picture wanted anyway -- a line you can trace
     // with one raised dot where you are standing on it.
-    const scene: TactileScene = { marks, focused, shades: TactileService.shadesOf(marks, state) };
+    const scene: TactileScene = {
+      marks,
+      focused,
+      shades: TactileService.shadesOf(marks, state),
+      endCaps: state.type === 'trace' && CONNECTOR_MARKS.has(state.traceType),
+    };
 
     const raster = TactileRenderer.render(
       scene,

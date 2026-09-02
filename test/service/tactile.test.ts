@@ -63,6 +63,7 @@ import { TactileService } from '@service/tactile';
 import { Emitter } from '@type/event';
 import { TactileBraille } from '@util/tactile/brailleText';
 import { DotPack } from '@util/tactile/pack';
+import { TactileRenderer } from '@util/tactile/render';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 
 jest.mock('@service/dotPadSession', () => {
@@ -344,6 +345,11 @@ interface FakeTrace {
    * rendered path, so its markers are the points and the path is the shape.
    */
   getGeometryElements?: () => SVGElement[];
+
+  /**
+   * What kind of layer this is, for the few rules that turn on it.
+   */
+  traceType?: string;
 }
 
 /**
@@ -373,6 +379,7 @@ function createFigure(
   axesElement: SVGElement | null,
   layers: SVGElement[][] = [[]],
   geometry: SVGElement[][] = [],
+  traceTypes: string[] = [],
 ): Figure {
   const traces = layers.map((marks, layer) => [{
     getAllHighlightElements: () => marks,
@@ -380,6 +387,7 @@ function createFigure(
       .map(mark => mark.previousElementSibling as SVGElement | null)
       .filter((mark): mark is SVGElement => mark !== null),
     getGeometryElements: () => geometry[layer] ?? [],
+    traceType: traceTypes[layer],
   }]);
   const subplot: FakeSubplot = {
     axesElement,
@@ -2019,6 +2027,98 @@ describe('tactileService', () => {
       activate();
 
       expect(drawnElements()).toEqual(expect.arrayContaining(chart.marks));
+    });
+  });
+
+  describe('what is drawn around the marks', () => {
+    /**
+     * Adds a shape to the chart's axes at the given screen rect.
+     * @param tag - The SVG tag
+     * @param rect - Where it sits
+     */
+    function addShape(tag: string, rect: Rect): SVGElement {
+      const element = document.createElementNS(SVG_NS, tag);
+      stubRect(element, rect);
+      chart.axes.append(element);
+      return element;
+    }
+
+    it('should draw the panel a gauge is read against', () => {
+      // A gauge is one bar, and the bar is not the reading: where it ends
+      // against the bands behind it is. Drawn from the model alone the bar is
+      // the window and the reader gets a rectangle the size of the display.
+      addFurniture(chart);
+      const bands = [
+        addShape('rect', { left: 0, top: 40, width: 100, height: 20 }),
+        addShape('rect', { left: 100, top: 40, width: 100, height: 20 }),
+      ];
+      const target = addShape('path', { left: 150, top: 35, width: 0, height: 30 });
+      const bar = chart.marks[0];
+      rebuild(chart, createFigure(chart.axes, [[bar]], [], ['gauge']));
+      session.isConnected = true;
+      turnOn();
+      service.update(traceState(chart, 0, 'a', 73, 'gauge'));
+
+      expect(drawnElements()).toEqual(expect.arrayContaining([...bands, target, bar]));
+      // The axis furniture is still sifted out, and the bar is drawn once.
+      expect(drawnElements().map(element => element.id)).not.toContain('xtick_1');
+      expect(drawnElements().filter(element => element === bar)).toHaveLength(1);
+    });
+
+    it('should not draw the panel for a chart whose marks carry the reading', () => {
+      addFurniture(chart);
+      const stray = addShape('rect', { left: 0, top: 40, width: 100, height: 20 });
+      rebuild(chart, createFigure(chart.axes, [chart.marks], [], ['bar']));
+      activate();
+
+      expect(drawnElements()).not.toContain(stray);
+    });
+
+    it('should keep a violin\'s curve under its inner box', () => {
+      // The reader lands on the box layer first, and drawn alone the box is a
+      // bare whisker. The curve is the shape that names the chart.
+      const curves = [
+        addShape('path', { left: 20, top: 10, width: 40, height: 80 }),
+        addShape('path', { left: 120, top: 10, width: 40, height: 80 }),
+      ];
+      const figure = createFigure(chart.axes, [curves, chart.marks], [], ['violin_kde', 'violin_box']);
+      switchLayer(figure, 1);
+      rebuild(chart, figure);
+      activate();
+
+      expect(drawnElements()).toEqual(expect.arrayContaining([...curves, ...chart.marks]));
+    });
+
+    it('should draw the curve alone once the reader is on it', () => {
+      const curves = [
+        addShape('path', { left: 20, top: 10, width: 40, height: 80 }),
+        addShape('path', { left: 120, top: 10, width: 40, height: 80 }),
+      ];
+      const figure = createFigure(chart.axes, [curves, chart.marks], [], ['violin_kde', 'violin_box']);
+      rebuild(chart, figure);
+      session.isConnected = true;
+      turnOn();
+      service.update({
+        ...traceState(chart, 0),
+        highlight: { empty: false, elements: curves[0] },
+      } as unknown as NonEmptyTraceState);
+
+      expect(drawnElements()).toEqual(expect.arrayContaining(curves));
+      expect(drawnElements()).not.toContain(chart.marks[1]);
+    });
+
+    it('should ask for end caps on a dumbbell and on nothing else', () => {
+      const render = jest.spyOn(TactileRenderer, 'render');
+      rebuild(chart, createFigure(chart.axes, [chart.marks], [], ['dumbbell']));
+      session.isConnected = true;
+      turnOn();
+
+      service.update(traceState(chart, 0, 'a', 12, 'dumbbell'));
+      expect(render.mock.calls[render.mock.calls.length - 1][0].endCaps).toBe(true);
+
+      service.update(traceState(chart, 1, 'b', 12, 'bar'));
+      expect(render.mock.calls[render.mock.calls.length - 1][0].endCaps).toBe(false);
+      render.mockRestore();
     });
   });
 

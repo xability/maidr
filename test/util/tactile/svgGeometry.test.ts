@@ -282,9 +282,22 @@ describe('tactileSvgGeometry.withoutPanel', () => {
    * @param top - Top edge
    * @param width - Width, which is zero for a vertical spine
    * @param height - Height, which is zero for a horizontal spine
+   * @param tag - What the shape is drawn with; a path closes on itself, the
+   * way a background does, unless told otherwise
+   * @param closed - Whether a path returns to its start
    */
-  function shape(left: number, top: number, width: number, height: number): SVGGraphicsElement {
-    const created = element('path') as SVGGraphicsElement;
+  function shape(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+    tag: string = 'path',
+    closed: boolean = true,
+  ): SVGGraphicsElement {
+    const created = element(tag) as SVGGraphicsElement;
+    if (tag === 'path') {
+      created.setAttribute('d', closed ? 'M 0 0 L 1 0 L 1 1 z' : 'M 0 0 L 1 0 L 1 1');
+    }
     created.getBoundingClientRect = (): DOMRect => ({
       left,
       top,
@@ -340,6 +353,38 @@ describe('tactileSvgGeometry.withoutPanel', () => {
     const kept = TactileSvgGeometry.withoutPanel([reference, ...marks]);
 
     expect(kept).toContain(reference);
+  });
+
+  it('should keep a stroke that crosses the whole chart', () => {
+    // The series on a bump chart that falls from first place to last runs
+    // corner to corner, and so did the panel background -- and the only
+    // difference between them is that one has an inside. Dropping the line
+    // put a four-series chart on the pins with one series showing.
+    const cornerToCorner = shape(0, 0, 100, 100, 'polyline');
+    const openPath = shape(0, 0, 100, 100, 'path', false);
+
+    const kept = TactileSvgGeometry.withoutPanel([background, cornerToCorner, openPath, ...marks]);
+
+    expect(kept).toEqual([cornerToCorner, openPath, ...marks]);
+  });
+
+  it('should drop a background drawn as a rectangle', () => {
+    const rectangle = shape(0, 0, 100, 100, 'rect');
+
+    const kept = TactileSvgGeometry.withoutPanel([rectangle, ...marks]);
+
+    expect(kept).toEqual(marks);
+  });
+
+  it('should drop a background drawn as a filled open path', () => {
+    // Some libraries paint the panel with a path that never writes a z. The
+    // fill is what says it has an inside.
+    const painted = shape(0, 0, 100, 100, 'path', false);
+    painted.setAttribute('fill', '#ffffff');
+
+    const kept = TactileSvgGeometry.withoutPanel([painted, ...marks]);
+
+    expect(kept).toEqual(marks);
   });
 
   it('should keep everything rather than empty the display', () => {

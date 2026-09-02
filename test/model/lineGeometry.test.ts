@@ -137,4 +137,83 @@ describe('the shape a line trace drew', () => {
     expect(trace.getAllHighlightElements()).toHaveLength(POINTS[0].length);
     expect(trace.getGeometryElements()).toEqual([]);
   });
+
+  test('is the stroke the chart drew through its own markers', () => {
+    // A radar draws a polygon and a dot at each vertex; the selector names
+    // the dots. The polygon is the series' shape and the dots are only its
+    // vertices, so the polygon is what a renderer wanting the shape gets.
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    const group = document.createElementNS(SVG_NS, 'g');
+    group.setAttribute('id', 's0');
+    const polygon = document.createElementNS(SVG_NS, 'polygon');
+    polygon.setAttribute('points', '0,0 10,10 20,20');
+    group.appendChild(polygon);
+    for (let i = 0; i < POINTS[0].length; i++) {
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('cx', String(i * 10));
+      dot.setAttribute('cy', String(i * 10));
+      group.appendChild(dot);
+    }
+    svg.appendChild(group);
+    document.body.appendChild(svg);
+
+    const trace = new LineTrace(layer(POINTS, ['g[id="s0"] circle']));
+
+    expect(trace.getAllHighlightElements()).toHaveLength(POINTS[0].length);
+    expect(trace.getGeometryElements()).toEqual([polygon]);
+  });
+
+  test('is not guessed at when the markers sit beside two strokes', () => {
+    // A line and the area under it share a group in some libraries. Either
+    // could be the series; a wrong shape on the display is worse than none.
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    const group = document.createElementNS(SVG_NS, 'g');
+    group.setAttribute('id', 's0');
+    for (const tag of ['path', 'path']) {
+      group.appendChild(document.createElementNS(SVG_NS, tag));
+    }
+    for (let i = 0; i < POINTS[0].length; i++) {
+      group.appendChild(document.createElementNS(SVG_NS, 'circle'));
+    }
+    svg.appendChild(group);
+    document.body.appendChild(svg);
+
+    const trace = new LineTrace(layer(POINTS, ['g[id="s0"] circle']));
+
+    expect(trace.getGeometryElements()).toEqual([]);
+  });
+
+  test('is the stroke drawn right beside the markers\' own group', () => {
+    // A radar keeps each series' dots in a group of their own and draws the
+    // polygon just before it. The polygon is still the shape.
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    const polygon = document.createElementNS(SVG_NS, 'polygon');
+    const group = document.createElementNS(SVG_NS, 'g');
+    group.setAttribute('id', 's0');
+    for (let i = 0; i < POINTS[0].length; i++) {
+      group.appendChild(document.createElementNS(SVG_NS, 'circle'));
+    }
+    // The next series' polygon follows immediately, so the group has a
+    // stroke on either side of it. Only its own spans all of its dots: jsdom
+    // measures nothing, so the other one is placed somewhere else by hand.
+    const otherPolygon = document.createElementNS(SVG_NS, 'polygon');
+    otherPolygon.getBoundingClientRect = (): DOMRect => ({
+      x: 500,
+      y: 500,
+      left: 500,
+      top: 500,
+      width: 10,
+      height: 10,
+      right: 510,
+      bottom: 510,
+      toJSON: () => ({}),
+    });
+    const otherGroup = document.createElementNS(SVG_NS, 'g');
+    svg.append(polygon, group, otherPolygon, otherGroup);
+    document.body.appendChild(svg);
+
+    const trace = new LineTrace(layer(POINTS, ['g[id="s0"] circle']));
+
+    expect(trace.getGeometryElements()).toEqual([polygon]);
+  });
 });

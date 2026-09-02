@@ -39,6 +39,7 @@ export class SmoothTraceSvgXY extends SmoothTrace {
       if (domElements.length === expected && domElements.length > 0) {
         allFailed = false;
         svgElements.push(domElements);
+        this.offerStrokeBeside(domElements);
         continue;
       }
 
@@ -49,6 +50,10 @@ export class SmoothTraceSvgXY extends SmoothTrace {
         svgElements.push([]);
         continue;
       }
+      // The curve is the series' shape; the circles below are only samples
+      // along it, and a display drawing them alone shows a beaded string
+      // where the chart shows a line.
+      this.lineElements.push(lineElement as SVGElement);
 
       const dataPoints = this.points?.[r] as SmoothPoint[];
       const linePointElements: SVGElement[] = [];

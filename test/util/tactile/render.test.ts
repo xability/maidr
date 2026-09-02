@@ -1000,3 +1000,98 @@ function shifted(ring: DotRing, dx: number, dy: number): DotRing {
     closed: ring.closed,
   };
 }
+
+describe('tactileRenderer.render with end caps', () => {
+  const DOTS_ACROSS = 20;
+  const DOTS_DOWN = 20;
+  const ringsOf = jest.mocked(TactileSvgGeometry.ringsOf);
+  const viewport = (): TactileViewport => new TactileViewport(
+    { left: 0, top: 0, width: DOTS_ACROSS - 1, height: DOTS_DOWN - 1 },
+    DOTS_ACROSS,
+    DOTS_DOWN,
+  );
+  const connector: DotRing = { points: [{ x: 3, y: 10 }, { x: 15, y: 10 }], closed: false };
+  const mark = {} as SVGGraphicsElement;
+
+  beforeEach(() => {
+    ringsOf.mockReset();
+    ringsOf.mockReturnValue([connector]);
+  });
+
+  it('should put a dot at each end of a connector', () => {
+    // A dumbbell's bar joins two values, and the values are its ends. A bare
+    // line says how far apart they are and nothing about where either is.
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [], endCaps: true },
+      viewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(3, 9)).toBe(true);
+    expect(raster.get(3, 11)).toBe(true);
+    expect(raster.get(15, 9)).toBe(true);
+    expect(raster.get(15, 11)).toBe(true);
+    // The bar between stays one pin.
+    expect(raster.get(9, 9)).toBe(false);
+    expect(raster.get(9, 11)).toBe(false);
+  });
+
+  it('should leave a connector bare when no caps were asked for', () => {
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      viewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(3, 9)).toBe(false);
+    expect(raster.get(15, 11)).toBe(false);
+  });
+
+  it('should give the focused connector the larger dots', () => {
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [mark], endCaps: true },
+      viewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(3, 8)).toBe(true);
+    expect(raster.get(15, 12)).toBe(true);
+  });
+
+  it('should draw a connector whose ends coincide as one dot', () => {
+    // Two equal values: the chart draws a zero-length bar, which is a single
+    // pin here, and a single pin is not a thing a finger finds.
+    ringsOf.mockReturnValue([{ points: [{ x: 10, y: 10 }], closed: false }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [], endCaps: true },
+      viewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(10, 10)).toBe(true);
+    expect(raster.get(9, 10)).toBe(true);
+    expect(raster.get(10, 11)).toBe(true);
+  });
+
+  it('should not cap a closed ring', () => {
+    ringsOf.mockReturnValue([{
+      points: [{ x: 4, y: 4 }, { x: 12, y: 4 }, { x: 12, y: 12 }, { x: 4, y: 12 }],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [], endCaps: true },
+      viewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(3, 4)).toBe(false);
+    expect(raster.get(4, 3)).toBe(false);
+  });
+});
