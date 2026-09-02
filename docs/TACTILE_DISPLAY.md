@@ -189,11 +189,8 @@ comparison: they arrive in the same list and are always unpainted, being lines,
 so counting them as hollow bodies would put one in every chart. Bodies all
 painted alike are left hollow — there is no direction being drawn then.
 
-Ordinary strokes are two pins across, not one. A single-pin diagonal steps in
-pins that touch only at their corners, so a finger sweeping across it meets a
-row of separate bumps rather than a line, and loses the trail on any drift.
-Closed outlines stay at one pin — thickening those would fill in the very
-interior that tells a hollow mark from a solid one.
+Every stroke, open or closed, is one pin wide. A thicker stroke was tried and
+rejected on the device; *Line thickness* below says why.
 
 **Nothing else is drawn.** No frame around the plot, no axis lines, no tick
 marks, no titles or labels — only the data. Two reasons. A tick mark is a pin or

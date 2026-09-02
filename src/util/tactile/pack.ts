@@ -40,14 +40,6 @@ export abstract class DotPack {
   ];
 
   /**
-   * First code point of Unicode's Braille Patterns block. The low eight bits of
-   * every code point in the block are the dot pattern itself, which is exactly
-   * what text mode wants — so translating a braille string to a payload is a
-   * subtraction, not a lookup.
-   */
-  private static readonly BRAILLE_BASE = 0x2800;
-
-  /**
    * Formats a byte as two lowercase hex digits.
    * @param value - Byte value
    */
