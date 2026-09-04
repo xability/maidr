@@ -2,6 +2,14 @@
   <img src="docs/logo.svg" width="350px" alt="A stylized MAIDR logo, with curved characters for M A, a hand pointing for an I, the D character, and R represented in braille."/>
   <hr style="color:transparent" />
   <br />
+
+[![npm](https://img.shields.io/npm/v/maidr.svg)](https://www.npmjs.com/package/maidr)
+[![npm downloads](https://img.shields.io/npm/dt/maidr.svg)](https://www.npmjs.com/package/maidr)
+[![jsDelivr hits](https://img.shields.io/jsdelivr/npm/hm/maidr.svg)](https://www.jsdelivr.com/package/npm/maidr)
+[![CI](https://github.com/xability/maidr/actions/workflows/ci.yml/badge.svg)](https://github.com/xability/maidr/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/maidr.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-maidr.ai-1f6feb.svg)](https://maidr.ai)
+
 </div>
 
 # MAIDR: Multimodal Access and Interactive Data Representation
