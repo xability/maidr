@@ -7,6 +7,7 @@ import type { DisplayService } from '@service/display';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { MarkService } from '@service/mark';
 import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
@@ -19,6 +20,7 @@ import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteVie
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -68,6 +70,19 @@ import {
   GridCellMoveLeftCommand,
   GridCellMoveRightCommand,
 } from './gridCell';
+import {
+  ActivateMarkJumpScopeCommand,
+  ActivateMarkPlayScopeCommand,
+  ActivateMarkSetScopeCommand,
+  DeactivateMarkScopeCommand,
+  JumpToMarkCloseCommand,
+  JumpToMarkMoveDownCommand,
+  JumpToMarkMoveUpCommand,
+  JumpToMarkSelectCommand,
+  JumpToSlotCommand,
+  PlayMarkCommand,
+  SetMarkCommand,
+} from './mark';
 import {
   ExitBrailleAndSubplotCommand,
   MoveDownCommand,
@@ -132,6 +147,7 @@ export class CommandFactory {
   private readonly goToExtremaService: GoToExtremaService;
   private readonly highContrastService: HighContrastService;
   private readonly highlightService: HighlightService;
+  private readonly markService: MarkService;
   private readonly monitorService: MonitorService;
   private readonly notificationService: NotificationService;
   private readonly rotorService: RotorNavigationService;
@@ -145,6 +161,7 @@ export class CommandFactory {
   private readonly descriptionViewModel: DescriptionViewModel;
   private readonly goToExtremaViewModel: GoToExtremaViewModel;
   private readonly helpViewModel: HelpViewModel;
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
   private readonly reviewViewModel: ReviewViewModel;
   private readonly settingsViewModel: SettingsViewModel;
   private readonly textViewModel: TextViewModel;
@@ -167,6 +184,7 @@ export class CommandFactory {
     this.goToExtremaService = commandContext.goToExtremaService;
     this.highContrastService = commandContext.highContrastService;
     this.highlightService = commandContext.highlightService;
+    this.markService = commandContext.markService;
     this.monitorService = commandContext.monitorService;
     this.notificationService = commandContext.notificationService;
     this.rotorService = commandContext.rotorNavigationService;
@@ -182,6 +200,7 @@ export class CommandFactory {
     this.descriptionViewModel = commandContext.descriptionViewModel;
     this.goToExtremaViewModel = commandContext.goToExtremaViewModel;
     this.helpViewModel = commandContext.helpViewModel;
+    this.jumpToMarkViewModel = commandContext.jumpToMarkViewModel;
     this.reviewViewModel = commandContext.reviewViewModel;
     this.settingsViewModel = commandContext.settingsViewModel;
     this.textViewModel = commandContext.textViewModel;
@@ -378,6 +397,37 @@ export class CommandFactory {
           this.rotorNavigationViewModel,
         );
 
+      // Mark and recall commands
+      case 'ACTIVATE_MARK_SET_SCOPE':
+        return new ActivateMarkSetScopeCommand(this.markService);
+      case 'ACTIVATE_MARK_PLAY_SCOPE':
+        return new ActivateMarkPlayScopeCommand(this.markService);
+      case 'ACTIVATE_MARK_JUMP_SCOPE':
+        return new ActivateMarkJumpScopeCommand(this.jumpToMarkViewModel);
+
+      // Jump to mark dialog navigation
+      case 'JUMP_TO_MARK_MOVE_UP':
+        return new JumpToMarkMoveUpCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_MOVE_DOWN':
+        return new JumpToMarkMoveDownCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_SELECT':
+        return new JumpToMarkSelectCommand(this.jumpToMarkViewModel);
+      case 'JUMP_TO_MARK_CLOSE':
+        return new JumpToMarkCloseCommand(this.jumpToMarkViewModel);
+
+      case 'DEACTIVATE_MARK_SCOPE':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_0':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_1':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_2':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_3':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_4':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_5':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_6':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_7':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_8':
+      case 'DEACTIVATE_MARK_SCOPE_CHORD_9':
+        return new DeactivateMarkScopeCommand(this.markService);
+
       // Grid cell navigation
       case 'ENTER_GRID_CELL':
         return new EnterGridCellCommand(this.context, this.notificationService);
@@ -389,7 +439,48 @@ export class CommandFactory {
         return new GridCellMoveRightCommand(this.context);
 
       default:
-        throw new Error(`Invalid command name: ${command}`);
+        // Handle slot-based mark commands dynamically
+        return this.createSlotCommand(command);
     }
+  }
+
+  /**
+   * Creates slot-based mark commands (SET_MARK_*, PLAY_MARK_*, JUMP_TO_SLOT_*).
+   * Extracts the slot number from the command string and returns the appropriate command.
+   * @param command - The command key
+   * @returns The corresponding command instance
+   * @throws Error if the command is not a valid slot-based command
+   */
+  private createSlotCommand(command: Keys): Command {
+    const commandStr = command as string;
+    const slot = this.extractSlotNumber(commandStr);
+
+    if (commandStr.startsWith('SET_MARK_') && slot !== null) {
+      return new SetMarkCommand(this.markService, slot);
+    }
+    if (commandStr.startsWith('PLAY_MARK_') && slot !== null) {
+      return new PlayMarkCommand(this.markService, slot);
+    }
+    if (commandStr.startsWith('JUMP_TO_SLOT_') && slot !== null) {
+      return new JumpToSlotCommand(this.jumpToMarkViewModel, slot);
+    }
+
+    throw new Error(`Invalid command name: ${commandStr}`);
+  }
+
+  /**
+   * Extracts the slot number (0-9) from a command string.
+   * @param command - The command key (e.g., 'SET_MARK_5', 'PLAY_MARK_3')
+   * @returns The slot number or null if not found
+   */
+  private extractSlotNumber(command: string): number | null {
+    const match = command.match(/_(\d)$/);
+    if (match) {
+      const slot = Number.parseInt(match[1], 10);
+      if (slot >= 0 && slot <= 9) {
+        return slot;
+      }
+    }
+    return null;
   }
 }

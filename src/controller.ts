@@ -19,8 +19,10 @@ import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
+import { JumpToMarkService } from '@service/jumpToMark';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
 import { isAppendedPointFocused } from '@service/liveData';
+import { MarkService } from '@service/mark';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
@@ -37,6 +39,7 @@ import { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import { DisplayViewModel } from '@state/viewModel/displayViewModel';
 import { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import { HelpViewModel } from '@state/viewModel/helpViewModel';
+import { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import { ViewModelRegistry } from '@state/viewModel/registry';
 import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
@@ -75,6 +78,8 @@ export class Controller implements Disposable {
   private readonly descriptionService: DescriptionService;
   private readonly helpService: HelpService;
   private readonly chatService: ChatService;
+  private readonly markService: MarkService;
+  private readonly jumpToMarkService: JumpToMarkService;
 
   private readonly textViewModel: TextViewModel;
   private readonly brailleViewModel: BrailleViewModel;
@@ -88,6 +93,7 @@ export class Controller implements Disposable {
   private readonly settingsViewModel: SettingsViewModel;
   private readonly rotorNavigationViewModel: RotorNavigationViewModel;
   private readonly commandPaletteViewModel: CommandPaletteViewModel;
+  private readonly jumpToMarkViewModel: JumpToMarkViewModel;
 
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
@@ -233,6 +239,33 @@ export class Controller implements Disposable {
       commandPaletteService,
     );
 
+    // Initialize JumpToMark service
+    this.jumpToMarkService = new JumpToMarkService(
+      this.context,
+      this.displayService,
+    );
+
+    // Initialize MarkService now that all dependencies are available
+    this.markService = new MarkService(
+      this.context,
+      this.figure,
+      new LocalStorageService(),
+      this.notificationService,
+      this.audioService,
+      this.highlightService,
+      this.brailleViewModel,
+      this.textViewModel,
+      this.textService,
+    );
+
+    // Initialize JumpToMark view model
+    this.jumpToMarkViewModel = new JumpToMarkViewModel(
+      store,
+      this.jumpToMarkService,
+      this.markService,
+      this.context,
+    );
+
     this.keybinding = new KeybindingService({
       context: this.context,
 
@@ -258,10 +291,12 @@ export class Controller implements Disposable {
       descriptionViewModel: this.descriptionViewModel,
       goToExtremaViewModel: this.goToExtremaViewModel,
       helpViewModel: this.helpViewModel,
+      jumpToMarkViewModel: this.jumpToMarkViewModel,
       reviewViewModel: this.reviewViewModel,
       settingsViewModel: this.settingsViewModel,
       textViewModel: this.textViewModel,
       rotorNavigationViewModel: this.rotorNavigationViewModel,
+      markService: this.markService,
     });
     this.mousebinding = new Mousebindingservice(
       {
@@ -289,10 +324,12 @@ export class Controller implements Disposable {
         descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
+        jumpToMarkViewModel: this.jumpToMarkViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
+        markService: this.markService,
       },
       this.settingsService,
       this.displayService,
@@ -324,10 +361,12 @@ export class Controller implements Disposable {
         descriptionViewModel: this.descriptionViewModel,
         goToExtremaViewModel: this.goToExtremaViewModel,
         helpViewModel: this.helpViewModel,
+        jumpToMarkViewModel: this.jumpToMarkViewModel,
         reviewViewModel: this.reviewViewModel,
         settingsViewModel: this.settingsViewModel,
         textViewModel: this.textViewModel,
         rotorNavigationViewModel: this.rotorNavigationViewModel,
+        markService: this.markService,
       },
     );
 
@@ -508,12 +547,14 @@ export class Controller implements Disposable {
     this.brailleViewModel.dispose();
     this.textViewModel.dispose();
     this.commandPaletteViewModel.dispose();
+    this.jumpToMarkViewModel.dispose();
     this.rotorNavigationViewModel.dispose();
 
     this.highContrastService.dispose();
     this.highlightService.dispose();
     this.tactileService.dispose();
     this.autoplayService.dispose();
+    this.markService.dispose();
     this.monitorService.dispose();
 
     this.chatService.dispose();
@@ -558,6 +599,7 @@ export class Controller implements Disposable {
     this.viewModelRegistry.register('chat', this.chatViewModel);
     this.viewModelRegistry.register('settings', this.settingsViewModel);
     this.viewModelRegistry.register('commandPalette', this.commandPaletteViewModel);
+    this.viewModelRegistry.register('jumpToMark', this.jumpToMarkViewModel);
     this.viewModelRegistry.register('commandExecutor', this.commandExecutor);
     this.viewModelRegistry.register('rotor', this.rotorNavigationViewModel);
   }

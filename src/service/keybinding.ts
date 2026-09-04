@@ -77,6 +77,34 @@ const BRAILLE_KEYMAP = {
   ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
   EXIT_BRAILLE_AND_SUBPLOT: key(`esc`, 'Exit Braille Mode', { showInHelp: false }),
 
+  // Mark and recall (scope activation)
+  ACTIVATE_MARK_SET_SCOPE: key(`shift+m`, 'Set Mark', { helpKey: 'Shift+M then 0-9' }),
+  ACTIVATE_MARK_PLAY_SCOPE: key(`m`, 'Play Mark', { helpKey: 'm then 0-9' }),
+  ACTIVATE_MARK_JUMP_SCOPE: key(`j`, 'Jump to Mark', { helpKey: 'j then 0-9' }),
+
+  // Mark and recall (chord shortcuts for simultaneous key press)
+  // Note: Jump chords (j+#) removed - now opens dialog
+  SET_MARK_0: key(`shift+m+0`, 'Set Mark 0', { showInHelp: false }),
+  SET_MARK_1: key(`shift+m+1`, 'Set Mark 1', { showInHelp: false }),
+  SET_MARK_2: key(`shift+m+2`, 'Set Mark 2', { showInHelp: false }),
+  SET_MARK_3: key(`shift+m+3`, 'Set Mark 3', { showInHelp: false }),
+  SET_MARK_4: key(`shift+m+4`, 'Set Mark 4', { showInHelp: false }),
+  SET_MARK_5: key(`shift+m+5`, 'Set Mark 5', { showInHelp: false }),
+  SET_MARK_6: key(`shift+m+6`, 'Set Mark 6', { showInHelp: false }),
+  SET_MARK_7: key(`shift+m+7`, 'Set Mark 7', { showInHelp: false }),
+  SET_MARK_8: key(`shift+m+8`, 'Set Mark 8', { showInHelp: false }),
+  SET_MARK_9: key(`shift+m+9`, 'Set Mark 9', { showInHelp: false }),
+  PLAY_MARK_0: key(`m+0`, 'Play Mark 0', { showInHelp: false }),
+  PLAY_MARK_1: key(`m+1`, 'Play Mark 1', { showInHelp: false }),
+  PLAY_MARK_2: key(`m+2`, 'Play Mark 2', { showInHelp: false }),
+  PLAY_MARK_3: key(`m+3`, 'Play Mark 3', { showInHelp: false }),
+  PLAY_MARK_4: key(`m+4`, 'Play Mark 4', { showInHelp: false }),
+  PLAY_MARK_5: key(`m+5`, 'Play Mark 5', { showInHelp: false }),
+  PLAY_MARK_6: key(`m+6`, 'Play Mark 6', { showInHelp: false }),
+  PLAY_MARK_7: key(`m+7`, 'Play Mark 7', { showInHelp: false }),
+  PLAY_MARK_8: key(`m+8`, 'Play Mark 8', { showInHelp: false }),
+  PLAY_MARK_9: key(`m+9`, 'Play Mark 9', { showInHelp: false }),
+
   // Autoplay
   AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpKey: `${Platform.ctrl} + shift + up` }),
   AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpKey: `${Platform.ctrl} + shift + down` }),
@@ -357,6 +385,34 @@ const TRACE_KEYMAP = {
   ...TACTILE_KEYMAP,
   ACTIVATE_TRACE_LABEL_SCOPE: key(`l`, 'Access Labels', { showInHelp: false }),
 
+  // Mark and recall (scope activation)
+  ACTIVATE_MARK_SET_SCOPE: key(`shift+m`, 'Set Mark', { helpKey: 'Shift+M then 0-9' }),
+  ACTIVATE_MARK_PLAY_SCOPE: key(`m`, 'Play Mark', { helpKey: 'm then 0-9' }),
+  ACTIVATE_MARK_JUMP_SCOPE: key(`j`, 'Jump to Mark', { helpKey: 'j then 0-9' }),
+
+  // Mark and recall (chord shortcuts for simultaneous key press)
+  // Note: Jump chords (j+#) removed - now opens dialog
+  SET_MARK_0: key(`shift+m+0`, 'Set Mark 0', { showInHelp: false }),
+  SET_MARK_1: key(`shift+m+1`, 'Set Mark 1', { showInHelp: false }),
+  SET_MARK_2: key(`shift+m+2`, 'Set Mark 2', { showInHelp: false }),
+  SET_MARK_3: key(`shift+m+3`, 'Set Mark 3', { showInHelp: false }),
+  SET_MARK_4: key(`shift+m+4`, 'Set Mark 4', { showInHelp: false }),
+  SET_MARK_5: key(`shift+m+5`, 'Set Mark 5', { showInHelp: false }),
+  SET_MARK_6: key(`shift+m+6`, 'Set Mark 6', { showInHelp: false }),
+  SET_MARK_7: key(`shift+m+7`, 'Set Mark 7', { showInHelp: false }),
+  SET_MARK_8: key(`shift+m+8`, 'Set Mark 8', { showInHelp: false }),
+  SET_MARK_9: key(`shift+m+9`, 'Set Mark 9', { showInHelp: false }),
+  PLAY_MARK_0: key(`m+0`, 'Play Mark 0', { showInHelp: false }),
+  PLAY_MARK_1: key(`m+1`, 'Play Mark 1', { showInHelp: false }),
+  PLAY_MARK_2: key(`m+2`, 'Play Mark 2', { showInHelp: false }),
+  PLAY_MARK_3: key(`m+3`, 'Play Mark 3', { showInHelp: false }),
+  PLAY_MARK_4: key(`m+4`, 'Play Mark 4', { showInHelp: false }),
+  PLAY_MARK_5: key(`m+5`, 'Play Mark 5', { showInHelp: false }),
+  PLAY_MARK_6: key(`m+6`, 'Play Mark 6', { showInHelp: false }),
+  PLAY_MARK_7: key(`m+7`, 'Play Mark 7', { showInHelp: false }),
+  PLAY_MARK_8: key(`m+8`, 'Play Mark 8', { showInHelp: false }),
+  PLAY_MARK_9: key(`m+9`, 'Play Mark 9', { showInHelp: false }),
+
   // Autoplay
   AUTOPLAY_UPWARD: key(`${Platform.ctrl}+shift+up`, 'Autoplay Upward', { helpKey: `${Platform.ctrl} + shift + up` }),
   AUTOPLAY_DOWNWARD: key(`${Platform.ctrl}+shift+down`, 'Autoplay Downward', { helpKey: `${Platform.ctrl} + shift + down` }),
@@ -477,6 +533,90 @@ const GRID_CELL_KEYMAP = {
 } as const;
 
 /**
+ * Keymap configuration for mark set scope interactions (setting marks).
+ */
+const MARK_SET_KEYMAP = {
+  DEACTIVATE_MARK_SCOPE: key('escape', 'Exit Mark Mode', { showInHelp: false }),
+  SET_MARK_0: key('0', 'Set Mark 0', { showInHelp: false }),
+  SET_MARK_1: key('1', 'Set Mark 1', { showInHelp: false }),
+  SET_MARK_2: key('2', 'Set Mark 2', { showInHelp: false }),
+  SET_MARK_3: key('3', 'Set Mark 3', { showInHelp: false }),
+  SET_MARK_4: key('4', 'Set Mark 4', { showInHelp: false }),
+  SET_MARK_5: key('5', 'Set Mark 5', { showInHelp: false }),
+  SET_MARK_6: key('6', 'Set Mark 6', { showInHelp: false }),
+  SET_MARK_7: key('7', 'Set Mark 7', { showInHelp: false }),
+  SET_MARK_8: key('8', 'Set Mark 8', { showInHelp: false }),
+  SET_MARK_9: key('9', 'Set Mark 9', { showInHelp: false }),
+  // Catch chord overlaps (user still holding shift+m when pressing number) - just deactivate
+  DEACTIVATE_MARK_SCOPE_CHORD_0: key('shift+m+0', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_1: key('shift+m+1', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_2: key('shift+m+2', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_3: key('shift+m+3', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_4: key('shift+m+4', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_5: key('shift+m+5', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_6: key('shift+m+6', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_7: key('shift+m+7', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_8: key('shift+m+8', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_9: key('shift+m+9', 'Exit Mark Mode', { showInHelp: false }),
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+} as const;
+
+/**
+ * Keymap configuration for mark play scope interactions (describing marks).
+ */
+const MARK_PLAY_KEYMAP = {
+  DEACTIVATE_MARK_SCOPE: key('escape', 'Exit Mark Mode', { showInHelp: false }),
+  PLAY_MARK_0: key('0', 'Play Mark 0', { showInHelp: false }),
+  PLAY_MARK_1: key('1', 'Play Mark 1', { showInHelp: false }),
+  PLAY_MARK_2: key('2', 'Play Mark 2', { showInHelp: false }),
+  PLAY_MARK_3: key('3', 'Play Mark 3', { showInHelp: false }),
+  PLAY_MARK_4: key('4', 'Play Mark 4', { showInHelp: false }),
+  PLAY_MARK_5: key('5', 'Play Mark 5', { showInHelp: false }),
+  PLAY_MARK_6: key('6', 'Play Mark 6', { showInHelp: false }),
+  PLAY_MARK_7: key('7', 'Play Mark 7', { showInHelp: false }),
+  PLAY_MARK_8: key('8', 'Play Mark 8', { showInHelp: false }),
+  PLAY_MARK_9: key('9', 'Play Mark 9', { showInHelp: false }),
+  // Catch chord overlaps (user still holding m when pressing number) - just deactivate
+  DEACTIVATE_MARK_SCOPE_CHORD_0: key('m+0', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_1: key('m+1', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_2: key('m+2', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_3: key('m+3', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_4: key('m+4', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_5: key('m+5', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_6: key('m+6', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_7: key('m+7', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_8: key('m+8', 'Exit Mark Mode', { showInHelp: false }),
+  DEACTIVATE_MARK_SCOPE_CHORD_9: key('m+9', 'Exit Mark Mode', { showInHelp: false }),
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+} as const;
+
+/**
+ * Keymap configuration for mark jump dialog interactions.
+ * Now operates as a dialog with list navigation.
+ */
+const MARK_JUMP_KEYMAP = {
+  // Dialog navigation
+  JUMP_TO_MARK_MOVE_UP: key('up', 'Navigate Up', { showInHelp: false }),
+  JUMP_TO_MARK_MOVE_DOWN: key('down', 'Navigate Down', { showInHelp: false }),
+  JUMP_TO_MARK_SELECT: key('enter', 'Select', { showInHelp: false }),
+  JUMP_TO_MARK_CLOSE: key('esc', 'Close', { showInHelp: false }),
+
+  // Direct slot jumping via number keys
+  JUMP_TO_SLOT_0: key('0', 'Jump to Mark 0', { showInHelp: false }),
+  JUMP_TO_SLOT_1: key('1', 'Jump to Mark 1', { showInHelp: false }),
+  JUMP_TO_SLOT_2: key('2', 'Jump to Mark 2', { showInHelp: false }),
+  JUMP_TO_SLOT_3: key('3', 'Jump to Mark 3', { showInHelp: false }),
+  JUMP_TO_SLOT_4: key('4', 'Jump to Mark 4', { showInHelp: false }),
+  JUMP_TO_SLOT_5: key('5', 'Jump to Mark 5', { showInHelp: false }),
+  JUMP_TO_SLOT_6: key('6', 'Jump to Mark 6', { showInHelp: false }),
+  JUMP_TO_SLOT_7: key('7', 'Jump to Mark 7', { showInHelp: false }),
+  JUMP_TO_SLOT_8: key('8', 'Jump to Mark 8', { showInHelp: false }),
+  JUMP_TO_SLOT_9: key('9', 'Jump to Mark 9', { showInHelp: false }),
+
+  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+} as const;
+
+/**
  * Maps each application scope to its corresponding keymap configuration.
  */
 export const SCOPED_KEYMAP = {
@@ -490,6 +630,9 @@ export const SCOPED_KEYMAP = {
   [Scope.GO_TO_EXTREMA]: GO_TO_EXTREMA_KEYMAP,
   [Scope.GRID_CELL]: GRID_CELL_KEYMAP,
   [Scope.HELP]: HELP_KEYMAP,
+  [Scope.MARK_JUMP]: MARK_JUMP_KEYMAP,
+  [Scope.MARK_PLAY]: MARK_PLAY_KEYMAP,
+  [Scope.MARK_SET]: MARK_SET_KEYMAP,
   [Scope.REVIEW]: REVIEW_KEYMAP,
   [Scope.SETTINGS]: SETTINGS_KEYMAP,
   [Scope.SUBPLOT]: SUBPLOT_KEYMAP,

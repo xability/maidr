@@ -7,6 +7,7 @@ import type { DisplayService } from '@service/display';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { HighContrastService } from '@service/highContrast';
 import type { HighlightService } from '@service/highlight';
+import type { MarkService } from '@service/mark';
 import type { MonitorService } from '@service/monitor';
 import type { NotificationService } from '@service/notification';
 import type { RotorNavigationService } from '@service/rotor';
@@ -20,6 +21,7 @@ import type { CommandPaletteViewModel } from '@state/viewModel/commandPaletteVie
 import type { DescriptionViewModel } from '@state/viewModel/descriptionViewModel';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { HelpViewModel } from '@state/viewModel/helpViewModel';
+import type { JumpToMarkViewModel } from '@state/viewModel/jumpToMarkViewModel';
 import type { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import type { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
@@ -83,6 +85,8 @@ export interface CommandContext {
   goToExtremaViewModel: GoToExtremaViewModel;
   /** Help view model for help interface. */
   helpViewModel: HelpViewModel;
+  /** Jump to mark view model for mark navigation dialog. */
+  jumpToMarkViewModel: JumpToMarkViewModel;
   /** Review view model for review functionality. */
   reviewViewModel: ReviewViewModel;
   /** Description view model for chart description modal. */
@@ -93,4 +97,6 @@ export interface CommandContext {
   textViewModel: TextViewModel;
   /** Rotor navigation view model for rotor interface. */
   rotorNavigationViewModel: RotorNavigationViewModel;
+  /** Mark service for position bookmarking. */
+  markService: MarkService;
 }

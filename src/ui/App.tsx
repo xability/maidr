@@ -16,6 +16,7 @@ import Settings from './component/Settings';
 import Text from './component/Text';
 import Tooltip from './component/Tooltip';
 import { GoToExtrema } from './components/GoToExtrema';
+import { JumpToMark } from './components/JumpToMark';
 
 interface AppProps {
   plot: HTMLElement;
@@ -46,6 +47,9 @@ const App: FC<AppProps> = ({ plot }) => {
 
       case 'HELP':
         return <Help />;
+
+      case 'MARK_JUMP':
+        return <JumpToMark />;
 
       case 'REVIEW':
         return <Review />;
