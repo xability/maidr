@@ -680,6 +680,14 @@ export class LineTrace extends AbstractTrace {
     const currentY = this.points[this.row][this.col].y;
     const intersections: AudioState[] = [];
 
+    // A gap shares nothing with any other line. Without this, `null === null`
+    // matches every other line that also has no reading at this x, and two
+    // absences are announced and sonified as a crossing the chart never drew.
+    if (!isMeasured(toBarValue(currentY))) {
+      this.currentIntersectionsCache = { key, value: intersections };
+      return intersections;
+    }
+
     for (let r = 0; r < this.points.length; r++) {
       const c = this.points[r].findIndex(
         p => p.x === currentX && p.y === currentY,
