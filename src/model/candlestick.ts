@@ -351,8 +351,10 @@ export class Candlestick extends AbstractTrace {
    * Updates visual position for segment highlighting using dynamic value-sorted order
    */
   private updateVisualSegmentPosition(): void {
-    // Use the sorted navigation order (with volatility first)
-    const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+    // Use the sorted navigation order (with volatility first). A layer with
+    // no candles has no order to read; the cursor then sits at -1, which the
+    // state getter reads as nothing at the cursor.
+    const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex] ?? [];
     const dynamicSegmentPosition = navOrder.indexOf(
       this.currentSegmentType ?? this.sections[0],
     );
@@ -396,6 +398,14 @@ export class Candlestick extends AbstractTrace {
    * @param direction - Direction to move (UPWARD, DOWNWARD, FORWARD, BACKWARD)
    */
   public override moveOnce(direction: MovableDirection): boolean {
+    // The guard `MovableGrid.moveOnce` has and this override bypassed: with
+    // no candles there is nothing to enter, so the move is out of bounds like
+    // every other trace's rather than a throw out of the keybinding handler.
+    if (this.candles.length === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
       this.notifyStateUpdate();
@@ -458,6 +468,11 @@ export class Candlestick extends AbstractTrace {
   }
 
   public override moveToExtreme(direction: MovableDirection): boolean {
+    if (this.candles.length === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
