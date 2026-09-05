@@ -1454,9 +1454,13 @@ export class LineTrace extends AbstractTrace {
     }> = [];
 
     // Numeric coordinates for segment math; categorical x values resolve to
-    // ordinal positions on the shared domain (see numericX).
+    // ordinal positions on the shared domain (see numericX). `toBarValue`
+    // for y, as the constructor uses: `Number(null)` is 0, which puts a
+    // vertex on the x axis where the chart draws a gap, and every line
+    // passing between that phantom vertex and the gap's neighbours would
+    // then be reported as crossing this one.
     const numericLines = this.points.map(line =>
-      line.map(point => ({ x: this.numericX(point.x), y: Number(point.y) })),
+      line.map(point => ({ x: this.numericX(point.x), y: toBarValue(point.y) })),
     );
     const currentLine = numericLines[currentGroup];
 
@@ -1482,6 +1486,17 @@ export class LineTrace extends AbstractTrace {
       const seg1End = currentLine[segIndex + 1];
       const seg2Start = numericLines[otherLine][otherSegIndex];
       const seg2End = numericLines[otherLine][otherSegIndex + 1];
+
+      // A segment with a gap at either end is not drawn, so nothing can
+      // cross it. The arithmetic below would reject a NaN endpoint anyway,
+      // but only because every comparison against NaN is false; skip it
+      // deliberately rather than by that accident.
+      if (
+        !Number.isFinite(seg1Start.y) || !Number.isFinite(seg1End.y)
+        || !Number.isFinite(seg2Start.y) || !Number.isFinite(seg2End.y)
+      ) {
+        return;
+      }
 
       const intersection = this.getSegmentIntersection(seg1Start, seg1End, seg2Start, seg2End);
       if (!intersection) {
