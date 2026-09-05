@@ -95,6 +95,52 @@ const CASES: Case[] = [
       },
     },
   },
+  {
+    type: TraceType.TREEMAP,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'Region' }, y: { label: 'Population' } },
+      data: [
+        { x: 'France', y: 67, path: ['Europe'] },
+        { x: 'Japan', y: 125, path: ['Asia'] },
+      ],
+    },
+  },
+  {
+    type: TraceType.BOXEN,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'Group' }, y: { label: 'Milliseconds' } },
+      data: [
+        { z: 'light', median: 50, levels: [{ p: 0.25, lo: 45, hi: 55 }] },
+        { z: 'heavy', median: 80, levels: [{ p: 0.25, lo: 70, hi: 90 }] },
+      ],
+    },
+  },
+  {
+    type: TraceType.CHOROPLETH,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'State' }, y: { label: 'Rate' } },
+      data: [
+        { x: 'Washington', y: 10, lat: 47.4, lon: -120.5, neighbors: ['Oregon'] },
+        { x: 'Oregon', y: 20, lat: 43.9, lon: -120.6, neighbors: ['Washington'] },
+      ],
+    },
+  },
+  {
+    type: TraceType.GANTT,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'Task' }, y: { label: 'Day' } },
+      data: {
+        points: [
+          [{ x: 'Design', start: 0, end: 10 }],
+          [{ x: 'Build', start: 10, end: 30 }],
+        ],
+      },
+    },
+  },
 ];
 
 /**
