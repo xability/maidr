@@ -76,7 +76,10 @@ export class BoxTrace extends AbstractTrace {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.points = [...(layer.data as BoxPoint[])].reverse();
     } else {
-      this.points = layer.data as BoxPoint[];
+      // Copied, like the reversed branch above: `dispose()` truncates the
+      // array it holds, and held by reference that would empty the caller's
+      // spec, so a figure rebuilt from it came up empty.
+      this.points = [...(layer.data as BoxPoint[])];
     }
 
     // Standard box plot sections: full Tukey structure
