@@ -2,6 +2,7 @@ import type { RotorFilterUnit } from '@model/abstract';
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { MathUtil } from '@util/math';
+import { isMeasured } from './bar';
 import { LineTrace } from './line';
 
 /**
@@ -78,9 +79,13 @@ export class BumpTrace extends LineTrace {
 
     // `MathUtil` rather than a spread into `Math.min`: the same helpers
     // `LineTrace` uses per row, without the call-stack limit a spread carries
-    // on a large table and with one answer for an empty chart.
-    this.bestRank = MathUtil.minFrom2D(this.lineValues);
-    this.worstRank = MathUtil.maxFrom2D(this.lineValues);
+    // on a large table and with one answer for an empty chart. Over the
+    // measured ranks only, as `LineTrace` filters its per-row range: a gap is
+    // NaN, and one NaN in the spread made both bounds NaN and every point in
+    // the chart, gap or not, unplayable.
+    const measured = this.lineValues.flat().filter(isMeasured);
+    this.bestRank = MathUtil.safeMin(measured);
+    this.worstRank = MathUtil.safeMax(measured);
 
     // The longest competitor, not row 0's. A table where one competitor
     // joined late is ragged, and reading row 0's length would take some other

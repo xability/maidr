@@ -289,6 +289,42 @@ describe('a table where a competitor joined late or dropped out', () => {
   });
 });
 
+describe('a table with a gap in one competitor\'s run', () => {
+  /**
+   * Birch has no rank for R2. A gap is a fact about one period of one
+   * competitor; it must not cost the fully measured competitors their pitch.
+   */
+  const GAPPED: LinePoint[][] = [
+    [
+      { x: 'R1', y: 1, z: 'Ash' },
+      { x: 'R2', y: 2, z: 'Ash' },
+      { x: 'R3', y: 3, z: 'Ash' },
+    ],
+    [
+      { x: 'R1', y: 2, z: 'Birch' },
+      { x: 'R2', y: null, z: 'Birch' },
+      { x: 'R3', y: 1, z: 'Birch' },
+    ],
+  ];
+
+  test('the measured competitor keeps a finite pitch range', () => {
+    // Chart-wide bounds over a spread that held a NaN were NaN, so every
+    // point in the chart -- the gap and the leader alike -- lost its pitch.
+    const { freq } = nonEmptyState(bump(0, 0, GAPPED)).audio;
+
+    expect(freq.min).toBe(3);
+    expect(freq.max).toBe(1);
+  });
+
+  test('the competitor with the gap keeps its range on its measured rounds', () => {
+    const { freq } = nonEmptyState(bump(1, 2, GAPPED)).audio;
+
+    expect(freq.min).toBe(3);
+    expect(freq.max).toBe(1);
+    expect(freq.raw).toBe(1);
+  });
+});
+
 describe('the description says who moved', () => {
   const read = (label: string): unknown =>
     bump().description.stats.find(stat => stat.label === label)?.value;
