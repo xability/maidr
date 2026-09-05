@@ -1,3 +1,4 @@
+import type { LineTrace } from '@model/line';
 /**
  * A layer with an empty series threw as soon as its state was read (#905).
  *
@@ -142,6 +143,59 @@ describe('a ragged layer', () => {
 
     trace.row = 0;
     expect(trace.state.empty).toBe(false);
+  });
+});
+
+describe('a ragged layer whose first series is empty', () => {
+  /**
+   * The empty series comes first -- a hue level with nothing in the range,
+   * emitted before the ones that have data. `handleInitialEntry` parks the
+   * cursor at (-1, -1) because `graph[0][0]` does not exist, and every
+   * accessor that indexes `points[row]` from there threw.
+   * @returns The trace
+   */
+  function firstEmptyTrace(): ReturnType<typeof TraceFactory.create> {
+    return TraceFactory.create(layer(TraceType.LINE, [[], POINTS]));
+  }
+
+  test('the first keypress lands on the series that has points', () => {
+    const trace = firstEmptyTrace();
+
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.state.empty).toBe(false);
+  });
+
+  test.each(['FORWARD', 'BACKWARD', 'UPWARD', 'DOWNWARD'] as const)(
+    'moving %s from the empty series reports out of bounds rather than throwing',
+    (direction) => {
+      const trace = firstEmptyTrace();
+      trace.isInitialEntry = false;
+      trace.row = 0;
+      const update = jest.fn();
+      trace.addObserver({ update });
+
+      expect(() => trace.moveOnce(direction)).not.toThrow();
+      expect(trace.moveOnce(direction)).toBe(false);
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ empty: true }));
+    },
+  );
+
+  test('an entry that finds no series at all still answers every move', () => {
+    const trace = TraceFactory.create(layer(TraceType.LINE, [[]]));
+    trace.moveOnce('FORWARD');
+
+    expect(trace.state.empty).toBe(true);
+    expect(trace.moveOnce('FORWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('the x values on offer from the empty series are none', () => {
+    const trace = firstEmptyTrace() as LineTrace;
+    trace.isInitialEntry = false;
+    trace.row = 0;
+
+    expect(trace.getAvailableXValues()).toEqual([]);
   });
 });
 

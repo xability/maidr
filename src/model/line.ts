@@ -574,9 +574,30 @@ export class LineTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * Establishes the cursor on the first move into the trace.
+   *
+   * `MovableGraph.handleInitialEntry` tries `(0, 0)` and otherwise parks the
+   * cursor at `(-1, -1)`. A ragged layer whose *first* series is empty -- a
+   * hue level with no data in the range, emitted before the ones that have
+   * some -- has points to land on all the same, so the cursor is moved to the
+   * first series that has any rather than left off the data.
+   */
+  protected enterTrace(): void {
+    this.movable.handleInitialEntry();
+    if (this.row !== -1) {
+      return;
+    }
+    const populated = this.points.findIndex(line => line.length > 0);
+    if (populated !== -1) {
+      this.row = populated;
+      this.col = 0;
+    }
+  }
+
   public override moveOnce(direction: MovableDirection): boolean {
     if (this.isInitialEntry) {
-      this.movable.handleInitialEntry();
+      this.enterTrace();
       this.previousRow = null;
       this.notifyStateUpdate();
       return true;
@@ -721,17 +742,22 @@ export class LineTrace extends AbstractTrace {
     switch (target) {
       case 'UPWARD':
       case 'DOWNWARD': {
+        // Nothing at the cursor -- an empty series, or an entry that found
+        // no series at all -- has no x to match, so there is nowhere to go.
+        const current = this.points[this.row]?.[this.col];
+        if (current === undefined) {
+          return false;
+        }
         // For y-value-based navigation, check if there's a valid target line with same X value
         const targetRow = this.findLineByXAndYDirection(target);
         if (targetRow === null) {
           return false;
         }
         // Also check if the target line has a point with the same X value
-        const currentX = this.points[this.row][this.col].x;
-        return this.findColumnByXValue(targetRow, currentX) !== -1;
+        return this.findColumnByXValue(targetRow, current.x) !== -1;
       }
       case 'FORWARD':
-        return this.col < this.values[this.row].length - 1;
+        return this.col < (this.values[this.row]?.length ?? 0) - 1;
       case 'BACKWARD':
         return this.col > 0;
     }
@@ -746,7 +772,11 @@ export class LineTrace extends AbstractTrace {
   private findLineByXAndYDirection(
     direction: 'UPWARD' | 'DOWNWARD',
   ): number | null {
-    const currentX = this.points[this.row][this.col].x;
+    const current = this.points[this.row]?.[this.col];
+    if (current === undefined) {
+      return null;
+    }
+    const currentX = current.x;
 
     let bestRow: number | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -1803,7 +1833,7 @@ export class LineTrace extends AbstractTrace {
    * @returns Array of X values
    */
   public getAvailableXValues(): XValue[] {
-    return this.points[this.row].map(val => val.x);
+    return (this.points[this.row] ?? []).map(val => val.x);
   }
 
   /**
@@ -1814,7 +1844,7 @@ export class LineTrace extends AbstractTrace {
   public override moveToXValue(xValue: XValue): boolean {
     // Handle initial entry properly
     if (this.isInitialEntry) {
-      this.movable.handleInitialEntry();
+      this.enterTrace();
     }
     return super.moveToXValue(xValue);
   }
