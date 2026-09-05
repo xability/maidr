@@ -185,7 +185,13 @@ export class Candlestick extends AbstractTrace {
       // not a neutral by default, which would announce that the price
       // finished where it started on a chart that never said where it
       // started.
-      trend: candle.open === undefined
+      //
+      // Gated on the chart's `hasOpen` rather than on this candle's open:
+      // the sections, the braille shading, the data table and the pattern
+      // asides all follow the chart, so on a chart with an open for only
+      // some candles a per-candle trend would be announced and sonified for
+      // candles whose braille row and table say there is no body.
+      trend: !this.hasOpen || candle.open === undefined
         ? undefined
         : candle.close > candle.open
           ? 'Bull'
