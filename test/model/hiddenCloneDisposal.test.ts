@@ -27,9 +27,10 @@
  *     construction over the same document resolves the same elements.
  */
 
-import type { MaidrLayer } from '@type/grammar';
+import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import { afterEach, describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
+import { ScatterTrace } from '@model/scatter';
 import { TraceType } from '@type/grammar';
 
 const MARK = '.mark';
@@ -306,6 +307,45 @@ describe('a network removes every link clone, not only the ones its nodes highli
     expect(ownedCount()).toBe(5);
     second.dispose();
     expect(ownedCount()).toBe(0);
+  });
+});
+
+describe('a scatter removes the clones whose coordinates it could not read', () => {
+  // A `<g>` with no x/y, cx/cy, transform or `d` never joins a column or a
+  // row, so nothing in `highlightXValues` / `highlightYValues` reaches it.
+  const points: ScatterPoint[] = [{ x: 1, y: 2 }, { x: 3, y: 4 }, { x: 7, y: 8 }];
+  const layer: MaidrLayer = {
+    id: 'test-scatter',
+    type: TraceType.SCATTER,
+    selectors: MARK,
+    axes: {
+      x: { label: 'X', min: 0, max: 10, tickStep: 5 },
+      y: { label: 'Y', min: 0, max: 10, tickStep: 5 },
+    },
+    data: points,
+  };
+
+  test('disposing removes every clone, readable coordinates or not', () => {
+    document.body.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${
+      '<g class="mark"></g>'.repeat(points.length)}</svg>`;
+
+    const trace = new ScatterTrace(layer);
+    expect(ownedCount()).toBe(points.length);
+
+    trace.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+
+  test('a disposed trace no longer offers a nearest point', () => {
+    document.body.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${
+      points.map(point =>
+        `<circle class="mark" cx="${point.x}" cy="${point.y}" r="1" />`).join('')}</svg>`;
+    const trace = new ScatterTrace(layer);
+    expect(trace.findNearestPoint(0, 0)).not.toBeNull();
+
+    trace.dispose();
+
+    expect(trace.findNearestPoint(0, 0)).toBeNull();
   });
 });
 
