@@ -20,6 +20,7 @@
 import type { Maidr, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
+import { Histogram } from '@model/histogram';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 
@@ -69,6 +70,21 @@ describe('a trace with nothing at the cursor', () => {
 
     expect(() => trace.state).not.toThrow();
     expect(trace.state.empty).toBe(true);
+  });
+});
+
+describe('an empty histogram', () => {
+  test('is described without a bin range rather than throwing', () => {
+    // The bin range is read off the first and last bin. With no bins there is
+    // no range to report, and the rest of the description still stands.
+    const trace = new Histogram(layer(TraceType.HISTOGRAM, []));
+
+    expect(() => trace.description).not.toThrow();
+    expect(trace.description.stats).toEqual(expect.arrayContaining([
+      { label: 'Number of bins', value: 0 },
+      { label: 'Bin range', value: 'missing' },
+    ]));
+    expect(trace.description.dataTable.rows).toEqual([]);
   });
 });
 
