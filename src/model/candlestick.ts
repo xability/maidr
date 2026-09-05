@@ -199,10 +199,14 @@ export class Candlestick extends AbstractTrace {
     this.candleValues = this.sections.map(key =>
       this.candles.map(c => this.priceOf(c, key)),
     );
-    const options = this.orientation === Orientation.HORIZONTAL
-      ? { col: this.sections.length - 1 }
-      : { row: this.sections.length - 1 };
-    this.movable = new MovableGrid<number>(this.candleValues, options);
+    // The grid is [section][candle] in BOTH orientations: the highlight
+    // grid (mapToSvgElements), the braille cell (get braille) and the
+    // MovableGrid bounds are all laid out that way, and the cursor has to
+    // agree with them. Orientation only changes which screen axis the
+    // candles run along, which is the concern of `text` and of panning.
+    this.movable = new MovableGrid<number>(this.candleValues, {
+      row: this.sections.length - 1,
+    });
 
     this.min = MathUtil.minFrom2D(this.candleValues);
     this.max = MathUtil.maxFrom2D(this.candleValues);
@@ -233,11 +237,7 @@ export class Candlestick extends AbstractTrace {
     this.currentSegmentType = 'close';
 
     // Initialize visual positioning for highlighting (keep original structure)
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.col = 0; // Points to 'open' segment index in sections array
-    } else {
-      this.row = 0; // Points to 'open' segment index in sections array
-    }
+    this.row = 0; // Points to 'open' segment index in sections array
 
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as string | string[] | CandlestickSelector | undefined,
@@ -353,25 +353,17 @@ export class Candlestick extends AbstractTrace {
   private updateVisualSegmentPosition(): void {
     // Use the sorted navigation order (with volatility first)
     const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
-    const dynamicSegmentPosition = navOrder.indexOf(
-      this.currentSegmentType ?? this.sections[0],
-    );
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.col = dynamicSegmentPosition;
-    } else {
-      this.row = dynamicSegmentPosition;
-    }
+    // The row is the segment's value-sorted position in both orientations;
+    // see the constructor for why the frame does not follow the layout.
+    this.row = navOrder.indexOf(this.currentSegmentType ?? this.sections[0]);
   }
 
   /**
    * Updates visual position for point highlighting and segment position
    */
   protected override updateVisualPointPosition(): void {
-    if (this.orientation === Orientation.HORIZONTAL) {
-      this.row = this.currentPointIndex;
-    } else {
-      this.col = this.currentPointIndex;
-    }
+    // The col is the candle index in both orientations.
+    this.col = this.currentPointIndex;
 
     // Also update segment position since candlestick needs both
     this.updateVisualSegmentPosition();
@@ -520,12 +512,7 @@ export class Candlestick extends AbstractTrace {
     this.isComputingStateAt = true;
     try {
       const { pointIndex, segmentType }
-        = this.navigationService.computeIndexAndSegment(
-          row,
-          col,
-          this.orientation,
-          this.sections,
-        );
+        = this.navigationService.computeIndexAndSegment(row, col, this.sections);
       this.currentPointIndex = pointIndex;
       this.currentSegmentType = segmentType;
       return super.getStateAt(row, col);
@@ -540,6 +527,14 @@ export class Candlestick extends AbstractTrace {
   }
 
   public override moveToIndex(row: number, col: number): boolean {
+    // The cell is [section][candle], the shape of the grid; a cell the chart
+    // does not have is refused here rather than indexing past the candles
+    // below, which threw out of the braille cursor handler.
+    if (!this.isMovable([row, col])) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+
     // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
@@ -547,12 +542,7 @@ export class Candlestick extends AbstractTrace {
 
     // Use navigation service to compute the mapping
     const { pointIndex, segmentType }
-      = this.navigationService.computeIndexAndSegment(
-        row,
-        col,
-        this.orientation,
-        this.sections,
-      );
+      = this.navigationService.computeIndexAndSegment(row, col, this.sections);
 
     // Update Core Model state
     this.currentPointIndex = pointIndex;
@@ -677,7 +667,6 @@ export class Candlestick extends AbstractTrace {
   }
 
   protected get audio(): AudioState {
-    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const candleCount = this.candles.length;
     const sectionCount = this.candleValues.length;
     // `?? this.sections[0]` rather than `?? 'open'`: the fallback has to be
@@ -696,12 +685,11 @@ export class Candlestick extends AbstractTrace {
         raw: value,
       },
       panning: {
-        // x is the candle index in both orientations (this.col vertical,
-        // this.row horizontal); rows/cols describe the grid shape
-        // (sections x candles) independent of orientation, so panning pans by
-        // candle position regardless of how many candles the chart holds.
-        x: isHorizontal ? this.row : this.col,
-        y: isHorizontal ? this.col : this.row,
+        // x is the candle index (this.col) in both orientations, so a
+        // horizontal chart still pans by candle; rows/cols describe the grid
+        // shape (sections x candles), which is also orientation-independent.
+        x: this.col,
+        y: this.row,
         rows: sectionCount,
         cols: candleCount,
       },
@@ -717,8 +705,7 @@ export class Candlestick extends AbstractTrace {
     //
     // This getter must stay side-effect free: it runs on every state emission
     // (AbstractTrace.state) and during getStateAt, so mutating this.row/col
-    // here would corrupt the highlight computed alongside it (and, for
-    // horizontal charts, clobber the candle index this.row holds). All heavy
+    // here would corrupt the highlight computed alongside it. All heavy
     // data (per-row min/max, trends) is precomputed in the constructor.
     return {
       empty: false,
@@ -1192,11 +1179,8 @@ export class Candlestick extends AbstractTrace {
       this.handleInitialEntry();
     }
 
-    // Drive off currentPointIndex, which is the candle index in BOTH
-    // orientations. Reading this.col directly is only correct in the vertical
-    // layout — in the horizontal layout this.col holds the segment position
-    // and this.row holds the candle index (see updateVisualPointPosition).
-    // updateVisualPointPosition() maps currentPointIndex back to row/col.
+    // Drive off currentPointIndex, the candle index the navigation state
+    // keeps; updateVisualPointPosition() maps it back to this.col.
     const currentIndex = this.currentPointIndex;
     if (currentIndex < 0 || currentIndex >= this.candles.length) {
       return false;
