@@ -2150,7 +2150,28 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return null;
     }
 
+    // ...and describe a grid. A zero step over a positive range asks
+    // `computeGridSteps` for `Infinity` bins, which it pushes until the tab
+    // runs out of memory -- inside the constructor, so nothing can catch it.
+    // A negative step or an inverted range yields the opposite, a grid with
+    // no cell to enter. Neither is a grid, so neither advertises one.
+    if (!this.isGridAxis(xMin, xMax, xTickStep) || !this.isGridAxis(yMin, yMax, yTickStep)) {
+      return null;
+    }
+
     return { xMin, xMax, xTickStep, yMin, yMax, yTickStep };
+  }
+
+  /**
+   * Whether one axis's range and step can be cut into at least one bin.
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @param tick - The bin width
+   * @returns True when the values yield a finite, positive number of bins
+   */
+  private isGridAxis(min: number, max: number, tick: number): boolean {
+    return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(tick)
+      && tick > 0 && max > min;
   }
 
   /**
