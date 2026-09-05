@@ -325,9 +325,15 @@ export class LineTrace extends AbstractTrace {
     const isMultiline = this.points.length > 1;
     const labels = this.seriesLabels;
 
+    // The widest series, not the first: a ragged layer's first series can be
+    // the empty one, and a layer can have no series at all.
+    const perSeries = this.points.reduce(
+      (widest, line) => Math.max(widest, line.length),
+      0,
+    );
     const stats: DescriptionState['stats'] = [
       { label: labels.count, value: this.points.length },
-      { label: labels.perSeries, value: this.points[0].length },
+      { label: labels.perSeries, value: perSeries },
       { label: 'Min value', value: MathUtil.safeMin(this.min) },
       { label: 'Max value', value: MathUtil.safeMax(this.max) },
     ];
@@ -368,7 +374,7 @@ export class LineTrace extends AbstractTrace {
       });
     } else {
       headers = [this.xAxis, this.yAxis];
-      rows = this.points[0].map(p => [p.x, p.y ?? '']);
+      rows = (this.points[0] ?? []).map(p => [p.x, p.y ?? '']);
     }
 
     return {

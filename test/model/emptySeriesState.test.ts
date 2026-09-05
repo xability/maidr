@@ -1,4 +1,3 @@
-import type { LineTrace } from '@model/line';
 /**
  * A layer with an empty series threw as soon as its state was read (#905).
  *
@@ -22,6 +21,7 @@ import type { Maidr, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { Histogram } from '@model/histogram';
+import { LineTrace } from '@model/line';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 
@@ -196,6 +196,29 @@ describe('a ragged layer whose first series is empty', () => {
     trace.row = 0;
 
     expect(trace.getAvailableXValues()).toEqual([]);
+  });
+});
+
+describe('describing a layer with an empty series', () => {
+  test('a layer with no series at all is described rather than throwing', () => {
+    // The description read the points per line off series 0, and the
+    // single-line table off it too; with no series there was no series 0.
+    const trace = new LineTrace(layer(TraceType.LINE, []));
+
+    expect(() => trace.description).not.toThrow();
+    expect(trace.description.stats).toEqual(expect.arrayContaining([
+      { label: 'Number of lines', value: 0 },
+      { label: 'Points per line', value: 0 },
+    ]));
+    expect(trace.description.dataTable.rows).toEqual([]);
+  });
+
+  test('the points per line are the widest series, not the first', () => {
+    // Series 0 being the empty one should not read as "Points per line: 0"
+    // for a chart whose other series draw two.
+    const trace = new LineTrace(layer(TraceType.LINE, [[], POINTS]));
+
+    expect(trace.description.stats).toContainEqual({ label: 'Points per line', value: 2 });
   });
 });
 
