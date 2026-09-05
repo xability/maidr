@@ -73,6 +73,25 @@ describe('a trace with nothing at the cursor', () => {
   });
 });
 
+describe('a segmented layer with no series at all', () => {
+  // A producer emits `[]` rather than `[[]]` for a stacked chart with nothing
+  // to stack. The summary row is built off `barValues[0]`, which does not
+  // exist, and the throw left trace construction and the figure with it.
+  test.each([
+    ['stacked', TraceType.STACKED],
+    ['dodged', TraceType.DODGED],
+    ['normalized', TraceType.NORMALIZED],
+    ['diverging', TraceType.DIVERGING],
+    ['mosaic', TraceType.MOSAIC],
+  ])('a %s layer with no series constructs and reports empty', (_name, type) => {
+    const build = (): ReturnType<typeof TraceFactory.create> =>
+      TraceFactory.create(layer(type, []));
+
+    expect(build).not.toThrow();
+    expect(build().state.empty).toBe(true);
+  });
+});
+
 describe('an empty histogram', () => {
   test('is described without a bin range rather than throwing', () => {
     // The bin range is read off the first and last bin. With no bins there is
