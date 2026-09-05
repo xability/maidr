@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
+import { toBarValue } from './bar';
 import { LineTrace } from './line';
 import { STEP_DIRECTION_LABEL, stepDataVertices } from './step';
 
@@ -241,7 +242,7 @@ export class AreaTrace extends LineTrace {
     for (const series of this.points) {
       for (const point of series) {
         const key = String(point.x);
-        const value = Number(point.y);
+        const value = toBarValue(point.y);
         const running = totals.get(key);
         if (!isMeasured(value)) {
           // A column reached only by gaps has no total, only an absence.
@@ -297,7 +298,7 @@ export class AreaTrace extends LineTrace {
       return baseText;
     }
 
-    const value = Number(point.y);
+    const value = toBarValue(point.y);
     // A zero total is reachable — series that cancel out, or a column of
     // zeros — and dividing by it yields Infinity or NaN. Report the total and
     // stay silent about the share rather than announcing a share of nothing.
