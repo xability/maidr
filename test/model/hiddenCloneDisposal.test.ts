@@ -225,6 +225,90 @@ describe('a segmented bar clones only the marks its cells claim', () => {
   });
 });
 
+describe('a flow removes every ribbon clone, not only the ones its nodes highlight', () => {
+  // A highlights its widest flow (A-B) and C its widest inflow (D-C), so
+  // the A-C ribbon is nobody's highlight and nothing in `highlightValues`
+  // reaches its clone.
+  const layer: Omit<MaidrLayer, 'selectors'> = {
+    id: 'test-sankey',
+    type: TraceType.SANKEY,
+    axes: { x: { label: 'Node' }, y: { label: 'Flow' } },
+    data: [
+      { source: 'A', target: 'B', value: 10 },
+      { source: 'A', target: 'C', value: 5 },
+      { source: 'D', target: 'C', value: 8 },
+    ],
+  };
+
+  test('declining a selector list that does not fit leaves the document untouched', () => {
+    draw(4);
+
+    const trace = TraceFactory.create({ ...layer, selectors: MARK });
+
+    expect(ownedCount()).toBe(0);
+    trace.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+
+  test('disposing removes every clone it inserted, so a rebuild resolves the same marks', () => {
+    draw(3);
+
+    const first = TraceFactory.create({ ...layer, selectors: MARK });
+    expect(ownedCount()).toBe(3);
+
+    first.dispose();
+    expect(ownedCount()).toBe(0);
+
+    const second = TraceFactory.create({ ...layer, selectors: MARK });
+    expect(ownedCount()).toBe(3);
+    second.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+});
+
+describe('a network removes every link clone, not only the ones its nodes highlight', () => {
+  // Ada highlights one of her three links, Grace and Alan the link between
+  // them or to Ada, and Ida her loop -- at most three of the five lines are
+  // anybody's highlight.
+  const layer: Omit<MaidrLayer, 'selectors'> = {
+    id: 'test-network',
+    type: TraceType.NETWORK,
+    axes: { x: { label: 'Person' }, y: { label: 'Links' } },
+    data: [
+      { source: 'Ada', target: 'Edsger' },
+      { source: 'Ada', target: 'Grace' },
+      { source: 'Ada', target: 'Alan' },
+      { source: 'Grace', target: 'Alan' },
+      { source: 'Ida', target: 'Ida' },
+    ],
+  };
+
+  test('declining a selector list that does not fit leaves the document untouched', () => {
+    draw(6);
+
+    const trace = TraceFactory.create({ ...layer, selectors: MARK });
+
+    expect(ownedCount()).toBe(0);
+    trace.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+
+  test('disposing removes every clone it inserted, so a rebuild resolves the same marks', () => {
+    draw(5);
+
+    const first = TraceFactory.create({ ...layer, selectors: MARK });
+    expect(ownedCount()).toBe(5);
+
+    first.dispose();
+    expect(ownedCount()).toBe(0);
+
+    const second = TraceFactory.create({ ...layer, selectors: MARK });
+    expect(ownedCount()).toBe(5);
+    second.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+});
+
 describe('a gauge keeps one drawn element and leaves no clone of the others', () => {
   const layer: Omit<MaidrLayer, 'selectors'> = {
     id: 'test-gauge',
