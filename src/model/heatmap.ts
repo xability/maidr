@@ -184,7 +184,13 @@ export class Heatmap extends AbstractTrace {
     }
 
     const numRows = this.heatmapValues.length;
-    const numCols = this.heatmapValues[0].length;
+    const numCols = this.heatmapValues[0]?.length ?? 0;
+    // Nothing to pair a selector with. A producer with no cells to draw still
+    // emits the selector its template always emits, and a throw here left
+    // the constructor and the figure with it.
+    if (numRows === 0 || numCols === 0) {
+      return null;
+    }
 
     // Per-cell selector grid: `selector[r][c]` resolves to the SVG element for
     // logical row `r`, column `c`. Used by adapters (e.g. Highcharts) that
