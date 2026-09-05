@@ -189,6 +189,42 @@ describe.each(CASES)('$type leaves no hidden clone behind', (one) => {
   });
 });
 
+describe('a segmented bar clones only the marks its cells claim', () => {
+  const layer: Omit<MaidrLayer, 'selectors'> = {
+    id: 'test-stacked',
+    type: TraceType.STACKED,
+    axes: { x: { label: 'Category' }, y: { label: 'Value' }, z: { label: 'Series' } },
+    data: [
+      [{ x: 'a', y: 3, z: 'A' }, { x: 'b', y: 5, z: 'A' }],
+      [{ x: 'a', y: 2, z: 'B' }, { x: 'b', y: 4, z: 'B' }],
+    ],
+  };
+
+  test('a selector matching more marks than cells leaves no clone of the surplus', () => {
+    // Four cells; six marks -- a legend the selector also caught, say. The
+    // first four are claimed, and nothing referenced the other two.
+    draw(6);
+
+    const trace = TraceFactory.create({ ...layer, selectors: MARK });
+
+    expect(ownedCount()).toBe(4);
+    trace.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+
+  test('a rebuild after dispose claims the same marks', () => {
+    draw(4);
+
+    const first = TraceFactory.create({ ...layer, selectors: MARK });
+    first.dispose();
+    const second = TraceFactory.create({ ...layer, selectors: MARK });
+
+    expect(ownedCount()).toBe(4);
+    second.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+});
+
 describe('a gauge keeps one drawn element and leaves no clone of the others', () => {
   const layer: Omit<MaidrLayer, 'selectors'> = {
     id: 'test-gauge',
