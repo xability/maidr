@@ -125,18 +125,27 @@ export class FunnelTrace extends BarTrace {
       return base;
     }
 
+    const retention = this.retention[stage];
+    const share = this.share[stage];
+
     return {
       ...base,
-      // What fraction of the previous stage got here.
-      z: { label: 'Retained', value: asPercent(this.retention[stage]) },
+      // What fraction of the previous stage got here. When there is no ratio
+      // -- this stage or the one before it measured nothing -- the NaN goes
+      // through as a number rather than formatted: a non-finite number is
+      // what `TextService` reads as "missing", while the string "NaN%" is a
+      // value like any other and would be announced as one.
+      z: { label: 'Retained', value: isMeasured(retention) ? asPercent(retention) : retention },
       // The population that entered, with this stage's share of it. Renders as
       // ", Entered is 10000, 24.0% of it" -- the cumulative view, which the
       // per-stage retention does not give and which a reader would otherwise
-      // have to multiply out across every stage they had passed.
+      // have to multiply out across every stage they had passed. Without a
+      // measured share the clause is dropped, as `AreaTrace` drops it:
+      // "NaN% of it" claims a fraction of a population that was never counted.
       stack: {
         label: 'Entered',
         value: this.counts[0],
-        share: this.share[stage],
+        share: isMeasured(share) ? share : undefined,
       },
     };
   }
