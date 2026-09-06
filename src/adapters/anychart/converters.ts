@@ -1525,34 +1525,6 @@ function stampScatterAttributes(
   });
   candidates.sort((a, b) => (a.x - b.x) || (a.y - b.y));
 
-  // Diagnostic: surface the candidate count up-front so users / developers
-  // can tell at a glance whether the geometric filter actually found
-  // scatter markers. Zero or far-too-few candidates almost always means the
-  // visibility filter rejected the points (see the Phase 9 / Phase 11B
-  // attribute vs. computed-style issue) — not a downstream stamping bug.
-  let expectedTotalPoints = 0;
-  for (let s = 0; s < seriesCount; s++) {
-    const series = chart.getSeriesAt(s);
-    if (!series)
-      continue;
-    let seriesType = '';
-    try {
-      seriesType = series.seriesType();
-    } catch {
-      continue;
-    }
-    if (!SCATTER_LIKE_SERIES_TYPES.has(seriesType))
-      continue;
-    expectedTotalPoints += extractRawRows(series).length;
-  }
-  if (expectedTotalPoints > 0) {
-    console.warn(
-      `[maidr/anychart] scatter: collected ${candidates.length} marker `
-      + `candidates, expected ${expectedTotalPoints} points across `
-      + `${seriesCount} series.`,
-    );
-  }
-
   let multiSeriesWarned = false;
   // See {@link stampLineAttributes}: a running cursor over the candidates the
   // earlier series took, not `s * pointCount`, which counts the series this
@@ -2080,10 +2052,10 @@ function stampBoxAttributes(
         median.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         median.setAttribute(BOX_PART_ATTR, 'q2');
       } else if (!median) {
-        // DIAGNOSTIC (temporary, removed once box highlighting is verified):
-        // surface the IQR bbox so we can see whether the median scan missed
-        // a real element or AnyChart genuinely didn't emit one for this box
-        // (can happen when median color matches IQR fill).
+        // A box whose median stroke was not found highlights without its
+        // middle line, so this is a real shortfall rather than a trace: the
+        // bbox is what says whether the scan missed an element or AnyChart
+        // drew none (which it can, when the median colour matches the fill).
         console.warn(
           `[maidr/anychart] Box ${s}-${b}: no median found. IQR bbox:`,
           iq.bbox,
@@ -2092,8 +2064,8 @@ function stampBoxAttributes(
 
       const whiskers = findWhiskerElements(svg, iq);
       if (whiskers.length !== 2) {
-        // DIAGNOSTIC (temporary): expected exactly two whisker segments
-        // (min stem + max stem). Other counts indicate a scan miss.
+        // A box has exactly two stems, a min and a max. Any other count means
+        // one of them will not highlight.
         console.warn(
           `[maidr/anychart] Box ${s}-${b}: expected 2 whiskers, found `
           + `${whiskers.length}. IQR cx=${iq.cx.toFixed(1)}, `
@@ -2105,49 +2077,6 @@ function stampBoxAttributes(
           continue;
         el.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         el.setAttribute(BOX_PART_ATTR, isUpper ? 'max' : 'min');
-      }
-    }
-
-    // DIAGNOSTIC: one-line summary per series so we can verify which
-    // per-part stamps succeeded without browser DevTools. Remove once
-    // box highlighting is confirmed working end-to-end.
-    const stampedIq = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="iq"]`,
-    ).length;
-    const stampedQ2 = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="q2"]`,
-    ).length;
-    const stampedMin = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="min"]`,
-    ).length;
-    const stampedMax = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="max"]`,
-    ).length;
-    // Using console.warn (not console.log) so the diagnostic surfaces under
-    // the repo's no-console ESLint rule. This whole block is temporary.
-    console.warn(
-      `[maidr/anychart] stampBoxAttributes series ${s}: ${boxCount} boxes, `
-      + `stamped ${stampedIq} iq / ${stampedQ2} q2 / `
-      + `${stampedMin} min / ${stampedMax} max`,
-    );
-
-    // Per-box detail: report any box missing one or more parts so we can
-    // pinpoint failures from a single console line. Temporary diagnostic.
-    for (let b = 0; b < boxCount; b++) {
-      const base = `[${BOX_ATTR}="${stampPrefix}${s}-${b}"]`;
-      const missing: string[] = [];
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="iq"]`))
-        missing.push('iq');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="q2"]`))
-        missing.push('q2');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="min"]`))
-        missing.push('min');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="max"]`))
-        missing.push('max');
-      if (missing.length > 0) {
-        console.warn(
-          `[maidr/anychart]   Box ${s}-${b} missing: ${missing.join(', ')}`,
-        );
       }
     }
   }
