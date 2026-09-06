@@ -269,6 +269,88 @@ describe('ChatService provider requests', () => {
     );
   });
 
+  test('rasterises the plot once for the providers answering one message', async () => {
+    // ChatViewModel fans a message out to every enabled provider at once.
+    // Svg.toBase64 serializes the whole plot, decodes it through an <img>,
+    // draws it to a canvas and encodes a JPEG, all on the main thread — so
+    // running it once per provider blocks navigation and announcements for
+    // as long as it takes, several times over.
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'Answer.' } }],
+        content: [{ type: 'text', text: 'Answer.' }],
+        candidates: [{ content: { parts: [{ text: 'Answer.' }] } }],
+      }),
+    } as Response);
+    jest.mocked(Svg.toBase64).mockClear();
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'key',
+    };
+
+    const responses = await Promise.all([
+      service.sendMessage('OPENAI', request),
+      service.sendMessage('ANTHROPIC_CLAUDE', request),
+      service.sendMessage('GOOGLE_GEMINI', request),
+    ]);
+
+    expect(responses.every(response => response.success)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(1);
+  });
+
+  test('rasterises the plot again for the next message', async () => {
+    // Coalescing is per message, not a cache: the plot the user is looking
+    // at moves with every navigation step, so a later question must be
+    // answered against a current image.
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    jest.mocked(Svg.toBase64).mockClear();
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'sk-openai-test',
+    };
+
+    await service.sendMessage('OPENAI', request);
+    await service.sendMessage('OPENAI', request);
+
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not answer with an image of the chart the data replaced', async () => {
+    // A live data update lands between the two messages below, so the second
+    // must not be served the conversion the first one started.
+    let finishRasterising = (_image: string): void => {};
+    jest.mocked(Svg.toBase64).mockClear();
+    jest.mocked(Svg.toBase64).mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishRasterising = resolve;
+      }),
+    );
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'sk-openai-test',
+    };
+
+    const first = service.sendMessage('OPENAI', request);
+    service.updateData({ id: 'updated-plot' } as unknown as Maidr);
+    const second = service.sendMessage('OPENAI', request);
+    finishRasterising('data:image/jpeg;base64,QUJD');
+    await Promise.all([first, second]);
+
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
+  });
+
   test('falls back to the provider default version when none is selected', async () => {
     mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
 
