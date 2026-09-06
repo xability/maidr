@@ -2,6 +2,7 @@ import type { RotorFilterUnit } from '@model/abstract';
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { MathUtil } from '@util/math';
+import { isMeasured } from './bar';
 import { LineTrace } from './line';
 
 /**
@@ -92,9 +93,18 @@ export class BumpTrace extends LineTrace {
       0,
     );
 
+    // A period the competitor was not ranked in holds NaN, and a move into
+    // or out of it would be NaN too -- which is not `undefined`, so the text
+    // would read it out as a change and the rotor gate would count it as a
+    // rank that moved. There is no previous rank to compare against, which
+    // is the first period's situation, and it is treated the same way.
     this.moves = this.lineValues.map(row =>
-      row.map((rank, column) =>
-        (column === 0 ? undefined : row[column - 1] - rank)));
+      row.map((rank, column) => {
+        const previous = row[column - 1];
+        return column === 0 || !isMeasured(rank) || !isMeasured(previous)
+          ? undefined
+          : previous - rank;
+      }));
 
     // Precomputed, as `Candlestick` precomputes its trend units and for the
     // same reason: the ranks are fixed at construction and the rotor service

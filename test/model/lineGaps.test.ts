@@ -182,3 +182,41 @@ describe('navigating between series across a gap', () => {
     expect(announce(trace.state)).toBe('X is b, Y is 9');
   });
 });
+
+describe('a gap shared with another line', () => {
+  /** Two lines that both have no reading at `b`. */
+  function bothGapped(): LineTrace {
+    return new LineTrace(lineLayer([
+      [{ x: 'a', y: 1, z: 'A' }, { x: 'b', y: null, z: 'A' }],
+      [{ x: 'a', y: 2, z: 'B' }, { x: 'b', y: null, z: 'B' }],
+    ]));
+  }
+
+  test('is not announced as an intersection', () => {
+    // A crossing is one point that several series share. Two series that
+    // have no reading at the same x share nothing there -- but `null ===
+    // null`, so an exact-match scan that does not exclude the gap finds
+    // every other gapped line and reports a crossing the chart never drew.
+    const trace = bothGapped();
+    trace.moveToIndex(1, 0);
+
+    trace.moveOnce('FORWARD');
+
+    expect(announce(trace.state)).toBe('X is b, Y is missing, Group is B');
+  });
+
+  test('is not sonified as a chord', () => {
+    // The intersections branch of the audio service runs before its
+    // empty-tone guard, so a gap reported as a crossing is played as a chord
+    // of non-finite frequencies rather than as the missing-value tone.
+    const trace = bothGapped();
+    trace.moveToIndex(1, 0);
+    const update = jest.fn();
+    trace.addObserver({ update });
+
+    trace.moveOnce('FORWARD');
+
+    const emitted = update.mock.calls[0][0] as { intersections?: unknown[] };
+    expect(emitted.intersections).toBeUndefined();
+  });
+});

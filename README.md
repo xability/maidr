@@ -126,7 +126,15 @@ For the full React guide with TypeScript types reference, data examples for all 
 
 ## Controls
 
-maidr provides keyboard-based interaction for navigating and exploring plots. Users can move through data points with arrow keys and toggle between braille, text, and sonification modes.
+maidr provides keyboard-based interaction for navigating and exploring plots. Press **Tab** (or click) to focus a plot, move through data points with the **arrow keys**, and toggle **B** braille, **T** text, **S** sonification, and **R** review mode. Four global shortcuts open maidr's own interfaces:
+
+| Action | Windows / Linux | macOS |
+| ------ | --------------- | ----- |
+| Show or hide the keyboard shortcut help | Ctrl + / | Command + / |
+| Open the command palette listing every available command | Ctrl + Shift + P | Command + Shift + P |
+| Open the AI chat (requires your own API key, entered in Settings, or a local Ollama server) | Shift + / (that is, **?**) | Shift + / (**?**) |
+| Open Settings | Ctrl + , | Command + , |
+
 For the complete list of keyboard shortcuts and interaction controls, see the [Controls documentation](docs/CONTROLS.md).
 
 ## Live & Streaming Data
@@ -154,6 +162,8 @@ MAIDR is one of three sibling projects from the (x)Ability Design Lab. This repo
 - [py-maidr for Python](https://py.maidr.ai/): makes matplotlib, seaborn, Plotly and Altair charts accessible after `import maidr`; published on PyPI as `maidr`. Source: [xability/py-maidr](https://github.com/xability/py-maidr).
 
 - [maidr for R](https://r.maidr.ai/): makes ggplot2 and base graphics plots accessible; published on CRAN as `maidr`. Source: [xability/r-maidr](https://github.com/xability/r-maidr).
+
+- Agent Skill for AI coding agents (Claude Code, Codex, Cursor, and others): [maidr-skill](https://github.com/xability/maidr-skill). Once installed, an agent that draws a chart routes it through py-maidr, the maidr R package, or maidr.js so the result is accessible by default; `npx skills add xability/maidr-skill` installs it.
 
 ## Papers
 
