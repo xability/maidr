@@ -4,7 +4,36 @@ import { Constant } from './constant';
 /**
  * Edge positions for SVG bounding box calculations.
  */
-type Edge = 'top' | 'bottom' | 'left' | 'right';
+export type Edge = 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * One line to draw along one edge of one element's bounding box.
+ */
+export interface LineRequest {
+  /** The element to measure and draw along. */
+  readonly box: SVGElement;
+  /** Which of its edges the line runs along. */
+  readonly edge: Edge;
+}
+
+/**
+ * One whisker to draw between a cap and the box it belongs to.
+ */
+export interface WhiskerRequest {
+  /** The whisker's end. */
+  readonly cap: SVGElement;
+  /** The box the whisker joins, and the element it is inserted beside. */
+  readonly body: SVGElement;
+  /** Whether the box stands upright, so the whisker does too. */
+  readonly vertical: boolean;
+}
+
+/** What one anchor was measured to be, read once and reused. */
+interface Measured {
+  readonly bBox: DOMRect;
+  readonly stroke: string;
+  readonly strokeWidth: string;
+}
 
 /**
  * Abstract utility class for SVG element manipulation, conversion, and highlighting operations.
@@ -281,76 +310,151 @@ export abstract class Svg {
   private static readonly MIN_LINE_SPAN = 10;
 
   /**
-   * Creates a line element along a specified edge of an SVG element's bounding box.
+   * Creates one line per request, each along one edge of one element's
+   * bounding box.
    *
-   * When the bounding box has zero width (vertical path) or zero height
-   * (horizontal path), a minimum span is used so the resulting line is visible.
+   * A whole batch at once rather than a line at a time, for the reason given
+   * on {@link createCircleElements}: measuring an element after inserting a
+   * node beside it is what forces the browser to lay the chart out again, and
+   * a loop that alternated the two paid a layout per line. Reading every
+   * anchor first, building from the numbers, and inserting once per anchor
+   * costs one layout for the batch however many lines it holds -- and a
+   * candlestick or a box plot builds two per candle or per box, at
+   * construction and again on every live-data rebuild.
    *
-   * @param box - The SVG element to create a line along
-   * @param edge - The edge position ('top', 'bottom', 'left', or 'right')
-   * @returns The newly created line element
+   * Each anchor is measured and styled once even when several lines are drawn
+   * along it: inserting a hidden sibling does not move the anchor, so the
+   * second read only ever returned what the first did.
+   *
+   * When a bounding box has zero width (vertical path) or zero height
+   * (horizontal path), a minimum span is used so the resulting line is
+   * visible.
+   *
+   * @param requests - The lines to draw, in the order they should be made
+   * @returns The lines, index-aligned with the requests
    */
-  public static createLineElement(box: SVGElement, edge: Edge): SVGElement {
-    const svg = box as SVGGraphicsElement;
-    const bBox = svg.getBBox();
+  public static createLineElements(requests: readonly LineRequest[]): SVGElement[] {
+    if (requests.length === 0) {
+      return [];
+    }
 
-    // Ensure non-zero dimensions so edge lines are always visible.
-    // A vertical <path> (width=0) needs a minimum width for top/bottom edges;
-    // a horizontal <path> (height=0) needs a minimum height for left/right edges.
+    // READ. Every measurement the batch needs, before anything is inserted.
+    const measured = new Map<SVGElement, Measured>();
+    for (const { box } of requests) {
+      if (measured.has(box)) {
+        continue;
+      }
+      const bBox = (box as SVGGraphicsElement).getBBox();
+      const style = window.getComputedStyle(box);
+      measured.set(box, {
+        bBox,
+        stroke: style.stroke,
+        strokeWidth: style.strokeWidth || '2',
+      });
+    }
+
+    // BUILD. Arithmetic only; nothing enters the document yet.
+    const lines = requests.map(({ box, edge }) => {
+      const { bBox, stroke, strokeWidth } = measured.get(box)!;
+      const [x1, y1, x2, y2] = this.edgeOf(bBox, edge);
+
+      const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
+      line.setAttribute(Constant.X1, String(x1));
+      line.setAttribute(Constant.Y1, String(y1));
+      line.setAttribute(Constant.X2, String(x2));
+      line.setAttribute(Constant.Y2, String(y2));
+      line.setAttribute(Constant.STROKE, stroke);
+      line.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
+      line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+      return this.markOwned(line);
+    });
+
+    // WRITE. One insertion per anchor, reproducing the order that repeated
+    // `insertAdjacentElement(AFTER_END, ...)` left behind.
+    this.insertAfterAnchors(requests.map(({ box }) => box), lines);
+    return lines;
+  }
+
+  /**
+   * Where one edge of a measured box runs.
+   *
+   * A zero-width or zero-height box -- a vertical or horizontal `<path>`, as
+   * a violin plot draws its IQ range -- is given {@link MIN_LINE_SPAN} along
+   * the degenerate axis so the edge is still a visible line rather than a
+   * point.
+   *
+   * @param bBox - The measured box
+   * @param edge - Which edge
+   * @returns The line's `[x1, y1, x2, y2]`
+   */
+  private static edgeOf(bBox: DOMRect, edge: Edge): [number, number, number, number] {
     const effectiveWidth = bBox.width || this.MIN_LINE_SPAN;
     const effectiveHeight = bBox.height || this.MIN_LINE_SPAN;
     const cx = bBox.x + bBox.width / 2;
     const cy = bBox.y + bBox.height / 2;
 
-    let x1: number, y1: number, x2: number, y2: number;
     switch (edge) {
       case 'top':
-        if (bBox.width === 0) {
-          [x1, y1, x2, y2] = [cx - effectiveWidth / 2, bBox.y, cx + effectiveWidth / 2, bBox.y];
-        } else {
-          [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
-        }
-        break;
+        return bBox.width === 0
+          ? [cx - effectiveWidth / 2, bBox.y, cx + effectiveWidth / 2, bBox.y]
+          : [bBox.x, bBox.y, bBox.x + bBox.width, bBox.y];
       case 'bottom':
-        if (bBox.width === 0) {
-          [x1, y1, x2, y2] = [cx - effectiveWidth / 2, bBox.y + bBox.height, cx + effectiveWidth / 2, bBox.y + bBox.height];
-        } else {
-          [x1, y1, x2, y2] = [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
-        }
-        break;
+        return bBox.width === 0
+          ? [cx - effectiveWidth / 2, bBox.y + bBox.height, cx + effectiveWidth / 2, bBox.y + bBox.height]
+          : [bBox.x, bBox.y + bBox.height, bBox.x + bBox.width, bBox.y + bBox.height];
       case 'left':
-        if (bBox.height === 0) {
-          [x1, y1, x2, y2] = [bBox.x, cy - effectiveHeight / 2, bBox.x, cy + effectiveHeight / 2];
-        } else {
-          [x1, y1, x2, y2] = [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
-        }
-        break;
+        return bBox.height === 0
+          ? [bBox.x, cy - effectiveHeight / 2, bBox.x, cy + effectiveHeight / 2]
+          : [bBox.x, bBox.y, bBox.x, bBox.y + bBox.height];
       case 'right':
-        if (bBox.height === 0) {
-          [x1, y1, x2, y2] = [bBox.x + bBox.width, cy - effectiveHeight / 2, bBox.x + bBox.width, cy + effectiveHeight / 2];
-        } else {
-          [x1, y1, x2, y2] = [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
-        }
-        break;
+        return bBox.height === 0
+          ? [bBox.x + bBox.width, cy - effectiveHeight / 2, bBox.x + bBox.width, cy + effectiveHeight / 2]
+          : [bBox.x + bBox.width, bBox.y, bBox.x + bBox.width, bBox.y + bBox.height];
     }
-
-    const style = window.getComputedStyle(box);
-    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
-    line.setAttribute(Constant.X1, String(x1));
-    line.setAttribute(Constant.Y1, String(y1));
-    line.setAttribute(Constant.X2, String(x2));
-    line.setAttribute(Constant.Y2, String(y2));
-    line.setAttribute(Constant.STROKE, style.stroke);
-    line.setAttribute(Constant.STROKE_WIDTH, style.strokeWidth || '2');
-    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    this.markOwned(line);
-
-    box.insertAdjacentElement(Constant.AFTER_END, line);
-    return line;
   }
 
   /**
-   * Draws the whisker between a box plot's cap and its box.
+   * Inserts each node directly after its anchor, one DOM call per anchor.
+   *
+   * `anchor.after(a, b)` leaves `[anchor, a, b]`, where inserting `a` and then
+   * `b` with `insertAdjacentElement(AFTER_END, ...)` leaves `[anchor, b, a]`.
+   * The batch therefore hands each anchor its nodes reversed, so the child
+   * order is the one the one-at-a-time code produced -- which is the order the
+   * chart is painted in, and so the order a reader sees a highlight in:
+   * {@link createHighlightElement} inserts its visible clone directly after
+   * the element it highlights.
+   *
+   * An anchor with no parent inserts nothing, exactly as
+   * `insertAdjacentElement` did.
+   *
+   * @param anchors - The anchor for each node, index-aligned with `nodes`
+   * @param nodes - The nodes to insert, in the order they were made
+   */
+  private static insertAfterAnchors(
+    anchors: readonly SVGElement[],
+    nodes: readonly (SVGElement | null)[],
+  ): void {
+    const byAnchor = new Map<SVGElement, SVGElement[]>();
+    anchors.forEach((anchor, index) => {
+      const node = nodes[index];
+      if (node === null) {
+        return;
+      }
+      const existing = byAnchor.get(anchor);
+      if (existing) {
+        existing.push(node);
+      } else {
+        byAnchor.set(anchor, [node]);
+      }
+    });
+
+    for (const [anchor, group] of byAnchor) {
+      anchor.after(...[...group].reverse());
+    }
+  }
+
+  /**
+   * Draws the whiskers between box plots' caps and their boxes.
    *
    * A box plot's selectors name the caps and the box, and a highlight only
    * ever needs those. A renderer showing the chart's shape needs the whisker
@@ -359,49 +463,84 @@ export abstract class Svg {
    * nearer edge of the box, and it is hidden: it is geometry for a renderer
    * to read, not a mark for the chart to show.
    *
-   * @param cap - The whisker's end
-   * @param body - The box the whisker joins
-   * @param vertical - Whether the box stands upright, so the whisker does too
-   * @returns The hidden line, or null when the two do not sit apart along the
-   *   box's axis, or when the document cannot measure them
+   * A whole batch at once for the reason given on
+   * {@link createLineElements}: one box plot's whiskers used to be measured
+   * after the previous one's had been inserted, so every box cost the browser
+   * two more layouts. The same element is measured once however many whiskers
+   * touch it -- a box and both its caps were read four times per box.
+   *
+   * @param requests - The whiskers to draw, in the order they should be made
+   * @returns One entry per request, index-aligned: the hidden line, or null
+   *   when the cap and the box do not sit apart along the box's axis, or when
+   *   the document cannot measure them
    */
-  public static createWhiskerElement(cap: SVGElement, body: SVGElement, vertical: boolean): SVGElement | null {
-    let capBox: DOMRect;
-    let bodyBox: DOMRect;
-    try {
-      capBox = (cap as SVGGraphicsElement).getBBox();
-      bodyBox = (body as SVGGraphicsElement).getBBox();
-    } catch {
-      return null;
+  public static createWhiskerElements(
+    requests: readonly WhiskerRequest[],
+  ): (SVGElement | null)[] {
+    if (requests.length === 0) {
+      return [];
     }
 
-    const cx = capBox.x + capBox.width / 2;
-    const cy = capBox.y + capBox.height / 2;
-    let x2: number;
-    let y2: number;
-    if (vertical) {
-      if (cy >= bodyBox.y && cy <= bodyBox.y + bodyBox.height) {
-        return null;
+    // READ. `getBBox` throws on an element the document cannot measure, and
+    // that stays a per-request failure: null for the whisker that asked, and
+    // nothing built or inserted for it.
+    const measured = new Map<SVGElement, DOMRect | null>();
+    const measure = (element: SVGElement): DOMRect | null => {
+      if (measured.has(element)) {
+        return measured.get(element)!;
       }
-      x2 = cx;
-      y2 = cy < bodyBox.y ? bodyBox.y : bodyBox.y + bodyBox.height;
-    } else {
-      if (cx >= bodyBox.x && cx <= bodyBox.x + bodyBox.width) {
-        return null;
+      let bBox: DOMRect | null;
+      try {
+        bBox = (element as SVGGraphicsElement).getBBox();
+      } catch {
+        bBox = null;
       }
-      x2 = cx < bodyBox.x ? bodyBox.x : bodyBox.x + bodyBox.width;
-      y2 = cy;
+      measured.set(element, bBox);
+      return bBox;
+    };
+    for (const { cap, body } of requests) {
+      measure(cap);
+      measure(body);
     }
 
-    const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
-    line.setAttribute(Constant.X1, String(cx));
-    line.setAttribute(Constant.Y1, String(cy));
-    line.setAttribute(Constant.X2, String(x2));
-    line.setAttribute(Constant.Y2, String(y2));
-    line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    this.markOwned(line);
-    body.insertAdjacentElement(Constant.AFTER_END, line);
-    return line;
+    // BUILD. Arithmetic only; nothing enters the document yet.
+    const whiskers = requests.map(({ cap, body, vertical }) => {
+      const capBox = measured.get(cap)!;
+      const bodyBox = measured.get(body)!;
+      if (capBox === null || bodyBox === null) {
+        return null;
+      }
+
+      const cx = capBox.x + capBox.width / 2;
+      const cy = capBox.y + capBox.height / 2;
+      let x2: number;
+      let y2: number;
+      if (vertical) {
+        if (cy >= bodyBox.y && cy <= bodyBox.y + bodyBox.height) {
+          return null;
+        }
+        x2 = cx;
+        y2 = cy < bodyBox.y ? bodyBox.y : bodyBox.y + bodyBox.height;
+      } else {
+        if (cx >= bodyBox.x && cx <= bodyBox.x + bodyBox.width) {
+          return null;
+        }
+        x2 = cx < bodyBox.x ? bodyBox.x : bodyBox.x + bodyBox.width;
+        y2 = cy;
+      }
+
+      const line = document.createElementNS(this.SVG_NAMESPACE, Constant.LINE) as SVGElement;
+      line.setAttribute(Constant.X1, String(cx));
+      line.setAttribute(Constant.Y1, String(cy));
+      line.setAttribute(Constant.X2, String(x2));
+      line.setAttribute(Constant.Y2, String(y2));
+      line.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+      return this.markOwned(line);
+    });
+
+    // WRITE. Each whisker sits beside the box it joins, as before.
+    this.insertAfterAnchors(requests.map(({ body }) => body), whiskers);
+    return whiskers;
   }
 
   /**

@@ -2,6 +2,7 @@ import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/gra
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -588,7 +589,8 @@ export class ViolinBoxTrace extends AbstractTrace {
    * @param original.iq - The box body
    * @param original.q2 - The median
    * @param original.mean - The mean marker, where the chart drew one
-   * @param isVertical - Whether the box stands upright
+   * @param whiskers - The box's whiskers, drawn in Phase 1.5, lower cap
+   *   first; the ones that could not be drawn are already left out
    */
   private offerGeometry(
     original: {
@@ -598,7 +600,7 @@ export class ViolinBoxTrace extends AbstractTrace {
       q2: SVGElement | null;
       mean: SVGElement | null;
     },
-    isVertical: boolean,
+    whiskers: readonly SVGElement[],
   ): void {
     const parts = new Set<SVGElement>();
     for (const part of [original.iq, original.q2, original.mean, original.min, original.max]) {
@@ -606,13 +608,8 @@ export class ViolinBoxTrace extends AbstractTrace {
         parts.add(part);
       }
     }
-    if (original.iq !== null) {
-      for (const cap of [original.min, original.max]) {
-        const whisker = cap === null ? null : Svg.createWhiskerElement(cap, original.iq, isVertical);
-        if (whisker !== null) {
-          parts.add(whisker);
-        }
-      }
+    for (const whisker of whiskers) {
+      parts.add(whisker);
     }
     this.geometry.push(...parts);
   }
@@ -658,6 +655,63 @@ export class ViolinBoxTrace extends AbstractTrace {
       });
     });
 
+    // Phase 1.5: draw everything that has to be measured, for every box at
+    // once, for the reason given on `Svg.createLineElements` -- drawing a box
+    // at a time put each box's measurements straight after the previous box's
+    // inserts, so the chart was laid out again before each: measured at 4
+    // forced layouts per box, 120 over 30 boxes, and paid again on every
+    // live-data rebuild. Edges before whiskers, so each box keeps the child
+    // order it had.
+    //
+    // Check if IQR direction should be reversed (for gridSVG vertical plots
+    // where scale(1,-1) Y-flip inverts getBBox top/bottom edges).
+    const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+    const edgeRequests: LineRequest[] = [];
+    const edgeOwners: number[] = [];
+    originals.forEach((original, boxIdx) => {
+      if (!original.iq) {
+        return;
+      }
+      const [q1Edge, q3Edge]: [Edge, Edge] = isVertical
+        ? (isIqrReversed ? ['top', 'bottom'] : ['bottom', 'top'])
+        : ['left', 'right'];
+      edgeRequests.push(
+        { box: original.iq, edge: q1Edge },
+        { box: original.iq, edge: q3Edge },
+      );
+      edgeOwners.push(boxIdx);
+    });
+    const edges = Svg.createLineElements(edgeRequests);
+    const derivedEdges = new Map<number, [SVGElement, SVGElement]>();
+    edgeOwners.forEach((boxIdx, request) => {
+      derivedEdges.set(boxIdx, [edges[request * 2], edges[request * 2 + 1]]);
+    });
+
+    // The lower cap's whisker then the upper cap's, box by box, which is the
+    // order `getGeometryElements` reports them in.
+    const whiskerRequests: WhiskerRequest[] = [];
+    const whiskerOwners: number[] = [];
+    originals.forEach((original, boxIdx) => {
+      if (original.iq === null) {
+        return;
+      }
+      for (const cap of [original.min, original.max]) {
+        if (cap === null) {
+          continue;
+        }
+        whiskerRequests.push({ cap, body: original.iq, vertical: isVertical });
+        whiskerOwners.push(boxIdx);
+      }
+    });
+    const whiskers = Svg.createWhiskerElements(whiskerRequests);
+    const whiskersByBox: SVGElement[][] = originals.map(() => []);
+    whiskerOwners.forEach((boxIdx, request) => {
+      const whisker = whiskers[request];
+      if (whisker !== null) {
+        whiskersByBox[boxIdx].push(whisker);
+      }
+    });
+
     // Phase 2: Clone elements
     originals.forEach((original, boxIdx) => {
       const min = this.cloneElementOrEmpty(original.min);
@@ -665,31 +719,14 @@ export class ViolinBoxTrace extends AbstractTrace {
       const q2 = this.cloneElementOrEmpty(original.q2);
       const mean = this.cloneElementOrEmpty(original.mean);
 
-      // Create Q1/Q3 line elements from IQ box (same approach as BoxTrace).
-      // Check if IQR direction should be reversed (for gridSVG vertical plots
-      // where scale(1,-1) Y-flip inverts getBBox top/bottom edges).
-      const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
-      const [q1, q3] = original.iq
-        ? (isVertical
-            ? isIqrReversed
-              ? [
-                  Svg.createLineElement(original.iq, 'top'),
-                  Svg.createLineElement(original.iq, 'bottom'),
-                ]
-              : [
-                  Svg.createLineElement(original.iq, 'bottom'),
-                  Svg.createLineElement(original.iq, 'top'),
-                ]
-            : [
-                Svg.createLineElement(original.iq, 'left'),
-                Svg.createLineElement(original.iq, 'right'),
-              ])
-        : [
-            Svg.createEmptyElement('line'),
-            Svg.createEmptyElement('line'),
-          ];
+      // Q1/Q3 are the IQ box's edges, derived in Phase 1.5 (same approach as
+      // BoxTrace).
+      const [q1, q3] = derivedEdges.get(boxIdx) ?? [
+        Svg.createEmptyElement('line'),
+        Svg.createEmptyElement('line'),
+      ];
 
-      this.offerGeometry(original, isVertical);
+      this.offerGeometry(original, whiskersByBox[boxIdx]);
 
       // Build sections array matching this.sections (no outlier sections)
       const sectionElements: (SVGElement[] | SVGElement)[] = [];
