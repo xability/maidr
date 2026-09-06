@@ -1,4 +1,4 @@
-import type { Figure } from '@model/plot';
+import type { Figure, Trace } from '@model/plot';
 import type { Disposable } from '@type/disposable';
 import type {
   BarPoint,
@@ -15,8 +15,11 @@ import type {
   StepPoint,
   ViolinKdePoint,
 } from '@type/grammar';
+import { BOX_SECTIONS } from '@model/box';
 import { candlestickSectionsOf } from '@model/candlestick';
-import { TraceType } from '@type/grammar';
+import { ScatterTrace } from '@model/scatter';
+import { BoxplotSection } from '@type/boxplotSection';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Trace types whose layer data is a nested array of groups
@@ -84,6 +87,16 @@ export interface AppendedPointInfo {
   col: number;
   /** Number of points dropped from the front by the `maxWidth` sliding window. */
   trimmed: number;
+  /**
+   * How far a `maxWidth` trim moves the cursor along the trace's column axis,
+   * so a reader keeps the point they were on.
+   *
+   * `trimmed` wherever columns index the data points in arrival order, which
+   * is most traces. Zero where they do not: a horizontal box navigates its
+   * sections along the column axis, and a scatter's columns are its sorted
+   * unique x values, which a trim does not shift by any fixed amount.
+   */
+  colShift: number;
   /**
    * True when the point was merged into a nested group layer (e.g. multiline),
    * where `row` is the series index. For flat layers `row`/`col` are announce
@@ -200,6 +213,7 @@ export function appendPointToMaidr(
   let row: number;
   let col: number;
   let trimmed: number;
+  let colShift: number;
   let nested: boolean;
 
   // Nested layers are detected by trace type so that an initially empty
@@ -229,6 +243,7 @@ export function appendPointToMaidr(
     row = groupIndex;
     col = result.points.length - 1;
     trimmed = result.trimmed;
+    colShift = result.trimmed;
     nested = true;
   } else {
     // Flat point data (e.g. bar, scatter): traces store these as a single row.
@@ -238,6 +253,7 @@ export function appendPointToMaidr(
     row = 0;
     col = result.points.length - 1;
     trimmed = result.trimmed;
+    colShift = result.trimmed;
     nested = false;
 
     // Candlestick navigation maps one axis to OHLC sections: target the
@@ -252,6 +268,39 @@ export function appendPointToMaidr(
       // (see the Candlestick constructor), so the same cell is targeted
       // whichever way the chart is drawn.
       row = candlestickSectionsOf(newData as CandlestickPoint[]).indexOf('close');
+    } else if (layer.type === TraceType.BOX) {
+      // A box navigates sections along one axis and boxes along the other,
+      // and which is which follows the orientation (see `computeBoxValues`).
+      // Announce the new box at its median: every section of it is new, and
+      // the median is the one reading that stands for the distribution.
+      //
+      // The flat default — row 0, last column — announces the lower outliers
+      // on a vertical chart, which is an empty list and no reading at all,
+      // and on a horizontal one whichever section sits at the new box's data
+      // index, or nothing once a chart has more boxes than a box has
+      // sections.
+      const median = BOX_SECTIONS.indexOf(BoxplotSection.Q2);
+      if (layer.orientation === Orientation.HORIZONTAL) {
+        // Horizontal: [boxes][sections], and the trace reverses the points so
+        // the newest box is the first row. The column axis is the sections
+        // here, and a trim never moves those, so it takes no shift.
+        row = 0;
+        col = median;
+        colShift = 0;
+      } else {
+        // Vertical: [sections][boxes], so the column is still the new box.
+        row = median;
+      }
+    } else if (layer.type === TraceType.SCATTER) {
+      // A scatter's columns are its sorted unique x values, so a trim does
+      // not shift them by the number of points it dropped — the dropped
+      // point may sort anywhere, and may have shared its column with points
+      // that remain. Holding the cursor still is the closest thing to
+      // leaving the reader where they were.
+      //
+      // `col` stays the appended point's index in `data`, which is what
+      // `appendedPointPosition` translates into the trace's own coordinates.
+      colShift = 0;
     }
   }
 
@@ -282,6 +331,7 @@ export function appendPointToMaidr(
       row,
       col,
       trimmed,
+      colShift,
       nested,
     },
   };
@@ -510,6 +560,35 @@ export function isAppendedPointFocused(
     return false;
   }
   return true;
+}
+
+/**
+ * Where the rebuilt trace holds a newly appended point, as the (row, col)
+ * `Trace.getStateAt` must be asked for to announce it.
+ *
+ * {@link appendPointToMaidr} answers this from the data alone, which is enough
+ * for a trace that navigates its points in the order they arrived. A scatter
+ * does not: it sorts by x and groups the duplicates, so the raw index it
+ * carries in `col` addresses a different point, or a column that does not
+ * exist — the announcement was then silent (the lookup threw and the
+ * controller swallowed it) or named whichever point sorted last.
+ *
+ * Asked of the trace rather than recomputed here, so the grouping rule stays
+ * the model's and cannot drift from it.
+ *
+ * @param trace - The trace rebuilt from the updated data
+ * @param appended - Location of the appended point
+ * @returns The position to read the appended point's state at
+ */
+export function appendedPointPosition(
+  trace: Trace,
+  appended: AppendedPointInfo,
+): { row: number; col: number } {
+  if (trace instanceof ScatterTrace && !appended.nested) {
+    // Flat layers report `col` as the point's index in the layer's data.
+    return trace.positionOfDataIndex(appended.col) ?? { row: appended.row, col: appended.col };
+  }
+  return { row: appended.row, col: appended.col };
 }
 
 /**

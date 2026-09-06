@@ -628,24 +628,58 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       if (hasAdjustable) {
         let diff = displaySize - totalChars;
         let adjustIndex = 0;
+        let adjustedThisPass = false;
         while (diff !== 0) {
           const section = lenData[adjustIndex % lenData.length];
           if (
             section.type !== this.BLANK
             && section.type !== this.Q2
             && section.length > 0
+            // Never squeeze a summary section out of existence. At zero it
+            // renders nothing while still claiming a cursor cell, so the
+            // minimum's cell becomes the quartile's glyph, and a row that is
+            // still too wide pushes the cells that follow past its end.
+            && (diff > 0 || section.numChars > 1)
           ) {
             section.numChars += diff > 0 ? 1 : -1;
             diff += diff > 0 ? -1 : 1;
+            adjustedThisPass = true;
           }
           adjustIndex++;
+          if (adjustIndex % lenData.length === 0) {
+            // A full pass that changed nothing cannot make progress on the
+            // next one either: every section is already at its floor, and the
+            // remaining width has to come out of the outlier runs below.
+            if (!adjustedThisPass) {
+              break;
+            }
+            adjustedThisPass = false;
+          }
+        }
+      }
+
+      // Outliers are one cell each and a box can carry more of them than the
+      // display is wide. Collapsing the run — dropping cells from the end of
+      // it, never all of them — keeps the five-number summary readable and
+      // still leaves the reader a cell to navigate the outliers by, which is
+      // the better of the two readings a narrow display can give.
+      let overflow
+        = lenData.reduce((sum, l) => sum + l.numChars, 0) - displaySize;
+      for (const outlierType of [this.LOWER_OUTLIER, this.UPPER_OUTLIER]) {
+        const run = lenData.filter(section => section.type === outlierType);
+        for (let i = run.length - 1; i > 0 && overflow > 0; i--) {
+          overflow -= run[i].numChars;
+          run[i].numChars = 0;
         }
       }
 
       let col = -1;
       for (const section of lenData) {
+        // Only a section that renders may claim a cell: an empty one would
+        // hand its column the index of whatever is emitted next.
         if (
-          section.type !== this.BLANK
+          section.numChars > 0
+          && section.type !== this.BLANK
           && section.type !== this.GLOBAL_MIN
           && section.type !== this.GLOBAL_MAX
         ) {
@@ -1462,7 +1496,48 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     const { row, col } = this.cache.indexToCell[index];
+    if (this.isRowSentinel(index, row, col)) {
+      return;
+    }
+
     this.context.moveToIndex(row, col);
+  }
+
+  /**
+   * Whether an index addresses a row's virtual sentinel rather than a cell.
+   *
+   * A single-line row ends in a `\n` whose `indexToCell` entry is
+   * `{row, col: cols}` — one past the row's last data column — so that the
+   * emitted cursor index can round-trip through `cellToIndex`. It is a
+   * separator, not a cell the reader can stand on, and End, a click past the
+   * last cell, or a display's cursor-routing key all land the caret on it.
+   * Forwarding it hands the model a column that does not exist: traces backed
+   * by a movable grid answer with an "out of bounds" cue for a move the reader
+   * never made, and a trace that trusts the column instead follows it out of
+   * its own data.
+   *
+   * Every other newline in the output maps back to a real cell — a mid-row
+   * wrap points at the last cell before the wrap, a box row terminator at its
+   * final section — so those stay forwarded and End still lands on the last
+   * cell of the line. Hence all three conditions: the character is a newline,
+   * it is the row's last `cellToIndex` entry, and that entry is this index.
+   *
+   * @param index - Index into the emitted braille string
+   * @param row - Row the index maps to
+   * @param col - Column the index maps to
+   * @returns Whether the index is the row's out-of-data sentinel
+   */
+  private isRowSentinel(index: number, row: number, col: number): boolean {
+    if (this.cache === null || this.cache.value[index] !== Constant.NEW_LINE) {
+      return false;
+    }
+
+    const rowCells = this.cache.cellToIndex[row];
+    if (rowCells === undefined) {
+      return false;
+    }
+
+    return col === rowCells.length - 1 && rowCells[col] === index;
   }
 
   /**

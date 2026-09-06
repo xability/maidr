@@ -272,8 +272,17 @@ export function buildLineLayer(
           rowPaths.push(element);
         }
       }
-    } else {
-      // Pattern B: shared parent – query all points once and group by fill
+    }
+
+    // Pattern B: shared parent – query all points once and group by fill.
+    // Also the fallback when Pattern A collected nothing, which is what the
+    // ordinary `g.series-0 > path`, `g.series-1 > path`, `g.dots > circle`
+    // idiom produces: the paths do have distinct parents, so Pattern A is
+    // chosen, but none of those parents holds a marker. Falling through reads
+    // the chart off the markers' own fill, and when there are no markers at
+    // all the throw below says so — either way the reader never gets a line
+    // plot announcing an empty trace.
+    if (data.length === 0) {
       const allPoints = queryD3Elements(root, pointSelector);
       if (allPoints.length === 0) {
         throw new Error(
@@ -503,6 +512,9 @@ function drawsRightToLeft(
   return true;
 }
 
+/** The attribute each series' `<path>` is stamped with, so one selector names one line. */
+const SERIES_ATTRIBUTE = 'data-maidr-line-index';
+
 /**
  * Emits one highlight selector per series, by stamping each series' `<path>`
  * with a MAIDR-owned `data-maidr-line-index` attribute and pinning it.
@@ -556,12 +568,23 @@ export function stampSeriesSelectors(
   // mirroring `scopeSelector`'s behaviour, and appends the `data-maidr-panel`
   // segment on multi-panel binds.
   const prefix = selectorPrefix(root, panel);
+
+  // Clear every stamp under this root before laying down the new ones, the
+  // way `stampOrderedSelectors` does. Clearing only the paths about to be
+  // re-stamped would leave a series that has dropped out of the payload --
+  // a rebind after a D3 update that empties its points while `.join()` keeps
+  // its path -- carrying its old index, and the emitted selector would then
+  // resolve to two paths for one row. `Svg.selectElement` takes the first in
+  // document order, so the highlight would land on the emptied path and the
+  // row's geometry be parsed from it. Scoped to the root, so a panel never
+  // clears its siblings' stamps.
+  for (const stale of Array.from(root.querySelectorAll(`[${SERIES_ATTRIBUTE}]`))) {
+    stale.removeAttribute(SERIES_ATTRIBUTE);
+  }
+
   return paths.map((element, rowIndex) => {
-    // Clear any prior stamp so rebinding after a D3 data update produces a
-    // clean, deterministic state.
-    element.removeAttribute('data-maidr-line-index');
-    element.setAttribute('data-maidr-line-index', String(rowIndex));
-    return `${prefix} ${selector}[data-maidr-line-index="${rowIndex}"]`;
+    element.setAttribute(SERIES_ATTRIBUTE, String(rowIndex));
+    return `${prefix} ${selector}[${SERIES_ATTRIBUTE}="${rowIndex}"]`;
   });
 }
 

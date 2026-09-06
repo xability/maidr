@@ -61,6 +61,49 @@ export function bindD3Histogram(svg: Element, config: D3HistogramConfig): D3Bind
 }
 
 /**
+ * The bin edge to use when neither the caller nor the datum states one.
+ *
+ * A pre-aggregated histogram is read as a zero-width bin at its x value, which
+ * works while that value is a number. Bin labels very often are not — a bar
+ * bound to `{ label: '0-10', count: 5 }` coerces to `NaN`, and
+ * `HistogramPoint` has nowhere to say the edge was never known: `Histogram`
+ * puts both bounds straight into the range it announces on every arrow
+ * keypress, and repeats them in the bin-range stat and two data-table columns.
+ * So the reader is told the bin runs NaN to NaN, on every bin, for as long as
+ * the chart exists. Saying so at bind time is the only place the author can
+ * still act on it.
+ *
+ * @param xValue - The bar's x value
+ * @param datum - The bar's bound datum, named in the error
+ * @param index - The bar's index within the selection
+ * @param selector - The user-provided selector, named in the error
+ * @returns The x value as a number
+ * @throws Error when the x value is not a number a bin could be placed at
+ */
+function zeroWidthBinEdge(
+  xValue: string | number,
+  datum: unknown,
+  index: number,
+  selector: string,
+): number {
+  const at = Number(xValue);
+  if (Number.isFinite(at)) {
+    return at;
+  }
+
+  const keys = typeof datum === 'object' && datum !== null ? Object.keys(datum) : [];
+  throw new Error(
+    `Histogram bar ${index} matched by "${selector}" states no bin bounds: its `
+    + `datum carries no \`x0\` / \`x1\`, and its x value "${String(xValue)}" is `
+    + `not a number the bin could be placed at. Bind \`d3.bin()\` output, which `
+    + `carries \`x0\` / \`x1\`, or pass \`xMin\` / \`xMax\` accessors reading the `
+    + `bin's own edges, e.g. \`xMin: d => d.from, xMax: d => d.to\`. Without `
+    + `them every bin range the reader hears would be NaN. `
+    + `Available keys on the datum: ${keys.join(', ') || '(none)'}.`,
+  );
+}
+
+/**
  * Pure extraction core for histograms. See {@link buildBarLayer} for the
  * single-chart vs multi-panel contract.
  *
@@ -104,10 +147,12 @@ export function buildHistogramLayer(root: Element, config: D3HistogramConfig, pa
 
     const xMin = userSetXMin
       ? resolveAccessor<number>(datum, xMinAccessor, index)
-      : (resolveAccessorOptional<number>(datum, xMinAccessor, index) ?? Number(xValue));
+      : (resolveAccessorOptional<number>(datum, xMinAccessor, index)
+        ?? zeroWidthBinEdge(xValue, datum, index, selector));
     const xMax = userSetXMax
       ? resolveAccessor<number>(datum, xMaxAccessor, index)
-      : (resolveAccessorOptional<number>(datum, xMaxAccessor, index) ?? Number(xValue));
+      : (resolveAccessorOptional<number>(datum, xMaxAccessor, index)
+        ?? zeroWidthBinEdge(xValue, datum, index, selector));
 
     const yMin = resolveAccessor<number>(datum, yMinAccessor, index);
     const yMax = yMaxAccessor

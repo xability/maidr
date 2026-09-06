@@ -253,6 +253,7 @@ Notes for real feeds:
 On live charts (`live: true`), pressing **M** toggles **monitor mode**. While monitoring is on:
 
 - Every data point appended to the **focused layer** is **automatically sonified** (a tone at the point's pitch) and **announced** to screen readers (e.g. "Tick is 42, Reading is 3.14"). On multi-layer charts, appends to other layers stay silent — switch layers (PageUp/PageDown) to change which metric you monitor.
+- A trace that navigates sections rather than a plain list of points is announced at the one reading that stands for the new item: a **candlestick** at the new candle's close, a **box** at the new box's median.
 - The user's current position **does not move** — they can keep exploring historical data while hearing new points arrive, then jump to the live edge with `Ctrl/Cmd + Right Arrow`.
 - Toggling announces "Monitoring on" / "Monitoring off". On non-live charts, pressing M explains that monitoring is only available for live charts.
 
@@ -266,6 +267,7 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 
 - The window applies **per series** (each line of a multiline chart is capped independently).
 - If the user is positioned inside the trimmed series, their cursor follows the **same data point** as it shifts left (until it falls out of the window, in which case it clamps to the oldest visible point).
+- Two traces are the exception, because the axis the cursor moves along is not the data in arrival order: a **scatter** navigates its sorted unique x values, and a **horizontal box** navigates its sections. There the cursor stays where it is rather than being shifted onto a different point.
 - `setData` is not affected by `maxWidth`; it replaces data verbatim.
 
 ## Behavior Details

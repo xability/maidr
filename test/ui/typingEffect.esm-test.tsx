@@ -113,6 +113,45 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+describe('a message with no body', () => {
+  // A provider can report success with no text: OpenAI returns null on a
+  // refusal and '' when a reasoning model spends its budget on reasoning.
+  // The animation reads `text.length` on every 10 ms tick, so a missing body
+  // threw on each one and never cleared `isTyping` — and while `isTyping` is
+  // true the live region is deliberately empty, so nothing was announced at
+  // all. The service now reports those as failures; this is the last line of
+  // defence, because the component cannot know that.
+  it('should finish its animation rather than throwing on every tick', () => {
+    render(
+      <Provider store={createMaidrStore()}>
+        <TypingEffect text={null as unknown as string} isUser={false} messageId={`m${rendered++}`} />
+      </Provider>,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    // The cursor is rendered only while typing, so its absence is the
+    // component saying the animation completed.
+    expect(document.querySelector('.typing-cursor')).toBeNull();
+  });
+
+  it('should announce an empty body without leaving the bubble typing', () => {
+    render(
+      <Provider store={createMaidrStore()}>
+        <TypingEffect text="" isUser={false} messageId={`m${rendered++}`} />
+      </Provider>,
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(document.querySelector('.typing-cursor')).toBeNull();
+  });
+});
+
 describe('a chat link\'s accessible name', () => {
   // These three are the cases #700 fixed. The override it removed built
   // `aria-label` as `Link: ${children}`, which is a string only when the link
