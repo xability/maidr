@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 import { describe, expect, it } from '@jest/globals';
-import { CREATORS, dublinCorePairs, dublinCoreTags, PUBLISHER, RIGHTS } from '../../scripts/dublinCore';
+import { CREATORS, dublinCorePairs, dublinCoreTags, PUBLISHER, RIGHTS, stripSiteName } from '../../scripts/dublinCore';
 import { firstCommitDate, lastCommitDate } from '../../scripts/gitDates';
 import { inlineJson } from '../../scripts/jsonLd';
 import { findOffenders, HARD_LIMIT, limitFor, SOFT_LIMIT } from '../../scripts/pageSizes';
@@ -210,6 +210,33 @@ describe('dublinCore', () => {
     const rendered = dublinCoreTags({ ...base, title: 'A "quoted" <b>title</b> & more' });
     expect(rendered).toContain('content="A &quot;quoted&quot; &lt;b&gt;title&lt;/b&gt; &amp; more"');
     expect(rendered).not.toContain('<b>');
+  });
+
+  it('files the page under its own title, not the browser-tab one', () => {
+    // <title>, og:title and twitter:title keep the suffix; a bibliographic
+    // record should not, and the sibling sites strip theirs too.
+    const suffixed = { ...base, title: 'React Accessibility Integration - MAIDR', siteName: 'MAIDR' };
+    expect(byName(suffixed)['DC.title']).toEqual(['React Accessibility Integration']);
+
+    const api = { ...base, title: 'HighlightOverlay | MAIDR JavaScript API', siteName: 'MAIDR JavaScript API' };
+    expect(byName(api)['DC.title']).toEqual(['HighlightOverlay']);
+  });
+
+  it('leaves a title that only contains a separator intact', () => {
+    // The home page's own title carries no suffix, and a colon or a dash
+    // inside a title is not a site name.
+    const home = 'MAIDR: Accessible Data Visualization with Sonification, Braille and Text';
+    expect(stripSiteName(home, 'MAIDR')).toBe(home);
+    expect(stripSiteName('Braille - Text - MAIDR', 'MAIDR')).toBe('Braille - Text');
+  });
+
+  it('never strips a title down to nothing', () => {
+    expect(stripSiteName('MAIDR', 'MAIDR')).toBe('MAIDR');
+    expect(stripSiteName(' - MAIDR', 'MAIDR')).toBe(' - MAIDR');
+  });
+
+  it('leaves the title alone when no site name is given', () => {
+    expect(stripSiteName('Anything - MAIDR', '')).toBe('Anything - MAIDR');
   });
 
   it('renders one meta tag per pair', () => {

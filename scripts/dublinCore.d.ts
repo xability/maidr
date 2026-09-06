@@ -16,11 +16,15 @@ export const CREATORS: string[];
 /** SPDX identifier, matching `license` in package.json. */
 export const RIGHTS: string;
 
+/** `title` without a trailing `separator + siteName`. */
+export function stripSiteName(title: string, siteName: string): string;
+
 /** Dublin Core `[name, content]` pairs for one page, in document order. */
 export function dublinCorePairs(opts: {
   title: string;
   description: string;
   identifier: string;
+  siteName?: string;
   date?: string;
   type?: 'Software' | 'Text';
   creators?: string[];
@@ -31,6 +35,7 @@ export function dublinCoreTags(opts: {
   title: string;
   description: string;
   identifier: string;
+  siteName?: string;
   date?: string;
   type?: 'Software' | 'Text';
   creators?: string[];

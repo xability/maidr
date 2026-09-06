@@ -31,6 +31,38 @@ export const CREATORS = ['Seo, JooYoung'];
 /** SPDX identifier, matching `license` in package.json. */
 export const RIGHTS = 'GPL-3.0-or-later';
 
+/** Separators the page titles put between a page name and the site name. */
+const TITLE_SEPARATORS = [' - ', ' | ', ' – ', ' — ', ' • '];
+
+/**
+ * Drop the trailing site name from a page title.
+ *
+ * `<title>`, `og:title` and `twitter:title` all carry the suffix, which is
+ * right for a browser tab and a link preview. A bibliographic record is not
+ * either of those: a reference manager should file the page under its own
+ * title, the way it does for the sibling py-maidr and r-maidr sites, whose
+ * generators append their own suffixes.
+ *
+ * Only an exact `<separator><siteName>` ending is removed, so a title that
+ * merely contains a separator keeps all of it.
+ *
+ * @param {string} title
+ * @param {string} siteName
+ * @returns {string} `title` without its trailing site name.
+ */
+export function stripSiteName(title, siteName) {
+  if (!siteName) {
+    return title;
+  }
+  for (const separator of TITLE_SEPARATORS) {
+    const suffix = `${separator}${siteName}`;
+    if (title.endsWith(suffix) && title.length > suffix.length) {
+      return title.slice(0, -suffix.length);
+    }
+  }
+  return title;
+}
+
 /**
  * Escape a value for an HTML attribute.
  *
@@ -54,9 +86,11 @@ function attr(value) {
  * manager that a guide page is the program.
  *
  * @param {object} opts
- * @param {string} opts.title        Page title, without the site-name suffix.
+ * @param {string} opts.title        Page title as it appears in `<title>`;
+ *   any trailing `opts.siteName` is stripped for the record.
  * @param {string} opts.description  Same text as the meta description.
  * @param {string} opts.identifier   Canonical URL of the page.
+ * @param {string} [opts.siteName]   Site name the title is suffixed with.
  * @param {string} [opts.date]       ISO date the page was last changed.
  * @param {'Software' | 'Text'} [opts.type]
  * @param {string[]} [opts.creators]
@@ -66,12 +100,13 @@ export function dublinCorePairs({
   title,
   description,
   identifier,
+  siteName = '',
   date = '',
   type = 'Text',
   creators = CREATORS,
 }) {
   const pairs = [
-    ['DC.title', title],
+    ['DC.title', stripSiteName(title, siteName)],
     ...creators.map(creator => ['DC.creator', creator]),
     ['DC.publisher', PUBLISHER],
     ['DC.description', description],

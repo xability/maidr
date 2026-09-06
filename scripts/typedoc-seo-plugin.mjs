@@ -190,6 +190,7 @@ export function load(app) {
       JSX.createElement('meta', { property: 'og:site_name', content: 'MAIDR' }),
       ...dublinCorePairs({
         title: headline,
+        siteName: project.name,
         description,
         identifier: canonical,
         date: SRC_DATE,

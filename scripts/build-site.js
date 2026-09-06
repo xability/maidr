@@ -309,6 +309,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     // documentation about it, so only the home page is typed as Software.
     .replace(/\{\{DUBLIN_CORE\}\}/g, () => dublinCoreTags({
       title: seoTitle,
+      siteName: 'MAIDR',
       description,
       identifier: canonicalUrl,
       date: dateModified,
