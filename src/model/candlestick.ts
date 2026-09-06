@@ -550,12 +550,10 @@ export class Candlestick extends AbstractTrace {
       return false;
     }
 
-    // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
 
-    // Use navigation service to compute the mapping
     const { pointIndex, segmentType }
       = computeIndexAndSegment(row, col, this.sections);
 

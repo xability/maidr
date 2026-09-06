@@ -4,11 +4,11 @@ import { hasXProperty, isPointWithX, isXValue } from '@type/navigation';
 /**
  * Coordinate helpers shared by every trace that navigates by X value.
  *
- * These are pure functions over the data a trace already holds: no state, no
- * side effects, nothing to dispose. They lived on `NavigationService` and were
- * reached from `AbstractTrace` and `Candlestick`, which put a `src/service/`
- * import in the model layer that `.claude/rules/model.md` forbids — and made
- * every trace allocate a service instance to call them.
+ * Pure functions over the data a trace already holds: no state, no side
+ * effects, nothing to dispose. They used to be methods on a class under
+ * `src/service/`, which put a service import in the model layer that
+ * `.claude/rules/model.md` forbids and made every trace allocate an instance
+ * to call them. Here `AbstractTrace` and `Candlestick` can call them directly.
  */
 
 /**
