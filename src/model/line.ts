@@ -519,15 +519,16 @@ export class LineTrace extends AbstractTrace {
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
-      let lineTypes = intersections.map((intersection) => {
-        const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
-      });
+      // Named the way every other announcement names a series, so an unnamed
+      // line is "Line 2" here as well rather than an abbreviation the reader
+      // has never been given.
+      let lineTypes = intersections.map(intersection =>
+        this.groupNameAt(intersection.group!),
+      );
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevZ
-          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        const prevZ = this.groupNameAt(this.previousRow);
         if (lineTypes.includes(prevZ)) {
           lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
