@@ -1,6 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
@@ -174,6 +175,38 @@ export class Heatmap extends AbstractTrace {
       rows: this.heatmapValues.length,
       cols: this.heatmapValues[this.row]?.length ?? 0,
     };
+  }
+
+  /**
+   * The label of the column the cursor is in.
+   *
+   * A heatmap has no `points`, so the base implementation fell back to
+   * scanning `values` -- a grid of magnitudes with no X in it -- and handed the
+   * focused cell's magnitude to the next layer as the reader's X.
+   * @returns The current column's label, or null when the cursor is off the grid
+   */
+  public override getCurrentXValue(): XValue | null {
+    return this.x[this.col] ?? null;
+  }
+
+  /**
+   * Moves to the column labelled `xValue`, staying on the current row.
+   *
+   * Column labels are strings, so a numeric X arriving from a neighbouring
+   * layer is matched by its spelling: a grid whose columns are `'1'`, `'2'`,
+   * `'3'` answers `moveToXValue(3)` with its third column. There is no
+   * nearest-column fallback: a label that is not there is not there, and the
+   * base implementation's search of the magnitudes instead was the bug.
+   * @param xValue - The column label to move to
+   * @returns True when a column carries that label and the cursor moved
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    const label = String(xValue);
+    const col = this.x.findIndex(candidate => String(candidate) === label);
+    if (col === -1) {
+      return false;
+    }
+    return this.moveToIndex(this.row, col);
   }
 
   private mapToSvgElements(
