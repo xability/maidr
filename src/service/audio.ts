@@ -478,6 +478,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
           const chainId = setTimeout(() => {
             this.activeAudioIds.delete(chainId);
             this.chordChainId = null;
+            // Sound may have been turned off since this step was queued. The
+            // echo timers make the same check for the same reason: OFF must
+            // silence what is already in flight, not just what comes next.
+            if (this.mode === AudioMode.OFF) {
+              return;
+            }
             playNext();
           }, playRate);
           this.activeAudioIds.set(chainId, []);
@@ -1700,6 +1706,14 @@ export class AudioService implements Observer<PlotState>, Disposable {
       case AudioMode.COMBINED:
         this.mode = AudioMode.SEPARATE;
         break;
+    }
+
+    if (this.mode === AudioMode.OFF) {
+      // Silence what is already queued for the current point: the chord chain
+      // would otherwise keep sounding tones — and queueing their echoes —
+      // over the "Sound is off" announcement.
+      this.cancelChordChain();
+      this.cancelPendingEchoes();
     }
 
     const mode
