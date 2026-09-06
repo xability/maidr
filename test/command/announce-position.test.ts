@@ -762,13 +762,19 @@ describe('AnnouncePositionCommand on a violin box', () => {
  *
  * @param violin Zero-based index of the violin the cursor is on
  * @param sample Zero-based index of the density sample within it
+ * @param orientation Which way the violins are laid out
  * @returns The trace's state with the cursor there
  */
-function violinKdeTraceState(violin: number, sample: number): PlotState {
+function violinKdeTraceState(
+  violin: number,
+  sample: number,
+  orientation = Orientation.VERTICAL,
+): PlotState {
   const trace = TraceFactory.create({
     id: 'position-violin-kde',
     type: TraceType.VIOLIN_KDE,
     title: 'Violins',
+    orientation,
     axes: { x: { label: 'Group' }, y: { label: 'Value' } },
     data: ['A', 'B', 'C'].map(x =>
       [1, 2, 3, 4, 5].map(y => ({ x, y, density: 0.1 * y })),
@@ -796,6 +802,29 @@ describe('AnnouncePositionCommand on a multi-violin KDE', () => {
     command.execute();
 
     expect(textViewModel.update).toHaveBeenCalledWith('Violin 2 of 3, 50%');
+  });
+
+  /**
+   * The cursor is on the same violin and the same sample either way round, so
+   * the announcement is too. It is the stereo pan that turns with the layout:
+   * a vertical violin pans by violin and holds still while the reader climbs
+   * one curve, a horizontal one pans along the curve. Reading the position out
+   * of that pan is what made the vertical case answer with its two numbers
+   * swapped.
+   */
+  test('reads the same violin and sample whichever way the violins are laid out', () => {
+    const vertical = createCommand(violinKdeTraceState(1, 2, Orientation.VERTICAL));
+    const horizontal = createCommand(violinKdeTraceState(1, 2, Orientation.HORIZONTAL));
+
+    vertical.command.execute();
+    horizontal.command.execute();
+
+    expect(vertical.textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
+    expect(horizontal.textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
   });
 });
 
