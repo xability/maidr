@@ -691,7 +691,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     // Check for special chart types
     const traceType = state.traceType;
 
-    if (traceType === TraceType.BOX) {
+    if (traceType === TraceType.BOX || traceType === TraceType.VIOLIN_BOX) {
       this.announceBoxplotPosition(state);
     } else if (traceType === TraceType.PIE) {
       this.announcePiePosition(state);

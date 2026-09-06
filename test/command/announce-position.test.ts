@@ -684,3 +684,75 @@ describe('AnnouncePositionCommand on horizontal bar charts', () => {
     );
   });
 });
+
+/**
+ * A real violin box trace's state. Its audio panning encodes the value, as a
+ * boxplot's does, so the position has to come from the same place the
+ * boxplot branch reads it.
+ *
+ * @param orientation Which way the violins run
+ * @param section Section index, in the trace's own section order
+ * @param violin Zero-based index of the violin the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function violinBoxTraceState(
+  orientation: Orientation,
+  section: number,
+  violin: number,
+): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-violin-box',
+    type: TraceType.VIOLIN_BOX,
+    title: 'Violins',
+    orientation,
+    axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+    data: [
+      { z: 'A', lowerOutliers: [], min: 1, q1: 3, q2: 5, q3: 7, max: 9, upperOutliers: [] },
+      { z: 'B', lowerOutliers: [], min: 2, q1: 4, q2: 6, q3: 8, max: 10, upperOutliers: [] },
+    ] as BoxPoint[],
+  });
+  if (orientation === Orientation.HORIZONTAL) {
+    trace.moveToIndex(violin, section);
+  } else {
+    trace.moveToIndex(section, violin);
+  }
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on a violin box', () => {
+  test('announces which violin the cursor is on, with its section', () => {
+    const state = violinBoxTraceState(Orientation.VERTICAL, 0, 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      `Position is 2 of 2 in ${sectionOf(state)}`,
+    );
+  });
+
+  test('changes the announcement when the cursor moves to another violin', () => {
+    const first = createCommand(violinBoxTraceState(Orientation.VERTICAL, 2, 0));
+    const second = createCommand(violinBoxTraceState(Orientation.VERTICAL, 2, 1));
+
+    first.command.execute();
+    second.command.execute();
+
+    const firstText = jest.mocked(first.textViewModel.update).mock.calls[0][0] as string;
+    const secondText = jest.mocked(second.textViewModel.update).mock.calls[0][0] as string;
+    expect(firstText).toContain('Position is 1 of 2');
+    expect(secondText).toContain('Position is 2 of 2');
+  });
+
+  test('reads the violin index on a horizontal violin box too', () => {
+    const state = violinBoxTraceState(Orientation.HORIZONTAL, 0, 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      `Position is 2 of 2 in ${sectionOf(state)}`,
+    );
+  });
+});
