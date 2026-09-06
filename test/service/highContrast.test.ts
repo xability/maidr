@@ -116,6 +116,11 @@ interface Harness {
   settings: SettingsService;
   marks: SVGElement[];
   bar: SVGElement;
+  /**
+   * The same object the service holds, so a test can repoint it the way a
+   * host does when it re-renders the chart into fresh SVG nodes.
+   */
+  display: { plot: HTMLElement };
 }
 
 function createHarness(
@@ -169,7 +174,7 @@ function createHarness(
     context as unknown as Context,
   );
 
-  return { service, settings, marks, bar: marks[0] };
+  return { service, settings, marks, bar: marks[0], display };
 }
 
 function turnHighContrastOff(settings: SettingsService): void {
@@ -232,6 +237,28 @@ describe('highContrastService', () => {
 
     expect(window.getComputedStyle(document.body).backgroundColor).toBe('rgb(0, 0, 0)');
     expect(harness.bar.getAttribute('fill')).not.toBe(BAR_FILL);
+  });
+
+  it('reads the real colours of a chart the host re-rendered into new nodes', () => {
+    // The restore before the re-capture writes to the elements captured last
+    // time. A host that redraws into fresh SVG nodes leaves those detached, so
+    // the restore reaches nothing -- which is fine, because the new nodes were
+    // never recoloured and already carry their own colours. This pins that the
+    // second path is as correct as the first, since only the first is obvious.
+    harness.service.initializeHighContrast();
+    const replacement = document.createElementNS(SVG_NAMESPACE, 'svg');
+    replacement.setAttribute('id', 'chart');
+    const redrawn = document.createElementNS(SVG_NAMESPACE, 'rect');
+    redrawn.setAttribute('fill', BAR_FILL);
+    redrawn.setAttribute('stroke', '#1f77b4');
+    replacement.appendChild(redrawn);
+    harness.display.plot.replaceWith(replacement);
+    harness.display.plot = replacement as unknown as HTMLElement;
+
+    harness.service.setFigure(createFigure());
+    turnHighContrastOff(harness.settings);
+
+    expect(redrawn.getAttribute('fill')).toBe(BAR_FILL);
   });
 
   it('interpolates the colour ramp once per apply, not once per colour', () => {

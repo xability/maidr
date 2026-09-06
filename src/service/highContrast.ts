@@ -286,6 +286,11 @@ export class HighContrastService implements Disposable {
       this.patternService = null;
     }
 
+    // The parsing canvas outlives nothing else here, but release it for the
+    // same reason PatternService does: a disposed service should not keep a
+    // rendering context alive if anything still holds a reference to it.
+    this.sharedCanvasCtx = null;
+
     // Note: Colors are restored via suspendHighContrast() before dispose is called.
     // See index.ts onFocusOut handler.
   }
