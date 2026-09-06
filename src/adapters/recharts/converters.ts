@@ -255,6 +255,24 @@ function buildLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrL
 }
 
 /**
+ * Whether a chart type's builder raises when it finds none of its fields.
+ *
+ * The four that do are the ones whose whole payload is named by their own
+ * sub-config rather than by `xKey`/`yKeys`, so a mismatch there leaves them
+ * with nothing at all rather than with a column of `NaN`.
+ *
+ * @param chartType - The declared chart type
+ * @returns Whether an empty row set has to be turned away before the builder
+ * mistakes it for a config that does not match the data
+ */
+function refusesUnreadableRows(chartType: RechartsChartType): boolean {
+  return chartType === 'gauge'
+    || chartType === 'ridgeline'
+    || chartType === 'hexbin'
+    || chartType === 'boxen';
+}
+
+/**
  * Builds layers for simple mode (single chart type, one or more yKeys).
  */
 function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
@@ -267,6 +285,25 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   }
   if (!data) {
     throw new Error('RechartsAdapter: data is required (top-level or per subplot panel)');
+  }
+
+  // Four builders refuse rows they can find none of their fields in — a gauge
+  // with no measure, a ridgeline with no density, a hexbin with no centres, a
+  // boxen with no median. That diagnostic is about a config that does not
+  // match the data, and it stays. Empty data is a different thing: the
+  // ordinary React fetch pattern renders once with `[]` before the rows
+  // arrive, and a filter that matches nothing goes back to it.
+  //
+  // `MaidrRecharts` converts inside `useMemo`, i.e. during render, so throwing
+  // there unwinds the consumer's tree to its nearest error boundary — the
+  // accessibility wrapper destroying the chart it was added to make readable.
+  // Emitting no layer is the core's own spelling for not ready:
+  // `useMaidrController.createController` returns null for a subplot with none
+  // and builds the figure when the rows land. `chartType: 'bar'` has always
+  // taken empty data without complaint, which is why the crash was confined to
+  // these four and easy to ship without noticing.
+  if (data.length === 0 && refusesUnreadableRows(chartType)) {
+    return [];
   }
 
   // Four types whose payload is a grid grouped by something that is not a
