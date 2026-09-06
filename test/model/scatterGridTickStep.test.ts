@@ -33,6 +33,9 @@ describe('a scatter grid config that does not describe a grid', () => {
     ['a non-finite tick step', { min: 0, max: 4, tickStep: Number.POSITIVE_INFINITY }, { min: 0, max: 4, tickStep: 2 }],
     ['a NaN tick step', { min: 0, max: 4, tickStep: Number.NaN }, { min: 0, max: 4, tickStep: 2 }],
     ['a tick step asking for billions of bins', { min: 0, max: 4, tickStep: 1e-9 }, { min: 0, max: 4, tickStep: 2 }],
+    // Each axis is inside the per-axis bound; their product is not, and the
+    // product is what the grid allocates.
+    ['two axes that multiply into a grid too large to build', { min: 0, max: 10_000, tickStep: 1 }, { min: 0, max: 10_000, tickStep: 1 }],
     ['an inverted range', { min: 4, max: 0, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
     ['a collapsed range', { min: 2, max: 2, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
   ])('%s constructs without a grid', (_name, x, y) => {
@@ -41,6 +44,18 @@ describe('a scatter grid config that does not describe a grid', () => {
     expect(trace.supportsGridMode()).toBe(false);
     expect(trace.getGridDimensions()).toBeNull();
     expect(trace.state.empty).toBe(false);
+  });
+
+  test('a large grid that is still within reach is built', () => {
+    // 300 x 300 = 90,000 cells: far more than a reader would walk, and
+    // still built, so the cap rejects only what would freeze the tab.
+    const trace = new ScatterTrace(scatterLayer(
+      { label: 'X', min: 0, max: 300, tickStep: 1 },
+      { label: 'Y', min: 0, max: 300, tickStep: 1 },
+    ));
+
+    expect(trace.supportsGridMode()).toBe(true);
+    expect(trace.getGridDimensions()).toEqual({ rows: 300, cols: 300 });
   });
 
   test('a well-formed config still builds the grid', () => {

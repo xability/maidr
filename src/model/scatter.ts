@@ -2159,6 +2159,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return null;
     }
 
+    // ...and a grid a reader can hold. `buildGridCells` allocates one cell
+    // object with six arrays per row-column pair up front, so two axes that
+    // each pass the per-axis bound on their own still multiply into a grid
+    // whose construction is the same tab-freezing allocation, only reached
+    // by their product rather than by either one.
+    const cells = ((xMax - xMin) / xTickStep) * ((yMax - yMin) / yTickStep);
+    if (cells > ScatterTrace.MAX_GRID_CELLS) {
+      return null;
+    }
+
     return { xMin, xMax, xTickStep, yMin, yMax, yTickStep };
   }
 
@@ -2171,6 +2181,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * for more than this is read as not describing a grid at all.
    */
   private static readonly MAX_GRID_BINS = 10_000;
+
+  /**
+   * The most cells a grid may hold across both axes.
+   *
+   * Bounding each axis on its own is not enough: two bounds that each look
+   * reasonable multiply, and it is the product that `buildGridCells`
+   * allocates in one synchronous pass in the constructor.
+   */
+  private static readonly MAX_GRID_CELLS = 100_000;
 
   /**
    * Whether one axis's range and step can be cut into at least one bin.
