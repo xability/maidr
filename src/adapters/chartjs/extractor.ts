@@ -320,6 +320,12 @@ function orderPanelsByGeometry(
  * datasets, and with the panel's own scale substituted as the default value
  * scale so the existing per-type extractors (which read `scales.x`/`scales.y`)
  * pick up the panel's axis label and stacked flag unchanged.
+ *
+ * `data.datasets` is a subset, so every extractor handed this view counts its
+ * datasets from zero. The per-dataset lookups have to be translated back onto
+ * the real chart, or the panel reads whichever dataset happens to sit at that
+ * position in the whole figure -- for the second panel that is the first
+ * panel's parse, announced under the second panel's name.
  */
 function createPanelView(
   chart: ChartJsChart,
@@ -328,6 +334,10 @@ function createPanelView(
 ): ChartJsChart {
   const scales = chart.options.scales ?? {};
   const panelScale = scales[panel.scaleId];
+  // The `?? local` mirrors `layerDatasets`: an index outside the partition
+  // cannot happen while extractors walk only the datasets they were handed,
+  // and falling back beats throwing away the whole accessibility layer.
+  const globalIndex = (local: number): number => panel.datasetIndices[local] ?? local;
 
   return {
     canvas: chart.canvas,
@@ -338,7 +348,10 @@ function createPanelView(
       scales: panelScale ? { ...scales, [axisKind]: panelScale } : scales,
     },
     scales: chart.scales,
-    getDatasetMeta: datasetIndex => chart.getDatasetMeta(datasetIndex),
+    getDatasetMeta: local => chart.getDatasetMeta(globalIndex(local)),
+    ...(chart.isDatasetVisible
+      ? { isDatasetVisible: (local: number) => chart.isDatasetVisible?.(globalIndex(local)) !== false }
+      : {}),
     setActiveElements: elements => chart.setActiveElements(elements),
     tooltip: chart.tooltip,
     update: mode => chart.update(mode),
