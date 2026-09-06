@@ -159,19 +159,29 @@ describe('the gallery\'s labels', () => {
 describe('the gallery\'s markup', () => {
   const html = renderGallery(sections);
 
-  it('should call loadHTML with the page and its heading', () => {
+  it('should link the page and call loadHTML with it and its heading', () => {
+    // A real href, not `#`: the gallery is the only path a crawler has to
+    // the pages under `examples/`, and a link to `#` is not a link to
+    // anyone who cannot see the iframe it fills.
     expect(html).toContain(
-      '<li><a href="#" onclick="loadHTML(\'barplot.html\', \'Barplot\'); return false;">Barplot</a></li>',
+      '<li><a href="examples/barplot.html" onclick="loadHTML(\'barplot.html\', \'Barplot\'); return false;">Barplot</a></li>',
     );
     expect(html).toContain(
-      '<li><a href="#" onclick="loadHTML(\'plotly-bar.html\', \'Plotly Bar Chart\'); return false;">Bar Chart</a></li>',
+      '<li><a href="examples/plotly-bar.html" onclick="loadHTML(\'plotly-bar.html\', \'Plotly Bar Chart\'); return false;">Bar Chart</a></li>',
+    );
+  });
+
+  it('should give every entry a real href', () => {
+    expect(html).not.toContain('href="#"');
+    expect(html.match(/<a href="examples\//g)).toHaveLength(
+      sections.reduce((n, section) => n + section.items.length, 0),
     );
   });
 
   it('should keep the hand-written entries that are not pages', () => {
-    expect(html).toContain('onclick="loadReact(); return false;"');
-    expect(html).toContain('onclick="loadRecharts(); return false;"');
-    expect(html).toContain('onclick="loadVictory(); return false;"');
+    expect(html).toContain('href="examples/react/index.html" onclick="loadReact(); return false;"');
+    expect(html).toContain('href="examples/recharts/index.html" onclick="loadRecharts(); return false;"');
+    expect(html).toContain('href="examples/victory/index.html" onclick="loadVictory(); return false;"');
   });
 
   it('should be what build-site.js drops into the page', () => {

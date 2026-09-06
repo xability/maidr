@@ -20,6 +20,8 @@
 import type { Maidr, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
+import { Histogram } from '@model/histogram';
+import { LineTrace } from '@model/line';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 
@@ -72,6 +74,40 @@ describe('a trace with nothing at the cursor', () => {
   });
 });
 
+describe('a segmented layer with no series at all', () => {
+  // A producer emits `[]` rather than `[[]]` for a stacked chart with nothing
+  // to stack. The summary row is built off `barValues[0]`, which does not
+  // exist, and the throw left trace construction and the figure with it.
+  test.each([
+    ['stacked', TraceType.STACKED],
+    ['dodged', TraceType.DODGED],
+    ['normalized', TraceType.NORMALIZED],
+    ['diverging', TraceType.DIVERGING],
+    ['mosaic', TraceType.MOSAIC],
+  ])('a %s layer with no series constructs and reports empty', (_name, type) => {
+    const build = (): ReturnType<typeof TraceFactory.create> =>
+      TraceFactory.create(layer(type, []));
+
+    expect(build).not.toThrow();
+    expect(build().state.empty).toBe(true);
+  });
+});
+
+describe('an empty histogram', () => {
+  test('is described without a bin range rather than throwing', () => {
+    // The bin range is read off the first and last bin. With no bins there is
+    // no range to report, and the rest of the description still stands.
+    const trace = new Histogram(layer(TraceType.HISTOGRAM, []));
+
+    expect(() => trace.description).not.toThrow();
+    expect(trace.description.stats).toEqual(expect.arrayContaining([
+      { label: 'Number of bins', value: 0 },
+      { label: 'Bin range', value: 'missing' },
+    ]));
+    expect(trace.description.dataTable.rows).toEqual([]);
+  });
+});
+
 describe('a ragged layer', () => {
   /**
    * One series with points and one without — the shape a producer emits when
@@ -107,6 +143,82 @@ describe('a ragged layer', () => {
 
     trace.row = 0;
     expect(trace.state.empty).toBe(false);
+  });
+});
+
+describe('a ragged layer whose first series is empty', () => {
+  /**
+   * The empty series comes first -- a hue level with nothing in the range,
+   * emitted before the ones that have data. `handleInitialEntry` parks the
+   * cursor at (-1, -1) because `graph[0][0]` does not exist, and every
+   * accessor that indexes `points[row]` from there threw.
+   * @returns The trace
+   */
+  function firstEmptyTrace(): ReturnType<typeof TraceFactory.create> {
+    return TraceFactory.create(layer(TraceType.LINE, [[], POINTS]));
+  }
+
+  test('the first keypress lands on the series that has points', () => {
+    const trace = firstEmptyTrace();
+
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.state.empty).toBe(false);
+  });
+
+  test.each(['FORWARD', 'BACKWARD', 'UPWARD', 'DOWNWARD'] as const)(
+    'moving %s from the empty series reports out of bounds rather than throwing',
+    (direction) => {
+      const trace = firstEmptyTrace();
+      trace.isInitialEntry = false;
+      trace.row = 0;
+      const update = jest.fn();
+      trace.addObserver({ update });
+
+      expect(() => trace.moveOnce(direction)).not.toThrow();
+      expect(trace.moveOnce(direction)).toBe(false);
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ empty: true }));
+    },
+  );
+
+  test('an entry that finds no series at all still answers every move', () => {
+    const trace = TraceFactory.create(layer(TraceType.LINE, [[]]));
+    trace.moveOnce('FORWARD');
+
+    expect(trace.state.empty).toBe(true);
+    expect(trace.moveOnce('FORWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+  });
+
+  test('the x values on offer from the empty series are none', () => {
+    const trace = firstEmptyTrace() as LineTrace;
+    trace.isInitialEntry = false;
+    trace.row = 0;
+
+    expect(trace.getAvailableXValues()).toEqual([]);
+  });
+});
+
+describe('describing a layer with an empty series', () => {
+  test('a layer with no series at all is described rather than throwing', () => {
+    // The description read the points per line off series 0, and the
+    // single-line table off it too; with no series there was no series 0.
+    const trace = new LineTrace(layer(TraceType.LINE, []));
+
+    expect(() => trace.description).not.toThrow();
+    expect(trace.description.stats).toEqual(expect.arrayContaining([
+      { label: 'Number of lines', value: 0 },
+      { label: 'Points per line', value: 0 },
+    ]));
+    expect(trace.description.dataTable.rows).toEqual([]);
+  });
+
+  test('the points per line are the widest series, not the first', () => {
+    // Series 0 being the empty one should not read as "Points per line: 0"
+    // for a chart whose other series draw two.
+    const trace = new LineTrace(layer(TraceType.LINE, [[], POINTS]));
+
+    expect(trace.description.stats).toContainEqual({ label: 'Points per line', value: 2 });
   });
 });
 

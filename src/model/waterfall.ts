@@ -6,6 +6,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { isMeasured } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -68,7 +69,10 @@ export class WaterfallTrace extends AbstractTrace {
     this.points = layer.data as WaterfallPoint[];
     this.deltaValues = [this.points.map(point => Number(point.delta))];
 
-    const { min, max } = MathUtil.minMax(this.deltaValues[0]);
+    // A missing contribution is not a measurement, so it must not set the
+    // range: `minMax` seeds from the first value, and a NaN there never loses
+    // a comparison, so it would hand every step a NaN pitch.
+    const { min, max } = MathUtil.minMax(this.deltaValues[0].filter(isMeasured));
     this.min = min;
     this.max = max;
 
@@ -189,11 +193,14 @@ export class WaterfallTrace extends AbstractTrace {
       );
     }
 
-    if (steps.length > 0) {
+    // Ranked over the measured steps only, as `getExtremaTargets` ranks
+    // them: a NaN would win `Math.max` and name no step at all.
+    const measured = steps.filter(point => isMeasured(Number(point.delta)));
+    if (measured.length > 0) {
       // The largest mover is what a waterfall is read to find, and scanning
       // for it by ear means walking every step.
-      const magnitudes = steps.map(point => Math.abs(Number(point.delta)));
-      const largest = steps[magnitudes.indexOf(Math.max(...magnitudes))];
+      const magnitudes = measured.map(point => Math.abs(Number(point.delta)));
+      const largest = measured[magnitudes.indexOf(Math.max(...magnitudes))];
       stats.push({
         label: 'Largest contribution',
         value: `${largest.x} (${Number(largest.delta)})`,

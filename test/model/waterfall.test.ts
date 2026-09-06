@@ -131,6 +131,17 @@ describe('audio', () => {
     expect(Number(decrease.freq.raw)).toBeLessThan(Number(increase.freq.raw));
   });
 
+  test('keeps the pitch range over the measured steps when the first is missing', () => {
+    // `MathUtil.minMax` seeds its range from the first value, and a NaN there
+    // never loses a comparison, so one unmeasured opening step handed every
+    // other step a NaN range and a silent chart.
+    const unmeasured = { x: 'Opening', start: 0, end: 1200, kind: 'total' } as WaterfallPoint;
+    const { audio } = nonEmptyState(at(2, [unmeasured, ...STEPS.slice(1)]));
+
+    expect(audio.freq.min).toBe(-250);
+    expect(audio.freq.max).toBe(1360);
+  });
+
   test('pans across the steps', () => {
     const { audio } = nonEmptyState(at(3));
 
@@ -252,6 +263,26 @@ describe('description', () => {
       { x: 'Close', start: 0, end: 500, delta: 500, kind: 'total' },
     ];
     const labels = at(0, totalsOnly).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Largest contribution');
+  });
+
+  test('names the largest mover among the measured steps when one is missing', () => {
+    // A producer can leave a step's contribution out. Ranking it as NaN made
+    // `Math.max` NaN, the lookup `steps[-1]`, and the describe command throw.
+    const [opening, marketing, sales, support, closing] = STEPS;
+    const unmeasured = { x: 'Legal', start: 950, end: 950, kind: 'decrease' } as WaterfallPoint;
+    const stat = at(0, [opening, marketing, sales, unmeasured, support, closing])
+      .description
+      .stats
+      .find(s => s.label === 'Largest contribution');
+
+    expect(stat).toEqual({ label: 'Largest contribution', value: 'Sales (480)' });
+  });
+
+  test('stays silent about a largest mover when no step is measured', () => {
+    const unmeasured = { x: 'Legal', start: 950, end: 950, kind: 'decrease' } as WaterfallPoint;
+    const labels = at(0, [STEPS[0], unmeasured, STEPS[4]]).description.stats.map(stat => stat.label);
 
     expect(labels).not.toContain('Largest contribution');
   });

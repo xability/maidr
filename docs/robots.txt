@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://maidr.ai/sitemap.xml
+Sitemap: https://maidr.ai/api/sitemap.xml

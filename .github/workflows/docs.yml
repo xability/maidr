@@ -14,9 +14,23 @@ on:
       - 'examples/**'
       - 'media/**'
       - 'scripts/build-site.js'
+      - 'scripts/markdown.js'
+      - 'scripts/examplesGallery.js'
+      - 'scripts/typedoc-seo-plugin.mjs'
+      - 'scripts/add-navbar-to-typedoc.js'
+      - 'scripts/check-page-sizes.js'
       - '.github/workflows/docs.yml'
 
   workflow_dispatch:
+
+  # The semantic-release commit is "chore(release): X [skip ci]", which GitHub
+  # never runs `on: push` workflows for, so the site did not pick up a new
+  # version until the next push that touched a docs path. Rebuild when the
+  # Release workflow finishes instead; the job below skips a failed release.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -30,9 +44,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history: scripts/build-site.js derives sitemap <lastmod> and
+          # TechArticle dates from git commit dates.
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
