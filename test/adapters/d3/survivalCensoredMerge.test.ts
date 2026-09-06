@@ -91,7 +91,8 @@ describe('merging many censoring ticks', () => {
 
   test('still places every tick at its own time, in order', () => {
     const arm = (bindD3Survival(buildSvg(CURVE, TICKS), BASE)
-      .layer.data as SurvivalPoint[][])[0];
+      .layer
+      .data as SurvivalPoint[][])[0];
 
     expect(arm).toHaveLength(CURVE.length + TICKS.length);
     expect(arm.map(point => point.x)).toEqual(
