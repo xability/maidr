@@ -386,6 +386,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       this.numGridCols = 0;
     }
 
+    // A point's slot inside its own column, for every column, in one pass.
+    // Searching the column per point instead is O(points x column height),
+    // which is quadratic on the charts that stack hardest — a strip plot at
+    // a single x, a Manhattan plot over a handful of chromosomes. The slot
+    // recorded is the first one holding that y, which is what a search for
+    // it would have found. NaN is left out: a search never matches it, and
+    // a Map would.
+    const slotOfYInColumn = this.xPoints.map((column) => {
+      const slots = new Map<number, number>();
+      for (let k = 0; k < column.y.length; k++) {
+        if (!Number.isNaN(column.y[k]) && !slots.has(column.y[k])) {
+          slots.set(column.y[k], k);
+        }
+      }
+      return slots;
+    });
+
     // Point navigation: pair each data point with its rendered SVG element by
     // index (the same index correspondence buildGridCells relies on), then
     // build two sort orders. Both orders are full permutations of the flat
@@ -394,7 +411,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // Both lookups key off the very numbers xPoints was grouped from, so
       // they hit exactly; the fallbacks only guard a malformed layer.
       const xIndex = this.xIndexOf(p.x);
-      const column = this.xPoints[xIndex]?.y ?? [];
       return {
         x: p.x,
         y: p.y,
@@ -404,7 +420,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         label: nameOf(p.label),
         svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
         xIndex,
-        yIndexInColumn: Math.max(0, column.indexOf(p.y)),
+        yIndexInColumn: slotOfYInColumn[xIndex]?.get(p.y) ?? 0,
       };
     });
     this.readingOrder = this.flatPoints
