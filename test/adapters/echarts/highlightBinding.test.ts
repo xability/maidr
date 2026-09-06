@@ -295,6 +295,26 @@ describe('an eCharts dodged bar layer', () => {
   });
 });
 
+describe('a chart whose container id is not a bare identifier', () => {
+  it('still outlines the bar the reader is on', () => {
+    // React's `useId()` answers `:r0:`, and an id may also begin with a digit
+    // or hold a `.` -- none of which is a CSS identifier. Interpolated raw,
+    // the selector is invalid, `document.querySelectorAll` throws a
+    // SyntaxError, and the throw propagates out of `new Figure(...)`: the
+    // chart is not merely unhighlighted, it is entirely inaccessible.
+    const container = drawnChart(3, 0);
+    container.id = ':r0:';
+    const layer = createMaidrFromEChart(
+      fakeInstance([{ type: 'bar', names: CATEGORIES, values: [1, 2, 3] }]),
+      container,
+    ).subplots[0][0].layers[0];
+
+    const trace = new BarTrace(layer);
+
+    expect(highlighted(trace, 0, 1)).toEqual(['mark-1']);
+  });
+});
+
 describe('an eCharts scatter layer', () => {
   it('outlines the point the reader is on, not nothing at all', () => {
     const layer = layerFor(
