@@ -272,8 +272,17 @@ export function buildLineLayer(
           rowPaths.push(element);
         }
       }
-    } else {
-      // Pattern B: shared parent – query all points once and group by fill
+    }
+
+    // Pattern B: shared parent – query all points once and group by fill.
+    // Also the fallback when Pattern A collected nothing, which is what the
+    // ordinary `g.series-0 > path`, `g.series-1 > path`, `g.dots > circle`
+    // idiom produces: the paths do have distinct parents, so Pattern A is
+    // chosen, but none of those parents holds a marker. Falling through reads
+    // the chart off the markers' own fill, and when there are no markers at
+    // all the throw below says so — either way the reader never gets a line
+    // plot announcing an empty trace.
+    if (data.length === 0) {
       const allPoints = queryD3Elements(root, pointSelector);
       if (allPoints.length === 0) {
         throw new Error(
