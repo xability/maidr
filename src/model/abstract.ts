@@ -16,9 +16,14 @@ import type {
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
-import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
+import {
+  extractXValueFromPoints,
+  extractXValueFromValues,
+  moveToXValueInPoints,
+  moveToXValueInValues,
+} from '@util/navigation';
 import { resolveOrientation } from '@util/orientation';
 import { Svg } from '@util/svg';
 
@@ -212,9 +217,12 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * @returns Object with safe row and column indices
    */
   protected getSafeIndices(): { row: number; col: number } {
-    const safeRow = this.row >= 0 && this.row < this.dimension.rows ? this.row : 0;
-    const safeCol
-      = this.col >= 0 && this.col < this.dimension.cols ? this.col : 0;
+    // One read, not two: `dimension` is a getter, and several traces compute
+    // it with a scan over every row. Nothing between the two comparisons can
+    // change the answer.
+    const { rows, cols } = this.dimension;
+    const safeRow = this.row >= 0 && this.row < rows ? this.row : 0;
+    const safeCol = this.col >= 0 && this.col < cols ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -472,14 +480,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected readonly yAxis: string;
   protected readonly z: string;
 
-  protected readonly navigationService: NavigationService;
-
   protected readonly layer: MaidrLayer;
 
   protected constructor(layer: MaidrLayer) {
     super();
     this.layer = layer;
-    this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
@@ -719,11 +724,17 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   protected get autoplay(): AutoplayState {
+    // One read for all four limits. `dimension` is a getter -- GanttTrace,
+    // HexbinTrace, RidgelineTrace and BoxenTrace each reduce over every row to
+    // compute it, and ScatterTrace re-runs its mode branching -- and this runs
+    // inside every state computation, so asking four times was three full row
+    // scans per keypress for an answer that cannot change between them.
+    const { rows, cols } = this.dimension;
     return {
-      UPWARD: this.dimension.rows,
-      DOWNWARD: this.dimension.rows,
-      FORWARD: this.dimension.cols,
-      BACKWARD: this.dimension.cols,
+      UPWARD: rows,
+      DOWNWARD: rows,
+      FORWARD: cols,
+      BACKWARD: cols,
     };
   }
 
@@ -985,7 +996,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.extractXValueFromPoints(
+        return extractXValueFromPoints(
           points,
           this.row,
           this.col,
@@ -997,7 +1008,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.extractXValueFromValues(
+        return extractXValueFromValues(
           values as any,
           this.row,
           this.col,
@@ -1018,7 +1029,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.moveToXValueInPoints(
+        return moveToXValueInPoints(
           points,
           xValue,
           this.moveToIndex.bind(this),
@@ -1031,7 +1042,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.moveToXValueInValues(
+        return moveToXValueInValues(
           values as any,
           xValue,
           this.moveToIndex.bind(this),
@@ -1099,6 +1110,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public get traceType(): TraceType {
     return this.type;
+  }
+
+  /** @see Trace.level */
+  public get level(): 'trace' {
+    return 'trace';
   }
 
   protected abstract findNearestPoint(

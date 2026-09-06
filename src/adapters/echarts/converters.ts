@@ -6,6 +6,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  TreemapPoint,
 } from '@type/grammar';
 import type { AxisCategories } from './grid';
 import type {
@@ -27,9 +28,9 @@ import {
   heatmapLayer,
 } from './grid';
 import {
-  drawnNodeCount,
   HIERARCHY,
   hierarchyLayer,
+  hierarchyNodes,
   OUTLINED_HIERARCHY,
 } from './hierarchy';
 import {
@@ -42,7 +43,7 @@ import {
 import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { markPerDatum, markPerSeries } from './selectors';
-import { SINGLE_VALUE, singleValueLayers } from './single';
+import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -214,17 +215,38 @@ function readOwning(
     );
   }
 
-  return owning.flatMap((seriesModel) => {
+  // Found in one pass for every series, the way the gridded path does it.
+  // `markPerDatum` counts every filled mark in the SVG, so asking it once per
+  // series compares one series' count against the whole chart's marks: a
+  // nested pie -- two pie series, an inner ring and an outer one -- has both
+  // counts disagree and both rings lose their outline. It also unstamps
+  // before the count, so a later series with nothing to count would strip the
+  // stamps an earlier series' selectors already name.
+  // A hierarchy is walked once and its nodes serve both the count and the
+  // layer: the walk allocates a point per node, copies the ancestor path at
+  // each one and reads every node's and every child's value, so a sunburst of
+  // a few thousand nodes paid all of that twice for a number the first walk
+  // already had.
+  const nodes = owning.map(seriesModel =>
+    HIERARCHY.has(seriesModel.subType) ? hierarchyNodes(seriesModel) : undefined);
+  const counts = owning.map((seriesModel, index) =>
+    ownedMarkCount(seriesModel, nodes[index]));
+  const marks = markPerDatum(container, counts);
+  const eachMarkOf = (index: number): string[] | undefined =>
+    counts[index] > 0 ? marks?.points[index] : undefined;
+  const wholeSeriesOf = (index: number): string | undefined =>
+    counts[index] > 0 ? marks?.series[index] : undefined;
+
+  return owning.flatMap((seriesModel, index) => {
     if (SINGLE_VALUE.has(seriesModel.subType)) {
-      return singleValueLayers(seriesModel, container);
+      return singleValueLayers(seriesModel, eachMarkOf(index), wholeSeriesOf(index));
     }
     if (NETWORK.has(seriesModel.subType)) {
       const layer = networkLayer(seriesModel);
       return layer ? [layer] : [];
     }
     if (THEME_RIVER.has(seriesModel.subType)) {
-      const bands = markPerDatum(container, [drawnBandCount(seriesModel)]);
-      const layer = themeRiverLayer(seriesModel, model, bands?.points[0]);
+      const layer = themeRiverLayer(seriesModel, model, eachMarkOf(index));
       return layer ? [layer] : [];
     }
     if (PARALLEL.has(seriesModel.subType)) {
@@ -236,30 +258,39 @@ function readOwning(
       const layer = radarLayer(seriesModel, model, outlines);
       return layer ? [layer] : [];
     }
-    const layer = hierarchyLayer(seriesModel, hierarchyMarks(seriesModel, container));
+    const layer = hierarchyLayer(seriesModel, nodes[index] ?? [], eachMarkOf(index));
     return layer ? [layer] : [];
   });
 }
 
 /**
- * One selector per node of a hierarchy, when its marks can be paired.
+ * How many per-datum filled marks a whole-chart series drew.
  *
- * Only a sunburst's can -- see `hierarchy.ts` -- so the others are not even
- * counted, which keeps a treemap's leaf-only painting from being mistaken
- * for a count that merely came out wrong.
+ * Zero says the series has no mark this pass can pair, and every reading that
+ * answers zero says so for a measured reason: a gauge draws a track and a
+ * progress arc for its one datum, a graph and a parallel draw no filled
+ * per-datum mark at all, and among the hierarchies only a sunburst's marks
+ * can be paired -- see `hierarchy.ts` -- so a treemap's leaf-only painting is
+ * never mistaken for a count that merely came out wrong.
  *
- * @param seriesModel - The series to read
- * @param container   - The element the chart was rendered into
- * @returns One selector per node in walk order, or `undefined`
+ * @param seriesModel - The series to ask
+ * @param nodes       - Its walked nodes, when it carries a hierarchy
+ * @returns The number of marks the drawing should hold for it
  */
-function hierarchyMarks(
+function ownedMarkCount(
   seriesModel: EChartsSeriesModel,
-  container: HTMLElement,
-): string[] | undefined {
-  if (!OUTLINED_HIERARCHY.has(seriesModel.subType)) {
-    return undefined;
+  nodes: TreemapPoint[] | undefined,
+): number {
+  if (SINGLE_VALUE.has(seriesModel.subType)) {
+    return drawnValueCount(seriesModel);
   }
-  return markPerDatum(container, [drawnNodeCount(seriesModel)])?.points[0];
+  if (THEME_RIVER.has(seriesModel.subType)) {
+    return drawnBandCount(seriesModel);
+  }
+  if (OUTLINED_HIERARCHY.has(seriesModel.subType)) {
+    return nodes?.length ?? 0;
+  }
+  return 0;
 }
 
 /**
@@ -335,8 +366,14 @@ function buildLayers(
   // A boxplot is excluded alongside a line: it paints one path per box, but
   // that path is box AND whiskers together, which no selector shape wants --
   // counting it would spend a slot and shift every later series' marks.
+  // A line declared with `areaStyle` is the exception among lines: it fills
+  // the band under its curve in the series colour, which is a mark by every
+  // test `isFilledMark` applies. Excluded, the band is found among the
+  // candidates with nothing to account for it, and the mismatch drops the
+  // highlighting of every other series on the chart along with its own.
   const marked = series.filter(seriesModel =>
-    seriesModel.subType !== 'line' && seriesModel.subType !== 'boxplot');
+    seriesModel.subType !== 'boxplot'
+    && (seriesModel.subType !== 'line' || fillsBand(seriesModel)));
   const perDatum = markPerDatum(
     container,
     marked.map(seriesModel => drawnMarks(seriesModel, axes, grid)),
@@ -444,9 +481,29 @@ function drawnMarks(
       return drawnGridCount(seriesModel, grid);
     case 'candlestick':
       return drawnCandleCount(seriesModel);
+    case 'line':
+      // One band for the whole series rather than one mark per sample, and
+      // only when the series fills one -- the same count `markPerSeries`
+      // asks of the stroked curve above it.
+      return fillsBand(seriesModel) ? 1 : 0;
     default:
       return drawnCount(seriesModel, axes.horizontal);
   }
+}
+
+/**
+ * Whether a line series fills the band under its curve.
+ *
+ * `areaStyle` is what fills it, so it is what makes the chart an area chart
+ * rather than a line one -- read off the resolved option so an author cannot
+ * mislabel one as the other. The band is also a filled mark, which is why
+ * the count asks the same question the reading does.
+ *
+ * @param seriesModel - The series to read
+ * @returns True when the series paints a band
+ */
+function fillsBand(seriesModel: EChartsSeriesModel): boolean {
+  return Boolean(seriesModel.get('areaStyle'));
 }
 
 /**
@@ -616,24 +673,35 @@ function barLayer(
     };
   }
 
-  const stacked = bars.some(seriesModel => Boolean(seriesModel.get('stack')));
-  const data: SegmentedPoint[][] = bars.map((seriesModel, order) => {
+  const stacked = oneStack(bars);
+  // A gap keeps its column rather than being dropped from the row.
+  // `SegmentedTrace` pairs the series by column index -- its summary row reads
+  // `barValues.map(row => row[i])` and takes the category off `points[0][i]`
+  // -- so a row one short puts every later category against another series'
+  // value, announces a total no bar on the page adds up to, and drops the last
+  // category from the summary altogether.
+  //
+  // The magnitude is `NaN` and never `0`: a zero sounds like a real low
+  // reading, can be reached as the row's minimum and pulls the range every
+  // other bar's pitch is scaled against, which is what `isMeasured` keeps a
+  // gap out of (#1002).
+  const rows = bars.map((seriesModel, order) => {
     const list = seriesModel.getData();
     const fill = authoredName(seriesModel) || `Series ${order + 1}`;
     const points: SegmentedPoint[] = [];
+    const drew: boolean[] = [];
     for (let index = 0; index < list.count(); index++) {
       const value = magnitudeOf(list, index, axes.horizontal);
-      if (!measured(value)) {
-        continue;
-      }
+      const magnitude = measured(value) ? value : Number.NaN;
       const position = positionOf(list, index);
       points.push(
         axes.horizontal
-          ? { x: value, y: position, z: fill }
-          : { x: position, y: value, z: fill },
+          ? { x: magnitude, y: position, z: fill }
+          : { x: position, y: magnitude, z: fill },
       );
+      drew.push(measured(value));
     }
-    return points;
+    return { points, drew };
   });
 
   return {
@@ -643,11 +711,49 @@ function barLayer(
     // A row per series, not one flat list. `SegmentedTrace` routes an array
     // to `mapGridToSvgElements`, which wants a row per series and declines a
     // flat one -- for the reason it gives itself, that a flat list says which
-    // bars there are but not which cell each one is in.
-    ...(named ? { selectors: named } : {}),
+    // bars there are but not which cell each one is in. A cell the chart drew
+    // nothing at names no element, which the grid says with a `null` and the
+    // trace stands in for -- and which is why the row has to be as long as the
+    // series rather than as long as the marks.
+    ...(named
+      ? { selectors: named.map((marks, order) => paired(marks, rows[order].drew)) }
+      : {}),
     axes: axisConfig(axes),
-    data,
+    data: rows.map(row => row.points),
   };
+}
+
+/**
+ * Whether every bar series is stacked, and stacked on the same pile.
+ *
+ * ECharts stacks the series that share a `stack` name and draws the rest
+ * beside them, so a chart is only a stacked bar chart when they all name the
+ * same one. Two names is grouped stacks -- `'a', 'a', 'b', 'b'` is two stacks
+ * side by side, which ECharts draws routinely -- and a stacked series next to
+ * a plain one is a mixed chart. Calling either a stack tells the reader the
+ * bars sit on top of one another when they do not.
+ *
+ * @param bars - The chart's bar series
+ * @returns True when they are all in one stack
+ */
+function oneStack(bars: EChartsSeriesModel[]): boolean {
+  const first = text(bars[0]?.get('stack'));
+  if (!first) {
+    return false;
+  }
+  return bars.every(seriesModel => text(seriesModel.get('stack')) === first);
+}
+
+/**
+ * One selector per cell of a series, `null` where it drew no mark.
+ *
+ * @param marks - The selectors of the marks the series drew, in order
+ * @param drew  - Whether each cell of the series drew one
+ * @returns One entry per cell
+ */
+function paired(marks: string[], drew: boolean[]): (string | null)[] {
+  let mark = 0;
+  return drew.map(drawn => (drawn ? marks[mark++] ?? null : null));
 }
 
 function lineLayer(
@@ -668,10 +774,7 @@ function lineLayer(
     });
   }
 
-  // `areaStyle` is what fills the band under the curve, so it is what makes
-  // the chart an area chart rather than a line one -- read off the resolved
-  // option so an author cannot mislabel one as the other.
-  const area = Boolean(seriesModel.get('areaStyle'));
+  const area = fillsBand(seriesModel);
   const step = seriesModel.get('step');
   const name = authoredName(seriesModel);
 

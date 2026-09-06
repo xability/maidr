@@ -204,6 +204,33 @@ describe('an eCharts pie chart', () => {
   });
 });
 
+describe('an eCharts nested pie', () => {
+  it('outlines both rings, whose slices are counted together', () => {
+    // ECharts' own "Nested Pies": two pie series, an inner ring of two
+    // slices and an outer of three, five filled paths in all. Counted one
+    // series at a time against every mark on the chart, each count
+    // disagrees with the drawing and both rings lose their outline.
+    const container = drawnChart(5);
+    const layers = createMaidrFromEChart(
+      fakeInstance([
+        { type: 'pie', names: ['A', 'B'], values: [1, 2], name: 'Inner' },
+        { type: 'pie', names: ['C', 'D', 'E'], values: [3, 4, 5], name: 'Outer' },
+      ]),
+      container,
+    ).subplots[0][0].layers;
+
+    expect(layers).toHaveLength(2);
+    const inner = new PieTrace(layers[0]);
+    const outer = new PieTrace(layers[1]);
+
+    expect(highlighted(inner, 0, 0)).toEqual(['mark-0']);
+    expect(highlighted(inner, 0, 1)).toEqual(['mark-1']);
+    expect(highlighted(outer, 0, 0)).toEqual(['mark-2']);
+    expect(highlighted(outer, 0, 2)).toEqual(['mark-4']);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('a single-value datum with no number', () => {
   it('is left out rather than announced as a slice of nothing', () => {
     // ECharts draws nothing for it, so reading it would put a slice on the

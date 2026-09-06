@@ -25,11 +25,6 @@ import { LineTrace } from '@model/line';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 
-jest.mock('hotkeys-js', () => ({
-  __esModule: true,
-  default: { setScope: jest.fn() },
-}));
-
 /**
  * Build a layer of the given type over the given data.
  * @param type - The trace type to author

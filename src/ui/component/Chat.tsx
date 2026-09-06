@@ -1,6 +1,7 @@
 import type { Message } from '@type/llm';
 import { Close, Send } from '@mui/icons-material';
 import {
+  Box,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -289,15 +290,22 @@ const Chat: React.FC = () => {
               },
             }}
           >
-            {messages.map((message: Message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                disabled={disabled}
-                _onOpenSettings={handleOpenSettings}
-                onTypingUpdate={handleTypingUpdate}
-              />
-            ))}
+            {/* A real list, so the bubbles' `listitem` role has the owner ARIA
+                requires and the reader is told how many messages there are and
+                which one they are on. Bullets and indentation are reset; the
+                scroll anchor below stays outside it, since a list may only
+                contain list items. */}
+            <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0 }}>
+              {messages.map((message: Message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  disabled={disabled}
+                  _onOpenSettings={handleOpenSettings}
+                  onTypingUpdate={handleTypingUpdate}
+                />
+              ))}
+            </Box>
             <div ref={messagesEndRef} />
           </Grid>
 

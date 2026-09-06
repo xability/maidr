@@ -31,7 +31,13 @@ Trace implementations live directly in `src/model/` — `bar.ts`, `line.ts`,
 - **Guard moves with `isMovable()`** before mutating `row`/`col`, and keep the
   bounds check consistent with the data shape you actually index into.
 - **Never import from `src/service/`, `src/state/`, or `src/ui/`.** The model
-  notifies; it does not call.
+  notifies; it does not call. An eslint `no-restricted-imports` block scoped to
+  `src/model/**` fails the build on all three, and on `hotkeys-js` — the
+  keyboard scope belongs to `KeybindingService`. A model file that needs
+  something from one of those layers is telling you the thing is in the wrong
+  place: lift the pure part into `src/util/`, or move the behaviour onto the
+  model object it already operates on. `test/model/layerBoundary.test.ts` pins
+  the guard.
 - **One trace class per file**, extending `AbstractTrace`. It is not generic —
   the point type lives on the subclass's own `points` field, not in a type
   parameter.

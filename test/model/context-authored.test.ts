@@ -5,14 +5,24 @@ import { Context } from '@model/context';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_FIGURE_TITLE, DEFAULT_SUBTITLE } from '@model/plot';
 
 /**
- * Minimal Figure stub that takes the empty-state branch in Context's
- * constructor. The isAuthored* predicates do not touch the figure, so
- * this is sufficient for direct predicate coverage.
+ * Minimal Figure stub that keeps Context's constructor at figure level: one
+ * panel, with no trace to descend into.
+ *
+ * The isAuthored* predicates do not touch the figure at all, so this is
+ * sufficient for direct predicate coverage. The label fields carry the
+ * defaults a real Figure substitutes for an unlabelled payload, which is what
+ * the axis getters read.
  */
 function createStubFigure(): Figure {
   return {
     id: 'test-figure',
-    state: { empty: true, type: 'figure' },
+    size: 1,
+    title: DEFAULT_FIGURE_TITLE,
+    subtitle: DEFAULT_SUBTITLE,
+    caption: DEFAULT_CAPTION,
+    xLabel: DEFAULT_FIGURE_AXIS,
+    yLabel: DEFAULT_FIGURE_AXIS,
+    activeSubplot: { activeTrace: null },
   } as unknown as Figure;
 }
 
@@ -94,9 +104,9 @@ describe('Context.isAuthoredAxisLabel', () => {
     expect(context.isAuthoredAxisLabel('   ')).toBe(false);
   });
 
-  test('with no figure state, figure axis getters return the empty default', () => {
-    // The stub figure reports an empty state, so the getters fall through to
-    // DEFAULT_FIGURE_AXIS and read as unauthored.
+  test('with no authored figure axes, the getters return the empty default', () => {
+    // A figure whose payload names no axes carries DEFAULT_FIGURE_AXIS, and
+    // that reads as unauthored.
     expect(context.figureXAxis).toBe(DEFAULT_FIGURE_AXIS);
     expect(context.figureYAxis).toBe(DEFAULT_FIGURE_AXIS);
     expect(context.isAuthoredAxisLabel(context.figureXAxis)).toBe(false);

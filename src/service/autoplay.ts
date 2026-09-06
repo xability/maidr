@@ -189,7 +189,7 @@ export class AutoplayService implements Disposable {
       // Autoplay is a trace-level operation. If the active context has been
       // popped out of the trace (e.g. Esc escalates to the subplot), stop
       // instead of blindly auto-navigating the parent element.
-      if (this.context.state.type !== 'trace') {
+      if (this.context.activeLevel !== 'trace') {
         this.stop();
         return;
       }

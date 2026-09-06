@@ -161,7 +161,63 @@ describe('createMaidrFromGoogleChart with an AreaChart', () => {
         { x: '2022', y: 1120, z: 'Expenses' },
       ],
     ]);
-    expect(layer.axes).toEqual({ x: { label: 'Year' }, y: { label: 'Sales' } });
+    // Column 1 is the first series, not the axis, so a two-series chart has
+    // no single quantity to name -- and naming it 'Sales' would announce
+    // every Expenses value as a sale. The same call `buildSegmentedLayer`
+    // makes for a stack (#961) and `buildSurvivalLayer` for two arms.
+    expect(layer.axes).toEqual({ x: { label: 'Year' }, y: { label: undefined } });
+  });
+
+  it('names the magnitude axis when the chart draws one series', () => {
+    const single = makeAreaContainer(1);
+    const maidr = createMaidrFromGoogleChart(
+      AREA_CHART,
+      {
+        getNumberOfRows: () => ROWS.length,
+        getNumberOfColumns: () => 2,
+        getValue: (r, c) => ROWS[r][c],
+        getFormattedValue: (r, c) => String(ROWS[r][c]),
+        getColumnLabel: c => LABELS[c],
+        getColumnType: c => (c === 0 ? 'string' : 'number'),
+      },
+      single,
+      { chartType: 'AreaChart' },
+    );
+
+    expect(maidr.subplots[0][0].layers[0].axes?.y).toEqual({ label: 'Sales' });
+  });
+
+  it('skips a role column when naming the axis and the series', () => {
+    // `[Year, {role: 'tooltip'}, Sales]`: the series loop already knows to
+    // skip the tooltip, and the axis block and the `z` fallback have to ask
+    // the same question -- otherwise the axis is named after the tooltip and
+    // the chart's only series is announced as "Series 2".
+    const roleTable = (seriesLabel: string): GoogleDataTable => ({
+      getNumberOfRows: () => ROWS.length,
+      getNumberOfColumns: () => 3,
+      getValue: (r, c) => (c === 1 ? 'note' : ROWS[r][c === 0 ? 0 : 1]),
+      getFormattedValue: (r, c) => String(c === 1 ? 'note' : ROWS[r][c === 0 ? 0 : 1]),
+      getColumnLabel: c => (['Year', 'Note', seriesLabel])[c],
+      getColumnType: c => (c === 0 ? 'string' : 'number'),
+      getColumnRole: c => (c === 1 ? 'tooltip' : ''),
+    });
+
+    const named = createMaidrFromGoogleChart(
+      AREA_CHART,
+      roleTable('Sales'),
+      makeAreaContainer(1),
+      { chartType: 'AreaChart' },
+    ).subplots[0][0].layers[0];
+    expect(named.axes?.y).toEqual({ label: 'Sales' });
+
+    const unnamed = createMaidrFromGoogleChart(
+      AREA_CHART,
+      roleTable(''),
+      makeAreaContainer(1),
+      { chartType: 'AreaChart' },
+    ).subplots[0][0].layers[0];
+    // The chart's first series, however many role columns precede it.
+    expect((unnamed.data as LinePoint[][])[0][0].z).toBe('Series 1');
   });
 
   it.each([

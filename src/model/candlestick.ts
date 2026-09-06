@@ -11,15 +11,16 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import { AbstractTrace } from '@model/abstract';
-import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import {
   candlePairPatterns,
   candleShape,
   candleTrendPattern,
   candleTrioPatterns,
+  DEFAULT_CANDLE_SHAPE_THRESHOLDS,
 } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
+import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
 
@@ -155,18 +156,12 @@ export class Candlestick extends AbstractTrace {
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
-  // Service dependency for navigation logic
-  protected override readonly navigationService: NavigationService;
-
   /**
    * Creates a new Candlestick instance from a MAIDR layer
    * @param layer - The MAIDR layer containing candlestick data
    */
   constructor(layer: MaidrLayer) {
     super(layer);
-
-    // Initialize navigation service
-    this.navigationService = new NavigationService();
 
     const data = layer.data as CandlestickPoint[];
     // A chart with no open has one row fewer, rather than a row that
@@ -533,7 +528,7 @@ export class Candlestick extends AbstractTrace {
     this.isComputingStateAt = true;
     try {
       const { pointIndex, segmentType }
-        = this.navigationService.computeIndexAndSegment(row, col, this.sections);
+        = computeIndexAndSegment(row, col, this.sections);
       this.currentPointIndex = pointIndex;
       this.currentSegmentType = segmentType;
       return super.getStateAt(row, col);
@@ -556,14 +551,12 @@ export class Candlestick extends AbstractTrace {
       return false;
     }
 
-    // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
 
-    // Use navigation service to compute the mapping
     const { pointIndex, segmentType }
-      = this.navigationService.computeIndexAndSegment(row, col, this.sections);
+      = computeIndexAndSegment(row, col, this.sections);
 
     // Update Core Model state
     this.currentPointIndex = pointIndex;
@@ -674,7 +667,6 @@ export class Candlestick extends AbstractTrace {
    * Cleans up resources and disposes of the candlestick instance
    */
   public override dispose(): void {
-    this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
   }
@@ -962,12 +954,23 @@ export class Candlestick extends AbstractTrace {
       : candlePairPatterns(before, bodied);
     // A hammer and a hanging man are one shape read two ways, and only the
     // run of closes before the candle separates them (#734).
-    const run = this.candles
-      .slice(0, this.currentPointIndex)
-      .map(earlier => earlier.close);
+    //
+    // Only the last `trendLookback` closes decide it, so only those are
+    // gathered: this getter runs on every keypress and every autoplay tick,
+    // and handing over the whole history before the cursor made each one cost
+    // two passes over the chart to consult three numbers.
+    const lookback = DEFAULT_CANDLE_SHAPE_THRESHOLDS.trendLookback;
     const named = bodied === undefined
       ? null
-      : candleTrendPattern(run, bodied);
+      : candleTrendPattern(
+          this.candles
+            .slice(
+              Math.max(0, this.currentPointIndex - lookback),
+              this.currentPointIndex,
+            )
+            .map(earlier => earlier.close),
+          bodied,
+        );
     // The three-candle formations need two candles behind the cursor, so the
     // first two of any chart carry none (#739, #740, #741, #742).
     const earlier = this.candles[this.currentPointIndex - 2];

@@ -6,6 +6,7 @@ import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
+  LayerSwitchTraceState,
   PlotState,
   PointerGuidanceState,
   SubplotState,
@@ -108,17 +109,31 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
+  /** @see Trace.level */
+  public get level(): 'figure' {
+    return 'figure';
+  }
+
   public readonly id: string;
   protected movable: Movable;
 
-  private readonly title: string;
-  private readonly subtitle: string;
-  private readonly caption: string;
-  private readonly xLabel: string;
-  private readonly yLabel: string;
+  /*
+   * The figure's own labels and panel count, fixed by the constructor.
+   *
+   * Public because `Figure.state` is an expensive way to read a constant: it
+   * builds the focused subplot's whole state -- and through it the active
+   * trace's audio, braille, text and highlight -- to carry six values that
+   * were decided before any of that existed. `Context` exposes them to the
+   * description and label commands, which read several in a row.
+   */
+  public readonly title: string;
+  public readonly subtitle: string;
+  public readonly caption: string;
+  public readonly xLabel: string;
+  public readonly yLabel: string;
 
   public readonly subplots: Subplot[][];
-  private readonly size: number;
+  public readonly size: number;
 
   /**
    * Maps each data (row, col) to its 1-based visual position (top-left = 1).
@@ -400,6 +415,11 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
+  /** @see Trace.level */
+  public get level(): 'subplot' {
+    return 'subplot';
+  }
+
   protected readonly movable: Movable;
 
   public readonly traces: Trace[][];
@@ -555,11 +575,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * Steps the active layer without notifying observers.
    *
    * A layer switch is announced from the newly positioned trace (see
-   * `NavigationService.stepTraceInSubplot`). A subplot notification at this
-   * point would describe the new trace at whatever column it was left on,
-   * before X-preservation has moved it. Like {@link moveOnce}, the first step
-   * on a multi-layer subplot is a real step rather than the initial-entry
-   * no-op.
+   * {@link switchLayer}). A subplot notification at this point would describe
+   * the new trace at whatever column it was left on, before X-preservation has
+   * moved it. Like {@link moveOnce}, the first step on a multi-layer subplot is
+   * a real step rather than the initial-entry no-op.
    *
    * @param direction - The direction to step in
    * @returns True when the active layer changed
@@ -569,6 +588,92 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       this.isInitialEntry = false;
     }
     return this.movable.moveOnce(direction);
+  }
+
+  /**
+   * Switches to the adjacent layer, carrying the reader's position across and
+   * announcing the result once.
+   *
+   * The whole layer switch, as opposed to {@link stepLayer}'s bare cursor
+   * step: it preserves X (and Y where both traces support it), reports the
+   * boundary when there is no adjacent layer, and notifies from the trace once
+   * it is positioned. `Context.stepTrace` is the caller, and swaps the trace at
+   * the top of its stack for whatever comes back.
+   *
+   * @param direction - The direction to switch in
+   * @returns The newly active trace (the same one at a boundary), or null when
+   *   the subplot has no layer to read
+   */
+  public switchLayer(direction: MovableDirection): Trace | null {
+    const currentTrace = this.activeTrace;
+    if (!currentTrace) {
+      return null;
+    }
+
+    // At the edge of the layers there is one boundary to report: the trace's
+    // tone and the subplot's "no additional layer", once each. Checked before
+    // moving, because `moveOnce` would notify the subplot's boundary itself and
+    // the pair below would then repeat it.
+    if (!this.isMovable(direction)) {
+      currentTrace.notifyOutOfBounds();
+      this.notifyOutOfBounds();
+      return currentTrace;
+    }
+
+    // Switch to next/previous trace. Stepped silently: a subplot notification
+    // here would describe the new trace at the column it was left on, before
+    // X-preservation has positioned it. The switch is announced from the
+    // positioned trace below.
+    const currentXValue = currentTrace.getCurrentXValue();
+    this.stepLayer(direction);
+    const newTrace = this.activeTrace;
+
+    if (!newTrace) {
+      return null;
+    }
+
+    // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
+    let positioned = false;
+    if (
+      typeof currentTrace.getCurrentYValue === 'function'
+      && typeof newTrace.moveToXAndYValue === 'function'
+    ) {
+      const currentYValue = currentTrace.getCurrentYValue();
+      if (currentYValue !== null && currentXValue !== null) {
+        positioned = newTrace.moveToXAndYValue(currentXValue, currentYValue);
+      }
+    }
+
+    // Default: preserve X value when changing layers
+    if (!positioned) {
+      newTrace.moveToXValue(currentXValue);
+    }
+
+    // Notify after positioning is complete
+    this.notifyLayerSwitch(newTrace);
+    return newTrace;
+  }
+
+  /**
+   * Announces the trace a layer switch landed on, tagged as a switch so the
+   * announcement names which layer of how many the reader is now on.
+   *
+   * @param trace - The newly active trace
+   */
+  private notifyLayerSwitch(trace: Trace): void {
+    if (!trace.state.empty) {
+      const index = this.getRow() + 1;
+      const size = this.getSize();
+      const state: LayerSwitchTraceState = {
+        ...trace.state,
+        isLayerSwitch: true,
+        index,
+        size,
+      };
+      trace.notifyObserversWithState(state);
+    } else {
+      trace.notifyStateUpdate();
+    }
   }
 
   public get state(): SubplotState {
@@ -687,6 +792,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * The trace's chart type, exposed without computing the full state.
    */
   readonly traceType: TraceType;
+
+  /**
+   * Which level of the figure this element is, for the same reason
+   * {@link Trace.traceType} exists: `state.type` answers it too, but only
+   * after building the whole audio/braille/text/highlight snapshot.
+   */
+  readonly level: 'trace';
 
   /**
    * Gets the current X value from the trace

@@ -164,6 +164,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private readonly xValues: number[];
   /** Column index of each distinct x value, for O(1) stereo-pan resolution. */
   private readonly xIndexByValue: Map<number, number>;
+  private readonly yIndexByValue: Map<number, number>;
   private readonly yValues: number[];
 
   private readonly highlightXValues: SVGElement[][] | null;
@@ -206,6 +207,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private gridRow: number;
   private gridCol: number;
   private isInGridMode: boolean;
+
+  /**
+   * The braille surface of the grid: one point count per cell, with the
+   * busiest cell's count beside it.
+   *
+   * Built on the first braille read rather than per read. `braille` is
+   * evaluated inside every state computation, so a fine grid rescanned every
+   * cell and allocated a row array per grid row on each arrow key -- ten
+   * thousand cell reads and a hundred allocations on a 100 x 100 grid.
+   *
+   * `gridCells` is readonly and its cells are filled once by
+   * {@link buildGridCells}. The one thing that changes a count afterwards is
+   * {@link dispose}, which empties them, and which clears this so a disposed
+   * trace does not retain the matrix or report counts its cells no longer
+   * hold.
+   */
+  private gridCounts: { values: number[][]; max: number } | null = null;
 
   // Grid cell point navigation state
   private isInGridCellMode: boolean;
@@ -355,6 +373,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // O(points x columns) on every keystroke. xValues is unique and built
     // once, so a lookup table costs one pass and makes each resolve O(1).
     this.xIndexByValue = new Map(this.xValues.map((x, index) => [x, index]));
+    // The same table for the other axis, for the same reason: the COL -> ROW
+    // toggle runs on every Up and Down arrow and located its target row by
+    // scanning yValues, which on a continuous y is one entry per point.
+    //
+    // A NaN y is left out rather than keyed: `indexOf` compared with `===`,
+    // which never matched it, while a Map key would (SameValueZero). Leaving
+    // it out keeps `yIndexOf` answering -1 there, which is the miss the
+    // toggle's fallback is written for.
+    this.yIndexByValue = new Map();
+    this.yValues.forEach((y, index) => {
+      if (!Number.isNaN(y) && !this.yIndexByValue.has(y)) {
+        this.yIndexByValue.set(y, index);
+      }
+    });
 
     this.minX = MathUtil.safeMin(this.xValues);
     this.maxX = MathUtil.safeMax(this.xValues);
@@ -561,6 +593,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       cell.svgElements.length = 0;
       cell.points.length = 0;
     }));
+    // Emptying the cells is the one thing that changes their counts, so the
+    // braille matrix counted from them goes with them.
+    this.gridCounts = null;
     this.cellSvgGroups.length = 0;
     this.cellIndexGroups.length = 0;
 
@@ -645,24 +680,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     // Grid mode: return 2D grid of point counts for braille display
     if (this.isInGridMode && this.gridCells) {
-      const gridValues: number[][] = [];
-      let maxCount = 0;
-      for (let r = 0; r < this.numGridRows; r++) {
-        gridValues[r] = [];
-        for (let c = 0; c < this.numGridCols; c++) {
-          const count = this.gridCells[r][c].points.length;
-          gridValues[r][c] = count;
-          if (count > maxCount) {
-            maxCount = count;
-          }
-        }
-      }
+      const counts = this.countGridPoints(this.gridCells);
       return {
         empty: false,
         id: this.id,
-        values: gridValues,
+        values: counts.values,
         min: 0,
-        max: maxCount,
+        max: counts.max,
         row: this.gridRow,
         col: this.gridCol,
       };
@@ -670,6 +694,35 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     // Normal row/col mode: braille not supported (return empty state)
     return this.outOfBoundsState;
+  }
+
+  /**
+   * The point count of every grid cell, and the largest of them.
+   *
+   * Memoised in {@link gridCounts}; see there for what invalidates it.
+   * @param cells The grid to count, already known to exist
+   * @returns The counts by row and column, with the busiest cell's count
+   */
+  private countGridPoints(cells: GridCell[][]): { values: number[][]; max: number } {
+    if (this.gridCounts !== null) {
+      return this.gridCounts;
+    }
+
+    const values: number[][] = [];
+    let max = 0;
+    for (let r = 0; r < this.numGridRows; r++) {
+      values[r] = [];
+      for (let c = 0; c < this.numGridCols; c++) {
+        const count = cells[r][c].points.length;
+        values[r][c] = count;
+        if (count > max) {
+          max = count;
+        }
+      }
+    }
+
+    this.gridCounts = { values, max };
+    return this.gridCounts;
   }
 
   /**
@@ -859,6 +912,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    */
   private xIndexOf(value: number): number {
     return this.xIndexByValue.get(value) ?? 0;
+  }
+
+  /**
+   * Resolves a y value to its row index on the sorted unique y axis.
+   *
+   * Unlike {@link xIndexOf}, a miss answers -1 rather than 0: both callers
+   * test for it, one to fall back to the first row and one to clamp.
+   * @param value - A y value drawn from this trace's data
+   * @returns The row index of that value, or -1 if it is not a known y
+   */
+  private yIndexOf(value: number): number {
+    return this.yIndexByValue.get(value) ?? -1;
   }
 
   /**
@@ -1264,7 +1329,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     // yValues is the sorted unique y axis, so a point of this trace is always
     // on it; the clamp only guards a malformed layer.
-    return { row: Math.max(0, this.yValues.indexOf(point.y)), col: point.xIndex };
+    return { row: Math.max(0, this.yIndexOf(point.y)), col: point.xIndex };
   }
 
   protected override get hasMultiPoints(): boolean {
@@ -1368,7 +1433,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       const currentXPoint = this.xPoints[this.col];
       const middleYValue
         = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
-      const targetRow = this.yValues.indexOf(middleYValue);
+      const targetRow = this.yIndexOf(middleYValue);
 
       // Safety check: ensure the calculated row is valid
       if (targetRow === -1 || targetRow >= this.yPoints.length) {
@@ -1685,7 +1750,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   public override moveToIndex(row: number, col: number): boolean {
     // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
-    // (ROW mode). NavigationService.moveToXValueInValues preserves X across
+    // (ROW mode). `moveToXValueInValues` (@util/navigation) preserves X across
     // layer switches by calling moveToIndex(0, xIndex), so COL mode must read
     // the column argument (previously it read `row`, always landing on x=0).
     if (this.mode === NavMode.COL) {
