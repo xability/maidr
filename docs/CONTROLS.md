@@ -35,7 +35,9 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Zoom out tactile display                | -                           | -                           |
 | Reset tactile display zoom              | 0                           | 0                           |
 | Open Settings                           | Control + ,                 | Command + ,                 |
-| Open Command Pallette                   | Control + Shift + p         | Command + Shift + p         |
+| Open Command Palette                    | Control + Shift + p         | Command + Shift + p         |
+| Open/Close keyboard shortcut help       | Control + /                 | Command + /                 |
+| Open AI chat (API key set in Settings)  | Shift + / (?)               | Shift + / (?)               |
 
 ## Monitor Mode (Live Charts)
 
