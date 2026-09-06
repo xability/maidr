@@ -62,8 +62,7 @@ function deadAnchors(source: string): string[] {
   const document = buildPage(source);
   return [...document.querySelectorAll('a[href^="#"]')]
     .map(anchor => anchor.getAttribute('href') ?? '')
-    // `href="#"` is the top of the page and always resolves; the examples
-    // gallery uses it for its onclick handlers.
+    // `href="#"` is the top of the page and always resolves.
     .filter(href => href.length > 1)
     .map(href => decodeURIComponent(href.slice(1)))
     .filter(id => document.getElementById(id) === null)

@@ -14,10 +14,11 @@
 
 # MAIDR: Multimodal Access and Interactive Data Representation
 
-- **Note:** `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
+MAIDR (Multimodal Access and Interactive Data Representation, pronounced "mader") is an open-source JavaScript/TypeScript library that makes statistical charts accessible to blind and low-vision people. It adds keyboard navigation, sonification, text descriptions, braille output and AI-generated descriptions to charts drawn with React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts and other libraries, or described directly with its JSON data schema. MAIDR is developed by the [(x)Ability Design Lab](https://xabilitylab.ischool.illinois.edu/) at the University of Illinois Urbana-Champaign and is the engine behind [py-maidr](https://py.maidr.ai/) for Python and [maidr for R](https://r.maidr.ai/).
 
-`maidr` (pronounced as 'mader') is a system for non-visual access and control of statistical plots.
-It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction:
+- **Note:** The `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
+
+`maidr` is the npm package that ships MAIDR. It aims to provide an inclusive experience for users with visual impairments by offering multiple modes of interaction:
 braille, text, and sonification (BTS).
 This comprehensive approach enhances the accessibility of data visualization
 and encourages a multi-modal exploration on visualization.
@@ -31,7 +32,7 @@ and encourages a multi-modal exploration on visualization.
 5. [Live & Streaming Data](#live--streaming-data)
 6. [Braille Generation](#braille-generation)
 7. [Examples](#examples)
-8. [Binders](#binders)
+8. [Related projects](#related-projects)
 9. [Papers](#papers)
 10. [License](#license)
 11. [Contact](#contact)
@@ -144,19 +145,23 @@ Example plots are demonstrated [here](examples.html).
 
 For more information, refer to the example HTML files provided in the directory examples/
 
-## Binders
+## Related projects
 
-We currently provide the following binders, all of which can be found at each repo:
+MAIDR is one of three sibling projects from the (x)Ability Design Lab. This repository is the JavaScript core; the two language bindings render their plots with it.
 
-- Python binder for matplotlib and seaborn: [Py maidr](https://py.maidr.ai/).
+- [MAIDR JavaScript core](https://maidr.ai/): this library, published on npm as [`maidr`](https://www.npmjs.com/package/maidr), with adapters for React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts and other charting libraries. Source: [xability/maidr](https://github.com/xability/maidr).
 
-- R binder for ggplot2: [r maidr](https://r.maidr.ai/).
+- [py-maidr for Python](https://py.maidr.ai/): makes matplotlib, seaborn, Plotly and Altair charts accessible after `import maidr`; published on PyPI as `maidr`. Source: [xability/py-maidr](https://github.com/xability/py-maidr).
+
+- [maidr for R](https://r.maidr.ai/): makes ggplot2 and base graphics plots accessible; published on CRAN as `maidr`. Source: [xability/r-maidr](https://github.com/xability/r-maidr).
 
 ## Papers
 
 To learn more about the theoretical background and user study results, we recommend you read and cite the following papers.
 
 1. [MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation](https://dl.acm.org/doi/10.1145/3613904.3642730):
+
+   Seo, J., Xia, Y., Lee, B., Mccurry, S., & Yam, Y. J. (2024). MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation. In Proceedings of the CHI Conference on Human Factors in Computing Systems (CHI '24). ACM. https://doi.org/10.1145/3613904.3642730
 
 ```tex
 @inproceedings{seoMAIDRMakingStatistical2024,
@@ -179,6 +184,8 @@ To learn more about the theoretical background and user study results, we recomm
 ```
 
 2. [Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students](https://diglib.eg.org/items/5e71b594-3762-4604-a9c4-96623cda8bc3):
+
+   Seo, J., O'Modhrain, S., Xia, Y., Kamath, S., Lee, B., & Coughlan, J. M. (2024). Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students. In EuroVis 2024 - Education Papers. The Eurographics Association. https://doi.org/10.2312/eved.20241053
 
 ```tex
 @inproceedings{10.2312:eved.20241053,
