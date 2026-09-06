@@ -1843,6 +1843,15 @@ export class LineTrace extends AbstractTrace {
   }
 
   public override moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors Candlestick). The flag alone
+    // is cleared: the graph's entry handler would re-seat the cursor on the
+    // first point, discarding the position the search starts from.
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;
