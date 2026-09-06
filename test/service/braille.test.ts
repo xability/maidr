@@ -250,6 +250,46 @@ function createBoxTraceState(
   };
 }
 
+// Section columns a box braille row is navigated by.
+const BOX_LOWER_OUTLIER = 0;
+const BOX_MIN = 1;
+const BOX_Q1 = 2;
+const BOX_Q2 = 3;
+const BOX_Q3 = 4;
+const BOX_MAX = 5;
+
+/**
+ * Encodes one box and reports the cell each of its seven sections maps to.
+ *
+ * The cursor index is only emitted for the section the state sits on, so the
+ * box is encoded once per section — the way the reader reaches them, one
+ * arrow key at a time.
+ * @param box - The box to encode
+ * @param displaySize - Braille display width in cells
+ * @returns The row's characters and the emitted index per section column
+ */
+function encodeBoxSectionCells(
+  box: { lowerOutliers: number[]; min: number; q1: number; q2: number; q3: number; max: number; upperOutliers: number[] },
+  displaySize: number,
+): { row: string; indices: number[] } {
+  const indices = new Array<number>();
+  let row = '';
+  for (let col = 0; col < 7; col++) {
+    const { service } = createBrailleService(displaySize);
+    const state = createBoxTraceState([box], 0, 100, 0, col);
+    const disposable = service.onChange((event) => {
+      row = event.value.split('\n')[0];
+      indices[col] = event.index;
+    });
+
+    service.toggle(state);
+
+    disposable.dispose();
+    service.dispose();
+  }
+  return { row, indices };
+}
+
 /**
  * Creates a settings mock and exposes a helper to emit display-size change events.
  * @param displaySize - Initial display width used by the encoder
@@ -1070,6 +1110,107 @@ describe('BrailleService display-size encoding', () => {
     disposable.dispose();
     service.dispose();
   }, 5000);
+
+  test('keeps every box section on a display narrower than its outliers', () => {
+    // A 14-cell display (the Focus 14 preset) against a box with more
+    // outliers than it has cells. The row used to be squeezed by driving
+    // min/q1/q3/max to zero characters each: the sections vanished from the
+    // display while still claiming a cursor cell, so the minimum's cell was
+    // the quartile's glyph, and once the row still overran the display those
+    // cells pointed past its end — in multiline mode, into the next box's
+    // line. The outlier run is the part that collapses instead.
+    const box = {
+      lowerOutliers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      min: 30,
+      q1: 40,
+      q2: 50,
+      q3: 60,
+      max: 70,
+      upperOutliers: [] as number[],
+    };
+
+    const { row, indices } = encodeBoxSectionCells(box, 14);
+
+    expect(row.length).toBe(14);
+    expect(indices.every(index => index >= 0 && index < row.length)).toBe(true);
+    expect(row[indices[BOX_LOWER_OUTLIER]]).toBe('⠂');
+    expect(row[indices[BOX_MIN]]).toBe('⠒');
+    expect(row[indices[BOX_Q1]]).toBe('⠿');
+    expect(row[indices[BOX_Q2]]).toBe('⠸');
+    expect(row[indices[BOX_Q3]]).toBe('⠿');
+    expect(row[indices[BOX_MAX]]).toBe('⠒');
+  });
+
+  test('gives the minimum a cell of its own when outliers just fill the row', () => {
+    // Nine outliers on a 14-cell display is one cell over: the single
+    // decrement used to come out of the minimum, which then shared the first
+    // quartile's cell.
+    const box = {
+      lowerOutliers: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      min: 30,
+      q1: 40,
+      q2: 50,
+      q3: 60,
+      max: 70,
+      upperOutliers: [] as number[],
+    };
+
+    const { row, indices } = encodeBoxSectionCells(box, 14);
+
+    expect(row.length).toBe(14);
+    expect(row[indices[BOX_MIN]]).toBe('⠒');
+    expect(indices[BOX_MIN]).not.toBe(indices[BOX_Q1]);
+  });
+
+  test('leaves a box that fits the display unchanged', () => {
+    const box = {
+      lowerOutliers: [] as number[],
+      min: 30,
+      q1: 40,
+      q2: 50,
+      q3: 60,
+      max: 70,
+      upperOutliers: [95],
+    };
+
+    const { row } = encodeBoxSectionCells(box, 14);
+
+    expect(row).toBe('⠀⠀⠒⠿⠿⠸⠇⠿⠿⠒⠒⠂⠀⠀');
+  });
+
+  test('multiline mode: an overflowing box keeps its cells on its own line', () => {
+    // Two boxes on a two-line display. Rows are encoded last-to-first, so row
+    // 0 occupies the second physical line; a cell index that escaped the row
+    // would move the hardware cursor onto the other box.
+    const box = {
+      lowerOutliers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      min: 30,
+      q1: 40,
+      q2: 50,
+      q3: 60,
+      max: 70,
+      upperOutliers: [] as number[],
+    };
+
+    const indices = new Array<number>();
+    let emitted = '';
+    for (let col = 0; col < 7; col++) {
+      const { service } = createMultilineBrailleService(14, 2);
+      const state = createBoxTraceState([box, box], 0, 100, 0, col);
+      const disposable = service.onChange((event) => {
+        emitted = event.value;
+        indices[col] = event.index;
+      });
+
+      service.toggle(state);
+
+      disposable.dispose();
+      service.dispose();
+    }
+
+    expect(emitted.length).toBe(28);
+    expect(indices.every(index => index >= 14 && index < 28)).toBe(true);
+  });
 
   test('horizontal windowing: multi-row plot with cols > displaySize produces displaySize chars per row', () => {
     const { service } = createMultilineBrailleService(3, 2);

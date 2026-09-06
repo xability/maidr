@@ -628,24 +628,58 @@ class BoxBrailleEncoder implements BrailleEncoder<BoxBrailleState> {
       if (hasAdjustable) {
         let diff = displaySize - totalChars;
         let adjustIndex = 0;
+        let adjustedThisPass = false;
         while (diff !== 0) {
           const section = lenData[adjustIndex % lenData.length];
           if (
             section.type !== this.BLANK
             && section.type !== this.Q2
             && section.length > 0
+            // Never squeeze a summary section out of existence. At zero it
+            // renders nothing while still claiming a cursor cell, so the
+            // minimum's cell becomes the quartile's glyph, and a row that is
+            // still too wide pushes the cells that follow past its end.
+            && (diff > 0 || section.numChars > 1)
           ) {
             section.numChars += diff > 0 ? 1 : -1;
             diff += diff > 0 ? -1 : 1;
+            adjustedThisPass = true;
           }
           adjustIndex++;
+          if (adjustIndex % lenData.length === 0) {
+            // A full pass that changed nothing cannot make progress on the
+            // next one either: every section is already at its floor, and the
+            // remaining width has to come out of the outlier runs below.
+            if (!adjustedThisPass) {
+              break;
+            }
+            adjustedThisPass = false;
+          }
+        }
+      }
+
+      // Outliers are one cell each and a box can carry more of them than the
+      // display is wide. Collapsing the run — dropping cells from the end of
+      // it, never all of them — keeps the five-number summary readable and
+      // still leaves the reader a cell to navigate the outliers by, which is
+      // the better of the two readings a narrow display can give.
+      let overflow
+        = lenData.reduce((sum, l) => sum + l.numChars, 0) - displaySize;
+      for (const outlierType of [this.LOWER_OUTLIER, this.UPPER_OUTLIER]) {
+        const run = lenData.filter(section => section.type === outlierType);
+        for (let i = run.length - 1; i > 0 && overflow > 0; i--) {
+          overflow -= run[i].numChars;
+          run[i].numChars = 0;
         }
       }
 
       let col = -1;
       for (const section of lenData) {
+        // Only a section that renders may claim a cell: an empty one would
+        // hand its column the index of whatever is emitted next.
         if (
-          section.type !== this.BLANK
+          section.numChars > 0
+          && section.type !== this.BLANK
           && section.type !== this.GLOBAL_MIN
           && section.type !== this.GLOBAL_MAX
         ) {
