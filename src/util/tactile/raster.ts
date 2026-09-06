@@ -404,19 +404,73 @@ export class DotRaster {
       return;
     }
 
+    const box = this.boxOf(rings);
+    if (box === null) {
+      return;
+    }
+
     // Filled into a scratch buffer and then transferred through the dither, so
     // the even-odd rule that gives a ring its holes is applied once, by the
     // code that already knows how, rather than reimplemented per pin.
-    const solid = new DotRaster(this.width, this.height);
-    solid.fillPolygon(rings);
+    //
+    // The buffer is the size of the ring rather than of the display, and the
+    // rings are moved into it. A heatmap textures one ring per cell per frame,
+    // so a display-sized buffer per cell is the cell count times the pin count
+    // — a 60x60 chart on a DotPad 320 allocated 3,600 buffers and read 8.6
+    // million pins to raise a few thousand, on every navigation move.
+    const solid = new DotRaster(box.right - box.left + 1, box.bottom - box.top + 1);
+    solid.fillPolygon(rings.map(ring => ring.map(
+      point => ({ x: point.x - box.left, y: point.y - box.top }),
+    )));
+
     const tile = DotRaster.DITHER;
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
-        if (solid.get(x, y) && tile[y % 4][x % 4] < level) {
+    for (let y = box.top; y <= box.bottom; y++) {
+      for (let x = box.left; x <= box.right; x++) {
+        if (solid.get(x - box.left, y - box.top) && tile[y % 4][x % 4] < level) {
           this.set(x, y);
         }
       }
     }
+  }
+
+  /**
+   * The pins a set of rings can reach, clipped to the buffer.
+   *
+   * Each coordinate is bounded on its own, matching how {@link fillPolygon}
+   * reads them: a point with a finite `y` and a non-finite `x` still puts its
+   * row in range, and contributes nothing across.
+   *
+   * @param rings - Closed rings in dot coordinates
+   * @returns Inclusive pin bounds, or null when no ring can raise anything
+   */
+  private boxOf(
+    rings: readonly (readonly { x: number; y: number }[])[],
+  ): { left: number; right: number; top: number; bottom: number } | null {
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const ring of rings) {
+      for (const point of ring) {
+        if (Number.isFinite(point.x)) {
+          minX = Math.min(minX, point.x);
+          maxX = Math.max(maxX, point.x);
+        }
+        if (Number.isFinite(point.y)) {
+          minY = Math.min(minY, point.y);
+          maxY = Math.max(maxY, point.y);
+        }
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return null;
+    }
+
+    const left = Math.max(0, Math.round(minX));
+    const right = Math.min(this.width - 1, Math.round(maxX));
+    const top = Math.max(0, Math.round(minY));
+    const bottom = Math.min(this.height - 1, Math.round(maxY));
+    return left > right || top > bottom ? null : { left, right, top, bottom };
   }
 
   /**

@@ -141,6 +141,16 @@ const VENDOR_ASSET_BASE_URL = 'https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-g
 const BRAILLE_LANGUAGE = 'English';
 
 /**
+ * How long closing a device waits for the writes already queued for it.
+ *
+ * Long enough for the frame a caller sends on its way out -- the SDK hands a
+ * payload to the transport and returns without waiting for the device to
+ * settle -- and short enough that a display cannot be held out of the page's
+ * reach by a transport that has stopped answering.
+ */
+const CLOSE_FLUSH_TIMEOUT_MS = 2000;
+
+/**
  * Owns the connection to a tactile display, for as long as the page lives.
  *
  * Deliberately a module-level singleton rather than a service on the MAIDR
@@ -840,15 +850,15 @@ class DotPadSession {
 
   /**
    * Closes the connection.
+   *
+   * The state goes back to disconnected at once, so a caller that asks
+   * immediately afterwards is told the truth and no further write is accepted.
+   * The device itself is closed behind whatever is already queued for it --
+   * see {@link closeWhenQueueDrains}.
    */
   public disconnect(): void {
-    if (this.sdk !== null && this.device !== null) {
-      try {
-        this.sdk.disconnect(this.device);
-      } catch (error) {
-        console.error('DotPad disconnect failed:', error instanceof Error ? error.message : error);
-      }
-    }
+    const sdk = this.sdk;
+    const device = this.device;
     this.device = null;
     // A released device is nobody's adoption, so the flag does not outlive
     // the connection it described.
@@ -860,6 +870,50 @@ class DotPadSession {
       geometry: null,
       message: '',
     });
+    if (sdk !== null && device !== null) {
+      this.closeWhenQueueDrains(sdk, device);
+    }
+  }
+
+  /**
+   * Closes a device once the writes already queued for it have gone out.
+   *
+   * Writes are deferred onto {@link writeChain}, so the last thing a caller
+   * does before handing the display back has not reached the SDK yet when it
+   * asks. Closing there and then shuts the connection under those writes: they
+   * run a microtask later against a device the SDK has already closed, which
+   * is how a released display ends up still holding the chart the reader just
+   * turned braille off on -- the blank frame never arrives.
+   *
+   * Bounded rather than open-ended. A transport that has stopped acknowledging
+   * leaves the queue undrainable, and a close that waited on it would keep the
+   * device checked out for the life of the frame, which no other chart on the
+   * page could then adopt. Past the bound it is closed regardless, which is
+   * only what closing immediately would have done.
+   *
+   * @param sdk - The SDK the device was opened through
+   * @param device - The device to close
+   */
+  private closeWhenQueueDrains(sdk: DotPadVendorSdk, device: DotPadVendorDevice): void {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, CLOSE_FLUSH_TIMEOUT_MS);
+    });
+    this.writeChain = Promise.race([this.writeChain, bound])
+      .then(() => {
+        clearTimeout(timer);
+        // A reconnect can beat a bounded wait, and it hands back the same
+        // device. Closing here would then take down a connection the reader
+        // has just made.
+        if (this.device === device) {
+          return;
+        }
+        sdk.disconnect(device);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timer);
+        console.error('DotPad disconnect failed:', error instanceof Error ? error.message : error);
+      });
   }
 
   /**

@@ -199,6 +199,82 @@ describe('tactileSvgGeometry.ringsOf on a mark the model supplied', () => {
   });
 });
 
+/**
+ * Tests for how finely `ringsOf` samples a circle.
+ *
+ * A scatter is the chart a pin grid draws best, and a scatter is a few
+ * thousand `<circle>`s. Every unfocused mark is reduced again on every
+ * navigation move, and the outline is then stroked segment by segment, so the
+ * sample count is paid twice per circle per arrow key. At whole-plot zoom a
+ * point projects onto one or two pins, where the samples past the first few
+ * land on pins already raised: work that buys the reader nothing and delays
+ * the frame they are waiting for.
+ *
+ * So the count follows the size the circle actually reaches on the pins. The
+ * cases below pin both ends of that — a mark the size the reader meets on a
+ * dense scatter, and one zoomed in far enough to want the full outline.
+ */
+describe('tactileSvgGeometry.ringsOf on a circle', () => {
+  // A plot whose shape matches the usable grid, so both axes project at the
+  // same scale and a circle stays a circle on the pins: ten user units to the
+  // dot, either way.
+  const viewport = new TactileViewport({ left: 0, top: 0, width: 570, height: 370 }, 60, 40);
+
+  /**
+   * A circle `ringsOf` can measure, under the identity transform.
+   * @param cx - Centre x in user space
+   * @param cy - Centre y in user space
+   * @param r - Radius in user space
+   */
+  function circle(cx: number, cy: number, r: number): SVGGraphicsElement {
+    const created = document.createElementNS(SVG_NS, 'circle');
+    created.setAttribute('cx', String(cx));
+    created.setAttribute('cy', String(cy));
+    created.setAttribute('r', String(r));
+    const graphics = created as unknown as Record<string, unknown>;
+    graphics.getScreenCTM = (): unknown => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    return created as unknown as SVGGraphicsElement;
+  }
+
+  it('should not sample a scatter point far past the pins it covers', () => {
+    // Three user units across, which is under a third of a pin: every sample
+    // past the first few lands on a pin already raised.
+    const point = circle(285, 185, 1.5);
+
+    const ring = TactileSvgGeometry.ringsOf(point, viewport)[0];
+
+    expect(ring.points.length).toBeLessThanOrEqual(12);
+  });
+
+  it('should still trace an outline large enough to feel', () => {
+    // Forty pins across: a circle the reader follows round rather than lands
+    // on, and one that wants every sample it can have.
+    const blob = circle(285, 185, 200);
+
+    const ring = TactileSvgGeometry.ringsOf(blob, viewport)[0];
+
+    expect(ring.points.length).toBe(48);
+  });
+
+  it('should keep the sampled points on the circle', () => {
+    // Fewer samples must mean a coarser polygon, not a smaller one: every
+    // point still sits on the projected outline, so the mark keeps its size
+    // and its place.
+    const point = circle(285, 185, 30);
+
+    const ring = TactileSvgGeometry.ringsOf(point, viewport)[0];
+
+    // The vertices of a regular polygon average to its centre.
+    const centre = {
+      x: ring.points.reduce((sum, p) => sum + p.x, 0) / ring.points.length,
+      y: ring.points.reduce((sum, p) => sum + p.y, 0) / ring.points.length,
+    };
+    for (const point of ring.points) {
+      expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeCloseTo(3, 5);
+    }
+  });
+});
+
 describe('tactileSvgGeometry.ringsOf on a path that walks back to its start', () => {
   const viewport = new TactileViewport({ left: 0, top: 0, width: 60, height: 40 }, 60, 40);
 
