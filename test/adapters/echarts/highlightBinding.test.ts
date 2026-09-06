@@ -102,7 +102,7 @@ function fakeInstance(series: FakeSeries[]): EChartsInstance {
  *
  * This file runs in the jsdom environment rather than the node one its
  * siblings use, because a trace is not a pure function of its layer: building
- * a `LineTrace` reaches `Svg.createCircleElement`, which asks
+ * a `LineTrace` reaches `Svg.createCircleElements`, which asks
  * `window.getComputedStyle` for the line's paint. `cartesian.test.ts` never
  * constructs one and so never needs a window; nothing here can avoid it.
  *

@@ -1074,7 +1074,11 @@ export class LineTrace extends AbstractTrace {
       }
       this.reconcilePathCoordinates(coordinates, r);
 
-      const linePointElements: SVGElement[] = [];
+      // Where every marker of this series goes, worked out before any of
+      // them is drawn: the whole series is created and inserted in one go,
+      // and a series that turns out to be unusable never touches the
+      // document at all.
+      const centres: { cx: number | string; cy: number }[] = [];
       let lineFailed = false;
       for (const coordinate of coordinates) {
         // `toBarValue` so a gap reaches the same branch a NaN already did:
@@ -1087,14 +1091,13 @@ export class LineTrace extends AbstractTrace {
           lineFailed = true;
           break;
         }
-        linePointElements.push(
-          Svg.createCircleElement(coordinate.x, markerY, lineElement),
-        );
+        centres.push({ cx: coordinate.x, cy: markerY });
       }
       if (lineFailed) {
         svgElements.push([]);
         continue;
       }
+      const linePointElements = Svg.createCircleElements(centres, lineElement);
       if (linePointElements.length > 0) {
         allFailed = false;
       }

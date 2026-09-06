@@ -589,6 +589,27 @@ export class ViolinKdeTrace extends AbstractTrace {
 
   // ── SVG highlight ───────────────────────────────────────────────────
 
+  /**
+   * The elements a violin's geometry could be, in preference order.
+   *
+   * `<use>` reference elements first, then `<path>` geometry, then
+   * `<polygon>` (gridSVG/R renders violins as polygons).
+   *
+   * @param matched - Everything the selector resolved to
+   * @returns The candidates of the first kind present, or none
+   */
+  private static candidatesOf(matched: SVGElement[]): SVGElement[] {
+    const useElements = matched.filter(el => el instanceof SVGUseElement);
+    if (useElements.length > 0) {
+      return useElements;
+    }
+    const pathElements = matched.filter(el => el instanceof SVGPathElement);
+    if (pathElements.length > 0) {
+      return pathElements;
+    }
+    return matched.filter(el => el instanceof SVGPolygonElement);
+  }
+
   protected mapToSvgElements(selectors?: string[]): SVGElement[][] | null {
     if (!selectors || selectors.length === 0) {
       return null;
@@ -601,6 +622,14 @@ export class ViolinKdeTrace extends AbstractTrace {
     // or single pattern selector (selectors.length === 1)
     const isOnePerViolin = selectors.length === this.points.length;
 
+    // One shared pattern selector answers the same for every violin, so it
+    // is resolved and sorted once instead of once per violin -- N repeats of
+    // the same querySelectorAll, and three more passes over its result each
+    // time.
+    const shared = isOnePerViolin || !selectors[0]
+      ? null
+      : ViolinKdeTrace.candidatesOf(Svg.selectAllElements(selectors[0], false));
+
     for (let r = 0; r < this.points.length; r++) {
       const violinElements: SVGElement[] = [];
       const dataPoints = this.points[r];
@@ -611,30 +640,22 @@ export class ViolinKdeTrace extends AbstractTrace {
         continue;
       }
 
-      const matchedElements = Svg.selectAllElements(selector, false);
-      // Resolve primary element: prefer <use> reference elements, fall back to
-      // <path> geometry, then <polygon> (gridSVG/R renders violins as polygons).
-      const useElements = matchedElements.filter(el => el instanceof SVGUseElement);
-      const pathElements = matchedElements.filter(el => el instanceof SVGPathElement);
-      const polygonElements = matchedElements.filter(el => el instanceof SVGPolygonElement);
-      const candidates = useElements.length > 0
-        ? useElements
-        : pathElements.length > 0
-          ? pathElements
-          : polygonElements;
+      const candidates = shared
+        ?? ViolinKdeTrace.candidatesOf(Svg.selectAllElements(selector, false));
       const primaryElement = candidates.length > 0
         ? candidates[isOnePerViolin ? 0 : (r < candidates.length ? r : 0)]
         : null;
 
       if (primaryElement && dataPoints) {
-        for (const point of dataPoints) {
-          // Use SVG viewport coordinates when available (from backend)
+        // Use SVG viewport coordinates when available (from backend)
+        const centres = dataPoints.flatMap((point) => {
           const x = point.svg_x;
           const y = point.svg_y;
-          if (x !== undefined && y !== undefined && !Number.isNaN(x) && !Number.isNaN(y)) {
-            violinElements.push(Svg.createCircleElement(x, y, primaryElement));
-          }
-        }
+          return x !== undefined && y !== undefined && !Number.isNaN(x) && !Number.isNaN(y)
+            ? [{ cx: x, cy: y }]
+            : [];
+        });
+        violinElements.push(...Svg.createCircleElements(centres, primaryElement));
         if (violinElements.length > 0) {
           allFailed = false;
         }
