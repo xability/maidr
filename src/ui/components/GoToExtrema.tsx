@@ -56,20 +56,6 @@ function getTargetBoxSx(isSelected: boolean): object {
   };
 }
 
-// Type guard to check if plot supports navigateToExtrema
-function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
-  return plot !== null
-    && typeof plot === 'object'
-    && typeof (plot as Record<string, unknown>).navigateToExtrema === 'function';
-}
-
-// Type guard to check if plot supports moveToXValue
-function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
-  return plot !== null
-    && typeof plot === 'object'
-    && typeof (plot as Record<string, unknown>).moveToXValue === 'function';
-}
-
 /**
  * Fixed X-value dropdown row height in px. Rows are given exactly this height
  * so scroll offsets map 1:1 to option indices for windowed rendering.
@@ -106,7 +92,11 @@ const TargetOptionRow = React.memo(({ target, index, isSelected, onSelect, optio
       role="option"
       aria-selected={isSelected}
       aria-label={displayLabel}
-      tabIndex={0}
+      // Roving tabindex (WAI-ARIA listbox), as the sibling listboxes do: the
+      // selection effect moves focus here, and only the selected option is a
+      // tab stop, so Tab leaves the list rather than walking every one of the
+      // hundreds an intersection-heavy layer produces.
+      tabIndex={isSelected ? 0 : -1}
       sx={getTargetBoxSx(isSelected)}
     >
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -250,12 +240,11 @@ export const GoToExtrema: React.FC = () => {
     }
   }, [dropdownSelectedIndex, isDropdownOpen]);
 
+  // Selection goes out through the view model, which hides the dialog before
+  // it navigates (so the scope change and its close cue happen once) and puts
+  // the reader back in TRACE scope if the trace cannot honour the jump.
   const handleTargetSelect = useCallback((target: ExtremaTarget): void => {
-    const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && hasNavigateToExtrema(activeTrace)) {
-      activeTrace.navigateToExtrema(target);
-    }
-    goToExtremaViewModel.hide();
+    goToExtremaViewModel.selectTarget(target);
   }, [goToExtremaViewModel]);
 
   const handleClose = (): void => {
@@ -281,13 +270,12 @@ export const GoToExtrema: React.FC = () => {
   };
 
   const handleOptionSelect = (value: XValue): void => {
-    const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && hasMoveToXValue(activeTrace)) {
-      activeTrace.moveToXValue(value);
+    // The view model closes the dialog itself; only the search box's own
+    // state is this component's to reset, and only once the move was accepted.
+    if (goToExtremaViewModel.moveToXValue(value)) {
       setIsDropdownOpen(false);
       setDropdownSelectedIndex(-1);
       setInputValue('');
-      goToExtremaViewModel.hide();
     }
   };
 
@@ -318,12 +306,11 @@ export const GoToExtrema: React.FC = () => {
         setDropdownSelectedIndex(0);
         announceToScreenReader('Moved to search. Type to filter X values.');
       } else {
+        // The selection effect moves real DOM focus onto the new option, and
+        // that focus move is the announcement ("<label>, option, N of M").
+        // Writing the same label into the assertive region as well says it
+        // twice, which is why CandlestickDeltaSettings has no region at all.
         goToExtremaViewModel.moveDown();
-        // Announce the newly selected option (same rich label the row shows).
-        const newOption = state.targets[state.selectedIndex + 1];
-        if (newOption) {
-          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(newOption)}`);
-        }
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
@@ -333,11 +320,6 @@ export const GoToExtrema: React.FC = () => {
         announceToScreenReader('At first extrema option');
       } else {
         goToExtremaViewModel.moveUp();
-        // Announce the newly selected option (same rich label the row shows).
-        const newOption = state.targets[state.selectedIndex - 1];
-        if (newOption) {
-          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(newOption)}`);
-        }
       }
     } else if (event.key === 'Home') {
       // WAI-ARIA listbox: jump to the first extrema option.
@@ -345,10 +327,6 @@ export const GoToExtrema: React.FC = () => {
       event.stopPropagation();
       if (state.targets.length > 0) {
         goToExtremaViewModel.moveToIndex(0);
-        const first = state.targets[0];
-        if (first) {
-          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(first)}`);
-        }
       }
     } else if (event.key === 'End') {
       // WAI-ARIA listbox: jump to the last extrema option (not the virtual
@@ -356,12 +334,7 @@ export const GoToExtrema: React.FC = () => {
       event.preventDefault();
       event.stopPropagation();
       if (state.targets.length > 0) {
-        const lastIndex = state.targets.length - 1;
-        goToExtremaViewModel.moveToIndex(lastIndex);
-        const last = state.targets[lastIndex];
-        if (last) {
-          announceToScreenReader(`Selected: ${buildTargetDisplayLabel(last)}`);
-        }
+        goToExtremaViewModel.moveToIndex(state.targets.length - 1);
       }
     } else if (event.key === 'Enter') {
       event.preventDefault();
@@ -482,7 +455,7 @@ export const GoToExtrema: React.FC = () => {
       aria-label={option.label}
       aria-setsize={totalOptionCount}
       aria-posinset={idx + 1}
-      tabIndex={0}
+      tabIndex={dropdownSelectedIndex === idx ? 0 : -1}
       onClick={() => handleOptionSelect(option.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -656,17 +629,25 @@ export const GoToExtrema: React.FC = () => {
                           : renderDropdownOption(filteredOptions[item.index], item.index))}
                     </List>
                   )}
-                  {/* Assertive live region for immediate announcement of highlighted option */}
-                  <div
-                    ref={liveRegionRef}
-                    id="sr-active-option-announcer"
-                    aria-live="assertive"
-                    aria-atomic="true"
-                    style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
-                  />
                 </Box>
               )}
             </Box>
+
+            {/*
+              Assertive live region for what focus does not already announce:
+              the listbox boundaries, and the highlighted search result, which
+              the combobox tracks with aria-activedescendant rather than focus.
+              It sits here rather than inside the search option because only
+              three trace types offer that option — mounted in there, a bar or
+              a heatmap had no region at all and every message was dropped.
+            */}
+            <div
+              ref={liveRegionRef}
+              id="sr-active-option-announcer"
+              aria-live="assertive"
+              aria-atomic="true"
+              style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}
+            />
           </Box>
         </>
       )

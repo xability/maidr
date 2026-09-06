@@ -11,7 +11,7 @@ import type { Context } from '@model/context';
 import type { GoToExtremaService } from '@service/goToExtrema';
 import type { ExtremaTarget } from '@type/extrema';
 import type { AxisFormat } from '@type/grammar';
-import type { TraceState } from '@type/state';
+import type { AxisType, TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { FormatterService } from '@service/formatter';
 import { createMaidrStore } from '@state/store';
@@ -43,7 +43,7 @@ function createTraceStub(
 }
 
 /** A FormatterService over one layer, with no `AxisFormat` unless given. */
-function createRealFormatter(format?: AxisFormat): FormatterService {
+function createRealFormatter(format?: AxisFormat, yFormat?: AxisFormat): FormatterService {
   return new FormatterService({
     id: 'chart',
     subplots: [[{
@@ -52,7 +52,7 @@ function createRealFormatter(format?: AxisFormat): FormatterService {
         type: TraceType.BAR,
         axes: {
           x: { label: 'Quarter', ...(format ? { format } : {}) },
-          y: { label: 'Share' },
+          y: { label: 'Share', ...(yFormat ? { format: yFormat } : {}) },
         },
         data: [],
       }],
@@ -60,11 +60,19 @@ function createRealFormatter(format?: AxisFormat): FormatterService {
   });
 }
 
-/** Context stub whose `active` is the trace and whose `state` carries layerId. */
-function createContextStub(active: unknown, layerId: string | null): Context {
+/**
+ * Context stub whose `active` is the trace and whose `state` carries layerId.
+ * `mainAxis` is the axis the trace reports its main value on — 'x' for a
+ * vertical trace, 'y' for a horizontal one, as `TextState.mainAxis` does.
+ */
+function createContextStub(
+  active: unknown,
+  layerId: string | null,
+  mainAxis: AxisType = 'x',
+): Context {
   const state = layerId === null
     ? { type: 'trace', empty: true }
-    : { type: 'trace', empty: false, layerId };
+    : { type: 'trace', empty: false, layerId, text: { mainAxis } };
   return { active, state } as unknown as Context;
 }
 
@@ -80,6 +88,19 @@ const TRACE_STATE = {
   empty: false,
   layerId: 'layer-1',
   traceType: 'candlestick',
+  text: { mainAxis: 'x' },
+} as unknown as TraceState;
+
+/**
+ * A horizontal trace: the value it calls `xValue` sits on the y axis, which is
+ * what `TextState.mainAxis` reports and what the announcement formats with.
+ */
+const HORIZONTAL_TRACE_STATE = {
+  type: 'trace',
+  empty: false,
+  layerId: 'layer-1',
+  traceType: 'bar',
+  text: { mainAxis: 'y' },
 } as unknown as TraceState;
 
 describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
@@ -131,6 +152,26 @@ describe('GoToExtremaViewModel.getAvailableXValueOptions', () => {
     const options = vm.getAvailableXValueOptions();
     expect(options).toEqual([{ value: 5, label: '500' }, { value: 6, label: '600' }]);
     expect(typeof options[0].label).toBe('string');
+  });
+
+  test('formats a horizontal trace\u2019s categories with its main axis, not always x', () => {
+    // A horizontal bar reports its category as `xValue`, but that category
+    // lives on the y axis \u2014 which is what `TextState.mainAxis` says and what
+    // the announcement for the same point formats with. Formatting these
+    // options with x applied the value axis\u2019s currency format to a category,
+    // so the option read "$2,019.00" while the announcement said "2019".
+    const store = createMaidrStore();
+    const trace = createTraceStub([2019, 2020]);
+    const context = createContextStub(trace, 'layer-1', 'y');
+    const formatter = createRealFormatter({ type: 'currency' });
+    const vm = new GoToExtremaViewModel(store, createServiceStub(), context, formatter);
+
+    expect(vm.getAvailableXValueOptions()).toEqual([
+      { value: 2019, label: '2019' },
+      { value: 2020, label: '2020' },
+    ]);
+
+    formatter.dispose();
   });
 
   test('falls back to String(value) when no formatter is injected', () => {
@@ -239,6 +280,119 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
     vm.toggle(TRACE_STATE);
 
     expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at Q1');
+
+    formatter.dispose();
+  });
+
+  test('rewrites only the x value, leaving the extremum value and y coordinate alone', () => {
+    // A heatmap target names the value and both coordinates, so rewriting every
+    // occurrence of the raw x corrupted the number the reader is being sent to:
+    // "Global Maximum: 0.95 at 9, 2" with x=9 came out as
+    // "Global Maximum: 0.9.05 at 9.0, 2".
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Global Maximum: 0.95 at 9, 2',
+      xValue: 9,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label)
+      .toBe('Global Maximum: 0.95 at 9.0, 2');
+
+    formatter.dispose();
+  });
+
+  test('rewrites only the x value when the y coordinate shares its digits', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Row Maximum: 4 at 1, 12',
+      xValue: 1,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label)
+      .toBe('Row Maximum: 4 at 1.0, 12');
+
+    formatter.dispose();
+  });
+
+  test('rewrites the x value after the last " at " when a group label carries one too', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Data at rest at 7',
+      xValue: 7,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Data at rest at 7.0');
+
+    formatter.dispose();
+  });
+
+  test('formats a horizontal trace\u2019s label with its main axis, not always x', () => {
+    // The label half of the same bug: the dialog announced "Max Bar at
+    // $2,019.00" for a category the trace itself announces as "2019".
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Bar at 2019',
+      xValue: 2019,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'currency' });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1', 'y'),
+      formatter,
+    );
+
+    vm.toggle(HORIZONTAL_TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 2019');
+
+    formatter.dispose();
+  });
+
+  test('formats a horizontal trace\u2019s label with the y format the announcement uses', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Bar at 57.14285714285714',
+      xValue: 57.14285714285714,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'currency' }, { type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1', 'y'),
+      formatter,
+    );
+
+    vm.toggle(HORIZONTAL_TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.1');
 
     formatter.dispose();
   });

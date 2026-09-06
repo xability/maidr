@@ -70,6 +70,62 @@ export function clampEchoDuration(value: number): number {
   return Math.min(MAX_ECHO_DURATION, Math.max(MIN_ECHO_DURATION, value));
 }
 
+/**
+ * Bounds on the sonification pitch range, in Hz.
+ *
+ * The floor is roughly where hearing begins and the ceiling roughly where it
+ * ends; anything outside is silence to the listener rather than a quieter
+ * tone.
+ */
+export const MIN_FREQUENCY_HZ = 20;
+export const MAX_FREQUENCY_HZ = 20000;
+
+/** The pitch range before the user changes it. */
+export const DEFAULT_MIN_FREQUENCY = 200;
+export const DEFAULT_MAX_FREQUENCY = 1000;
+
+/**
+ * Brings the sonification pitch range into something a listener can hear.
+ *
+ * Both Settings fields are free-typed, and `AudioService` interpolates every
+ * data point into this range with no clamp of its own, so whatever is
+ * persisted here is what the chart sounds like — and it survives a reload,
+ * since it lives in localStorage. A cleared field reads back as 0, which maps
+ * the whole chart below hearing; a min above the max inverts the mapping, so
+ * higher values sound lower. Neither is a range, so both fall back to the
+ * defaults rather than being persisted.
+ *
+ * @param min - The raw lower bound, in Hz
+ * @param max - The raw upper bound, in Hz
+ * @returns An audible, rising pitch range
+ */
+export function clampFrequencyRange(
+  min: number,
+  max: number,
+): { minFrequency: number; maxFrequency: number } {
+  const low = clampFrequency(min);
+  const high = clampFrequency(max);
+  if (low !== null && high !== null && low < high) {
+    return { minFrequency: low, maxFrequency: high };
+  }
+  return {
+    minFrequency: DEFAULT_MIN_FREQUENCY,
+    maxFrequency: DEFAULT_MAX_FREQUENCY,
+  };
+}
+
+/**
+ * One end of the pitch range, or null when it is not an audible frequency.
+ * @param value - The raw setting value in Hz
+ * @returns The frequency, or null
+ */
+function clampFrequency(value: number): number | null {
+  if (!Number.isFinite(value) || value < MIN_FREQUENCY_HZ || value > MAX_FREQUENCY_HZ) {
+    return null;
+  }
+  return value;
+}
+
 export const BRAILLE_DISPLAY_KINDS = ['single', 'multi', 'manual'] as const;
 export type BrailleDisplayKind = (typeof BRAILLE_DISPLAY_KINDS)[number];
 
@@ -206,8 +262,8 @@ export const DEFAULT_SETTINGS: Settings = {
     brailleDisplayKind: DEFAULT_BRAILLE_DISPLAY_KIND,
     brailleDisplayPresetId: null,
     tactileDisplayDeviceId: null,
-    minFrequency: 200,
-    maxFrequency: 1000,
+    minFrequency: DEFAULT_MIN_FREQUENCY,
+    maxFrequency: DEFAULT_MAX_FREQUENCY,
     autoplayDuration: 4000,
     ariaMode: 'assertive',
     hoverMode: 'pointermove',

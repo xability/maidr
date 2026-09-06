@@ -28,9 +28,16 @@ interface UseMaidrControllerResult {
  * Handles:
  * - Controller creation on focus-in (deferred -- no throwaway Controller on mount)
  * - Controller disposal on focus-out
- * - Visibility change re-creation
  * - Timer cleanup and stale-closure prevention
  * - Unmount cleanup
+ *
+ * Returning to a hidden tab deliberately does nothing. Disposing and
+ * rebuilding the controller there put the cursor back on the first point,
+ * reset every slice (text, braille, any open dialog) and aborted an in-flight
+ * chat answer along with the conversation -- all without an announcement,
+ * because focus never left the figure and so no focus-in followed. A suspended
+ * AudioContext needs no rebuild: `AudioService` defers its cues behind
+ * `resume()` already.
  *
  * @param data - The MAIDR configuration describing the plot
  * @param store - The per-instance Redux store
@@ -142,33 +149,6 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     }, 0);
   }, [disposeController]);
 
-  const onVisibilityChange = useCallback((): void => {
-    if (document.visibilityState === 'visible') {
-      // Only recreate the controller if the chart previously had focus.
-      // Without this guard, switching tabs would create a Controller for
-      // every mounted <Maidr> instance, even ones never interacted with.
-      if (!controllerRef.current)
-        return;
-
-      if (focusInTimerRef.current) {
-        clearTimeout(focusInTimerRef.current);
-        focusInTimerRef.current = null;
-      }
-      if (focusOutTimerRef.current) {
-        clearTimeout(focusOutTimerRef.current);
-        focusOutTimerRef.current = null;
-      }
-      disposeController();
-      const ctrl = createControllerRef.current();
-      if (!ctrl)
-        return;
-      controllerRef.current = ctrl;
-      setContextValue(ctrl.getContextValue());
-      ctrl.initializeHighContrast();
-      hasAnnouncedRef.current = false;
-    }
-  }, [disposeController]);
-
   // Register this chart with the live data manager so external producers
   // (script-tag consumers via window.maidrLive, or React prop updates routed
   // through setData) can replace or append data at runtime. When an update
@@ -217,14 +197,6 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       liveDataManager.updateStoredData(data);
     }
   }, [data]);
-
-  // Register visibility change listener.
-  useEffect(() => {
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [onVisibilityChange]);
 
   // Clean up pending timers and controller on unmount.
   useEffect(() => {

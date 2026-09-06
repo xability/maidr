@@ -5,13 +5,18 @@ import type { AppStore } from '@state/store';
 import type { ExtremaTarget } from '@type/extrema';
 import type { TraceType } from '@type/grammar';
 import type { XValue } from '@type/navigation';
-import type { TraceState } from '@type/state';
+import type { AxisType, TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
 // Type for plots that support getAvailableXValues
 interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
+}
+
+// Type for plots that can be moved to a chosen X value
+interface PlotWithMoveToXValue {
+  moveToXValue: (value: XValue) => boolean;
 }
 
 /**
@@ -23,6 +28,52 @@ interface PlotWithXValues {
 export interface XValueOption {
   value: XValue;
   label: string;
+}
+
+/**
+ * The separator every extrema label puts in front of its x value, in
+ * `Max Bar at Q1` and `Global Maximum: 0.95 at 9, 2` alike.
+ */
+const X_VALUE_SEPARATOR = ' at ';
+
+/**
+ * Rewrites the x value of an extrema label with its formatted form.
+ *
+ * The x value is the only part of the label the formatter has anything to say
+ * about, and it is written directly after the label's final ` at `. Every
+ * other number in there belongs to something else: the extremum's own value
+ * and, on a heatmap, the y coordinate. Rewriting every occurrence of the raw x
+ * corrupted those too whenever they shared its digits — an x of 9 formatted to
+ * one decimal turned `Global Maximum: 0.95 at 9, 2` into
+ * `Global Maximum: 0.9.05 at 9.0, 2`, which is the value the dialog shows and
+ * the screen reader announces.
+ *
+ * Earlier separators are tried in turn so a group label containing ` at ` (a
+ * label reads `Max Data at rest at 7`) still formats; a label whose x value is
+ * nowhere to be found after one is returned untouched rather than guessed at.
+ * @param label - The target label as the model built it.
+ * @param raw - The x value, stringified.
+ * @param formatted - The x value as the layer's formatter writes it.
+ * @returns The label with its x value formatted.
+ */
+function replaceXValueInLabel(label: string, raw: string, formatted: string): string {
+  const starts: number[] = [];
+  for (
+    let index = label.indexOf(X_VALUE_SEPARATOR);
+    index !== -1;
+    index = label.indexOf(X_VALUE_SEPARATOR, index + 1)
+  ) {
+    starts.push(index + X_VALUE_SEPARATOR.length);
+  }
+
+  for (let i = starts.length - 1; i >= 0; i--) {
+    const start = starts[i];
+    if (label.startsWith(raw, start)) {
+      return label.slice(0, start) + formatted + label.slice(start + raw.length);
+    }
+  }
+
+  return label;
 }
 
 export interface GoToExtremaState {
@@ -111,7 +162,11 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       const extremaTargets = activeTrace.getExtremaTargets();
 
       // Apply formatting to target labels using FormatterService
-      const formattedTargets = this.formatTargetLabels(extremaTargets, state.layerId);
+      const formattedTargets = this.formatTargetLabels(
+        extremaTargets,
+        state.layerId,
+        state.text.mainAxis ?? 'x',
+      );
 
       // Generate description based on current trace type
       const description = this.generateDescription(state.traceType);
@@ -132,10 +187,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // GO_TO_EXTREMA scope is what plays the shared "menu close" cue, from
     // DisplayViewModel, so every dismissal path sounds it exactly once.
     this.goToExtremaService.returnToTraceScope();
-  }
-
-  public get activeContext(): Context {
-    return this.context;
   }
 
   public moveUp(): void {
@@ -182,12 +233,23 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     if (currentState.targets.length > 0 && currentState.selectedIndex !== undefined) {
       const target = currentState.targets[currentState.selectedIndex];
       if (target) {
-        this.handleTargetSelect(target as ExtremaTarget);
+        this.selectTarget(target as ExtremaTarget);
       }
     }
   }
 
-  private handleTargetSelect(target: ExtremaTarget): void {
+  /**
+   * Closes the dialog and navigates the active trace to a chosen target.
+   *
+   * The only way into the model from the dialog, so every selection path — a
+   * click, an Enter in the listbox, the hotkey — closes and moves in the same
+   * order and gets the same guard. A trace can advertise extrema support
+   * without implementing the jump (the base `navigateToExtrema` throws), which
+   * would otherwise leave the reader in the GO_TO_EXTREMA scope with the
+   * dialog open and nothing announced.
+   * @param target - The extrema target to navigate to.
+   */
+  public selectTarget(target: ExtremaTarget): void {
     // Get the active trace and navigate to the selected target
     const activeTrace = this.context.active;
 
@@ -200,12 +262,41 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
         // Then navigate to the target
         activeTrace.navigateToExtrema(target);
       } catch (error) {
-        // If navigation fails, ensure we're back in trace scope
+        // If navigation fails, ensure we're back in trace scope. Log it: the
+        // reader sees the dialog close and nothing move, which is
+        // indistinguishable from a target that was simply already current.
+        console.error('[GoToExtremaViewModel] navigating to an extremum failed', error);
         this.goToExtremaService.returnToTraceScope();
       }
     } else {
       this.goToExtremaService.returnToTraceScope();
     }
+  }
+
+  /**
+   * Closes the dialog and moves the active trace to a chosen X value.
+   *
+   * The search half of {@link selectTarget}, guarded the same way so a trace
+   * that cannot honour the move cannot strand the reader in the dialog.
+   * @param value - The raw X value to move to.
+   * @returns True when the trace could be moved, false when it offers no
+   * X-value navigation and the dialog was therefore left alone.
+   */
+  public moveToXValue(value: XValue): boolean {
+    const activeTrace = this.context.active;
+
+    if (!this.supportsMoveToXValue(activeTrace)) {
+      return false;
+    }
+
+    try {
+      this.hide();
+      activeTrace.moveToXValue(value);
+    } catch (error) {
+      console.error('[GoToExtremaViewModel] moving to an x value failed', error);
+      this.goToExtremaService.returnToTraceScope();
+    }
+    return true;
   }
 
   /**
@@ -216,8 +307,24 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * which is what the announcement says, and a dialog label that disagreed with
    * the announcement for the same point would be worse than either. A value the
    * formatter leaves alone is detected below and passes through untouched.
+   *
+   * Only the x value itself is rewritten — see {@link replaceXValueInLabel}.
+   *
+   * `axis` is the trace's main axis, not always 'x': a horizontal trace reports
+   * its category as `xValue` while that category lives on the y axis, and the
+   * announcement for the same point formats it with the y formatter. Formatting
+   * here with 'x' applied the value axis's format to a category, which is the
+   * dialog/announcement disagreement this method exists to avoid.
+   * @param targets - The extrema targets as the trace built them.
+   * @param layerId - The layer whose formatters apply.
+   * @param axis - The axis the trace reports its main value on.
+   * @returns The targets, with formatted labels.
    */
-  private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
+  private formatTargetLabels(
+    targets: ExtremaTarget[],
+    layerId: string,
+    axis: AxisType,
+  ): ExtremaTarget[] {
     const formatter = this.formatter;
     if (!formatter) {
       return targets;
@@ -227,14 +334,14 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       if (target.xValue === undefined) {
         return target;
       }
-      const formatted = formatter.formatSingleValue(target.xValue, layerId, 'x');
+      const formatted = formatter.formatSingleValue(target.xValue, layerId, axis);
       const raw = String(target.xValue);
       if (formatted === raw) {
         return target;
       }
       return {
         ...target,
-        label: target.label.replaceAll(raw, formatted),
+        label: replaceXValueInLabel(target.label, raw, formatted),
       };
     });
   }
@@ -276,11 +383,11 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
 
     const formatter = this.formatter;
-    const layerId = this.activeLayerId();
+    const layer = this.activeLayerFormat();
     // Same rule the extrema target labels follow (formatTargetLabels): format
     // whenever there is a formatter and a layer to look it up by, so these
     // labels round the way the announcement does.
-    if (!formatter || layerId === null) {
+    if (!formatter || layer === null) {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 
@@ -290,20 +397,27 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // tolerance of formatTargetLabels.
     return rawValues.map(value => ({
       value,
-      label: String(formatter.formatSingleValue(value, layerId, 'x')),
+      label: String(formatter.formatSingleValue(value, layer.layerId, layer.axis)),
     }));
   }
 
   /**
-   * Layer id of the active trace, or null when the active plot is not a
-   * non-empty trace. The plot stack is unchanged while the modal is open (the
-   * GO_TO_EXTREMA scope is a keyboard scope only), so context.state resolves to
-   * the same trace whose X values are being listed.
-   * @returns The active layer id, or null.
+   * Layer id and main-axis identity of the active trace, or null when the
+   * active plot is not a non-empty trace. The plot stack is unchanged while the
+   * modal is open (the GO_TO_EXTREMA scope is a keyboard scope only), so
+   * context.state resolves to the same trace whose X values are being listed.
+   *
+   * The axis is the trace's own main axis rather than always 'x', for the
+   * reason formatTargetLabels gives: on a horizontal trace the value listed
+   * here is the category, and the category sits on y.
+   * @returns The active layer id and its main axis, or null.
    */
-  private activeLayerId(): string | null {
+  private activeLayerFormat(): { layerId: string; axis: AxisType } | null {
     const state = this.context.state;
-    return state.type === 'trace' && !state.empty ? state.layerId : null;
+    if (state.type !== 'trace' || state.empty) {
+      return null;
+    }
+    return { layerId: state.layerId, axis: state.text.mainAxis ?? 'x' };
   }
 
   /**
@@ -325,6 +439,18 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       && typeof plot === 'object'
       && 'getAvailableXValues' in plot
       && typeof (plot as any).getAvailableXValues === 'function';
+  }
+
+  /**
+   * Check if a plot can be moved to a chosen X value
+   * @param plot The plot to check
+   * @returns True if the plot supports moveToXValue
+   */
+  private supportsMoveToXValue(plot: unknown): plot is PlotWithMoveToXValue {
+    return plot !== null
+      && typeof plot === 'object'
+      && 'moveToXValue' in plot
+      && typeof (plot as any).moveToXValue === 'function';
   }
 }
 
