@@ -243,6 +243,75 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
     formatter.dispose();
   });
 
+  test('rewrites only the x value, leaving the extremum value and y coordinate alone', () => {
+    // A heatmap target names the value and both coordinates, so rewriting every
+    // occurrence of the raw x corrupted the number the reader is being sent to:
+    // "Global Maximum: 0.95 at 9, 2" with x=9 came out as
+    // "Global Maximum: 0.9.05 at 9.0, 2".
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Global Maximum: 0.95 at 9, 2',
+      xValue: 9,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label)
+      .toBe('Global Maximum: 0.95 at 9.0, 2');
+
+    formatter.dispose();
+  });
+
+  test('rewrites only the x value when the y coordinate shares its digits', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Row Maximum: 4 at 1, 12',
+      xValue: 1,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label)
+      .toBe('Row Maximum: 4 at 1.0, 12');
+
+    formatter.dispose();
+  });
+
+  test('rewrites the x value after the last " at " when a group label carries one too', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [{
+      label: 'Max Data at rest at 7',
+      xValue: 7,
+    } as unknown as ExtremaTarget]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Data at rest at 7.0');
+
+    formatter.dispose();
+  });
+
   test('still honours an author-supplied format on the same path', () => {
     const store = createMaidrStore();
     const trace = createTraceStub([], [{

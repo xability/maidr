@@ -25,6 +25,52 @@ export interface XValueOption {
   label: string;
 }
 
+/**
+ * The separator every extrema label puts in front of its x value, in
+ * `Max Bar at Q1` and `Global Maximum: 0.95 at 9, 2` alike.
+ */
+const X_VALUE_SEPARATOR = ' at ';
+
+/**
+ * Rewrites the x value of an extrema label with its formatted form.
+ *
+ * The x value is the only part of the label the formatter has anything to say
+ * about, and it is written directly after the label's final ` at `. Every
+ * other number in there belongs to something else: the extremum's own value
+ * and, on a heatmap, the y coordinate. Rewriting every occurrence of the raw x
+ * corrupted those too whenever they shared its digits — an x of 9 formatted to
+ * one decimal turned `Global Maximum: 0.95 at 9, 2` into
+ * `Global Maximum: 0.9.05 at 9.0, 2`, which is the value the dialog shows and
+ * the screen reader announces.
+ *
+ * Earlier separators are tried in turn so a group label containing ` at ` (a
+ * label reads `Max Data at rest at 7`) still formats; a label whose x value is
+ * nowhere to be found after one is returned untouched rather than guessed at.
+ * @param label - The target label as the model built it.
+ * @param raw - The x value, stringified.
+ * @param formatted - The x value as the layer's formatter writes it.
+ * @returns The label with its x value formatted.
+ */
+function replaceXValueInLabel(label: string, raw: string, formatted: string): string {
+  const starts: number[] = [];
+  for (
+    let index = label.indexOf(X_VALUE_SEPARATOR);
+    index !== -1;
+    index = label.indexOf(X_VALUE_SEPARATOR, index + 1)
+  ) {
+    starts.push(index + X_VALUE_SEPARATOR.length);
+  }
+
+  for (let i = starts.length - 1; i >= 0; i--) {
+    const start = starts[i];
+    if (label.startsWith(raw, start)) {
+      return label.slice(0, start) + formatted + label.slice(start + raw.length);
+    }
+  }
+
+  return label;
+}
+
 export interface GoToExtremaState {
   visible: boolean;
   targets: any[];
@@ -216,6 +262,8 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * which is what the announcement says, and a dialog label that disagreed with
    * the announcement for the same point would be worse than either. A value the
    * formatter leaves alone is detected below and passes through untouched.
+   *
+   * Only the x value itself is rewritten — see {@link replaceXValueInLabel}.
    */
   private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
     const formatter = this.formatter;
@@ -234,7 +282,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       }
       return {
         ...target,
-        label: target.label.replaceAll(raw, formatted),
+        label: replaceXValueInLabel(target.label, raw, formatted),
       };
     });
   }
