@@ -231,3 +231,29 @@ describe('go to dialog: what the listbox announces', () => {
     expect(viewModel.moveToIndex).toHaveBeenCalledWith(0);
   });
 });
+
+describe('go to dialog: keyboard reach', () => {
+  it('should make only the selected extrema option a tab stop', () => {
+    // Roving tabindex, as the two sibling listboxes implement it. With every
+    // option a tab stop, reaching the search field or the close button from
+    // an intersection-heavy layer meant Tabbing through hundreds of them, and
+    // Shift+Tab never left the list at all.
+    const { store } = renderDialog();
+
+    act(() => {
+      store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: 1 });
+    });
+
+    expect(screen.getByLabelText('Max Bar Value: 8.00 at Q1')).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByLabelText('Min Bar Value: 2.00 at Q3')).toHaveAttribute('tabindex', '0');
+  });
+
+  it('should make only the highlighted search result a tab stop', () => {
+    renderDialog({ xValues: [{ value: 3, label: 'Q3' }, { value: 4, label: 'Q4' }] });
+
+    fireEvent.click(screen.getByLabelText('Search and select X value'));
+
+    expect(screen.getByRole('option', { name: 'Q3' })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('option', { name: 'Q4' })).toHaveAttribute('tabindex', '-1');
+  });
+});

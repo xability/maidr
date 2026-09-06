@@ -92,7 +92,11 @@ const TargetOptionRow = React.memo(({ target, index, isSelected, onSelect, optio
       role="option"
       aria-selected={isSelected}
       aria-label={displayLabel}
-      tabIndex={0}
+      // Roving tabindex (WAI-ARIA listbox), as the sibling listboxes do: the
+      // selection effect moves focus here, and only the selected option is a
+      // tab stop, so Tab leaves the list rather than walking every one of the
+      // hundreds an intersection-heavy layer produces.
+      tabIndex={isSelected ? 0 : -1}
       sx={getTargetBoxSx(isSelected)}
     >
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -451,7 +455,7 @@ export const GoToExtrema: React.FC = () => {
       aria-label={option.label}
       aria-setsize={totalOptionCount}
       aria-posinset={idx + 1}
-      tabIndex={0}
+      tabIndex={dropdownSelectedIndex === idx ? 0 : -1}
       onClick={() => handleOptionSelect(option.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
