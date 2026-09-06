@@ -95,6 +95,11 @@ export class HighContrastService implements Disposable {
   // Track previous high contrast mode state to detect changes
   private previousHighContrastMode: boolean = false;
 
+  // Whether high contrast colors are currently painted onto the DOM. Distinct
+  // from the setting: the effect is suspended on blur while the setting stays
+  // on, so only this answers "is the DOM showing our colors right now?".
+  private highContrastApplied: boolean = false;
+
   // Shared canvas context for color parsing (reused to avoid GC pressure)
   private sharedCanvasCtx: CanvasRenderingContext2D | null = null;
 
@@ -184,6 +189,15 @@ export class HighContrastService implements Disposable {
    * @param figure - The replacement figure
    */
   public setFigure(figure: Figure): void {
+    // A live update can arrive while high contrast is painted, and the capture
+    // below reads the colors the DOM is showing. Restore first, or the
+    // snapshot records this service's own output as the chart's originals and
+    // turning high contrast off never gets the page back.
+    const wasApplied = this.highContrastApplied;
+    if (wasApplied) {
+      this.restoreOriginalColors();
+    }
+
     this.figure = figure;
     this.originalColorInfo = null;
     // Invalidate the trace-element cache so getAllTraceElements() rebuilds from
@@ -384,6 +398,8 @@ export class HighContrastService implements Disposable {
         this.applyPatternsToElements(highContrastElInfo);
       }
     }
+
+    this.highContrastApplied = true;
   }
 
   /**
@@ -439,6 +455,8 @@ export class HighContrastService implements Disposable {
       this.patternService.dispose();
       this.patternService = null;
     }
+
+    this.highContrastApplied = false;
   }
 
   // ========== Helper Methods ==========
