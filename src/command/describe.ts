@@ -607,12 +607,6 @@ export class AnnouncePointCommand extends AnnounceCommand {
 }
 
 /**
- * The traces built on `AbstractBarPlot`, whose braille state is
- * `values[row][col]` normalised to the bar axis and whose audio panning swaps
- * for a horizontal chart. The position announcement reads the former for
- * these; see {@link AnnouncePositionCommand.navigationPosition}.
- */
-/**
  * Whether a braille state carries a row-of-rows grid, the shape
  * {@link AnnouncePositionCommand.navigationPosition} reads a position out of.
  *
@@ -629,6 +623,12 @@ function isGridBrailleState(braille: BrailleState): braille is BarBrailleState {
     && Array.isArray((braille as BarBrailleState).values[0]);
 }
 
+/**
+ * The traces built on `AbstractBarPlot`, whose braille state is
+ * `values[row][col]` normalised to the bar axis and whose audio panning swaps
+ * for a horizontal chart. The position announcement reads the former for
+ * these; see {@link AnnouncePositionCommand.navigationPosition}.
+ */
 const BAR_FAMILY: ReadonlySet<TraceType> = new Set([
   TraceType.BAR,
   TraceType.DOT,
