@@ -212,9 +212,12 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * @returns Object with safe row and column indices
    */
   protected getSafeIndices(): { row: number; col: number } {
-    const safeRow = this.row >= 0 && this.row < this.dimension.rows ? this.row : 0;
-    const safeCol
-      = this.col >= 0 && this.col < this.dimension.cols ? this.col : 0;
+    // One read, not two: `dimension` is a getter, and several traces compute
+    // it with a scan over every row. Nothing between the two comparisons can
+    // change the answer.
+    const { rows, cols } = this.dimension;
+    const safeRow = this.row >= 0 && this.row < rows ? this.row : 0;
+    const safeCol = this.col >= 0 && this.col < cols ? this.col : 0;
     return { row: safeRow, col: safeCol };
   }
 
@@ -719,11 +722,17 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   protected get autoplay(): AutoplayState {
+    // One read for all four limits. `dimension` is a getter -- GanttTrace,
+    // HexbinTrace, RidgelineTrace and BoxenTrace each reduce over every row to
+    // compute it, and ScatterTrace re-runs its mode branching -- and this runs
+    // inside every state computation, so asking four times was three full row
+    // scans per keypress for an answer that cannot change between them.
+    const { rows, cols } = this.dimension;
     return {
-      UPWARD: this.dimension.rows,
-      DOWNWARD: this.dimension.rows,
-      FORWARD: this.dimension.cols,
-      BACKWARD: this.dimension.cols,
+      UPWARD: rows,
+      DOWNWARD: rows,
+      FORWARD: cols,
+      BACKWARD: cols,
     };
   }
 
