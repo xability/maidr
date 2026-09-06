@@ -703,7 +703,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       || traceType === TraceType.DODGED
     ) {
       this.announceSegmentedBarPosition(state, x, cols);
-    } else if (traceType === TraceType.SMOOTH) {
+    } else if (traceType === TraceType.SMOOTH || traceType === TraceType.VIOLIN_KDE) {
       if (rows > 1) {
         // Multi-violin plots: y=violin index, x=position within violin
         this.announceMultiViolinPosition(y, rows, x, cols);

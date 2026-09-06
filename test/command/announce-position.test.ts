@@ -3,7 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BarPoint, BoxPoint, CandlestickPoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import type { PlotState } from '@type/state';
 import { AnnouncePositionCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -754,5 +754,47 @@ describe('AnnouncePositionCommand on a violin box', () => {
     expect(textViewModel.update).toHaveBeenCalledWith(
       `Position is 2 of 2 in ${sectionOf(state)}`,
     );
+  });
+});
+
+/**
+ * A real violin KDE trace's state: three violins of five density samples.
+ *
+ * @param violin Zero-based index of the violin the cursor is on
+ * @param sample Zero-based index of the density sample within it
+ * @returns The trace's state with the cursor there
+ */
+function violinKdeTraceState(violin: number, sample: number): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-violin-kde',
+    type: TraceType.VIOLIN_KDE,
+    title: 'Violins',
+    axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+    data: ['A', 'B', 'C'].map(x =>
+      [1, 2, 3, 4, 5].map(y => ({ x, y, density: 0.1 * y })),
+    ) as ViolinKdePoint[][],
+  });
+  trace.moveToIndex(violin, sample);
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on a multi-violin KDE', () => {
+  test('names the violin rather than a column and row', () => {
+    const { command, textViewModel } = createCommand(violinKdeTraceState(1, 2));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
+  });
+
+  test('keeps the violin identity in terse mode', () => {
+    const { command, textViewModel } = createCommand(violinKdeTraceState(1, 2), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Violin 2 of 3, 50%');
   });
 });
