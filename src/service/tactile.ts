@@ -1413,8 +1413,20 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // text, and sending the reader back to "Line part 1" on every one of them
     // made the outer function keys unusable while zoomed in. Only a line that
     // has nothing on it yet is written again.
-    if (description === this.lastDescription && this.lastText !== null) {
-      return;
+    if (description === this.lastDescription) {
+      if (this.lastText !== null) {
+        return;
+      }
+      if (this.textCells.length > 0) {
+        // The same line, with only the payload cached against retransmission
+        // forgotten -- a write failure forgets it along with the frame. So the
+        // window the reader is on is sent again rather than the line being
+        // started over: rewinding to part 1 here would move them back through
+        // a sentence they are half way into, on a failure they cannot see, and
+        // re-translating would spend a round trip on text already translated.
+        this.writeTextWindow(cellCount);
+        return;
+      }
     }
     this.lastDescription = description;
     // Back to the start on every move: the line now describes a different

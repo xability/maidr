@@ -740,6 +740,24 @@ describe('tactileService', () => {
       expect(session.writeText).toHaveBeenCalled();
     });
 
+    it('should leave the text line where the reader scrolled it', async () => {
+      // The failure carries no payload, so a dropped graphic row forgets the
+      // cached text line along with the frame. The repair then describes the
+      // same point, and starting the line over takes the reader from part 3
+      // back to part 1 of a sentence they are half way through -- silently,
+      // and on a key that moves the graphic rather than the line.
+      activate(1);
+      session.fireKey('function4');
+      const scrolled = session.writeText.mock.calls[1][0];
+      session.writeText.mockClear();
+
+      session.fireWriteFailure();
+      await Promise.resolve();
+
+      expect(session.writeText).toHaveBeenCalledTimes(1);
+      expect(session.writeText.mock.calls[0][0]).toBe(scrolled);
+    });
+
     it('should stop repairing a device that never accepts a write', async () => {
       // A repair is itself a write and can fail in turn. Retrying on every
       // failure would spin for as long as the device is unreachable.
