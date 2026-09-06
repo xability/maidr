@@ -164,6 +164,106 @@ function makeStackedContainer(rowCount = STAGES.length): HTMLElement {
   return container;
 }
 
+/**
+ * How many times the run reads a rect's left edge from the DOM.
+ *
+ * Matching a bar to its rect is a DOM read per candidate, so the count says
+ * whether the search makes one pass over the rects or one pass per bar.
+ *
+ * @param container - The container whose document to instrument
+ * @param run       - The conversion to measure
+ * @returns How many `x` reads it made
+ */
+function countLeftEdgeReads(container: HTMLElement, run: () => void): number {
+  const view = container.ownerDocument.defaultView;
+  if (!view) {
+    throw new Error('the fixture has no window');
+  }
+
+  const proto = view.Element.prototype;
+  const original = proto.getAttribute;
+  let reads = 0;
+  proto.getAttribute = function (name: string): string | null {
+    if (name === 'x') {
+      reads += 1;
+    }
+    return original.call(this, name);
+  };
+
+  try {
+    run();
+  } finally {
+    proto.getAttribute = original;
+  }
+
+  return reads;
+}
+
+describe('a segmented chart of many bars', () => {
+  it('finds each rect without rescanning the whole SVG for every one', () => {
+    // `series x categories x rects` with four attribute reads in the inner
+    // loop, and a segmented chart draws about as many rects as it has bars --
+    // so the cost is quadratic in chart size, all of it synchronous inside
+    // the caller's `ready` handler.
+    const categories = 60;
+    const series = 4;
+    const box = (s: number, c: number): GoogleBoundingBox =>
+      ({ left: 20 + c * 20, top: 30 + s * 120, width: 10, height: 100 });
+
+    const rows: MarkRow[] = Array.from(
+      { length: categories },
+      (_, c) => [`c${c}`, ...Array.from({ length: series }, (_, s) => c + s)] as MarkRow,
+    );
+    const dt = makeDataTable(
+      rows,
+      ['Category', ...Array.from({ length: series }, (_, s) => `S${s}`)],
+    );
+
+    const chart: GoogleChart = {
+      getSelection: () => [],
+      setSelection: () => {},
+      getChartLayoutInterface: () => ({
+        getBoundingBox: (id) => {
+          const bar = /^bar#(\d+)#(\d+)$/.exec(id);
+          if (!bar || Number(bar[1]) >= series || Number(bar[2]) >= categories) {
+            return null;
+          }
+          return box(Number(bar[1]), Number(bar[2]));
+        },
+        getXLocation: value => 20 + Number(value) * 20,
+        getYLocation: value => 30 + Number(value) * 20,
+      }),
+    };
+
+    const dom = new JSDOM('<!doctype html><body><div id="many-bars"></div></body>');
+    const doc = dom.window.document;
+    const container = doc.getElementById('many-bars') as HTMLElement;
+    const svg = doc.createElementNS(SVG_NS, 'svg');
+    container.appendChild(svg);
+    for (let s = 0; s < series; s++) {
+      for (let c = 0; c < categories; c++) {
+        const rect = doc.createElementNS(SVG_NS, 'rect');
+        const at = box(s, c);
+        rect.setAttribute('x', `${at.left}`);
+        rect.setAttribute('y', `${at.top}`);
+        rect.setAttribute('width', `${at.width}`);
+        rect.setAttribute('height', `${at.height}`);
+        svg.appendChild(rect);
+      }
+    }
+
+    const reads = countLeftEdgeReads(container, () => {
+      createMaidrFromGoogleChart(chart, dt, container, { chartType: 'StackedColumnChart' });
+    });
+
+    // Every bar still found.
+    expect(container.querySelectorAll('[data-maidr-bar]'))
+      .toHaveLength(series * categories);
+    // A handful of reads per rect, not a scan per bar.
+    expect(reads).toBeLessThanOrEqual(series * categories * 4);
+  });
+});
+
 describe('a chart drawn by a package with no layout interface', () => {
   /**
    * The material packages (`google.charts.Bar`, `google.charts.Line`) expose

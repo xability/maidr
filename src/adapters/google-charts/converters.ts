@@ -3419,6 +3419,13 @@ function markBarElements(
   // Clear any existing marks from previous initializations
   allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
 
+  // Read once into buckets rather than rescanning the list per bar: a
+  // segmented chart draws about as many rects as it has bars, so a scan each
+  // time is quadratic in chart size -- 1.5M inner iterations and some 6M DOM
+  // reads on a 100-category by 12-series stack, all of it synchronous inside
+  // the caller's `ready` handler.
+  const placed = indexRects(allRects);
+
   let markedCount = 0;
 
   // For each data point of that series, find the corresponding rect
@@ -3427,7 +3434,7 @@ function markBarElements(
     if (!bbox)
       continue;
 
-    const rect = findRectByBoundingBox(allRects, bbox);
+    const rect = findRectByBoundingBox(placed, bbox);
     if (rect) {
       // Mark with series and index for ordered selection
       rect.setAttribute('data-maidr-bar', `${series}-${dataIndex}`);
@@ -3496,6 +3503,13 @@ function markSegmentedBarElements(
   // Clear any existing marks from previous initializations
   allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
 
+  // Read once into buckets rather than rescanning the list per bar: a
+  // segmented chart draws about as many rects as it has bars, so a scan each
+  // time is quadratic in chart size -- 1.5M inner iterations and some 6M DOM
+  // reads on a 100-category by 12-series stack, all of it synchronous inside
+  // the caller's `ready` handler.
+  const placed = indexRects(allRects);
+
   let markedCount = 0;
 
   // Mark elements in ROW-MAJOR order (series-first, then categories within each series)
@@ -3516,7 +3530,7 @@ function markSegmentedBarElements(
     const row: (string | null)[] = [];
     for (let category = 0; category < categoryCount; category++) {
       const bbox = layout.getBoundingBox(`bar#${series}#${category}`);
-      const rect = bbox ? findRectByBoundingBox(allRects, bbox) : null;
+      const rect = bbox ? findRectByBoundingBox(placed, bbox) : null;
       if (rect) {
         rect.setAttribute('data-maidr-bar', `${series}-${category}`);
         row.push(`#${container.id} svg rect[data-maidr-bar="${series}-${category}"]`);
@@ -3535,36 +3549,40 @@ function markSegmentedBarElements(
 }
 
 /**
+ * Indexes a chart's rects by their top-left corners.
+ *
+ * @param rects - NodeList of SVG rect elements
+ * @returns The index {@link findRectByBoundingBox} reads from
+ */
+function indexRects(rects: NodeListOf<SVGRectElement>): MarkIndex<SVGRectElement> {
+  return indexMarks(rects, rect => ({
+    x: Number.parseFloat(rect.getAttribute('x') || '0'),
+    y: Number.parseFloat(rect.getAttribute('y') || '0'),
+  }));
+}
+
+/**
  * Finds an SVG rect element that matches the given bounding box coordinates.
  *
  * Due to floating-point precision issues in Google Charts rendering,
  * we use a small tolerance when comparing positions.
  *
- * @param rects - NodeList of SVG rect elements to search
+ * @param rects - Index of the SVG rect elements to search
  * @param bbox - The target bounding box from the chart layout API
  * @returns The matching rect element, or null if not found
  */
 function findRectByBoundingBox(
-  rects: NodeListOf<SVGRectElement>,
+  rects: MarkIndex<SVGRectElement>,
   bbox: GoogleBoundingBox,
 ): SVGRectElement | null {
-  for (const rect of rects) {
-    const x = Number.parseFloat(rect.getAttribute('x') || '0');
-    const y = Number.parseFloat(rect.getAttribute('y') || '0');
+  // The corner narrows the candidates to a handful; the size then tells two
+  // bars that start at the same place apart, as the full scan did.
+  return markAt(rects, bbox.left, bbox.top, (rect) => {
     const width = Number.parseFloat(rect.getAttribute('width') || '0');
     const height = Number.parseFloat(rect.getAttribute('height') || '0');
-
-    // Match by position and size with tolerance
-    const xMatch = Math.abs(x - bbox.left) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(y - bbox.top) <= POSITION_TOLERANCE;
-    const widthMatch = Math.abs(width - bbox.width) <= POSITION_TOLERANCE;
-    const heightMatch = Math.abs(height - bbox.height) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch && widthMatch && heightMatch) {
-      return rect;
-    }
-  }
-  return null;
+    return Math.abs(width - bbox.width) <= POSITION_TOLERANCE
+      && Math.abs(height - bbox.height) <= POSITION_TOLERANCE;
+  });
 }
 
 /**
