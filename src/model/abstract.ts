@@ -16,9 +16,14 @@ import type {
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
-import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
+import {
+  extractXValueFromPoints,
+  extractXValueFromValues,
+  moveToXValueInPoints,
+  moveToXValueInValues,
+} from '@util/navigation';
 import { resolveOrientation } from '@util/orientation';
 import { Svg } from '@util/svg';
 
@@ -472,14 +477,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   protected readonly yAxis: string;
   protected readonly z: string;
 
-  protected readonly navigationService: NavigationService;
-
   protected readonly layer: MaidrLayer;
 
   protected constructor(layer: MaidrLayer) {
     super();
     this.layer = layer;
-    this.navigationService = new NavigationService();
     this.id = layer.id;
     this.type = layer.type;
     this.title = layer.title ?? DEFAULT_SUBPLOT_TITLE;
@@ -985,7 +987,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.extractXValueFromPoints(
+        return extractXValueFromPoints(
           points,
           this.row,
           this.col,
@@ -997,7 +999,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.extractXValueFromValues(
+        return extractXValueFromValues(
           values as any,
           this.row,
           this.col,
@@ -1018,7 +1020,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasPointsArray()) {
       const points = this.getPointsArray();
       if (this.isValidPointsArray(points)) {
-        return this.navigationService.moveToXValueInPoints(
+        return moveToXValueInPoints(
           points,
           xValue,
           this.moveToIndex.bind(this),
@@ -1031,7 +1033,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (this.hasValuesArray()) {
       const values = this.values;
       if (this.isValidValuesArray(values)) {
-        return this.navigationService.moveToXValueInValues(
+        return moveToXValueInValues(
           values as any,
           xValue,
           this.moveToIndex.bind(this),
