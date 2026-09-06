@@ -930,13 +930,15 @@ export function groupSeries(chart: AmChart): SeriesGroups {
       case 'gantt':
         groups.ganttSeriesList.push(series);
         break;
-      // A treemap, an icicle and a sunburst draw one tree three ways; the
-      // highlight walks the same nodes whichever it is, so they share a
-      // bucket. Which *mark* to measure is decided from the layer's trace type
-      // where the resolver is built, since that is what differs.
+      // A treemap, an icicle, a sunburst, a tree and a pack draw one tree five
+      // ways; the highlight walks the same nodes whichever it is, so they
+      // share a bucket. Which *mark* to measure is decided from the layer's
+      // trace type where the resolver is built, since that is what differs.
       case 'treemap':
       case 'icicle':
       case 'sunburst':
+      case 'tree':
+      case 'pack':
         groups.hierarchySeriesList.push(series);
         break;
       case 'wordcloud':
@@ -1169,9 +1171,12 @@ function addEntryResolvers(
       }
       case TraceType.TREEMAP:
       case TraceType.ICICLE:
-      case TraceType.SUNBURST: {
-        // One tree, three marks: a treemap block and an icicle bar are
-        // rectangles, a sunburst node is a wedge.
+      case TraceType.SUNBURST:
+      case TraceType.TREE:
+      case TraceType.PACK: {
+        // One tree, several marks: a treemap block and an icicle bar are
+        // rectangles, a tree node and a pack circle are measured by the box
+        // they occupy just the same, and a sunburst node is a wedge.
         const kind: NavItemTarget['kind']
           = layer.type === TraceType.SUNBURST ? 'slice' : 'column';
         register(

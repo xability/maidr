@@ -828,6 +828,56 @@ describe('AnnouncePositionCommand on a multi-violin KDE', () => {
   });
 });
 
+/**
+ * A violin KDE trace with a single violin of five density samples.
+ *
+ * @param sample Zero-based index of the density sample the cursor is on
+ * @param orientation Which way the violin is laid out
+ * @returns The trace's state with the cursor there
+ */
+function singleViolinKdeTraceState(
+  sample: number,
+  orientation = Orientation.VERTICAL,
+): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-single-violin-kde',
+    type: TraceType.VIOLIN_KDE,
+    title: 'Violin',
+    orientation,
+    axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+    data: [[1, 2, 3, 4, 5].map(y => ({ x: 'A', y, density: 0.1 * y }))] as ViolinKdePoint[][],
+  });
+  trace.moveToIndex(0, sample);
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on a single-violin KDE', () => {
+  /**
+   * One violin is a curve, not a set of them, so the announcement is the
+   * plain position along it and names no violin at all.
+   *
+   * Which branch it takes turns on the row count, so the frame that count is
+   * read from matters here as much as the numbers do. A vertical violin's pan
+   * reports the sample count as its rows and the violin count as its columns,
+   * and reading the position out of that answered "Violin 3 of 5, Position is
+   * 1 of 1" -- five violins where there is one, and a curve one sample long.
+   * The horizontal case passed either way, which is why it is here beside it.
+   */
+  test.each([
+    ['vertical', Orientation.VERTICAL],
+    ['horizontal', Orientation.HORIZONTAL],
+  ])('reads the position along a %s curve without naming a violin', (_name, orientation) => {
+    const { command, textViewModel } = createCommand(
+      singleViolinKdeTraceState(2, orientation),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Position is 3 of 5');
+  });
+});
+
 describe('AnnouncePositionCommand at the multi-panel lobby', () => {
   function figureState(index: number, size: number): PlotState {
     return { type: 'figure', empty: false, index, size } as unknown as PlotState;
