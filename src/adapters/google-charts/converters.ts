@@ -827,9 +827,17 @@ function buildBarLayer(
 
   // A dot plot draws its values as point markers and everything else as rects
   // — a lollipop's stem is a thin bar series, and a funnel's stage is a bar.
+  //
+  // The rects of the series the payload was read from, which is not always
+  // the first: the recipe that draws a funnel's trapezoid stacks a
+  // transparent padding series under the counts, so `funnelValueColumn` picks
+  // the second data column and its bars are series 1. Marked as series 0, the
+  // outline lands on the invisible spacer at the start of the stack while the
+  // audio and the text announce the stage.
+  const series = Math.max(dataColumns(dt).indexOf(dataCol), 0);
   const selector = traceType === TraceType.DOT
     ? markPointMarkerElements(chart, container, rows, 'data-maidr-dot', 'Dot plot point')
-    : markBarElements(chart, container, rows, 1);
+    : markBarElements(chart, container, rows, series);
 
   // A reversed category axis draws the bars from the far end while Google goes
   // on emitting the rects in row order, so the payload and the selectors turn
@@ -3321,11 +3329,21 @@ function reversedBarSelectors(containerId: string, rowCount: number): string[] {
   );
 }
 
+/**
+ * Marks the rects one bar series drew, so a layer can point at them.
+ *
+ * @param chart     - The Google Chart instance
+ * @param container - The DOM container element
+ * @param rowCount  - How many categories the series was drawn for
+ * @param series    - Which series' bars carry the reading
+ * @returns CSS selector for the marked rects, or a fallback when the layout
+ *          named none of them
+ */
 function markBarElements(
   chart: GoogleChart,
   container: HTMLElement,
   rowCount: number,
-  seriesCount: number,
+  series: number,
 ): string | undefined {
   const svg = container.querySelector('svg');
   if (!svg)
@@ -3343,19 +3361,17 @@ function markBarElements(
 
   let markedCount = 0;
 
-  // For each series and data point, find the corresponding rect
-  for (let series = 0; series < seriesCount; series++) {
-    for (let dataIndex = 0; dataIndex < rowCount; dataIndex++) {
-      const bbox = layout.getBoundingBox(`bar#${series}#${dataIndex}`);
-      if (!bbox)
-        continue;
+  // For each data point of that series, find the corresponding rect
+  for (let dataIndex = 0; dataIndex < rowCount; dataIndex++) {
+    const bbox = layout.getBoundingBox(`bar#${series}#${dataIndex}`);
+    if (!bbox)
+      continue;
 
-      const rect = findRectByBoundingBox(allRects, bbox);
-      if (rect) {
-        // Mark with series and index for ordered selection
-        rect.setAttribute('data-maidr-bar', `${series}-${dataIndex}`);
-        markedCount++;
-      }
+    const rect = findRectByBoundingBox(allRects, bbox);
+    if (rect) {
+      // Mark with series and index for ordered selection
+      rect.setAttribute('data-maidr-bar', `${series}-${dataIndex}`);
+      markedCount++;
     }
   }
 
