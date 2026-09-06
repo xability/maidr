@@ -88,10 +88,13 @@ function fakeSeriesModel(series: FakeSeries): EChartsSeriesModel {
   };
 }
 
+/** A category axis label, plain or in the per-label object form. */
+type FakeLabel = string | { value: string; textStyle?: { color: string } };
+
 interface FakeChart {
   series: FakeSeries[];
-  xData?: string[];
-  yData?: string[];
+  xData?: FakeLabel[];
+  yData?: FakeLabel[];
   xName?: string;
   yName?: string;
 }
@@ -235,6 +238,20 @@ describe('an eCharts heat grid', () => {
       y: ['r1', 'r0'],
       points: [[10, 11, 12], [0, 1, 2]],
     });
+  });
+
+  it('reads a label the author styled, rather than stringifying the object', () => {
+    // A category axis' `data` officially takes a per-label object -- the way
+    // an author colours one weekday -- and those labels are the only handle
+    // a heat grid's reader has: they are announced on every row and column
+    // move. Stringified, that whole row announces as "[object Object]",
+    // while the numbers stay right and say nothing is wrong.
+    const [layer] = layersOf(
+      { ...GRID, yData: ['r0', { value: 'r1', textStyle: { color: 'red' } }] },
+      drawnChart(6, true),
+    );
+
+    expect((layer.data as HeatmapData).y).toEqual(['r1', 'r0']);
   });
 
   it('names both axes after the titles the chart carries', () => {
