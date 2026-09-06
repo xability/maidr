@@ -12,8 +12,10 @@
     "examples/**",
     "_site/**"
   ],
-  "name": "MAIDR Documentation",
-  "includeVersion": true,
+  "name": "MAIDR JavaScript API",
+  "includeVersion": false,
+  "titleLink": "https://maidr.ai/",
+  "hostedBaseUrl": "https://maidr.ai/api/",
   "categorizeByGroup": false,
   "navigation": {
     "includeCategories": false,
@@ -27,7 +29,8 @@
     "source-order"
   ],
   "plugin": [
-    "typedoc-theme-hierarchy"
+    "typedoc-theme-hierarchy",
+    "./scripts/typedoc-seo-plugin.mjs"
   ],
   "theme": "hierarchy"
 }

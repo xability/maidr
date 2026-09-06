@@ -18,6 +18,8 @@ export interface ExcludedExample {
 export interface GalleryItem {
   /** Path relative to `examples/`; absent on a hand-written entry. */
   page?: string;
+  /** A hand-written entry's link target, in place of `examples/<page>`. */
+  href?: string;
   /** A hand-written entry's click handler, in place of `loadHTML(...)`. */
   onclick?: string;
   /** The link text. */
@@ -52,7 +54,7 @@ export interface GalleryGroup {
   /** Prepended to the link text to form the announced heading. */
   headingPrefix?: string;
   /** Entries that are not pages, such as the bundled React example. */
-  statics?: { onclick: string; label: string }[];
+  statics?: { href: string; onclick: string; label: string }[];
   /** Whether an unprefixed top-level page lands here. At most one group. */
   fallback?: boolean;
 }

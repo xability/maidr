@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="{{DESCRIPTION}}" />
   <link rel="canonical" href="{{CANONICAL_URL}}" />
-  <meta property="og:title" content="{{TITLE}} - MAIDR" />
+  <meta property="og:title" content="{{SEO_TITLE}}" />
   <meta property="og:description" content="{{DESCRIPTION}}" />
   <meta property="og:type" content="{{OG_TYPE}}" />
   <meta property="og:url" content="{{CANONICAL_URL}}" />
@@ -17,11 +17,11 @@
   <meta property="og:site_name" content="MAIDR" />
   <meta property="og:locale" content="en_US" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="{{TITLE}} - MAIDR" />
+  <meta name="twitter:title" content="{{SEO_TITLE}}" />
   <meta name="twitter:description" content="{{DESCRIPTION}}" />
   <meta name="twitter:image" content="https://maidr.ai/media/logo.jpg" />
   <meta name="twitter:image:alt" content="MAIDR - Multimodal Access and Interactive Data Representation logo" />
-  <title>{{TITLE}} - MAIDR</title>
+  <title>{{SEO_TITLE}}</title>
   <link rel="icon" type="image/svg+xml" href="{{BASE_PATH}}media/logo.svg" />
   <script type="application/ld+json">
   {
@@ -31,37 +31,59 @@
         "@type": "Organization",
         "@id": "https://maidr.ai/#organization",
         "name": "(x)Ability Design Lab",
-        "url": "https://xability.github.io/",
+        "url": "https://xabilitylab.ischool.illinois.edu/",
         "sameAs": [
           "https://github.com/xability",
-          "https://www.npmjs.com/package/maidr"
+          "https://xability.github.io/"
+        ],
+        "parentOrganization": {
+          "@type": "CollegeOrUniversity",
+          "name": "University of Illinois Urbana-Champaign",
+          "url": "https://illinois.edu/"
+        }
+      },
+      {
+        "@type": "Person",
+        "@id": "https://maidr.ai/#jooyoung-seo",
+        "name": "JooYoung Seo",
+        "url": "https://ischool.illinois.edu/people/jooyoung-seo",
+        "affiliation": { "@id": "https://maidr.ai/#organization" },
+        "sameAs": [
+          "https://github.com/jooyoungseo",
+          "https://scholar.google.com/citations?user=c0x8E5YAAAAJ",
+          "https://www.linkedin.com/in/jooyoungseo"
         ]
       },
       {
         "@type": "WebSite",
         "@id": "https://maidr.ai/#website",
-        "url": "https://maidr.ai/",
         "name": "MAIDR",
+        "url": "https://maidr.ai/",
+        "inLanguage": "en",
         "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
-        "publisher": { "@id": "https://maidr.ai/#organization" }
+        "publisher": { "@id": "https://maidr.ai/#organization" },
+        "about": { "@id": "https://maidr.ai/#software" }
       },
       {
-        "@type": "SoftwareApplication",
+        "@type": ["SoftwareSourceCode", "SoftwareApplication"],
         "@id": "https://maidr.ai/#software",
         "name": "MAIDR",
-        "alternateName": "Multimodal Access and Interactive Data Representation",
-        "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Web",
+        "alternateName": ["maidr", "Multimodal Access and Interactive Data Representation"],
         "description": "Accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.",
-        "url": "https://maidr.ai",
-        "softwareVersion": "{{SOFTWARE_VERSION}}",
-        "downloadUrl": "https://www.npmjs.com/package/maidr",
+        "url": "https://maidr.ai/",
         "codeRepository": "https://github.com/xability/maidr",
+        "downloadUrl": "https://www.npmjs.com/package/maidr",
         "programmingLanguage": ["TypeScript", "JavaScript"],
-        "license": "https://opensource.org/license/gpl-3-0",
+        "runtimePlatform": "Web browser",
+        "operatingSystem": "Web",
+        "applicationCategory": "DeveloperApplication",
+        "softwareVersion": "{{SOFTWARE_VERSION}}",
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "isAccessibleForFree": true,
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
         "author": { "@id": "https://maidr.ai/#organization" },
-        "featureList": [
+        "maintainer": { "@id": "https://maidr.ai/#jooyoung-seo" },
+        {{SOFTWARE_CITATION}}"featureList": [
           "Audio sonification of chart data",
           "Text descriptions for screen readers",
           "Braille output for tactile displays",
@@ -73,7 +95,7 @@
           "https://github.com/xability/maidr",
           "https://www.npmjs.com/package/maidr"
         ]
-      }
+      }{{HOME_GRAPH_NODES}}
     ]
   }
   </script>
@@ -287,6 +309,46 @@
       left: 0;
     }
 
+    /* Breadcrumb trail on pages below the home page. */
+    .breadcrumb {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 2rem 0;
+      font-size: 0.95rem;
+    }
+
+    .breadcrumb ol {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0;
+      padding: 0;
+    }
+
+    .breadcrumb li + li::before {
+      content: "/";
+      margin-right: 0.5rem;
+      color: #888;
+    }
+
+    .breadcrumb a {
+      /* 5.9:1 on white; the lighter #667eea used elsewhere is only 3.7:1. */
+      color: #4a5bc4;
+    }
+
+    .breadcrumb [aria-current="page"] {
+      color: #555;
+    }
+
+    .page-meta {
+      max-width: 1200px;
+      margin: 0.5rem auto 0;
+      padding: 0 2rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
     main {
       max-width: 1200px;
       margin: 0 auto;
@@ -429,7 +491,7 @@
 
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
-  <nav>
+  <nav aria-label="Main">
     <div class="container">
       <a href="{{BASE_PATH}}index.html" class="logo">
         <img src="{{BASE_PATH}}media/logo.jpg" alt="MAIDR Logo" />
@@ -480,12 +542,15 @@
     </div>
   </nav>
 
+  {{BREADCRUMB}}
+
   <main id="main-content" tabindex="-1">
     {{CONTENT}}
   </main>
 
   <footer>
     <p>MAIDR - Multimodal Access and Interactive Data Representation</p>
+    <p>Developed by the <a href="https://xabilitylab.ischool.illinois.edu/">(x)Ability Design Lab</a> at the University of Illinois Urbana-Champaign. Principal investigator: JooYoung Seo.</p>
     <p><a href="https://github.com/xability/maidr">GitHub</a> | Licensed under GPL-3.0</p>
   </footer>
   <script>

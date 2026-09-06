@@ -245,7 +245,7 @@ export const GROUPS = [
     id: 'react',
     heading: 'React',
     headingId: 'react-examples',
-    statics: [{ onclick: 'loadReact()', label: 'React Examples (Bar, Line, Smooth, D3 Bar, D3 Scatter)' }],
+    statics: [{ href: 'examples/react/index.html', onclick: 'loadReact()', label: 'React Examples (Bar, Line, Smooth, D3 Bar, D3 Scatter)' }],
     note: 'See the <a href="react.html">React Integration Guide</a> for setup instructions, TypeScript types, and code examples for all plot types. The D3 examples show how to use <a href="d3.html">the D3 adapter</a> with the <code>&lt;MaidrD3&gt;</code> wrapper.',
   },
   {
@@ -265,7 +265,7 @@ export const GROUPS = [
   {
     id: 'recharts',
     heading: 'Recharts',
-    statics: [{ onclick: 'loadRecharts()', label: 'Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)' }],
+    statics: [{ href: 'examples/recharts/index.html', onclick: 'loadRecharts()', label: 'Recharts Examples (Bar, Line, Scatter, Stacked, Histogram)' }],
     note: 'See the <a href="recharts.html">Recharts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {
@@ -326,7 +326,7 @@ export const GROUPS = [
   {
     id: 'victory',
     heading: 'Victory',
-    statics: [{ onclick: 'loadVictory()', label: 'Victory Examples (Bar, Line, Scatter, Stacked, Histogram, Box, Candlestick)' }],
+    statics: [{ href: 'examples/victory/index.html', onclick: 'loadVictory()', label: 'Victory Examples (Bar, Line, Scatter, Stacked, Histogram, Box, Candlestick)' }],
     note: 'See the <a href="victory.html">Victory Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {
@@ -553,10 +553,21 @@ function js(value) {
   return value.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
 }
 
-/** One `<li>`: the same markup and the same `loadHTML` call as before. */
+/**
+ * One `<li>`: a real link to the example page, with the same `loadHTML` call
+ * as before on click.
+ *
+ * The `href` used to be `#`, which made every entry a link in name only: no
+ * crawler could reach a page under `examples/` from the gallery, and a
+ * screen reader announced a link that went nowhere. The handler still
+ * `return false`s, so a click (or Enter on the focused link) opens the
+ * example in the iframe below rather than navigating, and the href is what a
+ * middle-click, a crawler, or a user without JavaScript follows.
+ */
 function renderItem(item) {
+  const href = item.href ?? `examples/${item.page}`;
   const onclick = item.onclick ?? `loadHTML('${js(item.page)}', '${js(item.heading)}')`;
-  return `    <li><a href="#" onclick="${attr(onclick)}; return false;">${item.label}</a></li>`;
+  return `    <li><a href="${attr(href)}" onclick="${attr(onclick)}; return false;">${item.label}</a></li>`;
 }
 
 /** The gallery's markup, for `scripts/build-site.js` to drop into the page. */
