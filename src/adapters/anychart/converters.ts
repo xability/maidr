@@ -6479,7 +6479,20 @@ function buildSubplot(
     if (divergingIndices.has(i))
       continue;
 
-    const anyChartType = series.seriesType();
+    // Guarded like every other `seriesType()` call in this file: the adapter
+    // does not trust it, and unwrapped here the throw leaves `buildSubplot`,
+    // `anyChartToMaidr` and `bindAnyChart` in turn, landing in the caller's
+    // own page script — the chart is not bound, and nothing written after the
+    // bind call runs either.
+    let anyChartType = '';
+    try {
+      anyChartType = series.seriesType();
+    } catch {
+      console.warn(
+        `[maidr/anychart] Series ${i} could not name its type. Skipping it.`,
+      );
+      continue;
+    }
 
     if (anyChartType === 'waterfall') {
       waterfalls.push({ series, index: i });
