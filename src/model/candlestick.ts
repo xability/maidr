@@ -18,6 +18,7 @@ import {
   candleShape,
   candleTrendPattern,
   candleTrioPatterns,
+  DEFAULT_CANDLE_SHAPE_THRESHOLDS,
 } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -962,12 +963,23 @@ export class Candlestick extends AbstractTrace {
       : candlePairPatterns(before, bodied);
     // A hammer and a hanging man are one shape read two ways, and only the
     // run of closes before the candle separates them (#734).
-    const run = this.candles
-      .slice(0, this.currentPointIndex)
-      .map(earlier => earlier.close);
+    //
+    // Only the last `trendLookback` closes decide it, so only those are
+    // gathered: this getter runs on every keypress and every autoplay tick,
+    // and handing over the whole history before the cursor made each one cost
+    // two passes over the chart to consult three numbers.
+    const lookback = DEFAULT_CANDLE_SHAPE_THRESHOLDS.trendLookback;
     const named = bodied === undefined
       ? null
-      : candleTrendPattern(run, bodied);
+      : candleTrendPattern(
+          this.candles
+            .slice(
+              Math.max(0, this.currentPointIndex - lookback),
+              this.currentPointIndex,
+            )
+            .map(earlier => earlier.close),
+          bodied,
+        );
     // The three-candle formations need two candles behind the cursor, so the
     // first two of any chart carry none (#739, #740, #741, #742).
     const earlier = this.candles[this.currentPointIndex - 2];
