@@ -42,9 +42,12 @@ import { useViewModel } from '@state/hook/useViewModel';
 import {
   clampEchoCount,
   clampEchoDuration,
+  clampFrequencyRange,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MAX_ECHO_COUNT,
+  MAX_FREQUENCY_HZ,
+  MIN_FREQUENCY_HZ,
 } from '@type/settings';
 import {
   clampBrailleLines,
@@ -678,6 +681,11 @@ const Settings: React.FC = () => {
       // hint rather than a limit; persist a value the audio service can use.
       echoCount: clampEchoCount(generalSettings.echoCount),
       echoDuration: clampEchoDuration(generalSettings.echoDuration),
+      // Both frequency fields are free-typed too, and AudioService maps every
+      // point into this range without a clamp of its own — a cleared field
+      // (which reads back as 0) or an inverted range would leave the chart
+      // silent or its pitch running backwards until Reset.
+      ...clampFrequencyRange(generalSettings.minFrequency, generalSettings.maxFrequency),
     };
     viewModel.saveAndClose({ general: safeGeneral, llm: llmSettings });
     // Update the welcome bubble's model info in place instead of resetting the
@@ -1254,7 +1262,8 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Minimum Frequency',
-                          'min': 0,
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
                         },
                       },
                     }}
@@ -1282,7 +1291,8 @@ const Settings: React.FC = () => {
                       input: {
                         inputProps: {
                           'aria-label': 'Maximum Frequency',
-                          'min': 0,
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
                         },
                       },
                     }}
