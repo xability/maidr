@@ -433,19 +433,26 @@ function hasOrdinalXScale(chart: AnyChartInstance): boolean {
  * A horizontal bar runs its categories down the page, and inverting is what
  * puts the first one at the top; a vertical column runs them across, and not
  * inverting is what puts the first one at the left. So the reading is
- * backwards exactly when `inverted()` disagrees with the series' own
- * direction, which is `'bar'` for horizontal and `'column'` for vertical --
- * and an ordinary chart of either kind is left alone.
+ * backwards exactly when `inverted()` disagrees with the **chart's** own
+ * direction -- and an ordinary chart of either kind is left alone.
+ *
+ * The chart's, not the series': only a bar or column series names the
+ * arrangement, and a line, area or step overlaid on `anychart.bar()` reports
+ * `'line'` / `'area'` / `'step-line'` while being drawn down the page like
+ * everything else in that chart. Reading the direction off such a series gets
+ * it backwards both ways -- reversing the default bar chart, which draws in
+ * listed order, and leaving the un-inverted one, which does not.
+ * {@link drawsHorizontally} is the same question {@link HORIZONTAL_CHART_TYPES}
+ * answers for the orientation key.
  *
  * The **x** scale specifically: inverting the value scale was measured to move
  * no category, only which end the bars hang from, so asking "is either scale
  * inverted" would reorder a chart that did not move.
  *
- * Defensive in the same shape as {@link hasOrdinalXScale} -- a chart or series
- * that cannot be asked keeps the reading it has today.
+ * Defensive in the same shape as {@link hasOrdinalXScale} -- a chart that
+ * cannot be asked keeps the reading it has today.
  *
  * @param chart - The chart the series belongs to
- * @param series - The bar or column series being read
  * @returns True when the drawn order is the reverse of the listed order
  */
 /**
@@ -475,8 +482,8 @@ const REVERSIBLE_ON_INVERSION = new Set<AnyChartTraceType>([
  * `anychart.column()` the upright one, and every series inside them follows --
  * a `marker` in a bar chart is a Cleveland dot plot, a `stick` is a sideways
  * lollipop, a `range-bar` a sideways dumbbell. So the question is the chart's
- * rather than the series', which is why {@link drawsCategoriesReversed} can
- * read the series' own name and this cannot.
+ * rather than the series', which is why {@link drawsCategoriesReversed} asks
+ * this too rather than reading the name of the series it is converting.
  *
  * `barmekko` is deliberately absent: AnyChart's bar mekko is a column chart
  * whose widths vary, drawn upright -- measured, `getType()` answers
@@ -494,14 +501,10 @@ function drawsHorizontally(chart: AnyChartInstance): boolean {
   return HORIZONTAL_CHART_TYPES.has(readChartType(chart));
 }
 
-function drawsCategoriesReversed(
-  chart: AnyChartInstance,
-  series: AnyChartSeries,
-): boolean {
+function drawsCategoriesReversed(chart: AnyChartInstance): boolean {
   try {
     const inverted = chart.xScale?.()?.inverted?.() === true;
-    const horizontal = series.seriesType() === 'bar';
-    return inverted !== horizontal;
+    return inverted !== drawsHorizontally(chart);
   } catch {
     return false;
   }
@@ -6505,7 +6508,7 @@ function buildSubplot(
     // and there is nothing to permute (#1035).
     const invertedCategories = REVERSIBLE_ON_INVERSION.has(traceType)
       && !hasSelectorOverrides
-      && drawsCategoriesReversed(chart, series);
+      && drawsCategoriesReversed(chart);
     const layer = buildLayer(
       chart,
       series,
