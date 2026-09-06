@@ -3639,7 +3639,20 @@ function markScatterElements(
     return buildDataSelector(container, 'circle');
   }
 
-  return `#${container.id} svg circle[data-maidr-point]`;
+  // Verified before it ships, the way the volcano and Manhattan path already
+  // verifies its own marks. Two coincident points -- routine in binned or
+  // rounded data -- leave the second one sharing the first one's circle and
+  // the list one short, and a chart that emitted its circles in an order
+  // other than the data's would outline a different point from the one being
+  // announced on every move.
+  return pairedCircleSelector(
+    container,
+    allCircles,
+    'data-maidr-point',
+    markedCount,
+    data.length,
+    'Scatter point',
+  );
 }
 
 /**
@@ -4192,14 +4205,6 @@ function markSeriesPointElements(
   // Clear any existing marks from previous initializations
   allCircles.forEach(circle => circle.removeAttribute(attribute));
 
-  const withdraw = (): undefined => {
-    // A partial or out-of-order match is withdrawn rather than shipped: the
-    // marks left behind would resolve to a list that does not line up with the
-    // data, and the next chart drawn into this container would inherit them.
-    allCircles.forEach(circle => circle.removeAttribute(attribute));
-    return undefined;
-  };
-
   // Read once into buckets rather than rescanning the list per point: these
   // charts carry tens of thousands of points, and the scan is what froze the
   // tab before the chart became accessible at all.
@@ -4218,17 +4223,63 @@ function markSeriesPointElements(
     }
   });
 
-  if (markedCount !== marks.length) {
+  return pairedCircleSelector(
+    container,
+    allCircles,
+    attribute,
+    markedCount,
+    marks.length,
+    what,
+  );
+}
+
+/**
+ * The selector for a set of stamped circles, once the pairing is verified.
+ *
+ * Two checks, and a chart that fails either keeps its reading and loses its
+ * outline. **Every** point has to have found a mark: a short list resolves to
+ * circles that do not line up with the data, which `ScatterTrace` declines
+ * outright rather than half-highlighting. And the **document order** has to
+ * be the data's, because a single attribute selector is resolved in document
+ * order while the marks are made in data order -- so a chart that emitted its
+ * circles some other way would highlight a point belonging to a different row
+ * on every move, silently, and only in the highlight.
+ *
+ * @param container   - The DOM container element
+ * @param circles     - Every circle in the chart's SVG
+ * @param attribute   - The marking attribute that was set
+ * @param markedCount - How many points found a circle of their own
+ * @param expected    - How many points there are
+ * @param what        - What the points are, for the warnings
+ * @returns The selector, or `undefined` when the pairing cannot be trusted
+ */
+function pairedCircleSelector(
+  container: HTMLElement,
+  circles: NodeListOf<SVGCircleElement>,
+  attribute: string,
+  markedCount: number,
+  expected: number,
+  what: string,
+): string | undefined {
+  // A partial or out-of-order match is withdrawn rather than shipped: the
+  // marks left behind would resolve to a list that does not line up with the
+  // data, and the next chart drawn into this container would inherit them.
+  const withdraw = (): undefined => {
+    circles.forEach(circle => circle.removeAttribute(attribute));
+    return undefined;
+  };
+
+  if (markedCount !== expected) {
     if (markedCount > 0) {
       console.warn(
-        `[MAIDR] ${what} count mismatch: expected ${marks.length}, marked ${markedCount}. `
+        `[MAIDR] ${what} count mismatch: expected ${expected}, marked ${markedCount}. `
         + 'Visual highlighting is disabled for this chart.',
       );
     }
     return withdraw();
   }
 
-  const drawn = Array.from(svg.querySelectorAll(`circle[${attribute}]`));
+  const drawn = Array.from(container.querySelectorAll(`circle[${attribute}]`));
   if (drawn.some((circle, index) => circle.getAttribute(attribute) !== `${index}`)) {
     console.warn(
       `[MAIDR] ${what} order mismatch: the chart drew its markers in an order other than `
