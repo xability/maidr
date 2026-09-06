@@ -82,6 +82,20 @@ function intervalOf(point: LinePoint): { interval?: { min?: number; max?: number
 }
 
 /**
+ * Whether a sequence never goes backwards.
+ *
+ * A `NaN` anywhere answers false, since neither comparison against one holds
+ * — which is the conservative answer for the caller, whose shortcut is only
+ * sound on a sequence it can order.
+ *
+ * @param values - The sequence to check
+ * @returns True when each value is at least the one before it
+ */
+function ascends(values: readonly number[]): boolean {
+  return values.every((value, i) => i === 0 || values[i - 1] <= value);
+}
+
+/**
  * Represents a line trace plot with support for single and multi-line navigation
  */
 export class LineTrace extends AbstractTrace {
@@ -1138,22 +1152,44 @@ export class LineTrace extends AbstractTrace {
       const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
       const dataXRange = dataXMax - dataXMin;
 
-      const full: LinePoint[] = [];
-      for (let i = 0; i < expected; i++) {
+      const svgXs = Array.from({ length: expected }, (_, i) => {
         const dataX = Number(dataPoints[i].x);
-        const svgX = dataXRange > 0
+        return dataXRange > 0
           ? pathXMin + ((dataX - dataXMin) / dataXRange) * (pathXMax - pathXMin)
           : pathXMin;
+      });
+      // Where both the path and the points ascend in x, the segment holding
+      // a point can never lie before the segment holding the point before
+      // it, so each search carries on from where the last one stopped rather
+      // than starting at the first vertex again -- one pass over the
+      // vertices for the whole series instead of one per point. That is the
+      // ordinary case: a series is listed in x order and a path is drawn
+      // left to right, and this branch is reached whenever the renderer
+      // simplified the path, which Plotly and matplotlib both do by default
+      // on a dense line. Where either sequence doubles back the shortcut
+      // would settle on the wrong segment, so the cursor stays at zero and
+      // the search is the exhaustive one it was.
+      const ascending = ascends(svgXs)
+        && coordinates.every((vertex, j) =>
+          j === 0 || Number(coordinates[j - 1].x) <= Number(vertex.x));
+
+      const full: LinePoint[] = [];
+      let from = 0;
+      for (let i = 0; i < expected; i++) {
+        const svgX = svgXs[i];
 
         // Find y by interpolating along the simplified path segments
         let svgY = Number(coordinates[0].y);
-        for (let j = 0; j < coordinates.length - 1; j++) {
+        for (let j = from; j < coordinates.length - 1; j++) {
           const cjx = Number(coordinates[j].x);
           const cj1x = Number(coordinates[j + 1].x);
           if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
             const segLen = cj1x - cjx;
             const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
             svgY = Number(coordinates[j].y) + t * (Number(coordinates[j + 1].y) - Number(coordinates[j].y));
+            if (ascending) {
+              from = j;
+            }
             break;
           }
         }
