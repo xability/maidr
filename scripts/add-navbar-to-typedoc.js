@@ -1,12 +1,25 @@
 #!/usr/bin/env node
 
 /**
- * Adds the site navbar to TypeDoc generated pages
+ * Adds the site navbar to TypeDoc generated pages, and removes the generic
+ * `<meta name="description">` TypeDoc hard-codes ("Documentation for <project
+ * name>") so the per-page one from scripts/typedoc-seo-plugin.mjs is the only
+ * description left. A renderer hook can add to <head> but not take from it,
+ * which is why the removal lives here, in the pass that already rewrites
+ * every page.
+ *
+ * Also rewrites the api/sitemap.xml TypeDoc writes from `hostedBaseUrl`: its
+ * first entry is `api/index.html` while the canonical TypeDoc puts on that
+ * page is `api/`, and every entry carries the build time as <lastmod>, which
+ * Google learns to ignore. The entry becomes the canonical and the lastmod
+ * the date of the last commit touching src/, which is what the API pages are
+ * generated from.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lastCommitDate } from './gitDates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
@@ -120,11 +133,34 @@ function processHTMLFile(filePath) {
     .replace(/\.\.\/api\/index\.html/g, `${prefix}api/index.html`)
     .replace(/\.\.\/media\//g, `${prefix}media/`);
 
+  // Drop TypeDoc's generic description; the SEO plugin emitted a per-page one.
+  content = content.replace(/<meta name="description" content="Documentation for [^"]*"\s*\/?>\n?/, '');
+
   // Insert navbar after <body> tag
   content = content.replace(/<body[^>]*>/, match => `${match}\n${adjustedNavbar}`);
 
   fs.writeFileSync(filePath, content, 'utf-8');
   console.log(`Added navbar to ${path.relative(SITE_DIR, filePath)}`);
+}
+
+/**
+ * Rewrite the TypeDoc sitemap so its index entry matches the canonical and
+ * its lastmod is a real content date rather than the build time.
+ */
+function fixSitemap() {
+  const sitemapPath = path.join(API_DIR, 'sitemap.xml');
+  if (!fs.existsSync(sitemapPath)) {
+    console.warn('No api/sitemap.xml found; is hostedBaseUrl set in typedoc.json?');
+    return;
+  }
+  // The API pages are generated from `src/`, so that is what dates them.
+  const today = new Date().toISOString().split('T')[0];
+  const lastmod = lastCommitDate(path.join(__dirname, '..'), 'src', today);
+  const sitemap = fs.readFileSync(sitemapPath, 'utf-8')
+    .replace('<loc>https://maidr.ai/api/index.html</loc>', '<loc>https://maidr.ai/api/</loc>')
+    .replace(/<lastmod>[^<]*<\/lastmod>/g, `<lastmod>${lastmod}</lastmod>`);
+  fs.writeFileSync(sitemapPath, sitemap, 'utf-8');
+  console.log(`Rewrote api/sitemap.xml (lastmod ${lastmod})`);
 }
 
 // Main
@@ -133,5 +169,6 @@ const htmlFiles = findHTMLFiles(API_DIR);
 console.log(`Found ${htmlFiles.length} HTML files`);
 
 htmlFiles.forEach(processHTMLFile);
+fixSitemap();
 
 console.log('Done!');
