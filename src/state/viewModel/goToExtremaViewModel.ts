@@ -5,7 +5,7 @@ import type { AppStore } from '@state/store';
 import type { ExtremaTarget } from '@type/extrema';
 import type { TraceType } from '@type/grammar';
 import type { XValue } from '@type/navigation';
-import type { TraceState } from '@type/state';
+import type { AxisType, TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 
@@ -157,7 +157,11 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       const extremaTargets = activeTrace.getExtremaTargets();
 
       // Apply formatting to target labels using FormatterService
-      const formattedTargets = this.formatTargetLabels(extremaTargets, state.layerId);
+      const formattedTargets = this.formatTargetLabels(
+        extremaTargets,
+        state.layerId,
+        state.text.mainAxis ?? 'x',
+      );
 
       // Generate description based on current trace type
       const description = this.generateDescription(state.traceType);
@@ -264,8 +268,22 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * formatter leaves alone is detected below and passes through untouched.
    *
    * Only the x value itself is rewritten — see {@link replaceXValueInLabel}.
+   *
+   * `axis` is the trace's main axis, not always 'x': a horizontal trace reports
+   * its category as `xValue` while that category lives on the y axis, and the
+   * announcement for the same point formats it with the y formatter. Formatting
+   * here with 'x' applied the value axis's format to a category, which is the
+   * dialog/announcement disagreement this method exists to avoid.
+   * @param targets - The extrema targets as the trace built them.
+   * @param layerId - The layer whose formatters apply.
+   * @param axis - The axis the trace reports its main value on.
+   * @returns The targets, with formatted labels.
    */
-  private formatTargetLabels(targets: ExtremaTarget[], layerId: string): ExtremaTarget[] {
+  private formatTargetLabels(
+    targets: ExtremaTarget[],
+    layerId: string,
+    axis: AxisType,
+  ): ExtremaTarget[] {
     const formatter = this.formatter;
     if (!formatter) {
       return targets;
@@ -275,7 +293,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       if (target.xValue === undefined) {
         return target;
       }
-      const formatted = formatter.formatSingleValue(target.xValue, layerId, 'x');
+      const formatted = formatter.formatSingleValue(target.xValue, layerId, axis);
       const raw = String(target.xValue);
       if (formatted === raw) {
         return target;
@@ -324,11 +342,11 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
 
     const formatter = this.formatter;
-    const layerId = this.activeLayerId();
+    const layer = this.activeLayerFormat();
     // Same rule the extrema target labels follow (formatTargetLabels): format
     // whenever there is a formatter and a layer to look it up by, so these
     // labels round the way the announcement does.
-    if (!formatter || layerId === null) {
+    if (!formatter || layer === null) {
       return rawValues.map(value => ({ value, label: String(value) }));
     }
 
@@ -338,20 +356,27 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // tolerance of formatTargetLabels.
     return rawValues.map(value => ({
       value,
-      label: String(formatter.formatSingleValue(value, layerId, 'x')),
+      label: String(formatter.formatSingleValue(value, layer.layerId, layer.axis)),
     }));
   }
 
   /**
-   * Layer id of the active trace, or null when the active plot is not a
-   * non-empty trace. The plot stack is unchanged while the modal is open (the
-   * GO_TO_EXTREMA scope is a keyboard scope only), so context.state resolves to
-   * the same trace whose X values are being listed.
-   * @returns The active layer id, or null.
+   * Layer id and main-axis identity of the active trace, or null when the
+   * active plot is not a non-empty trace. The plot stack is unchanged while the
+   * modal is open (the GO_TO_EXTREMA scope is a keyboard scope only), so
+   * context.state resolves to the same trace whose X values are being listed.
+   *
+   * The axis is the trace's own main axis rather than always 'x', for the
+   * reason formatTargetLabels gives: on a horizontal trace the value listed
+   * here is the category, and the category sits on y.
+   * @returns The active layer id and its main axis, or null.
    */
-  private activeLayerId(): string | null {
+  private activeLayerFormat(): { layerId: string; axis: AxisType } | null {
     const state = this.context.state;
-    return state.type === 'trace' && !state.empty ? state.layerId : null;
+    if (state.type !== 'trace' || state.empty) {
+      return null;
+    }
+    return { layerId: state.layerId, axis: state.text.mainAxis ?? 'x' };
   }
 
   /**
