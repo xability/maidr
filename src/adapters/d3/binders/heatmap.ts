@@ -52,8 +52,14 @@ import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart
  *
  * @param svg - The SVG element containing the D3 heatmap.
  * @param config - Configuration specifying the selector and data accessors.
+ * @remarks
+ * **A grid the join does not fill is read, not refused.** A tidy array with no
+ * row for one label pair simply draws no rect there, and the schema spells
+ * that cell `null` rather than `0` -- a value the chart never drew (#1191).
+ * Its slot in the selector grid is a hole too, so every drawn cell's selector
+ * stays aligned with the value it names.
+ *
  * @returns A {@link D3BinderResult} with the MAIDR data and generated layer.
- * @throws Error if any cell coordinate pair is missing from the extracted data.
  *
  * @example
  * ```ts
@@ -201,20 +207,17 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
     row.set(cell.x, cell.value);
   }
 
-  const points: number[][] = [];
+  // A grid is a rectangle and a join need not fill it: a tidy array with no
+  // row for one label pair simply draws no rect there. `HeatmapData.points`
+  // spells that cell `null` -- not `0`, which is a value the chart never drew
+  // (#1191) -- so the gap is emitted rather than aborting the whole bind.
+  const points: (number | null)[][] = [];
   for (const yLabel of yLabels) {
-    const row: number[] = [];
+    const row: (number | null)[] = [];
     const rowMap = cellMap.get(yLabel);
     for (const xLabel of xLabels) {
       const value = rowMap?.get(xLabel);
-      if (value === undefined) {
-        throw new Error(
-          `Missing heatmap cell for y="${yLabel}", x="${xLabel}". `
-          + `Expected a complete grid of ${yLabels.length} x ${xLabels.length} cells `
-          + `but found ${cells.length} elements.`,
-        );
-      }
-      row.push(value);
+      row.push(value === undefined ? null : value);
     }
     points.push(row);
   }
@@ -236,22 +239,27 @@ export function buildHeatmapLayer(root: Element, config: D3HeatmapConfig, panel?
   for (const cell of cells) {
     byCell.set(`${cell.y}\u0000${cell.x}`, cell.element);
   }
-  const ordered: Element[] = [];
+  // A cell the join drew no mark for keeps its slot as `null`, which the grid
+  // explicitly permits. Dropping it instead would shift every later cell's
+  // selector one place left of the value it names.
+  const ordered: (Element | null)[] = [];
   for (let r = 0; r < yLabels.length; r++) {
     const yLabel = yLabels[yLabels.length - 1 - r];
     for (const xLabel of xLabels) {
-      const element = byCell.get(`${yLabel}\u0000${xLabel}`);
-      if (element) {
-        ordered.push(element);
-      }
+      ordered.push(byCell.get(`${yLabel}\u0000${xLabel}`) ?? null);
     }
   }
-  const flat = ordered.length === cells.length
-    ? stampOrderedSelectors(root, selector, CELL_ATTRIBUTE, ordered, panel)
+  const drawn = ordered.filter((element): element is Element => element !== null);
+  const flat = drawn.length === cells.length
+    ? stampOrderedSelectors(root, selector, CELL_ATTRIBUTE, drawn, panel)
     : null;
-  const selectors = flat === null
+  let stamped = 0;
+  const grid = flat === null
+    ? null
+    : ordered.map(element => element === null ? null : flat[stamped++]);
+  const selectors = grid === null
     ? scopeSelector(root, selector, panel)
-    : yLabels.map((_, r) => flat.slice(r * xLabels.length, (r + 1) * xLabels.length));
+    : yLabels.map((_, r) => grid.slice(r * xLabels.length, (r + 1) * xLabels.length));
 
   const layer: MaidrLayer = {
     id: generateId(),
