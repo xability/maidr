@@ -583,7 +583,7 @@ export class KeybindingService {
       }
     }
 
-    hotkeys.setScope(initialScope);
+    this.setScope(initialScope);
   }
 
   /**
