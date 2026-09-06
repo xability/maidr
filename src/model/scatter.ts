@@ -2450,11 +2450,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Reads state at an explicit cursor, with the trace-local navigation modes
    * suspended for the duration.
    *
-   * `getStateAt` moves row/col and reads the state getters, but point and
-   * intersection mode short-circuit those getters onto their own cursor — so a
-   * live-appended point would be announced as whichever point the user happens
-   * to be focused on. Suspending the flags makes the read positional again,
-   * which is what every caller of this method asks for.
+   * `getStateAt` moves row/col and reads the state getters, but point,
+   * intersection and grid mode short-circuit those getters onto their own
+   * cursor — so a live-appended point would be announced as whichever point
+   * or cell the user happens to be focused on. Suspending the flags makes the
+   * read positional again, which is what every caller of this method asks for.
    *
    * @param row - Row index to read at
    * @param col - Column index to read at
@@ -2463,13 +2463,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   public override getStateAt(row: number, col: number): TraceState {
     const wasInPointMode = this.isInPointMode;
     const wasInIntersectionMode = this.isInIntersectionMode;
+    const wasInGridMode = this.isInGridMode;
+    const wasInGridCellMode = this.isInGridCellMode;
     this.isInPointMode = false;
     this.isInIntersectionMode = false;
+    this.isInGridMode = false;
+    this.isInGridCellMode = false;
     try {
       return super.getStateAt(row, col);
     } finally {
       this.isInPointMode = wasInPointMode;
       this.isInIntersectionMode = wasInIntersectionMode;
+      this.isInGridMode = wasInGridMode;
+      this.isInGridCellMode = wasInGridCellMode;
     }
   }
 
