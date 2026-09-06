@@ -3,13 +3,13 @@ import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BoxPoint, CandlestickPoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import type { PlotState } from '@type/state';
 import { AnnouncePositionCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
 import { CANDLESTICK_SECTIONS } from '@model/candlestick';
 import { TraceFactory } from '@model/factory';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 interface MultilineOptions {
   /** Zero-based index of the line the cursor is on. */
@@ -554,5 +554,312 @@ describe('AnnouncePositionCommand names a section as the trace authored it', () 
 
     expect(sectionOf(state)).toBe('close');
     expect(textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3, close');
+  });
+});
+
+/**
+ * A real bar trace's state with the cursor on one bar, drawn either way up.
+ *
+ * `audio.panning` is a stereo position, and a horizontal bar plot swaps it so
+ * the pan follows the bars down the page. Building the state from the trace
+ * rather than by hand is what lets these cases catch the command reading that
+ * pan as a bar index.
+ *
+ * @param orientation Which way the bars run
+ * @param bar Zero-based index of the bar the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function barTraceState(orientation: Orientation, bar: number): PlotState {
+  const categories = ['North', 'South', 'West'];
+  const magnitudes = [4, 8, 6];
+  const trace = TraceFactory.create({
+    id: 'position-bar',
+    type: TraceType.BAR,
+    title: 'Sales',
+    orientation,
+    axes: { x: { label: 'Region' }, y: { label: 'Sales' } },
+    data: categories.map((category, i) =>
+      orientation === Orientation.HORIZONTAL
+        ? { x: magnitudes[i], y: category }
+        : { x: category, y: magnitudes[i] },
+    ) as BarPoint[],
+  });
+  trace.moveToIndex(0, bar);
+
+  return trace.state as PlotState;
+}
+
+/**
+ * A real stacked bar trace's state, drawn either way up.
+ *
+ * @param orientation Which way the bars run
+ * @param level Zero-based index of the stack level the cursor is on
+ * @param category Zero-based index of the category the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function stackedTraceState(
+  orientation: Orientation,
+  level: number,
+  category: number,
+): PlotState {
+  // Four categories against two levels (three rows, once the summary row is
+  // added), so a level index or level count read as a category shows up.
+  const categories = ['a', 'b', 'c', 'd'];
+  const levels = ['Low', 'High'];
+  const trace = TraceFactory.create({
+    id: 'position-stacked',
+    type: TraceType.STACKED,
+    title: 'Stacked',
+    orientation,
+    axes: { x: { label: 'Category' }, y: { label: 'Count' } },
+    data: levels.map((z, row) =>
+      categories.map((category, col) => {
+        const magnitude = row * 10 + col + 1;
+        return orientation === Orientation.HORIZONTAL
+          ? { x: magnitude, y: category, z }
+          : { x: category, y: magnitude, z };
+      }),
+    ) as SegmentedPoint[][],
+  });
+  trace.moveToIndex(level, category);
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on horizontal bar charts', () => {
+  test('announces the bar index on a horizontal bar chart, as on a vertical one', () => {
+    const vertical = createCommand(barTraceState(Orientation.VERTICAL, 1));
+    const horizontal = createCommand(barTraceState(Orientation.HORIZONTAL, 1));
+
+    vertical.command.execute();
+    horizontal.command.execute();
+
+    expect(vertical.textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3');
+    expect(horizontal.textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3');
+  });
+
+  test('moves the announced position with the cursor on a horizontal bar chart', () => {
+    const first = createCommand(barTraceState(Orientation.HORIZONTAL, 0));
+    const last = createCommand(barTraceState(Orientation.HORIZONTAL, 2));
+
+    first.command.execute();
+    last.command.execute();
+
+    expect(first.textViewModel.update).toHaveBeenCalledWith('Position is 1 of 3');
+    expect(last.textViewModel.update).toHaveBeenCalledWith('Position is 3 of 3');
+  });
+
+  test('gives the terse percentage along the bars, not across them', () => {
+    const { command, textViewModel } = createCommand(
+      barTraceState(Orientation.HORIZONTAL, 2),
+      'terse',
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('100%');
+  });
+
+  test('announces the category, not the level, on a horizontal stacked bar', () => {
+    const { command, textViewModel } = createCommand(
+      stackedTraceState(Orientation.HORIZONTAL, 0, 2),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, Level is Low',
+    );
+  });
+
+  test('reads a vertical stacked bar the same way it always has', () => {
+    const { command, textViewModel } = createCommand(
+      stackedTraceState(Orientation.VERTICAL, 0, 2),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, Level is Low',
+    );
+  });
+});
+
+/**
+ * A real violin box trace's state. Its audio panning encodes the value, as a
+ * boxplot's does, so the position has to come from the same place the
+ * boxplot branch reads it.
+ *
+ * @param orientation Which way the violins run
+ * @param section Section index, in the trace's own section order
+ * @param violin Zero-based index of the violin the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function violinBoxTraceState(
+  orientation: Orientation,
+  section: number,
+  violin: number,
+): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-violin-box',
+    type: TraceType.VIOLIN_BOX,
+    title: 'Violins',
+    orientation,
+    axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+    data: [
+      { z: 'A', lowerOutliers: [], min: 1, q1: 3, q2: 5, q3: 7, max: 9, upperOutliers: [] },
+      { z: 'B', lowerOutliers: [], min: 2, q1: 4, q2: 6, q3: 8, max: 10, upperOutliers: [] },
+    ] as BoxPoint[],
+  });
+  if (orientation === Orientation.HORIZONTAL) {
+    trace.moveToIndex(violin, section);
+  } else {
+    trace.moveToIndex(section, violin);
+  }
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on a violin box', () => {
+  test('announces which violin the cursor is on, with its section', () => {
+    const state = violinBoxTraceState(Orientation.VERTICAL, 0, 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      `Position is 2 of 2 in ${sectionOf(state)}`,
+    );
+  });
+
+  test('changes the announcement when the cursor moves to another violin', () => {
+    const first = createCommand(violinBoxTraceState(Orientation.VERTICAL, 2, 0));
+    const second = createCommand(violinBoxTraceState(Orientation.VERTICAL, 2, 1));
+
+    first.command.execute();
+    second.command.execute();
+
+    const firstText = jest.mocked(first.textViewModel.update).mock.calls[0][0] as string;
+    const secondText = jest.mocked(second.textViewModel.update).mock.calls[0][0] as string;
+    expect(firstText).toContain('Position is 1 of 2');
+    expect(secondText).toContain('Position is 2 of 2');
+  });
+
+  test('reads the violin index on a horizontal violin box too', () => {
+    const state = violinBoxTraceState(Orientation.HORIZONTAL, 0, 1);
+    const { command, textViewModel } = createCommand(state);
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      `Position is 2 of 2 in ${sectionOf(state)}`,
+    );
+  });
+});
+
+/**
+ * A real violin KDE trace's state: three violins of five density samples.
+ *
+ * @param violin Zero-based index of the violin the cursor is on
+ * @param sample Zero-based index of the density sample within it
+ * @param orientation Which way the violins are laid out
+ * @returns The trace's state with the cursor there
+ */
+function violinKdeTraceState(
+  violin: number,
+  sample: number,
+  orientation = Orientation.VERTICAL,
+): PlotState {
+  const trace = TraceFactory.create({
+    id: 'position-violin-kde',
+    type: TraceType.VIOLIN_KDE,
+    title: 'Violins',
+    orientation,
+    axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+    data: ['A', 'B', 'C'].map(x =>
+      [1, 2, 3, 4, 5].map(y => ({ x, y, density: 0.1 * y })),
+    ) as ViolinKdePoint[][],
+  });
+  trace.moveToIndex(violin, sample);
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on a multi-violin KDE', () => {
+  test('names the violin rather than a column and row', () => {
+    const { command, textViewModel } = createCommand(violinKdeTraceState(1, 2));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
+  });
+
+  test('keeps the violin identity in terse mode', () => {
+    const { command, textViewModel } = createCommand(violinKdeTraceState(1, 2), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Violin 2 of 3, 50%');
+  });
+
+  /**
+   * The cursor is on the same violin and the same sample either way round, so
+   * the announcement is too. It is the stereo pan that turns with the layout:
+   * a vertical violin pans by violin and holds still while the reader climbs
+   * one curve, a horizontal one pans along the curve. Reading the position out
+   * of that pan is what made the vertical case answer with its two numbers
+   * swapped.
+   */
+  test('reads the same violin and sample whichever way the violins are laid out', () => {
+    const vertical = createCommand(violinKdeTraceState(1, 2, Orientation.VERTICAL));
+    const horizontal = createCommand(violinKdeTraceState(1, 2, Orientation.HORIZONTAL));
+
+    vertical.command.execute();
+    horizontal.command.execute();
+
+    expect(vertical.textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
+    expect(horizontal.textViewModel.update).toHaveBeenCalledWith(
+      'Violin 2 of 3, Position is 3 of 5',
+    );
+  });
+});
+
+describe('AnnouncePositionCommand at the multi-panel lobby', () => {
+  function figureState(index: number, size: number): PlotState {
+    return { type: 'figure', empty: false, index, size } as unknown as PlotState;
+  }
+
+  test('announces which subplot is focused', () => {
+    // The lobby binds `p` and lists it in help, so it has to answer with the
+    // position the figure state already carries rather than a refusal.
+    const { command, textViewModel } = createCommand(figureState(2, 4));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2 of 4');
+  });
+
+  test('drops the label word in terse mode', () => {
+    const { command, textViewModel } = createCommand(figureState(2, 4), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('2 of 4');
+  });
+
+  test('still refuses when there is no chart at all', () => {
+    const { command, textViewModel } = createCommand(
+      { type: 'figure', empty: true } as unknown as PlotState,
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Not in a chart, unable to show position.',
+    );
   });
 });
