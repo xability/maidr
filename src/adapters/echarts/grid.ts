@@ -51,7 +51,25 @@ export interface AxisNames {
 }
 
 /**
+ * Whether an axis entry is the per-label object form.
+ *
+ * @param entry - One entry of a category axis' `data`
+ * @returns True when the label is carried on a `value` field
+ */
+function carriesLabel(entry: unknown): entry is { value: unknown } {
+  return typeof entry === 'object' && entry !== null && 'value' in entry;
+}
+
+/**
  * Reads a category axis' own labels.
+ *
+ * An entry is not always the label itself: a category axis' `data` takes a
+ * per-label object -- `{ value: 'Mon', textStyle: { color: 'red' } }` -- so
+ * an author who styles one label writes the whole entry that way. Stringified
+ * whole, that entry reads as `[object Object]`, and these labels are the only
+ * handle a heat grid's reader has: they become `HeatmapData.x` / `.y` and are
+ * announced on every row and column move, while the numbers stay right and
+ * say nothing is wrong.
  *
  * @param axis - The axis component, when the chart declared one
  * @returns The labels in axis order, empty when the axis carries numbers
@@ -61,7 +79,10 @@ export function categoriesOf(axis: EChartsComponentModel | undefined): string[] 
   if (!Array.isArray(data)) {
     return [];
   }
-  return data.map(entry => (typeof entry === 'string' ? entry : String(entry)));
+  return data.map((entry: unknown) => {
+    const label = carriesLabel(entry) ? entry.value : entry;
+    return typeof label === 'string' ? label : String(label);
+  });
 }
 
 /**

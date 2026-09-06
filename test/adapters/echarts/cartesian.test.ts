@@ -220,6 +220,38 @@ describe('an eCharts bar chart', () => {
     expect(layer.selectors).toHaveLength(2);
   });
 
+  it('keeps a category one series has no bar at, so the rows stay aligned', () => {
+    // `SegmentedTrace` pairs its rows by column index, so a row shortened by
+    // a gap puts every later category against another series' value and
+    // drops the last one from the summary altogether (#1002).
+    const [layer] = layersOf(
+      {
+        series: [
+          { type: 'bar', names: CATEGORIES, values: [1, null, 3], name: 'One', stack: 'total' },
+          { type: 'bar', names: CATEGORIES, values: [4, 5, 6], name: 'Two', stack: 'total' },
+        ],
+      },
+      drawnChart(5, 0),
+    );
+
+    const rows = layer.data as SegmentedPoint[][];
+
+    expect(rows.map(row => row.map(point => point.x))).toEqual([
+      ['A', 'B', 'C'],
+      ['A', 'B', 'C'],
+    ]);
+    // A gap and not a zero, which would be announced as a reading, reached as
+    // the row's minimum, and would pull the range every other bar is scaled
+    // against.
+    expect(rows[0][1].y).toBeNaN();
+    // The chart drew no mark there, so the cell names none -- keeping the
+    // selectors paired with the cells they belong to.
+    expect(layer.selectors).toEqual([
+      [expect.any(String), null, expect.any(String)],
+      [expect.any(String), expect.any(String), expect.any(String)],
+    ]);
+  });
+
   it('is stacked when the series share a stack, and dodged when they do not', () => {
     const series = [
       { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One' },
@@ -239,6 +271,27 @@ describe('an eCharts bar chart', () => {
       { x: 'B', y: 1, z: 'Two' },
       { x: 'C', y: 2, z: 'Two' },
     ]);
+  });
+
+  it('is stacked only when every series is in the same stack', () => {
+    // ECharts stacks the series that share a `stack` name and draws the rest
+    // beside them, so `stack: 'a', 'a', 'b', 'b'` is two stacks side by side
+    // and a stacked series next to a plain one is a mixed chart. Calling
+    // either one stacked tells the reader the bars sit on top of each other
+    // when they do not.
+    const grouped = [
+      { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One', stack: 'a' },
+      { type: 'bar', names: CATEGORIES, values: [3, 1, 2], name: 'Two', stack: 'b' },
+    ];
+    expect(layersOf({ series: grouped }, drawnChart(6, 0))[0].type)
+      .toBe(TraceType.DODGED);
+
+    const mixed = [
+      { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One', stack: 'a' },
+      { type: 'bar', names: CATEGORIES, values: [3, 1, 2], name: 'Two' },
+    ];
+    expect(layersOf({ series: mixed }, drawnChart(6, 0))[0].type)
+      .toBe(TraceType.DODGED);
   });
 });
 
@@ -548,6 +601,31 @@ describe('what the adapter will not claim', () => {
     );
     // The reading survives; only the outline is gone.
     expect(layer.data as BarPoint[]).toHaveLength(3);
+  });
+
+  it('counts an area series band, which is painted as a mark too', () => {
+    // A line series declared with `areaStyle` paints a filled band under the
+    // curve in the series colour, which is exactly what `isFilledMark`
+    // accepts. Left out of the count, the band is found among the candidates
+    // and nothing accounts for it, so the totals disagree and the whole
+    // chart -- the bars included -- loses its highlighting.
+    const [bar, area] = layersOf(
+      {
+        series: [
+          { type: 'bar', names: CATEGORIES, values: [1, 2, 3] },
+          { type: 'line', names: CATEGORIES, values: [3, 2, 1], areaStyle: {} },
+        ],
+      },
+      drawnChart(4, 1),
+    );
+
+    expect(bar.type).toBe(TraceType.BAR);
+    expect(bar.selectors).toHaveLength(3);
+    expect(area.type).toBe(TraceType.AREA);
+    // The band is not the area's outline: a line layer is highlighted by its
+    // stroked polyline, which is one selector for the whole series.
+    expect(typeof area.selectors).toBe('string');
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('names a layer only when the author named the series', () => {

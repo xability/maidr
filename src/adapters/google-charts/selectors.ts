@@ -25,6 +25,8 @@
  * from other charts on the same page.
  */
 
+import { cssEscape } from '../shared/selectorUtil';
+
 let idCounter = 0;
 
 /**
@@ -88,12 +90,12 @@ export function buildDataSelector(
   const clippedSelector = `g[clip-path] > ${elementSelector}`;
   const clippedCandidates = svg.querySelectorAll(clippedSelector);
   if (clippedCandidates.length > 0)
-    return `#${container.id} svg ${clippedSelector}`;
+    return `#${cssEscape(container.id)} svg ${clippedSelector}`;
 
   // Fallback: any matching element in the SVG.
   const candidates = svg.querySelectorAll(elementSelector);
   if (candidates.length > 0)
-    return `#${container.id} svg ${elementSelector}`;
+    return `#${cssEscape(container.id)} svg ${elementSelector}`;
 
   return undefined;
 }

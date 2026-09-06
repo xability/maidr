@@ -86,9 +86,18 @@ export interface GoogleChart {
   /**
    * Returns the chart layout interface for accessing element positions.
    *
+   * Optional, because a great many packages do not have one: the material
+   * builders (`google.charts.Bar`, `google.charts.Line`), and Calendar,
+   * Gauge, Sankey, OrgChart and TreeMap among the classic ones. On those a
+   * call throws `chart.getChartLayoutInterface is not a function`, so it is
+   * asked through `chartLayout()` rather than called directly -- a throw here
+   * travels out of the conversion inside the caller's own `ready` handler and
+   * costs the chart its reading altogether, where the intended degradation is
+   * no highlight with the audio, text and braille intact.
+   *
    * @see https://developers.google.com/chart/interactive/docs/gallery/columnchart#methods
    */
-  getChartLayoutInterface: () => GoogleChartLayoutInterface;
+  getChartLayoutInterface?: () => GoogleChartLayoutInterface;
 }
 
 /**
