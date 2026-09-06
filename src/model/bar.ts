@@ -468,6 +468,13 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    * @returns True if a matching bar was found, false otherwise
    */
   protected compareSearchInRow(direction: 'left' | 'right', type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors Candlestick).
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.barValues.length) {
       return false;

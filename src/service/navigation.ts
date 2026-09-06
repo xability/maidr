@@ -27,19 +27,26 @@ export class NavigationService implements Disposable {
       return null;
     }
 
-    // Switch to next/previous trace
+    // At the edge of the layers there is one boundary to report: the trace's
+    // tone and the subplot's "no additional layer", once each. Checked before
+    // moving, because `subplot.moveOnce` would notify the subplot's boundary
+    // itself and the pair below would then repeat it.
+    if (!subplot.isMovable(direction)) {
+      currentTrace.notifyOutOfBounds();
+      subplot.notifyOutOfBounds();
+      return currentTrace;
+    }
+
+    // Switch to next/previous trace. Stepped silently: a subplot notification
+    // here would describe the new trace at the column it was left on, before
+    // X-preservation has positioned it. The switch is announced from the
+    // positioned trace below.
     const currentXValue = currentTrace.getCurrentXValue();
-    subplot.moveOnce(direction);
+    subplot.stepLayer(direction);
     const newTrace = subplot.activeTrace;
 
     if (!newTrace) {
       return null;
-    }
-
-    if (newTrace.getId() === currentTrace.getId()) {
-      newTrace.notifyOutOfBounds();
-      subplot.notifyOutOfBounds();
-      return newTrace;
     }
 
     // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
@@ -130,15 +137,23 @@ export class NavigationService implements Disposable {
 
   /**
    * Navigate to a specific X value within the points array and invoke callback with new position.
+   *
+   * An exact match on `preferredRow` wins over one on any other row. A layer
+   * switch away and back calls this with the X the reader left at, and
+   * resolving that to the first row holding it silently moved a reader on
+   * line 3 to line 1: same X, different series, and every Up/Down from then
+   * on started from the wrong one.
    * @param points - Array of points (single or multi-row)
    * @param xValue - The target X value to navigate to
    * @param moveToIndex - Callback function to execute when position is found
+   * @param preferredRow - The row to try first, normally the trace's current row
    * @returns True if navigation was successful, false otherwise
    */
   public moveToXValueInPoints(
     points: PointWithX[][] | PointWithX[],
     xValue: XValue,
     moveToIndex: (row: number, col: number) => void,
+    preferredRow = 0,
   ): boolean {
     // Single-row traces (like BarTrace)
     if (Array.isArray(points) && points.length === 1 && Array.isArray(points[0])) {
@@ -162,7 +177,17 @@ export class NavigationService implements Disposable {
       }
     }
 
-    // Multi-row traces (like LineTrace)
+    // Multi-row traces (like LineTrace): the row the cursor is on first, so an
+    // X that several series share keeps the reader on their series.
+    const preferredPoints = Array.isArray(points) ? points[preferredRow] : undefined;
+    if (Array.isArray(preferredPoints)) {
+      const colIndex = this.findPointIndexByX(preferredPoints, xValue);
+      if (colIndex !== -1) {
+        moveToIndex(preferredRow, colIndex);
+        return true;
+      }
+    }
+
     let bestRow = -1;
     let bestCol = -1;
     let bestDist = Number.POSITIVE_INFINITY;

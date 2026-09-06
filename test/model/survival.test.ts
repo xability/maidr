@@ -139,12 +139,18 @@ describe('a censored time is not an event', () => {
 });
 
 describe('the band travels with the estimate', () => {
-  test('announces the interval at this time', () => {
+  test('announces the interval alongside the estimate at this time', () => {
     // How wide the interval is at a time is how much the curve is worth
     // there, and it is the comparison a reader makes when two arms look
-    // separated.
-    expect(nonEmptyState(survival(0, 2)).text.crossRange)
-      .toEqual({ min: 0.59, max: 0.83 });
+    // separated. It travels as `interval`, which the text service reads
+    // *after* the estimate; a `crossRange` would replace the estimate with
+    // the band, and the survival probability -- the number the curve is
+    // read for -- would never be spoken.
+    const { text } = nonEmptyState(survival(0, 2));
+
+    expect(text.cross?.value).toBe(0.71);
+    expect(text.interval).toEqual({ min: 0.59, max: 0.83 });
+    expect(text.crossRange).toBeUndefined();
   });
 
   test('says nothing when the chart draws no band', () => {
@@ -152,6 +158,7 @@ describe('the band travels with the estimate', () => {
       [{ x: 0, y: 1, z: 'Only' }, { x: 1, y: 0.4, z: 'Only' }],
     ];
 
+    expect(nonEmptyState(survival(0, 1, bare)).text.interval).toBeUndefined();
     expect(nonEmptyState(survival(0, 1, bare)).text.crossRange).toBeUndefined();
   });
 });
