@@ -215,7 +215,7 @@ export class DisplayService implements Disposable {
     // before opening the modal, but the focusStack base was never updated.
     // Derive the correct navigation scope from the context's active plot element.
     if (this.isReturningFromModeToggle && (newScope === 'SUBPLOT' || newScope === 'TRACE')) {
-      const activeType = this.context.state.type;
+      const activeType = this.context.activeLevel;
       const correctScope = (activeType === 'trace' ? Scope.TRACE : Scope.SUBPLOT) as Focus;
       if (newScope !== correctScope) {
         this.focusStack.clear();

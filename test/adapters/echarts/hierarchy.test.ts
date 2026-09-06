@@ -264,6 +264,41 @@ describe('which hierarchies can be outlined', () => {
     ]);
   });
 
+  it('walks a sunburst once, for the count and the payload together', () => {
+    // The walk allocates a point per node, copies the ancestor path at every
+    // one of them, and asks each node and each of its children for a value.
+    // Asking for the count and then again for the payload doubles all of it,
+    // on the one hierarchy large enough to notice.
+    let reads = 0;
+    const series: FakeSeries = { type: 'sunburst', nodes: FOREST };
+    const instance: EChartsInstance = {
+      getModel: () => ({
+        eachSeries: (callback) => {
+          callback({
+            subType: series.type,
+            name: 'series 0',
+            getData: () => {
+              reads += 1;
+              return fakeList(series);
+            },
+            get: () => undefined,
+          } as EChartsSeriesModel, 0);
+        },
+        eachComponent: () => {},
+      }),
+    };
+
+    const layer = createMaidrFromEChart(instance, drawnChart(5))
+      .subplots[0][0]
+      .layers[0];
+
+    expect(reads).toBe(1);
+    // And the reading is the one the double walk produced.
+    expect((layer.data as TreemapPoint[]).map(point => point.x))
+      .toEqual(['A', 'A1', 'A2', 'B', 'B1']);
+    expect(layer.selectors).toHaveLength(5);
+  });
+
   it('leaves a treemap unoutlined, because it paints only its leaves', () => {
     // Five nodes, three leaves. A count against the node total could never
     // match, so it is not attempted -- which keeps a structural mismatch

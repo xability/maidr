@@ -1,15 +1,13 @@
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
-import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
-import { NavigationService } from '@service/navigation';
-import { Scope } from '@type/event';
+import { Emitter, Scope } from '@type/event';
 import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { formatPlotType } from '@util/orientation';
 import { Stack } from '@util/stack';
-import hotkeys from 'hotkeys-js';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
 
 type Plot = Figure | Subplot | Trace;
@@ -50,7 +48,18 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-  private readonly navigationService: NavigationService;
+  private readonly scopeChanged: Emitter<Scope>;
+
+  /**
+   * Fires whenever the keyboard scope this context is in changes.
+   *
+   * The scope stack here is the authority on which scope is active;
+   * `KeybindingService` owns the hotkeys-js scope that decides which bindings
+   * fire. Announcing the change and applying it are two jobs, and only the
+   * first belongs to the model — so this notifies, and `Controller` hands the
+   * new scope to the service.
+   */
+  public readonly onScopeChange: Event<Scope>;
   // Mutable: replaced in place on live data updates (see replaceFigure).
   private figure: Figure;
   private _instructionContext: Plot;
@@ -62,7 +71,8 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
-    this.navigationService = new NavigationService();
+    this.scopeChanged = new Emitter<Scope>();
+    this.onScopeChange = this.scopeChanged.event;
 
     this.isRotorActive = false;
 
@@ -83,15 +93,20 @@ export class Context implements Disposable {
    * and depth-1 stack restoration.
    */
   private isFigureLevel(figure: Figure): boolean {
-    const figureState = figure.state;
-    if (figureState.empty || figureState.size !== 1) {
+    if (figure.size !== 1) {
       return true;
     }
-    // A lone subplot authored with an empty `layers` array reports the empty
-    // state variant: it has no trace to descend into. Keep such a figure at
-    // figure level so the stack never exposes a bare Subplot and the figure
-    // still describes itself instead of reaching for a trace that is not there.
-    return figureState.subplot.empty;
+    // A lone subplot authored with an empty `layers` array has no trace to
+    // descend into -- which is exactly what makes `Subplot.state` report the
+    // empty variant. Keep such a figure at figure level so the stack never
+    // exposes a bare Subplot and the figure still describes itself instead of
+    // reaching for a trace that is not there.
+    //
+    // Asked of the subplot rather than of `figure.state.subplot`, which is
+    // the same answer reached by building the focused trace's whole
+    // announcement. This runs on every live-data update, which the controller
+    // requires to stay cheap enough for streaming.
+    return figure.activeSubplot.activeTrace === null;
   }
 
   /**
@@ -116,11 +131,12 @@ export class Context implements Disposable {
       return figure;
     }
 
-    // Set the context to subplot level.
+    // Set the context to subplot level. `getSize()` rather than
+    // `subplot.state.size`: the trace above is non-null, so the state cannot
+    // be the empty variant, and the size is the only field wanted.
     this.scopeContext.push(Scope.TRACE);
     const subplot = figure.activeSubplot;
-    const subplotState = subplot.state;
-    if (subplotState.empty || subplotState.size !== 1) {
+    if (subplot.getSize() !== 1) {
       this.plotContext.push(subplot);
       this.plotContext.push(trace);
       return subplot;
@@ -169,7 +185,7 @@ export class Context implements Disposable {
       // exactly like construction, and realign the keyboard scope.
       this.scopeContext.clear();
       this._instructionContext = this.initializePlotContext(figure);
-      hotkeys.setScope(this.scope);
+      this.scopeChanged.fire(this.scope);
     }
 
     return figure;
@@ -315,8 +331,7 @@ export class Context implements Disposable {
       return figure;
     }
     const subplot = figure.activeSubplot;
-    const subplotState = subplot.state;
-    if (subplotState.empty || subplotState.size !== 1) {
+    if (subplot.getSize() !== 1) {
       return subplot;
     }
     return trace;
@@ -325,6 +340,7 @@ export class Context implements Disposable {
   public dispose(): void {
     this.plotContext.clear();
     this.scopeContext.clear();
+    this.scopeChanged.dispose();
   }
 
   public get active(): Plot {
@@ -333,6 +349,24 @@ export class Context implements Disposable {
 
   public get state(): PlotState {
     return this.active.state;
+  }
+
+  /**
+   * Which level of the figure the cursor is on.
+   *
+   * The same answer `state.type` gives, without the state: reading it there
+   * builds the active trace's whole audio/braille/text/highlight snapshot --
+   * and for a figure-level cursor, recurses through the subplot to do it --
+   * so a caller that only wants to know where it is paid for the announcement
+   * as well. `AutoplayService` asks once per tick, which at the fastest rate
+   * is a hundred times a second.
+   *
+   * Exact rather than a shortcut: an element's state carries the same `type`
+   * whether it is populated, empty or out of bounds.
+   * @returns The active element's level
+   */
+  public get activeLevel(): PlotState['type'] {
+    return this.active.level;
   }
 
   /**
@@ -356,30 +390,34 @@ export class Context implements Disposable {
 
   /**
    * Returns whether this figure has multiple subplots (facets/multi-panel).
+   *
+   * Read from the figure rather than from `figure.state`, for the reason
+   * given on {@link Context.figureTitle}.
    */
   public get isMultiPanel(): boolean {
-    const figureState = this.figure.state;
-    return !figureState.empty && figureState.size > 1;
+    return this.figure.size > 1;
   }
 
   /**
-   * Returns the figure-level title (the top-level plot title), or the
-   * unavailable placeholder when the figure has no state. Use
+   * Returns the figure-level title (the top-level plot title). Use
    * {@link isAuthoredTitle} to distinguish an authored title from the
    * model's default substitutions.
    *
-   * The empty-state branch returns DEFAULT_SUBPLOT_TITLE (the generic
-   * "unavailable" sentinel) rather than DEFAULT_FIGURE_TITLE because there
-   * is no figure at all in that case; "MAIDR Plot" would be misleading.
-   * Both sentinels are rejected by isAuthoredTitle, so callers see the
-   * same "not authored" outcome regardless.
+   * This and the five accessors below read the figure's own fields rather
+   * than `figure.state`. The values are identical -- `Figure.state` copies
+   * them out of the same constants -- but reading them there builds the
+   * focused subplot's state, and through it the active trace's audio,
+   * braille, text and highlight. `DescriptionService` reads five of these in
+   * a row, which was five whole announcements assembled and discarded.
+   *
+   * There is no empty case to fall back for: `Figure.state` always reports
+   * `empty: false`, and the empty shape belongs to `outOfBoundsState`, which
+   * `Context` never reads. `test/model/contextFigureMetadata.test.ts` pins
+   * that, so an empty variant added later turns this red rather than silently
+   * returning a real label where the old code returned a sentinel.
    */
   public get figureTitle(): string {
-    const figureState = this.figure.state;
-    if (!figureState.empty) {
-      return figureState.title;
-    }
-    return DEFAULT_SUBPLOT_TITLE;
+    return this.figure.title;
   }
 
   /**
@@ -434,55 +472,41 @@ export class Context implements Disposable {
   }
 
   /**
-   * Returns the figure-level subtitle, or the unavailable placeholder when
-   * the figure has no state. Use {@link isAuthoredSubtitle} to distinguish
-   * an authored subtitle from the model's default substitution.
+   * Returns the figure-level subtitle. Use {@link isAuthoredSubtitle} to
+   * distinguish an authored subtitle from the model's default substitution.
+   * See {@link figureTitle} for why this reads the figure, not its state.
    */
   public get figureSubtitle(): string {
-    const figureState = this.figure.state;
-    if (!figureState.empty) {
-      return figureState.subtitle;
-    }
-    return DEFAULT_SUBTITLE;
+    return this.figure.subtitle;
   }
 
   /**
-   * Returns the figure-level caption, or the unavailable placeholder when
-   * the figure has no state. Use {@link isAuthoredCaption} to distinguish
-   * an authored caption from the model's default substitution.
+   * Returns the figure-level caption. Use {@link isAuthoredCaption} to
+   * distinguish an authored caption from the model's default substitution.
+   * See {@link figureTitle} for why this reads the figure, not its state.
    */
   public get figureCaption(): string {
-    const figureState = this.figure.state;
-    if (!figureState.empty) {
-      return figureState.caption;
-    }
-    return DEFAULT_CAPTION;
+    return this.figure.caption;
   }
 
   /**
-   * Returns the figure-wide X axis label (shared across all subplots), or the
-   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
-   * to distinguish an authored figure-level label from the absent default.
+   * Returns the figure-wide X axis label (shared across all subplots). Use
+   * {@link isAuthoredAxisLabel} to distinguish an authored figure-level label
+   * from the absent default.
+   * See {@link figureTitle} for why this reads the figure, not its state.
    */
   public get figureXAxis(): string {
-    const figureState = this.figure.state;
-    if (!figureState.empty) {
-      return figureState.xAxis;
-    }
-    return DEFAULT_FIGURE_AXIS;
+    return this.figure.xLabel;
   }
 
   /**
-   * Returns the figure-wide Y axis label (shared across all subplots), or the
-   * empty sentinel when the figure has no state. Use {@link isAuthoredAxisLabel}
-   * to distinguish an authored figure-level label from the absent default.
+   * Returns the figure-wide Y axis label (shared across all subplots). Use
+   * {@link isAuthoredAxisLabel} to distinguish an authored figure-level label
+   * from the absent default.
+   * See {@link figureTitle} for why this reads the figure, not its state.
    */
   public get figureYAxis(): string {
-    const figureState = this.figure.state;
-    if (!figureState.empty) {
-      return figureState.yAxis;
-    }
-    return DEFAULT_FIGURE_AXIS;
+    return this.figure.yLabel;
   }
 
   /**
@@ -501,7 +525,7 @@ export class Context implements Disposable {
     this.scopeContext.clear();
     this.scopeContext.push(scope);
 
-    hotkeys.setScope(scope);
+    this.scopeChanged.fire(scope);
   }
 
   public get scope(): Scope {
@@ -566,7 +590,7 @@ export class Context implements Disposable {
    */
   public swapActiveTrace(trace: Trace): Trace | null {
     const current = this.plotContext.peek();
-    if (!current || current.state.type !== 'trace') {
+    if (!current || current.level !== 'trace') {
       return null;
     }
     this.plotContext.pop();
@@ -589,7 +613,7 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
 
-      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
+      const newTrace = activeSubplot.switchLayer(direction);
 
       if (newTrace) {
         this.plotContext.push(newTrace);
@@ -615,8 +639,7 @@ export class Context implements Disposable {
    *   caller then stays in the lobby and announces that the panel is empty.
    */
   public enterSubplot(): boolean {
-    const activeState = this.active.state;
-    if (activeState.type !== 'figure') {
+    if (this.active.level !== 'figure') {
       return false;
     }
 

@@ -150,6 +150,28 @@ export class LineTrace extends AbstractTrace {
   // stays correct across appends.
   private currentIntersectionsCache: { key: string; value: AudioState[] } | null = null;
 
+  // Per series, the first column holding each x value, built on first use.
+  //
+  // Vertical navigation, its bounds check and intersection detection all ask
+  // "which column of series r sits at this x?" -- several times per keypress
+  // and once per series -- and each answer was a findIndex over the whole
+  // series, so one Up arrow cost O(lines x points) several times over.
+  //
+  // Nothing invalidates it: `points` is assigned once in the constructor and
+  // never mutated afterwards, and a live-data update replaces the whole trace
+  // -- the same reason currentIntersectionsCache above is safe.
+  //
+  // `unique` records whether the map answers for every point of the series. A
+  // series that visits one x twice -- a closed contour is the case that
+  // exists -- keeps the exact scan where a later column can carry that x with
+  // a different y. A NaN x is left out of the map rather than marking the
+  // series: `===` never matched it, and a Map key would (SameValueZero), so
+  // omitting it keeps that point unreachable exactly as before.
+  private seriesXIndex: {
+    firstColumn: Map<number | string, number>;
+    unique: boolean;
+  }[] | null = null;
+
   // highlightCenters holds viewport coordinates from getBoundingClientRect(),
   // which shift when the page scrolls or the window resizes. Rather than
   // recompute every rect on each pointermove, mark the cache stale on
@@ -717,9 +739,7 @@ export class LineTrace extends AbstractTrace {
     }
 
     for (let r = 0; r < this.points.length; r++) {
-      const c = this.points[r].findIndex(
-        p => p.x === currentX && p.y === currentY,
-      );
+      const c = this.findColumnByPoint(r, currentX, currentY);
       if (c !== -1) {
         intersections.push(
           {
@@ -804,10 +824,7 @@ export class LineTrace extends AbstractTrace {
       }
 
       // Find the point in this line with the EXACT same X value (strict equality)
-      const matchingPointIndex = this.points[row].findIndex((point) => {
-        const matches = point.x === currentX;
-        return matches;
-      });
+      const matchingPointIndex = this.findColumnByXValue(row, currentX);
 
       if (matchingPointIndex === -1) {
         // No point with this exact X value in this line - skip navigation to this line
@@ -853,7 +870,70 @@ export class LineTrace extends AbstractTrace {
    * @returns The column index, or -1 if not found
    */
   private findColumnByXValue(row: number, xValue: number | string): number {
-    return this.points[row].findIndex(point => point.x === xValue);
+    return this.xIndex[row]?.firstColumn.get(xValue) ?? -1;
+  }
+
+  /**
+   * The per-series x index, built on the first lookup.
+   *
+   * See {@link seriesXIndex} for why the result never has to be invalidated.
+   * @returns One entry per series, in series order
+   */
+  private get xIndex(): {
+    firstColumn: Map<number | string, number>;
+    unique: boolean;
+  }[] {
+    this.seriesXIndex ??= this.points.map((line) => {
+      const firstColumn = new Map<number | string, number>();
+      let unique = true;
+      for (let col = 0; col < line.length; col++) {
+        const { x } = line[col];
+        if (typeof x === 'number' && Number.isNaN(x)) {
+          continue;
+        }
+        if (firstColumn.has(x)) {
+          unique = false;
+        } else {
+          firstColumn.set(x, col);
+        }
+      }
+      return { firstColumn, unique };
+    });
+    return this.seriesXIndex;
+  }
+
+  /**
+   * Finds the column of a series holding exactly this (x, y) pair.
+   *
+   * The index names the first column carrying `xValue`, which is the only
+   * candidate while the series visits each x once. A series that repeats one
+   * -- a closed contour -- can carry the same x again with a different y, so
+   * that case keeps the scan.
+   * @param row The line index
+   * @param xValue The X value to match
+   * @param yValue The Y value to match
+   * @returns The column index, or -1 if the series has no such point
+   */
+  private findColumnByPoint(
+    row: number,
+    xValue: number | string,
+    yValue: number | null,
+  ): number {
+    const index = this.xIndex[row];
+    if (index === undefined) {
+      return -1;
+    }
+    if (!index.unique) {
+      return this.points[row].findIndex(
+        point => point.x === xValue && point.y === yValue,
+      );
+    }
+
+    const col = index.firstColumn.get(xValue);
+    if (col === undefined || this.points[row][col].y !== yValue) {
+      return -1;
+    }
+    return col;
   }
 
   protected mapToSvgElements(

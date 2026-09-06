@@ -26,14 +26,9 @@
  * bound the cursor to real positions.
  */
 import type { MaidrLayer } from '@type/grammar';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { TraceType } from '@type/grammar';
-
-jest.mock('hotkeys-js', () => ({
-  __esModule: true,
-  default: { setScope: jest.fn() },
-}));
 
 /**
  * Build a layer of the given type over the given data.

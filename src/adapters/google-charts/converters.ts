@@ -61,12 +61,14 @@ import type {
 import type {
   GoogleBoundingBox,
   GoogleChart,
+  GoogleChartLayoutInterface,
   GoogleChartType,
   GoogleDataTable,
   GoogleEvents,
   GoogleGaugeOptions,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import { cssEscape } from '../shared/selectorUtil';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
 
 /**
@@ -416,7 +418,7 @@ export function createMaidrFromGoogleCharts(
     }
     return {
       layers,
-      selector: `#${panel.container.id} svg`,
+      selector: `#${cssEscape(panel.container.id)} svg`,
     };
   }));
 
@@ -827,9 +829,17 @@ function buildBarLayer(
 
   // A dot plot draws its values as point markers and everything else as rects
   // — a lollipop's stem is a thin bar series, and a funnel's stage is a bar.
+  //
+  // The rects of the series the payload was read from, which is not always
+  // the first: the recipe that draws a funnel's trapezoid stacks a
+  // transparent padding series under the counts, so `funnelValueColumn` picks
+  // the second data column and its bars are series 1. Marked as series 0, the
+  // outline lands on the invisible spacer at the start of the stack while the
+  // audio and the text announce the stage.
+  const series = Math.max(dataColumns(dt).indexOf(dataCol), 0);
   const selector = traceType === TraceType.DOT
     ? markPointMarkerElements(chart, container, rows, 'data-maidr-dot', 'Dot plot point')
-    : markBarElements(chart, container, rows, 1);
+    : markBarElements(chart, container, rows, series);
 
   // A reversed category axis draws the bars from the far end while Google goes
   // on emitting the rects in row order, so the payload and the selectors turn
@@ -980,13 +990,32 @@ function buildSegmentedLayer(
   // Google Charts renders DOM in row-major order (all categories for series 0,
   // then all categories for series 1, etc.), so we set domMapping.order='row'
   // to tell MAIDR to iterate in row-major order when mapping SVG elements.
-  const selector = markSegmentedBarElements(chart, container, rows, seriesCount);
+  const marks = markSegmentedBarElements(chart, container, rows, seriesCount);
+
+  // A reversed category axis draws the categories from the far end while
+  // Google goes on emitting the rects in row order, so a layer emitted as
+  // written is announced as the mirror image of the chart -- the reading
+  // order, the stereo pan, the braille line and the direction autoplay sweeps
+  // all backwards (#1020, #1040). The single-series path has turned round
+  // since then; this one routes every chart with two or more data columns, so
+  // adding a series to a chart that read correctly silently broke it.
+  //
+  // The payload and the marks turn round together: with the categories
+  // reversed, document order no longer pairs the rects with the cells, so
+  // each cell names its own mark instead -- the same answer `#995` reached
+  // for a single series.
+  const cells = marks.cells;
+  let selectors: string | (string | null)[][] | undefined = marks.selector;
+  if (cells && drawsCategoriesReversed(chart, rows, horizontal)) {
+    data.forEach(series => series.reverse());
+    selectors = cells.map(row => [...row].reverse());
+  }
 
   return {
     id: nextId('layer'),
     type: traceType,
     orientation,
-    ...(selector ? { selectors: selector } : {}),
+    ...(selectors ? { selectors } : {}),
     // 'row' tells MAIDR that DOM elements are in row-major order (series-first)
     domMapping: { order: 'row' },
     // A stack has no single value column to name — its data columns are the
@@ -1069,7 +1098,10 @@ function buildLineLayer(
       const at = reversed ? rows - 1 - r : r;
       const x = formatCellValue(dt, at, 0);
       const y = numericValue(dt, at, c);
-      const z = dt.getColumnLabel(c) || `Series ${c}`;
+      // Numbered by series rather than by column: a table carrying a role
+      // column before its first series would otherwise announce that series
+      // as "Series 2".
+      const z = dt.getColumnLabel(c) || `Series ${seriesCount + 1}`;
       series.push({ x, y, z });
     }
     data.push(series);
@@ -1091,7 +1123,19 @@ function buildLineLayer(
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
-      y: { label: dt.getColumnLabel(1) || undefined },
+      // The magnitude axis is named only when one series carries it. Column 1
+      // is the *first series* of a multi-series line, area or bump chart, so
+      // naming the axis after it announced every value of every other series
+      // under the first one's name -- the reader told "Sales" while
+      // navigating Costs. The same call `buildSegmentedLayer` makes for a
+      // stack (#961) and `buildSurvivalLayer` for two arms. It also asks
+      // `firstDataColumn` rather than assuming column 1, which may be a
+      // tooltip or an annotation.
+      y: {
+        label: seriesCount === 1
+          ? dt.getColumnLabel(firstDataColumn(dt)) || undefined
+          : undefined,
+      },
     },
     data,
   };
@@ -1478,7 +1522,7 @@ function markPieSliceElements(
 
   wedges.forEach((wedge, index) => wedge.setAttribute('data-maidr-slice', `${index}`));
 
-  return `#${container.id} svg path[data-maidr-slice]`;
+  return `#${cssEscape(container.id)} svg path[data-maidr-slice]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2743,7 +2787,7 @@ function markCalendarCells(
 
   cells.forEach((cell, index) => cell.setAttribute(CALENDAR_DAY_ATTR, `${index}`));
 
-  return index => `#${container.id} svg rect[${CALENDAR_DAY_ATTR}="${index}"]`;
+  return index => `#${cssEscape(container.id)} svg rect[${CALENDAR_DAY_ATTR}="${index}"]`;
 }
 
 /**
@@ -3240,6 +3284,31 @@ function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
  * @returns CSS selector for the marked elements, or undefined if no elements found
  */
 /**
+ * The chart's layout interface, when the package it was drawn with has one.
+ *
+ * Asked rather than called: a great many packages expose no
+ * `getChartLayoutInterface` at all -- the material builders
+ * (`google.charts.Bar`, `google.charts.Line`), and Calendar, Gauge, Sankey,
+ * OrgChart and TreeMap among the classic ones -- and a build whose interface
+ * differs can throw from inside it. Either way the throw travels out of
+ * `createMaidrFromGoogleChart` inside the caller's own `ready` handler, so
+ * the `maidr` attribute is never set and the chart is not merely
+ * unhighlighted but entirely inaccessible. The intended degradation is no
+ * highlight with the audio, text and braille intact, which every caller's
+ * `if (!layout)` branch already provides.
+ *
+ * @param chart - The drawn Google Chart
+ * @returns The layout interface, or `undefined` when there is none to ask
+ */
+function chartLayout(chart: GoogleChart): GoogleChartLayoutInterface | undefined {
+  try {
+    return chart.getChartLayoutInterface?.();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Whether the chart draws its categories in the opposite order to the rows.
  *
  * `hAxis: {direction: -1}` (or `vAxis` on a bar chart) reverses which end the
@@ -3289,7 +3358,7 @@ function drawsCategoriesReversed(
   if (rowCount < 2)
     return false;
   try {
-    const layout = chart.getChartLayoutInterface();
+    const layout = chartLayout(chart);
     const locate = horizontal ? layout?.getYLocation : layout?.getXLocation;
     const first = locate?.call(layout, 0);
     const last = locate?.call(layout, rowCount - 1);
@@ -3317,21 +3386,31 @@ function drawsCategoriesReversed(
 function reversedBarSelectors(containerId: string, rowCount: number): string[] {
   return Array.from(
     { length: rowCount },
-    (_, i) => `#${containerId} svg rect[data-maidr-bar="0-${rowCount - 1 - i}"]`,
+    (_, i) => `#${cssEscape(containerId)} svg rect[data-maidr-bar="0-${rowCount - 1 - i}"]`,
   );
 }
 
+/**
+ * Marks the rects one bar series drew, so a layer can point at them.
+ *
+ * @param chart     - The Google Chart instance
+ * @param container - The DOM container element
+ * @param rowCount  - How many categories the series was drawn for
+ * @param series    - Which series' bars carry the reading
+ * @returns CSS selector for the marked rects, or a fallback when the layout
+ *          named none of them
+ */
 function markBarElements(
   chart: GoogleChart,
   container: HTMLElement,
   rowCount: number,
-  seriesCount: number,
+  series: number,
 ): string | undefined {
   const svg = container.querySelector('svg');
   if (!svg)
     return undefined;
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
     return buildDataSelector(container, 'rect');
 
@@ -3341,28 +3420,46 @@ function markBarElements(
   // Clear any existing marks from previous initializations
   allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
 
+  // Read once into buckets rather than rescanning the list per bar: a
+  // segmented chart draws about as many rects as it has bars, so a scan each
+  // time is quadratic in chart size -- 1.5M inner iterations and some 6M DOM
+  // reads on a 100-category by 12-series stack, all of it synchronous inside
+  // the caller's `ready` handler.
+  const placed = indexRects(allRects);
+
   let markedCount = 0;
 
-  // For each series and data point, find the corresponding rect
-  for (let series = 0; series < seriesCount; series++) {
-    for (let dataIndex = 0; dataIndex < rowCount; dataIndex++) {
-      const bbox = layout.getBoundingBox(`bar#${series}#${dataIndex}`);
-      if (!bbox)
-        continue;
+  // For each data point of that series, find the corresponding rect
+  for (let dataIndex = 0; dataIndex < rowCount; dataIndex++) {
+    const bbox = layout.getBoundingBox(`bar#${series}#${dataIndex}`);
+    if (!bbox)
+      continue;
 
-      const rect = findRectByBoundingBox(allRects, bbox);
-      if (rect) {
-        // Mark with series and index for ordered selection
-        rect.setAttribute('data-maidr-bar', `${series}-${dataIndex}`);
-        markedCount++;
-      }
+    const rect = findRectByBoundingBox(placed, bbox);
+    if (rect) {
+      // Mark with series and index for ordered selection
+      rect.setAttribute('data-maidr-bar', `${series}-${dataIndex}`);
+      markedCount++;
     }
   }
 
   if (markedCount === 0)
     return buildDataSelector(container, 'rect');
 
-  return `#${container.id} svg rect[data-maidr-bar]`;
+  return `#${cssEscape(container.id)} svg rect[data-maidr-bar]`;
+}
+
+/**
+ * How a segmented chart's marks can be addressed once they are stamped.
+ */
+interface SegmentedMarks {
+  /** One selector naming every mark; document order does the pairing. */
+  selector: string | undefined;
+  /**
+   * One selector per `[series][category]` cell, `null` where the layout named
+   * no rect, or `undefined` when the marks could not be placed at all.
+   */
+  cells: (string | null)[][] | undefined;
 }
 
 /**
@@ -3377,31 +3474,42 @@ function markBarElements(
  *
  * This function marks elements in the correct order for mapToSvgElements().
  *
+ * It also reports the marks **cell by cell**, which is what a reversed
+ * category axis needs: the payload is turned round to match the drawing, and
+ * document order then no longer pairs the elements with it.
+ *
  * @param chart - The Google Chart instance
  * @param container - The DOM container element
  * @param categoryCount - Number of categories
  * @param seriesCount - Number of data series
- * @returns CSS selector for the marked elements, or undefined if no elements found
+ * @returns The ways the marks can be addressed
  */
 function markSegmentedBarElements(
   chart: GoogleChart,
   container: HTMLElement,
   categoryCount: number,
   seriesCount: number,
-): string | undefined {
+): SegmentedMarks {
   const svg = container.querySelector('svg');
   if (!svg)
-    return undefined;
+    return { selector: undefined, cells: undefined };
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
-    return buildDataSelector(container, 'rect');
+    return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
   // Get all rects in the SVG
   const allRects = svg.querySelectorAll('rect');
 
   // Clear any existing marks from previous initializations
   allRects.forEach(rect => rect.removeAttribute('data-maidr-bar'));
+
+  // Read once into buckets rather than rescanning the list per bar: a
+  // segmented chart draws about as many rects as it has bars, so a scan each
+  // time is quadratic in chart size -- 1.5M inner iterations and some 6M DOM
+  // reads on a 100-category by 12-series stack, all of it synchronous inside
+  // the caller's `ready` handler.
+  const placed = indexRects(allRects);
 
   let markedCount = 0;
 
@@ -3415,27 +3523,43 @@ function markSegmentedBarElements(
   //       svgElements[r].push(domElements[domIndex++])
   //
   // Google Charts' getBoundingBox uses: bar#seriesIndex#categoryIndex
+  // Stamped with the cell it draws rather than with a running count, so a
+  // cell can be named outright and a rect the layout did not place does not
+  // shift the numbering of the ones after it.
+  const cells: (string | null)[][] = [];
   for (let series = 0; series < seriesCount; series++) {
+    const row: (string | null)[] = [];
     for (let category = 0; category < categoryCount; category++) {
       const bbox = layout.getBoundingBox(`bar#${series}#${category}`);
-      if (!bbox) {
-        continue;
-      }
-
-      const rect = findRectByBoundingBox(allRects, bbox);
+      const rect = bbox ? findRectByBoundingBox(placed, bbox) : null;
       if (rect) {
-        rect.setAttribute('data-maidr-bar', `${markedCount}`);
+        rect.setAttribute('data-maidr-bar', `${series}-${category}`);
+        row.push(`#${cssEscape(container.id)} svg rect[data-maidr-bar="${series}-${category}"]`);
         markedCount++;
+      } else {
+        row.push(null);
       }
     }
+    cells.push(row);
   }
 
-  const selector = `#${container.id} svg rect[data-maidr-bar]`;
-
   if (markedCount === 0)
-    return buildDataSelector(container, 'rect');
+    return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
-  return selector;
+  return { selector: `#${cssEscape(container.id)} svg rect[data-maidr-bar]`, cells };
+}
+
+/**
+ * Indexes a chart's rects by their top-left corners.
+ *
+ * @param rects - NodeList of SVG rect elements
+ * @returns The index {@link findRectByBoundingBox} reads from
+ */
+function indexRects(rects: NodeListOf<SVGRectElement>): MarkIndex<SVGRectElement> {
+  return indexMarks(rects, rect => ({
+    x: Number.parseFloat(rect.getAttribute('x') || '0'),
+    y: Number.parseFloat(rect.getAttribute('y') || '0'),
+  }));
 }
 
 /**
@@ -3444,31 +3568,22 @@ function markSegmentedBarElements(
  * Due to floating-point precision issues in Google Charts rendering,
  * we use a small tolerance when comparing positions.
  *
- * @param rects - NodeList of SVG rect elements to search
+ * @param rects - Index of the SVG rect elements to search
  * @param bbox - The target bounding box from the chart layout API
  * @returns The matching rect element, or null if not found
  */
 function findRectByBoundingBox(
-  rects: NodeListOf<SVGRectElement>,
+  rects: MarkIndex<SVGRectElement>,
   bbox: GoogleBoundingBox,
 ): SVGRectElement | null {
-  for (const rect of rects) {
-    const x = Number.parseFloat(rect.getAttribute('x') || '0');
-    const y = Number.parseFloat(rect.getAttribute('y') || '0');
+  // The corner narrows the candidates to a handful; the size then tells two
+  // bars that start at the same place apart, as the full scan did.
+  return markAt(rects, bbox.left, bbox.top, (rect) => {
     const width = Number.parseFloat(rect.getAttribute('width') || '0');
     const height = Number.parseFloat(rect.getAttribute('height') || '0');
-
-    // Match by position and size with tolerance
-    const xMatch = Math.abs(x - bbox.left) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(y - bbox.top) <= POSITION_TOLERANCE;
-    const widthMatch = Math.abs(width - bbox.width) <= POSITION_TOLERANCE;
-    const heightMatch = Math.abs(height - bbox.height) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch && widthMatch && heightMatch) {
-      return rect;
-    }
-  }
-  return null;
+    return Math.abs(width - bbox.width) <= POSITION_TOLERANCE
+      && Math.abs(height - bbox.height) <= POSITION_TOLERANCE;
+  });
 }
 
 /**
@@ -3494,7 +3609,7 @@ function markScatterElements(
   if (!svg)
     return undefined;
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
     return buildDataSelector(container, 'circle');
 
@@ -3506,13 +3621,16 @@ function markScatterElements(
   // Clear any existing marks from previous initializations
   allCircles.forEach(circle => circle.removeAttribute('data-maidr-point'));
 
+  // Read once into buckets rather than rescanning the list per point.
+  const placed = indexCircles(allCircles);
+
   let markedCount = 0;
 
   // Approach 1: Try getBoundingBox('point#series#row') - similar to bar charts
   for (let i = 0; i < data.length; i++) {
     const bbox = layout.getBoundingBox(`point#0#${i}`);
     if (bbox) {
-      const circle = findCircleByBoundingBox(allCircles, bbox);
+      const circle = findCircleByBoundingBox(placed, bbox);
       if (circle && !circle.hasAttribute('data-maidr-point')) {
         circle.setAttribute('data-maidr-point', `${i}`);
         markedCount++;
@@ -3528,7 +3646,7 @@ function markScatterElements(
       const expectedY = layout.getYLocation(point.y);
 
       // Skip circles that are already marked (handles multiple circles per point)
-      const circle = findUnmarkedCircleByPosition(allCircles, expectedX, expectedY);
+      const circle = findUnmarkedCircleByPosition(placed, expectedX, expectedY);
       if (circle) {
         circle.setAttribute('data-maidr-point', `${i}`);
         markedCount++;
@@ -3540,7 +3658,148 @@ function markScatterElements(
     return buildDataSelector(container, 'circle');
   }
 
-  return `#${container.id} svg circle[data-maidr-point]`;
+  // Verified before it ships, the way the volcano and Manhattan path already
+  // verifies its own marks. Two coincident points -- routine in binned or
+  // rounded data -- leave the second one sharing the first one's circle and
+  // the list one short, and a chart that emitted its circles in an order
+  // other than the data's would outline a different point from the one being
+  // announced on every move.
+  return pairedCircleSelector(
+    container,
+    allCircles,
+    'data-maidr-point',
+    markedCount,
+    data.length,
+    'Scatter point',
+  );
+}
+
+/**
+ * One drawn element, with the position a search matches it on.
+ */
+interface PlacedMark<T extends Element> {
+  element: T;
+  /** Where it sits in the document, so a tie is broken as a scan would. */
+  order: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Drawn marks bucketed by where they were drawn.
+ *
+ * A chart's marks are matched to its data by position, and doing that with a
+ * scan of the whole element list per datum is O(data x elements) with two DOM
+ * reads in the inner loop — run synchronously inside the caller's `ready`
+ * handler. The charts that reach it are the ones that cannot afford it: a
+ * volcano or Manhattan plot "carries tens of thousands of points of which a
+ * few dozen matter", and a 100-category by 12-series stacked column chart is
+ * 1.5M inner iterations. Reading each element once into buckets makes every
+ * later lookup touch a handful of candidates instead.
+ */
+type MarkIndex<T extends Element> = Map<string, PlacedMark<T>[]>;
+
+/**
+ * The side of one bucket, in pixels.
+ *
+ * Twice the tolerance, so a query's tolerance box spans at most two buckets
+ * on each axis and a lookup reads four of them at the most.
+ */
+const INDEX_CELL = POSITION_TOLERANCE * 2;
+
+function cellKey(x: number, y: number): string {
+  return `${Math.floor(x / INDEX_CELL)},${Math.floor(y / INDEX_CELL)}`;
+}
+
+/**
+ * Buckets a list of drawn elements by the position it is matched on.
+ *
+ * @param elements - The drawn elements, in document order
+ * @param at       - Where each one sits
+ * @returns The index
+ */
+function indexMarks<T extends Element>(
+  elements: NodeListOf<T>,
+  at: (element: T) => { x: number; y: number },
+): MarkIndex<T> {
+  const index: MarkIndex<T> = new Map();
+  elements.forEach((element, order) => {
+    const { x, y } = at(element);
+    const key = cellKey(x, y);
+    const cell = index.get(key);
+    const mark: PlacedMark<T> = { element, order, x, y };
+    if (cell) {
+      cell.push(mark);
+    } else {
+      index.set(key, [mark]);
+    }
+  });
+  return index;
+}
+
+/**
+ * The first mark drawn at a position, in document order.
+ *
+ * Document order rather than bucket order: a scan answered with the first
+ * element of the list that matched, and two coincident marks are routine in
+ * binned or rounded data, so anything else would silently pair a datum with a
+ * different element than it used to.
+ *
+ * @param index  - The marks to search
+ * @param x      - The x the mark should sit at
+ * @param y      - The y the mark should sit at
+ * @param accept - An extra condition on the mark, defaulting to none
+ * @returns The matching element, or null when nothing was drawn there
+ */
+function markAt<T extends Element>(
+  index: MarkIndex<T>,
+  x: number,
+  y: number,
+  accept?: (element: T) => boolean,
+): T | null {
+  const first = Math.floor((x - POSITION_TOLERANCE) / INDEX_CELL);
+  const last = Math.floor((x + POSITION_TOLERANCE) / INDEX_CELL);
+  const top = Math.floor((y - POSITION_TOLERANCE) / INDEX_CELL);
+  const bottom = Math.floor((y + POSITION_TOLERANCE) / INDEX_CELL);
+
+  let found: PlacedMark<T> | null = null;
+  for (let column = first; column <= last; column++) {
+    for (let row = top; row <= bottom; row++) {
+      const cell = index.get(`${column},${row}`);
+      if (!cell) {
+        continue;
+      }
+      for (const mark of cell) {
+        if (Math.abs(mark.x - x) > POSITION_TOLERANCE) {
+          continue;
+        }
+        if (Math.abs(mark.y - y) > POSITION_TOLERANCE) {
+          continue;
+        }
+        if (accept && !accept(mark.element)) {
+          continue;
+        }
+        if (found === null || mark.order < found.order) {
+          found = mark;
+        }
+      }
+    }
+  }
+
+  return found === null ? null : found.element;
+}
+
+/**
+ * Indexes a chart's circles by their centres.
+ *
+ * @param circles - NodeList of SVG circle elements
+ * @returns The index the marker searches below read from
+ */
+function indexCircles(circles: NodeListOf<SVGCircleElement>): MarkIndex<SVGCircleElement> {
+  return indexMarks(circles, circle => ({
+    x: Number.parseFloat(circle.getAttribute('cx') || '0'),
+    y: Number.parseFloat(circle.getAttribute('cy') || '0'),
+  }));
 }
 
 /**
@@ -3548,31 +3807,15 @@ function markScatterElements(
  *
  * The bounding box center should match the circle's cx/cy position.
  *
- * @param circles - NodeList of SVG circle elements to search
+ * @param circles - Index of the SVG circle elements to search
  * @param bbox - The target bounding box from the chart layout API
  * @returns The matching circle element, or null if not found
  */
 function findCircleByBoundingBox(
-  circles: NodeListOf<SVGCircleElement>,
+  circles: MarkIndex<SVGCircleElement>,
   bbox: GoogleBoundingBox,
 ): SVGCircleElement | null {
-  // Calculate center of bounding box
-  const centerX = bbox.left + bbox.width / 2;
-  const centerY = bbox.top + bbox.height / 2;
-
-  for (const circle of circles) {
-    const cx = Number.parseFloat(circle.getAttribute('cx') || '0');
-    const cy = Number.parseFloat(circle.getAttribute('cy') || '0');
-
-    // Match by center position with tolerance
-    const xMatch = Math.abs(cx - centerX) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(cy - centerY) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch) {
-      return circle;
-    }
-  }
-  return null;
+  return markAt(circles, bbox.left + bbox.width / 2, bbox.top + bbox.height / 2);
 }
 
 /**
@@ -3581,34 +3824,22 @@ function findCircleByBoundingBox(
  * Skips circles that already have the data-maidr-point attribute to handle
  * Google Charts rendering multiple overlapping circles per data point.
  *
- * @param circles - NodeList of SVG circle elements to search
+ * @param circles - Index of the SVG circle elements to search
  * @param expectedX - Expected x-coordinate (center)
  * @param expectedY - Expected y-coordinate (center)
  * @returns The matching unmarked circle element, or null if not found
  */
 function findUnmarkedCircleByPosition(
-  circles: NodeListOf<SVGCircleElement>,
+  circles: MarkIndex<SVGCircleElement>,
   expectedX: number,
   expectedY: number,
 ): SVGCircleElement | null {
-  for (const circle of circles) {
-    // Skip already-marked circles
-    if (circle.hasAttribute('data-maidr-point')) {
-      continue;
-    }
-
-    const cx = Number.parseFloat(circle.getAttribute('cx') || '0');
-    const cy = Number.parseFloat(circle.getAttribute('cy') || '0');
-
-    // Match by center position with tolerance
-    const xMatch = Math.abs(cx - expectedX) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(cy - expectedY) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch) {
-      return circle;
-    }
-  }
-  return null;
+  return markAt(
+    circles,
+    expectedX,
+    expectedY,
+    circle => !circle.hasAttribute('data-maidr-point'),
+  );
 }
 
 /**
@@ -3664,7 +3895,7 @@ function markLinePointElements(
   for (let series = 0; series < pathsToMark; series++) {
     const path = linePaths[series];
     path.setAttribute('data-maidr-line-series', `${series}`);
-    selectors.push(`#${container.id} svg path[data-maidr-line-series="${series}"]`);
+    selectors.push(`#${cssEscape(container.id)} svg path[data-maidr-line-series="${series}"]`);
   }
 
   return selectors.length > 0 ? selectors : undefined;
@@ -3738,11 +3969,11 @@ function markCandlestickElements(
 
   // Build selector object
   const selector: CandlestickSelector = {
-    body: `#${container.id} svg rect[data-maidr-candle-body]`,
+    body: `#${cssEscape(container.id)} svg rect[data-maidr-candle-body]`,
   };
 
   if (wicksToMark > 0) {
-    selector.wick = `#${container.id} svg rect[data-maidr-candle-wick]`;
+    selector.wick = `#${cssEscape(container.id)} svg rect[data-maidr-candle-wick]`;
   }
 
   return selector;
@@ -3845,7 +4076,7 @@ function markFloatingBarElements(
 
   bodies.forEach((body, index) => body.setAttribute('data-maidr-step', `${index}`));
 
-  return bodies.map((_, index) => `#${container.id} svg rect[data-maidr-step="${index}"]`);
+  return bodies.map((_, index) => `#${cssEscape(container.id)} svg rect[data-maidr-step="${index}"]`);
 }
 
 /**
@@ -3897,7 +4128,7 @@ function markGaugeDialElements(
 
   dials.forEach((dial, index) => dial.setAttribute('data-maidr-dial', `${index}`));
 
-  return dials.map((_, index) => `#${container.id} [data-maidr-dial="${index}"]`);
+  return dials.map((_, index) => `#${cssEscape(container.id)} [data-maidr-dial="${index}"]`);
 }
 
 /**
@@ -3980,7 +4211,7 @@ function markSeriesPointElements(
     return undefined;
   }
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout) {
     return undefined;
   }
@@ -3993,13 +4224,10 @@ function markSeriesPointElements(
   // Clear any existing marks from previous initializations
   allCircles.forEach(circle => circle.removeAttribute(attribute));
 
-  const withdraw = (): undefined => {
-    // A partial or out-of-order match is withdrawn rather than shipped: the
-    // marks left behind would resolve to a list that does not line up with the
-    // data, and the next chart drawn into this container would inherit them.
-    allCircles.forEach(circle => circle.removeAttribute(attribute));
-    return undefined;
-  };
+  // Read once into buckets rather than rescanning the list per point: these
+  // charts carry tens of thousands of points, and the scan is what froze the
+  // tab before the chart became accessible at all.
+  const placed = indexCircles(allCircles);
 
   let markedCount = 0;
   marks.forEach((mark, index) => {
@@ -4007,24 +4235,70 @@ function markSeriesPointElements(
     if (!bbox) {
       return;
     }
-    const circle = findCircleByBoundingBox(allCircles, bbox);
+    const circle = findCircleByBoundingBox(placed, bbox);
     if (circle && !circle.hasAttribute(attribute)) {
       circle.setAttribute(attribute, `${index}`);
       markedCount++;
     }
   });
 
-  if (markedCount !== marks.length) {
+  return pairedCircleSelector(
+    container,
+    allCircles,
+    attribute,
+    markedCount,
+    marks.length,
+    what,
+  );
+}
+
+/**
+ * The selector for a set of stamped circles, once the pairing is verified.
+ *
+ * Two checks, and a chart that fails either keeps its reading and loses its
+ * outline. **Every** point has to have found a mark: a short list resolves to
+ * circles that do not line up with the data, which `ScatterTrace` declines
+ * outright rather than half-highlighting. And the **document order** has to
+ * be the data's, because a single attribute selector is resolved in document
+ * order while the marks are made in data order -- so a chart that emitted its
+ * circles some other way would highlight a point belonging to a different row
+ * on every move, silently, and only in the highlight.
+ *
+ * @param container   - The DOM container element
+ * @param circles     - Every circle in the chart's SVG
+ * @param attribute   - The marking attribute that was set
+ * @param markedCount - How many points found a circle of their own
+ * @param expected    - How many points there are
+ * @param what        - What the points are, for the warnings
+ * @returns The selector, or `undefined` when the pairing cannot be trusted
+ */
+function pairedCircleSelector(
+  container: HTMLElement,
+  circles: NodeListOf<SVGCircleElement>,
+  attribute: string,
+  markedCount: number,
+  expected: number,
+  what: string,
+): string | undefined {
+  // A partial or out-of-order match is withdrawn rather than shipped: the
+  // marks left behind would resolve to a list that does not line up with the
+  // data, and the next chart drawn into this container would inherit them.
+  const withdraw = (): undefined => {
+    circles.forEach(circle => circle.removeAttribute(attribute));
+    return undefined;
+  };
+
+  if (markedCount !== expected) {
     if (markedCount > 0) {
       console.warn(
-        `[MAIDR] ${what} count mismatch: expected ${marks.length}, marked ${markedCount}. `
+        `[MAIDR] ${what} count mismatch: expected ${expected}, marked ${markedCount}. `
         + 'Visual highlighting is disabled for this chart.',
       );
     }
     return withdraw();
   }
 
-  const drawn = Array.from(svg.querySelectorAll(`circle[${attribute}]`));
+  const drawn = Array.from(container.querySelectorAll(`circle[${attribute}]`));
   if (drawn.some((circle, index) => circle.getAttribute(attribute) !== `${index}`)) {
     console.warn(
       `[MAIDR] ${what} order mismatch: the chart drew its markers in an order other than `
@@ -4034,7 +4308,7 @@ function markSeriesPointElements(
     return withdraw();
   }
 
-  return `#${container.id} svg circle[${attribute}]`;
+  return `#${cssEscape(container.id)} svg circle[${attribute}]`;
 }
 
 /**
@@ -4086,7 +4360,7 @@ function markFlowRibbonElements(
 
   ribbons.forEach((ribbon, index) => ribbon.setAttribute('data-maidr-flow', `${index}`));
 
-  return `#${container.id} svg path[data-maidr-flow]`;
+  return `#${cssEscape(container.id)} svg path[data-maidr-flow]`;
 }
 
 /**
@@ -4152,5 +4426,5 @@ function markRectCellElements(
 
   cells.forEach((cell, index) => cell.setAttribute(attribute, `${index}`));
 
-  return `#${container.id} svg rect[${attribute}]`;
+  return `#${cssEscape(container.id)} svg rect[${attribute}]`;
 }
