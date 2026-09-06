@@ -965,6 +965,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           points,
           xValue,
           this.moveToIndex.bind(this),
+          this.row,
         );
       }
     }
