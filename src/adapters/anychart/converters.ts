@@ -1376,12 +1376,15 @@ function collectLineMarkerCandidates(
  *   1. For each line-like series, determine the expected `pointCount`.
  *   2. Run {@link collectLineMarkerCandidates} once over the SVG and sort
  *      candidates left-to-right (matching data-point order).
- *   3. Single-series charts: assign the first `pointCount` candidates as
- *      `0-0 … 0-(N-1)`.
- *   4. Multi-series charts: offset-partition (`candidates[s*N … s*N+N]`)
- *      and emit a one-time warning recommending an explicit `selectors`
- *      entry, because precise per-series attribution requires matching
- *      point coordinates against axis scale transforms (out of scope here).
+ *   3. Hand the candidates out in series order, each line-like series taking
+ *      the next `pointCount` of them and leaving the cursor where it stopped.
+ *      A series this loop skips — the bars of a combined chart, one that
+ *      cannot name its type — consumes nothing, and a series shorter than its
+ *      neighbour does not shift the ones after it.
+ *   4. Multi-series charts also emit a one-time warning recommending an
+ *      explicit `selectors` entry, because precise per-series attribution
+ *      requires matching point coordinates against axis scale transforms
+ *      (out of scope here).
  *
  * The stamp is idempotent — re-running on a chart that has already been
  * stamped is a no-op.
@@ -1404,6 +1407,12 @@ function stampLineAttributes(
   candidates.sort((a, b) => a.x - b.x);
 
   let multiSeriesWarned = false;
+  // How many candidates the series before this one took. A running cursor
+  // rather than `s * pointCount`: `s` counts the series this loop skipped —
+  // the bars of a combined chart, a series that cannot name its type — none
+  // of which consumed a candidate, and `pointCount` is this series' length,
+  // which is a stride only while every series is the same length.
+  let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
     const series = chart.getSeriesAt(s);
@@ -1423,25 +1432,19 @@ function stampLineAttributes(
     if (pointCount === 0)
       continue;
 
-    let stampStart = 0;
-    let stampEnd = 0;
-    if (seriesCount === 1) {
-      stampStart = 0;
-      stampEnd = Math.min(pointCount, candidates.length);
-    } else {
-      if (!multiSeriesWarned) {
-        console.warn(
-          '[maidr/anychart] Multi-series line highlighting uses an offset-'
-          + 'based partition of marker candidates and may misattribute points '
-          + 'across series with overlapping geometry. For precise highlighting, '
-          + 'pass an explicit `selectors` entry to bindAnyChart().',
-        );
-        multiSeriesWarned = true;
-      }
-      const offset = s * pointCount;
-      stampStart = offset;
-      stampEnd = Math.min(offset + pointCount, candidates.length);
+    if (seriesCount > 1 && !multiSeriesWarned) {
+      console.warn(
+        '[maidr/anychart] Multi-series line highlighting uses an offset-'
+        + 'based partition of marker candidates and may misattribute points '
+        + 'across series with overlapping geometry. For precise highlighting, '
+        + 'pass an explicit `selectors` entry to bindAnyChart().',
+      );
+      multiSeriesWarned = true;
     }
+
+    const stampStart = consumed;
+    const stampEnd = Math.min(consumed + pointCount, candidates.length);
+    consumed = stampEnd;
 
     if (stampEnd - stampStart < pointCount) {
       console.warn(
@@ -1484,8 +1487,9 @@ const SCATTER_LIKE_SERIES_TYPES = new Set([
  *
  * Sort order is x-center primary, y-center secondary, matching
  * `ScatterTrace.groupSvgElements`'s X→Y grouping expectation. Multi-series
- * scatter charts use the same offset-partition as line-series and emit the
- * same one-time warning recommending an explicit `selectors` entry.
+ * scatter charts hand the candidates out with the same running cursor as
+ * line-series and emit the same one-time warning recommending an explicit
+ * `selectors` entry.
  *
  * Idempotent — re-running on a chart that has already been stamped is a
  * no-op.
@@ -1547,6 +1551,10 @@ function stampScatterAttributes(
   }
 
   let multiSeriesWarned = false;
+  // See {@link stampLineAttributes}: a running cursor over the candidates the
+  // earlier series took, not `s * pointCount`, which counts the series this
+  // loop skipped and assumes every series is the same length.
+  let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
     const series = chart.getSeriesAt(s);
@@ -1566,25 +1574,19 @@ function stampScatterAttributes(
     if (pointCount === 0)
       continue;
 
-    let stampStart = 0;
-    let stampEnd = 0;
-    if (seriesCount === 1) {
-      stampStart = 0;
-      stampEnd = Math.min(pointCount, candidates.length);
-    } else {
-      if (!multiSeriesWarned) {
-        console.warn(
-          '[maidr/anychart] Multi-series scatter highlighting uses an '
-          + 'offset-based partition of marker candidates and may misattribute '
-          + 'points across series with overlapping geometry. For precise '
-          + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
-        );
-        multiSeriesWarned = true;
-      }
-      const offset = s * pointCount;
-      stampStart = offset;
-      stampEnd = Math.min(offset + pointCount, candidates.length);
+    if (seriesCount > 1 && !multiSeriesWarned) {
+      console.warn(
+        '[maidr/anychart] Multi-series scatter highlighting uses an '
+        + 'offset-based partition of marker candidates and may misattribute '
+        + 'points across series with overlapping geometry. For precise '
+        + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
+      );
+      multiSeriesWarned = true;
     }
+
+    const stampStart = consumed;
+    const stampEnd = Math.min(consumed + pointCount, candidates.length);
+    consumed = stampEnd;
 
     if (stampEnd - stampStart < pointCount) {
       console.warn(
