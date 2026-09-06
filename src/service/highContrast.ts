@@ -235,10 +235,12 @@ export class HighContrastService implements Disposable {
    * Capture original colors from the DOM before any high contrast changes.
    */
   private captureOriginalColors(): void {
-    // Capture body styles
-    const bodyStyle = window.getComputedStyle(document.body);
-    this.defaultBackgroundColor = bodyStyle.backgroundColor;
-    this.defaultForegroundColor = bodyStyle.color;
+    // Capture the body's own inline declarations rather than its computed
+    // colors. Writing a computed value back on restore would leave a
+    // permanent inline style outranking the page's stylesheet, so a host
+    // theme toggle would stop changing the body after one on/off cycle.
+    this.defaultBackgroundColor = document.body.style.backgroundColor;
+    this.defaultForegroundColor = document.body.style.color;
 
     // Capture SVG element colors
     this.originalColorInfo = this.getOriginalColorInfo();
@@ -416,8 +418,8 @@ export class HighContrastService implements Disposable {
     }
 
     // Restore body styles
-    document.body.style.backgroundColor = this.defaultBackgroundColor;
-    document.body.style.color = this.defaultForegroundColor;
+    this.restoreBodyStyle('background-color', this.defaultBackgroundColor);
+    this.restoreBodyStyle('color', this.defaultForegroundColor);
 
     // Restore SVG element colors
     this.originalColorInfo.forEach((item) => {
@@ -465,6 +467,19 @@ export class HighContrastService implements Disposable {
   }
 
   // ========== Helper Methods ==========
+
+  /**
+   * Puts one body color declaration back the way it was found. An empty
+   * captured value means the page declared nothing inline, so the property is
+   * removed rather than pinned to whatever it computed to.
+   */
+  private restoreBodyStyle(property: string, value: string): void {
+    if (value === '') {
+      document.body.style.removeProperty(property);
+    } else {
+      document.body.style.setProperty(property, value);
+    }
+  }
 
   /**
    * Get all SVG elements from all traces in the Figure hierarchy.

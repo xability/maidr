@@ -118,12 +118,18 @@ interface Harness {
   bar: SVGElement;
 }
 
-function createHarness(specs: MarkSpec[] = [{ fill: BAR_FILL }]): Harness {
+function createHarness(
+  specs: MarkSpec[] = [{ fill: BAR_FILL }],
+  inlineBodyBackground?: string,
+): Harness {
   document.head.innerHTML = `<style>body { background-color: ${PAGE_BACKGROUND}; color: ${PAGE_FOREGROUND}; }</style>`;
   document.body.innerHTML = '';
   // The service writes to the body's inline style, which survives a change of
   // its children; clear it so each test starts from the stylesheet alone.
   document.body.removeAttribute('style');
+  if (inlineBodyBackground !== undefined) {
+    document.body.style.backgroundColor = inlineBodyBackground;
+  }
 
   const svg = document.createElementNS(SVG_NAMESPACE, 'svg');
   svg.setAttribute('id', 'chart');
@@ -188,9 +194,9 @@ describe('highContrastService', () => {
   });
 
   /** Replaces the default single-mark harness with one built for a test. */
-  function rebuild(specs: MarkSpec[]): void {
+  function rebuild(specs: MarkSpec[], inlineBodyBackground?: string): void {
     harness.service.dispose();
-    harness = createHarness(specs);
+    harness = createHarness(specs, inlineBodyBackground);
   }
 
   it('recolours the page and the chart while high contrast is on', () => {
@@ -262,6 +268,27 @@ describe('highContrastService', () => {
     }
 
     expect(ancestorReads).toBeLessThan(capturedColours);
+  });
+
+  it('leaves no inline body colours behind once high contrast is turned off', () => {
+    harness.service.initializeHighContrast();
+
+    turnHighContrastOff(harness.settings);
+
+    // An inline declaration outranks the page's own stylesheet, so leaving one
+    // here would freeze the page at whatever it looked like on the way in --
+    // a host theme toggle would stop changing the body.
+    expect(document.body.style.backgroundColor).toBe('');
+    expect(document.body.style.color).toBe('');
+  });
+
+  it('restores an inline body colour the page set for itself', () => {
+    rebuild([{ fill: BAR_FILL }], 'rgb(200, 0, 0)');
+
+    harness.service.initializeHighContrast();
+    turnHighContrastOff(harness.settings);
+
+    expect(document.body.style.backgroundColor).toBe('rgb(200, 0, 0)');
   });
 
   it('leaves the ramp intact for later marks when one may not take the background', () => {
