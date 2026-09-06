@@ -419,6 +419,25 @@ export class LineTrace extends AbstractTrace {
     super.dispose();
   }
 
+  /**
+   * Wires the graph the extremes and the cell bounds are read from.
+   *
+   * Four of a node's eight links are wired: `top` and `bottom` (the highest
+   * and lowest series at that column) and `start` and `end` (the two ends of
+   * the series). `up`, `down`, `left` and `right` are the links
+   * {@link MovableGraph.moveOnce} steps along, and this family never asks it
+   * to — `LineTrace` overrides `moveOnce` and `isMovable` for every
+   * direction, moving between series by comparing the y values at the
+   * cursor's own x ({@link findLineByXAndYDirection}) and along a series by
+   * the column index, and no subclass delegates back. Wiring them meant
+   * ordering every column of the chart and allocating four coordinates per
+   * point to answer nothing: on a few series over ten thousand samples, ten
+   * thousand sorts at construction and again on every live-data append,
+   * before the reader hears the first point. A subclass that does want
+   * `MovableGraph`'s stepping has to wire them here first.
+   *
+   * @returns The graph, addressed as the points are
+   */
   private buildGraph(): (Node | null)[][] {
     const rowCount = this.points.length;
     if (rowCount === 0) {
@@ -431,32 +450,43 @@ export class LineTrace extends AbstractTrace {
     );
 
     for (let c = 0; c < maxCols; c++) {
-      const pointsAtCol = this.points
-        .map((row, idx) => ({ y: row[c]?.y, row: idx }))
-        .filter(p => p.y !== undefined);
-      if (pointsAtCol.length === 0) {
+      // Gaps take no part in the ranking: there is no magnitude to rank them
+      // by, and one reported as the column's top or bottom would send a
+      // reader to a point that is not there. `>=` for the highest and `<`
+      // for the lowest, so ties read as they did when the column was
+      // ordered and its two ends taken -- the last of the joint highest,
+      // the first of the joint lowest.
+      let topRow = -1;
+      let bottomRow = -1;
+      let highest = 0;
+      let lowest = 0;
+      for (let r = 0; r < rowCount; r++) {
+        const y = this.points[r][c]?.y;
+        if (y === undefined || y === null) {
+          continue;
+        }
+        if (topRow === -1 || y >= highest) {
+          topRow = r;
+          highest = y;
+        }
+        if (bottomRow === -1 || y < lowest) {
+          bottomRow = r;
+          lowest = y;
+        }
+      }
+      if (topRow === -1) {
         continue;
       }
 
-      // Gaps take no part in the ordering: there is no magnitude to rank
-      // them by, and `null - null` would sort them somewhere arbitrary and
-      // then report one as the column's top or bottom.
-      const measured = pointsAtCol.filter(p => p.y !== null);
-      if (measured.length === 0) {
-        continue;
-      }
-      const sortedPoints = [...measured].sort((a, b) => a.y! - b.y!);
-      const bottom = { row: sortedPoints[0].row, col: c };
-      const top = { row: sortedPoints[sortedPoints.length - 1].row, col: c };
-      for (let i = 0; i < sortedPoints.length; i++) {
-        const { row } = sortedPoints[i];
-        const node = graph[row][c];
-        if (!node) {
+      const bottom = { row: bottomRow, col: c };
+      const top = { row: topRow, col: c };
+      for (let r = 0; r < rowCount; r++) {
+        const y = this.points[r][c]?.y;
+        const node = graph[r][c];
+        if (y === undefined || y === null || !node) {
           continue;
         }
 
-        i > 0 && (node.down = { row: sortedPoints[i - 1].row, col: c });
-        i < sortedPoints.length - 1 && (node.up = { row: sortedPoints[i + 1].row, col: c });
         node.bottom = bottom;
         node.top = top;
       }
@@ -474,8 +504,6 @@ export class LineTrace extends AbstractTrace {
           continue;
         }
 
-        c > 0 && (node.left = { row: r, col: c - 1 });
-        c < this.points[r].length - 1 && (node.right = { row: r, col: c + 1 });
         node.start = start;
         node.end = end;
       }
