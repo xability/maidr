@@ -14,6 +14,11 @@ interface PlotWithXValues {
   getAvailableXValues: () => XValue[];
 }
 
+// Type for plots that can be moved to a chosen X value
+interface PlotWithMoveToXValue {
+  moveToXValue: (value: XValue) => boolean;
+}
+
 /**
  * An X value paired with its display label. `value` is the raw XValue used for
  * navigation (moveToXValue matches on the raw value); `label` is the x-axis
@@ -184,10 +189,6 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     this.goToExtremaService.returnToTraceScope();
   }
 
-  public get activeContext(): Context {
-    return this.context;
-  }
-
   public moveUp(): void {
     const currentState = this.state;
 
@@ -232,12 +233,23 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     if (currentState.targets.length > 0 && currentState.selectedIndex !== undefined) {
       const target = currentState.targets[currentState.selectedIndex];
       if (target) {
-        this.handleTargetSelect(target as ExtremaTarget);
+        this.selectTarget(target as ExtremaTarget);
       }
     }
   }
 
-  private handleTargetSelect(target: ExtremaTarget): void {
+  /**
+   * Closes the dialog and navigates the active trace to a chosen target.
+   *
+   * The only way into the model from the dialog, so every selection path — a
+   * click, an Enter in the listbox, the hotkey — closes and moves in the same
+   * order and gets the same guard. A trace can advertise extrema support
+   * without implementing the jump (the base `navigateToExtrema` throws), which
+   * would otherwise leave the reader in the GO_TO_EXTREMA scope with the
+   * dialog open and nothing announced.
+   * @param target - The extrema target to navigate to.
+   */
+  public selectTarget(target: ExtremaTarget): void {
     // Get the active trace and navigate to the selected target
     const activeTrace = this.context.active;
 
@@ -256,6 +268,31 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     } else {
       this.goToExtremaService.returnToTraceScope();
     }
+  }
+
+  /**
+   * Closes the dialog and moves the active trace to a chosen X value.
+   *
+   * The search half of {@link selectTarget}, guarded the same way so a trace
+   * that cannot honour the move cannot strand the reader in the dialog.
+   * @param value - The raw X value to move to.
+   * @returns True when the trace could be moved, false when it offers no
+   * X-value navigation and the dialog was therefore left alone.
+   */
+  public moveToXValue(value: XValue): boolean {
+    const activeTrace = this.context.active;
+
+    if (!this.supportsMoveToXValue(activeTrace)) {
+      return false;
+    }
+
+    try {
+      this.hide();
+      activeTrace.moveToXValue(value);
+    } catch (error) {
+      this.goToExtremaService.returnToTraceScope();
+    }
+    return true;
   }
 
   /**
@@ -398,6 +435,18 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       && typeof plot === 'object'
       && 'getAvailableXValues' in plot
       && typeof (plot as any).getAvailableXValues === 'function';
+  }
+
+  /**
+   * Check if a plot can be moved to a chosen X value
+   * @param plot The plot to check
+   * @returns True if the plot supports moveToXValue
+   */
+  private supportsMoveToXValue(plot: unknown): plot is PlotWithMoveToXValue {
+    return plot !== null
+      && typeof plot === 'object'
+      && 'moveToXValue' in plot
+      && typeof (plot as any).moveToXValue === 'function';
   }
 }
 

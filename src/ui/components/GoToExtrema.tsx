@@ -56,20 +56,6 @@ function getTargetBoxSx(isSelected: boolean): object {
   };
 }
 
-// Type guard to check if plot supports navigateToExtrema
-function hasNavigateToExtrema(plot: unknown): plot is { navigateToExtrema: (target: ExtremaTarget) => void } {
-  return plot !== null
-    && typeof plot === 'object'
-    && typeof (plot as Record<string, unknown>).navigateToExtrema === 'function';
-}
-
-// Type guard to check if plot supports moveToXValue
-function hasMoveToXValue(plot: unknown): plot is { moveToXValue: (value: XValue) => void } {
-  return plot !== null
-    && typeof plot === 'object'
-    && typeof (plot as Record<string, unknown>).moveToXValue === 'function';
-}
-
 /**
  * Fixed X-value dropdown row height in px. Rows are given exactly this height
  * so scroll offsets map 1:1 to option indices for windowed rendering.
@@ -250,12 +236,11 @@ export const GoToExtrema: React.FC = () => {
     }
   }, [dropdownSelectedIndex, isDropdownOpen]);
 
+  // Selection goes out through the view model, which hides the dialog before
+  // it navigates (so the scope change and its close cue happen once) and puts
+  // the reader back in TRACE scope if the trace cannot honour the jump.
   const handleTargetSelect = useCallback((target: ExtremaTarget): void => {
-    const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && hasNavigateToExtrema(activeTrace)) {
-      activeTrace.navigateToExtrema(target);
-    }
-    goToExtremaViewModel.hide();
+    goToExtremaViewModel.selectTarget(target);
   }, [goToExtremaViewModel]);
 
   const handleClose = (): void => {
@@ -281,13 +266,12 @@ export const GoToExtrema: React.FC = () => {
   };
 
   const handleOptionSelect = (value: XValue): void => {
-    const activeTrace = goToExtremaViewModel.activeContext?.active;
-    if (activeTrace && hasMoveToXValue(activeTrace)) {
-      activeTrace.moveToXValue(value);
+    // The view model closes the dialog itself; only the search box's own
+    // state is this component's to reset, and only once the move was accepted.
+    if (goToExtremaViewModel.moveToXValue(value)) {
       setIsDropdownOpen(false);
       setDropdownSelectedIndex(-1);
       setInputValue('');
-      goToExtremaViewModel.hide();
     }
   };
 
