@@ -324,11 +324,13 @@ export class ViolinBoxTrace extends AbstractTrace {
         max: this.max,
         raw: this.boxValues[this.row][this.col],
       },
+      // Stereo position follows the on-screen x: on a vertical layout that is
+      // the box (the column), not the section (the row) being climbed.
       panning: {
-        x: isHorizontal ? panning : this.row,
+        x: isHorizontal ? panning : this.col,
         y: isHorizontal ? this.row : panning,
         rows: isHorizontal ? this.boxValues.length : this.max - this.min,
-        cols: isHorizontal ? this.max - this.min : this.boxValues.length,
+        cols: isHorizontal ? this.max - this.min : (this.boxValues[this.row]?.length ?? 1),
       },
     };
   }

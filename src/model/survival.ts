@@ -95,15 +95,11 @@ export class SurvivalTrace extends StepTrace {
       state.section = CENSORED;
     }
 
-    const low = Number(point.yMin);
-    const high = Number(point.yMax);
-    if (Number.isFinite(low) && Number.isFinite(high)) {
-      // The band, alongside the estimate rather than instead of it. How wide
-      // the interval is at a time is how much the curve is worth there, and
-      // it is the comparison a reader makes when two arms look separated.
-      state.crossRange = { min: low, max: high };
-    }
-
+    // The band travels as the `interval` the line trace already read off
+    // `yMin`/`yMax`: the text service speaks it after the estimate. Setting
+    // `crossRange` from the same bounds would *replace* the estimate with the
+    // band, so the survival probability -- the number the curve is read
+    // for -- would never be spoken, and the band would be read twice.
     return state;
   }
 

@@ -335,6 +335,45 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
+   * Rotor compare search along one row of numeric values.
+   *
+   * Steps from the current column in the given direction and moves to the
+   * first value that satisfies the comparison; reports the rotor boundary
+   * when nothing further qualifies. For the traces whose values are a plain
+   * numeric grid indexed [row][col]; a trace with a richer layout (the bar's
+   * orientation-normalised rows, the candlestick's segments) keeps its own.
+   *
+   * @param rowValues - The values of the row being searched
+   * @param direction - Which way to search
+   * @param type - Whether a lower or a higher value is sought
+   * @returns True when a matching value was found and moved to
+   */
+  protected compareSearchAlongRow(
+    rowValues: readonly number[],
+    direction: 'left' | 'right',
+    type: 'lower' | 'higher',
+  ): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce.
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    const current = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    for (let i = current + step; i >= 0 && i < rowValues.length; i += step) {
+      if (this.compare(rowValues[i], rowValues[current], type)) {
+        this.col = i;
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+    this.notifyRotorBounds();
+    return false;
+  }
+
+  /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
   /**
@@ -636,9 +675,21 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     for (const row of this.highlightValues) {
       for (const cell of row) {
         const cellElements = Array.isArray(cell) ? cell : cell ? [cell] : [];
-        for (const clone of cellElements) {
+        for (const element of cellElements) {
+          // Live chart geometry held for in-place highlighting -- a heatmap
+          // cell, a box part, a bar addressed by its own selector -- IS the
+          // original. Its previous sibling is the neighbouring mark, and
+          // reading that shifts the whole list by one: the last mark goes
+          // missing and whatever precedes the first is styled as data.
+          // Ownership is the signal `dispose()` already uses to tell a
+          // MAIDR-made clone from the chart's own element.
+          if (!Svg.isOwned(element)) {
+            elements.push(element);
+            continue;
+          }
+
           // The original element is the previous sibling of the hidden clone
-          const original = clone.previousElementSibling as SVGElement | null;
+          const original = element.previousElementSibling as SVGElement | null;
 
           // Verify this is actually the paired original element:
           // - Must exist
@@ -646,7 +697,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           // - Must NOT be hidden (the clone is hidden, original is visible)
           if (
             original
-            && original.tagName === clone.tagName
+            && original.tagName === element.tagName
             && original.getAttribute('visibility') !== 'hidden'
           ) {
             elements.push(original);
@@ -1123,7 +1174,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (!onCurve) {
       return;
     }
-    if (this.row === nearest.row && this.col === nearest.col) {
+    // A fresh trace parks its cursor on (0, 0) with nothing announced and the
+    // highlight withheld, so pointing at that first mark is an entry rather
+    // than a repeat: it has to move, notify and clear the entry flag exactly
+    // as the first arrow key does.
+    if (!this.isInitialEntry && this.row === nearest.row && this.col === nearest.col) {
       return;
     }
     this.moveToIndex(nearest.row, nearest.col);

@@ -27,19 +27,26 @@ export class NavigationService implements Disposable {
       return null;
     }
 
-    // Switch to next/previous trace
+    // At the edge of the layers there is one boundary to report: the trace's
+    // tone and the subplot's "no additional layer", once each. Checked before
+    // moving, because `subplot.moveOnce` would notify the subplot's boundary
+    // itself and the pair below would then repeat it.
+    if (!subplot.isMovable(direction)) {
+      currentTrace.notifyOutOfBounds();
+      subplot.notifyOutOfBounds();
+      return currentTrace;
+    }
+
+    // Switch to next/previous trace. Stepped silently: a subplot notification
+    // here would describe the new trace at the column it was left on, before
+    // X-preservation has positioned it. The switch is announced from the
+    // positioned trace below.
     const currentXValue = currentTrace.getCurrentXValue();
-    subplot.moveOnce(direction);
+    subplot.stepLayer(direction);
     const newTrace = subplot.activeTrace;
 
     if (!newTrace) {
       return null;
-    }
-
-    if (newTrace.getId() === currentTrace.getId()) {
-      newTrace.notifyOutOfBounds();
-      subplot.notifyOutOfBounds();
-      return newTrace;
     }
 
     // Attempt Y-preservation: if both traces support Y values, preserve both X and Y

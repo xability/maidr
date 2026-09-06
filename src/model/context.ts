@@ -711,7 +711,7 @@ export class Context implements Disposable {
         const subplotTraceOrientation = !state.trace.empty ? state.trace.orientation : undefined;
         const subplotPlotType = formatPlotType(state.trace.traceType, subplotTraceOrientation);
         return `This is a maidr plot containing ${state.size} layers, and
-        this is layer 1 of ${state.size}: ${subplotPlotType} plot. ${clickPrompt}
+        this is layer ${state.index} of ${state.size}: ${subplotPlotType} plot. ${clickPrompt}
         Use Arrows to navigate data points. Toggle B for Braille, T for Text,
         S for Sonification, and R for Review mode.`;
       }
