@@ -18,7 +18,6 @@ import type { BarPoint, GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import type { EChartsSeriesModel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
-import { markPerDatum } from './selectors';
 
 /** One datum: what it is called, and what it measures. */
 interface Reading {
@@ -65,13 +64,16 @@ function readValues(seriesModel: EChartsSeriesModel): Reading[] {
  * share a dial; nothing in the grammar carries it, and both min and max come
  * out the same on each, which is as close as it gets.
  *
- * @param seriesModel - The series to read
- * @param container   - The element the chart was rendered into
+ * @param seriesModel  - The series to read
+ * @param eachMark     - One selector per mark of the series, when they were
+ *                       found
+ * @param wholeSeries  - One selector naming the series' marks together
  * @returns The layers, empty when the series drew no reading
  */
 export function singleValueLayers(
   seriesModel: EChartsSeriesModel,
-  container: HTMLElement,
+  eachMark: string[] | undefined,
+  wholeSeries: string | undefined,
 ): MaidrLayer[] {
   const read = readValues(seriesModel);
   if (read.length === 0) {
@@ -82,17 +84,32 @@ export function singleValueLayers(
     return read.map(one => gaugeLayer(seriesModel, one));
   }
 
-  // A pie and a funnel each draw exactly one filled mark per datum --
-  // measured: three slices are three filled paths, and the three unfilled
-  // ones beside them are the label guides, which the paint filter already
-  // declines.
-  const marks = markPerDatum(container, [read.length]);
-
   return [
     seriesModel.subType === 'pie'
-      ? pieLayer(seriesModel, read, marks?.series[0])
-      : funnelLayer(seriesModel, read, marks?.points[0]),
+      ? pieLayer(seriesModel, read, wholeSeries)
+      : funnelLayer(seriesModel, read, eachMark),
   ];
+}
+
+/**
+ * How many filled marks one of these series drew.
+ *
+ * A pie and a funnel each draw exactly one per datum -- measured: three
+ * slices are three filled paths, and the three unfilled ones beside them are
+ * the label guides, which the paint filter already declines.
+ *
+ * A gauge draws **two** for its one datum, the track and the progress arc, so
+ * there is no arrangement in which its count and its marks agree and it is
+ * not counted at all -- which is also why {@link gaugeLayer} names neither.
+ *
+ * @param seriesModel - The series to ask
+ * @returns The number of marks the drawing should hold for it
+ */
+export function drawnValueCount(seriesModel: EChartsSeriesModel): number {
+  if (seriesModel.subType === 'gauge') {
+    return 0;
+  }
+  return readValues(seriesModel).length;
 }
 
 /**

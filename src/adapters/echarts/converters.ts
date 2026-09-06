@@ -42,7 +42,7 @@ import {
 import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { markPerDatum, markPerSeries } from './selectors';
-import { SINGLE_VALUE, singleValueLayers } from './single';
+import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -214,17 +214,30 @@ function readOwning(
     );
   }
 
-  return owning.flatMap((seriesModel) => {
+  // Found in one pass for every series, the way the gridded path does it.
+  // `markPerDatum` counts every filled mark in the SVG, so asking it once per
+  // series compares one series' count against the whole chart's marks: a
+  // nested pie -- two pie series, an inner ring and an outer one -- has both
+  // counts disagree and both rings lose their outline. It also unstamps
+  // before the count, so a later series with nothing to count would strip the
+  // stamps an earlier series' selectors already name.
+  const counts = owning.map(ownedMarkCount);
+  const marks = markPerDatum(container, counts);
+  const eachMarkOf = (index: number): string[] | undefined =>
+    counts[index] > 0 ? marks?.points[index] : undefined;
+  const wholeSeriesOf = (index: number): string | undefined =>
+    counts[index] > 0 ? marks?.series[index] : undefined;
+
+  return owning.flatMap((seriesModel, index) => {
     if (SINGLE_VALUE.has(seriesModel.subType)) {
-      return singleValueLayers(seriesModel, container);
+      return singleValueLayers(seriesModel, eachMarkOf(index), wholeSeriesOf(index));
     }
     if (NETWORK.has(seriesModel.subType)) {
       const layer = networkLayer(seriesModel);
       return layer ? [layer] : [];
     }
     if (THEME_RIVER.has(seriesModel.subType)) {
-      const bands = markPerDatum(container, [drawnBandCount(seriesModel)]);
-      const layer = themeRiverLayer(seriesModel, model, bands?.points[0]);
+      const layer = themeRiverLayer(seriesModel, model, eachMarkOf(index));
       return layer ? [layer] : [];
     }
     if (PARALLEL.has(seriesModel.subType)) {
@@ -236,30 +249,35 @@ function readOwning(
       const layer = radarLayer(seriesModel, model, outlines);
       return layer ? [layer] : [];
     }
-    const layer = hierarchyLayer(seriesModel, hierarchyMarks(seriesModel, container));
+    const layer = hierarchyLayer(seriesModel, eachMarkOf(index));
     return layer ? [layer] : [];
   });
 }
 
 /**
- * One selector per node of a hierarchy, when its marks can be paired.
+ * How many per-datum filled marks a whole-chart series drew.
  *
- * Only a sunburst's can -- see `hierarchy.ts` -- so the others are not even
- * counted, which keeps a treemap's leaf-only painting from being mistaken
- * for a count that merely came out wrong.
+ * Zero says the series has no mark this pass can pair, and every reading that
+ * answers zero says so for a measured reason: a gauge draws a track and a
+ * progress arc for its one datum, a graph and a parallel draw no filled
+ * per-datum mark at all, and among the hierarchies only a sunburst's marks
+ * can be paired -- see `hierarchy.ts` -- so a treemap's leaf-only painting is
+ * never mistaken for a count that merely came out wrong.
  *
- * @param seriesModel - The series to read
- * @param container   - The element the chart was rendered into
- * @returns One selector per node in walk order, or `undefined`
+ * @param seriesModel - The series to ask
+ * @returns The number of marks the drawing should hold for it
  */
-function hierarchyMarks(
-  seriesModel: EChartsSeriesModel,
-  container: HTMLElement,
-): string[] | undefined {
-  if (!OUTLINED_HIERARCHY.has(seriesModel.subType)) {
-    return undefined;
+function ownedMarkCount(seriesModel: EChartsSeriesModel): number {
+  if (SINGLE_VALUE.has(seriesModel.subType)) {
+    return drawnValueCount(seriesModel);
   }
-  return markPerDatum(container, [drawnNodeCount(seriesModel)])?.points[0];
+  if (THEME_RIVER.has(seriesModel.subType)) {
+    return drawnBandCount(seriesModel);
+  }
+  if (OUTLINED_HIERARCHY.has(seriesModel.subType)) {
+    return drawnNodeCount(seriesModel);
+  }
+  return 0;
 }
 
 /**
