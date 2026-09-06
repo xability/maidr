@@ -272,9 +272,13 @@ export function appendPointToMaidr(
       // A box navigates sections along one axis and boxes along the other,
       // and which is which follows the orientation (see `computeBoxValues`).
       // Announce the new box at its median: every section of it is new, and
-      // the median is the one reading that stands for the distribution. The
-      // default — the last column of the first row — is the lower outliers
-      // of some other box, announced with no value at all.
+      // the median is the one reading that stands for the distribution.
+      //
+      // The flat default — row 0, last column — announces the lower outliers
+      // on a vertical chart, which is an empty list and no reading at all,
+      // and on a horizontal one whichever section sits at the new box's data
+      // index, or nothing once a chart has more boxes than a box has
+      // sections.
       const median = BOX_SECTIONS.indexOf(BoxplotSection.Q2);
       if (layer.orientation === Orientation.HORIZONTAL) {
         // Horizontal: [boxes][sections], and the trace reverses the points so
