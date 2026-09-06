@@ -545,6 +545,13 @@ describe('tactileService', () => {
     const display = { plot: on.plot } as unknown as DisplayService;
     service.dispose();
     service = new TactileService(display, braille, notification, textService, figure);
+    // The outgoing service lowers the pins it raised, which is what a
+    // controller does on the way out and is asserted in its own case below.
+    // Here it is teardown noise between two frames a test wants to compare, so
+    // the record starts again with the replacement.
+    session.writeGraphic.mockClear();
+    session.writeGraphicRow.mockClear();
+    session.writeText.mockClear();
     if (brailleStub.isEnabled) {
       // The replacement subscribes in its constructor and starts with the
       // display off, as a freshly built controller does. A test that had the
@@ -2290,10 +2297,12 @@ describe('tactileService', () => {
   describe('dispose', () => {
     it('should stop responding to the braille toggle', () => {
       activate();
-      session.writeGraphic.mockClear();
-      session.writeText.mockClear();
 
       service.dispose();
+      // After the frame dispose itself lowers, so what is counted below is
+      // only what the dropped subscription would have added.
+      session.writeGraphic.mockClear();
+      session.writeText.mockClear();
       toggle.fire({ enabled: false, state: traceState(chart, 1) });
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
@@ -2318,6 +2327,46 @@ describe('tactileService', () => {
 
       expect(session.disconnect).not.toHaveBeenCalled();
       expect(session.isConnected).toBe(true);
+    });
+
+    it('should lower the pins the chart raised', () => {
+      // Focus-out disposes the controller, and the replacement starts with the
+      // display off. Pins left up then say a chart is under the reader's
+      // fingers while every other channel says nothing is.
+      activate();
+      session.writeGraphic.mockClear();
+      session.writeText.mockClear();
+
+      service.dispose();
+
+      expect(session.writeGraphic).toHaveBeenCalledWith('00'.repeat(GEOMETRY.cellColumns * GEOMETRY.cellRows));
+      expect(session.writeText).toHaveBeenCalledWith('00'.repeat(GEOMETRY.textCells));
+    });
+
+    it('should hand back a display it took up on its own', () => {
+      // Adoption checks the device out to this frame, and only this frame can
+      // hand it back. Keeping it past focus-out is what makes the next chart's
+      // `b` open on a device another frame still holds.
+      activate();
+
+      service.dispose();
+
+      expect(session.releaseIfAdopted).toHaveBeenCalled();
+    });
+
+    it('should leave the pins alone when the chart never raised them', () => {
+      // Nothing of this chart's is on the display, so there is nothing of its
+      // to take off -- and a device another chart is using must not be
+      // blanked or handed back from here.
+      session.isConnected = true;
+      session.writeGraphic.mockClear();
+      session.writeText.mockClear();
+
+      service.dispose();
+
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeText).not.toHaveBeenCalled();
+      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
     });
   });
 

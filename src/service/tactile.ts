@@ -1510,12 +1510,30 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   /**
    * Releases this chart's subscriptions.
    *
-   * Deliberately does NOT disconnect the device. This runs on every focus-out
-   * and tab switch, and reconnecting needs a user gesture that cannot be asked
-   * for mid-session — dropping the connection here would make the display
-   * unusable in ordinary use.
+   * Deliberately does NOT disconnect a device the reader connected here
+   * themselves. This runs on every focus-out and tab switch, and reconnecting
+   * one needs a user gesture that cannot be asked for mid-session — dropping
+   * that connection here would make the display unusable in ordinary use.
+   *
+   * What it does do is leave the display the way turning braille off leaves
+   * it. Nothing else closes the display on the way out: braille's own
+   * `dispose()` does not fire its toggle, so {@link setShowing} never runs, and
+   * the controller that replaces this one starts with the display off. Pins
+   * left up then point the reader at a chart they have left while every other
+   * channel says nothing is there. An adopted device is handed back for the
+   * same reason: it is checked out to this frame and only this frame can
+   * return it, so keeping it past focus-out is what makes the next chart's `b`
+   * fail on a device another frame still holds — and re-adopting needs no
+   * gesture, which is the whole point of adoption.
    */
   public dispose(): void {
+    // Only what this chart put there. A display it never raised may be another
+    // chart's, and blanking or releasing that would take it from under them.
+    if (this.showing) {
+      this.showing = false;
+      this.blank();
+      dotPadSession.releaseIfAdopted();
+    }
     this.disposed = true;
     for (const disposable of this.disposables) {
       disposable.dispose();
