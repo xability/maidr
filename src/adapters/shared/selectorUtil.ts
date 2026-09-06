@@ -34,7 +34,8 @@ export function nextId(prefix: string): string {
  * Escapes a string for use in a CSS selector.
  *
  * Uses the native `CSS.escape` when available (browsers), and falls back to a
- * conservative escape for Node.js / SSR environments where `CSS` is undefined.
+ * conservative escape for Node.js / SSR environments where `CSS` is undefined
+ * — jsdom included, which implements no `CSS` object at all.
  *
  * @param value - The raw string to escape.
  * @returns The escaped string, safe to embed in a CSS selector.
@@ -44,7 +45,14 @@ export function cssEscape(value: string): string {
     return CSS.escape(value);
   }
   // Fallback: escape every character that is special in a CSS identifier.
-  return value.replace(/([^\w-])/g, '\\$1');
+  const escaped = value.replace(/([^\w-])/g, '\\$1');
+  // A leading digit — optionally behind a hyphen — cannot start an identifier
+  // however the rest is escaped, so `#2024-sales` is not a selector that
+  // matches nothing but one the parser rejects outright, throwing out of
+  // `querySelectorAll`. The native `CSS.escape` writes it as a numeric escape
+  // (`\32 024-sales`); digits are U+0030-U+0039, so the code point is always
+  // `3` followed by the digit itself, and the trailing space terminates it.
+  return escaped.replace(/^(-?)(\d)/, (_, hyphen: string, digit: string) => `${hyphen}\\3${digit} `);
 }
 
 /**

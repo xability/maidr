@@ -38,6 +38,7 @@ import type { AnyChartInstance, AnyChartIterator, AnyChartSeries } from '@adapte
 import type { BarPoint } from '@type/grammar';
 import { bindAnyChart } from '@adapters/anychart/converters';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { Orientation } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>');
@@ -103,7 +104,7 @@ function createColumnSeries(
  * @param options.xInverted - What `xScale().inverted()` answers
  * @param options.yInverted - What `yScale().inverted()` answers
  * @param options.container - The container the chart drew into
- * @param options.horizontal - Draw a `bar` series rather than a `column` one
+ * @param options.horizontal - Draw `anychart.bar()` rather than `anychart.column()`
  * @returns The chart
  */
 function createChart(options: {
@@ -116,6 +117,10 @@ function createChart(options: {
   return {
     title: () => 'Tips',
     container: () => options.container ?? '',
+    // The chart says which way up it is drawn, and a `bar` series only exists
+    // inside `anychart.bar()`. Naming only the series left the two able to
+    // disagree, which no real chart can.
+    getType: () => (options.horizontal ? 'bar' : 'column'),
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     xScale: () => ({ getType: () => 'ordinal', inverted: () => options.xInverted === true }),
@@ -170,7 +175,7 @@ function layerFor(options: {
   yInverted?: boolean;
   horizontal?: boolean;
   selectors?: string[];
-} = {}): { type: string; selectors?: string | string[]; data: unknown } {
+} = {}): { type: string; orientation?: string; selectors?: string | string[]; data: unknown } {
   const container = createContainer('ac-inverted');
   const chart = createChart({ ...options, container });
   // `bindAnyChart` rather than `anyChartToMaidr`: stamping the marks is part
@@ -184,12 +189,26 @@ function layerFor(options: {
   const layer = maidr?.subplots[0][0].layers[0];
   if (!layer)
     throw new Error('no layer emitted');
-  return layer as unknown as { type: string; selectors?: string | string[]; data: unknown };
+  return layer as unknown as {
+    type: string;
+    orientation?: string;
+    selectors?: string | string[];
+    data: unknown;
+  };
 }
 
-/** The categories of a bar layer, in the order it emits them. */
-function categoriesOf(layer: { data: unknown }): unknown[] {
-  return (layer.data as BarPoint[]).map(p => p.x);
+/**
+ * The categories of a bar layer, in the order it emits them.
+ *
+ * A sideways chart puts the magnitude on `x` and the category on `y`, which is
+ * what `BarTrace` reads a horizontal layer as — so which field holds the
+ * category follows the orientation the layer declares.
+ */
+function categoriesOf(layer: { orientation?: string; data: unknown }): unknown[] {
+  const category = layer.orientation === Orientation.HORIZONTAL
+    ? (p: BarPoint): unknown => p.y
+    : (p: BarPoint): unknown => p.x;
+  return (layer.data as BarPoint[]).map(category);
 }
 
 beforeEach(() => {

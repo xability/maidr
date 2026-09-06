@@ -13,6 +13,8 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
+import type { RechartsSubplotConfig } from './types';
+import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
 /**
@@ -98,6 +100,39 @@ export function categoryAxisReversedFor(children: ReactNode, horizontal: boolean
 
   walk(children);
   return found;
+}
+
+/**
+ * The same answer for each panel of a grid, in its row-major order.
+ *
+ * Which axis carries the categories follows the orientation, and in subplot
+ * mode that is the *panel's* — `buildPanelSubplot` resolves it as
+ * `panel.orientation ?? config.orientation`. Asking every panel with the
+ * grid's own answer reads `reversed` off the wrong axis component for any
+ * panel that overrides it: the un-reversed one answers `false`, the payload
+ * and the selectors are left as written, and the reader is walked through the
+ * categories the opposite way to the way the panel draws them (#1017). The
+ * mirror case is worse still — a reversed value axis turning a payload round
+ * that should have been left alone.
+ *
+ * A child with no panel of its own falls back to the grid's orientation, which
+ * is also what `buildPanelSubplot` does with a panel that declares none.
+ *
+ * @param children - One chart per panel, in the grid's row-major order
+ * @param panels - The panel configs, flattened into the same order
+ * @param gridOrientation - The orientation the grid declares, if any
+ * @returns One answer per child, in the same order
+ */
+export function categoryAxisReversedPerPanelFor(
+  children: ReactNode,
+  panels: readonly RechartsSubplotConfig[],
+  gridOrientation: Orientation | undefined,
+): boolean[] {
+  return Children.toArray(children).map((child, index) =>
+    categoryAxisReversedFor(
+      child,
+      (panels[index]?.orientation ?? gridOrientation) === Orientation.HORIZONTAL,
+    ));
 }
 
 /**

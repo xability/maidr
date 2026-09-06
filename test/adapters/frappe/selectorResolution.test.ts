@@ -219,3 +219,45 @@ describe('frappe layer selectors against the rendered SVG', () => {
     expect(matched(layer.selectors as string)).toEqual(['50', '30', '20']);
   });
 });
+
+describe('frappe layer selectors over an author-supplied container id', () => {
+  /** A two-mark chart, the simplest thing every builder can be pointed at. */
+  const chart: FrappeChart = {
+    data: {
+      labels: ['A', 'B'],
+      datasets: [{ name: 'Sales', values: [7, 8] }],
+    },
+  };
+
+  /** Renders the chart, renames its container, and converts it there. */
+  function convertUnder(id: string, chartType: FrappeChartType): MaidrLayer {
+    render(chart, chartType === 'bar' ? 'bars' : 'line');
+    const container = document.getElementById('chart') as HTMLElement;
+    container.id = id;
+    const maidr = createMaidrFromFrappeChart(chart, container, { chartType });
+    return maidr.subplots[0][0].layers[0];
+  }
+
+  it('still matches the bars when the id holds a dot', () => {
+    const layer = convertUnder('my.chart', 'bar');
+
+    expect(matched(layer.selectors as string)).toEqual(['7', '8']);
+  });
+
+  it('still matches the dots when the id holds a dot', () => {
+    const layer = convertUnder('my.chart', 'dot');
+
+    expect(matched(layer.selectors as string)).toEqual(['7', '8']);
+  });
+
+  // An id beginning with a digit is not a CSS identifier, so unescaped it does
+  // not merely fail to match — `querySelectorAll` throws, and the throw escapes
+  // `Subplot`'s bare `layers.map`, taking the whole figure down with it.
+  // jsdom's selector engine does not resolve numeric escapes, so what is
+  // pinned here is that the emitted selector parses at all.
+  it('emits a selector the CSS parser accepts when the id starts with a digit', () => {
+    const layer = convertUnder('2024-sales', 'bar');
+
+    expect(() => matched(layer.selectors as string)).not.toThrow();
+  });
+});

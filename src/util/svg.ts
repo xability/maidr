@@ -471,7 +471,10 @@ export abstract class Svg {
     clone.style.stroke = color;
 
     if (isLineElement) {
-      const strokeWidth = window.getComputedStyle(clone).getPropertyValue(Constant.STROKE_WIDTH);
+      // Read the width from the original, which is in the document. The clone
+      // is still detached here, and a detached element resolves no computed
+      // style, so reading it there would always fall through to the increment.
+      const strokeWidth = computed.getPropertyValue(Constant.STROKE_WIDTH);
       const match = strokeWidth.match(/^([0-9.]+)([a-z%]*)$/i);
       if (match) {
         const value = Number.parseFloat(match[1]);

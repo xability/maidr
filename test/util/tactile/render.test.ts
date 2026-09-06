@@ -343,6 +343,58 @@ describe('dotRaster', () => {
     });
   });
 
+  describe('fillDithered', () => {
+    /**
+     * One heatmap cell, well inside a display-sized buffer.
+     */
+    const cell = [[
+      { x: 2, y: 2 },
+      { x: 9, y: 2 },
+      { x: 9, y: 9 },
+      { x: 2, y: 9 },
+    ]];
+
+    it('should texture the cell and leave the rest of the buffer alone', () => {
+      const raster = new DotRaster(60, 40);
+
+      raster.fillDithered(cell, 0.5);
+
+      expect(raster.get(2, 2)).toBe(true);
+      expect(raster.get(3, 2)).toBe(false);
+      expect(raster.get(20, 20)).toBe(false);
+    });
+
+    it('should look only at the pins the ring can reach', () => {
+      // A heatmap textures one ring per cell per frame, so scanning the whole
+      // display for each is the cell count times the pin count: a 60x60 chart
+      // on a DotPad 320 reads 8.6 million pins per navigation move to raise a
+      // few thousand.
+      const raster = new DotRaster(60, 40);
+      const reads = jest.spyOn(DotRaster.prototype, 'get');
+
+      raster.fillDithered(cell, 0.5);
+
+      const scanned = reads.mock.calls.length;
+      reads.mockRestore();
+      // The cell covers 64 pins; the display has 2,400.
+      expect(scanned).toBeLessThanOrEqual(100);
+    });
+
+    it('should keep the hole of a ring drawn away from the origin', () => {
+      // The texture has to land on the ring wherever the ring is, so a shape
+      // with a hole keeps its hole and the pins keep their place.
+      const raster = new DotRaster(60, 40);
+
+      raster.fillDithered([
+        [{ x: 10, y: 5 }, { x: 30, y: 5 }, { x: 30, y: 25 }, { x: 10, y: 25 }],
+        [{ x: 16, y: 11 }, { x: 24, y: 11 }, { x: 24, y: 19 }, { x: 16, y: 19 }],
+      ], 0.9);
+
+      expect(raster.get(20, 15)).toBe(false);
+      expect(raster.get(13, 7)).toBe(true);
+    });
+  });
+
   describe('buffer operations', () => {
     it('should report an untouched raster as empty and a written one as not', () => {
       const raster = new DotRaster(4, 4);

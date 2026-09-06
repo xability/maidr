@@ -47,7 +47,8 @@ export abstract class TactileSvgGeometry {
   private static readonly MAX_SAMPLES = 512;
 
   /**
-   * Points used to approximate a full circle or ellipse.
+   * Points used to approximate a circle or ellipse large enough to want them
+   * all. A smaller one is sampled to its size — see {@link ellipseSamples}.
    */
   private static readonly ELLIPSE_SAMPLES = 48;
 
@@ -534,12 +535,66 @@ export abstract class TactileSvgGeometry {
     matrix: DOMMatrix,
     viewport: TactileViewport,
   ): DotRing {
+    const samples = this.ellipseSamples(cx, cy, rx, ry, matrix, viewport);
     const points: DotPoint[] = [];
-    for (let i = 0; i < this.ELLIPSE_SAMPLES; i++) {
-      const angle = (i / this.ELLIPSE_SAMPLES) * Math.PI * 2;
+    for (let i = 0; i < samples; i++) {
+      const angle = (i / samples) * Math.PI * 2;
       points.push(this.project(cx + rx * Math.cos(angle), cy + ry * Math.sin(angle), matrix, viewport));
     }
     return { points, closed: true };
+  }
+
+  /**
+   * How finely to sample an ellipse, given the room it takes on the pins.
+   *
+   * A sample every couple of dots, which is what {@link samplePath} spends on
+   * a path, bounded at both ends. The bound that matters is the lower one: a
+   * scatter is thousands of circles, every unfocused one is reduced again on
+   * every navigation move, and each sample is then stroked as its own segment
+   * — so a point that covers a pin or two paid for forty-eight projections and
+   * forty-eight Bresenham runs to raise the pin it would have raised with
+   * eight. That is per mark, per arrow key, in front of a write the reader is
+   * already waiting on.
+   *
+   * Only the projected size decides it, since that is what the pins can
+   * resolve: the same circle wants more samples zoomed in than it does at
+   * whole-plot zoom. Three projections answer the question — the centre and
+   * one end of each axis — because everything between user space and dots is
+   * affine.
+   *
+   * @param cx - Centre x in user space
+   * @param cy - Centre y in user space
+   * @param rx - Horizontal radius in user space
+   * @param ry - Vertical radius in user space
+   * @param matrix - The shape's screen transform
+   * @param viewport - The active zoom and pan
+   * @returns Points to sample around the ellipse
+   */
+  private static ellipseSamples(
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    matrix: DOMMatrix,
+    viewport: TactileViewport,
+  ): number {
+    const centre = this.project(cx, cy, matrix, viewport);
+    const across = this.project(cx + rx, cy, matrix, viewport);
+    const down = this.project(cx, cy + ry, matrix, viewport);
+    const a = Math.hypot(across.x - centre.x, across.y - centre.y);
+    const b = Math.hypot(down.x - centre.x, down.y - centre.y);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+      // Unmeasurable: spend the samples rather than draw a shape that is not
+      // the mark's.
+      return this.ELLIPSE_SAMPLES;
+    }
+    // Exact for a circle, and low by a few percent for an eccentric ellipse —
+    // which costs at most a sample or two out of a count already rounded up.
+    const perimeter = Math.PI * (a + b);
+    return Math.min(
+      this.ELLIPSE_SAMPLES,
+      Math.max(this.MIN_SAMPLES, Math.ceil(perimeter / 2)),
+    );
   }
 
   /**

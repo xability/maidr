@@ -1215,7 +1215,12 @@ export interface RechartsAdapterConfig {
 
   /**
    * Histogram bin range configuration.
-   * Required when `chartType` is `'histogram'`.
+   *
+   * Required when `chartType` is `'histogram'`, unless every bin's `xKey`
+   * label is itself a number — then each bin is read as a zero-width bin at
+   * its label. A label such as `'0-10'` places nothing, and a histogram
+   * carrying those without this config is refused rather than announced with
+   * a bin range nothing stated.
    */
   binConfig?: HistogramBinConfig;
 

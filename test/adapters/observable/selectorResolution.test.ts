@@ -12,8 +12,9 @@
  * check the matches element by element.
  */
 
-import type { BarPoint, LinePoint, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, LinePoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import { observablePlotToMaidr } from '@adapters/observable/converters';
+import { TraceType } from '@type/grammar';
 import { mountFixture } from './helpers';
 
 describe('selector resolution', () => {
@@ -89,4 +90,44 @@ describe('selector resolution', () => {
     expect(secondMatches).toHaveLength(2);
     expect(Array.from(firstMatches)).not.toEqual(expect.arrayContaining(Array.from(secondMatches)));
   });
+
+  it('gives a hexbin its hexagons in lattice order, not paint order', () => {
+    // Plot draws the hexagons largest-radius-first, so the crowded fixture's
+    // document order is 7, 5, 4, 3, 2 while the lattice reads [[3, 7, 2],
+    // [5, 4]]. `HexbinTrace` pairs the resolved elements with the bins by
+    // position and its count check passes either way (5 == 5), so a selector
+    // resolved in document order outlines the 7's hexagon while announcing 3.
+    const { document, element } = mountFixture('crowdedHexbin');
+    const maidr = observablePlotToMaidr(element, { markTypes: { dot: TraceType.HEXBIN } });
+    const layer = maidr?.subplots[0][0].layers[0];
+
+    const matched = resolveAsTraceDoes(layer?.selectors, document);
+
+    // The x pixel of each bin in lattice order — bottom row left to right,
+    // then the row above it.
+    expect(matched.map(centreX)).toEqual([30.5, 310.5, 610.5, 150.5, 490.5]);
+  });
 });
+
+/**
+ * Resolves a layer's selectors the way a trace does: a lone string in one
+ * `querySelectorAll`, a list one at a time, flattened in list order.
+ */
+function resolveAsTraceDoes(
+  selectors: MaidrLayer['selectors'],
+  document: Document,
+): Element[] {
+  if (typeof selectors === 'string')
+    return Array.from(document.querySelectorAll(selectors));
+  if (Array.isArray(selectors)) {
+    return (selectors as string[])
+      .flatMap(one => Array.from(document.querySelectorAll(one)));
+  }
+  return [];
+}
+
+/** The x pixel a mark was translated to. */
+function centreX(element: Element): number {
+  const translate = /translate\(\s*(-?[\d.]+)/.exec(element.getAttribute('transform') ?? '');
+  return translate === null ? Number.NaN : Number(translate[1]);
+}
