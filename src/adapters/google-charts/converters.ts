@@ -68,6 +68,7 @@ import type {
   GoogleGaugeOptions,
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import { cssEscape } from '../shared/selectorUtil';
 import { buildDataSelector, ensureContainerId, nextId } from './selectors';
 
 /**
@@ -417,7 +418,7 @@ export function createMaidrFromGoogleCharts(
     }
     return {
       layers,
-      selector: `#${panel.container.id} svg`,
+      selector: `#${cssEscape(panel.container.id)} svg`,
     };
   }));
 
@@ -1521,7 +1522,7 @@ function markPieSliceElements(
 
   wedges.forEach((wedge, index) => wedge.setAttribute('data-maidr-slice', `${index}`));
 
-  return `#${container.id} svg path[data-maidr-slice]`;
+  return `#${cssEscape(container.id)} svg path[data-maidr-slice]`;
 }
 
 // ---------------------------------------------------------------------------
@@ -2786,7 +2787,7 @@ function markCalendarCells(
 
   cells.forEach((cell, index) => cell.setAttribute(CALENDAR_DAY_ATTR, `${index}`));
 
-  return index => `#${container.id} svg rect[${CALENDAR_DAY_ATTR}="${index}"]`;
+  return index => `#${cssEscape(container.id)} svg rect[${CALENDAR_DAY_ATTR}="${index}"]`;
 }
 
 /**
@@ -3385,7 +3386,7 @@ function drawsCategoriesReversed(
 function reversedBarSelectors(containerId: string, rowCount: number): string[] {
   return Array.from(
     { length: rowCount },
-    (_, i) => `#${containerId} svg rect[data-maidr-bar="0-${rowCount - 1 - i}"]`,
+    (_, i) => `#${cssEscape(containerId)} svg rect[data-maidr-bar="0-${rowCount - 1 - i}"]`,
   );
 }
 
@@ -3445,7 +3446,7 @@ function markBarElements(
   if (markedCount === 0)
     return buildDataSelector(container, 'rect');
 
-  return `#${container.id} svg rect[data-maidr-bar]`;
+  return `#${cssEscape(container.id)} svg rect[data-maidr-bar]`;
 }
 
 /**
@@ -3533,7 +3534,7 @@ function markSegmentedBarElements(
       const rect = bbox ? findRectByBoundingBox(placed, bbox) : null;
       if (rect) {
         rect.setAttribute('data-maidr-bar', `${series}-${category}`);
-        row.push(`#${container.id} svg rect[data-maidr-bar="${series}-${category}"]`);
+        row.push(`#${cssEscape(container.id)} svg rect[data-maidr-bar="${series}-${category}"]`);
         markedCount++;
       } else {
         row.push(null);
@@ -3545,7 +3546,7 @@ function markSegmentedBarElements(
   if (markedCount === 0)
     return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
-  return { selector: `#${container.id} svg rect[data-maidr-bar]`, cells };
+  return { selector: `#${cssEscape(container.id)} svg rect[data-maidr-bar]`, cells };
 }
 
 /**
@@ -3894,7 +3895,7 @@ function markLinePointElements(
   for (let series = 0; series < pathsToMark; series++) {
     const path = linePaths[series];
     path.setAttribute('data-maidr-line-series', `${series}`);
-    selectors.push(`#${container.id} svg path[data-maidr-line-series="${series}"]`);
+    selectors.push(`#${cssEscape(container.id)} svg path[data-maidr-line-series="${series}"]`);
   }
 
   return selectors.length > 0 ? selectors : undefined;
@@ -3968,11 +3969,11 @@ function markCandlestickElements(
 
   // Build selector object
   const selector: CandlestickSelector = {
-    body: `#${container.id} svg rect[data-maidr-candle-body]`,
+    body: `#${cssEscape(container.id)} svg rect[data-maidr-candle-body]`,
   };
 
   if (wicksToMark > 0) {
-    selector.wick = `#${container.id} svg rect[data-maidr-candle-wick]`;
+    selector.wick = `#${cssEscape(container.id)} svg rect[data-maidr-candle-wick]`;
   }
 
   return selector;
@@ -4075,7 +4076,7 @@ function markFloatingBarElements(
 
   bodies.forEach((body, index) => body.setAttribute('data-maidr-step', `${index}`));
 
-  return bodies.map((_, index) => `#${container.id} svg rect[data-maidr-step="${index}"]`);
+  return bodies.map((_, index) => `#${cssEscape(container.id)} svg rect[data-maidr-step="${index}"]`);
 }
 
 /**
@@ -4127,7 +4128,7 @@ function markGaugeDialElements(
 
   dials.forEach((dial, index) => dial.setAttribute('data-maidr-dial', `${index}`));
 
-  return dials.map((_, index) => `#${container.id} [data-maidr-dial="${index}"]`);
+  return dials.map((_, index) => `#${cssEscape(container.id)} [data-maidr-dial="${index}"]`);
 }
 
 /**
@@ -4307,7 +4308,7 @@ function pairedCircleSelector(
     return withdraw();
   }
 
-  return `#${container.id} svg circle[${attribute}]`;
+  return `#${cssEscape(container.id)} svg circle[${attribute}]`;
 }
 
 /**
@@ -4359,7 +4360,7 @@ function markFlowRibbonElements(
 
   ribbons.forEach((ribbon, index) => ribbon.setAttribute('data-maidr-flow', `${index}`));
 
-  return `#${container.id} svg path[data-maidr-flow]`;
+  return `#${cssEscape(container.id)} svg path[data-maidr-flow]`;
 }
 
 /**
@@ -4425,5 +4426,5 @@ function markRectCellElements(
 
   cells.forEach((cell, index) => cell.setAttribute(attribute, `${index}`));
 
-  return `#${container.id} svg rect[${attribute}]`;
+  return `#${cssEscape(container.id)} svg rect[${attribute}]`;
 }

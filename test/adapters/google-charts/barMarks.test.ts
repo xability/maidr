@@ -428,3 +428,32 @@ describe('createMaidrFromGoogleChart with a FunnelChart', () => {
     expect(marked.map(element => element.id)).toEqual(['count-0', 'count-1', 'count-2']);
   });
 });
+
+describe('a Google Charts container whose id is not a bare identifier', () => {
+  it('builds a selector the DOM will accept', () => {
+    // React's `useId()` answers `:r0:`, and an author's id may equally begin
+    // with a digit or hold a `.`. None of those is a CSS identifier, so
+    // interpolated raw the selector is invalid and `querySelectorAll` throws a
+    // SyntaxError -- which propagates out of `new Figure(...)`, leaving the
+    // chart not merely unhighlighted but entirely unreachable. The same fix
+    // landed for eCharts in this branch; these selectors are built the same
+    // way and needed it too.
+    //
+    // An id that merely *starts* with a digit is a separate gap, in
+    // `cssEscape`'s own non-browser fallback rather than here, and is fixed on
+    // the branch that hardens that helper. Escaping at this call site is what
+    // this test pins.
+    const container = makeContainer();
+    container.id = ':r0:';
+    const { layer } = build(
+      'ColumnChart',
+      makeDataTable(STAGES, ['Stage', 'Count']),
+      container,
+    );
+
+    const selectors = layer.selectors as string;
+
+    expect(selectors).toContain('#\\:r0\\:');
+    expect(() => container.ownerDocument.querySelectorAll(selectors)).not.toThrow();
+  });
+});
