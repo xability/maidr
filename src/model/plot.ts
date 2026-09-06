@@ -108,6 +108,9 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
+  /** @see Trace.level */
+  public readonly level = 'figure';
+
   public readonly id: string;
   protected movable: Movable;
 
@@ -400,6 +403,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     };
   }
 
+  /** @see Trace.level */
+  public readonly level = 'subplot';
+
   protected readonly movable: Movable;
 
   public readonly traces: Trace[][];
@@ -687,6 +693,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * The trace's chart type, exposed without computing the full state.
    */
   readonly traceType: TraceType;
+
+  /**
+   * Which level of the figure this element is, for the same reason
+   * {@link Trace.traceType} exists: `state.type` answers it too, but only
+   * after building the whole audio/braille/text/highlight snapshot.
+   */
+  readonly level: 'trace';
 
   /**
    * Gets the current X value from the trace

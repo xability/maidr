@@ -336,6 +336,24 @@ export class Context implements Disposable {
   }
 
   /**
+   * Which level of the figure the cursor is on.
+   *
+   * The same answer `state.type` gives, without the state: reading it there
+   * builds the active trace's whole audio/braille/text/highlight snapshot --
+   * and for a figure-level cursor, recurses through the subplot to do it --
+   * so a caller that only wants to know where it is paid for the announcement
+   * as well. `AutoplayService` asks once per tick, which at the fastest rate
+   * is a hundred times a second.
+   *
+   * Exact rather than a shortcut: an element's state carries the same `type`
+   * whether it is populated, empty or out of bounds.
+   * @returns The active element's level
+   */
+  public get activeLevel(): PlotState['type'] {
+    return this.active.level;
+  }
+
+  /**
    * Enable or disable rotor navigation for the current context.
    *
    * @param enable - true to enable rotor mode, false to disable
@@ -566,7 +584,7 @@ export class Context implements Disposable {
    */
   public swapActiveTrace(trace: Trace): Trace | null {
     const current = this.plotContext.peek();
-    if (!current || current.state.type !== 'trace') {
+    if (!current || current.level !== 'trace') {
       return null;
     }
     this.plotContext.pop();
@@ -615,8 +633,7 @@ export class Context implements Disposable {
    *   caller then stays in the lobby and announces that the panel is empty.
    */
   public enterSubplot(): boolean {
-    const activeState = this.active.state;
-    if (activeState.type !== 'figure') {
+    if (this.active.level !== 'figure') {
       return false;
     }
 

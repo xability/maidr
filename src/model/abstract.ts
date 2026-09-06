@@ -462,6 +462,8 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 }
 
 export abstract class AbstractTrace extends AbstractPlot<TraceState> implements Trace {
+  public readonly level = 'trace';
+
   protected readonly id: string;
   protected readonly type: TraceType;
   protected readonly title: string;
