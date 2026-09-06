@@ -142,32 +142,49 @@ export function MaidrRecharts({
   selectorOverride,
   children,
 }: MaidrRechartsProps): JSX.Element {
+  // Read out of the chart subtree on every render, and cheaply: each walk is
+  // depth-first and stops at the first element it wants. What must NOT be a
+  // dependency of the conversion below is `children` itself — the parent
+  // builds a fresh element tree every time it renders, so its identity is
+  // never stable and the memo would never hold. These three scalars are the
+  // whole of what the schema takes from it, so they are what it depends on;
+  // the per-panel answers travel as their serialised form for the same reason.
+  //
+  // Simple and composed mode read the one chart's axes; subplot mode reads
+  // each panel's own, since a panel is its own chart with its own axes and
+  // the walk would otherwise stop at whichever axis it met first. Each panel
+  // is asked with its own orientation, since a panel may override the grid's
+  // and that is what decides which axis its categories are on.
+  const categoryAxisReversed = subplots
+    ? undefined
+    : categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL);
+  const perPanel = subplots
+    ? categoryAxisReversedPerPanelFor(
+        children,
+        normalizeRechartsSubplotGrid(subplots, columns).flat(),
+        orientation,
+      )
+    : undefined;
+  // Serialised rather than joined so an empty grid stays empty: `''.split(',')`
+  // is `['']`, which would claim a panel that is not there.
+  const perPanelKey = perPanel === undefined ? undefined : JSON.stringify(perPanel);
+  // The convention is on the `<Line type>` the chart already declares, so a
+  // step chart need not say it twice. An explicit one still wins, which is how
+  // the reading is corrected when the walk finds a curve that is not the one
+  // meant. Subplot mode abstains for the same reason the axis walk does above
+  // -- one verdict would read the first panel's curve onto every other -- so a
+  // grid of step charts declares the convention, on the panel or on the grid.
+  const resolvedStepDirection = subplots
+    ? stepDirection
+    : (stepDirection ?? stepDirectionFor(children));
+
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
-      // Simple and composed mode read the one chart's axes; subplot mode reads
-      // each panel's own, since a panel is its own chart with its own axes and
-      // the walk would otherwise stop at whichever axis it met first.
-      categoryAxisReversed: subplots
+      categoryAxisReversed,
+      categoryAxisReversedPerPanel: perPanelKey === undefined
         ? undefined
-        : categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
-      // Each panel is asked with its own orientation, since a panel may
-      // override the grid's and that is what decides which axis its categories
-      // are on.
-      categoryAxisReversedPerPanel: subplots
-        ? categoryAxisReversedPerPanelFor(
-            children,
-            normalizeRechartsSubplotGrid(subplots, columns).flat(),
-            orientation,
-          )
-        : undefined,
-      // The convention is on the `<Line type>` the chart already declares, so
-      // a step chart need not say it twice. An explicit one still wins, which
-      // is how the reading is corrected when the walk finds a curve that is
-      // not the one meant. Subplot mode abstains for the same reason the axis
-      // walk does above -- one verdict would read the first panel's curve onto
-      // every other -- so a grid of step charts declares the convention, on the
-      // panel or on the grid.
-      stepDirection: subplots ? stepDirection : (stepDirection ?? stepDirectionFor(children)),
+        : (JSON.parse(perPanelKey) as boolean[]),
+      stepDirection: resolvedStepDirection,
       id,
       title,
       subtitle,
@@ -198,9 +215,10 @@ export function MaidrRecharts({
       boxenConfig,
       selectorOverride,
     }),
-    // `children` joins the list because the schema now reads the axes out of
-    // it; without that a chart that flips `reversed` would keep the old order.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, stepDirection, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride, children],
+    // The three facts read out of `children` stand in for it, so a chart that
+    // flips `reversed` is still picked up while a parent re-render that only
+    // rebuilds the same subtree is not.
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (
