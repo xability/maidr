@@ -62,6 +62,21 @@ function countArrayScans(build: () => void): number {
   }
 }
 
+/**
+ * How many times the body of `build` sorts an array.
+ * @param build - The work to measure
+ * @returns The number of `Array.prototype.sort` calls it made
+ */
+function countSorts(build: () => void): number {
+  const sort = jest.spyOn(Array.prototype, 'sort');
+  try {
+    build();
+    return sort.mock.calls.length;
+  } finally {
+    sort.mockRestore();
+  }
+}
+
 describe('the cost of building a scatter', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -79,6 +94,31 @@ describe('the cost of building a scatter', () => {
     // quadrupling the column does not quadruple the scanning.
     expect(small).toBe(0);
     expect(large).toBe(0);
+  });
+
+  test('orders the points four times, not six', () => {
+    const sorts = countSorts(() => {
+      void new ScatterTrace(createLayer(stackedAtOneX(50)));
+    });
+
+    // The columns and their index twins are the same order, as are the rows
+    // and theirs, so one ordering serves each pair. The two reading orders
+    // are their own.
+    expect(sorts).toBe(4);
+  });
+
+  test('still groups the points into the columns and rows they belong to', () => {
+    const trace = new ScatterTrace(createLayer([
+      { x: 5, y: 3 },
+      { x: 1, y: 7 },
+      { x: 5, y: 1 },
+    ]));
+
+    // Columns are unique x ascending, rows unique y ascending, and a point
+    // reads at its place in whichever the mode is on.
+    expect(trace.positionOfDataIndex(1)).toEqual({ row: 0, col: 0 });
+    expect(trace.positionOfDataIndex(2)).toEqual({ row: 0, col: 1 });
+    expect(trace.positionOfDataIndex(0)).toEqual({ row: 1, col: 1 });
   });
 
   test('still reads a point at its own place in its column', () => {

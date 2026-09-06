@@ -286,10 +286,21 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     this.hasZ = data.some(p => typeof p.z === 'number');
 
-    const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
+    // Columns and rows are built from an order over the point *indices*
+    // rather than over copies of the points, so the one ordering serves both
+    // the values a column holds and the data indices behind them
+    // (`xPointIndices`, which INTERSECTION highlight needs). Ordering the
+    // points and then ordering the indices the same way, as this did, is two
+    // N log N sorts for one answer -- on a Manhattan plot of a few hundred
+    // thousand points, the duplicates alone were a third of a second before
+    // anything could be read, and every live-data append pays it again.
+    const xOrder = ScatterTrace.orderedIndices(data, 'x');
     this.xPoints = new Array<ScatterXPoint>();
+    this.xPointIndices = new Array<number[]>();
     let currentX: ScatterXPoint | null = null;
-    for (const point of sortedByX) {
+    let currentXIndices: number[] = [];
+    for (const index of xOrder) {
+      const point = data[index];
       if (!currentX || currentX.x !== point.x) {
         currentX = {
           x: point.x,
@@ -300,17 +311,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           names: [],
         };
         this.xPoints.push(currentX);
+        currentXIndices = [];
+        this.xPointIndices.push(currentXIndices);
       }
       currentX.y.push(point.y);
       currentX.yLabels.push(nameOf(point.yLabel));
       currentX.names.push(nameOf(point.label));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
+      currentXIndices.push(index);
     }
 
-    const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
+    const yOrder = ScatterTrace.orderedIndices(data, 'y');
     this.yPoints = new Array<ScatterYPoint>();
+    this.yPointIndices = new Array<number[]>();
     let currentY: ScatterYPoint | null = null;
-    for (const point of sortedByY) {
+    let currentYIndices: number[] = [];
+    for (const index of yOrder) {
+      const point = data[index];
       if (!currentY || currentY.y !== point.y) {
         currentY = {
           y: point.y,
@@ -321,11 +338,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           names: [],
         };
         this.yPoints.push(currentY);
+        currentYIndices = [];
+        this.yPointIndices.push(currentYIndices);
       }
       currentY.x.push(point.x);
       currentY.xLabels.push(nameOf(point.xLabel));
       currentY.names.push(nameOf(point.label));
       currentY.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
+      currentYIndices.push(index);
     }
 
     this.xValues = this.xPoints.map(p => p.x);
@@ -462,8 +482,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // stacks, from ROW it uses y-row stacks, so we offer the mode whenever
     // either is non-trivial.
     const hasSvg = allSvgClones.length === data.length;
-    this.xPointIndices = ScatterTrace.buildStackedIndices(data, 'x');
-    this.yPointIndices = ScatterTrace.buildStackedIndices(data, 'y');
     this.xPointsSvg = hasSvg
       ? this.xPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;
@@ -478,45 +496,36 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
-   * Build an array parallel to xPoints / yPoints whose [col][k] (or [row][k])
-   * is the `data` index of the point behind xPoints[col].y[k] /
-   * yPoints[row].x[k].
+   * The indices of `data`, ordered by one axis with the other breaking ties.
    *
-   * xPoints is constructed by sorting (x asc, y asc); yPoints by (y asc, x
-   * asc). We walk the same sort order over data indices and group on the
-   * primary axis, so each entry lines up with the value the *Points entry
-   * holds. Required for INTERSECTION highlight, which focuses a single point
-   * in a stack rather than the whole chord.
+   * The order the points are grouped into columns (`x` primary) or rows (`y`
+   * primary) in, kept as indices so grouping produces both at once: the
+   * values a column holds, and the `data` index behind each of them. The
+   * indices are what INTERSECTION highlight focuses a single point of a
+   * stack by, and the durable identity of a point besides -- the caller maps
+   * one to an SVG element when the binder supplied one, and publishes it
+   * as-is to a canvas adapter, which has no element to map it to.
    *
-   * The index is the durable identity: the caller maps it to an SVG element
-   * when the binder supplied one, and publishes it as-is to a canvas adapter,
-   * which has no element to map it to.
+   * `Array.prototype.sort` is stable, so points agreeing on both axes stay in
+   * the order the layer listed them, exactly as when the points themselves
+   * were sorted.
+   *
+   * @param data - The layer's points
+   * @param primary - The axis to group by; the other breaks ties
+   * @returns The indices, ordered
    */
-  private static buildStackedIndices(
+  private static orderedIndices(
     data: ScatterPoint[],
     primary: 'x' | 'y',
-  ): number[][] {
+  ): number[] {
     const secondary = primary === 'x' ? 'y' : 'x';
-    const sortedIndices = data
+    return data
       .map((_, i) => i)
       .sort(
         (a, b) =>
           data[a][primary] - data[b][primary]
           || data[a][secondary] - data[b][secondary],
       );
-    const result: number[][] = [];
-    let group: number[] | null = null;
-    let prevKey: number | null = null;
-    for (const i of sortedIndices) {
-      const key = data[i][primary];
-      if (group === null || key !== prevKey) {
-        group = [];
-        result.push(group);
-        prevKey = key;
-      }
-      group.push(i);
-    }
-    return result;
   }
 
   /**
