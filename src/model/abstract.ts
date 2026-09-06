@@ -329,6 +329,45 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
   }
 
   /**
+   * Rotor compare search along one row of numeric values.
+   *
+   * Steps from the current column in the given direction and moves to the
+   * first value that satisfies the comparison; reports the rotor boundary
+   * when nothing further qualifies. For the traces whose values are a plain
+   * numeric grid indexed [row][col]; a trace with a richer layout (the bar's
+   * orientation-normalised rows, the candlestick's segments) keeps its own.
+   *
+   * @param rowValues - The values of the row being searched
+   * @param direction - Which way to search
+   * @param type - Whether a lower or a higher value is sought
+   * @returns True when a matching value was found and moved to
+   */
+  protected compareSearchAlongRow(
+    rowValues: readonly number[],
+    direction: 'left' | 'right',
+    type: 'lower' | 'higher',
+  ): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce.
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
+    const current = this.col;
+    const step = direction === 'right' ? 1 : -1;
+    for (let i = current + step; i >= 0 && i < rowValues.length; i += step) {
+      if (this.compare(rowValues[i], rowValues[current], type)) {
+        this.col = i;
+        this.notifyStateUpdate();
+        return true;
+      }
+    }
+    this.notifyRotorBounds();
+    return false;
+  }
+
+  /**
    * Override left, right, upward and downward navigation functionality in rotor
    */
   /**

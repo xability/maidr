@@ -1,6 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { DumbbellData, DumbbellPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
@@ -186,6 +187,31 @@ export class DumbbellTrace extends AbstractTrace {
 
   protected get values(): number[][] {
     return this.endValues;
+  }
+
+  /**
+   * The pair under the cursor, whichever end is being read. `points` is a
+   * flat list, which the inherited reading -- built for one list per row --
+   * cannot index, and a trace that answers no x is offered rotor compare
+   * modes that then do nothing and cannot keep the reader's category across
+   * a layer switch.
+   *
+   * @returns The current pair's x
+   */
+  public override getCurrentXValue(): XValue | null {
+    return this.points[this.col]?.x ?? null;
+  }
+
+  public override moveToXValue(xValue: XValue): boolean {
+    const index = this.points.findIndex(point => point.x === xValue);
+    return index !== -1 && this.moveToIndex(this.row, index);
+  }
+
+  public override moveToNextCompareValue(
+    direction: 'left' | 'right',
+    type: 'lower' | 'higher',
+  ): boolean {
+    return this.compareSearchAlongRow(this.endValues[this.row] ?? [], direction, type);
   }
 
   protected get dimension(): Dimension {
