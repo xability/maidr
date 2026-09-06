@@ -16,7 +16,7 @@ import type {
   ViolinKdePoint,
 } from '@type/grammar';
 import { candlestickSectionsOf } from '@model/candlestick';
-import { Orientation, TraceType } from '@type/grammar';
+import { TraceType } from '@type/grammar';
 
 /**
  * Trace types whose layer data is a nested array of groups
@@ -91,12 +91,6 @@ export interface AppendedPointInfo {
    * rows are OHLC sections).
    */
   nested: boolean;
-  /**
-   * Which trace axis a sliding-window trim shifts: 'col' when columns index
-   * data points, 'none' when the point axis is not the column axis (e.g.
-   * horizontal candlesticks) and no cursor shift should be applied.
-   */
-  trimShift: 'col' | 'none';
 }
 
 /**
@@ -207,7 +201,6 @@ export function appendPointToMaidr(
   let col: number;
   let trimmed: number;
   let nested: boolean;
-  let trimShift: 'col' | 'none' = 'col';
 
   // Nested layers are detected by trace type so that an initially empty
   // outer array (`data: []`) still gets the correct `LiveDataPoint[][]`
@@ -254,18 +247,11 @@ export function appendPointToMaidr(
       // superset. A chart drawn without an opening price has four rows, not
       // five, so the static index of `close` is past the last row it has and
       // the announcement would target one that does not exist (#1188).
-      const closeSection = candlestickSectionsOf(
-        newData as CandlestickPoint[],
-      ).indexOf('close');
-      if (layer.orientation === Orientation.HORIZONTAL) {
-        // Horizontal layout: rows index candles, columns index sections —
-        // a window trim shifts rows, so no column shift applies.
-        row = col;
-        col = closeSection;
-        trimShift = 'none';
-      } else {
-        row = closeSection;
-      }
+      //
+      // Rows index sections and columns index candles in both orientations
+      // (see the Candlestick constructor), so the same cell is targeted
+      // whichever way the chart is drawn.
+      row = candlestickSectionsOf(newData as CandlestickPoint[]).indexOf('close');
     }
   }
 
@@ -297,7 +283,6 @@ export function appendPointToMaidr(
       col,
       trimmed,
       nested,
-      trimShift,
     },
   };
 }
