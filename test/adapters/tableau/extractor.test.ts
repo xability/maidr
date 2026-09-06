@@ -214,6 +214,28 @@ describe('tableau extractor', () => {
       );
     });
 
+    it('keeps a continuous-axis worksheet the mark type cannot describe', () => {
+      // Same worksheet as above, now on a host that reports a visual
+      // specification — the normal case on any current Embedding library. The
+      // mark type is authority B, but `line` needs a category and this
+      // worksheet has none, so trusting it drops the whole panel from the
+      // figure. The ladder's own reading is still available and still right.
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Profit by Discount',
+          columns: [fakeColumn('Discount', 'float', 0), fakeColumn('SUM(Profit)', 'float', 1)],
+          rows: [[0.1, 5], [0.2, 9], [0.3, 2]],
+          spec: fakeVisualSpec(['line']),
+        }),
+      ]);
+
+      expect(extraction.maidr.subplots).toHaveLength(1);
+      expect(layerOf(extraction).type).toBe(TraceType.SCATTER);
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('produced no sonifiable data'),
+      );
+    });
+
     it('gives every point of a grouped line a z, and does not pad the shorter series', () => {
       const january = fakeValue(new Date('2021-01-01T00:00:00Z'), 'January 2021');
       const february = fakeValue(new Date('2021-02-01T00:00:00Z'), 'February 2021');

@@ -789,9 +789,11 @@ function ladderTraceType(
  * Decide what one worksheet is, in the fixed order of authority.
  *
  * A → an explicit `overrides.traceType`; B → the visual specification's mark
- * type; C → the heuristic ladder. An override that cannot be honoured — `heat`
+ * type; C → the heuristic ladder. A reading that cannot be honoured — `heat`
  * on a view with holes in its grid, say — degrades to the ladder's answer with
  * a warning, because a truthful smaller reading beats a confident wrong one.
+ * That applies to A and to B alike: both are claims about what the author drew,
+ * and neither is evidence that the summary data can carry it.
  *
  * @param snapshot - The worksheet snapshot.
  * @param plan - The worksheet's column plan.
@@ -824,7 +826,22 @@ function decideTraceType(
   if (markType !== undefined) {
     const decision = markTypeToTrace(markType, plan, rows, snapshot.name, warned);
     if (decision.kind === 'trace') {
-      return decision.type;
+      // Checked exactly as an override is: the mark type says what was drawn,
+      // not that the summary data can describe it. `bar`, `line`, `area` and
+      // `pie` all need a category, and a worksheet with a continuous field on
+      // an axis has none — `classifyColumn` reads that field as a second
+      // measure — so honouring the mark unchecked hands `buildData` a plan it
+      // returns `null` for and the whole worksheet is dropped from the figure.
+      // The ladder can still read it, as C1 explains.
+      if (canBuild(decision.type, plan, rows)) {
+        return decision.type;
+      }
+      warnOnce(
+        warned,
+        `worksheet "${snapshot.name}" is drawn with ${markType} marks, but a `
+        + `"${decision.type}" layer cannot be built from these columns; `
+        + `falling back to the inferred type.`,
+      );
     }
     if (decision.kind === 'skip') {
       warnOnce(
