@@ -1079,11 +1079,13 @@ function buildScatterData(
  * Build a complete grid, for `heat`.
  *
  * `HeatmapData` is an object rather than an array and demands a rectangle:
- * `points.length === y.length` and `points[r].length === x.length`. Callers
- * check {@link isCompleteGrid} first, so a hole here is a duplicated pair
- * rather than a missing one; it is filled with `0` and given `null` criteria,
- * so the pad names no mark — the same criteria contract the segmented builder
- * uses for its own padding.
+ * `points.length === y.length` and `points[r].length === x.length`. A cell the
+ * view drew nothing at — an unmatched pair, or a NULL measure, which Tableau
+ * reports as a `null` `nativeValue` — is padded with `null` and given `null`
+ * criteria, so the pad names no mark and announces no reading. Never `0`: a
+ * zero sonifies at the bottom of the range, is reachable as an extremum, and
+ * pulls the scale every other cell is measured against (#1191) — the same
+ * reason the segmented builder pads with `NaN`.
  *
  * @param category - The category dimension, laid along x.
  * @param group - The series dimension, laid along y.
@@ -1117,18 +1119,18 @@ function buildHeatData(
     }
   }
 
-  const points: number[][] = [];
+  const points: (number | null)[][] = [];
   const cells: (readonly TableauSelectionCriteria[] | null)[][] = [];
 
   for (const bandKey of y) {
-    const magnitudes: number[] = [];
+    const magnitudes: (number | null)[] = [];
     const bandCells: (readonly TableauSelectionCriteria[] | null)[] = [];
     for (const columnKey of x) {
       const source = sourceRows.get(cellKey(bandKey, columnKey));
       const magnitude = source === undefined
         ? null
         : toFiniteNumber(source[value.viewIndex]);
-      magnitudes.push(magnitude ?? 0);
+      magnitudes.push(magnitude);
       bandCells.push(
         source === undefined || magnitude === null
           ? null

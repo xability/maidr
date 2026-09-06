@@ -541,6 +541,30 @@ describe('tableau extractor', () => {
       expect(data.points.every(row => row.length === data.x.length)).toBe(true);
     });
 
+    it('leaves a cell Tableau drew no value at as a gap rather than a zero', () => {
+      // A NULL measure arrives as a `null` nativeValue over a grid that is
+      // otherwise complete, so `isCompleteGrid` does not stand in the way. A
+      // `0` there sonifies at the bottom of the range, is reachable as the
+      // row minimum, and pulls the scale every other cell is announced
+      // against; `null` is the gap spelling `HeatmapData` demands (#1191).
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Tables', 'East', null],
+            ['Chairs', 'West', 3],
+            ['Tables', 'West', 4],
+          ],
+          spec: fakeVisualSpec(['heatmap']),
+        }),
+      ]);
+
+      const data = layerOf(extraction).data as HeatmapData;
+
+      expect(data.points).toEqual([[1, null], [3, 4]]);
+    });
+
     it('falls back to grouped bars, with a warning, when the grid has holes', () => {
       const extraction = extractTableau([
         fakeSnapshot({
