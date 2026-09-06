@@ -355,9 +355,13 @@ export class ViolinKdeTrace extends AbstractTrace {
   protected get audio(): AudioState {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const colCount = this.points[this.row]?.length ?? 0;
+    // Stereo position follows the on-screen x. Horizontal: the curve runs
+    // along x, so the position on it (col) pans. Vertical: the violins sit
+    // side by side along x, so the violin (row) pans and climbing the curve
+    // holds the pan still.
     const panning = isHorizontal
       ? { x: this.col, y: this.row, rows: this.points.length, cols: colCount }
-      : { y: this.row, x: this.col, rows: this.points.length, cols: colCount };
+      : { x: this.row, y: this.col, rows: colCount, cols: this.points.length };
 
     // Use precomputed reference violin values (cached in constructor)
     if (!this.refHasPositive) {

@@ -298,21 +298,25 @@ export class MoveToSubplotContextCommand implements Command {
   private readonly context: Context;
   private readonly displayService: DisplayService;
   private readonly cue: SubplotCue;
+  private readonly rotor: RotorNavigationService;
 
   /**
    * Creates an instance of MoveToSubplotContextCommand.
    * @param {Context} context - The context in which the move operation is performed.
    * @param {DisplayService} displayService - The display service for focus management.
    * @param {SubplotCue} cue - Plays the exit tone and announces the figure position.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before leaving the trace, so the lobby's arrow keys are moves again.
    */
   public constructor(
     context: Context,
     displayService: DisplayService,
     cue: SubplotCue,
+    rotor: RotorNavigationService,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.cue = cue;
+    this.rotor = rotor;
   }
 
   /**
@@ -326,8 +330,21 @@ export class MoveToSubplotContextCommand implements Command {
    * dispatches into a single re-render, so the user hears one clear exit
    * message plus the falling exit tone. In OFF text mode the message is null,
    * so only the tone plays.
+   *
+   * A rotor mode is an index on the service but a boolean on the trace, and
+   * `Context.isRotorEnabled()` routes every arrow key to the rotor while it is
+   * on. The lobby has no trace for the rotor to act on and binds no key that
+   * could switch it off, so leaving with it on left every arrow key silently
+   * swallowed. Hand the rotor back to data mode first, while the outgoing
+   * trace is still active and its own flag is the one cleared -- as a
+   * PageUp/PageDown trace switch does. Only when the exit is real: on a
+   * single-subplot chart exitSubplot() is a no-op and the reader stays on the
+   * trace in the mode they chose.
    */
   public execute(): void {
+    if (this.context.isMultiPanel) {
+      this.rotor.resetToDataMode();
+    }
     this.context.exitSubplot();
     // Mirror the enter path: keep the focus stack in sync with the scope, but
     // only when the exit actually happened. On a single-subplot chart
@@ -363,6 +380,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
   private readonly brailleViewModel: BrailleViewModel;
   private readonly candlestickDeltaService: CandlestickDeltaService;
   private readonly cue: SubplotCue;
+  private readonly rotor: RotorNavigationService;
 
   /**
    * Creates an instance of ExitBrailleAndSubplotCommand.
@@ -371,6 +389,7 @@ export class ExitBrailleAndSubplotCommand implements Command {
    * @param {BrailleViewModel} brailleViewModel - The braille view model for the single-panel fallback.
    * @param {CandlestickDeltaService} candlestickDeltaService - Releases the virtual delta layer on the multi-panel exit path.
    * @param {SubplotCue} cue - Plays the exit tone and announces the lobby position on the multi-panel exit.
+   * @param {RotorNavigationService} rotor - Returns the rotor to data mode before the multi-panel exit, so the lobby's arrow keys are moves again.
    */
   public constructor(
     context: Context,
@@ -378,12 +397,14 @@ export class ExitBrailleAndSubplotCommand implements Command {
     brailleViewModel: BrailleViewModel,
     candlestickDeltaService: CandlestickDeltaService,
     cue: SubplotCue,
+    rotor: RotorNavigationService,
   ) {
     this.context = context;
     this.displayService = displayService;
     this.brailleViewModel = brailleViewModel;
     this.candlestickDeltaService = candlestickDeltaService;
     this.cue = cue;
+    this.rotor = rotor;
   }
 
   /**
@@ -398,6 +419,11 @@ export class ExitBrailleAndSubplotCommand implements Command {
       // first, so it does not survive on the real chart layer. This command
       // manages the stack and focus itself, so discardActiveLayer() must not.
       this.candlestickDeltaService.discardActiveLayer();
+      // discardActiveLayer() resets the rotor only when a delta layer existed.
+      // The rotor has to go back to data mode on every multi-panel exit, for
+      // the reason given on MoveToSubplotContextCommand: the lobby cannot act
+      // on a rotor mode and has no key to leave one.
+      this.rotor.resetToDataMode();
       this.displayService.dismissModalScope(Scope.SUBPLOT);
       this.context.exitSubplot();
       this.displayService.notifyFocusChange(Scope.SUBPLOT);

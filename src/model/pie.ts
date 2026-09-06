@@ -406,6 +406,13 @@ export class PieTrace extends AbstractTrace {
     direction: 'left' | 'right',
     type: 'lower' | 'higher',
   ): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors Candlestick).
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     const values = this.sliceValues[this.row];
     const current = this.col;
     const step = direction === 'right' ? 1 : -1;

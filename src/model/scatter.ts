@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { GridNavigable, PointCloudHighlightable, PointNavigable } from '@type/navigation';
+import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
@@ -1470,6 +1470,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   public override moveToExtreme(direction: MovableDirection): boolean {
+    // Cell, grid, point and intersection mode own the cursor (see moveOnce).
+    // Ctrl+Arrow is bound whatever mode is active, so the extreme is taken
+    // within the mode: jumping the row/col cursor underneath it would
+    // re-announce the unchanged point and leave the reader somewhere else,
+    // unannounced, the moment they left the mode.
+    if (this.isInGridCellMode) {
+      return this.moveToExtremeInGridCell(direction);
+    }
+    if (this.isInGridMode && this.gridCells) {
+      return this.moveToExtremeInGrid(direction);
+    }
+    if (this.isInPointMode) {
+      return this.moveToExtremePoint(direction);
+    }
+    if (this.isInIntersectionMode) {
+      return this.moveToExtremeIntersection(direction);
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -1513,6 +1531,95 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     return true;
   }
 
+  /**
+   * The extreme within an entered cell, which is walked one way, by x.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when the cell cursor moved to its first or last point
+   */
+  private moveToExtremeInGridCell(direction: MovableDirection): boolean {
+    if (this.cellXPoints.length === 0 || direction === 'UPWARD' || direction === 'DOWNWARD') {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.cellPointIndex = direction === 'FORWARD' ? this.cellXPoints.length - 1 : 0;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The extreme cell of the grid in a direction.
+   *
+   * @param direction - The direction of the jump
+   * @returns True, the grid always has an edge to jump to
+   */
+  private moveToExtremeInGrid(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'UPWARD':
+        this.gridRow = this.numGridRows - 1;
+        break;
+      case 'DOWNWARD':
+        this.gridRow = 0;
+        break;
+      case 'FORWARD':
+        this.gridCol = this.numGridCols - 1;
+        break;
+      case 'BACKWARD':
+        this.gridCol = 0;
+        break;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The first or last point of the order point mode walks in a direction:
+   * reading order for left/right, column order for up/down.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when there is a point to land on
+   */
+  private moveToExtremePoint(direction: MovableDirection): boolean {
+    if (this.flatPoints.length === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    switch (direction) {
+      case 'FORWARD':
+        this.pointModeIndex = this.readingOrder[this.readingOrder.length - 1];
+        break;
+      case 'BACKWARD':
+        this.pointModeIndex = this.readingOrder[0];
+        break;
+      // columnOrder is sorted (x asc, y desc), so up is backward in it.
+      case 'UPWARD':
+        this.pointModeIndex = this.columnOrder[0];
+        break;
+      case 'DOWNWARD':
+        this.pointModeIndex = this.columnOrder[this.columnOrder.length - 1];
+        break;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The first or last point of the stack intersection mode is walking.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when the stack has a point to land on
+   */
+  private moveToExtremeIntersection(direction: MovableDirection): boolean {
+    const size = this.getIntersectionStackValues().length;
+    if (size === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.intersectionStackIndex = direction === 'FORWARD' || direction === 'UPWARD' ? size - 1 : 0;
+    this.notifyStateUpdate();
+    return true;
+  }
+
   public override moveToIndex(row: number, col: number): boolean {
     // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
     // (ROW mode). NavigationService.moveToXValueInValues preserves X across
@@ -1541,6 +1648,76 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         return false;
       }
     }
+  }
+
+  /**
+   * The x the reader is at, in terms of the axis they are walking.
+   *
+   * COL mode walks the x values, so it is the column's x. ROW mode walks the
+   * y values, so the x reported is the one the reader would land on when
+   * switching back to columns (the same middle-of-the-row rule
+   * `toggleNavigation` applies), which keeps a layer switch near the points
+   * they were hearing. The inherited reading of `values[row][col]` over
+   * `[xValues, yValues]` answered with a y value at row 1 and with nothing
+   * at all above it.
+   *
+   * @returns The current x, or null when the cursor is off the data
+   */
+  public override getCurrentXValue(): XValue | null {
+    if (this.mode === NavMode.COL) {
+      return this.xPoints[this.col]?.x ?? null;
+    }
+    const xs = this.yPoints[this.row]?.x;
+    if (xs === undefined || xs.length === 0) {
+      return null;
+    }
+    return xs[Math.floor(xs.length / 2)];
+  }
+
+  /**
+   * Moves to the column at an x value, entering COL mode to do so.
+   *
+   * An exact x wins; a numeric x with no exact column falls back to the
+   * nearest one, as the shared helper does for other traces, and a
+   * categorical x is matched against the column labels.
+   *
+   * @param xValue - The x to move to
+   * @returns True when a column was found and the cursor moved
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    const index = this.xIndexNearest(xValue);
+    if (index === -1) {
+      return false;
+    }
+    this.mode = NavMode.COL;
+    return this.moveToIndex(0, index);
+  }
+
+  /**
+   * The column index for an x value: exact, else nearest numeric, else by
+   * column label.
+   *
+   * @param xValue - The x to look up
+   * @returns The column index, or -1 when nothing matches
+   */
+  private xIndexNearest(xValue: XValue): number {
+    if (typeof xValue !== 'number') {
+      return this.xPoints.findIndex(point => point.label === xValue);
+    }
+    const exact = this.xIndexByValue.get(xValue);
+    if (exact !== undefined) {
+      return exact;
+    }
+    let best = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    this.xValues.forEach((x, index) => {
+      const distance = Math.abs(x - xValue);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    });
+    return best;
   }
 
   /**
@@ -2521,11 +2698,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Reads state at an explicit cursor, with the trace-local navigation modes
    * suspended for the duration.
    *
-   * `getStateAt` moves row/col and reads the state getters, but point and
-   * intersection mode short-circuit those getters onto their own cursor — so a
-   * live-appended point would be announced as whichever point the user happens
-   * to be focused on. Suspending the flags makes the read positional again,
-   * which is what every caller of this method asks for.
+   * `getStateAt` moves row/col and reads the state getters, but point,
+   * intersection and grid mode short-circuit those getters onto their own
+   * cursor — so a live-appended point would be announced as whichever point
+   * or cell the user happens to be focused on. Suspending the flags makes the
+   * read positional again, which is what every caller of this method asks for.
    *
    * @param row - Row index to read at
    * @param col - Column index to read at
@@ -2534,13 +2711,19 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   public override getStateAt(row: number, col: number): TraceState {
     const wasInPointMode = this.isInPointMode;
     const wasInIntersectionMode = this.isInIntersectionMode;
+    const wasInGridMode = this.isInGridMode;
+    const wasInGridCellMode = this.isInGridCellMode;
     this.isInPointMode = false;
     this.isInIntersectionMode = false;
+    this.isInGridMode = false;
+    this.isInGridCellMode = false;
     try {
       return super.getStateAt(row, col);
     } finally {
       this.isInPointMode = wasInPointMode;
       this.isInIntersectionMode = wasInIntersectionMode;
+      this.isInGridMode = wasInGridMode;
+      this.isInGridCellMode = wasInGridCellMode;
     }
   }
 

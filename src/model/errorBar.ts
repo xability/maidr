@@ -1,6 +1,7 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
@@ -286,6 +287,32 @@ export class ErrorBarTrace extends AbstractTrace {
 
   protected get values(): number[][] {
     return this.sectionValues;
+  }
+
+  /**
+   * The category under the cursor, within the current group. `points` is a
+   * flat list, which the inherited reading -- built for one list per row --
+   * cannot index, and a trace that answers no x is offered rotor compare
+   * modes that then do nothing and cannot keep the reader's category across
+   * a layer switch.
+   *
+   * @returns The current category's x
+   */
+  public override getCurrentXValue(): XValue | null {
+    return this.groups[this.groupOf(this.row)]?.[this.col]?.x ?? null;
+  }
+
+  public override moveToXValue(xValue: XValue): boolean {
+    const group = this.groups[this.groupOf(this.row)] ?? [];
+    const index = group.findIndex(point => point.x === xValue);
+    return index !== -1 && this.moveToIndex(this.row, index);
+  }
+
+  public override moveToNextCompareValue(
+    direction: 'left' | 'right',
+    type: 'lower' | 'higher',
+  ): boolean {
+    return this.compareSearchAlongRow(this.sectionValues[this.row] ?? [], direction, type);
   }
 
   protected get dimension(): Dimension {

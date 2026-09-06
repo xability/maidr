@@ -3,6 +3,7 @@ import type { AudioService } from '@service/audio';
 import type { BrailleService } from '@service/braille';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { RotorNavigationService } from '@service/rotor';
 import type { TactileService } from '@service/tactile';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { PlotState } from '@type/state';
@@ -43,6 +44,13 @@ function createTextService(mode: 'verbose' | 'terse' | 'off' = 'verbose'): TextS
     service.toggle(); // TERSE -> OFF
   }
   return service;
+}
+
+/**
+ * A rotor stub: the exit commands hand it back to data mode on the way out.
+ */
+function createMockRotor(): RotorNavigationService {
+  return { resetToDataMode: jest.fn() } as unknown as RotorNavigationService;
 }
 
 function createMockDisplayService(): DisplayService {
@@ -335,6 +343,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(audioService, notificationService, createTextService()),
+      createMockRotor(),
     );
 
     command.execute();
@@ -357,6 +366,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(createMockAudioService(), notificationService, createTextService('terse')),
+      createMockRotor(),
     );
 
     command.execute();
@@ -394,6 +404,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(createMockAudioService(), notificationService, createTextService('terse')),
+      createMockRotor(),
     );
 
     command.execute();
@@ -428,6 +439,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(createMockAudioService(), notificationService, createTextService('verbose')),
+      createMockRotor(),
     );
 
     command.execute();
@@ -450,6 +462,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(audioService, notificationService, createTextService('off')),
+      createMockRotor(),
     );
 
     command.execute();
@@ -471,6 +484,7 @@ describe('MoveToSubplotContextCommand exit cue', () => {
       context,
       createMockDisplayService(),
       createSubplotCue(audioService, notificationService, createTextService()),
+      createMockRotor(),
     );
 
     command.execute();
