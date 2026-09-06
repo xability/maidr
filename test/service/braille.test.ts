@@ -250,6 +250,17 @@ function createBoxTraceState(
   };
 }
 
+/** The five-number summary and outliers of one box, as the fixtures build it. */
+interface BoxSummary {
+  lowerOutliers: number[];
+  min: number;
+  q1: number;
+  q2: number;
+  q3: number;
+  max: number;
+  upperOutliers: number[];
+}
+
 // Section columns a box braille row is navigated by.
 const BOX_LOWER_OUTLIER = 0;
 const BOX_MIN = 1;
@@ -269,7 +280,7 @@ const BOX_MAX = 5;
  * @returns The row's characters and the emitted index per section column
  */
 function encodeBoxSectionCells(
-  box: { lowerOutliers: number[]; min: number; q1: number; q2: number; q3: number; max: number; upperOutliers: number[] },
+  box: BoxSummary,
   displaySize: number,
 ): { row: string; indices: number[] } {
   const indices = new Array<number>();
