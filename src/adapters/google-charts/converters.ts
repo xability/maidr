@@ -61,6 +61,7 @@ import type {
 import type {
   GoogleBoundingBox,
   GoogleChart,
+  GoogleChartLayoutInterface,
   GoogleChartType,
   GoogleDataTable,
   GoogleEvents,
@@ -3282,6 +3283,31 @@ function numberColumn(dt: GoogleDataTable, from: number): number | undefined {
  * @returns CSS selector for the marked elements, or undefined if no elements found
  */
 /**
+ * The chart's layout interface, when the package it was drawn with has one.
+ *
+ * Asked rather than called: a great many packages expose no
+ * `getChartLayoutInterface` at all -- the material builders
+ * (`google.charts.Bar`, `google.charts.Line`), and Calendar, Gauge, Sankey,
+ * OrgChart and TreeMap among the classic ones -- and a build whose interface
+ * differs can throw from inside it. Either way the throw travels out of
+ * `createMaidrFromGoogleChart` inside the caller's own `ready` handler, so
+ * the `maidr` attribute is never set and the chart is not merely
+ * unhighlighted but entirely inaccessible. The intended degradation is no
+ * highlight with the audio, text and braille intact, which every caller's
+ * `if (!layout)` branch already provides.
+ *
+ * @param chart - The drawn Google Chart
+ * @returns The layout interface, or `undefined` when there is none to ask
+ */
+function chartLayout(chart: GoogleChart): GoogleChartLayoutInterface | undefined {
+  try {
+    return chart.getChartLayoutInterface?.();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Whether the chart draws its categories in the opposite order to the rows.
  *
  * `hAxis: {direction: -1}` (or `vAxis` on a bar chart) reverses which end the
@@ -3331,7 +3357,7 @@ function drawsCategoriesReversed(
   if (rowCount < 2)
     return false;
   try {
-    const layout = chart.getChartLayoutInterface();
+    const layout = chartLayout(chart);
     const locate = horizontal ? layout?.getYLocation : layout?.getXLocation;
     const first = locate?.call(layout, 0);
     const last = locate?.call(layout, rowCount - 1);
@@ -3383,7 +3409,7 @@ function markBarElements(
   if (!svg)
     return undefined;
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
     return buildDataSelector(container, 'rect');
 
@@ -3460,7 +3486,7 @@ function markSegmentedBarElements(
   if (!svg)
     return { selector: undefined, cells: undefined };
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
     return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
@@ -3564,7 +3590,7 @@ function markScatterElements(
   if (!svg)
     return undefined;
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout)
     return buildDataSelector(container, 'circle');
 
@@ -4153,7 +4179,7 @@ function markSeriesPointElements(
     return undefined;
   }
 
-  const layout = chart.getChartLayoutInterface();
+  const layout = chartLayout(chart);
   if (!layout) {
     return undefined;
   }

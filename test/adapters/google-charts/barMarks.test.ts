@@ -164,6 +164,43 @@ function makeStackedContainer(rowCount = STAGES.length): HTMLElement {
   return container;
 }
 
+describe('a chart drawn by a package with no layout interface', () => {
+  /**
+   * The material packages (`google.charts.Bar`, `google.charts.Line`) expose
+   * no `getChartLayoutInterface`, so calling it throws a TypeError. Every
+   * marking helper called it unguarded, and the throw travelled out of
+   * `createMaidrFromGoogleChart` inside the caller's own `ready` handler --
+   * so the `maidr` attribute was never set and the chart was not merely
+   * unhighlighted but entirely inaccessible.
+   */
+  const NO_LAYOUT: GoogleChart = {
+    getSelection: () => [],
+    setSelection: () => {},
+    getChartLayoutInterface: () => {
+      throw new TypeError('chart.getChartLayoutInterface is not a function');
+    },
+  };
+
+  it.each([
+    ['BarChart', 1],
+    ['StackedColumnChart', 2],
+    ['ScatterChart', 1],
+    ['VolcanoChart', 1],
+  ] as [GoogleChartType, number][])('still reads a %s', (chartType, series) => {
+    const dt = series === 1
+      ? makeDataTable(STAGES, ['Stage', 'People'])
+      : makeDataTable(
+          STAGES.map(([stage, value]) => [stage, value, value] as MarkRow),
+          ['Stage', 'People', 'Others'],
+        );
+
+    const maidr = createMaidrFromGoogleChart(NO_LAYOUT, dt, makeContainer(), { chartType });
+
+    // The reading survives; only the outline may be missing.
+    expect(maidr.subplots[0][0].layers[0].data).toBeDefined();
+  });
+});
+
 describe('createMaidrFromGoogleChart with a DotChart', () => {
   it('reads a dot plot as a bar chart that announces itself as a dot plot', () => {
     const dt = makeDataTable(STAGES, ['Stage', 'People']);
