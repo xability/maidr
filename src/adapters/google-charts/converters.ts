@@ -3506,13 +3506,16 @@ function markScatterElements(
   // Clear any existing marks from previous initializations
   allCircles.forEach(circle => circle.removeAttribute('data-maidr-point'));
 
+  // Read once into buckets rather than rescanning the list per point.
+  const placed = indexCircles(allCircles);
+
   let markedCount = 0;
 
   // Approach 1: Try getBoundingBox('point#series#row') - similar to bar charts
   for (let i = 0; i < data.length; i++) {
     const bbox = layout.getBoundingBox(`point#0#${i}`);
     if (bbox) {
-      const circle = findCircleByBoundingBox(allCircles, bbox);
+      const circle = findCircleByBoundingBox(placed, bbox);
       if (circle && !circle.hasAttribute('data-maidr-point')) {
         circle.setAttribute('data-maidr-point', `${i}`);
         markedCount++;
@@ -3528,7 +3531,7 @@ function markScatterElements(
       const expectedY = layout.getYLocation(point.y);
 
       // Skip circles that are already marked (handles multiple circles per point)
-      const circle = findUnmarkedCircleByPosition(allCircles, expectedX, expectedY);
+      const circle = findUnmarkedCircleByPosition(placed, expectedX, expectedY);
       if (circle) {
         circle.setAttribute('data-maidr-point', `${i}`);
         markedCount++;
@@ -3544,35 +3547,147 @@ function markScatterElements(
 }
 
 /**
+ * One drawn element, with the position a search matches it on.
+ */
+interface PlacedMark<T extends Element> {
+  element: T;
+  /** Where it sits in the document, so a tie is broken as a scan would. */
+  order: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Drawn marks bucketed by where they were drawn.
+ *
+ * A chart's marks are matched to its data by position, and doing that with a
+ * scan of the whole element list per datum is O(data x elements) with two DOM
+ * reads in the inner loop — run synchronously inside the caller's `ready`
+ * handler. The charts that reach it are the ones that cannot afford it: a
+ * volcano or Manhattan plot "carries tens of thousands of points of which a
+ * few dozen matter", and a 100-category by 12-series stacked column chart is
+ * 1.5M inner iterations. Reading each element once into buckets makes every
+ * later lookup touch a handful of candidates instead.
+ */
+type MarkIndex<T extends Element> = Map<string, PlacedMark<T>[]>;
+
+/**
+ * The side of one bucket, in pixels.
+ *
+ * Twice the tolerance, so a query's tolerance box spans at most two buckets
+ * on each axis and a lookup reads four of them at the most.
+ */
+const INDEX_CELL = POSITION_TOLERANCE * 2;
+
+function cellKey(x: number, y: number): string {
+  return `${Math.floor(x / INDEX_CELL)},${Math.floor(y / INDEX_CELL)}`;
+}
+
+/**
+ * Buckets a list of drawn elements by the position it is matched on.
+ *
+ * @param elements - The drawn elements, in document order
+ * @param at       - Where each one sits
+ * @returns The index
+ */
+function indexMarks<T extends Element>(
+  elements: NodeListOf<T>,
+  at: (element: T) => { x: number; y: number },
+): MarkIndex<T> {
+  const index: MarkIndex<T> = new Map();
+  elements.forEach((element, order) => {
+    const { x, y } = at(element);
+    const key = cellKey(x, y);
+    const cell = index.get(key);
+    const mark: PlacedMark<T> = { element, order, x, y };
+    if (cell) {
+      cell.push(mark);
+    } else {
+      index.set(key, [mark]);
+    }
+  });
+  return index;
+}
+
+/**
+ * The first mark drawn at a position, in document order.
+ *
+ * Document order rather than bucket order: a scan answered with the first
+ * element of the list that matched, and two coincident marks are routine in
+ * binned or rounded data, so anything else would silently pair a datum with a
+ * different element than it used to.
+ *
+ * @param index  - The marks to search
+ * @param x      - The x the mark should sit at
+ * @param y      - The y the mark should sit at
+ * @param accept - An extra condition on the mark, defaulting to none
+ * @returns The matching element, or null when nothing was drawn there
+ */
+function markAt<T extends Element>(
+  index: MarkIndex<T>,
+  x: number,
+  y: number,
+  accept?: (element: T) => boolean,
+): T | null {
+  const first = Math.floor((x - POSITION_TOLERANCE) / INDEX_CELL);
+  const last = Math.floor((x + POSITION_TOLERANCE) / INDEX_CELL);
+  const top = Math.floor((y - POSITION_TOLERANCE) / INDEX_CELL);
+  const bottom = Math.floor((y + POSITION_TOLERANCE) / INDEX_CELL);
+
+  let found: PlacedMark<T> | null = null;
+  for (let column = first; column <= last; column++) {
+    for (let row = top; row <= bottom; row++) {
+      const cell = index.get(`${column},${row}`);
+      if (!cell) {
+        continue;
+      }
+      for (const mark of cell) {
+        if (Math.abs(mark.x - x) > POSITION_TOLERANCE) {
+          continue;
+        }
+        if (Math.abs(mark.y - y) > POSITION_TOLERANCE) {
+          continue;
+        }
+        if (accept && !accept(mark.element)) {
+          continue;
+        }
+        if (found === null || mark.order < found.order) {
+          found = mark;
+        }
+      }
+    }
+  }
+
+  return found === null ? null : found.element;
+}
+
+/**
+ * Indexes a chart's circles by their centres.
+ *
+ * @param circles - NodeList of SVG circle elements
+ * @returns The index the marker searches below read from
+ */
+function indexCircles(circles: NodeListOf<SVGCircleElement>): MarkIndex<SVGCircleElement> {
+  return indexMarks(circles, circle => ({
+    x: Number.parseFloat(circle.getAttribute('cx') || '0'),
+    y: Number.parseFloat(circle.getAttribute('cy') || '0'),
+  }));
+}
+
+/**
  * Finds an SVG circle element that matches the given bounding box.
  *
  * The bounding box center should match the circle's cx/cy position.
  *
- * @param circles - NodeList of SVG circle elements to search
+ * @param circles - Index of the SVG circle elements to search
  * @param bbox - The target bounding box from the chart layout API
  * @returns The matching circle element, or null if not found
  */
 function findCircleByBoundingBox(
-  circles: NodeListOf<SVGCircleElement>,
+  circles: MarkIndex<SVGCircleElement>,
   bbox: GoogleBoundingBox,
 ): SVGCircleElement | null {
-  // Calculate center of bounding box
-  const centerX = bbox.left + bbox.width / 2;
-  const centerY = bbox.top + bbox.height / 2;
-
-  for (const circle of circles) {
-    const cx = Number.parseFloat(circle.getAttribute('cx') || '0');
-    const cy = Number.parseFloat(circle.getAttribute('cy') || '0');
-
-    // Match by center position with tolerance
-    const xMatch = Math.abs(cx - centerX) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(cy - centerY) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch) {
-      return circle;
-    }
-  }
-  return null;
+  return markAt(circles, bbox.left + bbox.width / 2, bbox.top + bbox.height / 2);
 }
 
 /**
@@ -3581,34 +3696,22 @@ function findCircleByBoundingBox(
  * Skips circles that already have the data-maidr-point attribute to handle
  * Google Charts rendering multiple overlapping circles per data point.
  *
- * @param circles - NodeList of SVG circle elements to search
+ * @param circles - Index of the SVG circle elements to search
  * @param expectedX - Expected x-coordinate (center)
  * @param expectedY - Expected y-coordinate (center)
  * @returns The matching unmarked circle element, or null if not found
  */
 function findUnmarkedCircleByPosition(
-  circles: NodeListOf<SVGCircleElement>,
+  circles: MarkIndex<SVGCircleElement>,
   expectedX: number,
   expectedY: number,
 ): SVGCircleElement | null {
-  for (const circle of circles) {
-    // Skip already-marked circles
-    if (circle.hasAttribute('data-maidr-point')) {
-      continue;
-    }
-
-    const cx = Number.parseFloat(circle.getAttribute('cx') || '0');
-    const cy = Number.parseFloat(circle.getAttribute('cy') || '0');
-
-    // Match by center position with tolerance
-    const xMatch = Math.abs(cx - expectedX) <= POSITION_TOLERANCE;
-    const yMatch = Math.abs(cy - expectedY) <= POSITION_TOLERANCE;
-
-    if (xMatch && yMatch) {
-      return circle;
-    }
-  }
-  return null;
+  return markAt(
+    circles,
+    expectedX,
+    expectedY,
+    circle => !circle.hasAttribute('data-maidr-point'),
+  );
 }
 
 /**
@@ -4001,13 +4104,18 @@ function markSeriesPointElements(
     return undefined;
   };
 
+  // Read once into buckets rather than rescanning the list per point: these
+  // charts carry tens of thousands of points, and the scan is what froze the
+  // tab before the chart became accessible at all.
+  const placed = indexCircles(allCircles);
+
   let markedCount = 0;
   marks.forEach((mark, index) => {
     const bbox = layout.getBoundingBox(`point#${mark.series}#${mark.row}`);
     if (!bbox) {
       return;
     }
-    const circle = findCircleByBoundingBox(allCircles, bbox);
+    const circle = findCircleByBoundingBox(placed, bbox);
     if (circle && !circle.hasAttribute(attribute)) {
       circle.setAttribute(attribute, `${index}`);
       markedCount++;

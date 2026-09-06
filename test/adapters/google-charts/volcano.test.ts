@@ -138,6 +138,43 @@ function build(
   return { layer: maidr.subplots[0][0].layers[0], container };
 }
 
+/**
+ * How many times the run reads a circle's centre from the DOM.
+ *
+ * The marker search is the cost that matters on these charts, and it is a
+ * DOM read per candidate. Counting the reads says whether the search makes
+ * one pass over the circles or one pass per point, which is what separates a
+ * chart that becomes accessible from one that freezes the tab.
+ *
+ * @param container - The container whose document to instrument
+ * @param run       - The conversion to measure
+ * @returns How many `cx` reads it made
+ */
+function countCentreReads(container: HTMLElement, run: () => void): number {
+  const view = container.ownerDocument.defaultView;
+  if (!view) {
+    throw new Error('the fixture has no window');
+  }
+
+  const proto = view.Element.prototype;
+  const original = proto.getAttribute;
+  let reads = 0;
+  proto.getAttribute = function (name: string): string | null {
+    if (name === 'cx') {
+      reads += 1;
+    }
+    return original.call(this, name);
+  };
+
+  try {
+    run();
+  } finally {
+    proto.getAttribute = original;
+  }
+
+  return reads;
+}
+
 // The order-mismatch case warns on purpose.
 const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -232,6 +269,38 @@ describe('createMaidrFromGoogleChart with a ManhattanChart', () => {
     expect(marked).toHaveLength(4);
     expect(marked.map(circle => circle.getAttribute('data-maidr-hit')))
       .toEqual(['0', '1', '2', '3']);
+  });
+
+  it('finds every marker without rescanning the circles for each one', () => {
+    // `buildVolcanoLayer` says these charts "carry tens of thousands of
+    // points of which a few dozen matter". Searching the whole circle list
+    // per point is O(points x circles) with two DOM reads in the inner loop,
+    // run synchronously inside the caller's `ready` handler -- at twenty
+    // thousand points that is a tab frozen for minutes before the chart
+    // becomes accessible at all.
+    const count = 300;
+    const rows: ManhattanRow[] = Array.from(
+      { length: count },
+      (_, index) => [index, index / 5, null, `rs${index}`],
+    );
+    const markers: [number, number][] = rows.map((_, index) => [0, index]);
+    const container = makeScatterContainer(markers);
+    const dt = makeScatterDataTable(
+      rows,
+      ['Position', 'chr1', 'chr2', ''],
+      [undefined, undefined, undefined, 'annotation'],
+    );
+
+    let selectors: unknown;
+    const reads = countCentreReads(container, () => {
+      selectors = build('ManhattanChart', dt, markers, container).layer.selectors;
+    });
+
+    // Every marker still found, in data order.
+    expect(selectors).toBeDefined();
+    expect(container.querySelectorAll('[data-maidr-hit]')).toHaveLength(count);
+    // A handful of reads per circle, not a scan per point.
+    expect(reads).toBeLessThanOrEqual(count * 4);
   });
 
   it('withdraws the marks when the chart drew its series out of data order', () => {
