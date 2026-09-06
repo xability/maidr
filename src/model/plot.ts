@@ -158,21 +158,33 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     this.yLabel = maidr.axes?.y?.label ?? DEFAULT_FIGURE_AXIS;
 
     const subplots = maidr.subplots as MaidrSubplot[][];
-    this.subplots = subplots.map((row, r) =>
-      row.map((subplot, c) => {
-        // Reporting the position is the only signal a producer author ever
-        // gets, and reading the cell as empty in silence would trade a loud
-        // failure for an invisible one.
-        if (!hasLayerArray(subplot)) {
-          console.warn(
-            `[Figure] Subplot [${r}][${c}] has no \`layers\` array; reading `
-            + `it as an empty subplot. The producer of this schema should `
-            + `emit \`{ id, layers: [] }\` for positions no chart occupies.`,
-          );
-        }
-        return new Subplot(subplot);
-      }),
-    );
+    // Built one at a time so a subplot that throws does not strand what the
+    // subplots before it inserted into the chart: a figure that never
+    // finishes constructing is never disposed.
+    const built: Subplot[][] = [];
+    try {
+      subplots.forEach((row, r) => {
+        const cells: Subplot[] = [];
+        built.push(cells);
+        row.forEach((subplot, c) => {
+          // Reporting the position is the only signal a producer author ever
+          // gets, and reading the cell as empty in silence would trade a loud
+          // failure for an invisible one.
+          if (!hasLayerArray(subplot)) {
+            console.warn(
+              `[Figure] Subplot [${r}][${c}] has no \`layers\` array; reading `
+              + `it as an empty subplot. The producer of this schema should `
+              + `emit \`{ id, layers: [] }\` for positions no chart occupies.`,
+            );
+          }
+          cells.push(new Subplot(subplot));
+        });
+      });
+    } catch (error) {
+      built.forEach(row => row.forEach(subplot => subplot.dispose()));
+      throw error;
+    }
+    this.subplots = built;
     this.size = this.subplots.reduce((sum, row) => sum + row.length, 0);
 
     // Defaults until applyLayout() is called.
@@ -441,9 +453,21 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
         || layerTypes.includes(TraceType.VIOLIN_BOX);
 
     // Each layer's type maps directly to a trace — no heuristic needed.
-    this.traces = layers.map(layer => [
-      TraceFactory.create(layer),
-    ]);
+    //
+    // Built one at a time so a layer the factory rejects does not strand
+    // what the layers before it inserted: every trace clones its highlight
+    // elements into the chart as it is constructed, and a subplot that never
+    // finishes constructing is never disposed.
+    const traces: Trace[][] = [];
+    try {
+      for (const layer of layers) {
+        traces.push([TraceFactory.create(layer)]);
+      }
+    } catch (error) {
+      traces.forEach(row => row.forEach(trace => trace.dispose()));
+      throw error;
+    }
+    this.traces = traces;
     // Read the lightweight traceType accessor rather than trace.state, which
     // would eagerly compute full audio/braille/text/highlight state per trace
     // on every construction (including every live-data rebuild).

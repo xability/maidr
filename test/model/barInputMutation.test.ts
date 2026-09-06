@@ -1,4 +1,4 @@
-import type { BarPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, HeatmapData, MaidrLayer, SegmentedPoint, ViolinKdePoint } from '@type/grammar';
 import { beforeEach, describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { Orientation, TraceType } from '@type/grammar';
@@ -134,5 +134,102 @@ describe('a bar trace does not write to the spec it was given', () => {
     trace.dispose();
 
     expect(barData).toHaveLength(2);
+  });
+});
+
+/**
+ * The same truncation reached four more traces through the same route: box,
+ * violin box and violin KDE hold `layer.data` by reference on their vertical
+ * branch (the horizontal one copies to reverse), and the heatmap holds
+ * `data.x` by reference while copying `data.y` to reverse it. Each one
+ * truncated what it held on `dispose()`, so a spec built into a figure once
+ * could not build a second one.
+ */
+describe('the other traces that held the spec by reference', () => {
+  /**
+   * A summary-statistics group with no outliers.
+   * @param z The group's label
+   * @param mid Its median, with the other quartiles spread around it
+   * @returns The group
+   */
+  function group(z: string, mid: number): BoxPoint {
+    return {
+      z,
+      lowerOutliers: [],
+      min: mid - 2,
+      q1: mid - 1,
+      q2: mid,
+      q3: mid + 1,
+      max: mid + 2,
+      upperOutliers: [],
+    };
+  }
+
+  test.each([TraceType.BOX, TraceType.VIOLIN_BOX])(
+    'disposing a vertical %s trace leaves the caller data intact',
+    (type) => {
+      const data = [group('a', 5), group('b', 7)];
+      const layer: MaidrLayer = {
+        id: 'layer',
+        type,
+        orientation: Orientation.VERTICAL,
+        axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+        data,
+      };
+      const trace = TraceFactory.create(layer);
+
+      trace.dispose();
+
+      expect(data).toHaveLength(2);
+      expect(TraceFactory.create(layer).state.empty).toBe(false);
+    },
+  );
+
+  test('disposing a vertical violin KDE trace leaves the caller data intact', () => {
+    const data: ViolinKdePoint[][] = [
+      [{ x: 'a', y: 0, density: 0.1 }, { x: 'a', y: 1, density: 0.4 }],
+      [{ x: 'b', y: 0, density: 0.2 }, { x: 'b', y: 1, density: 0.3 }],
+    ];
+    const layer: MaidrLayer = {
+      id: 'layer',
+      type: TraceType.VIOLIN_KDE,
+      orientation: Orientation.VERTICAL,
+      axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+      data,
+    };
+    const trace = TraceFactory.create(layer);
+
+    trace.dispose();
+
+    expect(data).toHaveLength(2);
+    expect(TraceFactory.create(layer).state.empty).toBe(false);
+  });
+
+  test('disposing a heatmap leaves the caller column labels intact', () => {
+    const data: HeatmapData = {
+      x: ['Mon', 'Tue'],
+      y: ['r1', 'r2'],
+      points: [[1, 2], [3, 4]],
+    };
+    const layer: MaidrLayer = {
+      id: 'layer',
+      type: TraceType.HEATMAP,
+      axes: { x: { label: 'Day' }, y: { label: 'Row' } },
+      data,
+    };
+    const trace = TraceFactory.create(layer);
+
+    trace.dispose();
+
+    expect(data.x).toEqual(['Mon', 'Tue']);
+    expect(data.y).toEqual(['r1', 'r2']);
+    // A rebuilt heatmap still announces the column it sits on.
+    const second = TraceFactory.create(layer);
+    second.moveToIndex(0, 0);
+    const state = second.state;
+    if (state.empty) {
+      throw new Error('Expected a populated state');
+    }
+    expect(state.text.main.value).toBe('Mon');
   });
 });

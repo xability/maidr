@@ -168,6 +168,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
+  /**
+   * Every clone the selector resolved, in data order, whether or not its
+   * coordinates could be read. A marker with none joins neither a column nor
+   * a row, so this is the only list `dispose()` can remove it through.
+   */
+  private readonly svgClones: SVGElement[];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -345,6 +351,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // Select SVG elements once, then share for COL/ROW grouping and grid cell mapping
     const selector = layer.selectors as string;
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
+    this.svgClones = allSvgClones;
 
     [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
     this.highlightCenters = this.mapSvgElementsToCenters();
@@ -505,14 +512,27 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.xPoints.length = 0;
     this.yPoints.length = 0;
 
+    // Removed through the full list rather than through the column and row
+    // groupings alone: a clone whose coordinates could not be read is in
+    // neither grouping, and left in the chart it accumulated on every
+    // focus-out and live-data rebuild.
+    this.svgClones.forEach(el => Svg.isOwned(el) && el.remove());
+    this.svgClones.length = 0;
     if (this.highlightXValues) {
-      this.highlightXValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightXValues.length = 0;
     }
     if (this.highlightYValues) {
-      this.highlightYValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightYValues.length = 0;
     }
+    this.highlightCenters = null;
+
+    // Grid and grid-cell navigation hold the same clones by another route.
+    this.gridCells?.forEach(row => row.forEach((cell) => {
+      cell.svgElements.length = 0;
+      cell.points.length = 0;
+    }));
+    this.cellSvgGroups.length = 0;
+    this.cellIndexGroups.length = 0;
 
     // Point and intersection navigation cache their own references to the
     // chart's live geometry; leaving them behind retains a detached DOM tree

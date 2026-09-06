@@ -418,7 +418,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       return this.mapGridToSvgElements(selector);
     }
 
-    const domElements = Svg.selectAllElements(selector);
+    // Resolved live; `claim` clones each mark as a cell takes it. Cloning
+    // every match up front inserted a hidden copy beside each mark, and a
+    // selector matching more marks than there are cells left the surplus
+    // copies unreferenced -- so `dispose()` never removed them, and the next
+    // resolution matched them too.
+    const domElements = Svg.selectAllElements(selector, false);
     if (domElements.length === 0) {
       return null;
     }
@@ -469,7 +474,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       if (domIndex >= domElements.length) {
         return Svg.createEmptyElement();
       }
-      return domElements[domIndex++];
+      return Svg.cloneHidden(domElements[domIndex++]);
     };
 
     if (!isColumnMajor) {

@@ -90,11 +90,15 @@ export class GaugeTrace extends AbstractTrace {
       return null;
     }
 
+    // Resolved live, and only the one element kept is cloned. Cloning every
+    // match up front inserted a hidden copy of each beside its original, and
+    // the copies past the first were never referenced again, so `dispose()`
+    // could not remove them.
     const drawn = typeof selectors === 'string'
-      ? Svg.selectAllElements(selectors)
-      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+      ? Svg.selectAllElements(selectors, false)
+      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one, false));
 
-    return drawn.length > 0 ? [[drawn[0]]] : null;
+    return drawn.length > 0 ? [[Svg.cloneHidden(drawn[0])]] : null;
   }
 
   /**

@@ -103,6 +103,13 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
+   * Every line clone the selectors resolved to, in declared link order. The
+   * highlight covers one line per node, so this is what `dispose()` walks to
+   * remove the rest.
+   */
+  private lines: SVGElement[] = [];
+
+  /**
    * Creates a new network trace.
    *
    * @param layer - The MAIDR layer carrying the links
@@ -507,18 +514,24 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     selectors: MaidrLayer['selectors'],
     declared: number,
   ): SVGElement[][] | null {
-    let flat: SVGElement[];
+    // Resolved live first and cloned only once the count fits. A clone is
+    // inserted beside its original the moment it is made, so declining after
+    // cloning left every copy in the chart for `dispose()` never to reach --
+    // and the next resolution matched the copies too.
+    let live: SVGElement[];
     if (typeof selectors === 'string') {
-      flat = Svg.selectAllElements(selectors);
+      live = Svg.selectAllElements(selectors, false);
     } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
-      flat = selectors.flatMap(one => Svg.selectAllElements(one));
+      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
     } else {
       return null;
     }
 
-    if (flat.length !== declared) {
+    if (live.length !== declared) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
+    this.lines = flat;
 
     // The line drawn for the node's most connected neighbour, which is also
     // the rotor's first step from here -- so the highlight agrees with where
@@ -531,6 +544,24 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
         const element = at === undefined ? undefined : flat[at];
         return element ?? Svg.createEmptyElement();
       }));
+  }
+
+  /**
+   * Removes every line clone, not only the ones the highlight covers.
+   *
+   * `AbstractTrace.dispose()` walks `highlightValues`, which holds one line
+   * per node; a line that is nobody's first step is referenced only from
+   * {@link lines}, and left in the chart it accumulated on every focus cycle
+   * and live-data rebuild.
+   */
+  public override dispose(): void {
+    for (const line of this.lines) {
+      if (Svg.isOwned(line)) {
+        line.remove();
+      }
+    }
+    this.lines = [];
+    super.dispose();
   }
 
   /**

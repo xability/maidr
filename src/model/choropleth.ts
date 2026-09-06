@@ -570,18 +570,23 @@ export class ChoroplethTrace extends AbstractTrace {
     selectors: MaidrLayer['selectors'],
     declared: number,
   ): SVGElement[][] | null {
-    let flat: SVGElement[];
+    // Resolved live first and cloned only once the count fits. A clone is
+    // inserted beside its original the moment it is made, so declining after
+    // cloning left every copy in the chart for `dispose()` never to reach --
+    // and the next resolution matched the copies too.
+    let live: SVGElement[];
     if (typeof selectors === 'string') {
-      flat = Svg.selectAllElements(selectors);
+      live = Svg.selectAllElements(selectors, false);
     } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
-      flat = selectors.flatMap(one => Svg.selectAllElements(one));
+      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
     } else {
       return null;
     }
 
-    if (flat.length !== declared) {
+    if (live.length !== declared) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
 
     return this.regions.map(band =>
       band.map(region => flat[region.source] ?? Svg.createEmptyElement()));

@@ -94,14 +94,18 @@ export class WaterfallTrace extends AbstractTrace {
       return null;
     }
 
+    // Resolved live first and cloned only once the count fits. A clone is
+    // inserted beside its original the moment it is made, so declining after
+    // cloning left every copy in the chart for `dispose()` never to reach --
+    // and the next resolution matched the copies too.
     const flat = typeof selectors === 'string'
-      ? Svg.selectAllElements(selectors)
-      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+      ? Svg.selectAllElements(selectors, false)
+      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one, false));
 
     if (flat.length !== this.points.length) {
       return null;
     }
-    return [flat];
+    return [flat.map(element => Svg.cloneHidden(element))];
   }
 
   protected get values(): number[][] {
