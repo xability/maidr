@@ -262,7 +262,10 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
         // Then navigate to the target
         activeTrace.navigateToExtrema(target);
       } catch (error) {
-        // If navigation fails, ensure we're back in trace scope
+        // If navigation fails, ensure we're back in trace scope. Log it: the
+        // reader sees the dialog close and nothing move, which is
+        // indistinguishable from a target that was simply already current.
+        console.error('[GoToExtremaViewModel] navigating to an extremum failed', error);
         this.goToExtremaService.returnToTraceScope();
       }
     } else {
@@ -290,6 +293,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       this.hide();
       activeTrace.moveToXValue(value);
     } catch (error) {
+      console.error('[GoToExtremaViewModel] moving to an x value failed', error);
       this.goToExtremaService.returnToTraceScope();
     }
     return true;
