@@ -35,8 +35,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { LlmValidationService } from '@service/llmValidation';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useCredentialProbe } from '@state/hook/useCredentialProbe';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
@@ -232,16 +232,15 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 }) => {
   const validVersion = getValidVersion(modelKey, modelSettings.version);
   const { modalRef, container } = useModalContainer();
-  const [isValidating, setIsValidating] = useState(false);
-  const [isValid, setIsValid] = useState<boolean | null>(null);
-  // Why the last probe failed, as the probe itself described it. Kept so a
-  // rate limit or a provider outage is not reported as a bad credential:
-  // null whenever there is nothing more specific to say.
-  const [probeError, setProbeError] = useState<string | null>(null);
-  // Models available to this credential, probed from the provider's models
-  // API (or the local Ollama server) when the credential validates; replaces
-  // the curated suggestion list so users pick from what actually exists.
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  // The probe is a network side effect, so it belongs to the state layer
+  // rather than to this component; `useCredentialProbe` owns the debounce and
+  // the staleness handling that go with it.
+  const {
+    isValidating,
+    isValid,
+    error: probeError,
+    models: availableModels,
+  } = useCredentialProbe(modelKey, modelSettings.apiKey, modelSettings.enabled);
 
   // Ollama is a local server: the credential field holds its base URL and
   // "validation" means reachability, so most labels differ from the cloud
@@ -279,59 +278,6 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
       return probeError ?? (isOllama ? 'Ollama server is unreachable' : 'API key is invalid');
     return '';
   };
-
-  // The debounce only spaces out request starts; it cannot cancel a request
-  // already in flight. isStale lets a superseded cycle (newer keystroke or
-  // unmount) discard its response so a slow early probe can never overwrite
-  // the state of a newer one.
-  const validateApiKey = async (apiKey: string, isStale: () => boolean): Promise<void> => {
-    if (!modelSettings.enabled || !apiKey.trim()) {
-      if (!isStale()) {
-        setIsValid(null);
-        setProbeError(null);
-        setAvailableModels([]);
-        // Also clear the spinner: a superseded in-flight request skips its
-        // own finally-cleanup as stale, so this cycle owns the state.
-        setIsValidating(false);
-      }
-      return;
-    }
-
-    setIsValidating(true);
-    try {
-      // A single probe answers both credential validity and the live list of
-      // models the credential can access, for every provider.
-      const probe = await LlmValidationService.probeProvider(modelKey, apiKey);
-      if (isStale()) {
-        return;
-      }
-      setIsValid(probe.isValid);
-      setProbeError(probe.error ?? null);
-      setAvailableModels(probe.models);
-    } catch (error) {
-      if (!isStale()) {
-        setIsValid(false);
-        setProbeError(null);
-        setAvailableModels([]);
-      }
-    } finally {
-      if (!isStale()) {
-        setIsValidating(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    const debounceTimer = setTimeout(() => {
-      validateApiKey(modelSettings.apiKey, () => cancelled);
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(debounceTimer);
-    };
-  }, [modelSettings.apiKey, modelSettings.enabled, modelKey]);
 
   const renderMenuItems = (): React.ReactNode[] => {
     const config = MODEL_VERSIONS[modelKey];
