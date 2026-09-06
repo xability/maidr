@@ -140,12 +140,14 @@ interface LlmModel {
 }
 
 /**
- * Response structure from OpenAI GPT API.
+ * Response structure from OpenAI GPT API. `message.content` is null on a
+ * refusal and empty when a reasoning model spends its whole completion
+ * budget on reasoning, so it is read defensively.
  */
 interface GptResponse {
   choices: {
     message: {
-      content: string;
+      content: string | null;
     };
   }[];
 }
@@ -474,7 +476,12 @@ class Gpt extends AbstractLlmModel<GptResponse> {
    * @returns {LlmResponse} The formatted response
    */
   protected formatResponse(response: GptResponse): LlmResponse {
-    if (response.choices.length === 0) {
+    // An empty or null content is not an answer: a refusal returns null, and
+    // a reasoning model that exhausts max_completion_tokens on reasoning
+    // returns ''. Reported as a success, both put an empty bubble in the
+    // transcript with nothing for the live region to announce.
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
       return {
         success: false,
         error: 'Invalid response format',
@@ -483,7 +490,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 
     return {
       success: true,
-      data: response.choices[0].message.content,
+      data: content,
     };
   }
 }

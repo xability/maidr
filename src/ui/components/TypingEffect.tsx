@@ -49,6 +49,13 @@ function markAnimationCompleted(key: string): void {
 }
 
 export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, messageId, onTypingUpdate }) => {
+  // The body is declared a string, but it arrives from a provider response and
+  // a null one has reached here. Every tick of the animation below reads its
+  // length, so that threw every 10 ms without ever clearing `isTyping` — and
+  // the live region stays deliberately empty while typing, so the message was
+  // never announced at all. Normalised once, so the animation, the key that
+  // remembers it and the announcement all read the same body.
+  const body = typeof text === 'string' ? text : '';
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
   const [mathPlugins, setMathPlugins] = useState<RehypePlugins>(NO_MATH_PLUGINS);
@@ -69,7 +76,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
   // Keyed off the whole message rather than what has been typed so far: the
   // fetch starts the moment the response arrives, and has the length of the
   // animation to finish before the equation is on screen.
-  const needsMath = useMemo(() => containsLatex(text), [text]);
+  const needsMath = useMemo(() => containsLatex(body), [body]);
 
   // KaTeX — ~340 kB of stylesheet and the larger part of its JS — is loaded
   // only for the messages that actually contain maths. Until it arrives the
@@ -109,9 +116,9 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
     // after the dialog is reopened) — show the full text immediately.
     // Separated by an escaped NUL, which neither a message id nor a body
     // can contain, so no pair of messages can collide on one key.
-    const animationKey = `${messageId}\0${text}`;
+    const animationKey = `${messageId}\0${body}`;
     if (isUser || inIframe || completedAnimations.has(animationKey)) {
-      setDisplayedText(text);
+      setDisplayedText(body);
       setIsTyping(false);
       return;
     }
@@ -123,8 +130,8 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
     let currentIndex = 0;
     const typingSpeed = 10; // Slightly slower for better scroll compatibility
     const typingInterval = setInterval(() => {
-      if (currentIndex <= text.length) {
-        setDisplayedText(text.slice(0, currentIndex));
+      if (currentIndex <= body.length) {
+        setDisplayedText(body.slice(0, currentIndex));
         currentIndex++;
 
         // Notify parent component about typing updates for auto-scroll
@@ -139,7 +146,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
     }, typingSpeed);
 
     return () => clearInterval(typingInterval);
-  }, [text, isUser, inIframe, messageId]);
+  }, [body, isUser, inIframe, messageId]);
 
   return (
     <Box style={containerStyle}>
@@ -195,7 +202,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
         aria-live={settings.general.ariaMode}
         aria-atomic="true"
       >
-        {isTyping ? '' : text}
+        {isTyping ? '' : body}
       </div>
       {isTyping && !inIframe && (
         <span

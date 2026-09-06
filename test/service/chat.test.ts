@@ -116,6 +116,44 @@ describe('ChatService provider requests', () => {
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
+  test('OpenAI: reports an empty message as a failure, not an empty answer', async () => {
+    // A reasoning model that spends its whole completion budget on reasoning
+    // finishes with `content: ''`. Reported as a success it renders an empty
+    // bubble that the live region announces as nothing.
+    mockJsonResponse({ choices: [{ message: { content: '' } }] });
+
+    const response = await createService().sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+      version: 'gpt-5.5',
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBeTruthy();
+    expect(response.data).toBeUndefined();
+  });
+
+  test('OpenAI: reports a null message as a failure', async () => {
+    // `message.content` is null on a refusal; the other providers all guard
+    // this, and a null reaching the transcript throws inside the typing
+    // animation instead of being announced.
+    mockJsonResponse({ choices: [{ message: { content: null } }] });
+
+    const response = await createService().sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+      version: 'gpt-5.5',
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBeTruthy();
+    expect(response.data).toBeUndefined();
+  });
+
   test('Gemini: encodes the selected model and key in the URL', async () => {
     mockJsonResponse({ candidates: [{ content: { parts: [{ text: 'Answer.' }] } }] });
 
