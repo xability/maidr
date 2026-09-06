@@ -255,6 +255,24 @@ function buildLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrL
 }
 
 /**
+ * Whether a chart type's builder raises when it finds none of its fields.
+ *
+ * The four that do are the ones whose whole payload is named by their own
+ * sub-config rather than by `xKey`/`yKeys`, so a mismatch there leaves them
+ * with nothing at all rather than with a column of `NaN`.
+ *
+ * @param chartType - The declared chart type
+ * @returns Whether an empty row set has to be turned away before the builder
+ * mistakes it for a config that does not match the data
+ */
+function refusesUnreadableRows(chartType: RechartsChartType): boolean {
+  return chartType === 'gauge'
+    || chartType === 'ridgeline'
+    || chartType === 'hexbin'
+    || chartType === 'boxen';
+}
+
+/**
  * Builds layers for simple mode (single chart type, one or more yKeys).
  */
 function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): MaidrLayer[] {
@@ -267,6 +285,25 @@ function buildSimpleLayers(config: RechartsAdapterConfig, panelScope?: string): 
   }
   if (!data) {
     throw new Error('RechartsAdapter: data is required (top-level or per subplot panel)');
+  }
+
+  // Four builders refuse rows they can find none of their fields in — a gauge
+  // with no measure, a ridgeline with no density, a hexbin with no centres, a
+  // boxen with no median. That diagnostic is about a config that does not
+  // match the data, and it stays. Empty data is a different thing: the
+  // ordinary React fetch pattern renders once with `[]` before the rows
+  // arrive, and a filter that matches nothing goes back to it.
+  //
+  // `MaidrRecharts` converts inside `useMemo`, i.e. during render, so throwing
+  // there unwinds the consumer's tree to its nearest error boundary — the
+  // accessibility wrapper destroying the chart it was added to make readable.
+  // Emitting no layer is the core's own spelling for not ready:
+  // `useMaidrController.createController` returns null for a subplot with none
+  // and builds the figure when the rows land. `chartType: 'bar'` has always
+  // taken empty data without complaint, which is why the crash was confined to
+  // these four and easy to ship without noticing.
+  if (data.length === 0 && refusesUnreadableRows(chartType)) {
+    return [];
   }
 
   // Four types whose payload is a grid grouped by something that is not a
@@ -442,6 +479,63 @@ function buildSegmentedBarLayer(
 }
 
 /**
+ * Where a bin sits when no `binConfig` names its edges.
+ *
+ * A numeric label places the bin, so it is read as a zero-width bin there —
+ * which is what the D3 binder does with the same pre-aggregated
+ * `[{ x, count }]` shape. A label such as `'0-10'` places nothing, and the
+ * alternative to refusing it is announcing a bin range the chart never drew:
+ * defaulting the edges to `0` made `MathUtil.spanned(0, 0)` report the whole
+ * histogram's bin range as "constant 0", and every row of the data table as
+ * Bin Min 0 / Bin Max 0.
+ *
+ * @param x - The bin's label, as the `xKey` field held it
+ * @returns The edge to use for both ends of the bin
+ * @throws When the label is not a number the bin can be placed at
+ */
+function binEdgeFor(x: string | number): number {
+  const at = Number(x);
+  if (Number.isFinite(at)) {
+    return at;
+  }
+  throw new Error(
+    `RechartsAdapter: the histogram bin labelled "${String(x)}" states no bin `
+    + `range — its label is not a number the bin could be placed at, and no `
+    + `\`binConfig\` names the fields holding its edges. Pass \`binConfig: `
+    + `{ xMinKey, xMaxKey }\`; without it every bin range the reader hears `
+    + `would be invented.`,
+  );
+}
+
+/**
+ * Converts data to `HistogramPoint[]`, reading the bin edges the config names.
+ *
+ * @param data - The rows as the chart was given them
+ * @param xKey - The field holding the bin's label
+ * @param yKey - The field holding the bin's count
+ * @param binConfig - The fields holding the bin's own edges
+ * @returns One point per bin
+ * @throws When no `binConfig` is given and a bin's label does not place it
+ */
+function convertToHistogramPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  binConfig?: RechartsAdapterConfig['binConfig'],
+): HistogramPoint[] {
+  return data.map((item) => {
+    const x = item[xKey] as string | number;
+    const y = toNumber(item[yKey]);
+    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : binEdgeFor(x);
+    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : binEdgeFor(x);
+    const yMin = binConfig?.yMinKey ? toNumber(item[binConfig.yMinKey]) : 0;
+    const yMax = binConfig?.yMaxKey ? toNumber(item[binConfig.yMaxKey]) : y;
+
+    return { x, y, xMin, xMax, yMin, yMax };
+  });
+}
+
+/**
  * Builds a histogram layer with HistogramPoint[] data.
  */
 function buildHistogramLayer(
@@ -457,16 +551,7 @@ function buildHistogramLayer(
   chartId?: string,
   panelScope?: string,
 ): MaidrLayer {
-  const histData: HistogramPoint[] = data.map((item) => {
-    const x = item[xKey] as string | number;
-    const y = toNumber(item[yKey]);
-    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : 0;
-    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : 0;
-    const yMin = binConfig?.yMinKey ? toNumber(item[binConfig.yMinKey]) : 0;
-    const yMax = binConfig?.yMaxKey ? toNumber(item[binConfig.yMaxKey]) : y;
-
-    return { x, y, xMin, xMax, yMin, yMax };
-  });
+  const histData = convertToHistogramPoints(data, xKey, yKey, binConfig);
 
   const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
   const resolved = orientation ?? Orientation.VERTICAL;
@@ -1323,7 +1408,12 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     // Only use seriesIndex when there are multiple layers of the same chart type
     const seriesIndex = (typeTotals.get(chartType) ?? 0) > 1 ? currentIndex : undefined;
 
-    const maidrType = toTraceType(chartType);
+    // A composed layer is one series, so the single-series rule applies to it
+    // exactly as it does to a simple-mode layer: a stacked/dodged/normalized/
+    // diverging bar has nothing to stack against and falls back to BAR, and a
+    // stacked area to AREA. Left as declared, `SegmentedTrace` is handed a flat
+    // `BarPoint[]` and throws on `row.map` while the figure is activating.
+    const maidrType = toLayerTraceType(chartType, false);
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey, config);
 
@@ -1372,7 +1462,7 @@ function convertData(
   xKey: string,
   yKey: string,
   config: RechartsAdapterConfig,
-): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
+): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | HistogramPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
   switch (chartType) {
     // A dot plot and a lollipop carry a bar's data — one category, one
     // magnitude — and differ only in the mark drawn for it. So does a funnel:
@@ -1443,12 +1533,18 @@ function convertData(
     case 'hexbin':
     case 'boxen':
       throw new Error(`RechartsAdapter: chartType "${chartType}" describes a whole chart and cannot be a layer of a composed one`);
-    // Stacked/dodged/normalized/diverging/histogram handled by dedicated builders
+    // A histogram layer is a bar layer whose bins carry their own edges, and
+    // `HistogramPoint` is what `Histogram` reads them out of. Emitted as plain
+    // bar points its every bin announces an undefined range.
+    case 'histogram':
+      return convertToHistogramPoints(data, xKey, yKey, config.binConfig);
+    // One layer of a composed chart is one series, so a bar family that reads
+    // a grid has only a flat payload to read. It keeps it, and
+    // `toLayerTraceType` announces it as the plain bar it is.
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
     case 'diverging_bar':
-    case 'histogram':
       return convertToBarPoints(data, xKey, yKey);
   }
 }

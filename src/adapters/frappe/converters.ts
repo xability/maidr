@@ -33,7 +33,7 @@ import {
   lineSelectorForDataset,
   nextId,
   percentageBarSelector,
-  scatterSelector,
+  scatterSelectorForDataset,
   sliceSelector,
 } from './selectors';
 
@@ -402,6 +402,34 @@ function buildLayers(
   }
 }
 
+/**
+ * The dataset a single-series chart is converted from.
+ *
+ * Frappe's own `dataPrep` substitutes a default dataset only when `datasets`
+ * is missing entirely — an explicit `[]` survives construction, and the
+ * adapter also accepts a plain `{ data }` object Frappe never normalised. That
+ * used to surface as a bare `TypeError` from inside `labels.map`, thrown out
+ * of the settle callback the host page calls the adapter from: on the grid API
+ * it skips every remaining panel, so one malformed panel takes the whole
+ * dashboard down. Naming the fault keeps it local, as the diverging and
+ * panel-grid paths already do for their own malformed input.
+ *
+ * @param data      - The chart's labels and datasets
+ * @param chartName - What to call the chart in the message
+ * @returns The chart's first dataset
+ * @throws If the chart carries no dataset at all
+ */
+function soleDataset(data: FrappeData, chartName: string): FrappeDataset {
+  const dataset = data.datasets[0];
+  if (!dataset) {
+    throw new Error(
+      `[maidr/frappe] A ${chartName} needs at least one dataset; this chart's `
+      + '`datasets` array is empty.',
+    );
+  }
+  return dataset;
+}
+
 function buildBarLayer(
   data: FrappeData,
   containerId: string,
@@ -419,7 +447,7 @@ function buildBarLayer(
     );
   }
 
-  const dataset = data.datasets[0];
+  const dataset = soleDataset(data, 'bar chart');
   const points: BarPoint[] = data.labels.map((label, i) => ({
     x: label,
     y: dataset.values[i],
@@ -487,7 +515,20 @@ function buildScatterLayer(
   containerId: string,
   options: FrappeChartAdapterOptions,
 ): MaidrLayer {
-  const dataset = data.datasets[0];
+  // Only the first dataset is converted, so scope the selector to its own
+  // `.dataset-0` group, as the bar and dot builders do. The broad line
+  // selector matches every group's circles, and `ScatterTrace` groups its
+  // elements by `cx`/`cy` rather than rejecting the count mismatch — so the
+  // surplus is absorbed silently and the outline lands on a mark belonging to
+  // a series the reader is never told about.
+  if (data.datasets.length > 1) {
+    console.warn(
+      `[maidr/frappe] Scatter plot has ${data.datasets.length} datasets; only the `
+      + 'first is converted. Multi-series scatter plots are not yet supported.',
+    );
+  }
+
+  const dataset = soleDataset(data, 'scatter plot');
   const points: ScatterPoint[] = data.labels.map((label, i) => ({
     x: Number(label),
     y: dataset.values[i],
@@ -496,7 +537,7 @@ function buildScatterLayer(
   return {
     id: nextId('layer'),
     type: TraceType.SCATTER,
-    selectors: scatterSelector(containerId),
+    selectors: scatterSelectorForDataset(containerId, 0),
     axes: buildAxes(options),
     data: points,
   };
@@ -544,7 +585,7 @@ function buildDotLayer(
     );
   }
 
-  const dataset = data.datasets[0];
+  const dataset = soleDataset(data, 'dot plot');
   const points: BarPoint[] = data.labels.map((label, i) => ({
     x: label,
     y: dataset.values[i],

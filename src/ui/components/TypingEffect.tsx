@@ -152,49 +152,67 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
     <Box style={containerStyle}>
       {/* Visual typing effect for users */}
       <div className={`chat-message-content ${isUser ? 'user' : ''}`}>
-        <ReactMarkdown
-          rehypePlugins={[
-            // Before rehypeSanitize, so KaTeX's own markup goes through the
-            // allowlist rather than around it.
-            ...mathPlugins,
-            [rehypeSanitize, SANITIZE_SCHEMA],
-            // After it, and it has to be: the sanitiser renames `id` and the
-            // ARIA references but not `href`, so a footnote anchor is left
-            // naming where its target used to be. Scoping both sides here puts
-            // them back in agreement and makes the ids unique to this message,
-            // which they are not otherwise — footnotes are numbered per
-            // document and a transcript is one DOM. See `footnoteScope`.
-            [rehypeScopeIds, { messageId }],
-          ]}
-          remarkPlugins={[remarkGfm, remarkMath]}
-          components={{
-            pre: ({ node, ...props }) => (
-              <pre {...props} role="text" aria-label="Code block" />
-            ),
-            // No `a` override. A link's accessible name comes from its own
-            // text, which is right in every case and needs no help: the one
-            // this used to build — `Link: ${children}` — was a worse copy of
-            // that when children was a string, and `[object Object]` when it
-            // was anything else. `aria-label` replaces the name rather than
-            // supplementing it, so there was no fallback to the visible text.
-            //
-            // Dropping it also lets the footnote backref keep the label
-            // remark-gfm gives it, without a fallback expression to get wrong.
-            img: ({ node, ...props }) => (
-              <img {...props} alt={props.alt || 'Image in message'} />
-            ),
-            // The footnotes heading arrives as `<h2 class="sr-only">`, which
-            // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
-            // Nothing can style pipeline-generated markup inline, so the class
-            // is matched here instead — see `visuallyHidden` for why not a rule.
-            h2: ({ node, className, ...props }) => {
-              const hidden = (className ?? '').split(/\s+/).includes('sr-only');
-              return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;
-            },
-          }}
-        >
-          {displayedText}
-        </ReactMarkdown>
+        {/*
+          While the animation runs the prefix is shown as text, and the
+          markdown pipeline runs once, on the finished message.
+          `<ReactMarkdown>` re-parses and re-transforms its children on every
+          render, so feeding it a one-character-longer prefix every 10 ms cost
+          one full parse per character — quadratic, and past a couple of
+          thousand characters a tick no longer fits in the interval, so the
+          callbacks queue and the main thread stalls for the length of the
+          reply. A prefix is not a document either: `**bold` renders as
+          literal asterisks until its closing delimiter arrives, so the
+          structure flickered as it typed. Nothing is lost by waiting — the
+          live region below stays deliberately silent until the message is
+          complete.
+        */}
+        {isTyping
+          ? <span style={{ whiteSpace: 'pre-wrap' }}>{displayedText}</span>
+          : (
+              <ReactMarkdown
+                rehypePlugins={[
+                  // Before rehypeSanitize, so KaTeX's own markup goes through the
+                  // allowlist rather than around it.
+                  ...mathPlugins,
+                  [rehypeSanitize, SANITIZE_SCHEMA],
+                  // After it, and it has to be: the sanitiser renames `id` and the
+                  // ARIA references but not `href`, so a footnote anchor is left
+                  // naming where its target used to be. Scoping both sides here puts
+                  // them back in agreement and makes the ids unique to this message,
+                  // which they are not otherwise — footnotes are numbered per
+                  // document and a transcript is one DOM. See `footnoteScope`.
+                  [rehypeScopeIds, { messageId }],
+                ]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                components={{
+                  pre: ({ node, ...props }) => (
+                    <pre {...props} role="text" aria-label="Code block" />
+                  ),
+                  // No `a` override. A link's accessible name comes from its own
+                  // text, which is right in every case and needs no help: the one
+                  // this used to build — `Link: ${children}` — was a worse copy of
+                  // that when children was a string, and `[object Object]` when it
+                  // was anything else. `aria-label` replaces the name rather than
+                  // supplementing it, so there was no fallback to the visible text.
+                  //
+                  // Dropping it also lets the footnote backref keep the label
+                  // remark-gfm gives it, without a fallback expression to get wrong.
+                  img: ({ node, ...props }) => (
+                    <img {...props} alt={props.alt || 'Image in message'} />
+                  ),
+                  // The footnotes heading arrives as `<h2 class="sr-only">`, which
+                  // mdast-util-to-hast hardcodes and expects a stylesheet to honour.
+                  // Nothing can style pipeline-generated markup inline, so the class
+                  // is matched here instead — see `visuallyHidden` for why not a rule.
+                  h2: ({ node, className, ...props }) => {
+                    const hidden = (className ?? '').split(/\s+/).includes('sr-only');
+                    return <h2 {...props} className={className} style={hidden ? visuallyHidden : undefined} />;
+                  },
+                }}
+              >
+                {displayedText}
+              </ReactMarkdown>
+            )}
       </div>
       {/* Visually hidden live region for screen readers */}
       <div

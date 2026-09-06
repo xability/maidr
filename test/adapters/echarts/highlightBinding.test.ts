@@ -244,6 +244,40 @@ describe('an eCharts stacked bar layer', () => {
   });
 });
 
+describe('an eCharts stacked bar layer with a gap', () => {
+  it('totals each category against its own series', () => {
+    // Five marks: the first series drew nothing at B. `SegmentedTrace` pairs
+    // its rows by column index, so a row shortened by that gap would sum B's
+    // segment into C and announce C's total as one no bar on the page adds
+    // up to -- and drop the last category from the summary entirely.
+    const layer = layerFor(
+      [
+        { type: 'bar', names: CATEGORIES, values: [1, null, 3], name: 'one', stack: 'total' },
+        { type: 'bar', names: CATEGORIES, values: [4, 5, 6], name: 'two', stack: 'total' },
+      ],
+      5,
+      0,
+    );
+    const trace = new SegmentedTrace(layer);
+
+    // Row 2 is the summary row the trace appends after the two series.
+    const totals = [0, 1, 2].map((column) => {
+      trace.moveToIndex(2, column);
+      const state = trace.state as Extract<TraceState, { empty: false }>;
+      return [state.text.main.value, state.text.cross?.value];
+    });
+
+    expect(totals).toEqual([['A', 5], ['B', 5], ['C', 9]]);
+    // Nothing was drawn at B for the first series, so the cell stands in with
+    // the trace's own empty placeholder -- which carries none of the fixture's
+    // ids -- while the categories either side still find their own mark.
+    expect(highlighted(trace, 0, 0)).toEqual(['mark-0']);
+    expect(highlighted(trace, 0, 1)).toEqual(['']);
+    expect(highlighted(trace, 0, 2)).toEqual(['mark-1']);
+    expect(highlighted(trace, 1, 1)).toEqual(['mark-3']);
+  });
+});
+
 describe('an eCharts dodged bar layer', () => {
   it('outlines the bar the reader is on, not nothing at all', () => {
     const layer = layerFor(
@@ -258,6 +292,26 @@ describe('an eCharts dodged bar layer', () => {
 
     expect(highlighted(trace, 0, 1)).toEqual(['mark-1']);
     expect(highlighted(trace, 1, 1)).toEqual(['mark-4']);
+  });
+});
+
+describe('a chart whose container id is not a bare identifier', () => {
+  it('still outlines the bar the reader is on', () => {
+    // React's `useId()` answers `:r0:`, and an id may also begin with a digit
+    // or hold a `.` -- none of which is a CSS identifier. Interpolated raw,
+    // the selector is invalid, `document.querySelectorAll` throws a
+    // SyntaxError, and the throw propagates out of `new Figure(...)`: the
+    // chart is not merely unhighlighted, it is entirely inaccessible.
+    const container = drawnChart(3, 0);
+    container.id = ':r0:';
+    const layer = createMaidrFromEChart(
+      fakeInstance([{ type: 'bar', names: CATEGORIES, values: [1, 2, 3] }]),
+      container,
+    ).subplots[0][0].layers[0];
+
+    const trace = new BarTrace(layer);
+
+    expect(highlighted(trace, 0, 1)).toEqual(['mark-1']);
   });
 });
 

@@ -45,7 +45,7 @@ import type {
   GoogleChart,
   GoogleDataTable,
 } from '@adapters/google-charts/types';
-import type { BarPoint, MaidrLayer } from '@type/grammar';
+import type { BarPoint, MaidrLayer, SegmentedPoint } from '@type/grammar';
 import { createMaidrFromGoogleChart } from '@adapters/google-charts/converters';
 import { describe, expect, it } from '@jest/globals';
 import { Orientation } from '@type/grammar';
@@ -173,6 +173,102 @@ function categoriesOf(layer: MaidrLayer): unknown[] {
   return (layer.data as BarPoint[]).map(p => (horizontal ? p.y : p.x));
 }
 
+/**
+ * A two-column table, which routes a `ColumnChart` to the segmented reading.
+ * @returns The fake table
+ */
+function makeSegmentedDataTable(): GoogleDataTable {
+  const labels = ['Day', 'Tips', 'Bills'];
+  const valueAt = (r: number, c: number): number =>
+    (c === 2 ? ROWS[r][1] / 2 : (ROWS[r][c] as number));
+  return {
+    getNumberOfRows: () => ROWS.length,
+    getNumberOfColumns: () => labels.length,
+    getValue: (r, c) => (c === 0 ? ROWS[r][0] : valueAt(r, c)),
+    getFormattedValue: (r, c) => String(c === 0 ? ROWS[r][0] : valueAt(r, c)),
+    getColumnLabel: c => labels[c],
+    getColumnType: c => (c === 0 ? 'string' : 'number'),
+  };
+}
+
+/**
+ * Where the two-series chart draws bar `index` of `series`.
+ * @param series - Which series
+ * @param index - The row
+ * @param reversed - Whether the category axis is reversed
+ * @returns The bar's box
+ */
+function segmentBox(series: number, index: number, reversed: boolean): GoogleBoundingBox {
+  return { left: leftOf(index, reversed), top: 30 + series * 200, width: 24, height: 100 };
+}
+
+/**
+ * A drawn two-series chart whose layout places both series.
+ * @param reversed - Whether the category axis is reversed
+ * @returns The fake chart
+ */
+function makeSegmentedChart(reversed: boolean): GoogleChart {
+  return {
+    getSelection: () => [],
+    setSelection: () => {},
+    getChartLayoutInterface: () => ({
+      getBoundingBox: (id) => {
+        const bar = /^bar#(\d+)#(\d+)$/.exec(id);
+        if (!bar)
+          return null;
+        const index = Number(bar[2]);
+        return index < ROWS.length ? segmentBox(Number(bar[1]), index, reversed) : null;
+      },
+      getXLocation: value => leftOf(Number(value), reversed),
+      getYLocation: value => 100 + Number(value) * 4,
+    }),
+  };
+}
+
+/**
+ * A rendered two-series chart, its rects in series-major DOM order.
+ * @param reversed - Whether the category axis is reversed
+ * @returns The container
+ */
+function makeSegmentedContainer(reversed: boolean): HTMLElement {
+  const dom = new JSDOM('<!doctype html><body><div id="rev-seg-chart"></div></body>');
+  const doc = dom.window.document;
+  const container = doc.getElementById('rev-seg-chart') as HTMLElement;
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  container.appendChild(svg);
+
+  for (let series = 0; series < 2; series++) {
+    for (let i = 0; i < ROWS.length; i++) {
+      const box = segmentBox(series, i, reversed);
+      const rect = doc.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', `${box.left}`);
+      rect.setAttribute('y', `${box.top}`);
+      rect.setAttribute('width', `${box.width}`);
+      rect.setAttribute('height', `${box.height}`);
+      rect.setAttribute('data-datum', `s${series}-${LISTED[i]}`);
+      svg.appendChild(rect);
+    }
+  }
+
+  return container;
+}
+
+/**
+ * The segmented layer a two-series chart converts to.
+ * @param reversed - Whether the category axis is reversed
+ * @returns The layer and its container
+ */
+function buildSegmented(reversed: boolean): { layer: MaidrLayer; container: HTMLElement } {
+  const container = makeSegmentedContainer(reversed);
+  const maidr = createMaidrFromGoogleChart(
+    makeSegmentedChart(reversed),
+    makeSegmentedDataTable(),
+    container,
+    { chartType: 'ColumnChart' },
+  );
+  return { layer: maidr.subplots[0][0].layers[0], container };
+}
+
 describe('a google chart on a reversed category axis', () => {
   it('leads with the category drawn leftmost', () => {
     // Before the fix this was ['Sat', 'Sun', 'Thu', 'Fri'] — the exact reverse
@@ -232,5 +328,38 @@ describe('the highlight follows the categories', () => {
 
   it('leaves an ordinary chart on its single selector', () => {
     expect(typeof build(false).layer.selectors).toBe('string');
+  });
+});
+
+describe('a two-series google chart on a reversed category axis', () => {
+  it('reads its categories the way the chart drew them', () => {
+    // Adding a second series routes the same ColumnChart to the segmented
+    // builder, which never asked which way the categories were drawn -- so a
+    // chart that read correctly with one series is announced as its own
+    // mirror image with two.
+    const rows = buildSegmented(true).layer.data as SegmentedPoint[][];
+
+    expect(rows).toHaveLength(2);
+    rows.forEach(series => expect(series.map(point => point.x)).toEqual(DRAWN));
+  });
+
+  it('names each cell so the highlight follows the reading', () => {
+    const { layer, container } = buildSegmented(true);
+    const grid = layer.selectors as string[][];
+    const doc = container.ownerDocument;
+    const found = grid.map(row =>
+      row.map(cell => doc.querySelector(cell)?.getAttribute('data-datum')));
+
+    expect(found).toEqual([
+      ['s0-Fri', 's0-Thu', 's0-Sun', 's0-Sat'],
+      ['s1-Fri', 's1-Thu', 's1-Sun', 's1-Sat'],
+    ]);
+  });
+
+  it('leaves an ordinary two-series chart on its single selector', () => {
+    const { layer } = buildSegmented(false);
+
+    expect(typeof layer.selectors).toBe('string');
+    expect((layer.data as SegmentedPoint[][])[0].map(point => point.x)).toEqual(LISTED);
   });
 });

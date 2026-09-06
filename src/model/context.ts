@@ -1,14 +1,13 @@
 import type { Disposable } from '@type/disposable';
+import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
-import { NavigationService } from '@service/navigation';
-import { Scope } from '@type/event';
+import { Emitter, Scope } from '@type/event';
 import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { formatPlotType } from '@util/orientation';
 import { Stack } from '@util/stack';
-import hotkeys from 'hotkeys-js';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
 
 type Plot = Figure | Subplot | Trace;
@@ -49,7 +48,18 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-  private readonly navigationService: NavigationService;
+  private readonly scopeChanged: Emitter<Scope>;
+
+  /**
+   * Fires whenever the keyboard scope this context is in changes.
+   *
+   * The scope stack here is the authority on which scope is active;
+   * `KeybindingService` owns the hotkeys-js scope that decides which bindings
+   * fire. Announcing the change and applying it are two jobs, and only the
+   * first belongs to the model — so this notifies, and `Controller` hands the
+   * new scope to the service.
+   */
+  public readonly onScopeChange: Event<Scope>;
   // Mutable: replaced in place on live data updates (see replaceFigure).
   private figure: Figure;
   private _instructionContext: Plot;
@@ -61,7 +71,8 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
-    this.navigationService = new NavigationService();
+    this.scopeChanged = new Emitter<Scope>();
+    this.onScopeChange = this.scopeChanged.event;
 
     this.isRotorActive = false;
 
@@ -174,7 +185,7 @@ export class Context implements Disposable {
       // exactly like construction, and realign the keyboard scope.
       this.scopeContext.clear();
       this._instructionContext = this.initializePlotContext(figure);
-      hotkeys.setScope(this.scope);
+      this.scopeChanged.fire(this.scope);
     }
 
     return figure;
@@ -329,6 +340,7 @@ export class Context implements Disposable {
   public dispose(): void {
     this.plotContext.clear();
     this.scopeContext.clear();
+    this.scopeChanged.dispose();
   }
 
   public get active(): Plot {
@@ -513,7 +525,7 @@ export class Context implements Disposable {
     this.scopeContext.clear();
     this.scopeContext.push(scope);
 
-    hotkeys.setScope(scope);
+    this.scopeChanged.fire(scope);
   }
 
   public get scope(): Scope {
@@ -601,7 +613,7 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
 
-      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
+      const newTrace = activeSubplot.switchLayer(direction);
 
       if (newTrace) {
         this.plotContext.push(newTrace);

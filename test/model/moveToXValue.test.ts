@@ -29,7 +29,7 @@ function cursorOf(trace: LineTrace): [number, number] {
   return [state.braille.row, state.braille.col];
 }
 
-describe('NavigationService.moveToXValueInPoints keeps the current row', () => {
+describe('moveToXValue keeps the current row', () => {
   test('an exact X match lands on the row the cursor is already on', () => {
     // A layer switch away and back calls moveToXValue with the X the reader
     // left at; resolving it to the first row would silently change series.

@@ -6,6 +6,7 @@ import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
+  LayerSwitchTraceState,
   PlotState,
   PointerGuidanceState,
   SubplotState,
@@ -574,11 +575,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * Steps the active layer without notifying observers.
    *
    * A layer switch is announced from the newly positioned trace (see
-   * `NavigationService.stepTraceInSubplot`). A subplot notification at this
-   * point would describe the new trace at whatever column it was left on,
-   * before X-preservation has moved it. Like {@link moveOnce}, the first step
-   * on a multi-layer subplot is a real step rather than the initial-entry
-   * no-op.
+   * {@link switchLayer}). A subplot notification at this point would describe
+   * the new trace at whatever column it was left on, before X-preservation has
+   * moved it. Like {@link moveOnce}, the first step on a multi-layer subplot is
+   * a real step rather than the initial-entry no-op.
    *
    * @param direction - The direction to step in
    * @returns True when the active layer changed
@@ -588,6 +588,92 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       this.isInitialEntry = false;
     }
     return this.movable.moveOnce(direction);
+  }
+
+  /**
+   * Switches to the adjacent layer, carrying the reader's position across and
+   * announcing the result once.
+   *
+   * The whole layer switch, as opposed to {@link stepLayer}'s bare cursor
+   * step: it preserves X (and Y where both traces support it), reports the
+   * boundary when there is no adjacent layer, and notifies from the trace once
+   * it is positioned. `Context.stepTrace` is the caller, and swaps the trace at
+   * the top of its stack for whatever comes back.
+   *
+   * @param direction - The direction to switch in
+   * @returns The newly active trace (the same one at a boundary), or null when
+   *   the subplot has no layer to read
+   */
+  public switchLayer(direction: MovableDirection): Trace | null {
+    const currentTrace = this.activeTrace;
+    if (!currentTrace) {
+      return null;
+    }
+
+    // At the edge of the layers there is one boundary to report: the trace's
+    // tone and the subplot's "no additional layer", once each. Checked before
+    // moving, because `moveOnce` would notify the subplot's boundary itself and
+    // the pair below would then repeat it.
+    if (!this.isMovable(direction)) {
+      currentTrace.notifyOutOfBounds();
+      this.notifyOutOfBounds();
+      return currentTrace;
+    }
+
+    // Switch to next/previous trace. Stepped silently: a subplot notification
+    // here would describe the new trace at the column it was left on, before
+    // X-preservation has positioned it. The switch is announced from the
+    // positioned trace below.
+    const currentXValue = currentTrace.getCurrentXValue();
+    this.stepLayer(direction);
+    const newTrace = this.activeTrace;
+
+    if (!newTrace) {
+      return null;
+    }
+
+    // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
+    let positioned = false;
+    if (
+      typeof currentTrace.getCurrentYValue === 'function'
+      && typeof newTrace.moveToXAndYValue === 'function'
+    ) {
+      const currentYValue = currentTrace.getCurrentYValue();
+      if (currentYValue !== null && currentXValue !== null) {
+        positioned = newTrace.moveToXAndYValue(currentXValue, currentYValue);
+      }
+    }
+
+    // Default: preserve X value when changing layers
+    if (!positioned) {
+      newTrace.moveToXValue(currentXValue);
+    }
+
+    // Notify after positioning is complete
+    this.notifyLayerSwitch(newTrace);
+    return newTrace;
+  }
+
+  /**
+   * Announces the trace a layer switch landed on, tagged as a switch so the
+   * announcement names which layer of how many the reader is now on.
+   *
+   * @param trace - The newly active trace
+   */
+  private notifyLayerSwitch(trace: Trace): void {
+    if (!trace.state.empty) {
+      const index = this.getRow() + 1;
+      const size = this.getSize();
+      const state: LayerSwitchTraceState = {
+        ...trace.state,
+        isLayerSwitch: true,
+        index,
+        size,
+      };
+      trace.notifyObserversWithState(state);
+    } else {
+      trace.notifyStateUpdate();
+    }
   }
 
   public get state(): SubplotState {

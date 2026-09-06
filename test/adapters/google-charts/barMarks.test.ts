@@ -105,6 +105,202 @@ function build(
   return { layer: maidr.subplots[0][0].layers[0], container };
 }
 
+/**
+ * Where the padded funnel recipe puts bar `index` of `series`.
+ *
+ * Series 0 is the transparent spacer that centres the stage, so it sits at the
+ * start of the stack and the visible stage bar follows it.
+ */
+function stackedBarBox(series: number, index: number): GoogleBoundingBox {
+  return series === 0
+    ? { left: 10, top: 30 + index * 40, width: 30, height: 24 }
+    : { left: 40, top: 30 + index * 40, width: 120, height: 24 };
+}
+
+/** A chart drawn with the padding series stacked under the counts. */
+function makeStackedChart(rowCount = STAGES.length): GoogleChart {
+  return {
+    getSelection: () => [],
+    setSelection: () => {},
+    getChartLayoutInterface: () => ({
+      getBoundingBox: (id) => {
+        const bar = /^bar#(\d+)#(\d+)$/.exec(id);
+        if (!bar) {
+          return null;
+        }
+        const index = Number(bar[2]);
+        return index < rowCount ? stackedBarBox(Number(bar[1]), index) : null;
+      },
+      getXLocation: value => Number(value),
+      getYLocation: value => Number(value),
+    }),
+  };
+}
+
+/** The rects that recipe draws: a padding rect and a stage rect per row. */
+function makeStackedContainer(rowCount = STAGES.length): HTMLElement {
+  const dom = new JSDOM('<!doctype html><body><div id="funnel-chart"></div></body>');
+  const doc = dom.window.document;
+  const container = doc.getElementById('funnel-chart') as HTMLElement;
+
+  const svg = doc.createElementNS(SVG_NS, 'svg');
+  container.appendChild(svg);
+
+  const add = (id: string, box: GoogleBoundingBox): void => {
+    const rect = doc.createElementNS(SVG_NS, 'rect');
+    rect.setAttribute('id', id);
+    rect.setAttribute('x', `${box.left}`);
+    rect.setAttribute('y', `${box.top}`);
+    rect.setAttribute('width', `${box.width}`);
+    rect.setAttribute('height', `${box.height}`);
+    svg.appendChild(rect);
+  };
+
+  for (let i = 0; i < rowCount; i++) {
+    add(`pad-${i}`, stackedBarBox(0, i));
+    add(`count-${i}`, stackedBarBox(1, i));
+  }
+
+  return container;
+}
+
+/**
+ * How many times the run reads a rect's left edge from the DOM.
+ *
+ * Matching a bar to its rect is a DOM read per candidate, so the count says
+ * whether the search makes one pass over the rects or one pass per bar.
+ *
+ * @param container - The container whose document to instrument
+ * @param run       - The conversion to measure
+ * @returns How many `x` reads it made
+ */
+function countLeftEdgeReads(container: HTMLElement, run: () => void): number {
+  const view = container.ownerDocument.defaultView;
+  if (!view) {
+    throw new Error('the fixture has no window');
+  }
+
+  const proto = view.Element.prototype;
+  const original = proto.getAttribute;
+  let reads = 0;
+  proto.getAttribute = function (name: string): string | null {
+    if (name === 'x') {
+      reads += 1;
+    }
+    return original.call(this, name);
+  };
+
+  try {
+    run();
+  } finally {
+    proto.getAttribute = original;
+  }
+
+  return reads;
+}
+
+describe('a segmented chart of many bars', () => {
+  it('finds each rect without rescanning the whole SVG for every one', () => {
+    // `series x categories x rects` with four attribute reads in the inner
+    // loop, and a segmented chart draws about as many rects as it has bars --
+    // so the cost is quadratic in chart size, all of it synchronous inside
+    // the caller's `ready` handler.
+    const categories = 60;
+    const series = 4;
+    const box = (s: number, c: number): GoogleBoundingBox =>
+      ({ left: 20 + c * 20, top: 30 + s * 120, width: 10, height: 100 });
+
+    const rows: MarkRow[] = Array.from(
+      { length: categories },
+      (_, c) => [`c${c}`, ...Array.from({ length: series }, (_, s) => c + s)] as MarkRow,
+    );
+    const dt = makeDataTable(
+      rows,
+      ['Category', ...Array.from({ length: series }, (_, s) => `S${s}`)],
+    );
+
+    const chart: GoogleChart = {
+      getSelection: () => [],
+      setSelection: () => {},
+      getChartLayoutInterface: () => ({
+        getBoundingBox: (id) => {
+          const bar = /^bar#(\d+)#(\d+)$/.exec(id);
+          if (!bar || Number(bar[1]) >= series || Number(bar[2]) >= categories) {
+            return null;
+          }
+          return box(Number(bar[1]), Number(bar[2]));
+        },
+        getXLocation: value => 20 + Number(value) * 20,
+        getYLocation: value => 30 + Number(value) * 20,
+      }),
+    };
+
+    const dom = new JSDOM('<!doctype html><body><div id="many-bars"></div></body>');
+    const doc = dom.window.document;
+    const container = doc.getElementById('many-bars') as HTMLElement;
+    const svg = doc.createElementNS(SVG_NS, 'svg');
+    container.appendChild(svg);
+    for (let s = 0; s < series; s++) {
+      for (let c = 0; c < categories; c++) {
+        const rect = doc.createElementNS(SVG_NS, 'rect');
+        const at = box(s, c);
+        rect.setAttribute('x', `${at.left}`);
+        rect.setAttribute('y', `${at.top}`);
+        rect.setAttribute('width', `${at.width}`);
+        rect.setAttribute('height', `${at.height}`);
+        svg.appendChild(rect);
+      }
+    }
+
+    const reads = countLeftEdgeReads(container, () => {
+      createMaidrFromGoogleChart(chart, dt, container, { chartType: 'StackedColumnChart' });
+    });
+
+    // Every bar still found.
+    expect(container.querySelectorAll('[data-maidr-bar]'))
+      .toHaveLength(series * categories);
+    // A handful of reads per rect, not a scan per bar.
+    expect(reads).toBeLessThanOrEqual(series * categories * 4);
+  });
+});
+
+describe('a chart drawn by a package with no layout interface', () => {
+  /**
+   * The material packages (`google.charts.Bar`, `google.charts.Line`) expose
+   * no `getChartLayoutInterface`, so calling it throws a TypeError. Every
+   * marking helper called it unguarded, and the throw travelled out of
+   * `createMaidrFromGoogleChart` inside the caller's own `ready` handler --
+   * so the `maidr` attribute was never set and the chart was not merely
+   * unhighlighted but entirely inaccessible.
+   */
+  const NO_LAYOUT: GoogleChart = {
+    getSelection: () => [],
+    setSelection: () => {},
+    getChartLayoutInterface: () => {
+      throw new TypeError('chart.getChartLayoutInterface is not a function');
+    },
+  };
+
+  it.each([
+    ['BarChart', 1],
+    ['StackedColumnChart', 2],
+    ['ScatterChart', 1],
+    ['VolcanoChart', 1],
+  ] as [GoogleChartType, number][])('still reads a %s', (chartType, series) => {
+    const dt = series === 1
+      ? makeDataTable(STAGES, ['Stage', 'People'])
+      : makeDataTable(
+          STAGES.map(([stage, value]) => [stage, value, value] as MarkRow),
+          ['Stage', 'People', 'Others'],
+        );
+
+    const maidr = createMaidrFromGoogleChart(NO_LAYOUT, dt, makeContainer(), { chartType });
+
+    // The reading survives; only the outline may be missing.
+    expect(maidr.subplots[0][0].layers[0].data).toBeDefined();
+  });
+});
+
 describe('createMaidrFromGoogleChart with a DotChart', () => {
   it('reads a dot plot as a bar chart that announces itself as a dot plot', () => {
     const dt = makeDataTable(STAGES, ['Stage', 'People']);
@@ -205,5 +401,59 @@ describe('createMaidrFromGoogleChart with a FunnelChart', () => {
     ]);
     // The counts' own label travels to `x` with them.
     expect(layer.axes?.x).toEqual({ label: 'People' });
+  });
+
+  it('outlines the stage bars, not the padding stacked under them', () => {
+    // The payload is read off the counts column, so the highlight has to be
+    // asked for the same series. Asked for series 0, it outlines a
+    // transparent rect that starts where the stack does and is as wide as the
+    // spacer -- a sighted collaborator sees the outline on the wrong
+    // geometry while the audio and the text are right.
+    const padded = makeDataTable(
+      STAGES.map(([stage, count]) => [stage, (10000 - count) / 2, count] as MarkRow),
+      ['Stage', 'Padding', 'People'],
+    );
+    const container = makeStackedContainer();
+
+    const layer = createMaidrFromGoogleChart(
+      makeStackedChart(),
+      padded,
+      container,
+      { chartType: 'FunnelChart' },
+    ).subplots[0][0].layers[0];
+
+    const marked = Array.from(
+      container.ownerDocument.querySelectorAll(String(layer.selectors)),
+    );
+    expect(marked.map(element => element.id)).toEqual(['count-0', 'count-1', 'count-2']);
+  });
+});
+
+describe('a Google Charts container whose id is not a bare identifier', () => {
+  it('builds a selector the DOM will accept', () => {
+    // React's `useId()` answers `:r0:`, and an author's id may equally begin
+    // with a digit or hold a `.`. None of those is a CSS identifier, so
+    // interpolated raw the selector is invalid and `querySelectorAll` throws a
+    // SyntaxError -- which propagates out of `new Figure(...)`, leaving the
+    // chart not merely unhighlighted but entirely unreachable. The same fix
+    // landed for eCharts in this branch; these selectors are built the same
+    // way and needed it too.
+    //
+    // An id that merely *starts* with a digit is a separate gap, in
+    // `cssEscape`'s own non-browser fallback rather than here, and is fixed on
+    // the branch that hardens that helper. Escaping at this call site is what
+    // this test pins.
+    const container = makeContainer();
+    container.id = ':r0:';
+    const { layer } = build(
+      'ColumnChart',
+      makeDataTable(STAGES, ['Stage', 'Count']),
+      container,
+    );
+
+    const selectors = layer.selectors as string;
+
+    expect(selectors).toContain('#\\:r0\\:');
+    expect(() => container.ownerDocument.querySelectorAll(selectors)).not.toThrow();
   });
 });

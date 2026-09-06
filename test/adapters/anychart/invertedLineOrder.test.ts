@@ -74,16 +74,19 @@ function createSeries(seriesType: string): AnyChartSeries {
  * @param options - What the chart declares
  * @param options.seriesType - The AnyChart series type to draw
  * @param options.xInverted - What `xScale().inverted()` answers
+ * @param options.chartType - What `getType()` answers
  * @returns The emitted layer
  */
 function layerFor(options: {
   seriesType?: string;
   xInverted?: boolean;
+  chartType?: string;
 } = {}): MaidrLayer {
   const series = [createSeries(options.seriesType ?? 'line')];
   const chart = {
     title: () => 'Tips',
     container: () => '',
+    getType: () => options.chartType ?? '',
     getSeriesCount: () => series.length,
     getSeriesAt: (i: number) => series[i] ?? null,
     xScale: () => ({ getType: () => 'ordinal', inverted: () => options.xInverted === true }),
@@ -158,5 +161,42 @@ describe('an anychart line on an inverted scale', () => {
 
     expect(layer.type).toBe(TraceType.LINE);
     expect(categoriesOf(layer)).toEqual(DRAWN);
+  });
+});
+
+/**
+ * Which way up the chart is drawn is the chart's own property, not any one
+ * series'. `anychart.bar()` runs its categories down the page and defaults its
+ * x scale to `inverted() === true` so the first one lands at the top; a line
+ * or an area overlaid on that same chart still reports `'line'` / `'area'`,
+ * and there is no such thing as a sideways series inside an upright chart.
+ *
+ * Reading the direction off the series therefore gets a bar chart's overlay
+ * backwards in both directions at once — reversing the one the chart draws in
+ * order, and leaving the one it genuinely draws bottom-up alone.
+ */
+describe('an anychart line overlaid on a sideways bar chart', () => {
+  it('reads a default bar chart in the order it was written', () => {
+    // `anychart.bar()` starts inverted, which is what puts its first category
+    // at the top: nothing is reversed, and announcing it backwards would send
+    // the braille line, the autoplay sweep and the stereo pan the wrong way.
+    const layer = layerFor({ chartType: 'bar', xInverted: true });
+
+    expect(categoriesOf(layer)).toEqual(LISTED);
+    expect(layer.domMapping?.pointOrder).toBeUndefined();
+  });
+
+  it('reads an un-inverted bar chart in the order it is drawn', () => {
+    // The mirror case: `xScale().inverted(false)` on a bar chart genuinely
+    // draws the line bottom-up, so this is the reversal that is needed.
+    const layer = layerFor({ chartType: 'bar' });
+
+    expect(categoriesOf(layer)).toEqual(DRAWN);
+    expect(layer.domMapping?.pointOrder).toBe('reverse');
+  });
+
+  it('reads a band on a bar chart by the chart it is drawn in', () => {
+    expect(categoriesOf(layerFor({ chartType: 'bar', seriesType: 'area', xInverted: true })))
+      .toEqual(LISTED);
   });
 });

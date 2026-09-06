@@ -502,20 +502,34 @@ function traceFamily(type: TraceType): TraceFamily | null {
  * grid.
  *
  * `HeatmapData` is a rectangle: `points[r].length` must equal `x.length` for
- * every row. A view whose row count does not match the product has holes, and a
- * hole filled with a zero is a value the viz never drew.
+ * every row. A view that does not fill the product has holes, and a hole is a
+ * cell the viz never drew.
+ *
+ * The *distinct pairs* are counted rather than the rows. A row count matching
+ * the product is necessary but not sufficient: a view carrying a duplicated
+ * `(category, group)` pair and missing a different one has exactly the same row
+ * count as a complete grid, and duplicates are not exotic here — `planColumns`
+ * reads only D[0] and D[1] and warns that further dimensions are ignored, and
+ * every ignored dimension is a source of them. Counting rows let such a view
+ * through, `buildHeatData` found no source row for the missing pair and padded
+ * it, and the duplicate's own value was silently dropped.
  *
  * @param plan - The worksheet's column plan.
  * @param rows - The worksheet's rows.
  * @returns Whether a complete grid can be built.
  */
 function isCompleteGrid(plan: ColumnPlan, rows: readonly TableauRow[]): boolean {
-  if (plan.category === null || plan.group === null || rows.length === 0) {
+  const { category, group } = plan;
+  if (category === null || group === null || rows.length === 0) {
     return false;
   }
-  const columns = distinctKeys(rows, plan.category.viewIndex).length;
-  const bands = distinctKeys(rows, plan.group.viewIndex).length;
-  return rows.length === columns * bands;
+  const columns = distinctKeys(rows, category.viewIndex).length;
+  const bands = distinctKeys(rows, group.viewIndex).length;
+  const pairs = new Set(rows.map(row => cellKey(
+    toCategoryKey(row[group.viewIndex]),
+    toCategoryKey(row[category.viewIndex]),
+  )));
+  return pairs.size === columns * bands;
 }
 
 /**
@@ -699,6 +713,22 @@ function activeMarkType(
 }
 
 /**
+ * Whether every dimension names one value per row, i.e. is on Detail rather
+ * than describing a category.
+ *
+ * One full pass per dimension, so it is called only where its answer is used.
+ *
+ * @param plan - The worksheet's column plan.
+ * @param rows - The worksheet's rows.
+ * @returns Whether the rows are observations rather than categories.
+ */
+function everyDimensionIsDetail(plan: ColumnPlan, rows: readonly TableauRow[]): boolean {
+  return plan.dimensions.every(
+    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
+  );
+}
+
+/**
  * The heuristic ladder: what the columns alone say the worksheet is.
  *
  * Runs only when neither an override nor a visual specification settled it.
@@ -737,10 +767,13 @@ function ladderTraceType(
   //     reading it as numeric x against numeric y is exactly what it is. Tested
   //     the other way round it would be skipped for having no category, and a
   //     perfectly readable view would vanish from the figure.
-  const everyDimensionIsDetail = plan.dimensions.every(
-    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
-  );
-  if (plan.measures.length >= 2 && everyDimensionIsDetail) {
+  //
+  //     The scan is behind the measure count rather than beside it:
+  //     `distinctKeys` is a full pass per dimension, and the ordinary Tableau
+  //     shape — one measure, one or two dimensions — throws every one of those
+  //     passes away. The binder re-extracts from scratch on every filter,
+  //     parameter, data and tab change, so it is paid again each time.
+  if (plan.measures.length >= 2 && everyDimensionIsDetail(plan, rows)) {
     return TraceType.SCATTER;
   }
 
@@ -789,9 +822,11 @@ function ladderTraceType(
  * Decide what one worksheet is, in the fixed order of authority.
  *
  * A → an explicit `overrides.traceType`; B → the visual specification's mark
- * type; C → the heuristic ladder. An override that cannot be honoured — `heat`
+ * type; C → the heuristic ladder. A reading that cannot be honoured — `heat`
  * on a view with holes in its grid, say — degrades to the ladder's answer with
  * a warning, because a truthful smaller reading beats a confident wrong one.
+ * That applies to A and to B alike: both are claims about what the author drew,
+ * and neither is evidence that the summary data can carry it.
  *
  * @param snapshot - The worksheet snapshot.
  * @param plan - The worksheet's column plan.
@@ -824,7 +859,22 @@ function decideTraceType(
   if (markType !== undefined) {
     const decision = markTypeToTrace(markType, plan, rows, snapshot.name, warned);
     if (decision.kind === 'trace') {
-      return decision.type;
+      // Checked exactly as an override is: the mark type says what was drawn,
+      // not that the summary data can describe it. `bar`, `line`, `area` and
+      // `pie` all need a category, and a worksheet with a continuous field on
+      // an axis has none — `classifyColumn` reads that field as a second
+      // measure — so honouring the mark unchecked hands `buildData` a plan it
+      // returns `null` for and the whole worksheet is dropped from the figure.
+      // The ladder can still read it, as C1 explains.
+      if (canBuild(decision.type, plan, rows)) {
+        return decision.type;
+      }
+      warnOnce(
+        warned,
+        `worksheet "${snapshot.name}" is drawn with ${markType} marks, but a `
+        + `"${decision.type}" layer cannot be built from these columns; `
+        + `falling back to the inferred type.`,
+      );
     }
     if (decision.kind === 'skip') {
       warnOnce(
@@ -1079,11 +1129,13 @@ function buildScatterData(
  * Build a complete grid, for `heat`.
  *
  * `HeatmapData` is an object rather than an array and demands a rectangle:
- * `points.length === y.length` and `points[r].length === x.length`. Callers
- * check {@link isCompleteGrid} first, so a hole here is a duplicated pair
- * rather than a missing one; it is filled with `0` and given `null` criteria,
- * so the pad names no mark — the same criteria contract the segmented builder
- * uses for its own padding.
+ * `points.length === y.length` and `points[r].length === x.length`. A cell the
+ * view drew nothing at — an unmatched pair, or a NULL measure, which Tableau
+ * reports as a `null` `nativeValue` — is padded with `null` and given `null`
+ * criteria, so the pad names no mark and announces no reading. Never `0`: a
+ * zero sonifies at the bottom of the range, is reachable as an extremum, and
+ * pulls the scale every other cell is measured against (#1191) — the same
+ * reason the segmented builder pads with `NaN`.
  *
  * @param category - The category dimension, laid along x.
  * @param group - The series dimension, laid along y.
@@ -1117,18 +1169,18 @@ function buildHeatData(
     }
   }
 
-  const points: number[][] = [];
+  const points: (number | null)[][] = [];
   const cells: (readonly TableauSelectionCriteria[] | null)[][] = [];
 
   for (const bandKey of y) {
-    const magnitudes: number[] = [];
+    const magnitudes: (number | null)[] = [];
     const bandCells: (readonly TableauSelectionCriteria[] | null)[] = [];
     for (const columnKey of x) {
       const source = sourceRows.get(cellKey(bandKey, columnKey));
       const magnitude = source === undefined
         ? null
         : toFiniteNumber(source[value.viewIndex]);
-      magnitudes.push(magnitude ?? 0);
+      magnitudes.push(magnitude);
       bandCells.push(
         source === undefined || magnitude === null
           ? null

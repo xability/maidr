@@ -1,13 +1,8 @@
 import type { BoxPoint, Maidr, MaidrLayer } from '@type/grammar';
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { Orientation, TraceType } from '@type/grammar';
-
-jest.mock('hotkeys-js', () => ({
-  __esModule: true,
-  default: { setScope: jest.fn() },
-}));
 
 /**
  * Creates a bar layer, optionally declaring an orientation.

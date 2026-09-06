@@ -11,7 +11,6 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import { AbstractTrace } from '@model/abstract';
-import { NavigationService } from '@service/navigation';
 import { Orientation } from '@type/grammar';
 import {
   candlePairPatterns,
@@ -21,6 +20,7 @@ import {
   DEFAULT_CANDLE_SHAPE_THRESHOLDS,
 } from '@util/candlePattern';
 import { MathUtil } from '@util/math';
+import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
 import { MovableGrid } from './movable';
 
@@ -156,18 +156,12 @@ export class Candlestick extends AbstractTrace {
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
 
-  // Service dependency for navigation logic
-  protected override readonly navigationService: NavigationService;
-
   /**
    * Creates a new Candlestick instance from a MAIDR layer
    * @param layer - The MAIDR layer containing candlestick data
    */
   constructor(layer: MaidrLayer) {
     super(layer);
-
-    // Initialize navigation service
-    this.navigationService = new NavigationService();
 
     const data = layer.data as CandlestickPoint[];
     // A chart with no open has one row fewer, rather than a row that
@@ -534,7 +528,7 @@ export class Candlestick extends AbstractTrace {
     this.isComputingStateAt = true;
     try {
       const { pointIndex, segmentType }
-        = this.navigationService.computeIndexAndSegment(row, col, this.sections);
+        = computeIndexAndSegment(row, col, this.sections);
       this.currentPointIndex = pointIndex;
       this.currentSegmentType = segmentType;
       return super.getStateAt(row, col);
@@ -557,14 +551,12 @@ export class Candlestick extends AbstractTrace {
       return false;
     }
 
-    // Delegate navigation logic to service and only handle data state updates
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
 
-    // Use navigation service to compute the mapping
     const { pointIndex, segmentType }
-      = this.navigationService.computeIndexAndSegment(row, col, this.sections);
+      = computeIndexAndSegment(row, col, this.sections);
 
     // Update Core Model state
     this.currentPointIndex = pointIndex;
@@ -675,7 +667,6 @@ export class Candlestick extends AbstractTrace {
    * Cleans up resources and disposes of the candlestick instance
    */
   public override dispose(): void {
-    this.navigationService.dispose();
     this.candles.length = 0;
     super.dispose();
   }

@@ -132,6 +132,49 @@ const config: ReturnType<typeof antfu> = antfu({
     }],
   },
 }, {
+  // The model is the bottom of the MVVC stack — VIEW → VIEWMODEL → SERVICE →
+  // MODEL — and `.claude/rules/model.md` says so in one line: "Never import
+  // from `src/service/`, `src/state/`, or `src/ui/`. The model notifies; it
+  // does not call." That was a rule nobody could break loudly. Three files had
+  // drifted across it, and the only thing standing between the codebase and a
+  // fourth was a reviewer remembering the sentence.
+  //
+  // A model file that wants something from one of those layers is telling you
+  // the thing is in the wrong place: lift the pure part into `src/util/` and
+  // let the service call it too, or move the behaviour onto the model object
+  // it already operates on. Both were the answer here — the x-value helpers
+  // went to `@util/navigation`, layer switching went onto `Subplot`.
+  //
+  // `regex` rather than `group`: gitignore-style patterns cannot express the
+  // relative spellings, and every one of them resolves to the same forbidden
+  // directory. The second alternative therefore matches the directory
+  // anywhere in a relative specifier rather than at a fixed depth —
+  // `../service/x`, `../../service/x` and `../../src/service/x` are one
+  // violation written three ways. `@type/state` is untouched: the alias
+  // branch matches `@state/`, not a path segment that happens to read `state`.
+  //
+  // `hotkeys-js` is here for the same reason under a different name.
+  // `KeybindingService` owns the hotkeys scope and unbinds it on teardown; a
+  // model that calls `hotkeys.setScope` becomes a second writer to that
+  // global, invisible to the service meant to manage it — and it forced five
+  // model tests to `jest.mock('hotkeys-js')` just to construct a `Context`.
+  //
+  // `test/model/layerBoundary.test.ts` lints a fixture through this config and
+  // fails if any of it stops being reported.
+  files: ['src/model/**/*.ts', 'src/model/**/*.tsx'],
+  rules: {
+    'no-restricted-imports': ['error', {
+      paths: [{
+        name: 'hotkeys-js',
+        message: 'The keyboard library belongs to KeybindingService (src/service/keybinding.ts). Fire an event from the model and let a service apply it.',
+      }],
+      patterns: [{
+        regex: '^(@(service|state|ui)(/|$)|\\.{1,2}/(.*/)?(service|state|ui)(/|$))',
+        message: 'The model layer must not import from src/service/, src/state/ or src/ui/ (.claude/rules/model.md). The model notifies; it does not call. Put a shared helper in src/util/ instead.',
+      }],
+    }],
+  },
+}, {
   // npm's `files` is order-sensitive: a negation only excludes what an earlier
   // pattern already included. Sorted ascending, `!dist/**/*.map` lands before
   // `dist`, which then re-includes everything it just excluded, and every

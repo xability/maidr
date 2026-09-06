@@ -692,6 +692,73 @@ describe('dotPadSession', () => {
 
       expect(session.isConnected).toBe(true);
     });
+
+    it('should let a frame already queued reach the display before closing it', async () => {
+      // Turning braille off lowers every pin and then hands the display back,
+      // and the blank frame goes through the write queue like any other. A
+      // close that does not wait for the queue shuts the device under a frame
+      // still on its way out, so the next chart takes up a display still
+      // holding the chart the reader has just left.
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const session = await loadSession();
+      await session.adopt();
+      const closesBeforeTheFrame: number[] = [];
+      vendor.hooks.onGraphic = (): void => {
+        closesBeforeTheFrame.push(vendor.disconnected.length);
+      };
+
+      session.writeGraphic('00');
+      session.releaseIfAdopted();
+      await flushWrites();
+
+      expect(closesBeforeTheFrame).toEqual([0]);
+      expect(vendor.disconnected).toEqual([DEVICE]);
+    });
+
+    it('should close the display even when the queued frame is refused', async () => {
+      // The frame is a courtesy; handing the device back is not. A write the
+      // SDK throws on must not leave the display checked out to a chart the
+      // reader has left.
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const session = await loadSession();
+      await session.adopt();
+      vendor.hooks.onGraphic = (): void => {
+        throw new Error('frame dropped');
+      };
+
+      session.writeGraphic('00');
+      session.releaseIfAdopted();
+      await flushWrites();
+
+      expect(vendor.disconnected).toEqual([DEVICE]);
+    });
+
+    it('should close the display rather than wait for ever on a write that never finishes', async () => {
+      // A transport that has stopped acknowledging would otherwise keep the
+      // device checked out of the whole page: nothing drains the queue, so a
+      // close that waits on it never runs and no other chart can adopt.
+      jest.useFakeTimers();
+      try {
+        const vendor = createVendor();
+        setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+        installVendor(vendor);
+        const session = await loadSession();
+        await session.adopt();
+        vendor.hooks.onText = (): Promise<void> => new Promise<void>(() => {});
+
+        session.writeText('2801');
+        session.releaseIfAdopted();
+        await jest.advanceTimersByTimeAsync(5000);
+
+        expect(vendor.disconnected).toEqual([DEVICE]);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('braille translation', () => {
@@ -1207,11 +1274,16 @@ describe('dotPadSession', () => {
 
       session.disconnect();
 
-      expect(vendor.disconnected).toEqual([DEVICE]);
+      // The state is disconnected at once; the device is closed behind
+      // whatever was already queued for it.
       expect(session.current.status).toBe('disconnected');
       expect(session.current.deviceName).toBeNull();
       expect(session.geometry).toBeNull();
       expect(session.isConnected).toBe(false);
+
+      await flushWrites();
+
+      expect(vendor.disconnected).toEqual([DEVICE]);
     });
 
     it('should stop writes from reaching the device once disconnected', async () => {

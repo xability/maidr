@@ -1131,7 +1131,20 @@ function convertHexbin(facet: MarkFacet, context: ConversionContext): ConvertedM
     layer: {
       id: token,
       type: TraceType.HEXBIN,
-      selectors: stampLayer(ordered.flat().map(bin => bin.element), context.containerId, token),
+      // One selector per bin, in lattice order. A single selector resolves
+      // through `querySelectorAll`, which answers in *document* order, and
+      // Plot draws the hexagons largest-radius-first — so document order is
+      // neither row order nor left-to-right within a row. `HexbinTrace` pairs
+      // the flat match with the bins by position and its count check passes
+      // either way, so one selector silently outlines a bin the reader is not
+      // being told about. `orderElements` is not the answer here as it is for
+      // the tiling marks: hexagons overlap, and re-appending them would put
+      // the small bins behind the large ones.
+      selectors: stampSeries(
+        ordered.flat().map(bin => [bin.element]),
+        context.containerId,
+        token,
+      ),
       axes: axisConfig(context),
       data: ordered.map(row => row.map(({ x, y, count }) => ({ x, y, count }))),
     },

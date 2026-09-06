@@ -93,10 +93,13 @@ describe('createMaidrFromGoogleChart with a BumpChart', () => {
     expect(data[1].map(point => point.y)).toEqual([2, 1, 3]);
   });
 
-  it('names the axes from the table', () => {
+  it('names the period axis and leaves the rank axis to the competitors', () => {
     const { layer } = build();
 
-    expect(layer.axes).toEqual({ x: { label: 'Week' }, y: { label: 'Arsenal' } });
+    // Column 1 is Arsenal, a competitor rather than the quantity the axis
+    // carries -- and naming the axis after it would announce every one of
+    // Chelsea's ranks as an Arsenal one.
+    expect(layer.axes).toEqual({ x: { label: 'Week' }, y: { label: undefined } });
   });
 
   it('marks one line path per competitor for highlighting', () => {
