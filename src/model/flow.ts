@@ -406,7 +406,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   public override moveOnce(direction: MovableDirection): boolean {
     // Recorded before the move, because `super.moveOnce` notifies during the
     // call and the announcement is assembled from `text` at that moment.
-    const node = this.current;
+    // The initial entry lands on the first node without following anything,
+    // so it names no ribbon either.
+    const node = this.isInitialEntry ? null : this.current;
     this.arrivedVia = node === null
       ? null
       : direction === 'FORWARD'
