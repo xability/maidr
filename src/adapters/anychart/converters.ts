@@ -2216,10 +2216,13 @@ function findHeatmapCellLayer(svg: SVGElement): Element {
  *
  * Cells are identified via AnyChart's stable auto-id conventions:
  * `ac_layer_*` groups scoped to the layer with the most `ac_rect_*` shapes
- * (see {@link findHeatmapCellLayer}). DOM order within the layer is
- * row-major (top→bottom, then left→right), matching the
- * `HeatmapData { x, y, points }` layout produced by
- * {@link buildHeatmapLayerFromChart}.
+ * (see {@link findHeatmapCellLayer}). AnyChart draws one shape per data row,
+ * in the order the rows were written, so the nth shape carries the nth row's
+ * own `(x, y)` pair — which is what names it, rather than its position among
+ * its siblings. Counting off `row = i / cols` instead was right only for a
+ * grid that is both dense and written row-major: a heat map written
+ * `for x: for y:` had every cell's coordinates transposed, and a sparse one
+ * had every cell after the hole shifted a slot early.
  *
  * Only runs for charts whose `getType()` returns a string containing
  * `'heat'`; on other chart types this is a no-op.
@@ -2257,32 +2260,12 @@ function stampHeatmapAttributes(
   if (!iterator)
     return;
 
-  // Count cells + collect distinct x/y labels in insertion order so we know
-  // the expected grid dimensions and can map flat DOM order to (row,col).
-  const xLabels: string[] = [];
-  const yLabels: string[] = [];
-  const xSet = new Set<string>();
-  const ySet = new Set<string>();
-  let cellCount = 0;
-  iterator.reset();
-  while (iterator.advance()) {
-    cellCount++;
-    const x = asString(iterator.get('x'));
-    const y = asString(iterator.get('y') ?? iterator.get('name'));
-    if (!xSet.has(x)) {
-      xLabels.push(x);
-      xSet.add(x);
-    }
-    if (!ySet.has(y)) {
-      yLabels.push(y);
-      ySet.add(y);
-    }
-  }
-  if (cellCount === 0)
+  // Each row's own (x, y) pair, in the order the rows were written — which is
+  // the order AnyChart draws them in. The coordinates belong to the row, not
+  // to the shape's position among its siblings.
+  const cells = readHeatmapCells(iterator);
+  if (cells.length === 0)
     return;
-
-  const cols = xLabels.length;
-  const rows = yLabels.length;
 
   // Locate the heatmap cell layer via AnyChart's stable id conventions,
   // then collect shape elements directly from that layer. This is the
@@ -2315,19 +2298,57 @@ function stampHeatmapAttributes(
     cellCandidates.push(el);
   }
 
-  // Layer + id-prefix scoping should yield exactly rows*cols cells. Any
-  // mismatch indicates either an unexpected AnyChart DOM layout (perhaps a
-  // future version that changes the auto-id convention) or a chart that
-  // hasn't fully rendered yet. We continue best-effort by stamping as many
-  // cells as we have candidates for.
-  const stampCount = Math.min(cellCandidates.length, rows * cols);
+  // Layer + id-prefix scoping should yield exactly one candidate per drawn
+  // row. Any mismatch indicates either an unexpected AnyChart DOM layout
+  // (perhaps a future version that changes the auto-id convention) or a chart
+  // that hasn't fully rendered yet. We continue best-effort by stamping as
+  // many cells as we have candidates for.
+  const stampCount = Math.min(cellCandidates.length, cells.length);
   for (let i = 0; i < stampCount; i++) {
-    const r = Math.floor(i / cols);
-    const c = i % cols;
     const el = cellCandidates[i];
     if (!el.hasAttribute(HEATMAP_ATTR))
-      el.setAttribute(HEATMAP_ATTR, `${stampPrefix}${r}-${c}`);
+      el.setAttribute(HEATMAP_ATTR, `${stampPrefix}${cells[i].row}-${cells[i].col}`);
   }
+}
+
+/**
+ * One entry per row the chart carries: the pair it names, and the grid
+ * coordinates that pair resolves to.
+ *
+ * `row` indexes the y labels in the order they first appear and `col` the x
+ * labels, which is exactly how {@link buildHeatmapLayerFromChart} fills its
+ * `points` rectangle — so a cell's stamp and its place in the payload are the
+ * same two numbers, whatever order the rows were written in and whether or not
+ * they fill the grid.
+ *
+ * @param iterator - The chart's data iterator
+ * @returns One `{ row, col }` per data row, in the order they are drawn
+ */
+function readHeatmapCells(
+  iterator: AnyChartIterator,
+): Array<{ row: number; col: number }> {
+  const xLabels: string[] = [];
+  const yLabels: string[] = [];
+  const xIndex = new Map<string, number>();
+  const yIndex = new Map<string, number>();
+  const cells: Array<{ row: number; col: number }> = [];
+
+  iterator.reset();
+  while (iterator.advance()) {
+    const x = asString(iterator.get('x'));
+    const y = asString(iterator.get('y') ?? iterator.get('name'));
+    if (!xIndex.has(x)) {
+      xIndex.set(x, xLabels.length);
+      xLabels.push(x);
+    }
+    if (!yIndex.has(y)) {
+      yIndex.set(y, yLabels.length);
+      yLabels.push(y);
+    }
+    cells.push({ row: yIndex.get(y) ?? 0, col: xIndex.get(x) ?? 0 });
+  }
+
+  return cells;
 }
 
 // ---------------------------------------------------------------------------
@@ -4991,28 +5012,42 @@ function buildHeatmapLayerFromChart(
       points[yi][xi] = r.v;
   }
 
+  // One selector per drawn cell, named by the coordinates
+  // `stampHeatmapAttributes` stamped it with — not one prefix resolved in
+  // document order. A prefix pairs elements with cells by position, so a heat
+  // map whose rows do not fill the grid resolves fewer elements than the
+  // rectangle has cells and `Heatmap.mapToSvgElements` withdraws the mapping
+  // whole, costing every drawn cell its highlight too.
+  //
+  // Written bottom-first, because `Heatmap` reverses the payload's rows so
+  // that row 0 is the foot of the grid — the direction navigation counts in.
+  // `null` marks a cell no row named, which the model keeps as a hole rather
+  // than failing the grid over.
+  const scope = panelScope(panel);
+  const prefix = panelStampPrefix(panel);
+  const grid: (string | null)[][] = Array.from(
+    { length: yLabels.length },
+    () => Array.from<string | null>({ length: xLabels.length }).fill(null),
+  );
+  for (const r of rows) {
+    const xi = xLabels.indexOf(r.x);
+    const yi = yLabels.indexOf(r.y);
+    if (xi >= 0 && yi >= 0)
+      grid[yLabels.length - 1 - yi][xi] = `${scope}[${HEATMAP_ATTR}="${prefix}${yi}-${xi}"]`;
+  }
+
   const data: HeatmapData = { x: xLabels, y: yLabels, points };
-  const defaultSelector = `${panelScope(panel)}[${HEATMAP_ATTR}]`;
   return {
     id: '0',
     type: TraceType.HEATMAP,
-    selectors: selectors ?? defaultSelector,
+    selectors: selectors ?? grid,
     data,
-    // `stampHeatmapAttributes` walks the chart's cells in row-major order
-    // (`r * cols + c`). `Heatmap.mapToSvgElements` defaults to a
-    // column-major mapping for <rect> cells unless told otherwise — that
-    // mismatch would either transpose the highlight grid or fail the
-    // `domElements.length === rows * cols` invariant. Mirror the D3
-    // heatmap binder's `domMapping: { order: 'row' }` hint so the model
-    // groups the stamped cells the way they were laid out.
-    //
-    // NOTE: AnyChart's production GraphicsJS renderer emits heatmap cells
-    // as <path> elements, not <rect>. The path branch of
-    // `Heatmap.mapToSvgElements` unconditionally uses row-major with
-    // row-reversal and ignores `domMapping.order` entirely — so this hint
-    // is a no-op for current AnyChart heatmaps. It is retained as
-    // defensive coverage for any alternative AnyChart build (or future
-    // renderer change) that emits <rect> cells instead.
+    // Only read when a caller passed their own single selector, which
+    // `Heatmap.mapToSvgElements` still resolves by position: AnyChart draws
+    // its cells row-major, and the model's <rect> branch would otherwise
+    // group them column-major and transpose the whole grid. The adapter's own
+    // selectors are the per-cell grid above, which names each cell rather than
+    // counting to it, so this says nothing about them.
     domMapping: { order: 'row' },
   };
 }

@@ -2306,9 +2306,15 @@ describe('anyChartsToMaidr', () => {
     expect(heatLayer.type).toBe(TraceType.HEATMAP);
     expect(heatLayer.id).toBe('0_0_0');
     expect(heatLayer.title).toBe('Heat');
-    expect(heatLayer.selectors).toBe(
-      '[data-maidr-anychart-panel="fig-0-0"] [data-maidr-anychart-heatmap-cell]',
-    );
+    // One selector per cell, each carrying the panel token twice over: in the
+    // scope, and in the stamped value itself, so two independently bound
+    // figures cannot answer for each other's cells.
+    expect(heatLayer.selectors).toEqual([[
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-heatmap-cell="fig-0-0:0-0"]',
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-heatmap-cell="fig-0-0:0-1"]',
+    ]]);
   });
 
   it('applies figure-level axes overrides but keeps per-panel extraction otherwise', () => {
