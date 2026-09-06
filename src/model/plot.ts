@@ -114,14 +114,23 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   public readonly id: string;
   protected movable: Movable;
 
-  private readonly title: string;
-  private readonly subtitle: string;
-  private readonly caption: string;
-  private readonly xLabel: string;
-  private readonly yLabel: string;
+  /*
+   * The figure's own labels and panel count, fixed by the constructor.
+   *
+   * Public because `Figure.state` is an expensive way to read a constant: it
+   * builds the focused subplot's whole state -- and through it the active
+   * trace's audio, braille, text and highlight -- to carry six values that
+   * were decided before any of that existed. `Context` exposes them to the
+   * description and label commands, which read several in a row.
+   */
+  public readonly title: string;
+  public readonly subtitle: string;
+  public readonly caption: string;
+  public readonly xLabel: string;
+  public readonly yLabel: string;
 
   public readonly subplots: Subplot[][];
-  private readonly size: number;
+  public readonly size: number;
 
   /**
    * Maps each data (row, col) to its 1-based visual position (top-left = 1).
