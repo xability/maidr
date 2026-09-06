@@ -6,6 +6,7 @@ import type {
   MaidrSubplot,
   ScatterPoint,
   SegmentedPoint,
+  TreemapPoint,
 } from '@type/grammar';
 import type { AxisCategories } from './grid';
 import type {
@@ -27,9 +28,9 @@ import {
   heatmapLayer,
 } from './grid';
 import {
-  drawnNodeCount,
   HIERARCHY,
   hierarchyLayer,
+  hierarchyNodes,
   OUTLINED_HIERARCHY,
 } from './hierarchy';
 import {
@@ -221,7 +222,15 @@ function readOwning(
   // counts disagree and both rings lose their outline. It also unstamps
   // before the count, so a later series with nothing to count would strip the
   // stamps an earlier series' selectors already name.
-  const counts = owning.map(ownedMarkCount);
+  // A hierarchy is walked once and its nodes serve both the count and the
+  // layer: the walk allocates a point per node, copies the ancestor path at
+  // each one and reads every node's and every child's value, so a sunburst of
+  // a few thousand nodes paid all of that twice for a number the first walk
+  // already had.
+  const nodes = owning.map(seriesModel =>
+    HIERARCHY.has(seriesModel.subType) ? hierarchyNodes(seriesModel) : undefined);
+  const counts = owning.map((seriesModel, index) =>
+    ownedMarkCount(seriesModel, nodes[index]));
   const marks = markPerDatum(container, counts);
   const eachMarkOf = (index: number): string[] | undefined =>
     counts[index] > 0 ? marks?.points[index] : undefined;
@@ -249,7 +258,7 @@ function readOwning(
       const layer = radarLayer(seriesModel, model, outlines);
       return layer ? [layer] : [];
     }
-    const layer = hierarchyLayer(seriesModel, eachMarkOf(index));
+    const layer = hierarchyLayer(seriesModel, nodes[index] ?? [], eachMarkOf(index));
     return layer ? [layer] : [];
   });
 }
@@ -265,9 +274,13 @@ function readOwning(
  * never mistaken for a count that merely came out wrong.
  *
  * @param seriesModel - The series to ask
+ * @param nodes       - Its walked nodes, when it carries a hierarchy
  * @returns The number of marks the drawing should hold for it
  */
-function ownedMarkCount(seriesModel: EChartsSeriesModel): number {
+function ownedMarkCount(
+  seriesModel: EChartsSeriesModel,
+  nodes: TreemapPoint[] | undefined,
+): number {
   if (SINGLE_VALUE.has(seriesModel.subType)) {
     return drawnValueCount(seriesModel);
   }
@@ -275,7 +288,7 @@ function ownedMarkCount(seriesModel: EChartsSeriesModel): number {
     return drawnBandCount(seriesModel);
   }
   if (OUTLINED_HIERARCHY.has(seriesModel.subType)) {
-    return drawnNodeCount(seriesModel);
+    return nodes?.length ?? 0;
   }
   return 0;
 }

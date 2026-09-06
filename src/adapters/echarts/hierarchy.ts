@@ -73,16 +73,22 @@ const TRACE: Record<string, TraceType> = {
 /**
  * Builds the layer for one hierarchy series.
  *
+ * The walk is the caller's rather than this function's, because the count
+ * check wants its length before the layer is built and walking twice doubles
+ * every allocation and every `getValue()` the walk makes -- see
+ * {@link hierarchyNodes}.
+ *
  * @param seriesModel - The series to read
+ * @param points      - Its nodes, as {@link hierarchyNodes} walked them
  * @param selectors   - One selector per node in walk order, when the series
  *                      is one whose marks can be paired with it
  * @returns The layer, or `undefined` when the series carries no nodes
  */
 export function hierarchyLayer(
   seriesModel: EChartsSeriesModel,
+  points: TreemapPoint[],
   selectors: string[] | undefined,
 ): MaidrLayer | undefined {
-  const points = walk(seriesModel);
   if (points.length === 0) {
     return undefined;
   }
@@ -106,21 +112,12 @@ export function hierarchyLayer(
 }
 
 /**
- * How many nodes a hierarchy series drew.
- *
- * The walk's length, which is what a sunburst paints one mark for. A treemap
- * and a tree never reach the count check -- see the head of this file -- so
- * this is only ever asked of a sunburst.
- *
- * @param seriesModel - The series to read
- * @returns The number of real nodes, the synthetic root excluded
- */
-export function drawnNodeCount(seriesModel: EChartsSeriesModel): number {
-  return walk(seriesModel).length;
-}
-
-/**
  * Every real node of the series, depth first, in the tree's own order.
+ *
+ * Not cheap for its size -- a point per node, the ancestor path copied at
+ * each one, and `getValue()` asked of every node and every child of it -- so
+ * the caller walks once and hands the result to both the count check and
+ * {@link hierarchyLayer}.
  *
  * The order is the tree's rather than the data's on purpose: measured, a
  * sunburst reorders its children (`B` before `A`, `A2` before `A1`) and paints
@@ -130,7 +127,7 @@ export function drawnNodeCount(seriesModel: EChartsSeriesModel): number {
  * @param seriesModel - The series to read
  * @returns One point per node, the synthetic root excluded
  */
-function walk(seriesModel: EChartsSeriesModel): TreemapPoint[] {
+export function hierarchyNodes(seriesModel: EChartsSeriesModel): TreemapPoint[] {
   const root = seriesModel.getData().tree?.root;
   if (!root) {
     return [];
