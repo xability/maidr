@@ -1944,14 +1944,23 @@ function extractLineLayers(
   // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
   // the plugin re-derives the original Chart.js indices for highlight
   // alignment, from this same walk so the two cannot disagree (#1024).
+  //
+  // A line plotted along a linear or time x scale is authored as `{x, y}`
+  // objects and carries no `labels` array, so there is nothing at `labels[i]`
+  // and the array position is not the reading -- the datum's own coordinate
+  // is. Same preference `survivalTime` makes, for the same reason. The
+  // categorical case is unaffected: a label, where there is one, still names
+  // the position.
+  const continuousX = categoryAxis(chart) === 'x' && !isCategoryScale(chart, 'x');
   const linePoints = (dataset: ChartJsDataset, dsIdx: number): LinePoint[] => {
     const points: LinePoint[] = [];
     for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
-      const num = toFiniteNumber(dataset.data[i]);
+      const value = dataset.data[i];
+      const num = toFiniteNumber(value);
       if (num === null)
         continue;
       points.push({
-        x: labels[i] ?? i,
+        x: labels[i] ?? (continuousX && isPointValue(value) ? value.x : i),
         y: num,
         z: dataset.label ?? `Line ${dsIdx + 1}`,
       });
@@ -1980,7 +1989,13 @@ function extractLineLayers(
   }
 
   const axes = {
-    x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+    x: {
+      label: getAxisLabel(chart, 'x', pluginOptions),
+      // A time scale parses its coordinates to epoch milliseconds, and one
+      // announced raw says nothing a reader can place -- so the axis names
+      // the rendering, as a Gantt's interval axis does.
+      ...(continuousX && isTimeScale(chart, 'x') ? { format: { type: 'date' as const } } : {}),
+    },
     y: { label: getAxisLabel(chart, 'y', pluginOptions) },
   };
 
