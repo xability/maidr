@@ -28,12 +28,25 @@
  * which TypeDoc resolves against the config file.
  */
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Comment, JSX, ReflectionKind } from 'typedoc';
+import { dublinCorePairs } from './dublinCore.js';
+import { lastCommitDate } from './gitDates.js';
 import { inlineJson } from './jsonLd.js';
 import { fallbackDescription, PROJECT_PAGES, truncate } from './typedocSeo.js';
 
 const SITE_URL = 'https://maidr.ai/';
 const API_URL = 'https://maidr.ai/api/';
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * The API reference is generated from `src`, so the last commit touching it
+ * dates every page. Resolved once: the hook below runs for each of ~1,600
+ * pages and shelling out to git that many times would dominate the build.
+ */
+const SRC_DATE = lastCommitDate(ROOT, 'src', new Date().toISOString().slice(0, 10));
 
 /** Minimal stubs of the nodes docs/template.html declares in full. */
 const SITE_NODES = [
@@ -175,6 +188,12 @@ export function load(app) {
       JSX.createElement('meta', { property: 'og:url', content: canonical }),
       JSX.createElement('meta', { property: 'og:type', content: 'article' }),
       JSX.createElement('meta', { property: 'og:site_name', content: 'MAIDR' }),
+      ...dublinCorePairs({
+        title: headline,
+        description,
+        identifier: canonical,
+        date: SRC_DATE,
+      }).map(([name, content]) => JSX.createElement('meta', { name, content })),
       ldScript(graph),
       breadcrumb ? ldScript(breadcrumb) : null,
     );

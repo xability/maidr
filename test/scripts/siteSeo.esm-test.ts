@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 import { describe, expect, it } from '@jest/globals';
+import { CREATORS, dublinCorePairs, dublinCoreTags, PUBLISHER, RIGHTS } from '../../scripts/dublinCore';
 import { firstCommitDate, lastCommitDate } from '../../scripts/gitDates';
 import { inlineJson } from '../../scripts/jsonLd';
 import { findOffenders, HARD_LIMIT, limitFor, SOFT_LIMIT } from '../../scripts/pageSizes';
@@ -13,8 +14,9 @@ import { fallbackDescription, MAX_DESCRIPTION, PROJECT_PAGES, truncate } from '.
  * Tests for the pieces of the site build that decide what search engines see:
  * the git-derived dates behind sitemap `<lastmod>` and TechArticle
  * `datePublished`/`dateModified` (`scripts/gitDates.js`), the Googlebot page
- * budget (`scripts/pageSizes.js`), and the description text on TypeDoc pages
- * (`scripts/typedocSeo.js`).
+ * budget (`scripts/pageSizes.js`), the description text on TypeDoc pages
+ * (`scripts/typedocSeo.js`), and the Dublin Core block reference managers
+ * read (`scripts/dublinCore.js`).
  *
  * `scripts/build-site.js` itself writes `_site/` and shells out on import, so
  * these modules hold the logic it delegates to, and are tested here directly.
@@ -149,5 +151,70 @@ describe('jsonLd', () => {
     expect(inlineJson({ '@id': 'https://maidr.ai/#software' }, 2)).toBe(
       '{\n  "@id": "https://maidr.ai/#software"\n}',
     );
+  });
+});
+
+describe('dublinCore', () => {
+  const base = {
+    title: 'A Page',
+    description: 'What the page is about.',
+    identifier: 'https://maidr.ai/a-page.html',
+  };
+
+  /** The pairs for `opts`, collapsed to a name -> values lookup. */
+  function byName(opts: Parameters<typeof dublinCorePairs>[0]): Record<string, string[]> {
+    const out: Record<string, string[]> = {};
+    for (const [name, content] of dublinCorePairs(opts)) {
+      (out[name] ??= []).push(content);
+    }
+    return out;
+  }
+
+  it('carries the facts Zotero needs when a page has no citation_ tags', () => {
+    const tags = byName(base);
+    expect(tags['DC.title']).toEqual(['A Page']);
+    expect(tags['DC.creator']).toEqual(CREATORS);
+    expect(tags['DC.publisher']).toEqual([PUBLISHER]);
+    expect(tags['DC.identifier']).toEqual([base.identifier]);
+    expect(tags['DC.rights']).toEqual([RIGHTS]);
+    expect(tags['DC.language']).toEqual(['en']);
+  });
+
+  it('never emits citation_ tags, which Google Scholar reserves for papers', () => {
+    const names = dublinCorePairs(base).map(([name]) => name);
+    expect(names.every(name => name.startsWith('DC.'))).toBe(true);
+  });
+
+  it('writes surname-first creators so Zotero splits the name', () => {
+    for (const creator of CREATORS) {
+      expect(creator).toMatch(/^[^,]+, .+$/);
+    }
+  });
+
+  it('gives one DC.creator tag per author rather than one joined string', () => {
+    const creators = ['Seo, JooYoung', 'Venkatesh, Saairam'];
+    expect(byName({ ...base, creators })['DC.creator']).toEqual(creators);
+  });
+
+  it('types the home page as Software and other pages as Text', () => {
+    expect(byName({ ...base, type: 'Software' })['DC.type']).toEqual(['Software']);
+    expect(byName(base)['DC.type']).toEqual(['Text']);
+  });
+
+  it('omits DC.date rather than emitting an empty one', () => {
+    expect(byName(base)['DC.date']).toBeUndefined();
+    expect(byName({ ...base, date: '2026-09-06' })['DC.date']).toEqual(['2026-09-06']);
+  });
+
+  it('escapes a title that would otherwise close the content attribute', () => {
+    const rendered = dublinCoreTags({ ...base, title: 'A "quoted" <b>title</b> & more' });
+    expect(rendered).toContain('content="A &quot;quoted&quot; &lt;b&gt;title&lt;/b&gt; &amp; more"');
+    expect(rendered).not.toContain('<b>');
+  });
+
+  it('renders one meta tag per pair', () => {
+    const opts = { ...base, date: '2026-09-06' };
+    const rendered = dublinCoreTags(opts);
+    expect(rendered.match(/<meta /g)).toHaveLength(dublinCorePairs(opts).length);
   });
 });

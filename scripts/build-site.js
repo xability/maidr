@@ -13,6 +13,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dublinCoreTags } from './dublinCore.js';
 import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
 import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
 import { inlineJson } from './jsonLd.js';
@@ -304,6 +305,15 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{SOFTWARE_CITATION\}\}/g, () => softwareCitation)
     .replace(/\{\{HOME_GRAPH_NODES\}\}/g, () => homeGraphNodes)
     .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
+    // The home page stands for the library itself; every other page is
+    // documentation about it, so only the home page is typed as Software.
+    .replace(/\{\{DUBLIN_CORE\}\}/g, () => dublinCoreTags({
+      title: seoTitle,
+      description,
+      identifier: canonicalUrl,
+      date: dateModified,
+      type: isHome ? 'Software' : 'Text',
+    }))
     .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
     .replace(/\{\{BREADCRUMB\}\}/g, () => isHome ? '' : buildBreadcrumbNav(title, dateModified))
     .replace(/\{\{CONTENT\}\}/g, () => content)
@@ -352,6 +362,11 @@ const indexPage = generatePage({
   content: readmeHtml,
   activePage: 'home',
   slug: '',
+  // The home page is the README; its commit date is the page's date. Unlike
+  // the docs pages this is not shown as a "Last updated" line, because the
+  // home page has no breadcrumb to hang it under — it is here so the Dublin
+  // Core block carries a date for reference managers.
+  dateModified: lastCommitDate('README.md'),
 });
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
