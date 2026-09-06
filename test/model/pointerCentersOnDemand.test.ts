@@ -5,7 +5,7 @@
 /**
  * What a pointer move costs on the traces that measure their marks live.
  *
- * Hexbin and word cloud walk every drawn element on every call to
+ * Hexbin, gantt and word cloud walk every drawn element on every call to
  * `findNearestPoint`, and each step is a `getBoundingClientRect()` -- a
  * forced layout read. That call sits under `PointerGuidanceCommand`, which
  * runs on every `pointermove` DOM event with no throttle on the model side,
@@ -22,8 +22,9 @@
  * what changed about the algorithm rather than how fast this machine was.
  */
 
-import type { HexbinPoint, MaidrLayer, WordCloudPoint } from '@type/grammar';
+import type { GanttPoint, HexbinPoint, MaidrLayer, WordCloudPoint } from '@type/grammar';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { GanttTrace } from '@model/gantt';
 import { HexbinTrace } from '@model/hexbin';
 import { WordCloudTrace } from '@model/wordCloud';
 import { TraceType } from '@type/grammar';
@@ -110,6 +111,34 @@ function buildHexbin(): HexbinTrace {
   } as MaidrLayer);
 }
 
+/** Two lanes carrying four intervals between them. */
+const LANES: GanttPoint[][] = [
+  [
+    { x: 'Design', start: 0, end: 30, label: 'Wireframes' },
+    { x: 'Design', start: 60, end: 75, label: 'Revisions' },
+  ],
+  [
+    { x: 'Build', start: 30, end: 100, label: 'Implementation' },
+    { x: 'Build', start: 100, end: 120, label: 'Handover' },
+  ],
+];
+
+/**
+ * A schedule whose four intervals are drawn.
+ * @returns The trace, its bars already drawn
+ */
+function buildGantt(): GanttTrace {
+  draw(4, 'bar');
+  return new GanttTrace({
+    id: 'gantt',
+    type: TraceType.GANTT,
+    title: 'A schedule',
+    selectors: '.bar',
+    axes: { x: { label: 'Task' }, y: { label: 'Day' } },
+    data: { points: LANES, unit: 'days' },
+  } as MaidrLayer);
+}
+
 /**
  * Terms in the order they were authored, which is not their weight order --
  * so the fixture also exercises the permutation the trace applies.
@@ -159,6 +188,7 @@ const BETWEEN_MARKS = {
 
 const TRACES: { name: string; build: () => HoverTrace }[] = [
   { name: 'a hexbin', build: buildHexbin },
+  { name: 'a gantt chart', build: buildGantt },
   { name: 'a word cloud', build: buildWordCloud },
 ];
 
