@@ -442,6 +442,33 @@ function buildSegmentedBarLayer(
 }
 
 /**
+ * Converts data to `HistogramPoint[]`, reading the bin edges the config names.
+ *
+ * @param data - The rows as the chart was given them
+ * @param xKey - The field holding the bin's label
+ * @param yKey - The field holding the bin's count
+ * @param binConfig - The fields holding the bin's own edges
+ * @returns One point per bin
+ */
+function convertToHistogramPoints(
+  data: Record<string, unknown>[],
+  xKey: string,
+  yKey: string,
+  binConfig?: RechartsAdapterConfig['binConfig'],
+): HistogramPoint[] {
+  return data.map((item) => {
+    const x = item[xKey] as string | number;
+    const y = toNumber(item[yKey]);
+    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : 0;
+    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : 0;
+    const yMin = binConfig?.yMinKey ? toNumber(item[binConfig.yMinKey]) : 0;
+    const yMax = binConfig?.yMaxKey ? toNumber(item[binConfig.yMaxKey]) : y;
+
+    return { x, y, xMin, xMax, yMin, yMax };
+  });
+}
+
+/**
  * Builds a histogram layer with HistogramPoint[] data.
  */
 function buildHistogramLayer(
@@ -457,16 +484,7 @@ function buildHistogramLayer(
   chartId?: string,
   panelScope?: string,
 ): MaidrLayer {
-  const histData: HistogramPoint[] = data.map((item) => {
-    const x = item[xKey] as string | number;
-    const y = toNumber(item[yKey]);
-    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : 0;
-    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : 0;
-    const yMin = binConfig?.yMinKey ? toNumber(item[binConfig.yMinKey]) : 0;
-    const yMax = binConfig?.yMaxKey ? toNumber(item[binConfig.yMaxKey]) : y;
-
-    return { x, y, xMin, xMax, yMin, yMax };
-  });
+  const histData = convertToHistogramPoints(data, xKey, yKey, binConfig);
 
   const selector = selectorOverride ?? getRechartsSelector(chartType, undefined, chartId, panelScope);
   const resolved = orientation ?? Orientation.VERTICAL;
@@ -1323,7 +1341,12 @@ function buildComposedLayers(config: RechartsAdapterConfig, panelScope?: string)
     // Only use seriesIndex when there are multiple layers of the same chart type
     const seriesIndex = (typeTotals.get(chartType) ?? 0) > 1 ? currentIndex : undefined;
 
-    const maidrType = toTraceType(chartType);
+    // A composed layer is one series, so the single-series rule applies to it
+    // exactly as it does to a simple-mode layer: a stacked/dodged/normalized/
+    // diverging bar has nothing to stack against and falls back to BAR, and a
+    // stacked area to AREA. Left as declared, `SegmentedTrace` is handed a flat
+    // `BarPoint[]` and throws on `row.map` while the figure is activating.
+    const maidrType = toLayerTraceType(chartType, false);
     const selector = selectorOverride ?? getRechartsSelector(chartType, seriesIndex, config.id, panelScope);
     const layerData = convertData(chartType, data, xKey, yKey, config);
 
@@ -1372,7 +1395,7 @@ function convertData(
   xKey: string,
   yKey: string,
   config: RechartsAdapterConfig,
-): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
+): BarPoint[] | ErrorBarPoint[] | FlowPoint[] | ForestPoint[] | HistogramPoint[] | LinePoint[][] | PiePoint[] | ScatterPoint[] | SurvivalPoint[][] | TreemapPoint[] | VolcanoPoint[] | WaterfallPoint[] {
   switch (chartType) {
     // A dot plot and a lollipop carry a bar's data — one category, one
     // magnitude — and differ only in the mark drawn for it. So does a funnel:
@@ -1443,12 +1466,18 @@ function convertData(
     case 'hexbin':
     case 'boxen':
       throw new Error(`RechartsAdapter: chartType "${chartType}" describes a whole chart and cannot be a layer of a composed one`);
-    // Stacked/dodged/normalized/diverging/histogram handled by dedicated builders
+    // A histogram layer is a bar layer whose bins carry their own edges, and
+    // `HistogramPoint` is what `Histogram` reads them out of. Emitted as plain
+    // bar points its every bin announces an undefined range.
+    case 'histogram':
+      return convertToHistogramPoints(data, xKey, yKey, config.binConfig);
+    // One layer of a composed chart is one series, so a bar family that reads
+    // a grid has only a flat payload to read. It keeps it, and
+    // `toLayerTraceType` announces it as the plain bar it is.
     case 'stacked_bar':
     case 'dodged_bar':
     case 'normalized_bar':
     case 'diverging_bar':
-    case 'histogram':
       return convertToBarPoints(data, xKey, yKey);
   }
 }
