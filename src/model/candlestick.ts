@@ -834,12 +834,13 @@ export class Candlestick extends AbstractTrace {
     const closes = this.collectElements(cs.close);
     // Volatility will be composed from [wickHigh, body, wickLow]; no direct selectors used
 
-    const derivedOpen: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
-    const derivedClose: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
-    const derivedVolatility: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
+    // Every index of both is written unconditionally by the loop below, so
+    // there is nothing to pre-fill: an element made here would be discarded
+    // a few lines later, and at 200 candles that was 400 hidden `<rect>`s
+    // built and thrown away per construction -- paid again on every
+    // live-data rebuild.
+    const derivedOpen = Array.from({ length: N }) as SVGElement[];
+    const derivedClose = Array.from({ length: N }) as SVGElement[];
 
     for (let i = 0; i < N; i++) {
       // Open (explicit otherwise derive from body using data)
@@ -882,14 +883,25 @@ export class Candlestick extends AbstractTrace {
       }
       derivedClose[i] = closeEl;
 
-      // Volatility: composed later as [high, body, low]; no single element here
-      derivedVolatility[i] = Svg.createEmptyElement();
+      // Volatility is composed below as [high, body, low]; there is no single
+      // element for it, and nothing ever read the one that used to be made
+      // here.
     }
 
-    // Build 2D array in value-sorted navigation order per point
+    // Build 2D array in value-sorted navigation order per point.
+    //
+    // The rows start empty rather than pre-filled: the loop below writes
+    // `segmentElements[pos][pointIndex]` for every `pos` in
+    // `0..navOrder.length - 1`, and `navOrder` is
+    // `sortedSegmentsByPoint[pointIndex]`, which `precomputeSortedSegments`
+    // builds as `['volatility', ...ohlc]` with `ohlc` four long when
+    // {@link hasOpen} and three otherwise -- exactly `sections.length`, which
+    // `candlestickSectionsOf` derives from the same flag. Every cell is
+    // therefore written, and pre-filling one only built an element to
+    // overwrite it.
     const segmentElements: HighlightValue[][] = Array.from(
       { length: this.sections.length },
-      () => Array.from({ length: N }, () => Svg.createEmptyElement()),
+      () => Array.from({ length: N }) as HighlightValue[],
     );
 
     for (let pointIndex = 0; pointIndex < N; pointIndex++) {
