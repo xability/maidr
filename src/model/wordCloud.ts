@@ -5,6 +5,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
@@ -62,6 +63,33 @@ export class WordCloudTrace extends AbstractTrace {
   private readonly max: number;
 
   protected readonly highlightValues: SVGElement[][] | null;
+
+  /**
+   * Where each glyph was last measured, or null before the reader points at
+   * the cloud.
+   *
+   * Boxes rather than centres, because a term is found by hit-testing the box
+   * it occupies. Measured on the first hover rather than in the constructor,
+   * so a cloud the reader never points at costs nothing at load.
+   */
+  private glyphBoxes:
+    | { left: number; top: number; width: number; height: number; element: SVGElement }[]
+    | null = null;
+
+  /**
+   * Whether the glyph boxes have to be measured again before the next hover.
+   *
+   * They hold viewport coordinates, and the pointer positions they are
+   * hit-tested against are always current -- so a page, or a container the
+   * chart sits in, scrolling underneath leaves every box off by however far
+   * the cloud moved, and the pointer falls through every term. True to begin
+   * with, which is what makes the first hover measure.
+   */
+  private glyphBoxesDirty = true;
+
+  private readonly stopViewportWatch = watchViewport((): void => {
+    this.glyphBoxesDirty = true;
+  });
 
   /**
    * Creates a new word cloud trace.
@@ -262,24 +290,59 @@ export class WordCloudTrace extends AbstractTrace {
   }
 
   /**
+   * Measures where every glyph is drawn.
+   *
+   * @returns One box per term, in weight order, or null when nothing resolved
+   */
+  private mapSvgElementsToBoxes():
+    | { left: number; top: number; width: number; height: number; element: SVGElement }[]
+    | null {
+    const elements = this.highlightValues?.[0];
+    if (!elements || elements.length === 0) {
+      return null;
+    }
+
+    return elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        height: box.height,
+        element,
+      };
+    });
+  }
+
+  /**
    * Finds the term whose glyph contains a pointer position.
    *
    * Hit-tests the bounding box rather than resolving to the nearest centre: a
    * cloud's glyphs vary hugely in size, so the centre of a large term can sit
    * further from the pointer than a small term the pointer is nowhere near.
    *
+   * The boxes are the ones last measured rather than measured here. This runs
+   * on every `pointermove`, unthrottled, and the scan only stops early when
+   * the pointer is inside a glyph -- between them, which is most of a cloud,
+   * it measured every term on every event.
+   *
    * @param x - Viewport x of the pointer
    * @param y - Viewport y of the pointer
    * @returns The term under the pointer, or null when between glyphs
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues?.[0];
-    if (!elements || elements.length === 0) {
+    if (this.glyphBoxesDirty) {
+      this.glyphBoxes = this.mapSvgElementsToBoxes();
+      this.glyphBoxesDirty = false;
+    }
+
+    const boxes = this.glyphBoxes;
+    if (!boxes) {
       return null;
     }
 
-    for (let col = 0; col < elements.length; col++) {
-      const box = elements[col].getBoundingClientRect();
+    for (let col = 0; col < boxes.length; col++) {
+      const box = boxes[col];
       if (box.width === 0 && box.height === 0) {
         continue;
       }
@@ -290,7 +353,7 @@ export class WordCloudTrace extends AbstractTrace {
         && y <= box.top + box.height
       ) {
         return {
-          element: elements[col],
+          element: box.element,
           row: 0,
           col,
           centerX: box.left + box.width / 2,
@@ -300,5 +363,15 @@ export class WordCloudTrace extends AbstractTrace {
     }
 
     return null;
+  }
+
+  /**
+   * Releases the viewport watch the glyph boxes are invalidated by.
+   */
+  public override dispose(): void {
+    this.stopViewportWatch();
+    this.glyphBoxes = null;
+
+    super.dispose();
   }
 }
