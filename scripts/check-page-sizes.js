@@ -3,29 +3,19 @@
 /**
  * Fails the docs build when a page grows past what Googlebot will read.
  *
- * Googlebot fetches the first 2 MB (2,097,152 bytes, uncompressed) of an HTML
- * file and discards the rest, so anything after that point is invisible to
- * search and to the AI features built on it. The cap here is 1,900,000 bytes
- * to leave headroom.
- *
- * `_site/examples/` and `_site/api/` are exempt: the examples are demo files
- * marked noindex (the single-file Recharts bundle sits right at the limit),
- * and the TypeDoc pages top out around 860 KB because the hierarchy theme
- * inlines the navigation tree into each one. The five largest files overall
- * are still printed so growth in either stays visible.
- *
- * Runs last in `npm run docs`.
+ * The limits and exemptions live in `scripts/pageSizes.js`; this is the CLI
+ * that runs last in `npm run docs`, prints the five largest files so growth
+ * anywhere stays visible, and exits non-zero on an offender.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { findOffenders, HARD_LIMIT, SOFT_LIMIT } from './pageSizes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
-const LIMIT = 1_900_000;
-const EXEMPT_DIRS = new Set(['examples', 'api']);
 
 /** Every .html file under `dir`, recursively. */
 function findHtmlFiles(dir, files = []) {
@@ -63,14 +53,14 @@ for (const { file, size } of pages.slice(0, 5)) {
   console.log(`  ${formatBytes(size).padStart(14)}  ${file}`);
 }
 
-const offenders = pages.filter(({ file, size }) => !EXEMPT_DIRS.has(file.split('/')[0]) && size > LIMIT);
+const offenders = findOffenders(pages);
 
 if (offenders.length > 0) {
-  console.error(`\ncheck-page-sizes: ${offenders.length} page(s) exceed ${formatBytes(LIMIT)}, the Googlebot-safe limit:`);
-  for (const { file, size } of offenders) {
-    console.error(`  ${formatBytes(size).padStart(14)}  ${file}`);
+  console.error(`\ncheck-page-sizes: ${offenders.length} page(s) exceed their Googlebot-safe limit:`);
+  for (const { file, size, limit } of offenders) {
+    console.error(`  ${formatBytes(size).padStart(14)}  ${file} (limit ${formatBytes(limit)})`);
   }
   process.exit(1);
 }
 
-console.log(`\nAll indexable pages are under ${formatBytes(LIMIT)}.`);
+console.log(`\nAll indexable pages are within ${formatBytes(SOFT_LIMIT)} (${formatBytes(HARD_LIMIT)} for api/).`);

@@ -29,10 +29,10 @@
  */
 
 import { Comment, JSX, ReflectionKind } from 'typedoc';
+import { fallbackDescription, PROJECT_PAGES, truncate } from './typedocSeo.js';
 
 const SITE_URL = 'https://maidr.ai/';
 const API_URL = 'https://maidr.ai/api/';
-const MAX_DESCRIPTION = 155;
 
 /** Minimal stubs of the nodes docs/template.html declares in full. */
 const SITE_NODES = [
@@ -56,18 +56,6 @@ const SITE_NODES = [
   },
 ];
 
-/** Pages TypeDoc renders for the project itself rather than for a symbol. */
-const PROJECT_PAGES = {
-  'index.html': {
-    title: null,
-    description: 'API reference for the MAIDR JavaScript library: classes, interfaces, functions and types for building accessible data visualizations.',
-  },
-  'hierarchy.html': {
-    title: 'Class Hierarchy',
-    description: 'Inheritance hierarchy of the classes and interfaces in the MAIDR JavaScript API reference.',
-  },
-};
-
 /**
  * The reflection's summary as one line of plain text, or an empty string
  * when it has none.
@@ -86,16 +74,6 @@ function summaryOf(model) {
   return Comment.combineDisplayParts(parts).replace(/`/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** Cut a description at a word boundary so it fits a search snippet. */
-function truncate(text) {
-  if (text.length <= MAX_DESCRIPTION) {
-    return text;
-  }
-  const cut = text.slice(0, MAX_DESCRIPTION - 3);
-  const lastSpace = cut.lastIndexOf(' ');
-  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:]+$/, '')}...`;
-}
-
 /**
  * The meta description for a page: its summary, or a fallback naming the
  * kind, the symbol and its module, so that identically named exports (every
@@ -112,8 +90,7 @@ function describe(model, page) {
   }
   const kind = model.kind === undefined ? 'Symbol' : ReflectionKind.singularString(model.kind);
   const moduleName = model.parent?.isProject() ? '' : model.parent?.getFullName();
-  const location = moduleName ? ` in module ${moduleName}` : '';
-  return `${kind} ${model.name}${location} of the MAIDR JavaScript API reference.`;
+  return fallbackDescription(kind, model.name, moduleName);
 }
 
 /**

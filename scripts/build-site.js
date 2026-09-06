@@ -9,11 +9,12 @@
  * - TypeDoc generates API docs separately
  */
 
-import { execFileSync, execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
+import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
 import { renderMarkdown } from './markdown.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -121,41 +122,14 @@ const PAGE_DESCRIPTIONS = {
 
 const today = new Date().toISOString().split('T')[0];
 
-/**
- * Run a git command in the repository and return its trimmed stdout, or an
- * empty string when git is unavailable or the command fails (no history, a
- * tarball checkout, a path git has never seen).
- */
-function git(args) {
-  try {
-    return execFileSync('git', args, { cwd: ROOT, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
-  }
-}
-
-/**
- * Date (YYYY-MM-DD) of the last commit touching `relPath`, or today when git
- * history is unavailable.
- *
- * File mtimes are useless for this: `actions/checkout` stamps every file with
- * the checkout time, so a sitemap built from them said "changed today" for
- * every page on every deploy, and Google ignores a lastmod that is never
- * accurate. `.github/workflows/docs.yml` checks out with `fetch-depth: 0` so
- * the history is there in CI.
- */
+/** Date of the last commit touching `relPath`, or today outside a git checkout. */
 function lastCommitDate(relPath) {
-  return git(['log', '-1', '--format=%cs', '--', relPath]) || today;
+  return lastCommit(ROOT, relPath, today);
 }
 
-/**
- * Date of the commit that added `relPath`, falling back to its last commit
- * date. On a shallow clone the earliest visible commit stands in for the real
- * first one.
- */
+/** Date of the commit that added `relPath`, followed across renames. */
 function firstCommitDate(relPath) {
-  const dates = git(['log', '--diff-filter=A', '--format=%cs', '--', relPath]).split('\n').filter(Boolean);
-  return dates.at(-1) || lastCommitDate(relPath);
+  return firstCommit(ROOT, relPath, today);
 }
 
 /**
@@ -395,6 +369,14 @@ for (const { slug, title, source } of INTEGRATION_PAGES) {
   ${renderMarkdown(md)}
 </div>
 `;
+  const description = PAGE_DESCRIPTIONS[slug];
+  if (!description) {
+    throw new Error(`[SEO] No description for integration page "${slug}" (docs/${source}). Add one to PAGE_DESCRIPTIONS in scripts/build-site.js.`);
+  }
+  const relSource = `docs/${source}`;
+  const dateModified = lastCommitDate(relSource);
+  const canonical = `${SITE_URL}${slug}.html`;
+  const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, canonical, firstCommitDate(relSource), dateModified)}\n  </script>`;
   const page = generatePage({
     title,
     seoTitle: `${title} Accessibility Integration - MAIDR`,
@@ -402,6 +384,8 @@ for (const { slug, title, source } of INTEGRATION_PAGES) {
     activePage: slug,
     slug: `${slug}.html`,
     ogType: 'article',
+    pageSchema: techArticleTag,
+    dateModified,
   });
   fs.writeFileSync(path.join(SITE_DIR, `${slug}.html`), page);
   builtIntegrations.push({ slug, source });
