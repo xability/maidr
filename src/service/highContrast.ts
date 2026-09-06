@@ -339,8 +339,13 @@ export class HighContrastService implements Disposable {
     document.body.style.backgroundColor = this.highContrastDarkColor;
     document.body.style.color = this.highContrastLightColor;
 
+    // Whether an element sits under a text group is asked once per captured
+    // fill or stroke below and again for the glow filter. One memo per apply
+    // keeps the ancestor walk to one per element.
+    const textDescendants = new Map<Element, boolean>();
+
     // Get high contrast colors for all elements
-    const highContrastElInfo = this.getHighContrastColors();
+    const highContrastElInfo = this.getHighContrastColors(textDescendants);
 
     // Apply high contrast colors to elements
     for (const item of highContrastElInfo) {
@@ -361,7 +366,7 @@ export class HighContrastService implements Disposable {
 
     // Apply shadow to text elements
     this.originalColorInfo?.forEach((item) => {
-      if (this.hasParentWithStringInID(item.element, 'text')) {
+      if (this.isTextDescendant(item.element, textDescendants)) {
         item.element.setAttribute('filter', 'url(#glow-shadow)');
       }
     });
@@ -573,7 +578,9 @@ export class HighContrastService implements Disposable {
     return originalColorInfo;
   }
 
-  private getHighContrastColors(): ElementColorInfo[] {
+  private getHighContrastColors(
+    textDescendants: Map<Element, boolean>,
+  ): ElementColorInfo[] {
     const originalColorInfo = this.originalColorInfo;
     if (!originalColorInfo)
       return [];
@@ -581,12 +588,36 @@ export class HighContrastService implements Disposable {
     const spreadColors
       = this.spreadColorsAcrossLuminanceSpectrum(originalColorInfo);
 
+    // The ramp depends only on the settings, so interpolate it once here
+    // rather than per captured color: each interpolation parses two colors
+    // through the canvas and rebuilds the whole array.
+    const colorEquivalents = this.colorEquivalents;
+
     const highContrastElInfo = spreadColors.map(item => ({
       ...item,
-      color: this.toColorStep(item),
+      color: this.toColorStep(item, colorEquivalents, textDescendants),
     }));
 
     return highContrastElInfo;
+  }
+
+  /**
+   * Memoised form of the "is this element inside a text group?" question.
+   * The answer is fixed for the duration of one apply, and the walk is asked
+   * for the same element several times over.
+   */
+  private isTextDescendant(
+    element: Element,
+    textDescendants: Map<Element, boolean>,
+  ): boolean {
+    const cached = textDescendants.get(element);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const isText = this.hasParentWithStringInID(element, 'text');
+    textDescendants.set(element, isText);
+    return isText;
   }
 
   private hasParentWithStringInID(
@@ -676,17 +707,19 @@ export class HighContrastService implements Disposable {
     defs.appendChild(filter);
   }
 
-  private toColorStep(colorInfo: ElementColorInfo): string {
+  private toColorStep(
+    colorInfo: ElementColorInfo,
+    colorEquivalents: string[],
+    textDescendants: Map<Element, boolean>,
+  ): string {
     const value = colorInfo.color;
     if (value === 'none' || value === 'transparent') {
       return value;
     }
 
-    if (this.hasParentWithStringInID(colorInfo.element, 'text')) {
+    if (this.isTextDescendant(colorInfo.element, textDescendants)) {
       return this.highContrastLightColor;
     }
-
-    const colorEquivalents = [...this.colorEquivalents];
 
     const ctx = this.getSharedCanvasContext();
     if (!ctx)
@@ -784,10 +817,13 @@ export class HighContrastService implements Disposable {
 
     const inputRgb = hexToRgb(inputColor);
 
+    // The caller's ramp is shared across every color of one apply, so drop the
+    // background from a copy rather than from the array itself.
+    let colors = colorArray;
     if (cantBeBackground) {
-      const backgroundIndex = colorArray.indexOf(this.highContrastDarkColor);
+      const backgroundIndex = colors.indexOf(this.highContrastDarkColor);
       if (backgroundIndex !== -1) {
-        colorArray.splice(backgroundIndex, 1);
+        colors = colors.filter((_, index) => index !== backgroundIndex);
       }
     }
 
@@ -797,36 +833,36 @@ export class HighContrastService implements Disposable {
         = HighContrastConstants.RGB_MAX_VALUE * (1 - nearWhiteScale);
 
       if (inputLuminance >= nearWhiteThreshold) {
-        return colorArray[0];
+        return colors[0];
       }
 
-      let closestColor = colorArray[0];
-      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[0]));
+      let closestColor = colors[0];
+      let minDistance = colorDistance(inputRgb, hexToRgb(colors[0]));
 
-      for (let i = 1; i < colorArray.length; i++) {
-        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+      for (let i = 1; i < colors.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colors[i]));
         if (distance < minDistance) {
           minDistance = distance;
-          closestColor = colorArray[i];
+          closestColor = colors[i];
         }
       }
 
       return closestColor;
     } else {
-      let closestColor = colorArray[0];
-      let minDistance = colorDistance(inputRgb, hexToRgb(colorArray[0]));
+      let closestColor = colors[0];
+      let minDistance = colorDistance(inputRgb, hexToRgb(colors[0]));
 
-      for (let i = 1; i < colorArray.length; i++) {
-        const distance = colorDistance(inputRgb, hexToRgb(colorArray[i]));
+      for (let i = 1; i < colors.length; i++) {
+        const distance = colorDistance(inputRgb, hexToRgb(colors[i]));
         if (distance < minDistance) {
           minDistance = distance;
-          closestColor = colorArray[i];
+          closestColor = colors[i];
         }
       }
 
-      const index = colorArray.indexOf(closestColor);
-      const reversedIndex = colorArray.length - 1 - index;
-      return colorArray[reversedIndex];
+      const index = colors.indexOf(closestColor);
+      const reversedIndex = colors.length - 1 - index;
+      return colors[reversedIndex];
     }
   }
 

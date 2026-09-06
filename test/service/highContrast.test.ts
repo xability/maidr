@@ -17,7 +17,7 @@ import type { Figure } from '@model/plot';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
 import type { StorageService } from '@service/storage';
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { HighContrastService } from '@service/highContrast';
 import { SettingsService } from '@service/settings';
 
@@ -31,6 +31,12 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const PAGE_BACKGROUND = 'rgb(250, 250, 250)';
 const PAGE_FOREGROUND = 'rgb(17, 17, 17)';
 const BAR_FILL = '#dddddd';
+
+/**
+ * A path long enough to trip the "complex path" test, which marks an element
+ * as one that must not be given the background colour.
+ */
+const COMPLEX_PATH = `M 0 0 ${Array.from({ length: 40 }, (_, i) => `L ${i} ${i}`).join(' ')}`;
 
 /**
  * Minimal stand-in for the 2D canvas context the service uses to normalise CSS
@@ -99,13 +105,20 @@ function createFigure(): Figure {
   return figure as unknown as Figure;
 }
 
+interface MarkSpec {
+  fill: string;
+  /** Draw the mark as a long `<path>`, which may not take the background colour. */
+  complexPath?: boolean;
+}
+
 interface Harness {
   service: HighContrastService;
   settings: SettingsService;
+  marks: SVGElement[];
   bar: SVGElement;
 }
 
-function createHarness(): Harness {
+function createHarness(specs: MarkSpec[] = [{ fill: BAR_FILL }]): Harness {
   document.head.innerHTML = `<style>body { background-color: ${PAGE_BACKGROUND}; color: ${PAGE_FOREGROUND}; }</style>`;
   document.body.innerHTML = '';
   // The service writes to the body's inline style, which survives a change of
@@ -114,9 +127,16 @@ function createHarness(): Harness {
 
   const svg = document.createElementNS(SVG_NAMESPACE, 'svg');
   svg.setAttribute('id', 'chart');
-  const bar = document.createElementNS(SVG_NAMESPACE, 'rect');
-  bar.setAttribute('fill', BAR_FILL);
-  svg.appendChild(bar);
+  const marks = specs.map((spec) => {
+    const mark = document.createElementNS(SVG_NAMESPACE, spec.complexPath ? 'path' : 'rect');
+    if (spec.complexPath) {
+      mark.setAttribute('d', COMPLEX_PATH);
+    }
+    mark.setAttribute('fill', spec.fill);
+    mark.setAttribute('stroke', '#1f77b4');
+    svg.appendChild(mark);
+    return mark as SVGElement;
+  });
   document.body.appendChild(svg);
 
   const display: Pick<DisplayService, 'plot'> = { plot: svg as unknown as HTMLElement };
@@ -143,7 +163,7 @@ function createHarness(): Harness {
     context as unknown as Context,
   );
 
-  return { service, settings, bar };
+  return { service, settings, marks, bar: marks[0] };
 }
 
 function turnHighContrastOff(settings: SettingsService): void {
@@ -166,6 +186,12 @@ describe('highContrastService', () => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
   });
+
+  /** Replaces the default single-mark harness with one built for a test. */
+  function rebuild(specs: MarkSpec[]): void {
+    harness.service.dispose();
+    harness = createHarness(specs);
+  }
 
   it('recolours the page and the chart while high contrast is on', () => {
     harness.service.initializeHighContrast();
@@ -200,5 +226,51 @@ describe('highContrastService', () => {
 
     expect(window.getComputedStyle(document.body).backgroundColor).toBe('rgb(0, 0, 0)');
     expect(harness.bar.getAttribute('fill')).not.toBe(BAR_FILL);
+  });
+
+  it('interpolates the colour ramp once per apply, not once per colour', () => {
+    rebuild(Array.from({ length: 16 }, () => ({ fill: BAR_FILL })));
+    const interpolate = jest.spyOn(harness.service, 'interpolateColors');
+
+    harness.service.initializeHighContrast();
+
+    expect(interpolate).toHaveBeenCalledTimes(1);
+  });
+
+  it('walks an element ancestry once per element, not once per captured colour', () => {
+    // Every mark contributes a fill and a stroke, and the ancestor walk that
+    // decides whether it is text was run for each of them and then again for
+    // the glow filter.
+    rebuild(Array.from({ length: 16 }, () => ({ fill: BAR_FILL })));
+    const capturedColours = harness.marks.length * 2;
+    const descriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'parentElement');
+    let ancestorReads = 0;
+    Object.defineProperty(Node.prototype, 'parentElement', {
+      configurable: true,
+      get(this: Node) {
+        ancestorReads++;
+        return descriptor?.get?.call(this);
+      },
+    });
+
+    try {
+      harness.service.initializeHighContrast();
+    } finally {
+      if (descriptor) {
+        Object.defineProperty(Node.prototype, 'parentElement', descriptor);
+      }
+    }
+
+    expect(ancestorReads).toBeLessThan(capturedColours);
+  });
+
+  it('leaves the ramp intact for later marks when one may not take the background', () => {
+    rebuild([{ fill: BAR_FILL, complexPath: true }, { fill: BAR_FILL }, { fill: BAR_FILL }]);
+
+    harness.service.initializeHighContrast();
+
+    const [complex, ...rest] = harness.marks.map(mark => mark.getAttribute('fill'));
+    expect(complex).toBe('#ffffff');
+    expect(rest).toEqual(['#000000', '#000000']);
   });
 });
