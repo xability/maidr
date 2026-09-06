@@ -1077,7 +1077,10 @@ function buildLineLayer(
       const at = reversed ? rows - 1 - r : r;
       const x = formatCellValue(dt, at, 0);
       const y = numericValue(dt, at, c);
-      const z = dt.getColumnLabel(c) || `Series ${c}`;
+      // Numbered by series rather than by column: a table carrying a role
+      // column before its first series would otherwise announce that series
+      // as "Series 2".
+      const z = dt.getColumnLabel(c) || `Series ${seriesCount + 1}`;
       series.push({ x, y, z });
     }
     data.push(series);
@@ -1099,7 +1102,19 @@ function buildLineLayer(
     ...(reversed ? { domMapping: { pointOrder: 'reverse' as const } } : {}),
     axes: {
       x: { label: dt.getColumnLabel(0) || undefined },
-      y: { label: dt.getColumnLabel(1) || undefined },
+      // The magnitude axis is named only when one series carries it. Column 1
+      // is the *first series* of a multi-series line, area or bump chart, so
+      // naming the axis after it announced every value of every other series
+      // under the first one's name -- the reader told "Sales" while
+      // navigating Costs. The same call `buildSegmentedLayer` makes for a
+      // stack (#961) and `buildSurvivalLayer` for two arms. It also asks
+      // `firstDataColumn` rather than assuming column 1, which may be a
+      // tooltip or an annotation.
+      y: {
+        label: seriesCount === 1
+          ? dt.getColumnLabel(firstDataColumn(dt)) || undefined
+          : undefined,
+      },
     },
     data,
   };
