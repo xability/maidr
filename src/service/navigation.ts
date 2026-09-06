@@ -3,7 +3,6 @@ import type { Disposable } from '@type/disposable';
 import type { MovableDirection } from '@type/movable';
 import type { PointWithX, ValuesArray, XValue } from '@type/navigation';
 import type { LayerSwitchTraceState } from '@type/state';
-import { Orientation } from '@type/grammar';
 import { hasXProperty, isPointWithX, isXValue } from '@type/navigation';
 
 /**
@@ -73,61 +72,29 @@ export class NavigationService implements Disposable {
   }
 
   /**
-   * Compute normalized point index and segment type based on orientation
+   * Compute the point index and segment type a grid cell names.
+   *
+   * The cell is `[section][point]` in every orientation: the highlight grid,
+   * the braille cell and the movable grid of a sectioned trace all share
+   * that frame, and the orientation only says which screen axis the points
+   * run along.
    * @param row The row coordinate from UI/ViewModel
    * @param col The column coordinate from UI/ViewModel
-   * @param orientation The data orientation
    * @param sections Array of available section names (e.g., ['open', 'high', 'low', 'close'])
    * @returns Object containing pointIndex and segmentType
    */
   public computeIndexAndSegment<T extends string>(
     row: number,
     col: number,
-    orientation: Orientation,
     sections: readonly T[],
   ): {
     pointIndex: number;
     segmentType: T;
   } {
-    if (orientation === Orientation.HORIZONTAL) {
-      return {
-        pointIndex: row,
-        segmentType: sections[col],
-      };
-    } else {
-      return {
-        pointIndex: col,
-        segmentType: sections[row],
-      };
-    }
-  }
-
-  /**
-   * Compute visual coordinates for highlighting based on orientation
-   * @param pointIndex The data point index
-   * @param segmentPosition The segment position (e.g., dynamic sorted position)
-   * @param orientation The data orientation
-   * @returns Object containing row and col for visual highlighting
-   */
-  public computeVisualCoordinates(
-    pointIndex: number,
-    segmentPosition: number,
-    orientation: Orientation,
-  ): {
-    row: number;
-    col: number;
-  } {
-    if (orientation === Orientation.HORIZONTAL) {
-      return {
-        row: pointIndex,
-        col: segmentPosition,
-      };
-    } else {
-      return {
-        row: segmentPosition,
-        col: pointIndex,
-      };
-    }
+    return {
+      pointIndex: col,
+      segmentType: sections[row],
+    };
   }
 
   /**

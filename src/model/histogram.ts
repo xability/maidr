@@ -17,16 +17,22 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public override get description(): DescriptionState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const points = this.points[0] as HistogramPoint[];
-    const firstPoint = points[0];
-    const lastPoint = points[points.length - 1];
+    const firstPoint: HistogramPoint | undefined = points[0];
+    const lastPoint: HistogramPoint | undefined = points[points.length - 1];
 
-    const binRangeMin = isVertical ? firstPoint.xMin : firstPoint.yMin;
-    const binRangeMax = isVertical ? lastPoint.xMax : lastPoint.yMax;
+    // A producer can emit a histogram with no bins; the range is then
+    // 'missing', as `rangeStats` already reports the min and max.
+    const binRange = firstPoint && lastPoint
+      ? MathUtil.spanned(
+          isVertical ? firstPoint.xMin : firstPoint.yMin,
+          isVertical ? lastPoint.xMax : lastPoint.yMax,
+        )
+      : 'missing';
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bins', value: points.length },
       ...this.rangeStats(),
-      { label: 'Bin range', value: MathUtil.spanned(binRangeMin, binRangeMax) },
+      { label: 'Bin range', value: binRange },
     ];
 
     const headers = isVertical

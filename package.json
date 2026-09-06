@@ -118,7 +118,7 @@
     "test:coverage": "node scripts/test.js --coverage",
     "type-check": "tsc --noEmit && tsc -p tsconfig.ci.json",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
-    "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js",
+    "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js && node scripts/check-page-sizes.js",
     "docs:watch": "typedoc --watch",
     "docs:serve": "npm run docs && npx http-server _site -o",
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",

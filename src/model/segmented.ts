@@ -34,7 +34,11 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
   private createSummaryLevel(): void {
     const summaryValues = new Array<number>();
     const summaryPoints = new Array<SegmentedPoint>();
-    for (let i = 0; i < this.barValues[0].length; i++) {
+    // A producer can emit `[]` rather than `[[]]` for a chart with nothing to
+    // stack. There is then no row to read the categories off, and the summary
+    // is an empty row like every other.
+    const categories = this.barValues[0]?.length ?? 0;
+    for (let i = 0; i < categories; i++) {
       // Sum the measured segments only. Adding a gap in would make the total
       // NaN, and NaN spreads: it would seed MathUtil.minMax below and, through
       // safeMin/safeMax over every row, hand the whole chart a NaN pitch range.
@@ -414,7 +418,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       return this.mapGridToSvgElements(selector);
     }
 
-    const domElements = Svg.selectAllElements(selector);
+    // Resolved live; `claim` clones each mark as a cell takes it. Cloning
+    // every match up front inserted a hidden copy beside each mark, and a
+    // selector matching more marks than there are cells left the surplus
+    // copies unreferenced -- so `dispose()` never removed them, and the next
+    // resolution matched them too.
+    const domElements = Svg.selectAllElements(selector, false);
     if (domElements.length === 0) {
       return null;
     }
@@ -465,7 +474,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       if (domIndex >= domElements.length) {
         return Svg.createEmptyElement();
       }
-      return domElements[domIndex++];
+      return Svg.cloneHidden(domElements[domIndex++]);
     };
 
     if (!isColumnMajor) {

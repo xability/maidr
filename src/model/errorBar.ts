@@ -260,13 +260,18 @@ export class ErrorBarTrace extends AbstractTrace {
       return null;
     }
 
-    const flat = typeof selectors === 'string'
-      ? Svg.selectAllElements(selectors)
-      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+    // Resolved live first and cloned only once the count fits. A clone is
+    // inserted beside its original the moment it is made, so declining after
+    // cloning left every copy in the chart for `dispose()` never to reach --
+    // and the next resolution matched the copies too.
+    const live = typeof selectors === 'string'
+      ? Svg.selectAllElements(selectors, false)
+      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one, false));
 
-    if (flat.length !== this.points.length) {
+    if (live.length !== this.points.length) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
     // One whip per point, and the flat list runs in the same group-major
     // order the rows do -- so each group's rows take that group's slice, and
     // every section within a group highlights the same whips. Handing every

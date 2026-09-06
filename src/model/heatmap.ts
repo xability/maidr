@@ -71,7 +71,10 @@ export class Heatmap extends AbstractTrace {
     super(layer);
 
     const data = layer.data as HeatmapData;
-    this.x = data.x;
+    // Both copied: `dispose()` truncates the arrays it holds, and `x` held by
+    // reference emptied the caller's column labels, so a heatmap rebuilt from
+    // the same spec announced no column at all.
+    this.x = [...data.x];
     this.y = [...data.y].reverse();
     this.heatmapValues = [...data.points].reverse().map(measuredRow);
 
@@ -184,7 +187,13 @@ export class Heatmap extends AbstractTrace {
     }
 
     const numRows = this.heatmapValues.length;
-    const numCols = this.heatmapValues[0].length;
+    const numCols = this.heatmapValues[0]?.length ?? 0;
+    // Nothing to pair a selector with. A producer with no cells to draw still
+    // emits the selector its template always emits, and a throw here left
+    // the constructor and the figure with it.
+    if (numRows === 0 || numCols === 0) {
+      return null;
+    }
 
     // Per-cell selector grid: `selector[r][c]` resolves to the SVG element for
     // logical row `r`, column `c`. Used by adapters (e.g. Highcharts) that

@@ -3,6 +3,7 @@
 /**
  * Build script to generate the documentation site
  * - Creates index.html from README.md
+ * - Creates one root page per integration guide (react.html, plotly.html, ...)
  * - Creates examples.html that embeds the examples
  * - Copies media and examples folders
  * - TypeDoc generates API docs separately
@@ -13,6 +14,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
+import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
+import { inlineJson } from './jsonLd.js';
 import { renderMarkdown } from './markdown.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +24,7 @@ const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
+const SITE_URL = 'https://maidr.ai/';
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -44,43 +48,100 @@ function markdownToHtml(md) {
   return renderMarkdown(content);
 }
 
+/**
+ * The integration guides built as root-level pages.
+ *
+ * One list drives everything that used to be spelled out per integration:
+ * the page build, the exclusion from the generic `docs/` loop (so a guide is
+ * not built a second time under `docs/`), and the sitemap. Adding a guide is
+ * one line here; the nav link in `docs/template.html` is still by hand.
+ *
+ * `slug` is the output filename without `.html` and the `activePage` key the
+ * template's nav uses; `title` is the nav-facing title; `source` is the
+ * markdown file under `docs/`.
+ */
+const INTEGRATION_PAGES = [
+  { slug: 'react', title: 'React', source: 'react.md' },
+  { slug: 'recharts', title: 'Recharts', source: 'recharts.md' },
+  { slug: 'plotly', title: 'Plotly', source: 'plotly.md' },
+  { slug: 'google-charts', title: 'Google Charts', source: 'google-charts.md' },
+  { slug: 'd3', title: 'D3.js', source: 'd3.md' },
+  { slug: 'vegalite', title: 'Vega-Lite', source: 'vegalite.md' },
+  { slug: 'chartjs', title: 'Chart.js', source: 'chartjs.md' },
+  { slug: 'amcharts', title: 'amCharts', source: 'amcharts.md' },
+  { slug: 'observable', title: 'Observable Plot', source: 'observable.md' },
+  { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
+  { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
+  { slug: 'victory', title: 'Victory', source: 'victory.md' },
+  { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
+  { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
+  { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
+];
+
+const INTEGRATION_SOURCES = new Set(INTEGRATION_PAGES.map(page => page.source));
+
+/** Page titles for the `docs/*.md` files whose filename is not a title. */
+const DOC_TITLES = {
+  SCHEMA: 'Data Schema',
+  BRAILLE: 'Braille Generation',
+  CONTROLS: 'Keyboard Controls',
+  LIVE_DATA: 'Live & Streaming Data',
+  TACTILE_DISPLAY: 'Tactile Graphics Display',
+  VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
+};
+
 // Per-page SEO descriptions.
 // Keys are either activePage slugs ('home', 'react', 'examples') or page titles
 // ('Data Schema', etc.) for doc pages where activePage is '' and lookup falls back to title.
+// Keep each one unique and roughly 70-160 characters; generatePage warns outside
+// that range and fails the build when a page has no entry at all.
 const PAGE_DESCRIPTIONS = {
   'home': 'MAIDR provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions.',
   'react': 'How to integrate MAIDR accessible data visualizations into React applications with TypeScript support.',
   'recharts': 'How to integrate MAIDR accessibility features with Recharts React components for accessible data visualizations.',
-  'plotly': 'How to make Plotly.js charts accessible with MAIDR — zero configuration auto-detection for bar, scatter, line, box, violin, heatmap, histogram, candlestick, and pie charts.',
-  'google-charts': 'How to make Google Charts accessible with MAIDR — support for bar, line, scatter, candlestick, stacked, dodged, and pie charts.',
-  'd3': 'How to make D3.js charts accessible with MAIDR — binders for bar, line, scatter, box, heatmap, histogram, candlestick, segmented, smooth, and pie charts plus a React wrapper.',
-  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR — support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, box plot, and arc (pie) specs.',
-  'chartjs': 'How to make Chart.js charts accessible with MAIDR — support for bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix), and pie / doughnut chart types.',
-  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR — support for bar, dodged, stacked, normalized, line, histogram, heatmap, and pie chart types.',
-  'observable': 'How to make Observable Plot charts accessible with MAIDR — zero-configuration binding for bar, stacked bar, histogram, scatter, dot, line, area, and faceted plots, including the {ojs} cells of a Quarto document.',
-  'echarts': 'How to make Apache ECharts accessible with MAIDR — support for bar, stacked bar, dodged bar, line, area, step, and scatter series.',
-  'frappe': 'How to make Frappe Charts accessible with MAIDR — support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
-  'victory': 'How to make Victory charts accessible with MAIDR — support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
-  'anychart': 'How to make AnyChart charts accessible with MAIDR — support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
-  'highcharts': 'How to make Highcharts charts accessible with MAIDR — support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized, and pie chart types.',
-  'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR — sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets via a one-line binder.',
+  'plotly': 'How to make Plotly.js charts accessible with MAIDR: automatic support for bar, scatter, line, box, violin, heatmap, histogram, candlestick and pie charts.',
+  'google-charts': 'How to make Google Charts accessible with MAIDR: support for bar, line, scatter, candlestick, stacked, dodged, and pie charts.',
+  'd3': 'How to make D3.js charts accessible with MAIDR: binders for bar, line, scatter, box, heatmap, histogram, candlestick and pie charts, plus a React wrapper.',
+  'vegalite': 'How to make Vega-Lite charts accessible with MAIDR: support for bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, box and arc (pie) specs.',
+  'chartjs': 'How to make Chart.js charts accessible with MAIDR: support for bar, line, scatter, stacked, dodged, box, candlestick, heatmap (matrix), pie and doughnut charts.',
+  'amcharts': 'How to make amCharts 5 charts accessible with MAIDR: support for bar, dodged, stacked, normalized, line, histogram, heatmap, and pie chart types.',
+  'observable': 'How to make Observable Plot charts accessible with MAIDR: one binding for bar, histogram, scatter, line, area and faceted plots, and for Quarto OJS cells.',
+  'echarts': 'How to make Apache ECharts accessible with MAIDR: support for bar, stacked bar, dodged bar, line, area, step, and scatter series.',
+  'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
+  'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
+  'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
+  'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
+  'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
-  'Data Schema': 'MAIDR data schema specification for defining accessible chart data structures.',
-  'Braille Generation': 'Documentation for MAIDR braille output generation for tactile data exploration.',
-  'Keyboard Controls': 'Keyboard controls reference for navigating MAIDR accessible data visualizations.',
-  'Live & Streaming Data': 'How to update MAIDR charts in realtime — setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
-  'Violin Plot Specification': 'Technical specification for MAIDR violin plot data structures and rendering.',
+  'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
+  'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
+  'Keyboard Controls': 'Keyboard controls reference for MAIDR: moving through data points, switching between braille, text and sonification modes, and opening the help and chat menus.',
+  'Live & Streaming Data': 'How to update MAIDR charts in realtime: setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
+  'Tactile Graphics Display': 'How MAIDR renders charts on the Dot Pad X tactile graphics display over Bluetooth or USB, with the keyboard controls and setup steps the tactile mode needs.',
+  'Violin Plot Specification': 'Technical specification for MAIDR violin plots: the KDE and box layer data structures, how each layer is navigated and sonified, and a backend checklist.',
 };
+
+const today = new Date().toISOString().split('T')[0];
+
+/** Date of the last commit touching `relPath`, or today outside a git checkout. */
+function lastCommitDate(relPath) {
+  return lastCommit(ROOT, relPath, today);
+}
+
+/** Date of the commit that added `relPath`, followed across renames. */
+function firstCommitDate(relPath) {
+  return firstCommit(ROOT, relPath, today);
+}
 
 /**
  * Build a BreadcrumbList JSON-LD block for the given page.
  */
 function buildBreadcrumbSchema(title, canonicalUrl) {
-  const crumbs = [{ name: 'Home', url: 'https://maidr.ai/' }];
-  if (canonicalUrl !== 'https://maidr.ai/') {
+  const crumbs = [{ name: 'Home', url: SITE_URL }];
+  if (canonicalUrl !== SITE_URL) {
     crumbs.push({ name: title, url: canonicalUrl });
   }
-  return JSON.stringify({
+  return inlineJson({
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     'itemListElement': crumbs.map((c, i) => ({
@@ -89,59 +150,162 @@ function buildBreadcrumbSchema(title, canonicalUrl) {
       'name': c.name,
       'item': c.url,
     })),
-  }, null, 2);
+  }, 2);
+}
+
+/**
+ * The visible breadcrumb trail the BreadcrumbList above describes. Google
+ * asks that structured data mirror what the page shows, so the markup and
+ * the trail come from the same two crumbs.
+ */
+function buildBreadcrumbNav(title, dateModified = '') {
+  // The TechArticle's dateModified needs a visible counterpart; the date is
+  // the last commit touching the page's source, the same one the sitemap uses.
+  const pageMeta = dateModified
+    ? `\n  <p class="page-meta">Last updated <time datetime="${dateModified}">${dateModified}</time></p>`
+    : '';
+  return `<nav class="breadcrumb" aria-label="Breadcrumb">
+    <ol>
+      <li><a href="{{BASE_PATH}}index.html">Home</a></li>
+      <li aria-current="page">${title}</li>
+    </ol>
+  </nav>${pageMeta}`;
 }
 
 /**
  * Build a TechArticle JSON-LD block for documentation pages.
  */
-function buildTechArticleSchema(title, description, canonicalUrl, dateModified) {
-  return JSON.stringify({
+function buildTechArticleSchema(title, description, canonicalUrl, datePublished, dateModified) {
+  return inlineJson({
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
     'headline': title,
     'description': description,
     'url': canonicalUrl,
-    'datePublished': '2024-01-15', // project launch date; per-page dates not tracked
+    'datePublished': datePublished,
     'dateModified': dateModified,
+    'author': { '@id': 'https://maidr.ai/#organization' },
     'publisher': { '@id': 'https://maidr.ai/#organization' },
     'isPartOf': { '@id': 'https://maidr.ai/#website' },
     'about': { '@id': 'https://maidr.ai/#software' },
-  }, null, 2);
+  }, 2);
+}
+
+/**
+ * The papers the README's "Papers" section lists, as ScholarlyArticle nodes
+ * keyed by DOI. Emitted on the home page only, where the citations are
+ * visible; the software node there references them via `citation`.
+ */
+const PAPERS = [
+  {
+    '@type': 'ScholarlyArticle',
+    '@id': 'https://doi.org/10.1145/3613904.3642730',
+    'name': 'MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation',
+    'author': [
+      { '@id': 'https://maidr.ai/#jooyoung-seo' },
+      { '@type': 'Person', 'name': 'Yilin Xia' },
+      { '@type': 'Person', 'name': 'Bongshin Lee' },
+      { '@type': 'Person', 'name': 'Sean Mccurry' },
+      { '@type': 'Person', 'name': 'Yu Jun Yam' },
+    ],
+    'datePublished': '2024-05',
+    'isPartOf': {
+      '@type': 'Book',
+      'name': 'Proceedings of the CHI Conference on Human Factors in Computing Systems (CHI \'24)',
+      'isbn': '9798400703300',
+    },
+    'publisher': { '@type': 'Organization', 'name': 'Association for Computing Machinery' },
+    'identifier': '10.1145/3613904.3642730',
+    'url': 'https://doi.org/10.1145/3613904.3642730',
+  },
+  {
+    '@type': 'ScholarlyArticle',
+    '@id': 'https://doi.org/10.2312/eved.20241053',
+    'name': 'Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students',
+    'author': [
+      { '@id': 'https://maidr.ai/#jooyoung-seo' },
+      { '@type': 'Person', 'name': 'Sile O\'Modhrain' },
+      { '@type': 'Person', 'name': 'Yilin Xia' },
+      { '@type': 'Person', 'name': 'Sanchita Kamath' },
+      { '@type': 'Person', 'name': 'Bongshin Lee' },
+      { '@type': 'Person', 'name': 'James M. Coughlan' },
+    ],
+    'datePublished': '2024',
+    'isPartOf': {
+      '@type': 'Book',
+      'name': 'EuroVis 2024 - Education Papers',
+      'isbn': '978-3-03868-257-8',
+    },
+    'publisher': { '@type': 'Organization', 'name': 'The Eurographics Association' },
+    'identifier': '10.2312/eved.20241053',
+    'url': 'https://doi.org/10.2312/eved.20241053',
+  },
+];
+
+/** The home page's own node, cross-linking the Python and R sites. */
+const HOME_WEBPAGE = {
+  '@type': 'WebPage',
+  '@id': 'https://maidr.ai/#webpage',
+  'url': SITE_URL,
+  'isPartOf': { '@id': 'https://maidr.ai/#website' },
+  'mainEntity': { '@id': 'https://maidr.ai/#software' },
+  'relatedLink': ['https://py.maidr.ai/', 'https://r.maidr.ai/'],
+};
+
+/** Indent every line but the first so a node sits inside the template's @graph. */
+function graphNode(node) {
+  return inlineJson(node, 2).replace(/\n/g, '\n      ');
 }
 
 /**
  * Generate a page from template.
  * @param {object} opts
- * @param {string} opts.title
- * @param {string} opts.content       - inner HTML
- * @param {string} opts.activePage     - 'home' | 'react' | 'examples' | 'api' | ''
+ * @param {string} opts.title            - nav-facing title; also the breadcrumb text
+ * @param {string} opts.content          - inner HTML
+ * @param {string} opts.activePage       - 'home' | 'react' | 'examples' | 'api' | ''
  * @param {string} [opts.basePath]
- * @param {string} [opts.slug]         - path portion after domain (e.g. 'react.html')
+ * @param {string} [opts.slug]           - path portion after domain (e.g. 'react.html')
  * @param {string} [opts.ogType]
- * @param {string} [opts.pageSchema]   - extra JSON-LD script tags
+ * @param {string} [opts.pageSchema]     - extra JSON-LD script tags
+ * @param {string} [opts.seoTitle]       - full <title>; defaults to "<title> - MAIDR"
+ * @param {string} [opts.dateModified]   - ISO date shown as "Last updated" under the breadcrumb
  */
-function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '' }) {
+function generatePage({ title, content, activePage, basePath = '', slug = '', ogType = 'website', pageSchema = '', seoTitle = `${title} - MAIDR`, dateModified = '' }) {
   const description = PAGE_DESCRIPTIONS[activePage] || PAGE_DESCRIPTIONS[title];
   if (!description) {
-    console.warn(`[SEO] No description for page "${title}" (activePage: "${activePage}") — falling back to homepage description`);
+    throw new Error(`[SEO] No description for page "${title}" (activePage: "${activePage}"). Add one to PAGE_DESCRIPTIONS in scripts/build-site.js.`);
   }
-  const finalDescription = description || PAGE_DESCRIPTIONS.home;
-  const canonicalUrl = slug ? `https://maidr.ai/${slug}` : 'https://maidr.ai/';
+  if (description.length < 70 || description.length > 160) {
+    console.warn(`[SEO] Description for "${title}" is ${description.length} characters; aim for 70-160.`);
+  }
+  const canonicalUrl = slug ? `${SITE_URL}${slug}` : SITE_URL;
+  const isHome = canonicalUrl === SITE_URL;
 
-  // Generate breadcrumb schema (skip for home page — single-item lists are unusual)
-  const breadcrumbTag = canonicalUrl !== 'https://maidr.ai/'
-    ? `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`
-    : '';
+  // Breadcrumbs are for pages below the home page: a single-item list is unusual.
+  const breadcrumbTag = isHome
+    ? ''
+    : `<script type="application/ld+json">\n  ${buildBreadcrumbSchema(title, canonicalUrl)}\n  </script>`;
   const allPageSchemas = [breadcrumbTag, pageSchema].filter(Boolean).join('\n  ');
+
+  // The papers and the WebPage node are visible on the home page only.
+  const softwareCitation = isHome
+    ? `"citation": ${graphNode(PAPERS.map(paper => ({ '@id': paper['@id'] })))},\n        `
+    : '';
+  const homeGraphNodes = isHome
+    ? [HOME_WEBPAGE, ...PAPERS].map(node => `,\n      ${graphNode(node)}`).join('')
+    : '';
 
   const page = template
     .replace(/\{\{TITLE\}\}/g, () => title)
-    .replace(/\{\{DESCRIPTION\}\}/g, () => finalDescription)
+    .replace(/\{\{SEO_TITLE\}\}/g, () => seoTitle)
+    .replace(/\{\{DESCRIPTION\}\}/g, () => description)
     .replace(/\{\{CANONICAL_URL\}\}/g, () => canonicalUrl)
     .replace(/\{\{SOFTWARE_VERSION\}\}/g, () => PKG.version)
+    .replace(/\{\{SOFTWARE_CITATION\}\}/g, () => softwareCitation)
+    .replace(/\{\{HOME_GRAPH_NODES\}\}/g, () => homeGraphNodes)
     .replace(/\{\{OG_TYPE\}\}/g, () => ogType)
     .replace(/\{\{PAGE_SCHEMA\}\}/g, () => allPageSchemas)
+    .replace(/\{\{BREADCRUMB\}\}/g, () => isHome ? '' : buildBreadcrumbNav(title, dateModified))
     .replace(/\{\{CONTENT\}\}/g, () => content)
     .replace(/\{\{HOME_ACTIVE\}\}/g, () => activePage === 'home' ? 'active' : '')
     .replace(/\{\{REACT_ACTIVE\}\}/g, () => activePage === 'react' ? 'active' : '')
@@ -182,217 +346,50 @@ const readmeHtml = `
   ${readmeContentHtml}
 </div>
 `;
-const indexPage = generatePage({ title: 'Home', content: readmeHtml, activePage: 'home', slug: '' });
+const indexPage = generatePage({
+  title: 'Home',
+  seoTitle: 'MAIDR: Accessible Data Visualization with Sonification, Braille and Text',
+  content: readmeHtml,
+  activePage: 'home',
+  slug: '',
+});
 fs.writeFileSync(path.join(SITE_DIR, 'index.html'), indexPage);
 
-// Build react.html from docs/react.md
-console.log('Building react.html from docs/react.md...');
-const reactMdPath = path.join(ROOT, 'docs', 'react.md');
-if (fs.existsSync(reactMdPath)) {
-  const reactMd = fs.readFileSync(reactMdPath, 'utf-8');
-  const reactHtml = `
+// Build one root page per integration guide
+const builtIntegrations = [];
+for (const { slug, title, source } of INTEGRATION_PAGES) {
+  const mdPath = path.join(ROOT, 'docs', source);
+  if (!fs.existsSync(mdPath)) {
+    console.warn(`Warning: docs/${source} not found; skipping ${slug}.html`);
+    continue;
+  }
+  console.log(`Building ${slug}.html from docs/${source}...`);
+  const md = fs.readFileSync(mdPath, 'utf-8');
+  const html = `
 <div class="content">
-  ${renderMarkdown(reactMd)}
+  ${renderMarkdown(md)}
 </div>
 `;
-  const reactPage = generatePage({ title: 'React', content: reactHtml, activePage: 'react', slug: 'react.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'react.html'), reactPage);
-}
-
-// Build recharts.html from docs/recharts.md
-console.log('Building recharts.html from docs/recharts.md...');
-const rechartsMdPath = path.join(ROOT, 'docs', 'recharts.md');
-if (fs.existsSync(rechartsMdPath)) {
-  const rechartsMd = fs.readFileSync(rechartsMdPath, 'utf-8');
-  const rechartsHtml = `
-<div class="content">
-  ${renderMarkdown(rechartsMd)}
-</div>
-`;
-  const rechartsPage = generatePage({ title: 'Recharts', content: rechartsHtml, activePage: 'recharts', slug: 'recharts.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'recharts.html'), rechartsPage);
-}
-
-// Build plotly.html from docs/plotly.md
-console.log('Building plotly.html from docs/plotly.md...');
-const plotlyMdPath = path.join(ROOT, 'docs', 'plotly.md');
-if (fs.existsSync(plotlyMdPath)) {
-  const plotlyMd = fs.readFileSync(plotlyMdPath, 'utf-8');
-  const plotlyHtml = `
-<div class="content">
-  ${renderMarkdown(plotlyMd)}
-</div>
-`;
-  const plotlyPage = generatePage({ title: 'Plotly', content: plotlyHtml, activePage: 'plotly', slug: 'plotly.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'plotly.html'), plotlyPage);
-}
-
-// Build google-charts.html from docs/google-charts.md
-console.log('Building google-charts.html from docs/google-charts.md...');
-const googleChartsMdPath = path.join(ROOT, 'docs', 'google-charts.md');
-if (fs.existsSync(googleChartsMdPath)) {
-  const googleChartsMd = fs.readFileSync(googleChartsMdPath, 'utf-8');
-  const googleChartsHtml = `
-<div class="content">
-  ${renderMarkdown(googleChartsMd)}
-</div>
-`;
-  const googleChartsPage = generatePage({ title: 'Google Charts', content: googleChartsHtml, activePage: 'google-charts', slug: 'google-charts.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'google-charts.html'), googleChartsPage);
-}
-
-// Build d3.html from docs/d3.md
-console.log('Building d3.html from docs/d3.md...');
-const d3MdPath = path.join(ROOT, 'docs', 'd3.md');
-if (fs.existsSync(d3MdPath)) {
-  const d3Md = fs.readFileSync(d3MdPath, 'utf-8');
-  const d3Html = `
-<div class="content">
-  ${renderMarkdown(d3Md)}
-</div>
-`;
-  const d3Page = generatePage({ title: 'D3.js', content: d3Html, activePage: 'd3', slug: 'd3.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'd3.html'), d3Page);
-}
-
-// Build vegalite.html from docs/vegalite.md
-console.log('Building vegalite.html from docs/vegalite.md...');
-const vegaliteMdPath = path.join(ROOT, 'docs', 'vegalite.md');
-if (fs.existsSync(vegaliteMdPath)) {
-  const vegaliteMd = fs.readFileSync(vegaliteMdPath, 'utf-8');
-  const vegaliteHtml = `
-<div class="content">
-  ${renderMarkdown(vegaliteMd)}
-</div>
-`;
-  const vegalitePage = generatePage({ title: 'Vega-Lite', content: vegaliteHtml, activePage: 'vegalite', slug: 'vegalite.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'vegalite.html'), vegalitePage);
-}
-
-// Build chartjs.html from docs/chartjs.md
-console.log('Building chartjs.html from docs/chartjs.md...');
-const chartjsMdPath = path.join(ROOT, 'docs', 'chartjs.md');
-if (fs.existsSync(chartjsMdPath)) {
-  const chartjsMd = fs.readFileSync(chartjsMdPath, 'utf-8');
-  const chartjsHtml = `
-<div class="content">
-  ${renderMarkdown(chartjsMd)}
-</div>
-`;
-  const chartjsPage = generatePage({ title: 'Chart.js', content: chartjsHtml, activePage: 'chartjs', slug: 'chartjs.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'chartjs.html'), chartjsPage);
-}
-
-// Build amcharts.html from docs/amcharts.md
-console.log('Building amcharts.html from docs/amcharts.md...');
-const amchartsMdPath = path.join(ROOT, 'docs', 'amcharts.md');
-if (fs.existsSync(amchartsMdPath)) {
-  const amchartsMd = fs.readFileSync(amchartsMdPath, 'utf-8');
-  const amchartsHtml = `
-<div class="content">
-  ${renderMarkdown(amchartsMd)}
-</div>
-`;
-  const amchartsPage = generatePage({ title: 'amCharts', content: amchartsHtml, activePage: 'amcharts', slug: 'amcharts.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'amcharts.html'), amchartsPage);
-}
-
-// Build observable.html from docs/observable.md
-console.log('Building observable.html from docs/observable.md...');
-const observableMdPath = path.join(ROOT, 'docs', 'observable.md');
-if (fs.existsSync(observableMdPath)) {
-  const observableMd = fs.readFileSync(observableMdPath, 'utf-8');
-  const observableHtml = `
-<div class="content">
-  ${renderMarkdown(observableMd)}
-</div>
-`;
-  const observablePage = generatePage({ title: 'Observable Plot', content: observableHtml, activePage: 'observable', slug: 'observable.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'observable.html'), observablePage);
-}
-
-// Build echarts.html from docs/echarts.md
-console.log('Building echarts.html from docs/echarts.md...');
-const echartsMdPath = path.join(ROOT, 'docs', 'echarts.md');
-if (fs.existsSync(echartsMdPath)) {
-  const echartsMd = fs.readFileSync(echartsMdPath, 'utf-8');
-  const echartsHtml = `
-<div class="content">
-  ${renderMarkdown(echartsMd)}
-</div>
-`;
-  const echartsPage = generatePage({ title: 'Apache ECharts', content: echartsHtml, activePage: 'echarts', slug: 'echarts.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'echarts.html'), echartsPage);
-}
-
-// Build frappe.html from docs/frappe.md
-console.log('Building frappe.html from docs/frappe.md...');
-const frappeMdPath = path.join(ROOT, 'docs', 'frappe.md');
-if (fs.existsSync(frappeMdPath)) {
-  const frappeMd = fs.readFileSync(frappeMdPath, 'utf-8');
-  const frappeHtml = `
-<div class="content">
-  ${renderMarkdown(frappeMd)}
-</div>
-`;
-  const frappePage = generatePage({ title: 'Frappe Charts', content: frappeHtml, activePage: 'frappe', slug: 'frappe.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'frappe.html'), frappePage);
-}
-
-// Build victory.html from docs/victory.md
-console.log('Building victory.html from docs/victory.md...');
-const victoryMdPath = path.join(ROOT, 'docs', 'victory.md');
-if (fs.existsSync(victoryMdPath)) {
-  const victoryMd = fs.readFileSync(victoryMdPath, 'utf-8');
-  const victoryHtml = `
-<div class="content">
-  ${renderMarkdown(victoryMd)}
-</div>
-`;
-  const victoryPage = generatePage({ title: 'Victory', content: victoryHtml, activePage: 'victory', slug: 'victory.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'victory.html'), victoryPage);
-}
-
-// Build anychart.html from docs/anychart.md
-console.log('Building anychart.html from docs/anychart.md...');
-const anychartMdPath = path.join(ROOT, 'docs', 'anychart.md');
-if (fs.existsSync(anychartMdPath)) {
-  const anychartMd = fs.readFileSync(anychartMdPath, 'utf-8');
-  const anychartHtml = `
-<div class="content">
-  ${renderMarkdown(anychartMd)}
-</div>
-`;
-  const anychartPage = generatePage({ title: 'AnyChart', content: anychartHtml, activePage: 'anychart', slug: 'anychart.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'anychart.html'), anychartPage);
-}
-
-// Build highcharts.html from docs/highcharts.md
-console.log('Building highcharts.html from docs/highcharts.md...');
-const highchartsMdPath = path.join(ROOT, 'docs', 'highcharts.md');
-if (fs.existsSync(highchartsMdPath)) {
-  const highchartsMd = fs.readFileSync(highchartsMdPath, 'utf-8');
-  const highchartsHtml = `
-<div class="content">
-  ${renderMarkdown(highchartsMd)}
-</div>
-`;
-  const highchartsPage = generatePage({ title: 'Highcharts', content: highchartsHtml, activePage: 'highcharts', slug: 'highcharts.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'highcharts.html'), highchartsPage);
-}
-
-// Build tableau.html from docs/tableau.md
-console.log('Building tableau.html from docs/tableau.md...');
-const tableauMdPath = path.join(ROOT, 'docs', 'tableau.md');
-if (fs.existsSync(tableauMdPath)) {
-  const tableauMd = fs.readFileSync(tableauMdPath, 'utf-8');
-  const tableauHtml = `
-<div class="content">
-  ${renderMarkdown(tableauMd)}
-</div>
-`;
-  const tableauPage = generatePage({ title: 'Tableau', content: tableauHtml, activePage: 'tableau', slug: 'tableau.html', ogType: 'article' });
-  fs.writeFileSync(path.join(SITE_DIR, 'tableau.html'), tableauPage);
+  const description = PAGE_DESCRIPTIONS[slug];
+  if (!description) {
+    throw new Error(`[SEO] No description for integration page "${slug}" (docs/${source}). Add one to PAGE_DESCRIPTIONS in scripts/build-site.js.`);
+  }
+  const relSource = `docs/${source}`;
+  const dateModified = lastCommitDate(relSource);
+  const canonical = `${SITE_URL}${slug}.html`;
+  const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, canonical, firstCommitDate(relSource), dateModified)}\n  </script>`;
+  const page = generatePage({
+    title,
+    seoTitle: `${title} Accessibility Integration - MAIDR`,
+    content: html,
+    activePage: slug,
+    slug: `${slug}.html`,
+    ogType: 'article',
+    pageSchema: techArticleTag,
+    dateModified,
+  });
+  fs.writeFileSync(path.join(SITE_DIR, `${slug}.html`), page);
+  builtIntegrations.push({ slug, source });
 }
 
 // Build examples.html (inline gallery content — no middle iframe)
@@ -588,24 +585,52 @@ if (fs.existsSync(victoryBuilt)) {
   console.warn('Warning: Built Victory example not found. Run "npm run build:victory-example" first.');
 }
 
-const today = new Date().toISOString().split('T')[0];
-
-/** Return file mtime as YYYY-MM-DD, or today if the file does not exist. */
-function fileMod(filePath) {
-  try {
-    return fs.statSync(filePath).mtime.toISOString().split('T')[0];
-  } catch {
-    return today;
+/**
+ * Keep the example pages out of the search index.
+ *
+ * They are demo files: no title worth indexing, no description, often no
+ * heading, and the Recharts bundle sits at Googlebot's 2 MB cut-off. The
+ * gallery on examples.html links them with real hrefs so they are crawlable
+ * (and so the links work for assistive technology), and this tag keeps that
+ * from filling the index with 250-odd thin pages. examples.html itself is
+ * not touched; it has unique text and stays indexable.
+ */
+function noindexExamplePages(dir) {
+  let count = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      count += noindexExamplePages(full);
+      continue;
+    }
+    if (!entry.name.endsWith('.html')) {
+      continue;
+    }
+    const html = fs.readFileSync(full, 'utf-8');
+    if (/<meta\s+name="robots"/i.test(html)) {
+      continue;
+    }
+    const tag = '<meta name="robots" content="noindex">';
+    const tagged = /<head[^>]*>/i.test(html)
+      ? html.replace(/<head[^>]*>/i, match => `${match}\n${tag}`)
+      : `${tag}\n${html}`;
+    fs.writeFileSync(full, tagged);
+    count += 1;
   }
+  return count;
+}
+if (fs.existsSync(examplesDest)) {
+  console.log(`Marked ${noindexExamplePages(examplesDest)} example pages noindex`);
 }
 
 // Process docs folder: convert .md to HTML pages, copy other static assets
 const docsSource = path.join(ROOT, 'docs');
 const docsSiteDest = path.join(SITE_DIR, 'docs');
+const builtDocs = [];
 if (fs.existsSync(docsSource)) {
   const files = fs.readdirSync(docsSource);
   for (const file of files) {
-    if (file === 'template.html' || file === 'examples' || file === 'react.md' || file === 'recharts.md' || file === 'plotly.md' || file === 'google-charts.md' || file === 'd3.md' || file === 'vegalite.md' || file === 'chartjs.md' || file === 'amcharts.md' || file === 'frappe.md' || file === 'observable.md' || file === 'victory.md' || file === 'anychart.md' || file === 'highcharts.md' || file === 'tableau.md')
+    if (file === 'template.html' || file === 'examples' || INTEGRATION_SOURCES.has(file))
       continue;
 
     const src = path.join(docsSource, file);
@@ -620,19 +645,17 @@ if (fs.existsSync(docsSource)) {
       const md = fs.readFileSync(src, 'utf-8');
       const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
       const baseName = path.basename(file, path.extname(file));
-      const titleMap = {
-        SCHEMA: 'Data Schema',
-        BRAILLE: 'Braille Generation',
-        CONTROLS: 'Keyboard Controls',
-        LIVE_DATA: 'Live & Streaming Data',
-        VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
-      };
-      const title = titleMap[baseName] ?? baseName;
+      const title = DOC_TITLES[baseName] ?? baseName;
       const docSlug = `docs/${baseName}.html`;
-      const docCanonical = `https://maidr.ai/${docSlug}`;
-      const fileMtime = fileMod(src);
-      const description = PAGE_DESCRIPTIONS[title] || PAGE_DESCRIPTIONS.home;
-      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, fileMtime)}\n  </script>`;
+      const docCanonical = `${SITE_URL}${docSlug}`;
+      const relSource = `docs/${file}`;
+      const dateModified = lastCommitDate(relSource);
+      const datePublished = firstCommitDate(relSource);
+      const description = PAGE_DESCRIPTIONS[title];
+      if (!description) {
+        throw new Error(`[SEO] No description for docs page "${title}" (docs/${file}). Add one to PAGE_DESCRIPTIONS in scripts/build-site.js.`);
+      }
+      const techArticleTag = `<script type="application/ld+json">\n  ${buildTechArticleSchema(title, description, docCanonical, datePublished, dateModified)}\n  </script>`;
       const docPage = generatePage({
         title,
         content: htmlContent,
@@ -641,8 +664,10 @@ if (fs.existsSync(docsSource)) {
         slug: docSlug,
         ogType: 'article',
         pageSchema: techArticleTag,
+        dateModified,
       });
       fs.writeFileSync(path.join(docsSiteDest, `${baseName}.html`), docPage);
+      builtDocs.push({ slug: docSlug, lastmod: dateModified });
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
       fs.cpSync(src, path.join(SITE_DIR, file), { recursive: true });
@@ -653,50 +678,27 @@ if (fs.existsSync(docsSource)) {
   }
 }
 
-// Generate sitemap.xml — built dynamically from the docs/ folder so new pages
-// are included automatically without maintaining a hardcoded list.
+// Generate sitemap.xml from the pages built above, so a new page cannot be
+// left out of it. Only <loc> and <lastmod>: Google ignores <changefreq> and
+// <priority>. The API reference has its own sitemap, written by TypeDoc from
+// `hostedBaseUrl` to _site/api/sitemap.xml and listed in docs/robots.txt.
 console.log('Generating sitemap.xml...');
 
 const sitemapUrls = [
-  { loc: 'https://maidr.ai/', priority: '1.0', lastmod: fileMod(path.join(ROOT, 'README.md')) },
-  { loc: 'https://maidr.ai/react.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'react.md')) },
-  { loc: 'https://maidr.ai/recharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'recharts.md')) },
-  { loc: 'https://maidr.ai/plotly.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'plotly.md')) },
-  { loc: 'https://maidr.ai/google-charts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'google-charts.md')) },
-  { loc: 'https://maidr.ai/d3.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'd3.md')) },
-  { loc: 'https://maidr.ai/vegalite.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'vegalite.md')) },
-  { loc: 'https://maidr.ai/chartjs.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'chartjs.md')) },
-  { loc: 'https://maidr.ai/amcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'amcharts.md')) },
-  { loc: 'https://maidr.ai/frappe.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'frappe.md')) },
-  { loc: 'https://maidr.ai/observable.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'observable.md')) },
-  { loc: 'https://maidr.ai/victory.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'victory.md')) },
-  { loc: 'https://maidr.ai/anychart.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'anychart.md')) },
-  { loc: 'https://maidr.ai/highcharts.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'highcharts.md')) },
-  { loc: 'https://maidr.ai/tableau.html', priority: '0.8', lastmod: fileMod(path.join(ROOT, 'docs', 'tableau.md')) },
-  { loc: 'https://maidr.ai/examples.html', priority: '0.8', lastmod: today },
-  { loc: 'https://maidr.ai/api/index.html', priority: '0.7', lastmod: today },
+  { loc: SITE_URL, lastmod: lastCommitDate('README.md') },
+  ...builtIntegrations.map(({ slug, source }) => ({
+    loc: `${SITE_URL}${slug}.html`,
+    lastmod: lastCommitDate(`docs/${source}`),
+  })),
+  { loc: `${SITE_URL}examples.html`, lastmod: lastCommitDate('examples') },
+  ...builtDocs.map(({ slug, lastmod }) => ({ loc: `${SITE_URL}${slug}`, lastmod })),
 ];
-
-// Add all doc .md files that were built into _site/docs/
-if (fs.existsSync(docsSource)) {
-  for (const f of fs.readdirSync(docsSource)) {
-    if (f === 'template.html' || f === 'react.md' || f === 'recharts.md' || f === 'plotly.md' || f === 'google-charts.md' || f === 'd3.md' || f === 'vegalite.md' || f === 'chartjs.md' || f === 'amcharts.md' || f === 'frappe.md' || f === 'observable.md' || f === 'victory.md' || f === 'anychart.md' || f === 'highcharts.md' || f === 'tableau.md' || !f.endsWith('.md'))
-      continue;
-    const base = path.basename(f, '.md');
-    sitemapUrls.push({
-      loc: `https://maidr.ai/docs/${base}.html`,
-      priority: '0.6',
-      lastmod: fileMod(path.join(docsSource, f)),
-    });
-  }
-}
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls.map(u => `  <url>
-    <loc>${u.loc}</loc>${u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : ''}
-    <changefreq>monthly</changefreq>
-    <priority>${u.priority}</priority>
+    <loc>${u.loc}</loc>
+    <lastmod>${u.lastmod}</lastmod>
   </url>`).join('\n')}
 </urlset>
 `;

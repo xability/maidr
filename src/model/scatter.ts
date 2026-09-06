@@ -168,6 +168,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   private readonly highlightXValues: SVGElement[][] | null;
   private readonly highlightYValues: SVGElement[][] | null;
+  /**
+   * Every clone the selector resolved, in data order, whether or not its
+   * coordinates could be read. A marker with none joins neither a column nor
+   * a row, so this is the only list `dispose()` can remove it through.
+   */
+  private readonly svgClones: SVGElement[];
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
@@ -345,6 +351,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // Select SVG elements once, then share for COL/ROW grouping and grid cell mapping
     const selector = layer.selectors as string;
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
+    this.svgClones = allSvgClones;
 
     [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
     this.highlightCenters = this.mapSvgElementsToCenters();
@@ -505,14 +512,27 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.xPoints.length = 0;
     this.yPoints.length = 0;
 
+    // Removed through the full list rather than through the column and row
+    // groupings alone: a clone whose coordinates could not be read is in
+    // neither grouping, and left in the chart it accumulated on every
+    // focus-out and live-data rebuild.
+    this.svgClones.forEach(el => Svg.isOwned(el) && el.remove());
+    this.svgClones.length = 0;
     if (this.highlightXValues) {
-      this.highlightXValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightXValues.length = 0;
     }
     if (this.highlightYValues) {
-      this.highlightYValues.forEach(row => row.forEach(el => Svg.isOwned(el) && el.remove()));
       this.highlightYValues.length = 0;
     }
+    this.highlightCenters = null;
+
+    // Grid and grid-cell navigation hold the same clones by another route.
+    this.gridCells?.forEach(row => row.forEach((cell) => {
+      cell.svgElements.length = 0;
+      cell.points.length = 0;
+    }));
+    this.cellSvgGroups.length = 0;
+    this.cellIndexGroups.length = 0;
 
     // Point and intersection navigation cache their own references to the
     // chart's live geometry; leaving them behind retains a detached DOM tree
@@ -2327,7 +2347,58 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return null;
     }
 
+    // ...and describe a grid. A zero step over a positive range asks
+    // `computeGridSteps` for `Infinity` bins, which it pushes until the tab
+    // runs out of memory -- inside the constructor, so nothing can catch it.
+    // A negative step or an inverted range yields the opposite, a grid with
+    // no cell to enter. Neither is a grid, so neither advertises one.
+    if (!this.isGridAxis(xMin, xMax, xTickStep) || !this.isGridAxis(yMin, yMax, yTickStep)) {
+      return null;
+    }
+
+    // ...and a grid a reader can hold. `buildGridCells` allocates one cell
+    // object with six arrays per row-column pair up front, so two axes that
+    // each pass the per-axis bound on their own still multiply into a grid
+    // whose construction is the same tab-freezing allocation, only reached
+    // by their product rather than by either one.
+    const cells = ((xMax - xMin) / xTickStep) * ((yMax - yMin) / yTickStep);
+    if (cells > ScatterTrace.MAX_GRID_CELLS) {
+      return null;
+    }
+
     return { xMin, xMax, xTickStep, yMin, yMax, yTickStep };
+  }
+
+  /**
+   * The most bins one axis may be cut into.
+   *
+   * A positive but tiny step is the same hang as a zero step, only slower:
+   * `computeGridSteps` would build billions of finite bins in the
+   * constructor. No reader navigates a grid that fine, so a step that asks
+   * for more than this is read as not describing a grid at all.
+   */
+  private static readonly MAX_GRID_BINS = 10_000;
+
+  /**
+   * The most cells a grid may hold across both axes.
+   *
+   * Bounding each axis on its own is not enough: two bounds that each look
+   * reasonable multiply, and it is the product that `buildGridCells`
+   * allocates in one synchronous pass in the constructor.
+   */
+  private static readonly MAX_GRID_CELLS = 100_000;
+
+  /**
+   * Whether one axis's range and step can be cut into at least one bin.
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @param tick - The bin width
+   * @returns True when the values yield a finite, positive, bounded number of bins
+   */
+  private isGridAxis(min: number, max: number, tick: number): boolean {
+    return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(tick)
+      && tick > 0 && max > min
+      && (max - min) / tick <= ScatterTrace.MAX_GRID_BINS;
   }
 
   /**

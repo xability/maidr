@@ -1,21 +1,40 @@
 # MAIDR
 
-> MAIDR (Multimodal Access and Interactive Data Representation) is a TypeScript/React library that provides accessible, non-visual access to statistical charts through audio sonification, text descriptions, braille output, and AI-powered descriptions. Developed by the (x)Ability Design Lab at the University of Illinois Urbana-Champaign.
+> MAIDR (Multimodal Access and Interactive Data Representation) is an open-source JavaScript/TypeScript library that makes statistical charts accessible to blind and low-vision people through keyboard navigation, audio sonification, text descriptions, braille output, and AI-generated descriptions. Developed by the (x)Ability Design Lab at the University of Illinois Urbana-Champaign. It is the engine behind py-maidr (Python) and maidr for R.
 
-MAIDR converts data visualizations into interactive, multimodal formats navigable entirely by keyboard. It supports bar charts, stacked/dodged bar charts, histograms, line plots, multi-line plots, step plots, scatter plots, box plots, violin plots, heatmaps, candlestick charts, pie and doughnut charts, smooth curves, faceted plots, and multi-panel layouts. Available as an npm package and as a React component library.
+MAIDR converts data visualizations into interactive, multimodal formats navigable entirely by keyboard. It supports bar charts, stacked/dodged bar charts, histograms, line plots, multi-line plots, step plots, scatter plots, box plots, violin plots, heatmaps, candlestick charts, pie and doughnut charts, smooth curves, faceted plots, and multi-panel layouts. Available as an npm package (`maidr`), as a React component library, and through adapters for the charting libraries listed below.
 
 ## Docs
-- [Home](https://maidr.ai/): Overview and getting started guide
-- [React Integration](https://maidr.ai/react.html): How to use MAIDR with React
-- [Data Schema](https://maidr.ai/docs/SCHEMA.html): MAIDR data schema specification
-- [Keyboard Controls](https://maidr.ai/docs/CONTROLS.html): Keyboard controls reference
-- [Live & Streaming Data](https://maidr.ai/docs/LIVE_DATA.html): Realtime data updates, streaming, and monitor mode
-- [Braille Generation](https://maidr.ai/docs/BRAILLE.html): Braille output documentation
-- [API Documentation](https://maidr.ai/api/index.html): TypeDoc API reference
-- [Examples](https://maidr.ai/examples.html): Interactive examples gallery
+- [Home](https://maidr.ai/): Overview, usage, data schema summary, related projects, papers, and contact
+- [Data Schema](https://maidr.ai/docs/SCHEMA.html): The MAIDR JSON schema for figures, subplots, layers, axes and data points
+- [Keyboard Controls](https://maidr.ai/docs/CONTROLS.html): Keyboard shortcuts for navigating data and switching between braille, text and sonification
+- [Live & Streaming Data](https://maidr.ai/docs/LIVE_DATA.html): Realtime updates with setData and appendData, sliding windows, and monitor mode
+- [Braille Generation](https://maidr.ai/docs/BRAILLE.html): How each plot type is encoded for refreshable braille displays
+- [Tactile Graphics Display](https://maidr.ai/docs/TACTILE_DISPLAY.html): Rendering charts on the Dot Pad X tactile graphics display over Bluetooth or USB
+- [Violin Plot Specification](https://maidr.ai/docs/VIOLIN_PLOT_SPEC.html): Data structures and navigation for violin plots (KDE and box layers)
+- [API Reference](https://maidr.ai/api/index.html): TypeDoc reference for the MAIDR JavaScript API
+- [Examples](https://maidr.ai/examples.html): Interactive examples gallery for every supported chart type and integration
+
+## Integration guides
+- [React](https://maidr.ai/react.html): The `<Maidr>` component, TypeScript types, and data examples for React 18 and 19
+- [Recharts](https://maidr.ai/recharts.html): Accessible Recharts components for bar, line, scatter, stacked and histogram charts
+- [Plotly.js](https://maidr.ai/plotly.html): Zero-configuration accessibility for Plotly bar, scatter, line, box, violin, heatmap, histogram, candlestick and pie charts
+- [Google Charts](https://maidr.ai/google-charts.html): Bar, line, scatter, candlestick, stacked, dodged and pie charts
+- [D3.js](https://maidr.ai/d3.html): Binders for D3 bar, line, scatter, box, heatmap, histogram, candlestick, segmented, smooth and pie charts, plus a React wrapper
+- [Vega-Lite](https://maidr.ai/vegalite.html): Bar, stacked, dodged, normalized, histogram, line, scatter, heatmap, box plot and arc specs
+- [Chart.js](https://maidr.ai/chartjs.html): Bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix) and pie or doughnut charts
+- [amCharts 5](https://maidr.ai/amcharts.html): Bar, dodged, stacked, normalized, line, histogram, heatmap and pie charts
+- [Observable Plot & Quarto](https://maidr.ai/observable.html): Bar, histogram, scatter, line, area and faceted plots, including Quarto OJS cells
+- [Apache ECharts](https://maidr.ai/echarts.html): Bar, stacked bar, dodged bar, line, area, step and scatter series
+- [Frappe Charts](https://maidr.ai/frappe.html): Bar, line, multi-line, scatter, mixed axis, pie and donut charts
+- [Victory](https://maidr.ai/victory.html): Bar, line, scatter, stacked, histogram, box plot, candlestick and pie charts for React
+- [AnyChart](https://maidr.ai/anychart.html): Bar, line, step, scatter, box, heatmap, candlestick and pie charts via a one-line binder
+- [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
+- [Tableau](https://maidr.ai/tableau.html): Sonification, braille and screen-reader navigation for embedded Tableau dashboards
 
 ## Optional
 - [npm](https://www.npmjs.com/package/maidr): Install with `npm install maidr`
 - [GitHub](https://github.com/xability/maidr): Source code and issue tracker
-- [maidr for Python](https://py.maidr.ai/): Python binding (matplotlib, seaborn, plotly)
-- [maidr for R](https://r.maidr.ai/): R package (ggplot2, Base R)
+- [py-maidr for Python](https://py.maidr.ai/): Python binding for matplotlib, seaborn, Plotly and Altair (PyPI package `maidr`)
+- [maidr for R](https://r.maidr.ai/): R package for ggplot2 and base graphics (CRAN package `maidr`)
+- [(x)Ability Design Lab](https://xabilitylab.ischool.illinois.edu/): The lab at the University of Illinois Urbana-Champaign that develops MAIDR

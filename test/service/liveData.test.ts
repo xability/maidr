@@ -173,7 +173,6 @@ describe('appendPointToMaidr', () => {
       col: 2,
       trimmed: 0,
       nested: false,
-      trimShift: 'col',
     });
   });
 
@@ -213,7 +212,6 @@ describe('appendPointToMaidr', () => {
     const result = appendPointToMaidr(maidr, { x: 3, y: 30 });
 
     expect(result!.appended.nested).toBe(true);
-    expect(result!.appended.trimShift).toBe('col');
   });
 
   test('appends a full OHLC candle to a candlestick layer', () => {
@@ -240,7 +238,6 @@ describe('appendPointToMaidr', () => {
     expect(result!.appended.row).toBe(4);
     expect(result!.appended.col).toBe(2);
     expect(result!.appended.nested).toBe(false);
-    expect(result!.appended.trimShift).toBe('col');
   });
 
   test('applies the maxWidth sliding window to candlestick data', () => {
@@ -601,7 +598,6 @@ function createAppended(overrides: Partial<AppendedPointInfo> = {}): AppendedPoi
     col: 1,
     trimmed: 0,
     nested: false,
-    trimShift: 'col',
     ...overrides,
   };
 }

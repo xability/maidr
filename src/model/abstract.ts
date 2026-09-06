@@ -173,8 +173,14 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
 
   public notifyRotorBounds(): void {
     this.isWarning = true;
-    this.notifyStateUpdate();
-    this.isWarning = false;
+    try {
+      this.notifyStateUpdate();
+    } finally {
+      // Restore on every path, as `getStateAt` does: `CommandExecutor` swallows
+      // a throw from an observer, and a flag left raised turns every later
+      // `state` read into the warning variant.
+      this.isWarning = false;
+    }
   }
 
   public get isInitialEntry(): boolean {

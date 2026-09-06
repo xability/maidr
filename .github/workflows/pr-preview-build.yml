@@ -39,6 +39,9 @@ jobs:
           # Untrusted PR code is checked out only to be BUILT; don't leave the
           # job token in .git/config where a build script could read it.
           persist-credentials: false
+          # Full history: build-site.js dates each page from its last commit,
+          # so a shallow clone would stamp the preview with the build date.
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

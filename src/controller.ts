@@ -436,7 +436,7 @@ export class Controller implements Disposable {
    * @returns The column shift to apply during position restoration
    */
   private resolveActiveColShift(appended?: AppendedPointInfo): number {
-    if (!appended || appended.trimmed === 0 || appended.trimShift !== 'col') {
+    if (!appended || appended.trimmed === 0) {
       return 0;
     }
     try {

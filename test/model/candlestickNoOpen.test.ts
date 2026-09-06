@@ -216,6 +216,58 @@ describe('what a chart without an open lets a reader reach', () => {
   });
 });
 
+describe('a chart where only some candles record an open', () => {
+  // The rows are a property of the chart, so a series with an open for some
+  // periods and not others is read as the high-low-close it can be read as
+  // throughout: no open row, no trend column, no shading. The candles that
+  // do have an open must not carry a trend on their own, or the reader hears
+  // a body direction for a candle on a chart the rest of the model says has
+  // no bodies.
+  const MIXED = [WITH_OPEN[0], WITHOUT_OPEN[1], WITH_OPEN[2]];
+
+  /** The populated state on the first candle, which does record an open. */
+  function stateOnOpenedCandle(trace: Candlestick) {
+    const state = trace.state;
+    if (state.empty || state.braille.empty) {
+      throw new Error('expected a populated state');
+    }
+    // Returned field by field so the narrowing of `braille` survives.
+    return { text: state.text, audio: state.audio, braille: state.braille };
+  }
+
+  test('reads it as a chart with no open', () => {
+    expect(candlestickSectionsOf(MIXED)).not.toContain('open');
+  });
+
+  test('announces no trend on a candle that does have an open', () => {
+    const { text } = stateOnOpenedCandle(new Candlestick(layerOf(MIXED)));
+
+    expect(text.z).toBeUndefined();
+  });
+
+  test('plays no trend palette on it either', () => {
+    const { audio } = stateOnOpenedCandle(new Candlestick(layerOf(MIXED)));
+
+    expect(audio.trend).toBeUndefined();
+  });
+
+  test('offers no trend rotor unit', () => {
+    const labels = new Candlestick(layerOf(MIXED))
+      .getRotorFilterUnits()
+      .map(unit => unit.label);
+
+    expect(labels).not.toContain(BULLISH_POINT_MODE);
+    expect(labels).not.toContain(BEARISH_POINT_MODE);
+    expect(labels).not.toContain(NEUTRAL_POINT_MODE);
+  });
+
+  test('shades the braille with no trend markers, as the sections say', () => {
+    const { braille } = stateOnOpenedCandle(new Candlestick(layerOf(MIXED)));
+
+    expect(braille.custom).toStrictEqual([]);
+  });
+});
+
 describe('the sections one chart has', () => {
   test('is the superset where every candle records an open', () => {
     expect(candlestickSectionsOf(WITH_OPEN)).toEqual([...CANDLESTICK_SECTIONS]);

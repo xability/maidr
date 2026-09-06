@@ -63,30 +63,31 @@ describe('candlestick compare navigation is orientation-independent', () => {
     // Default entry segment is 'close'; start at d0 (close 10).
     expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
     expect(currentDate(trace)).toBe('d2'); // close 12, skipping d1 (8)
-    expect(trace.col).toBe(2); // candle index lives in col when vertical
+    expect(trace.col).toBe(2); // the candle index lives in col
   });
 
   test('horizontal: moveRight/higher lands on the same candle as vertical', () => {
-    // Regression guard for the orientation bug: before the fix this read
-    // this.col (the segment position in horizontal layout) as the candle
-    // index and jumped to the wrong candle.
+    // Regression guard for the orientation bug: the compare search once read
+    // the cursor's grid coordinate as the candle index while the horizontal
+    // layout stored the cursor the other way round, and jumped to the wrong
+    // candle. The search now drives off the navigation state, and the cursor
+    // frame is [section][candle] in both layouts.
     const trace = new Candlestick(makeLayer(Orientation.HORIZONTAL));
     expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
     expect(currentDate(trace)).toBe('d2');
-    expect(trace.row).toBe(2); // candle index lives in row when horizontal
+    expect(trace.col).toBe(2); // the candle index lives in col in both layouts
   });
 
   test('horizontal: moveRight/lower finds the next lower-close candle', () => {
     const trace = new Candlestick(makeLayer(Orientation.HORIZONTAL));
     expect(trace.moveToNextCompareValue('right', 'lower')).toBe(true);
     expect(currentDate(trace)).toBe('d1'); // close 8 < 10
-    expect(trace.row).toBe(1);
+    expect(trace.col).toBe(1);
   });
 
   test('horizontal: compare works after navigating in, not only from entry', () => {
-    // Exercises the currentPointIndex path from a moved position (this.col
-    // holds the segment index here, this.row the candle index), so it guards
-    // the fix independently of the initial-entry code path.
+    // Exercises the currentPointIndex path from a moved position, so it
+    // guards the fix independently of the initial-entry code path.
     const trace = new Candlestick(makeLayer(Orientation.HORIZONTAL));
     trace.moveOnce('FORWARD'); // initial entry -> d0
     trace.moveOnce('FORWARD'); // d0 -> d1
@@ -95,7 +96,7 @@ describe('candlestick compare navigation is orientation-independent', () => {
     // From d1 (close 8) the next higher close to the right is d2 (12).
     expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
     expect(currentDate(trace)).toBe('d2');
-    expect(trace.row).toBe(2);
+    expect(trace.col).toBe(2);
   });
 
   test('horizontal: boundary returns false and stays on the current candle', () => {

@@ -72,7 +72,10 @@ export class ViolinKdeTrace extends AbstractTrace {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.points = [...(layer.data as ViolinKdePoint[][])].reverse();
     } else {
-      this.points = layer.data as ViolinKdePoint[][];
+      // Copied, like the reversed branch above: `dispose()` truncates the
+      // array it holds, and held by reference that would empty the caller's
+      // spec, so a figure rebuilt from it came up empty.
+      this.points = [...(layer.data as ViolinKdePoint[][])];
     }
 
     // Extract density and y values for each violin
@@ -105,9 +108,21 @@ export class ViolinKdeTrace extends AbstractTrace {
     // points array. mapToSvgElements pairs selectors[i] with this.points[i],
     // so both must be in the same order. No separate highlightValues.reverse()
     // is needed since the selectors are pre-aligned.
-    const kdeSelectors = this.orientation === Orientation.HORIZONTAL
-      ? [...(layer.selectors as string[])].reverse()
-      : (layer.selectors as string[]);
+    //
+    // `selectors` is optional in the grammar and the Chart.js extractor emits
+    // none, so there may be nothing to reverse; spreading `undefined` threw
+    // out of the constructor and took the figure with it. A single string is
+    // the grammar's "one pattern for every violin", which `mapToSvgElements`
+    // reads off a one-element array; spread, it would fall apart into
+    // characters.
+    const selectors = typeof layer.selectors === 'string'
+      ? [layer.selectors]
+      : Array.isArray(layer.selectors) && layer.selectors.every(one => typeof one === 'string')
+        ? (layer.selectors as string[])
+        : undefined;
+    const kdeSelectors = selectors && this.orientation === Orientation.HORIZONTAL
+      ? [...selectors].reverse()
+      : selectors;
     this.highlightValues = this.mapToSvgElements(kdeSelectors);
     this.highlightCenters = this.mapSvgElementsToCenters();
     this.movable = new MovableGrid<ViolinKdePoint>(this.points, { row: 0 });
