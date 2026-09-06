@@ -316,6 +316,43 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
+    // A suspended context reports currentTime === 0, so a data tone scheduled
+    // against it starts and stops at the same frozen instant and is simply
+    // never heard — the context is created from a timeout after focus-in, and
+    // when that focus is programmatic (a screen reader's virtual cursor,
+    // `autofocus`, a host page calling `.focus()`) it is born suspended and
+    // stays that way. The cue paths defer behind resume() one level down; the
+    // data tones defer here, so the first point of a chart is heard rather
+    // than dropped. Keyboard navigation is the user gesture resume() needs.
+    if (this.audioContext.state !== 'running') {
+      // At volume 0 the update is silent whichever branch it takes, so it must
+      // neither trigger resume() nor claim the shared deferred-cue slot —
+      // mirroring the outer guards in playEmptyTone and playMenuTone.
+      if (this.volume > 0) {
+        this.scheduleWhenRunning(() => this.playState(state));
+      }
+      return;
+    }
+
+    this.playState(state);
+  }
+
+  /**
+   * Sounds one plot state on a running {@link AudioContext}.
+   *
+   * Split out of {@link update} so the whole path — cue tones and data tones
+   * alike — can be deferred behind {@link AudioContext.resume} as a unit.
+   * Re-checks mode and context state because it can run after that async gap,
+   * by which point the user may have turned sound off or the context may have
+   * been closed on disposal.
+   *
+   * @param state - The plot state to sonify
+   */
+  private playState(state: PlotState): void {
+    if (this.mode === AudioMode.OFF || this.audioContext.state !== 'running') {
+      return;
+    }
+
     if (state.empty) {
       if (state.warning) {
         this.playWarningTone();
