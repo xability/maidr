@@ -988,13 +988,32 @@ function buildSegmentedLayer(
   // Google Charts renders DOM in row-major order (all categories for series 0,
   // then all categories for series 1, etc.), so we set domMapping.order='row'
   // to tell MAIDR to iterate in row-major order when mapping SVG elements.
-  const selector = markSegmentedBarElements(chart, container, rows, seriesCount);
+  const marks = markSegmentedBarElements(chart, container, rows, seriesCount);
+
+  // A reversed category axis draws the categories from the far end while
+  // Google goes on emitting the rects in row order, so a layer emitted as
+  // written is announced as the mirror image of the chart -- the reading
+  // order, the stereo pan, the braille line and the direction autoplay sweeps
+  // all backwards (#1020, #1040). The single-series path has turned round
+  // since then; this one routes every chart with two or more data columns, so
+  // adding a series to a chart that read correctly silently broke it.
+  //
+  // The payload and the marks turn round together: with the categories
+  // reversed, document order no longer pairs the rects with the cells, so
+  // each cell names its own mark instead -- the same answer `#995` reached
+  // for a single series.
+  const cells = marks.cells;
+  let selectors: string | (string | null)[][] | undefined = marks.selector;
+  if (cells && drawsCategoriesReversed(chart, rows, horizontal)) {
+    data.forEach(series => series.reverse());
+    selectors = cells.map(row => [...row].reverse());
+  }
 
   return {
     id: nextId('layer'),
     type: traceType,
     orientation,
-    ...(selector ? { selectors: selector } : {}),
+    ...(selectors ? { selectors } : {}),
     // 'row' tells MAIDR that DOM elements are in row-major order (series-first)
     domMapping: { order: 'row' },
     // A stack has no single value column to name — its data columns are the
@@ -3397,6 +3416,19 @@ function markBarElements(
 }
 
 /**
+ * How a segmented chart's marks can be addressed once they are stamped.
+ */
+interface SegmentedMarks {
+  /** One selector naming every mark; document order does the pairing. */
+  selector: string | undefined;
+  /**
+   * One selector per `[series][category]` cell, `null` where the layout named
+   * no rect, or `undefined` when the marks could not be placed at all.
+   */
+  cells: (string | null)[][] | undefined;
+}
+
+/**
  * Uses the Google Charts layout API to find and mark the SVG rect elements
  * for segmented bar charts (stacked, dodged, normalized).
  *
@@ -3408,25 +3440,29 @@ function markBarElements(
  *
  * This function marks elements in the correct order for mapToSvgElements().
  *
+ * It also reports the marks **cell by cell**, which is what a reversed
+ * category axis needs: the payload is turned round to match the drawing, and
+ * document order then no longer pairs the elements with it.
+ *
  * @param chart - The Google Chart instance
  * @param container - The DOM container element
  * @param categoryCount - Number of categories
  * @param seriesCount - Number of data series
- * @returns CSS selector for the marked elements, or undefined if no elements found
+ * @returns The ways the marks can be addressed
  */
 function markSegmentedBarElements(
   chart: GoogleChart,
   container: HTMLElement,
   categoryCount: number,
   seriesCount: number,
-): string | undefined {
+): SegmentedMarks {
   const svg = container.querySelector('svg');
   if (!svg)
-    return undefined;
+    return { selector: undefined, cells: undefined };
 
   const layout = chart.getChartLayoutInterface();
   if (!layout)
-    return buildDataSelector(container, 'rect');
+    return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
   // Get all rects in the SVG
   const allRects = svg.querySelectorAll('rect');
@@ -3446,27 +3482,30 @@ function markSegmentedBarElements(
   //       svgElements[r].push(domElements[domIndex++])
   //
   // Google Charts' getBoundingBox uses: bar#seriesIndex#categoryIndex
+  // Stamped with the cell it draws rather than with a running count, so a
+  // cell can be named outright and a rect the layout did not place does not
+  // shift the numbering of the ones after it.
+  const cells: (string | null)[][] = [];
   for (let series = 0; series < seriesCount; series++) {
+    const row: (string | null)[] = [];
     for (let category = 0; category < categoryCount; category++) {
       const bbox = layout.getBoundingBox(`bar#${series}#${category}`);
-      if (!bbox) {
-        continue;
-      }
-
-      const rect = findRectByBoundingBox(allRects, bbox);
+      const rect = bbox ? findRectByBoundingBox(allRects, bbox) : null;
       if (rect) {
-        rect.setAttribute('data-maidr-bar', `${markedCount}`);
+        rect.setAttribute('data-maidr-bar', `${series}-${category}`);
+        row.push(`#${container.id} svg rect[data-maidr-bar="${series}-${category}"]`);
         markedCount++;
+      } else {
+        row.push(null);
       }
     }
+    cells.push(row);
   }
 
-  const selector = `#${container.id} svg rect[data-maidr-bar]`;
-
   if (markedCount === 0)
-    return buildDataSelector(container, 'rect');
+    return { selector: buildDataSelector(container, 'rect'), cells: undefined };
 
-  return selector;
+  return { selector: `#${container.id} svg rect[data-maidr-bar]`, cells };
 }
 
 /**
