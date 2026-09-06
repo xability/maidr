@@ -587,6 +587,20 @@ export class KeybindingService {
   }
 
   /**
+   * Activates a keyboard scope, so only that scope's bindings fire.
+   *
+   * `Context` decides which scope the reader is in and fires
+   * `onScopeChange`; this applies it. Keeping the call here leaves one writer
+   * to the hotkeys-js scope — the same object that binds the keys and unbinds
+   * them in {@link unregister}.
+   *
+   * @param scope - The scope to activate
+   */
+  public setScope(scope: Scope): void {
+    hotkeys.setScope(scope);
+  }
+
+  /**
    * Unregisters all keyboard bindings.
    */
   public unregister(): void {

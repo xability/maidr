@@ -91,6 +91,8 @@ export class Controller implements Disposable {
 
   private readonly keybinding: KeybindingService;
   private readonly mousebinding: Mousebindingservice;
+  /** Carries `Context`'s scope changes to the service that owns the hotkeys scope. */
+  private readonly scopeSubscription: Disposable;
   private readonly commandExecutor: CommandExecutor;
   private readonly viewModelRegistry: ViewModelRegistry;
 
@@ -341,6 +343,13 @@ export class Controller implements Disposable {
     if (maidr.onNavigate) {
       this.registerNavigateCallback(maidr.onNavigate);
     }
+    // The model decides which scope the reader is in; the keybinding service
+    // owns the hotkeys-js scope that decides which bindings fire. `Context`
+    // announces the change and this hands it over, so the model never reaches
+    // for the keyboard library itself.
+    this.scopeSubscription = this.context.onScopeChange(
+      scope => this.keybinding.setScope(scope),
+    );
     this.keybinding.register(this.context.scope);
     this.mousebinding.registerEvents();
   }
@@ -498,6 +507,7 @@ export class Controller implements Disposable {
    * Cleans up all services, view models, and event listeners.
    */
   public dispose(): void {
+    this.scopeSubscription.dispose();
     this.keybinding.unregister();
     this.mousebinding.dispose();
     this.commandExecutor.dispose();
