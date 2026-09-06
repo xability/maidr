@@ -91,6 +91,19 @@ function createWarningState(): TraceState {
   };
 }
 
+/**
+ * Builds the empty subplot state a subplot pushes from notifyOutOfBounds():
+ * Page Up or Page Down at the first or last layer, and every such press on a
+ * single-layer chart.
+ * @returns An out-of-bounds subplot-type PlotState.
+ */
+function createNoMoreLayersState(): PlotState {
+  return {
+    empty: true,
+    type: 'subplot',
+  } as PlotState;
+}
+
 describe('textService first-navigation announcement gate', () => {
   test('fires first_navigation on the first trace-level navigation', () => {
     const text = new TextService(createMockNotificationService());
@@ -308,5 +321,34 @@ describe('textService out-of-bounds edge alert', () => {
     // The out-of-bounds event must NOT overwrite currentState, so the AI chat
     // still reports the user's last valid coordinate rather than null.
     expect(text.getCoordinateText()).toBe(coordinateAtPoint);
+  });
+
+  test('preserves the last valid currentState at a layer boundary', () => {
+    const notification = createMockNotificationService();
+    const text = new TextService(notification);
+
+    // Page Up on a single-layer chart: the reader never moves, so the cue must
+    // not cost them the position the AI chat reports.
+    text.update(createTraceState());
+    const coordinateAtPoint = text.getCoordinateText();
+    expect(coordinateAtPoint).not.toBeNull();
+
+    text.update(createNoMoreLayersState());
+
+    expect(text.getCoordinateText()).toBe(coordinateAtPoint);
+    expect(notification.notify).toHaveBeenCalledWith('No additional layer');
+  });
+
+  test('stays silent at a layer boundary while text mode is off', () => {
+    const notification = createMockNotificationService();
+    const text = new TextService(notification);
+    text.toggle(); // VERBOSE -> TERSE
+    text.toggle(); // TERSE -> OFF
+    expect(text.isOff()).toBe(true);
+    (notification.notify as jest.Mock).mockClear();
+
+    text.update(createNoMoreLayersState());
+
+    expect(notification.notify).not.toHaveBeenCalled();
   });
 });
