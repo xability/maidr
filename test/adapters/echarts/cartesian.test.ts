@@ -272,6 +272,27 @@ describe('an eCharts bar chart', () => {
       { x: 'C', y: 2, z: 'Two' },
     ]);
   });
+
+  it('is stacked only when every series is in the same stack', () => {
+    // ECharts stacks the series that share a `stack` name and draws the rest
+    // beside them, so `stack: 'a', 'a', 'b', 'b'` is two stacks side by side
+    // and a stacked series next to a plain one is a mixed chart. Calling
+    // either one stacked tells the reader the bars sit on top of each other
+    // when they do not.
+    const grouped = [
+      { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One', stack: 'a' },
+      { type: 'bar', names: CATEGORIES, values: [3, 1, 2], name: 'Two', stack: 'b' },
+    ];
+    expect(layersOf({ series: grouped }, drawnChart(6, 0))[0].type)
+      .toBe(TraceType.DODGED);
+
+    const mixed = [
+      { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One', stack: 'a' },
+      { type: 'bar', names: CATEGORIES, values: [3, 1, 2], name: 'Two' },
+    ];
+    expect(layersOf({ series: mixed }, drawnChart(6, 0))[0].type)
+      .toBe(TraceType.DODGED);
+  });
 });
 
 describe('an eCharts line chart', () => {

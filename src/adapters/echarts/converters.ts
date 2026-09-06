@@ -660,7 +660,7 @@ function barLayer(
     };
   }
 
-  const stacked = bars.some(seriesModel => Boolean(seriesModel.get('stack')));
+  const stacked = oneStack(bars);
   // A gap keeps its column rather than being dropped from the row.
   // `SegmentedTrace` pairs the series by column index -- its summary row reads
   // `barValues.map(row => row[i])` and takes the category off `points[0][i]`
@@ -708,6 +708,27 @@ function barLayer(
     axes: axisConfig(axes),
     data: rows.map(row => row.points),
   };
+}
+
+/**
+ * Whether every bar series is stacked, and stacked on the same pile.
+ *
+ * ECharts stacks the series that share a `stack` name and draws the rest
+ * beside them, so a chart is only a stacked bar chart when they all name the
+ * same one. Two names is grouped stacks -- `'a', 'a', 'b', 'b'` is two stacks
+ * side by side, which ECharts draws routinely -- and a stacked series next to
+ * a plain one is a mixed chart. Calling either a stack tells the reader the
+ * bars sit on top of one another when they do not.
+ *
+ * @param bars - The chart's bar series
+ * @returns True when they are all in one stack
+ */
+function oneStack(bars: EChartsSeriesModel[]): boolean {
+  const first = text(bars[0]?.get('stack'));
+  if (!first) {
+    return false;
+  }
+  return bars.every(seriesModel => text(seriesModel.get('stack')) === first);
 }
 
 /**
