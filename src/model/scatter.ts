@@ -205,6 +205,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private gridCol: number;
   private isInGridMode: boolean;
 
+  /**
+   * The braille surface of the grid: one point count per cell, with the
+   * busiest cell's count beside it.
+   *
+   * Built on the first braille read rather than per read. `braille` is
+   * evaluated inside every state computation, so a fine grid rescanned every
+   * cell and allocated a row array per grid row on each arrow key -- ten
+   * thousand cell reads and a hundred allocations on a 100 x 100 grid.
+   *
+   * `gridCells` is readonly and its cells are filled once by
+   * {@link buildGridCells}. The one thing that changes a count afterwards is
+   * {@link dispose}, which empties them, and which clears this so a disposed
+   * trace does not retain the matrix or report counts its cells no longer
+   * hold.
+   */
+  private gridCounts: { values: number[][]; max: number } | null = null;
+
   // Grid cell point navigation state
   private isInGridCellMode: boolean;
   private cellPointIndex: number;
@@ -531,6 +548,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       cell.svgElements.length = 0;
       cell.points.length = 0;
     }));
+    // Emptying the cells is the one thing that changes their counts, so the
+    // braille matrix counted from them goes with them.
+    this.gridCounts = null;
     this.cellSvgGroups.length = 0;
     this.cellIndexGroups.length = 0;
 
@@ -615,24 +635,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     // Grid mode: return 2D grid of point counts for braille display
     if (this.isInGridMode && this.gridCells) {
-      const gridValues: number[][] = [];
-      let maxCount = 0;
-      for (let r = 0; r < this.numGridRows; r++) {
-        gridValues[r] = [];
-        for (let c = 0; c < this.numGridCols; c++) {
-          const count = this.gridCells[r][c].points.length;
-          gridValues[r][c] = count;
-          if (count > maxCount) {
-            maxCount = count;
-          }
-        }
-      }
+      const counts = this.countGridPoints(this.gridCells);
       return {
         empty: false,
         id: this.id,
-        values: gridValues,
+        values: counts.values,
         min: 0,
-        max: maxCount,
+        max: counts.max,
         row: this.gridRow,
         col: this.gridCol,
       };
@@ -640,6 +649,35 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     // Normal row/col mode: braille not supported (return empty state)
     return this.outOfBoundsState;
+  }
+
+  /**
+   * The point count of every grid cell, and the largest of them.
+   *
+   * Memoised in {@link gridCounts}; see there for what invalidates it.
+   * @param cells The grid to count, already known to exist
+   * @returns The counts by row and column, with the busiest cell's count
+   */
+  private countGridPoints(cells: GridCell[][]): { values: number[][]; max: number } {
+    if (this.gridCounts !== null) {
+      return this.gridCounts;
+    }
+
+    const values: number[][] = [];
+    let max = 0;
+    for (let r = 0; r < this.numGridRows; r++) {
+      values[r] = [];
+      for (let c = 0; c < this.numGridCols; c++) {
+        const count = cells[r][c].points.length;
+        values[r][c] = count;
+        if (count > max) {
+          max = count;
+        }
+      }
+    }
+
+    this.gridCounts = { values, max };
+    return this.gridCounts;
   }
 
   /**
