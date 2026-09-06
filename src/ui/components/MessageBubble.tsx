@@ -28,12 +28,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
 
   return (
     <Box
+      component="li"
       sx={{
         display: 'flex',
         justifyContent: message.isUser ? 'flex-end' : 'flex-start',
         mb: 2,
       }}
-      role="listitem"
     >
       <Box
         sx={{
