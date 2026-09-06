@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGallery, listExamplePages, renderGallery } from './examplesGallery.js';
 import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
+import { inlineJson } from './jsonLd.js';
 import { renderMarkdown } from './markdown.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -140,7 +141,7 @@ function buildBreadcrumbSchema(title, canonicalUrl) {
   if (canonicalUrl !== SITE_URL) {
     crumbs.push({ name: title, url: canonicalUrl });
   }
-  return JSON.stringify({
+  return inlineJson({
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     'itemListElement': crumbs.map((c, i) => ({
@@ -149,7 +150,7 @@ function buildBreadcrumbSchema(title, canonicalUrl) {
       'name': c.name,
       'item': c.url,
     })),
-  }, null, 2);
+  }, 2);
 }
 
 /**
@@ -175,7 +176,7 @@ function buildBreadcrumbNav(title, dateModified = '') {
  * Build a TechArticle JSON-LD block for documentation pages.
  */
 function buildTechArticleSchema(title, description, canonicalUrl, datePublished, dateModified) {
-  return JSON.stringify({
+  return inlineJson({
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
     'headline': title,
@@ -187,7 +188,7 @@ function buildTechArticleSchema(title, description, canonicalUrl, datePublished,
     'publisher': { '@id': 'https://maidr.ai/#organization' },
     'isPartOf': { '@id': 'https://maidr.ai/#website' },
     'about': { '@id': 'https://maidr.ai/#software' },
-  }, null, 2);
+  }, 2);
 }
 
 /**
@@ -253,7 +254,7 @@ const HOME_WEBPAGE = {
 
 /** Indent every line but the first so a node sits inside the template's @graph. */
 function graphNode(node) {
-  return JSON.stringify(node, null, 2).replace(/\n/g, '\n      ');
+  return inlineJson(node, 2).replace(/\n/g, '\n      ');
 }
 
 /**

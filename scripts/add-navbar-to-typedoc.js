@@ -16,10 +16,10 @@
  * generated from.
  */
 
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lastCommitDate } from './gitDates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
@@ -153,16 +153,9 @@ function fixSitemap() {
     console.warn('No api/sitemap.xml found; is hostedBaseUrl set in typedoc.json?');
     return;
   }
-  let lastmod = new Date().toISOString().split('T')[0];
-  try {
-    lastmod = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'src'], {
-      cwd: path.join(__dirname, '..'),
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim() || lastmod;
-  } catch {
-    // No git history (a tarball or a shallow checkout): today is the fallback.
-  }
+  // The API pages are generated from `src/`, so that is what dates them.
+  const today = new Date().toISOString().split('T')[0];
+  const lastmod = lastCommitDate(path.join(__dirname, '..'), 'src', today);
   const sitemap = fs.readFileSync(sitemapPath, 'utf-8')
     .replace('<loc>https://maidr.ai/api/index.html</loc>', '<loc>https://maidr.ai/api/</loc>')
     .replace(/<lastmod>[^<]*<\/lastmod>/g, `<lastmod>${lastmod}</lastmod>`);

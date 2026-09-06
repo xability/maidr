@@ -29,6 +29,7 @@
  */
 
 import { Comment, JSX, ReflectionKind } from 'typedoc';
+import { inlineJson } from './jsonLd.js';
 import { fallbackDescription, PROJECT_PAGES, truncate } from './typedocSeo.js';
 
 const SITE_URL = 'https://maidr.ai/';
@@ -105,11 +106,6 @@ function trailOf(model, router) {
     }
   }
   return trail;
-}
-
-/** JSON for an inline `<script>`: `<` escaped so `</script>` cannot end it early. */
-function inlineJson(value) {
-  return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
 function ldScript(value) {

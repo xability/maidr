@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import process from 'node:process';
 import { describe, expect, it } from '@jest/globals';
 import { firstCommitDate, lastCommitDate } from '../../scripts/gitDates';
+import { inlineJson } from '../../scripts/jsonLd';
 import { findOffenders, HARD_LIMIT, limitFor, SOFT_LIMIT } from '../../scripts/pageSizes';
 import { fallbackDescription, MAX_DESCRIPTION, PROJECT_PAGES, truncate } from '../../scripts/typedocSeo';
 
@@ -133,5 +134,20 @@ describe('typedocSeo', () => {
     for (const { description } of Object.values(PROJECT_PAGES)) {
       expect(description.length).toBeLessThanOrEqual(MAX_DESCRIPTION);
     }
+  });
+});
+
+describe('jsonLd', () => {
+  it('should escape a less-than sign so a value cannot close the script tag', () => {
+    const json = inlineJson({ description: 'Closes early? </script><img src=x>' });
+    expect(json).not.toContain('</script>');
+    expect(json).toContain('\\u003c/script');
+    expect(JSON.parse(json)).toEqual({ description: 'Closes early? </script><img src=x>' });
+  });
+
+  it('should indent when asked, for a node spliced into the template graph', () => {
+    expect(inlineJson({ '@id': 'https://maidr.ai/#software' }, 2)).toBe(
+      '{\n  "@id": "https://maidr.ai/#software"\n}',
+    );
   });
 });
