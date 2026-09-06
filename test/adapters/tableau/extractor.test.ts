@@ -1,6 +1,7 @@
 import type { TableauExtraction } from '@adapters/tableau/extractor';
 import type {
   TableauColumn,
+  TableauDataValue,
   TableauMarkType,
   WorksheetSnapshot,
 } from '@adapters/tableau/types';
@@ -186,6 +187,33 @@ describe('tableau extractor', () => {
       ]);
 
       expect(layerOf(extraction).type).toBe(TraceType.LINE);
+    });
+
+    it('does not scan the dimensions for a rung that cannot fire', () => {
+      // `everyDimensionIsDetail` is a full pass per dimension and feeds only
+      // the point-cloud rung, which needs two measures. One measure and one
+      // dimension is the ordinary Tableau shape, and the binder re-extracts
+      // from scratch on every filter, parameter, data and tab change.
+      let reads = 0;
+      const counted = (text: string): TableauDataValue => ({
+        value: text,
+        nativeValue: text,
+        get formattedValue(): string {
+          reads++;
+          return text;
+        },
+      });
+
+      extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [[counted('Chairs'), 3], [counted('Tables'), 1]],
+        }),
+      ]);
+
+      // Twice per row, which is what building the layer costs: once for the
+      // bar's announced label, once for the criteria that address its mark.
+      expect(reads).toBe(4);
     });
 
     it('reads a continuous axis as a point cloud rather than dropping the worksheet', () => {

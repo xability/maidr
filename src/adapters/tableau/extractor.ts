@@ -713,6 +713,22 @@ function activeMarkType(
 }
 
 /**
+ * Whether every dimension names one value per row, i.e. is on Detail rather
+ * than describing a category.
+ *
+ * One full pass per dimension, so it is called only where its answer is used.
+ *
+ * @param plan - The worksheet's column plan.
+ * @param rows - The worksheet's rows.
+ * @returns Whether the rows are observations rather than categories.
+ */
+function everyDimensionIsDetail(plan: ColumnPlan, rows: readonly TableauRow[]): boolean {
+  return plan.dimensions.every(
+    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
+  );
+}
+
+/**
  * The heuristic ladder: what the columns alone say the worksheet is.
  *
  * Runs only when neither an override nor a visual specification settled it.
@@ -751,10 +767,13 @@ function ladderTraceType(
   //     reading it as numeric x against numeric y is exactly what it is. Tested
   //     the other way round it would be skipped for having no category, and a
   //     perfectly readable view would vanish from the figure.
-  const everyDimensionIsDetail = plan.dimensions.every(
-    dimension => distinctKeys(rows, dimension.viewIndex).length === rows.length,
-  );
-  if (plan.measures.length >= 2 && everyDimensionIsDetail) {
+  //
+  //     The scan is behind the measure count rather than beside it:
+  //     `distinctKeys` is a full pass per dimension, and the ordinary Tableau
+  //     shape — one measure, one or two dimensions — throws every one of those
+  //     passes away. The binder re-extracts from scratch on every filter,
+  //     parameter, data and tab change, so it is paid again each time.
+  if (plan.measures.length >= 2 && everyDimensionIsDetail(plan, rows)) {
     return TraceType.SCATTER;
   }
 
