@@ -527,6 +527,26 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     return super.moveOnce(direction);
   }
 
+  /**
+   * Steps the active layer without notifying observers.
+   *
+   * A layer switch is announced from the newly positioned trace (see
+   * `NavigationService.stepTraceInSubplot`). A subplot notification at this
+   * point would describe the new trace at whatever column it was left on,
+   * before X-preservation has moved it. Like {@link moveOnce}, the first step
+   * on a multi-layer subplot is a real step rather than the initial-entry
+   * no-op.
+   *
+   * @param direction - The direction to step in
+   * @returns True when the active layer changed
+   */
+  public stepLayer(direction: MovableDirection): boolean {
+    if (this.size > 1 && this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+    return this.movable.moveOnce(direction);
+  }
+
   public get state(): SubplotState {
     const trace = this.activeTrace;
     // A subplot with no layers has no trace state to report. Fall through to
