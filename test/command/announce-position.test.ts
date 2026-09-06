@@ -3,13 +3,13 @@ import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { TextService } from '@service/text';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BoxPoint, CandlestickPoint } from '@type/grammar';
+import type { BarPoint, BoxPoint, CandlestickPoint, SegmentedPoint } from '@type/grammar';
 import type { PlotState } from '@type/state';
 import { AnnouncePositionCommand } from '@command/describe';
 import { describe, expect, jest, test } from '@jest/globals';
 import { CANDLESTICK_SECTIONS } from '@model/candlestick';
 import { TraceFactory } from '@model/factory';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 interface MultilineOptions {
   /** Zero-based index of the line the cursor is on. */
@@ -554,5 +554,133 @@ describe('AnnouncePositionCommand names a section as the trace authored it', () 
 
     expect(sectionOf(state)).toBe('close');
     expect(textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3, close');
+  });
+});
+
+/**
+ * A real bar trace's state with the cursor on one bar, drawn either way up.
+ *
+ * `audio.panning` is a stereo position, and a horizontal bar plot swaps it so
+ * the pan follows the bars down the page. Building the state from the trace
+ * rather than by hand is what lets these cases catch the command reading that
+ * pan as a bar index.
+ *
+ * @param orientation Which way the bars run
+ * @param bar Zero-based index of the bar the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function barTraceState(orientation: Orientation, bar: number): PlotState {
+  const categories = ['North', 'South', 'West'];
+  const magnitudes = [4, 8, 6];
+  const trace = TraceFactory.create({
+    id: 'position-bar',
+    type: TraceType.BAR,
+    title: 'Sales',
+    orientation,
+    axes: { x: { label: 'Region' }, y: { label: 'Sales' } },
+    data: categories.map((category, i) =>
+      orientation === Orientation.HORIZONTAL
+        ? { x: magnitudes[i], y: category }
+        : { x: category, y: magnitudes[i] },
+    ) as BarPoint[],
+  });
+  trace.moveToIndex(0, bar);
+
+  return trace.state as PlotState;
+}
+
+/**
+ * A real stacked bar trace's state, drawn either way up.
+ *
+ * @param orientation Which way the bars run
+ * @param level Zero-based index of the stack level the cursor is on
+ * @param category Zero-based index of the category the cursor is on
+ * @returns The trace's state with the cursor there
+ */
+function stackedTraceState(
+  orientation: Orientation,
+  level: number,
+  category: number,
+): PlotState {
+  // Four categories against two levels (three rows, once the summary row is
+  // added), so a level index or level count read as a category shows up.
+  const categories = ['a', 'b', 'c', 'd'];
+  const levels = ['Low', 'High'];
+  const trace = TraceFactory.create({
+    id: 'position-stacked',
+    type: TraceType.STACKED,
+    title: 'Stacked',
+    orientation,
+    axes: { x: { label: 'Category' }, y: { label: 'Count' } },
+    data: levels.map((z, row) =>
+      categories.map((category, col) => {
+        const magnitude = row * 10 + col + 1;
+        return orientation === Orientation.HORIZONTAL
+          ? { x: magnitude, y: category, z }
+          : { x: category, y: magnitude, z };
+      }),
+    ) as SegmentedPoint[][],
+  });
+  trace.moveToIndex(level, category);
+
+  return trace.state as PlotState;
+}
+
+describe('AnnouncePositionCommand on horizontal bar charts', () => {
+  test('announces the bar index on a horizontal bar chart, as on a vertical one', () => {
+    const vertical = createCommand(barTraceState(Orientation.VERTICAL, 1));
+    const horizontal = createCommand(barTraceState(Orientation.HORIZONTAL, 1));
+
+    vertical.command.execute();
+    horizontal.command.execute();
+
+    expect(vertical.textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3');
+    expect(horizontal.textViewModel.update).toHaveBeenCalledWith('Position is 2 of 3');
+  });
+
+  test('moves the announced position with the cursor on a horizontal bar chart', () => {
+    const first = createCommand(barTraceState(Orientation.HORIZONTAL, 0));
+    const last = createCommand(barTraceState(Orientation.HORIZONTAL, 2));
+
+    first.command.execute();
+    last.command.execute();
+
+    expect(first.textViewModel.update).toHaveBeenCalledWith('Position is 1 of 3');
+    expect(last.textViewModel.update).toHaveBeenCalledWith('Position is 3 of 3');
+  });
+
+  test('gives the terse percentage along the bars, not across them', () => {
+    const { command, textViewModel } = createCommand(
+      barTraceState(Orientation.HORIZONTAL, 2),
+      'terse',
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('100%');
+  });
+
+  test('announces the category, not the level, on a horizontal stacked bar', () => {
+    const { command, textViewModel } = createCommand(
+      stackedTraceState(Orientation.HORIZONTAL, 0, 2),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, Level is Low',
+    );
+  });
+
+  test('reads a vertical stacked bar the same way it always has', () => {
+    const { command, textViewModel } = createCommand(
+      stackedTraceState(Orientation.VERTICAL, 0, 2),
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 3 of 4, Level is Low',
+    );
   });
 });

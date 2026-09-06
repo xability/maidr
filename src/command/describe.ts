@@ -607,6 +607,25 @@ export class AnnouncePointCommand extends AnnounceCommand {
 }
 
 /**
+ * The traces built on `AbstractBarPlot`, whose braille state is
+ * `values[row][col]` normalised to the bar axis and whose audio panning swaps
+ * for a horizontal chart. The position announcement reads the former for
+ * these; see {@link AnnouncePositionCommand.navigationPosition}.
+ */
+const BAR_FAMILY: ReadonlySet<TraceType> = new Set([
+  TraceType.BAR,
+  TraceType.DOT,
+  TraceType.LOLLIPOP,
+  TraceType.FUNNEL,
+  TraceType.HISTOGRAM,
+  TraceType.STACKED,
+  TraceType.NORMALIZED,
+  TraceType.DODGED,
+  TraceType.DIVERGING,
+  TraceType.MOSAIC,
+]);
+
+/**
  * Turns a fraction of the way round the dial into a clock hour.
  *
  * Twelve o'clock is both the origin and the full turn, so a fraction of 0 and
@@ -667,9 +686,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
-    // Get position from audio.panning (contains x, y, rows, cols).
-    const { panning } = state.audio;
-    const { x, y, rows, cols } = panning;
+    const { x, y, rows, cols } = this.navigationPosition(state);
 
     // Check for special chart types
     const traceType = state.traceType;
@@ -733,6 +750,37 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else {
       this.announce1DPosition(x, cols);
     }
+  }
+
+  /**
+   * The cursor's grid position: `x` of `cols` along the bars or samples, `y`
+   * of `rows` across the groups.
+   *
+   * For most traces this is `audio.panning`, whose `x`/`cols` are the column
+   * index and count. But panning is a stereo position, not an index contract
+   * ({@link AudioState.panning}), and a horizontal bar chart swaps it so the
+   * pan follows the bars down the page. Read as an index, that announced every
+   * horizontal bar as "1 of 1" and a horizontal stacked bar's level as its
+   * category. The braille state keeps `values[row][col]` normalised to the bar
+   * axis whichever way the chart is drawn, so the bar family reads its position
+   * from there -- the same route {@link announceBoxplotPosition} takes.
+   *
+   * @param state - The active trace state
+   * @returns The zero-based column and row, with their counts
+   */
+  private navigationPosition(
+    state: NonEmptyTraceState,
+  ): { x: number; y: number; rows: number; cols: number } {
+    if (BAR_FAMILY.has(state.traceType) && !state.braille.empty) {
+      const braille = state.braille as BarBrailleState;
+      return {
+        x: braille.col,
+        y: braille.row,
+        rows: braille.values.length,
+        cols: braille.values[braille.row]?.length ?? 0,
+      };
+    }
+    return state.audio.panning;
   }
 
   /**
