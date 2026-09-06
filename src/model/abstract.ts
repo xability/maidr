@@ -1129,7 +1129,11 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     if (!onCurve) {
       return;
     }
-    if (this.row === nearest.row && this.col === nearest.col) {
+    // A fresh trace parks its cursor on (0, 0) with nothing announced and the
+    // highlight withheld, so pointing at that first mark is an entry rather
+    // than a repeat: it has to move, notify and clear the entry flag exactly
+    // as the first arrow key does.
+    if (!this.isInitialEntry && this.row === nearest.row && this.col === nearest.col) {
       return;
     }
     this.moveToIndex(nearest.row, nearest.col);
