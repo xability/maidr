@@ -15,9 +15,11 @@ import type {
   StepPoint,
   ViolinKdePoint,
 } from '@type/grammar';
+import { BOX_SECTIONS } from '@model/box';
 import { candlestickSectionsOf } from '@model/candlestick';
 import { ScatterTrace } from '@model/scatter';
-import { TraceType } from '@type/grammar';
+import { BoxplotSection } from '@type/boxplotSection';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Trace types whose layer data is a nested array of groups
@@ -90,8 +92,9 @@ export interface AppendedPointInfo {
    * so a reader keeps the point they were on.
    *
    * `trimmed` wherever columns index the data points in arrival order, which
-   * is most traces. Zero where they do not: a scatter's columns are its
-   * sorted unique x values, which a trim does not shift by any fixed amount.
+   * is most traces. Zero where they do not: a horizontal box navigates its
+   * sections along the column axis, and a scatter's columns are its sorted
+   * unique x values, which a trim does not shift by any fixed amount.
    */
   colShift: number;
   /**
@@ -265,6 +268,25 @@ export function appendPointToMaidr(
       // (see the Candlestick constructor), so the same cell is targeted
       // whichever way the chart is drawn.
       row = candlestickSectionsOf(newData as CandlestickPoint[]).indexOf('close');
+    } else if (layer.type === TraceType.BOX) {
+      // A box navigates sections along one axis and boxes along the other,
+      // and which is which follows the orientation (see `computeBoxValues`).
+      // Announce the new box at its median: every section of it is new, and
+      // the median is the one reading that stands for the distribution. The
+      // default — the last column of the first row — is the lower outliers
+      // of some other box, announced with no value at all.
+      const median = BOX_SECTIONS.indexOf(BoxplotSection.Q2);
+      if (layer.orientation === Orientation.HORIZONTAL) {
+        // Horizontal: [boxes][sections], and the trace reverses the points so
+        // the newest box is the first row. The column axis is the sections
+        // here, and a trim never moves those, so it takes no shift.
+        row = 0;
+        col = median;
+        colShift = 0;
+      } else {
+        // Vertical: [sections][boxes], so the column is still the new box.
+        row = median;
+      }
     } else if (layer.type === TraceType.SCATTER) {
       // A scatter's columns are its sorted unique x values, so a trim does
       // not shift them by the number of points it dropped — the dropped

@@ -1,3 +1,4 @@
+import type { BoxplotSectionType } from '@type/boxplotSection';
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
@@ -10,6 +11,27 @@ import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { extremeStat, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
+
+/**
+ * The sections a standard box carries, in navigation order.
+ *
+ * One rule with two callers, as `candlestickSectionsOf` is for a candlestick:
+ * the trace lays its values out along these, and the live data service asks
+ * where a section sits to announce a streamed box on it. They must agree — an
+ * index counted off a different list names a different section, or none.
+ *
+ * Copied into the trace rather than held by it: `dispose()` truncates the
+ * array it was given, which held by reference would empty this one.
+ */
+export const BOX_SECTIONS: readonly BoxplotSectionType[] = [
+  BoxplotSection.LOWER_OUTLIER,
+  BoxplotSection.MIN,
+  BoxplotSection.Q1,
+  BoxplotSection.Q2,
+  BoxplotSection.Q3,
+  BoxplotSection.MAX,
+  BoxplotSection.UPPER_OUTLIER,
+];
 
 /**
  * Concrete implementation of a box plot trace supporting vertical and horizontal orientations.
@@ -117,15 +139,7 @@ export class BoxTrace extends AbstractTrace {
     accessors: ((p: BoxPoint) => number | number[])[];
   } {
     return {
-      sections: [
-        BoxplotSection.LOWER_OUTLIER,
-        BoxplotSection.MIN,
-        BoxplotSection.Q1,
-        BoxplotSection.Q2,
-        BoxplotSection.Q3,
-        BoxplotSection.MAX,
-        BoxplotSection.UPPER_OUTLIER,
-      ],
+      sections: [...BOX_SECTIONS],
       accessors: [
         (p: BoxPoint) => p.lowerOutliers,
         (p: BoxPoint) => p.min,
