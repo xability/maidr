@@ -617,23 +617,34 @@ function barLayer(
   }
 
   const stacked = bars.some(seriesModel => Boolean(seriesModel.get('stack')));
-  const data: SegmentedPoint[][] = bars.map((seriesModel, order) => {
+  // A gap keeps its column rather than being dropped from the row.
+  // `SegmentedTrace` pairs the series by column index -- its summary row reads
+  // `barValues.map(row => row[i])` and takes the category off `points[0][i]`
+  // -- so a row one short puts every later category against another series'
+  // value, announces a total no bar on the page adds up to, and drops the last
+  // category from the summary altogether.
+  //
+  // The magnitude is `NaN` and never `0`: a zero sounds like a real low
+  // reading, can be reached as the row's minimum and pulls the range every
+  // other bar's pitch is scaled against, which is what `isMeasured` keeps a
+  // gap out of (#1002).
+  const rows = bars.map((seriesModel, order) => {
     const list = seriesModel.getData();
     const fill = authoredName(seriesModel) || `Series ${order + 1}`;
     const points: SegmentedPoint[] = [];
+    const drew: boolean[] = [];
     for (let index = 0; index < list.count(); index++) {
       const value = magnitudeOf(list, index, axes.horizontal);
-      if (!measured(value)) {
-        continue;
-      }
+      const magnitude = measured(value) ? value : Number.NaN;
       const position = positionOf(list, index);
       points.push(
         axes.horizontal
-          ? { x: value, y: position, z: fill }
-          : { x: position, y: value, z: fill },
+          ? { x: magnitude, y: position, z: fill }
+          : { x: position, y: magnitude, z: fill },
       );
+      drew.push(measured(value));
     }
-    return points;
+    return { points, drew };
   });
 
   return {
@@ -643,11 +654,28 @@ function barLayer(
     // A row per series, not one flat list. `SegmentedTrace` routes an array
     // to `mapGridToSvgElements`, which wants a row per series and declines a
     // flat one -- for the reason it gives itself, that a flat list says which
-    // bars there are but not which cell each one is in.
-    ...(named ? { selectors: named } : {}),
+    // bars there are but not which cell each one is in. A cell the chart drew
+    // nothing at names no element, which the grid says with a `null` and the
+    // trace stands in for -- and which is why the row has to be as long as the
+    // series rather than as long as the marks.
+    ...(named
+      ? { selectors: named.map((marks, order) => paired(marks, rows[order].drew)) }
+      : {}),
     axes: axisConfig(axes),
-    data,
+    data: rows.map(row => row.points),
   };
+}
+
+/**
+ * One selector per cell of a series, `null` where it drew no mark.
+ *
+ * @param marks - The selectors of the marks the series drew, in order
+ * @param drew  - Whether each cell of the series drew one
+ * @returns One entry per cell
+ */
+function paired(marks: string[], drew: boolean[]): (string | null)[] {
+  let mark = 0;
+  return drew.map(drawn => (drawn ? marks[mark++] ?? null : null));
 }
 
 function lineLayer(

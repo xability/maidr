@@ -220,6 +220,38 @@ describe('an eCharts bar chart', () => {
     expect(layer.selectors).toHaveLength(2);
   });
 
+  it('keeps a category one series has no bar at, so the rows stay aligned', () => {
+    // `SegmentedTrace` pairs its rows by column index, so a row shortened by
+    // a gap puts every later category against another series' value and
+    // drops the last one from the summary altogether (#1002).
+    const [layer] = layersOf(
+      {
+        series: [
+          { type: 'bar', names: CATEGORIES, values: [1, null, 3], name: 'One', stack: 'total' },
+          { type: 'bar', names: CATEGORIES, values: [4, 5, 6], name: 'Two', stack: 'total' },
+        ],
+      },
+      drawnChart(5, 0),
+    );
+
+    const rows = layer.data as SegmentedPoint[][];
+
+    expect(rows.map(row => row.map(point => point.x))).toEqual([
+      ['A', 'B', 'C'],
+      ['A', 'B', 'C'],
+    ]);
+    // A gap and not a zero, which would be announced as a reading, reached as
+    // the row's minimum, and would pull the range every other bar is scaled
+    // against.
+    expect(rows[0][1].y).toBeNaN();
+    // The chart drew no mark there, so the cell names none -- keeping the
+    // selectors paired with the cells they belong to.
+    expect(layer.selectors).toEqual([
+      [expect.any(String), null, expect.any(String)],
+      [expect.any(String), expect.any(String), expect.any(String)],
+    ]);
+  });
+
   it('is stacked when the series share a stack, and dodged when they do not', () => {
     const series = [
       { type: 'bar', names: CATEGORIES, values: [1, 2, 3], name: 'One' },
