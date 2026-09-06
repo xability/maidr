@@ -32,6 +32,7 @@ describe('a scatter grid config that does not describe a grid', () => {
     ['a negative tick step', { min: 0, max: 4, tickStep: -2 }, { min: 0, max: 4, tickStep: 2 }],
     ['a non-finite tick step', { min: 0, max: 4, tickStep: Number.POSITIVE_INFINITY }, { min: 0, max: 4, tickStep: 2 }],
     ['a NaN tick step', { min: 0, max: 4, tickStep: Number.NaN }, { min: 0, max: 4, tickStep: 2 }],
+    ['a tick step asking for billions of bins', { min: 0, max: 4, tickStep: 1e-9 }, { min: 0, max: 4, tickStep: 2 }],
     ['an inverted range', { min: 4, max: 0, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
     ['a collapsed range', { min: 2, max: 2, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
   ])('%s constructs without a grid', (_name, x, y) => {

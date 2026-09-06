@@ -2163,15 +2163,26 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * The most bins one axis may be cut into.
+   *
+   * A positive but tiny step is the same hang as a zero step, only slower:
+   * `computeGridSteps` would build billions of finite bins in the
+   * constructor. No reader navigates a grid that fine, so a step that asks
+   * for more than this is read as not describing a grid at all.
+   */
+  private static readonly MAX_GRID_BINS = 10_000;
+
+  /**
    * Whether one axis's range and step can be cut into at least one bin.
    * @param min - The axis minimum
    * @param max - The axis maximum
    * @param tick - The bin width
-   * @returns True when the values yield a finite, positive number of bins
+   * @returns True when the values yield a finite, positive, bounded number of bins
    */
   private isGridAxis(min: number, max: number, tick: number): boolean {
     return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(tick)
-      && tick > 0 && max > min;
+      && tick > 0 && max > min
+      && (max - min) / tick <= ScatterTrace.MAX_GRID_BINS;
   }
 
   /**
