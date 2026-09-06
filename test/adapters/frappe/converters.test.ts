@@ -272,6 +272,27 @@ describe('createMaidrFromFrappeChart (dot)', () => {
     expect(layer.type).toBe(TraceType.DOT);
   });
 
+  it('warns that only the first dataset of a multi-series scatter is converted', () => {
+    const layer = onlyLayer(
+      {
+        data: {
+          labels: [10, 20],
+          datasets: [{ name: 'One', values: [1, 2] }, { name: 'Two', values: [3, 4] }],
+        },
+      },
+      'scatter',
+    );
+
+    // The layer carries A alone, so its selector has to carry A's dots alone —
+    // the broad line selector matches every dataset group's circles, and the
+    // scatter trace groups the surplus by geometry rather than rejecting it,
+    // outlining a mark that belongs to a series never announced.
+    expect(layer.selectors)
+      .toBe('#chart svg.frappe-chart .dataset-units.dataset-line.dataset-0 circle');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('2 datasets');
+  });
+
   it('warns that only the first dataset of a multi-series dot plot is converted', () => {
     onlyLayer(
       {

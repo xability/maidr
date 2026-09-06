@@ -106,9 +106,18 @@ export function lineSelectorForDataset(containerId: string, index: number): stri
   return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line.dataset-${index} circle`;
 }
 
-/** Scoped selector for scatter point circles (rendered in the line dataset group). */
-export function scatterSelector(containerId: string): string {
-  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line circle`;
+/**
+ * Scoped selector for the scatter point circles of one dataset (scatter points
+ * are rendered in the line dataset group).
+ *
+ * Scoped to `.dataset-{index}` for the same reason the bar and dot selectors
+ * are: only one dataset is converted, and the unscoped group selector would
+ * match every dataset's circles. `ScatterTrace` groups its elements by
+ * geometry rather than rejecting a count mismatch, so a surplus is absorbed
+ * silently and highlights a mark the reader is never told about.
+ */
+export function scatterSelectorForDataset(containerId: string, index: number): string {
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line.dataset-${index} circle`;
 }
 
 /**

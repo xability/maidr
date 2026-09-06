@@ -33,7 +33,7 @@ import {
   lineSelectorForDataset,
   nextId,
   percentageBarSelector,
-  scatterSelector,
+  scatterSelectorForDataset,
   sliceSelector,
 } from './selectors';
 
@@ -487,6 +487,19 @@ function buildScatterLayer(
   containerId: string,
   options: FrappeChartAdapterOptions,
 ): MaidrLayer {
+  // Only the first dataset is converted, so scope the selector to its own
+  // `.dataset-0` group, as the bar and dot builders do. The broad line
+  // selector matches every group's circles, and `ScatterTrace` groups its
+  // elements by `cx`/`cy` rather than rejecting the count mismatch — so the
+  // surplus is absorbed silently and the outline lands on a mark belonging to
+  // a series the reader is never told about.
+  if (data.datasets.length > 1) {
+    console.warn(
+      `[maidr/frappe] Scatter plot has ${data.datasets.length} datasets; only the `
+      + 'first is converted. Multi-series scatter plots are not yet supported.',
+    );
+  }
+
   const dataset = data.datasets[0];
   const points: ScatterPoint[] = data.labels.map((label, i) => ({
     x: Number(label),
@@ -496,7 +509,7 @@ function buildScatterLayer(
   return {
     id: nextId('layer'),
     type: TraceType.SCATTER,
-    selectors: scatterSelector(containerId),
+    selectors: scatterSelectorForDataset(containerId, 0),
     axes: buildAxes(options),
     data: points,
   };
