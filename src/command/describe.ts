@@ -610,10 +610,10 @@ export class AnnouncePointCommand extends AnnounceCommand {
  * Whether a braille state carries a row-of-rows grid, the shape
  * {@link AnnouncePositionCommand.navigationPosition} reads a position out of.
  *
- * Checked rather than asserted: every trace in {@link BAR_FAMILY} is
- * registered against the bar encoder today, but nothing in the type system
- * ties the two lists together, and a trace added to one and not the other
- * would otherwise read a position out of a state that has no grid in it.
+ * Checked rather than asserted: every trace in {@link GRID_FRAME_TRACES}
+ * builds such a grid today, but nothing in the type system ties the two
+ * together, and a trace added to one and not the other would otherwise read a
+ * position out of a state that has no grid in it.
  * @param braille - The trace's braille state
  * @returns True when the state has a `values` grid to index
  */
@@ -624,12 +624,22 @@ function isGridBrailleState(braille: BrailleState): braille is BarBrailleState {
 }
 
 /**
- * The traces built on `AbstractBarPlot`, whose braille state is
- * `values[row][col]` normalised to the bar axis and whose audio panning swaps
- * for a horizontal chart. The position announcement reads the former for
- * these; see {@link AnnouncePositionCommand.navigationPosition}.
+ * The traces whose position announcement reads the braille grid rather than
+ * the audio panning.
+ *
+ * `audio.panning` answers a question about the loudspeakers: where the point
+ * sits on screen, so a trace is free to re-orient it and let the pan follow
+ * the x axis. Which mark of how many the reader is on is a different
+ * question, and for these traces the two answers differ. The bar family
+ * swaps its pan for a horizontal chart; a vertical violin pans by violin,
+ * holding the pan still while the reader climbs one curve. Their braille
+ * state carries the navigation frame verbatim as `values[row][col]`, so the
+ * announcement reads that; see
+ * {@link AnnouncePositionCommand.navigationPosition}.
  */
-const BAR_FAMILY: ReadonlySet<TraceType> = new Set([
+const GRID_FRAME_TRACES: ReadonlySet<TraceType> = new Set([
+  // Built on `AbstractBarPlot`, whose braille grid is normalised to the bar
+  // axis while the pan swaps with the orientation.
   TraceType.BAR,
   TraceType.DOT,
   TraceType.LOLLIPOP,
@@ -640,6 +650,9 @@ const BAR_FAMILY: ReadonlySet<TraceType> = new Set([
   TraceType.DODGED,
   TraceType.DIVERGING,
   TraceType.MOSAIC,
+  // Braille grid is `densityValues[violin][sample]`, which is the frame the
+  // reader navigates; the vertical pan is by violin instead.
+  TraceType.VIOLIN_KDE,
 ]);
 
 /**
@@ -811,7 +824,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
   private navigationPosition(
     state: NonEmptyTraceState,
   ): { x: number; y: number; rows: number; cols: number } {
-    if (BAR_FAMILY.has(state.traceType) && isGridBrailleState(state.braille)) {
+    if (GRID_FRAME_TRACES.has(state.traceType) && isGridBrailleState(state.braille)) {
       return {
         x: state.braille.col,
         y: state.braille.row,
