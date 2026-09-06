@@ -4,6 +4,9 @@ import type { Maidr } from '@type/grammar';
 import { afterAll, afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { ChatService } from '@service/chat';
 import { TraceType } from '@type/grammar';
+// The mock declared below; imported so a test can decide when the plot
+// finishes rasterising.
+import { Svg } from '@util/svg';
 
 // Svg.toBase64 needs DOM APIs unavailable under the node test environment;
 // a fixed data URL also lets the tests assert the data-URL prefix stripping.
@@ -116,6 +119,44 @@ describe('ChatService provider requests', () => {
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
+  test('OpenAI: reports an empty message as a failure, not an empty answer', async () => {
+    // A reasoning model that spends its whole completion budget on reasoning
+    // finishes with `content: ''`. Reported as a success it renders an empty
+    // bubble that the live region announces as nothing.
+    mockJsonResponse({ choices: [{ message: { content: '' } }] });
+
+    const response = await createService().sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+      version: 'gpt-5.5',
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBeTruthy();
+    expect(response.data).toBeUndefined();
+  });
+
+  test('OpenAI: reports a null message as a failure', async () => {
+    // `message.content` is null on a refusal; the other providers all guard
+    // this, and a null reaching the transcript throws inside the typing
+    // animation instead of being announced.
+    mockJsonResponse({ choices: [{ message: { content: null } }] });
+
+    const response = await createService().sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+      version: 'gpt-5.5',
+    });
+
+    expect(response.success).toBe(false);
+    expect(response.error).toBeTruthy();
+    expect(response.data).toBeUndefined();
+  });
+
   test('Gemini: encodes the selected model and key in the URL', async () => {
     mockJsonResponse({ candidates: [{ content: { parts: [{ text: 'Answer.' }] } }] });
 
@@ -169,6 +210,145 @@ describe('ChatService provider requests', () => {
     expect(response.success).toBe(false);
     expect(response.error).toContain('proxy');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not send a request that was disposed while the plot rasterised', async () => {
+    // Rasterising a dense plot takes long enough for the plot to lose focus
+    // and the Controller to dispose mid-conversion. The request was still
+    // sent — spending the user's tokens on an answer nothing will show.
+    let finishRasterising = (_image: string): void => {};
+    jest.mocked(Svg.toBase64).mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishRasterising = resolve;
+      }),
+    );
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    const service = createService();
+
+    const pending = service.sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+    });
+    service.dispose();
+    finishRasterising('data:image/jpeg;base64,QUJD');
+    const response = await pending;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.success).toBe(false);
+  });
+
+  test('aborts the in-flight fetch when the chat service is disposed', async () => {
+    // Without the signal reaching fetch, the socket, the response body and
+    // the JSON parse stay alive for the full request timeout after every
+    // focus change, one per disposed controller.
+    let requestSignal: AbortSignal | null = null;
+    fetchMock.mockImplementation((_input, init) => new Promise<Response>(() => {
+      requestSignal = (init as RequestInit).signal ?? null;
+    }));
+    const service = createService();
+
+    const pending = service.sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+    });
+    for (let tick = 0; tick < 20 && fetchMock.mock.calls.length === 0; tick++) {
+      await Promise.resolve();
+    }
+    expect(requestSignal).not.toBeNull();
+    expect((requestSignal as unknown as AbortSignal).aborted).toBe(false);
+
+    service.dispose();
+
+    expect((requestSignal as unknown as AbortSignal).aborted).toBe(true);
+    await expect(pending).resolves.toEqual(
+      expect.objectContaining({ success: false }),
+    );
+  });
+
+  test('rasterises the plot once for the providers answering one message', async () => {
+    // ChatViewModel fans a message out to every enabled provider at once.
+    // Svg.toBase64 serializes the whole plot, decodes it through an <img>,
+    // draws it to a canvas and encodes a JPEG, all on the main thread — so
+    // running it once per provider blocks navigation and announcements for
+    // as long as it takes, several times over.
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'Answer.' } }],
+        content: [{ type: 'text', text: 'Answer.' }],
+        candidates: [{ content: { parts: [{ text: 'Answer.' }] } }],
+      }),
+    } as Response);
+    jest.mocked(Svg.toBase64).mockClear();
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'key',
+    };
+
+    const responses = await Promise.all([
+      service.sendMessage('OPENAI', request),
+      service.sendMessage('ANTHROPIC_CLAUDE', request),
+      service.sendMessage('GOOGLE_GEMINI', request),
+    ]);
+
+    expect(responses.every(response => response.success)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(1);
+  });
+
+  test('rasterises the plot again for the next message', async () => {
+    // Coalescing is per message, not a cache: the plot the user is looking
+    // at moves with every navigation step, so a later question must be
+    // answered against a current image.
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    jest.mocked(Svg.toBase64).mockClear();
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'sk-openai-test',
+    };
+
+    await service.sendMessage('OPENAI', request);
+    await service.sendMessage('OPENAI', request);
+
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not answer with an image of the chart the data replaced', async () => {
+    // A live data update lands between the two messages below, so the second
+    // must not be served the conversion the first one started.
+    let finishRasterising = (_image: string): void => {};
+    jest.mocked(Svg.toBase64).mockClear();
+    jest.mocked(Svg.toBase64).mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishRasterising = resolve;
+      }),
+    );
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    const service = createService();
+    const request = {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic' as const,
+      apiKey: 'sk-openai-test',
+    };
+
+    const first = service.sendMessage('OPENAI', request);
+    service.updateData({ id: 'updated-plot' } as unknown as Maidr);
+    const second = service.sendMessage('OPENAI', request);
+    finishRasterising('data:image/jpeg;base64,QUJD');
+    await Promise.all([first, second]);
+
+    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
   });
 
   test('falls back to the provider default version when none is selected', async () => {

@@ -146,11 +146,42 @@ describe('LlmValidationService (Ollama)', () => {
     });
 
     test('reports invalid with no models when the provider rejects the key', async () => {
-      fetchMock.mockResolvedValue({ ok: false } as Response);
+      fetchMock.mockResolvedValue({ ok: false, status: 401 } as Response);
 
       const probe = await LlmValidationService.probeProvider('OPENAI', 'bad-key');
 
       expect(probe).toEqual({ isValid: false, models: [], error: 'Invalid API key' });
+    });
+
+    test('reports a key without model-list permission as a key problem', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 403 } as Response);
+
+      const probe = await LlmValidationService.probeProvider('ANTHROPIC_CLAUDE', 'sk-ant-test');
+
+      expect(probe).toEqual({ isValid: false, models: [], error: 'Invalid API key' });
+    });
+
+    test('reports a rate limit as the provider\'s problem, not a bad key', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 429 } as Response);
+
+      const probe = await LlmValidationService.probeProvider('OPENAI', 'sk-test');
+
+      // The user is told to fix a key that is fine, and the model dropdown
+      // stays disabled, unless the status is reported for what it is.
+      expect(probe.isValid).toBe(false);
+      expect(probe.models).toEqual([]);
+      expect(probe.error).not.toBe('Invalid API key');
+      expect(probe.error).toContain('429');
+    });
+
+    test('reports a provider outage as the provider\'s problem, not a bad key', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);
+
+      const probe = await LlmValidationService.probeProvider('GOOGLE_GEMINI', 'g-key');
+
+      expect(probe.isValid).toBe(false);
+      expect(probe.error).not.toBe('Invalid API key');
+      expect(probe.error).toContain('503');
     });
 
     test('reports a network failure distinctly from an invalid key', async () => {

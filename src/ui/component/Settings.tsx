@@ -231,6 +231,10 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   const { modalRef, container } = useModalContainer();
   const [isValidating, setIsValidating] = useState(false);
   const [isValid, setIsValid] = useState<boolean | null>(null);
+  // Why the last probe failed, as the probe itself described it. Kept so a
+  // rate limit or a provider outage is not reported as a bad credential:
+  // null whenever there is nothing more specific to say.
+  const [probeError, setProbeError] = useState<string | null>(null);
   // Models available to this credential, probed from the provider's models
   // API (or the local Ollama server) when the credential validates; replaces
   // the curated suggestion list so users pick from what actually exists.
@@ -248,12 +252,28 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     if (isValidating)
       return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
     if (isValid === false) {
+      if (probeError) {
+        return probeError;
+      }
       return isOllama
         ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
         : `${modelSettings.name} API key is invalid`;
     }
     if (isValid === true)
       return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
+    return '';
+  };
+
+  // What the status region announces. The helper text beside the field is
+  // decoration by comparison: this region is what the field's
+  // `aria-describedby` points at, so it carries the same reason.
+  const getStatusLabel = (): string => {
+    if (isValidating)
+      return isOllama ? 'Checking Ollama server' : 'Validating API key';
+    if (isValid === true)
+      return isOllama ? 'Ollama server is reachable' : 'API key is valid';
+    if (isValid === false)
+      return probeError ?? (isOllama ? 'Ollama server is unreachable' : 'API key is invalid');
     return '';
   };
 
@@ -265,6 +285,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
     if (!modelSettings.enabled || !apiKey.trim()) {
       if (!isStale()) {
         setIsValid(null);
+        setProbeError(null);
         setAvailableModels([]);
         // Also clear the spinner: a superseded in-flight request skips its
         // own finally-cleanup as stale, so this cycle owns the state.
@@ -282,10 +303,12 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
         return;
       }
       setIsValid(probe.isValid);
+      setProbeError(probe.error ?? null);
       setAvailableModels(probe.models);
     } catch (error) {
       if (!isStale()) {
         setIsValid(false);
+        setProbeError(null);
         setAvailableModels([]);
       }
     } finally {
@@ -372,21 +395,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                           id={`${modelKey}-status`}
                           role="status"
                           aria-live="polite"
-                          aria-label={
-                            isValidating
-                              ? isOllama
-                                ? 'Checking Ollama server'
-                                : 'Validating API key'
-                              : isValid === true
-                                ? isOllama
-                                  ? 'Ollama server is reachable'
-                                  : 'API key is valid'
-                                : isValid === false
-                                  ? isOllama
-                                    ? 'Ollama server is unreachable'
-                                    : 'API key is invalid'
-                                  : ''
-                          }
+                          aria-label={getStatusLabel()}
                         >
                           {isValidating
                             ? (

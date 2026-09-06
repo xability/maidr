@@ -1,9 +1,11 @@
-import type { AppendedPointInfo } from '@service/liveData';
-import type { BarPoint, CandlestickPoint, LinePoint, Maidr } from '@type/grammar';
+import type { AppendedPointInfo, AppendResult } from '@service/liveData';
+import type { BarPoint, BoxPoint, CandlestickPoint, LinePoint, Maidr, ScatterPoint } from '@type/grammar';
+import type { NonEmptyTraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
-import { TraceType } from '@type/grammar';
+import { appendedPointPosition, appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
+import { BoxplotSection } from '@type/boxplotSection';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * Creates a minimal bar-chart Maidr config for live data tests.
@@ -119,6 +121,101 @@ function createHlcMaidr(id = 'hlc-chart'): Maidr {
   };
 }
 
+/**
+ * A scatter whose points did not arrive in x order, two of them sharing an x.
+ *
+ * The trace sorts by x and groups the duplicates, so these four points make
+ * three columns and no column is at the index the point arrived at.
+ * @param id - The chart identifier
+ * @param maxWidth - Optional sliding window size
+ * @returns A Maidr config with a single scatter layer
+ */
+function createScatterMaidr(id = 'scatter-chart', maxWidth?: number): Maidr {
+  return {
+    id,
+    ...(maxWidth !== undefined && { maxWidth }),
+    live: true,
+    subplots: [[{
+      layers: [{
+        id: 'points',
+        type: TraceType.SCATTER,
+        axes: { x: { label: 'X' }, y: { label: 'Y' } },
+        data: [
+          { x: 5, y: 1 },
+          { x: 1, y: 2 },
+          { x: 5, y: 3 },
+        ] as ScatterPoint[],
+      }],
+    }]],
+  };
+}
+
+/**
+ * One box of the five-number summary, its values spread around `base`.
+ * @param z - The group name
+ * @param base - The whisker minimum; the rest follow one apart
+ * @returns The box
+ */
+function createBox(z: string, base: number): BoxPoint {
+  return {
+    z,
+    lowerOutliers: [],
+    min: base,
+    q1: base + 1,
+    q2: base + 2,
+    q3: base + 3,
+    max: base + 4,
+    upperOutliers: [],
+  };
+}
+
+/**
+ * A box chart drawn in the given orientation.
+ * @param orientation - How the boxes are laid out
+ * @param count - How many boxes the chart starts with
+ * @param maxWidth - Optional sliding window size
+ * @returns A Maidr config with a single box layer
+ */
+function createBoxMaidr(orientation: Orientation, count: number, maxWidth?: number): Maidr {
+  return {
+    id: 'box-chart',
+    ...(maxWidth !== undefined && { maxWidth }),
+    live: true,
+    subplots: [[{
+      layers: [{
+        id: 'boxes',
+        type: TraceType.BOX,
+        orientation,
+        axes: { x: { label: 'Group' }, y: { label: 'Value' } },
+        data: Array.from({ length: count }, (_, i) => createBox(`B${i}`, i * 10)),
+      }],
+    }]],
+  };
+}
+
+/**
+ * What a monitoring reader is told about an appended point, taken the way
+ * `Controller.announceAppendedPoint` takes it: rebuild the figure from the
+ * updated data, translate the append into the trace's coordinates, and read
+ * the state there. The translation is imported rather than re-implemented, so
+ * what runs here is the shipped wiring.
+ * @param result - The append to announce
+ * @returns The state the monitor service would be handed
+ */
+function announcementFor(result: AppendResult): NonEmptyTraceState {
+  const figure = new Figure(result.maidr);
+  const trace = figure.activeSubplot.activeTrace;
+  if (!trace) {
+    throw new Error('fixture subplot should have an active trace');
+  }
+  const position = appendedPointPosition(trace, result.appended);
+  const state = trace.getStateAt(position.row, position.col);
+  if (state.empty) {
+    throw new Error('the appended point was announced as an empty state');
+  }
+  return state;
+}
+
 describe('a streamed candle on a chart with no opening price', () => {
   test('is announced on a row that chart has', () => {
     const result = appendPointToMaidr(createHlcMaidr(), {
@@ -155,6 +252,90 @@ describe('a streamed candle on a chart with no opening price', () => {
   });
 });
 
+/**
+ * Monitor mode reads the streamed point out of the rebuilt trace, so the
+ * coordinates it is given have to be the ones that trace navigates by. Two
+ * traces do not keep their points in the order they arrived, and both were
+ * announced from the raw data index: a scatter sorts by x and groups the
+ * duplicates, and a box lays out sections along one axis and boxes along the
+ * other, swapping which is which with the orientation.
+ */
+describe('a streamed point is announced where its trace keeps it', () => {
+  test('a scatter announces the point that arrived, wherever its x sorts to', () => {
+    const result = appendPointToMaidr(createScatterMaidr(), { x: 3, y: 9 } as ScatterPoint);
+
+    const state = announcementFor(result!);
+
+    // x = 3 sorts into the middle of 1, 3, 5 — the raw index 3 is past the
+    // last column the chart has, which the reader heard as silence.
+    expect(state.text.main.value).toBe(3);
+    expect(state.text.cross?.value).toEqual([9]);
+  });
+
+  test('a vertical box announces the new box at its median', () => {
+    const result = appendPointToMaidr(
+      createBoxMaidr(Orientation.VERTICAL, 2),
+      createBox('C', 20),
+    );
+
+    const state = announcementFor(result!);
+
+    expect(state.text.main.value).toBe('C');
+    expect(state.text.section).toBe(BoxplotSection.Q2);
+    expect(state.text.cross?.value).toBe(22);
+  });
+
+  test('a horizontal box announces the new box at its median', () => {
+    // Eight boxes, so the raw index is past the seven sections a box has:
+    // the announcement had no section and no value at all.
+    const result = appendPointToMaidr(
+      createBoxMaidr(Orientation.HORIZONTAL, 8),
+      createBox('C', 100),
+    );
+
+    const state = announcementFor(result!);
+
+    expect(state.text.main.value).toBe('C');
+    expect(state.text.section).toBe(BoxplotSection.Q2);
+    expect(state.text.cross?.value).toBe(102);
+  });
+
+  test('a trim shifts the cursor along a column axis that indexes the data', () => {
+    const bar = appendPointToMaidr(createBarMaidr('bar-chart', 2), { x: 'C', y: 3 });
+    const vertical = appendPointToMaidr(
+      createBoxMaidr(Orientation.VERTICAL, 2, 2),
+      createBox('C', 20),
+    );
+
+    expect(bar!.appended.trimmed).toBe(1);
+    expect(bar!.appended.colShift).toBe(1);
+    expect(vertical!.appended.trimmed).toBe(1);
+    expect(vertical!.appended.colShift).toBe(1);
+  });
+
+  test('a trim does not shift a scatter, whose columns are its sorted x values', () => {
+    const result = appendPointToMaidr(
+      createScatterMaidr('scatter-chart', 3),
+      { x: 3, y: 9 } as ScatterPoint,
+    );
+
+    // The dropped point may sort anywhere, and may have shared its column
+    // with points that remain, so no fixed shift keeps the reader in place.
+    expect(result!.appended.trimmed).toBe(1);
+    expect(result!.appended.colShift).toBe(0);
+  });
+
+  test('a trim does not shift a horizontal box, whose columns are its sections', () => {
+    const result = appendPointToMaidr(
+      createBoxMaidr(Orientation.HORIZONTAL, 2, 2),
+      createBox('C', 20),
+    );
+
+    expect(result!.appended.trimmed).toBe(1);
+    expect(result!.appended.colShift).toBe(0);
+  });
+});
+
 describe('appendPointToMaidr', () => {
   test('appends a point to flat (bar) layer data', () => {
     const maidr = createBarMaidr();
@@ -172,6 +353,7 @@ describe('appendPointToMaidr', () => {
       row: 0,
       col: 2,
       trimmed: 0,
+      colShift: 0,
       nested: false,
     });
   });
@@ -597,6 +779,7 @@ function createAppended(overrides: Partial<AppendedPointInfo> = {}): AppendedPoi
     row: 0,
     col: 1,
     trimmed: 0,
+    colShift: 0,
     nested: false,
     ...overrides,
   };

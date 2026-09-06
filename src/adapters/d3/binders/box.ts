@@ -173,6 +173,13 @@ export function buildBoxLayer(root: Element, config: D3BoxConfig, panel?: D3Pane
     //                       whiskers = vertical lines (above/below rect center)
     //   Horizontal boxplot: median = vertical line   (|dy| > |dx|)
     //                       whiskers = horizontal lines (left/right of rect center)
+    //
+    // Shape alone will not do it: a capped whisker finishes in a short
+    // crossbar drawn the same way round as the median, and stamping those
+    // `q2` too made the median selector resolve to whichever came first in
+    // the DOM -- announcing the median while outlining the maximum. A cap
+    // sits at the end of a whisker, outside the IQR body; the median crosses
+    // it. So the span the line lies across has to agree as well.
     const lines = children.filter(c => c.localName === 'line') as SVGLineElement[];
     for (const line of lines) {
       const x1 = Number(line.getAttribute('x1') ?? 0);
@@ -188,19 +195,17 @@ export function buildBoxLayer(root: Element, config: D3BoxConfig, panel?: D3Pane
 
       let part: 'q2' | 'lower-whisker' | 'upper-whisker';
       if (isHorizontal) {
-        if (dy > dx) {
-          part = 'q2';
-        } else {
-          part = midX < rectCx ? 'lower-whisker' : 'upper-whisker';
-        }
+        const crossesBody = dy > dx && midX >= rectX && midX <= rectX + rectW;
+        part = crossesBody
+          ? 'q2'
+          : (midX < rectCx ? 'lower-whisker' : 'upper-whisker');
       } else {
-        if (dx > dy) {
-          part = 'q2';
-        } else {
-          // SVG y grows downward, so a larger midpoint y is visually below
-          // the rect center ⇒ lower whisker.
-          part = midY > rectCy ? 'lower-whisker' : 'upper-whisker';
-        }
+        const crossesBody = dx > dy && midY >= rectY && midY <= rectY + rectH;
+        // SVG y grows downward, so a larger midpoint y is visually below
+        // the rect center ⇒ lower whisker.
+        part = crossesBody
+          ? 'q2'
+          : (midY > rectCy ? 'lower-whisker' : 'upper-whisker');
       }
       line.setAttribute('data-maidr-box-part', part);
     }
