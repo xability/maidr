@@ -36,6 +36,9 @@ describe('a scatter grid config that does not describe a grid', () => {
     // Each axis is inside the per-axis bound; their product is not, and the
     // product is what the grid allocates.
     ['two axes that multiply into a grid too large to build', { min: 0, max: 10_000, tickStep: 1 }, { min: 0, max: 10_000, tickStep: 1 }],
+    // One cell over the cap, so the comparison itself is pinned rather than
+    // bracketed: 1000 x 101 against the 1000 x 100 accepted below.
+    ['a grid one row past the cap', { min: 0, max: 1000, tickStep: 1 }, { min: 0, max: 101, tickStep: 1 }],
     ['an inverted range', { min: 4, max: 0, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
     ['a collapsed range', { min: 2, max: 2, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
   ])('%s constructs without a grid', (_name, x, y) => {
@@ -46,16 +49,18 @@ describe('a scatter grid config that does not describe a grid', () => {
     expect(trace.state.empty).toBe(false);
   });
 
-  test('a large grid that is still within reach is built', () => {
-    // 300 x 300 = 90,000 cells: far more than a reader would walk, and
-    // still built, so the cap rejects only what would freeze the tab.
+  test('a grid at exactly the cap is built', () => {
+    // 1000 x 100 = 100,000 cells, the largest grid the cap admits: far more
+    // than a reader would walk, and still built, so the cap turns away only
+    // what would freeze the tab. Paired with the one-row-larger rejection
+    // above, this pins the comparison rather than bracketing it.
     const trace = new ScatterTrace(scatterLayer(
-      { label: 'X', min: 0, max: 300, tickStep: 1 },
-      { label: 'Y', min: 0, max: 300, tickStep: 1 },
+      { label: 'X', min: 0, max: 1000, tickStep: 1 },
+      { label: 'Y', min: 0, max: 100, tickStep: 1 },
     ));
 
     expect(trace.supportsGridMode()).toBe(true);
-    expect(trace.getGridDimensions()).toEqual({ rows: 300, cols: 300 });
+    expect(trace.getGridDimensions()).toEqual({ rows: 100, cols: 1000 });
   });
 
   test('a well-formed config still builds the grid', () => {
