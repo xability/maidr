@@ -109,17 +109,31 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
     };
   }
 
+  /** @see Trace.level */
+  public get level(): 'figure' {
+    return 'figure';
+  }
+
   public readonly id: string;
   protected movable: Movable;
 
-  private readonly title: string;
-  private readonly subtitle: string;
-  private readonly caption: string;
-  private readonly xLabel: string;
-  private readonly yLabel: string;
+  /*
+   * The figure's own labels and panel count, fixed by the constructor.
+   *
+   * Public because `Figure.state` is an expensive way to read a constant: it
+   * builds the focused subplot's whole state -- and through it the active
+   * trace's audio, braille, text and highlight -- to carry six values that
+   * were decided before any of that existed. `Context` exposes them to the
+   * description and label commands, which read several in a row.
+   */
+  public readonly title: string;
+  public readonly subtitle: string;
+  public readonly caption: string;
+  public readonly xLabel: string;
+  public readonly yLabel: string;
 
   public readonly subplots: Subplot[][];
-  private readonly size: number;
+  public readonly size: number;
 
   /**
    * Maps each data (row, col) to its 1-based visual position (top-left = 1).
@@ -399,6 +413,11 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       // no rows at all, so there is no row length to read.
       cols: this.values[this.row]?.length ?? 0,
     };
+  }
+
+  /** @see Trace.level */
+  public get level(): 'subplot' {
+    return 'subplot';
   }
 
   protected readonly movable: Movable;
@@ -773,6 +792,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * The trace's chart type, exposed without computing the full state.
    */
   readonly traceType: TraceType;
+
+  /**
+   * Which level of the figure this element is, for the same reason
+   * {@link Trace.traceType} exists: `state.type` answers it too, but only
+   * after building the whole audio/braille/text/highlight snapshot.
+   */
+  readonly level: 'trace';
 
   /**
    * Gets the current X value from the trace

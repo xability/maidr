@@ -48,6 +48,7 @@ function createMockContext(scope: Scope): Context {
   const context = {
     scope,
     state: { type: 'trace', empty: false },
+    activeLevel: 'trace',
     active: createNavigableTrace(),
     getInstruction: jest.fn(() => 'test instruction'),
     toggleScope: jest.fn((next: Scope) => {

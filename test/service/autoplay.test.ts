@@ -70,7 +70,7 @@ function createAutoplay(totalDuration: number): AutoplayHarness {
   const notifyStateUpdate = jest.fn();
 
   const context = {
-    state: { type: 'trace' },
+    activeLevel: 'trace',
     isMovable: () => true,
     moveOnce,
     notifyStateUpdate,
