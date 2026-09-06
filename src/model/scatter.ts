@@ -182,7 +182,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   // which shift when the page scrolls or the window resizes. Rather than
   // recompute every rect on each pointermove, mark the cache stale on
   // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
-  private highlightCentersDirty = false;
+  // It starts stale for the same reason: measuring at construction is a
+  // forced layout per trace that a keyboard reader never asks for.
+  private highlightCentersDirty = true;
 
   private readonly invalidateHighlightCenters = (): void => {
     this.highlightCentersDirty = true;
@@ -354,7 +356,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.svgClones = allSvgClones;
 
     [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
-    this.highlightCenters = this.mapSvgElementsToCenters();
+    // Left for the first hover to measure. `highlightCentersDirty` starts
+    // true, so findNearestPoint builds them the same way it does after a
+    // scroll.
+    this.highlightCenters = null;
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
 
     // Invalidate the cached pointer-hover centers when the viewport moves.
