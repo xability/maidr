@@ -43,7 +43,7 @@ import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { categoryAxisReversedFor, stepDirectionFor } from './childProps';
+import { categoryAxisReversedFor, categoryAxisReversedPerPanelFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -150,9 +150,15 @@ export function MaidrRecharts({
       categoryAxisReversed: subplots
         ? undefined
         : categoryAxisReversedFor(children, orientation === Orientation.HORIZONTAL),
+      // Each panel is asked with its own orientation, since a panel may
+      // override the grid's and that is what decides which axis its categories
+      // are on.
       categoryAxisReversedPerPanel: subplots
-        ? Children.toArray(children).map(panel =>
-            categoryAxisReversedFor(panel, orientation === Orientation.HORIZONTAL))
+        ? categoryAxisReversedPerPanelFor(
+            children,
+            normalizeRechartsSubplotGrid(subplots, columns).flat(),
+            orientation,
+          )
         : undefined,
       // The convention is on the `<Line type>` the chart already declares, so
       // a step chart need not say it twice. An explicit one still wins, which
