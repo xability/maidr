@@ -5,7 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BarBrailleState, BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, BoxBrailleState, FigureState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
 import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
@@ -670,13 +670,19 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     const state = this.context.state;
 
     // Handle no data case
-    if (state.empty || state.type !== 'trace') {
+    if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
       this.textViewModel.update('Not in a chart, unable to show position.');
       return;
     }
 
     // Warn if text mode is off instead of announcing position
     if (this.textViewModel.warnIfTextOff()) {
+      return;
+    }
+
+    // Multi-panel lobby: the position is which subplot is focused
+    if (state.type === 'figure') {
+      this.announceFigurePosition(state);
       return;
     }
 
@@ -749,6 +755,23 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       this.announce2DPosition(x, y, rows, cols);
     } else {
       this.announce1DPosition(x, cols);
+    }
+  }
+
+  /**
+   * Announces which subplot is focused at the multi-panel lobby.
+   *
+   * The lobby binds the position key and lists it in help, so it has to
+   * answer with the position the figure state already carries rather than
+   * refuse. Terse keeps the two numbers and drops the label word, the way the
+   * trace-level readings keep the percentage and drop "Position is".
+   * @param state - The populated figure state
+   */
+  private announceFigurePosition(state: Extract<FigureState, { empty: false }>): void {
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      this.textViewModel.update(`${state.index} of ${state.size}`);
+    } else {
+      this.textViewModel.update(`Subplot ${state.index} of ${state.size}`);
     }
   }
 

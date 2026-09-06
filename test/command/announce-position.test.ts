@@ -798,3 +798,39 @@ describe('AnnouncePositionCommand on a multi-violin KDE', () => {
     expect(textViewModel.update).toHaveBeenCalledWith('Violin 2 of 3, 50%');
   });
 });
+
+describe('AnnouncePositionCommand at the multi-panel lobby', () => {
+  function figureState(index: number, size: number): PlotState {
+    return { type: 'figure', empty: false, index, size } as unknown as PlotState;
+  }
+
+  test('announces which subplot is focused', () => {
+    // The lobby binds `p` and lists it in help, so it has to answer with the
+    // position the figure state already carries rather than a refusal.
+    const { command, textViewModel } = createCommand(figureState(2, 4));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('Subplot 2 of 4');
+  });
+
+  test('drops the label word in terse mode', () => {
+    const { command, textViewModel } = createCommand(figureState(2, 4), 'terse');
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith('2 of 4');
+  });
+
+  test('still refuses when there is no chart at all', () => {
+    const { command, textViewModel } = createCommand(
+      { type: 'figure', empty: true } as unknown as PlotState,
+    );
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Not in a chart, unable to show position.',
+    );
+  });
+});
