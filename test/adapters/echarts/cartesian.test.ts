@@ -582,6 +582,31 @@ describe('what the adapter will not claim', () => {
     expect(layer.data as BarPoint[]).toHaveLength(3);
   });
 
+  it('counts an area series band, which is painted as a mark too', () => {
+    // A line series declared with `areaStyle` paints a filled band under the
+    // curve in the series colour, which is exactly what `isFilledMark`
+    // accepts. Left out of the count, the band is found among the candidates
+    // and nothing accounts for it, so the totals disagree and the whole
+    // chart -- the bars included -- loses its highlighting.
+    const [bar, area] = layersOf(
+      {
+        series: [
+          { type: 'bar', names: CATEGORIES, values: [1, 2, 3] },
+          { type: 'line', names: CATEGORIES, values: [3, 2, 1], areaStyle: {} },
+        ],
+      },
+      drawnChart(4, 1),
+    );
+
+    expect(bar.type).toBe(TraceType.BAR);
+    expect(bar.selectors).toHaveLength(3);
+    expect(area.type).toBe(TraceType.AREA);
+    // The band is not the area's outline: a line layer is highlighted by its
+    // stroked polyline, which is one selector for the whole series.
+    expect(typeof area.selectors).toBe('string');
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('names a layer only when the author named the series', () => {
     // ECharts always resolves a name, inventing one for a series declared
     // without any, and emitting that would name a layer after a counter.

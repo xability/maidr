@@ -335,8 +335,14 @@ function buildLayers(
   // A boxplot is excluded alongside a line: it paints one path per box, but
   // that path is box AND whiskers together, which no selector shape wants --
   // counting it would spend a slot and shift every later series' marks.
+  // A line declared with `areaStyle` is the exception among lines: it fills
+  // the band under its curve in the series colour, which is a mark by every
+  // test `isFilledMark` applies. Excluded, the band is found among the
+  // candidates with nothing to account for it, and the mismatch drops the
+  // highlighting of every other series on the chart along with its own.
   const marked = series.filter(seriesModel =>
-    seriesModel.subType !== 'line' && seriesModel.subType !== 'boxplot');
+    seriesModel.subType !== 'boxplot'
+    && (seriesModel.subType !== 'line' || fillsBand(seriesModel)));
   const perDatum = markPerDatum(
     container,
     marked.map(seriesModel => drawnMarks(seriesModel, axes, grid)),
@@ -444,9 +450,29 @@ function drawnMarks(
       return drawnGridCount(seriesModel, grid);
     case 'candlestick':
       return drawnCandleCount(seriesModel);
+    case 'line':
+      // One band for the whole series rather than one mark per sample, and
+      // only when the series fills one -- the same count `markPerSeries`
+      // asks of the stroked curve above it.
+      return fillsBand(seriesModel) ? 1 : 0;
     default:
       return drawnCount(seriesModel, axes.horizontal);
   }
+}
+
+/**
+ * Whether a line series fills the band under its curve.
+ *
+ * `areaStyle` is what fills it, so it is what makes the chart an area chart
+ * rather than a line one -- read off the resolved option so an author cannot
+ * mislabel one as the other. The band is also a filled mark, which is why
+ * the count asks the same question the reading does.
+ *
+ * @param seriesModel - The series to read
+ * @returns True when the series paints a band
+ */
+function fillsBand(seriesModel: EChartsSeriesModel): boolean {
+  return Boolean(seriesModel.get('areaStyle'));
 }
 
 /**
@@ -696,10 +722,7 @@ function lineLayer(
     });
   }
 
-  // `areaStyle` is what fills the band under the curve, so it is what makes
-  // the chart an area chart rather than a line one -- read off the resolved
-  // option so an author cannot mislabel one as the other.
-  const area = Boolean(seriesModel.get('areaStyle'));
+  const area = fillsBand(seriesModel);
   const step = seriesModel.get('step');
   const name = authoredName(seriesModel);
 
