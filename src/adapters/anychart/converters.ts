@@ -433,19 +433,26 @@ function hasOrdinalXScale(chart: AnyChartInstance): boolean {
  * A horizontal bar runs its categories down the page, and inverting is what
  * puts the first one at the top; a vertical column runs them across, and not
  * inverting is what puts the first one at the left. So the reading is
- * backwards exactly when `inverted()` disagrees with the series' own
- * direction, which is `'bar'` for horizontal and `'column'` for vertical --
- * and an ordinary chart of either kind is left alone.
+ * backwards exactly when `inverted()` disagrees with the **chart's** own
+ * direction -- and an ordinary chart of either kind is left alone.
+ *
+ * The chart's, not the series': only a bar or column series names the
+ * arrangement, and a line, area or step overlaid on `anychart.bar()` reports
+ * `'line'` / `'area'` / `'step-line'` while being drawn down the page like
+ * everything else in that chart. Reading the direction off such a series gets
+ * it backwards both ways -- reversing the default bar chart, which draws in
+ * listed order, and leaving the un-inverted one, which does not.
+ * {@link drawsHorizontally} is the same question {@link HORIZONTAL_CHART_TYPES}
+ * answers for the orientation key.
  *
  * The **x** scale specifically: inverting the value scale was measured to move
  * no category, only which end the bars hang from, so asking "is either scale
  * inverted" would reorder a chart that did not move.
  *
- * Defensive in the same shape as {@link hasOrdinalXScale} -- a chart or series
- * that cannot be asked keeps the reading it has today.
+ * Defensive in the same shape as {@link hasOrdinalXScale} -- a chart that
+ * cannot be asked keeps the reading it has today.
  *
  * @param chart - The chart the series belongs to
- * @param series - The bar or column series being read
  * @returns True when the drawn order is the reverse of the listed order
  */
 /**
@@ -475,8 +482,8 @@ const REVERSIBLE_ON_INVERSION = new Set<AnyChartTraceType>([
  * `anychart.column()` the upright one, and every series inside them follows --
  * a `marker` in a bar chart is a Cleveland dot plot, a `stick` is a sideways
  * lollipop, a `range-bar` a sideways dumbbell. So the question is the chart's
- * rather than the series', which is why {@link drawsCategoriesReversed} can
- * read the series' own name and this cannot.
+ * rather than the series', which is why {@link drawsCategoriesReversed} asks
+ * this too rather than reading the name of the series it is converting.
  *
  * `barmekko` is deliberately absent: AnyChart's bar mekko is a column chart
  * whose widths vary, drawn upright -- measured, `getType()` answers
@@ -494,14 +501,10 @@ function drawsHorizontally(chart: AnyChartInstance): boolean {
   return HORIZONTAL_CHART_TYPES.has(readChartType(chart));
 }
 
-function drawsCategoriesReversed(
-  chart: AnyChartInstance,
-  series: AnyChartSeries,
-): boolean {
+function drawsCategoriesReversed(chart: AnyChartInstance): boolean {
   try {
     const inverted = chart.xScale?.()?.inverted?.() === true;
-    const horizontal = series.seriesType() === 'bar';
-    return inverted !== horizontal;
+    return inverted !== drawsHorizontally(chart);
   } catch {
     return false;
   }
@@ -1376,12 +1379,15 @@ function collectLineMarkerCandidates(
  *   1. For each line-like series, determine the expected `pointCount`.
  *   2. Run {@link collectLineMarkerCandidates} once over the SVG and sort
  *      candidates left-to-right (matching data-point order).
- *   3. Single-series charts: assign the first `pointCount` candidates as
- *      `0-0 … 0-(N-1)`.
- *   4. Multi-series charts: offset-partition (`candidates[s*N … s*N+N]`)
- *      and emit a one-time warning recommending an explicit `selectors`
- *      entry, because precise per-series attribution requires matching
- *      point coordinates against axis scale transforms (out of scope here).
+ *   3. Hand the candidates out in series order, each line-like series taking
+ *      the next `pointCount` of them and leaving the cursor where it stopped.
+ *      A series this loop skips — the bars of a combined chart, one that
+ *      cannot name its type — consumes nothing, and a series shorter than its
+ *      neighbour does not shift the ones after it.
+ *   4. Multi-series charts also emit a one-time warning recommending an
+ *      explicit `selectors` entry, because precise per-series attribution
+ *      requires matching point coordinates against axis scale transforms
+ *      (out of scope here).
  *
  * The stamp is idempotent — re-running on a chart that has already been
  * stamped is a no-op.
@@ -1404,6 +1410,12 @@ function stampLineAttributes(
   candidates.sort((a, b) => a.x - b.x);
 
   let multiSeriesWarned = false;
+  // How many candidates the series before this one took. A running cursor
+  // rather than `s * pointCount`: `s` counts the series this loop skipped —
+  // the bars of a combined chart, a series that cannot name its type — none
+  // of which consumed a candidate, and `pointCount` is this series' length,
+  // which is a stride only while every series is the same length.
+  let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
     const series = chart.getSeriesAt(s);
@@ -1423,25 +1435,19 @@ function stampLineAttributes(
     if (pointCount === 0)
       continue;
 
-    let stampStart = 0;
-    let stampEnd = 0;
-    if (seriesCount === 1) {
-      stampStart = 0;
-      stampEnd = Math.min(pointCount, candidates.length);
-    } else {
-      if (!multiSeriesWarned) {
-        console.warn(
-          '[maidr/anychart] Multi-series line highlighting uses an offset-'
-          + 'based partition of marker candidates and may misattribute points '
-          + 'across series with overlapping geometry. For precise highlighting, '
-          + 'pass an explicit `selectors` entry to bindAnyChart().',
-        );
-        multiSeriesWarned = true;
-      }
-      const offset = s * pointCount;
-      stampStart = offset;
-      stampEnd = Math.min(offset + pointCount, candidates.length);
+    if (seriesCount > 1 && !multiSeriesWarned) {
+      console.warn(
+        '[maidr/anychart] Multi-series line highlighting uses an offset-'
+        + 'based partition of marker candidates and may misattribute points '
+        + 'across series with overlapping geometry. For precise highlighting, '
+        + 'pass an explicit `selectors` entry to bindAnyChart().',
+      );
+      multiSeriesWarned = true;
     }
+
+    const stampStart = consumed;
+    const stampEnd = Math.min(consumed + pointCount, candidates.length);
+    consumed = stampEnd;
 
     if (stampEnd - stampStart < pointCount) {
       console.warn(
@@ -1484,8 +1490,9 @@ const SCATTER_LIKE_SERIES_TYPES = new Set([
  *
  * Sort order is x-center primary, y-center secondary, matching
  * `ScatterTrace.groupSvgElements`'s X→Y grouping expectation. Multi-series
- * scatter charts use the same offset-partition as line-series and emit the
- * same one-time warning recommending an explicit `selectors` entry.
+ * scatter charts hand the candidates out with the same running cursor as
+ * line-series and emit the same one-time warning recommending an explicit
+ * `selectors` entry.
  *
  * Idempotent — re-running on a chart that has already been stamped is a
  * no-op.
@@ -1518,35 +1525,11 @@ function stampScatterAttributes(
   });
   candidates.sort((a, b) => (a.x - b.x) || (a.y - b.y));
 
-  // Diagnostic: surface the candidate count up-front so users / developers
-  // can tell at a glance whether the geometric filter actually found
-  // scatter markers. Zero or far-too-few candidates almost always means the
-  // visibility filter rejected the points (see the Phase 9 / Phase 11B
-  // attribute vs. computed-style issue) — not a downstream stamping bug.
-  let expectedTotalPoints = 0;
-  for (let s = 0; s < seriesCount; s++) {
-    const series = chart.getSeriesAt(s);
-    if (!series)
-      continue;
-    let seriesType = '';
-    try {
-      seriesType = series.seriesType();
-    } catch {
-      continue;
-    }
-    if (!SCATTER_LIKE_SERIES_TYPES.has(seriesType))
-      continue;
-    expectedTotalPoints += extractRawRows(series).length;
-  }
-  if (expectedTotalPoints > 0) {
-    console.warn(
-      `[maidr/anychart] scatter: collected ${candidates.length} marker `
-      + `candidates, expected ${expectedTotalPoints} points across `
-      + `${seriesCount} series.`,
-    );
-  }
-
   let multiSeriesWarned = false;
+  // See {@link stampLineAttributes}: a running cursor over the candidates the
+  // earlier series took, not `s * pointCount`, which counts the series this
+  // loop skipped and assumes every series is the same length.
+  let consumed = 0;
 
   for (let s = 0; s < seriesCount; s++) {
     const series = chart.getSeriesAt(s);
@@ -1566,25 +1549,19 @@ function stampScatterAttributes(
     if (pointCount === 0)
       continue;
 
-    let stampStart = 0;
-    let stampEnd = 0;
-    if (seriesCount === 1) {
-      stampStart = 0;
-      stampEnd = Math.min(pointCount, candidates.length);
-    } else {
-      if (!multiSeriesWarned) {
-        console.warn(
-          '[maidr/anychart] Multi-series scatter highlighting uses an '
-          + 'offset-based partition of marker candidates and may misattribute '
-          + 'points across series with overlapping geometry. For precise '
-          + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
-        );
-        multiSeriesWarned = true;
-      }
-      const offset = s * pointCount;
-      stampStart = offset;
-      stampEnd = Math.min(offset + pointCount, candidates.length);
+    if (seriesCount > 1 && !multiSeriesWarned) {
+      console.warn(
+        '[maidr/anychart] Multi-series scatter highlighting uses an '
+        + 'offset-based partition of marker candidates and may misattribute '
+        + 'points across series with overlapping geometry. For precise '
+        + 'highlighting, pass an explicit `selectors` entry to bindAnyChart().',
+      );
+      multiSeriesWarned = true;
     }
+
+    const stampStart = consumed;
+    const stampEnd = Math.min(consumed + pointCount, candidates.length);
+    consumed = stampEnd;
 
     if (stampEnd - stampStart < pointCount) {
       console.warn(
@@ -2075,10 +2052,10 @@ function stampBoxAttributes(
         median.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         median.setAttribute(BOX_PART_ATTR, 'q2');
       } else if (!median) {
-        // DIAGNOSTIC (temporary, removed once box highlighting is verified):
-        // surface the IQR bbox so we can see whether the median scan missed
-        // a real element or AnyChart genuinely didn't emit one for this box
-        // (can happen when median color matches IQR fill).
+        // A box whose median stroke was not found highlights without its
+        // middle line, so this is a real shortfall rather than a trace: the
+        // bbox is what says whether the scan missed an element or AnyChart
+        // drew none (which it can, when the median colour matches the fill).
         console.warn(
           `[maidr/anychart] Box ${s}-${b}: no median found. IQR bbox:`,
           iq.bbox,
@@ -2087,8 +2064,8 @@ function stampBoxAttributes(
 
       const whiskers = findWhiskerElements(svg, iq);
       if (whiskers.length !== 2) {
-        // DIAGNOSTIC (temporary): expected exactly two whisker segments
-        // (min stem + max stem). Other counts indicate a scan miss.
+        // A box has exactly two stems, a min and a max. Any other count means
+        // one of them will not highlight.
         console.warn(
           `[maidr/anychart] Box ${s}-${b}: expected 2 whiskers, found `
           + `${whiskers.length}. IQR cx=${iq.cx.toFixed(1)}, `
@@ -2100,49 +2077,6 @@ function stampBoxAttributes(
           continue;
         el.setAttribute(BOX_ATTR, `${stampPrefix}${s}-${b}`);
         el.setAttribute(BOX_PART_ATTR, isUpper ? 'max' : 'min');
-      }
-    }
-
-    // DIAGNOSTIC: one-line summary per series so we can verify which
-    // per-part stamps succeeded without browser DevTools. Remove once
-    // box highlighting is confirmed working end-to-end.
-    const stampedIq = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="iq"]`,
-    ).length;
-    const stampedQ2 = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="q2"]`,
-    ).length;
-    const stampedMin = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="min"]`,
-    ).length;
-    const stampedMax = svg.querySelectorAll(
-      `[${BOX_ATTR}^="${stampPrefix}${s}-"][${BOX_PART_ATTR}="max"]`,
-    ).length;
-    // Using console.warn (not console.log) so the diagnostic surfaces under
-    // the repo's no-console ESLint rule. This whole block is temporary.
-    console.warn(
-      `[maidr/anychart] stampBoxAttributes series ${s}: ${boxCount} boxes, `
-      + `stamped ${stampedIq} iq / ${stampedQ2} q2 / `
-      + `${stampedMin} min / ${stampedMax} max`,
-    );
-
-    // Per-box detail: report any box missing one or more parts so we can
-    // pinpoint failures from a single console line. Temporary diagnostic.
-    for (let b = 0; b < boxCount; b++) {
-      const base = `[${BOX_ATTR}="${stampPrefix}${s}-${b}"]`;
-      const missing: string[] = [];
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="iq"]`))
-        missing.push('iq');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="q2"]`))
-        missing.push('q2');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="min"]`))
-        missing.push('min');
-      if (!svg.querySelector(`${base}[${BOX_PART_ATTR}="max"]`))
-        missing.push('max');
-      if (missing.length > 0) {
-        console.warn(
-          `[maidr/anychart]   Box ${s}-${b} missing: ${missing.join(', ')}`,
-        );
       }
     }
   }
@@ -2211,10 +2145,13 @@ function findHeatmapCellLayer(svg: SVGElement): Element {
  *
  * Cells are identified via AnyChart's stable auto-id conventions:
  * `ac_layer_*` groups scoped to the layer with the most `ac_rect_*` shapes
- * (see {@link findHeatmapCellLayer}). DOM order within the layer is
- * row-major (top→bottom, then left→right), matching the
- * `HeatmapData { x, y, points }` layout produced by
- * {@link buildHeatmapLayerFromChart}.
+ * (see {@link findHeatmapCellLayer}). AnyChart draws one shape per data row,
+ * in the order the rows were written, so the nth shape carries the nth row's
+ * own `(x, y)` pair — which is what names it, rather than its position among
+ * its siblings. Counting off `row = i / cols` instead was right only for a
+ * grid that is both dense and written row-major: a heat map written
+ * `for x: for y:` had every cell's coordinates transposed, and a sparse one
+ * had every cell after the hole shifted a slot early.
  *
  * Only runs for charts whose `getType()` returns a string containing
  * `'heat'`; on other chart types this is a no-op.
@@ -2252,32 +2189,12 @@ function stampHeatmapAttributes(
   if (!iterator)
     return;
 
-  // Count cells + collect distinct x/y labels in insertion order so we know
-  // the expected grid dimensions and can map flat DOM order to (row,col).
-  const xLabels: string[] = [];
-  const yLabels: string[] = [];
-  const xSet = new Set<string>();
-  const ySet = new Set<string>();
-  let cellCount = 0;
-  iterator.reset();
-  while (iterator.advance()) {
-    cellCount++;
-    const x = asString(iterator.get('x'));
-    const y = asString(iterator.get('y') ?? iterator.get('name'));
-    if (!xSet.has(x)) {
-      xLabels.push(x);
-      xSet.add(x);
-    }
-    if (!ySet.has(y)) {
-      yLabels.push(y);
-      ySet.add(y);
-    }
-  }
-  if (cellCount === 0)
+  // Each row's own (x, y) pair, in the order the rows were written — which is
+  // the order AnyChart draws them in. The coordinates belong to the row, not
+  // to the shape's position among its siblings.
+  const cells = readHeatmapCells(iterator);
+  if (cells.length === 0)
     return;
-
-  const cols = xLabels.length;
-  const rows = yLabels.length;
 
   // Locate the heatmap cell layer via AnyChart's stable id conventions,
   // then collect shape elements directly from that layer. This is the
@@ -2310,19 +2227,57 @@ function stampHeatmapAttributes(
     cellCandidates.push(el);
   }
 
-  // Layer + id-prefix scoping should yield exactly rows*cols cells. Any
-  // mismatch indicates either an unexpected AnyChart DOM layout (perhaps a
-  // future version that changes the auto-id convention) or a chart that
-  // hasn't fully rendered yet. We continue best-effort by stamping as many
-  // cells as we have candidates for.
-  const stampCount = Math.min(cellCandidates.length, rows * cols);
+  // Layer + id-prefix scoping should yield exactly one candidate per drawn
+  // row. Any mismatch indicates either an unexpected AnyChart DOM layout
+  // (perhaps a future version that changes the auto-id convention) or a chart
+  // that hasn't fully rendered yet. We continue best-effort by stamping as
+  // many cells as we have candidates for.
+  const stampCount = Math.min(cellCandidates.length, cells.length);
   for (let i = 0; i < stampCount; i++) {
-    const r = Math.floor(i / cols);
-    const c = i % cols;
     const el = cellCandidates[i];
     if (!el.hasAttribute(HEATMAP_ATTR))
-      el.setAttribute(HEATMAP_ATTR, `${stampPrefix}${r}-${c}`);
+      el.setAttribute(HEATMAP_ATTR, `${stampPrefix}${cells[i].row}-${cells[i].col}`);
   }
+}
+
+/**
+ * One entry per row the chart carries: the pair it names, and the grid
+ * coordinates that pair resolves to.
+ *
+ * `row` indexes the y labels in the order they first appear and `col` the x
+ * labels, which is exactly how {@link buildHeatmapLayerFromChart} fills its
+ * `points` rectangle — so a cell's stamp and its place in the payload are the
+ * same two numbers, whatever order the rows were written in and whether or not
+ * they fill the grid.
+ *
+ * @param iterator - The chart's data iterator
+ * @returns One `{ row, col }` per data row, in the order they are drawn
+ */
+function readHeatmapCells(
+  iterator: AnyChartIterator,
+): Array<{ row: number; col: number }> {
+  const xLabels: string[] = [];
+  const yLabels: string[] = [];
+  const xIndex = new Map<string, number>();
+  const yIndex = new Map<string, number>();
+  const cells: Array<{ row: number; col: number }> = [];
+
+  iterator.reset();
+  while (iterator.advance()) {
+    const x = asString(iterator.get('x'));
+    const y = asString(iterator.get('y') ?? iterator.get('name'));
+    if (!xIndex.has(x)) {
+      xIndex.set(x, xLabels.length);
+      xLabels.push(x);
+    }
+    if (!yIndex.has(y)) {
+      yIndex.set(y, yLabels.length);
+      yLabels.push(y);
+    }
+    cells.push({ row: yIndex.get(y) ?? 0, col: xIndex.get(x) ?? 0 });
+  }
+
+  return cells;
 }
 
 // ---------------------------------------------------------------------------
@@ -4986,28 +4941,42 @@ function buildHeatmapLayerFromChart(
       points[yi][xi] = r.v;
   }
 
+  // One selector per drawn cell, named by the coordinates
+  // `stampHeatmapAttributes` stamped it with — not one prefix resolved in
+  // document order. A prefix pairs elements with cells by position, so a heat
+  // map whose rows do not fill the grid resolves fewer elements than the
+  // rectangle has cells and `Heatmap.mapToSvgElements` withdraws the mapping
+  // whole, costing every drawn cell its highlight too.
+  //
+  // Written bottom-first, because `Heatmap` reverses the payload's rows so
+  // that row 0 is the foot of the grid — the direction navigation counts in.
+  // `null` marks a cell no row named, which the model keeps as a hole rather
+  // than failing the grid over.
+  const scope = panelScope(panel);
+  const prefix = panelStampPrefix(panel);
+  const grid: (string | null)[][] = Array.from(
+    { length: yLabels.length },
+    () => Array.from<string | null>({ length: xLabels.length }).fill(null),
+  );
+  for (const r of rows) {
+    const xi = xLabels.indexOf(r.x);
+    const yi = yLabels.indexOf(r.y);
+    if (xi >= 0 && yi >= 0)
+      grid[yLabels.length - 1 - yi][xi] = `${scope}[${HEATMAP_ATTR}="${prefix}${yi}-${xi}"]`;
+  }
+
   const data: HeatmapData = { x: xLabels, y: yLabels, points };
-  const defaultSelector = `${panelScope(panel)}[${HEATMAP_ATTR}]`;
   return {
     id: '0',
     type: TraceType.HEATMAP,
-    selectors: selectors ?? defaultSelector,
+    selectors: selectors ?? grid,
     data,
-    // `stampHeatmapAttributes` walks the chart's cells in row-major order
-    // (`r * cols + c`). `Heatmap.mapToSvgElements` defaults to a
-    // column-major mapping for <rect> cells unless told otherwise — that
-    // mismatch would either transpose the highlight grid or fail the
-    // `domElements.length === rows * cols` invariant. Mirror the D3
-    // heatmap binder's `domMapping: { order: 'row' }` hint so the model
-    // groups the stamped cells the way they were laid out.
-    //
-    // NOTE: AnyChart's production GraphicsJS renderer emits heatmap cells
-    // as <path> elements, not <rect>. The path branch of
-    // `Heatmap.mapToSvgElements` unconditionally uses row-major with
-    // row-reversal and ignores `domMapping.order` entirely — so this hint
-    // is a no-op for current AnyChart heatmaps. It is retained as
-    // defensive coverage for any alternative AnyChart build (or future
-    // renderer change) that emits <rect> cells instead.
+    // Only read when a caller passed their own single selector, which
+    // `Heatmap.mapToSvgElements` still resolves by position: AnyChart draws
+    // its cells row-major, and the model's <rect> branch would otherwise
+    // group them column-major and transpose the whole grid. The adapter's own
+    // selectors are the per-cell grid above, which names each cell rather than
+    // counting to it, so this says nothing about them.
     domMapping: { order: 'row' },
   };
 }
@@ -6439,7 +6408,20 @@ function buildSubplot(
     if (divergingIndices.has(i))
       continue;
 
-    const anyChartType = series.seriesType();
+    // Guarded like every other `seriesType()` call in this file: the adapter
+    // does not trust it, and unwrapped here the throw leaves `buildSubplot`,
+    // `anyChartToMaidr` and `bindAnyChart` in turn, landing in the caller's
+    // own page script — the chart is not bound, and nothing written after the
+    // bind call runs either.
+    let anyChartType = '';
+    try {
+      anyChartType = series.seriesType();
+    } catch {
+      console.warn(
+        `[maidr/anychart] Series ${i} could not name its type. Skipping it.`,
+      );
+      continue;
+    }
 
     if (anyChartType === 'waterfall') {
       waterfalls.push({ series, index: i });
@@ -6503,7 +6485,7 @@ function buildSubplot(
     // and there is nothing to permute (#1035).
     const invertedCategories = REVERSIBLE_ON_INVERSION.has(traceType)
       && !hasSelectorOverrides
-      && drawsCategoriesReversed(chart, series);
+      && drawsCategoriesReversed(chart);
     const layer = buildLayer(
       chart,
       series,

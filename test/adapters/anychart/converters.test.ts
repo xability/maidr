@@ -728,6 +728,30 @@ describe('anyChartToMaidr (single panel, unchanged)', () => {
     const chart = createChart({ series: [createSeries('funnel', [{ x: 'A', value: 1 }])] });
     expect(anyChartToMaidr(chart)).toBeNull();
   });
+
+  it('skips a series that cannot name its type and keeps the rest', () => {
+    // Every other `seriesType()` call in the adapter is wrapped, precisely
+    // because it is not trusted. Unwrapped here, the throw leaves
+    // `anyChartToMaidr`, and through `bindAnyChart` it leaves the caller's own
+    // page script: the chart is not bound and nothing after the bind call
+    // runs either.
+    const broken = {
+      ...createSeries('column', [{ x: 'A', value: 1 }]),
+      seriesType: () => {
+        throw new Error('series type unavailable');
+      },
+    } as unknown as AnyChartSeries;
+    const chart = createChart({
+      title: 'Tips',
+      series: [broken, createBarSeries([['Sat', 87]])],
+    });
+
+    const result = anyChartToMaidr(chart);
+
+    expect(result?.subplots[0][0].layers).toHaveLength(1);
+    expect(result?.subplots[0][0].layers[0].data as BarPoint[])
+      .toEqual([{ x: 'Sat', y: 87 }]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2306,9 +2330,15 @@ describe('anyChartsToMaidr', () => {
     expect(heatLayer.type).toBe(TraceType.HEATMAP);
     expect(heatLayer.id).toBe('0_0_0');
     expect(heatLayer.title).toBe('Heat');
-    expect(heatLayer.selectors).toBe(
-      '[data-maidr-anychart-panel="fig-0-0"] [data-maidr-anychart-heatmap-cell]',
-    );
+    // One selector per cell, each carrying the panel token twice over: in the
+    // scope, and in the stamped value itself, so two independently bound
+    // figures cannot answer for each other's cells.
+    expect(heatLayer.selectors).toEqual([[
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-heatmap-cell="fig-0-0:0-0"]',
+      '[data-maidr-anychart-panel="fig-0-0"] '
+      + '[data-maidr-anychart-heatmap-cell="fig-0-0:0-1"]',
+    ]]);
   });
 
   it('applies figure-level axes overrides but keeps per-panel extraction otherwise', () => {
