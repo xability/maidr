@@ -140,15 +140,6 @@ export class PatternService {
   }
 
   /**
-   * Remove pattern from an element and restore original fill.
-   * @param element The element to remove the pattern from
-   * @param originalFill The original fill value to restore
-   */
-  public removePattern(element: SVGElement, originalFill: string): void {
-    element.setAttribute('fill', originalFill);
-  }
-
-  /**
    * Get all available pattern types.
    * Useful for cycling through patterns for different data series.
    * Note: order determines assignment, eg the first series gets the first pattern and so on.
