@@ -415,6 +415,17 @@ export class RidgelineTrace extends AbstractTrace {
   /**
    * Finds the group whose drawn curve is nearest a pointer position.
    *
+   * Measured once per group rather than once per sample. `pairWith` gives
+   * every sample of a group the same path -- a ridgeline draws one curve per
+   * group, not one element per sample -- so a row's samples all answer with
+   * the identical rect and only the first can win the strict comparison.
+   * Measuring the others is a layout read apiece, taken on every
+   * `pointermove`, for an answer already in hand.
+   *
+   * The sample the pointer resolves to is therefore the group's first, as it
+   * has always been: a shared element carries no per-sample geometry to
+   * choose between.
+   *
    * @param x - Horizontal pointer position
    * @param y - Vertical pointer position
    * @returns The nearest sample, or null when nothing is resolvable
@@ -429,15 +440,18 @@ export class RidgelineTrace extends AbstractTrace {
     let nearestDistance = Number.POSITIVE_INFINITY;
 
     for (let row = 0; row < elements.length; row++) {
-      for (let col = 0; col < elements[row].length; col++) {
-        const box = elements[row][col].getBoundingClientRect();
-        const centerX = box.left + box.width / 2;
-        const centerY = box.top + box.height / 2;
-        const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearest = { element: elements[row][col], row, col, centerX, centerY };
-        }
+      const element = elements[row][0];
+      if (!element) {
+        continue;
+      }
+
+      const box = element.getBoundingClientRect();
+      const centerX = box.left + box.width / 2;
+      const centerY = box.top + box.height / 2;
+      const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = { element, row, col: 0, centerX, centerY };
       }
     }
 
