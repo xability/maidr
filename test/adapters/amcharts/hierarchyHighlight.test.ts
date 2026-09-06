@@ -24,6 +24,15 @@ const CONTINENTS = {
   ],
 };
 
+/**
+ * One row of a hierarchy table: the amCharts class name and the trace type the
+ * adapter emits for it.
+ *
+ * Named rather than inferred because `as const` would make the rows readonly,
+ * which `it.each`'s callback signature does not accept.
+ */
+type HierarchyCase = [className: string, type: MaidrLayer['type']];
+
 /** The nav map for one standalone hierarchy series, built the way the binder does. */
 function navMapFor(className: string, type: MaidrLayer['type']): ReturnType<typeof buildNavigationMap> {
   const series = fakeHierarchySeries('Population', CONTINENTS, className);
@@ -36,21 +45,21 @@ function navMapFor(className: string, type: MaidrLayer['type']): ReturnType<type
 }
 
 describe('amCharts hierarchy highlight', () => {
-  it.each([
+  it.each<HierarchyCase>([
     ['Tree', TraceType.TREE],
     ['LinkedHierarchy', TraceType.TREE],
     ['Pack', TraceType.PACK],
-  ] as const)('resolves a %s node by [depth, index within depth]', (className, type) => {
+  ])('resolves a %s node by [depth, index within depth]', (className, type) => {
     const navMap = navMapFor(className, type);
 
     expect(itemOf(navMap.resolve('nodes', 0, 1)[0]).get('category')).toBe('Africa');
     expect(itemOf(navMap.resolve('nodes', 1, 1)[0]).get('category')).toBe('Nigeria');
   });
 
-  it.each([
+  it.each<HierarchyCase>([
     ['Tree', TraceType.TREE],
     ['Pack', TraceType.PACK],
-  ] as const)('measures a %s node as a rectangle, the way a treemap block is', (className, type) => {
+  ])('measures a %s node as a rectangle, the way a treemap block is', (className, type) => {
     const navMap = navMapFor(className, type);
 
     expect(navMap.resolve('nodes', 0, 0)[0].kind).toBe('column');

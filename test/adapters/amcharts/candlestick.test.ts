@@ -34,8 +34,8 @@
 import type { AmXYSeries } from '@adapters/amcharts/types';
 import type { CandlestickPoint } from '@type/grammar';
 import { fromXYChart } from '@adapters/amcharts/adapter';
-import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { classifySeriesKind } from '@adapters/amcharts/extractor';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { fakeChart, fakeContainerEl, fakeSeries, itemOf } from './helpers';
