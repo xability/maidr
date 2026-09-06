@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { GridNavigable, PointCloudHighlightable, PointNavigable } from '@type/navigation';
+import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
@@ -1521,6 +1521,76 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         return false;
       }
     }
+  }
+
+  /**
+   * The x the reader is at, in terms of the axis they are walking.
+   *
+   * COL mode walks the x values, so it is the column's x. ROW mode walks the
+   * y values, so the x reported is the one the reader would land on when
+   * switching back to columns (the same middle-of-the-row rule
+   * `toggleNavigation` applies), which keeps a layer switch near the points
+   * they were hearing. The inherited reading of `values[row][col]` over
+   * `[xValues, yValues]` answered with a y value at row 1 and with nothing
+   * at all above it.
+   *
+   * @returns The current x, or null when the cursor is off the data
+   */
+  public override getCurrentXValue(): XValue | null {
+    if (this.mode === NavMode.COL) {
+      return this.xPoints[this.col]?.x ?? null;
+    }
+    const xs = this.yPoints[this.row]?.x;
+    if (xs === undefined || xs.length === 0) {
+      return null;
+    }
+    return xs[Math.floor(xs.length / 2)];
+  }
+
+  /**
+   * Moves to the column at an x value, entering COL mode to do so.
+   *
+   * An exact x wins; a numeric x with no exact column falls back to the
+   * nearest one, as the shared helper does for other traces, and a
+   * categorical x is matched against the column labels.
+   *
+   * @param xValue - The x to move to
+   * @returns True when a column was found and the cursor moved
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    const index = this.xIndexNearest(xValue);
+    if (index === -1) {
+      return false;
+    }
+    this.mode = NavMode.COL;
+    return this.moveToIndex(0, index);
+  }
+
+  /**
+   * The column index for an x value: exact, else nearest numeric, else by
+   * column label.
+   *
+   * @param xValue - The x to look up
+   * @returns The column index, or -1 when nothing matches
+   */
+  private xIndexNearest(xValue: XValue): number {
+    if (typeof xValue !== 'number') {
+      return this.xPoints.findIndex(point => point.label === xValue);
+    }
+    const exact = this.xIndexByValue.get(xValue);
+    if (exact !== undefined) {
+      return exact;
+    }
+    let best = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    this.xValues.forEach((x, index) => {
+      const distance = Math.abs(x - xValue);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    });
+    return best;
   }
 
   /**
