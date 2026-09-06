@@ -107,19 +107,32 @@ export const formatters = {
    * formatters.currency('USD', 2)(1234.5) // "$1,234.50"
    * formatters.currency('EUR', 0, 'de-DE')(1234) // "1.234 EUR"
    */
-  currency: (currency = 'USD', decimals = 2, locale = 'en-US'): FormatFunction =>
-    (value: number | string): string => {
+  currency: (currency = 'USD', decimals = 2, locale = 'en-US'): FormatFunction => {
+    // One Intl object per axis, not per announced value. The factory runs once
+    // per layer and axis, so the options are already fixed; constructing an
+    // Intl formatter costs orders of magnitude more than formatting with one,
+    // and this sits on the keypress path — several values per move, whole
+    // arrays of them for a scatter row or a box's outliers.
+    //
+    // Built on first use rather than here so a currency code or locale the
+    // chart got wrong still fails where it always did — at format time, where
+    // `wrapFormat` turns it into a fallback — instead of taking the layer's
+    // initialisation down with it.
+    let formatter: Intl.NumberFormat | undefined;
+    return (value: number | string): string => {
       const num = asFiniteNumber(value);
       if (num === null) {
         return String(value);
       }
-      return new Intl.NumberFormat(locale, {
+      formatter ??= new Intl.NumberFormat(locale, {
         style: 'currency',
         currency,
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
-      }).format(num);
-    },
+      });
+      return formatter.format(num);
+    };
+  },
 
   /**
    * Creates a percentage formatter.
@@ -151,8 +164,10 @@ export const formatters = {
    * formatters.date({ month: 'short', day: 'numeric' })('2023-01-15') // "Jan 15"
    * formatters.date({ year: 'numeric', month: 'long' })(1704067200000) // "January 2024"
    */
-  date: (options?: Intl.DateTimeFormatOptions, locale = 'en-US'): FormatFunction =>
-    (value: number | string): string => {
+  date: (options?: Intl.DateTimeFormatOptions, locale = 'en-US'): FormatFunction => {
+    // See `currency`: one Intl object per axis, built on first use.
+    let formatter: Intl.DateTimeFormat | undefined;
+    return (value: number | string): string => {
       // `Intl.DateTimeFormat.format` *throws* a RangeError on an invalid
       // date rather than returning a NaN-ish string, and nothing between
       // here and the announcement catches it -- so a date format on a named
@@ -161,8 +176,10 @@ export const formatters = {
       if (Number.isNaN(date.getTime())) {
         return String(value);
       }
-      return new Intl.DateTimeFormat(locale, options).format(date);
-    },
+      formatter ??= new Intl.DateTimeFormat(locale, options);
+      return formatter.format(date);
+    };
+  },
 
   /**
    * Creates a number formatter with optional decimal places and grouping.
@@ -175,17 +192,21 @@ export const formatters = {
    * formatters.number(2)(1234567.89) // "1,234,567.89"
    * formatters.number(0, 'de-DE')(1234567) // "1.234.567"
    */
-  number: (decimals = 0, locale = 'en-US'): FormatFunction =>
-    (value: number | string): string => {
+  number: (decimals = 0, locale = 'en-US'): FormatFunction => {
+    // See `currency`: one Intl object per axis, built on first use.
+    let formatter: Intl.NumberFormat | undefined;
+    return (value: number | string): string => {
       const num = asFiniteNumber(value);
       if (num === null) {
         return String(value);
       }
-      return new Intl.NumberFormat(locale, {
+      formatter ??= new Intl.NumberFormat(locale, {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
-      }).format(num);
-    },
+      });
+      return formatter.format(num);
+    };
+  },
 
   /**
    * Creates a scientific notation formatter.

@@ -183,18 +183,20 @@ describe('the Intl formatters an axis is announced through', () => {
     key: 'NumberFormat' | 'DateTimeFormat',
     run: () => void,
   ): number {
-    const real = Intl[key];
+    const intl = Intl as unknown as Record<string, unknown>;
+    const RealCtor = intl[key] as new (...args: unknown[]) => object;
     let constructions = 0;
-    const counting = ((...args: unknown[]) => {
+    // A plain function, not an arrow: the code under test calls it with `new`.
+    const counting = function (...args: unknown[]): object {
       constructions += 1;
-      return new (real as unknown as new (...a: unknown[]) => object)(...args);
-    }) as unknown as typeof real;
+      return new RealCtor(...args);
+    };
 
-    Intl[key] = counting;
+    intl[key] = counting;
     try {
       run();
     } finally {
-      Intl[key] = real;
+      intl[key] = RealCtor;
     }
     return constructions;
   }
