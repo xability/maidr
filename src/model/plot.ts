@@ -109,7 +109,9 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
   }
 
   /** @see Trace.level */
-  public readonly level = 'figure';
+  public get level(): 'figure' {
+    return 'figure';
+  }
 
   public readonly id: string;
   protected movable: Movable;
@@ -413,7 +415,9 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
   }
 
   /** @see Trace.level */
-  public readonly level = 'subplot';
+  public get level(): 'subplot' {
+    return 'subplot';
+  }
 
   protected readonly movable: Movable;
 
