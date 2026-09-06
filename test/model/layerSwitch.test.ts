@@ -2,7 +2,6 @@ import type { Maidr } from '@type/grammar';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { NavigationService } from '@service/navigation';
 import { TraceType } from '@type/grammar';
 
 /**
@@ -42,11 +41,10 @@ describe('stepping between layers', () => {
   test('announces a boundary exactly once for the trace and once for the subplot', () => {
     const figure = twoLayerFigure();
     const subplot = figure.activeSubplot;
-    const service = new NavigationService();
-    service.stepTraceInSubplot(subplot, 'UPWARD');
+    subplot.switchLayer('UPWARD');
     const { log } = record(figure);
 
-    const result = service.stepTraceInSubplot(subplot, 'UPWARD');
+    const result = subplot.switchLayer('UPWARD');
 
     expect(result).toBe(subplot.traces[1][0]);
     expect(log.filter(entry => entry.endsWith(':empty'))).toEqual(['trace1:empty', 'subplot:empty']);
@@ -56,10 +54,9 @@ describe('stepping between layers', () => {
   test('a successful switch emits no boundary notification', () => {
     const figure = twoLayerFigure();
     const subplot = figure.activeSubplot;
-    const service = new NavigationService();
     const { log } = record(figure);
 
-    const result = service.stepTraceInSubplot(subplot, 'UPWARD');
+    const result = subplot.switchLayer('UPWARD');
 
     expect(result).toBe(subplot.traces[1][0]);
     expect(log.filter(entry => entry.endsWith(':empty'))).toEqual([]);
@@ -76,9 +73,8 @@ describe('stepping between layers', () => {
     });
     const subplot = figure.activeSubplot;
     const { log } = record(figure);
-    const service = new NavigationService();
 
-    const result = service.stepTraceInSubplot(subplot, 'DOWNWARD');
+    const result = subplot.switchLayer('DOWNWARD');
 
     expect(result).toBe(subplot.traces[0][0]);
     expect(log).toEqual(['trace0:empty', 'subplot:empty']);

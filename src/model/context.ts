@@ -3,7 +3,6 @@ import type { MovableDirection } from '@type/movable';
 import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { DEFAULT_SUBPLOT_TITLE } from '@model/abstract';
-import { NavigationService } from '@service/navigation';
 import { Scope } from '@type/event';
 import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
@@ -50,7 +49,6 @@ export class Context implements Disposable {
 
   private readonly plotContext: Stack<Plot>;
   private readonly scopeContext: Stack<Scope>;
-  private readonly navigationService: NavigationService;
   // Mutable: replaced in place on live data updates (see replaceFigure).
   private figure: Figure;
   private _instructionContext: Plot;
@@ -62,7 +60,6 @@ export class Context implements Disposable {
 
     this.plotContext = new Stack<Plot>();
     this.scopeContext = new Stack<Scope>();
-    this.navigationService = new NavigationService();
 
     this.isRotorActive = false;
 
@@ -589,7 +586,7 @@ export class Context implements Disposable {
       this.plotContext.pop(); // Remove current Trace.
       const activeSubplot = this.active as Subplot;
 
-      const newTrace = this.navigationService.stepTraceInSubplot(activeSubplot, direction);
+      const newTrace = activeSubplot.switchLayer(direction);
 
       if (newTrace) {
         this.plotContext.push(newTrace);

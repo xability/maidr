@@ -1655,7 +1655,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   public override moveToIndex(row: number, col: number): boolean {
     // Grid semantics: `col` is the x index (COL mode) and `row` is the y index
-    // (ROW mode). NavigationService.moveToXValueInValues preserves X across
+    // (ROW mode). `moveToXValueInValues` (@util/navigation) preserves X across
     // layer switches by calling moveToIndex(0, xIndex), so COL mode must read
     // the column argument (previously it read `row`, always landing on x=0).
     if (this.mode === NavMode.COL) {
