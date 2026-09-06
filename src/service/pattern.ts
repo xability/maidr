@@ -62,6 +62,9 @@ export class PatternService {
   /** Reference to the target SVG */
   private targetSvg: SVGSVGElement | null = null;
 
+  /** Shared canvas context for color parsing (reused to avoid GC pressure) */
+  private sharedCanvasCtx: CanvasRenderingContext2D | null = null;
+
   /** Pattern generators for each pattern type */
   private readonly patternGenerators: Record<PatternType, PatternGenerator> = {
     'diagonal-stripes': this.createDiagonalStripes.bind(this),
@@ -182,6 +185,7 @@ export class PatternService {
     this.patternCache.clear();
     this.defsElement = null;
     this.targetSvg = null;
+    this.sharedCanvasCtx = null;
   }
 
   /**
@@ -232,11 +236,24 @@ export class PatternService {
   }
 
   /**
+   * Returns a shared canvas 2D context for color parsing operations.
+   * Creates the context on first use and reuses it to avoid GC pressure:
+   * patterns are applied one element at a time, so a context per call is a
+   * context per mark on every apply.
+   */
+  private getSharedCanvasContext(): CanvasRenderingContext2D | null {
+    if (!this.sharedCanvasCtx) {
+      this.sharedCanvasCtx = document.createElement('canvas').getContext('2d');
+    }
+    return this.sharedCanvasCtx;
+  }
+
+  /**
    * Normalize a color value to a consistent format.
    */
   private normalizeColor(color: string): string {
     // Use canvas to normalize any CSS color to hex
-    const ctx = document.createElement('canvas').getContext('2d');
+    const ctx = this.getSharedCanvasContext();
     if (!ctx)
       return color.toLowerCase().replace(/\s/g, '');
 
