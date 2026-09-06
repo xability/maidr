@@ -1450,6 +1450,24 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   public override moveToExtreme(direction: MovableDirection): boolean {
+    // Cell, grid, point and intersection mode own the cursor (see moveOnce).
+    // Ctrl+Arrow is bound whatever mode is active, so the extreme is taken
+    // within the mode: jumping the row/col cursor underneath it would
+    // re-announce the unchanged point and leave the reader somewhere else,
+    // unannounced, the moment they left the mode.
+    if (this.isInGridCellMode) {
+      return this.moveToExtremeInGridCell(direction);
+    }
+    if (this.isInGridMode && this.gridCells) {
+      return this.moveToExtremeInGrid(direction);
+    }
+    if (this.isInPointMode) {
+      return this.moveToExtremePoint(direction);
+    }
+    if (this.isInIntersectionMode) {
+      return this.moveToExtremeIntersection(direction);
+    }
+
     if (this.isInitialEntry) {
       this.handleInitialEntry();
     }
@@ -1489,6 +1507,95 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           break;
       }
     }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The extreme within an entered cell, which is walked one way, by x.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when the cell cursor moved to its first or last point
+   */
+  private moveToExtremeInGridCell(direction: MovableDirection): boolean {
+    if (this.cellXPoints.length === 0 || direction === 'UPWARD' || direction === 'DOWNWARD') {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.cellPointIndex = direction === 'FORWARD' ? this.cellXPoints.length - 1 : 0;
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The extreme cell of the grid in a direction.
+   *
+   * @param direction - The direction of the jump
+   * @returns True, the grid always has an edge to jump to
+   */
+  private moveToExtremeInGrid(direction: MovableDirection): boolean {
+    switch (direction) {
+      case 'UPWARD':
+        this.gridRow = this.numGridRows - 1;
+        break;
+      case 'DOWNWARD':
+        this.gridRow = 0;
+        break;
+      case 'FORWARD':
+        this.gridCol = this.numGridCols - 1;
+        break;
+      case 'BACKWARD':
+        this.gridCol = 0;
+        break;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The first or last point of the order point mode walks in a direction:
+   * reading order for left/right, column order for up/down.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when there is a point to land on
+   */
+  private moveToExtremePoint(direction: MovableDirection): boolean {
+    if (this.flatPoints.length === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    switch (direction) {
+      case 'FORWARD':
+        this.pointModeIndex = this.readingOrder[this.readingOrder.length - 1];
+        break;
+      case 'BACKWARD':
+        this.pointModeIndex = this.readingOrder[0];
+        break;
+      // columnOrder is sorted (x asc, y desc), so up is backward in it.
+      case 'UPWARD':
+        this.pointModeIndex = this.columnOrder[0];
+        break;
+      case 'DOWNWARD':
+        this.pointModeIndex = this.columnOrder[this.columnOrder.length - 1];
+        break;
+    }
+    this.notifyStateUpdate();
+    return true;
+  }
+
+  /**
+   * The first or last point of the stack intersection mode is walking.
+   *
+   * @param direction - The direction of the jump
+   * @returns True when the stack has a point to land on
+   */
+  private moveToExtremeIntersection(direction: MovableDirection): boolean {
+    const size = this.getIntersectionStackValues().length;
+    if (size === 0) {
+      this.notifyOutOfBounds();
+      return false;
+    }
+    this.intersectionStackIndex = direction === 'FORWARD' || direction === 'UPWARD' ? size - 1 : 0;
     this.notifyStateUpdate();
     return true;
   }
