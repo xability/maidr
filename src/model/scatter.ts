@@ -1204,6 +1204,39 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       : this.yPointIndices[this.row]) ?? [];
   }
 
+  /**
+   * Where one of this layer's `data` points sits in the trace's own
+   * coordinates — the inverse of {@link ScatterTrace.highlightedPointIndices}.
+   *
+   * A scatter does not navigate its points in the order they arrived: the
+   * constructor sorts by x and groups the duplicates, so a column is one
+   * unique x. A raw data index read as a column therefore names a different
+   * point, or none at all once duplicates have collapsed several into one.
+   * That is what a streamed point needs translating out of before it can be
+   * announced (`LiveDataManager.appendData` reports the new point by data
+   * index).
+   *
+   * Mode-aware, because the coordinate the state getters read is: `COL`
+   * announces the column at `col` and pans by the point's place within it,
+   * `ROW` announces the row at `row`.
+   *
+   * @param index - An index into this layer's `data` array
+   * @returns The position to read that point at, or null when the index is
+   *          not one this trace has
+   */
+  public positionOfDataIndex(index: number): { row: number; col: number } | null {
+    const point = this.flatPoints[index];
+    if (!point) {
+      return null;
+    }
+    if (this.mode === NavMode.COL) {
+      return { row: point.yIndexInColumn, col: point.xIndex };
+    }
+    // yValues is the sorted unique y axis, so a point of this trace is always
+    // on it; the clamp only guards a malformed layer.
+    return { row: Math.max(0, this.yValues.indexOf(point.y)), col: point.xIndex };
+  }
+
   protected override get hasMultiPoints(): boolean {
     return true;
   }
