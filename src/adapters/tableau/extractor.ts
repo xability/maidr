@@ -502,20 +502,34 @@ function traceFamily(type: TraceType): TraceFamily | null {
  * grid.
  *
  * `HeatmapData` is a rectangle: `points[r].length` must equal `x.length` for
- * every row. A view whose row count does not match the product has holes, and a
- * hole filled with a zero is a value the viz never drew.
+ * every row. A view that does not fill the product has holes, and a hole is a
+ * cell the viz never drew.
+ *
+ * The *distinct pairs* are counted rather than the rows. A row count matching
+ * the product is necessary but not sufficient: a view carrying a duplicated
+ * `(category, group)` pair and missing a different one has exactly the same row
+ * count as a complete grid, and duplicates are not exotic here — `planColumns`
+ * reads only D[0] and D[1] and warns that further dimensions are ignored, and
+ * every ignored dimension is a source of them. Counting rows let such a view
+ * through, `buildHeatData` found no source row for the missing pair and padded
+ * it, and the duplicate's own value was silently dropped.
  *
  * @param plan - The worksheet's column plan.
  * @param rows - The worksheet's rows.
  * @returns Whether a complete grid can be built.
  */
 function isCompleteGrid(plan: ColumnPlan, rows: readonly TableauRow[]): boolean {
-  if (plan.category === null || plan.group === null || rows.length === 0) {
+  const { category, group } = plan;
+  if (category === null || group === null || rows.length === 0) {
     return false;
   }
-  const columns = distinctKeys(rows, plan.category.viewIndex).length;
-  const bands = distinctKeys(rows, plan.group.viewIndex).length;
-  return rows.length === columns * bands;
+  const columns = distinctKeys(rows, category.viewIndex).length;
+  const bands = distinctKeys(rows, group.viewIndex).length;
+  const pairs = new Set(rows.map(row => cellKey(
+    toCategoryKey(row[group.viewIndex]),
+    toCategoryKey(row[category.viewIndex]),
+  )));
+  return pairs.size === columns * bands;
 }
 
 /**

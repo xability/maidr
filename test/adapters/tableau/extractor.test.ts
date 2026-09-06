@@ -605,6 +605,29 @@ describe('tableau extractor', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('complete grid'));
     });
 
+    it('falls back to grouped bars when a duplicated pair hides a missing one', () => {
+      // Four rows over two categories and two regions, so the row count alone
+      // matches the product of the two — but `(Chairs, East)` appears twice and
+      // `(Tables, West)` not at all. Reading it as a grid draws a cell the view
+      // never did and discards the duplicate's value.
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Highlight Table',
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Chairs', 'East', 9],
+            ['Tables', 'East', 2],
+            ['Chairs', 'West', 3],
+          ],
+          spec: fakeVisualSpec(['heatmap']),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.DODGED);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('complete grid'));
+    });
+
     it('reads circle marks as a point cloud only when there are two measures', () => {
       const asPoints = extractTableau([
         fakeSnapshot({
