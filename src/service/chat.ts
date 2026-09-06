@@ -4,6 +4,7 @@ import type { Maidr } from '@type/grammar';
 import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
+import { HttpStatus } from '@type/api';
 import { Scope } from '@type/event';
 import { ANTHROPIC_API_VERSION } from '@type/llm';
 import { Api } from '@util/api';
@@ -266,12 +267,12 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   }
 
   /**
-   * Posts the request through {@link Api.post}, resolving as soon as `signal`
-   * aborts (Controller disposal). Api.post owns its own timeout signal and
-   * exposes no external abort hook, so the underlying fetch is still bounded
-   * by LLM_REQUEST_TIMEOUT_MS; racing the abort releases this request's
-   * continuation — and the chat's waiting tone — immediately rather than after
-   * the full timeout.
+   * Posts the request through {@link Api.post}, cancelling it when `signal`
+   * aborts (Controller disposal). The signal is handed to fetch, so the
+   * socket, the response body and the JSON parse stop with it rather than
+   * running on for the remainder of LLM_REQUEST_TIMEOUT_MS; the race below
+   * additionally releases this request's continuation — and the chat's
+   * waiting tone — the moment disposal happens.
    * @param {string} url - The request URL
    * @param {string} payload - The serialized request body
    * @param {Record<string, string>} headers - The request headers
@@ -284,7 +285,20 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     headers: Record<string, string>,
     signal?: AbortSignal,
   ): Promise<ApiResponse<T>> {
-    const request = Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS);
+    // Disposal can land while the plot is still being rasterised, which is
+    // long enough to matter on a dense chart. Sending the request anyway
+    // spends the user's tokens on an answer nothing will ever show.
+    if (signal?.aborted) {
+      return {
+        success: false,
+        error: {
+          statusCode: HttpStatus.SERVER_ERROR,
+          message: 'Chat request aborted',
+        },
+      };
+    }
+
+    const request = Api.post<T>(url, payload, headers, LLM_REQUEST_TIMEOUT_MS, signal);
     if (!signal) {
       return request;
     }

@@ -4,6 +4,9 @@ import type { Maidr } from '@type/grammar';
 import { afterAll, afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { ChatService } from '@service/chat';
 import { TraceType } from '@type/grammar';
+// The mock declared below; imported so a test can decide when the plot
+// finishes rasterising.
+import { Svg } from '@util/svg';
 
 // Svg.toBase64 needs DOM APIs unavailable under the node test environment;
 // a fixed data URL also lets the tests assert the data-URL prefix stripping.
@@ -207,6 +210,63 @@ describe('ChatService provider requests', () => {
     expect(response.success).toBe(false);
     expect(response.error).toContain('proxy');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not send a request that was disposed while the plot rasterised', async () => {
+    // Rasterising a dense plot takes long enough for the plot to lose focus
+    // and the Controller to dispose mid-conversion. The request was still
+    // sent — spending the user's tokens on an answer nothing will show.
+    let finishRasterising = (_image: string): void => {};
+    jest.mocked(Svg.toBase64).mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishRasterising = resolve;
+      }),
+    );
+    mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
+    const service = createService();
+
+    const pending = service.sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+    });
+    service.dispose();
+    finishRasterising('data:image/jpeg;base64,QUJD');
+    const response = await pending;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.success).toBe(false);
+  });
+
+  test('aborts the in-flight fetch when the chat service is disposed', async () => {
+    // Without the signal reaching fetch, the socket, the response body and
+    // the JSON parse stay alive for the full request timeout after every
+    // focus change, one per disposed controller.
+    let requestSignal: AbortSignal | null = null;
+    fetchMock.mockImplementation((_input, init) => new Promise<Response>(() => {
+      requestSignal = (init as RequestInit).signal ?? null;
+    }));
+    const service = createService();
+
+    const pending = service.sendMessage('OPENAI', {
+      message: 'Describe the chart.',
+      customInstruction: '',
+      expertise: 'basic',
+      apiKey: 'sk-openai-test',
+    });
+    for (let tick = 0; tick < 20 && fetchMock.mock.calls.length === 0; tick++) {
+      await Promise.resolve();
+    }
+    expect(requestSignal).not.toBeNull();
+    expect((requestSignal as unknown as AbortSignal).aborted).toBe(false);
+
+    service.dispose();
+
+    expect((requestSignal as unknown as AbortSignal).aborted).toBe(true);
+    await expect(pending).resolves.toEqual(
+      expect.objectContaining({ success: false }),
+    );
   });
 
   test('falls back to the provider default version when none is selected', async () => {
