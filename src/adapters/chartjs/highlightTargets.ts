@@ -10,8 +10,8 @@
 
 import type { ChoroplethPoint, GanttData, HeatmapData, MaidrLayer, TreemapPoint } from '../../type/grammar';
 import type { ChartJsActiveElement, ChartJsChart, ChartJsDataset, ChartJsDataValue } from './types';
-import { TraceType } from '../../type/grammar';
-import { drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, isMatrixValue, isPointValue, isRangeValue, toFiniteNumber } from './extractor';
+import { Orientation, TraceType } from '../../type/grammar';
+import { drawnBoxCells, drawnCategoryPositions, drawnErrorBarIndices, drawnGeoRows, drawnViolinCurveCells, isMatrixValue, isPointValue, isRangeValue, parallelGrid, toFiniteNumber } from './extractor';
 
 /**
  * Figure-unique layer id → original Chart.js dataset indices backing that
@@ -58,6 +58,24 @@ export interface TargetMaps {
    * which would drift from the model silently.
    */
   treemapIndices: Map<string, Map<string, number>>;
+  /**
+   * Box / violin: `distributionTargets[layerId][i]` is the element drawing the
+   * layer's i-th distribution, in the payload's own order.
+   *
+   * A box is one mark however many sections a reader walks along it, so the
+   * table is flat: the column of the pair says which section, which is a
+   * reading of the box and not a mark of its own.
+   */
+  distributionTargets: Map<string, ChartJsActiveElement[]>;
+  /**
+   * Parallel coordinates: `parallelTargets[layerId][row][col]` is the element
+   * drawing observation `row` on axis `col`.
+   *
+   * A pcp payload is the transpose of the chart's datasets -- one dataset is
+   * one axis -- so both halves of the pair have to be translated, and neither
+   * is the other's index space.
+   */
+  parallelTargets: Map<string, ChartJsActiveElement[][]>;
 }
 
 /**
@@ -270,6 +288,8 @@ export function computeTargetMaps(
   const heatmapIndices = new Map<string, Map<string, number>>();
   const ganttTargets = new Map<string, ChartJsActiveElement[][]>();
   const treemapIndices = new Map<string, Map<string, number>>();
+  const distributionTargets = new Map<string, ChartJsActiveElement[]>();
+  const parallelTargets = new Map<string, ChartJsActiveElement[][]>();
   const datasets = chart.data.datasets;
 
   for (const layer of layers) {
@@ -435,12 +455,53 @@ export function computeTargetMaps(
           treemapIndices.set(layer.id, buildTreemapIndex(layer.data as TreemapPoint[]));
         break;
       }
+      // A box or a violin is one mark per distribution, drawn one element per
+      // parsed summary in dataset order -- which is the order the payload
+      // emits them in, so the extractor's own walk is shared rather than
+      // repeated here (#1024). The kde layer is the same list filtered to the
+      // violins that carry a curve, which is how it was emitted.
+      case TraceType.BOX:
+      case TraceType.VIOLIN_BOX:
+      case TraceType.VIOLIN_KDE: {
+        const dsIndices = layerDatasetIndices.get(layer.id) ?? datasets.map((_, i) => i);
+        const cells = layer.type === TraceType.VIOLIN_KDE
+          ? drawnViolinCurveCells(chart, dsIndices)
+          : drawnBoxCells(chart, dsIndices);
+        distributionTargets.set(
+          layer.id,
+          cells.map(cell => ({ datasetIndex: cell.datasetIndex, index: cell.index })),
+        );
+        break;
+      }
+      // Parallel coordinates: the payload is the transpose of the datasets,
+      // so a row is an observation and a column an axis. Chart.js builds one
+      // element per data entry per dataset, so the element drawing
+      // observation `o` on axis `a` is `{datasetIndex: a, index: o}` -- and
+      // both halves come from the extractor's own walk, hidden axes and
+      // empty observations included.
+      case TraceType.PARALLEL: {
+        const grid = parallelGrid(chart);
+        parallelTargets.set(
+          layer.id,
+          grid.observations.map(observation =>
+            grid.axes.map(datasetIndex => ({ datasetIndex, index: observation }))),
+        );
+        break;
+      }
       default:
         break;
     }
   }
 
-  return { pointTargets, barLineIndices, heatmapIndices, ganttTargets, treemapIndices };
+  return {
+    pointTargets,
+    barLineIndices,
+    heatmapIndices,
+    ganttTargets,
+    treemapIndices,
+    distributionTargets,
+    parallelTargets,
+  };
 }
 
 /**
@@ -531,6 +592,35 @@ export function resolveActiveTargets(
     if (index === undefined)
       return [];
     return [{ datasetIndex: firstDatasetIndex(layerDatasetIndices, layer.id), index }];
+  }
+
+  // Box / violin: MAIDR row = the distribution, col = the section along it
+  // (or the sample along the density curve), which is a reading of the box
+  // and not a mark of its own -- the same shape the candlestick branch above
+  // has for its OHLC field.
+  //
+  // A sideways chart is read bottom-up, and `BoxTrace`, `ViolinBoxTrace` and
+  // `ViolinTrace` all reverse the payload to do it, so the row is
+  // un-reversed before the lookup.
+  if (layer.type === TraceType.BOX
+    || layer.type === TraceType.VIOLIN_BOX
+    || layer.type === TraceType.VIOLIN_KDE) {
+    const targets = maps.distributionTargets.get(layer.id);
+    if (!targets)
+      return [];
+    const index = layer.orientation === Orientation.HORIZONTAL
+      ? targets.length - 1 - row
+      : row;
+    const target = targets[index];
+    return target ? [target] : [];
+  }
+
+  // Parallel coordinates: MAIDR row = the observation, col = the axis. Both
+  // halves are translated -- the payload is the transpose of the datasets --
+  // so neither can stand in for a Chart.js index on its own.
+  if (layer.type === TraceType.PARALLEL) {
+    const target = maps.parallelTargets.get(layer.id)?.[row]?.[col];
+    return target ? [target] : [];
   }
 
   // Sankey: nothing is outlined, deliberately.

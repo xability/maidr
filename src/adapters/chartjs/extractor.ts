@@ -320,6 +320,12 @@ function orderPanelsByGeometry(
  * datasets, and with the panel's own scale substituted as the default value
  * scale so the existing per-type extractors (which read `scales.x`/`scales.y`)
  * pick up the panel's axis label and stacked flag unchanged.
+ *
+ * `data.datasets` is a subset, so every extractor handed this view counts its
+ * datasets from zero. The per-dataset lookups have to be translated back onto
+ * the real chart, or the panel reads whichever dataset happens to sit at that
+ * position in the whole figure -- for the second panel that is the first
+ * panel's parse, announced under the second panel's name.
  */
 function createPanelView(
   chart: ChartJsChart,
@@ -328,6 +334,10 @@ function createPanelView(
 ): ChartJsChart {
   const scales = chart.options.scales ?? {};
   const panelScale = scales[panel.scaleId];
+  // The `?? local` mirrors `layerDatasets`: an index outside the partition
+  // cannot happen while extractors walk only the datasets they were handed,
+  // and falling back beats throwing away the whole accessibility layer.
+  const globalIndex = (local: number): number => panel.datasetIndices[local] ?? local;
 
   return {
     canvas: chart.canvas,
@@ -338,7 +348,10 @@ function createPanelView(
       scales: panelScale ? { ...scales, [axisKind]: panelScale } : scales,
     },
     scales: chart.scales,
-    getDatasetMeta: datasetIndex => chart.getDatasetMeta(datasetIndex),
+    getDatasetMeta: local => chart.getDatasetMeta(globalIndex(local)),
+    ...(chart.isDatasetVisible
+      ? { isDatasetVisible: (local: number) => chart.isDatasetVisible?.(globalIndex(local)) !== false }
+      : {}),
     setActiveElements: elements => chart.setActiveElements(elements),
     tooltip: chart.tooltip,
     update: mode => chart.update(mode),
@@ -881,6 +894,53 @@ function extractLayers(
 const PARALLEL_VARIABLE_AXIS = 'Variable';
 const PARALLEL_VALUE_AXIS = 'Value';
 
+/** Which chart positions a parallel coordinates payload's rows and columns are. */
+export interface ParallelGrid {
+  /** The dataset drawing each emitted column, which is each drawn axis. */
+  axes: number[];
+  /** The dataset position of each emitted row, which is each observation that read. */
+  observations: number[];
+}
+
+/**
+ * The chart positions a parallel coordinates layer is emitted from.
+ *
+ * Exported because the highlight half has to walk them the same way: a pcp
+ * chart's payload is the transpose of its datasets, so its row is an
+ * observation and its column an axis -- and a table built by a different walk
+ * names a different mark from the one the payload announces (#1024). Sharing
+ * this is what keeps the two paired, as `drawnErrorBarIndices` does for the
+ * interval charts.
+ *
+ * @param chart - The Chart.js chart
+ * @returns The datasets drawn as axes, and the observations that read
+ */
+export function parallelGrid(chart: ChartJsChart): ParallelGrid {
+  // A hidden dataset is skipped: Chart.js lays out no axis for it, so it is
+  // not a column of the drawn chart.
+  const axes = chart.data.datasets
+    .map((_, index) => index)
+    .filter(index => chart.isDatasetVisible?.(index) !== false);
+
+  // How far the widest axis reaches, which is how many observations the
+  // chart draws. There is one emptiness check for this reading and it is
+  // the caller's: a chart with no datasets, one whose datasets are all
+  // hidden, and one whose datasets carry no values all arrive at no rows
+  // here, and each is declined by finding none.
+  const width = axes.reduce(
+    (widest, index) => Math.max(widest, chart.data.datasets[index].data.length),
+    0,
+  );
+
+  const observations: number[] = [];
+  for (let row = 0; row < width; row++) {
+    if (axes.some(index => toFiniteNumber(chart.data.datasets[index].data[row]) !== null))
+      observations.push(row);
+  }
+
+  return { axes, observations };
+}
+
 /**
  * Reads a `chartjs-chart-pcp` chart as the parallel coordinates it draws.
  *
@@ -921,34 +981,18 @@ function extractParallelLayers(
   chart: ChartJsChart,
   pluginOptions?: MaidrPluginOptions,
 ): MaidrLayer[] {
-  const axes = chart.data.datasets
-    .map((dataset, index) => ({ dataset, index }))
-    .filter(({ index }) => chart.isDatasetVisible?.(index) !== false);
-
-  // How far the widest axis reaches, which is how many observations the
-  // chart draws. There is one emptiness check for this reading and it is the
-  // one below: a chart with no datasets, one whose datasets are all hidden,
-  // and one whose datasets carry no values all arrive at no rows here, and
-  // each is declined by finding none.
-  const observations = axes.reduce(
-    (widest, { dataset }) => Math.max(widest, dataset.data.length),
-    0,
-  );
-
+  const { axes, observations } = parallelGrid(chart);
   const labels = chart.data.labels ?? [];
-  const data: LinePoint[][] = [];
-  for (let row = 0; row < observations; row++) {
+  const data: LinePoint[][] = observations.map((row) => {
     const name = labels[row];
-    const points: LinePoint[] = axes.map(({ dataset, index }) => ({
-      x: parallelAxisName(chart, dataset, index),
+    return axes.map(index => ({
+      x: parallelAxisName(chart, chart.data.datasets[index], index),
       // `null` rather than omitted: the axis is drawn and the cursor reaches
       // it, so the observation has a position there and no reading.
-      y: toFiniteNumber(dataset.data[row]),
+      y: toFiniteNumber(chart.data.datasets[index].data[row]),
       ...(name === undefined ? {} : { z: String(name) }),
     }));
-    if (points.some(point => point.y !== null))
-      data.push(points);
-  }
+  });
 
   if (data.length === 0)
     return [];
@@ -1931,14 +1975,23 @@ function extractLineLayers(
   // Skip gap markers (`null` / `NaN`) so they are never sonified as a 0 tone;
   // the plugin re-derives the original Chart.js indices for highlight
   // alignment, from this same walk so the two cannot disagree (#1024).
+  //
+  // A line plotted along a linear or time x scale is authored as `{x, y}`
+  // objects and carries no `labels` array, so there is nothing at `labels[i]`
+  // and the array position is not the reading -- the datum's own coordinate
+  // is. Same preference `survivalTime` makes, for the same reason. The
+  // categorical case is unaffected: a label, where there is one, still names
+  // the position.
+  const continuousX = categoryAxis(chart) === 'x' && !isCategoryScale(chart, 'x');
   const linePoints = (dataset: ChartJsDataset, dsIdx: number): LinePoint[] => {
     const points: LinePoint[] = [];
     for (const i of drawnCategoryPositions(chart, dataset.data.length)) {
-      const num = toFiniteNumber(dataset.data[i]);
+      const value = dataset.data[i];
+      const num = toFiniteNumber(value);
       if (num === null)
         continue;
       points.push({
-        x: labels[i] ?? i,
+        x: labels[i] ?? (continuousX && isPointValue(value) ? value.x : i),
         y: num,
         z: dataset.label ?? `Line ${dsIdx + 1}`,
       });
@@ -1967,7 +2020,13 @@ function extractLineLayers(
   }
 
   const axes = {
-    x: { label: getAxisLabel(chart, 'x', pluginOptions) },
+    x: {
+      label: getAxisLabel(chart, 'x', pluginOptions),
+      // A time scale parses its coordinates to epoch milliseconds, and one
+      // announced raw says nothing a reader can place -- so the axis names
+      // the rendering, as a Gantt's interval axis does.
+      ...(continuousX && isTimeScale(chart, 'x') ? { format: { type: 'date' as const } } : {}),
+    },
     y: { label: getAxisLabel(chart, 'y', pluginOptions) },
   };
 
@@ -2777,6 +2836,69 @@ function extractErrorBarLayers(
 // Boxplot chart extraction (chartjs-chart-boxplot plugin)
 // ---------------------------------------------------------------------------
 
+/** One mark of a distribution chart, and the parse it was read from. */
+export interface DistributionCell {
+  /** The dataset that drew it. */
+  datasetIndex: number;
+  /** Its position within that dataset, which is its Chart.js element index. */
+  index: number;
+  /** The plugin's parse of it. */
+  value: ChartJsParsedValue;
+}
+
+/** Every dataset of a chart, in order. */
+function allDatasetIndices(chart: ChartJsChart): number[] {
+  return chart.data.datasets.map((_, index) => index);
+}
+
+/**
+ * The marks a distribution chart drew, dataset by dataset.
+ *
+ * Exported because the highlight half has to walk them the same way: a box
+ * plot's MAIDR row is the box, and only a walk of the same parses in the same
+ * order says which dataset and which element that box is (#1024).
+ *
+ * @param chart - The Chart.js chart
+ * @param datasetIndices - The datasets backing the layer, in its row order
+ * @param drawn - Which parses count as a mark
+ * @returns One cell per mark
+ */
+function drawnDistributionCells(
+  chart: ChartJsChart,
+  datasetIndices: number[],
+  drawn: (value: ChartJsParsedValue) => boolean,
+): DistributionCell[] {
+  const cells: DistributionCell[] = [];
+  for (const datasetIndex of datasetIndices) {
+    const parsed = chart.getDatasetMeta(datasetIndex)?._parsed ?? [];
+    parsed.forEach((value, index) => {
+      if (value && drawn(value))
+        cells.push({ datasetIndex, index, value });
+    });
+  }
+  return cells;
+}
+
+/** The boxes a box plot or violin drew, one per five-number summary. */
+export function drawnBoxCells(
+  chart: ChartJsChart,
+  datasetIndices: number[],
+): DistributionCell[] {
+  return drawnDistributionCells(chart, datasetIndices, value => value.median !== undefined);
+}
+
+/** The violins whose parse carries a density curve, which is what the kde layer holds. */
+export function drawnViolinCurveCells(
+  chart: ChartJsChart,
+  datasetIndices: number[],
+): DistributionCell[] {
+  return drawnDistributionCells(
+    chart,
+    datasetIndices,
+    value => (value.coords?.length ?? 0) > 0,
+  );
+}
+
 /**
  * The five-number summaries a distribution chart drew, one per box.
  *
@@ -2800,31 +2922,25 @@ function extractBoxSummaries(chart: ChartJsChart): BoxPoint[] {
   const labels = chart.data.labels ?? [];
   const boxes: BoxPoint[] = [];
 
-  for (let d = 0; d < chart.data.datasets.length; d++) {
-    const dataset = chart.data.datasets[d];
-    const parsed = chart.getDatasetMeta(d)?._parsed ?? [];
+  for (const { datasetIndex, index: i, value } of drawnBoxCells(chart, allDatasetIndices(chart))) {
+    const dataset = chart.data.datasets[datasetIndex];
+    const outliers = value.outliers ?? [];
+    const min = value.whiskerMin ?? value.min ?? 0;
+    const max = value.whiskerMax ?? value.max ?? 0;
 
-    for (let i = 0; i < parsed.length; i++) {
-      const value = parsed[i];
-      if (value?.median === undefined)
-        continue;
-
-      const outliers = value.outliers ?? [];
-      const min = value.whiskerMin ?? value.min ?? 0;
-      const max = value.whiskerMax ?? value.max ?? 0;
-
-      boxes.push({
-        z: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
-        lowerOutliers: outliers.filter(v => v < min),
-        min,
-        q1: value.q1 ?? 0,
-        q2: value.median,
-        q3: value.q3 ?? 0,
-        max,
-        upperOutliers: outliers.filter(v => v > max),
-        ...(value.mean !== undefined ? { mean: value.mean } : {}),
-      });
-    }
+    boxes.push({
+      z: String(labels[i] ?? dataset.label ?? `Box ${i + 1}`),
+      lowerOutliers: outliers.filter(v => v < min),
+      min,
+      q1: value.q1 ?? 0,
+      // `drawnBoxCells` has already accepted the summary; this is the
+      // narrowing rather than a second test of it.
+      q2: value.median as number,
+      q3: value.q3 ?? 0,
+      max,
+      upperOutliers: outliers.filter(v => v > max),
+      ...(value.mean !== undefined ? { mean: value.mean } : {}),
+    });
   }
 
   return boxes;
@@ -2902,20 +3018,15 @@ function extractViolinLayers(
 
   const labels = chart.data.labels ?? [];
   const curves: ViolinKdePoint[][] = [];
-  for (let d = 0; d < chart.data.datasets.length; d++) {
-    const dataset = chart.data.datasets[d];
-    const parsed = chart.getDatasetMeta(d)?._parsed ?? [];
-    for (let i = 0; i < parsed.length; i++) {
-      const coords = parsed[i]?.coords;
-      if (!coords || coords.length === 0)
-        continue;
-      const label = String(labels[i] ?? dataset.label ?? `Violin ${i + 1}`);
-      curves.push(coords.map(coord => ({
-        x: label,
-        y: coord.v,
-        density: coord.estimate,
-      })));
-    }
+  for (const { datasetIndex, index: i, value } of drawnViolinCurveCells(chart, allDatasetIndices(chart))) {
+    const dataset = chart.data.datasets[datasetIndex];
+    const label = String(labels[i] ?? dataset.label ?? `Violin ${i + 1}`);
+    // `drawnViolinCurveCells` has already accepted the curve.
+    curves.push((value.coords ?? []).map(coord => ({
+      x: label,
+      y: coord.v,
+      density: coord.estimate,
+    })));
   }
 
   if (curves.length > 0) {
