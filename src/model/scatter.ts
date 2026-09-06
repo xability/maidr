@@ -2170,7 +2170,58 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       return null;
     }
 
+    // ...and describe a grid. A zero step over a positive range asks
+    // `computeGridSteps` for `Infinity` bins, which it pushes until the tab
+    // runs out of memory -- inside the constructor, so nothing can catch it.
+    // A negative step or an inverted range yields the opposite, a grid with
+    // no cell to enter. Neither is a grid, so neither advertises one.
+    if (!this.isGridAxis(xMin, xMax, xTickStep) || !this.isGridAxis(yMin, yMax, yTickStep)) {
+      return null;
+    }
+
+    // ...and a grid a reader can hold. `buildGridCells` allocates one cell
+    // object with six arrays per row-column pair up front, so two axes that
+    // each pass the per-axis bound on their own still multiply into a grid
+    // whose construction is the same tab-freezing allocation, only reached
+    // by their product rather than by either one.
+    const cells = ((xMax - xMin) / xTickStep) * ((yMax - yMin) / yTickStep);
+    if (cells > ScatterTrace.MAX_GRID_CELLS) {
+      return null;
+    }
+
     return { xMin, xMax, xTickStep, yMin, yMax, yTickStep };
+  }
+
+  /**
+   * The most bins one axis may be cut into.
+   *
+   * A positive but tiny step is the same hang as a zero step, only slower:
+   * `computeGridSteps` would build billions of finite bins in the
+   * constructor. No reader navigates a grid that fine, so a step that asks
+   * for more than this is read as not describing a grid at all.
+   */
+  private static readonly MAX_GRID_BINS = 10_000;
+
+  /**
+   * The most cells a grid may hold across both axes.
+   *
+   * Bounding each axis on its own is not enough: two bounds that each look
+   * reasonable multiply, and it is the product that `buildGridCells`
+   * allocates in one synchronous pass in the constructor.
+   */
+  private static readonly MAX_GRID_CELLS = 100_000;
+
+  /**
+   * Whether one axis's range and step can be cut into at least one bin.
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @param tick - The bin width
+   * @returns True when the values yield a finite, positive, bounded number of bins
+   */
+  private isGridAxis(min: number, max: number, tick: number): boolean {
+    return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(tick)
+      && tick > 0 && max > min
+      && (max - min) / tick <= ScatterTrace.MAX_GRID_BINS;
   }
 
   /**
