@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { defaultFormat, formatters, FormatUtil } from '@util/format';
 
 describe('defaultFormat', () => {
@@ -135,5 +135,104 @@ describe('a numeric format meeting a value it cannot express', () => {
   it('still formats a real date', () => {
     expect(formatters.date({ month: 'short', day: 'numeric' })('2023-01-15'))
       .toBe('Jan 15');
+  });
+});
+
+describe('a user format function that throws', () => {
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  beforeEach(() => {
+    warnSpy.mockClear();
+  });
+
+  afterAll(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to the default format instead of taking the reading out', () => {
+    // A body that is right for the numbers on an axis and wrong for the
+    // category labels the same axis also carries. It throws from
+    // TextService.update, which runs before the review, highlight and tactile
+    // observers, so one bad value cost the reader all three.
+    const format = FormatUtil.resolveFormat({ function: 'return value.toFixed(2);' });
+    const wrapped = FormatUtil.wrapFormat(format);
+
+    expect(wrapped(1.5)).toBe('1.50');
+    expect(wrapped('Cherries')).toBe('Cherries');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps announcing every later value rather than stopping at the first', () => {
+    const wrapped = FormatUtil.wrapFormat(() => {
+      throw new Error('boom');
+    });
+
+    expect(wrapped(1.5)).toBe('1.5');
+    expect(wrapped(2)).toBe('2');
+  });
+});
+
+describe('the Intl formatters an axis is announced through', () => {
+  /**
+   * Counts how many times an Intl constructor runs while `run` executes.
+   * @param key - The Intl constructor to count
+   * @param run - Work to perform with the counter installed
+   * @returns Number of constructions observed
+   */
+  function countConstructions(
+    key: 'NumberFormat' | 'DateTimeFormat',
+    run: () => void,
+  ): number {
+    const real = Intl[key];
+    let constructions = 0;
+    const counting = ((...args: unknown[]) => {
+      constructions += 1;
+      return new (real as unknown as new (...a: unknown[]) => object)(...args);
+    }) as unknown as typeof real;
+
+    Intl[key] = counting;
+    try {
+      run();
+    } finally {
+      Intl[key] = real;
+    }
+    return constructions;
+  }
+
+  it('builds one currency formatter for the whole axis', () => {
+    // The options are fixed when the factory runs, but the Intl object was
+    // rebuilt for every announced value — and TextService formats several per
+    // keypress, whole arrays of them for a scatter row or a box's outliers.
+    const format = formatters.currency('USD', 2);
+
+    const constructions = countConstructions('NumberFormat', () => {
+      expect(format(1234.5)).toBe('$1,234.50');
+      expect(format(2)).toBe('$2.00');
+      expect(format(3)).toBe('$3.00');
+    });
+
+    expect(constructions).toBe(1);
+  });
+
+  it('builds one number formatter for the whole axis', () => {
+    const format = formatters.number(2);
+
+    const constructions = countConstructions('NumberFormat', () => {
+      expect(format(1234567.89)).toBe('1,234,567.89');
+      expect(format(2)).toBe('2.00');
+    });
+
+    expect(constructions).toBe(1);
+  });
+
+  it('builds one date formatter for the whole axis', () => {
+    const format = formatters.date({ month: 'short', day: 'numeric' });
+
+    const constructions = countConstructions('DateTimeFormat', () => {
+      expect(format('2023-01-15')).toBe('Jan 15');
+      expect(format('2023-02-16')).toBe('Feb 16');
+    });
+
+    expect(constructions).toBe(1);
   });
 });

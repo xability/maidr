@@ -324,8 +324,23 @@ export abstract class FormatUtil {
         return missingText;
       }
 
-      // Normal case: apply the format function
-      return format(value);
+      // Normal case: apply the format function.
+      //
+      // A chart's own `format.function` body is compiled here with `new
+      // Function` and can throw on a value the axis carries but its author did
+      // not have in mind — `value.toFixed(2)` meeting a category label, say.
+      // Nothing above catches it: the throw leaves TextService.update, which
+      // observes the trace before the review, highlight and tactile services,
+      // so a single bad value costs the reader all three for that keypress,
+      // and from the braille textarea's selectionchange handler it escapes
+      // uncaught entirely. This is the one choke point every axis formatter
+      // passes through, so the fallback belongs here.
+      try {
+        return format(value);
+      } catch (error) {
+        console.warn('[FormatUtil] Format function threw; using the default format:', error);
+        return defaultFormat(value);
+      }
     };
   }
 
