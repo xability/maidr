@@ -910,6 +910,29 @@ export class TextService implements Observer<PlotState>, Disposable {
       return;
     }
 
+    // Layer-level out-of-bounds: Page Up or Page Down at the first or last
+    // layer, and every such press on a single-layer chart, which
+    // Context.stepTrace answers with this state. The cue is unchanged — it
+    // still goes out as a notification with format()'s "No additional layer"
+    // wording — but like the two branches above it must return before the
+    // bookkeeping below, because the reader never moved: overwriting
+    // `currentState` with an empty one left getCoordinateText() null, so the
+    // AI chat's "current position" went blank on a keypress that did nothing.
+    if (
+      state
+      && state.empty
+      && state.type === 'subplot'
+      && !state.warning
+    ) {
+      if (this.mode !== TextMode.OFF) {
+        const text = this.format(state);
+        if (text) {
+          this.notification.notify(text);
+        }
+      }
+      return;
+    }
+
     // Store the current state for access by ViewModels. This bookkeeping runs
     // regardless of text mode so the AI chat's "current position" stays fresh
     // even after the user toggles text mode OFF and keeps navigating.
