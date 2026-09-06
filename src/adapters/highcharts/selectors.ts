@@ -532,7 +532,7 @@ export function histogramSelector(containerId: string, seriesIndex: number): str
  *
  * Trade-off: open/close are not provided as separate selectors. MAIDR's
  * `CandlestickTrace` derives open/close line segments from the body's edges
- * via `Svg.createLineElements` when omitted, which is sufficient for
+ * via `Svg.buildLineElements` when omitted, which is sufficient for
  * highlighting the open/close marks.
  */
 export function candlestickSelectors(

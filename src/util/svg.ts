@@ -310,17 +310,26 @@ export abstract class Svg {
   private static readonly MIN_LINE_SPAN = 10;
 
   /**
-   * Creates one line per request, each along one edge of one element's
-   * bounding box.
+   * Builds one line per request, each along one edge of one element's
+   * bounding box, and returns them **detached**.
    *
    * A whole batch at once rather than a line at a time, for the reason given
    * on {@link createCircleElements}: measuring an element after inserting a
    * node beside it is what forces the browser to lay the chart out again, and
    * a loop that alternated the two paid a layout per line. Reading every
-   * anchor first, building from the numbers, and inserting once per anchor
-   * costs one layout for the batch however many lines it holds -- and a
-   * candlestick or a box plot builds two per candle or per box, at
-   * construction and again on every live-data rebuild.
+   * anchor first and building from the numbers costs one layout for the batch
+   * however many lines it holds -- and a candlestick or a box plot builds two
+   * per candle or per box, at construction and again on every live-data
+   * rebuild.
+   *
+   * Building is split from inserting because *where* a line lands among its
+   * siblings is behaviour, not bookkeeping: an anchor that is also the
+   * original of a hidden clone pairs with that clone by
+   * `previousElementSibling`, so a line inserted between them changes which
+   * elements a trace reports as its originals and therefore what a
+   * high-contrast reader is shown. The caller inserts with
+   * {@link insertDerived}, at the point in its own writes where the line
+   * belongs.
    *
    * Each anchor is measured and styled once even when several lines are drawn
    * along it: inserting a hidden sibling does not move the anchor, so the
@@ -331,9 +340,9 @@ export abstract class Svg {
    * visible.
    *
    * @param requests - The lines to draw, in the order they should be made
-   * @returns The lines, index-aligned with the requests
+   * @returns The lines, index-aligned with the requests, not yet in the document
    */
-  public static createLineElements(requests: readonly LineRequest[]): SVGElement[] {
+  public static buildLineElements(requests: readonly LineRequest[]): SVGElement[] {
     if (requests.length === 0) {
       return [];
     }
@@ -369,9 +378,6 @@ export abstract class Svg {
       return this.markOwned(line);
     });
 
-    // WRITE. One insertion per anchor, reproducing the order that repeated
-    // `insertAdjacentElement(AFTER_END, ...)` left behind.
-    this.insertAfterAnchors(requests.map(({ box }) => box), lines);
     return lines;
   }
 
@@ -414,42 +420,37 @@ export abstract class Svg {
   }
 
   /**
-   * Inserts each node directly after its anchor, one DOM call per anchor.
+   * Puts derived nodes into the document directly after the element they were
+   * derived from, one at a time and in the order they were built.
    *
-   * `anchor.after(a, b)` leaves `[anchor, a, b]`, where inserting `a` and then
-   * `b` with `insertAdjacentElement(AFTER_END, ...)` leaves `[anchor, b, a]`.
-   * The batch therefore hands each anchor its nodes reversed, so the child
-   * order is the one the one-at-a-time code produced -- which is the order the
-   * chart is painted in, and so the order a reader sees a highlight in:
-   * {@link createHighlightElement} inserts its visible clone directly after
-   * the element it highlights.
+   * `insertAdjacentElement(AFTER_END, ...)` puts each node straight after the
+   * anchor, so building `a` then `b` and inserting both leaves `[anchor, b,
+   * a]`. That reversal is the child order every renderer, highlight and
+   * high-contrast pass has always seen, so it is reproduced exactly rather
+   * than tidied: the caller passes the nodes in the order it built them.
+   *
+   * Where the caller makes this call matters as much as the order within it.
+   * A node inserted after an anchor that is itself the original of a hidden
+   * clone lands between the two, and `AbstractTrace.getAllOriginalElements`
+   * pairs a clone to its original by `previousElementSibling`; inserting
+   * earlier or later than the chart's own clones therefore changes which
+   * elements `HighContrastService` recolours. Callers insert at the point
+   * their one-at-a-time predecessor did.
    *
    * An anchor with no parent inserts nothing, exactly as
-   * `insertAdjacentElement` did.
+   * `insertAdjacentElement` does.
    *
-   * @param anchors - The anchor for each node, index-aligned with `nodes`
-   * @param nodes - The nodes to insert, in the order they were made
+   * @param anchor - The element the nodes were derived from and sit beside
+   * @param nodes - The nodes, in the order they were built; nulls are skipped
    */
-  private static insertAfterAnchors(
-    anchors: readonly SVGElement[],
-    nodes: readonly (SVGElement | null)[],
+  public static insertDerived(
+    anchor: SVGElement,
+    ...nodes: readonly (SVGElement | null)[]
   ): void {
-    const byAnchor = new Map<SVGElement, SVGElement[]>();
-    anchors.forEach((anchor, index) => {
-      const node = nodes[index];
-      if (node === null) {
-        return;
+    for (const node of nodes) {
+      if (node !== null) {
+        anchor.insertAdjacentElement(Constant.AFTER_END, node);
       }
-      const existing = byAnchor.get(anchor);
-      if (existing) {
-        existing.push(node);
-      } else {
-        byAnchor.set(anchor, [node]);
-      }
-    });
-
-    for (const [anchor, group] of byAnchor) {
-      anchor.after(...[...group].reverse());
     }
   }
 
@@ -464,17 +465,19 @@ export abstract class Svg {
    * to read, not a mark for the chart to show.
    *
    * A whole batch at once for the reason given on
-   * {@link createLineElements}: one box plot's whiskers used to be measured
+   * {@link buildLineElements}: one box plot's whiskers used to be measured
    * after the previous one's had been inserted, so every box cost the browser
    * two more layouts. The same element is measured once however many whiskers
-   * touch it -- a box and both its caps were read four times per box.
+   * touch it -- a box and both its caps were read four times per box. The
+   * whiskers come back detached, for the caller to insert with
+   * {@link insertDerived} where its one-at-a-time predecessor did.
    *
    * @param requests - The whiskers to draw, in the order they should be made
-   * @returns One entry per request, index-aligned: the hidden line, or null
-   *   when the cap and the box do not sit apart along the box's axis, or when
-   *   the document cannot measure them
+   * @returns One entry per request, index-aligned and not yet in the document:
+   *   the hidden line, or null when the cap and the box do not sit apart along
+   *   the box's axis, or when the document cannot measure them
    */
-  public static createWhiskerElements(
+  public static buildWhiskerElements(
     requests: readonly WhiskerRequest[],
   ): (SVGElement | null)[] {
     if (requests.length === 0) {
@@ -538,8 +541,6 @@ export abstract class Svg {
       return this.markOwned(line);
     });
 
-    // WRITE. Each whisker sits beside the box it joins, as before.
-    this.insertAfterAnchors(requests.map(({ body }) => body), whiskers);
     return whiskers;
   }
 

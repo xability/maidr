@@ -736,7 +736,7 @@ const BOX_ATTR = 'data-maidr-anychart-box';
  * visual part of a box a given element represents. Values match the
  * {@link BoxSelector} field names that MAIDR's `BoxTrace` consumes:
  *   - `'iq'`  — filled IQR body (Q1-Q3 range); Q1 and Q3 are derived from
- *               its top/bottom edges via `Svg.createLineElements`.
+ *               its top/bottom edges via `Svg.buildLineElements`.
  *   - `'q2'`  — median stroke (horizontal line inside the IQR).
  *   - `'min'` — lower whisker (vertical stroke below the IQR).
  *   - `'max'` — upper whisker (vertical stroke above the IQR).
@@ -1969,7 +1969,7 @@ function findWhiskerElements(
  *   2. For each box `b` (`0…points.length-1`):
  *      a. Stamp the IQR element with `BOX_ATTR="s-b"` + `BOX_PART_ATTR="iq"`.
  *         Q1 and Q3 are NOT stamped — MAIDR derives them from the IQ
- *         element's top/bottom edges via `Svg.createLineElements`.
+ *         element's top/bottom edges via `Svg.buildLineElements`.
  *      b. Find the median stroke (horizontal stroke-only shape whose
  *         center sits inside the IQ bbox) and stamp `"q2"`.
  *      c. Find the whisker pair. If AnyChart renders them as one path
@@ -4792,7 +4792,7 @@ function buildBoxLayer(
   // `selectors.length === points.length`, so we always emit exactly one
   // entry per box. `q1` and `q3` are intentionally omitted — MAIDR derives
   // them from the `iq` element's top/bottom edges via
-  // `Svg.createLineElements`. Outlier arrays are empty
+  // `Svg.buildLineElements`. Outlier arrays are empty
   // because AnyChart's iterator API does not expose outliers.
   const scope = panelScope(panel);
   const stamp = panelStampPrefix(panel);

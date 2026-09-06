@@ -9,17 +9,20 @@
  * draws its quartile edges along the box and a whisker out to each cap. Each
  * of those cost a `getBBox` -- and, for an edge, a `getComputedStyle` -- on an
  * element that had just had a sibling inserted next to it, so the browser had
- * to lay the chart out again before every single one. `Svg.createLineElements`
- * and `Svg.createWhiskerElements` read the whole batch first, build from the
- * numbers, and then write once per anchor.
+ * to lay the chart out again before every single one. `Svg.buildLineElements`
+ * and `Svg.buildWhiskerElements` read the whole batch first and build from the
+ * numbers; the caller then inserts them, where it always did.
  *
  * The DOM order those writes leave behind is load-bearing rather than
  * cosmetic: `HighlightService` hands these lines to `Svg.createHighlightElement`,
  * which inserts a *visible* clone directly after the line it highlights, so
  * where the line sits among its siblings is the order the reader sees the
- * highlight painted in. The batch must therefore insert with `anchor.after()`
- * -- appending to the anchor's parent, as `Svg.createCircleElements` does,
- * would move every highlight above the chart marks drawn after it.
+ * highlight painted in. `Svg.insertDerived` therefore puts each line directly
+ * after its anchor -- appending to the anchor's parent, as
+ * `Svg.createCircleElements` does, would move every highlight above the chart
+ * marks drawn after it -- and the caller calls it at the point in its own
+ * writes where the one-at-a-time code inserted, which
+ * `test/model/sharedAnchorWrites.test.ts` pins.
  */
 
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
@@ -97,8 +100,9 @@ function record(): Recorder {
  * previous read -- the measurement the browser has to lay the chart out again
  * to answer.
  *
- * One per batch is the floor, and what the batch buys: the reads of a batch
- * are consecutive, so only its first can follow a write.
+ * One per batch is the ceiling, and what the batch buys: the reads of a batch
+ * are consecutive, so only its first can follow a write, and none does when
+ * nothing has been inserted before it.
  * @param events - The recorded log
  * @returns The count
  */
@@ -304,10 +308,10 @@ describe('a box plot deriving its quartile edges and whiskers', () => {
     expect(reads(recorder.events, 'getBBox')).toBe(BOXES * 4);
     // One style read per box, for both its edges.
     expect(reads(recorder.events, 'getComputedStyle')).toBe(BOXES);
-    // One, for the whisker batch, whose reads follow the edge batch's writes.
-    // The edge batch itself reads before anything has been inserted at all.
+    // None: both batches only measure and build, and Phase 2 does every
+    // insertion afterwards, so no write stands between any two reads.
     // Drawing a box at a time cost four per box.
-    expect(forcedLayouts(recorder.events)).toBe(1);
+    expect(forcedLayouts(recorder.events)).toBe(0);
 
     trace.dispose();
   });

@@ -608,7 +608,14 @@ export class ViolinBoxTrace extends AbstractTrace {
         parts.add(part);
       }
     }
+    // The whiskers go in beside the box here rather than when they were
+    // built, so that where the inner box is drawn as one element the hidden
+    // clones stand between it and its whiskers, as they did when each whisker
+    // was drawn at this point.
     for (const whisker of whiskers) {
+      if (original.iq !== null) {
+        Svg.insertDerived(original.iq, whisker);
+      }
       parts.add(whisker);
     }
     this.geometry.push(...parts);
@@ -655,13 +662,20 @@ export class ViolinBoxTrace extends AbstractTrace {
       });
     });
 
-    // Phase 1.5: draw everything that has to be measured, for every box at
-    // once, for the reason given on `Svg.createLineElements` -- drawing a box
-    // at a time put each box's measurements straight after the previous box's
-    // inserts, so the chart was laid out again before each: measured at 4
-    // forced layouts per box, 120 over 30 boxes, and paid again on every
-    // live-data rebuild. Edges before whiskers, so each box keeps the child
-    // order it had.
+    // Phase 1.5: measure and build everything that has to be measured, for
+    // every box at once, for the reason given on `Svg.buildLineElements` --
+    // drawing a box at a time put each box's measurements straight after the
+    // previous box's inserts, so the chart was laid out again before each:
+    // measured at 4 forced layouts per box, 120 over 30 boxes, and paid again
+    // on every live-data rebuild.
+    //
+    // Nothing is inserted here. The lines come back detached and Phase 2 puts
+    // them in where the one-at-a-time code did, because a violin whose inner
+    // box is one element -- Plotly names one `<path>` as `min`, `iq`, `q2`
+    // and `max` -- would otherwise have its hidden clones land directly after
+    // that element instead of behind the derived lines, and
+    // `getAllOriginalElements` pairs clone to original by
+    // `previousElementSibling`.
     //
     // Check if IQR direction should be reversed (for gridSVG vertical plots
     // where scale(1,-1) Y-flip inverts getBBox top/bottom edges).
@@ -681,14 +695,15 @@ export class ViolinBoxTrace extends AbstractTrace {
       );
       edgeOwners.push(boxIdx);
     });
-    const edges = Svg.createLineElements(edgeRequests);
+    const edges = Svg.buildLineElements(edgeRequests);
     const derivedEdges = new Map<number, [SVGElement, SVGElement]>();
     edgeOwners.forEach((boxIdx, request) => {
       derivedEdges.set(boxIdx, [edges[request * 2], edges[request * 2 + 1]]);
     });
 
     // The lower cap's whisker then the upper cap's, box by box, which is the
-    // order `getGeometryElements` reports them in.
+    // order `getGeometryElements` reports them in and the order
+    // `offerGeometry` inserts them in.
     const whiskerRequests: WhiskerRequest[] = [];
     const whiskerOwners: number[] = [];
     originals.forEach((original, boxIdx) => {
@@ -703,7 +718,7 @@ export class ViolinBoxTrace extends AbstractTrace {
         whiskerOwners.push(boxIdx);
       }
     });
-    const whiskers = Svg.createWhiskerElements(whiskerRequests);
+    const whiskers = Svg.buildWhiskerElements(whiskerRequests);
     const whiskersByBox: SVGElement[][] = originals.map(() => []);
     whiskerOwners.forEach((boxIdx, request) => {
       const whisker = whiskers[request];
@@ -719,12 +734,19 @@ export class ViolinBoxTrace extends AbstractTrace {
       const q2 = this.cloneElementOrEmpty(original.q2);
       const mean = this.cloneElementOrEmpty(original.mean);
 
-      // Q1/Q3 are the IQ box's edges, derived in Phase 1.5 (same approach as
-      // BoxTrace).
-      const [q1, q3] = derivedEdges.get(boxIdx) ?? [
-        Svg.createEmptyElement('line'),
-        Svg.createEmptyElement('line'),
-      ];
+      // Q1/Q3 are the IQ box's edges, derived in Phase 1.5 and inserted here,
+      // after this box's clones, where deriving them one at a time used to
+      // insert them (same approach as BoxTrace).
+      const derived = derivedEdges.get(boxIdx);
+      let q1: SVGElement;
+      let q3: SVGElement;
+      if (derived && original.iq) {
+        [q1, q3] = derived;
+        Svg.insertDerived(original.iq, q1, q3);
+      } else {
+        q1 = Svg.createEmptyElement('line');
+        q3 = Svg.createEmptyElement('line');
+      }
 
       this.offerGeometry(original, whiskersByBox[boxIdx]);
 

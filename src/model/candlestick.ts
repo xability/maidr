@@ -897,8 +897,15 @@ export class Candlestick extends AbstractTrace {
     }
 
     // Requested open-then-close per candle, as the one-at-a-time code drew
-    // them, so each body keeps the child order it had.
-    const lines = Svg.createLineElements(lineRequests);
+    // them, and inserted in that same order, one call per line, so each body
+    // keeps the child order it had. The anchors are the hidden body clones
+    // `collectElements` inserted before any of this ran, and nothing is
+    // inserted beside them afterwards, so where these lines land is the same
+    // as it was.
+    const lines = Svg.buildLineElements(lineRequests);
+    lineRequests.forEach(({ box }, request) => {
+      Svg.insertDerived(box, lines[request]);
+    });
     lineSlots.forEach((slot, request) => {
       if (slot.isOpen) {
         derivedOpen[slot.index] = lines[request];
