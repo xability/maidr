@@ -739,18 +739,23 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     selectors: MaidrLayer['selectors'],
     declared: number,
   ): SVGElement[][] | null {
-    let flat: SVGElement[];
+    // Resolved live first and cloned only once the count fits. A clone is
+    // inserted beside its original the moment it is made, so declining after
+    // cloning left every copy in the chart for `dispose()` never to reach --
+    // and the next resolution matched the copies too.
+    let live: SVGElement[];
     if (typeof selectors === 'string') {
-      flat = Svg.selectAllElements(selectors);
+      live = Svg.selectAllElements(selectors, false);
     } else if (Array.isArray(selectors) && selectors.every(one => typeof one === 'string')) {
-      flat = selectors.flatMap(one => Svg.selectAllElements(one));
+      live = selectors.flatMap(one => Svg.selectAllElements(one, false));
     } else {
       return null;
     }
 
-    if (flat.length !== declared) {
+    if (live.length !== declared) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
     this.ribbons = flat;
 
     // Indexed by the edge's own declared position. Walking the sorted edge
@@ -773,6 +778,24 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    */
   public getGeometryElements(): SVGElement[] {
     return [...this.ribbons];
+  }
+
+  /**
+   * Removes every ribbon clone, not only the ones the highlight covers.
+   *
+   * `AbstractTrace.dispose()` walks `highlightValues`, which holds one ribbon
+   * per node; a ribbon that is nobody's widest is referenced only from
+   * {@link ribbons}, and left in the chart it accumulated on every focus
+   * cycle and live-data rebuild.
+   */
+  public override dispose(): void {
+    for (const ribbon of this.ribbons) {
+      if (Svg.isOwned(ribbon)) {
+        ribbon.remove();
+      }
+    }
+    this.ribbons = [];
+    super.dispose();
   }
 
   /**

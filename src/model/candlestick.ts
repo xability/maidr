@@ -830,8 +830,12 @@ export class Candlestick extends AbstractTrace {
         const { open, close } = this.candles[i];
         // Which edge of the body is the open depends on which way the body
         // ran, so a candle with none has no edge to derive -- and no `open`
-        // section for the element to be reached through either.
-        if (body && open !== undefined) {
+        // section for the element to be reached through either. The section
+        // is a property of the chart, not of the candle: on a chart without
+        // one, a candle that does state an open still has nowhere to place
+        // the line, and `createLineElement` inserts it the moment it is made,
+        // so deriving it left a `<line>` in the chart `dispose()` never saw.
+        if (body && this.hasOpen && open !== undefined) {
           const edge: 'top' | 'bottom'
             = close > open ? 'bottom' : close < open ? 'top' : 'bottom';
           openEl = Svg.createLineElement(body, edge);

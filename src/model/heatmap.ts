@@ -71,7 +71,10 @@ export class Heatmap extends AbstractTrace {
     super(layer);
 
     const data = layer.data as HeatmapData;
-    this.x = data.x;
+    // Both copied: `dispose()` truncates the arrays it holds, and `x` held by
+    // reference emptied the caller's column labels, so a heatmap rebuilt from
+    // the same spec announced no column at all.
+    this.x = [...data.x];
     this.y = [...data.y].reverse();
     this.heatmapValues = [...data.points].reverse().map(measuredRow);
 
