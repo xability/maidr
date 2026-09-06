@@ -309,6 +309,28 @@ describe('createMaidrFromFrappeChart (dot)', () => {
   });
 });
 
+describe('createMaidrFromFrappeChart (empty datasets)', () => {
+  /**
+   * Frappe's own `dataPrep` substitutes a default dataset only when `datasets`
+   * is missing; an explicit `[]` survives construction. The host page calls the
+   * adapter from inside its own settle callback, so an opaque `TypeError` from
+   * a single-dataset builder aborts that callback — and on the grid API takes
+   * every remaining panel down with it. A named error says which panel is at
+   * fault, which is what the diverging and panel-grid paths already do.
+   */
+  // Numeric labels for the scatter case, so it stays on the scatter builder
+  // rather than falling through to the dot one.
+  const cases: [FrappeChartType, FrappeChart][] = [
+    ['bar', { data: { labels: ['A', 'B'], datasets: [] } }],
+    ['dot', { data: { labels: ['A', 'B'], datasets: [] } }],
+    ['scatter', { data: { labels: [10, 20], datasets: [] } }],
+  ];
+
+  it.each(cases)('reports an empty datasets array by name for a %s chart', (chartType, chart) => {
+    expect(() => onlyLayer(chart, chartType)).toThrow(/\[maidr\/frappe\].*dataset/);
+  });
+});
+
 describe('createMaidrFromFrappeChart (diverging)', () => {
   /** Men drawn below the zero line, women above, as Frappe renders them. */
   const pyramid: FrappeChart = {
