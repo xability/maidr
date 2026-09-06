@@ -7,6 +7,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { watchViewport } from '@util/viewport';
 import { AbstractTrace, named } from './abstract';
 import { isMeasured, toBarValue } from './bar';
 import { MovableGraph } from './movable';
@@ -194,9 +195,9 @@ export class LineTrace extends AbstractTrace {
   // forced layout per trace that a keyboard reader never asks for.
   private highlightCentersDirty = true;
 
-  private readonly invalidateHighlightCenters = (): void => {
+  private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
-  };
+  });
 
   public constructor(layer: MaidrLayer) {
     super(layer);
@@ -237,13 +238,6 @@ export class LineTrace extends AbstractTrace {
     // scroll.
     this.highlightCenters = null;
     this.movable = new MovableGraph(this.buildGraph());
-
-    // Invalidate the cached pointer-hover centers when the viewport moves.
-    // Capture phase catches scrolling of any ancestor container, not just window.
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
-      window.addEventListener('resize', this.invalidateHighlightCenters);
-    }
   }
 
   /**
@@ -428,10 +422,7 @@ export class LineTrace extends AbstractTrace {
   }
 
   public override dispose(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
-      window.removeEventListener('resize', this.invalidateHighlightCenters);
-    }
+    this.stopViewportWatch();
 
     this.points.length = 0;
 
@@ -1451,7 +1442,7 @@ export class LineTrace extends AbstractTrace {
     y: number,
   ): NearestPoint | null {
     // Rebuild stale centers lazily: scroll/resize invalidated the cached
-    // viewport coordinates (see invalidateHighlightCenters).
+    // viewport coordinates (see stopViewportWatch).
     if (this.highlightCentersDirty) {
       this.highlightCenters = this.mapSvgElementsToCenters();
       this.highlightCentersDirty = false;

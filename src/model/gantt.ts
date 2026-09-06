@@ -5,6 +5,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
 
@@ -76,6 +77,33 @@ export class GanttTrace extends AbstractTrace {
   private readonly perLaneMax: number[];
 
   protected readonly highlightValues: SVGElement[][] | null;
+
+  /**
+   * Where each interval was last measured, or null before the reader points
+   * at the schedule.
+   *
+   * Measured on the first hover rather than in the constructor: a schedule of
+   * a couple of thousand tasks would otherwise pay a layout read per task at
+   * load, for a chart the reader may never point at.
+   */
+  private highlightCenters:
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null = null;
+
+  /**
+   * Whether the centres have to be measured again before the next hover.
+   *
+   * They hold viewport coordinates, and the pointer positions they are
+   * compared against are always current -- so a page, or a container the
+   * chart sits in, scrolling underneath leaves every centre off by however
+   * far the schedule moved, and a hover resolves to a task that is no longer
+   * there. True to begin with, which is what makes the first hover measure.
+   */
+  private highlightCentersDirty = true;
+
+  private readonly stopViewportWatch = watchViewport((): void => {
+    this.highlightCentersDirty = true;
+  });
 
   /**
    * Creates a new gantt trace.
@@ -348,6 +376,37 @@ export class GanttTrace extends AbstractTrace {
   }
 
   /**
+   * Measures where every interval is drawn.
+   *
+   * @returns One centre per interval, or null when the bars did not resolve
+   */
+  private mapSvgElementsToCenters():
+    | { x: number; y: number; row: number; col: number; element: SVGElement }[]
+    | null {
+    const elements = this.highlightValues;
+    if (!elements) {
+      return null;
+    }
+
+    const centers = [];
+    for (let row = 0; row < elements.length; row++) {
+      for (let col = 0; col < elements[row].length; col++) {
+        const element = elements[row][col];
+        const box = element.getBoundingClientRect();
+        centers.push({
+          x: box.left + box.width / 2,
+          y: box.top + box.height / 2,
+          row,
+          col,
+          element,
+        });
+      }
+    }
+
+    return centers;
+  }
+
+  /**
    * Finds the interval whose drawn bar is nearest a pointer position.
    *
    * Searches every lane rather than one representative row, unlike
@@ -355,32 +414,53 @@ export class GanttTrace extends AbstractTrace {
    * occupy, so the bar nearest a pointer is not reliably in the row the
    * pointer is over and the column indices do not line up between lanes.
    *
+   * Answered from the measured centres rather than by measuring again: every
+   * lane is searched on every `pointermove`, unthrottled, and a real schedule
+   * carries hundreds to thousands of tasks -- a layout read apiece, tens of
+   * times a second, for geometry that only changes when the viewport moves.
+   *
    * @param x - Horizontal pointer position
    * @param y - Vertical pointer position
    * @returns The nearest interval, or null when nothing is resolvable
    */
   protected findNearestPoint(x: number, y: number): NearestPoint | null {
-    const elements = this.highlightValues;
-    if (!elements) {
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
+    const centers = this.highlightCenters;
+    if (!centers) {
       return null;
     }
 
     let nearest: NearestPoint | null = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    for (let row = 0; row < elements.length; row++) {
-      for (let col = 0; col < elements[row].length; col++) {
-        const box = elements[row][col].getBoundingClientRect();
-        const centerX = box.left + box.width / 2;
-        const centerY = box.top + box.height / 2;
-        const distance = (centerX - x) ** 2 + (centerY - y) ** 2;
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearest = { element: elements[row][col], row, col, centerX, centerY };
-        }
+    for (const center of centers) {
+      const distance = (center.x - x) ** 2 + (center.y - y) ** 2;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearest = {
+          element: center.element,
+          row: center.row,
+          col: center.col,
+          centerX: center.x,
+          centerY: center.y,
+        };
       }
     }
 
     return nearest;
+  }
+
+  /**
+   * Releases the viewport watch the centres are invalidated by.
+   */
+  public override dispose(): void {
+    this.stopViewportWatch();
+    this.highlightCenters = null;
+
+    super.dispose();
   }
 }

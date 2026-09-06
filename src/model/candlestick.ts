@@ -22,6 +22,7 @@ import {
 import { MathUtil } from '@util/math';
 import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
+import { watchViewport } from '@util/viewport';
 import { MovableGrid } from './movable';
 
 /**
@@ -155,6 +156,22 @@ export class Candlestick extends AbstractTrace {
   protected highlightCenters:
     | { x: number; y: number; row: number; col: number; element: SVGElement }[]
     | null;
+
+  /**
+   * Whether a scroll or resize has moved the candles since they were measured.
+   *
+   * `highlightCenters` holds viewport coordinates, and the pointer positions
+   * they are compared against are always current -- so a page, or a container
+   * the chart sits in, scrolling underneath leaves every centre off by
+   * however far the chart moved, and a hover resolves to a candle that is no
+   * longer there. Rebuilding on the next hover rather than on the event keeps
+   * a scroll itself free of layout reads.
+   */
+  private highlightCentersDirty = false;
+
+  private readonly stopViewportWatch = watchViewport((): void => {
+    this.highlightCentersDirty = true;
+  });
 
   /**
    * Creates a new Candlestick instance from a MAIDR layer
@@ -667,6 +684,8 @@ export class Candlestick extends AbstractTrace {
    * Cleans up resources and disposes of the candlestick instance
    */
   public override dispose(): void {
+    this.stopViewportWatch();
+
     this.candles.length = 0;
     super.dispose();
   }
@@ -1356,6 +1375,13 @@ export class Candlestick extends AbstractTrace {
     x: number,
     y: number,
   ): NearestPoint | null {
+    // Measure again when a scroll or resize has moved the cached centres out
+    // from under the pointer coordinates they are compared against.
+    if (this.highlightCentersDirty) {
+      this.highlightCenters = this.mapSvgElementsToCenters();
+      this.highlightCentersDirty = false;
+    }
+
     // loop through highlightCenters to find nearest point
     if (!this.highlightCenters) {
       return null;

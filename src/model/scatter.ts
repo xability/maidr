@@ -6,6 +6,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
+import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { MovablePlane } from './movable';
 
@@ -187,9 +188,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   // forced layout per trace that a keyboard reader never asks for.
   private highlightCentersDirty = true;
 
-  private readonly invalidateHighlightCenters = (): void => {
+  private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
-  };
+  });
 
   private readonly minX: number;
   private readonly maxX: number;
@@ -414,13 +415,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.highlightCenters = null;
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
 
-    // Invalidate the cached pointer-hover centers when the viewport moves.
-    // Capture phase catches scrolling of any ancestor container, not just window.
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', this.invalidateHighlightCenters, true);
-      window.addEventListener('resize', this.invalidateHighlightCenters);
-    }
-
     // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
     this.isInGridMode = false;
     this.gridRow = 0;
@@ -564,10 +558,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
    * Cleans up resources and removes all highlight elements from the DOM.
    */
   public override dispose(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('scroll', this.invalidateHighlightCenters, true);
-      window.removeEventListener('resize', this.invalidateHighlightCenters);
-    }
+    this.stopViewportWatch();
 
     this.movable.dispose();
 
@@ -2779,7 +2770,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     _y: number,
   ): NearestPoint | null {
     // Rebuild stale centers lazily: scroll/resize invalidated the cached
-    // viewport coordinates (see invalidateHighlightCenters).
+    // viewport coordinates (see stopViewportWatch).
     if (this.highlightCentersDirty) {
       this.highlightCenters = this.mapSvgElementsToCenters();
       this.highlightCentersDirty = false;
