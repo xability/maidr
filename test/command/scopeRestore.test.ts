@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { AudioService } from '@service/audio';
 import type { DisplayService } from '@service/display';
 import type { NotificationService } from '@service/notification';
+import type { RotorNavigationService } from '@service/rotor';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import { AnnounceXCommand } from '@command/describe';
 import { EnterGridCellCommand } from '@command/gridCell';
@@ -27,6 +28,13 @@ function createMockContext(overrides: Record<string, unknown> = {}): Context {
     enterGridCell: jest.fn(() => true),
     ...overrides,
   } as unknown as Context;
+}
+
+/**
+ * A rotor stub: the exit commands hand it back to data mode on the way out.
+ */
+function createMockRotor(): RotorNavigationService {
+  return { resetToDataMode: jest.fn() } as unknown as RotorNavigationService;
 }
 
 function createMockDisplayService(): DisplayService {
@@ -70,7 +78,7 @@ describe('MoveToSubplotContextCommand', () => {
     });
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()), createMockRotor()).execute();
 
     expect(displayService.syncFocusStack).toHaveBeenCalledWith(Scope.SUBPLOT);
   });
@@ -80,7 +88,7 @@ describe('MoveToSubplotContextCommand', () => {
     const context = createMockContext();
     const displayService = createMockDisplayService();
 
-    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit())).execute();
+    new MoveToSubplotContextCommand(context, displayService, createSubplotCue(createMockAudioService(), createMockNotificationService(), createMockTextServiceForExit()), createMockRotor()).execute();
 
     expect(context.exitSubplot).toHaveBeenCalled();
     expect(displayService.syncFocusStack).not.toHaveBeenCalled();

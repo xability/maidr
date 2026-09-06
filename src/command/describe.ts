@@ -5,7 +5,7 @@ import type { HighlightService } from '@service/highlight';
 import type { TextService } from '@service/text';
 import type { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
-import type { BarBrailleState, BoxBrailleState, LineBrailleState, NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, BoxBrailleState, BrailleState, FigureState, LineBrailleState, NonEmptyTraceState } from '@type/state';
 import type { Command } from './command';
 import { focusedSubplotTitle } from '@model/plot';
 import { Scope } from '@type/event';
@@ -607,6 +607,42 @@ export class AnnouncePointCommand extends AnnounceCommand {
 }
 
 /**
+ * Whether a braille state carries a row-of-rows grid, the shape
+ * {@link AnnouncePositionCommand.navigationPosition} reads a position out of.
+ *
+ * Checked rather than asserted: every trace in {@link BAR_FAMILY} is
+ * registered against the bar encoder today, but nothing in the type system
+ * ties the two lists together, and a trace added to one and not the other
+ * would otherwise read a position out of a state that has no grid in it.
+ * @param braille - The trace's braille state
+ * @returns True when the state has a `values` grid to index
+ */
+function isGridBrailleState(braille: BrailleState): braille is BarBrailleState {
+  return !braille.empty
+    && Array.isArray((braille as BarBrailleState).values)
+    && Array.isArray((braille as BarBrailleState).values[0]);
+}
+
+/**
+ * The traces built on `AbstractBarPlot`, whose braille state is
+ * `values[row][col]` normalised to the bar axis and whose audio panning swaps
+ * for a horizontal chart. The position announcement reads the former for
+ * these; see {@link AnnouncePositionCommand.navigationPosition}.
+ */
+const BAR_FAMILY: ReadonlySet<TraceType> = new Set([
+  TraceType.BAR,
+  TraceType.DOT,
+  TraceType.LOLLIPOP,
+  TraceType.FUNNEL,
+  TraceType.HISTOGRAM,
+  TraceType.STACKED,
+  TraceType.NORMALIZED,
+  TraceType.DODGED,
+  TraceType.DIVERGING,
+  TraceType.MOSAIC,
+]);
+
+/**
  * Turns a fraction of the way round the dial into a clock hour.
  *
  * Twelve o'clock is both the origin and the full turn, so a fraction of 0 and
@@ -651,7 +687,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     const state = this.context.state;
 
     // Handle no data case
-    if (state.empty || state.type !== 'trace') {
+    if (state.empty || (state.type !== 'trace' && state.type !== 'figure')) {
       this.textViewModel.update('Not in a chart, unable to show position.');
       return;
     }
@@ -661,20 +697,24 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
+    // Multi-panel lobby: the position is which subplot is focused
+    if (state.type === 'figure') {
+      this.announceFigurePosition(state);
+      return;
+    }
+
     // Grid mode: announce axis ranges without points
     if (state.text.gridPoints !== undefined && state.text.range && state.text.crossRange) {
       this.announceGridPosition(state);
       return;
     }
 
-    // Get position from audio.panning (contains x, y, rows, cols).
-    const { panning } = state.audio;
-    const { x, y, rows, cols } = panning;
+    const { x, y, rows, cols } = this.navigationPosition(state);
 
     // Check for special chart types
     const traceType = state.traceType;
 
-    if (traceType === TraceType.BOX) {
+    if (traceType === TraceType.BOX || traceType === TraceType.VIOLIN_BOX) {
       this.announceBoxplotPosition(state);
     } else if (traceType === TraceType.PIE) {
       this.announcePiePosition(state);
@@ -686,7 +726,7 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       || traceType === TraceType.DODGED
     ) {
       this.announceSegmentedBarPosition(state, x, cols);
-    } else if (traceType === TraceType.SMOOTH) {
+    } else if (traceType === TraceType.SMOOTH || traceType === TraceType.VIOLIN_KDE) {
       if (rows > 1) {
         // Multi-violin plots: y=violin index, x=position within violin
         this.announceMultiViolinPosition(y, rows, x, cols);
@@ -733,6 +773,53 @@ export class AnnouncePositionCommand extends AnnounceCommand {
     } else {
       this.announce1DPosition(x, cols);
     }
+  }
+
+  /**
+   * Announces which subplot is focused at the multi-panel lobby.
+   *
+   * The lobby binds the position key and lists it in help, so it has to
+   * answer with the position the figure state already carries rather than
+   * refuse. Terse keeps the two numbers and drops the label word, the way the
+   * trace-level readings keep the percentage and drop "Position is".
+   * @param state - The populated figure state
+   */
+  private announceFigurePosition(state: Extract<FigureState, { empty: false }>): void {
+    if (this.textService.isTerse() || this.textService.isOff()) {
+      this.textViewModel.update(`${state.index} of ${state.size}`);
+    } else {
+      this.textViewModel.update(`Subplot ${state.index} of ${state.size}`);
+    }
+  }
+
+  /**
+   * The cursor's grid position: `x` of `cols` along the bars or samples, `y`
+   * of `rows` across the groups.
+   *
+   * For most traces this is `audio.panning`, whose `x`/`cols` are the column
+   * index and count. But panning is a stereo position, not an index contract
+   * ({@link AudioState.panning}), and a horizontal bar chart swaps it so the
+   * pan follows the bars down the page. Read as an index, that announced every
+   * horizontal bar as "1 of 1" and a horizontal stacked bar's level as its
+   * category. The braille state keeps `values[row][col]` normalised to the bar
+   * axis whichever way the chart is drawn, so the bar family reads its position
+   * from there -- the same route {@link announceBoxplotPosition} takes.
+   *
+   * @param state - The active trace state
+   * @returns The zero-based column and row, with their counts
+   */
+  private navigationPosition(
+    state: NonEmptyTraceState,
+  ): { x: number; y: number; rows: number; cols: number } {
+    if (BAR_FAMILY.has(state.traceType) && isGridBrailleState(state.braille)) {
+      return {
+        x: state.braille.col,
+        y: state.braille.row,
+        rows: state.braille.values.length,
+        cols: state.braille.values[state.braille.row]?.length ?? 0,
+      };
+    }
+    return state.audio.panning;
   }
 
   /**
