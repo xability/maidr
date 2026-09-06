@@ -235,9 +235,9 @@ export class CommandFactory {
       case 'MOVE_TO_TRACE_CONTEXT':
         return new MoveToTraceContextCommand(this.context, this.brailleService, this.displayService, this.subplotCue);
       case 'MOVE_TO_SUBPLOT_CONTEXT':
-        return new MoveToSubplotContextCommand(this.context, this.displayService, this.subplotCue);
+        return new MoveToSubplotContextCommand(this.context, this.displayService, this.subplotCue, this.rotorService);
       case 'EXIT_BRAILLE_AND_SUBPLOT':
-        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.subplotCue);
+        return new ExitBrailleAndSubplotCommand(this.context, this.displayService, this.brailleViewModel, this.candlestickDeltaService, this.subplotCue, this.rotorService);
       case 'MOVE_TO_NEXT_TRACE':
         return new MoveToNextTraceCommand(this.context, this.candlestickDeltaService, this.rotorService);
       case 'MOVE_TO_PREV_TRACE':
