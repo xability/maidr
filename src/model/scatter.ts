@@ -184,7 +184,9 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   // which shift when the page scrolls or the window resizes. Rather than
   // recompute every rect on each pointermove, mark the cache stale on
   // scroll/resize and rebuild it lazily on the next hover (findNearestPoint).
-  private highlightCentersDirty = false;
+  // It starts stale for the same reason: measuring at construction is a
+  // forced layout per trace that a keyboard reader never asks for.
+  private highlightCentersDirty = true;
 
   private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
@@ -303,10 +305,21 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     this.hasZ = data.some(p => typeof p.z === 'number');
 
-    const sortedByX = [...data].sort((a, b) => a.x - b.x || a.y - b.y);
+    // Columns and rows are built from an order over the point *indices*
+    // rather than over copies of the points, so the one ordering serves both
+    // the values a column holds and the data indices behind them
+    // (`xPointIndices`, which INTERSECTION highlight needs). Ordering the
+    // points and then ordering the indices the same way, as this did, is two
+    // N log N sorts for one answer -- on a Manhattan plot of a few hundred
+    // thousand points, the duplicates alone were a third of a second before
+    // anything could be read, and every live-data append pays it again.
+    const xOrder = ScatterTrace.orderedIndices(data, 'x');
     this.xPoints = new Array<ScatterXPoint>();
+    this.xPointIndices = new Array<number[]>();
     let currentX: ScatterXPoint | null = null;
-    for (const point of sortedByX) {
+    let currentXIndices: number[] = [];
+    for (const index of xOrder) {
+      const point = data[index];
       if (!currentX || currentX.x !== point.x) {
         currentX = {
           x: point.x,
@@ -317,17 +330,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           names: [],
         };
         this.xPoints.push(currentX);
+        currentXIndices = [];
+        this.xPointIndices.push(currentXIndices);
       }
       currentX.y.push(point.y);
       currentX.yLabels.push(nameOf(point.yLabel));
       currentX.names.push(nameOf(point.label));
       currentX.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
+      currentXIndices.push(index);
     }
 
-    const sortedByY = [...data].sort((a, b) => a.y - b.y || a.x - b.x);
+    const yOrder = ScatterTrace.orderedIndices(data, 'y');
     this.yPoints = new Array<ScatterYPoint>();
+    this.yPointIndices = new Array<number[]>();
     let currentY: ScatterYPoint | null = null;
-    for (const point of sortedByY) {
+    let currentYIndices: number[] = [];
+    for (const index of yOrder) {
+      const point = data[index];
       if (!currentY || currentY.y !== point.y) {
         currentY = {
           y: point.y,
@@ -338,11 +357,14 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           names: [],
         };
         this.yPoints.push(currentY);
+        currentYIndices = [];
+        this.yPointIndices.push(currentYIndices);
       }
       currentY.x.push(point.x);
       currentY.xLabels.push(nameOf(point.xLabel));
       currentY.names.push(nameOf(point.label));
       currentY.z.push(typeof point.z === 'number' ? point.z : Number.NaN);
+      currentYIndices.push(index);
     }
 
     this.xValues = this.xPoints.map(p => p.x);
@@ -387,7 +409,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     this.svgClones = allSvgClones;
 
     [this.highlightXValues, this.highlightYValues] = this.groupSvgElements(allSvgClones);
-    this.highlightCenters = this.mapSvgElementsToCenters();
+    // Left for the first hover to measure. `highlightCentersDirty` starts
+    // true, so findNearestPoint builds them the same way it does after a
+    // scroll.
+    this.highlightCenters = null;
     this.movable = new MovablePlane(this.xPoints, this.yPoints);
 
     // Build grid if per-axis config (axes.x.{min,max,tickStep}) is provided.
@@ -412,6 +437,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       this.numGridCols = 0;
     }
 
+    // A point's slot inside its own column, for every column, in one pass.
+    // Searching the column per point instead is O(points x column height),
+    // which is quadratic on the charts that stack hardest — a strip plot at
+    // a single x, a Manhattan plot over a handful of chromosomes. The slot
+    // recorded is the first one holding that y, which is what a search for
+    // it would have found. NaN is left out: a search never matches it, and
+    // a Map would.
+    const slotOfYInColumn = this.xPoints.map((column) => {
+      const slots = new Map<number, number>();
+      for (let k = 0; k < column.y.length; k++) {
+        if (!Number.isNaN(column.y[k]) && !slots.has(column.y[k])) {
+          slots.set(column.y[k], k);
+        }
+      }
+      return slots;
+    });
+
     // Point navigation: pair each data point with its rendered SVG element by
     // index (the same index correspondence buildGridCells relies on), then
     // build two sort orders. Both orders are full permutations of the flat
@@ -420,7 +462,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // Both lookups key off the very numbers xPoints was grouped from, so
       // they hit exactly; the fallbacks only guard a malformed layer.
       const xIndex = this.xIndexOf(p.x);
-      const column = this.xPoints[xIndex]?.y ?? [];
       return {
         x: p.x,
         y: p.y,
@@ -430,7 +471,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         label: nameOf(p.label),
         svg: allSvgClones.length === data.length ? allSvgClones[i] : null,
         xIndex,
-        yIndexInColumn: Math.max(0, column.indexOf(p.y)),
+        yIndexInColumn: slotOfYInColumn[xIndex]?.get(p.y) ?? 0,
       };
     });
     this.readingOrder = this.flatPoints
@@ -467,8 +508,6 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // stacks, from ROW it uses y-row stacks, so we offer the mode whenever
     // either is non-trivial.
     const hasSvg = allSvgClones.length === data.length;
-    this.xPointIndices = ScatterTrace.buildStackedIndices(data, 'x');
-    this.yPointIndices = ScatterTrace.buildStackedIndices(data, 'y');
     this.xPointsSvg = hasSvg
       ? this.xPointIndices.map(group => group.map(i => allSvgClones[i] ?? null))
       : null;
@@ -483,45 +522,36 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
-   * Build an array parallel to xPoints / yPoints whose [col][k] (or [row][k])
-   * is the `data` index of the point behind xPoints[col].y[k] /
-   * yPoints[row].x[k].
+   * The indices of `data`, ordered by one axis with the other breaking ties.
    *
-   * xPoints is constructed by sorting (x asc, y asc); yPoints by (y asc, x
-   * asc). We walk the same sort order over data indices and group on the
-   * primary axis, so each entry lines up with the value the *Points entry
-   * holds. Required for INTERSECTION highlight, which focuses a single point
-   * in a stack rather than the whole chord.
+   * The order the points are grouped into columns (`x` primary) or rows (`y`
+   * primary) in, kept as indices so grouping produces both at once: the
+   * values a column holds, and the `data` index behind each of them. The
+   * indices are what INTERSECTION highlight focuses a single point of a
+   * stack by, and the durable identity of a point besides -- the caller maps
+   * one to an SVG element when the binder supplied one, and publishes it
+   * as-is to a canvas adapter, which has no element to map it to.
    *
-   * The index is the durable identity: the caller maps it to an SVG element
-   * when the binder supplied one, and publishes it as-is to a canvas adapter,
-   * which has no element to map it to.
+   * `Array.prototype.sort` is stable, so points agreeing on both axes stay in
+   * the order the layer listed them, exactly as when the points themselves
+   * were sorted.
+   *
+   * @param data - The layer's points
+   * @param primary - The axis to group by; the other breaks ties
+   * @returns The indices, ordered
    */
-  private static buildStackedIndices(
+  private static orderedIndices(
     data: ScatterPoint[],
     primary: 'x' | 'y',
-  ): number[][] {
+  ): number[] {
     const secondary = primary === 'x' ? 'y' : 'x';
-    const sortedIndices = data
+    return data
       .map((_, i) => i)
       .sort(
         (a, b) =>
           data[a][primary] - data[b][primary]
           || data[a][secondary] - data[b][secondary],
       );
-    const result: number[][] = [];
-    let group: number[] | null = null;
-    let prevKey: number | null = null;
-    for (const i of sortedIndices) {
-      const key = data[i][primary];
-      if (group === null || key !== prevKey) {
-        group = [];
-        result.push(group);
-        prevKey = key;
-      }
-      group.push(i);
-    }
-    return result;
   }
 
   /**

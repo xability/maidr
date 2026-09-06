@@ -229,30 +229,48 @@ export abstract class Svg {
   }
 
   /**
-   * Creates a circle element styled to match the parent element's stroke or fill.
-   * @param cx - The x-coordinate of the circle center
-   * @param cy - The y-coordinate of the circle center
-   * @param parent - The parent SVG element to inherit styling from
-   * @returns The newly created circle element
+   * Creates one circle element per centre, styled to match the parent
+   * element's stroke or fill.
+   *
+   * A whole series at once rather than a point at a time, because the two
+   * expensive parts of the job are per-series rather than per-point: the
+   * paint is one computed style for a line all of whose markers share it,
+   * and the insertion is one fragment. Reading a style back after inserting
+   * an element is what forces the browser to recalculate it, so a loop
+   * alternating the two paid a recalculation per point of every line, at
+   * construction and again on every live-data rebuild.
+   *
+   * @param centres - Where to put each circle, in order
+   * @param parent - The SVG element to inherit styling from and sit beside
+   * @returns The circles, in the order the centres were given
    */
-  public static createCircleElement(cx: string | number, cy: string | number, parent: SVGElement): SVGElement {
+  public static createCircleElements(
+    centres: readonly { cx: string | number; cy: string | number }[],
+    parent: SVGElement,
+  ): SVGElement[] {
     const style = window.getComputedStyle(parent);
     const color = style.stroke || style.fill;
     const strokeWidth = style.strokeWidth || '2';
     const radius = Number.parseFloat(strokeWidth) * 2;
-    const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
 
-    element.setAttribute(Constant.CIRCLE_X, String(cx));
-    element.setAttribute(Constant.CIRCLE_Y, String(cy));
-    element.setAttribute(Constant.RADIUS, String(radius));
-    element.setAttribute(Constant.FILL, color);
-    element.setAttribute(Constant.STROKE, color);
-    element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
-    element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
-    this.markOwned(element);
+    const fragment = document.createDocumentFragment();
+    const elements = centres.map(({ cx, cy }) => {
+      const element = document.createElementNS(this.SVG_NAMESPACE, Constant.CIRCLE) as SVGElement;
 
-    parent.parentElement?.appendChild(element);
-    return element;
+      element.setAttribute(Constant.CIRCLE_X, String(cx));
+      element.setAttribute(Constant.CIRCLE_Y, String(cy));
+      element.setAttribute(Constant.RADIUS, String(radius));
+      element.setAttribute(Constant.FILL, color);
+      element.setAttribute(Constant.STROKE, color);
+      element.setAttribute(Constant.STROKE_WIDTH, strokeWidth);
+      element.setAttribute(Constant.VISIBILITY, Constant.HIDDEN);
+      this.markOwned(element);
+      fragment.appendChild(element);
+      return element;
+    });
+
+    parent.parentElement?.appendChild(fragment);
+    return elements;
   }
 
   /**

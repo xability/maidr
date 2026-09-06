@@ -56,12 +56,12 @@ export class SmoothTraceSvgXY extends SmoothTrace {
       this.lineElements.push(lineElement as SVGElement);
 
       const dataPoints = this.points?.[r] as SmoothPoint[];
-      const linePointElements: SVGElement[] = [];
-      for (const pt of dataPoints) {
-        if (typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number') {
-          linePointElements.push(Svg.createCircleElement(pt.svg_x, pt.svg_y, lineElement));
-        }
-      }
+      const centres = dataPoints.flatMap(pt =>
+        typeof pt.svg_x === 'number' && typeof pt.svg_y === 'number'
+          ? [{ cx: pt.svg_x, cy: pt.svg_y }]
+          : [],
+      );
+      const linePointElements = Svg.createCircleElements(centres, lineElement);
 
       if (linePointElements.length > 0) {
         allFailed = false;

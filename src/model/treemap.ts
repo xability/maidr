@@ -267,15 +267,31 @@ export class TreemapTrace extends AbstractTrace {
    * @returns The navigation graph, addressed as the nodes are
    */
   private buildGraph(): (Node | null)[][] {
+    // Where every node sits among its siblings, worked out in one pass over
+    // the tree. Searching a node's sibling list for the node instead reads
+    // the whole list once per sibling, so a parent with k children costs
+    // O(k^2) -- and a flat treemap, which is what a disk-usage or a
+    // market-cap chart is, hangs every leaf off a single parent.
+    const roots: Coordinate[] = (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
+    const placeAmongSiblings = this.nodes.map(level => level.map(() => -1));
+    for (let col = 0; col < roots.length; col++) {
+      placeAmongSiblings[0][col] = col;
+    }
+    for (const level of this.nodes) {
+      for (const node of level) {
+        node?.children.forEach((child, at) => {
+          placeAmongSiblings[child.row][child.col] = at;
+        });
+      }
+    }
+
     return this.nodes.map(level =>
       level.map((node) => {
         if (node === null) {
           return null;
         }
-        const siblings = this.siblingsOf(node);
-        const at = siblings.findIndex(
-          sibling => sibling.row === node.depth && sibling.col === node.index,
-        );
+        const siblings = this.siblingsOf(node, roots);
+        const at = placeAmongSiblings[node.depth][node.index];
         return {
           up: node.parent,
           down: node.children[0] ?? null,
@@ -295,11 +311,12 @@ export class TreemapTrace extends AbstractTrace {
    * The addresses of a node's siblings, itself included.
    *
    * @param node - The node to place
+   * @param roots - The top-level addresses, built once for the whole tree
    * @returns Its parent's children, or the top-level nodes
    */
-  private siblingsOf(node: TreeNode): Coordinate[] {
+  private siblingsOf(node: TreeNode, roots: Coordinate[]): Coordinate[] {
     if (node.parent === null) {
-      return (this.nodes[0] ?? []).map((_, col) => ({ row: 0, col }));
+      return roots;
     }
     const parent = this.nodes[node.parent.row]?.[node.parent.col];
     return parent?.children ?? [];
