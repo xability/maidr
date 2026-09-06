@@ -284,6 +284,29 @@ function rangePixels(scale: PlotScale | undefined): number {
   return Math.abs(hi - lo);
 }
 
+/** One category's span in pixels, as {@link bandIntervals} reports it. */
+interface BandInterval {
+  value: string | number;
+  start: number;
+  end: number;
+  center: number;
+}
+
+/**
+ * The intervals already built for a scale.
+ *
+ * `valueAtPixel` is asked once per drawn element and the answer depends only
+ * on the scale, so without this a mark of N elements over a D-category axis
+ * costs N x D `apply` calls, N x D allocations and N sorts of D entries — and
+ * the watcher re-runs the whole conversion on every OJS redraw, so a slider
+ * drag pays it per frame.
+ *
+ * Keyed on the scale object and weakly held: `readScales` calls
+ * `plot.scale(name)`, which hands back a fresh descriptor per render, so a
+ * redrawn chart is a cache miss rather than a stale hit.
+ */
+const intervalCache = new WeakMap<PlotScale, BandInterval[]>();
+
 /**
  * The pixel intervals a band or point scale assigns to its categories.
  *
@@ -292,12 +315,29 @@ function rangePixels(scale: PlotScale | undefined): number {
  * pixel to a category by equality fails. Intervals let
  * {@link valueAtPixel} ask which band contains a point instead.
  *
+ * Built once per scale. The result describes the scale alone, so every caller
+ * reading the same chart gets the same array back rather than rebuilding it.
+ *
  * @param scale - A band, point, or ordinal scale.
  * @returns One entry per domain value, ordered by pixel position.
  */
-export function bandIntervals(
-  scale: PlotScale,
-): { value: string | number; start: number; end: number; center: number }[] {
+export function bandIntervals(scale: PlotScale): BandInterval[] {
+  const cached = intervalCache.get(scale);
+  if (cached !== undefined)
+    return cached;
+
+  const built = buildBandIntervals(scale);
+  intervalCache.set(scale, built);
+  return built;
+}
+
+/**
+ * Measures a scale's category spans, without consulting the cache.
+ *
+ * @param scale - A band, point, or ordinal scale.
+ * @returns One entry per domain value, ordered by pixel position.
+ */
+function buildBandIntervals(scale: PlotScale): BandInterval[] {
   const apply = scale.apply;
   if (typeof apply !== 'function')
     return [];
