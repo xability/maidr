@@ -1462,7 +1462,48 @@ implements Observer<SubplotState | TraceState>, Disposable {
     }
 
     const { row, col } = this.cache.indexToCell[index];
+    if (this.isRowSentinel(index, row, col)) {
+      return;
+    }
+
     this.context.moveToIndex(row, col);
+  }
+
+  /**
+   * Whether an index addresses a row's virtual sentinel rather than a cell.
+   *
+   * A single-line row ends in a `\n` whose `indexToCell` entry is
+   * `{row, col: cols}` — one past the row's last data column — so that the
+   * emitted cursor index can round-trip through `cellToIndex`. It is a
+   * separator, not a cell the reader can stand on, and End, a click past the
+   * last cell, or a display's cursor-routing key all land the caret on it.
+   * Forwarding it hands the model a column that does not exist: traces backed
+   * by a movable grid answer with an "out of bounds" cue for a move the reader
+   * never made, and a trace that trusts the column instead follows it out of
+   * its own data.
+   *
+   * Every other newline in the output maps back to a real cell — a mid-row
+   * wrap points at the last cell before the wrap, a box row terminator at its
+   * final section — so those stay forwarded and End still lands on the last
+   * cell of the line. Hence all three conditions: the character is a newline,
+   * it is the row's last `cellToIndex` entry, and that entry is this index.
+   *
+   * @param index - Index into the emitted braille string
+   * @param row - Row the index maps to
+   * @param col - Column the index maps to
+   * @returns Whether the index is the row's out-of-data sentinel
+   */
+  private isRowSentinel(index: number, row: number, col: number): boolean {
+    if (this.cache === null || this.cache.value[index] !== Constant.NEW_LINE) {
+      return false;
+    }
+
+    const rowCells = this.cache.cellToIndex[row];
+    if (rowCells === undefined) {
+      return false;
+    }
+
+    return col === rowCells.length - 1 && rowCells[col] === index;
   }
 
   /**

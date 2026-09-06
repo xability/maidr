@@ -509,7 +509,7 @@ describe('BrailleService display-size encoding', () => {
 
   test('navigates to correct cell for non-multiple row lengths', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
-    const state = createLineTraceState([[1, 2, 3]], 0, 3);
+    const state = createLineTraceState([[1, 2, 3]], 0, 2);
 
     let lastIndex = -1;
     const disposable = service.onChange((event) => {
@@ -519,7 +519,7 @@ describe('BrailleService display-size encoding', () => {
     service.toggle(state);
 
     service.moveToIndex(lastIndex);
-    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 2);
 
     disposable.dispose();
     service.dispose();
@@ -527,21 +527,21 @@ describe('BrailleService display-size encoding', () => {
 
   test('no double newline when row length is exactly divisible by display size', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
-    const state = createLineTraceState([[1, 2, 3, 4]], 0, 4);
+    const state = createLineTraceState([[1, 2, 3, 4]], 0, 3);
 
     let emitted = '';
-    let sentinelIndex = -1;
+    let cursorIndex = -1;
     const disposable = service.onChange((event) => {
       emitted = event.value;
-      sentinelIndex = event.index;
+      cursorIndex = event.index;
     });
 
     service.toggle(state);
 
     expect(emitted.includes('\n\n')).toBe(false);
 
-    service.moveToIndex(sentinelIndex);
-    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 4);
+    service.moveToIndex(cursorIndex);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
 
     disposable.dispose();
     service.dispose();
@@ -594,6 +594,53 @@ describe('BrailleService display-size encoding', () => {
 
     service.moveToIndex(mappedIndex);
     expect(contextMoveToIndex).toHaveBeenCalledWith(0, 3);
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('ignores a caret landing on the row-ending newline', () => {
+    // The trailing `\n` of a single-line row maps to `{row, col: cols}` — one
+    // past the last column — so the emitted cursor index can round-trip
+    // through cellToIndex. It is a separator, not a cell the reader can stand
+    // on: End, a click past the last cell, or a display's cursor-routing key
+    // lands there, and forwarding it hands the model a column that does not
+    // exist.
+    const { service, contextMoveToIndex } = createBrailleService(2);
+    const state = createLineTraceState([[1, 2, 3]], 0, 1);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+    contextMoveToIndex.mockClear();
+    service.moveToIndex(emitted.length - 1);
+
+    expect(emitted.endsWith('\n')).toBe(true);
+    expect(contextMoveToIndex).not.toHaveBeenCalled();
+
+    disposable.dispose();
+    service.dispose();
+  });
+
+  test('follows a caret on a mid-row wrap newline to the cell before it', () => {
+    // A wrap newline is not a sentinel: its entry points back at the last cell
+    // of the visual line, which is where End should land.
+    const { service, contextMoveToIndex } = createBrailleService(2);
+    const state = createLineTraceState([[1, 2, 3]], 0, 1);
+
+    let emitted = '';
+    const disposable = service.onChange((event) => {
+      emitted = event.value;
+    });
+
+    service.toggle(state);
+    contextMoveToIndex.mockClear();
+    service.moveToIndex(emitted.indexOf('\n'));
+
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 1);
 
     disposable.dispose();
     service.dispose();
@@ -663,7 +710,7 @@ describe('BrailleService display-size encoding', () => {
 
   test('wraps bar braille output based on configured display size', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
-    const state = createBarTraceState([[1, 2, 3, 4, 5]], 0, 5);
+    const state = createBarTraceState([[1, 2, 3, 4, 5]], 0, 4);
 
     let emitted = '';
     let lastIndex = -1;
@@ -679,7 +726,7 @@ describe('BrailleService display-size encoding', () => {
     expect(newlineCount).toBe(3);
 
     service.moveToIndex(lastIndex);
-    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 5);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 4);
 
     disposable.dispose();
     service.dispose();
@@ -708,7 +755,7 @@ describe('BrailleService display-size encoding', () => {
 
   test('wraps heatmap braille output based on configured display size', () => {
     const { service, contextMoveToIndex } = createBrailleService(2);
-    const state = createHeatmapTraceState([[1, 2, 3, 4, 5]], 0, 5);
+    const state = createHeatmapTraceState([[1, 2, 3, 4, 5]], 0, 4);
 
     let emitted = '';
     let lastIndex = -1;
@@ -723,7 +770,7 @@ describe('BrailleService display-size encoding', () => {
     expect(newlineCount).toBe(3);
 
     service.moveToIndex(lastIndex);
-    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 5);
+    expect(contextMoveToIndex).toHaveBeenCalledWith(0, 4);
 
     disposable.dispose();
     service.dispose();
