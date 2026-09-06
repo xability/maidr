@@ -525,15 +525,16 @@ export class LineTrace extends AbstractTrace {
 
     if (intersections.length > 1) {
       // Multiple lines intersect - create intersection text
-      let lineTypes = intersections.map((intersection) => {
-        const lineIndex = intersection.group!;
-        return this.points[lineIndex][0]?.z || `l${lineIndex + 1}`;
-      });
+      // Named the way every other announcement names a series, so an unnamed
+      // line is "Line 2" here as well rather than an abbreviation the reader
+      // has never been given.
+      let lineTypes = intersections.map(intersection =>
+        this.groupNameAt(intersection.group!),
+      );
 
       // If previousRow is in the intersection, put its label first
       if (this.previousRow !== null) {
-        const prevZ
-          = this.points[this.previousRow][0]?.z || `l${this.previousRow + 1}`;
+        const prevZ = this.groupNameAt(this.previousRow);
         if (lineTypes.includes(prevZ)) {
           lineTypes = [prevZ, ...lineTypes.filter(l => l !== prevZ)];
         }
@@ -1879,6 +1880,15 @@ export class LineTrace extends AbstractTrace {
   }
 
   public override moveToNextCompareValue(direction: string, type: 'lower' | 'higher'): boolean {
+    // Establish the entry position on the first move so the compare jump
+    // highlights and a subsequent ordinary keypress isn't swallowed by the
+    // initial-entry branch of moveOnce (mirrors Candlestick). The flag alone
+    // is cleared: the graph's entry handler would re-seat the cursor on the
+    // first point, discarding the position the search starts from.
+    if (this.isInitialEntry) {
+      this.isInitialEntry = false;
+    }
+
     const currentGroup = this.row;
     if (currentGroup < 0 || currentGroup >= this.lineValues.length) {
       return false;

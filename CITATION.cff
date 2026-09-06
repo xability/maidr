@@ -1,0 +1,75 @@
+cff-version: 1.2.0
+title: "MAIDR: Multimodal Access and Interactive Data Representation"
+message: >-
+  If you use this software, please cite both the software itself and the
+  MAIDR paper below.
+type: software
+authors:
+  - family-names: Seo
+    given-names: JooYoung
+    email: jseo1005@illinois.edu
+    affiliation: University of Illinois Urbana-Champaign
+repository-code: "https://github.com/xability/maidr"
+url: "https://maidr.ai/"
+abstract: >-
+  A TypeScript library that makes any SVG chart explorable by keyboard,
+  sonification, braille, text and AI description, and the engine behind
+  py-maidr and maidr for R.
+keywords:
+  - accessibility
+  - data visualization
+  - sonification
+  - braille
+  - screen reader
+  - blind
+  - low vision
+license: GPL-3.0-or-later
+preferred-citation:
+  type: conference-paper
+  title: >-
+    MAIDR: Making Statistical Visualizations Accessible with Multimodal Data
+    Representation
+  authors:
+    - family-names: Seo
+      given-names: JooYoung
+    - family-names: Xia
+      given-names: Yilin
+    - family-names: Lee
+      given-names: Bongshin
+    - family-names: Mccurry
+      given-names: Sean
+    - family-names: Yam
+      given-names: "Yu Jun"
+  collection-title: >-
+    Proceedings of the CHI Conference on Human Factors in Computing Systems
+    (CHI '24)
+  year: 2024
+  publisher:
+    name: Association for Computing Machinery
+  doi: 10.1145/3613904.3642730
+  isbn: "9798400703300"
+references:
+  - type: conference-paper
+    title: >-
+      Designing Born-Accessible Courses in Data Science and Visualization:
+      Challenges and Opportunities of a Remote Curriculum Taught by Blind
+      Instructors to Blind Students
+    authors:
+      - family-names: Seo
+        given-names: JooYoung
+      - family-names: O'Modhrain
+        given-names: Sile
+      - family-names: Xia
+        given-names: Yilin
+      - family-names: Kamath
+        given-names: Sanchita
+      - family-names: Lee
+        given-names: Bongshin
+      - family-names: Coughlan
+        given-names: "James M."
+    collection-title: "EuroVis 2024 - Education Papers"
+    year: 2024
+    publisher:
+      name: The Eurographics Association
+    doi: 10.2312/eved.20241053
+    isbn: "978-3-03868-257-8"
