@@ -24,8 +24,15 @@
  * (`lineOptions.dotSize > 0`, and no `hideDots`).
  *
  * Every selector is scoped to the container element's `id` so that charts
- * elsewhere on the same page are never matched.
+ * elsewhere on the same page are never matched. HTML5 admits ids that are not
+ * valid CSS identifiers — `my.chart`, `2024-sales` — so the id is run through
+ * `cssEscape` before it is embedded. Unescaped, the first silently matches
+ * nothing (highlighting is dropped while every announcement stays correct) and
+ * the second throws a `SyntaxError` out of `document.querySelectorAll`, which
+ * aborts construction of the whole figure.
  */
+
+import { cssEscape } from '../shared/selectorUtil';
 
 let idCounter = 0;
 
@@ -70,7 +77,7 @@ export function ensureContainerId(container: HTMLElement): void {
  * broad selector rather than the per-dataset one below.
  */
 export function barSelector(containerId: string): string {
-  return `#${containerId} svg.frappe-chart .dataset-units.dataset-bars rect.bar`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-bars rect.bar`;
 }
 
 /**
@@ -81,7 +88,7 @@ export function barSelector(containerId: string): string {
  * every group's rects and highlighting is dropped on the count mismatch).
  */
 export function barSelectorForDataset(containerId: string, index: number): string {
-  return `#${containerId} svg.frappe-chart .dataset-units.dataset-bars.dataset-${index} rect.bar`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-bars.dataset-${index} rect.bar`;
 }
 
 /**
@@ -91,17 +98,17 @@ export function barSelectorForDataset(containerId: string, index: number): strin
  * dots rather than the single `<path>`. Requires `lineOptions.dotSize > 0`.
  */
 export function lineSelector(containerId: string): string {
-  return `#${containerId} svg.frappe-chart .dataset-units.dataset-line circle`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line circle`;
 }
 
 /** Scoped selector for the per-point dot circles of one line dataset (multi-line charts). */
 export function lineSelectorForDataset(containerId: string, index: number): string {
-  return `#${containerId} svg.frappe-chart .dataset-units.dataset-line.dataset-${index} circle`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line.dataset-${index} circle`;
 }
 
 /** Scoped selector for scatter point circles (rendered in the line dataset group). */
 export function scatterSelector(containerId: string): string {
-  return `#${containerId} svg.frappe-chart .dataset-units.dataset-line circle`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .dataset-units.dataset-line circle`;
 }
 
 /**
@@ -117,7 +124,7 @@ export function scatterSelector(containerId: string): string {
  * @returns The selector matching one element per slice, in slice order.
  */
 export function sliceSelector(containerId: string, chartType: 'donut' | 'pie'): string {
-  return `#${containerId} svg.frappe-chart .${chartType}-slices path.${chartType}-path`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .${chartType}-slices path.${chartType}-path`;
 }
 
 /**
@@ -132,5 +139,5 @@ export function sliceSelector(containerId: string, chartType: 'donut' | 'pie'): 
  * @returns The selector matching one element per band, in band order.
  */
 export function percentageBarSelector(containerId: string): string {
-  return `#${containerId} svg.frappe-chart .percentage-bars rect.percentage-bar`;
+  return `#${cssEscape(containerId)} svg.frappe-chart .percentage-bars rect.percentage-bar`;
 }
