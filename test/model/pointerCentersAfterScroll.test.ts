@@ -5,9 +5,9 @@
 /**
  * Cached mark centres survive a scroll, and they must not.
  *
- * Heatmap, box, violin-box and violin-KDE all measure their marks once, in
- * the constructor, and keep the result to answer `findNearestPoint` without
- * measuring again. What they keep are *viewport* coordinates, and the pointer
+ * Heatmap, box, violin-box, violin-KDE and candlestick all measure their
+ * marks once, in the constructor, and keep the result to answer
+ * `findNearestPoint` without measuring again. What they keep are *viewport* coordinates, and the pointer
  * coordinates they are compared against (`event.clientX` / `clientY`) are
  * always current -- so the moment the page, or a container the chart sits in,
  * scrolls under them, every centre is off by however far the chart moved. A
@@ -24,10 +24,18 @@
  * the chart's size.
  */
 
-import type { BoxPoint, BoxSelector, HeatmapData, MaidrLayer, ViolinKdePoint } from '@type/grammar';
+import type {
+  BoxPoint,
+  BoxSelector,
+  CandlestickPoint,
+  HeatmapData,
+  MaidrLayer,
+  ViolinKdePoint,
+} from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { BoxTrace } from '@model/box';
+import { Candlestick } from '@model/candlestick';
 import { Heatmap } from '@model/heatmap';
 import { ViolinKdeTrace } from '@model/violin';
 import { ViolinBoxTrace } from '@model/violinBox';
@@ -241,6 +249,34 @@ function buildViolinKde(): ViolinKdeTrace {
 }
 
 /**
+ * A three-candle chart, its candles stacked down the page like the heatmap's
+ * cells so the same one-cell scroll moves the pointer's answer.
+ * @returns The trace, its candles already drawn
+ */
+function buildCandlestick(): Candlestick {
+  CELL_BOXES.forEach((box, index) => place('rect', `candle-${index}`, box));
+  const data: CandlestickPoint[] = CELL_BOXES.map((_, index) => ({
+    value: `d${index}`,
+    open: index,
+    high: index + 3,
+    low: index - 1,
+    close: index + 2,
+    volume: 100,
+    trend: 'Bull',
+    volatility: 4,
+  })) as CandlestickPoint[];
+  return new Candlestick({
+    id: 'candlestick',
+    type: TraceType.CANDLESTICK,
+    title: 'A candlestick chart',
+    orientation: Orientation.VERTICAL,
+    axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+    selectors: 'rect',
+    data,
+  } as MaidrLayer);
+}
+
+/**
  * Read a trace's current state, asserting it is a populated one.
  * @param trace - The trace to read
  * @returns The non-empty trace state
@@ -264,6 +300,7 @@ const TRACES: { name: string; build: () => HoverTrace }[] = [
   { name: 'a box plot', build: buildBox },
   { name: 'a violin box', build: buildViolinBox },
   { name: 'a violin curve', build: buildViolinKde },
+  { name: 'a candlestick chart', build: buildCandlestick },
 ];
 
 describe.each(TRACES)('the pointer centres $name caches', ({ build }) => {
