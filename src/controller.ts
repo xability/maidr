@@ -20,7 +20,7 @@ import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
 import { KeybindingService, Mousebindingservice } from '@service/keybinding';
-import { isAppendedPointFocused } from '@service/liveData';
+import { appendedPointPosition, isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
@@ -436,7 +436,10 @@ export class Controller implements Disposable {
    * @returns The column shift to apply during position restoration
    */
   private resolveActiveColShift(appended?: AppendedPointInfo): number {
-    if (!appended || appended.trimmed === 0) {
+    // `colShift` rather than `trimmed`: a trim drops points, but how far that
+    // moves the cursor along the column axis is the trace's business — zero
+    // where the columns are not the data points in arrival order.
+    if (!appended || appended.colShift === 0) {
       return 0;
     }
     try {
@@ -445,7 +448,7 @@ export class Controller implements Disposable {
       // predicate against the OLD figure is safe even for appends that start
       // a new series: the window trims per group, so a brand-new group (one
       // point) always has trimmed === 0 and returns above.
-      return isAppendedPointFocused(this.figure, appended) ? appended.trimmed : 0;
+      return isAppendedPointFocused(this.figure, appended) ? appended.colShift : 0;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);
       return 0;
@@ -481,7 +484,10 @@ export class Controller implements Disposable {
       if (!trace) {
         return;
       }
-      const state = trace.getStateAt(appended.row, appended.col);
+      // Announce coordinates come from the trace itself where the data order
+      // is not the navigation order (a scatter groups its points by sorted x).
+      const position = appendedPointPosition(trace, appended);
+      const state = trace.getStateAt(position.row, position.col);
       this.monitorService.handleNewPoint(state);
     } catch (error) {
       console.warn('[maidr] Failed to announce appended data point:', error);

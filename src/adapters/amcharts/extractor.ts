@@ -494,13 +494,19 @@ function formatCandlePosition(value: unknown): string {
  * keeps naming the candle it addresses -- the same rule
  * {@link readCategoryValues} follows.
  *
+ * Read through {@link orderedDataItems}, as every other family is, so an
+ * inversed x axis is walked from the end it is drawn from -- and, more to the
+ * point, from the same end `filterCandlestickItems` walks it from. The two
+ * disagreeing is a payload naming one candle while the overlay outlines its
+ * mirror image (#1024).
+ *
  * @param series - The financial series
  * @returns One point per complete candle
  */
 export function extractCandlestickPoints(series: AmXYSeries): CandlestickPoint[] {
   const points: CandlestickPoint[] = [];
 
-  for (const item of series.dataItems) {
+  for (const item of orderedDataItems(series)) {
     const open = toNumber(item.get('openValueY'));
     const high = toNumber(item.get('highValueY'));
     const low = toNumber(item.get('lowValueY'));

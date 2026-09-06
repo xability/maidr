@@ -160,6 +160,25 @@ export class LlmValidationService {
   }
 
   /**
+   * Describes a non-2xx model-list response. Only 401 and 403 say anything
+   * about the credential: a rate limit or an outage is the provider's
+   * problem, and reporting it as an invalid key sends the user to replace a
+   * key that works while the model dropdown stays disabled.
+   * @param status - The HTTP status the provider responded with
+   * @returns The probe result for that status
+   */
+  private static describeProbeStatus(status: number): ProviderProbeResult {
+    if (status === 401 || status === 403) {
+      return { isValid: false, models: [], error: 'Invalid API key' };
+    }
+    return {
+      isValid: false,
+      models: [],
+      error: `The provider returned ${status}. This is not a problem with your key; try again later.`,
+    };
+  }
+
+  /**
    * Probes the OpenAI models endpoint, validating the key and collecting the
    * chat-capable models it can access.
    * @param apiKey - The OpenAI API key
@@ -176,7 +195,7 @@ export class LlmValidationService {
         signal: AbortSignal.timeout(CLOUD_PROBE_TIMEOUT_MS),
       });
       if (!response.ok) {
-        return { isValid: false, models: [], error: 'Invalid API key' };
+        return this.describeProbeStatus(response.status);
       }
 
       const data = await response.json() as ModelListResponse;
@@ -218,7 +237,7 @@ export class LlmValidationService {
         signal: AbortSignal.timeout(CLOUD_PROBE_TIMEOUT_MS),
       });
       if (!response.ok) {
-        return { isValid: false, models: [], error: 'Invalid API key' };
+        return this.describeProbeStatus(response.status);
       }
 
       const data = await response.json() as ModelListResponse;
@@ -241,7 +260,7 @@ export class LlmValidationService {
         signal: AbortSignal.timeout(CLOUD_PROBE_TIMEOUT_MS),
       });
       if (!response.ok) {
-        return { isValid: false, models: [], error: 'Invalid API key' };
+        return this.describeProbeStatus(response.status);
       }
 
       const data = await response.json() as GeminiModelListResponse;

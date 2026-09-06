@@ -69,22 +69,47 @@ function readBound(
 }
 
 /**
- * Merges one censoring tick into the arm it belongs to.
+ * What one arm needs to know while its ticks are read.
  *
- * A tick whose time is already a vertex of the curve just flags that vertex.
- * Otherwise a vertex is inserted at that time, carrying the probability — and
- * the band — the curve holds across the interval it falls in, which is what
- * the estimate says there: a censored time is a subject leaving, not a step.
+ * Both maps are built once for the arm rather than per tick: the whole point
+ * of the pass is that no tick rescans the curve.
+ */
+interface ArmMerge {
+  /** The curve's vertices by time, so a tick landing on one just flags it. */
+  byTime: Map<number | string, SurvivalPoint>;
+  /** The times already queued, so two ticks at one time are one point. */
+  queued: Set<number | string>;
+  /** The times to insert, in the order the ticks were read. */
+  times: number[];
+}
+
+/**
+ * Flags the vertex a censoring tick lands on, or queues the tick for
+ * insertion.
  *
- * @param arm - The curve to merge into, in ascending time order
+ * A tick whose time is already a vertex of the curve just flags that vertex —
+ * including one an earlier tick queued, so two ticks at the same time are one
+ * censored point rather than two. Anything else has to be placed between two
+ * vertices, which {@link mergeCensoredTimes} does for the whole arm at once.
+ *
+ * @param arm - The curve the tick belongs to, in ascending time order
+ * @param merge - What has been read for this arm so far
  * @param time - The censored time
  * @param index - The tick's index within its selection, for the error message
  * @throws Error when the arm's times cannot be compared with the tick's
  */
-function mergeCensoredTime(arm: SurvivalPoint[], time: number | string, index: number): void {
-  const existing = arm.findIndex(point => point.x === time);
-  if (existing !== -1) {
-    arm[existing].censored = true;
+function placeCensoredTime(
+  arm: SurvivalPoint[],
+  merge: ArmMerge,
+  time: number | string,
+  index: number,
+): void {
+  const existing = merge.byTime.get(time);
+  if (existing !== undefined) {
+    existing.censored = true;
+    return;
+  }
+  if (merge.queued.has(time)) {
     return;
   }
 
@@ -97,37 +122,68 @@ function mergeCensoredTime(arm: SurvivalPoint[], time: number | string, index: n
       + `curve's samples carry.`,
     );
   }
-
-  // The last vertex at or before the tick: the estimate holds from there.
-  let previous = -1;
-  for (let position = 0; position < arm.length; position++) {
-    const vertex = Number(arm[position].x);
-    if (Number.isFinite(vertex) && vertex <= at) {
-      previous = position;
-    }
-  }
-
-  // A tick before the curve's first vertex takes that vertex's probability,
-  // which on a Kaplan-Meier curve is the 1.0 it starts at.
-  const held = arm[previous === -1 ? 0 : previous];
-  if (held === undefined) {
+  if (arm.length === 0) {
     throw new Error(
       `The censoring tick at index ${index} has no curve to merge into: the `
       + `arm it names carries no samples.`,
     );
   }
 
-  const inserted: SurvivalPoint = { x: at, y: held.y, censored: true };
-  if (held.z !== undefined) {
-    inserted.z = held.z;
+  merge.queued.add(at);
+  merge.times.push(at);
+}
+
+/**
+ * Rebuilds one arm with its queued censoring times merged in.
+ *
+ * Both sequences run in ascending time order — the arm because it is the
+ * curve's own vertex order, the times because they are sorted here — so one
+ * cursor walks them together. Splicing each tick into the row instead
+ * rescanned and re-shifted the whole arm per tick, which on a registry-scale
+ * curve is millions of comparisons and element moves inside a synchronous
+ * bind that re-runs on every React re-bind.
+ *
+ * Each inserted vertex carries the probability — and the band — the curve
+ * holds across the interval it falls in, which is what the estimate says
+ * there: a censored time is a subject leaving, not a step. A tick before the
+ * curve's first vertex takes that vertex's probability, which on a
+ * Kaplan-Meier curve is the 1.0 it starts at.
+ *
+ * @param arm - The curve to merge into, in ascending time order
+ * @param times - The times to insert, none of them already a vertex
+ * @returns The merged curve, or the arm itself when there is nothing to insert
+ */
+function mergeCensoredTimes(arm: SurvivalPoint[], times: number[]): SurvivalPoint[] {
+  if (times.length === 0) {
+    return arm;
   }
-  if (held.yMin !== undefined) {
-    inserted.yMin = held.yMin;
+
+  const merged: SurvivalPoint[] = [];
+  let cursor = 0;
+  let held: SurvivalPoint | undefined;
+  for (const at of [...times].sort((a, b) => a - b)) {
+    while (cursor < arm.length && Number(arm[cursor].x) <= at) {
+      held = arm[cursor];
+      merged.push(arm[cursor]);
+      cursor += 1;
+    }
+    const source = held ?? arm[0];
+    const inserted: SurvivalPoint = { x: at, y: source.y, censored: true };
+    if (source.z !== undefined) {
+      inserted.z = source.z;
+    }
+    if (source.yMin !== undefined) {
+      inserted.yMin = source.yMin;
+    }
+    if (source.yMax !== undefined) {
+      inserted.yMax = source.yMax;
+    }
+    merged.push(inserted);
   }
-  if (held.yMax !== undefined) {
-    inserted.yMax = held.yMax;
+  for (; cursor < arm.length; cursor += 1) {
+    merged.push(arm[cursor]);
   }
-  arm.splice(previous + 1, 0, inserted);
+  return merged;
 }
 
 /**
@@ -174,6 +230,12 @@ function mergeCensoredTicks(
     sample,
   );
 
+  // Read in DOM order, so a chart with more than one unreadable tick still
+  // reports the first of them. Each arm is indexed once, on the first tick
+  // that names it, and the times to insert are collected rather than spliced
+  // in one at a time; the arms are rebuilt below.
+  const merges = new Map<number, ArmMerge>();
+
   for (const { datum, index } of ticks) {
     const time = resolveAccessor<number | string>(datum, xAccessor, index);
     const fill = resolveAccessorOptional<string>(datum, fillAccessor, index);
@@ -197,7 +259,23 @@ function mergeCensoredTicks(
       );
     }
 
-    mergeCensoredTime(arms[row], time, index);
+    let merge = merges.get(row);
+    if (merge === undefined) {
+      const byTime = new Map<number | string, SurvivalPoint>();
+      for (const point of arms[row]) {
+        if (!byTime.has(point.x)) {
+          byTime.set(point.x, point);
+        }
+      }
+      merge = { byTime, queued: new Set<number | string>(), times: [] };
+      merges.set(row, merge);
+    }
+
+    placeCensoredTime(arms[row], merge, time, index);
+  }
+
+  for (const [row, merge] of merges) {
+    arms[row] = mergeCensoredTimes(arms[row], merge.times);
   }
 }
 

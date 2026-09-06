@@ -25,6 +25,7 @@ export abstract class Api {
    * @param body - The request body to send
    * @param additionalHeaders - Optional headers to merge with default headers
    * @param timeoutMs - Optional request timeout; the request aborts when exceeded
+   * @param signal - Optional caller signal; aborting it cancels the request
    * @returns A promise resolving to the API response with typed data
    */
   public static async post<T>(
@@ -32,9 +33,27 @@ export abstract class Api {
     body: BodyInit,
     additionalHeaders?: Record<string, string>,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<ApiResponse<T>> {
     const headers = { ...this.DEFAULT_HEADERS, ...additionalHeaders };
-    return this.request<T>(url, 'POST', headers, body, timeoutMs);
+    return this.request<T>(url, 'POST', headers, body, timeoutMs, signal);
+  }
+
+  /**
+   * Combines the request's own timeout with the caller's abort signal, so a
+   * caller that gives up (a disposed service, say) cancels the fetch instead
+   * of leaving the socket, the response body and the JSON parse running until
+   * the timeout expires.
+   * @param timeoutMs - Optional request timeout
+   * @param signal - Optional caller signal
+   * @returns The signal to hand to fetch, or undefined when there is neither
+   */
+  private static combineSignals(timeoutMs?: number, signal?: AbortSignal): AbortSignal | undefined {
+    const timeout = timeoutMs != null ? AbortSignal.timeout(timeoutMs) : undefined;
+    if (timeout && signal) {
+      return AbortSignal.any([signal, timeout]);
+    }
+    return timeout ?? signal;
   }
 
   /**
@@ -44,6 +63,7 @@ export abstract class Api {
    * @param headers - Headers to include in the request
    * @param body - Optional request body
    * @param timeoutMs - Optional request timeout; the request aborts when exceeded
+   * @param signal - Optional caller signal; aborting it cancels the request
    * @returns A promise resolving to the API response with typed data
    */
   private static async request<T>(
@@ -52,13 +72,15 @@ export abstract class Api {
     headers: Record<string, string>,
     body?: BodyInit,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<ApiResponse<T>> {
     try {
+      const requestSignal = this.combineSignals(timeoutMs, signal);
       const response = await fetch(url, {
         method,
         headers,
         body,
-        ...(timeoutMs != null ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+        ...(requestSignal ? { signal: requestSignal } : {}),
       });
 
       if (!response.ok) {

@@ -107,7 +107,12 @@ export function buildCandlestickLayer(root: Element, config: D3CandlestickConfig
       trend = 'Neutral';
     }
 
-    const volumeVal = resolveAccessorOptional<number>(datum, volumeAccessor, index) ?? 0;
+    // `CandlestickPoint.volume` is optional so that "absent" and "zero" stay
+    // apart, and `Candlestick.description` renders a blank cell for absent.
+    // Filling it with `0` turns an OHLC chart with no volume column into a
+    // table saying no shares traded on any day, which a reader quotes back as
+    // a finding rather than as something the chart never said.
+    const volumeVal = resolveAccessorOptional<number>(datum, volumeAccessor, index);
 
     return {
       value: resolveAccessor<string>(datum, valueAccessor, index),
@@ -115,7 +120,9 @@ export function buildCandlestickLayer(root: Element, config: D3CandlestickConfig
       high: highVal,
       low: lowVal,
       close: closeVal,
-      volume: volumeVal,
+      ...(typeof volumeVal === 'number' && Number.isFinite(volumeVal)
+        ? { volume: volumeVal }
+        : {}),
       trend,
       volatility: highVal - lowVal,
     };

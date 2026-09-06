@@ -35,9 +35,15 @@ import type { AmXYSeries } from '@adapters/amcharts/types';
 import type { CandlestickPoint } from '@type/grammar';
 import { fromXYChart } from '@adapters/amcharts/adapter';
 import { classifySeriesKind } from '@adapters/amcharts/extractor';
+import { buildNavigationMap, groupSeries } from '@adapters/amcharts/navmap';
 import { describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
-import { fakeChart, fakeContainerEl, fakeSeries } from './helpers';
+import { fakeChart, fakeContainerEl, fakeSeries, itemOf } from './helpers';
+
+/** The date an item sits at, in the form the payload announces it. */
+function formatDate(value: unknown): string {
+  return new Date(Number(value)).toISOString().slice(0, 10);
+}
 
 /** Three days, measured: two up and one down, so a Bear cannot hide. */
 const DAYS = [
@@ -53,7 +59,9 @@ const DAYS = [
  * @param days - The candles to draw
  * @returns The fake series
  */
-function financialSeries(className: string, days = DAYS): AmXYSeries {
+function financialSeries(className: string, days = DAYS, inversed = false): AmXYSeries {
+  const renderer = { get: (key: string) => (key === 'inversed' ? inversed : undefined) };
+  const xAxis = { get: (key: string) => (key === 'renderer' ? renderer : undefined) };
   return fakeSeries({
     className,
     name: 'ACME',
@@ -63,6 +71,7 @@ function financialSeries(className: string, days = DAYS): AmXYSeries {
       openValueYField: 'open',
       highValueYField: 'high',
       lowValueYField: 'low',
+      xAxis,
     },
     data: days.map(day => ({
       valueX: day.date,
@@ -117,6 +126,24 @@ describe('amcharts candlestick', () => {
     // amCharts keeps volume on a separate series when a chart draws one at
     // all, so a zero here would report a measurement nobody took.
     expect(candlesOf('CandlestickSeries')[0].volume).toBeUndefined();
+  });
+
+  it('reads a candlestick on an inversed x axis from the left of the screen', () => {
+    // Every other family reads `orderedDataItems` on both halves (#1037); the
+    // candlestick payload walked the raw list while its highlight walked the
+    // ordered one, so the reader heard candle A while the overlay outlined
+    // candle C (#1024).
+    const series = financialSeries('CandlestickSeries', DAYS, true);
+    const chart = fakeChart({ series: [series] });
+    const layers = fromXYChart(chart, fakeContainerEl()).subplots[0][0].layers;
+    const navMap = buildNavigationMap([{ chart, layers, groups: groupSeries(chart) }]);
+
+    const payload = (layers[0].data as CandlestickPoint[]).map(candle => candle.value);
+    const highlight = payload.map((_, col) =>
+      formatDate(itemOf(navMap.resolve(layers[0].id, 0, col)[0]).get('valueX')));
+
+    expect(payload).toEqual(['2024-01-03', '2024-01-02', '2024-01-01']);
+    expect(highlight).toEqual(payload);
   });
 
   it('skips a candle missing one of its four prices', () => {

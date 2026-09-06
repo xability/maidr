@@ -349,11 +349,22 @@ export function useD3Adapter(
   const specRef = useRef(spec);
   specRef.current = spec;
 
+  // The node the last bind read. A binder writes its state onto the live SVG —
+  // `ensureContainerId` stamps the `id` every emitted selector is anchored to,
+  // and the ordered stampers write the `data-maidr-*` attributes the per-mark
+  // selectors key off — so a schema is only valid for the node it was read
+  // from. `<MaidrD3>` renders its children bare until the first bind and then
+  // wraps them in `<Maidr>`, whose `<article><figure><div>` changes the element
+  // type at that position: React unmounts the bare subtree and mounts a fresh
+  // `<svg>`, taking the id and every stamp with it.
+  const boundSvgRef = useRef<SVGElement | null>(null);
+
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) {
       return;
     }
+    boundSvgRef.current = svg;
     try {
       const result = runBinder(svg, specRef.current);
       setMaidrData(result.maidr);
@@ -365,6 +376,32 @@ export function useD3Adapter(
       setError(asError);
     }
   }, deps ?? []);
+
+  // Bind again whenever the SVG that carried the last bind has been replaced,
+  // so the node the reader can actually see is the one the emitted selectors
+  // resolve against. The `<Maidr>` swap is the case that always happens; any
+  // other remount of the host `<svg>` lands here too.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!maidrData || !svg || svg === boundSvgRef.current) {
+      return;
+    }
+    // Claim the node before binding: a binder that throws must not be retried
+    // on every commit, and the schema already on screen still reads correctly
+    // for everything but highlighting, so it is kept rather than withdrawn.
+    boundSvgRef.current = svg;
+    try {
+      const result = runBinder(svg, specRef.current);
+      // Keep the figure id the first bind published — it anchors the article
+      // and figure element ids a screen reader may already have reached.
+      setMaidrData({ ...result.maidr, id: maidrData.id });
+      setError(null);
+    } catch (err) {
+      const asError = err instanceof Error ? err : new Error(String(err));
+      console.error('[MaidrD3] Re-bind after the SVG remounted failed:', asError);
+      setError(asError);
+    }
+  }, [maidrData]);
 
   return { maidrData, error };
 }
