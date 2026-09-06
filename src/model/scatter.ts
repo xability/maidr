@@ -164,6 +164,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private readonly xValues: number[];
   /** Column index of each distinct x value, for O(1) stereo-pan resolution. */
   private readonly xIndexByValue: Map<number, number>;
+  private readonly yIndexByValue: Map<number, number>;
   private readonly yValues: number[];
 
   private readonly highlightXValues: SVGElement[][] | null;
@@ -350,6 +351,20 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // O(points x columns) on every keystroke. xValues is unique and built
     // once, so a lookup table costs one pass and makes each resolve O(1).
     this.xIndexByValue = new Map(this.xValues.map((x, index) => [x, index]));
+    // The same table for the other axis, for the same reason: the COL -> ROW
+    // toggle runs on every Up and Down arrow and located its target row by
+    // scanning yValues, which on a continuous y is one entry per point.
+    //
+    // A NaN y is left out rather than keyed: `indexOf` compared with `===`,
+    // which never matched it, while a Map key would (SameValueZero). Leaving
+    // it out keeps `yIndexOf` answering -1 there, which is the miss the
+    // toggle's fallback is written for.
+    this.yIndexByValue = new Map();
+    this.yValues.forEach((y, index) => {
+      if (!Number.isNaN(y) && !this.yIndexByValue.has(y)) {
+        this.yIndexByValue.set(y, index);
+      }
+    });
 
     this.minX = MathUtil.safeMin(this.xValues);
     this.maxX = MathUtil.safeMax(this.xValues);
@@ -870,6 +885,18 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   /**
+   * Resolves a y value to its row index on the sorted unique y axis.
+   *
+   * Unlike {@link xIndexOf}, a miss answers -1 rather than 0: both callers
+   * test for it, one to fall back to the first row and one to clamp.
+   * @param value - A y value drawn from this trace's data
+   * @returns The row index of that value, or -1 if it is not a known y
+   */
+  private yIndexOf(value: number): number {
+    return this.yIndexByValue.get(value) ?? -1;
+  }
+
+  /**
    * How many points share this point's x — the denominator of the "row n of m"
    * that point mode announces. Read by both the in-bounds audio state and the
    * out-of-bounds one so the boundary chime describes the same geometry as the
@@ -1272,7 +1299,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
     // yValues is the sorted unique y axis, so a point of this trace is always
     // on it; the clamp only guards a malformed layer.
-    return { row: Math.max(0, this.yValues.indexOf(point.y)), col: point.xIndex };
+    return { row: Math.max(0, this.yIndexOf(point.y)), col: point.xIndex };
   }
 
   protected override get hasMultiPoints(): boolean {
@@ -1376,7 +1403,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       const currentXPoint = this.xPoints[this.col];
       const middleYValue
         = currentXPoint.y[Math.floor(currentXPoint.y.length / 2)];
-      const targetRow = this.yValues.indexOf(middleYValue);
+      const targetRow = this.yIndexOf(middleYValue);
 
       // Safety check: ensure the calculated row is valid
       if (targetRow === -1 || targetRow >= this.yPoints.length) {
