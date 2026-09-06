@@ -442,6 +442,35 @@ function buildSegmentedBarLayer(
 }
 
 /**
+ * Where a bin sits when no `binConfig` names its edges.
+ *
+ * A numeric label places the bin, so it is read as a zero-width bin there —
+ * which is what the D3 binder does with the same pre-aggregated
+ * `[{ x, count }]` shape. A label such as `'0-10'` places nothing, and the
+ * alternative to refusing it is announcing a bin range the chart never drew:
+ * defaulting the edges to `0` made `MathUtil.spanned(0, 0)` report the whole
+ * histogram's bin range as "constant 0", and every row of the data table as
+ * Bin Min 0 / Bin Max 0.
+ *
+ * @param x - The bin's label, as the `xKey` field held it
+ * @returns The edge to use for both ends of the bin
+ * @throws When the label is not a number the bin can be placed at
+ */
+function binEdgeFor(x: string | number): number {
+  const at = Number(x);
+  if (Number.isFinite(at)) {
+    return at;
+  }
+  throw new Error(
+    `RechartsAdapter: the histogram bin labelled "${String(x)}" states no bin `
+    + `range — its label is not a number the bin could be placed at, and no `
+    + `\`binConfig\` names the fields holding its edges. Pass \`binConfig: `
+    + `{ xMinKey, xMaxKey }\`; without it every bin range the reader hears `
+    + `would be invented.`,
+  );
+}
+
+/**
  * Converts data to `HistogramPoint[]`, reading the bin edges the config names.
  *
  * @param data - The rows as the chart was given them
@@ -449,6 +478,7 @@ function buildSegmentedBarLayer(
  * @param yKey - The field holding the bin's count
  * @param binConfig - The fields holding the bin's own edges
  * @returns One point per bin
+ * @throws When no `binConfig` is given and a bin's label does not place it
  */
 function convertToHistogramPoints(
   data: Record<string, unknown>[],
@@ -459,8 +489,8 @@ function convertToHistogramPoints(
   return data.map((item) => {
     const x = item[xKey] as string | number;
     const y = toNumber(item[yKey]);
-    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : 0;
-    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : 0;
+    const xMin = binConfig ? toNumber(item[binConfig.xMinKey]) : binEdgeFor(x);
+    const xMax = binConfig ? toNumber(item[binConfig.xMaxKey]) : binEdgeFor(x);
     const yMin = binConfig?.yMinKey ? toNumber(item[binConfig.yMinKey]) : 0;
     const yMax = binConfig?.yMaxKey ? toNumber(item[binConfig.yMaxKey]) : y;
 

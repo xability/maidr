@@ -798,19 +798,39 @@ describe('convertRechartsToMaidr', () => {
       expect(data[1]).toEqual({ x: '10-20', y: 8, xMin: 10, xMax: 20, yMin: 0, yMax: 8 });
     });
 
-    it('defaults bin ranges to 0 when binConfig omitted', () => {
+    it('reads a numeric bin label as a zero-width bin when binConfig is omitted', () => {
+      // No edges were declared and none can be derived, but the bin does sit
+      // at its own label, so that is what is announced. Defaulting to 0 made
+      // `MathUtil.spanned` report the whole histogram's bin range as
+      // "constant 0" — a specific, confident and wrong reading.
       const config: RechartsAdapterConfig = {
         id: 'hist',
-        data: [{ bin: 'A', count: 5 }],
+        data: [{ bin: 5, count: 5 }, { bin: 15, count: 9 }],
         chartType: 'histogram',
         xKey: 'bin',
         yKeys: ['count'],
       };
 
       const result = convertRechartsToMaidr(config);
+
       const data = result.subplots[0][0].layers[0].data as HistogramPoint[];
-      expect(data[0].xMin).toBe(0);
-      expect(data[0].xMax).toBe(0);
+      expect(data[0]).toEqual({ x: 5, y: 5, xMin: 5, xMax: 5, yMin: 0, yMax: 5 });
+      expect(data[1]).toEqual({ x: 15, y: 9, xMin: 15, xMax: 15, yMin: 0, yMax: 9 });
+    });
+
+    it('refuses a labelled histogram whose bin edges nothing states', () => {
+      // `binConfig` is documented as required for a histogram, and every other
+      // required sub-config throws. A bin labelled "0-10" places nothing, so
+      // the alternative is announcing a bin range the chart never drew.
+      const config: RechartsAdapterConfig = {
+        id: 'hist',
+        data: [{ bin: '0-10', count: 5 }],
+        chartType: 'histogram',
+        xKey: 'bin',
+        yKeys: ['count'],
+      };
+
+      expect(() => convertRechartsToMaidr(config)).toThrow('binConfig');
     });
   });
 
@@ -2318,10 +2338,11 @@ describe('convertRechartsToMaidr', () => {
     it('uses selectorOverride for histogram', () => {
       const config: RechartsAdapterConfig = {
         id: 'override-hist',
-        data: [{ bin: 'A', count: 5 }],
+        data: [{ bin: 'A', count: 5, from: 0, to: 10 }],
         chartType: 'histogram',
         xKey: 'bin',
         yKeys: ['count'],
+        binConfig: { xMinKey: 'from', xMaxKey: 'to' },
         selectorOverride: '.custom-hist',
       };
 
