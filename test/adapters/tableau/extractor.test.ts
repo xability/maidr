@@ -1,6 +1,7 @@
 import type { TableauExtraction } from '@adapters/tableau/extractor';
 import type {
   TableauColumn,
+  TableauDataValue,
   TableauMarkType,
   WorksheetSnapshot,
 } from '@adapters/tableau/types';
@@ -188,6 +189,33 @@ describe('tableau extractor', () => {
       expect(layerOf(extraction).type).toBe(TraceType.LINE);
     });
 
+    it('does not scan the dimensions for a rung that cannot fire', () => {
+      // `everyDimensionIsDetail` is a full pass per dimension and feeds only
+      // the point-cloud rung, which needs two measures. One measure and one
+      // dimension is the ordinary Tableau shape, and the binder re-extracts
+      // from scratch on every filter, parameter, data and tab change.
+      let reads = 0;
+      const counted = (text: string): TableauDataValue => ({
+        value: text,
+        nativeValue: text,
+        get formattedValue(): string {
+          reads++;
+          return text;
+        },
+      });
+
+      extractTableau([
+        fakeSnapshot({
+          columns: [category(), measure()],
+          rows: [[counted('Chairs'), 3], [counted('Tables'), 1]],
+        }),
+      ]);
+
+      // Twice per row, which is what building the layer costs: once for the
+      // bar's announced label, once for the criteria that address its mark.
+      expect(reads).toBe(4);
+    });
+
     it('reads a continuous axis as a point cloud rather than dropping the worksheet', () => {
       // A continuous field on an axis — an unaggregated `Discount`, or a
       // `Sales (bin)` field — is classified as a second *measure*, because every
@@ -211,6 +239,28 @@ describe('tableau extractor', () => {
       ]);
       expect(warn).not.toHaveBeenCalledWith(
         expect.stringContaining('no dimension to navigate'),
+      );
+    });
+
+    it('keeps a continuous-axis worksheet the mark type cannot describe', () => {
+      // Same worksheet as above, now on a host that reports a visual
+      // specification — the normal case on any current Embedding library. The
+      // mark type is authority B, but `line` needs a category and this
+      // worksheet has none, so trusting it drops the whole panel from the
+      // figure. The ladder's own reading is still available and still right.
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Profit by Discount',
+          columns: [fakeColumn('Discount', 'float', 0), fakeColumn('SUM(Profit)', 'float', 1)],
+          rows: [[0.1, 5], [0.2, 9], [0.3, 2]],
+          spec: fakeVisualSpec(['line']),
+        }),
+      ]);
+
+      expect(extraction.maidr.subplots).toHaveLength(1);
+      expect(layerOf(extraction).type).toBe(TraceType.SCATTER);
+      expect(warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('produced no sonifiable data'),
       );
     });
 
@@ -541,6 +591,30 @@ describe('tableau extractor', () => {
       expect(data.points.every(row => row.length === data.x.length)).toBe(true);
     });
 
+    it('leaves a cell Tableau drew no value at as a gap rather than a zero', () => {
+      // A NULL measure arrives as a `null` nativeValue over a grid that is
+      // otherwise complete, so `isCompleteGrid` does not stand in the way. A
+      // `0` there sonifies at the bottom of the range, is reachable as the
+      // row minimum, and pulls the scale every other cell is announced
+      // against; `null` is the gap spelling `HeatmapData` demands (#1191).
+      const extraction = extractTableau([
+        fakeSnapshot({
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Tables', 'East', null],
+            ['Chairs', 'West', 3],
+            ['Tables', 'West', 4],
+          ],
+          spec: fakeVisualSpec(['heatmap']),
+        }),
+      ]);
+
+      const data = layerOf(extraction).data as HeatmapData;
+
+      expect(data.points).toEqual([[1, null], [3, 4]]);
+    });
+
     it('falls back to grouped bars, with a warning, when the grid has holes', () => {
       const extraction = extractTableau([
         fakeSnapshot({
@@ -548,6 +622,29 @@ describe('tableau extractor', () => {
           columns: [category(), region(), measure()],
           rows: [
             ['Chairs', 'East', 1],
+            ['Tables', 'East', 2],
+            ['Chairs', 'West', 3],
+          ],
+          spec: fakeVisualSpec(['heatmap']),
+        }),
+      ]);
+
+      expect(layerOf(extraction).type).toBe(TraceType.DODGED);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('complete grid'));
+    });
+
+    it('falls back to grouped bars when a duplicated pair hides a missing one', () => {
+      // Four rows over two categories and two regions, so the row count alone
+      // matches the product of the two — but `(Chairs, East)` appears twice and
+      // `(Tables, West)` not at all. Reading it as a grid draws a cell the view
+      // never did and discards the duplicate's value.
+      const extraction = extractTableau([
+        fakeSnapshot({
+          name: 'Highlight Table',
+          columns: [category(), region(), measure()],
+          rows: [
+            ['Chairs', 'East', 1],
+            ['Chairs', 'East', 9],
             ['Tables', 'East', 2],
             ['Chairs', 'West', 3],
           ],
