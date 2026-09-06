@@ -5,11 +5,6 @@ import { Figure } from '@model/plot';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 
-jest.mock('hotkeys-js', () => ({
-  __esModule: true,
-  default: { setScope: jest.fn() },
-}));
-
 /**
  * Creates a bar layer config with the given number of points.
  * @param id - Layer identifier
