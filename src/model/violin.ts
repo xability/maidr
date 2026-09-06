@@ -642,9 +642,9 @@ export class ViolinKdeTrace extends AbstractTrace {
     const isOnePerViolin = selectors.length === this.points.length;
 
     // One shared pattern selector answers the same for every violin, so it
-    // is resolved and sorted once instead of once per violin -- N repeats of
-    // the same querySelectorAll, and three more passes over its result each
-    // time.
+    // is resolved and narrowed once instead of once per violin -- N repeats
+    // of the same querySelectorAll, and up to three more passes over its
+    // result each time to pick the geometry element.
     const shared = isOnePerViolin || !selectors[0]
       ? null
       : ViolinKdeTrace.candidatesOf(Svg.selectAllElements(selectors[0], false));
