@@ -630,9 +630,21 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     for (const row of this.highlightValues) {
       for (const cell of row) {
         const cellElements = Array.isArray(cell) ? cell : cell ? [cell] : [];
-        for (const clone of cellElements) {
+        for (const element of cellElements) {
+          // Live chart geometry held for in-place highlighting -- a heatmap
+          // cell, a box part, a bar addressed by its own selector -- IS the
+          // original. Its previous sibling is the neighbouring mark, and
+          // reading that shifts the whole list by one: the last mark goes
+          // missing and whatever precedes the first is styled as data.
+          // Ownership is the signal `dispose()` already uses to tell a
+          // MAIDR-made clone from the chart's own element.
+          if (!Svg.isOwned(element)) {
+            elements.push(element);
+            continue;
+          }
+
           // The original element is the previous sibling of the hidden clone
-          const original = clone.previousElementSibling as SVGElement | null;
+          const original = element.previousElementSibling as SVGElement | null;
 
           // Verify this is actually the paired original element:
           // - Must exist
@@ -640,7 +652,7 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
           // - Must NOT be hidden (the clone is hidden, original is visible)
           if (
             original
-            && original.tagName === clone.tagName
+            && original.tagName === element.tagName
             && original.getAttribute('visibility') !== 'hidden'
           ) {
             elements.push(original);
