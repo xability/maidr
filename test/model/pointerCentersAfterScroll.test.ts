@@ -6,8 +6,9 @@
  * Cached mark centres survive a scroll, and they must not.
  *
  * Heatmap, box, violin-box, violin-KDE and candlestick all measure their
- * marks once, in the constructor, and keep the result to answer
- * `findNearestPoint` without measuring again. What they keep are *viewport* coordinates, and the pointer
+ * marks once, on the first hover, and keep the result to answer later
+ * `findNearestPoint` calls without measuring again. What they keep are
+ * viewport* coordinates, and the pointer
  * coordinates they are compared against (`event.clientX` / `clientY`) are
  * always current -- so the moment the page, or a container the chart sits in,
  * scrolls under them, every centre is off by however far the chart moved. A
@@ -21,7 +22,9 @@
  *
  * The cost side is pinned by counting measurements rather than timing them:
  * a hover with nothing moved measures once, for the bounds check, whatever
- * the chart's size.
+ * the chart's size -- and building the trace measures nothing at all, since
+ * the cache starts stale and the first hover fills it by the same path a
+ * scroll uses. `lazyHighlightCenters.test.ts` covers that side.
  */
 
 import type {
@@ -317,22 +320,32 @@ describe.each(TRACES)('the pointer centres $name caches', ({ build }) => {
   });
 
   /**
-   * Builds the trace and reports how many marks it measured doing so, which
-   * is the size of the cache and therefore what a rebuild costs.
-   * @returns The trace and the number of marks behind it
+   * Builds the trace and pays the first hover, which is what fills the cache
+   * now that the constructor leaves it stale. Reports how many marks that
+   * measured, which is the size of the cache and therefore what a rebuild
+   * costs.
+   * @returns The trace, warmed, and the number of marks behind it
    */
   function built(): { trace: HoverTrace; marks: number } {
-    measure.mockClear();
     const trace = build();
-    const marks = measure.mock.calls.length;
+    measure.mockClear();
+    trace.moveToPointAndGetPointerGuidance(20, 20);
+    // Every mark, to fill the cache, and one more for the bounds check on
+    // the mark the hover resolved to.
+    const marks = measure.mock.calls.length - 1;
     measure.mockClear();
     return { trace, marks };
   }
 
-  test('are measured once while the trace is built', () => {
-    const { marks } = built();
+  test('are measured on the first hover, not while the trace is built', () => {
+    const built = measure.mock.calls.length;
+    const trace = build();
 
-    expect(marks).toBeGreaterThan(0);
+    const whileBuilding = measure.mock.calls.length - built;
+    trace.moveToPointAndGetPointerGuidance(20, 20);
+
+    expect(whileBuilding).toBe(0);
+    expect(measure.mock.calls.length).toBeGreaterThan(1);
   });
 
   test('answer a hover without measuring again while nothing has moved', () => {
