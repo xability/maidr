@@ -3,6 +3,7 @@ import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -277,7 +278,19 @@ export class BoxenTrace extends AbstractTrace {
       { label: 'Number of distributions', value: this.points.length },
     ];
 
-    const depths = this.points.map(point => (point.levels ?? []).length);
+    const names = this.points
+      .map(point => (typeof point.z === 'string' ? point.z.trim() : ''))
+      .filter(name => name !== '');
+    if (names.length > 0) {
+      stats.push({ label: 'Distribution names', value: names.join(', ') });
+    }
+
+    // Off the ladder that is actually walked, not the raw `levels`:
+    // `ladderOf` drops any level outside (0, 0.5), so a producer that sends a
+    // 0.5 or a duplicate had the summary claim more rungs than the table below
+    // it lists and than navigation can reach. The ladder is lower + median +
+    // upper, so half of what is left after the median is the rung count.
+    const depths = this.rungs.map(ladder => Math.max(0, (ladder.length - 1) / 2));
     if (depths.length > 0) {
       // How far the ladder goes is a fact about the *sample*, not about the
       // chart's styling: a library adds rungs as it gains confidence in the
@@ -290,11 +303,35 @@ export class BoxenTrace extends AbstractTrace {
       });
     }
 
-    if (Number.isFinite(this.min) && Number.isFinite(this.max)) {
-      stats.push(
-        { label: 'Min value', value: this.min },
-        { label: 'Max value', value: this.max },
-      );
+    // Named for what it is. `min`/`max` are the ends of the quantile ladder,
+    // and the outlier count on the very next line is a tally of points beyond
+    // them -- so "Max value" was a maximum the chart draws points above.
+    stats.push({ label: 'Quantile range', value: MathUtil.spannedOrMissing(this.min, this.max) });
+
+    const medians = this.points
+      .map((point, index) => ({ index, median: Number(point.median) }))
+      .filter(entry => Number.isFinite(entry.median));
+    if (medians.length > 0) {
+      stats.push({
+        label: 'Median of each distribution',
+        value: medians
+          .map(({ index, median }) =>
+            `${names[index] ?? `Distribution ${index + 1}`} at ${defaultFormat(median)}`)
+          .join(', '),
+      });
+    }
+
+    const outlierValues = this.points
+      .flatMap(point => [...(point.lowerOutliers ?? []), ...(point.upperOutliers ?? [])])
+      .filter(Number.isFinite);
+    if (outlierValues.length > 0) {
+      stats.push({
+        label: 'Outlier range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.safeMin(outlierValues),
+          MathUtil.safeMax(outlierValues),
+        ),
+      });
     }
 
     const outliers = this.points.reduce(
@@ -312,9 +349,23 @@ export class BoxenTrace extends AbstractTrace {
       stats.push({ label: 'Outliers', value: outliers });
     }
 
-    const headers = [this.xAxis, 'Quantile', this.yAxis];
-    const rows: (string | number)[][] = this.points.flatMap((point, row) =>
-      this.rungs[row].map(rung => [point.z, rung.label, rung.value]));
+    // Swapped for orientation, as the trace's own `text` getter already is: a
+    // horizontal boxen carries its category on y and its measurement on x, so
+    // the unswapped headers titled the category column with the value axis.
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const headers = [
+      isHorizontal ? this.yAxis : this.xAxis,
+      'Quantile',
+      isHorizontal ? this.xAxis : this.yAxis,
+    ];
+    // Outliers among the rungs, in the same long format: they were counted in
+    // the summary and then existed nowhere a reader could reach them -- the
+    // table listed the ladder alone, and navigation does not visit them.
+    const rows: (string | number)[][] = this.points.flatMap((point, row) => [
+      ...(point.lowerOutliers ?? []).map(value => [point.z, 'lower outlier', value]),
+      ...this.rungs[row].map(rung => [point.z, rung.label, rung.value]),
+      ...(point.upperOutliers ?? []).map(value => [point.z, 'upper outlier', value]),
+    ]);
 
     return {
       chartType: this.getChartTypeLabel(),

@@ -181,10 +181,43 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   protected isComputingStateAt: boolean;
 
+  /**
+   * True while a move is being made for something other than the reader.
+   * See {@link runSilently}.
+   */
+  private isSilent: boolean;
+
   protected constructor() {
     this.observers = new Array<Observer<State>>();
     this.isWarning = false;
     this.isComputingStateAt = false;
+    this.isSilent = false;
+  }
+
+  /**
+   * Runs `action` with this element's observers muted.
+   *
+   * A cursor move normally *is* the announcement -- `moveToIndex` notifies, and
+   * everything downstream of it speaks, brailles and highlights. That is wrong
+   * for a move the reader did not make and is not waiting to hear: the
+   * description dialog's layer tabs relocate the reader in the chart while the
+   * modal is open, and the trace's announcement would land in the same live
+   * region the dialog is using, so one of the two is dropped. The caller
+   * announces afterwards, once, when the reader is back on the chart.
+   *
+   * Nesting is safe and the flag is restored on every path, including a throw,
+   * because a flag left raised would silence the chart for good.
+   *
+   * @param action - The moves to make in silence
+   */
+  public runSilently(action: () => void): void {
+    const wasSilent = this.isSilent;
+    this.isSilent = true;
+    try {
+      action();
+    } finally {
+      this.isSilent = wasSilent;
+    }
   }
   protected abstract get dimension(): Dimension;
 
@@ -270,6 +303,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
         'notifyStateUpdate() fired during getStateAt(): state getters must stay side-effect free',
       );
     }
+    if (this.isSilent) {
+      return;
+    }
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
@@ -278,6 +314,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Notifies observers that an out-of-bounds condition occurred.
    */
   public notifyOutOfBounds(): void {
+    if (this.isSilent) {
+      return;
+    }
     const outOfBoundsState = this.outOfBoundsState;
     this.observers.forEach(observer => observer.update(outOfBoundsState));
   }
@@ -833,6 +872,31 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public get layerLabel(): string {
     return this.name ?? this.getChartTypeLabel();
+  }
+
+  /**
+   * Which way this chart is drawn, or undefined for a type that has no
+   * orientation to speak of.
+   *
+   * Entering the chart already announces it -- "This is a maidr plot of type:
+   * horizontal bar" -- but the description dialog said only "Chart Type: Bar
+   * Chart", and for the box, violin and boxen families the orientation also
+   * silently reverses the order of the rows in the table underneath, because
+   * their constructors reverse the groups when the chart is horizontal. A
+   * reader comparing the table with what they walked had no way to know why
+   * the two disagreed.
+   *
+   * Exposed here, and read once by the description service, rather than pushed
+   * as a stat by each of the thirty-odd traces that has one. Named apart from
+   * the bar and distribution families' own `orientation` fields, which hold the
+   * declared* value and default it to vertical for every type -- including the
+   * ones that have no orientation at all.
+   *
+   * @returns `horizontal` or `vertical`, or undefined when the type has no
+   * orientation to report.
+   */
+  public get orientationLabel(): string | undefined {
+    return resolveOrientation(this.type, this.layer.orientation);
   }
 
   /**

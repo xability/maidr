@@ -10,7 +10,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
-import { extremeStat, isHigher, isLower } from './boxExtremes';
+import { extremeStat, groupNameAt, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -182,14 +182,31 @@ export class ViolinBoxTrace extends AbstractTrace {
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
+    // The chart's own noun in both layers of a violin: this layer and the KDE
+    // layer beside it counted the same violins under two different words, in
+    // adjacent tabs of the same dialog.
+    const violinNames = this.points
+      .map(point => (point.z ?? point.fill))
+      .filter((name): name is string => typeof name === 'string' && name.trim() !== '')
+      .map(name => name.trim());
+
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of groups', value: this.points.length },
+      { label: 'Number of violins', value: this.points.length },
+      ...(violinNames.length > 0
+        ? [{ label: 'Violin names', value: violinNames.join(', ') }]
+        : []),
       { label: 'Sections', value: this.sections.join(', ') },
       ...this.rangeStats(),
     ];
 
-    const headers = ['Group', ...this.sections];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // The authored label for whichever axis carries the categories, read off
+    // the layer rather than through `this.xAxis` so the 'X'/'Y' placeholders
+    // `named()` substitutes do not become a column heading.
+    const categorical = isHorizontal
+      ? this.layer.axes?.y?.label
+      : this.layer.axes?.x?.label;
+    const headers = [categorical?.trim() ? categorical.trim() : 'Violin', ...this.sections];
 
     const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
@@ -198,7 +215,9 @@ export class ViolinBoxTrace extends AbstractTrace {
           : this.boxValues[sectionIdx]?.[pointIdx];
         return value ?? '';
       });
-      return [point.z, ...sectionValues];
+      // Not `point.z`: the violin bindings emit `fill` and no `z`, so every
+      // cell of this column was blank on the shipped violin example.
+      return [groupNameAt(this.points, pointIdx, 'Violin'), ...sectionValues];
     });
 
     return {
@@ -225,6 +244,12 @@ export class ViolinBoxTrace extends AbstractTrace {
    * @returns The range rows, minus any whose section this violin omits.
    */
   private rangeStats(): DescriptionState['stats'] {
+    // Nothing to describe, and `extremeStat`'s singular branch would otherwise
+    // emit "Minimum: missing" for a chart with no violins at all.
+    if (this.points.length === 0) {
+      return [];
+    }
+
     const stats = [
       extremeStat(
         this.points,

@@ -683,7 +683,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       return null;
     }
 
-    Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    // Muted: carrying the position moves the incoming trace's cursor, and a
+    // cursor move normally announces itself. Here the reader is reading a
+    // modal, so that announcement would land in the live region the dialog is
+    // using. The caller speaks the switch once, on the way out.
+    newTrace.runSilently(() => {
+      Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    });
     return newTrace;
   }
 
@@ -916,6 +922,13 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * after building the whole audio/braille/text/highlight snapshot.
    */
   readonly level: 'trace';
+
+  /**
+   * Runs the given moves with this trace's observers muted, so a relocation
+   * the reader did not ask for does not announce itself. See
+   * `AbstractPlot.runSilently`.
+   */
+  runSilently: (action: () => void) => void;
 
   /**
    * Gets the current X value from the trace

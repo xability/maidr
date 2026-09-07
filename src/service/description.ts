@@ -28,15 +28,44 @@ import { defaultFormat } from '@util/format';
  */
 function roundCell(value: string | number | number[]): string | number {
   if (Array.isArray(value)) {
-    return value
-      .filter(entry => Number.isFinite(entry))
-      .map(entry => defaultFormat(entry))
-      .join(', ');
+    if (value.length === 0) {
+      return '';
+    }
+    // Named rather than dropped. Filtering the non-finite entries out made the
+    // cell claim one outlier where the trace reported two, with nothing to say
+    // the other had been removed. `missing` is the word the announcements
+    // already use for a value that is not there, so the two agree.
+    return value.map(entry => roundNonFinite(entry) ?? defaultFormat(entry)).join(', ');
   }
   if (typeof value === 'number' && !Number.isFinite(value)) {
-    return value;
+    // An infinity is a bound the chart really has, so it is named. A NaN is
+    // handed back as a *number* so the dialog's own `isDisplayable` blanks the
+    // cell -- naming it here would put the word in every empty cell of a
+    // sparse table, where the blank is what a reader expects and the row's
+    // own stat already says how many values are absent.
+    return Number.isNaN(value) ? value : (roundNonFinite(value) ?? value);
   }
   return defaultFormat(value);
+}
+
+/**
+ * How a non-finite number reads, or null when it is finite and the caller
+ * should format it normally.
+ *
+ * @param value - The number to name.
+ * @returns The word for it, or null.
+ */
+function roundNonFinite(value: number): string | null {
+  if (Number.isFinite(value)) {
+    return null;
+  }
+  if (value === Number.POSITIVE_INFINITY) {
+    return 'infinity';
+  }
+  if (value === Number.NEGATIVE_INFINITY) {
+    return 'negative infinity';
+  }
+  return 'missing';
 }
 
 /**
@@ -78,9 +107,22 @@ export class DescriptionService implements Disposable {
 
       const subplots = this.context.getSubplotSummaries();
       const layers = this.context.getLayerSummaries();
+      const rounded = this.rounded(description);
+      // Orientation first, and the figure's own notes last: which way the
+      // chart is drawn qualifies everything under it -- for the box, violin
+      // and boxen families it reverses the order of the table's rows -- while
+      // a subtitle and a caption belong to the figure rather than to this
+      // layer, and used to be visible only from the multi-panel lobby, which a
+      // single-panel figure never has.
+      const orientation = active.orientationLabel;
       return {
         ...description,
-        ...this.rounded(description),
+        ...rounded,
+        stats: [
+          ...(orientation ? [{ label: 'Orientation', value: orientation }] : []),
+          ...rounded.stats,
+          ...this.figureNotes(),
+        ],
         title,
         ...(subplots.length > 0 && { subplots }),
         ...(layers.length > 0 && { layers }),
@@ -102,12 +144,37 @@ export class DescriptionService implements Disposable {
     // which is delivered straight to observers, not via this getter). The final
     // `return null` is therefore defensive against the declared PlotState type
     // rather than a reachable runtime path.
-    const state = active.state;
-    if (state.type === 'figure' && !state.empty) {
-      return this.getFigureDescription(state.size);
+    // Asked of the cheap level accessor rather than of `active.state`, which
+    // builds the focused subplot's whole announcement -- audio, braille, text
+    // and highlight for its active trace -- to hand back one number.
+    if (this.context.activeLevel === 'figure') {
+      return this.getFigureDescription();
     }
 
     return null;
+  }
+
+  /**
+   * The figure's own subtitle and caption, when it authored them.
+   *
+   * Shown at both levels of the dialog. They used to appear only in the
+   * multi-panel lobby, so a single-panel figure -- which has no lobby, because
+   * the context enters its one subplot immediately -- could carry a caption
+   * that `d` never showed at all.
+   *
+   * @returns The authored notes, in reading order.
+   */
+  private figureNotes(): DescriptionStat[] {
+    const notes: DescriptionStat[] = [];
+    const subtitle = this.context.figureSubtitle;
+    if (this.context.isAuthoredSubtitle(subtitle)) {
+      notes.push({ label: 'Subtitle', value: subtitle });
+    }
+    const caption = this.context.figureCaption;
+    if (this.context.isAuthoredCaption(caption)) {
+      notes.push({ label: 'Caption', value: caption });
+    }
+    return notes;
   }
 
   /**
@@ -144,36 +211,46 @@ export class DescriptionService implements Disposable {
 
   /**
    * Builds a figure-level description for a multi-panel figure's lobby view.
-   * Surfaces the authored figure title, subplot count, any authored
-   * subtitle/caption, and the authored figure-wide axes (e.g. a facet grid's
-   * shared X/Y labels), plus the per-subplot summaries so the user sees what
-   * is available before navigating in. The data table is left blank (no rows)
-   * because raw data is a trace-level concept with no figure-level equivalent;
-   * the description modal hides empty sections.
+   * Surfaces the authored figure title, where the reader is standing, a census
+   * of the chart types the panels hold, any authored subtitle/caption, and the
+   * authored figure-wide axes (e.g. a facet grid's shared X/Y labels), plus the
+   * per-subplot summaries so the user sees what is available before navigating
+   * in. The data table is left blank (no rows) because raw data is a
+   * trace-level concept with no figure-level equivalent; the description modal
+   * hides empty sections.
    *
-   * @param size - The number of subplots in the figure.
    * @returns The figure-level description state.
    */
-  private getFigureDescription(size: number): DisplayDescriptionState {
+  private getFigureDescription(): DisplayDescriptionState {
     const figureTitle = this.context.figureTitle;
     const title = this.context.isAuthoredTitle(figureTitle) ? figureTitle : '';
-
-    const stats: DescriptionStat[] = [
-      { label: 'Subplots', value: size },
-    ];
-    const subtitle = this.context.figureSubtitle;
-    if (this.context.isAuthoredSubtitle(subtitle)) {
-      stats.push({ label: 'Subtitle', value: subtitle });
-    }
-    const caption = this.context.figureCaption;
-    if (this.context.isAuthoredCaption(caption)) {
-      stats.push({ label: 'Caption', value: caption });
-    }
 
     // Mirror the trace-level branch: only surface `subplots` when there is at
     // least one summary, matching the DescriptionState contract that the field
     // is present only for genuine multi-panel figures.
     const subplots = this.context.getSubplotSummaries();
+    const active = subplots.find(subplot => subplot.isActive);
+
+    // Not "Subplots: 3": the list below is headed with that count already. What
+    // a reader cannot get from the list is where they are standing in it, and
+    // what kinds of chart it holds without walking every entry.
+    const kinds = new Map<string, number>();
+    subplots.forEach(subplot =>
+      subplot.traceTypes.forEach(kind => kinds.set(kind, (kinds.get(kind) ?? 0) + 1)),
+    );
+    const stats: DescriptionStat[] = [
+      ...(active
+        ? [{ label: 'Currently on', value: `subplot ${active.index} of ${subplots.length}` }]
+        : []),
+      ...(kinds.size > 0
+        ? [{
+            label: 'Chart types',
+            value: [...kinds].map(([kind, n]) => (n > 1 ? `${kind} (${n})` : kind)).join(', '),
+          }]
+        : []),
+      ...this.figureNotes(),
+    ];
+
     return {
       chartType: 'Multi-panel figure',
       title,

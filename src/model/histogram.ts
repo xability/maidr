@@ -2,7 +2,7 @@ import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
-import { AbstractBarPlot } from './bar';
+import { AbstractBarPlot, isMeasured, MISSING_TEXT } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public constructor(layer: MaidrLayer) {
@@ -17,34 +17,77 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public override get description(): DescriptionState {
     const isVertical = this.orientation === Orientation.VERTICAL;
     const points = this.points[0] as HistogramPoint[];
-    const firstPoint: HistogramPoint | undefined = points[0];
-    const lastPoint: HistogramPoint | undefined = points[points.length - 1];
+    const counts = this.barValues[0] ?? [];
 
-    // A producer can emit a histogram with no bins; the range is then
-    // 'missing', as `rangeStats` already reports the min and max.
-    const binRange = firstPoint && lastPoint
-      ? MathUtil.spanned(
-          isVertical ? firstPoint.xMin : firstPoint.yMin,
-          isVertical ? lastPoint.xMax : lastPoint.yMax,
-        )
-      : 'missing';
+    // The extremes over every bin, not the first bin's low and the last bin's
+    // high: bin order is the producer's, and a descending or shuffled layer
+    // reported a range running backwards -- or, with one bin missing its
+    // bounds, the literal text "constant undefined".
+    const lows = points
+      .map(point => Number(isVertical ? point.xMin : point.yMin))
+      .filter(Number.isFinite);
+    const highs = points
+      .map(point => Number(isVertical ? point.xMax : point.yMax))
+      .filter(Number.isFinite);
+    const binRange = MathUtil.spannedOrMissing(
+      MathUtil.safeMin(lows),
+      MathUtil.safeMax(highs),
+    );
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of bins', value: points.length },
-      ...this.rangeStats(),
+      // `count`, not `value`: these are bin heights, and they sat directly
+      // above a `Bin range` that is the binned variable -- two adjacent lines
+      // about two different axes, under labels naming neither.
+      ...this.rangeStats('count'),
       { label: 'Bin range', value: binRange },
     ];
+
+    const measuredCounts = counts.filter(isMeasured);
+    if (measuredCounts.length > 0) {
+      stats.push({
+        label: 'Total observations',
+        value: measuredCounts.reduce((sum, count) => sum + count, 0),
+      });
+
+      // Where the distribution peaks -- the question a histogram is drawn to
+      // answer, and one a reader could previously only get by walking every
+      // bin. Named the way the sibling hexbin names its densest cell.
+      const peak = counts.indexOf(MathUtil.safeMax(measuredCounts));
+      const peakPoint = points[peak];
+      if (peakPoint !== undefined) {
+        stats.push({
+          label: 'Modal bin',
+          value: `${MathUtil.spannedOrMissing(
+            Number(isVertical ? peakPoint.xMin : peakPoint.yMin),
+            Number(isVertical ? peakPoint.xMax : peakPoint.yMax),
+          )}, ${counts[peak]}`,
+        });
+      }
+    }
+
+    const widths = points
+      .map(point => Number(
+        (isVertical ? point.xMax : point.yMax) - (isVertical ? point.xMin : point.yMin),
+      ))
+      .filter(Number.isFinite);
+    if (widths.length > 0) {
+      stats.push({
+        label: 'Bin width',
+        value: MathUtil.spannedOrMissing(MathUtil.safeMin(widths), MathUtil.safeMax(widths)),
+      });
+    }
 
     const headers = isVertical
       ? [this.xAxis, this.yAxis, 'Bin Min', 'Bin Max']
       : [this.yAxis, this.xAxis, 'Bin Min', 'Bin Max'];
 
-    const rows: (string | number)[][] = points.map((p) => {
+    const rows: (string | number)[][] = points.map((p, col) => {
       const main = isVertical ? p.x : p.y;
-      const cross = isVertical ? p.y : p.x;
+      const count = counts[col];
       const min = isVertical ? p.xMin : p.yMin;
       const max = isVertical ? p.xMax : p.yMax;
-      return [main, cross, min, max];
+      return [main, isMeasured(count) ? count : MISSING_TEXT, min, max];
     });
 
     return {
