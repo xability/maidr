@@ -281,6 +281,19 @@ describe('the description table', () => {
     expect(first[2]).toBe('entry stage');
   });
 
+  test('rounds the entry population the way the announcement speaks it', () => {
+    // The count is interpolated into a string, and `DescriptionService` takes
+    // a string for display text and leaves it alone -- so a derived count
+    // reached the dialog at seventeen digits beside the announcement's two.
+    const stats = funnel(0, [
+      { x: 'a', y: 10000 / 3 },
+      { x: 'b', y: 100 },
+    ]).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Entry stage')?.value)
+      .toBe('a (3333.33)');
+  });
+
   test('counts a stage with no value in the funnel\'s own vocabulary', () => {
     // The parent names a gap by the mark it usually draws, so one summary
     // read "Number of stages: 2" and then "Bars with no value: 1".

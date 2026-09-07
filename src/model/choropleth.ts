@@ -140,7 +140,13 @@ export class ChoroplethTrace extends AbstractTrace {
     }
 
     this.regionValues = this.regions.map(band => band.map(region => region.value));
-    const flat = this.regionValues.flat();
+    // Valued regions only. `Math.min` answers `NaN` for any set holding one,
+    // and this pair is the scale every region's pitch and every braille cell
+    // is placed against -- so a single region the layer gave no value for left
+    // the whole map sounding against `NaN` and shading against it too, which
+    // is silence and an empty display rather than a map with one blank in it.
+    // `Heatmap` seeds the same pair the same way, for the same reason (#1191).
+    const flat = this.regionValues.flat().filter(Number.isFinite);
     this.min = MathUtil.safeMin(flat);
     this.max = MathUtil.safeMax(flat);
 
@@ -409,12 +415,12 @@ export class ChoroplethTrace extends AbstractTrace {
     const every = this.regions.flat();
     const stats: DescriptionState['stats'] = [
       { label: 'Number of regions', value: every.length },
-      // A region the layer gave no value for makes both of these `NaN` --
-      // `Math.min` over anything holding one answers `NaN` -- and an empty
-      // map makes them infinite. The dialog blanks a non-finite number, so
-      // the two lines were spoken as a label, a colon and nothing after it,
-      // which reads as MAIDR having failed rather than as a map with no
-      // range. `Heatmap` guards the same pair the same way.
+      // A map with nothing measured on it has no range, and the infinities
+      // `safeMin` and `safeMax` answer an empty set with are not one. The
+      // dialog blanks a non-finite number, so the two lines were spoken as a
+      // label, a colon and nothing after it, which reads as MAIDR having
+      // failed rather than as a map with no range. `Heatmap` guards the same
+      // pair the same way.
       { label: 'Min value', value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
       { label: 'Max value', value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
     ];

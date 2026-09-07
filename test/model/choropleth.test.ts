@@ -1,6 +1,6 @@
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { ChoroplethTrace } from '@model/choropleth';
 import { TraceFactory } from '@model/factory';
@@ -27,6 +27,20 @@ const WEST: ChoroplethPoint[] = [
   { x: 'Utah', y: 85, lat: 39.5, lon: -111.7, neighbors: ['Idaho', 'Nevada'] },
   { x: 'Nevada', y: 90, lat: 39.3, lon: -116.6, neighbors: ['Oregon', 'Idaho', 'Utah', 'California'] },
   { x: 'California', y: 95, lat: 37.2, lon: -119.4, neighbors: ['Oregon', 'Nevada'] },
+];
+
+/**
+ * A map carrying one region the layer gave no value for.
+ *
+ * `NaN` is what `Number(point.y)` leaves of a value that is absent, or that
+ * arrived as a string that is not a number. It is the shape every reduction
+ * over the values has to survive: `Math.min` answers `NaN` for a set holding
+ * one, and both `>` and `<` are false against it.
+ */
+const BLANK_IN_IT: ChoroplethPoint[] = [
+  { x: 'Blank', y: Number.NaN, lat: 1, lon: 1, neighbors: ['Alpha'] },
+  { x: 'Alpha', y: 5, lat: 2, lon: 1, neighbors: ['Blank', 'Beta'] },
+  { x: 'Beta', y: 9, lat: 3, lon: 1, neighbors: ['Alpha'] },
 ];
 
 /**
@@ -203,21 +217,44 @@ describe('the description answers what a ranked list cannot', () => {
     // `>` and `<` are both false against a `NaN`, so an unvalued region held
     // the seed against every comparison and came out as both the highest and
     // the lowest -- one region, so the pair was withheld from a map that
-    // plainly has a high and a low. The range goes the same way: `Math.min`
-    // of anything holding a `NaN` is one, and the dialog blanks a non-finite
-    // number, printing a label, a colon and nothing after it.
-    const unvalued: ChoroplethPoint[] = [
-      // What `Number(point.y)` leaves of a region whose value is absent, or
-      // is a string that is not a number.
-      { x: 'Blank', y: Number.NaN, lat: 1, lon: 1, neighbors: ['Alpha'] },
-      { x: 'Alpha', y: 5, lat: 2, lon: 1, neighbors: ['Blank', 'Beta'] },
-      { x: 'Beta', y: 9, lat: 3, lon: 1, neighbors: ['Alpha'] },
+    // plainly has a high and a low. The range went the same way: `Math.min`
+    // of anything holding a `NaN` is one, so the map with one blank in it
+    // reported no range at all beside two extremes it had just named.
+    expect(stat('Min value', BLANK_IN_IT)).toBe(5);
+    expect(stat('Max value', BLANK_IN_IT)).toBe(9);
+    expect(stat('Highest', BLANK_IN_IT)).toBe('Beta, 9');
+    expect(stat('Lowest', BLANK_IN_IT)).toBe('Alpha, 5');
+  });
+
+  test('a map with nothing measured on it says so rather than nothing', () => {
+    // `safeMin`/`safeMax` answer an empty set with the infinities, which the
+    // dialog blanks -- so the two lines were a label, a colon and nothing
+    // after them, reading as a failure rather than as a map with no range.
+    const nothing: ChoroplethPoint[] = [
+      { x: 'Blank', y: Number.NaN, lat: 1, lon: 1 },
+      { x: 'Void', y: Number.NaN, lat: 2, lon: 1 },
     ];
 
-    expect(stat('Min value', unvalued)).toBe('missing');
-    expect(stat('Max value', unvalued)).toBe('missing');
-    expect(stat('Highest', unvalued)).toBe('Beta, 9');
-    expect(stat('Lowest', unvalued)).toBe('Alpha, 5');
+    expect(stat('Min value', nothing)).toBe('missing');
+    expect(stat('Max value', nothing)).toBe('missing');
+  });
+
+  test('one blank region does not scale the whole map against NaN', () => {
+    // The pair the description prints is the pair every region's pitch and
+    // every braille cell is placed against. Taken over the `NaN` too, both
+    // bounds were `NaN` and the map sounded and shaded against nothing --
+    // one region with no value silencing the five that had one.
+    const { audio, braille } = nonEmptyState(choropleth(BLANK_IN_IT));
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+
+    expect(audio.freq.min).toBe(5);
+    expect(audio.freq.max).toBe(9);
+    // One bound per band, which is how the map hands the whole scale to every
+    // row of the display.
+    expect((braille as BarBrailleState).min).toEqual([5, 5]);
+    expect((braille as BarBrailleState).max).toEqual([9, 9]);
   });
 
   test('speaks a rate at the precision the rest of the dialog does', () => {

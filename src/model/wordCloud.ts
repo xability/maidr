@@ -3,6 +3,7 @@ import type { MaidrLayer, WordCloudPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -329,11 +330,17 @@ export class WordCloudTrace extends AbstractTrace {
   /**
    * How one term reads where the summary names it.
    *
+   * The weight goes through `defaultFormat` because it is interpolated into a
+   * string, which `DescriptionService` takes for display text and leaves
+   * alone: a cloud weighted by a computed score reached the dialog naming its
+   * heaviest term at `0.3333333333333333`, beside the `0.33` the announcement
+   * speaks for the same term.
+   *
    * @param term - Which term, in weight order
    * @returns The term and its weight, e.g. `machine (412)`
    */
   private termSummary(term: number): string {
-    return `${this.points[term].x} (${this.weights[0][term]})`;
+    return `${this.points[term].x} (${defaultFormat(this.weights[0][term])})`;
   }
 
   /**

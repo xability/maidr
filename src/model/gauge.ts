@@ -17,8 +17,18 @@ import { MovableGrid } from './movable';
  * none rather than to the last one, because saying "in the 'good' band" about
  * a value beyond every declared band would invent a classification.
  *
+ * A band whose edge is not a number is dropped before the sort rather than
+ * merely losing its own comparison. `Number('n/a') - 50` is `NaN`, which the
+ * sort is required to read as "equal", so one unplaceable band leaves the
+ * bands on either side of it where they were authored — and `find` then
+ * answers with the first band that happens to sit above the value rather than
+ * the lowest one that does. A gauge banded `good, n/a, poor` classified 40 as
+ * 'good'. Dropping it also keeps this in step with {@link describeBands},
+ * which lists the placeable bands and would otherwise name edges that
+ * contradict the band selected here.
+ *
  * @param value - The measure
- * @param bands - The chart's bands, ascending
+ * @param bands - The chart's bands, in whatever order they were authored
  * @returns The band's label, or null when the value falls outside all of them
  */
 function bandOf(value: number, bands: GaugeBand[] | undefined): string | null {
@@ -27,6 +37,7 @@ function bandOf(value: number, bands: GaugeBand[] | undefined): string | null {
   }
 
   const found = [...bands]
+    .filter(band => Number.isFinite(Number(band.to)))
     .sort((a, b) => Number(a.to) - Number(b.to))
     .find(band => value <= Number(band.to));
 
@@ -60,9 +71,11 @@ const ABOVE_ALL_BANDS = 'above every band';
  *
  * Read as upper edges rather than as spans because that is what a band is:
  * one starts where the previous ended, and the first at the dial's floor.
- * A band whose edge is not a number cannot be placed on the dial -- and is
- * never the band {@link bandOf} selects, every comparison against it being
- * false -- so it is left out rather than listed with a gap for its edge.
+ * A band whose edge is not a number cannot be placed on the dial, and
+ * {@link bandOf} drops it for the same reason, so it is left out here rather
+ * than listed with a gap where its edge should be. The two filters have to
+ * agree: a band listed here that the classification cannot reach would leave
+ * the summary naming a scale the needle is never read against.
  *
  * @param bands - The chart's bands, in whatever order they were authored
  * @returns The bands as display text, or the empty string when none can be placed
@@ -205,8 +218,18 @@ export class GaugeTrace extends AbstractTrace {
    * @returns The measure's name, never blank
    */
   private get measureName(): string {
-    return this.point.label
-      ?? (this.title === DEFAULT_SUBPLOT_TITLE ? MEASURE_FALLBACK : this.title);
+    // Blankness is tested rather than nullishness, the rule `named()` states
+    // for an axis label: a producer with no name to give writes one of two
+    // spellings of none, and `??` catches only `undefined`. A blank one is
+    // erased by the dialog exactly as the placeholder is, so it lands the row
+    // and the announcement back in the state this getter exists to prevent.
+    if (this.point.label?.trim()) {
+      return this.point.label;
+    }
+    if (this.title.trim() && this.title !== DEFAULT_SUBPLOT_TITLE) {
+      return this.title;
+    }
+    return MEASURE_FALLBACK;
   }
 
   protected get text(): TextState {
@@ -272,36 +295,35 @@ export class GaugeTrace extends AbstractTrace {
 
     if (this.point.target !== undefined) {
       const target = Number(this.point.target);
-      const delta = this.value - target;
       stats.push({ label: 'Target', value: target });
-      if (delta === 0) {
-        // Landing on the target is a reading of its own on a KPI dial, not a
-        // degenerate case of overshooting it. "Above target by 0" makes a
-        // claim about a direction the value does not have, and leaves the
-        // reader inferring "so it is exactly on target" -- the inference the
-        // direction labels exist to spare them.
-        stats.push({ label: 'Versus target', value: 'on target' });
-      } else {
-        stats.push({
-          // Named by direction rather than reported as a signed number: "7
-          // below target" is what a reader is asking, and a bare "-7" leaves
-          // them working out which way it points.
-          label: delta > 0 ? 'Above target by' : 'Below target by',
-          value: Math.abs(delta),
-        });
-      }
+      stats.push(...this.versusTarget(target));
     }
 
-    const bands = this.point.bands ?? [];
-    if (bands.length > 0) {
-      // Stated even when the needle has passed every band: a chart that draws
-      // bands and a summary that says nothing about them read alike, and the
-      // second is the case where the reader most needs to be told.
-      stats.push({ label: 'Band', value: bandOf(this.value, bands) ?? ABOVE_ALL_BANDS });
-      const edges = describeBands(bands);
-      if (edges !== '') {
-        stats.push({ label: 'Bands', value: edges });
+    // Gated on the bands that can be placed rather than on the array's
+    // length: a chart whose every edge is unreadable draws no scale a reader
+    // can be told about, and `bandOf` cannot select from it either.
+    const edges = describeBands(this.point.bands ?? []);
+    if (edges !== '') {
+      const band = bandOf(this.value, this.point.bands);
+      if (band !== null) {
+        stats.push({ label: 'Band', value: band });
+      } else if (Number.isFinite(this.value)) {
+        // Stated even when the needle has passed every band: a chart that
+        // draws bands and a summary that says nothing about them read alike,
+        // and the second is the case where the reader most needs to be told.
+        //
+        // Only when there is a needle to have passed them. `bandOf` answers
+        // null for a dial with no value too -- every comparison against a
+        // `NaN` is false -- and reading that as "above every band" states a
+        // position for a measure the chart never reported, on the one line a
+        // reader would trust over the blank the `Value` stat becomes.
+        stats.push({ label: 'Band', value: ABOVE_ALL_BANDS });
       }
+      // Named apart from `Band` rather than pluralised: the two sit adjacent
+      // in the list, and a trailing sibilant is the whole of the difference a
+      // screen reader would speak between the band the needle is in and every
+      // band the chart draws.
+      stats.push({ label: 'All bands', value: edges });
     }
 
     // Headed from the axes the announcement already names these two fields
@@ -322,6 +344,40 @@ export class GaugeTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * How the measure reads against the target beside it, when it reads at all.
+   *
+   * Named by direction rather than reported as a signed number: "7 below
+   * target" is what a reader is asking, and a bare "-7" leaves them working
+   * out which way it points. Landing on the target is a reading of its own on
+   * a KPI dial rather than a degenerate case of overshooting it -- "Above
+   * target by 0" claims a direction the value does not have, and leaves the
+   * reader to infer "so it is exactly on target", which is the inference the
+   * direction labels exist to spare them.
+   *
+   * A comparison that could not be made has no direction at all, and says
+   * nothing. `NaN >= 0` is false, so a dial with no value -- or a target that
+   * is not a number -- used to come out under 'Below target by' with a
+   * difference the dialog then blanked, leaving the claim standing in the
+   * label, where no blanking can reach it.
+   *
+   * @param target - The target marker, as a number
+   * @returns The one stat, or nothing when there is no comparison to report
+   */
+  private versusTarget(target: number): DescriptionState['stats'] {
+    const delta = this.value - target;
+    if (!Number.isFinite(delta)) {
+      return [];
+    }
+    if (delta === 0) {
+      return [{ label: 'Versus target', value: 'on target' }];
+    }
+    return [{
+      label: delta > 0 ? 'Above target by' : 'Below target by',
+      value: Math.abs(delta),
+    }];
   }
 
   /**

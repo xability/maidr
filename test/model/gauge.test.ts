@@ -272,6 +272,22 @@ describe('description', () => {
     expect(stats.map(stat => stat.label)).not.toContain('Above target by');
   });
 
+  test('claims no direction against a target it could not compare with', () => {
+    // `NaN >= 0` is false, so a dial with no value landed under 'Below target
+    // by' with a difference the dialog then blanked -- and the claim lives in
+    // the label, where blanking cannot reach it.
+    const noValue = { min: 0, max: 100, target: 80 };
+    const labels = gauge(noValue as unknown as GaugePoint)
+      .description
+      .stats
+      .map(stat => stat.label);
+
+    expect(labels).toContain('Target');
+    expect(labels).not.toContain('Below target by');
+    expect(labels).not.toContain('Above target by');
+    expect(labels).not.toContain('Versus target');
+  });
+
   test('reports the range and the band', () => {
     const { stats } = gauge().description;
 
@@ -313,8 +329,57 @@ describe('description', () => {
     // "Band: ok" without "ok reaches 75" is unanchored: a reader cannot tell
     // whether 73 sits comfortably inside the band or a point short of the
     // next one.
-    expect(read(gauge().description.stats, 'Bands'))
+    expect(read(gauge().description.stats, 'All bands'))
       .toBe('poor up to 50, ok up to 75, good up to 100');
+  });
+
+  test('names the list of bands apart from the band the needle is in', () => {
+    // 'Band' and 'Bands' sit next to each other in the list, and a trailing
+    // sibilant is the whole of the difference a screen reader speaks between
+    // "the band it is in" and "every band there is".
+    const labels = gauge().description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Band');
+    expect(labels).not.toContain('Bands');
+  });
+
+  test('classifies against the placeable bands, not the array as authored', () => {
+    // One band with an unreadable edge makes the comparator answer NaN for
+    // every pair it takes part in, which the sort reads as "equal" -- so the
+    // bands on either side of it stay where they were authored and the first
+    // one above the value wins. 40 came out 'good'.
+    const unreadable: GaugePoint = {
+      value: 40,
+      min: 0,
+      max: 100,
+      bands: [
+        { to: 100, label: 'good' },
+        { to: 'n/a' as unknown as number, label: 'weird' },
+        { to: 50, label: 'poor' },
+      ],
+    };
+
+    expect(read(gauge(unreadable).description.stats, 'Band')).toBe('poor');
+    expect(nonEmptyState(gauge(unreadable)).text.section).toBe('poor');
+    // And the edges listed agree with the band selected against them.
+    expect(read(gauge(unreadable).description.stats, 'All bands'))
+      .toBe('poor up to 50, good up to 100');
+  });
+
+  test('claims no band on a dial with no value to place', () => {
+    // `bandOf` answers null for a measure that is not a number as well as for
+    // one past every band -- every comparison against a NaN is false -- and
+    // reading the first as "above every band" states a position for a value
+    // the chart never reported, beside a `Value` line the dialog blanks.
+    const noValue = { min: 0, max: 100, bands: [{ to: 50, label: 'poor' }] };
+    const labels = gauge(noValue as unknown as GaugePoint)
+      .description
+      .stats
+      .map(stat => stat.label);
+
+    expect(labels).not.toContain('Band');
+    // The scale the chart draws is still worth stating.
+    expect(labels).toContain('All bands');
   });
 
   test('says the needle has passed every band rather than saying nothing', () => {
@@ -337,7 +402,7 @@ describe('description', () => {
       .map(stat => stat.label);
 
     expect(labels).not.toContain('Band');
-    expect(labels).not.toContain('Bands');
+    expect(labels).not.toContain('All bands');
   });
 
   test('omits the target stats when the chart draws no target', () => {
@@ -380,5 +445,29 @@ describe('the description table', () => {
     expect(unnamed.description.dataTable.headers).toEqual(['Progress', 'Value']);
     // The announcement reads the same name, rather than the placeholder.
     expect(nonEmptyState(unnamed).text.main.value).toBe('Measure');
+  });
+
+  test('does not take a blank label for the measure\'s name', () => {
+    // A producer with no name to give writes one of two spellings of none,
+    // and `??` catches only `undefined`. The dialog erases a blank exactly as
+    // it erases the placeholder, so the row lost its header again -- here to
+    // the chart's own title, which is the next name the gauge has.
+    const blank = gauge({ label: '   ', value: 42, min: 0, max: 100 });
+
+    expect(blank.description.dataTable.rows).toEqual([['Conversion rate', 42]]);
+    expect(nonEmptyState(blank).text.main.value).toBe('Conversion rate');
+  });
+
+  test('falls back to the fixed word when the blank name is all there is', () => {
+    const bare = TraceFactory.create({
+      id: 'blank-gauge',
+      type: TraceType.GAUGE,
+      axes: { x: { label: 'Progress' } },
+      data: { label: '   ', value: 42, min: 0, max: 100 },
+    }) as GaugeTrace;
+    bare.moveToIndex(0, 0);
+
+    expect(bare.description.dataTable.rows).toEqual([['Measure', 42]]);
+    expect(nonEmptyState(bare).text.main.value).toBe('Measure');
   });
 });

@@ -278,6 +278,18 @@ describe('description', () => {
     expect(stats).toContainEqual({ label: 'Lightest term', value: 'gradient (57)' });
   });
 
+  test('rounds a named term\'s weight the way the announcement speaks it', () => {
+    // The weight is interpolated into a string, and `DescriptionService`
+    // takes a string for display text and leaves it alone -- so a cloud
+    // weighted by a computed score named its heaviest term at seventeen
+    // digits beside the announcement's two.
+    const scored: WordCloudPoint[] = [{ x: 'a', y: 1 / 3 }, { x: 'b', y: 1 / 7 }];
+    const { stats } = at(0, scored).description;
+
+    expect(read(stats, 'Heaviest term')).toBe('a (0.33)');
+    expect(read(stats, 'Lightest term')).toBe('b (0.14)');
+  });
+
   test('claims one extreme when every term weighs the same', () => {
     // The twin of the rotor's own guard: told there is a lightest term
     // distinct from the heaviest, a reader concludes the weights differ on a

@@ -1,6 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { BarTrace, isMeasured, MISSING_TEXT } from './bar';
 
 /**
@@ -194,7 +195,14 @@ export class FunnelTrace extends BarTrace {
         // but declined to state the denominator -- which a reader who opened
         // the dialog from the rotor has never heard announced either.
         label: 'Entry stage',
-        value: isMeasured(this.counts[0]) ? `${entry} (${this.counts[0]})` : `${entry}`,
+        // The count goes through `defaultFormat` because it is interpolated
+        // into a string, which `DescriptionService` takes for display text and
+        // leaves alone -- so a stage counted at `3333.3333333333335` reached
+        // the dialog at seventeen digits beside the `3333.33` the
+        // announcement speaks for the same number.
+        value: isMeasured(this.counts[0])
+          ? `${entry} (${defaultFormat(this.counts[0])})`
+          : `${entry}`,
       });
     }
 

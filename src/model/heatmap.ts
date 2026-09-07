@@ -221,7 +221,18 @@ export class Heatmap extends AbstractTrace {
       }
     }
 
-    const headers = [this.yAxis, ...this.x];
+    // Sized off the grid, for the reason the row labels below are read off it
+    // rather than counted from: `Columns` states the grid, and a header row
+    // taken from `x` instead put a fourth column name over three columns of
+    // cells -- a table naming something the reader cannot reach, under a count
+    // saying it is not there. A column the labels do not reach is numbered
+    // rather than left blank, the way an unnamed series is `Curve 2`: the
+    // cursor can stand in it, so it needs a name to be announced under.
+    const columns = this.heatmapValues[0] ?? [];
+    const headers = [
+      this.yAxis,
+      ...columns.map((_cell, c) => this.x[c] ?? `Column ${c + 1}`),
+    ];
     // Walked over the grid, so a label array longer than the payload cannot
     // index past the end of it -- `this.heatmapValues[r]` was `undefined` and
     // `.map` threw, inside a getter the `d` keypress calls with nothing
