@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { FormatterService } from '@service/formatter';
 import type { RotorNavigationService } from '@service/rotor';
 import type { Disposable } from '@type/disposable';
 import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
@@ -77,6 +78,7 @@ export class DescriptionService implements Disposable {
   private readonly context: Context;
   private readonly display: DisplayService;
   private readonly rotor: RotorNavigationService;
+  private readonly formatter: FormatterService;
 
   /**
    * Whether a layer tab moved the model's active layer during this visit to
@@ -89,10 +91,12 @@ export class DescriptionService implements Disposable {
     context: Context,
     display: DisplayService,
     rotor: RotorNavigationService,
+    formatter: FormatterService,
   ) {
     this.context = context;
     this.display = display;
     this.rotor = rotor;
+    this.formatter = formatter;
   }
 
   /**
@@ -119,7 +123,7 @@ export class DescriptionService implements Disposable {
 
       const subplots = this.context.getSubplotSummaries();
       const layers = this.context.getLayerSummaries();
-      const rounded = this.rounded(description);
+      const rounded = this.rounded(description, active.getId());
       // Orientation first, and the figure's own notes last: which way the
       // chart is drawn qualifies everything under it -- for the box, violin
       // and boxen families it reverses the order of the table's rows -- while
@@ -209,7 +213,9 @@ export class DescriptionService implements Disposable {
    */
   private rounded(
     description: DescriptionState,
+    layerId: string,
   ): Pick<DisplayDescriptionState, 'stats' | 'dataTable'> {
+    const cellOf = this.columnFormatters(description, layerId);
     return {
       stats: description.stats.map(stat => ({
         ...stat,
@@ -217,9 +223,54 @@ export class DescriptionService implements Disposable {
       })),
       dataTable: {
         headers: description.dataTable.headers,
-        rows: description.dataTable.rows.map(row => row.map(roundCell)),
+        rows: description.dataTable.rows.map(row =>
+          row.map((cell, column) => cellOf(column)(cell)),
+        ),
       },
     };
+  }
+
+  /**
+   * How each column of the data table reads, by column index.
+   *
+   * The layer's own formatter where its author declared one for that column's
+   * axis, and this service's rounding everywhere else. A candlestick whose x
+   * carries a date format and whose y carries a currency one announces
+   * "Nov 3" and "$180.25" as the reader walks it; before this the table beside
+   * those announcements printed the epoch milliseconds and the bare float, so
+   * one dialog described one value two ways and neither surface said which was
+   * meant.
+   *
+   * Asked per column rather than per cell so the lookup happens once for a
+   * table of a thousand rows, and gated on the format having been *authored*
+   * so a chart nobody formatted reads exactly as it did before -- an axis with
+   * no `format` still has a formatter, and using it would quietly replace the
+   * blank a non-finite cell renders as with the word `missing` in every empty
+   * cell of a sparse table.
+   *
+   * @param description - The description as the trace built it.
+   * @param layerId - The layer the description came from.
+   * @returns A function from column index to that column's cell formatter.
+   */
+  private columnFormatters(
+    description: DescriptionState,
+    layerId: string,
+  ): (column: number) => (cell: string | number | number[]) => string | number {
+    const axes = description.dataTable.columnAxes;
+    if (!axes) {
+      return () => roundCell;
+    }
+
+    const perColumn = axes.map((axis) => {
+      if (axis === undefined || !this.formatter.hasAuthoredFormat(layerId, axis)) {
+        return roundCell;
+      }
+      const format = this.formatter.getFormatter(layerId, axis);
+      return (cell: string | number | number[]): string | number =>
+        Array.isArray(cell) ? cell.map(entry => format(entry)).join(', ') : format(cell);
+    });
+
+    return column => perColumn[column] ?? roundCell;
   }
 
   /**

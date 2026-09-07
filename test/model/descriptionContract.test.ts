@@ -358,6 +358,22 @@ describe.each(CASES)('the $name description', ({ layer }) => {
     expect(offenders).toEqual([]);
   });
 
+  test('names the axis of every column, or of none', () => {
+    const { headers, columnAxes } = describedBy().dataTable;
+    if (columnAxes === undefined) {
+      return;
+    }
+
+    // The description service reads this by column index to decide which
+    // cells go through the layer's own formatter. One entry short and the
+    // last column silently loses its format; one entry long and the array
+    // has drifted from the headers it is meant to describe.
+    expect(columnAxes).toHaveLength(headers.length);
+    columnAxes.forEach((axis) => {
+      expect(axis === undefined || axis === 'x' || axis === 'y' || axis === 'z').toBe(true);
+    });
+  });
+
   test('claims only the axes the layer actually labelled', () => {
     const description = describedBy();
     const leaked = Object.entries(description.axes)

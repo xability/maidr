@@ -554,6 +554,24 @@ export interface DescriptionState {
    */
   dataTable: {
     headers: string[];
+    /**
+     * Which axis each column's values were measured on, index-aligned with
+     * {@link headers}, so the dialog can read a column the way the chart's
+     * author asked for it to be read.
+     *
+     * A layer may declare a `format` per axis -- currency, a percentage, a
+     * date -- and the announcements honour it, so navigating a candlestick
+     * says "Nov 3" and "$180.25". The table had no way to know which column
+     * was which axis and printed the raw numbers, so one dialog described one
+     * value two ways.
+     *
+     * `undefined` for a column that sits on no axis: a category name, a
+     * quantile label, a computed share, a count the layer never declared a
+     * format for. Omitting the whole array is the same as every column being
+     * undefined, which is what a trace that has not been taught this does --
+     * its table keeps the description's own rounding, exactly as before.
+     */
+    columnAxes?: (AxisType | undefined)[];
     rows: (string | number | number[])[][];
   };
   /**

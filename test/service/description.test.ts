@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { FormatterService } from '@service/formatter';
 import type { RotorNavigationService } from '@service/rotor';
 import type { LayerSummary, PlotState, SubplotSummary } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -60,6 +61,19 @@ function createMockDisplayService(): DisplayService {
   } as unknown as DisplayService;
 }
 
+/**
+ * The formatter surface `DescriptionService` touches. The figure-level branch
+ * never reaches a layer's formats, so answering "nothing was authored" is the
+ * whole contract here; `descriptionRounding.test.ts` drives a real
+ * `FormatterService` for the branch that does.
+ */
+function createMockFormatterService(): FormatterService {
+  return {
+    hasAuthoredFormat: () => false,
+    getFormatter: () => String,
+  } as unknown as FormatterService;
+}
+
 function figureState(size: number): PlotState {
   return { empty: false, type: 'figure', size } as unknown as PlotState;
 }
@@ -77,7 +91,12 @@ describe('descriptionService figure-level description', () => {
       subplotSummaries: subplots,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -103,7 +122,12 @@ describe('descriptionService figure-level description', () => {
       authored: ['A subtitle', 'A caption'],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -120,7 +144,12 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -133,7 +162,12 @@ describe('descriptionService figure-level description', () => {
       figureXAxis: 'Year',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -150,7 +184,12 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -166,7 +205,12 @@ describe('descriptionService figure-level description', () => {
       authored: [],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -185,7 +229,12 @@ describe('descriptionService figure-level description', () => {
       state: { empty: false, type: 'subplot' } as unknown as PlotState,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
+    const service = new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    );
 
     expect(service.getDescription()).toBeNull();
   });
