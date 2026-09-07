@@ -10,9 +10,10 @@
  * split across six tabs, which puts three things at risk that the flat list
  * could not get wrong:
  *
- * - **Edits have to survive a tab switch.** Only the selected panel is
- *   mounted, so an edit typed on one tab is no longer backed by a field in
- *   the DOM when Save is pressed from another. It has to be saved anyway.
+ * - **Edits have to survive a tab switch.** A panel the reader has left is
+ *   hidden, and one they have never opened is not rendered at all, so an
+ *   edit is no longer backed by a reachable field when Save is pressed from
+ *   another tab. It has to be saved anyway.
  * - **The tablist has to be operable and named.** It is the only way to reach
  *   five of the six panels, by keyboard as much as by pointer.
  * - **A blocked Save has to stay explainable.** Save is disabled while the
@@ -175,9 +176,9 @@ describe('settings tabs', () => {
       expect(tab.getAttribute('aria-controls')).toBe(panel.id);
       expect(panel).toHaveAccessibleName(label);
 
-      // The unselected tabs have no panel in the document, so they must not
-      // name one: an `aria-controls` pointing at an absent id is a dangling
-      // reference.
+      // Only the selected tab names a panel. The others either have none in
+      // the document or have one that is hidden, and so out of the
+      // accessibility tree — nothing worth pointing at either way.
       for (const other of screen.getAllByRole('tab')) {
         if (other !== tab) {
           expect(other).not.toHaveAttribute('aria-controls');
@@ -194,8 +195,9 @@ describe('settings tabs', () => {
       target: { value: '35' },
     });
 
-    // The field that carried the edit is unmounted by this point, so what is
-    // saved can only come from the dialog's own state.
+    // The field that carried the edit is hidden by this point, and out of the
+    // accessibility tree, so what is saved can only come from the dialog's
+    // own state rather than from anything the reader could still reach.
     openTab('Visual');
     fireEvent.change(screen.getByLabelText('High Contrast Levels'), {
       target: { value: '7' },
