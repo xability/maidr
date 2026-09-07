@@ -6,7 +6,7 @@ import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace, named } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -41,17 +41,6 @@ import { MovableGrid } from './movable';
  * to or compare with anything.
  */
 export class HexbinTrace extends AbstractTrace {
-  /**
-   * How many rows the description's data table carries.
-   *
-   * A lattice routinely carries a couple of thousand bins, every one of them a
-   * row that is re-rounded on every press of `d` and then held in the store,
-   * for a table the dialog paints a hundred of. {@link ScatterTrace} -- the
-   * same data one binning step earlier -- caps its own at the same number, and
-   * the ranges above the table give the reader the full extent either way.
-   */
-  private static readonly MAX_TABLE_ROWS = 1000;
-
   protected readonly supportsExtrema = false;
   protected readonly movable: Movable;
 
@@ -444,7 +433,7 @@ export class HexbinTrace extends AbstractTrace {
     const headers = [this.xAxis, this.yAxis, this.countLabel];
     const allRows: (string | number)[][] = this.bins.flatMap((row, y) =>
       row.map((bin, x) => [bin.x, bin.y, this.counts[y][x]]));
-    const rows = allRows.slice(0, HexbinTrace.MAX_TABLE_ROWS);
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
     if (allRows.length > rows.length) {
       // Said rather than silently done, as `ScatterTrace` says it: the dialog
       // prints the row count it is given, and a count claiming the whole

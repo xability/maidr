@@ -8,7 +8,7 @@ import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { MovablePlane } from './movable';
 
 /**
@@ -220,19 +220,6 @@ interface FlatPoint {
 }
 
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
-  /**
-   * How many rows the description's data table carries.
-   *
-   * The dialog paints a hundred at a time, and everything past that is
-   * re-rounded on every press of `d` and then held in the Redux store. This
-   * trace is written for a Manhattan plot of a few hundred thousand points, so
-   * an uncapped table is a per-keypress pass over all of them for a table
-   * nobody reads to the end. First-N in x order rather than a sample: a
-   * sampled table would be a different chart, and the ranges above it already
-   * give the reader the full extent either way.
-   */
-  private static readonly MAX_TABLE_ROWS = 1000;
-
   /** How many category names the summary lists before it stops. */
   private static readonly MAX_NAMED_CATEGORIES = 20;
 
@@ -1258,7 +1245,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         ...(hasNames ? [xp.names[index] ?? ''] : []),
       ]),
     );
-    const rows = allRows.slice(0, ScatterTrace.MAX_TABLE_ROWS);
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
     if (allRows.length > rows.length) {
       // Said rather than silently done: the dialog prints the row count it is
       // given, and a count that claims the whole layer over a table holding a

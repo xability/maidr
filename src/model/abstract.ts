@@ -130,6 +130,23 @@ export function chartTypeLabel(type: TraceType): string {
   return CHART_TYPE_LABEL[type];
 }
 
+/**
+ * How many rows a description's data table carries.
+ *
+ * The dialog paints a hundred at a time, and every row past that is re-rounded
+ * by `DescriptionService` on each press of `d` and then held in the Redux
+ * store. The traces this bites are the ones written for volume -- a Manhattan
+ * plot of a few hundred thousand points, a contour field sampled two thousand
+ * times per curve -- where an uncapped table is a full pass over the layer for
+ * a table nobody reads to the end.
+ *
+ * Shared so the traces that cap cannot come to disagree about where the line
+ * is. A trace that caps must say so, as a `Table rows` stat: the dialog prints
+ * the row count it is given, and a count claiming the whole layer over a table
+ * holding a fraction of it is worse than no table.
+ */
+export const MAX_DESCRIPTION_TABLE_ROWS = 1000;
+
 export interface Dimension {
   rows: number;
   cols: number;

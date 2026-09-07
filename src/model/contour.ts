@@ -60,18 +60,6 @@ export class ContourTrace extends LineTrace {
   private extremes?: { closest: Gap; widest: Gap } | null;
 
   /**
-   * How many rows the description's data table carries.
-   *
-   * A contour samples densely enough for the curve to look smooth, so the
-   * inherited one-row-per-sample table is the size this class's own scan is
-   * sized against: twenty levels at two thousand samples is forty thousand
-   * rows, re-rounded on every press of `d` and then held in the store.
-   * {@link ScatterTrace} caps its own at the same number and for the same
-   * reason.
-   */
-  private static readonly MAX_TABLE_ROWS = 1000;
-
-  /**
    * Creates a new contour trace.
    *
    * @param layer - The MAIDR layer carrying one curve per level
@@ -436,18 +424,10 @@ export class ContourTrace extends LineTrace {
       }
     }
 
-    const rows = base.dataTable.rows.slice(0, ContourTrace.MAX_TABLE_ROWS);
-    if (base.dataTable.rows.length > rows.length) {
-      // Said rather than silently done, as `ScatterTrace` says it: the dialog
-      // prints the row count it is given, and a count claiming the whole
-      // field over a table holding a fortieth of it is worse than no table.
-      stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${base.dataTable.rows.length}`,
-      });
-    }
-
-    return { ...base, stats, dataTable: { ...base.dataTable, rows } };
+    // The table is capped by `LineTrace`, which builds it, and says so in its
+    // own `Table rows` stat -- a second cap here would slice an already-sliced
+    // table and count the rows it did not remove.
+    return { ...base, stats };
   }
 
   /**

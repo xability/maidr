@@ -8,7 +8,7 @@ import { Constant } from '@util/constant';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace, named } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { isMeasured, MISSING_TEXT, toBarValue } from './bar';
 import { MovableGraph } from './movable';
 
@@ -23,19 +23,6 @@ const TYPE = 'Group';
  */
 const DEFAULT_SERIES_COLUMN = 'Line';
 
-/**
- * How many rows of the data table the description hands over.
- *
- * A fitted curve or a daily series runs to thousands of samples, and every
- * cell of every row is formatted afresh on each press of `d` before the modal
- * opens. The cap is {@link ScatterTrace}'s, and so is the stat that says the
- * table was cut.
- *
- * A module constant rather than a static field: {@link ContourTrace} declares
- * its own cap for its own denser tables, and two private statics of one name
- * make the subclass's static side incompatible with the base's.
- */
-const MAX_TABLE_ROWS = 1000;
 /**
  * Splits a path `d` attribute into commands, each with its argument text.
  *
@@ -570,7 +557,7 @@ export class LineTrace extends AbstractTrace {
       allRows = (this.points[0] ?? []).map(p => [p.x, cellOf(p)]);
     }
 
-    const rows = allRows.slice(0, MAX_TABLE_ROWS);
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
     if (allRows.length > rows.length) {
       // Said rather than silently done, the way `ScatterTrace` says it: a
       // table holding a thousand rows of a curve's several thousand, with
