@@ -223,6 +223,14 @@ export class DivergingTrace extends SegmentedTrace {
     if (authored !== undefined) {
       return authored;
     }
+    // The direction is a name only where it picks out one side and one side
+    // only. With three of them two grow the same way, so `right` stops
+    // identifying a series and starts standing for two -- twice in the totals,
+    // and twice down the table's own series column, where the parent's
+    // numbering had given each of them a name of its own.
+    if (!this.isTwoSided) {
+      return `Series ${row + 1}`;
+    }
     const measured = this.barValues[row]?.find(isMeasured) ?? 0;
     return measured < 0 ? 'left' : 'right';
   }
@@ -281,6 +289,21 @@ export class DivergingTrace extends SegmentedTrace {
       if (stat.label === 'Largest bar total' || stat.label === 'Smallest bar total') {
         return [];
       }
+      if (stat.label === this.seriesNamesLabel) {
+        // Through this chart's own naming, which is what every other surface
+        // uses: the totals below, the table's series column, and `get text` on
+        // every move. An unnamed pyramid listed `Series 1, Series 2` here and
+        // then reported `left total` and `right total` under it -- two naming
+        // schemes for the same two sides, three lines apart, with nothing to
+        // say they were the same sides.
+        return [{
+          label: stat.label,
+          value: this.points
+            .slice(0, -1)
+            .map((_, row) => this.sideNameAt(row))
+            .join(', '),
+        }];
+      }
       return [stat];
     });
 
@@ -324,6 +347,49 @@ export class DivergingTrace extends SegmentedTrace {
     }
 
     return { ...base, stats, dataTable: { ...base.dataTable, rows: this.balancedRows(base) } };
+  }
+
+  /**
+   * The label the parent files its series names under.
+   *
+   * Derived the same way {@link SegmentedTrace.description} derives it, since
+   * the stat has to be found before it can be rewritten. A parent that renamed
+   * it would leave the parent's own list standing rather than break anything,
+   * which is the failure to prefer here.
+   *
+   * @returns The label to match on
+   */
+  private get seriesNamesLabel(): string {
+    const zLabel = this.layer.axes?.z?.label?.trim();
+    return zLabel ? `${zLabel} categories` : 'Series names';
+  }
+
+  /**
+   * What the summary row's series cell says on a two-sided chart.
+   *
+   * The magnitude column has had the sign taken out of it, and on this row the
+   * sign was the only thing carrying which side the lead belongs to -- so a
+   * band where men lead by a hundred and one where women do printed as the
+   * same two cells. `get text` names the side in words on exactly this row, so
+   * the table says the same words, behind the row's own name so it is still
+   * findable as the summary.
+   *
+   * @param col - Which category
+   * @returns The cell text
+   */
+  private balanceNameAt(col: number): string {
+    const balance = this.barValues.at(-1)?.[col] ?? Number.NaN;
+    if (!isMeasured(balance)) {
+      // Every segment of the band is a gap. The value cell beside this one
+      // already says `missing`, and "level" would claim a comparison that was
+      // never made.
+      return BALANCE;
+    }
+    if (balance === 0) {
+      return `${BALANCE}, level`;
+    }
+    const ahead = this.sideGrowing(balance > 0);
+    return ahead === null ? BALANCE : `${BALANCE}, ${this.sideNameAt(ahead)} ahead`;
   }
 
   /**
@@ -374,22 +440,26 @@ export class DivergingTrace extends SegmentedTrace {
    * @returns The rows, unsigned and renamed
    */
   private balancedRows(base: DescriptionState): DescriptionState['dataTable']['rows'] {
-    // Which group each flattened row came from, built by flattening `points`
+    // Which cell each flattened row came from, built by flattening `points`
     // the way the parent flattens it, so the two cannot fall out of step.
-    const groupOf = this.points.flatMap((group, row) => group.map(() => row));
+    const cellOf = this.points.flatMap((group, row) =>
+      group.map((_, col) => ({ row, col })));
+    // Hoisted: it scans both sides to answer, and it is asked of every row of
+    // the table twice over.
+    const twoSided = this.isTwoSided;
 
     return base.dataTable.rows.map((row, index) => {
-      const group = groupOf[index];
-      const balance = this.isBalanceRow(group);
+      const cell = cellOf[index];
+      const balance = this.isBalanceRow(cell.row);
       const value = row[1];
       return [
         row[0],
-        typeof value === 'number' && (!balance || this.isTwoSided)
+        typeof value === 'number' && (!balance || twoSided)
           ? Math.abs(value)
           : value,
         balance
-          ? (this.isTwoSided ? BALANCE : row[2])
-          : this.sideNameAt(group),
+          ? (twoSided ? this.balanceNameAt(cell.col) : row[2])
+          : this.sideNameAt(cell.row),
       ];
     });
   }

@@ -306,7 +306,13 @@ export class VolcanoTrace extends ScatterTrace {
       const hits = this.hitsByRegion();
       if (hits.length > 0) {
         stats.push({
-          label: 'Regions with hits',
+          // Capped the way the named list above is, and said the same way. A
+          // genome has twenty-two of these and a study can hit most of them,
+          // so a silent cut left a list that looks complete and names half of
+          // them -- with the label promising every region that has a hit.
+          label: hits.length > NAMED_HITS
+            ? `Top ${NAMED_HITS} regions by hits`
+            : 'Regions with hits',
           value: hits
             .slice(0, NAMED_HITS)
             .map(([region, count]) => `${region} (${count})`)

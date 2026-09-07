@@ -317,8 +317,8 @@ export class DumbbellTrace extends AbstractTrace {
     const chartMax = MathUtil.safeMax(ends);
     const stats: DescriptionState['stats'] = [
       { label: 'Number of pairs', value: this.points.length },
-      { label: 'Min value', value: this.min },
-      { label: 'Max value', value: this.max },
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
     ];
 
     // The count each way is what a sighted reader takes from the shape of the
@@ -348,8 +348,10 @@ export class DumbbellTrace extends AbstractTrace {
     // nor a row that held still, so without it the arithmetic the counts
     // invite still comes up short of `Number of pairs`. Silent on a complete
     // chart, the way `LineTrace` is about its gaps.
-    const unmeasured = 0;
-    void unmeasured;
+    const unmeasured = this.changes.length - rises - falls - flat;
+    if (unmeasured > 0) {
+      stats.push({ label: 'Missing values', value: unmeasured });
+    }
 
     const largest = this.extremeChange('max');
     const smallest = this.extremeChange('min');
@@ -418,7 +420,8 @@ export class DumbbellTrace extends AbstractTrace {
     kind: 'max' | 'min',
   ): { index: number; change: number } | null {
     const measured = this.changes
-      .map((change, index) => ({ change, index }));
+      .map((change, index) => ({ change, index }))
+      .filter(({ change }) => isMeasured(change));
     if (measured.length === 0) {
       return null;
     }

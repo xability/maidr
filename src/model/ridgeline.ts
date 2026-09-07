@@ -308,10 +308,19 @@ export class RidgelineTrace extends AbstractTrace {
    * generic `Level` placeholder: `Level is 0.9` says nothing about a KDE, and
    * the same word would then head the table column holding the densities.
    *
+   * A `z` repeating the group axis's own label is not a name for the height.
+   * `examples/ridgeline.html` labels both of them `Cohort` -- the shape a
+   * producer emits when it has one categorical axis and puts it on both -- and
+   * taking it headed the group column and the density column beside it with
+   * the same word, then announced a KDE value as a cohort.
+   * {@link ViolinKdeTrace} reads the same point shape and heads that column
+   * with the word below unconditionally, for the same reason.
+   *
    * @returns The authored z label, or `Density`
    */
   private get densityLabel(): string {
-    return named(this.layer.axes?.z?.label, 'Density');
+    const authored = this.layer.axes?.z?.label?.trim();
+    return authored && authored !== this.groupLabel ? authored : 'Density';
   }
 
   /**

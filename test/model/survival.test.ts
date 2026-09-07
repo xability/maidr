@@ -300,6 +300,18 @@ describe('the description reports what the figure is quoted by', () => {
   });
 });
 
+describe('a figure with no curve says nothing about a median', () => {
+  test('withholds the label rather than standing it over a blank', () => {
+    // `join` on no arms is the empty string, and the dialog blanks that --
+    // leaving `Median survival:` with nothing after it, which reads as a
+    // median the figure failed to compute rather than as a figure with no
+    // arm to compute one for.
+    const labels = survival(0, 0, []).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Median survival');
+  });
+});
+
 describe('the description calls the curves arms, not lines', () => {
   test('counts and names them as arms', () => {
     // Inherited from the line trace, the dialog opened "Number of lines: 2,

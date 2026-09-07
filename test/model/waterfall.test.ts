@@ -274,6 +274,21 @@ describe('description', () => {
     expect(stats).toContainEqual({ label: 'Net change', value: 160.1 });
   });
 
+  test('names an unreadable balance rather than leaving it blank', () => {
+    // The dialog blanks a non-finite number, so a bridge whose totals do not
+    // parse stood three labels over nothing at all -- which reads as the
+    // dialog failing rather than as the chart withholding.
+    const unreadable = [
+      { x: 'Open', start: 'n/a', end: 'n/a', delta: 'n/a', kind: 'total' },
+      { x: 'Sales', start: 'n/a', end: 'n/a', delta: 'n/a', kind: 'increase' },
+    ] as unknown as WaterfallPoint[];
+    const { stats } = at(0, unreadable).description;
+
+    expect(stats).toContainEqual({ label: 'Starting value', value: 'missing' });
+    expect(stats).toContainEqual({ label: 'Ending value', value: 'missing' });
+    expect(stats).toContainEqual({ label: 'Net change', value: 'missing' });
+  });
+
   test('counts the increases and decreases without the totals', () => {
     // A total is not a contribution; counting the opening and closing bars as
     // increases would overstate how many things moved.

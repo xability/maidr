@@ -8,7 +8,7 @@ import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured } from './bar';
+import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -232,9 +232,16 @@ export class WaterfallTrace extends AbstractTrace {
         ? Number(this.points[0].end)
         : Number(firstStep.start);
       const endingValue = Number(this.points[this.points.length - 1].end);
+      // Named rather than left to blank. The dialog blanks a non-finite
+      // number, so a bridge whose totals do not parse stood three labels over
+      // nothing at all -- which reads as the dialog failing rather than as the
+      // chart withholding, and `missing` is the word every other absent value
+      // here already uses.
+      const reads = (value: number): number | string =>
+        isMeasured(value) ? value : MISSING_TEXT;
       stats.push(
-        { label: 'Starting value', value: startingValue },
-        { label: 'Ending value', value: endingValue },
+        { label: 'Starting value', value: reads(startingValue) },
+        { label: 'Ending value', value: reads(endingValue) },
         {
           label: 'Net change',
           // How big the whole move was, which is the headline of a bridge and
@@ -245,7 +252,7 @@ export class WaterfallTrace extends AbstractTrace {
           // `160.09999999999991` in IEEE 754, and a screen reader spells out
           // every one of those digits. Twelve significant figures for the
           // reason {@link DumbbellTrace} gives.
-          value: Number((endingValue - startingValue).toPrecision(12)),
+          value: reads(Number((endingValue - startingValue).toPrecision(12))),
         },
       );
     }

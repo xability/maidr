@@ -330,7 +330,9 @@ describe('the announcement names the group, the value and the density', () => {
 
     expect(text.section).toBe('middle');
     expect(text.main).toEqual({ label: 'Days', value: 45 });
-    expect(text.cross).toEqual({ label: 'Cohort', value: 0.9 });
+    // Not `Cohort`, which the fixture's `z` carries: the group is what the
+    // section names, and repeating it here announced a KDE value as one.
+    expect(text.cross).toEqual({ label: 'Density', value: 0.9 });
   });
 
   test('names an unnamed group by its position', () => {
@@ -459,6 +461,17 @@ describe('the data table names its own columns', () => {
     }) as RidgelineTrace;
 
     expect(trace.description.dataTable.headers).toEqual(['Cohort', 'Days', 'Share']);
+  });
+
+  test('a z that repeats the group axis does not head two columns at once', () => {
+    // The shape `examples/ridgeline.html` ships: one categorical axis, put on
+    // both `y` and `z`. Taking `z` for the density headed the group column and
+    // the density column with the same word, and told a reader that a column
+    // of KDE values held cohorts.
+    const headers = ridgeline().description.dataTable.headers;
+
+    expect(headers).toEqual(['Cohort', 'Days', 'Density']);
+    expect(nonEmptyState(ridgeline()).text.cross?.label).toBe('Density');
   });
 
   test('falls back to words that describe a ridgeline, not to placeholders', () => {

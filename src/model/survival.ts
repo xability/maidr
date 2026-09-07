@@ -206,19 +206,26 @@ export class SurvivalTrace extends StepTrace {
     const reads = (median: number | string | null): number | string =>
       median === null ? 'not reached' : median;
 
-    stats.push({
-      label: 'Median survival',
-      // Per arm on a comparison, and bare on a single curve. Prefixed there
-      // too, a lone curve authoring no name was told its median belonged to
-      // "Arm 1" -- a name nothing else in the figure uses, and one that
-      // implies a second arm the reader can go looking for. Every sibling
-      // gates its per-series naming on there being more than one series.
-      value: medians.length === 1
-        ? reads(medians[0].median)
-        : medians
-            .map(({ arm, median }) => `${this.groupNameAt(arm)}: ${reads(median)}`)
-            .join(', '),
-    });
+    // Withheld on a layer carrying no curve at all, where `join` answers with
+    // the empty string and the dialog blanks it -- leaving the label standing
+    // over nothing, which reads as a median the figure failed to compute
+    // rather than as a figure with no arm to compute one for. The two
+    // statistics below are already silent on the same grounds.
+    if (medians.length > 0) {
+      stats.push({
+        label: 'Median survival',
+        // Per arm on a comparison, and bare on a single curve. Prefixed there
+        // too, a lone curve authoring no name was told its median belonged to
+        // "Arm 1" -- a name nothing else in the figure uses, and one that
+        // implies a second arm the reader can go looking for. Every sibling
+        // gates its per-series naming on there being more than one series.
+        value: medians.length === 1
+          ? reads(medians[0].median)
+          : medians
+              .map(({ arm, median }) => `${this.groupNameAt(arm)}: ${reads(median)}`)
+              .join(', '),
+      });
+    }
 
     const censored = this.censoredIndices.reduce(
       (total, indices) => total + indices.length,

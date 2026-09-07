@@ -215,6 +215,23 @@ describe('the summary is what the chart is read for', () => {
       .toBe('chr1 (2), chr2 (1)');
   });
 
+  test('says so when it stops naming regions, as it does for the hits', () => {
+    // A genome has twenty-two of these and a study can hit most of them. Cut
+    // silently, the list looks complete under a label promising every region
+    // that has one.
+    const many: VolcanoPoint[] = Array.from({ length: 12 }, (_, index) => ({
+      x: 3,
+      y: 9,
+      label: `rs${index + 1}`,
+      group: `chr${index + 1}`,
+    }));
+    const named = String(stat(volcano(many), 'Top 10 regions by hits'));
+
+    expect(named.startsWith('chr1 (1), chr2 (1)')).toBe(true);
+    expect(named).not.toContain('chr12');
+    expect(stat(volcano(many), 'Regions with hits')).toBeUndefined();
+  });
+
   test('says nothing about regions on a plain volcano', () => {
     expect(stat(volcano(), 'Regions')).toBeUndefined();
     expect(stat(volcano(), 'Regions with hits')).toBeUndefined();

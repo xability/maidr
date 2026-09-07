@@ -343,6 +343,39 @@ describe('the description totals each side', () => {
     expect(read('Against total', threeSided)).toBe(900);
   });
 
+  test('lists the sides under the same names the totals use', () => {
+    // The parent numbers a series it cannot name. That left `Sex categories:
+    // Series 1, Series 2` three lines above `left total` and `right total`,
+    // two naming schemes for the same two sides with nothing saying so -- and
+    // the table's own series column, which follows the announcements, made a
+    // third.
+    const unnamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -5, z: '' }, { x: 'b', y: -3, z: '' }],
+      [{ x: 'a', y: 4, z: '' }, { x: 'b', y: 6, z: '' }],
+    ];
+
+    expect(read('Sex categories', unnamed)).toBe('left, right');
+    expect(diverging(0, 0, unnamed).description.dataTable.rows[0][2]).toBe('left');
+  });
+
+  test('numbers the sides of a chart the direction cannot tell apart', () => {
+    // Three sides, two of them growing right: `right` names two series at
+    // once, so it named neither -- twice in the totals, and twice down the
+    // table's series column.
+    const threeUnnamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: '' }],
+      [{ x: 'a', y: 400, z: '' }],
+      [{ x: 'a', y: 200, z: '' }],
+    ];
+    const { stats, dataTable } = diverging(0, 0, threeUnnamed).description;
+
+    expect(read('Sex categories', threeUnnamed)).toBe('Series 1, Series 2, Series 3');
+    expect(stats.filter(stat => stat.label.endsWith(' total')).map(stat => stat.label))
+      .toEqual(['Series 1 total', 'Series 2 total', 'Series 3 total']);
+    expect(dataTable.rows.map(row => row[2]))
+      .toEqual(['Series 1', 'Series 2', 'Series 3', 'Sum']);
+  });
+
   test('names a side the way every announcement names it', () => {
     // A producer that names only the bands it drew a legend entry for leaves
     // the first point of a side unnamed. Reading that point alone called the
@@ -379,9 +412,25 @@ describe('the data table reads the way the chart is announced', () => {
     const { rows } = diverging().description.dataTable;
 
     expect(rows.slice(6)).toEqual([
-      ['0-24', 0, 'Balance'],
-      ['25-44', 50, 'Balance'],
-      ['45-64', 100, 'Balance'],
+      ['0-24', 0, 'Balance, level'],
+      ['25-44', 50, 'Balance, Women ahead'],
+      ['45-64', 100, 'Balance, Women ahead'],
+    ]);
+  });
+
+  test('says which side a band leans, which the sign used to carry', () => {
+    // Taking the sign out of the magnitude column left the summary rows with
+    // nothing saying whose lead it is: a band where men lead by 400 and one
+    // where women do printed as the same two cells.
+    const mixed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Men' }, { x: 'b', y: -400, z: 'Men' }],
+      [{ x: 'a', y: 500, z: 'Women' }, { x: 'b', y: 800, z: 'Women' }],
+    ];
+    const { rows } = diverging(0, 0, mixed).description.dataTable;
+
+    expect(rows.slice(4)).toEqual([
+      ['a', 400, 'Balance, Men ahead'],
+      ['b', 400, 'Balance, Women ahead'],
     ]);
   });
 
