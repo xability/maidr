@@ -552,7 +552,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // what makes them groups.
       const shown = clusters.slice(0, NAMED_NODES).map(members => members.length).join(', ');
       stats.push({
-        label: 'Group sizes',
+        // "Linked", because the count two lines up includes every isolated
+        // node as a component of its own while this lists only the groups. A
+        // bare "Group sizes: 5, 2" under "Separate groups: 3" reads as a third
+        // size having been dropped, and a reader should not have to reconcile
+        // it against the `Unconnected` line below to hear that it was not.
+        label: 'Linked group sizes',
         value: clusters.length > NAMED_NODES
           ? `${shown}, and ${clusters.length - NAMED_NODES} more`
           : shown,

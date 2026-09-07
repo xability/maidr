@@ -55,6 +55,23 @@ const ON_LINE = 'on line';
 const REFERENCE_FALLBACK = 'Reference line';
 
 /**
+ * What the reference line is called, with the fallback already applied.
+ *
+ * Exported so the service that composes the delta layer's *title* resolves the
+ * name the same way the trace resolves its stat and its column header. Built
+ * from the raw label, that title read "OHLC price vs unavailable" -- the
+ * placeholder reaching the reader one line above the column the trace is
+ * careful to name.
+ *
+ * @param declared - The reference line's name as the chart declared it
+ * @returns The declared name, or the generic one when nobody authored it
+ */
+export function referenceName(declared: string): string {
+  const trimmed = declared.trim();
+  return trimmed !== '' && trimmed !== DEFAULT_SUBPLOT_TITLE ? trimmed : REFERENCE_FALLBACK;
+}
+
+/**
  * One matched candle of the virtual delta layer: the shared x value, the
  * reference line value at x, and the candle's four OHLC values. Signed deltas
  * (`fieldValue - reference`) are derived per field inside the trace so the
@@ -198,7 +215,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     this.candles = config.candles;
     const declared = config.referenceLabel.trim();
     this.hasNamedReference = declared !== '' && declared !== DEFAULT_SUBPLOT_TITLE;
-    this.referenceLabel = this.hasNamedReference ? declared : REFERENCE_FALLBACK;
+    this.referenceLabel = referenceName(config.referenceLabel);
     this.initialField = config.initialField ?? 'close';
     this.currentField = this.initialField;
 

@@ -8,6 +8,7 @@ import {
   DELTA_POINT_MODE,
   deltaTrend,
   ON_LINE_MODE,
+  referenceName,
   roundDelta,
 } from '@model/candlestickDelta';
 import { TraceType } from '@type/grammar';
@@ -493,5 +494,25 @@ describe('candlestickDelta rotor', () => {
 
     expect(trace.moveToNextCompareValue('up', 'higher')).toBe(false);
     expect(trace.moveToNextCompareValue('down', 'lower')).toBe(false);
+  });
+});
+
+describe('what the reference line is called', () => {
+  test('keeps the name the chart declared', () => {
+    expect(referenceName('50-day moving average')).toBe('50-day moving average');
+  });
+
+  test('trims it, so the padding is not read out as a pause', () => {
+    expect(referenceName('  SMA 50  ')).toBe('SMA 50');
+  });
+
+  test('stands a generic name in for one nobody authored', () => {
+    // An unnamed reference arrives as the model's `unavailable` placeholder,
+    // which the dialog erases — so the one stat saying what the prices are
+    // being compared against would disappear, and its column would lose its
+    // header.
+    expect(referenceName('')).toBe('Reference line');
+    expect(referenceName('   ')).toBe('Reference line');
+    expect(referenceName('unavailable')).toBe('Reference line');
   });
 });

@@ -306,7 +306,7 @@ describe('the description answers what a walk cannot', () => {
     //
     // Ida is a group of one, and `Unconnected` below is where she is named:
     // listing every isolated node here as well tells the same fact twice.
-    expect(stat('Group sizes')).toBe('5, 2');
+    expect(stat('Linked group sizes')).toBe('5, 2');
   });
 
   test('names the nodes that are linked to nothing', () => {
@@ -324,7 +324,7 @@ describe('the description answers what a walk cannot', () => {
         .map(name => ({ source: name, target: name })),
     ];
 
-    expect(stat('Group sizes', scattered)).toBe('2, 2, 2, 2, 2, and 2 more');
+    expect(stat('Linked group sizes', scattered)).toBe('2, 2, 2, 2, 2, and 2 more');
     expect(stat('Unconnected', scattered)).toBe('6: p, q, r, s, t, and 1 more');
   });
 
