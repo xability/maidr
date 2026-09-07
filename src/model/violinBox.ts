@@ -59,8 +59,13 @@ export class ViolinBoxTrace extends AbstractTrace {
    * however far the chart moved, and the guidance beep points at a section
    * that is no longer there. Rebuilding on the next hover rather than on the
    * event keeps a scroll itself free of layout reads.
+   *
+   * It starts stale, so the first hover measures rather than the constructor.
+   * Measuring there is a forced layout right after the writes that inserted
+   * the marks, once per trace, before the first announcement -- and a
+   * keyboard reader, who is the primary audience, never asks the question.
    */
-  private highlightCentersDirty = false;
+  private highlightCentersDirty = true;
 
   private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
@@ -108,7 +113,10 @@ export class ViolinBoxTrace extends AbstractTrace {
     if (this.orientation === Orientation.HORIZONTAL) {
       this.highlightValues?.reverse();
     }
-    this.highlightCenters = this.mapSvgElementsToCenters();
+    // Left for the first hover to measure. `highlightCentersDirty` starts
+    // true, so findNearestPoint builds them the same way it does after a
+    // scroll.
+    this.highlightCenters = null;
 
     this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
 

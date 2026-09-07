@@ -167,8 +167,13 @@ export class Candlestick extends AbstractTrace {
    * however far the chart moved, and a hover resolves to a candle that is no
    * longer there. Rebuilding on the next hover rather than on the event keeps
    * a scroll itself free of layout reads.
+   *
+   * It starts stale, so the first hover measures rather than the constructor.
+   * Measuring there is a forced layout right after the writes that inserted
+   * the marks, once per trace, before the first announcement -- and a
+   * keyboard reader, who is the primary audience, never asks the question.
    */
-  private highlightCentersDirty = false;
+  private highlightCentersDirty = true;
 
   private readonly stopViewportWatch = watchViewport((): void => {
     this.highlightCentersDirty = true;
@@ -261,7 +266,10 @@ export class Candlestick extends AbstractTrace {
     this.highlightValues = this.mapToSvgElements(
       layer.selectors as string | string[] | CandlestickSelector | undefined,
     );
-    this.highlightCenters = this.mapSvgElementsToCenters();
+    // Left for the first hover to measure. `highlightCentersDirty` starts
+    // true, so findNearestPoint builds them the same way it does after a
+    // scroll.
+    this.highlightCenters = null;
   }
 
   /**
