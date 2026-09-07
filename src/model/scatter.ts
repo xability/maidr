@@ -1,9 +1,10 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -118,6 +119,45 @@ function named(value: number, label: string | undefined): number | string {
 }
 
 /**
+ * How a correlation coefficient reads.
+ *
+ * Bands on |r| after Evans (1996), *Straightforward Statistics for the
+ * Behavioral Sciences*, p. 146 -- a partition rather than Cohen's three anchor
+ * points, which would leave r = 0.55 and r = 0.99 sharing one word.
+ *
+ * Below 0.1 no direction is claimed at all. The sign of a near-zero r is noise
+ * -- moving one point flips it -- so "very weak negative" for r = -0.02 would
+ * tell a reader the cloud tilts down when it does not. Tested on the magnitude
+ * rather than against zero, because an exact zero essentially never survives
+ * float arithmetic and `Math.sign(-0)` is `-0`, which would read a signed zero
+ * as negative. `none` is also the right word for a symmetric cloud whose r is
+ * genuinely 0: the claim the label makes is about *linear* correlation.
+ *
+ * @param r - Pearson's r, in [-1, 1]
+ * @returns The strength, with its direction when one can be claimed
+ */
+function correlationStrength(r: number): string {
+  const magnitude = Math.abs(r);
+  if (magnitude < 0.1) {
+    return 'none';
+  }
+  const direction = r > 0 ? 'positive' : 'negative';
+  if (magnitude < 0.2) {
+    return `very weak ${direction}`;
+  }
+  if (magnitude < 0.4) {
+    return `weak ${direction}`;
+  }
+  if (magnitude < 0.6) {
+    return `moderate ${direction}`;
+  }
+  if (magnitude < 0.8) {
+    return `strong ${direction}`;
+  }
+  return `very strong ${direction}`;
+}
+
+/**
  * The same, for the index-aligned arrays a column or row announces.
  *
  * Returns the numbers untouched when no element carries a name, so a
@@ -155,6 +195,22 @@ interface FlatPoint {
 }
 
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
+  /**
+   * How many rows the description's data table carries.
+   *
+   * The dialog paints a hundred at a time, and everything past that is
+   * re-rounded on every press of `d` and then held in the Redux store. This
+   * trace is written for a Manhattan plot of a few hundred thousand points, so
+   * an uncapped table is a per-keypress pass over all of them for a table
+   * nobody reads to the end. First-N in x order rather than a sample: a
+   * sampled table would be a different chart, and the ranges above it already
+   * give the reader the full extent either way.
+   */
+  private static readonly MAX_TABLE_ROWS = 1000;
+
+  /** How many category names the summary lists before it stops. */
+  private static readonly MAX_NAMED_CATEGORIES = 20;
+
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -1094,22 +1150,78 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   public get description(): DescriptionState {
     const totalPoints = this.xPoints.reduce((sum, xp) => sum + xp.y.length, 0);
 
-    const stats: DescriptionState['stats'] = [
-      { label: 'Total points', value: totalPoints },
-      { label: 'Unique X values', value: this.xPoints.length },
-      { label: 'Unique Y values', value: this.yPoints.length },
-      { label: 'X range', value: MathUtil.spanned(this.minX, this.maxX) },
-      { label: 'Y range', value: MathUtil.spanned(this.minY, this.maxY) },
-    ];
+    const stats: DescriptionState['stats'] = [];
 
-    const headers = [this.xAxis, this.yAxis];
+    const correlation = this.correlationStat();
+    if (correlation) {
+      // First, for the reason VolcanoTrace puts its own shape stat first: it
+      // is what a sighted reader takes from the cloud before any one point.
+      stats.push(correlation);
+    }
+
+    stats.push({ label: 'Total points', value: totalPoints });
+
+    // Named after the axes rather than after `x` and `y`, so the summary and
+    // the table headers three lines down call the same axis the same thing.
+    const xNames = ScatterTrace.categoriesOf(this.xPoints);
+    const yNames = ScatterTrace.categoriesOf(this.yPoints);
+    stats.push(
+      { label: `Unique ${this.xAxis} values`, value: this.xPoints.length },
+      { label: `Unique ${this.yAxis} values`, value: this.yPoints.length },
+      xNames
+        ? { label: `${this.xAxis} categories`, value: ScatterTrace.listed(xNames) }
+        : { label: `${this.xAxis} range`, value: MathUtil.spannedOrMissing(this.minX, this.maxX) },
+      yNames
+        ? { label: `${this.yAxis} categories`, value: ScatterTrace.listed(yNames) }
+        : { label: `${this.yAxis} range`, value: MathUtil.spannedOrMissing(this.minY, this.maxY) },
+    );
+
+    if (this.hasZ) {
+      stats.push({ label: `${this.z} range`, value: MathUtil.spannedOrMissing(this.minZ, this.maxZ) });
+    }
+
+    // How deep the deepest column is. A plain scatter, where every point has
+    // its own x, gains no line; a strip plot or a Manhattan plot -- the shapes
+    // this trace stacks for -- gain the one number that says points overlap at
+    // all, which `Total points` beside `Unique x values` only implies.
+    const tallest = this.xPoints.reduce((most, xp) => Math.max(most, xp.y.length), 0);
+    if (tallest > 1) {
+      stats.push({ label: `Most points at one ${this.xAxis}`, value: tallest });
+    }
+
+    if (this.gridCells) {
+      stats.push({ label: 'Grid', value: `${this.numGridRows} by ${this.numGridCols} cells` });
+    }
+
+    const hasNames = this.xPoints.some(xp => xp.names.some(Boolean));
+    const headers = [
+      this.xAxis,
+      this.yAxis,
+      ...(this.hasZ ? [this.z] : []),
+      ...(hasNames ? ['Name'] : []),
+    ];
     // Named the same way the announcements are, so the table a reader exports
     // or reads cell by cell agrees with what navigation told them. A table
     // still showing slot indices after the cursor said "a" would be the same
     // defect one surface over.
-    const rows: (string | number)[][] = this.xPoints.flatMap(xp =>
-      xp.y.map((y, index) => [named(xp.x, xp.label), named(y, xp.yLabels[index])]),
+    const allRows: (string | number)[][] = this.xPoints.flatMap(xp =>
+      xp.y.map((y, index) => [
+        named(xp.x, xp.label),
+        named(y, xp.yLabels[index]),
+        ...(this.hasZ ? [xp.z[index]] : []),
+        ...(hasNames ? [xp.names[index] ?? ''] : []),
+      ]),
     );
+    const rows = allRows.slice(0, ScatterTrace.MAX_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      // Said rather than silently done: the dialog prints the row count it is
+      // given, and a count that claims the whole layer over a table holding a
+      // thousandth of it is worse than no table.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
+    }
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -1118,6 +1230,74 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Whether the cloud tilts up, tilts down, or does not tilt -- the fact a
+   * scatter plot is drawn to show, and the one a reader walking it point by
+   * point never arrives at.
+   *
+   * Only claimed for two *measured* axes. A named axis's numbers are slots the
+   * producer chose (0, 1, 2 for a, b, c on a strip plot), so a coefficient over
+   * them would describe that producer's category ordering while sounding like a
+   * statement about the data -- the same error {@link named} exists to keep out
+   * of the announcements. One name anywhere on an axis is enough to disqualify
+   * it: that makes the axis a scale of categories with some slots unlabelled,
+   * not a measurement.
+   *
+   * Silent, rather than saying "not applicable", when there is no claim to make
+   * -- the convention the rest of the description follows for a fact a layer
+   * does not carry.
+   *
+   * @returns The correlation stat, or null when none can honestly be given
+   */
+  private correlationStat(): DescriptionStat | null {
+    const named = this.flatPoints.some(p => p.xLabel !== undefined || p.yLabel !== undefined);
+    if (named) {
+      return null;
+    }
+
+    const xs = this.flatPoints.map(p => p.x);
+    const ys = this.flatPoints.map(p => p.y);
+    const r = MathUtil.pearson(xs, ys);
+    if (r === null) {
+      return null;
+    }
+
+    return {
+      label: 'Correlation',
+      // `n` travels inside the value because it is the count the coefficient
+      // was actually computed over, which on a layer with gaps is not the
+      // `Total points` stated below it. Rounded here rather than left to the
+      // service, which rounds numbers and passes composed strings through.
+      value: `${correlationStrength(r)} (r = ${defaultFormat(r)}, n = ${MathUtil.pairedCount(xs, ys)})`,
+    };
+  }
+
+  /**
+   * The category names of an axis, when every slot on it carries one.
+   *
+   * @param groups - That axis's columns or rows, in axis order
+   * @returns The names in axis order, or null on a continuous axis
+   */
+  private static categoriesOf(groups: readonly { label?: string }[]): string[] | null {
+    const names = groups
+      .map(group => group.label)
+      .filter((name): name is string => name !== undefined);
+    return names.length > 0 && names.length === groups.length ? names : null;
+  }
+
+  /**
+   * A category list, cut short before it becomes a recital.
+   *
+   * @param names - The categories, in axis order
+   * @returns The list as it reads
+   */
+  private static listed(names: string[]): string {
+    const cap = ScatterTrace.MAX_NAMED_CATEGORIES;
+    return names.length <= cap
+      ? names.join(', ')
+      : `${names.slice(0, cap).join(', ')}, and ${names.length - cap} more`;
   }
 
   protected get dimension(): Dimension {
