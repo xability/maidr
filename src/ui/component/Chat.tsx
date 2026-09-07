@@ -33,8 +33,13 @@ const Chat: React.FC = () => {
   const lastScrollHeightRef = useRef<number>(0);
   const mutationObserverRef = useRef<MutationObserver | null>(null);
 
+  // Straight to the AI page. This button only appears on the message telling
+  // the reader to enable an agent and enter a key, and since the dialog grew
+  // tabs the page it opens on carries none of those fields — a reader who
+  // followed it would land on Autoplay Duration with nothing saying where to
+  // go next.
   const handleOpenSettings = useCallback((): void => {
-    settingsViewModel.toggle();
+    settingsViewModel.toggle('ai');
   }, [settingsViewModel]);
 
   // Stable callback so memoized message bubbles do not re-render on every

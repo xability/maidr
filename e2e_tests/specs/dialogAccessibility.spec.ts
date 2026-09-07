@@ -170,9 +170,45 @@ test.describe('dialog accessibility tree', () => {
     expect(structure.headings[0]).toBe('H2:Settings');
   });
 
+  // `docs/BRAILLE.md` tells blind readers exactly this sequence to reach the
+  // braille display options. It rests on manual activation — an arrow key
+  // moves focus, Enter selects — and on Enter reaching a `<button>` as a
+  // synthesised click, which jsdom does not model. So it is asserted here
+  // rather than in the component tests.
+  test('the settings tabs work by keyboard the way the docs describe', async ({ page }) => {
+    const barPlotPage = await setupBarPlotPage(page);
+    await barPlotPage.openSettingsMenu();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('tab', { name: 'General' })).toBeFocused();
+
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('ArrowRight');
+    }
+    const brailleTab = page.getByRole('tab', { name: 'Braille & Tactile' });
+    await expect(brailleTab).toBeFocused();
+    // Arrowing past a tab must not open it: on the AI tab that would mean
+    // contacting a provider the reader was only passing over.
+    await expect(page.getByRole('tab', { name: 'General' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await page.keyboard.press('Enter');
+
+    await expect(brailleTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tabpanel')).toHaveAccessibleName('Braille & Tactile');
+    // Focus stays on the tab, so the next arrow continues along the list.
+    await expect(brailleTab).toBeFocused();
+  });
+
   test('a select menu inside the settings dialog resolves by role', async ({ page }) => {
     const barPlotPage = await setupBarPlotPage(page);
     await barPlotPage.openSettingsMenu();
+
+    // The dialog opens on "General", which has no select at all; the tactile
+    // display picker is the first enabled one, on the tab beside it.
+    await page.getByRole('tab', { name: 'Braille & Tactile' }).click();
 
     // A Select's menu is a modal too, and it is nested deeper still, so it
     // needs the same container scoping the dialog does.

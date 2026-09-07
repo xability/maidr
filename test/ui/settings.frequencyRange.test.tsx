@@ -119,6 +119,10 @@ function renderSettings(): jest.Mock<SettingsViewModel['saveAndClose']> {
 function savedGeneral(minFrequency: string, maxFrequency: string): SettingsState['general'] {
   const saveAndClose = renderSettings();
 
+  // The dialog opens on "General"; the pitch range lives one tab over, and
+  // only the selected tab's panel is mounted.
+  fireEvent.click(screen.getByRole('tab', { name: 'Audio' }));
+
   fireEvent.change(screen.getByLabelText('Minimum Frequency'), {
     target: { value: minFrequency },
   });

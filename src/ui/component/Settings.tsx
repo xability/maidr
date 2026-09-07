@@ -9,6 +9,7 @@ import type {
   HoverMode,
   LlmModelSettings,
   LlmSettings,
+  SettingsSection,
 } from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
@@ -20,7 +21,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -31,6 +31,8 @@ import {
   Select,
   Slider,
   Switch,
+  Tab,
+  Tabs,
   TextareaAutosize,
   TextField,
   Typography,
@@ -43,12 +45,14 @@ import {
   clampEchoCount,
   clampEchoDuration,
   clampFrequencyRange,
+  DEFAULT_SETTINGS_SECTION,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MAX_ECHO_COUNT,
   MAX_FREQUENCY_HZ,
   MIN_FREQUENCY_HZ,
 } from '@type/settings';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import {
   clampBrailleLines,
   clampBrailleSize,
@@ -98,6 +102,107 @@ interface CopyState {
 // cannot drift apart and announce a shortcut that no longer fires.
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
+
+interface SettingsTab {
+  readonly id: SettingsSection;
+  readonly label: string;
+}
+
+/**
+ * The dialog's pages, in the order they are offered.
+ *
+ * The groups are the modality a setting reaches the reader through — what a
+ * reader looking for a setting knows about it — rather than the service that
+ * happens to own it. The ids are shared (`SettingsSection`) so a caller can
+ * ask for a page; the labels are the view's own.
+ */
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  { id: 'general', label: 'General' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'visual', label: 'Visual' },
+  { id: 'braille', label: 'Braille & Tactile' },
+  { id: 'ai', label: 'AI' },
+  { id: 'about', label: 'About' },
+];
+
+// Keeps a tab's badge on the same baseline as its text.
+const TAB_LABEL_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+};
+
+interface SettingsTabPanelProps {
+  readonly tabId: SettingsSection;
+  readonly activeTabId: SettingsSection;
+  /** Whether this tab has been opened at least once this session. */
+  readonly visited: boolean;
+  /** The dialog's `useId` prefix, so panel and tab ids pair up. */
+  readonly dialogId: string;
+  readonly children: React.ReactNode;
+}
+
+/**
+ * The rows of one settings tab.
+ *
+ * Mounted on first visit and kept from then on, rather than either mounting
+ * all six up front or unmounting on every switch. Both halves matter:
+ *
+ * - Not mounting an unvisited panel is what keeps the API-key probes in the
+ *   AI panel from reaching a provider for a reader who never opens it.
+ * - Keeping a visited one is what stops a *second* visit from costing
+ *   anything. `useCredentialProbe` keys its result to the hook instance, so
+ *   remounting resets it to "unknown" — which re-sends the key and, worse,
+ *   disables the model dropdown the reader had already been given, with no
+ *   action on their part. Live regions have the same problem in a milder
+ *   form: a region that unmounts cannot announce what happens while it is
+ *   gone, which is how a tactile display disconnecting on another tab would
+ *   have gone unannounced.
+ *
+ * A kept panel is hidden with `display: none`, which takes it out of the
+ * accessibility tree and the tab order. The `hidden` attribute would not do:
+ * `Grid` sets `display: flex` as an author style, which outranks the user
+ * agent's rule for `[hidden]`.
+ *
+ * @param props - The panel's configuration.
+ * @param props.tabId - The tab this panel belongs to.
+ * @param props.activeTabId - The tab currently selected in the dialog.
+ * @param props.visited - Whether this tab has been opened at least once.
+ * @param props.dialogId - The dialog's `useId` prefix.
+ * @param props.children - The setting rows to render.
+ * @returns The panel once its tab has been opened, otherwise nothing.
+ */
+const SettingsTabPanel: React.FC<SettingsTabPanelProps> = ({
+  tabId,
+  activeTabId,
+  visited,
+  dialogId,
+  children,
+}) => {
+  if (!visited) {
+    return null;
+  }
+  const isActive = tabId === activeTabId;
+  return (
+    <Grid
+      container
+      spacing={0.5}
+      role="tabpanel"
+      // Focusable so that entering the panel announces its name. That name is
+      // the only thing left saying which section the reader is in, now that
+      // the section headings are gone, and About needs it for a second
+      // reason: its first four rows are static text, so tabbing past the
+      // panel itself would land on the copy button and skip them.
+      tabIndex={0}
+      id={`${dialogId}-panel-${tabId}`}
+      aria-labelledby={`${dialogId}-tab-${tabId}`}
+      sx={isActive ? undefined : { display: 'none' }}
+      className={`settings-tab-panel settings-tab-panel-${tabId}`}
+    >
+      {children}
+    </Grid>
+  );
+};
 
 interface SettingRowProps {
   label: string;
@@ -432,6 +537,15 @@ const Settings: React.FC = () => {
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
+  // Seeded from the opener so a caller that sends the reader here for one
+  // setting lands them on it. Read once, as the dialog mounts: it is closed
+  // by unmounting, so every open runs this initialiser afresh.
+  const [activeTab, setActiveTab] = useState<SettingsSection>(
+    () => viewModel.initialSection ?? DEFAULT_SETTINGS_SECTION,
+  );
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<SettingsSection>>(
+    () => new Set([viewModel.initialSection ?? DEFAULT_SETTINGS_SECTION]),
+  );
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
   // Connection progress lives here rather than in Redux: this dialog reads the
   // view model directly, so a store update would not re-render it. The attempt
@@ -446,6 +560,14 @@ const Settings: React.FC = () => {
   const tactileLabelId = `${id}-tactile-label`;
   const tactileStatusId = `${id}-tactile-status`;
   const tactileMenu = useModalContainer();
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  // `HTMLDivElement` because that is what MUI declares `Tab`'s ref as, even
+  // though it renders a `<button>`. Only `focus()` is called on it, which
+  // every element has.
+  const aiTabRef = React.useRef<HTMLDivElement>(null);
+  // Counts refused saves rather than holding a boolean, so a second refusal
+  // re-runs the effect below instead of looking like the first one.
+  const [refusedSaves, setRefusedSaves] = useState(0);
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
@@ -504,6 +626,22 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
     setLlmSettings(llm);
   }, [general, llm]);
+
+  // Selecting the AI tab is not, on its own, something a reader can perceive.
+  // Its panel is already mounted by the time a save is refused — that is where
+  // the instruction was typed — so switching to it mutates no live region and
+  // announces nothing. Moving focus is what makes the refusal perceivable, and
+  // the tab it lands on is named "AI needs attention".
+  //
+  // In an effect rather than in the key handler so that focus arrives after
+  // the render that marks the tab selected; focusing first would announce the
+  // tab as unselected.
+  useEffect(() => {
+    if (refusedSaves === 0) {
+      return;
+    }
+    aiTabRef.current?.focus();
+  }, [refusedSaves]);
 
   const handleGeneralChange = <K extends keyof GeneralSettings>(
     key: K,
@@ -596,6 +734,29 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
+  // The second parameter is MUI's `any`. Narrowing it here is sound because
+  // the only values that reach it are the `Tab` values, which come from
+  // `SETTINGS_TABS`.
+  const handleTabChange = useCallback(
+    (_event: React.SyntheticEvent, tabId: SettingsSection): void => {
+      setActiveTab(tabId);
+      setVisitedTabs(previous =>
+        previous.has(tabId) ? previous : new Set(previous).add(tabId));
+      // The panels share one scroll container, so a switch would otherwise
+      // open the next page part-way down — a lost place for a reader using
+      // magnification.
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
+      // "Copied to clipboard" belongs to a copy that has now scrolled out of
+      // the conversation. Left alone it reappears on the next visit to About
+      // as though it had just happened.
+      setCopyState(previous =>
+        previous.status === 'idle' ? previous : { status: 'idle', attempt: previous.attempt });
+    },
+    [],
+  );
+
   const handleClose = useCallback((): void => {
     viewModel.toggle();
   }, [viewModel]);
@@ -669,10 +830,20 @@ const Settings: React.FC = () => {
       }
       const key = e.key.toLowerCase();
       if (key === SAVE_SHORTCUT_KEY) {
+        e.preventDefault();
         if (!isCustomInstructionValid) {
+          // Returning silently would leave a reader who pressed the shortcut
+          // the dialog advertises with no response at all — no sound, no
+          // text, nothing saying why. Opening the tab that holds the field is
+          // the answer to "why not", and puts them where the fix is; the
+          // effect above then moves focus there, which is the part they can
+          // actually perceive.
+          setActiveTab('ai');
+          setVisitedTabs(previous =>
+            previous.has('ai') ? previous : new Set(previous).add('ai'));
+          setRefusedSaves(previous => previous + 1);
           return;
         }
-        e.preventDefault();
         handleSave();
       } else if (key === CANCEL_SHORTCUT_KEY) {
         e.preventDefault();
@@ -706,22 +877,204 @@ const Settings: React.FC = () => {
       onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
-      {/* Renders as an `h2`, so the dialog also gains the top-level heading
-          it lacked — the section headings below were the only ones in it,
-          leaving nothing to land on when navigating by heading. */}
+      {/* Renders as an `h2`, and it is now the dialog's only heading: each
+          panel is named by its own tab, so a heading repeating that name
+          would announce the same words twice. */}
       <DialogTitle id={titleId} className="settings-dialog-title">
         Settings
       </DialogTitle>
 
-      <DialogContent className="settings-dialog-content">
-        <Grid size="grow">
-          <Typography variant="h6" component="h3" fontWeight="bold" gutterBottom>
-            General Settings
-          </Typography>
-        </Grid>
+      {/* The tablist sits outside `DialogContent` so it stays put while a
+          panel scrolls; inside it, a long panel would carry the tabs off
+          screen and leave no way back to the other sections. */}
+      <Tabs
+        value={activeTab}
+        onChange={handleTabChange}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label="Settings sections"
+        className="settings-tabs"
+        sx={{
+          'px': 3,
+          'borderBottom': 1,
+          'borderColor': 'divider',
+          // `ButtonBase` clears the UA outline, and `Tab` replaces it with
+          // nothing. Arrow keys move focus without selecting, so without this
+          // a reader arrowing the tablist has no way to see where they are.
+          '& .settings-tab.Mui-focusVisible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: '-2px',
+          },
+          // Selection is otherwise text colour plus the indicator's
+          // background, and a forced-colours mode overrides both — leaving
+          // six tabs that look alike. A system colour the mode is told not to
+          // override keeps the indicator visible.
+          '@media (forced-colors: active)': {
+            '& .MuiTabs-indicator': {
+              backgroundColor: 'Highlight',
+              forcedColorAdjust: 'none',
+            },
+            '& .settings-tab.Mui-focusVisible': {
+              outlineColor: 'CanvasText',
+            },
+          },
+        }}
+      >
+        {SETTINGS_TABS.map(tab => (
+          <Tab
+            key={tab.id}
+            value={tab.id}
+            ref={tab.id === 'ai' ? aiTabRef : undefined}
+            id={`${id}-tab-${tab.id}`}
+            // Named only on the selected tab. A visited tab's panel is in
+            // the document, but hidden — so it is out of the accessibility
+            // tree, and pointing at it would be no better than pointing at
+            // the unvisited ones, which are not there at all.
+            aria-controls={
+              tab.id === activeTab ? `${id}-panel-${tab.id}` : undefined
+            }
+            className="settings-tab"
+            sx={{ minWidth: 0, px: 1.5, textTransform: 'none' }}
+            label={(
+              <span className="settings-tab-label" style={TAB_LABEL_STYLE}>
+                {tab.label}
+                {/* Marks the tab holding the edit that is blocking Save, so
+                    the reason is reachable from whichever tab is open. The
+                    icon is decorative and the text beside it carries the
+                    meaning, because colour and shape alone say nothing to a
+                    reader. It extends the visible label rather than
+                    replacing it, and it leads with a space: a name computed
+                    from an element's contents is the concatenation of them,
+                    which would otherwise announce "AIneeds attention". */}
+                {tab.id === 'ai' && !isCustomInstructionValid && (
+                  <>
+                    <ErrorIcon color="error" fontSize="small" aria-hidden="true" />
+                    <span style={visuallyHidden}>{' needs attention'}</span>
+                  </>
+                )}
+              </span>
+            )}
+          />
+        ))}
+      </Tabs>
 
-        {/* General Settings */}
-        <Grid container spacing={0.5}>
+      {/* A floor under the shortest panels so switching tabs does not resize
+          the dialog under the reader's pointer or magnifier. Only the two
+          tallest panels push past it, and the viewport term keeps the floor
+          from squeezing the footer off a short screen. */}
+      <DialogContent
+        ref={contentRef}
+        className="settings-dialog-content"
+        sx={{ minHeight: 'min(400px, 45vh)' }}
+      >
+        <SettingsTabPanel
+          tabId="general"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('general')}
+          dialogId={id}
+        >
+          <Grid size={12}>
+            <SettingRow
+              label="Autoplay Duration (ms)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.autoplayDuration}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'autoplayDuration',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Autoplay Duration',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="ARIA Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.ariaMode}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'ariaMode',
+                        e.target.value as AriaMode,
+                      )}
+                    aria-label="ARIA Mode"
+                  >
+                    <FormControlLabel
+                      value="assertive"
+                      control={<Radio size="small" />}
+                      label="Assertive"
+                    />
+                    <FormControlLabel
+                      value="polite"
+                      control={<Radio size="small" />}
+                      label="Polite"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Hover Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.hoverMode}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'hoverMode',
+                        e.target.value as HoverMode,
+                      )}
+                    aria-label="Hover Mode"
+                  >
+                    <FormControlLabel
+                      value="off"
+                      control={<Radio size="small" />}
+                      label="Off"
+                    />
+                    <FormControlLabel
+                      value="pointermove"
+                      control={<Radio size="small" />}
+                      label="Hover"
+                    />
+                    <FormControlLabel
+                      value="click"
+                      control={<Radio size="small" />}
+                      label="Click"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel
+          tabId="audio"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('audio')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Volume"
@@ -744,6 +1097,64 @@ const Settings: React.FC = () => {
                       },
                     }}
                     className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Min Frequency (Hz)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.minFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'minFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Minimum Frequency',
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Max Frequency (Hz)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.maxFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'maxFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Maximum Frequency',
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -831,6 +1242,14 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel
+          tabId="visual"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('visual')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Outline Color"
@@ -958,6 +1377,14 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel
+          tabId="braille"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('braille')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Braille Display"
@@ -1189,176 +1616,14 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Min Frequency (Hz)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.minFrequency}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'minFrequency',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Minimum Frequency',
-                          'min': MIN_FREQUENCY_HZ,
-                          'max': MAX_FREQUENCY_HZ,
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Max Frequency (Hz)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.maxFrequency}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'maxFrequency',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Maximum Frequency',
-                          'min': MIN_FREQUENCY_HZ,
-                          'max': MAX_FREQUENCY_HZ,
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Autoplay Duration (ms)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.autoplayDuration}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'autoplayDuration',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Autoplay Duration',
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="ARIA Mode"
-              input={(
-                <FormControl>
-                  <RadioGroup
-                    row
-                    value={generalSettings.ariaMode}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'ariaMode',
-                        e.target.value as AriaMode,
-                      )}
-                    aria-label="ARIA Mode"
-                  >
-                    <FormControlLabel
-                      value="assertive"
-                      control={<Radio size="small" />}
-                      label="Assertive"
-                    />
-                    <FormControlLabel
-                      value="polite"
-                      control={<Radio size="small" />}
-                      label="Polite"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Hover Mode"
-              input={(
-                <FormControl>
-                  <RadioGroup
-                    row
-                    value={generalSettings.hoverMode}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'hoverMode',
-                        e.target.value as HoverMode,
-                      )}
-                    aria-label="Hover Mode"
-                  >
-                    <FormControlLabel
-                      value="off"
-                      control={<Radio size="small" />}
-                      label="Off"
-                    />
-                    <FormControlLabel
-                      value="pointermove"
-                      control={<Radio size="small" />}
-                      label="Hover"
-                    />
-                    <FormControlLabel
-                      value="click"
-                      control={<Radio size="small" />}
-                      label="Click"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              )}
-            />
-          </Grid>
-        </Grid>
+        </SettingsTabPanel>
 
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
-
-        {/* LLM Settings */}
-        <Grid container spacing={0.5} className="settings-section">
-          <Grid size={12}>
-            <Typography
-              variant="h6"
-              component="h3"
-              fontWeight="bold"
-              gutterBottom
-              className="settings-section-title"
-            >
-              LLM Settings
-            </Typography>
-          </Grid>
-
+        <SettingsTabPanel
+          tabId="ai"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('ai')}
+          dialogId={id}
+        >
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
             return (
@@ -1463,25 +1728,14 @@ const Settings: React.FC = () => {
               </Grid>
             </Grid>
           )}
-        </Grid>
+        </SettingsTabPanel>
 
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
-
-        {/* About */}
-        <Grid container spacing={0.5} className="settings-section">
-          <Grid size={12}>
-            <Typography
-              variant="h6"
-              component="h3"
-              fontWeight="bold"
-              gutterBottom
-              className="settings-section-title"
-            >
-              About
-            </Typography>
-          </Grid>
+        <SettingsTabPanel
+          tabId="about"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('about')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="maidr.js Version"
@@ -1574,11 +1828,7 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-        </Grid>
-
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
+        </SettingsTabPanel>
       </DialogContent>
 
       {/* Footer Actions */}
@@ -1588,6 +1838,34 @@ const Settings: React.FC = () => {
         alignItems="center"
         className="settings-footer"
       >
+        {/* Says where the edit blocking Save is, for a reader who is not on
+            that tab to see the panel's own warning. Suppressed on the AI tab
+            itself, where that warning already sits beside the field.
+
+            Rendered even while empty, for the same reason the copy status
+            below is: a live region has to be in the DOM before its text
+            changes for the change to be announced, and this one's text can
+            only appear on a tab switch — the fields that invalidate the
+            instruction are on the tab where the hint is silent. Created
+            already carrying its message, it would announce nothing at all.
+
+            On its own row, because sharing the buttons' row wraps "Save &
+            Close" off the bottom of the dialog, and inset by `px` so it
+            lines up with the setting labels above it and with the Reset
+            button's own text. */}
+        <Grid size={12} sx={{ px: 2 }}>
+          <Typography
+            variant="caption"
+            role="status"
+            aria-live="polite"
+            className="settings-footer-hint"
+            sx={{ color: 'error.main' }}
+          >
+            {!isCustomInstructionValid && activeTab !== 'ai'
+              ? `Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
+              : ''}
+          </Typography>
+        </Grid>
         <Grid size="auto" className="settings-grid-padding">
           <Button
             variant="text"
@@ -1603,6 +1881,7 @@ const Settings: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
+          alignItems="center"
           className="settings-footer-actions"
         >
           <Grid size="auto">

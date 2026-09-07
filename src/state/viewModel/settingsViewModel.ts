@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { DotPadState, DotPadTransport } from '@type/dotPad';
-import type { Settings } from '@type/settings';
+import type { Settings, SettingsSection } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { dotPadSession } from '@service/dotPadSession';
@@ -35,6 +35,9 @@ const { update, reset } = settingsSlice.actions;
  */
 export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   private readonly settingsService: SettingsService;
+
+  /** Set by the caller that opens the dialog; cleared on the next toggle. */
+  private openOnSection: SettingsSection | null = null;
 
   /**
    * Creates a new SettingsViewModel instance and loads initial settings.
@@ -101,8 +104,22 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   /**
    * Toggles the visibility of the settings modal.
    */
-  public toggle(): void {
+  public toggle(section?: SettingsSection): void {
+    this.openOnSection = section ?? null;
     this.settingsService.toggle();
+  }
+
+  /**
+   * The page the dialog should open on, when its opener asked for one.
+   *
+   * Read once by the dialog as it mounts. It is not in Redux because the
+   * dialog reads this view model directly rather than subscribing to the
+   * store, so a dispatch would not reach it — the same reason the tactile
+   * connection state is held outside the store.
+   * @returns The requested section, or null when the opener had no preference
+   */
+  public get initialSection(): SettingsSection | null {
+    return this.openOnSection;
   }
 
   /**
