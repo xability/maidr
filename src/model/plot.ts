@@ -2,10 +2,12 @@ import type { Disposable } from '@type/disposable';
 import type { ExtremaTarget } from '@type/extrema';
 import type { Maidr, MaidrSubplot } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { Observable } from '@type/observable';
 import type {
   FigureState,
   HighlightState,
+  LayerSummary,
   LayerSwitchTraceState,
   PlotState,
   PointerGuidanceState,
@@ -17,7 +19,7 @@ import type { SubplotLayout } from '@util/subplotLayout';
 import type { Dimension } from './abstract';
 import { TraceType } from '@type/grammar';
 import { Svg } from '@util/svg';
-import { AbstractPlot, DEFAULT_SUBPLOT_TITLE } from './abstract';
+import { AbstractPlot, chartTypeLabel, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
@@ -388,7 +390,12 @@ export class Figure extends AbstractPlot<FigureState> implements Movable, Observ
         summaries.push({
           index: visualIndex,
           title: subplot.primaryTitle,
-          traceTypes: [...subplot.traceTypes],
+          // Labelled here rather than in the view: the dialog used to print
+          // the raw enum values this array holds, so a scatter panel read
+          // "1. point" and a normalized bar panel "3. stacked_normalized_bar".
+          // `Subplot.traceTypes` stays raw -- `FigureState.traceTypes` and the
+          // adapter tests are about the wire values, not about display.
+          traceTypes: subplot.traceTypes.map(type => chartTypeLabel(type as TraceType)),
           isActive: r === this.row && c === this.col,
         });
       }
@@ -632,26 +639,126 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
       return null;
     }
 
+    Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+
+    // Notify after positioning is complete
+    this.notifyLayerSwitch(newTrace);
+    return newTrace;
+  }
+
+  /**
+   * Makes the layer at `index` the active one, carrying the reader's position
+   * across the same way a PageUp/PageDown step does -- and announcing nothing.
+   *
+   * The silence is the point: this is the jump the chart description's layer
+   * tabs make while the modal is open, and the trace's own announcement there
+   * would talk over the dialog. The caller decides when the reader is told;
+   * {@link switchLayer} is still the announcing path for the keyboard.
+   *
+   * @param index - Zero-based layer index within the subplot
+   * @returns The newly active trace, the current one when `index` already is
+   *   the active layer, or null when the subplot has no layer to read or the
+   *   index is out of range.
+   */
+  public selectLayer(index: number): Trace | null {
+    const currentTrace = this.activeTrace;
+    if (!currentTrace) {
+      return null;
+    }
+    if (index === this.row) {
+      return currentTrace;
+    }
+
+    // Read before the move, as `switchLayer` does: the value belongs to the
+    // layer being left.
+    const currentXValue = currentTrace.getCurrentXValue();
+    // `moveToIndex` bounds-checks against the grid and clears initial entry,
+    // so an out-of-range tab index leaves the active layer untouched.
+    if (!this.movable.moveToIndex(index, 0)) {
+      return null;
+    }
+
+    const newTrace = this.activeTrace;
+    if (!newTrace) {
+      return null;
+    }
+
+    Subplot.carryPosition(currentTrace, newTrace, currentXValue);
+    return newTrace;
+  }
+
+  /**
+   * Carries the reader's position from the layer being left onto the layer
+   * being entered: both X and Y where the two traces can express both, and X
+   * alone otherwise.
+   *
+   * Shared by {@link switchLayer} and {@link selectLayer} so a keyboard step
+   * and a description-dialog jump land the cursor in the same place. Static
+   * because it is a function of the two traces, not of the subplot.
+   *
+   * @param from - The trace being left
+   * @param to - The trace being entered
+   * @param fromXValue - `from`'s x value, read before the move
+   */
+  private static carryPosition(from: Trace, to: Trace, fromXValue: XValue | null): void {
     // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
     let positioned = false;
     if (
-      typeof currentTrace.getCurrentYValue === 'function'
-      && typeof newTrace.moveToXAndYValue === 'function'
+      typeof from.getCurrentYValue === 'function'
+      && typeof to.moveToXAndYValue === 'function'
     ) {
-      const currentYValue = currentTrace.getCurrentYValue();
-      if (currentYValue !== null && currentXValue !== null) {
-        positioned = newTrace.moveToXAndYValue(currentXValue, currentYValue);
+      const fromYValue = from.getCurrentYValue();
+      if (fromYValue !== null && fromXValue !== null) {
+        positioned = to.moveToXAndYValue(fromXValue, fromYValue);
       }
     }
 
     // Default: preserve X value when changing layers
     if (!positioned) {
-      newTrace.moveToXValue(currentXValue);
+      to.moveToXValue(fromXValue);
     }
+  }
 
-    // Notify after positioning is complete
-    this.notifyLayerSwitch(newTrace);
-    return newTrace;
+  /**
+   * At-a-glance summaries of every layer in this subplot, in layer order.
+   *
+   * Built for the chart description's layer tabs, which need to name the
+   * layers a reader can switch to before they switch to one. Returns an empty
+   * array for a single-layer subplot: there is no choice to offer, and the
+   * dialog omits the tab strip entirely.
+   *
+   * The type label is the same {@link AbstractTrace.chartTypeLabel} the
+   * description's own "Chart Type" line uses, so a tab and the panel it opens
+   * name the chart the same way.
+   */
+  public getLayerSummaries(): LayerSummary[] {
+    const traces = this.traces.flat();
+    if (traces.length <= 1) {
+      return [];
+    }
+    return traces.map((trace, index) => ({
+      index,
+      label: trace.layerLabel,
+      isActive: index === this.row,
+    }));
+  }
+
+  /**
+   * Announces the active layer as a layer switch, for a switch that was made
+   * in silence and is being spoken later.
+   *
+   * {@link selectLayer} is the silent move -- the description dialog's layer
+   * tabs -- and this is how its caller tells the reader where they ended up,
+   * once, on the way out of the dialog. Nothing else differs: it is the same
+   * "Layer 2 of 3" announcement, over the same observer chain, that a
+   * PageUp/PageDown step makes for itself.
+   */
+  public announceActiveLayer(): void {
+    const trace = this.activeTrace;
+    if (!trace) {
+      return;
+    }
+    this.notifyLayerSwitch(trace);
   }
 
   /**
@@ -792,6 +899,16 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * The trace's chart type, exposed without computing the full state.
    */
   readonly traceType: TraceType;
+
+  /**
+   * How the layer names itself in the chart description's layer tabs — the
+   * producer's `name` when there is one, and the chart-type label otherwise.
+   * Exposed here for the same reason {@link Trace.traceType} is: the tab strip
+   * names every layer of a subplot, including the ones the reader has not
+   * visited, and building each one's full state to read a label would compute
+   * an audio, braille, text and highlight snapshot per layer per keypress.
+   */
+  readonly layerLabel: string;
 
   /**
    * Which level of the figure this element is, for the same reason

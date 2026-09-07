@@ -114,6 +114,22 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.WORD_CLOUD]: 'Word Cloud',
 };
 
+/**
+ * The human-readable name of a chart type, as the description dialog writes it.
+ *
+ * A free function beside the map because two callers need it and only one of
+ * them holds a trace: `Figure.getSubplotSummaries` names the layers of panels
+ * the reader has not entered, and has nothing but their {@link TraceType}. The
+ * map is declared `Record<TraceType, string>`, so every member has an entry and
+ * a lookup cannot miss.
+ *
+ * @param type - The layer's trace type
+ * @returns The label, e.g. `Scatter Plot` for {@link TraceType.SCATTER}
+ */
+export function chartTypeLabel(type: TraceType): string {
+  return CHART_TYPE_LABEL[type];
+}
+
 export interface Dimension {
   rows: number;
   cols: number;
@@ -801,20 +817,49 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Falls back to the raw layer type if no mapping is registered.
    */
   protected getChartTypeLabel(): string {
-    return CHART_TYPE_LABEL[this.layer.type] ?? this.layer.type;
+    return chartTypeLabel(this.layer.type);
   }
 
   /**
-   * Builds the axes object for the description state, including z only when
-   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * How this layer names itself in the description dialog's layer tabs.
+   *
+   * The producer's `name` when there is one, and the chart-type label
+   * otherwise — the same fallback order `TextService.layerIdentity` uses for
+   * the spoken layer-switch announcement, so a tab and the announcement single
+   * out the same layer by the same name. The two differ only in register: the
+   * announcement says "point plot" where the dialog says "Scatter Plot",
+   * because that written form is what the dialog's own Chart Type line has
+   * always shown and a tab sitting above it should agree with it.
+   */
+  public get layerLabel(): string {
+    return this.name ?? this.getChartTypeLabel();
+  }
+
+  /**
+   * Builds the axes object for the description state, carrying only the axes
+   * the layer actually authored a label for. Subclasses should call this
    * instead of constructing the axes object inline so charts without a real
    * z dimension don't surface the placeholder default.
+   *
+   * Every axis is gated, not just z. `xAxis` and `yAxis` fall back to the
+   * literal `'X'` and `'Y'` when the JSON authors no label -- legal, and
+   * common in adapter-generated specs -- and the dialog rendered that as
+   * "X: X", a line that says nothing twice. The figure-level branch of the
+   * description already showed only authored labels
+   * ({@link DescriptionService.getFigureAxes}), so gating here is what makes
+   * the two levels of the same dialog follow one rule.
+   *
+   * Blankness is tested with `trim()`, the same rule {@link named} applies
+   * when it decides whether to substitute the fallback in the first place. A
+   * whitespace-only z label is truthy but blank, so the untrimmed guard used
+   * to pass it through and then print the `'Level'` placeholder the guard
+   * existed to keep out.
    */
   protected getDescriptionAxes(): DescriptionState['axes'] {
     return {
-      x: this.xAxis,
-      y: this.yAxis,
-      ...(this.layer.axes?.z?.label && { z: this.z }),
+      ...(this.layer.axes?.x?.label?.trim() && { x: this.xAxis }),
+      ...(this.layer.axes?.y?.label?.trim() && { y: this.yAxis }),
+      ...(this.layer.axes?.z?.label?.trim() && { z: this.z }),
     };
   }
 

@@ -15,6 +15,9 @@ function createServiceStub(
 ): DescriptionService {
   return {
     getDescription: jest.fn(() => description),
+    selectLayer: jest.fn(() => null),
+    announcePendingLayerSwitch: jest.fn(),
+    dispose: jest.fn(),
     toggle: jest.fn(),
   } as unknown as DescriptionService;
 }

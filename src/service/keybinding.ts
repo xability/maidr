@@ -443,6 +443,18 @@ const GO_TO_EXTREMA_KEYMAP = {
  */
 const DESCRIPTION_KEYMAP = {
   TOGGLE_DESCRIPTION: key(`esc`, 'Close Chart Description', { showInHelp: false }),
+
+  // Layer tab strip (multi-layer subplots only; standard UI, not shown in help).
+  //
+  // Left/right only, as WAI-ARIA's horizontal tabs pattern specifies. Up and
+  // down are deliberately left unbound: every key bound in a scope is
+  // `preventDefault`ed before its command runs, and up/down are how a keyboard
+  // user scrolls the dialog -- including the hundred-row data table inside it.
+  // Claiming them for a strip that most charts do not even have would trade a
+  // working scroll for a dead key.
+  DESCRIPTION_LAYER_PREV: key(`left`, 'Previous Layer Tab', { showInHelp: false }),
+  DESCRIPTION_LAYER_NEXT: key(`right`, 'Next Layer Tab', { showInHelp: false }),
+  DESCRIPTION_SELECT_LAYER: key(`space`, 'Select Layer', { showInHelp: false }),
 } as const;
 
 /**

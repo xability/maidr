@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { Disposable } from '@type/disposable';
 import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
@@ -42,9 +43,16 @@ function roundCell(value: string | number | number[]): string | number {
  * Service for managing the chart description modal.
  * Retrieves objective description data from the active trace on demand.
  */
-export class DescriptionService {
+export class DescriptionService implements Disposable {
   private readonly context: Context;
   private readonly display: DisplayService;
+
+  /**
+   * Whether a layer tab moved the model's active layer during this visit to
+   * the dialog, and the reader has therefore not yet been told about it. See
+   * {@link selectLayer}.
+   */
+  private hasPendingLayerSwitch = false;
 
   public constructor(context: Context, display: DisplayService) {
     this.context = context;
@@ -69,11 +77,13 @@ export class DescriptionService {
       const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
 
       const subplots = this.context.getSubplotSummaries();
+      const layers = this.context.getLayerSummaries();
       return {
         ...description,
         ...this.rounded(description),
         title,
         ...(subplots.length > 0 && { subplots }),
+        ...(layers.length > 0 && { layers }),
       };
     }
 
@@ -195,9 +205,62 @@ export class DescriptionService {
   }
 
   /**
+   * Switches the reader to another layer of the current subplot and hands back
+   * that layer's description.
+   *
+   * The switch is real -- it moves the model's active trace, carrying the
+   * reader's position across the way a PageUp step does -- so leaving the
+   * dialog lands them on the layer they were last reading about rather than
+   * the one they opened it from. It is also silent: the trace's own "Layer 2
+   * of 3" announcement would talk over the dialog, so it is deferred to
+   * {@link announcePendingLayerSwitch}, which the close path calls.
+   *
+   * @param index - Zero-based layer index within the active subplot
+   * @returns The newly active layer's description, or null when the index
+   *   named the active layer, was out of range, or there is nothing to
+   *   describe once the switch has been made.
+   */
+  public selectLayer(index: number): DisplayDescriptionState | null {
+    if (!this.context.selectTrace(index)) {
+      return null;
+    }
+    this.hasPendingLayerSwitch = true;
+    return this.getDescription();
+  }
+
+  /**
+   * Speaks the layer a {@link selectLayer} call switched to, if any, and
+   * forgets it.
+   *
+   * Called as the dialog closes, so the reader hears which layer they have
+   * been returned to exactly once -- not once per tab they browsed through.
+   * A no-op when no layer was selected, which is every ordinary open-and-close
+   * of the dialog.
+   */
+  public announcePendingLayerSwitch(): void {
+    if (!this.hasPendingLayerSwitch) {
+      return;
+    }
+    this.hasPendingLayerSwitch = false;
+    this.context.notifyActiveTrace();
+  }
+
+  /**
    * Toggles the visibility of the description modal.
    */
   public toggle(): void {
     this.display.toggleFocus(Scope.DESCRIPTION);
+  }
+
+  /**
+   * Drops the deferred layer-switch announcement.
+   *
+   * {@link announcePendingLayerSwitch} is reached from exactly one place --
+   * `DescriptionViewModel.toggle`'s close branch -- so any teardown that does
+   * not go through it would leave the flag raised and have the *next* dialog
+   * announce a switch that never happened.
+   */
+  public dispose(): void {
+    this.hasPendingLayerSwitch = false;
   }
 }

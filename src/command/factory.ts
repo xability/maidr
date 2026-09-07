@@ -55,6 +55,11 @@ import {
   AnnounceYCommand,
   AnnounceZCommand,
 } from './describe';
+import {
+  DescriptionLayerNextCommand,
+  DescriptionLayerPrevCommand,
+  DescriptionSelectLayerCommand,
+} from './descriptionNavigation';
 import { GoToExtremaToggleCommand, GoToMaxValueCommand, GoToMinValueCommand } from './goTo';
 import {
   GoToExtremaCloseCommand,
@@ -271,6 +276,12 @@ export class CommandFactory {
         return new ToggleCommandPaletteCommand(this.commandPaletteViewModel);
       case 'TOGGLE_DESCRIPTION':
         return new ToggleDescriptionCommand(this.descriptionViewModel);
+      case 'DESCRIPTION_LAYER_PREV':
+        return new DescriptionLayerPrevCommand(this.descriptionViewModel);
+      case 'DESCRIPTION_LAYER_NEXT':
+        return new DescriptionLayerNextCommand(this.descriptionViewModel);
+      case 'DESCRIPTION_SELECT_LAYER':
+        return new DescriptionSelectLayerCommand(this.descriptionViewModel, this.rotorService);
       case 'TOGGLE_SETTINGS':
         return new ToggleSettingsCommand(this.settingsViewModel);
       case 'TOGGLE_CANDLESTICK_DELTA_LAYER':

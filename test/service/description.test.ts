@@ -1,6 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { PlotState, SubplotSummary } from '@type/state';
+import type { LayerSummary, PlotState, SubplotSummary } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { DescriptionService } from '@service/description';
 
@@ -16,6 +16,7 @@ interface ContextOverrides {
   figureYAxis?: string;
   authored?: string[];
   subplotSummaries?: SubplotSummary[];
+  layerSummaries?: LayerSummary[];
 }
 
 /**
@@ -37,6 +38,7 @@ function createMockContext(overrides: ContextOverrides): Context {
     isAuthoredCaption: (value: string) => authored.has(value),
     isAuthoredAxisLabel: (value: string) => value.trim() !== '',
     getSubplotSummaries: () => overrides.subplotSummaries ?? [],
+    getLayerSummaries: () => overrides.layerSummaries ?? [],
   } as unknown as Context;
 }
 

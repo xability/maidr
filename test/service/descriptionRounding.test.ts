@@ -21,6 +21,7 @@ function createMockContext(active: unknown): Context {
     isAuthoredCaption: () => false,
     isAuthoredAxisLabel: (value: string) => value.trim() !== '',
     getSubplotSummaries: () => [],
+    getLayerSummaries: () => [],
   } as unknown as Context;
 }
 

@@ -495,9 +495,32 @@ export interface SubplotSummary {
   index: number;
   /** Layer title for the subplot, or empty string if not available. */
   title: string;
-  /** Trace type label(s) for the subplot's layers. */
+  /**
+   * Display labels for the subplot's layers, one per layer (e.g. `Scatter
+   * Plot`), not the raw {@link TraceType} values -- the dialog prints these
+   * verbatim. `Figure.getSubplotSummaries` maps them.
+   */
   traceTypes: string[];
   /** True if this is the subplot the user is currently focused on. */
+  isActive: boolean;
+}
+
+/**
+ * One layer of the subplot the description was taken from, used to build the
+ * description dialog's layer tab strip.
+ *
+ * Present only for multi-layer subplots: a single-layer subplot offers no
+ * choice, and the dialog omits the strip entirely.
+ */
+export interface LayerSummary {
+  /** Zero-based layer index within the subplot. */
+  index: number;
+  /**
+   * How the layer names itself — the producer's `name` when there is one, and
+   * the chart-type label otherwise. See `Trace.layerLabel`.
+   */
+  label: string;
+  /** True if this is the layer the description currently describes. */
   isActive: boolean;
 }
 
@@ -539,6 +562,13 @@ export interface DescriptionState {
    * without having to navigate through them.
    */
   subplots?: SubplotSummary[];
+  /**
+   * Every layer of the subplot this description was taken from, populated only
+   * when the subplot has more than one. The dialog renders these as tabs, so a
+   * reader is told how many layers there are and which one they are on, and
+   * can switch to another without leaving the description.
+   */
+  layers?: LayerSummary[];
 }
 
 /**

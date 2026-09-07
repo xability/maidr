@@ -1,7 +1,7 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
-import type { PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
+import type { LayerSummary, PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { Figure, Subplot, Trace } from './plot';
 import { Emitter, Scope } from '@type/event';
 import { isGridNavigable } from '@type/navigation';
@@ -605,6 +605,92 @@ export class Context implements Disposable {
    */
   public getActiveSubplotTraces(): Trace[] {
     return this.figure.activeSubplot.traces.flat();
+  }
+
+  /**
+   * At-a-glance summaries of the layers of the subplot the reader is in, for
+   * the chart description's layer tabs. Empty at figure level and for a
+   * single-layer subplot -- in both cases there is no layer choice to offer.
+   */
+  public getLayerSummaries(): LayerSummary[] {
+    if (!this.isOnRealLayer()) {
+      return [];
+    }
+    return this.figure.activeSubplot.getLayerSummaries();
+  }
+
+  /**
+   * Whether the element on top of the stack is one of the active subplot's own
+   * layers.
+   *
+   * False at figure level, and false while a *virtual* layer is on top --
+   * today the candlestick delta layer, which `swapActiveTrace` puts there
+   * without it being one of the subplot's traces. Both answers matter to the
+   * description's layer tabs: a strip listing the real layers while the reader
+   * is on the delta layer offers a switch that would pop the delta trace off
+   * the stack behind `CandlestickDeltaService`'s back, leaving it to swap its
+   * anchor back in later and silently undo the reader's choice.
+   */
+  private isOnRealLayer(): boolean {
+    const active = this.plotContext.peek();
+    return active !== undefined
+      && active.level === 'trace'
+      && this.figure.activeSubplot.activeTrace === active;
+  }
+
+  /**
+   * Makes the layer at `index` the active one without announcing the move.
+   *
+   * The description dialog's layer tabs are the caller: the reader picks a
+   * layer while the modal is open, so the switch has to land in the model --
+   * that is what makes Escape return them to *that* layer -- while staying
+   * silent, because the trace's own announcement would talk over the dialog.
+   * {@link notifyActiveTrace} is how the caller speaks it later.
+   *
+   * A no-op at figure level and when the index is already active or out of
+   * range; the boundary tone {@link stepTrace} plays has no place here, where
+   * the reader chose a specific layer from a list rather than stepped off the
+   * end of one.
+   *
+   * @param index - Zero-based layer index within the active subplot
+   * @returns True when the active layer changed
+   */
+  public selectTrace(index: number): boolean {
+    if (!this.isOnRealLayer()) {
+      return false;
+    }
+    const current = this.plotContext.peek();
+
+    const subplot = this.figure.activeSubplot;
+    if (index === subplot.activeLayerIndex) {
+      return false;
+    }
+
+    const trace = subplot.selectLayer(index);
+    if (!trace || trace === current) {
+      return false;
+    }
+
+    this.plotContext.pop();
+    this.plotContext.push(trace);
+    return true;
+  }
+
+  /**
+   * Announces the active layer as a layer switch -- "Layer 2 of 3: ..." --
+   * through the trace's usual observer chain, so text, braille, audio and
+   * highlight all catch up at once.
+   *
+   * Paired with {@link selectTrace}, which deliberately moves in silence: the
+   * description dialog switches the layer as the reader browses the tabs and
+   * calls this once, on close, so the reader is told which layer they have
+   * landed back on rather than hearing every tab they passed through.
+   */
+  public notifyActiveTrace(): void {
+    if (this.active.level !== 'trace') {
+      return;
+    }
+    this.figure.activeSubplot.announceActiveLayer();
   }
 
   public stepTrace(direction: MovableDirection): void {
