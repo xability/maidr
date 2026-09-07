@@ -1092,6 +1092,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
             value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
           },
           z,
+          mainAxis: 'x',
+          crossAxis: 'y',
         }, stackName);
       }
       const yPoint = this.yPoints[this.row];
@@ -1105,6 +1107,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
           value: stack[idx] === undefined ? '' : named(stack[idx], stackLabels[idx]),
         },
         z,
+        // Declared because this branch swaps them. `main` holds the y reading
+        // and `cross` the x ones, and the defaults are the other way round.
+        mainAxis: 'y',
+        crossAxis: 'x',
       }, stackName);
     }
 
@@ -1153,6 +1159,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         main: { label: this.xAxis, value: named(current.x, current.label) },
         cross: { label: this.yAxis, value: namedAll(current.y, current.yLabels) },
         z: this.textZ(current.z),
+        mainAxis: 'x',
+        crossAxis: 'y',
       }, current.names);
     } else {
       const current = this.yPoints[this.row];
@@ -1160,6 +1168,12 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         main: { label: this.yAxis, value: named(current.y, current.label) },
         cross: { label: this.xAxis, value: namedAll(current.x, current.xLabels) },
         z: this.textZ(current.z),
+        // As above: row navigation reads along a y, so `main` is the y and
+        // `cross` the xs. Without the pair the defaults sent each through the
+        // other's formatter -- a date x and a currency y announced each
+        // other's format, one arrow key away from the mode that reads right.
+        mainAxis: 'y',
+        crossAxis: 'x',
       }, current.names);
     }
   }

@@ -382,6 +382,13 @@ export class RidgelineTrace extends AbstractTrace {
       main: { label: this.xAxis, value: point === undefined ? Number.NaN : Number(point.y) },
       cross: { label: this.densityLabel, value: density === undefined ? Number.NaN : density },
       section: this.groupNameAt(this.row),
+      mainAxis: 'x',
+      // The density is the layer's z quantity -- `densityLabel` is read off
+      // `axes.z` -- and z is the only axis whose format describes it. Left to
+      // the default the curve's height went through the *y* formatter, and on
+      // a ridgeline y carries the groups: a layer that formatted its cohort
+      // codes announced a KDE value as a cohort.
+      crossAxis: 'z',
     };
   }
 
@@ -469,14 +476,18 @@ export class RidgelineTrace extends AbstractTrace {
       });
     }
 
-    // The groups stack down y and the value they were measured at sits on x,
-    // the same pair the headers above are named from. The density is the
-    // estimator's own output -- the z label only heads the column, it is not
-    // an axis the curve was read off -- so it keeps the dialog's rounding.
+    // The value the group was measured at sits on x, and the density is the
+    // layer's z -- the pair `text` announces, through the same two formatters.
+    //
+    // The group column takes no axis even though the groups stack down y: it
+    // reaches the reader through `section`, which `TextService` speaks
+    // verbatim precisely to keep an authored group name intact. Naming y here
+    // would have run those names through a formatter on the one surface that
+    // is meant to agree with what was just spoken.
     const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
-      'y',
-      'x',
       undefined,
+      'x',
+      'z',
     ];
 
     return {

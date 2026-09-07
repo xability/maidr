@@ -239,12 +239,19 @@ export class ViolinKdeTrace extends AbstractTrace {
 
     // The violin name sits on whichever axis carries the categories and the
     // sampled value on the other one, so both read the way the layer's own
-    // format asks for. `Density` is the height of the curve, which no axis
-    // declares.
+    // format asks for. The curve's height is this layer's z: `text` announces
+    // it as `volume` through the z formatter, and `densityValues` falls back
+    // to the same `width` that announcement reads, so on every shipped
+    // example the two surfaces hold one number -- formatted when spoken and
+    // bare when tabled, until now.
+    //
+    // A producer that sends both `density` and `width` puts a different
+    // number on each surface, which is a question about which one to announce
+    // rather than about how to format it, and is left alone here.
     const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
       isHorizontal ? 'y' : 'x',
       isHorizontal ? 'x' : 'y',
-      undefined,
+      'z',
     ];
 
     return {

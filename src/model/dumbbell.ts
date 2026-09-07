@@ -396,14 +396,15 @@ export class DumbbellTrace extends AbstractTrace {
 
     // The category column sits on whichever axis carries the names, the same
     // swap the headers above make, and both ends on the value axis. `Change`
-    // is a subtraction the chart draws on neither, so it keeps the dialog's
-    // own rounding.
+    // joins them: a difference of two readings on that axis carries its units,
+    // and `text` already announces it through that axis's formatter as
+    // `stack`, so leaving the column bare read the same subtraction two ways.
     const valueAxis: AxisType = this.orientation === Orientation.HORIZONTAL ? 'x' : 'y';
     const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
       this.orientation === Orientation.HORIZONTAL ? 'y' : 'x',
       valueAxis,
       valueAxis,
-      undefined,
+      valueAxis,
     ];
 
     return {

@@ -604,15 +604,17 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       deltas[index] > 0 ? ABOVE_LINE : deltas[index] < 0 ? BELOW_LINE : ON_LINE,
     ]);
 
-    // The x column carries the candle's own x and the two price columns -- the
-    // compared field and the reference line -- the value axis. The delta is a
-    // difference this layer computes rather than a price the chart draws, and
-    // the position is a word, so neither is read off an axis.
+    // The x column carries the candle's own x, and the two price columns --
+    // the compared field and the reference line -- the value axis. The delta
+    // joins them: a difference of two prices is still a price, and `text`
+    // announces it as `cross` through that same formatter, so a bare column
+    // read one distance two ways. The position is a word, and is read off no
+    // axis at all.
     const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
       'x',
       'y',
       'y',
-      undefined,
+      'y',
       undefined,
     ];
 

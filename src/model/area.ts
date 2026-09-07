@@ -421,10 +421,12 @@ export class AreaTrace extends LineTrace {
 
     return {
       headers: [...table.headers, TOTAL],
-      // The line's own columns keep their axes; the total is summed here out
-      // of every band at that x rather than read off an axis the layer
-      // declared, so it carries none and keeps the dialog's own rounding.
-      columnAxes: table.columnAxes && [...table.columnAxes, undefined],
+      // The line's own columns keep their axes, and the total joins them on
+      // the value axis: it is a sum of band heights, so it carries their
+      // units and is drawn at the top of the stack. `text` already announces
+      // it there -- `stack.value` goes through the cross axis's formatter --
+      // so a bare column read the same height two ways.
+      columnAxes: table.columnAxes && [...table.columnAxes, 'y' as const],
       // Looked up by the x in column 0 of the row the line built, never by
       // index, for the reason `columnTotals` gives. A column reached only by
       // gaps carries NaN, which the dialog blanks rather than printing a stack
