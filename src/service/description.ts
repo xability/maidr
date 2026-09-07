@@ -3,6 +3,7 @@ import type { DisplayService } from '@service/display';
 import type { FormatterService } from '@service/formatter';
 import type { RotorNavigationService } from '@service/rotor';
 import type { Disposable } from '@type/disposable';
+import type { FormatFunction } from '@type/grammar';
 import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
@@ -48,6 +49,44 @@ function roundCell(value: string | number | number[]): string | number {
     return Number.isNaN(value) ? value : (roundNonFinite(value) ?? value);
   }
   return defaultFormat(value);
+}
+
+/**
+ * One cell read through the layer's own formatter.
+ *
+ * Two kinds of cell the format must not reach, both of them cells with no
+ * value in them. An empty cell is how a sparse table shows an absent value,
+ * and a chart's own `format.function` sees it as text rather than as absence:
+ * `Number(value).toFixed(1)` meeting `''` yields `0.0`, inventing a reading
+ * for a cell that has none. A non-finite number has to stay a number for the
+ * dialog's own blanking check, which any formatter would turn into the word
+ * `missing`, printed in every empty cell of the table.
+ *
+ * Both fall through to {@link roundCell}, which is exactly what the column
+ * would have done had its author declared no format -- so adding a format
+ * changes how the values read and never how their absence does.
+ *
+ * @param value - The value as the trace reported it.
+ * @param format - The layer's format function for this column's axis.
+ * @returns The formatted value, or the rounded one where a format says nothing.
+ */
+function formattedCell(
+  value: string | number | number[],
+  format: FormatFunction,
+): string | number {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '';
+    }
+    return value.map(entry => roundNonFinite(entry) ?? format(entry)).join(', ');
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return value;
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return roundCell(value);
+  }
+  return format(value);
 }
 
 /**
@@ -266,8 +305,7 @@ export class DescriptionService implements Disposable {
         return roundCell;
       }
       const format = this.formatter.getFormatter(layerId, axis);
-      return (cell: string | number | number[]): string | number =>
-        Array.isArray(cell) ? cell.map(entry => format(entry)).join(', ') : format(cell);
+      return (cell: string | number | number[]): string | number => formattedCell(cell, format);
     });
 
     return column => perColumn[column] ?? roundCell;

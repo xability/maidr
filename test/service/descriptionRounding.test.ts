@@ -260,6 +260,34 @@ describe('descriptionService authored axis formats', () => {
     expect(description.dataTable.rows[0][0]).toBe('Group A');
   });
 
+  test('leaves an empty cell empty rather than letting a format invent a value', () => {
+    const description = describeTrace(
+      boxTrace({ min: 5, q1: 10, q2: 15, q3: 20, max: 25 }),
+      // The shape a chart's own format function takes: `Number('')` is 0, so
+      // this would read a blank outlier cell as "0.0" if it ever saw one.
+      formatterFor({ y: { function: 'return Number(value).toFixed(1)' } }),
+    );
+
+    // Columns 1 and 7 are the outlier cells, and this box has no outliers.
+    const cells = row(description, 'A');
+    expect(cells[1]).toBe('');
+    expect(cells[7]).toBe('');
+    expect(cells[2]).toBe('5.0');
+  });
+
+  test('still hands a non-finite cell back as a number for the dialog to blank', () => {
+    const description = describeTrace(
+      boxTrace({ min: Number.NaN, q1: 10, q2: 15, q3: 20, max: 25 }),
+      formatterFor({ y: { type: 'currency', decimals: 2 } }),
+    );
+
+    // A formatter would name it `missing`, which the dialog prints; as a
+    // number it is blanked, exactly as an unformatted column's NaN is.
+    const cells = row(description, 'A');
+    expect(cells[2]).toBeNaN();
+    expect(typeof cells[2]).toBe('number');
+  });
+
   test('leaves an unformatted layer reading exactly as it did before', () => {
     // Every axis has a formatter, because one with no `format` falls back to
     // the default. Using it anyway would print `missing` in every empty cell
