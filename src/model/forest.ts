@@ -176,12 +176,12 @@ export class ForestTrace extends ErrorBarTrace {
       }
     }
 
-    // `Min value` and `Max value` are left counting every row on purpose:
-    // they describe the extent of the axis the figure is drawn on, and the
-    // pooled estimate sits on that axis like anything else. The same reason
-    // the extrema navigation is not overridden -- jumping to the largest
-    // value should reach whatever is largest, and the pooled row announces
-    // itself as pooled on arrival.
+    // `Min value`, `Max value` and `Estimate range` are left counting every
+    // row on purpose: they describe the extent of the axis the figure is
+    // drawn on, and the pooled estimate sits on that axis like anything else.
+    // The same reason the extrema navigation is not overridden -- jumping to
+    // the largest value should reach whatever is largest, and the pooled row
+    // announces itself as pooled on arrival.
 
     const pooled = this.studies.find(point => point.pooled === true);
     if (pooled !== undefined) {

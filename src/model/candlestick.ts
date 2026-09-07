@@ -676,9 +676,9 @@ export class Candlestick extends AbstractTrace {
         : []),
     ];
 
-    const first = this.candles[0];
-    const last = this.candles[this.candles.length - 1];
     if (this.candles.length > 1) {
+      const first = this.candles[0];
+      const last = this.candles[this.candles.length - 1];
       // What window the chart covers and where the price finished against
       // where it started: what a sighted reader takes before reading a single
       // candle, and what a listener otherwise has to walk to the first candle
