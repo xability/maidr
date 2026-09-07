@@ -4,6 +4,11 @@ import { LineTrace } from './line';
 
 /**
  * Trace implementation for smooth plots with continuous audio feedback.
+ *
+ * The description is {@link LineTrace}'s, save for the vocabulary below: the
+ * chart type resolves from `TraceType.SMOOTH` through `getChartTypeLabel()`,
+ * and everything else a fitted curve has to say -- the samples, the band
+ * around them -- the line already reports.
  */
 export class SmoothTrace extends LineTrace {
   /**
@@ -32,12 +37,46 @@ export class SmoothTrace extends LineTrace {
   }
 
   /**
-   * Gets the description state for the smooth trace.
-   * Inherits from line; chartType resolves via getChartTypeLabel() using
-   * the layer's TraceType.SMOOTH, producing the human-readable label.
-   * @returns The description state containing chart metadata and data table
+   * What one series is called wherever an announcement names it.
+   *
+   * A curve, announced beside its own name on every move; inheriting the
+   * line's "Group" puts two words for one referent in one sentence.
+   *
+   * @returns The fallback label
    */
+  protected override get groupFallbackLabel(): string {
+    return 'Curve';
+  }
 
+  /**
+   * The vocabulary the description dialog is rendered with.
+   *
+   * These are samples along a fitted curve, not observations -- the data the
+   * curve was fitted to is not in the layer at all. A reader told "Points per
+   * line: 80" takes them for eighty measurements, and then reads a table of
+   * eighty evenly spaced x values that are the fit's resolution rather than
+   * anything that was measured.
+   *
+   * @returns The four labels the description uses
+   */
+  protected override get seriesLabels(): {
+    count: string;
+    perSeries: string;
+    names: string;
+    column: string;
+  } {
+    return {
+      count: 'Number of curves',
+      perSeries: 'Samples per curve',
+      names: 'Curve names',
+      column: 'Curve',
+    };
+  }
+
+  /**
+   * Sonifies the curve as a glissando rather than as one tone per sample.
+   * @returns The audio state, carrying the neighbouring samples too
+   */
   protected override get audio(): AudioState {
     const rowYValues = this.lineValues[this.row];
     const getY = (i: number): number => {

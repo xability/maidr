@@ -22,6 +22,48 @@ function heatmapLayer(selectors?: MaidrLayer['selectors']): MaidrLayer {
   };
 }
 
+/**
+ * A payload whose labels outrun its grid.
+ *
+ * Three row labels over two rows of points. The description counted its rows
+ * off `y` and then indexed `heatmapValues` with them, so it threw on the third
+ * -- out of a getter the `d` keypress calls with nothing between it and the
+ * command, taking the whole interaction down. Everything else in the class
+ * counts the grid, which is what the cursor, the braille display and the audio
+ * all walk.
+ */
+function raggedLayer(): MaidrLayer {
+  const data: HeatmapData = {
+    x: ['Mon', 'Tue'],
+    y: ['Late', 'Mid', 'Early'],
+    points: [[1, 2], [3, 4]],
+  };
+  return {
+    id: 'ragged-heatmap',
+    type: TraceType.HEATMAP,
+    axes: { x: { label: 'Day' }, y: { label: 'Shift' } },
+    data,
+  };
+}
+
+describe('a heatmap whose labels outrun its grid', () => {
+  test('describes itself rather than throwing out of the keypress', () => {
+    const read = (): unknown => new Heatmap(raggedLayer()).description;
+
+    expect(read).not.toThrow();
+  });
+
+  test('counts the grid the reader walks, not the labels', () => {
+    const description = new Heatmap(raggedLayer()).description;
+    const valueOf = (label: string): unknown =>
+      description.stats?.find(stat => stat.label === label)?.value;
+
+    expect(valueOf('Rows')).toBe(2);
+    expect(valueOf('Columns')).toBe(2);
+    expect(description.dataTable.rows).toHaveLength(2);
+  });
+});
+
 describe('a heatmap with no cells', () => {
   test('constructs without a selector and reports empty', () => {
     const trace = new Heatmap(heatmapLayer());

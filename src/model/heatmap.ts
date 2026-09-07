@@ -168,20 +168,78 @@ export class Heatmap extends AbstractTrace {
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
+    const cells = this.heatmapValues.flat();
+    const measured = cells.filter(isMeasured);
+
     const stats: DescriptionState['stats'] = [
-      { label: 'Rows', value: this.y.length },
-      { label: 'Columns', value: this.x.length },
+      // Counted off the grid rather than off the label arrays, which is what
+      // everything else in the class counts: `dimension`, navigation, braille
+      // and audio all read `heatmapValues`. The two can disagree -- heatmap
+      // payloads are where adapters have been wrong before (#1191) -- and a
+      // count taken from the labels then describes a chart the cursor cannot
+      // walk.
+      { label: 'Rows', value: this.heatmapValues.length },
+      { label: 'Columns', value: this.heatmapValues[0]?.length ?? 0 },
       // A grid of nothing but holes has no range, and `-Infinity` is not one.
       { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_CELL },
       { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_CELL },
     ];
 
+    if (measured.length < cells.length) {
+      // The class goes to some lengths to keep an undrawn cell distinct from
+      // a zero, and then said nothing about how many there are. A calendar is
+      // the case that makes it matter: two years of ten records is 731 cells
+      // with 721 holes, and `Rows`, `Columns` and the range above read as 742
+      // readings. Only where there is a hole, so an ordinary full grid gains
+      // no line.
+      stats.push({
+        label: 'Cells with a value',
+        value: `${measured.length} of ${cells.length}`,
+      });
+    }
+
+    // Where the extremes are, not only what they are. "Where is the hot
+    // spot?" is what a heatmap is read for, and a reader given two bare
+    // numbers is left to walk up to rows x columns cells for the answer the
+    // extrema menu already computes. Named without their values, which stay
+    // in the two stats above where the service still rounds them; withheld
+    // when both name one cell, as a constant or single-valued grid does,
+    // since "highest" and "lowest" would then point at the same place.
+    const hottest = this.findGlobalExtrema('max');
+    const coldest = this.findGlobalExtrema('min');
+    if (
+      hottest !== null && coldest !== null
+      && (hottest.row !== coldest.row || hottest.col !== coldest.col)
+    ) {
+      const hottestAt = this.cellName(hottest.row, hottest.col);
+      const coldestAt = this.cellName(coldest.row, coldest.col);
+      if (hottestAt !== null && coldestAt !== null) {
+        stats.push(
+          { label: 'Highest cell', value: hottestAt },
+          { label: 'Lowest cell', value: coldestAt },
+        );
+      }
+    }
+
     const headers = [this.yAxis, ...this.x];
-    const rows: (string | number)[][] = this.y.map((yLabel, r) => [
-      yLabel,
-      // `NaN` in a table cell reads as the string "NaN", which is a value.
-      ...this.heatmapValues[r].map(cell => (isMeasured(cell) ? cell : MISSING_CELL)),
-    ]);
+    // Walked over the grid, so a label array longer than the payload cannot
+    // index past the end of it -- `this.heatmapValues[r]` was `undefined` and
+    // `.map` threw, inside a getter the `d` keypress calls with nothing
+    // between it and the command.
+    //
+    // Reversed, so the table reads top row first as the chart draws it and as
+    // `HeatmapData.y` authored it. The constructor turns the payload over so
+    // that model row 0 is the *bottom* of the grid, which is what makes
+    // ArrowUp move visually up; the braille service reverses that back for a
+    // physical display, and the table is the other surface a reader compares
+    // with the drawing rather than walks.
+    const rows: (string | number)[][] = this.heatmapValues
+      .map((row, r) => [
+        this.y[r] ?? '',
+        // `NaN` in a table cell reads as the string "NaN", which is a value.
+        ...row.map(cell => (isMeasured(cell) ? cell : MISSING_CELL)),
+      ])
+      .reverse();
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -190,6 +248,25 @@ export class Heatmap extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * How a cell is named where the description points at one.
+   *
+   * Column first, then row, which is the order the extrema menu names them in
+   * -- so the dialog and the go-to list send a reader to the same place in the
+   * same words.
+   *
+   * @param row - The cell's grid row
+   * @param col - The cell's grid column
+   * @returns The pair of labels, or null when the grid outruns them
+   */
+  private cellName(row: number, col: number): string | null {
+    const column = this.x[col];
+    const band = this.y[row];
+    return column === undefined || band === undefined
+      ? null
+      : `${column}, ${band}`;
   }
 
   protected get dimension(): Dimension {

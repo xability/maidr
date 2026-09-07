@@ -152,8 +152,12 @@ describe('spacing is the gradient', () => {
     // neighbouring curve is its (5, 4) vertex, not the (10, 8) one sharing
     // this index. Pairing by index would measure between two places that are
     // not opposite each other.
+    //
+    // Two decimals, the precision every other announcement is spoken at:
+    // `withoutFloatNoise` trims binary noise, it does not round for a
+    // listener, and this aside is spoken on every point of every curve.
     expect(nonEmptyState(contour(0, 2)).text.asides)
-      .toEqual([{ label: 'Spacing', value: '6.40312423743 to level 0.2' }]);
+      .toEqual([{ label: 'Spacing', value: '6.4 to level 0.2' }]);
   });
 
   test('takes the nearer neighbour when there are two', () => {
@@ -223,6 +227,67 @@ describe('the description answers what a curve cannot', () => {
     expect(stat('Level', alone)).toBe(0.05);
   });
 
+  test('the value range it reports is the field\'s, not the drawing\'s', () => {
+    // Inherited from the line layer, `Min value` and `Max value` are the min
+    // and max of the curves' **y** vertices. Under those labels, beside a
+    // column of levels, they answered "what does this field cover?" with the
+    // height of the plot: this field runs 0.1 to 0.3 and they said 0 to 18.
+    const labels = contour().description.stats.map(entry => entry.label);
+
+    expect(labels).not.toContain('Min value');
+    expect(labels).not.toContain('Max value');
+    expect(stat('Minimum Y')).toBe(0);
+    expect(stat('Maximum Y')).toBe(18);
+    expect(stat('Level range')).toBe('0.1 to 0.3');
+  });
+
+  test('the step is measured over the levels, not the emission order', () => {
+    // Nothing in the grammar makes a producer emit its curves in order, and
+    // diffing them as they arrive turns an evenly spaced field into one whose
+    // step "varies" -- withdrawing the licence to read spacing as gradient
+    // from a chart that supports it.
+    const shuffled: ContourPoint[][] = [
+      [{ x: 0, y: 1, level: 0.2 }],
+      [{ x: 0, y: 2, level: 0.3 }],
+      [{ x: 0, y: 0, level: 0.1 }],
+    ];
+
+    expect(stat('Level step', shuffled)).toBe(0.1);
+  });
+
+  test('a level drawn as islands is not a step of zero', () => {
+    // One level, two curves: the shape the class already handles for
+    // highlighting. Diffed in place the repeated level gives a difference of
+    // 0, and `Level step: 0` licenses reading every gap on the page as no
+    // change in the field at all.
+    const islands: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 0.5 }],
+      [{ x: 9, y: 9, level: 0.5 }],
+    ];
+
+    expect(stat('Level step', islands)).toBeUndefined();
+  });
+
+  test('finds where the levels run widest apart, not only closest', () => {
+    // The plateau to the cliff above it. Both come out of one scan the class
+    // already runs, and the wide end is the half a reader walking a single
+    // curve can least reconstruct.
+    expect(stat('Widest separation between levels')).toBe('10 at X 10, Y 18');
+  });
+
+  test('does not name the same gap twice on a field with one gap in it', () => {
+    const pair: ContourPoint[][] = [
+      [{ x: 0, y: 0, level: 1 }],
+      [{ x: 1, y: 1, level: 2 }],
+    ];
+
+    // A square root is a dozen digits, and the service rounds numbers rather
+    // than composed strings, so the stat the class exists for was the least
+    // listenable line in the dialog.
+    expect(stat('Closest approach between levels', pair)).toBe('1.41 at X 0, Y 0');
+    expect(stat('Widest separation between levels', pair)).toBeUndefined();
+  });
+
   test('does not measure a step across a curve that declares no level', () => {
     // 1 and 3 are two steps apart, not one. Reporting `2` here would be a
     // step measured over a gap the layer left undeclared, announced as
@@ -267,7 +332,10 @@ describe('the description speaks of levels, not lines', () => {
     // index into the order the producer emitted the curves in.
     const { headers, rows } = description().dataTable;
 
-    expect(headers).toEqual(['X', 'Y', 'Level']);
+    // Headed by the layer's own name for the field, which is what the
+    // announcement calls the same number: `Density 0.2` while walking, and a
+    // column of 0.2 under a different word, is one quantity named twice.
+    expect(headers).toEqual(['X', 'Y', 'Density']);
     expect(rows[0]).toEqual([0, 0, '0.1']);
     expect(rows.map(row => row[2])).not.toContain('Line 1');
   });
@@ -283,6 +351,32 @@ describe('the description speaks of levels, not lines', () => {
 
     expect(description(bare).dataTable.rows.map(row => row[2]))
       .toEqual(['1', 'Curve 2']);
+  });
+
+  test('an unlabelled field keeps the generic column name', () => {
+    // `this.z` is the literal `Level` when the layer names no z axis, so the
+    // column follows the announcement in both directions.
+    const trace = TraceFactory.create({
+      id: 'bare-contour-layer',
+      type: TraceType.CONTOUR,
+      axes: { x: { label: 'X' }, y: { label: 'Y' } },
+      data: CURVES,
+    }) as ContourTrace;
+
+    expect(trace.description.dataTable.headers).toEqual(['X', 'Y', 'Level']);
+  });
+
+  test('a densely sampled field caps its table and says it did', () => {
+    // A contour samples densely enough to look smooth, and the inherited
+    // table is one row per sample -- re-rounded on every press of `d`. A row
+    // count claiming the whole field over a table holding a fraction of it is
+    // worse than no table.
+    const dense: ContourPoint[][] = [
+      Array.from({ length: 1200 }, (_unused, x) => ({ x, y: x, level: 1 })),
+    ];
+
+    expect(description(dense).dataTable.rows).toHaveLength(1000);
+    expect(stat('Table rows', dense)).toBe('first 1000 of 1200');
   });
 
   test('an authored name survives where the layer gave no level', () => {

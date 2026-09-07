@@ -9,10 +9,33 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, named } from './abstract';
-import { isMeasured, toBarValue } from './bar';
+import { isMeasured, MISSING_TEXT, toBarValue } from './bar';
 import { MovableGraph } from './movable';
 
 const TYPE = 'Group';
+
+/**
+ * What the description calls a series column when the chart is a line.
+ *
+ * Named rather than repeated because {@link LineTrace.seriesColumnHeader}
+ * has to tell "the noun a subclass chose" apart from "the noun nobody chose",
+ * and a second literal would let the two drift.
+ */
+const DEFAULT_SERIES_COLUMN = 'Line';
+
+/**
+ * How many rows of the data table the description hands over.
+ *
+ * A fitted curve or a daily series runs to thousands of samples, and every
+ * cell of every row is formatted afresh on each press of `d` before the modal
+ * opens. The cap is {@link ScatterTrace}'s, and so is the stat that says the
+ * table was cut.
+ *
+ * A module constant rather than a static field: {@link ContourTrace} declares
+ * its own cap for its own denser tables, and two private statics of one name
+ * make the subclass's static side incompatible with the base's.
+ */
+const MAX_TABLE_ROWS = 1000;
 /**
  * Splits a path `d` attribute into commands, each with its argument text.
  *
@@ -295,9 +318,15 @@ export class LineTrace extends AbstractTrace {
    * -- has to name it the way every other announcement does, and reaching for
    * `points[row][0].z` directly would skip the fallback and report
    * `undefined` for an unnamed series.
+   *
+   * The fallback takes its noun from {@link LineTrace.seriesLabels} rather
+   * than hardcoding the line's. A radar that renamed its series in the dialog
+   * still listed "Line 1, Line 2" under `Series names`, and put `Line 1` in a
+   * column headed `Series` -- naming a chart type the reader is not on, and
+   * offering an index where a name was promised.
    */
   protected groupNameAt(row: number): string {
-    return this.authoredGroupNameAt(row) ?? `Line ${row + 1}`;
+    return this.authoredGroupNameAt(row) ?? `${this.seriesLabels.column} ${row + 1}`;
   }
 
   /**
@@ -348,8 +377,64 @@ export class LineTrace extends AbstractTrace {
       count: 'Number of lines',
       perSeries: 'Points per line',
       names: 'Line names',
-      column: 'Line',
+      column: DEFAULT_SERIES_COLUMN,
     };
+  }
+
+  /**
+   * What the description's series column is headed.
+   *
+   * The z axis when the layer named one: that is what every announcement
+   * calls the series -- "Species is setosa" -- and what the dialog's own
+   * `Axes` block prints three lines above, so a column headed `Line` puts
+   * three words for one referent in one dialog.
+   *
+   * A subclass that renamed the column is describing what its own cells hold
+   * -- a contour's level, a radar's series -- rather than falling back, so its
+   * noun stands over the axis label.
+   *
+   * Read off `this.layer` rather than `this.z`, for the reason
+   * {@link LineTrace.groupLabel} gives.
+   *
+   * @returns The header for the series column
+   */
+  private get seriesColumnHeader(): string {
+    const { column } = this.seriesLabels;
+    return column === DEFAULT_SERIES_COLUMN
+      ? named(this.layer.axes?.z?.label, column)
+      : column;
+  }
+
+  /**
+   * Where the widest series runs from and to, or null when the layer has no
+   * samples to measure.
+   *
+   * The widest series rather than the first, for the reason the per-series
+   * count takes it: a ragged layer's first series can be the empty one.
+   *
+   * A numeric axis reports its extent, so a series emitted back to front still
+   * reads low to high and a one-sample chart reads as the `constant` span
+   * {@link MathUtil.spanned} gives it. A categorical axis has no order but the
+   * one it is drawn in, so it reports its ends.
+   *
+   * @returns The extent as display text, or null when there is nothing to say
+   */
+  private xExtent(): string | null {
+    const spine = this.points.reduce(
+      (widest, line) => (line.length > widest.length ? line : widest),
+      [] as LinePoint[],
+    );
+    if (spine.length === 0) {
+      return null;
+    }
+
+    const xs = spine.map(point => point.x);
+    if (xs.every((x): x is number => typeof x === 'number' && Number.isFinite(x))) {
+      return MathUtil.spannedOrMissing(MathUtil.safeMin(xs), MathUtil.safeMax(xs));
+    }
+    const first = String(xs[0]);
+    const last = String(xs[xs.length - 1]);
+    return first === last ? first : `${first} to ${last}`;
   }
 
   /**
@@ -360,24 +445,80 @@ export class LineTrace extends AbstractTrace {
     const isMultiline = this.points.length > 1;
     const labels = this.seriesLabels;
 
-    // The widest series, not the first: a ragged layer's first series can be
-    // the empty one, and a layer can have no series at all.
-    const perSeries = this.points.reduce(
-      (widest, line) => Math.max(widest, line.length),
-      0,
-    );
+    // Over the populated series only, and stated as a span when they disagree.
+    // The label is a claim about every line, and a ragged layer -- a hue level
+    // missing a category, a series that starts late -- had the widest one's
+    // length reported for all of them, so a reader walking the short one hit
+    // its end early with nothing in the dialog to explain why. An absent
+    // series is left out rather than counted as a line of no points.
+    const lengths = this.points.map(line => line.length).filter(length => length > 0);
+    const narrowest = MathUtil.safeMin(lengths);
+    const widest = MathUtil.safeMax(lengths);
     const stats: DescriptionState['stats'] = [
       { label: labels.count, value: this.points.length },
-      { label: labels.perSeries, value: perSeries },
-      { label: 'Min value', value: MathUtil.safeMin(this.min) },
-      { label: 'Max value', value: MathUtil.safeMax(this.max) },
+      {
+        label: labels.perSeries,
+        value: lengths.length === 0
+          ? 0
+          : narrowest === widest ? widest : `${narrowest} to ${widest}`,
+      },
     ];
+
+    if (isMultiline) {
+      // How big the chart is, which a span of per-series lengths no longer
+      // gives and a reader cannot recover from one.
+      stats.push({
+        label: 'Total points',
+        value: this.points.reduce((total, line) => total + line.length, 0),
+      });
+    }
+
+    const extent = this.xExtent();
+    if (extent !== null) {
+      // What the chart covers. A line is usually a series over time, and the
+      // period is the first question a reader brings to one -- answerable
+      // until now only by walking to both ends of it.
+      stats.push({ label: `${this.xAxis} range`, value: extent });
+    }
+
+    // A layer of nothing but gaps has no range at all, and `safeMin`/`safeMax`
+    // answer an empty set with the infinities -- which the dialog drops
+    // silently, so the two stats vanished with nothing said in their place.
+    // `missing` is the word the announcements already use, and the shape
+    // `AbstractBarPlot.rangeStats` reports it in.
+    const chartMin = MathUtil.safeMin(this.min);
+    const chartMax = MathUtil.safeMax(this.max);
+    stats.push(
+      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
+      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
+    );
+
+    // How much of the chart has no reading. A gap is not a zero (#925), and
+    // the blank cell the table prints for one is otherwise the only place the
+    // dialog says so -- indistinguishable, on its own, from a rendering fault.
+    // Silent on a complete chart, the way the interval stats below are.
+    const unmeasured = this.lineValues.reduce(
+      (total, line) => total + line.filter(value => !isMeasured(value)).length,
+      0,
+    );
+    if (unmeasured > 0) {
+      stats.push({ label: 'Missing values', value: unmeasured });
+    }
 
     if (isMultiline) {
       const lineNames = this.points
         .map((_line, i) => this.groupNameAt(i))
         .join(', ');
       stats.push({ label: labels.names, value: lineNames });
+    } else {
+      const only = this.authoredGroupNameAt(0);
+      if (only !== undefined) {
+        // One series still carries the name `text` announces on every move,
+        // and the dialog is where a reader goes to find out what it is. Under
+        // the singular label the announcement uses rather than the plural one
+        // a list of names takes.
+        stats.push({ label: this.groupLabel, value: only });
+      }
     }
 
     // How wide the uncertainty gets, when the chart draws any. That is what
@@ -385,10 +526,20 @@ export class LineTrace extends AbstractTrace {
     // describe the fitted curve, not the band around it, so a reader opening
     // the description of a regression chart would otherwise learn nothing
     // about how well determined it is.
-    const widths = this.points
-      .flat()
-      .map(point => Number(point.yMax) - Number(point.yMin))
-      .filter(width => Number.isFinite(width));
+    //
+    // Read through `intervalOf`, the guard the announcement already uses, so
+    // the two surfaces cannot disagree about which samples have a band.
+    // `Number(null)` is `0`, and a producer spells "no band here" as a null
+    // pair because NaN is not JSON -- so an unbanded curve reported a
+    // narrowest interval of 0, and a half-null pair a width measured against a
+    // baseline of zero. Both bounds are required because a one-sided interval
+    // has no width.
+    const widths = this.points.flat().flatMap((point) => {
+      const { interval } = intervalOf(point);
+      return interval?.min !== undefined && interval.max !== undefined
+        ? [interval.max - interval.min]
+        : [];
+    });
     if (widths.length > 0) {
       stats.push(
         { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
@@ -396,20 +547,38 @@ export class LineTrace extends AbstractTrace {
       );
     }
 
+    // The name the announcements use, not the code that drives the pitch: an
+    // ordinal y travels as both (see `text`), and the table is read beside
+    // what navigation just said -- a column of integers under a cursor saying
+    // "Awake" has no key anywhere in the dialog. A gap still prints as an
+    // empty cell rather than as a number it does not have; `TextService` names
+    // it "missing" when spoken.
+    const cellOf = (point: LinePoint): string | number =>
+      point.label === undefined || point.label === '' ? (point.y ?? '') : point.label;
+
     let headers: string[];
-    let rows: (string | number)[][];
+    let allRows: (string | number)[][];
 
     if (isMultiline) {
-      headers = [this.xAxis, this.yAxis, labels.column];
-      rows = this.points.flatMap((line, i) => {
+      headers = [this.xAxis, this.yAxis, this.seriesColumnHeader];
+      allRows = this.points.flatMap((line, i) => {
         const lineName = this.groupNameAt(i);
-        // A gap prints as an empty cell rather than as a number it does
-        // not have; `TextService` names it "missing" when spoken.
-        return line.map(p => [p.x, p.y ?? '', lineName]);
+        return line.map(p => [p.x, cellOf(p), lineName]);
       });
     } else {
       headers = [this.xAxis, this.yAxis];
-      rows = (this.points[0] ?? []).map(p => [p.x, p.y ?? '']);
+      allRows = (this.points[0] ?? []).map(p => [p.x, cellOf(p)]);
+    }
+
+    const rows = allRows.slice(0, MAX_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      // Said rather than silently done, the way `ScatterTrace` says it: a
+      // table holding a thousand rows of a curve's several thousand, with
+      // nothing to admit the cut, is worse than no table.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
     }
 
     return {

@@ -199,6 +199,41 @@ describe('the description answers what a ranked list cannot', () => {
     expect(stat('Lowest')).toBe('Washington, 10');
   });
 
+  test('a region the layer gave no value for does not take the extremes with it', () => {
+    // `>` and `<` are both false against a `NaN`, so an unvalued region held
+    // the seed against every comparison and came out as both the highest and
+    // the lowest -- one region, so the pair was withheld from a map that
+    // plainly has a high and a low. The range goes the same way: `Math.min`
+    // of anything holding a `NaN` is one, and the dialog blanks a non-finite
+    // number, printing a label, a colon and nothing after it.
+    const unvalued: ChoroplethPoint[] = [
+      // What `Number(point.y)` leaves of a region whose value is absent, or
+      // is a string that is not a number.
+      { x: 'Blank', y: Number.NaN, lat: 1, lon: 1, neighbors: ['Alpha'] },
+      { x: 'Alpha', y: 5, lat: 2, lon: 1, neighbors: ['Blank', 'Beta'] },
+      { x: 'Beta', y: 9, lat: 3, lon: 1, neighbors: ['Alpha'] },
+    ];
+
+    expect(stat('Min value', unvalued)).toBe('missing');
+    expect(stat('Max value', unvalued)).toBe('missing');
+    expect(stat('Highest', unvalued)).toBe('Beta, 9');
+    expect(stat('Lowest', unvalued)).toBe('Alpha, 5');
+  });
+
+  test('speaks a rate at the precision the rest of the dialog does', () => {
+    // The extremes and the border jump are composed strings, which the
+    // service passes through where it would have rounded a number -- so a map
+    // of rates named its highest region at seventeen digits two lines under a
+    // `Max value` spoken at two.
+    const rates: ChoroplethPoint[] = [
+      { x: 'North', y: 0.3, lat: 3, lon: 0, neighbors: ['South'] },
+      { x: 'South', y: 0.1, lat: 1, lon: 0, neighbors: ['North'] },
+    ];
+
+    expect(stat('Highest', rates)).toBe('North, 0.3');
+    expect(stat('Sharpest borders', rates)).toBe('North to South, 0.2');
+  });
+
   test('finds the borders the value jumps hardest across', () => {
     // The edges an eye finds instantly and a value-ordered walk never
     // reports, because the two sides are far apart in that ordering.

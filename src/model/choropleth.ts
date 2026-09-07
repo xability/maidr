@@ -1,9 +1,11 @@
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /** Rotor unit that walks the regions bordering the current one. */
@@ -407,21 +409,65 @@ export class ChoroplethTrace extends AbstractTrace {
     const every = this.regions.flat();
     const stats: DescriptionState['stats'] = [
       { label: 'Number of regions', value: every.length },
-      { label: 'Min value', value: this.min },
-      { label: 'Max value', value: this.max },
+      // A region the layer gave no value for makes both of these `NaN` --
+      // `Math.min` of anything holding one is one -- and an empty map makes
+      // them infinite. The dialog blanks a non-finite number, so the two
+      // lines were spoken as a label, a colon and nothing at all, which reads
+      // as MAIDR having failed rather than as a map with no range. `Heatmap`
+      // guards the same pair the same way.
+      { label: 'Min value', value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
+      { label: 'Max value', value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
     ];
 
-    const highest = every.reduce<Region | null>(
+    // Whether the arrows mean compass directions on this map. `arrange` bands
+    // by latitude only when every region carries a centroid, and otherwise
+    // walks the declared order -- usually alphabetical -- with nothing saying
+    // so. MAIDR promises this trace that up is north, and a reader who has
+    // read that, or simply used a placed map, reads every move as a move
+    // across the ground and builds a map that is not this one.
+    const placed = every.length > 0 && every.every(
+      region => Number.isFinite(region.lat) && Number.isFinite(region.lon),
+    );
+    stats.push({
+      label: 'Layout',
+      value: placed
+        ? 'South to north, then west to east'
+        : 'Declared order; no centroids, so the arrows do not follow the compass',
+    });
+
+    const bordered = every.filter(region => this.neighboursOf(region).length > 0);
+    if (every.length > 0 && bordered.length < every.length) {
+      // Adjacency is declared, so a map can carry all of it, some, or none --
+      // and the border readings below simply disappear when it is missing,
+      // which reads exactly like a map whose values never jump. This is what
+      // separates the two, and it warns that a cluster found over half a map
+      // is half a finding.
+      stats.push({
+        label: 'Regions with declared borders',
+        value: `${bordered.length} of ${every.length}`,
+      });
+    }
+
+    // Measured regions only. `>` and `<` are both false against a `NaN`, so
+    // an unvalued region held the seed against every comparison and came out
+    // as both the highest and the lowest -- which, being one region, is how
+    // the map's extremes came to be withheld from a map that has them.
+    const valued = every.filter(region => Number.isFinite(region.value));
+    const highest = valued.reduce<Region | null>(
       (best, region) => (best === null || region.value > best.value ? region : best),
       null,
     );
-    const lowest = every.reduce<Region | null>(
+    const lowest = valued.reduce<Region | null>(
       (best, region) => (best === null || region.value < best.value ? region : best),
       null,
     );
     if (highest !== null && lowest !== null && highest.name !== lowest.name) {
-      stats.push({ label: 'Highest', value: `${highest.name}, ${highest.value}` });
-      stats.push({ label: 'Lowest', value: `${lowest.name}, ${lowest.value}` });
+      // Rounded here rather than left to the service, which rounds a numeric
+      // stat and passes a composed string through: a map of rates would
+      // otherwise name its highest region at seventeen digits two lines under
+      // a `Max value` spoken at two.
+      stats.push({ label: 'Highest', value: `${highest.name}, ${defaultFormat(highest.value)}` });
+      stats.push({ label: 'Lowest', value: `${lowest.name}, ${defaultFormat(lowest.value)}` });
     }
 
     const borders = this.sharpestBorders();
@@ -429,10 +475,13 @@ export class ChoroplethTrace extends AbstractTrace {
       // Where the shading changes hardest between two regions that touch --
       // the edges an eye finds instantly and a value-ordered walk never
       // reports, because the two sides are far apart in that ordering.
+      //
+      // The jump is a float subtraction, so it is rounded here for the same
+      // reason the extremes are: 0.3 against 0.1 is 0.19999999999999998.
       stats.push({
         label: 'Sharpest borders',
         value: borders
-          .map(({ from, to, jump }) => `${from} to ${to}, ${jump}`)
+          .map(({ from, to, jump }) => `${from} to ${to}, ${defaultFormat(jump)}`)
           .join('; '),
       });
     }
@@ -551,7 +600,24 @@ export class ChoroplethTrace extends AbstractTrace {
       }
     }
 
-    return best.length > 1 ? best : null;
+    if (best.length <= 1) {
+      return null;
+    }
+
+    // Ordered as the grid is, the way the border rotor orders its candidates
+    // and for the same reason: a stack-driven traversal names the members in
+    // the order the search happened to reach them, which is a fact about the
+    // search rather than about the map, and which changes when a producer
+    // reorders a `neighbors` array. Sorted, the run reads south to north and
+    // west to east, as a reader walking it would meet it.
+    return best.sort((a, b) => {
+      const left = this.placeOf.get(a);
+      const right = this.placeOf.get(b);
+      if (left === undefined || right === undefined) {
+        return 0;
+      }
+      return (left.row - right.row) || (left.col - right.col);
+    });
   }
 
   /**

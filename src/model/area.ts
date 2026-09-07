@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
+import { MathUtil } from '@util/math';
 import { toBarValue } from './bar';
 import { LineTrace } from './line';
 import { STEP_DIRECTION_LABEL, stepDataVertices } from './step';
@@ -260,6 +261,45 @@ export class AreaTrace extends LineTrace {
   }
 
   /**
+   * What one series is called wherever an announcement names it.
+   *
+   * A band, which is what this file calls them throughout and what the chart
+   * draws. Announced beside the band's own name on every move, so inheriting
+   * the line's "Group" puts two words for one referent in one sentence --
+   * "Band 1 of 2, Group is Subscriptions".
+   *
+   * @returns The fallback label
+   */
+  protected override get groupFallbackLabel(): string {
+    return 'Band';
+  }
+
+  /**
+   * The vocabulary the description dialog is rendered with.
+   *
+   * Inherited, a stacked area opens "Number of lines: 2, Points per line: 4,
+   * Line names: Subscriptions, Services" under a chart type announced as
+   * `100% stacked area`, and heads its series column `Line` -- three words for
+   * one thing in one dialog, and none of them the one the reader was told the
+   * chart was.
+   *
+   * @returns The four labels the description uses
+   */
+  protected override get seriesLabels(): {
+    count: string;
+    perSeries: string;
+    names: string;
+    column: string;
+  } {
+    return {
+      count: 'Number of bands',
+      perSeries: 'Points per band',
+      names: 'Band names',
+      column: 'Band',
+    };
+  }
+
+  /**
    * Announces this trace as an area chart — and, for a stacked layer, says so
    * — rather than falling back to the raw layer type.
    *
@@ -337,14 +377,56 @@ export class AreaTrace extends LineTrace {
         ? []
         : [...this.columnTotals.values()].filter(isMeasured);
     if (totals.length > 0) {
-      stats.push(
-        { label: 'Minimum total', value: Math.min(...totals) },
-        { label: 'Maximum total', value: Math.max(...totals) },
-      );
+      // One stat rather than two, routed through the helper that already
+      // decides how an extent reads. A 100% stacked area's totals are equal by
+      // construction -- the variant *is* the totals scaled to a common whole
+      // -- so the pair handed the reader a range and then one number twice
+      // over, and float error could make 0.9999 and 1.0001 read as a span. It
+      // also takes the extremes through `safeMin`/`safeMax` rather than
+      // spreading one argument per x into `Math.min`, which a daily series
+      // long enough to be worth stacking overflows.
+      stats.push({
+        label: 'Total range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.safeMin(totals),
+          MathUtil.safeMax(totals),
+        ),
+      });
     }
 
-    return stats.length === baseDescription.stats.length
-      ? baseDescription
-      : { ...baseDescription, stats };
+    return {
+      ...baseDescription,
+      stats,
+      dataTable: this.totalledTable(baseDescription.dataTable),
+    };
+  }
+
+  /**
+   * The inherited table with the running total beside each band's height.
+   *
+   * The second magnitude a stacked area draws. It is computed here and
+   * announced on every move, and was absent from the one surface a reader uses
+   * to compare columns -- recoverable there only by summing interleaved rows
+   * by hand, which is the arithmetic this class exists to do once.
+   *
+   * @param table - The table the line built
+   * @returns The table, carrying a `Total` column for a stacked layer
+   */
+  private totalledTable(
+    table: DescriptionState['dataTable'],
+  ): DescriptionState['dataTable'] {
+    const totals = this.columnTotals;
+    if (totals === null) {
+      return table;
+    }
+
+    return {
+      headers: [...table.headers, TOTAL],
+      // Looked up by the x in column 0 of the row the line built, never by
+      // index, for the reason `columnTotals` gives. A column reached only by
+      // gaps carries NaN, which the dialog blanks rather than printing a stack
+      // height the chart never drew.
+      rows: table.rows.map(row => [...row, totals.get(String(row[0])) ?? Number.NaN]),
+    };
   }
 }

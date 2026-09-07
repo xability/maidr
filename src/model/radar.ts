@@ -1,5 +1,5 @@
-import type { MaidrLayer } from '@type/grammar';
-import type { AudioState, TraceState } from '@type/state';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
+import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
 import { LineTrace } from './line';
 
@@ -17,6 +17,18 @@ type RadarVariant = 'radar' | 'polar';
 const PLOT_TYPE_LABEL: Record<RadarVariant, string> = {
   radar: 'radar',
   polar: 'polar area',
+};
+
+/**
+ * What one category around the circle is called, per variant.
+ *
+ * A radar draws a spoke; a polar area draws a wedge. Both share this trace, so
+ * a polar area's description counted its "spokes" under a chart type announced
+ * as `polar area`.
+ */
+const SPOKE_NOUN: Record<RadarVariant, string> = {
+  radar: 'Spokes',
+  polar: 'Sectors',
 };
 
 /**
@@ -124,6 +136,20 @@ export class RadarTrace extends LineTrace {
     };
   }
 
+  /**
+   * What one series is called wherever an announcement names it.
+   *
+   * The dialog already called them series; speech did not, so an unlabelled
+   * radar announced "Group is model A" on every move under a description
+   * headed `Series`. Two words for one referent, which is the defect the
+   * labels below were written to remove.
+   *
+   * @returns The fallback label
+   */
+  protected override get groupFallbackLabel(): string {
+    return 'Series';
+  }
+
   protected override get seriesLabels(): {
     count: string;
     perSeries: string;
@@ -134,12 +160,56 @@ export class RadarTrace extends LineTrace {
     // wording tells a reader opening it that they are on a chart with "lines"
     // and "points per line" -- the same misdescription the spoken plot type is
     // overridden to avoid, one dialog further along.
+    //
+    // `variantOf(this.layer.type)` rather than `this.variant`, which is
+    // assigned after `super(layer)`: `groupNameAt` reads these labels for its
+    // fallback name, so a read during construction would find the field
+    // undefined and index the record with it.
     return {
       count: 'Number of series',
-      perSeries: 'Spokes per series',
+      perSeries: `${SPOKE_NOUN[variantOf(this.layer.type)]} per series`,
       names: 'Series names',
       column: 'Series',
     };
+  }
+
+  /**
+   * Names the categories around the circle, in the order they are drawn.
+   *
+   * The order is the chart: which categories sit next to each other decides
+   * the outline's shape outright, and it is a choice the author made rather
+   * than a property of the data — {@link ParallelTrace} reports its own axis
+   * order on the same grounds, and {@link RadarTrace.computeSpokeAngles}
+   * already treats the order as load-bearing for the panning. A radar carries
+   * few categories and they are its whole vocabulary, so a reader opening `d`
+   * before navigating was given a count and no names at all.
+   *
+   * @returns The description state, carrying the categories in order
+   */
+  public override get description(): DescriptionState {
+    const base = super.description;
+
+    // The widest series, for the reason `computeSpokeAngles` takes it: a
+    // ragged layer still has an angle -- and a name -- for every column a
+    // cursor can reach.
+    const spokes = this.points.reduce(
+      (widest, series) => (series.length > widest.length ? series : widest),
+      [] as LinePoint[],
+    );
+    if (spokes.length === 0) {
+      return base;
+    }
+
+    // The inherited x extent goes with it. It reports the first and last
+    // column of the axis, and on a circle those two are neighbours, so
+    // "speed to price" names a sweep the chart never makes.
+    const stats = base.stats.filter(stat => stat.label !== `${this.xAxis} range`);
+    stats.push({
+      label: `${SPOKE_NOUN[variantOf(this.layer.type)]}, in order`,
+      value: spokes.map(point => String(point.x)).join(', '),
+    });
+
+    return { ...base, stats };
   }
 
   public override get state(): TraceState {

@@ -207,8 +207,9 @@ export class StepTrace extends LineTrace {
 
   /**
    * Column indices, per series, at which the level differs from the previous
-   * column — that is, the first point of every run after the first. Computed
-   * once because trace data is immutable (live-data updates rebuild the trace).
+   * *measured* column — that is, the first point of every run after the first.
+   * Computed once because trace data is immutable (live-data updates rebuild
+   * the trace).
    */
   private readonly transitionIndices: number[][];
 
@@ -223,10 +224,22 @@ export class StepTrace extends LineTrace {
     this.stepDirection = layer.stepDirection;
     this.transitionIndices = this.stepPoints.map((series) => {
       const indices = new Array<number>();
-      for (let col = 1; col < series.length; col++) {
-        if (series[col].y !== series[col - 1].y) {
+      // Compared against the last *measured* level rather than the raw
+      // predecessor. A `StepPoint` is a `LinePoint`, so `y` may be null, and
+      // `null !== 3` twice made a single missing epoch two level changes: a
+      // series reading 3, null, 3 reported two transitions for a level that
+      // never moved, and the rotor stopped the reader on the absence and
+      // called it a change. A gap is an absence, not a jump.
+      let previous: number | null = null;
+      for (let col = 0; col < series.length; col++) {
+        const level = series[col].y;
+        if (level === null) {
+          continue;
+        }
+        if (previous !== null && level !== previous) {
           indices.push(col);
         }
+        previous = level;
       }
       return indices;
     });
@@ -258,15 +271,39 @@ export class StepTrace extends LineTrace {
    */
   public override get description(): DescriptionState {
     const baseDescription = super.description;
-    const series = this.stepPoints[this.row] ?? [];
+    // A ragged layer can leave the cursor parked off the data, and a series of
+    // -1 is nobody's.
+    const row = Math.max(this.row, 0);
+    const series = this.stepPoints[row] ?? [];
+    const every = this.stepPoints.flat();
+
+    // Named when the layer draws more than one series. Every stat inherited
+    // above is a fact about the whole layer, so an unqualified "Transitions: 2"
+    // beside a second night with forty read as the chart's count rather than
+    // as this series' -- and it changed as the reader moved between series,
+    // with nothing in the dialog to say why.
+    const scoped = this.points.length > 1 ? ` in ${this.groupNameAt(row)}` : '';
+
+    // A y that names its levels is an ordinal code: it exists to drive the
+    // pitch, the braille and the range, and nothing else. Reported as "Min
+    // value: 1, Max value: 3" two lines above `Awake, N2, REM`, with no
+    // mapping between the two, it invites the reading that one stage is three
+    // times another. `BumpTrace` and `ParallelTrace` drop the same pair on the
+    // same grounds. Judged over the whole layer, because the axis is.
+    const ordinal = every.length > 0
+      && every.every(point => point.label !== undefined && point.label !== '');
 
     const stats: DescriptionState['stats'] = [
-      ...baseDescription.stats,
+      ...(ordinal
+        ? baseDescription.stats.filter(
+            stat => stat.label !== 'Min value' && stat.label !== 'Max value',
+          )
+        : baseDescription.stats),
       {
-        label: 'Transitions',
-        value: this.transitionIndices[this.row]?.length ?? 0,
+        label: `Transitions${scoped}`,
+        value: this.transitionIndices[row]?.length ?? 0,
       },
-      { label: 'Longest run', value: this.longestRunLength(series) },
+      { label: `Longest run${scoped}`, value: this.longestRunLength(series) },
     ];
 
     if (this.stepDirection !== undefined) {
@@ -276,9 +313,23 @@ export class StepTrace extends LineTrace {
       });
     }
 
-    const levelNames = this.levelNames(series);
+    // Levels are a property of the y axis, not of one series: a stage drawn
+    // only in the second night still belongs in the list, and leaving it out
+    // reads as a chart that never reaches it.
+    const levelNames = this.levelNames(every);
     if (levelNames.length > 0) {
       stats.push({ label: 'Levels', value: levelNames.join(', ') });
+    } else {
+      // A numeric staircase names no level, and said nothing about them at
+      // all. How many distinct values it takes is the one thing a reader
+      // cannot assemble by ear, and it is the count the named case gives for
+      // free.
+      const distinct = new Set(
+        every.filter(point => point.y !== null).map(point => point.y),
+      );
+      if (distinct.size > 0) {
+        stats.push({ label: 'Distinct levels', value: distinct.size });
+      }
     }
 
     return { ...baseDescription, stats };
@@ -304,15 +355,27 @@ export class StepTrace extends LineTrace {
   }
 
   /**
-   * Length, in samples, of the longest run of consecutive equal levels.
+   * Length, in measured samples, of the longest run of consecutive equal
+   * levels.
+   *
+   * A sample with no reading is skipped rather than ending the run, for the
+   * reason the constructor gives: an absence says nothing about whether the
+   * level moved, and breaking the run at one hid the run it sat inside.
+   *
    * @param series - The points of the series being described
-   * @returns The run length, or 0 for an empty series
+   * @returns The run length, or 0 for a series with nothing measured
    */
   private longestRunLength(series: readonly StepPoint[]): number {
     let longest = 0;
     let current = 0;
-    for (let col = 0; col < series.length; col++) {
-      current = col > 0 && series[col].y === series[col - 1].y ? current + 1 : 1;
+    let previous: number | null = null;
+    for (const point of series) {
+      const level = point.y;
+      if (level === null) {
+        continue;
+      }
+      current = previous !== null && level === previous ? current + 1 : 1;
+      previous = level;
       longest = Math.max(longest, current);
     }
     return longest;

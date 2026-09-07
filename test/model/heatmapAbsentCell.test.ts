@@ -111,9 +111,12 @@ describe('a heat cell the chart drew no value at', () => {
   test('is named rather than printed as NaN in the data table', () => {
     const rows = new Heatmap(layerOf(WITH_HOLE)).description.dataTable.rows;
 
-    // The table is built from the flipped rows, so `AM` comes first.
-    expect(rows[0]).toEqual(['AM', 5, 7, 9]);
-    expect(rows[1]).toEqual(['PM', 2, 'missing', 4]);
+    // Top row first, as the payload authored it and as the chart draws it.
+    // The model turns the rows over so ArrowUp moves visually up, and the
+    // table used to follow that -- printing every heat grid upside down
+    // beside the chart it describes.
+    expect(rows[0]).toEqual(['PM', 2, 'missing', 4]);
+    expect(rows[1]).toEqual(['AM', 5, 7, 9]);
   });
 
   test('is left out of the min and max the description reports', () => {
@@ -123,6 +126,32 @@ describe('a heat cell the chart drew no value at', () => {
 
     expect(valueOf('Min value')).toBe(2);
     expect(valueOf('Max value')).toBe(9);
+  });
+
+  test('is counted, so the reader knows the grid is not full', () => {
+    // A grid is a rectangle and the data need not fill it. Nothing else in
+    // the dialog says so: `Rows`, `Columns` and the range read as a complete
+    // set of readings, and finding out costs a cell-by-cell walk.
+    const holed = new Heatmap(layerOf(WITH_HOLE)).description.stats;
+    const whole = new Heatmap(layerOf(WITH_ZERO)).description.stats;
+    const valueOf = (stats: typeof holed, label: string): unknown =>
+      stats?.find(stat => stat.label === label)?.value;
+
+    expect(valueOf(holed, 'Cells with a value')).toBe('5 of 6');
+    expect(valueOf(whole, 'Cells with a value')).toBeUndefined();
+  });
+
+  test('is never named as the cell the extremes sit in', () => {
+    const stats = new Heatmap(layerOf(WITH_HOLE)).description.stats;
+    const valueOf = (label: string): unknown =>
+      stats?.find(stat => stat.label === label)?.value;
+
+    // Where the hot spot is, which is what a heatmap is read for and what
+    // two bare numbers leave a reader to walk the grid for. Tuesday PM is
+    // the hole, so naming it either way would point at a cell the chart drew
+    // nothing in.
+    expect(valueOf('Highest cell')).toBe('Wed, AM');
+    expect(valueOf('Lowest cell')).toBe('Mon, PM');
   });
 
   test('is never offered as an extreme to navigate to', () => {

@@ -1,11 +1,23 @@
 import type { ContourPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
+import { defaultFormat } from '@util/format';
+import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { LineTrace } from './line';
 
 /** Trims binary floating-point noise from a derived magnitude. */
 function withoutFloatNoise(value: number): number {
   return Number(value.toPrecision(12));
+}
+
+/** A gap between two adjacent levels, and the point it was measured from. */
+interface Gap {
+  /** How far apart the two levels run there. */
+  distance: number;
+  /** Where along the field it was measured. */
+  x: number;
+  /** Where along the field it was measured. */
+  y: number;
 }
 
 /**
@@ -42,10 +54,22 @@ export class ContourTrace extends LineTrace {
   private readonly curves: ContourPoint[][];
 
   /**
-   * Memoised {@link ContourTrace.steepestPoint}. `undefined` means not yet
+   * Memoised {@link ContourTrace.spacingExtremes}. `undefined` means not yet
    * computed; `null` is a computed answer of "no gap is measurable".
    */
-  private steepest?: { distance: number; x: number; y: number } | null;
+  private extremes?: { closest: Gap; widest: Gap } | null;
+
+  /**
+   * How many rows the description's data table carries.
+   *
+   * A contour samples densely enough for the curve to look smooth, so the
+   * inherited one-row-per-sample table is the size this class's own scan is
+   * sized against: twenty levels at two thousand samples is forty thousand
+   * rows, re-rounded on every press of `d` and then held in the store.
+   * {@link ScatterTrace} caps its own at the same number and for the same
+   * reason.
+   */
+  private static readonly MAX_TABLE_ROWS = 1000;
 
   /**
    * Creates a new contour trace.
@@ -195,7 +219,13 @@ export class ContourTrace extends LineTrace {
       count: 'Number of levels',
       perSeries: 'Points per level',
       names: 'Levels',
-      column: 'Level',
+      // The layer's own word for the field, which is what the announcement
+      // already calls this number: a reader who hears "Density 0.2" walking
+      // the chart and then finds a column headed `Level` holding 0.2, with
+      // the same dialog listing z as Density, is reading two names for one
+      // quantity. `this.z` is the literal `Level` when the layer names no z,
+      // so an unlabelled contour is unchanged.
+      column: this.z,
     };
   }
 
@@ -242,9 +272,15 @@ export class ContourTrace extends LineTrace {
       // ", 1, 0.1" and the level would arrive looking like a second distance.
       // It is worth naming at all because the gap is taken to whichever side
       // is closer, so which side that is changes as the reader walks the curve.
+      //
+      // Rounded here, as the description's own gap stats are: an aside is a
+      // composed string, so nothing downstream formats it, and a distance
+      // straight out of a square root is a dozen digits spoken on every
+      // point of every curve.
       state.asides = [{
         label: 'Spacing',
-        value: `${spacing.distance} to level ${spacing.to}`,
+        value: `${defaultFormat(spacing.distance)} to level `
+          + `${defaultFormat(spacing.to)}`,
       }];
     }
 
@@ -307,7 +343,23 @@ export class ContourTrace extends LineTrace {
 
   public override get description(): DescriptionState {
     const base = super.description;
-    const stats = [...base.stats];
+    const declared = this.levels.filter(Number.isFinite);
+
+    // Inherited, these two are the line layer's per-series min and max of
+    // **y** -- the vertical extent of the drawn vertices. Under the most
+    // value-shaped labels in the dialog, beside a column of levels, they
+    // answer "what range does this field cover?" with the height of the plot:
+    // the fixture's field runs 0.1 to 0.3 and the stats said 0 to 18. Named
+    // for the axis they actually measure, they are a fact about the drawing.
+    const stats = base.stats.map((stat) => {
+      if (stat.label === 'Min value') {
+        return { ...stat, label: `Minimum ${this.yAxis}` };
+      }
+      if (stat.label === 'Max value') {
+        return { ...stat, label: `Maximum ${this.yAxis}` };
+      }
+      return stat;
+    });
 
     // How many levels there are and what they are -- the first two questions
     // a contour plot is read with, and neither answerable by walking a curve,
@@ -315,79 +367,153 @@ export class ContourTrace extends LineTrace {
     // `seriesLabels` and `groupNameAt` say level where they used to say line;
     // a single-curve layer is the one case the parent stays silent about,
     // since it has no series list to print.
-    const declared = this.levels.filter(Number.isFinite);
     if (this.curves.length === 1 && declared.length === 1) {
       stats.push({ label: 'Level', value: declared[0] });
+    }
+
+    if (declared.length > 1) {
+      // What the field spans, which is what the two relabelled stats sounded
+      // like they were saying. Withheld on a single curve, whose level is
+      // already stated above and is not a range.
+      stats.push({
+        label: 'Level range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.safeMin(declared),
+          MathUtil.safeMax(declared),
+        ),
+      });
     }
 
     // Every curve, or none: a step measured across a curve whose level the
     // layer left out is the distance over two gaps announced as one, and the
     // whole point of naming the step is that a reader may rely on it.
     if (declared.length > 1 && declared.length === this.levels.length) {
-      const steps = declared
-        .slice(1)
-        .map((level, i) => withoutFloatNoise(level - declared[i]));
-      const uniform = steps.every(step => step === steps[0]);
-      if (uniform) {
-        // A uniform step is what lets a reader treat spacing as gradient
-        // directly: equal value between curves means the distance between
-        // them IS the slope. A varying step does not, so it is named as
-        // varying rather than averaged into a number that would mislead.
-        stats.push({ label: 'Level step', value: steps[0] });
-      } else {
-        stats.push({ label: 'Level step', value: 'varies' });
+      // Distinct and ascending, neither of which the payload guarantees. A
+      // level is routinely drawn as several islands -- the shape
+      // `mapToSvgElements` exists for -- and those arrive as several curves
+      // carrying the same number, which diffed in place gives a step of 0;
+      // nothing requires a producer to emit its curves in order either, and
+      // 0.2, 0.3, 0.1 diffed in place is a step that "varies" on a field
+      // whose levels are evenly spaced.
+      const distinct = [...new Set(declared)].sort((a, b) => a - b);
+      // One level drawn as several islands leaves nothing to measure, and a
+      // step of 0 would read as a measurement.
+      if (distinct.length > 1) {
+        const steps = distinct
+          .slice(1)
+          .map((level, i) => withoutFloatNoise(level - distinct[i]));
+        const uniform = steps.every(step => step === steps[0]);
+        if (uniform) {
+          // A uniform step is what lets a reader treat spacing as gradient
+          // directly: equal value between curves means the distance between
+          // them IS the slope. A varying step does not, so it is named as
+          // varying rather than averaged into a number that would mislead.
+          stats.push({ label: 'Level step', value: steps[0] });
+        } else {
+          stats.push({ label: 'Level step', value: 'varies' });
+        }
       }
     }
 
-    const steepest = this.steepestPoint();
-    if (steepest !== null) {
+    const spacing = this.spacingExtremes();
+    if (spacing !== null) {
       // Where the field changes fastest, which on the page is where the lines
       // crowd together -- and which a reader walking one curve at a time
       // cannot find, because the finding is about the gap between curves.
       stats.push({
         label: 'Closest approach between levels',
-        value: `${steepest.distance} at ${this.xAxis} ${steepest.x}, `
-          + `${this.yAxis} ${steepest.y}`,
+        value: this.gapPhrase(spacing.closest),
+      });
+      if (spacing.widest.distance !== spacing.closest.distance) {
+        // The other half of the same reading. The class is built on "tight
+        // spacing is a cliff, wide spacing is a plateau" and the scan already
+        // holds both ends, so reporting only the cliff drops the finding a
+        // reader walking one curve can least reconstruct -- on a density
+        // field, where the data thins out.
+        stats.push({
+          label: 'Widest separation between levels',
+          value: this.gapPhrase(spacing.widest),
+        });
+      }
+    }
+
+    const rows = base.dataTable.rows.slice(0, ContourTrace.MAX_TABLE_ROWS);
+    if (base.dataTable.rows.length > rows.length) {
+      // Said rather than silently done, as `ScatterTrace` says it: the dialog
+      // prints the row count it is given, and a count claiming the whole
+      // field over a table holding a fortieth of it is worse than no table.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${base.dataTable.rows.length}`,
       });
     }
 
-    return { ...base, stats };
+    return { ...base, stats, dataTable: { ...base.dataTable, rows } };
   }
 
   /**
-   * The point at which two adjacent levels run closest together.
+   * How a gap between two adjacent levels reads.
+   *
+   * Composed here, so it is rounded here: the description service rounds a
+   * numeric stat and passes a composed string through untouched, and neither
+   * end of this one survives that. The distance has been through
+   * {@link withoutFloatNoise}, which trims binary noise rather than rounding
+   * for display, and the coordinates are the producer's own -- so the stat
+   * the class exists for was announcing twelve significant digits beside a
+   * `Level step` the service had rounded to two.
+   *
+   * @param gap - The gap and the point it was measured from
+   * @returns The phrase the description states
+   */
+  private gapPhrase(gap: Gap): string {
+    return `${defaultFormat(gap.distance)} at `
+      + `${this.xAxis} ${defaultFormat(gap.x)}, `
+      + `${this.yAxis} ${defaultFormat(gap.y)}`;
+  }
+
+  /**
+   * Where two adjacent levels run closest together, and where they run widest.
    *
    * Every point measured against every point of both neighbouring curves, so
    * this is quadratic in sampling density: a twenty-level contour sampled two
    * thousand times per curve is tens of millions of distances. It is computed
    * on demand -- only when the description dialog is opened -- and the result
    * is cached, because the curves are fixed at construction, so a reader who
-   * opens the dialog repeatedly pays for it once.
+   * opens the dialog repeatedly pays for it once. Both ends come out of the
+   * one scan for the same reason.
    *
-   * @returns The point and the gap, or null when no gap is measurable
+   * @returns The tightest and widest gaps, or null when no gap is measurable
    */
-  private steepestPoint(): { distance: number; x: number; y: number } | null {
-    if (this.steepest !== undefined) {
-      return this.steepest;
+  private spacingExtremes(): { closest: Gap; widest: Gap } | null {
+    if (this.extremes !== undefined) {
+      return this.extremes;
     }
 
-    let best: { distance: number; x: number; y: number } | null = null;
+    let closest: Gap | null = null;
+    let widest: Gap | null = null;
     for (const [row, curve] of this.curves.entries()) {
       for (const [col, point] of curve.entries()) {
         const spacing = this.spacingAt(row, col);
         if (spacing === null) {
           continue;
         }
-        if (best === null || spacing.distance < best.distance) {
-          best = {
-            distance: spacing.distance,
-            x: Number(point.x),
-            y: Number(point.y),
-          };
+        const gap: Gap = {
+          distance: spacing.distance,
+          x: Number(point.x),
+          y: Number(point.y),
+        };
+        if (closest === null || gap.distance < closest.distance) {
+          closest = gap;
+        }
+        if (widest === null || gap.distance > widest.distance) {
+          widest = gap;
         }
       }
     }
-    this.steepest = best;
-    return best;
+
+    this.extremes = closest === null || widest === null
+      ? null
+      : { closest, widest };
+    return this.extremes;
   }
 }
