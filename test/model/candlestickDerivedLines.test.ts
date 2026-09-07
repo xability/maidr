@@ -4,8 +4,8 @@
 
 /**
  * A candlestick derives the open and close edges it was given no selector for
- * by drawing a line along the body, and `Svg.buildLineElements` inserts that
- * line into the chart. On a chart whose candles do not
+ * by drawing a line along the body: `Svg.buildLineElements` measures and
+ * builds it, and `Svg.insertDerived` puts it in the chart. On a chart whose candles do not
  * all state an open there is no `open` row (#1188), so a derived open edge has
  * no row to be placed in: it was inserted, referenced by nothing, and left
  * behind by `dispose()` -- one hidden `<line>` per opened candle per focus
