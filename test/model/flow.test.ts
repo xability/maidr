@@ -97,8 +97,27 @@ function walk(trace: FlowTrace, ...directions: MovableDirection[]): (string | nu
  * @param data The flows the layer carries
  * @returns Its value, or undefined
  */
-function stat(label: string, data: FlowPoint[] = ENERGY): unknown {
-  return flow(data).description.stats.find(entry => entry.label === label)?.value;
+function stat(
+  label: string,
+  data: FlowPoint[] = ENERGY,
+  type: TraceType = TraceType.SANKEY,
+): unknown {
+  return flow(data, type).description.stats.find(entry => entry.label === label)?.value;
+}
+
+/**
+ * Whether the description reports a stat at all, as against what it says.
+ * @param label The stat to look for
+ * @param data The flows the layer carries
+ * @param type Which layout the layer is drawn as
+ * @returns True when a stat with that label is present
+ */
+function hasStat(
+  label: string,
+  data: FlowPoint[] = ENERGY,
+  type: TraceType = TraceType.SANKEY,
+): boolean {
+  return flow(data, type).description.stats.some(entry => entry.label === label);
 }
 
 describe('flow registration', () => {
@@ -299,6 +318,32 @@ describe('stages are derived, and a cycle is answered honestly', () => {
     // column rather than at the end -- a sink is wherever its longest inbound
     // path leaves it, not automatically the last column.
     expect(stat('Stages')).toBe(3);
+  });
+
+  test('a chord reports no stage count, because a ring has no columns', () => {
+    // These same flows sort cleanly into three columns -- as the sankey case
+    // below this one shows -- so the cyclic branch never catches them. Drawn
+    // as a chord they are a ring, and a column count describes a geometry the
+    // chart does not have. The layout decides, not the matrix.
+    const acyclic: FlowPoint[] = [
+      { source: 'A', target: 'B', value: 3 },
+      { source: 'B', target: 'C', value: 2 },
+    ];
+
+    expect(hasStat('Stages', acyclic, TraceType.CHORD)).toBe(false);
+    // The same data drawn as a sankey still answers, so this is the layout
+    // being respected rather than the stat quietly breaking.
+    expect(stat('Stages', acyclic, TraceType.SANKEY)).toBe(3);
+  });
+
+  test('a cyclic sankey still says so rather than going silent', () => {
+    const circle: FlowPoint[] = [
+      { source: 'A', target: 'B', value: 3 },
+      { source: 'B', target: 'C', value: 2 },
+      { source: 'C', target: 'A', value: 1 },
+    ];
+
+    expect(stat('Stages', circle, TraceType.SANKEY)).toBe('none, the flows form a cycle');
   });
 
   test('a chord diagram gets one stage rather than a partial layering', () => {

@@ -280,6 +280,30 @@ describe('pie slices with a negative value', () => {
     expect(String(statValue(stats, 'Note'))).toContain('130');
   });
 
+  it('names the biggest wedge as the largest slice, sign notwithstanding', () => {
+    // [60, -40, 30] draws wedges of 60, 40 and 30. Ranked by signed value the
+    // -40 wedge came last, so the summary sent a reader to the second-widest
+    // thing on the circle to find the least of something. `shareBasis` already
+    // says a wedge is |value|; the extremes now agree with it.
+    const { stats } = new PieTrace(pieLayer([60, -40, 30])).description;
+
+    expect(String(statValue(stats, 'Largest slice'))).toContain('Apples');
+    expect(String(statValue(stats, 'Smallest slice'))).toContain('Cherries');
+  });
+
+  it('names the negative wedge itself when it is the widest one', () => {
+    // The case the signed ranking got exactly backwards: -70 is both the
+    // minimum value and the largest wedge, and only one of those is a slice.
+    const { stats } = new PieTrace(pieLayer([60, -70, 30])).description;
+
+    expect(String(statValue(stats, 'Largest slice'))).toContain('Bananas');
+    // The summary still reports the datum's own sign beside its share.
+    expect(String(statValue(stats, 'Largest slice'))).toContain('-70');
+    // And the data's extremes are untouched: -70 really is the minimum value.
+    expect(statValue(stats, 'Min value')).toBe(-70);
+    expect(statValue(stats, 'Max value')).toBe(60);
+  });
+
   it('rounds the basis in the note, like every other number in the summary', () => {
     // `roundCell` formats a stat before it reaches the dialog, but only when
     // the stat *is* a number -- this one is a finished sentence, so the number

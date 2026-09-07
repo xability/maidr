@@ -155,15 +155,15 @@ describe('ridgeline reads its density off z, on both surfaces', () => {
 });
 
 describe('a value the announcement formats, the table formats too', () => {
-  test("a stacked area's total sits on the value axis", () => {
+  test('a stacked area\'s total sits on the value axis', () => {
     const description = describedBy({
       id: 'area',
       type: TraceType.STACKED_AREA,
       title: 'Revenue by region',
       axes: { x: { label: 'Quarter' }, y: { label: 'Revenue' } },
       data: [
-        [{ x: 'Q1', y: 3, fill: 'North' }, { x: 'Q2', y: 4, fill: 'North' }],
-        [{ x: 'Q1', y: 5, fill: 'South' }, { x: 'Q2', y: 6, fill: 'South' }],
+        [{ x: 'Q1', y: 3, z: 'North' }, { x: 'Q2', y: 4, z: 'North' }],
+        [{ x: 'Q1', y: 5, z: 'South' }, { x: 'Q2', y: 6, z: 'South' }],
       ],
     });
 
@@ -172,7 +172,7 @@ describe('a value the announcement formats, the table formats too', () => {
     expect(axisOf(description, 'Total')).toBe('y');
   });
 
-  test("a dumbbell's change sits on the value axis, in both orientations", () => {
+  test('a dumbbell\'s change sits on the value axis, in both orientations', () => {
     const data = {
       startLabel: '1990',
       endLabel: '2020',

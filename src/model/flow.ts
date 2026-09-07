@@ -3,6 +3,7 @@ import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -675,14 +676,23 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of nodes', value: this.nodes.length },
       { label: 'Number of flows', value: this.nodes.reduce((n, node) => n + node.out.length, 0) },
-      // A single stage is not a one-column drawing: `assignStages` answers
-      // with one stage holding everything exactly when the sort does not
-      // complete, which is what a chord diagram always is and what a sankey
-      // fed by a cycle is. Reporting `1` presented that as a geometry, and on
-      // a graph with a source upstream of a cycle it is plainly not one.
-      this.stages.length === 1
-        ? { label: 'Stages', value: 'none, the flows form a cycle' }
-        : { label: 'Stages', value: this.stages.length },
+      // Stages count the columns a sankey or alluvial is drawn in. A chord is
+      // drawn as a circle and has none, so the stat is omitted rather than
+      // answered: being usually cyclic, it fell into the branch below and read
+      // plausibly, but a chord whose matrix happens to be acyclic sorts
+      // cleanly and reported a column count for a chart that has no columns.
+      // The layout decides that, not the matrix.
+      //
+      // A single stage is likewise not a one-column drawing: `assignStages`
+      // answers with one stage holding everything exactly when the sort does
+      // not complete, which is what a sankey fed by a cycle is. Reporting `1`
+      // presented that as a geometry, and on a graph with a source upstream
+      // of a cycle it is plainly not one.
+      ...(this.type === TraceType.CHORD
+        ? []
+        : [this.stages.length === 1
+            ? { label: 'Stages', value: 'none, the flows form a cycle' }
+            : { label: 'Stages', value: this.stages.length }]),
     ];
 
     // A sankey conserves its quantity across the stages, so what enters is

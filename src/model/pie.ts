@@ -288,11 +288,20 @@ export class PieTrace extends AbstractTrace {
       // false, there being one row to walk -- so this summary was the only
       // surface that could name them, and it named neither: a reader had to
       // walk all N slices holding a running maximum in their head.
+      //
+      // Ranked by wedge, not by signed value, on the rule `shareBasis` already
+      // sets a few lines up: the wedge for -40 occupies 40 of the circle. A
+      // pie holding [30, -40, 20] drew its biggest wedge for -40 and this
+      // summary called it the *smallest* slice, sending a reader to the widest
+      // thing on screen to find the least of something. `Min value` and
+      // `Max value` above still report the data's own extremes, which really
+      // are -40 and 30.
       const measured = this.sliceValues[0]
         .map((value, col) => ({ col, value }))
         .filter(entry => isMeasured(entry.value));
-      const largest = measured.reduce((a, b) => (b.value > a.value ? b : a));
-      const smallest = measured.reduce((a, b) => (b.value < a.value ? b : a));
+      const wedge = (entry: { value: number }): number => Math.abs(entry.value);
+      const largest = measured.reduce((a, b) => (wedge(b) > wedge(a) ? b : a));
+      const smallest = measured.reduce((a, b) => (wedge(b) < wedge(a) ? b : a));
 
       stats.push({ label: 'Largest slice', value: this.sliceSummary(largest.col) });
       // One measured slice, or a pie whose slices are all equal, has a single
