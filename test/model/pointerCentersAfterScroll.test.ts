@@ -7,9 +7,9 @@
  *
  * Heatmap, box, violin-box, violin-KDE and candlestick all measure their
  * marks once, on the first hover, and keep the result to answer later
- * `findNearestPoint` calls without measuring again. What they keep are
- * viewport* coordinates, and the pointer coordinates they are compared
- * against (`event.clientX` / `clientY`) are
+ * `findNearestPoint` calls without measuring again. What they keep are the
+ * coordinates *as the viewport saw them*, and the pointer coordinates they
+ * are compared against (`event.clientX` / `clientY`) are
  * always current -- so the moment the page, or a container the chart sits in,
  * scrolls under them, every centre is off by however far the chart moved. A
  * heatmap built below the fold and then scrolled into view resolved a hover
