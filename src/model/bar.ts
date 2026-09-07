@@ -4,6 +4,7 @@ import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation, TraceType } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -122,6 +123,15 @@ const MARK_NOUN: Partial<Record<TraceType, string>> = {
   [TraceType.DOT]: 'dots',
   [TraceType.LOLLIPOP]: 'lollipops',
   [TraceType.FUNNEL]: 'stages',
+};
+
+/**
+ * The same nouns, capitalised, for a label that opens with one.
+ */
+const MARK_NOUN_LEADING: Partial<Record<TraceType, string>> = {
+  [TraceType.DOT]: 'Dots',
+  [TraceType.LOLLIPOP]: 'Lollipops',
+  [TraceType.FUNNEL]: 'Stages',
 };
 
 export function isMeasured(value: number): boolean {
@@ -301,18 +311,33 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // `7 at Q1`, not `Q1, 7`: two values separated by a comma read as two
     // numbers when the category is one, and `at` is the word the Go To Extrema
     // dialog already uses for the same pairing.
+    //
+    // Rounded here, because composing the name onto the value makes this a
+    // string and `DescriptionService` treats a string as finished display text
+    // -- so a computed magnitude reached a reader as
+    // `3333.3333333333335 at a`.
     if (isMeasured(chartMax)) {
-      stats.push({ label: 'Largest', value: `${chartMax} at ${nameAt(values.indexOf(chartMax))}` });
+      stats.push({
+        label: 'Largest',
+        value: `${defaultFormat(chartMax)} at ${nameAt(values.indexOf(chartMax))}`,
+      });
     }
     if (isMeasured(chartMin)) {
-      stats.push({ label: 'Smallest', value: `${chartMin} at ${nameAt(values.indexOf(chartMin))}` });
+      stats.push({
+        label: 'Smallest',
+        value: `${defaultFormat(chartMin)} at ${nameAt(values.indexOf(chartMin))}`,
+      });
     }
 
     // A gap is not a zero, and until now nothing in the summary said a chart
     // had any: `[120, null, null, 40]` read as four bars between 40 and 120.
     const gaps = values.filter(value => !isMeasured(value)).length;
     if (gaps > 0) {
-      stats.push({ label: 'Bars with no value', value: gaps });
+      // Named by the same noun as the count above it. Hardcoding `Bars` here
+      // while that line already read `Number of stages` left one summary using
+      // two words for the same objects, and a reader working out that a bar
+      // and a stage are the same thing.
+      stats.push({ label: `${MARK_NOUN_LEADING[this.type] ?? 'Bars'} with no value`, value: gaps });
     }
 
     const headers = isVertical

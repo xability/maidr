@@ -407,6 +407,35 @@ describe('readings the whole dialog shares', () => {
     expect((TraceFactory.create(points) as AbstractTrace).orientationLabel).toBeUndefined();
   });
 
+  test('rounds a value it composes into a string itself', () => {
+    // `DescriptionService` rounds a bare number and takes a composed string
+    // for finished display text, so a stat that builds its own sentence has to
+    // round what it puts in it.
+    const bars: MaidrLayer = {
+      id: 'bar',
+      type: TraceType.BAR,
+      axes: { x: { label: 'Quarter' }, y: { label: 'Sales' } },
+      data: [{ x: 'a', y: 10000 / 3 }, { x: 'b', y: 1 }],
+    };
+
+    expect(statOf(bars, 'Largest')).toBe('3333.33 at a');
+  });
+
+  test('names a gap by the mark the chart actually draws', () => {
+    // The count of marks already reads "Number of stages"; a gap stat saying
+    // "Bars with no value" beside it left one summary using two words for the
+    // same objects.
+    const funnel: MaidrLayer = {
+      id: 'funnel',
+      type: TraceType.FUNNEL,
+      axes: { x: { label: 'Stage' }, y: { label: 'Visitors' } },
+      data: [{ x: 'Visited', y: 100 }, { x: 'Bought', y: null as unknown as number }],
+    };
+
+    expect(statOf(funnel, 'Stages with no value')).toBe(1);
+    expect(statOf(funnel, 'Bars with no value')).toBeUndefined();
+  });
+
   test('puts the value before the category it belongs to', () => {
     // `Q1, 7` reads as two numbers the moment the category is one. `at` is the
     // word the Go To Extrema dialog already uses for the same pairing.

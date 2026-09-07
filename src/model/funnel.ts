@@ -176,16 +176,9 @@ export class FunnelTrace extends BarTrace {
 
   public override get description(): DescriptionState {
     const base = super.description;
-    // A funnel has stages, and every stat below says so. The parent counts its
-    // marks by type -- `Number of stages` -- but names a gap by the mark it
-    // usually draws, so one summary used two words for the same objects and
-    // left a reader working out that a bar and a stage are the same thing.
-    // Renamed here rather than parameterised on the parent, which has no
-    // second caller needing it.
-    const stats = base.stats.map(stat =>
-      stat.label === 'Bars with no value'
-        ? { label: 'Stages with no value', value: stat.value }
-        : stat);
+    // The parent names its marks by type, so a funnel's counts and its gap
+    // stat both say "stages" without this having to rewrite either.
+    const stats = [...base.stats];
 
     const entry = this.stageNameAt(0);
     if (entry !== undefined) {

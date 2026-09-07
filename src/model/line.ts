@@ -292,9 +292,15 @@ export class LineTrace extends AbstractTrace {
    */
   protected authoredGroupNameAt(row: number): string | undefined {
     const authored = this.points[row]?.[0]?.z;
-    return authored === undefined || authored === null || authored === ''
-      ? undefined
-      : String(authored);
+    if (authored === undefined || authored === null || authored === '') {
+      return undefined;
+    }
+    // A numeric name is rounded, because for a contour the series name *is* a
+    // number -- the level the curve traces -- and `String` gave it in full
+    // while the announcement of the same curve, which goes through a
+    // formatter, gave two decimals. One dialog, two numbers, one curve. A
+    // whole number is untouched, so an integer id still reads as itself.
+    return typeof authored === 'number' ? defaultFormat(authored) : String(authored);
   }
 
   /**
