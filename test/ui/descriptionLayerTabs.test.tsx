@@ -50,7 +50,10 @@ const UNLAYERED: DisplayDescriptionState = {
 };
 
 /** The `DescriptionViewModel` surface `Description` actually calls. */
-type DescriptionStub = Pick<DescriptionViewModel, 'toggle' | 'selectLayer'>;
+type DescriptionStub = Pick<
+  DescriptionViewModel,
+  'toggle' | 'selectLayer' | 'focusPrevLayer' | 'focusNextLayer'
+>;
 
 /**
  * Renders the dialog against a real store seeded with the given description
@@ -63,7 +66,12 @@ function renderDescription(
   data: DisplayDescriptionState,
   focusedLayerIndex?: number,
 ): DescriptionStub {
-  const viewModel: DescriptionStub = { toggle: jest.fn(), selectLayer: jest.fn() };
+  const viewModel: DescriptionStub = {
+    toggle: jest.fn(),
+    selectLayer: jest.fn(),
+    focusPrevLayer: jest.fn(),
+    focusNextLayer: jest.fn(),
+  };
   const registry = new ViewModelRegistry();
   registry.register('description', viewModel as DescriptionViewModel);
 
@@ -151,6 +159,59 @@ describe('the description dialog layer strip', () => {
     expect(tabs[2].getAttribute('tabindex')).toBe('0');
   });
 
+  it('walks the strip with the arrow keys', () => {
+    // The strip owns these rather than binding them in the DESCRIPTION scope:
+    // a scoped binding fires wherever focus is in the dialog and would take
+    // the arrows off everything else focusable here.
+    const viewModel = renderDescription(LAYERED);
+
+    fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'ArrowRight' });
+
+    expect(viewModel.focusNextLayer).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'ArrowLeft' });
+
+    expect(viewModel.focusPrevLayer).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirms the cursor with Space', () => {
+    const viewModel = renderDescription(LAYERED, 2);
+
+    fireEvent.keyDown(screen.getAllByRole('tab')[2], { key: ' ' });
+
+    expect(viewModel.selectLayer).toHaveBeenCalledWith(2);
+  });
+
+  it('leaves Escape for the scope that closes the dialog', () => {
+    // Escape is bound in the DESCRIPTION scope and reaches it as an ordinary
+    // keydown. Consuming it here would make it a dead key whenever a tab has
+    // focus — which is every time the dialog opens on a layered chart.
+    // `fireEvent` returns false when the handler called `preventDefault`.
+    renderDescription(LAYERED);
+
+    const notConsumed = fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'Escape' });
+
+    expect(notConsumed).toBe(true);
+  });
+
+  it('consumes the keys it does own, so the browser does not act on them too', () => {
+    // A tab is a real <button>: an unprevented Space would activate it
+    // natively as well, selecting the layer twice.
+    renderDescription(LAYERED);
+
+    expect(fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: ' ' })).toBe(false);
+    expect(fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'ArrowRight' })).toBe(false);
+  });
+
+  it('leaves a key it does not own alone', () => {
+    const viewModel = renderDescription(LAYERED);
+
+    fireEvent.keyDown(screen.getAllByRole('tab')[0], { key: 'ArrowDown' });
+
+    expect(viewModel.focusNextLayer).not.toHaveBeenCalled();
+    expect(viewModel.selectLayer).not.toHaveBeenCalled();
+  });
+
   it('selects the layer a click landed on', () => {
     const viewModel = renderDescription(LAYERED);
 
@@ -177,11 +238,24 @@ describe('the description dialog layer strip', () => {
 
 describe('the description dialog data table', () => {
   it('names its scroll container and makes it reachable without a mouse', () => {
-    renderDescription(UNLAYERED);
+    // Named by the heading above it rather than by a label of its own, so the
+    // truncation sentence is said once rather than by a heading, a region name
+    // and a caption in turn.
+    renderDescription({
+      ...UNLAYERED,
+      dataTable: { headers: ['Quarter', 'Sales'], rows: [['Q1', 10]] },
+    });
 
-    const region = screen.getByRole('region', { name: 'Chart data for Sales' });
+    const region = screen.getByRole('region', { name: 'Data: 1 row' });
 
     expect(region).toHaveAttribute('tabindex', '0');
+  });
+
+  it('says the truncation once, not once per element that could carry it', () => {
+    const rows = Array.from({ length: 150 }, (_, i) => [`Q${i}`, i]);
+    renderDescription({ ...UNLAYERED, dataTable: { headers: ['Quarter', 'Sales'], rows } });
+
+    expect(screen.getAllByText('Data: showing 100 of 150 rows')).toHaveLength(1);
   });
 
   it('marks the first cell of each row as the row header', () => {

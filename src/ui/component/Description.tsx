@@ -27,10 +27,10 @@ const DEFAULT_ROW_LIMIT = 100;
 interface DataTableProps {
   headers: string[];
   rows: (string | number)[][];
-  title?: string;
 }
 
-const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
+const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
+  const headingId = useId();
   const [shown, setShown] = useState(DEFAULT_ROW_LIMIT);
   const displayedRows = rows.slice(0, shown);
   const remaining = rows.length - displayedRows.length;
@@ -42,25 +42,22 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
   const caption = remaining > 0
     ? `Data: showing ${displayedRows.length} of ${rows.length} ${noun}`
     : `Data: ${rows.length} ${noun}`;
-  const name = isDisplayable(title) ? `Chart data for ${title}` : 'Chart data';
-
   return (
     <>
-      <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
+      <Typography id={headingId} variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
         {caption}
       </Typography>
       {/* Focusable and named: `maxHeight` makes this a scroll container, and a
           scroll container that is not a tab stop cannot be scrolled by anyone
-          without a mouse. */}
-      <TableContainer sx={{ maxHeight: 300 }} tabIndex={0} role="region" aria-label={name}>
+          without a mouse.
+
+          Named by the heading above rather than by an `aria-label` of its own,
+          and carrying no `<caption>`: all three would say the same sentence,
+          and a reader entering the table would hear the truncation two or
+          three times over. The heading is the one that has to say it, because
+          it is what a reader browsing the dialog by heading lands on. */}
+      <TableContainer sx={{ maxHeight: 300 }} tabIndex={0} role="region" aria-labelledby={headingId}>
         <Table size="small" stickyHeader>
-          {/* A caption is the first thing a screen reader announces on
-              entering a table, which is where the truncation has to be said
-              for it to be heard before the rows it applies to. The table's
-              name is not repeated here: the region around it is already
-              labelled with it, and a reader entering the table would
-              otherwise hear the same string twice in a row. */}
-          <caption style={visuallyHidden}>{caption}</caption>
           <TableHead>
             <TableRow>
               {headers.map((header, i) => (
@@ -113,6 +110,8 @@ interface LayerTabsProps {
   activeIndex: number;
   idBase: string;
   onSelect: (index: number) => void;
+  onFocusPrev: () => void;
+  onFocusNext: () => void;
 }
 
 /**
@@ -130,12 +129,31 @@ interface LayerTabsProps {
  * layer they were last reading about. Passing over a layer on the way to
  * another should not relocate them.
  *
- * The arrow and Space keys are not handled here: they arrive through
- * `KeybindingService`'s DESCRIPTION scope like every other MAIDR key, so the
- * strip stays a view. What this does own is focus — the browser has to be told
- * where the cursor is for a screen reader to read the tab out.
+ * The strip handles its own three keys — left and right along it, Space to
+ * confirm — rather than binding them in the DESCRIPTION scope. A scoped
+ * binding fires wherever focus is in the dialog and is `preventDefault`ed
+ * before its command runs, which would take Space off the data table's scroll
+ * region and the Close button, and the arrows off everything else focusable
+ * here. The strip has focus whenever those keys mean anything, so owning them
+ * costs nothing and takes nothing from the rest of the dialog.
+ *
+ * It deliberately does not stop the event: Escape is bound in the
+ * DESCRIPTION scope and reaches it through the document, and React's
+ * `stopPropagation` forwards to the native event, so stopping here would make
+ * Escape a dead key while a tab has focus.
+ *
+ * The other thing it owns is focus — the browser has to be told where the
+ * cursor is for a screen reader to read the tab out.
  */
-const LayerTabs: React.FC<LayerTabsProps> = ({ layers, focusedIndex, activeIndex, idBase, onSelect }) => {
+const LayerTabs: React.FC<LayerTabsProps> = ({
+  layers,
+  focusedIndex,
+  activeIndex,
+  idBase,
+  onSelect,
+  onFocusPrev,
+  onFocusNext,
+}) => {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -143,6 +161,21 @@ const LayerTabs: React.FC<LayerTabsProps> = ({ layers, focusedIndex, activeIndex
   }, [focusedIndex]);
 
   const active = layers.find(layer => layer.index === activeIndex);
+
+  const handleKeyDown = (event: React.KeyboardEvent): void => {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      onFocusNext();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      onFocusPrev();
+    } else if (event.key === ' ') {
+      // Prevented so the browser does not also activate the focused tab as the
+      // native button it is, which would select the layer twice.
+      event.preventDefault();
+      onSelect(focusedIndex);
+    }
+  };
 
   return (
     <>
@@ -158,12 +191,13 @@ const LayerTabs: React.FC<LayerTabsProps> = ({ layers, focusedIndex, activeIndex
         {active ? `: ${active.label}` : ''}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Use the arrow keys to move between layers and Space to open one.
+        Use the left and right arrow keys to move between layers and Space to open one.
       </Typography>
       <Box
         role="tablist"
         aria-labelledby={`${idBase}-layers-label`}
         aria-orientation="horizontal"
+        onKeyDown={handleKeyDown}
         sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}
       >
         {layers.map(layer => (
@@ -298,6 +332,8 @@ const Description: React.FC = () => {
               activeIndex={activeLayerIndex}
               idBase={id}
               onSelect={index => viewModel.selectLayer(index)}
+              onFocusPrev={() => viewModel.focusPrevLayer()}
+              onFocusNext={() => viewModel.focusNextLayer()}
             />
             {/* What the tab itself cannot say: the panel below it now holds a
                 different chart's description. Focus and `aria-selected` already
@@ -405,7 +441,7 @@ const Description: React.FC = () => {
           {data.dataTable.rows.length > 0 && (
             <>
               <Divider sx={{ my: 1 }} />
-              <DataTable headers={data.dataTable.headers} rows={data.dataTable.rows} title={data.title} />
+              <DataTable headers={data.dataTable.headers} rows={data.dataTable.rows} />
             </>
           )}
         </Box>

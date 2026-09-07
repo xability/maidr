@@ -162,7 +162,19 @@ export class Controller implements Disposable {
       this.textService,
       this.figure,
     );
-    this.descriptionService = new DescriptionService(this.context, this.displayService);
+    // Before the description service, which needs it: picking a layer from the
+    // description dialog has to hand the rotor back to data mode the way a
+    // PageUp step does.
+    this.rotorNavigationService = new RotorNavigationService(
+      this.context,
+      this.textService,
+      this.notificationService,
+    );
+    this.descriptionService = new DescriptionService(
+      this.context,
+      this.displayService,
+      this.rotorNavigationService,
+    );
     this.helpService = new HelpService(this.context, this.displayService);
     this.chatService = new ChatService(
       this.displayService,
@@ -190,11 +202,6 @@ export class Controller implements Disposable {
     this.helpViewModel = new HelpViewModel(store, this.helpService);
     this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
 
-    this.rotorNavigationService = new RotorNavigationService(
-      this.context,
-      this.textService,
-      this.notificationService,
-    );
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,
       this.rotorNavigationService,

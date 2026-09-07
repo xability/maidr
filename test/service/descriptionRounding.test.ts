@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { DescriptionState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BoxTrace } from '@model/box';
@@ -58,6 +59,7 @@ function describeTrace(trace: BoxTrace): DescriptionState {
   const service = new DescriptionService(
     createMockContext(trace),
     createMockDisplayService(),
+    { resetToDataMode: jest.fn() } as unknown as RotorNavigationService,
   );
   const description = service.getDescription();
   expect(description).not.toBeNull();

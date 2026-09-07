@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { Disposable } from '@type/disposable';
 import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
@@ -75,6 +76,7 @@ function roundNonFinite(value: number): string | null {
 export class DescriptionService implements Disposable {
   private readonly context: Context;
   private readonly display: DisplayService;
+  private readonly rotor: RotorNavigationService;
 
   /**
    * Whether a layer tab moved the model's active layer during this visit to
@@ -83,9 +85,14 @@ export class DescriptionService implements Disposable {
    */
   private hasPendingLayerSwitch = false;
 
-  public constructor(context: Context, display: DisplayService) {
+  public constructor(
+    context: Context,
+    display: DisplayService,
+    rotor: RotorNavigationService,
+  ) {
     this.context = context;
     this.display = display;
+    this.rotor = rotor;
   }
 
   /**
@@ -311,6 +318,22 @@ export class DescriptionService implements Disposable {
    *   describe once the switch has been made.
    */
   public selectLayer(index: number): DisplayDescriptionState | null {
+    // Asked before anything moves, so the rotor is only disturbed when a
+    // switch will actually happen: confirming the tab the reader is already on
+    // would otherwise throw away their rotor mode and change nothing.
+    const layers = this.context.getLayerSummaries();
+    const active = layers.find(layer => layer.isActive)?.index ?? -1;
+    if (active < 0 || index === active || index < 0 || index >= layers.length) {
+      return null;
+    }
+
+    // While the outgoing layer is still the active one. A rotor mode is an
+    // index on the service but a boolean on the trace, so resetting after the
+    // switch would clear the flag on the layer being entered and leave it
+    // raised on the one being left. Same reasoning, and same ordering, as
+    // `MoveToNextTraceCommand`.
+    this.rotor.resetToDataMode();
+
     if (!this.context.selectTrace(index)) {
       return null;
     }

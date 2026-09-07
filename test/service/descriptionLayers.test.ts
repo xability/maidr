@@ -1,4 +1,5 @@
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { Maidr } from '@type/grammar';
 import type { PlotState, TraceState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
@@ -37,6 +38,14 @@ function oneLayerFigure(): Figure {
   return new Figure(maidr);
 }
 
+/**
+ * The rotor surface `DescriptionService` touches: picking a layer hands the
+ * rotor back to data mode while the outgoing layer is still active.
+ */
+function createMockRotorService(): RotorNavigationService {
+  return { resetToDataMode: jest.fn() } as unknown as RotorNavigationService;
+}
+
 function createMockDisplayService(): DisplayService {
   return { toggleFocus: jest.fn() } as unknown as DisplayService;
 }
@@ -45,7 +54,7 @@ function createMockDisplayService(): DisplayService {
 function serviceOver(figure: Figure): { service: DescriptionService; context: Context } {
   const context = new Context(figure);
   return {
-    service: new DescriptionService(context, createMockDisplayService()),
+    service: new DescriptionService(context, createMockDisplayService(), createMockRotorService()),
     context,
   };
 }

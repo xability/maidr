@@ -444,17 +444,17 @@ const GO_TO_EXTREMA_KEYMAP = {
 const DESCRIPTION_KEYMAP = {
   TOGGLE_DESCRIPTION: key(`esc`, 'Close Chart Description', { showInHelp: false }),
 
-  // Layer tab strip (multi-layer subplots only; standard UI, not shown in help).
+  // The layer tab strip's own keys -- left/right along the strip, Space to
+  // confirm -- are handled by the strip itself rather than bound here.
   //
-  // Left/right only, as WAI-ARIA's horizontal tabs pattern specifies. Up and
-  // down are deliberately left unbound: every key bound in a scope is
-  // `preventDefault`ed before its command runs, and up/down are how a keyboard
-  // user scrolls the dialog -- including the hundred-row data table inside it.
-  // Claiming them for a strip that most charts do not even have would trade a
-  // working scroll for a dead key.
-  DESCRIPTION_LAYER_PREV: key(`left`, 'Previous Layer Tab', { showInHelp: false }),
-  DESCRIPTION_LAYER_NEXT: key(`right`, 'Next Layer Tab', { showInHelp: false }),
-  DESCRIPTION_SELECT_LAYER: key(`space`, 'Select Layer', { showInHelp: false }),
+  // A scoped binding fires wherever focus is in the dialog and is
+  // `preventDefault`ed before its command runs, so claiming these three would
+  // have taken Space off the data table's scroll region and the Close button,
+  // and taken the arrows off every other focusable thing in the dialog --
+  // paying for a strip most charts do not even have. The strip has focus
+  // whenever those keys mean anything, so handling them there costs nothing
+  // and takes nothing. Escape is still bound, and the strip does not stop the
+  // event, so it keeps reaching this scope.
 } as const;
 
 /**

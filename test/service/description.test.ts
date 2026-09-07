@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { LayerSummary, PlotState, SubplotSummary } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { DescriptionService } from '@service/description';
@@ -45,6 +46,14 @@ function createMockContext(overrides: ContextOverrides): Context {
   } as unknown as Context;
 }
 
+/**
+ * The rotor surface `DescriptionService` touches: picking a layer hands the
+ * rotor back to data mode while the outgoing layer is still active.
+ */
+function createMockRotorService(): RotorNavigationService {
+  return { resetToDataMode: jest.fn() } as unknown as RotorNavigationService;
+}
+
 function createMockDisplayService(): DisplayService {
   return {
     toggleFocus: jest.fn(),
@@ -68,7 +77,7 @@ describe('descriptionService figure-level description', () => {
       subplotSummaries: subplots,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -94,7 +103,7 @@ describe('descriptionService figure-level description', () => {
       authored: ['A subtitle', 'A caption'],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -111,7 +120,7 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -124,7 +133,7 @@ describe('descriptionService figure-level description', () => {
       figureXAxis: 'Year',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -141,7 +150,7 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -157,7 +166,7 @@ describe('descriptionService figure-level description', () => {
       authored: [],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -176,7 +185,7 @@ describe('descriptionService figure-level description', () => {
       state: { empty: false, type: 'subplot' } as unknown as PlotState,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
 
     expect(service.getDescription()).toBeNull();
   });
