@@ -296,17 +296,28 @@ describe('settings tabs', () => {
       },
     });
 
-    // Disabled, and — now that the field can be several tabs away — with no
-    // way to reach the reason from where the reader is standing. The hint and
-    // the tab's badge are that way back.
-    expect(screen.getByRole('button', { name: SAVE_BUTTON_NAME })).toBeDisabled();
+    // Marked unavailable rather than `disabled`, so it keeps its place in the
+    // tab order and the reason stays reachable from the button itself.
+    const save = screen.getByRole('button', { name: SAVE_BUTTON_NAME });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).not.toBeDisabled();
 
-    const hint = screen.getByText(
+    // Two nodes carry the reason, and each has a job the other cannot do.
+    // The footer's is a live region: it announces the moment Save becomes
+    // unavailable, to a reader who is looking elsewhere.
+    const hint = document.querySelector('.settings-footer-hint');
+    expect(hint).toHaveAttribute('role', 'status');
+    expect(hint).toHaveTextContent(
       'Custom instructions on the AI tab must be at least 10 characters long',
     );
-    // A live region, so it reaches a reader who is on another tab when Save
-    // goes disabled rather than only one who happens to read the footer.
-    expect(hint).toHaveAttribute('role', 'status');
+
+    // The button's is a description, read when the reader arrives at it —
+    // which a live region fired minutes earlier would not be.
+    const describedBy = save.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
+      'Custom instructions on the AI tab must be at least 10 characters long',
+    );
     // The visible label stays inside the accessible name rather than being
     // replaced by it, so "AI" is still what a reader hears the tab called.
     expect(
@@ -382,6 +393,34 @@ describe('settings tabs', () => {
     );
   });
 
+  it('should keep an unavailable Save reachable and answering', () => {
+    const saveAndClose = renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: {
+        ...DEFAULT_SETTINGS.llm,
+        expertiseLevel: 'custom',
+        customInstruction: 'too short',
+      },
+    });
+
+    const save = screen.getByRole('button', { name: SAVE_BUTTON_NAME });
+    // In the tab order, which `disabled` would have taken it out of — the
+    // whole point, since a button a reader never reaches cannot explain
+    // itself however good its description is.
+    expect(save).not.toHaveAttribute('tabindex', '-1');
+    save.focus();
+    expect(document.activeElement).toBe(save);
+
+    fireEvent.click(save);
+
+    // Answers rather than doing nothing, and answers the same way the
+    // shortcut does — the two go through one path.
+    expect(saveAndClose).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      screen.getByRole('tab', { name: 'AI needs attention' }),
+    );
+  });
+
   it('should move focus to that tab every time a save is refused', () => {
     renderSettings({
       ...DEFAULT_SETTINGS,
@@ -435,8 +474,8 @@ describe('settings tabs', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Custom instructions must be at least',
     );
-    expect(
-      screen.queryByText(/Custom instructions on the AI tab/),
-    ).not.toBeInTheDocument();
+    // The footer's own region specifically: the Save button's description
+    // carries similar words and is meant to be there on every tab.
+    expect(document.querySelector('.settings-footer-hint')).toHaveTextContent('');
   });
 });
