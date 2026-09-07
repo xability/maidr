@@ -394,4 +394,68 @@ describe('description', () => {
     expect(dataTable?.headers).toEqual(['Country', '1990', '2020', 'Change']);
     expect(dataTable?.rows[1]).toEqual(['Latvia', 74.6, 69.5, -5.1]);
   });
+
+  test('heads the category column with the category axis, not with x', () => {
+    // A dumbbell is commonly drawn with its categories running down the page,
+    // which puts them on y. Taken from x, a column of country names was
+    // headed with the label the life expectancies belong to -- under an
+    // "Orientation: horizontal" line the dialog prints directly above it.
+    const { dataTable } = dumbbell(0, 0, GAINS, Orientation.HORIZONTAL)
+      .description;
+
+    expect(dataTable?.headers[0]).toBe('Years');
+  });
+
+  test('coerces the two ends, so the table reads as the announcement does', () => {
+    // Producers send numbers as strings. A string cell reaches the dialog's
+    // rounding and is printed verbatim, so the table showed the raw float in
+    // the cell the announcement speaks rounded -- beside a Change column
+    // already stripped of the same noise.
+    const stringy = {
+      points: [{ x: 'Denmark', start: '71.2', end: '78.4' }],
+    } as unknown as DumbbellData;
+    const { dataTable } = dumbbell(0, 0, stringy).description;
+
+    expect(dataTable?.rows[0]).toEqual(['Denmark', 71.2, 78.4, 7.2]);
+  });
+});
+
+describe('the description accounts for every row', () => {
+  test('names the rows that did not move', () => {
+    // Malta is unchanged. With only the two directions counted they do not
+    // add up to `Number of pairs`, and a reader is left to guess whether the
+    // missing row held still or was dropped.
+    const { stats } = dumbbell().description;
+
+    expect(stats).toContainEqual({ label: 'Number of pairs', value: 3 });
+    expect(stats).toContainEqual({ label: 'Unchanged', value: 1 });
+  });
+
+  test('still reports direction on a chart where nothing moved', () => {
+    // "Nothing moved" is the finding on a chart where nothing moved, and it
+    // was the one case the guard suppressed entirely.
+    const flat: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 10 },
+        { x: 'b', start: 20, end: 20 },
+      ],
+    };
+    const { stats } = dumbbell(0, 0, flat).description;
+
+    expect(stats).toContainEqual({ label: 'Increased', value: 0 });
+    expect(stats).toContainEqual({ label: 'Decreased', value: 0 });
+    expect(stats).toContainEqual({ label: 'Unchanged', value: 2 });
+  });
+
+  test('says nothing about unchanged rows when every row moved', () => {
+    const moving: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 12 },
+        { x: 'b', start: 20, end: 18 },
+      ],
+    };
+    const labels = dumbbell(0, 0, moving).description.stats.map(s => s.label);
+
+    expect(labels).not.toContain('Unchanged');
+  });
 });

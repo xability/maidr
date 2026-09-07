@@ -257,6 +257,19 @@ describe('the description answers what a walk cannot', () => {
     expect(stat('Separate groups')).toBe(3);
   });
 
+  test('counts the loop the chart drew, which no degree carries', () => {
+    // Ida links to herself. That is deliberately not a degree -- a node
+    // linked only to itself is linked to nobody -- but the chart drew the
+    // line, so seven links are on the page under a count of six.
+    expect(stat('Self links')).toBe(1);
+  });
+
+  test('says what range of degrees the pitch is playing', () => {
+    // `Most connected` names the top of it. Without the bottom, "Ada 4" has
+    // nothing to be read against short of walking all eight nodes.
+    expect(stat('Links per node')).toBe('0 to 4');
+  });
+
   test('names the hubs, which is usually why the chart was drawn', () => {
     expect(String(stat('Most connected'))).toMatch(/^Ada 4, /);
   });
@@ -264,11 +277,67 @@ describe('the description answers what a walk cannot', () => {
   test('reports how the chart breaks up', () => {
     // Structure a reader following links can never discover, because links
     // do not cross between groups -- which is what makes them groups.
-    expect(stat('Group sizes')).toBe('5, 2, 1');
+    //
+    // Ida is a group of one, and `Unconnected` below is where she is named:
+    // listing every isolated node here as well tells the same fact twice.
+    expect(stat('Group sizes')).toBe('5, 2');
   });
 
   test('names the nodes that are linked to nothing', () => {
     expect(stat('Unconnected')).toBe('1: Ida');
+  });
+
+  test('both lists stop, and say that they stopped', () => {
+    // Seven pairs and six loners. Uncapped, `Group sizes` reads out one entry
+    // per component; `Unconnected` cut its names off at five with nothing to
+    // mark the cut, so a count of six arrived with five names after it.
+    const scattered: NetworkPoint[] = [
+      ...['a', 'b', 'c', 'd', 'e', 'f', 'g']
+        .map(name => ({ source: name, target: `${name}2` })),
+      ...['p', 'q', 'r', 's', 't', 'u']
+        .map(name => ({ source: name, target: name })),
+    ];
+
+    expect(stat('Group sizes', scattered)).toBe('2, 2, 2, 2, 2, and 2 more');
+    expect(stat('Unconnected', scattered)).toBe('6: p, q, r, s, t, and 1 more');
+  });
+
+  test('the table is walked in the order the arrows walk it, group and all', () => {
+    // Declared order is the order the producer authored its links in, which
+    // is neither what the arrows take a reader through nor what the chart
+    // draws -- and the group every move announces was not in the table at
+    // all, so a reader who walked "Group 2 of 3" could not find those two
+    // nodes in it.
+    const { headers, rows } = network().description.dataTable;
+
+    expect(headers).toEqual(['Person', 'Links', 'Group', 'Linked to']);
+    expect(rows[0]).toEqual(['Ada', 4, '1 of 3', 'Grace, Alan, Edsger, Barbara']);
+    expect(rows[7]).toEqual(['Ida', 0, '3 of 3', '']);
+  });
+
+  test('a chart that falls into one piece has no group column', () => {
+    // The column would read `1 of 1` on every row, which is the reason the
+    // announcement withholds the group on a single-component chart too.
+    const oneGroup: NetworkPoint[] = [
+      { source: 'Ada', target: 'Grace' },
+      { source: 'Grace', target: 'Alan' },
+    ];
+
+    expect(network(oneGroup).description.dataTable.headers)
+      .toEqual(['Person', 'Links', 'Linked to']);
+  });
+
+  test('a layer that names no axes still heads the column with a noun', () => {
+    // A force layout has no scales, so a producer naming no axes is being
+    // accurate -- and the column of people was then headed `X`.
+    const trace = TraceFactory.create({
+      id: 'no-axes-network',
+      type: TraceType.NETWORK,
+      title: 'Collaborations',
+      data: COLLAB,
+    }) as NetworkTrace;
+
+    expect(trace.description.dataTable.headers[0]).toBe('Node');
   });
 });
 

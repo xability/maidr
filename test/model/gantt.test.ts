@@ -349,11 +349,114 @@ describe('the description says what a schedule is', () => {
     expect(stats.find(stat => stat.label === 'Empty lanes')?.value).toBe(1);
   });
 
+  test('still says so when every lane holds nothing', () => {
+    // The count used to sit inside the guard the length statistics need, so
+    // the one schedule that is nothing but silence was the one that never
+    // said so.
+    const stats = gantt(0, 0, [[], []]).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Empty lanes')?.value).toBe(2);
+  });
+
+  test('reports missing rather than "NaN days" when an end does not parse', () => {
+    // The unit turns the length into a *string*, so a NaN sails past both the
+    // service's rounding and the dialog's blanking -- which test numbers --
+    // and "Shortest: NaN days" is announced as a length the chart has.
+    const unparseable = [[
+      { x: 'Design', start: 0, end: '2025-03-15' },
+    ]] as unknown as GanttPoint[][];
+    const stats = gantt(0, 0, unparseable).description.stats;
+    const read = (label: string): unknown =>
+      stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Shortest')).toBe('missing');
+    expect(read('Longest')).toBe('missing');
+    expect(read('Spans')).toBe('missing');
+  });
+
+  test('names the fullest moment of the schedule', () => {
+    // What overlaps what is what a schedule is read for. `Build` runs 30 to
+    // 100 and `Design`'s second interval 60 to 75, so two things run at once
+    // from 60.
+    const stats = gantt().description.stats;
+
+    expect(stats.find(stat => stat.label === 'Most intervals at once')?.value)
+      .toBe('2 from 60');
+  });
+
+  test('says nothing about overlap when intervals only touch', () => {
+    // A handover is not an overlap: one ends exactly where the next begins,
+    // and reporting "2 at once" there would invent a clash the chart does not
+    // draw.
+    const backToBack: GanttPoint[][] = [
+      [{ x: 'Design', start: 0, end: 30 }],
+      [{ x: 'Build', start: 30, end: 60 }],
+    ];
+    const labels = gantt(0, 0, backToBack).description.stats.map(s => s.label);
+
+    expect(labels).not.toContain('Most intervals at once');
+  });
+
   test('the table names every interval, its ends and its length', () => {
     const { dataTable } = gantt().description;
 
-    expect(dataTable?.headers).toEqual(['Task', 'Label', 'Start', 'End', 'Length']);
+    expect(dataTable?.headers).toEqual([
+      'Task',
+      'Label',
+      'Start',
+      'End',
+      // The one column whose numbers are unit-bearing by definition, and the
+      // only place the table said what they were counted in.
+      'Length (days)',
+    ]);
     expect(dataTable?.rows[0]).toEqual(['Design', 'Wireframes', 0, 30, 30]);
     expect(dataTable?.rows).toHaveLength(3);
+  });
+
+  test('heads the first column with the lane axis, not with x', () => {
+    // Every real gantt adapter emits a horizontal chart, which puts the lanes
+    // on y. Taken from x the column of task names was headed with the label
+    // the dates belong to -- under an "Orientation: horizontal" line the
+    // dialog prints directly above it.
+    const { dataTable } = gantt(0, 0, LANES, 'days', Orientation.HORIZONTAL)
+      .description;
+
+    expect(dataTable?.headers[0]).toBe('Day');
+  });
+
+  test('keeps an empty lane in the table, named', () => {
+    // The nested shape exists so a lane with nothing booked can be expressed,
+    // and mapping over the intervals it does not have dropped the row from
+    // the one place a reader reviews the whole schedule at once.
+    const withEmpty: GanttPoint[][] = [
+      [{ x: 'Design', start: 0, end: 30 }],
+      [],
+    ];
+    const { dataTable } = gantt(0, 0, withEmpty).description;
+
+    expect(dataTable?.rows).toHaveLength(2);
+    expect(dataTable?.rows[1]).toEqual(['Lane 2', '', '', '', '']);
+  });
+
+  test('renders the ends through the chart\'s own axis format', () => {
+    // A date-based schedule carries epoch counts on the axis and hands them
+    // back as dates through the axis format -- which nothing between the
+    // trace and the dialog resolves, so the table described numbers that
+    // shared no digits with what navigating the same interval spoke.
+    const trace = TraceFactory.create({
+      id: 'l',
+      type: TraceType.GANTT,
+      title: 'Project schedule',
+      axes: {
+        x: { label: 'Task' },
+        y: { label: 'Day', format: { function: 'return \'day \' + value' } },
+      },
+      data: { points: LANES, unit: 'days' },
+    }) as GanttTrace;
+    const { stats, dataTable } = trace.description;
+
+    expect(dataTable?.rows[0]).toEqual(['Design', 'Wireframes', 'day 0', 'day 30', 30]);
+    expect(stats.find(stat => stat.label === 'Spans')?.value)
+      .toBe('day 0 to day 100');
   });
 });

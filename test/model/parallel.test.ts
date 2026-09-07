@@ -239,8 +239,53 @@ describe('the description says what the axes are', () => {
     const labels = parallel().description.stats.map(stat => stat.label);
 
     expect(labels).toContain('Number of observations');
-    expect(labels).toContain('Axes per observation');
+    expect(labels).toContain('Number of axes');
     expect(labels).not.toContain('Number of lines');
+  });
+
+  test('the axis count is the chart\'s, not the widest observation\'s', () => {
+    expect(parallel().description.stats.find(stat => stat.label === 'Number of axes')?.value).toBe(3);
+  });
+
+  test('heads the two data columns with what they hold', () => {
+    // The first holds the axis a reading was taken on and the second the
+    // reading, in that axis's own units.
+    expect(parallel().description.dataTable.headers)
+      .toEqual(['Variable', 'Value', 'Observation']);
+  });
+
+  test('a layer that names no axes heads them with nouns, not with X and Y', () => {
+    // Both parallel adapters pass their axis labels through from optional
+    // config, so a chart that set neither headed a column of variable names
+    // `X` and a column of mixed-unit numbers `Y`.
+    const trace = TraceFactory.create({
+      id: 'no-axes-parallel',
+      type: TraceType.PARALLEL,
+      title: 'Car comparison',
+      data: CARS,
+    }) as ParallelTrace;
+    trace.moveToIndex(0, 0);
+
+    expect(trace.description.dataTable.headers)
+      .toEqual(['Axis', 'Value', 'Observation']);
+    expect(nonEmptyState(trace).text.main.label).toBe('Axis');
+    expect(nonEmptyState(trace).text.cross?.label).toBe('Value');
+  });
+
+  test('an unnamed observation is called an observation, not a line', () => {
+    // The column is headed `Observation` and the stat is `Observation names`,
+    // so a positional fallback naming lines would put two nouns on one
+    // referent -- and the number in `Line 2` is the order the producer
+    // happened to emit its rows in.
+    const unnamed: LinePoint[][] = [
+      [{ x: 'mpg', y: 33 }, { x: 'hp', y: 65 }],
+      [{ x: 'mpg', y: 21 }, { x: 'hp', y: 110 }],
+    ];
+    const { stats, dataTable } = parallel(0, 0, unnamed).description;
+
+    expect(stats.find(stat => stat.label === 'Observation names')?.value)
+      .toBe('Observation 1, Observation 2');
+    expect(dataTable.rows[0][2]).toBe('Observation 1');
   });
 });
 
@@ -378,7 +423,12 @@ describe('an observation with a gap in the middle (#1182)', () => {
     // Was "65 to 2600": a horsepower figure at one end and a car's weight at
     // the other, given to a reader who opened the dialog to learn what the
     // axes are.
-    expect(read('hp')).toBe('65 to 230');
+    //
+    // Car B was never measured for power, so the power range rests on two of
+    // the three observations -- which is said, because a span taken from two
+    // and a span taken from all of them are the same two numbers and not the
+    // same claim.
+    expect(read('hp')).toBe('65 to 230, from 2 of 3 observations');
     expect(read('weight')).toBe('1800 to 3200');
     expect(read('mpg')).toBe('15 to 33');
   });
@@ -408,6 +458,9 @@ describe('an observation with a gap in the middle (#1182)', () => {
     expect(stats.find(stat => stat.label === 'Axes, in order')?.value)
       .toBe('mpg, hp, weight');
     expect(stats.map(stat => stat.label)).toContain('weight');
+    // And counted. `Axes per observation` was the widest row's point count,
+    // which is 2 here -- a number directly above a list of three axes.
+    expect(stats.find(stat => stat.label === 'Number of axes')?.value).toBe(3);
   });
 
   test('one observation gapping an axis does not silence it for the rest', () => {

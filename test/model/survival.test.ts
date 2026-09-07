@@ -188,24 +188,62 @@ describe('the description reports what the figure is quoted by', () => {
     ];
 
     expect(survival(0, 0, steep).description.stats.find(stat => stat.label === 'Median survival')?.value)
-      .toBe('Steep: 6');
+      .toBe(6);
   });
 
-  test('counts the censored times', () => {
+  test('does not name the arm of a curve that has no second arm', () => {
+    // Prefixed on a single curve, one authoring no name was told its median
+    // belonged to "Arm 1" -- a name nothing else in the figure uses, and one
+    // that implies a second arm the reader can go looking for.
+    const alone: SurvivalPoint[][] = [
+      [{ x: 0, y: 1 }, { x: 4, y: 0.5 }],
+    ];
+
+    expect(survival(0, 0, alone).description.stats.find(stat => stat.label === 'Median survival')?.value).toBe(4);
+  });
+
+  test('counts the censored times per arm', () => {
+    // The argument this chart is read for is comparative: one censored time
+    // in `Treatment` and none in `Control` says something a single total
+    // across both arms cannot -- and the censored-time rotor walks the
+    // current arm alone, so a reader counting one there could not reconcile
+    // it with the sum.
     const stats = survival().description.stats;
 
-    expect(stats.find(stat => stat.label === 'Censored times')?.value).toBe(1);
+    expect(stats.find(stat => stat.label === 'Censored times')?.value)
+      .toBe('Control: 0, Treatment: 1');
   });
 
-  test('reports the gap between the arms at the end', () => {
-    // 0.79 against 0.41 at month 18. What a two-arm survival figure is drawn
+  test('counts them bare on a single curve', () => {
+    const alone: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'Only' }, { x: 1, y: 0.4, z: 'Only', censored: true }],
+    ];
+
+    expect(survival(0, 0, alone).description.stats.find(stat => stat.label === 'Censored times')?.value).toBe(1);
+  });
+
+  test('reports the gap between the arms at the end, and which is on top', () => {
+    // 0.79 against 0.41 at month 12. What a two-arm survival figure is drawn
     // to show, and what a reader cannot assemble by ear without holding one
     // curve's last value while walking the other.
+    //
+    // The arms are named because the gap is a maximum over every arm: on the
+    // three-arm figure a dose comparison draws, one number could belong to
+    // any of three pairs.
     const stats = survival().description.stats;
 
     expect(stats
       .find(stat => stat.label === 'Separation at the end of shared follow-up')
-      ?.value).toBe('0.38 at 12');
+      ?.value).toBe('0.38 at 12, Treatment above Control');
+  });
+
+  test('names no arm above another when the arms end level', () => {
+    const level: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'A' }, { x: 4, y: 0.6, z: 'A' }],
+      [{ x: 0, y: 1, z: 'B' }, { x: 4, y: 0.6, z: 'B' }],
+    ];
+
+    expect(survival(0, 0, level).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0 at 4');
   });
 
   test('compares the arms at a time, not at an index', () => {
@@ -235,7 +273,7 @@ describe('the description reports what the figure is quoted by', () => {
 
     // 0.85 against 0.60. Aligned by index it reads 0.15, comparing month 5
     // against month 7.
-    expect(survival(0, 0, uneven).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.25 at 7');
+    expect(survival(0, 0, uneven).description.stats.find(stat => stat.label === 'Separation at the end of shared follow-up')?.value).toBe('0.25 at 7, Treatment above Control');
   });
 
   test('says nothing when the times cannot be ordered', () => {
@@ -259,5 +297,63 @@ describe('the description reports what the figure is quoted by', () => {
     expect(survival(0, 0, alone).description.stats
       .find(stat => stat.label === 'Separation at the end of shared follow-up'))
       .toBeUndefined();
+  });
+});
+
+describe('the description calls the curves arms, not lines', () => {
+  test('counts and names them as arms', () => {
+    // Inherited from the line trace, the dialog opened "Number of lines: 2,
+    // Line names: Control, Treatment" and then called the same two curves
+    // arms in every statistic below -- two nouns for one referent, with
+    // `Line` the wrong one for a clinical figure.
+    const labels = survival().description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Number of arms');
+    expect(labels).toContain('Arm names');
+    expect(labels).not.toContain('Number of lines');
+    expect(labels).not.toContain('Points per line');
+    expect(labels).not.toContain('Line names');
+  });
+
+  test('names an unnamed curve positionally the way the statistics do', () => {
+    // The positional fallback takes its noun from the same place, so the
+    // curve the table calls `Arm 2` is the one the medians call `Arm 2`.
+    const unnamed: SurvivalPoint[][] = [
+      [{ x: 0, y: 1 }, { x: 4, y: 0.6 }],
+      [{ x: 0, y: 1 }, { x: 4, y: 0.3 }],
+    ];
+    const { stats, dataTable } = survival(0, 0, unnamed).description;
+
+    expect(stats.find(stat => stat.label === 'Arm names')?.value)
+      .toBe('Arm 1, Arm 2');
+    expect(stats.find(stat => stat.label === 'Median survival')?.value)
+      .toBe('Arm 1: not reached, Arm 2: 4');
+    expect(dataTable.rows[0][2]).toBe('Arm 1');
+  });
+});
+
+describe('the table says which times were censored', () => {
+  test('carries the flag beside the time it belongs to', () => {
+    // The distinction this class exists to convey, in the one place a reader
+    // reviews the whole curve at once. Month 12 of `Treatment` is the
+    // censored time; the curve does not step there, so nothing else in the
+    // row separates it from the month before.
+    const { dataTable } = survival().description;
+
+    expect(dataTable.headers).toEqual(['Months', 'Survival', 'Arm', 'Censored']);
+    expect(dataTable.rows[9]).toEqual([12, 0.79, 'Treatment', 'censored']);
+    // Blank rather than "no", so the column can be scanned.
+    expect(dataTable.rows[4]).toEqual([12, 0.41, 'Control', '']);
+  });
+
+  test('leaves the table alone on a curve where nobody was censored', () => {
+    // The same condition the rotor is withheld under: a column that can only
+    // ever be blank is noise in every row.
+    const uncensored: SurvivalPoint[][] = [
+      [{ x: 0, y: 1, z: 'Only' }, { x: 1, y: 0.4, z: 'Only' }],
+    ];
+    const { dataTable } = survival(0, 0, uncensored).description;
+
+    expect(dataTable.headers).not.toContain('Censored');
   });
 });

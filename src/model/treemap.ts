@@ -3,9 +3,10 @@ import type { Coordinate, Node } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
 /**
@@ -41,6 +42,13 @@ const LEVEL_ROTOR_UNIT: RotorFilterUnit = {
   label: 'Level',
   noun: 'nodes on this level',
 };
+
+/** How many branches the top-level breakdown names before it stops. */
+const NAMED_BRANCHES = 8;
+
+/** What a hierarchy calls its two dimensions when the layer names neither. */
+const NODE_AXIS = 'Node';
+const VALUE_AXIS = 'Value';
 
 /** Formats a fraction as a percentage, to one decimal place. */
 function asPercent(fraction: number): string {
@@ -362,6 +370,26 @@ export class TreemapTrace extends AbstractTrace {
     return this.nodes[this.row]?.[this.col] ?? null;
   }
 
+  /**
+   * What this chart calls a node, and what it calls a magnitude.
+   *
+   * A hierarchy has no scales, so a producer that authors no axis labels is
+   * being accurate rather than careless -- the Chart.js and AnyChart branches
+   * both do it deliberately. `xAxis` and `yAxis` fall back to the literal
+   * `'X'` and `'Y'` for that layer, and while
+   * {@link AbstractTrace.getDescriptionAxes} keeps those out of the dialog's
+   * Axes block, the table header and the announcement beside it printed them:
+   * a column of populations headed `Y`, read cell by cell as "Y, 1400".
+   */
+  private get nodeLabel(): string {
+    return named(this.layer.axes?.x?.label, NODE_AXIS);
+  }
+
+  /** @see {@link TreemapTrace.nodeLabel} */
+  private get valueLabel(): string {
+    return named(this.layer.axes?.y?.label, VALUE_AXIS);
+  }
+
   protected get values(): number[][] {
     return this.nodeValues;
   }
@@ -541,10 +569,10 @@ export class TreemapTrace extends AbstractTrace {
     }
 
     return {
-      main: { label: this.xAxis, value: node.name },
+      main: { label: this.nodeLabel, value: node.name },
       // Omitted rather than sent as 0, or as the layout's per-link 1: both
       // announce a number no rectangle on the page stands for.
-      ...(this.valued ? { cross: { label: this.yAxis, value: node.value } } : {}),
+      ...(this.valued ? { cross: { label: this.valueLabel, value: node.value } } : {}),
       mainAxis: 'x',
       crossAxis: 'y',
       asides,
@@ -633,31 +661,88 @@ export class TreemapTrace extends AbstractTrace {
     return true;
   }
 
+  /**
+   * The shallowest level of the tree that divides anything, and what it
+   * divides.
+   *
+   * Ordinarily the top level. On a tree with a single root it is one level
+   * down: `grandTotal` is then that root's own value, so a top-level
+   * breakdown reported the root as 100% of itself -- and that is the shape of
+   * every hierarchy Plotly builds from a `labels`/`parents` pair. What a
+   * sighted reader takes from the layout is the first ring that has more than
+   * one arc in it, so a chain of only children is walked past as well.
+   *
+   * @returns The nodes on that level and the parent they divide, or null when
+   *   nothing on the tree divides
+   */
+  private firstDivision(): { parent: TreeNode | null; branches: TreeNode[] } | null {
+    let parent: TreeNode | null = null;
+    let branches = (this.nodes[0] ?? []).filter((node): node is TreeNode => node !== null);
+    while (branches.length === 1 && branches[0].children.length > 0) {
+      parent = branches[0];
+      branches = parent.children
+        .map(at => this.nodes[at.row]?.[at.col] ?? null)
+        .filter((node): node is TreeNode => node !== null);
+    }
+    return branches.length > 1 ? { parent, branches } : null;
+  }
+
   public get description(): DescriptionState {
     const every = this.nodes.flat().filter((node): node is TreeNode => node !== null);
     const leaves = every.filter(node => node.children.length === 0);
 
     // The shape of the tree is real whether or not it carries magnitudes;
-    // the total is not. A pure hierarchy keeps the three counts and loses
-    // every stat derived from a value it never declared (#1153).
+    // the total is not. A pure hierarchy keeps the counts and loses every
+    // stat derived from a value it never declared (#1153).
     const stats: DescriptionState['stats'] = [
       { label: 'Levels', value: this.nodes.length },
       { label: 'Number of nodes', value: every.length },
       { label: 'Number of leaves', value: leaves.length },
+      // How the tree is shaped, not only how deep it is: two roots over five
+      // leaves and forty roots over forty-one are both `Levels: 2`.
+      {
+        label: 'Nodes per level',
+        value: this.nodes.map(level => level.length).join(', '),
+      },
       ...(this.valued ? [{ label: 'Total', value: this.grandTotal }] : []),
     ];
 
-    const roots = this.nodes[0] ?? [];
-    if (this.valued && roots.length > 0 && this.grandTotal !== 0) {
-      // The top-level breakdown, which is the first thing a sighted reader
-      // takes from the layout and the last thing a walk of thirty leaves
-      // would assemble.
+    if (this.valued && leaves.length > 1) {
+      // The spread the rectangles encode. `Largest leaf` names the top of it
+      // and nothing named the bottom, so a chart one rectangle dominates read
+      // the same as an even one -- which is the comparison a treemap is drawn
+      // to support.
+      const magnitudes = leaves.map(node => node.value);
       stats.push({
-        label: 'Top level',
-        value: roots
-          .filter((node): node is TreeNode => node !== null)
-          .map(node => `${node.name} ${asPercent(node.value / this.grandTotal)}`)
-          .join(', '),
+        label: 'Leaf range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.safeMin(magnitudes),
+          MathUtil.safeMax(magnitudes),
+        ),
+      });
+    }
+
+    const division = this.firstDivision();
+    const basis = division === null ? 0 : division.parent?.value ?? this.grandTotal;
+    if (this.valued && division !== null && basis !== 0) {
+      // The breakdown the layout shows at a glance and a walk of thirty
+      // leaves would assemble last.
+      //
+      // Largest first and capped. A flat treemap -- which is what a disk-usage
+      // or a market-cap chart is -- hangs every leaf off one parent, and an
+      // uncapped list read every rectangle on the chart out in a single stat;
+      // a truncated one only answers the question the stat is for if what it
+      // kept is the part the chart is mostly made of.
+      const ordered = [...division.branches].sort((a, b) => b.value - a.value);
+      const shown = ordered
+        .slice(0, NAMED_BRANCHES)
+        .map(node => `${node.name} ${asPercent(node.value / basis)}`)
+        .join(', ');
+      stats.push({
+        label: division.parent === null ? 'Top level' : `Inside ${division.parent.name}`,
+        value: ordered.length > NAMED_BRANCHES
+          ? `${shown}, and ${ordered.length - NAMED_BRANCHES} more`
+          : shown,
       });
     }
 
@@ -667,11 +752,22 @@ export class TreemapTrace extends AbstractTrace {
     );
     if (this.valued && largest !== null) {
       // Named with its ancestry, because a leaf's name alone does not say
-      // which branch it is the largest thing in.
+      // which branch it is the largest thing in, and with its share, because
+      // whether one rectangle is most of the chart is what the areas are
+      // drawn to show.
+      //
+      // The magnitude goes through `defaultFormat` because it is interpolated
+      // into a string, which the description service takes for display text
+      // and leaves alone: a derived total reached the dialog as
+      // `1400.0000000000002` beside the `1400` the table printed for the same
+      // node.
       stats.push({
         label: 'Largest leaf',
         value: `${[...this.ancestorsOf(largest), largest.name].join(' > ')}, `
-          + `${largest.value}`,
+          + `${defaultFormat(largest.value)}${
+            this.grandTotal === 0
+              ? ''
+              : `, ${asPercent(largest.value / this.grandTotal)} of total`}`,
       });
     }
 
@@ -682,7 +778,7 @@ export class TreemapTrace extends AbstractTrace {
       stats,
       dataTable: this.valued
         ? {
-            headers: ['Path', this.xAxis, this.yAxis, 'Share of total'],
+            headers: ['Path', this.nodeLabel, this.valueLabel, 'Share of total'],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
               node.name,
@@ -694,7 +790,7 @@ export class TreemapTrace extends AbstractTrace {
             // Two columns rather than four, half of them zeroes and blanks:
             // the ancestry and the name are the whole of what a pure
             // hierarchy has to tabulate.
-            headers: ['Path', this.xAxis],
+            headers: ['Path', this.nodeLabel],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
               node.name,

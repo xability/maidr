@@ -1,12 +1,14 @@
-import type { GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
+import type { FormatFunction, GanttData, GanttPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { defaultFormat, FormatUtil } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
+import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -76,6 +78,15 @@ export class GanttTrace extends AbstractTrace {
   private readonly perLaneMin: number[];
   private readonly perLaneMax: number[];
 
+  /**
+   * How the chart renders a point on its time axis, when it says.
+   *
+   * Undefined rather than {@link defaultFormat} when the layer authors no
+   * format, so a schedule measured in plain numbers hands the dialog numbers
+   * and has them rounded like every other number it shows.
+   */
+  private readonly timeFormat?: FormatFunction;
+
   protected readonly highlightValues: SVGElement[][] | null;
 
   /**
@@ -136,8 +147,37 @@ export class GanttTrace extends AbstractTrace {
     this.perLaneMin = this.lengths.map(lane => MathUtil.safeMin(lane));
     this.perLaneMax = this.lengths.map(lane => MathUtil.safeMax(lane));
 
+    // The axis the intervals are measured along -- x for a schedule drawn the
+    // ordinary way round, y for one drawn the default way up -- resolved once
+    // rather than per cell, because a `format.function` body is compiled with
+    // `new Function` and the table asks for it twice an interval.
+    const timeAxis = this.orientation === Orientation.HORIZONTAL
+      ? layer.axes?.x
+      : layer.axes?.y;
+    this.timeFormat = timeAxis?.format === undefined
+      ? undefined
+      : FormatUtil.wrapFormat(FormatUtil.resolveFormat(timeAxis.format));
+
     this.highlightValues = this.mapToSvgElements(layer.selectors);
     this.movable = new MovableGrid<number>(this.lengths);
+  }
+
+  /**
+   * A position on the time axis, as the chart itself renders it.
+   *
+   * The dialog resolves no per-axis format of its own, so a date-based
+   * schedule described the epoch counts its axis carries while navigation
+   * spoke the dates the same numbers stand for -- two readings of one interval
+   * sharing no digits. The google-charts binder is the case that exists: it
+   * divides its dates down to days and hands the same numbers back as dates
+   * through the axis format.
+   *
+   * @param value - A position on the time axis
+   * @returns The chart's own rendering of it, or the number itself when the
+   *   layer authors no format
+   */
+  private atTime(value: number): string | number {
+    return this.timeFormat === undefined ? value : this.timeFormat(value);
   }
 
   /**
@@ -333,37 +373,87 @@ export class GanttTrace extends AbstractTrace {
       { label: 'Number of intervals', value: intervals.length },
     ];
 
+    const empty = this.lanes.filter(lane => lane.length === 0).length;
+    if (empty > 0) {
+      // A lane with nothing in it is a statement about the schedule --
+      // nobody is booked, nothing is planned -- and it is the one row a
+      // reader can navigate into and hear nothing from, so the count says
+      // up front that the silence is the data.
+      //
+      // Outside the guard below, which is there for the statistics that need
+      // an interval to compute: a schedule of nothing but empty lanes is the
+      // one this count has the most to say about, and it was the one schedule
+      // that never reported it.
+      stats.push({ label: 'Empty lanes', value: empty });
+    }
+
     if (intervals.length > 0) {
       const spanLabel = this.unit === undefined ? '' : ` ${this.unit}`;
+      // Guarded before the unit is attached rather than after. A length is
+      // `Number(end) - Number(start)`, so a producer sending an unparseable
+      // end makes it NaN -- and once the unit has turned that into the string
+      // `NaN days` neither the dialog's own non-finite blanking nor the
+      // service's rounding can catch it, because both of them test numbers.
+      const withUnit = (value: number): string =>
+        isMeasured(value) ? `${defaultFormat(value)}${spanLabel}` : MISSING_TEXT;
+
+      const from = MathUtil.safeMin(intervals.map(point => Number(point.start)));
+      const to = MathUtil.safeMax(intervals.map(point => Number(point.end)));
       stats.push(
-        { label: 'Shortest', value: `${this.min}${spanLabel}` },
-        { label: 'Longest', value: `${this.max}${spanLabel}` },
+        { label: 'Shortest', value: withUnit(this.min) },
+        { label: 'Longest', value: withUnit(this.max) },
         {
           label: 'Spans',
-          value: `${MathUtil.safeMin(intervals.map(p => Number(p.start)))} to `
-            + `${MathUtil.safeMax(intervals.map(p => Number(p.end)))}`,
+          // The chart's own rendering of its two ends when it has one, and
+          // `spannedOrMissing` otherwise -- which answers a schedule whose
+          // ends do not parse with `missing` rather than with the string
+          // `NaN to NaN`, a string the dialog's blanking cannot see.
+          value: this.timeFormat !== undefined && isMeasured(from) && isMeasured(to)
+            ? `${this.timeFormat(from)} to ${this.timeFormat(to)}`
+            : MathUtil.spannedOrMissing(from, to),
         },
       );
 
-      const empty = this.lanes.filter(lane => lane.length === 0).length;
-      if (empty > 0) {
-        // A lane with nothing in it is a statement about the schedule --
-        // nobody is booked, nothing is planned -- and it is the one row a
-        // reader can navigate into and hear nothing from, so the count says
-        // up front that the silence is the data.
-        stats.push({ label: 'Empty lanes', value: empty });
+      const busiest = this.peakConcurrency();
+      if (busiest !== null) {
+        // What overlaps what is the question this class opens by saying a
+        // schedule is read for, and the description answered none of it.
+        // Pitch and pan put an overlap within reach one interval at a time;
+        // the busiest moment is the one number that summarises the lot.
+        stats.push({
+          label: 'Most intervals at once',
+          value: `${busiest.count} from ${this.atTime(busiest.at)}`,
+        });
       }
     }
 
-    const headers = [this.xAxis, 'Label', 'Start', 'End', 'Length'];
+    // The lane axis rather than x. A schedule drawn the ordinary way runs its
+    // bars left to right, which puts the lanes on y -- and this column holds
+    // lane names, so a horizontal chart headed a column of tasks with the
+    // label its dates belong to. The same swap `text` makes, for its reason
+    // -- the announcement and the table name one thing one way.
+    const laneLabel = this.orientation === Orientation.HORIZONTAL
+      ? this.yAxis
+      : this.xAxis;
+    // The unit belongs in the header rather than in every cell of the column:
+    // a length is the one number here that is unit-bearing by definition, and
+    // the announcement never says it without one.
+    const lengthHeader = this.unit === undefined ? 'Length' : `Length (${this.unit})`;
+    const headers = [laneLabel, 'Label', 'Start', 'End', lengthHeader];
     const rows: (string | number)[][] = this.lanes.flatMap((lane, index) =>
-      lane.map((point, column) => [
-        point.x,
-        point.label ?? '',
-        point.start,
-        point.end,
-        this.lengths[index][column],
-      ]),
+      // An empty lane is a row of the schedule -- the nested shape exists to
+      // express one -- and mapping over the intervals it does not have
+      // dropped it from the one place a reader reviews the whole chart at
+      // once. Named, with the cells the dialog renders as blanks.
+      lane.length === 0
+        ? [[this.laneNameAt(index), '', '', '', '']]
+        : lane.map((point, column) => [
+            point.x,
+            point.label ?? '',
+            this.atTime(Number(point.start)),
+            this.atTime(Number(point.end)),
+            this.lengths[index][column],
+          ]),
     );
 
     return {
@@ -373,6 +463,52 @@ export class GanttTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * The busiest moment of the schedule, when anything overlaps at all.
+   *
+   * A sweep over the endpoints rather than a comparison of every interval
+   * against every other, which grows with the square of the task count -- the
+   * growth this class opens by naming as the reason prose cannot carry a
+   * schedule at all.
+   *
+   * An end is taken before a start at the same instant, so two intervals that
+   * merely touch -- the handover a schedule is drawn to show -- are not
+   * counted as running together.
+   *
+   * @returns How many intervals run at once at the fullest moment and when it
+   *   begins, or null when nothing overlaps
+   */
+  private peakConcurrency(): { count: number; at: number } | null {
+    const events = this.lanes
+      .flat()
+      .flatMap((point) => {
+        const start = Number(point.start);
+        const end = Number(point.end);
+        // Both ends or neither: dropping only the unparseable half would
+        // leave an interval that opens and never closes, and every moment
+        // after it would be counted as overlapping something that ended.
+        return isMeasured(start) && isMeasured(end)
+          ? [{ at: start, delta: 1 }, { at: end, delta: -1 }]
+          : [];
+      })
+      .sort((a, b) => a.at - b.at || a.delta - b.delta);
+
+    let live = 0;
+    let count = 0;
+    let at = Number.NaN;
+    for (const event of events) {
+      live += event.delta;
+      if (live > count) {
+        count = live;
+        at = event.at;
+      }
+    }
+
+    // One at a time is a schedule with no overlap in it, and reporting that
+    // as a finding would answer the question with its trivial case.
+    return count > 1 ? { count, at } : null;
   }
 
   /**

@@ -5,7 +5,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
 /** Rotor unit that steps through the nodes this one is linked to. */
@@ -17,6 +17,9 @@ const LINK_ROTOR_UNIT: RotorFilterUnit = {
 
 /** How many names the description lists before it stops. */
 const NAMED_NODES = 5;
+
+/** What a node-link diagram calls its nodes when the layer names no x axis. */
+const NODE_AXIS = 'Node';
 
 /** One node of the network. */
 interface NetworkNode {
@@ -95,6 +98,17 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   private readonly maxDegree: number;
 
   /**
+   * How many nodes the chart drew a loop on.
+   *
+   * A self-link is kept out of every degree -- a node linked only to itself
+   * is linked to nobody -- but the chart drew a line for it all the same, and
+   * `mapToSvgElements` requires one selector per declared link including
+   * these. Counted here so the description can say so rather than leave the
+   * link count short of what is on the page.
+   */
+  private readonly selfLinks: number;
+
+  /**
    * The link walk in progress: whose links, how far along, and where the last
    * step left the cursor.
    */
@@ -133,6 +147,14 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     this.minDegree = MathUtil.safeMin(flat);
     this.maxDegree = MathUtil.safeMax(flat);
 
+    // Counted by node rather than by declaration, the way a pair declared
+    // twice counts once: what the reader is told about is the loop on a node.
+    this.selfLinks = new Set(
+      links
+        .filter(link => String(link.source) === String(link.target))
+        .map(link => String(link.source)),
+    ).size;
+
     this.highlightValues = this.mapToSvgElements(layer.selectors, links.length);
     this.movable = new MovableGraph(this.buildGraph());
   }
@@ -146,8 +168,11 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    *
    * A link a producer declares twice, once each way, counts once -- that is
    * how several libraries emit an undirected edge, and counting it twice would
-   * report a degree the picture does not show. A self-link counts once too,
-   * for the same reason.
+   * report a degree the picture does not show. A self-link is dropped from
+   * every degree instead: a node linked only to itself is linked to nobody,
+   * and counting the loop would put it in a group of one and call it
+   * connected. The chart still draws the loop, so {@link NetworkTrace.description}
+   * reports those separately.
    *
    * @param links - The declared edges
    * @returns Every node, with its neighbours attached
@@ -284,6 +309,19 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     return this.grid[this.row]?.[this.col] ?? null;
   }
 
+  /**
+   * What this chart calls a node.
+   *
+   * A force layout has no scales, so a producer that names no x axis is being
+   * accurate. `xAxis` falls back to the literal `'X'` for that layer, and
+   * while {@link AbstractTrace.getDescriptionAxes} keeps the placeholder out
+   * of the dialog's Axes block, the table header and every move announcement
+   * printed it -- a column of people's names headed `X`.
+   */
+  private get nodeLabel(): string {
+    return named(this.layer.axes?.x?.label, NODE_AXIS);
+  }
+
   protected get values(): number[][] {
     return this.degrees;
   }
@@ -324,7 +362,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     const node = this.current;
     if (node === null) {
       return {
-        main: { label: this.xAxis, value: '' },
+        main: { label: this.nodeLabel, value: '' },
         cross: { label: this.yAxis, value: 0 },
         mainAxis: 'x',
         crossAxis: 'y',
@@ -359,7 +397,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     }
 
     return {
-      main: { label: this.xAxis, value: node.name },
+      main: { label: this.nodeLabel, value: node.name },
       cross: { label: this.yAxis, value: links },
       mainAxis: 'x',
       crossAxis: 'y',
@@ -445,12 +483,30 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   public get description(): DescriptionState {
     const edges = this.nodes.reduce((n, node) => n + node.links.length, 0) / 2;
     const isolated = this.nodes.filter(node => node.links.length === 0);
+    const grouped = this.components.length > 1;
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of nodes', value: this.nodes.length },
       { label: 'Number of links', value: edges },
-      { label: 'Separate groups', value: this.components.length },
     ];
+
+    if (this.selfLinks > 0) {
+      // Kept out of every degree on purpose, so the count above is short of
+      // the lines the chart drew and a reader comparing the two would find
+      // one missing with nothing to explain it.
+      stats.push({ label: 'Self links', value: this.selfLinks });
+    }
+
+    stats.push({ label: 'Separate groups', value: this.components.length });
+
+    // The range the pitch is scaled against, so a reader hearing degree knows
+    // what the two ends of the register mean. `Most connected` names the top
+    // of it and nothing named the bottom, which leaves "Ada 4" with nothing
+    // to be read against short of walking every node.
+    stats.push({
+      label: 'Links per node',
+      value: MathUtil.spannedOrMissing(this.minDegree, this.maxDegree),
+    });
 
     const hubs = [...this.nodes]
       .filter(node => node.links.length > 0)
@@ -466,20 +522,34 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       });
     }
 
-    if (this.components.length > 1) {
+    // Only the components that are groups. Every isolated node is a component
+    // of its own, so a chart with fifty of them listed `1` fifty times here
+    // and then named them again under `Unconnected` -- the same fact twice,
+    // at length. Capped for the reason every other list in the dialog is.
+    const clusters = this.components.filter(members => members.length > 1);
+    if (clusters.length > 1 || (clusters.length > 0 && isolated.length > 0)) {
       // How the chart breaks up, which is structure a reader following links
       // can never discover -- links do not cross between groups, which is
       // what makes them groups.
+      const shown = clusters.slice(0, NAMED_NODES).map(members => members.length).join(', ');
       stats.push({
         label: 'Group sizes',
-        value: this.components.map(members => members.length).join(', '),
+        value: clusters.length > NAMED_NODES
+          ? `${shown}, and ${clusters.length - NAMED_NODES} more`
+          : shown,
       });
     }
 
     if (isolated.length > 0) {
+      // The count and then the names, which stop where every other list in
+      // MAIDR stops. Cut silently, `50: Ada, Bo, Cy, Di, Ed` read as a list
+      // of fifty that had lost forty-five of its names.
+      const shown = isolated.slice(0, NAMED_NODES).map(node => node.name).join(', ');
       stats.push({
         label: 'Unconnected',
-        value: `${isolated.length}: ${isolated.slice(0, NAMED_NODES).map(node => node.name).join(', ')}`,
+        value: isolated.length > NAMED_NODES
+          ? `${isolated.length}: ${shown}, and ${isolated.length - NAMED_NODES} more`
+          : `${isolated.length}: ${shown}`,
       });
     }
 
@@ -489,12 +559,23 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       axes: this.getDescriptionAxes(),
       stats,
       dataTable: {
-        headers: [this.xAxis, 'Links', 'Linked to'],
-        rows: this.nodes.map(node => [
-          node.name,
-          node.links.length,
-          node.links.map(one => this.nodes[one].name).join(', '),
-        ]),
+        headers: [this.nodeLabel, 'Links', ...(grouped ? ['Group'] : []), 'Linked to'],
+        // Walked component by component, most connected first, which is the
+        // order the arrows take a reader through the chart and the order the
+        // group sizes above are in. `this.nodes` is the order the producer
+        // declared its links in, which is nothing a reader ever sees -- and
+        // the group a node is in, which every move announces, was not in the
+        // table at all.
+        rows: this.components.flatMap((members, component) =>
+          members.map((at) => {
+            const node = this.nodes[at];
+            return [
+              node.name,
+              node.links.length,
+              ...(grouped ? [`${component + 1} of ${this.components.length}`] : []),
+              node.links.map(one => this.nodes[one].name).join(', '),
+            ];
+          })),
       },
     };
   }

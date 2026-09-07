@@ -5,6 +5,7 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -309,16 +310,25 @@ export class DumbbellTrace extends AbstractTrace {
       { label: 'Max value', value: this.max },
     ];
 
+    // The count each way is what a sighted reader takes from the shape of the
+    // chart before reading a single number, and it is not recoverable from the
+    // ranges above.
+    //
+    // Unconditional, and with the rows that held still named. Guarded on
+    // something having moved, the one chart whose finding *is* that nothing
+    // moved was the one that said nothing about direction at all -- and with
+    // the flat rows unaccounted for the counts do not add up to the number of
+    // pairs, leaving a reader to guess whether the missing rows held still or
+    // were dropped. `text` already treats no change as its own third case.
     const rises = this.changes.filter(change => change > 0).length;
     const falls = this.changes.filter(change => change < 0).length;
-    if (rises > 0 || falls > 0) {
-      // The count each way is what a sighted reader takes from the shape of
-      // the chart before reading a single number, and it is not recoverable
-      // from the ranges above.
-      stats.push(
-        { label: 'Increased', value: rises },
-        { label: 'Decreased', value: falls },
-      );
+    const flat = this.changes.filter(change => change === 0).length;
+    stats.push(
+      { label: 'Increased', value: rises },
+      { label: 'Decreased', value: falls },
+    );
+    if (flat > 0) {
+      stats.push({ label: 'Unchanged', value: flat });
     }
 
     const largest = this.extremeChange('max');
@@ -326,26 +336,39 @@ export class DumbbellTrace extends AbstractTrace {
     if (largest !== null) {
       stats.push({
         label: rankLabel('max', largest.change),
-        value: `${this.points[largest.index].x}, ${Math.abs(largest.change)}`,
+        // Formatted here rather than left to the dialog, which rounds a stat
+        // whose value is a number and passes a composed string through
+        // untouched -- so a change of 0.004567 read two ways in one modal.
+        value: `${this.points[largest.index].x}, ${defaultFormat(Math.abs(largest.change))}`,
       });
     }
     if (smallest !== null && smallest.index !== largest?.index) {
       stats.push({
         label: rankLabel('min', smallest.change),
-        value: `${this.points[smallest.index].x}, ${Math.abs(smallest.change)}`,
+        value: `${this.points[smallest.index].x}, ${defaultFormat(Math.abs(smallest.change))}`,
       });
     }
 
     const headers = [
-      this.xAxis,
+      // The category axis, not x. A dumbbell is commonly drawn with its
+      // categories running down the page, which puts them on y -- and this
+      // column holds category names, so a horizontal chart headed a column of
+      // countries with the label its life expectancies belong to. The same
+      // swap `text` makes, for the same reason.
+      this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
       this.endLabels.start,
       this.endLabels.end,
       'Change',
     ];
     const rows: (string | number)[][] = this.points.map((point, index) => [
       point.x,
-      point.start,
-      point.end,
+      // Coerced, as every other reading of the two ends in this class is: a
+      // producer sending a number as a string reaches the dialog's rounding
+      // as a string and is printed verbatim, so the table would show
+      // `74.60000000000001` in the cell the announcement speaks as `74.6` --
+      // beside a Change column that is already noise-stripped.
+      Number(point.start),
+      Number(point.end),
       this.changes[index],
     ]);
 
