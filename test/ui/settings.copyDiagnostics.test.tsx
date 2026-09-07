@@ -126,11 +126,16 @@ function renderSettings(): void {
       <Settings />
     </MaidrContext.Provider>,
   );
+
+  // Everything here lives on the About tab, and only the selected tab's panel
+  // is mounted. The dialog opens on "General", so the tab is part of reaching
+  // these controls at all.
+  fireEvent.click(screen.getByRole('tab', { name: 'About' }));
 }
 
 /**
  * Finds the copy button.
- * @returns The About section's copy button.
+ * @returns The About panel's copy button.
  */
 function copyButton(): HTMLElement {
   return screen.getByRole('button', { name: COPY_BUTTON_NAME });
@@ -142,8 +147,9 @@ function copyButton(): HTMLElement {
  * Looked up the way assistive technology resolves it — through
  * `aria-describedby` — rather than through a test hook, so a dangling
  * reference fails here instead of passing against an element nothing points
- * to. The dialog renders several `role="status"` regions (one per LLM
- * credential field), which is why a role query alone will not do.
+ * to. The dialog renders several `role="status"` regions — one per LLM
+ * credential field on the AI tab, another for the tactile display, and the
+ * footer's blocked-save hint — which is why a role query alone will not do.
  * @param element - The control whose description to resolve.
  * @returns The referenced element.
  */

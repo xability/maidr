@@ -226,7 +226,9 @@ export abstract class TestConstants {
    * Settings Menu Identifiers
    */
 
-  static readonly SETTINGS_MENU_TITLE = 'General Settings';
+  // The dialog's own title. It used to be the "General Settings" section
+  // heading, which the tabs replaced — every section is now named by its tab.
+  static readonly SETTINGS_MENU_TITLE = 'Settings';
 
   /**
    * Chat Menu Identifiers

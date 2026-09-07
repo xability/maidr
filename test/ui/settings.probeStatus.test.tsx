@@ -23,7 +23,7 @@ import type { Settings as SettingsState } from '@type/settings';
 import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { MaidrContext } from '@state/context';
 import { ViewModelRegistry } from '@state/viewModel/registry';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import Settings from '@ui/component/Settings';
 // The `/jest-globals` entry point, not the bare one: it augments the `expect`
@@ -127,6 +127,10 @@ function renderSettings(): void {
  * @returns The announcement the status region ends up carrying.
  */
 async function settledAnnouncement(): Promise<string> {
+  // The provider rows sit on the AI tab, and only the selected tab's panel
+  // is mounted — the probe this waits on does not start until it opens.
+  fireEvent.click(screen.getByRole('tab', { name: /^AI/ }));
+
   // The label sits on the MUI wrapper and the description on the native
   // input inside it, so the region is reached the way the input names it.
   const field = await screen.findByLabelText('OpenAI API Key');

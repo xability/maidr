@@ -393,7 +393,7 @@ The IQ box (`iq`) is a `<rect>` SVG element spanning Q1 to Q3. The frontend extr
 - **Vertical orientation**: Q1 = bottom edge, Q3 = top edge
 - **Horizontal orientation**: Q1 = left edge, Q3 = right edge
 
-The frontend calls `Svg.createLineElement(iqElement, 'bottom')` and `Svg.createLineElement(iqElement, 'top')` to create line elements at the edges.
+The frontend asks `Svg.buildLineElements` for the `'bottom'` and `'top'` edges of every box's `iq` element in one batch, and creates the line elements from that.
 
 **Selector Array Requirements:**
 - `lowerOutliers` and `upperOutliers` can be empty arrays `[]` when no outliers exist.
