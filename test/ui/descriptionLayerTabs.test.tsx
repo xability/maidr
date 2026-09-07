@@ -190,3 +190,28 @@ describe('the description dialog data table', () => {
     expect(screen.getByRole('rowheader', { name: 'Q1' })).toBeInTheDocument();
   });
 });
+
+describe('the description dialog title', () => {
+  it('names a multi-panel figure title for what it is', () => {
+    // `l t` announces the same precedence as "Subplot title" / "Figure title";
+    // a bare "Title" left a reader unable to tell whether they were being told
+    // about this panel or about the whole figure.
+    renderDescription({
+      ...UNLAYERED,
+      title: 'Quarterly revenue',
+      titleSource: 'figure',
+      subplots: [
+        { index: 1, title: 'Left', traceTypes: ['Bar Chart'], isActive: true },
+        { index: 2, title: 'Right', traceTypes: ['Line Chart'], isActive: false },
+      ],
+    });
+
+    expect(screen.getByText('Figure title: Quarterly revenue')).toBeInTheDocument();
+  });
+
+  it('leaves a single-panel figure saying plainly "Title"', () => {
+    renderDescription({ ...UNLAYERED, title: 'Sales', titleSource: 'layer' });
+
+    expect(screen.getByText('Title: Sales')).toBeInTheDocument();
+  });
+});

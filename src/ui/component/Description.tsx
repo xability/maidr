@@ -247,6 +247,15 @@ const Description: React.FC = () => {
   // view blanks it -- used to draw a heading over nothing.
   const displayableStats = data.stats.filter(stat => isDisplayable(stat.value));
 
+  // Named for where it came from, the way `l t` announces the same
+  // precedence: the dialog resolves a layer title from the figure's when the
+  // layer authored none, and a bare "Title" left a reader in a multi-panel
+  // figure unable to tell whether they were being told about this panel or
+  // about the whole figure.
+  const titleLabel = data.subplots && data.titleSource
+    ? (data.titleSource === 'layer' ? 'Subplot title' : 'Figure title')
+    : 'Title';
+
   const layers = data.layers ?? [];
   const activeLayerIndex = layers.find(layer => layer.isActive)?.index ?? -1;
   const hasLayerTabs = layers.length > 1 && activeLayerIndex >= 0;
@@ -315,8 +324,8 @@ const Description: React.FC = () => {
           )}
           {isDisplayable(data.title) && (
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Title:
-              {' '}
+              {titleLabel}
+              {': '}
               {data.title}
             </Typography>
           )}

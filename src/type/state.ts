@@ -584,6 +584,16 @@ export interface DisplayDescriptionState extends Omit<DescriptionState, 'dataTab
     headers: string[];
     rows: (string | number)[][];
   };
+  /**
+   * Where `title` came from: the layer the reader is on, or the figure it sits
+   * in. Absent when there is no authored title at all.
+   *
+   * The dialog resolves one from the other, and used to render the winner as a
+   * bare "Title" either way — while `l t`, which implements the same
+   * precedence, is careful to say "Subplot title" or "Figure title" in a
+   * multi-panel figure so the announcement names its own source.
+   */
+  titleSource?: 'layer' | 'figure';
 }
 
 /**

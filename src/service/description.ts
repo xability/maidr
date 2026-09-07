@@ -104,6 +104,11 @@ export class DescriptionService implements Disposable {
       const hasLayerTitle = this.context.isAuthoredTitle(layerTitle);
       const hasFigureTitle = this.context.isAuthoredTitle(figureTitle);
       const title = hasLayerTitle ? layerTitle : hasFigureTitle ? figureTitle : '';
+      const titleSource = hasLayerTitle
+        ? ('layer' as const)
+        : hasFigureTitle
+          ? ('figure' as const)
+          : undefined;
 
       const subplots = this.context.getSubplotSummaries();
       const layers = this.context.getLayerSummaries();
@@ -124,6 +129,7 @@ export class DescriptionService implements Disposable {
           ...this.figureNotes(),
         ],
         title,
+        ...(titleSource && { titleSource }),
         ...(subplots.length > 0 && { subplots }),
         ...(layers.length > 0 && { layers }),
       };
@@ -292,6 +298,13 @@ export class DescriptionService implements Disposable {
    * of 3" announcement would talk over the dialog, so it is deferred to
    * {@link announcePendingLayerSwitch}, which the close path calls.
    *
+   * The description is read *after* the switch, not before, and that ordering
+   * is load-bearing rather than incidental: a step plot's summary reads the
+   * run its cursor is standing in, so a layer's description is only correct
+   * once that layer has been positioned. Fetching every layer's description up
+   * front -- the obvious optimisation for a dialog that shows one at a time --
+   * would read each of them at whatever position it was last left at.
+   *
    * @param index - Zero-based layer index within the active subplot
    * @returns The newly active layer's description, or null when the index
    *   named the active layer, was out of range, or there is nothing to
@@ -313,6 +326,12 @@ export class DescriptionService implements Disposable {
    * been returned to exactly once -- not once per tab they browsed through.
    * A no-op when no layer was selected, which is every ordinary open-and-close
    * of the dialog.
+   *
+   * `DescriptionViewModel.toggle` is the only caller, and every way out of the
+   * dialog reaches it: Escape (which MUI's modal handles and routes to
+   * `onClose`, rather than through the scope's own `esc` binding), the Close
+   * button, and a click on the backdrop. A dismissal path added later that
+   * bypassed it would leave the reader silently relocated in the chart.
    */
   public announcePendingLayerSwitch(): void {
     if (!this.hasPendingLayerSwitch) {
