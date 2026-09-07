@@ -561,6 +561,13 @@ const Settings: React.FC = () => {
   const tactileStatusId = `${id}-tactile-status`;
   const tactileMenu = useModalContainer();
   const contentRef = React.useRef<HTMLDivElement>(null);
+  // `HTMLDivElement` because that is what MUI declares `Tab`'s ref as, even
+  // though it renders a `<button>`. Only `focus()` is called on it, which
+  // every element has.
+  const aiTabRef = React.useRef<HTMLDivElement>(null);
+  // Counts refused saves rather than holding a boolean, so a second refusal
+  // re-runs the effect below instead of looking like the first one.
+  const [refusedSaves, setRefusedSaves] = useState(0);
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
@@ -619,6 +626,22 @@ const Settings: React.FC = () => {
     setGeneralSettings(general);
     setLlmSettings(llm);
   }, [general, llm]);
+
+  // Selecting the AI tab is not, on its own, something a reader can perceive.
+  // Its panel is already mounted by the time a save is refused — that is where
+  // the instruction was typed — so switching to it mutates no live region and
+  // announces nothing. Moving focus is what makes the refusal perceivable, and
+  // the tab it lands on is named "AI needs attention".
+  //
+  // In an effect rather than in the key handler so that focus arrives after
+  // the render that marks the tab selected; focusing first would announce the
+  // tab as unselected.
+  useEffect(() => {
+    if (refusedSaves === 0) {
+      return;
+    }
+    aiTabRef.current?.focus();
+  }, [refusedSaves]);
 
   const handleGeneralChange = <K extends keyof GeneralSettings>(
     key: K,
@@ -812,10 +835,13 @@ const Settings: React.FC = () => {
           // Returning silently would leave a reader who pressed the shortcut
           // the dialog advertises with no response at all — no sound, no
           // text, nothing saying why. Opening the tab that holds the field is
-          // the answer to "why not", and puts them where the fix is.
+          // the answer to "why not", and puts them where the fix is; the
+          // effect above then moves focus there, which is the part they can
+          // actually perceive.
           setActiveTab('ai');
           setVisitedTabs(previous =>
             previous.has('ai') ? previous : new Set(previous).add('ai'));
+          setRefusedSaves(previous => previous + 1);
           return;
         }
         handleSave();
@@ -900,11 +926,12 @@ const Settings: React.FC = () => {
           <Tab
             key={tab.id}
             value={tab.id}
+            ref={tab.id === 'ai' ? aiTabRef : undefined}
             id={`${id}-tab-${tab.id}`}
-            // Only the selected panel is rendered, so only the selected tab
-            // has one to point at. Naming an id that is not in the document
-            // is a dangling reference, which is a defect whether or not a
-            // reader happens to follow it.
+            // Named only on the selected tab. A visited tab's panel is in
+            // the document, but hidden — so it is out of the accessibility
+            // tree, and pointing at it would be no better than pointing at
+            // the unvisited ones, which are not there at all.
             aria-controls={
               tab.id === activeTab ? `${id}-panel-${tab.id}` : undefined
             }

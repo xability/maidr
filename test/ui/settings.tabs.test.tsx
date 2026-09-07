@@ -382,6 +382,41 @@ describe('settings tabs', () => {
     );
   });
 
+  it('should move focus to that tab every time a save is refused', () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: {
+        ...DEFAULT_SETTINGS.llm,
+        expertiseLevel: 'custom',
+        customInstruction: 'too short',
+      },
+    });
+
+    // Open the AI tab first, which is the ordinary case: it is where the
+    // instruction was typed. Its panel — and the warning inside it — is
+    // mounted from then on, so selecting it again changes nothing in the DOM
+    // and announces nothing on its own. Moving focus is the whole response.
+    openTab(/^AI/);
+    openTab('General');
+
+    // Twice, because a second refusal must answer as loudly as the first. It
+    // is the repeat that a state flag would have swallowed.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      (screen.getByLabelText('Autoplay Duration') as HTMLElement).focus();
+
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 's', altKey: true });
+
+      expect(document.activeElement).toBe(
+        screen.getByRole('tab', { name: 'AI needs attention' }),
+      );
+      // Selected before focus arrives, so the tab is not announced as an
+      // unselected one the reader has merely landed on.
+      expect(document.activeElement).toHaveAttribute('aria-selected', 'true');
+
+      openTab('General');
+    }
+  });
+
   it('should drop the footer hint on the tab that already shows the reason', () => {
     renderSettings({
       ...DEFAULT_SETTINGS,
