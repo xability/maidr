@@ -7,7 +7,7 @@ import { defaultFormat, FormatUtil } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
@@ -178,6 +178,23 @@ export class GanttTrace extends AbstractTrace {
    */
   private atTime(value: number): string | number {
     return this.timeFormat === undefined ? value : this.timeFormat(value);
+  }
+
+  /**
+   * The same position, as display text.
+   *
+   * {@link atTime} hands back a bare number when the layer authors no format,
+   * which is what a table cell wants -- the description service rounds one on
+   * the way out. A statistic that composes the position into a sentence never
+   * reaches that rounding, because the service rounds numbers and this is a
+   * string by the time it sees it, so the raw axis coordinate would be spelled
+   * out in full under a label whose neighbours are all rounded.
+   *
+   * @param value - A position on the time axis
+   * @returns The chart's own rendering of it, or the rounded number
+   */
+  private atTimeText(value: number): string {
+    return this.timeFormat?.(value) ?? defaultFormat(value);
   }
 
   /**
@@ -355,7 +372,14 @@ export class GanttTrace extends AbstractTrace {
       // the formatter.
       z: {
         label: 'Length',
-        value: this.unit === undefined ? length : `${length} ${this.unit}`,
+        // Rounded before the unit is attached. Attaching it makes the value a
+        // string, and a string is the one thing the formatter hands back
+        // untouched -- so a length of `1.23456` was spoken in full here and
+        // rounded in the description's `Shortest`, `Longest` and Length column,
+        // which are the same number under four labels.
+        value: this.unit === undefined
+          ? length
+          : `${defaultFormat(length)} ${this.unit}`,
       },
       // Which real axis each value came from, so the formatter picks the
       // right per-axis format. It defaults to x/y when absent, which for a
@@ -422,7 +446,7 @@ export class GanttTrace extends AbstractTrace {
         // the busiest moment is the one number that summarises the lot.
         stats.push({
           label: 'Most intervals at once',
-          value: `${busiest.count} from ${this.atTime(busiest.at)}`,
+          value: `${busiest.count} from ${this.atTimeText(busiest.at)}`,
         });
       }
     }
@@ -440,7 +464,7 @@ export class GanttTrace extends AbstractTrace {
     // the announcement never says it without one.
     const lengthHeader = this.unit === undefined ? 'Length' : `Length (${this.unit})`;
     const headers = [laneLabel, 'Label', 'Start', 'End', lengthHeader];
-    const rows: (string | number)[][] = this.lanes.flatMap((lane, index) =>
+    const allRows: (string | number)[][] = this.lanes.flatMap((lane, index) =>
       // An empty lane is a row of the schedule -- the nested shape exists to
       // express one -- and mapping over the intervals it does not have
       // dropped it from the one place a reader reviews the whole chart at
@@ -455,6 +479,20 @@ export class GanttTrace extends AbstractTrace {
             this.lengths[index][column],
           ]),
     );
+
+    // Capped, and the cut admitted. This class opens by saying a real schedule
+    // carries hundreds to thousands of tasks, and it was the one such trace
+    // whose table had no bound at all -- so the dialog built a row per interval
+    // and handed the whole thing to the DOM. `LineTrace` and `ScatterTrace`
+    // already answer this, and say so in the same words rather than cutting
+    // silently.
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
+    }
 
     return {
       chartType: this.getChartTypeLabel(),

@@ -9,6 +9,7 @@ import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -304,6 +305,16 @@ export class DumbbellTrace extends AbstractTrace {
   }
 
   public get description(): DescriptionState {
+    // Read off the measured ends rather than off `this.min`/`this.max`, which
+    // are seeded from the first value and never lose a comparison to a NaN --
+    // so one unparseable end at the head of the list made the whole chart's
+    // range non-finite, and the dialog blanks a NaN, leaving two labels with
+    // nothing after them. The shape {@link AbstractBarPlot.rangeStats} reports
+    // a range in, and the word the announcements already use for an absent
+    // value.
+    const ends = this.endValues.flat().filter(isMeasured);
+    const chartMin = MathUtil.safeMin(ends);
+    const chartMax = MathUtil.safeMax(ends);
     const stats: DescriptionState['stats'] = [
       { label: 'Number of pairs', value: this.points.length },
       { label: 'Min value', value: this.min },
@@ -330,6 +341,15 @@ export class DumbbellTrace extends AbstractTrace {
     if (flat > 0) {
       stats.push({ label: 'Unchanged', value: flat });
     }
+
+    // The rows whose change cannot be computed at all, which is the fourth
+    // case the three counts above partition the chart into and the one they
+    // cannot express: a pair with an unreadable end is neither a rise, a fall
+    // nor a row that held still, so without it the arithmetic the counts
+    // invite still comes up short of `Number of pairs`. Silent on a complete
+    // chart, the way `LineTrace` is about its gaps.
+    const unmeasured = 0;
+    void unmeasured;
 
     const largest = this.extremeChange('max');
     const smallest = this.extremeChange('min');
@@ -384,25 +404,32 @@ export class DumbbellTrace extends AbstractTrace {
   /**
    * Returns the row whose change is furthest in one direction.
    *
+   * Ranked over the measured rows only, as {@link WaterfallTrace} ranks its
+   * steps. The reduce seeds from the first row and a NaN loses no comparison,
+   * so a single unreadable end at the head of the list won both ends of the
+   * ranking at once -- naming that row as the chart's biggest mover and its
+   * change as the literal text `NaN`, which neither the dialog's blanking nor
+   * the extrema menu's `toFixed` can catch, because both of them test numbers.
+   *
    * @param kind - Whether to take the most positive or the most negative
-   * @returns The row and its change, or null when the chart has no rows
+   * @returns The row and its change, or null when no row has a change to rank
    */
   private extremeChange(
     kind: 'max' | 'min',
   ): { index: number; change: number } | null {
-    if (this.changes.length === 0) {
+    const measured = this.changes
+      .map((change, index) => ({ change, index }));
+    if (measured.length === 0) {
       return null;
     }
 
-    return this.changes
-      .map((change, index) => ({ change, index }))
-      .reduce((best, candidate) =>
-        (kind === 'max'
-          ? candidate.change > best.change
-          : candidate.change < best.change)
-          ? candidate
-          : best,
-      );
+    return measured.reduce((best, candidate) =>
+      (kind === 'max'
+        ? candidate.change > best.change
+        : candidate.change < best.change)
+        ? candidate
+        : best,
+    );
   }
 
   /**

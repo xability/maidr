@@ -414,10 +414,29 @@ describe('the description says what a schedule is', () => {
   });
 
   test('heads the first column with the lane axis, not with x', () => {
-    // Every real gantt adapter emits a horizontal chart, which puts the lanes
-    // on y. Taken from x the column of task names was headed with the label
-    // the dates belong to -- under an "Orientation: horizontal" line the
-    // dialog prints directly above it.
+    // Every real gantt adapter emits a horizontal chart, and a horizontal
+    // chart runs its bars left to right -- which puts the dates on x and the
+    // lanes on y, the way the google-charts binder authors them below. Headed
+    // from x, the column of task names carried the label the dates belong to,
+    // under an "Orientation: horizontal" line the dialog prints above it.
+    const trace = TraceFactory.create({
+      id: 'l',
+      type: TraceType.GANTT,
+      title: 'Project schedule',
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Day' }, y: { label: 'Task Name' } },
+      data: { points: LANES, unit: 'days' },
+    }) as GanttTrace;
+
+    expect(trace.description.dataTable?.headers[0]).toBe('Task Name');
+  });
+
+  test('follows the orientation rather than the axis names', () => {
+    // The shared fixture declares its axes for a chart drawn the default way
+    // up -- lanes on x -- so asking it for a horizontal one is asking for the
+    // swap alone. It lands on the schedule's label, which is what a layer
+    // declaring an orientation it is not drawn at gets; the point is that the
+    // header moves with the orientation, as `text.main.label` does.
     const { dataTable } = gantt(0, 0, LANES, 'days', Orientation.HORIZONTAL)
       .description;
 
@@ -458,5 +477,56 @@ describe('the description says what a schedule is', () => {
     expect(dataTable?.rows[0]).toEqual(['Design', 'Wireframes', 'day 0', 'day 30', 30]);
     expect(stats.find(stat => stat.label === 'Spans')?.value)
       .toBe('day 0 to day 100');
+  });
+
+  test('rounds the fullest moment when the chart formats nothing', () => {
+    // The count and the time are composed into one sentence, and the service
+    // rounds a stat only when it is handed a bare number -- so an axis
+    // position carrying float noise was spelled out in full beside `Spans`,
+    // which rounds the same axis.
+    const noisy: GanttPoint[][] = [
+      [{ x: 'Design', start: 0, end: 1 }],
+      // 0.30000000000000004 in IEEE 754, and the moment the second interval
+      // joins the first.
+      [{ x: 'Build', start: 0.1 + 0.2, end: 2 }],
+    ];
+    const stats = gantt(0, 0, noisy, null).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Most intervals at once')?.value)
+      .toBe('2 from 0.3');
+  });
+
+  test('caps the table and says it did', () => {
+    // A real schedule carries hundreds to thousands of tasks, and this was
+    // the one table with no bound at all.
+    const crowded: GanttPoint[][] = [
+      Array.from({ length: 1200 }, (_unused, index) => ({
+        x: 'Design',
+        start: index,
+        end: index + 1,
+      })),
+    ];
+    const { stats, dataTable } = gantt(0, 0, crowded, null).description;
+
+    expect(dataTable?.rows).toHaveLength(1000);
+    expect(stats.find(stat => stat.label === 'Table rows')?.value)
+      .toBe('first 1000 of 1200');
+  });
+});
+
+describe('the announcement and the description read one length one way', () => {
+  test('rounds the spoken length before it attaches the unit', () => {
+    // Attaching the unit makes the value a string, which the formatter hands
+    // back untouched -- so a fractional length was spoken in full while the
+    // description's `Shortest`, `Longest` and Length column, the same number
+    // under three more labels, all rounded it.
+    const fractional: GanttPoint[][] = [
+      [{ x: 'Design', start: 0, end: 1.23456 }],
+    ];
+    const trace = gantt(0, 0, fractional);
+    const { stats } = trace.description;
+
+    expect(nonEmptyState(trace).text.z?.value).toBe('1.23 days');
+    expect(stats.find(stat => stat.label === 'Shortest')?.value).toBe('1.23 days');
   });
 });

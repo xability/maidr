@@ -397,9 +397,28 @@ describe('description', () => {
 
   test('heads the category column with the category axis, not with x', () => {
     // A dumbbell is commonly drawn with its categories running down the page,
-    // which puts them on y. Taken from x, a column of country names was
-    // headed with the label the life expectancies belong to -- under an
+    // which puts them on y and the life expectancies on x -- the way a chart
+    // declaring that orientation authors its axes. Headed from x, the column
+    // of country names carried the label the years belong to, under an
     // "Orientation: horizontal" line the dialog prints directly above it.
+    const trace = TraceFactory.create({
+      id: 'test-dumbbell-layer',
+      type: TraceType.DUMBBELL,
+      title: 'Life expectancy',
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Years' }, y: { label: 'Country' } },
+      data: GAINS,
+    }) as DumbbellTrace;
+
+    expect(trace.description.dataTable?.headers[0]).toBe('Country');
+  });
+
+  test('follows the orientation rather than the axis names', () => {
+    // The shared fixture declares its axes for a chart drawn the default way
+    // up -- categories on x -- so asking it for a horizontal one is asking for
+    // the swap alone. It lands on the value axis, which is what a layer
+    // declaring an orientation it is not drawn at gets; the point is that the
+    // header moves with the orientation, as `text.main.label` does above.
     const { dataTable } = dumbbell(0, 0, GAINS, Orientation.HORIZONTAL)
       .description;
 
@@ -445,6 +464,52 @@ describe('the description accounts for every row', () => {
     expect(stats).toContainEqual({ label: 'Increased', value: 0 });
     expect(stats).toContainEqual({ label: 'Decreased', value: 0 });
     expect(stats).toContainEqual({ label: 'Unchanged', value: 2 });
+  });
+
+  test('names the rows whose change cannot be read', () => {
+    // The fourth case the three counts partition the chart into, and the one
+    // they cannot express: without it the arithmetic they invite comes up
+    // short of `Number of pairs` and the reader is back to guessing.
+    const partial = {
+      points: [
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+        { x: 'Latvia', start: 74.6, end: 'n/a' },
+      ],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, partial).description;
+
+    expect(stats).toContainEqual({ label: 'Number of pairs', value: 2 });
+    expect(stats).toContainEqual({ label: 'Increased', value: 1 });
+    expect(stats).toContainEqual({ label: 'Missing values', value: 1 });
+  });
+
+  test('ranks the movers over the rows it can read', () => {
+    // A NaN loses no comparison, so an unreadable row at the head of the list
+    // won both ends of the ranking -- naming it as the chart's biggest mover
+    // and printing its change as the literal text `NaN`, which the dialog
+    // prints because it blanks non-finite *numbers* and this is a string.
+    const leadingGap = {
+      points: [
+        { x: 'Latvia', start: 'n/a', end: 69.5 },
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+      ],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, leadingGap).description;
+
+    expect(stats).toContainEqual({ label: 'Largest increase', value: 'Denmark, 7.2' });
+  });
+
+  test('says the range is missing rather than leaving it blank', () => {
+    // `minMax` seeds from the first value and a NaN never loses, so one
+    // unreadable end made the whole chart's range non-finite -- and the
+    // dialog blanks a NaN, leaving two labels with nothing after them.
+    const unreadable = {
+      points: [{ x: 'Latvia', start: 'n/a', end: 'n/a' }],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, unreadable).description;
+
+    expect(stats).toContainEqual({ label: 'Min value', value: 'missing' });
+    expect(stats).toContainEqual({ label: 'Max value', value: 'missing' });
   });
 
   test('says nothing about unchanged rows when every row moved', () => {
