@@ -207,9 +207,9 @@ export class StepTrace extends LineTrace {
 
   /**
    * Column indices, per series, at which the level differs from the previous
-   * measured* column — that is, the first point of every run after the first.
-   * Computed once because trace data is immutable (live-data updates rebuild
-   * the trace).
+   * column that was *measured* — that is, the first point of every run after
+   * the first. Computed once because trace data is immutable (live-data
+   * updates rebuild the trace).
    */
   private readonly transitionIndices: number[][];
 
@@ -271,9 +271,16 @@ export class StepTrace extends LineTrace {
    */
   public override get description(): DescriptionState {
     const baseDescription = super.description;
-    // A ragged layer can leave the cursor parked off the data, and a series of
-    // -1 is nobody's.
-    const row = Math.max(this.row, 0);
+    // The series the cursor is on, or -- before it has been placed -- the one
+    // `LineTrace.enterTrace` is about to put it on. `row` reads 0 until then
+    // whether or not series 0 has any points, and a ragged layer can leave it
+    // at -1 besides, so a dialog opened before the first keypress described a
+    // series entry itself skips: "Transitions in Line 1: 0" for a night
+    // holding no epochs, changing the moment the reader arrowed into one that
+    // has some.
+    const row = this.isInitialEntry || this.row < 0
+      ? Math.max(this.points.findIndex(line => line.length > 0), 0)
+      : this.row;
     const series = this.stepPoints[row] ?? [];
     const every = this.stepPoints.flat();
 
@@ -289,9 +296,13 @@ export class StepTrace extends LineTrace {
     // value: 1, Max value: 3" two lines above `Awake, N2, REM`, with no
     // mapping between the two, it invites the reading that one stage is three
     // times another. `BumpTrace` and `ParallelTrace` drop the same pair on the
-    // same grounds. Judged over the whole layer, because the axis is.
-    const ordinal = every.length > 0
-      && every.every(point => point.label !== undefined && point.label !== '');
+    // same grounds. Judged over the whole layer, because the axis is, and over
+    // its measured points, because a gap has no level to name: one dropped
+    // epoch in a night of them otherwise left `label` absent somewhere in the
+    // layer and handed the codes straight back.
+    const measured = every.filter(point => point.y !== null);
+    const ordinal = measured.length > 0
+      && measured.every(point => point.label !== undefined && point.label !== '');
 
     const stats: DescriptionState['stats'] = [
       ...(ordinal

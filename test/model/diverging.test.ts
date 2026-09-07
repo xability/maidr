@@ -266,15 +266,136 @@ describe('the balance row says which side is ahead', () => {
 });
 
 describe('the description totals each side', () => {
+  /**
+   * Read a description stat by label.
+   * @param label The stat to find
+   * @param data The sides the layer carries
+   * @returns Its value, or undefined
+   */
+  function read(label: string, data: SegmentedPoint[][] = BANDS): unknown {
+    return diverging(0, 0, data).description.stats.find(stat => stat.label === label)?.value;
+  }
+
   test('reports a total per side, unsigned', () => {
     // The number a pyramid is captioned with, and the one a reader cannot
     // accumulate by ear across twenty age bands.
-    const stats = diverging().description.stats;
-    const read = (label: string): unknown =>
-      stats.find(stat => stat.label === label)?.value;
-
     expect(read('Men total')).toBe(2800);
     expect(read('Women total')).toBe(2950);
+  });
+
+  test('reports the size of a bar rather than a signed value', () => {
+    // The parent's range is over the raw values, so it opened the dialog with
+    // `Min segment value: -1,200` -- a negative population, three lines above
+    // the unsigned totals that contradict it, and the one thing this trace
+    // exists to take out of the reading.
+    const labels = diverging().description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Min segment value');
+    expect(labels).not.toContain('Max segment value');
+    expect(read('Min bar size')).toBe(700);
+    expect(read('Max bar size')).toBe(1200);
+  });
+
+  test('does not call a balance a bar total', () => {
+    // The parent takes these over the summary row, which here is
+    // `(-left) + right`: it reported a largest bar total of 100 for a band
+    // holding 2,400 people, and a smallest of 0 for one holding 2,400.
+    const labels = diverging().description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Largest bar total');
+    expect(labels).not.toContain('Smallest bar total');
+  });
+
+  test('says which side is ahead overall, which is the finding', () => {
+    // The two operands are on the lines above; the subtraction across them is
+    // what a listener cannot do by ear, and the per-band balance navigation
+    // announces never accumulates into it.
+    expect(read('Overall balance')).toBe('Women ahead by 150');
+  });
+
+  test('says level rather than naming a winner when the sides match', () => {
+    const even: SegmentedPoint[][] = [
+      [{ x: 'a', y: -5, z: 'Men' }, { x: 'b', y: -3, z: 'Men' }],
+      [{ x: 'a', y: 3, z: 'Women' }, { x: 'b', y: 5, z: 'Women' }],
+    ];
+
+    expect(read('Overall balance', even)).toBe('level');
+  });
+
+  test('says where the sides are furthest apart', () => {
+    // A pyramid level everywhere but one cohort and one leaning the same way
+    // throughout have the same overall balance, so the band is part of the
+    // finding rather than a decoration on it.
+    expect(read('Widest gap')).toBe('Women ahead by 100 at 45-64');
+  });
+
+  test('claims no winner on a chart that is not two-sided', () => {
+    // "X ahead" is a comparison between exactly two sides; a third makes the
+    // summary a sum again rather than a two-way difference.
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }],
+    ];
+
+    expect(read('Overall balance', threeSided)).toBeUndefined();
+    expect(read('Widest gap', threeSided)).toBeUndefined();
+    expect(read('Against total', threeSided)).toBe(900);
+  });
+
+  test('names a side the way every announcement names it', () => {
+    // A producer that names only the bands it drew a legend entry for leaves
+    // the first point of a side unnamed. Reading that point alone called the
+    // side `left` while the parent's own series list, which scans the row,
+    // called it `Men` -- two names for one side in one dialog.
+    const partlyNamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: -5, z: '' }, { x: 'b', y: -3, z: 'Men' }],
+      [{ x: 'a', y: 4, z: '' }, { x: 'b', y: 6, z: 'Women' }],
+    ];
+
+    expect(read('Men total', partlyNamed)).toBe(8);
+    expect(read('Women total', partlyNamed)).toBe(10);
+    expect(nonEmptyState(diverging(0, 0, partlyNamed)).text.z?.value).toBe('Men');
+  });
+});
+
+describe('the data table reads the way the chart is announced', () => {
+  test('gives a bar its size, not its direction', () => {
+    // A reader checking `Men total: 2,800` against the table met -1200, -900,
+    // -700 and had to reconstruct the convention themselves, while the pitch,
+    // the text and the braille had all already taken the sign out.
+    const { rows } = diverging().description.dataTable;
+
+    expect(rows.slice(0, 3)).toEqual([
+      ['0-24', 1200, 'Men'],
+      ['25-44', 900, 'Men'],
+      ['45-64', 700, 'Men'],
+    ]);
+  });
+
+  test('files the summary row under the name navigation gives it', () => {
+    // A reader reaches that row with PageUp and hears "Balance is level"; the
+    // table had it under the parent's `Sum`.
+    const { rows } = diverging().description.dataTable;
+
+    expect(rows.slice(6)).toEqual([
+      ['0-24', 0, 'Balance'],
+      ['25-44', 50, 'Balance'],
+      ['45-64', 100, 'Balance'],
+    ]);
+  });
+
+  test('keeps the sum signed and named on a chart that is not two-sided', () => {
+    // There the summary really is a sum, and a minus sign really is a smaller
+    // number -- which is what `get text` says on the same row.
+    const threeSided: SegmentedPoint[][] = [
+      [{ x: 'a', y: -900, z: 'Against' }],
+      [{ x: 'a', y: 400, z: 'For' }],
+      [{ x: 'a', y: 200, z: 'Strongly for' }],
+    ];
+    const { rows } = diverging(0, 0, threeSided).description.dataTable;
+
+    expect(rows[3]).toEqual(['a', -300, 'Sum']);
   });
 });
 

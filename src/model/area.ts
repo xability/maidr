@@ -381,10 +381,9 @@ export class AreaTrace extends LineTrace {
       // decides how an extent reads. A 100% stacked area's totals are equal by
       // construction -- the variant *is* the totals scaled to a common whole
       // -- so the pair handed the reader a range and then one number twice
-      // over, and float error could make 0.9999 and 1.0001 read as a span. It
-      // also takes the extremes through `safeMin`/`safeMax` rather than
-      // spreading one argument per x into `Math.min`, which a daily series
-      // long enough to be worth stacking overflows.
+      // over, and float error could make 0.9999 and 1.0001 read as a span.
+      // `spannedOrMissing` rather than `spanned` for the empty case the filter
+      // above cannot quite rule out on its own.
       stats.push({
         label: 'Total range',
         value: MathUtil.spannedOrMissing(

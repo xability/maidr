@@ -1,6 +1,7 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TraceState } from '@type/state';
 import { TraceType } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { LineTrace } from './line';
 
 /**
@@ -205,8 +206,11 @@ export class RadarTrace extends LineTrace {
     // "speed to price" names a sweep the chart never makes.
     const stats = base.stats.filter(stat => stat.label !== `${this.xAxis} range`);
     stats.push({
-      label: `${SPOKE_NOUN[variantOf(this.layer.type)]}, in order`,
-      value: spokes.map(point => String(point.x)).join(', '),
+      label: `${SPOKE_NOUN[this.variant]}, in order`,
+      // Composed here, so it is rounded here: the description service rounds a
+      // bare number and passes a composed string through untouched, and a
+      // polar area binned on a numeric axis carries numbers around its circle.
+      value: spokes.map(point => defaultFormat(point.x)).join(', '),
     });
 
     return { ...base, stats };

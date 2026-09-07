@@ -371,4 +371,131 @@ describe('the description reports where each group peaks', () => {
     expect(stats.find(stat => stat.label === 'Peak of each group')?.value)
       .toBe('a at 9, b at 9');
   });
+
+  test('rounds a peak position to what a listener can follow', () => {
+    // A KDE is evaluated on a `linspace` grid, so these are full-precision
+    // floats. The service rounds a stat that IS a number and passes a
+    // composed string through, so this one has to round itself or the dialog
+    // reads out sixteen digits.
+    const grid: ViolinKdePoint[][] = [
+      [
+        { x: 'a', y: 3.2857142857142856, density: 0.9 },
+        { x: 'a', y: 7.428571428571429, density: 0.1 },
+      ],
+      [
+        { x: 'b', y: 3.2857142857142856, density: 0.2 },
+        { x: 'b', y: 7.428571428571429, density: 0.8 },
+      ],
+    ];
+    const stats = ridgeline(0, 0, grid).description.stats;
+    const read = (label: string): unknown =>
+      stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Peak of each group')).toBe('a at 3.29, b at 7.43');
+    expect(read('Peaks span')).toBe('3.29 to 7.43');
+  });
+
+  test('names which ridge is tallest, and how tall', () => {
+    // "Which distribution is tallest, and where" is what the chart is drawn
+    // for, and the modes above answer only the second half. The peak is
+    // already what the pitch and the braille are scaled against; a reader had
+    // to walk every sample of every group to find it.
+    const stats = ridgeline().description.stats;
+
+    expect(stats.find(stat => stat.label === 'Tallest ridge')?.value)
+      .toBe('middle, peak density 0.9');
+  });
+
+  test('says how long a walk along one ridge is', () => {
+    // Groups are not obliged to share a sample grid, so a single number would
+    // be a claim about every curve that a per-group KDE does not support.
+    const ragged: ViolinKdePoint[][] = [
+      [{ x: 'a', y: 1, density: 0.1 }, { x: 'a', y: 2, density: 0.2 }],
+      [{ x: 'b', y: 1, density: 0.3 }],
+    ];
+    const read = (label: string): unknown =>
+      ridgeline(0, 0, ragged).description.stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Samples per group')).toBe('1 to 2');
+    expect(ridgeline().description.stats.find(stat => stat.label === 'Samples per group')?.value)
+      .toBe(3);
+  });
+});
+
+describe('a group the layer named with a number', () => {
+  /** Three years of delivery times, which is the canonical ridgeline. */
+  const YEARS: ViolinKdePoint[][] = [
+    [{ x: 2021, y: 10, density: 0.2 }, { x: 2021, y: 20, density: 0.5 }],
+    [{ x: 2022, y: 10, density: 0.4 }, { x: 2022, y: 20, density: 0.1 }],
+  ];
+
+  test('keeps the name the chart draws', () => {
+    // `ViolinKdePoint.x` is `string | number`, so a test for a string threw
+    // every one of these away and put an ordinal in its place -- and an
+    // ordinal looks authoritative enough that nothing signals the swap.
+    expect(nonEmptyState(ridgeline(0, 0, YEARS)).text.section).toBe('2021');
+  });
+
+  test('and uses it everywhere the description names a group', () => {
+    const description = ridgeline(0, 0, YEARS).description;
+    const read = (label: string): unknown =>
+      description.stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Groups')).toBe('2021, 2022');
+    expect(read('Peak of each group')).toBe('2021 at 20, 2022 at 10');
+    expect(description.dataTable.rows[0][0]).toBe('2021');
+  });
+});
+
+describe('the data table names its own columns', () => {
+  test('the group column is headed by the group axis, not the density', () => {
+    // The three columns are the group, the value it was measured at, and the
+    // density there. Heading the first with the density's own label put
+    // `Cohort` over a column of group names, and the density column under a
+    // word the chart never used.
+    const trace = TraceFactory.create({
+      ...createLayer(),
+      axes: { x: { label: 'Days' }, y: { label: 'Cohort' }, z: { label: 'Share' } },
+    }) as RidgelineTrace;
+
+    expect(trace.description.dataTable.headers).toEqual(['Cohort', 'Days', 'Share']);
+  });
+
+  test('falls back to words that describe a ridgeline, not to placeholders', () => {
+    // `Level` is the generic z placeholder and `Y` the generic axis one;
+    // neither says anything about a group or a density.
+    const trace = TraceFactory.create({
+      id: 'test-ridgeline-layer',
+      type: TraceType.RIDGELINE,
+      title: 'Delivery times by cohort',
+      axes: { x: { label: 'Days' } },
+      data: GROUPS,
+    }) as RidgelineTrace;
+
+    expect(trace.description.dataTable.headers).toEqual(['Group', 'Days', 'Density']);
+    expect(nonEmptyState(trace).text.cross?.label).toBe('Density');
+  });
+
+  test('caps the table and says it did', () => {
+    // A KDE is conventionally evaluated on 512 grid points per group, so a
+    // ten-group ridgeline is five thousand rows of an estimator's evaluation
+    // grid -- re-rounded on every press of `d` and held in the store.
+    const dense: ViolinKdePoint[][] = [0, 1].map(group =>
+      Array.from({ length: 600 }, (_, index) => ({
+        x: `g${group}`,
+        y: index,
+        density: index / 1000,
+      })));
+    const description = ridgeline(0, 0, dense).description;
+
+    expect(description.dataTable.rows).toHaveLength(1000);
+    expect(description.stats.find(stat => stat.label === 'Table rows')?.value)
+      .toBe('first 1000 of 1200');
+  });
+
+  test('says nothing about the cap on a table that fits', () => {
+    expect(ridgeline().description.stats
+      .find(stat => stat.label === 'Table rows'))
+      .toBeUndefined();
+  });
 });

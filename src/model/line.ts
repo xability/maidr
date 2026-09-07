@@ -5,6 +5,7 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -393,34 +394,67 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
-   * Where the widest series runs from and to, or null when the layer has no
-   * samples to measure.
+   * Where the chart runs from and to, or null when the layer has no samples
+   * to measure.
    *
-   * The widest series rather than the first, for the reason the per-series
-   * count takes it: a ragged layer's first series can be the empty one.
+   * Over every series, not one of them. The label is a claim about the chart,
+   * and a layer whose later series run past the first -- a hue level that
+   * starts late, a contour whose curves each cover their own patch, the ragged
+   * stack {@link AreaTrace.computeColumnTotals} is keyed by x to survive --
+   * had a single series' extent reported as the whole chart's: a figure drawn
+   * from 2000 to 2020 was announced as covering 2000 to 2002. `HexbinTrace`
+   * spans its whole layer for the stat of the same name.
    *
    * A numeric axis reports its extent, so a series emitted back to front still
    * reads low to high and a one-sample chart reads as the `constant` span
    * {@link MathUtil.spanned} gives it. A categorical axis has no order but the
-   * one it is drawn in, so it reports its ends.
+   * one it is drawn in, so it reports the ends of that order: the distinct x
+   * values as navigation meets them, series by series.
    *
    * @returns The extent as display text, or null when there is nothing to say
    */
   private xExtent(): string | null {
-    const spine = this.points.reduce(
-      (widest, line) => (line.length > widest.length ? line : widest),
-      [] as LinePoint[],
-    );
-    if (spine.length === 0) {
-      return null;
+    // Walked rather than flattened, and the categorical pass is only paid for
+    // by a categorical layer: the volume this class caps its table for -- a
+    // curve sampled several thousand times per series -- should not cost a
+    // copy of every x on each press of `d`.
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    let numeric = true;
+    let any = false;
+    for (const line of this.points) {
+      for (const { x } of line) {
+        any = true;
+        if (typeof x === 'number' && Number.isFinite(x)) {
+          min = Math.min(min, x);
+          max = Math.max(max, x);
+        } else {
+          numeric = false;
+        }
+      }
     }
 
-    const xs = spine.map(point => point.x);
-    if (xs.every((x): x is number => typeof x === 'number' && Number.isFinite(x))) {
-      return MathUtil.spannedOrMissing(MathUtil.safeMin(xs), MathUtil.safeMax(xs));
+    if (!any) {
+      return null;
     }
-    const first = String(xs[0]);
-    const last = String(xs[xs.length - 1]);
+    if (numeric) {
+      return MathUtil.spannedOrMissing(min, max);
+    }
+
+    // A `Set` keeps first-insertion order and re-adding an x does not move it,
+    // so this is the order the categories are drawn in with the repeats a
+    // second series contributes removed. Composed here, so it is rounded here:
+    // the description service rounds a bare number and passes a string
+    // through untouched.
+    const drawn = new Set<string>();
+    for (const line of this.points) {
+      for (const { x } of line) {
+        drawn.add(defaultFormat(x));
+      }
+    }
+    const order = [...drawn];
+    const first = order[0];
+    const last = order[order.length - 1];
     return first === last ? first : `${first} to ${last}`;
   }
 

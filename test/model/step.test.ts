@@ -223,6 +223,43 @@ describe('a step series with a missing epoch', () => {
       trace.description.stats.find(stat => stat.label === 'Transitions')?.value,
     ).toBe(1);
   });
+
+  test('does not hand the level codes back because the gap names no stage', () => {
+    // A gap has no level to name, so `label` is absent on it -- and a rule
+    // testing every point of the layer read that as "this y is a magnitude"
+    // and restored `Min value: 3, Max value: 3` to a night of named stages.
+    // One dropped epoch is the ordinary shape of a real recording.
+    const labels = new StepTrace(createStepLayer([[
+      { x: 0, y: 3, label: 'Awake' },
+      { x: 1, y: null },
+      { x: 2, y: 1, label: 'N2' },
+    ]])).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Min value');
+    expect(labels).not.toContain('Max value');
+    expect(labels).toContain('Levels');
+  });
+});
+
+describe('a layer whose first series is empty', () => {
+  /** Nothing in the first series; the second is an ordinary night. */
+  const RAGGED: StepPoint[][] = [[], HYPNOGRAM];
+
+  test('describes the series entry will land on, not the empty one before it', () => {
+    // `LineTrace.enterTrace` skips an empty leading series, so a dialog opened
+    // before the first keypress described a series the cursor never visits:
+    // "Transitions in Line 1: 0" for a night holding no epochs at all, which
+    // then changed the moment the reader arrowed into the night that has some.
+    const stats = new Map(
+      new StepTrace(createStepLayer(RAGGED)).description.stats.map(
+        stat => [stat.label, stat.value],
+      ),
+    );
+
+    expect(stats.get('Transitions in Line 2')).toBe(2);
+    expect(stats.get('Longest run in Line 2')).toBe(2);
+    expect(stats.has('Transitions in Line 1')).toBe(false);
+  });
 });
 
 describe('step trace transition navigation', () => {

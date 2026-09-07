@@ -129,13 +129,38 @@ describe('where the chart runs', () => {
     expect(statOf(describedBy(quarters), 'X range')).toBe('Q1 to Q3');
   });
 
-  test('takes the widest series, so a ragged layer still answers', () => {
+  test('answers for a ragged layer whose series are of different lengths', () => {
     const ragged: LinePoint[][] = [
       [{ x: 1, y: 3 }],
       [{ x: 1, y: 4 }, { x: 2, y: 6 }, { x: 3, y: 7 }],
     ];
 
     expect(statOf(describedBy(ragged), 'X range')).toBe('1 to 3');
+  });
+
+  test('covers the series that run past the longest one', () => {
+    // The label is a claim about the chart. Taken from a single series, a
+    // figure drawn from 2000 to 2020 was announced as covering 2000 to 2002 --
+    // a period four fifths shorter than the one on the page, stated with no
+    // hedge, in the line of the dialog a reader consults to size the chart up.
+    const staggered: LinePoint[][] = [
+      [{ x: 2000, y: 1 }, { x: 2001, y: 2 }, { x: 2002, y: 3 }],
+      [{ x: 2010, y: 4 }, { x: 2020, y: 5 }],
+    ];
+
+    expect(statOf(describedBy(staggered), 'X range')).toBe('2000 to 2020');
+  });
+
+  test('reaches the categories only a later series draws', () => {
+    // The same defect on a categorical axis, which is the shape a stacked area
+    // arrives in: a band that starts late carries the quarters the first one
+    // never reaches.
+    const staggered: LinePoint[][] = [
+      [{ x: 'Q1', y: 1 }, { x: 'Q2', y: 2 }],
+      [{ x: 'Q2', y: 3 }, { x: 'Q3', y: 4 }],
+    ];
+
+    expect(statOf(describedBy(staggered), 'X range')).toBe('Q1 to Q3');
   });
 
   test('says nothing at all for a layer with no samples', () => {
