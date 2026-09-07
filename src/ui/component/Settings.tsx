@@ -1732,36 +1732,49 @@ const Settings: React.FC = () => {
                       aria-describedby={customInstructionStatusId}
                     />
                   </FormControl>
-                  {/* Rendered whether or not there is anything to say, and
-                      polite rather than assertive. `Alert` defaults to
-                      `role="alert"`, which interrupts — too much for a field
-                      the reader is in the middle of typing. But simply asking
-                      for `role="status"` instead would have traded one fault
-                      for a worse one: a status region created already holding
-                      its text is routinely not announced at all, while an
-                      alert on insertion is. Keeping the region mounted and
-                      letting its text change is what makes it both polite and
-                      reliably heard. */}
-                  <div
-                    id={customInstructionStatusId}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {llmSettings.customInstruction.length
-                      < MIN_CUSTOM_INSTRUCTION_LENGTH && (
-                      <Alert severity="warning" role="presentation" sx={{ mt: 1 }}>
-                        Custom instructions must be at least
-                        {' '}
-                        {MIN_CUSTOM_INSTRUCTION_LENGTH}
-                        {' '}
-                        characters long
-                      </Alert>
-                    )}
-                  </div>
                 </Grid>
               </Grid>
             </Grid>
           )}
+
+          {/* The warning about the instruction's length, and deliberately
+              outside the block above rather than in it.
+
+              `Alert` defaults to `role="alert"`, which interrupts — too much
+              for a field the reader is in the middle of typing. But simply
+              asking for `role="status"` instead would trade one fault for a
+              worse one: a status region created already holding its text is
+              routinely not announced at all, where an alert on insertion is.
+              What makes the polite role work is the region outliving its
+              content, so that the warning arrives as a change to something
+              already there.
+
+              Which is why it cannot live inside the `custom` block. That
+              block mounts the moment the reader picks "Custom" from the
+              dropdown — with the instruction still empty, so the warning is
+              true immediately — and a region mounting alongside its own
+              first message is the very case this shape exists to avoid.
+              Out here it lives as long as the panel, and every arrival of
+              the warning is a mutation. It costs no space while empty. */}
+          <Grid size={12}>
+            <div
+              id={customInstructionStatusId}
+              role="status"
+              aria-live="polite"
+            >
+              {llmSettings.expertiseLevel === 'custom'
+                && llmSettings.customInstruction.length
+                < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                <Alert severity="warning" role="presentation" sx={{ mt: 1 }}>
+                  Custom instructions must be at least
+                  {' '}
+                  {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                  {' '}
+                  characters long
+                </Alert>
+              )}
+            </div>
+          </Grid>
         </SettingsTabPanel>
 
         <SettingsTabPanel

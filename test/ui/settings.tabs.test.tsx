@@ -438,6 +438,51 @@ describe('settings tabs', () => {
     );
   });
 
+  it('should announce the warning when Custom is picked, not spring it into being', async () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: { ...DEFAULT_SETTINGS.llm, expertiseLevel: 'basic', customInstruction: '' },
+    });
+
+    openTab(/^AI/);
+
+    // The region has to be there before "Custom" is picked. Choosing it is
+    // the ordinary way into this state — the instruction is empty, so the
+    // warning is true immediately — and if the region arrived carrying that
+    // first message it would be the case the polite role cannot survive.
+    const region = document.querySelector('[id$="-custom-instruction-status"]');
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveTextContent('');
+
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push((region as HTMLElement).textContent ?? '');
+    });
+    observer.observe(region as HTMLElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    // A MUI `Select`, so it opens on mousedown and commits on the option
+    // click rather than taking a value the way a native select would.
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Expertise Level' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Custom' }));
+    // `MutationObserver` delivers on a microtask, so the records are not in
+    // hand until the queue drains.
+    await Promise.resolve();
+    observer.disconnect();
+
+    // The field itself arrived with the switch; only the warning had to be a
+    // change to something already standing.
+    expect(screen.getByLabelText('Custom Instructions')).toBeInTheDocument();
+    expect(mutations).not.toHaveLength(0);
+    expect(mutations[mutations.length - 1]).toContain(
+      'Custom instructions must be at least',
+    );
+  });
+
   it('should keep an unavailable Save reachable and answering', () => {
     const saveAndClose = renderSettings({
       ...DEFAULT_SETTINGS,
