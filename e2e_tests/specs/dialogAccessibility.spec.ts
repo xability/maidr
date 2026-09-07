@@ -174,6 +174,10 @@ test.describe('dialog accessibility tree', () => {
     const barPlotPage = await setupBarPlotPage(page);
     await barPlotPage.openSettingsMenu();
 
+    // The dialog opens on "General", which has no select at all; the tactile
+    // display picker is the first enabled one, on the tab beside it.
+    await page.getByRole('tab', { name: 'Braille & Tactile' }).click();
+
     // A Select's menu is a modal too, and it is nested deeper still, so it
     // needs the same container scoping the dialog does.
     await page

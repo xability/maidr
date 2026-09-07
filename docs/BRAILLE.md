@@ -986,7 +986,8 @@ Users can set up multiline braille display support by following these steps:
 
 1. Open any plot in MAIDR.
 2. Press `Ctrl+,` (`Command+,` on macOS) to open the settings dialog.
-3. Press Tab to reach the Braille Display options.
+3. Press Tab to reach the list of settings tabs, then press Right Arrow until you hear "Braille & Tactile" and press Enter to open it.
+4. Press Tab to reach the Braille Display options.
 	- If your braille display model is listed, choose "Single line" or "Multi-line", then tab to the Single-Line Display or Multi-Line Display dropdown and select your braille display model.
 	- If your braille display model is not listed, choose "Configure manually", then enter Braille Display Size (cells per row) and Braille Display Lines (rows). Set the number of lines to 1 for a single-line display.
-4. Press `Alt+S` to save and close the settings dialog.
+5. Press `Alt+S` to save and close the settings dialog. It saves every tab, so you do not need to return to the one you started on.

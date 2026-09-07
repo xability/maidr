@@ -20,7 +20,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -31,6 +30,8 @@ import {
   Select,
   Slider,
   Switch,
+  Tab,
+  Tabs,
   TextareaAutosize,
   TextField,
   Typography,
@@ -49,6 +50,7 @@ import {
   MAX_FREQUENCY_HZ,
   MIN_FREQUENCY_HZ,
 } from '@type/settings';
+import { visuallyHidden } from '@ui/visuallyHidden';
 import {
   clampBrailleLines,
   clampBrailleSize,
@@ -98,6 +100,84 @@ interface CopyState {
 // cannot drift apart and announce a shortcut that no longer fires.
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
+
+/**
+ * One page of the settings dialog.
+ *
+ * The groups are the modality a setting reaches the reader through — what a
+ * reader looking for a setting knows about it — rather than the service that
+ * happens to own it.
+ */
+type SettingsTabId = 'general' | 'audio' | 'visual' | 'braille' | 'ai' | 'about';
+
+interface SettingsTab {
+  readonly id: SettingsTabId;
+  readonly label: string;
+}
+
+const SETTINGS_TABS: readonly SettingsTab[] = [
+  { id: 'general', label: 'General' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'visual', label: 'Visual' },
+  { id: 'braille', label: 'Braille & Tactile' },
+  { id: 'ai', label: 'AI' },
+  { id: 'about', label: 'About' },
+];
+
+const DEFAULT_SETTINGS_TAB: SettingsTabId = 'general';
+
+// Keeps a tab's badge on the same baseline as its text.
+const TAB_LABEL_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+};
+
+interface SettingsTabPanelProps {
+  readonly tabId: SettingsTabId;
+  readonly activeTabId: SettingsTabId;
+  /** The dialog's `useId` prefix, so panel and tab ids pair up. */
+  readonly dialogId: string;
+  readonly children: React.ReactNode;
+}
+
+/**
+ * The rows of one settings tab.
+ *
+ * An inactive panel renders nothing at all rather than hiding: the edits live
+ * in the dialog's state, not in the fields, so unmounting a panel loses no
+ * input, and it keeps the API-key probes in the AI panel from running for a
+ * reader who never opens it.
+ *
+ * @param props - The panel's configuration.
+ * @param props.tabId - The tab this panel belongs to.
+ * @param props.activeTabId - The tab currently selected in the dialog.
+ * @param props.dialogId - The dialog's `useId` prefix.
+ * @param props.children - The setting rows to render.
+ * @returns The panel when its tab is selected, otherwise nothing.
+ */
+const SettingsTabPanel: React.FC<SettingsTabPanelProps> = ({
+  tabId,
+  activeTabId,
+  dialogId,
+  children,
+}) => {
+  if (tabId !== activeTabId) {
+    return null;
+  }
+  return (
+    <Grid
+      container
+      spacing={0.5}
+      role="tabpanel"
+      id={`${dialogId}-panel-${tabId}`}
+      aria-labelledby={`${dialogId}-tab-${tabId}`}
+      className={`settings-tab-panel settings-tab-panel-${tabId}`}
+    >
+      {children}
+    </Grid>
+  );
+};
 
 interface SettingRowProps {
   label: string;
@@ -432,6 +512,7 @@ const Settings: React.FC = () => {
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
   // Connection progress lives here rather than in Redux: this dialog reads the
   // view model directly, so a store update would not re-render it. The attempt
@@ -596,6 +677,13 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
+  const handleTabChange = useCallback(
+    (_event: React.SyntheticEvent, tabId: SettingsTabId): void => {
+      setActiveTab(tabId);
+    },
+    [],
+  );
+
   const handleClose = useCallback((): void => {
     viewModel.toggle();
   }, [viewModel]);
@@ -706,22 +794,167 @@ const Settings: React.FC = () => {
       onKeyDown={handleDialogKeyDown}
       className="settings-dialog"
     >
-      {/* Renders as an `h2`, so the dialog also gains the top-level heading
-          it lacked — the section headings below were the only ones in it,
-          leaving nothing to land on when navigating by heading. */}
+      {/* Renders as an `h2`, and it is now the dialog's only heading: each
+          panel is named by its own tab, so a heading repeating that name
+          would announce the same words twice. */}
       <DialogTitle id={titleId} className="settings-dialog-title">
         Settings
       </DialogTitle>
 
-      <DialogContent className="settings-dialog-content">
-        <Grid size="grow">
-          <Typography variant="h6" component="h3" fontWeight="bold" gutterBottom>
-            General Settings
-          </Typography>
-        </Grid>
+      {/* The tablist sits outside `DialogContent` so it stays put while a
+          panel scrolls; inside it, a long panel would carry the tabs off
+          screen and leave no way back to the other sections. */}
+      <Tabs
+        value={activeTab}
+        onChange={handleTabChange}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label="Settings sections"
+        className="settings-tabs"
+        sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        {SETTINGS_TABS.map(tab => (
+          <Tab
+            key={tab.id}
+            value={tab.id}
+            id={`${id}-tab-${tab.id}`}
+            // Only the selected panel is rendered, so only the selected tab
+            // has one to point at. Naming an id that is not in the document
+            // is a dangling reference, which is a defect whether or not a
+            // reader happens to follow it.
+            aria-controls={
+              tab.id === activeTab ? `${id}-panel-${tab.id}` : undefined
+            }
+            className="settings-tab"
+            sx={{ minWidth: 0, px: 1.5, textTransform: 'none' }}
+            label={(
+              <span className="settings-tab-label" style={TAB_LABEL_STYLE}>
+                {tab.label}
+                {/* Marks the tab holding the edit that is blocking Save, so
+                    the reason is reachable from whichever tab is open. The
+                    icon is decorative and the text beside it carries the
+                    meaning, because colour and shape alone say nothing to a
+                    reader. It extends the visible label rather than
+                    replacing it, and it leads with a space: a name computed
+                    from an element's contents is the concatenation of them,
+                    which would otherwise announce "AIneeds attention". */}
+                {tab.id === 'ai' && !isCustomInstructionValid && (
+                  <>
+                    <ErrorIcon color="error" fontSize="small" aria-hidden="true" />
+                    <span style={visuallyHidden}>{' needs attention'}</span>
+                  </>
+                )}
+              </span>
+            )}
+          />
+        ))}
+      </Tabs>
 
-        {/* General Settings */}
-        <Grid container spacing={0.5}>
+      {/* A floor under the shortest panels so switching tabs does not resize
+          the dialog under the reader's pointer or magnifier. Only the two
+          tallest panels push past it, and the viewport term keeps the floor
+          from squeezing the footer off a short screen. */}
+      <DialogContent
+        className="settings-dialog-content"
+        sx={{ minHeight: 'min(400px, 45vh)' }}
+      >
+        <SettingsTabPanel tabId="general" activeTabId={activeTab} dialogId={id}>
+          <Grid size={12}>
+            <SettingRow
+              label="Autoplay Duration (ms)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.autoplayDuration}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'autoplayDuration',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Autoplay Duration',
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="ARIA Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.ariaMode}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'ariaMode',
+                        e.target.value as AriaMode,
+                      )}
+                    aria-label="ARIA Mode"
+                  >
+                    <FormControlLabel
+                      value="assertive"
+                      control={<Radio size="small" />}
+                      label="Assertive"
+                    />
+                    <FormControlLabel
+                      value="polite"
+                      control={<Radio size="small" />}
+                      label="Polite"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Hover Mode"
+              input={(
+                <FormControl>
+                  <RadioGroup
+                    row
+                    value={generalSettings.hoverMode}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'hoverMode',
+                        e.target.value as HoverMode,
+                      )}
+                    aria-label="Hover Mode"
+                  >
+                    <FormControlLabel
+                      value="off"
+                      control={<Radio size="small" />}
+                      label="Off"
+                    />
+                    <FormControlLabel
+                      value="pointermove"
+                      control={<Radio size="small" />}
+                      label="Hover"
+                    />
+                    <FormControlLabel
+                      value="click"
+                      control={<Radio size="small" />}
+                      label="Click"
+                    />
+                  </RadioGroup>
+                </FormControl>
+              )}
+            />
+          </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel tabId="audio" activeTabId={activeTab} dialogId={id}>
           <Grid size={12}>
             <SettingRow
               label="Volume"
@@ -744,6 +977,64 @@ const Settings: React.FC = () => {
                       },
                     }}
                     className="settings-slider-value-label"
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Min Frequency (Hz)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.minFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'minFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Minimum Frequency',
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
+                        },
+                      },
+                    }}
+                  />
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label="Max Frequency (Hz)"
+              input={(
+                <FormControl fullWidth>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    size="small"
+                    value={generalSettings.maxFrequency}
+                    onChange={e =>
+                      handleGeneralChange(
+                        'maxFrequency',
+                        Number(e.target.value),
+                      )}
+                    slotProps={{
+                      input: {
+                        inputProps: {
+                          'aria-label': 'Maximum Frequency',
+                          'min': MIN_FREQUENCY_HZ,
+                          'max': MAX_FREQUENCY_HZ,
+                        },
+                      },
+                    }}
                   />
                 </FormControl>
               )}
@@ -831,6 +1122,9 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel tabId="visual" activeTabId={activeTab} dialogId={id}>
           <Grid size={12}>
             <SettingRow
               label="Outline Color"
@@ -958,6 +1252,9 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel tabId="braille" activeTabId={activeTab} dialogId={id}>
           <Grid size={12}>
             <SettingRow
               label="Braille Display"
@@ -1189,176 +1486,9 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Min Frequency (Hz)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.minFrequency}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'minFrequency',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Minimum Frequency',
-                          'min': MIN_FREQUENCY_HZ,
-                          'max': MAX_FREQUENCY_HZ,
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Max Frequency (Hz)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.maxFrequency}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'maxFrequency',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Maximum Frequency',
-                          'min': MIN_FREQUENCY_HZ,
-                          'max': MAX_FREQUENCY_HZ,
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Autoplay Duration (ms)"
-              input={(
-                <FormControl fullWidth>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    size="small"
-                    value={generalSettings.autoplayDuration}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'autoplayDuration',
-                        Number(e.target.value),
-                      )}
-                    slotProps={{
-                      input: {
-                        inputProps: {
-                          'aria-label': 'Autoplay Duration',
-                        },
-                      },
-                    }}
-                  />
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="ARIA Mode"
-              input={(
-                <FormControl>
-                  <RadioGroup
-                    row
-                    value={generalSettings.ariaMode}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'ariaMode',
-                        e.target.value as AriaMode,
-                      )}
-                    aria-label="ARIA Mode"
-                  >
-                    <FormControlLabel
-                      value="assertive"
-                      control={<Radio size="small" />}
-                      label="Assertive"
-                    />
-                    <FormControlLabel
-                      value="polite"
-                      control={<Radio size="small" />}
-                      label="Polite"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid size={12}>
-            <SettingRow
-              label="Hover Mode"
-              input={(
-                <FormControl>
-                  <RadioGroup
-                    row
-                    value={generalSettings.hoverMode}
-                    onChange={e =>
-                      handleGeneralChange(
-                        'hoverMode',
-                        e.target.value as HoverMode,
-                      )}
-                    aria-label="Hover Mode"
-                  >
-                    <FormControlLabel
-                      value="off"
-                      control={<Radio size="small" />}
-                      label="Off"
-                    />
-                    <FormControlLabel
-                      value="pointermove"
-                      control={<Radio size="small" />}
-                      label="Hover"
-                    />
-                    <FormControlLabel
-                      value="click"
-                      control={<Radio size="small" />}
-                      label="Click"
-                    />
-                  </RadioGroup>
-                </FormControl>
-              )}
-            />
-          </Grid>
-        </Grid>
+        </SettingsTabPanel>
 
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
-
-        {/* LLM Settings */}
-        <Grid container spacing={0.5} className="settings-section">
-          <Grid size={12}>
-            <Typography
-              variant="h6"
-              component="h3"
-              fontWeight="bold"
-              gutterBottom
-              className="settings-section-title"
-            >
-              LLM Settings
-            </Typography>
-          </Grid>
-
+        <SettingsTabPanel tabId="ai" activeTabId={activeTab} dialogId={id}>
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
             return (
@@ -1463,25 +1593,9 @@ const Settings: React.FC = () => {
               </Grid>
             </Grid>
           )}
-        </Grid>
+        </SettingsTabPanel>
 
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
-
-        {/* About */}
-        <Grid container spacing={0.5} className="settings-section">
-          <Grid size={12}>
-            <Typography
-              variant="h6"
-              component="h3"
-              fontWeight="bold"
-              gutterBottom
-              className="settings-section-title"
-            >
-              About
-            </Typography>
-          </Grid>
+        <SettingsTabPanel tabId="about" activeTabId={activeTab} dialogId={id}>
           <Grid size={12}>
             <SettingRow
               label="maidr.js Version"
@@ -1574,11 +1688,7 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
-        </Grid>
-
-        <Grid size={12}>
-          <Divider className="settings-divider" />
-        </Grid>
+        </SettingsTabPanel>
       </DialogContent>
 
       {/* Footer Actions */}
@@ -1588,6 +1698,27 @@ const Settings: React.FC = () => {
         alignItems="center"
         className="settings-footer"
       >
+        {/* Only while that tab is closed: the AI panel carries the same
+            warning beside the field itself, and the footer's job here is the
+            one part the panel cannot give — where to go. A `status` region so
+            the reason reaches a reader who is several tabs away when Save
+            goes disabled; the text is constant while they type, so it
+            announces once rather than on every keystroke. On its own row,
+            because sharing the buttons' row wraps "Save & Close" off the
+            bottom of the dialog, and inset by `px` so it lines up with the
+            setting labels above it and with the Reset button's own text. */}
+        {!isCustomInstructionValid && activeTab !== 'ai' && (
+          <Grid size={12} sx={{ px: 2 }}>
+            <Typography
+              variant="caption"
+              role="status"
+              className="settings-footer-hint"
+              sx={{ color: 'error.main' }}
+            >
+              {`Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`}
+            </Typography>
+          </Grid>
+        )}
         <Grid size="auto" className="settings-grid-padding">
           <Button
             variant="text"
@@ -1603,6 +1734,7 @@ const Settings: React.FC = () => {
           container
           spacing={1}
           justifyContent="flex-end"
+          alignItems="center"
           className="settings-footer-actions"
         >
           <Grid size="auto">
