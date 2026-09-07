@@ -56,10 +56,11 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows, title }) => {
         <Table size="small" stickyHeader>
           {/* A caption is the first thing a screen reader announces on
               entering a table, which is where the truncation has to be said
-              for it to be heard before the rows it applies to. It carries the
-              table's name too, so the region above and the table are not two
-              elements announcing the same string. */}
-          <caption style={visuallyHidden}>{`${name}. ${caption}.`}</caption>
+              for it to be heard before the rows it applies to. The table's
+              name is not repeated here: the region around it is already
+              labelled with it, and a reader entering the table would
+              otherwise hear the same string twice in a row. */}
+          <caption style={visuallyHidden}>{caption}</caption>
           <TableHead>
             <TableRow>
               {headers.map((header, i) => (

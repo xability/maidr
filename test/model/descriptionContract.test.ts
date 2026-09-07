@@ -3,7 +3,7 @@ import type { MaidrLayer } from '@type/grammar';
 import type { DescriptionState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 
 /**
  * The contract every chart's `d` description keeps, checked across the families
@@ -364,5 +364,60 @@ describe.each(CASES)('the $name description', ({ layer }) => {
       .filter(([, label]) => typeof label === 'string' && AXIS_PLACEHOLDERS.includes(label));
 
     expect(leaked).toEqual([]);
+  });
+});
+
+describe('readings the whole dialog shares', () => {
+  /**
+   * Reads one stat out of a layer's description.
+   * @param layer The layer to build
+   * @param label Which stat to take
+   * @returns The stat's value, or undefined when it is not reported
+   */
+  function statOf(layer: MaidrLayer, label: string): unknown {
+    return (TraceFactory.create(layer) as AbstractTrace).description.stats.find(stat => stat.label === label)?.value;
+  }
+
+  test('spells the orientation out rather than reading the payload back', () => {
+    // The enum's members are `vert` and `horz`. The entry announcement has
+    // always spelled it — "a maidr plot of type: horizontal bar" — and the
+    // dialog should not be the one surface that does not.
+    const bars: MaidrLayer = {
+      id: 'bar',
+      type: TraceType.BAR,
+      axes: { x: { label: 'Quarter' }, y: { label: 'Sales' } },
+      data: [{ x: 'Q1', y: 10 }, { x: 'Q2', y: 4 }],
+    };
+
+    expect((TraceFactory.create(bars) as AbstractTrace).orientationLabel).toBe('vertical');
+    expect(
+      (TraceFactory.create({ ...bars, orientation: Orientation.HORIZONTAL }) as AbstractTrace)
+        .orientationLabel,
+    ).toBe('horizontal');
+  });
+
+  test('says nothing about the orientation of a chart that has none', () => {
+    const points: MaidrLayer = {
+      id: 'point',
+      type: TraceType.SCATTER,
+      axes: { x: { label: 'Horsepower' }, y: { label: 'MPG' } },
+      data: [{ x: 1, y: 2 }, { x: 2, y: 4 }],
+    };
+
+    expect((TraceFactory.create(points) as AbstractTrace).orientationLabel).toBeUndefined();
+  });
+
+  test('puts the value before the category it belongs to', () => {
+    // `Q1, 7` reads as two numbers the moment the category is one. `at` is the
+    // word the Go To Extrema dialog already uses for the same pairing.
+    const bars: MaidrLayer = {
+      id: 'bar',
+      type: TraceType.BAR,
+      axes: { x: { label: 'Quarter' }, y: { label: 'Sales' } },
+      data: [{ x: '1', y: 10 }, { x: '2', y: 4 }],
+    };
+
+    expect(statOf(bars, 'Largest')).toBe('10 at 1');
+    expect(statOf(bars, 'Smallest')).toBe('4 at 2');
   });
 });

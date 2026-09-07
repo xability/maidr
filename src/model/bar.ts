@@ -298,11 +298,14 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     };
     const chartMax = MathUtil.safeMax(values.filter(isMeasured));
     const chartMin = MathUtil.safeMin(values.filter(isMeasured));
+    // `7 at Q1`, not `Q1, 7`: two values separated by a comma read as two
+    // numbers when the category is one, and `at` is the word the Go To Extrema
+    // dialog already uses for the same pairing.
     if (isMeasured(chartMax)) {
-      stats.push({ label: 'Largest', value: `${nameAt(values.indexOf(chartMax))}, ${chartMax}` });
+      stats.push({ label: 'Largest', value: `${chartMax} at ${nameAt(values.indexOf(chartMax))}` });
     }
     if (isMeasured(chartMin)) {
-      stats.push({ label: 'Smallest', value: `${nameAt(values.indexOf(chartMin))}, ${chartMin}` });
+      stats.push({ label: 'Smallest', value: `${chartMin} at ${nameAt(values.indexOf(chartMin))}` });
     }
 
     // A gap is not a zero, and until now nothing in the summary said a chart

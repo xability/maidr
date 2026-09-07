@@ -16,7 +16,7 @@ import type {
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import {
   extractXValueFromPoints,
@@ -913,7 +913,16 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * orientation to report.
    */
   public get orientationLabel(): string | undefined {
-    return resolveOrientation(this.type, this.layer.orientation);
+    const orientation = resolveOrientation(this.type, this.layer.orientation);
+    if (orientation === undefined) {
+      return undefined;
+    }
+    // The word, not the wire value: the enum's members are `vert` and `horz`,
+    // and "Orientation: vert" is the payload's abbreviation read out loud. The
+    // entry announcement has always spelled it -- "a maidr plot of type:
+    // horizontal bar" -- and the dialog should not be the one surface that
+    // does not.
+    return orientation === Orientation.HORIZONTAL ? 'horizontal' : 'vertical';
   }
 
   /**
