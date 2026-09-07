@@ -1,3 +1,44 @@
+# [4.7.0](https://github.com/xability/maidr/compare/v4.6.0...v4.7.0) (2026-09-07)
+
+
+### Bug Fixes
+
+* **anychart:** stamp multi-series marks and heatmap cells where they actually are ([#1231](https://github.com/xability/maidr/issues/1231)) ([98c07ed](https://github.com/xability/maidr/commit/98c07ed93d5f1de9eb7662a8519fc07c695d3d3f))
+* **candlestick:** use one row/col frame in both orientations ([#1218](https://github.com/xability/maidr/issues/1218)) ([8a9384f](https://github.com/xability/maidr/commit/8a9384fa7a40ad37ff9d5d5ac6186d9073bd8c4e))
+* **chartjs:** resolve the highlights and x values the adapters were getting wrong ([#1227](https://github.com/xability/maidr/issues/1227)) ([7de5919](https://github.com/xability/maidr/commit/7de59190efe16c59b7c283af07cb0da5de5c4a9f))
+* **chat:** report an empty model reply as a failure, and three more chat defects ([#1224](https://github.com/xability/maidr/issues/1224)) ([c792158](https://github.com/xability/maidr/commit/c79215871c258bfa20e447cceeaa8e351d522c2a))
+* **command:** announce the reader's real position and hand the rotor back when leaving a trace ([#1219](https://github.com/xability/maidr/issues/1219)) ([d77521a](https://github.com/xability/maidr/commit/d77521ad4597730d596b9419a3888bb042166c22))
+* **command:** read the violin position from the navigation frame, not the pan ([#1223](https://github.com/xability/maidr/issues/1223)) ([f97b693](https://github.com/xability/maidr/commit/f97b6936f702f72299f9bf467f67e62964f832e3))
+* **d3:** rebind after a remount, and seven more defects in the d3 adapter ([#1225](https://github.com/xability/maidr/issues/1225)) ([c82b70d](https://github.com/xability/maidr/commit/c82b70d17fcb9d76569d528c91d0ce30a9ada4f1))
+* **echarts:** keep a segmented bar's gaps, so later categories are not shifted left ([#1232](https://github.com/xability/maidr/issues/1232)) ([0dd21a6](https://github.com/xability/maidr/commit/0dd21a637e1e7237b419ea2ec87cb1499428abd3))
+* **highlight:** read a line's stroke width from the element that has one ([#1229](https://github.com/xability/maidr/issues/1229)) ([ce5511c](https://github.com/xability/maidr/commit/ce5511ce6e5d0c96b44755f6b36cd468560c51fc)), closes [hi#contrast](https://github.com/hi/issues/contrast) [hi#contrast](https://github.com/hi/issues/contrast)
+* **model:** navigation and announcement correctness across the trace types ([#1220](https://github.com/xability/maidr/issues/1220)) ([6b35fae](https://github.com/xability/maidr/commit/6b35fae436621fbf7a86cb8366bd1aef73e4ae97))
+* **model:** rebuild cached pointer geometry when the viewport moves ([#1237](https://github.com/xability/maidr/issues/1237)) ([d76dd61](https://github.com/xability/maidr/commit/d76dd6178bc2d18741264d10c3ac508ffb441a0f))
+* **model:** remove every hidden highlight clone on dispose and stop truncating caller data ([#1217](https://github.com/xability/maidr/issues/1217)) ([9e57bef](https://github.com/xability/maidr/commit/9e57bef9ab3e1d4aa87052bc1b75cc824b2c05c5))
+* **model:** stop reading a null gap as a measured zero ([#1214](https://github.com/xability/maidr/issues/1214)) ([7d5e955](https://github.com/xability/maidr/commit/7d5e955d5592bc28dd297208527783a2f9d30f18))
+* **model:** tolerate empty and degenerate data without throwing or hanging ([#1216](https://github.com/xability/maidr/issues/1216)) ([7012efa](https://github.com/xability/maidr/commit/7012efa3beef704a37d575dd4d8cfb8be7f7cc23))
+* **scatter:** announce a streamed point where the trace actually keeps it ([#1226](https://github.com/xability/maidr/issues/1226)) ([9fd8315](https://github.com/xability/maidr/commit/9fd8315c70637f84c5b263fd9413d0543709121e))
+* **service:** sound the data tones a suspended context swallowed, and six more service defects ([#1221](https://github.com/xability/maidr/issues/1221)) ([ffa6cc2](https://github.com/xability/maidr/commit/ffa6cc23094900fdf4fc08957ee407ca09998780))
+* **tableau:** leave a cell the view never drew as null, not zero ([#1234](https://github.com/xability/maidr/issues/1234)) ([61edcc5](https://github.com/xability/maidr/commit/61edcc568aae755d724e0e04e41f69ca864b1b90))
+* **tactile:** let the queued blank frames reach the display before releasing it ([#1230](https://github.com/xability/maidr/issues/1230)) ([3016499](https://github.com/xability/maidr/commit/301649990e644a28f17cd16b08b83e1e95f207bc))
+* **ui:** make the settings dialog's blocked save explain itself ([#1242](https://github.com/xability/maidr/issues/1242)) ([3fc0d94](https://github.com/xability/maidr/commit/3fc0d9475c12dbf6458491d8b7de48624ef0059b))
+* **ui:** stop the extrema dialog corrupting numbers and double-announcing ([#1233](https://github.com/xability/maidr/issues/1233)) ([72341ed](https://github.com/xability/maidr/commit/72341ed34f790221fc16408f01e9d6da963fcc10))
+
+
+### Features
+
+* **tactile:** draw the chart on a DotPad tactile display ([#1131](https://github.com/xability/maidr/issues/1131)) ([b1ab76b](https://github.com/xability/maidr/commit/b1ab76bce65ffc3ea87eca7f893e5b698cc1f7fc))
+* **ui:** describe every layer of a subplot, and fix what `d` left out ([#1243](https://github.com/xability/maidr/issues/1243)) ([9450974](https://github.com/xability/maidr/commit/945097440dd0b386d950b5575d91c0fd3c283f5b))
+* **ui:** split the settings dialog into tabs ([#1241](https://github.com/xability/maidr/issues/1241)) ([3cffa18](https://github.com/xability/maidr/commit/3cffa1830f5265f82690b31f334937b3c64ec9b5))
+
+
+### Performance Improvements
+
+* **model:** leave pointer-hover centres for the first hover in five more traces ([#1240](https://github.com/xability/maidr/issues/1240)) ([b4f5edc](https://github.com/xability/maidr/commit/b4f5edc55f91321a6b42b1d0d544f09f329b98d2)), closes [#1237](https://github.com/xability/maidr/issues/1237) [#1238](https://github.com/xability/maidr/issues/1238) [#1237](https://github.com/xability/maidr/issues/1237)
+* **model:** read a chart's derived geometry before drawing any of it ([#1239](https://github.com/xability/maidr/issues/1239)) ([12ecc89](https://github.com/xability/maidr/commit/12ecc89dacb45a2cbe615b6d91f7a48a1b487579)), closes [#1188](https://github.com/xability/maidr/issues/1188) [hi#contrast](https://github.com/hi/issues/contrast) [#1238](https://github.com/xability/maidr/issues/1238)
+* **model:** stop paying quadratic and duplicated work while building a trace ([#1238](https://github.com/xability/maidr/issues/1238)) ([27dd89b](https://github.com/xability/maidr/commit/27dd89bcbc6f6271b0b008d6bc3d6f6ac9c32761))
+* **model:** stop rebuilding the whole trace state to answer one question per keypress ([#1236](https://github.com/xability/maidr/issues/1236)) ([13c5525](https://github.com/xability/maidr/commit/13c5525af3972c5ffe03864e49274bed7c245116))
+
 # [4.6.0](https://github.com/xability/maidr/compare/v4.5.0...v4.6.0) (2026-08-31)
 
 
