@@ -65,6 +65,15 @@ describe('a stage following one that measured nothing', () => {
       .toBe('Stage is c, People is 5, Retained is missing, Entered is 10, 50.0% of it');
   });
 
+  test('the table reads its retention as missing, not as a blank cell', () => {
+    // A blank cell and a cell nobody filled in read the same way to a screen
+    // reader walking the table, and the announcement already has a word for
+    // this.
+    const { rows } = funnel(2, AFTER_EMPTY).description.dataTable;
+
+    expect(rows[2]).toEqual(['c', 5, 'missing', '50.0%']);
+  });
+
   test('the share of the population is unaffected', () => {
     // The entry stage measured 10, so 5 is still half of what entered even
     // though the stage before it kept nobody.

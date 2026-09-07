@@ -275,4 +275,34 @@ describe('the description covers every group', () => {
 
     expect(stats?.find(stat => stat.label === 'Number of groups')).toBeUndefined();
   });
+
+  test('the groups are named, not only counted', () => {
+    // `Number of points` is the flattened total, so the count alone leaves a
+    // reader knowing there are two groups and six samples and nothing about
+    // which groups -- while the announcement names one on every move, making
+    // the dialog the single place they are absent.
+    const stats = at(GROUPS, 0, 0).description.stats;
+
+    expect(stats?.find(stat => stat.label === 'Group names')?.value)
+      .toBe('control, treated');
+  });
+
+  test('an ungrouped chart names nothing it would have to invent', () => {
+    const stats = at(CONTROL, 0, 0).description.stats;
+
+    expect(stats?.find(stat => stat.label === 'Group names')).toBeUndefined();
+  });
+
+  test('a row whose group name is blank is still headed by a name', () => {
+    // The group cell is the row's `<th scope="row">`, so every other cell in
+    // the row is announced against it. `??` catches only null and undefined,
+    // and an authored empty string passed through to leave the row unnamed --
+    // while the extrema menu, which asks `groupNameAt`, went on saying
+    // "Max value at c, Group 2".
+    const blank = GROUPS.map(group => group.map(point => ({ ...point, z: '' })));
+    const { dataTable } = at(blank, 0, 0).description;
+
+    expect(dataTable?.rows[0]?.[0]).toBe('Group 1');
+    expect(dataTable?.rows[3]?.[0]).toBe('Group 2');
+  });
 });

@@ -156,16 +156,11 @@ describe('a stat for an axis that never moves', () => {
     // The guard on the whole change: it fires only where the current text was
     // uninformative, so nothing that reads correctly today reads differently.
     //
-    // `CandlestickTrace` is deliberately NOT routed through the helper, and
-    // this case records why rather than leaving the omission to look like an
-    // oversight. `this.min`/`this.max` span the `volatility` section as well
-    // as the four prices, and volatility is a difference -- so the only chart
-    // where all five agree is one whose every price is zero. A change there
-    // could not alter any reading, and a mutation reverting it survived every
-    // test, which is the same fact from the other side.
-    //
-    // Separately, and noted on #1136: the stat is labelled `Price range`
-    // while ranging over a quantity that is not a price.
+    // The candlestick now routes through the helper over its price rows only.
+    // `this.min`/`this.max` span the `volatility` section as well, and
+    // volatility is a high-minus-low difference rather than a price -- below
+    // every price on any real chart -- so a `Price range` taken from them
+    // reported a volatility as the cheapest the chart ever traded (#1136).
     const moving: CandlestickPoint[] = [
       {
         value: 'mon',
@@ -194,7 +189,7 @@ describe('a stat for an axis that never moves', () => {
       data: moving,
     };
 
-    expect(statOf(layer, 'Price range')).toContain(' to ');
+    expect(statOf(layer, 'Price range')).toBe('9 to 18');
   });
 
   test('leaves a gauge scale with width alone', () => {

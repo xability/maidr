@@ -411,7 +411,47 @@ describe('pie description', () => {
       { label: 'Min value', value: 20 },
       { label: 'Max value', value: 50 },
       { label: 'Total', value: 100 },
+      { label: 'Largest slice', value: 'Bananas, 50 (50.0%)' },
+      { label: 'Smallest slice', value: 'Cherries, 20 (20.0%)' },
     ]);
+  });
+
+  it('names the biggest slice, which a pie has no other way to report', () => {
+    // "Max value: 50" says a slice measures 50 without saying which one, and a
+    // pie offers no extrema rotor -- so this was the only surface that could
+    // name it, and it named neither end.
+    const trace = new PieTrace(pieLayer([30, 50, 20]));
+
+    const { stats } = trace.description;
+
+    expect(statValue(stats, 'Largest slice')).toBe('Bananas, 50 (50.0%)');
+    expect(statValue(stats, 'Smallest slice')).toBe('Cherries, 20 (20.0%)');
+  });
+
+  it('names one extreme on a pie whose slices are all the same size', () => {
+    // Naming the same magnitude at both ends would report a spread the chart
+    // has not got.
+    const trace = new PieTrace(pieLayer([25, 25]));
+
+    const labels = trace.description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Largest slice');
+    expect(labels).not.toContain('Smallest slice');
+  });
+
+  it('counts the slices it left out of the arithmetic', () => {
+    // Three slices and a total of 50 are two facts a reader cannot reconcile
+    // without walking the table, and the reconciliation is what the summary
+    // declined to state.
+    const trace = new PieTrace(pieLayer([30, null, 20]));
+
+    expect(statValue(trace.description.stats, 'Slices with no value')).toBe(1);
+  });
+
+  it('says nothing about gaps on a pie that has none', () => {
+    const labels = new PieTrace(pieLayer([30, 50, 20])).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Slices with no value');
   });
 
   it('counts a gap as a slice but leaves it out of the total', () => {
@@ -462,6 +502,9 @@ describe('pie description', () => {
     expect(statValue(stats, 'Min value')).toBe('missing');
     expect(statValue(stats, 'Max value')).toBe('missing');
     expect(statValue(stats, 'Total')).toBe('missing');
+    // Nothing was measured, so there is no slice to call the largest either.
+    expect(statValue(stats, 'Largest slice')).toBeUndefined();
+    expect(statValue(stats, 'Slices with no value')).toBe(2);
   });
 });
 

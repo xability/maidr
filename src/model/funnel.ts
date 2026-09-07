@@ -1,7 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
-import { BarTrace, isMeasured } from './bar';
+import { BarTrace, isMeasured, MISSING_TEXT } from './bar';
 
 /**
  * Formats a fraction as a percentage, to one decimal place.
@@ -175,17 +175,42 @@ export class FunnelTrace extends BarTrace {
 
   public override get description(): DescriptionState {
     const base = super.description;
-    const stats = [...base.stats];
+    // A funnel has stages, and every stat below says so. The parent counts its
+    // marks by type -- `Number of stages` -- but names a gap by the mark it
+    // usually draws, so one summary used two words for the same objects and
+    // left a reader working out that a bar and a stage are the same thing.
+    // Renamed here rather than parameterised on the parent, which has no
+    // second caller needing it.
+    const stats = base.stats.map(stat =>
+      stat.label === 'Bars with no value'
+        ? { label: 'Stages with no value', value: stat.value }
+        : stat);
 
     const entry = this.stageNameAt(0);
     if (entry !== undefined) {
-      stats.push({ label: 'Entry stage', value: entry });
+      stats.push({
+        // With the population it counted. 'Overall conversion' a line below is
+        // a fraction of exactly this number, and the summary named the stage
+        // but declined to state the denominator -- which a reader who opened
+        // the dialog from the rotor has never heard announced either.
+        label: 'Entry stage',
+        value: isMeasured(this.counts[0]) ? `${entry} (${this.counts[0]})` : `${entry}`,
+      });
     }
 
     if (this.counts.length > 1) {
       const overall = this.share[this.share.length - 1];
+      const exit = this.stageNameAt(this.counts.length - 1);
       if (Number.isFinite(overall)) {
-        stats.push({ label: 'Overall conversion', value: asPercent(overall) });
+        stats.push({
+          label: 'Overall conversion',
+          // Both endpoints, where they are known. The stat named where the
+          // funnel starts and left what the percentage converted *into*
+          // implicit, so a reader had to walk to the end to find out.
+          value: entry !== undefined && exit !== undefined
+            ? `${asPercent(overall)} (${entry} to ${exit})`
+            : asPercent(overall),
+        });
       }
 
       const worst = this.worstStage();
@@ -200,7 +225,51 @@ export class FunnelTrace extends BarTrace {
       }
     }
 
-    return { ...base, stats };
+    return { ...base, stats, dataTable: this.stageTable(base.dataTable) };
+  }
+
+  /**
+   * The parent's table of counts, widened with the two ratios per stage.
+   *
+   * The counts alone force on a reader exactly the division this trace exists
+   * to spare them, and the table is the one surface where stages can be
+   * compared side by side rather than heard one at a time. Both numbers are
+   * already in hand, announced on every stage but the first.
+   *
+   * The entry stage's retention says so rather than reading 100%: nothing
+   * converted into it, which is the same silence the announcement keeps
+   * there. Its share is left as the 100% it really is -- in a column read
+   * down, the row everything else is a fraction of belongs in it.
+   *
+   * @param base - The stage names and counts, as the parent built them
+   * @returns The same rows with a retention and a share on each
+   */
+  private stageTable(
+    base: DescriptionState['dataTable'],
+  ): DescriptionState['dataTable'] {
+    return {
+      headers: [...base.headers, 'Retained', 'Share of entry'],
+      rows: base.rows.map((row, stage) => [
+        ...row,
+        stage === 0 ? 'entry stage' : this.asRatioCell(this.retention[stage]),
+        this.asRatioCell(this.share[stage]),
+      ]),
+    };
+  }
+
+  /**
+   * One ratio as a table cell.
+   *
+   * A stage with no ratio to report reads as the word the announcement uses
+   * for it, not as the blank the dialog would make of a `NaN` -- a blank cell
+   * and a cell nobody filled in read the same way to a screen reader walking
+   * the table.
+   *
+   * @param ratio - The fraction, `NaN` when there is none
+   * @returns The percentage, or the word for an absent one
+   */
+  private asRatioCell(ratio: number): string {
+    return isMeasured(ratio) ? asPercent(ratio) : MISSING_TEXT;
   }
 
   /**

@@ -1,5 +1,5 @@
 import type { MaidrLayer, WordCloudPoint } from '@type/grammar';
-import type { NonEmptyTraceState } from '@type/state';
+import type { DescriptionStat, NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { WordCloudTrace } from '@model/wordCloud';
@@ -58,6 +58,23 @@ function at(col: number, data: WordCloudPoint[] = TERMS): WordCloudTrace {
   const trace = TraceFactory.create(createLayer(data)) as WordCloudTrace;
   trace.moveToIndex(0, col);
   return trace;
+}
+
+/**
+ * Read one description stat by its label.
+ *
+ * By label rather than by index: the summary gains and loses lines with the
+ * cloud's own shape -- a second extreme, a term with no weight -- so a
+ * positional read passes for the wrong reason on half the fixtures here.
+ * @param stats The stats to search
+ * @param label The stat to find
+ * @returns Its value, or undefined when the summary does not carry it
+ */
+function read(
+  stats: DescriptionStat[],
+  label: string,
+): string | number | number[] | undefined {
+  return stats.find(stat => stat.label === label)?.value;
 }
 
 describe('word cloud registration', () => {
@@ -125,6 +142,69 @@ describe('string weights', () => {
       label: 'Total weight',
       value: 12,
     });
+  });
+});
+
+describe('a weight that is not a number', () => {
+  /**
+   * A corpus where one producer-sent weight does not parse.
+   *
+   * `WordCloudPoint.y` admits a string because producers send one, and not
+   * every string is a number -- so this is the shape a real cloud arrives in,
+   * not a synthetic edge case.
+   */
+  const UNPARSEABLE: WordCloudPoint[] = [
+    { x: 'alpha', y: '12' },
+    { x: 'broken', y: 'n/a' },
+    { x: 'beta', y: '30' },
+  ];
+
+  test('sorts the unmeasured term last rather than wherever the comparator drops it', () => {
+    // `Number('n/a') - x` is NaN, which is neither negative nor positive, so
+    // the sort left the term in an arbitrary place -- and whatever landed
+    // first was then reported as the heaviest.
+    const walked = UNPARSEABLE.map((_, col) =>
+      nonEmptyState(at(col, UNPARSEABLE)).text.main.value);
+
+    expect(walked).toEqual(['beta', 'alpha', 'broken']);
+  });
+
+  test('names a real term as the heaviest, at a weight that is a number', () => {
+    const { stats } = at(0, UNPARSEABLE).description;
+
+    expect(read(stats, 'Heaviest term')).toBe('beta (30)');
+    expect(read(stats, 'Lightest term')).toBe('alpha (12)');
+  });
+
+  test('keeps the unmeasured weight out of the corpus total', () => {
+    // Summed in, the total is NaN -- which the dialog blanks, so the line
+    // disappeared with nothing saying why.
+    const { stats } = at(0, UNPARSEABLE).description;
+
+    expect(read(stats, 'Total weight')).toBe(42);
+    expect(read(stats, 'Terms with no weight')).toBe(1);
+  });
+
+  test('spells the missing weight out in the table rather than blanking it', () => {
+    const { rows } = at(0, UNPARSEABLE).description.dataTable;
+
+    expect(rows[2]).toEqual(['broken', 'missing', 'missing']);
+  });
+
+  test('does not offer the unmeasured term as the lightest extreme', () => {
+    const targets = at(0, UNPARSEABLE).getExtremaTargets();
+
+    expect(targets).toHaveLength(2);
+    expect(targets[1]).toMatchObject({ type: 'min', value: 12, pointIndex: 1 });
+  });
+
+  test('scales the pitch across the weights that parsed', () => {
+    // A NaN slips past `minMax`'s comparisons except when it lands first,
+    // where it becomes the min and the max and flattens every term.
+    const { audio } = nonEmptyState(at(0, UNPARSEABLE));
+
+    expect(audio.freq.min).toBe(12);
+    expect(audio.freq.max).toBe(30);
   });
 });
 
@@ -198,6 +278,24 @@ describe('description', () => {
     expect(stats).toContainEqual({ label: 'Lightest term', value: 'gradient (57)' });
   });
 
+  test('claims one extreme when every term weighs the same', () => {
+    // The twin of the rotor's own guard: told there is a lightest term
+    // distinct from the heaviest, a reader concludes the weights differ on a
+    // cloud where they do not -- and the two surfaces that answer "which term
+    // is biggest" then disagree about the same data.
+    const tied: WordCloudPoint[] = [{ x: 'a', y: 5 }, { x: 'b', y: 5 }];
+    const labels = at(0, tied).description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Heaviest term');
+    expect(labels).not.toContain('Lightest term');
+  });
+
+  test('claims one extreme on a cloud of a single term', () => {
+    const labels = at(0, [{ x: 'only', y: 5 }]).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Lightest term');
+  });
+
   test('reports the corpus size', () => {
     const { stats } = at(0).description;
 
@@ -205,11 +303,36 @@ describe('description', () => {
     expect(stats).toContainEqual({ label: 'Total weight', value: 830 });
   });
 
-  test('tabulates the terms in weight order', () => {
+  test('says the rows are not in the order they were authored', () => {
+    // Navigation and the table both depart from the authored order, and a
+    // reader comparing either against the source data would otherwise find
+    // the rows rearranged with nothing to explain it.
+    expect(read(at(0).description.stats, 'Order'))
+      .toBe('Terms are listed heaviest first, not as authored');
+  });
+
+  test('tabulates the terms in weight order, with each term\'s share', () => {
+    // A cloud encodes prominence, and prominence is a share: 412 of 830 is
+    // half the corpus, which is the reading a sighted reader takes from glyph
+    // size.
     const { dataTable } = at(0).description;
 
-    expect(dataTable.headers).toEqual(['Term', 'Occurrences']);
-    expect(dataTable.rows[0]).toEqual(['machine', 412]);
-    expect(dataTable.rows[3]).toEqual(['gradient', 57]);
+    expect(dataTable.headers).toEqual(['Term', 'Occurrences', 'Share of total']);
+    expect(dataTable.rows[0]).toEqual(['machine', 412, '49.6%']);
+    expect(dataTable.rows[3]).toEqual(['gradient', 57, '6.9%']);
+  });
+
+  test('heads the table from the domain when the layer labelled no axes', () => {
+    // `named()` falls back to the literal 'X' and 'Y', and the dialog names
+    // every cell by its column header -- so a screen reader walked the table
+    // announcing "X, machine, Y, 412".
+    const unlabelled = TraceFactory.create({
+      id: 'bare-cloud',
+      type: TraceType.WORD_CLOUD,
+      data: TERMS,
+    }) as WordCloudTrace;
+
+    expect(unlabelled.description.dataTable.headers)
+      .toEqual(['Term', 'Weight', 'Share of total']);
   });
 });

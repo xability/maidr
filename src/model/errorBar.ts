@@ -8,6 +8,7 @@ import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
+import { MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -51,6 +52,23 @@ function magnitudeOf(point: ErrorBarPoint, section: Section): number {
     default:
       return point.y ?? Number.NaN;
   }
+}
+
+/**
+ * The width of one sample's interval, or `NaN` when the chart drew none there.
+ *
+ * Read through {@link magnitudeOf} rather than `Number(point.yMax)`, which
+ * answers `0` for a `null` bound -- and JSON carries `null` wherever
+ * TypeScript says optional. Such a point gets no bound row, no braille cell
+ * and no pitch, so a width measured from it is a number derived from a bound
+ * the chart never drew. `NaN` minus anything is `NaN`, which the callers
+ * already discard alongside a wholly absent bound.
+ *
+ * @param point - The sample to measure
+ * @returns The width, or NaN when either bound is absent
+ */
+export function intervalWidth(point: ErrorBarPoint): number {
+  return magnitudeOf(point, 'upper') - magnitudeOf(point, 'lower');
 }
 
 /**
@@ -464,24 +482,53 @@ export class ErrorBarTrace extends AbstractTrace {
 
   public get description(): DescriptionState {
     const widths = this.points
-      .map(point => Number(point.yMax) - Number(point.yMin))
+      .map(intervalWidth)
       .filter(isMeasured)
       .map(withoutFloatNoise);
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of points', value: this.points.length },
-      { label: 'Min value', value: this.min },
-      { label: 'Max value', value: this.max },
+      // `minMax` answers Infinity and -Infinity for a layer with nothing
+      // measured -- a `data: []` layer, or one whose points carry no
+      // magnitude at all -- and the dialog speaks those as words rather than
+      // blanking them: "Min value is infinity" about a chart that drew
+      // nothing. `missing` is what the rest of the library says here.
+      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_TEXT },
+      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_TEXT },
     ];
+
+    if (this.hasEstimate) {
+      // The pair above spans the bounds as well, which is the extent the
+      // chart was drawn over. The estimates alone are a different number, and
+      // the one this trace calls "value" on every move -- so a reader who has
+      // been navigating hears `Max value` as "the largest estimate", which on
+      // any asymmetric chart it is not. It is also what the extrema rank
+      // over, so this is the range a jump to the maximum lands inside.
+      const estimates = this.groups
+        .flatMap((_group, index) => this.sectionValues[this.valueRowOf(index)])
+        .filter(isMeasured);
+      stats.push({
+        label: 'Estimate range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.safeMin(estimates),
+          MathUtil.safeMax(estimates),
+        ),
+      });
+    }
 
     if (widths.length > 0) {
       // The width of the interval is what a reader is judging when they ask
       // whether two estimates differ, and it is not recoverable from the
       // per-section ranges above: those describe the bounds across the whole
       // chart, not the spread at any one sample.
+      //
+      // safeMin/safeMax rather than a spread: one argument per sample, so
+      // `Math.min(...widths)` throws a RangeError on a chart with tens of
+      // thousands of them -- inside the getter `d` calls, which nothing
+      // catches, so the key would simply stop working on the largest charts.
       stats.push(
-        { label: 'Narrowest interval', value: Math.min(...widths) },
-        { label: 'Widest interval', value: Math.max(...widths) },
+        { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
+        { label: 'Widest interval', value: MathUtil.safeMax(widths) },
       );
     }
 
@@ -489,31 +536,54 @@ export class ErrorBarTrace extends AbstractTrace {
     // column naming the group the table has two rows headed "a" that differ
     // only in their numbers -- the same loss the announcement would have,
     // written down. Added only when there is more than one group, so an
-    // ungrouped chart's table keeps the four columns it had.
+    // ungrouped chart's table keeps the columns it had.
     const grouped = this.groups.length > 1;
     const groupLabel = named(this.layer.axes?.z?.label, 'Group');
+    const groupNames = this.groups.map(
+      (_group, index) => this.groupNameAt(index) ?? `Group ${index + 1}`,
+    );
 
     if (grouped) {
-      stats.splice(1, 0, {
-        label: 'Number of groups',
-        value: this.groups.length,
-      });
+      stats.splice(
+        1,
+        0,
+        { label: 'Number of groups', value: this.groups.length },
+        // `Number of points` is the flattened total across the groups, so the
+        // count alone leaves a reader knowing there are two series and six
+        // samples and nothing about which series -- while the announcement
+        // names one on every move. The same pair {@link LineTrace} reports.
+        { label: 'Group names', value: groupNames.join(', ') },
+      );
     }
 
-    const headers = grouped
-      ? [groupLabel, this.xAxis, this.yAxis, 'Lower', 'Upper']
-      : [this.xAxis, this.yAxis, 'Lower', 'Upper'];
+    // The columns follow `sections` for the same reason everything else does:
+    // a bound no sample carries gets no braille row, no pitch and no section
+    // to navigate into, and a column of empty cells headed `Lower` reads as
+    // data the export lost rather than a bound the chart never drew. A band
+    // would otherwise render an empty estimate column, and a bare-estimate
+    // chart two empty bound columns.
+    const shows = (section: Section): boolean => this.sections.includes(section);
+    const headers = [
+      ...(grouped ? [groupLabel] : []),
+      this.xAxis,
+      ...(shows('value') ? [this.yAxis] : []),
+      ...(shows('lower') ? ['Lower'] : []),
+      ...(shows('upper') ? ['Upper'] : []),
+    ];
     const rows: (string | number)[][] = this.groups.flatMap((group, index) =>
       group.map((point) => {
         const cells: (string | number)[] = [
           point.x,
-          point.y ?? '',
-          point.yMin ?? '',
-          point.yMax ?? '',
+          ...(shows('value') ? [point.y ?? ''] : []),
+          ...(shows('lower') ? [point.yMin ?? ''] : []),
+          ...(shows('upper') ? [point.yMax ?? ''] : []),
         ];
-        return grouped
-          ? [point.z ?? `Group ${index + 1}`, ...cells]
-          : cells;
+        // Through `groupNameAt`, which is what the extrema labels ask and
+        // which substitutes a name for a blank `z` as well as a missing one.
+        // Read off the point instead, an authored empty string passed through
+        // and left the row's own header -- the cell every other cell in the
+        // row is announced against -- with nothing in it.
+        return grouped ? [groupNames[index], ...cells] : cells;
       }),
     );
 

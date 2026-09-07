@@ -281,6 +281,39 @@ export class PieTrace extends AbstractTrace {
       { label: 'Total', value: hasMeasured ? this.total : MISSING_TEXT },
     ];
 
+    if (hasMeasured) {
+      // Which slice is biggest is the question a pie is drawn to answer at a
+      // glance, and `Max value: 50` says a slice measures 50 without saying
+      // which one. A pie has no extrema rotor either -- `supportsExtrema` is
+      // false, there being one row to walk -- so this summary was the only
+      // surface that could name them, and it named neither: a reader had to
+      // walk all N slices holding a running maximum in their head.
+      const measured = this.sliceValues[0]
+        .map((value, col) => ({ col, value }))
+        .filter(entry => isMeasured(entry.value));
+      const largest = measured.reduce((a, b) => (b.value > a.value ? b : a));
+      const smallest = measured.reduce((a, b) => (b.value < a.value ? b : a));
+
+      stats.push({ label: 'Largest slice', value: this.sliceSummary(largest.col) });
+      // One measured slice, or a pie whose slices are all equal, has a single
+      // extreme; naming the same slice twice would report a spread it has not
+      // got.
+      if (smallest.col !== largest.col) {
+        stats.push({ label: 'Smallest slice', value: this.sliceSummary(smallest.col) });
+      }
+    }
+
+    // A gap is one of the slices the chart draws but none of the arithmetic
+    // above it: `[30, null, 20]` reported three slices and a total of 50, two
+    // facts a reader could not reconcile without walking the table. It also
+    // rebases every percentage, the share basis excluding what was never
+    // measured, so 30 reads as 60% of a pie the reader believes has three
+    // slices.
+    const gaps = this.sliceValues[0].filter(value => !isMeasured(value)).length;
+    if (gaps > 0) {
+      stats.push({ label: 'Slices with no value', value: gaps });
+    }
+
     // Said here rather than on every move, and here rather than in the cue for
     // entering a subplot: a single-panel pie is never entered from a lobby, so
     // a caveat placed there would be heard only in multi-panel figures. This
@@ -313,6 +346,22 @@ export class PieTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * How one slice reads when the summary names it.
+   *
+   * Label, magnitude and share together, the way every named extreme in this
+   * family is formatted -- a share being the thing a pie is read for, and the
+   * one number a reader cannot recover from the magnitude alone without the
+   * basis in front of them.
+   *
+   * @param col - Which slice
+   * @returns The slice as display text, e.g. `Bananas, 50 (50.0%)`
+   */
+  private sliceSummary(col: number): string {
+    const value = this.sliceValues[0][col];
+    return `${this.points[0][col].x}, ${defaultFormat(value)} (${this.percentages[col]})`;
   }
 
   protected get dimension(): Dimension {
