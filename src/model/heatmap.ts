@@ -189,8 +189,8 @@ export class Heatmap extends AbstractTrace {
       { label: 'Rows', value: this.heatmapValues.length },
       { label: 'Columns', value: this.heatmapValues[0]?.length ?? 0 },
       // A grid of nothing but holes has no range, and `-Infinity` is not one.
-      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_CELL },
-      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_CELL },
+      { key: 'min', label: `Min ${this.axisNoun('z')}`, value: isMeasured(this.min) ? this.min : MISSING_CELL },
+      { key: 'max', label: `Max ${this.axisNoun('z')}`, value: isMeasured(this.max) ? this.max : MISSING_CELL },
     ];
 
     if (measured.length < cells.length) {

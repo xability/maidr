@@ -421,8 +421,8 @@ export class ChoroplethTrace extends AbstractTrace {
       // label, a colon and nothing after it, which reads as MAIDR having
       // failed rather than as a map with no range. `Heatmap` guards the same
       // pair the same way.
-      { label: 'Min value', value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
+      { key: 'min', label: `Min ${this.axisNoun('y')}`, value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
+      { key: 'max', label: `Max ${this.axisNoun('y')}`, value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
     ];
 
     // Whether the arrows mean compass directions on this map. `arrange` bands

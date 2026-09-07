@@ -276,8 +276,8 @@ export class PieTrace extends AbstractTrace {
     const hasMeasured = isMeasured(this.min);
     const stats: DescriptionState['stats'] = [
       { label: 'Number of slices', value: this.points[0].length },
-      { label: 'Min value', value: hasMeasured ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: hasMeasured ? this.max : MISSING_TEXT },
+      { key: 'min', label: `Min ${this.axisNoun('y')}`, value: hasMeasured ? this.min : MISSING_TEXT },
+      { key: 'max', label: `Max ${this.axisNoun('y')}`, value: hasMeasured ? this.max : MISSING_TEXT },
       { label: 'Total', value: hasMeasured ? this.total : MISSING_TEXT },
     ];
 

@@ -307,7 +307,7 @@ export class StepTrace extends LineTrace {
     const stats: DescriptionState['stats'] = [
       ...(ordinal
         ? baseDescription.stats.filter(
-            stat => stat.label !== 'Min value' && stat.label !== 'Max value',
+            stat => stat.key !== 'min' && stat.key !== 'max',
           )
         : baseDescription.stats),
       {

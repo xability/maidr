@@ -516,8 +516,8 @@ export class LineTrace extends AbstractTrace {
     const chartMin = MathUtil.safeMin(this.min);
     const chartMax = MathUtil.safeMax(this.max);
     stats.push(
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
+      { key: 'min', label: `Min ${this.axisNoun('y')}`, value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
+      { key: 'max', label: `Max ${this.axisNoun('y')}`, value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
     );
 
     // How much of the chart has no reading. A gap is not a zero (#925), and

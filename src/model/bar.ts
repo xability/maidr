@@ -271,15 +271,17 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    * @returns The min and max stats, in that order
    */
   protected rangeStats(
-    noun = 'value',
+    noun = this.axisNoun(
+      this.orientation === Orientation.VERTICAL ? 'y' : 'x',
+    ),
     values: number[][] = this.barValues,
   ): DescriptionState['stats'] {
     const measured = values.flat().filter(isMeasured);
     const chartMin = MathUtil.safeMin(measured);
     const chartMax = MathUtil.safeMax(measured);
     return [
-      { label: `Min ${noun}`, value: isMeasured(chartMin) ? chartMin : 'missing' },
-      { label: `Max ${noun}`, value: isMeasured(chartMax) ? chartMax : 'missing' },
+      { key: 'min', label: `Min ${noun}`, value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { key: 'max', label: `Max ${noun}`, value: isMeasured(chartMax) ? chartMax : 'missing' },
     ];
   }
 

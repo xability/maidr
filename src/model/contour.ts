@@ -333,22 +333,14 @@ export class ContourTrace extends LineTrace {
     const base = super.description;
     const declared = this.levels.filter(Number.isFinite);
 
-    // Inherited, `Min value` and `Max value` are the line layer's min and max
-    // of **y** -- the vertical extent of the drawn vertices. "What range does
-    // this field cover?" is the first question a contour is read with, and
-    // under the two most value-shaped labels in the dialog, beside a column
-    // of levels, they answered it with the height of the plot: a field
-    // running 0.1 to 0.3 was stated as 0 to 18. Named for the axis they
-    // actually measure, they are a fact about the drawing and read as one.
-    const stats = base.stats.map((stat) => {
-      if (stat.label === 'Min value') {
-        return { ...stat, label: `Minimum ${this.yAxis}` };
-      }
-      if (stat.label === 'Max value') {
-        return { ...stat, label: `Maximum ${this.yAxis}` };
-      }
-      return stat;
-    });
+    // The inherited extremes are the line layer's min and max of **y** -- the
+    // vertical extent of the drawn vertices. "What range does this field
+    // cover?" is the first question a contour is read with, and under two
+    // value-shaped labels beside a column of levels they once answered it
+    // with the height of the plot: a field running 0.1 to 0.3 stated as 0 to
+    // 18. `LineTrace` now names them for the axis they measure, which is what
+    // this class used to rewrite them into, so the rewrite is gone.
+    const stats = base.stats;
 
     // How many levels there are and what they are -- the first two questions
     // a contour plot is read with, and neither answerable by walking a curve,

@@ -220,8 +220,8 @@ describe('the description answers what a ranked list cannot', () => {
     // plainly has a high and a low. The range went the same way: `Math.min`
     // of anything holding a `NaN` is one, so the map with one blank in it
     // reported no range at all beside two extremes it had just named.
-    expect(stat('Min value', BLANK_IN_IT)).toBe(5);
-    expect(stat('Max value', BLANK_IN_IT)).toBe(9);
+    expect(stat('Min Rate', BLANK_IN_IT)).toBe(5);
+    expect(stat('Max Rate', BLANK_IN_IT)).toBe(9);
     expect(stat('Highest', BLANK_IN_IT)).toBe('Beta, 9');
     expect(stat('Lowest', BLANK_IN_IT)).toBe('Alpha, 5');
   });
@@ -235,8 +235,8 @@ describe('the description answers what a ranked list cannot', () => {
       { x: 'Void', y: Number.NaN, lat: 2, lon: 1 },
     ];
 
-    expect(stat('Min value', nothing)).toBe('missing');
-    expect(stat('Max value', nothing)).toBe('missing');
+    expect(stat('Min Rate', nothing)).toBe('missing');
+    expect(stat('Max Rate', nothing)).toBe('missing');
   });
 
   test('one blank region does not scale the whole map against NaN', () => {

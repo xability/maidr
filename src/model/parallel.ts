@@ -324,8 +324,8 @@ export class ParallelTrace extends LineTrace {
     // placeholder the table header used to carry.
     const stats = base.stats
       .filter(stat =>
-        stat.label !== 'Min value'
-        && stat.label !== 'Max value'
+        stat.key !== 'min'
+        && stat.key !== 'max'
         && stat.label !== `${this.xAxis} range`)
       // `Axes per observation` is `LineTrace`'s point count per series, which
       // is a lower bound on the axis count rather than the axis count: an

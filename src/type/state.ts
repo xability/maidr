@@ -481,9 +481,26 @@ export type AutoplayState = {
 /**
  * A single statistic entry for chart description (e.g., "Min: 5", "Groups: 3").
  */
+/**
+ * A stat another trace needs to find in the list it inherited.
+ *
+ * A subclass that drops or rewrites an inherited stat used to match it by its
+ * display text, which pinned four files to a wording none of them owned: the
+ * label could not be improved without silently turning those filters into
+ * no-ops, and nothing would have failed to say so.
+ */
+export type DescriptionStatKey = 'min' | 'max';
+
 export interface DescriptionStat {
   label: string;
   value: string | number;
+  /**
+   * What this stat *is*, independent of how it reads.
+   *
+   * Set only on the stats a subclass has to identify -- the chart-wide extremes
+   * -- so the rest stay as they were. See {@link DescriptionStatKey}.
+   */
+  key?: DescriptionStatKey;
 }
 
 /**

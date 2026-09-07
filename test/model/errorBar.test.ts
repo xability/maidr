@@ -441,8 +441,8 @@ describe('description', () => {
       .description
       .stats;
 
-    expect(stats).toContainEqual({ label: 'Min value', value: 'missing' });
-    expect(stats).toContainEqual({ label: 'Max value', value: 'missing' });
+    expect(stats).toContainEqual({ key: 'min', label: 'Min Response', value: 'missing' });
+    expect(stats).toContainEqual({ key: 'max', label: 'Max Response', value: 'missing' });
   });
 
   test('reports the estimates own range beside the drawn extent', () => {
@@ -452,7 +452,7 @@ describe('description', () => {
     // over, so this is the range a jump to the maximum lands inside.
     const stats = at(MEANS, 1, 0).description.stats;
 
-    expect(stats).toContainEqual({ label: 'Max value', value: 7.4 });
+    expect(stats).toContainEqual({ key: 'max', label: 'Max Response', value: 7.4 });
     expect(stats).toContainEqual({ label: 'Estimate range', value: '4.2 to 7.3' });
   });
 
@@ -470,8 +470,8 @@ describe('description', () => {
       .description
       .stats;
 
-    expect(stats).toContainEqual({ label: 'Min value', value: 1 });
-    expect(stats).toContainEqual({ label: 'Max value', value: 2 });
+    expect(stats).toContainEqual({ key: 'min', label: 'Min Response', value: 1 });
+    expect(stats).toContainEqual({ key: 'max', label: 'Max Response', value: 2 });
     expect(stats.map(stat => stat.label)).not.toContain('Estimate range');
   });
 

@@ -508,8 +508,8 @@ describe('the description accounts for every row', () => {
     } as unknown as DumbbellData;
     const { stats } = dumbbell(0, 0, unreadable).description;
 
-    expect(stats).toContainEqual({ label: 'Min value', value: 'missing' });
-    expect(stats).toContainEqual({ label: 'Max value', value: 'missing' });
+    expect(stats).toContainEqual({ key: 'min', label: 'Min Years', value: 'missing' });
+    expect(stats).toContainEqual({ key: 'max', label: 'Max Years', value: 'missing' });
   });
 
   test('says nothing about unchanged rows when every row moved', () => {

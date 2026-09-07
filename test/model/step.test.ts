@@ -143,8 +143,8 @@ describe('step trace description', () => {
       .stats
       .map(stat => stat.label);
 
-    expect(labels).not.toContain('Min value');
-    expect(labels).not.toContain('Max value');
+    expect(labels).not.toContain('Min Sleep stage');
+    expect(labels).not.toContain('Max Sleep stage');
     expect(labels).toContain('Levels');
   });
 
@@ -163,7 +163,7 @@ describe('step trace description', () => {
 
     expect(stats.get('Distinct levels')).toBe(2);
     // The magnitudes are magnitudes here, so they stay.
-    expect(stats.get('Min value')).toBe(1);
+    expect(stats.get('Min Sleep stage')).toBe(1);
   });
 
   test('reports the step direction only when the data authors one', () => {
@@ -235,8 +235,8 @@ describe('a step series with a missing epoch', () => {
       { x: 2, y: 1, label: 'N2' },
     ]])).description.stats.map(stat => stat.label);
 
-    expect(labels).not.toContain('Min value');
-    expect(labels).not.toContain('Max value');
+    expect(labels).not.toContain('Min Sleep stage');
+    expect(labels).not.toContain('Max Sleep stage');
     expect(labels).toContain('Levels');
   });
 });

@@ -236,8 +236,8 @@ describe('the description answers what a curve cannot', () => {
 
     expect(labels).not.toContain('Min value');
     expect(labels).not.toContain('Max value');
-    expect(stat('Minimum Y')).toBe(0);
-    expect(stat('Maximum Y')).toBe(18);
+    expect(stat('Min Y')).toBe(0);
+    expect(stat('Max Y')).toBe(18);
     expect(stat('Level range')).toBe('0.1 to 0.3');
   });
 

@@ -175,15 +175,15 @@ describe('a chart with nothing measured', () => {
     // straight to the table with no word about the range at all.
     const description = describedBy([[{ x: 1, y: null }, { x: 2, y: null }]]);
 
-    expect(statOf(description, 'Min value')).toBe('missing');
-    expect(statOf(description, 'Max value')).toBe('missing');
+    expect(statOf(description, 'Min Y')).toBe('missing');
+    expect(statOf(description, 'Max Y')).toBe('missing');
   });
 
   test('reports it for a layer carrying no series either', () => {
     const description = describedBy([]);
 
-    expect(statOf(description, 'Min value')).toBe('missing');
-    expect(statOf(description, 'Max value')).toBe('missing');
+    expect(statOf(description, 'Min Y')).toBe('missing');
+    expect(statOf(description, 'Max Y')).toBe('missing');
   });
 });
 

@@ -486,6 +486,13 @@ export class ErrorBarTrace extends AbstractTrace {
       .filter(isMeasured)
       .map(withoutFloatNoise);
 
+    // The axis the magnitudes were measured on, which the orientation swaps.
+    // Named so the pair below reads as a fact about this chart's quantity
+    // rather than as two of the most value-shaped labels in the dialog.
+    const valueNoun = this.axisNoun(
+      this.orientation === Orientation.HORIZONTAL ? 'x' : 'y',
+    );
+
     const stats: DescriptionState['stats'] = [
       { label: 'Number of points', value: this.points.length },
       // `minMax` answers Infinity and -Infinity for a layer with nothing
@@ -493,8 +500,8 @@ export class ErrorBarTrace extends AbstractTrace {
       // magnitude at all -- and the dialog speaks those as words rather than
       // blanking them: "Min value is infinity" about a chart that drew
       // nothing. `missing` is what the rest of the library says here.
-      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_TEXT },
+      { key: 'min', label: `Min ${valueNoun}`, value: isMeasured(this.min) ? this.min : MISSING_TEXT },
+      { key: 'max', label: `Max ${valueNoun}`, value: isMeasured(this.max) ? this.max : MISSING_TEXT },
     ];
 
     // Reported only where the chart draws a bound as well. The pair above

@@ -7,6 +7,7 @@ import type { Observable, Observer } from '@type/observable';
 import type {
   AudioState,
   AutoplayState,
+  AxisType,
   BrailleState,
   DescriptionState,
   HighlightState,
@@ -945,6 +946,23 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * to pass it through and then print the `'Level'` placeholder the guard
    * existed to keep out.
    */
+  /**
+   * What the chart's own author calls the quantity on an axis.
+   *
+   * `this.xAxis` and friends fall back to the placeholders `X`, `Y` and
+   * `Level`, which name nothing and read as noise in a stat label. This falls
+   * back to a plain noun instead, so a stat is either specific ("Min Revenue")
+   * or generic ("Min value") and never "Min Y".
+   *
+   * @param axis - The axis carrying the quantity
+   * @param fallback - What to call it when the layer labelled no such axis
+   * @returns The authored label, or the fallback
+   */
+  protected axisNoun(axis: AxisType, fallback = 'value'): string {
+    const label = this.layer.axes?.[axis]?.label?.trim();
+    return label || fallback;
+  }
+
   protected getDescriptionAxes(): DescriptionState['axes'] {
     return {
       ...(this.layer.axes?.x?.label?.trim() && { x: this.xAxis }),

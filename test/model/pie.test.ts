@@ -271,8 +271,8 @@ describe('pie slices with a negative value', () => {
     const { stats } = trace.description;
 
     expect(statValue(stats, 'Number of slices')).toBe(3);
-    expect(statValue(stats, 'Min value')).toBe(-40);
-    expect(statValue(stats, 'Max value')).toBe(60);
+    expect(statValue(stats, 'Min Units')).toBe(-40);
+    expect(statValue(stats, 'Max Units')).toBe(60);
     // The arithmetic total of the data, which is not what the circle is
     // divided into -- hence the note.
     expect(statValue(stats, 'Total')).toBe(50);
@@ -300,8 +300,8 @@ describe('pie slices with a negative value', () => {
     // The summary still reports the datum's own sign beside its share.
     expect(String(statValue(stats, 'Largest slice'))).toContain('-70');
     // And the data's extremes are untouched: -70 really is the minimum value.
-    expect(statValue(stats, 'Min value')).toBe(-70);
-    expect(statValue(stats, 'Max value')).toBe(60);
+    expect(statValue(stats, 'Min Units')).toBe(-70);
+    expect(statValue(stats, 'Max Units')).toBe(60);
   });
 
   it('rounds the basis in the note, like every other number in the summary', () => {
@@ -432,8 +432,8 @@ describe('pie description', () => {
 
     expect(stats).toEqual([
       { label: 'Number of slices', value: 3 },
-      { label: 'Min value', value: 20 },
-      { label: 'Max value', value: 50 },
+      { key: 'min', label: 'Min Units', value: 20 },
+      { key: 'max', label: 'Max Units', value: 50 },
       { label: 'Total', value: 100 },
       { label: 'Largest slice', value: 'Bananas, 50 (50.0%)' },
       { label: 'Smallest slice', value: 'Cherries, 20 (20.0%)' },
@@ -523,8 +523,8 @@ describe('pie description', () => {
     const { stats } = trace.description;
 
     expect(statValue(stats, 'Number of slices')).toBe(2);
-    expect(statValue(stats, 'Min value')).toBe('missing');
-    expect(statValue(stats, 'Max value')).toBe('missing');
+    expect(statValue(stats, 'Min Units')).toBe('missing');
+    expect(statValue(stats, 'Max Units')).toBe('missing');
     expect(statValue(stats, 'Total')).toBe('missing');
     // Nothing was measured, so there is no slice to call the largest either.
     expect(statValue(stats, 'Largest slice')).toBeUndefined();

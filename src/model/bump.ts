@@ -188,7 +188,7 @@ export class BumpTrace extends LineTrace {
     // "somebody came first" and "somebody came last" -- true of every bump
     // chart ever drawn, and so worth nothing.
     const stats = base.stats.filter(
-      stat => stat.label !== 'Min value' && stat.label !== 'Max value',
+      stat => stat.key !== 'min' && stat.key !== 'max',
     );
 
     // What a rank axis does carry, and what dropping those two left the reader

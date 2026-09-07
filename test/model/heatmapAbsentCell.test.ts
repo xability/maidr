@@ -124,8 +124,8 @@ describe('a heat cell the chart drew no value at', () => {
     const valueOf = (label: string): unknown =>
       stats?.find(stat => stat.label === label)?.value;
 
-    expect(valueOf('Min value')).toBe(2);
-    expect(valueOf('Max value')).toBe(9);
+    expect(valueOf('Min Count')).toBe(2);
+    expect(valueOf('Max Count')).toBe(9);
   });
 
   test('is counted, so the reader knows the grid is not full', () => {
@@ -181,8 +181,8 @@ describe('a grid whose first cell is the hole', () => {
     const valueOf = (label: string): unknown =>
       stats?.find(stat => stat.label === label)?.value;
 
-    expect(valueOf('Min value')).toBe(4);
-    expect(valueOf('Max value')).toBe(9);
+    expect(valueOf('Min Count')).toBe(4);
+    expect(valueOf('Max Count')).toBe(9);
   });
 
   test('hands the audio service a range it can pitch against', () => {
@@ -208,8 +208,8 @@ describe('a grid with nothing measured in it', () => {
 
     // `MathUtil.minMax` answers `Infinity` / `-Infinity` for an empty list,
     // and "Min value Infinity" is a finding about a chart that made none.
-    expect(valueOf('Min value')).toBe('missing');
-    expect(valueOf('Max value')).toBe('missing');
+    expect(valueOf('Min Count')).toBe('missing');
+    expect(valueOf('Max Count')).toBe('missing');
   });
 
   test('offers no extrema at all', () => {

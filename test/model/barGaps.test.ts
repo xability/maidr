@@ -111,8 +111,8 @@ describe('bar plot gaps', () => {
 
     const stats = trace.description.stats;
 
-    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
-    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Min Revenue')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max Revenue')?.value).toBe('missing');
   });
 
   it('offers no extreme for a row that is entirely gaps', () => {

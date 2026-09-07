@@ -315,10 +315,14 @@ export class DumbbellTrace extends AbstractTrace {
     const ends = this.endValues.flat().filter(isMeasured);
     const chartMin = MathUtil.safeMin(ends);
     const chartMax = MathUtil.safeMax(ends);
+    // The axis the ends were measured on, which the orientation swaps.
+    const valueNoun = this.axisNoun(
+      this.orientation === Orientation.HORIZONTAL ? 'x' : 'y',
+    );
     const stats: DescriptionState['stats'] = [
       { label: 'Number of pairs', value: this.points.length },
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
+      { key: 'min', label: `Min ${valueNoun}`, value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
+      { key: 'max', label: `Max ${valueNoun}`, value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
     ];
 
     // The count each way is what a sighted reader takes from the shape of the
