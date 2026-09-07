@@ -159,6 +159,31 @@ export type BraillePresetSelection
   };
 
 /**
+ * One page of the settings dialog.
+ *
+ * Shared rather than private to the dialog because opening it is no longer
+ * enough on its own: a caller that sends the reader there for one setting —
+ * the chat's "Open Settings", which exists to reach an API key — has to be
+ * able to say which page, and the view model it goes through cannot import
+ * the view.
+ */
+export const SETTINGS_SECTIONS = [
+  'general',
+  'audio',
+  'visual',
+  'braille',
+  'ai',
+  'about',
+] as const;
+
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+/**
+ * The page the dialog opens on when the opener asks for no particular one.
+ */
+export const DEFAULT_SETTINGS_SECTION: SettingsSection = 'general';
+
+/**
  * ARIA live region politeness level for screen reader announcements.
  */
 export type AriaMode = 'assertive' | 'polite';

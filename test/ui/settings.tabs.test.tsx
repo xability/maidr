@@ -208,6 +208,84 @@ describe('settings tabs', () => {
     expect(saved.general.highContrastLevels).toBe(7);
   });
 
+  it('should move focus along the tablist without selecting as it goes', () => {
+    renderSettings();
+
+    // `docs/BRAILLE.md` tells blind readers to Tab to the tablist, arrow to
+    // "Braille & Tactile" and press Enter. This covers the arrow half of that
+    // sequence: focus has to move without selecting, or a reader arrowing
+    // past a tab would open every panel they cross — which for the AI panel
+    // means contacting a provider they were only passing.
+    //
+    // The Enter half is deliberately not asserted here. `Tab` is a `<button>`,
+    // so Enter reaches it as a synthesised click, and jsdom does not
+    // synthesise one. `dialogAccessibility.spec.ts` walks the whole documented
+    // sequence in a real browser instead.
+    const tabs = screen.getAllByRole('tab');
+    tabs[0].focus();
+    for (let i = 0; i < 3; i++) {
+      fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowRight' });
+    }
+
+    expect(document.activeElement).toHaveTextContent('Braille & Tactile');
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('General');
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('General');
+  });
+
+  it('should keep a visited panel mounted so re-entering it costs nothing', () => {
+    renderSettings();
+
+    openTab(/^AI/);
+    const field = screen.getByLabelText('OpenAI API Key');
+
+    openTab('General');
+
+    // Still the same element, not a replacement: `useCredentialProbe` keys
+    // its result to the hook instance, so a remount would drop back to
+    // "unknown" — re-sending the key and disabling the model dropdown the
+    // reader had already been given.
+    openTab(/^AI/);
+    expect(screen.getByLabelText('OpenAI API Key')).toBe(field);
+  });
+
+  it('should keep an unvisited panel out of the document entirely', () => {
+    renderSettings();
+
+    // The other side of that bargain: nothing of the AI panel exists until
+    // the reader asks for it, so no provider is contacted for a reader who
+    // never opens it.
+    expect(screen.queryByLabelText('OpenAI API Key')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+
+    openTab(/^AI/);
+    openTab('General');
+
+    // Visited and now hidden, so it is out of the accessibility tree even
+    // though it is still in the DOM.
+    expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+    expect(
+      screen.getByRole('tabpanel'),
+    ).toHaveAccessibleName('General');
+  });
+
+  it('should keep an LLM edit made on a tab the reader has left', () => {
+    const saveAndClose = renderSettings();
+
+    openTab(/^AI/);
+    // The label names the MUI wrapper, so the field itself is the input
+    // inside it — the same shape `settings.probeStatus.test.tsx` reaches for.
+    const field = screen
+      .getByLabelText('OpenAI API Key')
+      .querySelector('input') as HTMLInputElement;
+    fireEvent.change(field, { target: { value: 'sk-typed-on-the-ai-tab' } });
+
+    openTab('About');
+    fireEvent.click(screen.getByRole('button', { name: SAVE_BUTTON_NAME }));
+
+    const [saved] = saveAndClose.mock.calls[0];
+    expect(saved.llm.models.OPENAI.apiKey).toBe('sk-typed-on-the-ai-tab');
+  });
+
   it('should say where the edit blocking Save is when its tab is closed', () => {
     renderSettings({
       ...DEFAULT_SETTINGS,
@@ -234,6 +312,74 @@ describe('settings tabs', () => {
     expect(
       screen.getByRole('tab', { name: 'AI needs attention' }),
     ).toBeInTheDocument();
+  });
+
+  it('should announce the footer hint by mutating a region that was already there', async () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: {
+        ...DEFAULT_SETTINGS.llm,
+        expertiseLevel: 'custom',
+        customInstruction: 'too short',
+      },
+    });
+
+    openTab(/^AI/);
+
+    // The region has to exist before its text does. Observed rather than
+    // asserted on the text, because the text alone reads the same whether the
+    // region was mutated or created holding it — and only the mutation is
+    // what a screen reader announces.
+    const region = document.querySelector('.settings-footer-hint');
+    expect(region).not.toBeNull();
+
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push((region as HTMLElement).textContent ?? '');
+    });
+    observer.observe(region as HTMLElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    // Leaving the AI tab is the only way the hint can appear: the fields that
+    // invalidate the instruction are on the tab that suppresses it.
+    openTab('General');
+    // `MutationObserver` delivers on a microtask, so the records are not in
+    // hand until the queue drains.
+    await Promise.resolve();
+    observer.disconnect();
+
+    expect(mutations).not.toHaveLength(0);
+    expect(mutations[mutations.length - 1]).toBe(
+      'Custom instructions on the AI tab must be at least 10 characters long',
+    );
+  });
+
+  it('should open the tab holding the reason when a blocked Alt+S is pressed', () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: {
+        ...DEFAULT_SETTINGS.llm,
+        expertiseLevel: 'custom',
+        customInstruction: 'too short',
+      },
+    });
+
+    // The dialog advertises Alt+S on the Save button, and `docs/BRAILLE.md`
+    // tells readers to use it. Swallowing the keypress leaves someone who
+    // took that advice with no response of any kind — so it takes them to
+    // the field instead.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 's', altKey: true });
+
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('AI');
+    // The panel is named by the badged tab, so entering it repeats why the
+    // reader was sent here.
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName('AI needs attention');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Custom instructions must be at least',
+    );
   });
 
   it('should drop the footer hint on the tab that already shows the reason', () => {

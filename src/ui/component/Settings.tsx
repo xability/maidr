@@ -9,6 +9,7 @@ import type {
   HoverMode,
   LlmModelSettings,
   LlmSettings,
+  SettingsSection,
 } from '@type/settings';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
@@ -44,6 +45,7 @@ import {
   clampEchoCount,
   clampEchoDuration,
   clampFrequencyRange,
+  DEFAULT_SETTINGS_SECTION,
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
   MAX_ECHO_COUNT,
@@ -101,20 +103,19 @@ interface CopyState {
 const SAVE_SHORTCUT_KEY = 's';
 const CANCEL_SHORTCUT_KEY = 'c';
 
-/**
- * One page of the settings dialog.
- *
- * The groups are the modality a setting reaches the reader through — what a
- * reader looking for a setting knows about it — rather than the service that
- * happens to own it.
- */
-type SettingsTabId = 'general' | 'audio' | 'visual' | 'braille' | 'ai' | 'about';
-
 interface SettingsTab {
-  readonly id: SettingsTabId;
+  readonly id: SettingsSection;
   readonly label: string;
 }
 
+/**
+ * The dialog's pages, in the order they are offered.
+ *
+ * The groups are the modality a setting reaches the reader through — what a
+ * reader looking for a setting knows about it — rather than the service that
+ * happens to own it. The ids are shared (`SettingsSection`) so a caller can
+ * ask for a page; the labels are the view's own.
+ */
 const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: 'general', label: 'General' },
   { id: 'audio', label: 'Audio' },
@@ -124,8 +125,6 @@ const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: 'about', label: 'About' },
 ];
 
-const DEFAULT_SETTINGS_TAB: SettingsTabId = 'general';
-
 // Keeps a tab's badge on the same baseline as its text.
 const TAB_LABEL_STYLE: React.CSSProperties = {
   display: 'inline-flex',
@@ -134,8 +133,10 @@ const TAB_LABEL_STYLE: React.CSSProperties = {
 };
 
 interface SettingsTabPanelProps {
-  readonly tabId: SettingsTabId;
-  readonly activeTabId: SettingsTabId;
+  readonly tabId: SettingsSection;
+  readonly activeTabId: SettingsSection;
+  /** Whether this tab has been opened at least once this session. */
+  readonly visited: boolean;
   /** The dialog's `useId` prefix, so panel and tab ids pair up. */
   readonly dialogId: string;
   readonly children: React.ReactNode;
@@ -144,34 +145,58 @@ interface SettingsTabPanelProps {
 /**
  * The rows of one settings tab.
  *
- * An inactive panel renders nothing at all rather than hiding: the edits live
- * in the dialog's state, not in the fields, so unmounting a panel loses no
- * input, and it keeps the API-key probes in the AI panel from running for a
- * reader who never opens it.
+ * Mounted on first visit and kept from then on, rather than either mounting
+ * all six up front or unmounting on every switch. Both halves matter:
+ *
+ * - Not mounting an unvisited panel is what keeps the API-key probes in the
+ *   AI panel from reaching a provider for a reader who never opens it.
+ * - Keeping a visited one is what stops a *second* visit from costing
+ *   anything. `useCredentialProbe` keys its result to the hook instance, so
+ *   remounting resets it to "unknown" — which re-sends the key and, worse,
+ *   disables the model dropdown the reader had already been given, with no
+ *   action on their part. Live regions have the same problem in a milder
+ *   form: a region that unmounts cannot announce what happens while it is
+ *   gone, which is how a tactile display disconnecting on another tab would
+ *   have gone unannounced.
+ *
+ * A kept panel is hidden with `display: none`, which takes it out of the
+ * accessibility tree and the tab order. The `hidden` attribute would not do:
+ * `Grid` sets `display: flex` as an author style, which outranks the user
+ * agent's rule for `[hidden]`.
  *
  * @param props - The panel's configuration.
  * @param props.tabId - The tab this panel belongs to.
  * @param props.activeTabId - The tab currently selected in the dialog.
+ * @param props.visited - Whether this tab has been opened at least once.
  * @param props.dialogId - The dialog's `useId` prefix.
  * @param props.children - The setting rows to render.
- * @returns The panel when its tab is selected, otherwise nothing.
+ * @returns The panel once its tab has been opened, otherwise nothing.
  */
 const SettingsTabPanel: React.FC<SettingsTabPanelProps> = ({
   tabId,
   activeTabId,
+  visited,
   dialogId,
   children,
 }) => {
-  if (tabId !== activeTabId) {
+  if (!visited) {
     return null;
   }
+  const isActive = tabId === activeTabId;
   return (
     <Grid
       container
       spacing={0.5}
       role="tabpanel"
+      // Focusable so that entering the panel announces its name. That name is
+      // the only thing left saying which section the reader is in, now that
+      // the section headings are gone, and About needs it for a second
+      // reason: its first four rows are static text, so tabbing past the
+      // panel itself would land on the copy button and skip them.
+      tabIndex={0}
       id={`${dialogId}-panel-${tabId}`}
       aria-labelledby={`${dialogId}-tab-${tabId}`}
+      sx={isActive ? undefined : { display: 'none' }}
       className={`settings-tab-panel settings-tab-panel-${tabId}`}
     >
       {children}
@@ -512,7 +537,15 @@ const Settings: React.FC = () => {
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>(general);
   const [llmSettings, setLlmSettings] = useState<LlmSettings>(llm);
 
-  const [activeTab, setActiveTab] = useState<SettingsTabId>(DEFAULT_SETTINGS_TAB);
+  // Seeded from the opener so a caller that sends the reader here for one
+  // setting lands them on it. Read once, as the dialog mounts: it is closed
+  // by unmounting, so every open runs this initialiser afresh.
+  const [activeTab, setActiveTab] = useState<SettingsSection>(
+    () => viewModel.initialSection ?? DEFAULT_SETTINGS_SECTION,
+  );
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<SettingsSection>>(
+    () => new Set([viewModel.initialSection ?? DEFAULT_SETTINGS_SECTION]),
+  );
   const [copyState, setCopyState] = useState<CopyState>({ status: 'idle', attempt: 0 });
   // Connection progress lives here rather than in Redux: this dialog reads the
   // view model directly, so a store update would not re-render it. The attempt
@@ -527,6 +560,7 @@ const Settings: React.FC = () => {
   const tactileLabelId = `${id}-tactile-label`;
   const tactileStatusId = `${id}-tactile-status`;
   const tactileMenu = useModalContainer();
+  const contentRef = React.useRef<HTMLDivElement>(null);
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
@@ -677,9 +711,25 @@ const Settings: React.FC = () => {
     setLlmSettings(llm);
   };
 
+  // The second parameter is MUI's `any`. Narrowing it here is sound because
+  // the only values that reach it are the `Tab` values, which come from
+  // `SETTINGS_TABS`.
   const handleTabChange = useCallback(
-    (_event: React.SyntheticEvent, tabId: SettingsTabId): void => {
+    (_event: React.SyntheticEvent, tabId: SettingsSection): void => {
       setActiveTab(tabId);
+      setVisitedTabs(previous =>
+        previous.has(tabId) ? previous : new Set(previous).add(tabId));
+      // The panels share one scroll container, so a switch would otherwise
+      // open the next page part-way down — a lost place for a reader using
+      // magnification.
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
+      // "Copied to clipboard" belongs to a copy that has now scrolled out of
+      // the conversation. Left alone it reappears on the next visit to About
+      // as though it had just happened.
+      setCopyState(previous =>
+        previous.status === 'idle' ? previous : { status: 'idle', attempt: previous.attempt });
     },
     [],
   );
@@ -757,10 +807,17 @@ const Settings: React.FC = () => {
       }
       const key = e.key.toLowerCase();
       if (key === SAVE_SHORTCUT_KEY) {
+        e.preventDefault();
         if (!isCustomInstructionValid) {
+          // Returning silently would leave a reader who pressed the shortcut
+          // the dialog advertises with no response at all — no sound, no
+          // text, nothing saying why. Opening the tab that holds the field is
+          // the answer to "why not", and puts them where the fix is.
+          setActiveTab('ai');
+          setVisitedTabs(previous =>
+            previous.has('ai') ? previous : new Set(previous).add('ai'));
           return;
         }
-        e.preventDefault();
         handleSave();
       } else if (key === CANCEL_SHORTCUT_KEY) {
         e.preventDefault();
@@ -812,7 +869,32 @@ const Settings: React.FC = () => {
         allowScrollButtonsMobile
         aria-label="Settings sections"
         className="settings-tabs"
-        sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}
+        sx={{
+          'px': 3,
+          'borderBottom': 1,
+          'borderColor': 'divider',
+          // `ButtonBase` clears the UA outline, and `Tab` replaces it with
+          // nothing. Arrow keys move focus without selecting, so without this
+          // a reader arrowing the tablist has no way to see where they are.
+          '& .settings-tab.Mui-focusVisible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: '-2px',
+          },
+          // Selection is otherwise text colour plus the indicator's
+          // background, and a forced-colours mode overrides both — leaving
+          // six tabs that look alike. A system colour the mode is told not to
+          // override keeps the indicator visible.
+          '@media (forced-colors: active)': {
+            '& .MuiTabs-indicator': {
+              backgroundColor: 'Highlight',
+              forcedColorAdjust: 'none',
+            },
+            '& .settings-tab.Mui-focusVisible': {
+              outlineColor: 'CanvasText',
+            },
+          },
+        }}
       >
         {SETTINGS_TABS.map(tab => (
           <Tab
@@ -856,10 +938,16 @@ const Settings: React.FC = () => {
           tallest panels push past it, and the viewport term keeps the floor
           from squeezing the footer off a short screen. */}
       <DialogContent
+        ref={contentRef}
         className="settings-dialog-content"
         sx={{ minHeight: 'min(400px, 45vh)' }}
       >
-        <SettingsTabPanel tabId="general" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="general"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('general')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Autoplay Duration (ms)"
@@ -954,7 +1042,12 @@ const Settings: React.FC = () => {
           </Grid>
         </SettingsTabPanel>
 
-        <SettingsTabPanel tabId="audio" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="audio"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('audio')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Volume"
@@ -1124,7 +1217,12 @@ const Settings: React.FC = () => {
           </Grid>
         </SettingsTabPanel>
 
-        <SettingsTabPanel tabId="visual" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="visual"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('visual')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Outline Color"
@@ -1254,7 +1352,12 @@ const Settings: React.FC = () => {
           </Grid>
         </SettingsTabPanel>
 
-        <SettingsTabPanel tabId="braille" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="braille"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('braille')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="Braille Display"
@@ -1488,7 +1591,12 @@ const Settings: React.FC = () => {
           </Grid>
         </SettingsTabPanel>
 
-        <SettingsTabPanel tabId="ai" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="ai"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('ai')}
+          dialogId={id}
+        >
           {(Object.keys(llmSettings.models) as Llm[]).map((modelKey) => {
             const model = llmSettings.models[modelKey];
             return (
@@ -1595,7 +1703,12 @@ const Settings: React.FC = () => {
           )}
         </SettingsTabPanel>
 
-        <SettingsTabPanel tabId="about" activeTabId={activeTab} dialogId={id}>
+        <SettingsTabPanel
+          tabId="about"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('about')}
+          dialogId={id}
+        >
           <Grid size={12}>
             <SettingRow
               label="maidr.js Version"
@@ -1698,27 +1811,34 @@ const Settings: React.FC = () => {
         alignItems="center"
         className="settings-footer"
       >
-        {/* Only while that tab is closed: the AI panel carries the same
-            warning beside the field itself, and the footer's job here is the
-            one part the panel cannot give — where to go. A `status` region so
-            the reason reaches a reader who is several tabs away when Save
-            goes disabled; the text is constant while they type, so it
-            announces once rather than on every keystroke. On its own row,
-            because sharing the buttons' row wraps "Save & Close" off the
-            bottom of the dialog, and inset by `px` so it lines up with the
-            setting labels above it and with the Reset button's own text. */}
-        {!isCustomInstructionValid && activeTab !== 'ai' && (
-          <Grid size={12} sx={{ px: 2 }}>
-            <Typography
-              variant="caption"
-              role="status"
-              className="settings-footer-hint"
-              sx={{ color: 'error.main' }}
-            >
-              {`Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`}
-            </Typography>
-          </Grid>
-        )}
+        {/* Says where the edit blocking Save is, for a reader who is not on
+            that tab to see the panel's own warning. Suppressed on the AI tab
+            itself, where that warning already sits beside the field.
+
+            Rendered even while empty, for the same reason the copy status
+            below is: a live region has to be in the DOM before its text
+            changes for the change to be announced, and this one's text can
+            only appear on a tab switch — the fields that invalidate the
+            instruction are on the tab where the hint is silent. Created
+            already carrying its message, it would announce nothing at all.
+
+            On its own row, because sharing the buttons' row wraps "Save &
+            Close" off the bottom of the dialog, and inset by `px` so it
+            lines up with the setting labels above it and with the Reset
+            button's own text. */}
+        <Grid size={12} sx={{ px: 2 }}>
+          <Typography
+            variant="caption"
+            role="status"
+            aria-live="polite"
+            className="settings-footer-hint"
+            sx={{ color: 'error.main' }}
+          >
+            {!isCustomInstructionValid && activeTab !== 'ai'
+              ? `Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
+              : ''}
+          </Typography>
+        </Grid>
         <Grid size="auto" className="settings-grid-padding">
           <Button
             variant="text"
