@@ -516,8 +516,8 @@ export class TreemapTrace extends AbstractTrace {
     const node = this.current;
     if (node === null) {
       return {
-        main: { label: this.xAxis, value: '' },
-        ...(this.valued ? { cross: { label: this.yAxis, value: 0 } } : {}),
+        main: { label: this.nodeLabel, value: '' },
+        ...(this.valued ? { cross: { label: this.valueLabel, value: 0 } } : {}),
         mainAxis: 'x',
         crossAxis: 'y',
       };
@@ -700,10 +700,17 @@ export class TreemapTrace extends AbstractTrace {
       { label: 'Number of leaves', value: leaves.length },
       // How the tree is shaped, not only how deep it is: two roots over five
       // leaves and forty roots over forty-one are both `Levels: 2`.
-      {
-        label: 'Nodes per level',
-        value: this.nodes.map(level => level.length).join(', '),
-      },
+      //
+      // A tree of one level has no shape to give: the figure would be
+      // `Number of nodes` again, and an empty layer joined an empty list into
+      // an empty string -- a label with nothing after it, which is what the
+      // dialog prints for a value it blanks.
+      ...(this.nodes.length > 1
+        ? [{
+            label: 'Nodes per level',
+            value: this.nodes.map(level => level.length).join(', '),
+          }]
+        : []),
       ...(this.valued ? [{ label: 'Total', value: this.grandTotal }] : []),
     ];
 

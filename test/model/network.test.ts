@@ -181,6 +181,32 @@ describe('degree is the announcement, and position is never mentioned', () => {
       .toEqual({ label: 'Links', value: '4, to Grace, Alan, Edsger and 1 more' });
   });
 
+  test('the degree takes one noun, in the table and in the announcement', () => {
+    // Two readings of the same number, so they cannot be allowed to drift.
+    // The announcement kept `yAxis` -- the literal `Y` on a layer that names
+    // no axes, which is what the echarts binder emits -- beside a column the
+    // table headed with the hard-coded `Links`.
+    const bare = TraceFactory.create({
+      id: 'unlabelled-network',
+      type: TraceType.NETWORK,
+      title: 'Collaborations',
+      data: COLLAB,
+    }) as NetworkTrace;
+    bare.moveOnce('FORWARD');
+
+    expect(nonEmptyState(bare).text.cross?.label).toBe('Links');
+    expect(bare.description.dataTable.headers[1]).toBe('Links');
+
+    const authored = TraceFactory.create({
+      ...createLayer(),
+      axes: { x: { label: 'Person' }, y: { label: 'Collaborators' } },
+    }) as NetworkTrace;
+    authored.moveOnce('FORWARD');
+
+    expect(nonEmptyState(authored).text.cross?.label).toBe('Collaborators');
+    expect(authored.description.dataTable.headers[1]).toBe('Collaborators');
+  });
+
   test('an isolated node says so rather than saying nothing', () => {
     const trace = network();
     walk(trace, 'UPWARD', 'UPWARD');

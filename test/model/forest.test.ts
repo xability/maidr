@@ -260,6 +260,24 @@ describe('the description reports what the figure is scanned for', () => {
       .toBe('1 of 2');
   });
 
+  test('withholds the crossing count when no study can be asked', () => {
+    // `0 of 0` is the same guess the denominator above refuses, made about
+    // the whole figure: a reader hears that no study crossed, where the truth
+    // is that none of them carries an interval to compare.
+    const summaryOnly: ForestPoint[] = [
+      { x: 'Bare', y: 1.4 },
+      { x: 'Also bare', y: 1.2 },
+      { x: 'Pooled', y: 1.3, yMin: 1.25, yMax: 1.35, pooled: true },
+    ];
+    const stats = forest(0, 0, 1, summaryOnly).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Studies crossing the null'))
+      .toBeUndefined();
+    // The null itself is still stated -- the pooled row's verdict is measured
+    // from it, and the table's own column still reads against it.
+    expect(stats.find(stat => stat.label === 'No-effect value')?.value).toBe(1);
+  });
+
   test('drops the width stats when only the summary carries bounds', () => {
     // The guard on the override used to fail open: with no study width to
     // report, the parent's pair -- measured over every row, the summary

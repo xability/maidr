@@ -220,12 +220,18 @@ export class ForestTrace extends ErrorBarTrace {
       // denominator reads `1 of 4` -- indistinguishable from three studies
       // that definitely did not cross. `text` omits the verdict on such a row
       // rather than guess at it, and the count is owed the same restraint.
+      //
+      // Withheld entirely where nothing is decidable: `0 of 0` is that same
+      // guess made about the whole figure, and a reader hearing it is told
+      // that no study crossed rather than that none of them could be asked.
       const decided = evidence.filter(point => this.crossesNull(point) !== null);
       const crossing = decided.filter(point => this.crossesNull(point) === true);
-      stats.push({
-        label: 'Studies crossing the null',
-        value: `${crossing.length} of ${decided.length}`,
-      });
+      if (decided.length > 0) {
+        stats.push({
+          label: 'Studies crossing the null',
+          value: `${crossing.length} of ${decided.length}`,
+        });
+      }
     }
 
     const heaviest = this.heaviestStudy();

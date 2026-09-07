@@ -274,6 +274,16 @@ describe('the description answers what a walk cannot', () => {
     expect(stat('Nodes per level')).toBe('2, 5');
   });
 
+  test('a tree of one level has no shape to report', () => {
+    // The list would be `Number of nodes` over again on a flat tree, and an
+    // empty layer joined it into an empty string -- which the dialog blanks,
+    // leaving a label with nothing after it.
+    const flat: TreemapPoint[] = [{ x: 'a', y: 1 }, { x: 'b', y: 2 }];
+
+    expect(stat('Nodes per level', flat)).toBeUndefined();
+    expect(stat('Nodes per level', [])).toBeUndefined();
+  });
+
   test('names the bottom of the leaf distribution as well as the top', () => {
     // `Largest leaf` names the top of it and nothing named the bottom, so a
     // chart India is four fifths of read the same as an even one.

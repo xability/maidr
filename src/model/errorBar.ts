@@ -497,13 +497,15 @@ export class ErrorBarTrace extends AbstractTrace {
       { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_TEXT },
     ];
 
-    if (this.hasEstimate) {
-      // The pair above spans the bounds as well, which is the extent the
-      // chart was drawn over. The estimates alone are a different number, and
-      // the one this trace calls "value" on every move -- so a reader who has
-      // been navigating hears `Max value` as "the largest estimate", which on
-      // any asymmetric chart it is not. It is also what the extrema rank
-      // over, so this is the range a jump to the maximum lands inside.
+    // Reported only where the chart draws a bound as well. The pair above
+    // spans those too, which is the extent the chart was drawn over, so the
+    // estimates alone are a different number -- and the one this trace calls
+    // "value" on every move, so a reader who has been navigating hears
+    // `Max value` as "the largest estimate", which on any asymmetric chart it
+    // is not. It is also what the extrema rank over, so this is the range a
+    // jump to the maximum lands inside. On a chart of bare estimates the two
+    // readings are the same numbers, and the third line only repeats them.
+    if (this.hasEstimate && this.sections.length > 1) {
       const estimates = this.groups
         .flatMap((_group, index) => this.sectionValues[this.valueRowOf(index)])
         .filter(isMeasured);
@@ -521,11 +523,6 @@ export class ErrorBarTrace extends AbstractTrace {
       // whether two estimates differ, and it is not recoverable from the
       // per-section ranges above: those describe the bounds across the whole
       // chart, not the spread at any one sample.
-      //
-      // safeMin/safeMax rather than a spread: one argument per sample, so
-      // `Math.min(...widths)` throws a RangeError on a chart with tens of
-      // thousands of them -- inside the getter `d` calls, which nothing
-      // catches, so the key would simply stop working on the largest charts.
       stats.push(
         { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
         { label: 'Widest interval', value: MathUtil.safeMax(widths) },
@@ -563,10 +560,19 @@ export class ErrorBarTrace extends AbstractTrace {
     // would otherwise render an empty estimate column, and a bare-estimate
     // chart two empty bound columns.
     const shows = (section: Section): boolean => this.sections.includes(section);
+    // Named for the axes the announcement names, and following the same
+    // orientation it does. `text` reads the category as `yAxis` on a
+    // horizontal chart, so heading its column with `xAxis` there swapped the
+    // two outright: the categories tabulated under the value axis's name and
+    // the estimates under the category axis's, in the one surface a reader
+    // opens to check what they heard.
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    const categoryLabel = isHorizontal ? this.yAxis : this.xAxis;
+    const valueLabel = isHorizontal ? this.xAxis : this.yAxis;
     const headers = [
       ...(grouped ? [groupLabel] : []),
-      this.xAxis,
-      ...(shows('value') ? [this.yAxis] : []),
+      categoryLabel,
+      ...(shows('value') ? [valueLabel] : []),
       ...(shows('lower') ? ['Lower'] : []),
       ...(shows('upper') ? ['Upper'] : []),
     ];

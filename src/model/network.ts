@@ -21,6 +21,9 @@ const NAMED_NODES = 5;
 /** What a node-link diagram calls its nodes when the layer names no x axis. */
 const NODE_AXIS = 'Node';
 
+/** And what it calls a node's degree when the layer names no y axis. */
+const LINK_AXIS = 'Links';
+
 /** One node of the network. */
 interface NetworkNode {
   /** Its own position in the node list, so nothing has to search for it. */
@@ -322,6 +325,22 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     return named(this.layer.axes?.x?.label, NODE_AXIS);
   }
 
+  /**
+   * What this chart calls a node's degree.
+   *
+   * The announcement's cross value and the table's second column carry the
+   * same number, so they take the same noun. Only the column had one, and
+   * hard-coded: the cross kept `yAxis`, which is the literal `'Y'` on a layer
+   * that names no axes -- what the echarts binder emits -- so a network read
+   * "Node is Ada, Y is 4" beside a column headed `Links`. The fallback is the
+   * label the amCharts, Chart.js and Highcharts binders already author here,
+   * and reading both through the layer keeps a chart that renames it from
+   * renaming only half.
+   */
+  private get linkLabel(): string {
+    return named(this.layer.axes?.y?.label, LINK_AXIS);
+  }
+
   protected get values(): number[][] {
     return this.degrees;
   }
@@ -363,7 +382,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     if (node === null) {
       return {
         main: { label: this.nodeLabel, value: '' },
-        cross: { label: this.yAxis, value: 0 },
+        cross: { label: this.linkLabel, value: 0 },
         mainAxis: 'x',
         crossAxis: 'y',
       };
@@ -398,7 +417,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
 
     return {
       main: { label: this.nodeLabel, value: node.name },
-      cross: { label: this.yAxis, value: links },
+      cross: { label: this.linkLabel, value: links },
       mainAxis: 'x',
       crossAxis: 'y',
       asides,
@@ -559,7 +578,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       axes: this.getDescriptionAxes(),
       stats,
       dataTable: {
-        headers: [this.nodeLabel, 'Links', ...(grouped ? ['Group'] : []), 'Linked to'],
+        headers: [this.nodeLabel, this.linkLabel, ...(grouped ? ['Group'] : []), 'Linked to'],
         // Walked component by component, most connected first, which is the
         // order the arrows take a reader through the chart and the order the
         // group sizes above are in. `this.nodes` is the order the producer

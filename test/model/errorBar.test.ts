@@ -214,6 +214,17 @@ describe('horizontal orientation', () => {
     expect(text.crossAxis).toBe('x');
   });
 
+  test('heads the table with the axes the announcement names', () => {
+    // The announcement above reads the category as `Response` and the
+    // magnitude as `Group` on this layer. Heading the same two columns the
+    // other way round makes the dialog contradict the reading it exists for
+    // a listener to check.
+    const { dataTable } = horizontal(1, 0).description;
+
+    expect(dataTable.headers).toEqual(['Response', 'Group', 'Lower', 'Upper']);
+    expect(dataTable.rows[0]).toEqual(['control', 4.2, 3.8, 4.6]);
+  });
+
   test('pans by where the point sits on screen', () => {
     // The grid stays sections-by-samples whichever way the chart is drawn, so
     // panning is where the swap has to happen: on a horizontal chart the
@@ -449,6 +460,19 @@ describe('description', () => {
     const labels = at(BAND, 0, 0).description.stats.map(stat => stat.label);
 
     expect(labels).not.toContain('Estimate range');
+  });
+
+  test('leaves it out of a chart that draws no bound to widen it', () => {
+    // `Min value` and `Max value` already span exactly the estimates there,
+    // so a third line reports the same two numbers under a third name.
+    const bare: ErrorBarPoint[] = [{ x: 'a', y: 1 }, { x: 'b', y: 2 }];
+    const stats = (TraceFactory.create(createLayer(bare)) as ErrorBarTrace)
+      .description
+      .stats;
+
+    expect(stats).toContainEqual({ label: 'Min value', value: 1 });
+    expect(stats).toContainEqual({ label: 'Max value', value: 2 });
+    expect(stats.map(stat => stat.label)).not.toContain('Estimate range');
   });
 
   test('tabulates each point with its bounds', () => {
