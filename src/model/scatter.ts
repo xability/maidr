@@ -1,7 +1,7 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { defaultFormat } from '@util/format';
@@ -1256,12 +1256,23 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       });
     }
 
+    // The two coordinates are readings on x and y, and the depth column on z,
+    // the axis its own header is named from. `Name` is what a point *is*
+    // rather than a reading off any axis, so it keeps the dialog's own
+    // rounding. Built from the same two conditions the headers were.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      'x',
+      'y',
+      ...(this.hasZ ? ['z' as AxisType] : []),
+      ...(hasNames ? [undefined] : []),
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

@@ -13,6 +13,17 @@ interface LayerFormatters {
   x: FormatFunction;
   y: FormatFunction;
   z: FormatFunction;
+  /**
+   * The axes the layer actually declared a format for.
+   *
+   * Every axis has a formatter, because an axis with no `format` falls back to
+   * `defaultFormat`. That fallback is right for an announcement, which has to
+   * say something either way, and wrong for a caller that needs to know
+   * whether the author asked for anything -- the chart description's data
+   * table only departs from its own rounding where a format was authored, so
+   * that a chart nobody formatted reads exactly as it did before.
+   */
+  authored: Set<AxisType>;
 }
 
 /**
@@ -84,6 +95,9 @@ export class FormatterService implements Disposable {
             x: this.resolveAxisFormat(axes?.x?.format),
             y: this.resolveAxisFormat(axes?.y?.format),
             z: this.resolveAxisFormat(axes?.z?.format),
+            authored: new Set(
+              (['x', 'y', 'z'] as const).filter(axis => axes?.[axis]?.format !== undefined),
+            ),
           };
 
           this.formatters.set(layerId, layerFormatters);
@@ -114,6 +128,24 @@ export class FormatterService implements Disposable {
       return defaultFormat;
     }
     return layerFormatters[axis];
+  }
+
+  /**
+   * Whether the layer declared a format for this axis, as opposed to falling
+   * back to the default.
+   *
+   * The chart description's data table asks before it formats: it has its own
+   * rounding, and a reader of an unformatted chart should see exactly what
+   * they saw before. Where an author did ask for currency, a percentage or a
+   * date, the table has to say the same thing the announcement does, or the
+   * two surfaces describe one number two ways.
+   *
+   * @param layerId - The ID of the layer
+   * @param axis - The axis type ('x', 'y', or 'z')
+   * @returns True when the layer's JSON carried a `format` for that axis
+   */
+  public hasAuthoredFormat(layerId: string, axis: AxisType): boolean {
+    return this.formatters.get(layerId)?.authored.has(axis) ?? false;
   }
 
   /**

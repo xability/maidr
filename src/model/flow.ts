@@ -761,6 +761,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       stats,
       dataTable: {
         headers: ['From', 'To', this.valueLabel],
+        // Both ends of a ribbon are node names, which this chart carries on x,
+        // and the amount is the y reading `cross` announces.
+        columnAxes: ['x', 'x', 'y'],
         rows: this.nodes.flatMap(node =>
           node.out.map(edge => [
             this.nodes[edge.from].name,

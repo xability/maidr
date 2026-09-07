@@ -337,12 +337,17 @@ export class GaugeTrace extends AbstractTrace {
     ];
     const rows: (string | number)[][] = [[this.measureName, this.value]];
 
+    // The measure's name sits on x and its reading on y, the axes the
+    // announcement already names the two by -- so a dial whose value is a
+    // currency or a percentage prints in the table the way it is spoken.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = ['x', 'y'];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

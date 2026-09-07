@@ -369,12 +369,16 @@ export class ParallelTrace extends LineTrace {
     // The first column holds the axis a reading was taken on and the second
     // the reading, in that axis's own units. `LineTrace` heads them with the
     // layer's single x and y labels, which name neither column here.
-    const { headers, rows } = base.dataTable;
+    const { headers, columnAxes, rows } = base.dataTable;
     return {
       ...base,
       stats,
       dataTable: {
         headers: [this.axisColumnLabel, this.valueColumnLabel, ...headers.slice(2)],
+        // Re-headed, not rearranged: the columns are still the line's x, its
+        // reading and the observation, so each keeps the axis it was measured
+        // on and the table reads a value the way an announcement does.
+        columnAxes,
         rows,
       },
     };

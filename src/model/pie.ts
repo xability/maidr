@@ -339,12 +339,18 @@ export class PieTrace extends AbstractTrace {
       this.percentages[col],
     ]);
 
+    // The label column sits on x and the magnitude on y, the two axes the
+    // announcement already speaks a slice through. The share is divided out of
+    // the basis here, so the layer declared no axis for it -- and a pie that
+    // formats its magnitudes as currency must not print "$33.3%" over one.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = ['x', 'y', undefined];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

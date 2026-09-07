@@ -469,12 +469,22 @@ export class RidgelineTrace extends AbstractTrace {
       });
     }
 
+    // The groups stack down y and the value they were measured at sits on x,
+    // the same pair the headers above are named from. The density is the
+    // estimator's own output -- the z label only heads the column, it is not
+    // an axis the curve was read off -- so it keeps the dialog's rounding.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      'y',
+      'x',
+      undefined,
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

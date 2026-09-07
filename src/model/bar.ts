@@ -353,12 +353,20 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       return [main, isMeasured(value) ? value : MISSING_TEXT];
     });
 
+    // The category column sits on whichever axis carries the names and the
+    // magnitude column on the other one, swapping with the headers above, so a
+    // layer that formats its magnitudes as currency -- or spells "Sat" out as
+    // "Saturday" -- reads the same way here as when the reader walks the bars.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = isVertical
+      ? ['x', 'y']
+      : ['y', 'x'];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { HeatmapData, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
@@ -260,12 +260,21 @@ export class Heatmap extends AbstractTrace {
       ])
       .reverse();
 
+    // The leading column names a row of the grid, so it sits on y; every other
+    // column holds cell magnitudes, which are z -- the axis the colorbar is
+    // labelled and formatted from -- even though its header names an x level.
+    // Sized off the same grid row as the headers, so the two cannot part.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      'y',
+      ...columns.map<AxisType>(() => 'z'),
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

@@ -318,12 +318,17 @@ export class WordCloudTrace extends AbstractTrace {
       toShare(weights[term], total),
     ]);
 
+    // The term sits on x and its weight on y, the axes the announcement
+    // already speaks both through. The share is divided out of the total
+    // here, so the layer never declared an axis for it.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = ['x', 'y', undefined];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

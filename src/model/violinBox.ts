@@ -1,7 +1,7 @@
 import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
@@ -229,12 +229,21 @@ export class ViolinBoxTrace extends AbstractTrace {
       return [groupNameAt(this.points, pointIdx, 'Violin'), ...sectionValues];
     });
 
+    // The violin column sits on whichever axis carries the categories and
+    // every section column on the other one, so a layer that formats its
+    // values -- or names its categories through a format function -- reads the
+    // same way here as it does when the reader walks the box.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      isHorizontal ? 'y' : 'x',
+      ...this.sections.map<AxisType>(() => (isHorizontal ? 'x' : 'y')),
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

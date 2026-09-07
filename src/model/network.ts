@@ -584,6 +584,11 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       stats,
       dataTable: {
         headers: [this.nodeLabel, this.linkLabel, ...(grouped ? ['Group'] : []), 'Linked to'],
+        // The node sits on x and its degree on y, as `text` announces them.
+        // `Group` is a position among the components and `Linked to` is
+        // several names joined into one cell rather than one x reading, so
+        // neither takes an axis. Built on `grouped`, like the headers above.
+        columnAxes: ['x', 'y', ...(grouped ? [undefined] : []), undefined],
         // Walked component by component, most connected first, which is the
         // order the arrows take a reader through the chart and the order the
         // group sizes above are in. `this.nodes` is the order the producer

@@ -464,6 +464,17 @@ export class GanttTrace extends AbstractTrace {
     // the announcement never says it without one.
     const lengthHeader = this.unit === undefined ? 'Length' : `Length (${this.unit})`;
     const headers = [laneLabel, 'Label', 'Start', 'End', lengthHeader];
+    // The lane column sits on whichever axis carries the lanes, the same swap
+    // the header above makes. Start and End are already rendered through the
+    // time axis's own format by `atTime`, so naming it here would run the
+    // author's formatter twice; the label and the computed length have no axis.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      this.orientation === Orientation.HORIZONTAL ? 'y' : 'x',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ];
     const allRows: (string | number)[][] = this.lanes.flatMap((lane, index) =>
       // An empty lane is a row of the schedule -- the nested shape exists to
       // express one -- and mapping over the intervals it does not have
@@ -499,7 +510,7 @@ export class GanttTrace extends AbstractTrace {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

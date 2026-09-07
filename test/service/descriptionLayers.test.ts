@@ -1,4 +1,5 @@
 import type { DisplayService } from '@service/display';
+import type { FormatterService } from '@service/formatter';
 import type { RotorNavigationService } from '@service/rotor';
 import type { Maidr } from '@type/grammar';
 import type { PlotState, TraceState } from '@type/state';
@@ -50,11 +51,28 @@ function createMockDisplayService(): DisplayService {
   return { toggleFocus: jest.fn() } as unknown as DisplayService;
 }
 
+/**
+ * These layers declare no formats, which is the answer the service needs: the
+ * data table then keeps its own rounding. `descriptionRounding.test.ts` drives
+ * a real `FormatterService` over layers that do declare one.
+ */
+function createMockFormatterService(): FormatterService {
+  return {
+    hasAuthoredFormat: () => false,
+    getFormatter: () => String,
+  } as unknown as FormatterService;
+}
+
 /** Builds a service over a real figure, plus the context it reads. */
 function serviceOver(figure: Figure): { service: DescriptionService; context: Context } {
   const context = new Context(figure);
   return {
-    service: new DescriptionService(context, createMockDisplayService(), createMockRotorService()),
+    service: new DescriptionService(
+      context,
+      createMockDisplayService(),
+      createMockRotorService(),
+      createMockFormatterService(),
+    ),
     context,
   };
 }

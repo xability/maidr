@@ -250,6 +250,11 @@ export class FunnelTrace extends BarTrace {
   ): DescriptionState['dataTable'] {
     return {
       headers: [...base.headers, 'Retained', 'Share of entry'],
+      // The stage name and its count keep the axes the parent gave them. The
+      // two ratios are computed here out of the counts, so the funnel never
+      // declared an axis for them -- and a layer that formats its counts as
+      // currency must not print "$24.0%" over a share it never plotted.
+      columnAxes: base.columnAxes && [...base.columnAxes, undefined, undefined],
       rows: base.rows.map((row, stage) => [
         ...row,
         stage === 0 ? 'entry stage' : this.asRatioCell(this.retention[stage]),

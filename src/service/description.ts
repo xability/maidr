@@ -1,7 +1,9 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { FormatterService } from '@service/formatter';
 import type { RotorNavigationService } from '@service/rotor';
 import type { Disposable } from '@type/disposable';
+import type { FormatFunction } from '@type/grammar';
 import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from '@type/state';
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
@@ -50,6 +52,44 @@ function roundCell(value: string | number | number[]): string | number {
 }
 
 /**
+ * One cell read through the layer's own formatter.
+ *
+ * Two kinds of cell the format must not reach, both of them cells with no
+ * value in them. An empty cell is how a sparse table shows an absent value,
+ * and a chart's own `format.function` sees it as text rather than as absence:
+ * `Number(value).toFixed(1)` meeting `''` yields `0.0`, inventing a reading
+ * for a cell that has none. A non-finite number has to stay a number for the
+ * dialog's own blanking check, which any formatter would turn into the word
+ * `missing`, printed in every empty cell of the table.
+ *
+ * Both fall through to {@link roundCell}, which is exactly what the column
+ * would have done had its author declared no format -- so adding a format
+ * changes how the values read and never how their absence does.
+ *
+ * @param value - The value as the trace reported it.
+ * @param format - The layer's format function for this column's axis.
+ * @returns The formatted value, or the rounded one where a format says nothing.
+ */
+function formattedCell(
+  value: string | number | number[],
+  format: FormatFunction,
+): string | number {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '';
+    }
+    return value.map(entry => roundNonFinite(entry) ?? format(entry)).join(', ');
+  }
+  if (typeof value === 'string' && value.trim() === '') {
+    return value;
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return roundCell(value);
+  }
+  return format(value);
+}
+
+/**
  * How a non-finite number reads, or null when it is finite and the caller
  * should format it normally.
  *
@@ -77,6 +117,7 @@ export class DescriptionService implements Disposable {
   private readonly context: Context;
   private readonly display: DisplayService;
   private readonly rotor: RotorNavigationService;
+  private readonly formatter: FormatterService;
 
   /**
    * Whether a layer tab moved the model's active layer during this visit to
@@ -89,10 +130,12 @@ export class DescriptionService implements Disposable {
     context: Context,
     display: DisplayService,
     rotor: RotorNavigationService,
+    formatter: FormatterService,
   ) {
     this.context = context;
     this.display = display;
     this.rotor = rotor;
+    this.formatter = formatter;
   }
 
   /**
@@ -119,7 +162,7 @@ export class DescriptionService implements Disposable {
 
       const subplots = this.context.getSubplotSummaries();
       const layers = this.context.getLayerSummaries();
-      const rounded = this.rounded(description);
+      const rounded = this.rounded(description, active.getId());
       // Orientation first, and the figure's own notes last: which way the
       // chart is drawn qualifies everything under it -- for the box, violin
       // and boxen families it reverses the order of the table's rows -- while
@@ -209,7 +252,9 @@ export class DescriptionService implements Disposable {
    */
   private rounded(
     description: DescriptionState,
+    layerId: string,
   ): Pick<DisplayDescriptionState, 'stats' | 'dataTable'> {
+    const cellOf = this.columnFormatters(description, layerId);
     return {
       stats: description.stats.map(stat => ({
         ...stat,
@@ -217,9 +262,53 @@ export class DescriptionService implements Disposable {
       })),
       dataTable: {
         headers: description.dataTable.headers,
-        rows: description.dataTable.rows.map(row => row.map(roundCell)),
+        rows: description.dataTable.rows.map(row =>
+          row.map((cell, column) => cellOf(column)(cell)),
+        ),
       },
     };
+  }
+
+  /**
+   * How each column of the data table reads, by column index.
+   *
+   * The layer's own formatter where its author declared one for that column's
+   * axis, and this service's rounding everywhere else. A candlestick whose x
+   * carries a date format and whose y carries a currency one announces
+   * "Nov 3" and "$180.25" as the reader walks it; before this the table beside
+   * those announcements printed the epoch milliseconds and the bare float, so
+   * one dialog described one value two ways and neither surface said which was
+   * meant.
+   *
+   * Asked per column rather than per cell so the lookup happens once for a
+   * table of a thousand rows, and gated on the format having been *authored*
+   * so a chart nobody formatted reads exactly as it did before -- an axis with
+   * no `format` still has a formatter, and using it would quietly replace the
+   * blank a non-finite cell renders as with the word `missing` in every empty
+   * cell of a sparse table.
+   *
+   * @param description - The description as the trace built it.
+   * @param layerId - The layer the description came from.
+   * @returns A function from column index to that column's cell formatter.
+   */
+  private columnFormatters(
+    description: DescriptionState,
+    layerId: string,
+  ): (column: number) => (cell: string | number | number[]) => string | number {
+    const axes = description.dataTable.columnAxes;
+    if (!axes) {
+      return () => roundCell;
+    }
+
+    const perColumn = axes.map((axis) => {
+      if (axis === undefined || !this.formatter.hasAuthoredFormat(layerId, axis)) {
+        return roundCell;
+      }
+      const format = this.formatter.getFormatter(layerId, axis);
+      return (cell: string | number | number[]): string | number => formattedCell(cell, format);
+    });
+
+    return column => perColumn[column] ?? roundCell;
   }
 
   /**
