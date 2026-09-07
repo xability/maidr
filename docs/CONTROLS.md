@@ -46,9 +46,13 @@ A key that no shortcut in the current mode uses answers with a short warning —
 — together with the warning tone, so a guess is never met with silence.
 
 Keys held with Control, Command, or Option are left alone, because that is
-where the browser and your screen reader keep their own commands. Inside the
-settings, chat, and command palette dialogs there is no warning either: help is
-not reachable from them, and what you type there is usually text.
+where the browser and your screen reader keep their own commands.
+
+The warning appears only where the help shortcut itself works — reading a
+chart, in braille mode, and in label mode. Anywhere it does not, such as the
+dialogs, review mode, and inside a grid cell, an unassigned key stays silent:
+there would be nothing useful to point you at, and what you press there is
+often text rather than a missed shortcut.
 
 ## Monitor Mode (Live Charts)
 
