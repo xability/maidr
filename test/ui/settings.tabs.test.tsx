@@ -16,9 +16,10 @@
  *   another tab. It has to be saved anyway.
  * - **The tablist has to be operable and named.** It is the only way to reach
  *   five of the six panels, by keyboard as much as by pointer.
- * - **A blocked Save has to stay explainable.** Save is disabled while the
- *   custom instruction is too short, and that field is on a tab the reader
- *   may not be looking at.
+ * - **A blocked Save has to stay explainable.** Save is marked unavailable
+ *   while the custom instruction is too short — `aria-disabled`, so it keeps
+ *   its tab stop — and that field is on a tab the reader may not be looking
+ *   at.
  */
 
 import type { CommandExecutor } from '@service/commandExecutor';
