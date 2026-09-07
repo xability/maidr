@@ -143,8 +143,11 @@ describe('histogram gaps', () => {
 
     const stats = new Histogram(layer).description.stats;
 
-    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
-    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
+    // A histogram's magnitudes are bin *counts*, and the stats are labelled as
+    // such: they sat directly above a `Bin range` that is the binned variable,
+    // two adjacent lines about two different axes under labels naming neither.
+    expect(stats.find(stat => stat.label === 'Min count')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max count')?.value).toBe('missing');
   });
 
   it('still reports a real range for ordinary bin counts', () => {
@@ -160,8 +163,8 @@ describe('histogram gaps', () => {
 
     const stats = new Histogram(layer).description.stats;
 
-    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe(4);
-    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe(33);
+    expect(stats.find(stat => stat.label === 'Min count')?.value).toBe(4);
+    expect(stats.find(stat => stat.label === 'Max count')?.value).toBe(33);
   });
 });
 
@@ -334,8 +337,10 @@ describe('segmented bar gaps', () => {
 
     const stats = trace.description.stats;
 
-    expect(stats.find(stat => stat.label === 'Min value')?.value).toBe('missing');
-    expect(stats.find(stat => stat.label === 'Max value')?.value).toBe('missing');
+    // Over the segments alone: `barValues` carries a synthetic Total row, so an
+    // unqualified range would span a number no drawn bar has.
+    expect(stats.find(stat => stat.label === 'Min segment value')?.value).toBe('missing');
+    expect(stats.find(stat => stat.label === 'Max segment value')?.value).toBe('missing');
   });
 
   it('leaves a stack with no gaps totalling exactly as before', () => {

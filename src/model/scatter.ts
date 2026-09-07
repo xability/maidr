@@ -1,13 +1,14 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { MovablePlane } from './movable';
 
 /**
@@ -118,6 +119,70 @@ function named(value: number, label: string | undefined): number | string {
 }
 
 /**
+ * How a correlation coefficient reads.
+ *
+ * Bands on |r| after Evans (1996), *Straightforward Statistics for the
+ * Behavioral Sciences*, p. 146 -- a partition rather than Cohen's three anchor
+ * points, which would leave r = 0.55 and r = 0.99 sharing one word.
+ *
+ * Below 0.1 no direction is claimed at all. The sign of a near-zero r is noise
+ * -- moving one point flips it -- so "very weak negative" for r = -0.02 would
+ * tell a reader the cloud tilts down when it does not. Tested on the magnitude
+ * rather than against zero, because an exact zero essentially never survives
+ * float arithmetic and `Math.sign(-0)` is `-0`, which would read a signed zero
+ * as negative. `none` is also the right word for a symmetric cloud whose r is
+ * genuinely 0: the claim the label makes is about *linear* correlation.
+ *
+ * @param r - Pearson's r, in [-1, 1]
+ * @returns The strength, with its direction when one can be claimed
+ */
+function correlationStrength(r: number): string {
+  const magnitude = Math.abs(r);
+  if (magnitude < 0.1) {
+    return 'none';
+  }
+  const direction = r > 0 ? 'positive' : 'negative';
+  if (magnitude < 0.2) {
+    return `very weak ${direction}`;
+  }
+  if (magnitude < 0.4) {
+    return `weak ${direction}`;
+  }
+  if (magnitude < 0.6) {
+    return `moderate ${direction}`;
+  }
+  if (magnitude < 0.8) {
+    return `strong ${direction}`;
+  }
+  return `very strong ${direction}`;
+}
+
+/**
+ * The four regions of a scatter, in quadrant order.
+ *
+ * Numbered anticlockwise from the upper right, as the convention has it, and
+ * each carries the plain words for where it is. A reader who cannot see the
+ * chart has no picture to hang "quadrant 3" on, and a reader who knows the
+ * convention should not have to take "lower left" on trust -- so both are
+ * said, every time.
+ */
+const QUADRANTS = [
+  { number: 1, where: 'upper right', right: true, top: true },
+  { number: 2, where: 'upper left', right: false, top: true },
+  { number: 3, where: 'lower left', right: false, top: false },
+  { number: 4, where: 'lower right', right: true, top: false },
+] as const;
+
+/**
+ * How evenly the shares have to sit before the cloud is called evenly spread.
+ *
+ * In percentage points, between the largest quadrant and the smallest. Naming
+ * a "densest" quadrant that holds 26% against another's 25% would report the
+ * shape of the sample rather than the shape of the data.
+ */
+const EVEN_SPREAD_TOLERANCE = 5;
+
+/**
  * The same, for the index-aligned arrays a column or row announces.
  *
  * Returns the numbers untouched when no element carries a name, so a
@@ -155,6 +220,18 @@ interface FlatPoint {
 }
 
 export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
+  /** How many category names the summary lists before it stops. */
+  private static readonly MAX_NAMED_CATEGORIES = 20;
+
+  /**
+   * The fewest points a quadrant breakdown is offered for.
+   *
+   * Below this the four percentages are a restatement of four small counts --
+   * "25%, 25%, 25%, 25%" over four points tells a reader nothing they did not
+   * already have from `Total points`.
+   */
+  private static readonly MIN_QUADRANT_POINTS = 8;
+
   private mode: NavMode;
   protected readonly movable: MovablePlane;
   protected readonly supportsExtrema = false;
@@ -1094,22 +1171,90 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   public get description(): DescriptionState {
     const totalPoints = this.xPoints.reduce((sum, xp) => sum + xp.y.length, 0);
 
-    const stats: DescriptionState['stats'] = [
-      { label: 'Total points', value: totalPoints },
-      { label: 'Unique X values', value: this.xPoints.length },
-      { label: 'Unique Y values', value: this.yPoints.length },
-      { label: 'X range', value: MathUtil.spanned(this.minX, this.maxX) },
-      { label: 'Y range', value: MathUtil.spanned(this.minY, this.maxY) },
-    ];
+    const stats: DescriptionState['stats'] = [];
 
-    const headers = [this.xAxis, this.yAxis];
+    const correlation = this.correlationStat();
+    if (correlation) {
+      // First, for the reason VolcanoTrace puts its own shape stat first: it
+      // is what a sighted reader takes from the cloud before any one point.
+      stats.push(correlation);
+    }
+
+    // Beside the correlation, and before the counts: the two of them are what
+    // the cloud looks like, and the counts are what it is made of.
+    const quadrants = this.quadrantStats();
+    if (quadrants.length > 0) {
+      stats.push(quadrants[0]);
+    }
+
+    stats.push({ label: 'Total points', value: totalPoints });
+
+    // Named after the axes rather than after `x` and `y`, so the summary and
+    // the table headers three lines down call the same axis the same thing.
+    const xNames = ScatterTrace.categoriesOf(this.xPoints);
+    const yNames = ScatterTrace.categoriesOf(this.yPoints);
+    stats.push(
+      { label: `Unique ${this.xAxis} values`, value: this.xPoints.length },
+      { label: `Unique ${this.yAxis} values`, value: this.yPoints.length },
+      xNames
+        ? { label: `${this.xAxis} categories`, value: ScatterTrace.listed(xNames) }
+        : { label: `${this.xAxis} range`, value: MathUtil.spannedOrMissing(this.minX, this.maxX) },
+      yNames
+        ? { label: `${this.yAxis} categories`, value: ScatterTrace.listed(yNames) }
+        : { label: `${this.yAxis} range`, value: MathUtil.spannedOrMissing(this.minY, this.maxY) },
+    );
+
+    if (this.hasZ) {
+      stats.push({ label: `${this.z} range`, value: MathUtil.spannedOrMissing(this.minZ, this.maxZ) });
+    }
+
+    // How deep the deepest column is. A plain scatter, where every point has
+    // its own x, gains no line; a strip plot or a Manhattan plot -- the shapes
+    // this trace stacks for -- gain the one number that says points overlap at
+    // all, which `Total points` beside `Unique x values` only implies.
+    const tallest = this.xPoints.reduce((most, xp) => Math.max(most, xp.y.length), 0);
+    if (tallest > 1) {
+      stats.push({ label: `Most points at one ${this.xAxis}`, value: tallest });
+    }
+
+    // The breakdown sits down here rather than beside its headline: a reader
+    // who wants the shape has already had it in one line, and four percentages
+    // and a pair of dividing values in front of the counts would bury them.
+    stats.push(...quadrants.slice(1));
+
+    if (this.gridCells) {
+      stats.push({ label: 'Grid', value: `${this.numGridRows} by ${this.numGridCols} cells` });
+    }
+
+    const hasNames = this.xPoints.some(xp => xp.names.some(Boolean));
+    const headers = [
+      this.xAxis,
+      this.yAxis,
+      ...(this.hasZ ? [this.z] : []),
+      ...(hasNames ? ['Name'] : []),
+    ];
     // Named the same way the announcements are, so the table a reader exports
     // or reads cell by cell agrees with what navigation told them. A table
     // still showing slot indices after the cursor said "a" would be the same
     // defect one surface over.
-    const rows: (string | number)[][] = this.xPoints.flatMap(xp =>
-      xp.y.map((y, index) => [named(xp.x, xp.label), named(y, xp.yLabels[index])]),
+    const allRows: (string | number)[][] = this.xPoints.flatMap(xp =>
+      xp.y.map((y, index) => [
+        named(xp.x, xp.label),
+        named(y, xp.yLabels[index]),
+        ...(this.hasZ ? [xp.z[index]] : []),
+        ...(hasNames ? [xp.names[index] ?? ''] : []),
+      ]),
     );
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      // Said rather than silently done: the dialog prints the row count it is
+      // given, and a count that claims the whole layer over a table holding a
+      // thousandth of it is worse than no table.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
+    }
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -1118,6 +1263,170 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * Whether the cloud tilts up, tilts down, or does not tilt -- the fact a
+   * scatter plot is drawn to show, and the one a reader walking it point by
+   * point never arrives at.
+   *
+   * Only claimed for two *measured* axes. A named axis's numbers are slots the
+   * producer chose (0, 1, 2 for a, b, c on a strip plot), so a coefficient over
+   * them would describe that producer's category ordering while sounding like a
+   * statement about the data -- the same error {@link named} exists to keep out
+   * of the announcements. One name anywhere on an axis is enough to disqualify
+   * it: that makes the axis a scale of categories with some slots unlabelled,
+   * not a measurement.
+   *
+   * Silent, rather than saying "not applicable", when there is no claim to make
+   * -- the convention the rest of the description follows for a fact a layer
+   * does not carry.
+   *
+   * @returns The correlation stat, or null when none can honestly be given
+   */
+  private correlationStat(): DescriptionStat | null {
+    const named = this.flatPoints.some(p => p.xLabel !== undefined || p.yLabel !== undefined);
+    if (named) {
+      return null;
+    }
+
+    const xs = this.flatPoints.map(p => p.x);
+    const ys = this.flatPoints.map(p => p.y);
+    const r = MathUtil.pearson(xs, ys);
+    if (r === null) {
+      return null;
+    }
+
+    return {
+      label: 'Correlation',
+      // `n` travels inside the value because it is the count the coefficient
+      // was actually computed over, which on a layer with gaps is not the
+      // `Total points` stated below it. Rounded here rather than left to the
+      // service, which rounds numbers and passes composed strings through.
+      value: `${correlationStrength(r)} (r = ${defaultFormat(r)}, n = ${MathUtil.pairedCount(xs, ys)})`,
+    };
+  }
+
+  /**
+   * Where the cloud actually sits: the share of the points in each quarter of
+   * the plotted area, and which quarter holds most of them.
+   *
+   * The second thing a sighted reader takes from a scatter, after the tilt.
+   * Correlation says which way the cloud leans; this says where it is, which
+   * is a different fact and one r cannot carry -- an r of 0.9 is the same
+   * number whether the cloud sits low and left or high and right.
+   *
+   * WHERE THE LINES ARE DRAWN. Through the origin when both axes actually
+   * cross it, which is what a sighted reader sees and what "quadrant" means
+   * everywhere else. Through the middle of each axis's extent otherwise: most
+   * scatters -- horsepower against mileage, height against weight -- hold no
+   * negative value at all, so origin quadrants would put every point in the
+   * first and say nothing. The dividing values are reported either way, as
+   * their own line, so a reader never has to guess which rule applied.
+   *
+   * A point sitting exactly on a dividing line is counted up and to the right,
+   * so every point lands in exactly one quadrant and the four shares are a
+   * partition of the whole. With the midpoint rule the highest point sits on
+   * neither line and the lowest sits on both, which is why the rule has to be
+   * stated rather than left to whichever comparison was written first.
+   *
+   * Claimed only for two measured axes, for the same reason
+   * {@link correlationStat} is: on a named axis the horizontal split falls
+   * between two categories the producer happened to order that way, and
+   * "62% on the left" would be a fact about that ordering. An axis that never
+   * moves is excluded too -- a split through a constant puts every point on
+   * one side of it.
+   *
+   * @returns The headline, the breakdown and the dividing values, or nothing
+   *   when no honest claim can be made.
+   */
+  private quadrantStats(): DescriptionStat[] {
+    const usable = this.flatPoints.filter(
+      point =>
+        point.xLabel === undefined
+        && point.yLabel === undefined
+        && Number.isFinite(point.x)
+        && Number.isFinite(point.y),
+    );
+    // Four shares of three points are three statements about one point each,
+    // dressed up as percentages.
+    if (usable.length < ScatterTrace.MIN_QUADRANT_POINTS
+      || usable.length !== this.flatPoints.length) {
+      return [];
+    }
+    if (this.minX === this.maxX || this.minY === this.maxY) {
+      return [];
+    }
+
+    const splitX = ScatterTrace.splitOf(this.minX, this.maxX);
+    const splitY = ScatterTrace.splitOf(this.minY, this.maxY);
+
+    const counts = QUADRANTS.map(quadrant => usable.filter(
+      point =>
+        (point.x >= splitX) === quadrant.right && (point.y >= splitY) === quadrant.top,
+    ).length);
+    const shares = MathUtil.sharePercentages(counts);
+
+    const highest = Math.max(...shares);
+    const lowest = Math.min(...shares);
+    const densest = QUADRANTS.filter((_, index) => shares[index] === highest);
+
+    return [
+      {
+        label: 'Most points',
+        value: highest - lowest <= EVEN_SPREAD_TOLERANCE
+          ? 'spread evenly across the four quadrants'
+          : `${highest}% in the ${densest.map(q => `${q.where} (quadrant ${q.number})`).join(' and the ')}`,
+      },
+      {
+        label: 'Points by quadrant',
+        value: QUADRANTS
+          .map((quadrant, index) =>
+            `${quadrant.number} ${quadrant.where} ${shares[index]}%`)
+          .join(', '),
+      },
+      {
+        label: 'Quadrants split at',
+        value: `${this.xAxis} ${defaultFormat(splitX)}, ${this.yAxis} ${defaultFormat(splitY)}`,
+      },
+    ];
+  }
+
+  /**
+   * Where an axis is cut in two for the quadrant count.
+   *
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @returns Zero when the axis crosses it, the midpoint of the extent otherwise
+   */
+  private static splitOf(min: number, max: number): number {
+    return min < 0 && max > 0 ? 0 : (min + max) / 2;
+  }
+
+  /**
+   * The category names of an axis, when every slot on it carries one.
+   *
+   * @param groups - That axis's columns or rows, in axis order
+   * @returns The names in axis order, or null on a continuous axis
+   */
+  private static categoriesOf(groups: readonly { label?: string }[]): string[] | null {
+    const names = groups
+      .map(group => group.label)
+      .filter((name): name is string => name !== undefined);
+    return names.length > 0 && names.length === groups.length ? names : null;
+  }
+
+  /**
+   * A category list, cut short before it becomes a recital.
+   *
+   * @param names - The categories, in axis order
+   * @returns The list as it reads
+   */
+  private static listed(names: string[]): string {
+    const cap = ScatterTrace.MAX_NAMED_CATEGORIES;
+    return names.length <= cap
+      ? names.join(', ')
+      : `${names.slice(0, cap).join(', ')}, and ${names.length - cap} more`;
   }
 
   protected get dimension(): Dimension {

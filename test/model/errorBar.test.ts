@@ -214,6 +214,17 @@ describe('horizontal orientation', () => {
     expect(text.crossAxis).toBe('x');
   });
 
+  test('heads the table with the axes the announcement names', () => {
+    // The announcement above reads the category as `Response` and the
+    // magnitude as `Group` on this layer. Heading the same two columns the
+    // other way round makes the dialog contradict the reading it exists for
+    // a listener to check.
+    const { dataTable } = horizontal(1, 0).description;
+
+    expect(dataTable.headers).toEqual(['Response', 'Group', 'Lower', 'Upper']);
+    expect(dataTable.rows[0]).toEqual(['control', 4.2, 3.8, 4.6]);
+  });
+
   test('pans by where the point sits on screen', () => {
     // The grid stays sections-by-samples whichever way the chart is drawn, so
     // panning is where the swap has to happen: on a horizontal chart the
@@ -406,10 +417,88 @@ describe('description', () => {
     expect(labels).not.toContain('Widest interval');
   });
 
+  test('discards a width measured from a bound that is null', () => {
+    // JSON carries `null` wherever TypeScript says optional, and `Number(null)`
+    // is 0 -- so this used to report a width of 4.6, measured from a bound at
+    // zero on the very sample whose lower row the trace refused to create.
+    const halfBound: ErrorBarPoint[] = [
+      { x: 'a', y: 4.2, yMin: null as unknown as number, yMax: 4.6 },
+      { x: 'b', y: 5, yMin: 4.5, yMax: 5.7 },
+    ];
+    const stats = (TraceFactory.create(createLayer(halfBound)) as ErrorBarTrace)
+      .description
+      .stats;
+
+    expect(stats).toContainEqual({ label: 'Narrowest interval', value: 1.2 });
+    expect(stats).toContainEqual({ label: 'Widest interval', value: 1.2 });
+  });
+
+  test('says the estimates have no extent rather than an infinite one', () => {
+    // `minMax` answers Infinity and -Infinity for an empty set by design, and
+    // the dialog speaks those as words: "Min value is infinity" about a chart
+    // that drew nothing at all.
+    const stats = (TraceFactory.create(createLayer([])) as ErrorBarTrace)
+      .description
+      .stats;
+
+    expect(stats).toContainEqual({ label: 'Min value', value: 'missing' });
+    expect(stats).toContainEqual({ label: 'Max value', value: 'missing' });
+  });
+
+  test('reports the estimates own range beside the drawn extent', () => {
+    // `Max value` is 7.4, an upper bound. A reader who has been navigating a
+    // trace that calls the estimate "value" hears that as the largest
+    // estimate, which is 7.3 -- and the estimates are what the extrema rank
+    // over, so this is the range a jump to the maximum lands inside.
+    const stats = at(MEANS, 1, 0).description.stats;
+
+    expect(stats).toContainEqual({ label: 'Max value', value: 7.4 });
+    expect(stats).toContainEqual({ label: 'Estimate range', value: '4.2 to 7.3' });
+  });
+
+  test('leaves the estimate range out of a band, which has no estimate', () => {
+    const labels = at(BAND, 0, 0).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Estimate range');
+  });
+
+  test('leaves it out of a chart that draws no bound to widen it', () => {
+    // `Min value` and `Max value` already span exactly the estimates there,
+    // so a third line reports the same two numbers under a third name.
+    const bare: ErrorBarPoint[] = [{ x: 'a', y: 1 }, { x: 'b', y: 2 }];
+    const stats = (TraceFactory.create(createLayer(bare)) as ErrorBarTrace)
+      .description
+      .stats;
+
+    expect(stats).toContainEqual({ label: 'Min value', value: 1 });
+    expect(stats).toContainEqual({ label: 'Max value', value: 2 });
+    expect(stats.map(stat => stat.label)).not.toContain('Estimate range');
+  });
+
   test('tabulates each point with its bounds', () => {
     const { dataTable } = at(MEANS, 1, 0).description;
 
     expect(dataTable.headers).toEqual(['Group', 'Response', 'Lower', 'Upper']);
     expect(dataTable.rows[0]).toEqual(['control', 4.2, 3.8, 4.6]);
+  });
+
+  test('gives a band no estimate column to leave empty', () => {
+    // The trace already refuses a band a `value` row, a pitch and a section to
+    // navigate into. A column of empty cells headed with the y axis label
+    // reads as data the export lost rather than a centre line the chart never
+    // drew.
+    const { dataTable } = at(BAND, 0, 0).description;
+
+    expect(dataTable.headers).toEqual(['Group', 'Lower', 'Upper']);
+    expect(dataTable.rows[0]).toEqual(['jan', 5, 15]);
+  });
+
+  test('gives a bare estimate no bound columns to leave empty', () => {
+    const bare: ErrorBarPoint[] = [{ x: 'a', y: 1 }, { x: 'b', y: 2 }];
+    const { dataTable } = (TraceFactory.create(createLayer(bare)) as ErrorBarTrace)
+      .description;
+
+    expect(dataTable.headers).toEqual(['Group', 'Response']);
+    expect(dataTable.rows[0]).toEqual(['a', 1]);
   });
 });

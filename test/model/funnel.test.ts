@@ -158,13 +158,14 @@ describe('the announcement keeps the count', () => {
     expect(text.cross?.value).toBe(10000);
   });
 
-  test('the description names the entry stage, since the announcement does not', () => {
-    // Silence is the signal when walking the funnel, but a reader who
-    // arrived by rotor has nothing to have contrasted it against.
+  test('the description names the entry stage and the population it counted', () => {
+    // Silence is the signal when walking the funnel, but a reader who arrived
+    // by rotor has nothing to have contrasted it against -- and 'Overall
+    // conversion' below is a fraction of exactly this count.
     const stats = funnel().description.stats;
 
     expect(stats.find(stat => stat.label === 'Entry stage')?.value)
-      .toBe('Visited');
+      .toBe('Visited (10000)');
   });
 
   test('the share is cumulative, which the retention alone does not give', () => {
@@ -212,8 +213,10 @@ describe('the description locates the drop', () => {
     expect(read('Steepest drop')).toBe('Purchased, 4.3% retained');
   });
 
-  test('reports the overall conversion', () => {
-    expect(read('Overall conversion')).toBe('1.0%');
+  test('reports the overall conversion, and what it converted into', () => {
+    // The stat named one endpoint and left the other to be found by walking
+    // to the end of the funnel.
+    expect(read('Overall conversion')).toBe('1.0% (Visited to Purchased)');
   });
 
   test('says nothing about a drop on a single-stage funnel', () => {
@@ -242,7 +245,7 @@ describe('a funnel drawn top to bottom', () => {
     const read = (label: string): unknown =>
       stats.find(stat => stat.label === label)?.value;
 
-    expect(read('Entry stage')).toBe('Visited');
+    expect(read('Entry stage')).toBe('Visited (10000)');
   });
 
   test('names the stage that loses the most people', () => {
@@ -250,5 +253,57 @@ describe('a funnel drawn top to bottom', () => {
     const worst = stats.find(stat => stat.label === 'Steepest drop')?.value;
 
     expect(worst).toBe('Purchased, 4.3% retained');
+  });
+});
+
+describe('the description table', () => {
+  test('carries the two ratios the counts alone would make a reader divide out', () => {
+    // The table is the one surface where stages can be compared side by side
+    // rather than heard one at a time, and it was the one surface giving a
+    // reader only the counts -- forcing exactly the division this trace
+    // exists to spare them.
+    const { dataTable } = funnel().description;
+
+    expect(dataTable.headers).toEqual(['Stage', 'People', 'Retained', 'Share of entry']);
+    expect(dataTable.rows).toEqual([
+      ['Visited', 10000, 'entry stage', '100.0%'],
+      ['Signed up', 2400, '24.0%', '24.0%'],
+      ['Viewed', 2300, '95.8%', '23.0%'],
+      ['Purchased', 100, '4.3%', '1.0%'],
+    ]);
+  });
+
+  test('says the first stage is the entry rather than reading it as 100% retained', () => {
+    // Nothing converted into it, which is the same silence the announcement
+    // keeps there.
+    const [first] = funnel().description.dataTable.rows;
+
+    expect(first[2]).toBe('entry stage');
+  });
+
+  test('rounds the entry population the way the announcement speaks it', () => {
+    // The count is interpolated into a string, and `DescriptionService` takes
+    // a string for display text and leaves it alone -- so a derived count
+    // reached the dialog at seventeen digits beside the announcement's two.
+    const stats = funnel(0, [
+      { x: 'a', y: 10000 / 3 },
+      { x: 'b', y: 100 },
+    ]).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Entry stage')?.value)
+      .toBe('a (3333.33)');
+  });
+
+  test('counts a stage with no value in the funnel\'s own vocabulary', () => {
+    // The parent names a gap by the mark it usually draws, so one summary
+    // read "Number of stages: 2" and then "Bars with no value: 1".
+    const stats = funnel(0, [
+      { x: 'a', y: 10 },
+      { x: 'b', y: null as unknown as number },
+    ]).description.stats;
+    const labels = stats.map(stat => stat.label);
+
+    expect(labels).toContain('Stages with no value');
+    expect(labels).not.toContain('Bars with no value');
   });
 });

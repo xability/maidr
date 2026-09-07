@@ -2,9 +2,10 @@ import type { GaugeBand, GaugePoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -16,8 +17,18 @@ import { MovableGrid } from './movable';
  * none rather than to the last one, because saying "in the 'good' band" about
  * a value beyond every declared band would invent a classification.
  *
+ * A band whose edge is not a number is dropped before the sort rather than
+ * merely losing its own comparison. `Number('n/a') - 50` is `NaN`, which the
+ * sort is required to read as "equal", so one unplaceable band leaves the
+ * bands on either side of it where they were authored — and `find` then
+ * answers with the first band that happens to sit above the value rather than
+ * the lowest one that does. A gauge banded `good, n/a, poor` classified 40 as
+ * 'good'. Dropping it also keeps this in step with {@link describeBands},
+ * which lists the placeable bands and would otherwise name edges that
+ * contradict the band selected here.
+ *
  * @param value - The measure
- * @param bands - The chart's bands, ascending
+ * @param bands - The chart's bands, in whatever order they were authored
  * @returns The band's label, or null when the value falls outside all of them
  */
 function bandOf(value: number, bands: GaugeBand[] | undefined): string | null {
@@ -26,10 +37,55 @@ function bandOf(value: number, bands: GaugeBand[] | undefined): string | null {
   }
 
   const found = [...bands]
+    .filter(band => Number.isFinite(Number(band.to)))
     .sort((a, b) => Number(a.to) - Number(b.to))
     .find(band => value <= Number(band.to));
 
   return found ? found.label : null;
+}
+
+/**
+ * What the measure is called when the layer named neither it nor the chart.
+ *
+ * `this.title` is not a name in that case: it holds the model's `unavailable`
+ * placeholder, which the description dialog erases -- so the one row of the
+ * one table a gauge has came out with no header at all, and the announcement
+ * read "Progress is unavailable" about a chart that had simply never named
+ * its measure.
+ */
+const MEASURE_FALLBACK = 'Measure';
+
+/** How the value column reads where the layer labelled no y axis. */
+const VALUE_FALLBACK = 'Value';
+
+/** Where the needle sits when it has passed every band the chart declares. */
+const ABOVE_ALL_BANDS = 'above every band';
+
+/**
+ * The bands the chart draws, ascending, each with the edge it reaches.
+ *
+ * A band's name on its own is unanchored: told the needle is in 'ok', a
+ * reader cannot tell whether it sits comfortably inside that band or a point
+ * short of the next one. The edges are the qualitative scale a sighted reader
+ * takes from the coloured arcs, and they are written nowhere else.
+ *
+ * Read as upper edges rather than as spans because that is what a band is:
+ * one starts where the previous ended, and the first at the dial's floor.
+ * A band whose edge is not a number cannot be placed on the dial, and
+ * {@link bandOf} drops it for the same reason, so it is left out here rather
+ * than listed with a gap where its edge should be. The two filters have to
+ * agree: a band listed here that the classification cannot reach would leave
+ * the summary naming a scale the needle is never read against.
+ *
+ * @param bands - The chart's bands, in whatever order they were authored
+ * @returns The bands as display text, or the empty string when none can be placed
+ */
+function describeBands(bands: GaugeBand[]): string {
+  return [...bands]
+    .filter(band => Number.isFinite(Number(band.to)))
+    .sort((a, b) => Number(a.to) - Number(b.to))
+    .map(band => `${band.label} up to ${defaultFormat(Number(band.to))}`)
+    .join(', ');
 }
 
 /**
@@ -150,13 +206,39 @@ export class GaugeTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * What the measure is called, wherever it has to be named.
+   *
+   * The producer's own name for it, then the chart's title, then the fixed
+   * word -- and never `this.title`'s placeholder, which is what the layer
+   * that authored neither leaves behind. Read by both the announcement and
+   * the description's one table row, so the two cannot come to call the same
+   * number different things.
+   *
+   * @returns The measure's name, never blank
+   */
+  private get measureName(): string {
+    // Blankness is tested rather than nullishness, the rule `named()` states
+    // for an axis label: a producer with no name to give writes one of two
+    // spellings of none, and `??` catches only `undefined`. A blank one is
+    // erased by the dialog exactly as the placeholder is, so it lands the row
+    // and the announcement back in the state this getter exists to prevent.
+    if (this.point.label?.trim()) {
+      return this.point.label;
+    }
+    if (this.title.trim() && this.title !== DEFAULT_SUBPLOT_TITLE) {
+      return this.title;
+    }
+    return MEASURE_FALLBACK;
+  }
+
   protected get text(): TextState {
     const band = bandOf(this.value, this.point.bands);
 
     const state: TextState = {
       main: {
         label: this.xAxis,
-        value: this.point.label ?? this.title,
+        value: this.measureName,
       },
       cross: { label: this.yAxis, value: this.value },
       // What the value is out of. A gauge's reading is a position on a dial,
@@ -168,7 +250,12 @@ export class GaugeTrace extends AbstractTrace {
       // way a histogram announces a bin's span instead of a single x. Setting
       // it here would drop the measure's name from every announcement and
       // render the dial's ends through the category axis's formatter.
-      z: { label: 'Range', value: MathUtil.spanned(this.min, this.max) },
+      //
+      // `spannedOrMissing` and not `spanned`: a dial with no declared ends
+      // makes both `Number(undefined)`, and `spanned` renders that pair as the
+      // *string* "NaN to NaN" -- a value like any other to everything
+      // downstream, so it is announced and printed verbatim.
+      z: { label: 'Range', value: MathUtil.spannedOrMissing(this.min, this.max) },
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -190,33 +277,65 @@ export class GaugeTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const stats: DescriptionState['stats'] = [
       { label: 'Value', value: this.value },
-      { label: 'Range', value: MathUtil.spanned(this.min, this.max) },
+      { label: 'Range', value: MathUtil.spannedOrMissing(this.min, this.max) },
     ];
+
+    // Where the needle sits, which is what a sighted reader takes from the
+    // dial and what the pitch already encodes. On a 0-to-100 dial the value
+    // doubles as its own proportion and the omission is invisible; on a
+    // revenue gauge running 200 to 800, the proportion is the reading and the
+    // reader was left to work it out from two numbers.
+    const span = this.max - this.min;
+    if (Number.isFinite(span) && span !== 0 && Number.isFinite(this.value)) {
+      stats.push({
+        label: 'Position in range',
+        value: `${(((this.value - this.min) / span) * 100).toFixed(1)}%`,
+      });
+    }
 
     if (this.point.target !== undefined) {
       const target = Number(this.point.target);
-      const delta = this.value - target;
-      stats.push(
-        { label: 'Target', value: target },
-        {
-          // Named by direction rather than reported as a signed number: "7
-          // below target" is what a reader is asking, and a bare "-7" leaves
-          // them working out which way it points.
-          label: delta >= 0 ? 'Above target by' : 'Below target by',
-          value: Math.abs(delta),
-        },
-      );
+      stats.push({ label: 'Target', value: target });
+      stats.push(...this.versusTarget(target));
     }
 
-    const band = bandOf(this.value, this.point.bands);
-    if (band !== null) {
-      stats.push({ label: 'Band', value: band });
+    // Gated on the bands that can be placed rather than on the array's
+    // length: a chart whose every edge is unreadable draws no scale a reader
+    // can be told about, and `bandOf` cannot select from it either.
+    const edges = describeBands(this.point.bands ?? []);
+    if (edges !== '') {
+      const band = bandOf(this.value, this.point.bands);
+      if (band !== null) {
+        stats.push({ label: 'Band', value: band });
+      } else if (Number.isFinite(this.value)) {
+        // Stated even when the needle has passed every band: a chart that
+        // draws bands and a summary that says nothing about them read alike,
+        // and the second is the case where the reader most needs to be told.
+        //
+        // Only when there is a needle to have passed them. `bandOf` answers
+        // null for a dial with no value too -- every comparison against a
+        // `NaN` is false -- and reading that as "above every band" states a
+        // position for a measure the chart never reported, on the one line a
+        // reader would trust over the blank the `Value` stat becomes.
+        stats.push({ label: 'Band', value: ABOVE_ALL_BANDS });
+      }
+      // Named apart from `Band` rather than pluralised: the two sit adjacent
+      // in the list, and a trailing sibilant is the whole of the difference a
+      // screen reader would speak between the band the needle is in and every
+      // band the chart draws.
+      stats.push({ label: 'All bands', value: edges });
     }
 
-    const headers = ['Measure', 'Value'];
-    const rows: (string | number)[][] = [
-      [this.point.label ?? this.title, this.value],
+    // Headed from the axes the announcement already names these two fields
+    // by, so the dialog's Axes block, the spoken sentence and the table do not
+    // give the same number three names. The domain words stand in only where
+    // the layer labelled nothing, `named()`'s generic 'X' and 'Y' being worse
+    // than either in a column header.
+    const headers = [
+      this.layer.axes?.x?.label?.trim() ? this.xAxis : MEASURE_FALLBACK,
+      this.layer.axes?.y?.label?.trim() ? this.yAxis : VALUE_FALLBACK,
     ];
+    const rows: (string | number)[][] = [[this.measureName, this.value]];
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -225,6 +344,40 @@ export class GaugeTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * How the measure reads against the target beside it, when it reads at all.
+   *
+   * Named by direction rather than reported as a signed number: "7 below
+   * target" is what a reader is asking, and a bare "-7" leaves them working
+   * out which way it points. Landing on the target is a reading of its own on
+   * a KPI dial rather than a degenerate case of overshooting it -- "Above
+   * target by 0" claims a direction the value does not have, and leaves the
+   * reader to infer "so it is exactly on target", which is the inference the
+   * direction labels exist to spare them.
+   *
+   * A comparison that could not be made has no direction at all, and says
+   * nothing. `NaN >= 0` is false, so a dial with no value -- or a target that
+   * is not a number -- used to come out under 'Below target by' with a
+   * difference the dialog then blanked, leaving the claim standing in the
+   * label, where no blanking can reach it.
+   *
+   * @param target - The target marker, as a number
+   * @returns The one stat, or nothing when there is no comparison to report
+   */
+  private versusTarget(target: number): DescriptionState['stats'] {
+    const delta = this.value - target;
+    if (!Number.isFinite(delta)) {
+      return [];
+    }
+    if (delta === 0) {
+      return [{ label: 'Versus target', value: 'on target' }];
+    }
+    return [{
+      label: delta > 0 ? 'Above target by' : 'Below target by',
+      value: Math.abs(delta),
+    }];
   }
 
   /**

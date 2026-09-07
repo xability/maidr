@@ -1,5 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { SegmentedTrace } from './segmented';
@@ -212,28 +214,254 @@ export class DivergingTrace extends SegmentedTrace {
    * @returns Its name
    */
   private sideNameAt(row: number): string {
-    const authored = this.points[row]?.[0]?.z;
-    if (authored !== undefined && authored !== null && String(authored) !== '') {
-      return String(authored);
+    // The whole row, not its first point alone. A producer that names only the
+    // bands it drew a legend entry for leaves point 0 unnamed, and reading it
+    // by itself then called the side `left` where the parent's own series list
+    // -- which scans the row -- called it `Men`, two names for one side in one
+    // dialog.
+    const authored = this.points[row]?.find(point => point.z?.trim())?.z?.trim();
+    if (authored !== undefined) {
+      return authored;
+    }
+    // The direction is a name only where it picks out one side and one side
+    // only. With three of them two grow the same way, so `right` stops
+    // identifying a series and starts standing for two -- twice in the totals,
+    // and twice down the table's own series column, where the parent's
+    // numbering had given each of them a name of its own.
+    if (!this.isTwoSided) {
+      return `Series ${row + 1}`;
     }
     const measured = this.barValues[row]?.find(isMeasured) ?? 0;
     return measured < 0 ? 'left' : 'right';
   }
 
+  /**
+   * What a category is called, as the chart's own axis holds it.
+   *
+   * @param col - Which category
+   * @returns Its label
+   */
+  private bandNameAt(col: number): string {
+    const point = this.points[0]?.[col];
+    if (point === undefined) {
+      return `${col + 1}`;
+    }
+    return String(this.orientation === Orientation.VERTICAL ? point.x : point.y);
+  }
+
+  /**
+   * Every drawn bar's length, with the direction taken out.
+   *
+   * The balance row is left out: it is a difference between the sides rather
+   * than a bar anybody drew, which is why the parent takes its own range over
+   * the segments alone.
+   *
+   * @returns The magnitudes, one row per side
+   */
+  private magnitudes(): number[][] {
+    return this.barValues
+      .slice(0, -1)
+      .map(row => row.map(value => (isMeasured(value) ? Math.abs(value) : value)));
+  }
+
   public override get description(): DescriptionState {
     const base = super.description;
-    const stats = [...base.stats];
+
+    // The parent's range is signed, and here the sign is which way a bar points
+    // -- so `Min segment value: -1,200` reads as a negative population, and it
+    // is the first number a reader meets, above the unsigned totals that
+    // contradict it and against everything the pitch, the text and the braille
+    // say. Replaced where the parent put it, so the range still sits where a
+    // reader of any other bar chart looks for it.
+    //
+    // `Largest bar total` and `Smallest bar total` go entirely. They are taken
+    // over the summary row, which on this chart is `(-left) + right`, so on a
+    // pyramid whose bands hold thousands they report a largest bar total of a
+    // hundred. `Widest gap` below is what those two numbers actually measure.
+    const sizes = this.rangeStats('bar size', this.magnitudes());
+    const stats = base.stats.flatMap((stat) => {
+      if (stat.label === 'Min segment value') {
+        return [sizes[0]];
+      }
+      if (stat.label === 'Max segment value') {
+        return [sizes[1]];
+      }
+      if (stat.label === 'Largest bar total' || stat.label === 'Smallest bar total') {
+        return [];
+      }
+      if (stat.label === this.seriesNamesLabel) {
+        // Through this chart's own naming, which is what every other surface
+        // uses: the totals below, the table's series column, and `get text` on
+        // every move. An unnamed pyramid listed `Series 1, Series 2` here and
+        // then reported `left total` and `right total` under it -- two naming
+        // schemes for the same two sides, three lines apart, with nothing to
+        // say they were the same sides.
+        return [{
+          label: stat.label,
+          value: this.points
+            .slice(0, -1)
+            .map((_, row) => this.sideNameAt(row))
+            .join(', '),
+        }];
+      }
+      return [stat];
+    });
 
     // One total per side, which is the number a pyramid is captioned with and
     // the one a reader cannot accumulate by ear across twenty age bands.
+    const totals: { row: number; total: number }[] = [];
     for (let row = 0; row < this.barValues.length - 1; row++) {
       const total = this.barValues[row]
         .filter(isMeasured)
         .reduce((sum, value) => sum + Math.abs(value), 0);
+      totals.push({ row, total });
       stats.push({ label: `${this.sideNameAt(row)} total`, value: total });
     }
 
-    return { ...base, stats };
+    if (this.isTwoSided && totals.length === 2) {
+      // The comparison the chart is drawn for. Its two operands are on the
+      // lines above, but the subtraction across them is the one a listener
+      // cannot do by ear -- and the per-band balance navigation announces
+      // never accumulates into it.
+      const [first, second] = totals;
+      const leader = first.total >= second.total ? first : second;
+      const gap = Math.abs(first.total - second.total);
+      stats.push({
+        label: 'Overall balance',
+        value: gap === 0
+          ? 'level'
+          : `${this.sideNameAt(leader.row)} ahead by ${defaultFormat(gap)}`,
+      });
+    }
+
+    const widest = this.widestGap();
+    if (widest !== null) {
+      // Where the imbalance is, which the overall balance cannot say: a
+      // pyramid whose sides match everywhere except one cohort and one that
+      // leans the same way throughout have the same overall balance.
+      stats.push({
+        label: 'Widest gap',
+        value: `${this.sideNameAt(widest.ahead)} ahead by ${defaultFormat(Math.abs(widest.balance))}`
+          + ` at ${this.bandNameAt(widest.col)}`,
+      });
+    }
+
+    return { ...base, stats, dataTable: { ...base.dataTable, rows: this.balancedRows(base) } };
+  }
+
+  /**
+   * The label the parent files its series names under.
+   *
+   * Derived the same way {@link SegmentedTrace.description} derives it, since
+   * the stat has to be found before it can be rewritten. A parent that renamed
+   * it would leave the parent's own list standing rather than break anything,
+   * which is the failure to prefer here.
+   *
+   * @returns The label to match on
+   */
+  private get seriesNamesLabel(): string {
+    const zLabel = this.layer.axes?.z?.label?.trim();
+    return zLabel ? `${zLabel} categories` : 'Series names';
+  }
+
+  /**
+   * What the summary row's series cell says on a two-sided chart.
+   *
+   * The magnitude column has had the sign taken out of it, and on this row the
+   * sign was the only thing carrying which side the lead belongs to -- so a
+   * band where men lead by a hundred and one where women do printed as the
+   * same two cells. `get text` names the side in words on exactly this row, so
+   * the table says the same words, behind the row's own name so it is still
+   * findable as the summary.
+   *
+   * @param col - Which category
+   * @returns The cell text
+   */
+  private balanceNameAt(col: number): string {
+    const balance = this.barValues.at(-1)?.[col] ?? Number.NaN;
+    if (!isMeasured(balance)) {
+      // Every segment of the band is a gap. The value cell beside this one
+      // already says `missing`, and "level" would claim a comparison that was
+      // never made.
+      return BALANCE;
+    }
+    if (balance === 0) {
+      return `${BALANCE}, level`;
+    }
+    const ahead = this.sideGrowing(balance > 0);
+    return ahead === null ? BALANCE : `${BALANCE}, ${this.sideNameAt(ahead)} ahead`;
+  }
+
+  /**
+   * The category where one side leads the other by the most.
+   *
+   * Only for the two-sided chart, for the reason {@link isTwoSided} exists: on
+   * any other shape the summary row is a sum, and the larger of two sums is
+   * not a lead. A chart level in every band answers null -- `Overall balance`
+   * already says level, and "ahead by 0" would not.
+   *
+   * @returns The winning side, its margin and the category, or null
+   */
+  private widestGap(): { ahead: number; balance: number; col: number } | null {
+    if (!this.isTwoSided) {
+      return null;
+    }
+
+    let widest: { balance: number; col: number } | null = null;
+    for (const [col, balance] of (this.barValues.at(-1) ?? []).entries()) {
+      if (isMeasured(balance)
+        && (widest === null || Math.abs(balance) > Math.abs(widest.balance))) {
+        widest = { balance, col };
+      }
+    }
+    if (widest === null || widest.balance === 0) {
+      return null;
+    }
+
+    const ahead = this.sideGrowing(widest.balance > 0);
+    return ahead === null ? null : { ahead, balance: widest.balance, col: widest.col };
+  }
+
+  /**
+   * The parent's table, read the way this chart's announcements read it.
+   *
+   * Two disagreements to settle. The magnitude column arrives signed, so a
+   * reader checking `Men total: 2,800` against the table met -1200, -900, -700
+   * and had to reconstruct the convention themselves -- while every
+   * announcement, the pitch and the braille had already taken the sign out.
+   * And the summary row a reader reaches with PageUp announces itself as the
+   * balance and was then filed under the parent's `Sum`.
+   *
+   * Both follow `get text`: the balance keeps its sign and its name on a chart
+   * that is not two-sided, because there the summary really is a sum and a
+   * minus sign there really is a smaller number.
+   *
+   * @param base - The description the parent built
+   * @returns The rows, unsigned and renamed
+   */
+  private balancedRows(base: DescriptionState): DescriptionState['dataTable']['rows'] {
+    // Which cell each flattened row came from, built by flattening `points`
+    // the way the parent flattens it, so the two cannot fall out of step.
+    const cellOf = this.points.flatMap((group, row) =>
+      group.map((_, col) => ({ row, col })));
+    // Hoisted: it scans both sides to answer, and it is asked of every row of
+    // the table twice over.
+    const twoSided = this.isTwoSided;
+
+    return base.dataTable.rows.map((row, index) => {
+      const cell = cellOf[index];
+      const balance = this.isBalanceRow(cell.row);
+      const value = row[1];
+      return [
+        row[0],
+        typeof value === 'number' && (!balance || twoSided)
+          ? Math.abs(value)
+          : value,
+        balance
+          ? (twoSided ? this.balanceNameAt(cell.col) : row[2])
+          : this.sideNameAt(cell.row),
+      ];
+    });
   }
 
   public override get state(): TraceState {

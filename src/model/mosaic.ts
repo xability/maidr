@@ -1,6 +1,13 @@
 import type { MaidrLayer, MosaicPoint } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
+import { Orientation } from '@type/grammar';
 import { SegmentedTrace } from './segmented';
+
+/**
+ * How many column shares the summary reads out before it stops and points at
+ * the data table instead.
+ */
+const MAX_LISTED_SHARES = 6;
 
 /**
  * Formats a fraction as a percentage, to one decimal place.
@@ -84,14 +91,20 @@ export class MosaicTrace extends SegmentedTrace {
    * @returns The column's total, or null when no cell of it declares a count
    */
   private countAt(col: number): number | null {
-    let total: number | null = null;
+    let total = 0;
     for (let row = 0; row < this.cells.length - 1; row++) {
       const count = this.cells[row]?.[col]?.count;
-      if (typeof count === 'number' && Number.isFinite(count)) {
-        total = (total ?? 0) + count;
+      // Every cell, not merely one: the guard used to be per column, so a
+      // column where two of three cells declared a count added those two and
+      // reported the pair as the column total. That number then reached the
+      // grand total and was announced as "Total observations" -- a figure no
+      // part of the chart contains, and indistinguishable from a real one.
+      if (typeof count !== 'number' || !Number.isFinite(count)) {
+        return null;
       }
+      total += count;
     }
-    return total;
+    return this.cells.length > 1 ? total : null;
   }
 
   protected override get text(): TextState {
@@ -141,11 +154,17 @@ export class MosaicTrace extends SegmentedTrace {
       // The marginal distribution, which is the axis a mosaic adds and the
       // one a reader cannot accumulate by walking the segments: every column
       // announces its own share, and nothing says how they compare.
+      //
+      // Cut short past a handful of columns. The per-column shares are in the
+      // data table below, which is a place a reader can walk; a mosaic of
+      // twenty states put all twenty into one unbroken sentence.
       stats.push({
         label: 'Share of all observations',
-        value: named
-          .map(({ col, width }) => `${this.categoryNameAt(col)} ${asPercent(width)}`)
-          .join(', '),
+        value: named.length <= MAX_LISTED_SHARES
+          ? named
+              .map(({ col, width }) => `${this.categoryNameAt(col)} ${asPercent(width)}`)
+              .join(', ')
+          : `${named.length} groups; see the data table`,
       });
 
       const widest = named.reduce((a, b) => (a.width > b.width ? a : b));
@@ -171,7 +190,33 @@ export class MosaicTrace extends SegmentedTrace {
       stats.push({ label: 'Total observations', value: total });
     }
 
-    return { ...base, stats };
+    // The two fields a mosaic exists for reached the announcement as asides
+    // and the description not at all: the inherited table is a segmented bar's
+    // three columns, so the width that makes it a mosaic, and the count behind
+    // each conditional proportion, were nowhere a reader could read them.
+    const columns = this.widths.length;
+    const hasCounts = this.cells
+      .slice(0, -1)
+      .some(row => row.some(cell => Number.isFinite(cell?.count)));
+    const headers = [
+      ...base.dataTable.headers,
+      'Share of all',
+      ...(hasCounts ? ['Count'] : []),
+    ];
+    const rows = base.dataTable.rows.map((row, index) => {
+      const col = columns === 0 ? -1 : index % columns;
+      const width = this.widths[col];
+      const cell = this.cells[Math.floor(index / Math.max(1, columns))]?.[col];
+      return [
+        ...row,
+        Number.isFinite(width) ? asPercent(width) : '',
+        ...(hasCounts
+          ? [Number.isFinite(cell?.count) ? (cell?.count as number) : '']
+          : []),
+      ];
+    });
+
+    return { ...base, stats, dataTable: { headers, rows } };
   }
 
   /**
@@ -185,21 +230,11 @@ export class MosaicTrace extends SegmentedTrace {
     if (point === undefined) {
       return `Category ${col + 1}`;
     }
-    const name = this.orientationIsVertical() ? point.x : point.y;
+    // The parent's resolved field, not the raw layer: every other method in
+    // the family branches on `this.orientation`, and a second derivation of
+    // the same fact is a second place for it to drift.
+    const name = this.orientation === Orientation.VERTICAL ? point.x : point.y;
     return name === undefined || name === '' ? `Category ${col + 1}` : String(name);
-  }
-
-  /**
-   * Whether the chart is drawn with its categories across the page.
-   *
-   * A horizontal bar layer carries its category on `y` and its magnitude on
-   * `x`, so which field names a column depends on how the chart was drawn --
-   * and a mosaic is drawn either way.
-   *
-   * @returns True for a vertical layer
-   */
-  private orientationIsVertical(): boolean {
-    return this.layer.orientation !== 'horz';
   }
 
   /**

@@ -75,15 +75,14 @@ describe('a column where every series has a gap', () => {
     // "Total is 0" would claim one.
     const trace = stackedArea([SUBSCRIPTIONS, SERVICES_GAPPED], 0, 1);
 
-    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is missing, Group is Subscriptions');
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is missing, Band is Subscriptions');
     expect(nonEmptyState(trace).text.stack).toBeUndefined();
   });
 
   test('does not drag the minimum total down to zero', () => {
     const stats = stackedArea([SUBSCRIPTIONS, SERVICES_GAPPED], 0, 0).description.stats;
 
-    expect(stats).toContainEqual({ label: 'Minimum total', value: 15 });
-    expect(stats).toContainEqual({ label: 'Maximum total', value: 100 });
+    expect(stats).toContainEqual({ label: 'Total range', value: '15 to 100' });
   });
 });
 
@@ -93,14 +92,14 @@ describe('a gap in a column other series did measure', () => {
     // zero-height band inside it, so it has no share of it to report.
     const trace = stackedArea([SUBSCRIPTIONS, SERVICES], 0, 1);
 
-    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is missing, Group is Subscriptions, Total is 20');
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is missing, Band is Subscriptions, Total is 20');
     expect(nonEmptyState(trace).text.stack).toEqual({ label: 'Total', value: 20, share: undefined });
   });
 
   test('the measured series in that column keeps its full share', () => {
     const trace = stackedArea([SUBSCRIPTIONS, SERVICES], 1, 1);
 
-    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 20, Group is Services, Total is 20, 100.0% of it');
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 20, Band is Services, Total is 20, 100.0% of it');
   });
 });
 
@@ -115,6 +114,6 @@ describe('a measured zero is still a reading', () => {
     ];
     const trace = stackedArea([zero, SERVICES], 0, 1);
 
-    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 0, Group is Subscriptions, Total is 20, 0.0% of it');
+    expect(announce(trace.state)).toBe('Quarter is Q2, Revenue is 0, Band is Subscriptions, Total is 20, 0.0% of it');
   });
 });

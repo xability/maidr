@@ -394,4 +394,133 @@ describe('description', () => {
     expect(dataTable?.headers).toEqual(['Country', '1990', '2020', 'Change']);
     expect(dataTable?.rows[1]).toEqual(['Latvia', 74.6, 69.5, -5.1]);
   });
+
+  test('heads the category column with the category axis, not with x', () => {
+    // A dumbbell is commonly drawn with its categories running down the page,
+    // which puts them on y and the life expectancies on x -- the way a chart
+    // declaring that orientation authors its axes. Headed from x, the column
+    // of country names carried the label the years belong to, under an
+    // "Orientation: horizontal" line the dialog prints directly above it.
+    const trace = TraceFactory.create({
+      id: 'test-dumbbell-layer',
+      type: TraceType.DUMBBELL,
+      title: 'Life expectancy',
+      orientation: Orientation.HORIZONTAL,
+      axes: { x: { label: 'Years' }, y: { label: 'Country' } },
+      data: GAINS,
+    }) as DumbbellTrace;
+
+    expect(trace.description.dataTable?.headers[0]).toBe('Country');
+  });
+
+  test('follows the orientation rather than the axis names', () => {
+    // The shared fixture declares its axes for a chart drawn the default way
+    // up -- categories on x -- so asking it for a horizontal one is asking for
+    // the swap alone. It lands on the value axis, which is what a layer
+    // declaring an orientation it is not drawn at gets; the point is that the
+    // header moves with the orientation, as `text.main.label` does above.
+    const { dataTable } = dumbbell(0, 0, GAINS, Orientation.HORIZONTAL)
+      .description;
+
+    expect(dataTable?.headers[0]).toBe('Years');
+  });
+
+  test('coerces the two ends, so the table reads as the announcement does', () => {
+    // Producers send numbers as strings. A string cell reaches the dialog's
+    // rounding and is printed verbatim, so the table showed the raw float in
+    // the cell the announcement speaks rounded -- beside a Change column
+    // already stripped of the same noise.
+    const stringy = {
+      points: [{ x: 'Denmark', start: '71.2', end: '78.4' }],
+    } as unknown as DumbbellData;
+    const { dataTable } = dumbbell(0, 0, stringy).description;
+
+    expect(dataTable?.rows[0]).toEqual(['Denmark', 71.2, 78.4, 7.2]);
+  });
+});
+
+describe('the description accounts for every row', () => {
+  test('names the rows that did not move', () => {
+    // Malta is unchanged. With only the two directions counted they do not
+    // add up to `Number of pairs`, and a reader is left to guess whether the
+    // missing row held still or was dropped.
+    const { stats } = dumbbell().description;
+
+    expect(stats).toContainEqual({ label: 'Number of pairs', value: 3 });
+    expect(stats).toContainEqual({ label: 'Unchanged', value: 1 });
+  });
+
+  test('still reports direction on a chart where nothing moved', () => {
+    // "Nothing moved" is the finding on a chart where nothing moved, and it
+    // was the one case the guard suppressed entirely.
+    const flat: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 10 },
+        { x: 'b', start: 20, end: 20 },
+      ],
+    };
+    const { stats } = dumbbell(0, 0, flat).description;
+
+    expect(stats).toContainEqual({ label: 'Increased', value: 0 });
+    expect(stats).toContainEqual({ label: 'Decreased', value: 0 });
+    expect(stats).toContainEqual({ label: 'Unchanged', value: 2 });
+  });
+
+  test('names the rows whose change cannot be read', () => {
+    // The fourth case the three counts partition the chart into, and the one
+    // they cannot express: without it the arithmetic they invite comes up
+    // short of `Number of pairs` and the reader is back to guessing.
+    const partial = {
+      points: [
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+        { x: 'Latvia', start: 74.6, end: 'n/a' },
+      ],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, partial).description;
+
+    expect(stats).toContainEqual({ label: 'Number of pairs', value: 2 });
+    expect(stats).toContainEqual({ label: 'Increased', value: 1 });
+    expect(stats).toContainEqual({ label: 'Missing values', value: 1 });
+  });
+
+  test('ranks the movers over the rows it can read', () => {
+    // A NaN loses no comparison, so an unreadable row at the head of the list
+    // won both ends of the ranking -- naming it as the chart's biggest mover
+    // and printing its change as the literal text `NaN`, which the dialog
+    // prints because it blanks non-finite *numbers* and this is a string.
+    const leadingGap = {
+      points: [
+        { x: 'Latvia', start: 'n/a', end: 69.5 },
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+      ],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, leadingGap).description;
+
+    expect(stats).toContainEqual({ label: 'Largest increase', value: 'Denmark, 7.2' });
+  });
+
+  test('says the range is missing rather than leaving it blank', () => {
+    // `minMax` seeds from the first value and a NaN never loses, so one
+    // unreadable end made the whole chart's range non-finite -- and the
+    // dialog blanks a NaN, leaving two labels with nothing after them.
+    const unreadable = {
+      points: [{ x: 'Latvia', start: 'n/a', end: 'n/a' }],
+    } as unknown as DumbbellData;
+    const { stats } = dumbbell(0, 0, unreadable).description;
+
+    expect(stats).toContainEqual({ label: 'Min value', value: 'missing' });
+    expect(stats).toContainEqual({ label: 'Max value', value: 'missing' });
+  });
+
+  test('says nothing about unchanged rows when every row moved', () => {
+    const moving: DumbbellData = {
+      points: [
+        { x: 'a', start: 10, end: 12 },
+        { x: 'b', start: 20, end: 18 },
+      ],
+    };
+    const labels = dumbbell(0, 0, moving).description.stats.map(s => s.label);
+
+    expect(labels).not.toContain('Unchanged');
+  });
 });

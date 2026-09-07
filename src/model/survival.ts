@@ -156,6 +156,41 @@ export class SurvivalTrace extends StepTrace {
     return true;
   }
 
+  protected override get groupFallbackLabel(): string {
+    return 'Arm';
+  }
+
+  /**
+   * The vocabulary the description dialog is rendered with.
+   *
+   * Inherited, a survival figure opened "Number of lines: 2, Points per line:
+   * 5, Line names: Control, Treatment" with a data-table column headed `Line`,
+   * and then named the same two curves `Control` and `Treatment` again -- or,
+   * on a layer authoring no z, `Arm 1` and `Arm 2` -- in the statistics
+   * directly below. Two nouns for one referent in one dialog, and `Line` is
+   * the wrong one for a clinical figure in the part of it a reader consults
+   * most. The same override {@link ContourTrace} makes, for the same reason.
+   *
+   * The column noun is also what the inherited resolver builds a positional
+   * name from ({@link LineTrace.groupNameAt}), so an unnamed curve is `Arm 2`
+   * here and `Arm 2` in every statistic below, and the two cannot drift.
+   *
+   * @returns The four labels the description uses
+   */
+  protected override get seriesLabels(): {
+    count: string;
+    perSeries: string;
+    names: string;
+    column: string;
+  } {
+    return {
+      count: 'Number of arms',
+      perSeries: 'Times per arm',
+      names: 'Arm names',
+      column: 'Arm',
+    };
+  }
+
   public override get description(): DescriptionState {
     const base = super.description;
     const stats = [...base.stats];
@@ -164,18 +199,33 @@ export class SurvivalTrace extends StepTrace {
       arm,
       median: this.medianSurvivalOf(arm),
     }));
+    // Named as *not reached* rather than omitted when the curve never falls to
+    // half. "No median" is a finding -- more than half the subjects were still
+    // alive at the end of follow-up -- and leaving the arm out of the list
+    // would read as a chart that forgot it.
+    const reads = (median: number | string | null): number | string =>
+      median === null ? 'not reached' : median;
 
-    // Named per arm, and named as *not reached* rather than omitted when the
-    // curve never falls to half. "No median" is a finding -- more than half
-    // the subjects were still alive at the end of follow-up -- and leaving
-    // the arm out of the list would read as a chart that forgot it.
-    stats.push({
-      label: 'Median survival',
-      value: medians
-        .map(({ arm, median }) =>
-          `${this.armNameAt(arm)}: ${median === null ? 'not reached' : median}`)
-        .join(', '),
-    });
+    // Withheld on a layer carrying no curve at all, where `join` answers with
+    // the empty string and the dialog blanks it -- leaving the label standing
+    // over nothing, which reads as a median the figure failed to compute
+    // rather than as a figure with no arm to compute one for. The two
+    // statistics below are already silent on the same grounds.
+    if (medians.length > 0) {
+      stats.push({
+        label: 'Median survival',
+        // Per arm on a comparison, and bare on a single curve. Prefixed there
+        // too, a lone curve authoring no name was told its median belonged to
+        // "Arm 1" -- a name nothing else in the figure uses, and one that
+        // implies a second arm the reader can go looking for. Every sibling
+        // gates its per-series naming on there being more than one series.
+        value: medians.length === 1
+          ? reads(medians[0].median)
+          : medians
+              .map(({ arm, median }) => `${this.groupNameAt(arm)}: ${reads(median)}`)
+              .join(', '),
+      });
+    }
 
     const censored = this.censoredIndices.reduce(
       (total, indices) => total + indices.length,
@@ -185,7 +235,22 @@ export class SurvivalTrace extends StepTrace {
       // How much of the curve rests on subjects who left rather than on
       // events. A tail carrying many censored times is a tail to read
       // cautiously, and nothing else in the chart says so.
-      stats.push({ label: 'Censored times', value: censored });
+      //
+      // Split by arm on a comparison, because the argument this class exists
+      // to serve is comparative: fourteen censored times split 13 to 1 and
+      // split 7 to 7 say entirely different things about which tail to trust,
+      // and one summed figure answers neither. It is also the shape the
+      // censored-time rotor walks -- it steps through the current arm alone,
+      // so a reader on `Treatment` counting one could not reconcile it with a
+      // total across both.
+      stats.push({
+        label: 'Censored times',
+        value: this.censoredIndices.length > 1
+          ? this.censoredIndices
+              .map((indices, arm) => `${this.groupNameAt(arm)}: ${indices.length}`)
+              .join(', ')
+          : censored,
+      });
     }
 
     const separation = this.separationAtEnd();
@@ -196,26 +261,50 @@ export class SurvivalTrace extends StepTrace {
       // named, because it is the end of the *shorter* arm's follow-up rather
       // than the end of the chart, and a reader told only a number would
       // reasonably assume otherwise.
+      //
+      // So are the two arms it was measured between: the gap is a maximum over
+      // every arm, so on the three-arm figure a dose comparison draws it could
+      // belong to any of three pairs. Omitted when the arms are level, where
+      // there is no "above" to report.
+      const between = separation.high === separation.low
+        ? ''
+        : `, ${this.groupNameAt(separation.high)} above `
+          + `${this.groupNameAt(separation.low)}`;
       stats.push({
         label: 'Separation at the end of shared follow-up',
-        value: `${separation.gap} at ${separation.at}`,
+        value: `${separation.gap} at ${separation.at}${between}`,
       });
     }
 
-    return { ...base, stats };
-  }
+    // The fact this class exists to convey, in the one place a reader reviews
+    // the whole curve at once. It is announced as a section while navigating
+    // and counted in the statistics above, but the inherited table -- times,
+    // estimates and the arm -- has nowhere to say that a time was a subject
+    // leaving rather than an event, which is exactly the distinction between
+    // a tail backed by two hundred subjects and one backed by three.
+    //
+    // Appended to the inherited rows rather than rebuilt from the points, so
+    // the ordinal labels, the blank cells for a gap and the row cap all still
+    // apply; the rows are `points.flat()` in order, so the flat index lines up
+    // and a truncated table keeps its prefix.
+    const hasCensored = this.censoredIndices.some(indices => indices.length > 0);
+    if (!hasCensored) {
+      return { ...base, stats };
+    }
 
-  /**
-   * What an arm is called.
-   *
-   * @param arm - Which curve
-   * @returns Its name
-   */
-  private armNameAt(arm: number): string {
-    const authored = this.survivalPoints[arm]?.[0]?.z;
-    return typeof authored === 'string' && authored !== ''
-      ? authored
-      : `Arm ${arm + 1}`;
+    const flags = this.survivalPoints
+      .flat()
+      // Blank rather than "no", so the column can be scanned for the times
+      // that carry something.
+      .map(point => (point.censored === true ? CENSORED : ''));
+    return {
+      ...base,
+      stats,
+      dataTable: {
+        headers: [...base.dataTable.headers, 'Censored'],
+        rows: base.dataTable.rows.map((row, index) => [...row, flags[index] ?? '']),
+      },
+    };
   }
 
   /**
@@ -258,10 +347,12 @@ export class SurvivalTrace extends StepTrace {
    * different time from `arm[i]` of the other. It reported a gap measured
    * across two different months under a label saying it was one.
    *
-   * @returns The separation and the time it was measured at, or null when
-   *   there is none to report
+   * @returns The separation, the time it was measured at and the arms it runs
+   *   between, or null when there is none to report
    */
-  private separationAtEnd(): { gap: number; at: number } | null {
+  private separationAtEnd():
+    | { gap: number; at: number; high: number; low: number }
+    | null {
     if (this.survivalPoints.length < 2) {
       return null;
     }
@@ -279,18 +370,26 @@ export class SurvivalTrace extends StepTrace {
     }
 
     const at = Math.min(...(lasts as number[]));
+    // Carried with the arm each reading came from: the gap alone says how far
+    // apart the curves end and not which of them is on top, which is the half
+    // of the comparison a survival figure is drawn for.
     const atEnd = this.survivalPoints
-      .map(arm => SurvivalTrace.survivalAt(arm, at))
-      .filter((value): value is number => value !== null);
+      .map((arm, index) => ({ index, survival: SurvivalTrace.survivalAt(arm, at) }))
+      .filter(
+        (entry): entry is { index: number; survival: number } =>
+          entry.survival !== null,
+      );
     if (atEnd.length < 2) {
       return null;
     }
 
+    const high = atEnd.reduce((a, b) => (b.survival > a.survival ? b : a));
+    const low = atEnd.reduce((a, b) => (b.survival < a.survival ? b : a));
     // Trimmed, because the gap is a subtraction: 0.82 - 0.61 is
     // 0.20999999999999996 in IEEE 754, and announcing that spells out
     // sixteen digits of an artifact the chart does not contain.
-    const gap = Number((Math.max(...atEnd) - Math.min(...atEnd)).toPrecision(12));
-    return { gap, at };
+    const gap = Number((high.survival - low.survival).toPrecision(12));
+    return { gap, at, high: high.index, low: low.index };
   }
 
   /**

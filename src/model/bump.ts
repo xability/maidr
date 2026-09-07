@@ -191,11 +191,31 @@ export class BumpTrace extends LineTrace {
       stat => stat.label !== 'Min value' && stat.label !== 'Max value',
     );
 
+    // What a rank axis does carry, and what dropping those two left the reader
+    // without: how many positions the table ranks across, and whether anything
+    // moved at all -- a twelve-team season with two overtakes and one with
+    // forty read identically. Zero changes is a real reading of a chart where
+    // nobody moved, and a number renders rather than being blanked.
+    stats.push(
+      { label: 'Ranks shown', value: MathUtil.spannedOrMissing(this.bestRank, this.worstRank) },
+      {
+        label: 'Rank changes',
+        value: this.moves
+          .flat()
+          .filter(move => move !== undefined && move !== 0)
+          .length,
+      },
+    );
+
     const leaderAt = (column: number): string | null => {
       let best: number | null = null;
       for (const [row, ranks] of this.lineValues.entries()) {
         const rank = ranks[column];
-        if (rank === undefined) {
+        // `isMeasured`, not a check for `undefined`: a period the competitor
+        // was not ranked in holds NaN, which passed that guard and then lost
+        // every comparison below -- so a gap in row 0 made row 0 the leader
+        // of a period it was not in, and nothing could displace it.
+        if (!isMeasured(rank)) {
           continue;
         }
         if (best === null || rank < this.lineValues[best][column]) {
@@ -228,17 +248,31 @@ export class BumpTrace extends LineTrace {
     if (climber !== null) {
       stats.push({
         label: 'Climbed furthest',
-        value: `${this.groupNameAt(climber.row)}, ${climber.places}`,
+        value: `${this.groupNameAt(climber.row)}, ${BumpTrace.inPlaces(climber.places)}`,
       });
     }
     if (faller !== null) {
       stats.push({
         label: 'Fell furthest',
-        value: `${this.groupNameAt(faller.row)}, ${-faller.places}`,
+        value: `${this.groupNameAt(faller.row)}, ${BumpTrace.inPlaces(-faller.places)}`,
       });
     }
 
     return { ...base, stats };
+  }
+
+  /**
+   * A net move, with the noun the per-point announcement gives it.
+   *
+   * "Cyan, 3" is three what -- places, periods, third position? Navigation
+   * says "Places gained is 3", and the description was the one surface that
+   * dropped the word.
+   *
+   * @param places - How many places were gained or lost
+   * @returns The count and its unit
+   */
+  private static inPlaces(places: number): string {
+    return `${places} ${places === 1 ? 'place' : 'places'}`;
   }
 
   /**
@@ -263,10 +297,17 @@ export class BumpTrace extends LineTrace {
 
     let best: { row: number; places: number } | null = null;
     for (const [row, ranks] of this.lineValues.entries()) {
-      // A competitor's own last period, not the table's. One that joined late
-      // or dropped out has a shorter row, and reading past its end would
-      // compare its start against nothing.
-      const places = ranks[0] - ranks[ranks.length - 1];
+      // A competitor's own first and last *measured* periods, not the table's
+      // ends. One that joined late or dropped out is spelled either as a
+      // shorter row or as a full-length one holding `null` at the periods it
+      // missed (#925), and the second spelling put NaN at the end of the
+      // subtraction -- which fails both comparisons below rather than one, so
+      // the competitor was dropped from the climb and the fall alike.
+      const measured = ranks.filter(isMeasured);
+      if (measured.length < 2) {
+        continue;
+      }
+      const places = measured[0] - measured[measured.length - 1];
       const moved = direction === 'up' ? places > 0 : places < 0;
       if (!moved) {
         continue;

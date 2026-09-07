@@ -739,7 +739,7 @@ describe('core-model integration', () => {
       const summaries = figure.getSubplotSummaries();
       expect(summaries).toHaveLength(2);
       expect(summaries.map(summary => summary.title)).toEqual(['A', 'B']);
-      expect(summaries.map(summary => summary.traceTypes)).toEqual([['bar'], ['bar']]);
+      expect(summaries.map(summary => summary.traceTypes)).toEqual([['Bar Chart'], ['Bar Chart']]);
 
       // Reading the state exercises Subplot/Trace construction end-to-end
       // (this is exactly what crashes on empty subplots or bad selectors).

@@ -4,11 +4,22 @@ import type { XValue } from '@type/navigation';
 import type { AudioState, AutoplayState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { MovableGrid } from './movable';
+
+/**
+ * How many samples of each KDE curve the description's data table carries.
+ *
+ * A curve arrives with of the order of a hundred samples, and the dialog paints
+ * a hundred rows at a time, so an unsampled table showed the first violin and
+ * nothing of the rest. Evenly spaced, and always including the last sample, so
+ * the shape of every curve survives the thinning.
+ */
+const SAMPLES_PER_CURVE = 20;
 
 /**
  * Small adjustment value used to create a safety range when min and max density values
@@ -163,21 +174,68 @@ export class ViolinKdeTrace extends AbstractTrace {
       return typeof firstPoint?.x === 'string' ? firstPoint.x : `Violin ${i + 1}`;
     });
 
+    // Across every curve, not the first one's length: every other read in the
+    // class asks per row, and a chart whose curves are sampled at different
+    // depths reported the first violin's depth as though it were the chart's.
+    const lengths = this.points.map(row => row.length);
+    const shortest = MathUtil.safeMin(lengths);
+    const longest = MathUtil.safeMax(lengths);
+
+    const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const stats: DescriptionState['stats'] = [
       { label: 'Number of violins', value: this.points.length },
-      { label: 'Points per curve', value: this.points[0]?.length ?? 0 },
+      {
+        label: 'Points per curve',
+        value: shortest === longest ? longest : `${shortest} to ${longest}`,
+      },
       { label: 'Violin names', value: violinNames.join(', ') },
     ];
 
-    const headers = ['Violin', 'Position', 'Y', 'Density'];
-    const rows: (string | number)[][] = this.points.flatMap((violin, violinIdx) =>
-      violin.map((point, col) => [
-        violinNames[violinIdx],
-        col,
-        Number(point.y),
-        this.densityValues[violinIdx][col],
-      ]),
-    );
+    // Where each curve is fattest, and how far it runs -- the two things a
+    // violin is drawn to show, and the two the summary said nothing about. The
+    // sibling ridgeline plot already reports both; this reported only the
+    // shape of its own arrays.
+    const peaks = this.points
+      .map((_, violin) => ({ violin, mode: this.modeOf(violin) }))
+      .filter((entry): entry is { violin: number; mode: number } => entry.mode !== null);
+    if (peaks.length > 0) {
+      stats.push({
+        label: 'Peak of each violin',
+        value: peaks
+          .map(({ violin, mode }) => `${violinNames[violin]} at ${defaultFormat(mode)}`)
+          .join(', '),
+      });
+    }
+    const allY = this.yValues.flat().filter(Number.isFinite);
+    if (allY.length > 0) {
+      stats.push({
+        label: `${isHorizontal ? this.xAxis : this.yAxis} range`,
+        value: MathUtil.spannedOrMissing(MathUtil.safeMin(allY), MathUtil.safeMax(allY)),
+      });
+    }
+
+    // No `Position` column: it was the raw index into the KDE sample array, a
+    // number that appears in no announcement and means nothing to a reader.
+    const headers = [
+      isHorizontal ? this.yAxis : this.xAxis,
+      isHorizontal ? this.xAxis : this.yAxis,
+      'Density',
+    ];
+    // Sampled, not dumped. A curve arrives with of the order of a hundred
+    // samples, so the full cross product filled the dialog's first page with
+    // one violin and showed nothing of the others.
+    const rows: (string | number)[][] = this.points.flatMap((violin, violinIdx) => {
+      const stride = Math.max(1, Math.ceil(violin.length / SAMPLES_PER_CURVE));
+      return violin.flatMap((point, col) =>
+        col % stride === 0 || col === violin.length - 1
+          ? [[
+              violinNames[violinIdx],
+              Number(point.y),
+              this.densityValues[violinIdx][col],
+            ]]
+          : [],
+      );
+    });
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -186,6 +244,30 @@ export class ViolinKdeTrace extends AbstractTrace {
       stats,
       dataTable: { headers, rows },
     };
+  }
+
+  /**
+   * The y at which a violin's density is highest -- where the curve is
+   * fattest, and where most of the observations are.
+   *
+   * @param violin - Which violin
+   * @returns The modal y, or null when the curve carries no usable density
+   */
+  private modeOf(violin: number): number | null {
+    const densities = this.densityValues[violin];
+    const ys = this.yValues[violin];
+    if (densities === undefined || ys === undefined) {
+      return null;
+    }
+    let best: number | null = null;
+    let bestDensity = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < densities.length; i++) {
+      if (Number.isFinite(densities[i]) && densities[i] > bestDensity) {
+        bestDensity = densities[i];
+        best = ys[i];
+      }
+    }
+    return best !== null && Number.isFinite(best) ? best : null;
   }
 
   public override dispose(): void {

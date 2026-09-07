@@ -16,7 +16,7 @@ import type {
   TraceState,
 } from '@type/state';
 import type { Trace } from './plot';
-import { TraceType } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
 import { Constant } from '@util/constant';
 import {
   extractXValueFromPoints,
@@ -114,6 +114,39 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
   [TraceType.WORD_CLOUD]: 'Word Cloud',
 };
 
+/**
+ * The human-readable name of a chart type, as the description dialog writes it.
+ *
+ * A free function beside the map because two callers need it and only one of
+ * them holds a trace: `Figure.getSubplotSummaries` names the layers of panels
+ * the reader has not entered, and has nothing but their {@link TraceType}. The
+ * map is declared `Record<TraceType, string>`, so every member has an entry and
+ * a lookup cannot miss.
+ *
+ * @param type - The layer's trace type
+ * @returns The label, e.g. `Scatter Plot` for {@link TraceType.SCATTER}
+ */
+export function chartTypeLabel(type: TraceType): string {
+  return CHART_TYPE_LABEL[type];
+}
+
+/**
+ * How many rows a description's data table carries.
+ *
+ * The dialog paints a hundred at a time, and every row past that is re-rounded
+ * by `DescriptionService` on each press of `d` and then held in the Redux
+ * store. The traces this bites are the ones written for volume -- a Manhattan
+ * plot of a few hundred thousand points, a contour field sampled two thousand
+ * times per curve -- where an uncapped table is a full pass over the layer for
+ * a table nobody reads to the end.
+ *
+ * Shared so the traces that cap cannot come to disagree about where the line
+ * is. A trace that caps must say so, as a `Table rows` stat: the dialog prints
+ * the row count it is given, and a count claiming the whole layer over a table
+ * holding a fraction of it is worse than no table.
+ */
+export const MAX_DESCRIPTION_TABLE_ROWS = 1000;
+
 export interface Dimension {
   rows: number;
   cols: number;
@@ -165,10 +198,43 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   protected isComputingStateAt: boolean;
 
+  /**
+   * True while a move is being made for something other than the reader.
+   * See {@link runSilently}.
+   */
+  private isSilent: boolean;
+
   protected constructor() {
     this.observers = new Array<Observer<State>>();
     this.isWarning = false;
     this.isComputingStateAt = false;
+    this.isSilent = false;
+  }
+
+  /**
+   * Runs `action` with this element's observers muted.
+   *
+   * A cursor move normally *is* the announcement -- `moveToIndex` notifies, and
+   * everything downstream of it speaks, brailles and highlights. That is wrong
+   * for a move the reader did not make and is not waiting to hear: the
+   * description dialog's layer tabs relocate the reader in the chart while the
+   * modal is open, and the trace's announcement would land in the same live
+   * region the dialog is using, so one of the two is dropped. The caller
+   * announces afterwards, once, when the reader is back on the chart.
+   *
+   * Nesting is safe and the flag is restored on every path, including a throw,
+   * because a flag left raised would silence the chart for good.
+   *
+   * @param action - The moves to make in silence
+   */
+  public runSilently(action: () => void): void {
+    const wasSilent = this.isSilent;
+    this.isSilent = true;
+    try {
+      action();
+    } finally {
+      this.isSilent = wasSilent;
+    }
   }
   protected abstract get dimension(): Dimension;
 
@@ -254,6 +320,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
         'notifyStateUpdate() fired during getStateAt(): state getters must stay side-effect free',
       );
     }
+    if (this.isSilent) {
+      return;
+    }
     const currentState = this.state;
     this.observers.forEach(observer => observer.update(currentState));
   }
@@ -262,6 +331,9 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Notifies observers that an out-of-bounds condition occurred.
    */
   public notifyOutOfBounds(): void {
+    if (this.isSilent) {
+      return;
+    }
     const outOfBoundsState = this.outOfBoundsState;
     this.observers.forEach(observer => observer.update(outOfBoundsState));
   }
@@ -801,20 +873,83 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * Falls back to the raw layer type if no mapping is registered.
    */
   protected getChartTypeLabel(): string {
-    return CHART_TYPE_LABEL[this.layer.type] ?? this.layer.type;
+    return chartTypeLabel(this.layer.type);
   }
 
   /**
-   * Builds the axes object for the description state, including z only when
-   * the layer explicitly provides a z-axis label. Subclasses should call this
+   * How this layer names itself in the description dialog's layer tabs.
+   *
+   * The producer's `name` when there is one, and the chart-type label
+   * otherwise — the same fallback order `TextService.layerIdentity` uses for
+   * the spoken layer-switch announcement, so a tab and the announcement single
+   * out the same layer by the same name. The two differ only in register: the
+   * announcement says "point plot" where the dialog says "Scatter Plot",
+   * because that written form is what the dialog's own Chart Type line has
+   * always shown and a tab sitting above it should agree with it.
+   */
+  public get layerLabel(): string {
+    return this.name ?? this.getChartTypeLabel();
+  }
+
+  /**
+   * Which way this chart is drawn, or undefined for a type that has no
+   * orientation to speak of.
+   *
+   * Entering the chart already announces it -- "This is a maidr plot of type:
+   * horizontal bar" -- but the description dialog said only "Chart Type: Bar
+   * Chart", and for the box, violin and boxen families the orientation also
+   * silently reverses the order of the rows in the table underneath, because
+   * their constructors reverse the groups when the chart is horizontal. A
+   * reader comparing the table with what they walked had no way to know why
+   * the two disagreed.
+   *
+   * Exposed here, and read once by the description service, rather than pushed
+   * as a stat by each of the thirty-odd traces that has one. Named apart from
+   * the bar and distribution families' own `orientation` fields, which hold the
+   * declared* value and default it to vertical for every type -- including the
+   * ones that have no orientation at all.
+   *
+   * @returns `horizontal` or `vertical`, or undefined when the type has no
+   * orientation to report.
+   */
+  public get orientationLabel(): string | undefined {
+    const orientation = resolveOrientation(this.type, this.layer.orientation);
+    if (orientation === undefined) {
+      return undefined;
+    }
+    // The word, not the wire value: the enum's members are `vert` and `horz`,
+    // and "Orientation: vert" is the payload's abbreviation read out loud. The
+    // entry announcement has always spelled it -- "a maidr plot of type:
+    // horizontal bar" -- and the dialog should not be the one surface that
+    // does not.
+    return orientation === Orientation.HORIZONTAL ? 'horizontal' : 'vertical';
+  }
+
+  /**
+   * Builds the axes object for the description state, carrying only the axes
+   * the layer actually authored a label for. Subclasses should call this
    * instead of constructing the axes object inline so charts without a real
    * z dimension don't surface the placeholder default.
+   *
+   * Every axis is gated, not just z. `xAxis` and `yAxis` fall back to the
+   * literal `'X'` and `'Y'` when the JSON authors no label -- legal, and
+   * common in adapter-generated specs -- and the dialog rendered that as
+   * "X: X", a line that says nothing twice. The figure-level branch of the
+   * description already showed only authored labels
+   * ({@link DescriptionService.getFigureAxes}), so gating here is what makes
+   * the two levels of the same dialog follow one rule.
+   *
+   * Blankness is tested with `trim()`, the same rule {@link named} applies
+   * when it decides whether to substitute the fallback in the first place. A
+   * whitespace-only z label is truthy but blank, so the untrimmed guard used
+   * to pass it through and then print the `'Level'` placeholder the guard
+   * existed to keep out.
    */
   protected getDescriptionAxes(): DescriptionState['axes'] {
     return {
-      x: this.xAxis,
-      y: this.yAxis,
-      ...(this.layer.axes?.z?.label && { z: this.z }),
+      ...(this.layer.axes?.x?.label?.trim() && { x: this.xAxis }),
+      ...(this.layer.axes?.y?.label?.trim() && { y: this.yAxis }),
+      ...(this.layer.axes?.z?.label?.trim() && { z: this.z }),
     };
   }
 

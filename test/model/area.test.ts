@@ -126,8 +126,30 @@ describe('unstacked area', () => {
     trace.moveOnce('UPWARD');
 
     const labels = trace.description.stats.map(stat => stat.label);
-    expect(labels).not.toContain('Minimum total');
-    expect(labels).not.toContain('Maximum total');
+    expect(labels).not.toContain('Total range');
+    // Bands that do not stack draw no total, so the table has no column for
+    // one either.
+    expect(trace.description.dataTable.headers).toEqual([
+      'Quarter',
+      'Revenue',
+      'Band',
+    ]);
+  });
+
+  test('describes its series as bands rather than as lines', () => {
+    // The chart type is announced as an area and then described in the line's
+    // words, in three places at once: the summary labels, the series column
+    // and the spoken group label.
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    const labels = trace.description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Number of bands');
+    expect(labels).toContain('Points per band');
+    expect(labels).toContain('Band names');
+    expect(labels).not.toContain('Number of lines');
+    expect(labels).not.toContain('Points per line');
   });
 });
 
@@ -170,9 +192,42 @@ describe('stacked area', () => {
     ) as AreaTrace;
     trace.moveOnce('UPWARD');
 
-    const stats = trace.description.stats;
-    expect(stats).toContainEqual({ label: 'Minimum total', value: 15 });
-    expect(stats).toContainEqual({ label: 'Maximum total', value: 100 });
+    // One stat, not two: a 100% stacked area's totals are equal by
+    // construction, and a pair reporting the same number twice hands the
+    // reader a range and then a point.
+    expect(trace.description.stats).toContainEqual({
+      label: 'Total range',
+      value: '15 to 100',
+    });
+  });
+
+  test('reads a normalized area as a constant rather than as a span', () => {
+    const normalized: LinePoint[][] = [
+      [{ x: 'Q1', y: 40, z: 'Subscriptions' }, { x: 'Q2', y: 60, z: 'Subscriptions' }],
+      [{ x: 'Q1', y: 60, z: 'Services' }, { x: 'Q2', y: 40, z: 'Services' }],
+    ];
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.NORMALIZED_AREA, normalized),
+    ) as AreaTrace;
+
+    expect(trace.description.stats).toContainEqual({
+      label: 'Total range',
+      value: 'constant 100',
+    });
+  });
+
+  test('carries the running total beside each band height in the table', () => {
+    // The second magnitude the chart draws. It is announced on every move, and
+    // the table was the one surface where recovering it meant summing
+    // interleaved rows by hand.
+    const trace = TraceFactory.create(
+      createAreaLayer(TraceType.STACKED_AREA, [SUBSCRIPTIONS, SERVICES]),
+    ) as AreaTrace;
+    const { headers, rows } = trace.description.dataTable;
+
+    expect(headers).toEqual(['Quarter', 'Revenue', 'Band', 'Total']);
+    expect(rows[0]).toEqual(['Q1', 10, 'Subscriptions', TOTALS[0]]);
+    expect(rows[3]).toEqual(['Q1', 5, 'Services', TOTALS[0]]);
   });
 
   test('matches series by x value rather than by column index', () => {
@@ -276,8 +331,7 @@ describe('stepped area (#413)', () => {
     // Both facts, not one instead of the other: the fill and the shape are
     // orthogonal and a reader needs each.
     expect(labels).toContain('Step direction');
-    expect(labels).toContain('Minimum total');
-    expect(labels).toContain('Maximum total');
+    expect(labels).toContain('Total range');
   });
 
   test('uses the same wording as a step trace', () => {

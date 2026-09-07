@@ -1,6 +1,7 @@
 import type { MaidrLayer, VolcanoPoint } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
+import { defaultFormat } from '@util/format';
 import { ScatterTrace } from './scatter';
 
 /** Rotor unit that restricts navigation to the points clearing the threshold. */
@@ -168,9 +169,14 @@ export class VolcanoTrace extends ScatterTrace {
       asides.push({ label: 'Region', value: point.group });
     }
     if (this.significance !== null || this.effect !== null) {
+      // Which side of the line the point is on, said the way the line is
+      // declared. A raw p axis puts its findings *below* the cutoff, so the
+      // word "above" named the wrong side of it on exactly the charts
+      // `significanceDirection` exists for -- and named it while the cursor
+      // stood on a point that had cleared it.
       asides.push({
         label: 'Threshold',
-        value: this.clearsThreshold(this.pointModeIndex) ? 'above' : 'below',
+        value: this.clearsThreshold(this.pointModeIndex) ? 'cleared' : 'not cleared',
       });
     }
 
@@ -246,18 +252,37 @@ export class VolcanoTrace extends ScatterTrace {
 
   public override get description(): DescriptionState {
     const base = super.description;
-    const stats = [...base.stats];
+
+    // A volcano is symmetric about x = 0 by construction, so its Pearson r is
+    // near zero however strongly effect and significance are related; a
+    // Manhattan's x is a genomic coordinate, so the coefficient describes the
+    // order the chromosomes were laid out in. Either way the dialog states a
+    // linear relationship over two axes that were never drawn to have one,
+    // and states it confidently. `BumpTrace` drops the line's Min and Max on
+    // the same grounds.
+    const stats = base.stats.filter(stat => stat.label !== 'Correlation');
 
     if (this.significance !== null || this.effect !== null) {
       // The finding, and the one thing a per-point reading of twelve thousand
       // points would never assemble. First, because it is what a sighted
       // reader takes from the shape of the cloud before anything else.
-      stats.unshift({
-        label: 'Above the threshold',
-        value: `${this.significantIndices.length} of ${this.flatPoints.length}`,
-      });
+      //
+      // Neither "above" nor "below": the direction is the layer's to declare,
+      // and a raw p axis clears its threshold downwards. The word for one of
+      // those charts is the inverse of the reading on the other.
+      stats.unshift(
+        {
+          label: 'Points clearing the threshold',
+          value: `${this.significantIndices.length} of ${this.flatPoints.length}`,
+        },
+        // Where the line actually sits. -log10(p) at 1.3, -log10(p) at 7.3 and
+        // raw p at 0.05 are three different cutoffs, and "43 of 12,000" with
+        // none of them named cannot be told apart from noise -- a sighted
+        // reader has the dashed line and the axis under it.
+        ...this.thresholdStats(),
+      );
 
-      const named = this.significantIndices
+      const named = this.bySignificance()
         .map(index => this.declared[index]?.label)
         .filter((name): name is string => typeof name === 'string' && name !== '');
 
@@ -269,8 +294,29 @@ export class VolcanoTrace extends ScatterTrace {
         stats.push({
           label: named.length > NAMED_HITS
             ? `Top ${NAMED_HITS} by significance`
-            : 'Above the threshold, named',
+            : 'Clearing the threshold, named',
           value: shown.join(', '),
+        });
+      }
+
+      // Which regions the findings fall in. `Regions` below counts the whole
+      // chart -- twenty-two chromosomes, whether the hits sit on one of them
+      // or on all of them -- and "which chromosome is it on" is the second
+      // question a Manhattan is read for.
+      const hits = this.hitsByRegion();
+      if (hits.length > 0) {
+        stats.push({
+          // Capped the way the named list above is, and said the same way. A
+          // genome has twenty-two of these and a study can hit most of them,
+          // so a silent cut left a list that looks complete and names half of
+          // them -- with the label promising every region that has a hit.
+          label: hits.length > NAMED_HITS
+            ? `Top ${NAMED_HITS} regions by hits`
+            : 'Regions with hits',
+          value: hits
+            .slice(0, NAMED_HITS)
+            .map(([region, count]) => `${region} (${count})`)
+            .join(', '),
         });
       }
     }
@@ -281,6 +327,67 @@ export class VolcanoTrace extends ScatterTrace {
     }
 
     return { ...base, stats };
+  }
+
+  /**
+   * The clearing points, strongest finding first.
+   *
+   * `significantIndices` is held in reading order because navigation walks it,
+   * and reading order is y descending -- which is most-significant-first only
+   * on a transformed axis. On a raw p axis it is the exact reverse, so the cap
+   * below `Top 10 by significance` kept the ten weakest hits and dropped the
+   * strongest, under a label claiming the opposite.
+   *
+   * @returns A copy of the clearing indices, ordered by significance
+   */
+  private bySignificance(): number[] {
+    return [...this.significantIndices].sort((a, b) => this.significantAbove
+      ? this.flatPoints[b].y - this.flatPoints[a].y
+      : this.flatPoints[a].y - this.flatPoints[b].y);
+  }
+
+  /**
+   * The cutoffs the layer declared, in the axes' own words.
+   *
+   * Formatted here rather than left to the description service, which rounds a
+   * value that is a number and passes a composed string through untouched.
+   *
+   * @returns One stat per declared threshold
+   */
+  private thresholdStats(): DescriptionState['stats'] {
+    const stats: DescriptionState['stats'] = [];
+    if (this.significance !== null) {
+      stats.push({
+        label: 'Significance threshold',
+        value: `${this.yAxis} ${this.significantAbove ? 'at or above' : 'at or below'} ${defaultFormat(this.significance)}`,
+      });
+    }
+    if (this.effect !== null) {
+      // "of magnitude": the cutoff is applied to |x|, so a fold change of -3
+      // clears an effect threshold of 2 as surely as one of +3 does, and a
+      // reader told only "2 or more" would expect half the hits it names.
+      stats.push({
+        label: 'Effect threshold',
+        value: `${this.xAxis} of magnitude ${defaultFormat(this.effect)} or more`,
+      });
+    }
+    return stats;
+  }
+
+  /**
+   * How many of the clearing points fall in each named region.
+   *
+   * @returns Region and count pairs, most hits first
+   */
+  private hitsByRegion(): [string, number][] {
+    const counts = new Map<string, number>();
+    for (const index of this.significantIndices) {
+      const group = this.declared[index]?.group;
+      if (typeof group === 'string' && group !== '') {
+        counts.set(group, (counts.get(group) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }
 
   /**

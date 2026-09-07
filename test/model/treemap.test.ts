@@ -268,18 +268,80 @@ describe('the description answers what a walk cannot', () => {
     expect(stat('Number of leaves')).toBe(5);
   });
 
+  test('says how the tree is shaped, not only how deep it is', () => {
+    // Two roots over five leaves and forty roots over forty-one are both
+    // `Levels: 2`, and the shape is what a reader is picturing.
+    expect(stat('Nodes per level')).toBe('2, 5');
+  });
+
+  test('a tree of one level has no shape to report', () => {
+    // The list would be `Number of nodes` over again on a flat tree, and an
+    // empty layer joined it into an empty string -- which the dialog blanks,
+    // leaving a label with nothing after it.
+    const flat: TreemapPoint[] = [{ x: 'a', y: 1 }, { x: 'b', y: 2 }];
+
+    expect(stat('Nodes per level', flat)).toBeUndefined();
+    expect(stat('Nodes per level', [])).toBeUndefined();
+  });
+
+  test('names the bottom of the leaf distribution as well as the top', () => {
+    // `Largest leaf` names the top of it and nothing named the bottom, so a
+    // chart India is four fifths of read the same as an even one.
+    expect(stat('Leaf range')).toBe('52 to 1400');
+  });
+
   test('totals the tree', () => {
     expect(stat('Total')).toBe(1727);
   });
 
   test('breaks the top level down, which the layout shows at a glance', () => {
-    expect(stat('Top level')).toBe('Europe 8.7%, Asia 91.3%');
+    // Largest first rather than in declared order, so the list still names
+    // what the chart is made of once it is capped.
+    expect(stat('Top level')).toBe('Asia 91.3%, Europe 8.7%');
   });
 
-  test('names the largest leaf with its branch', () => {
+  test('breaks down the level that divides, not a root over itself', () => {
+    // One root is the shape every Plotly hierarchy built from a
+    // `labels`/`parents` pair has, and there `grandTotal` is that root's own
+    // value -- so the top-level breakdown was the tautology `World 100.0%`.
+    const world: TreemapPoint[] = [
+      { x: 'France', y: 67, path: ['World', 'Europe'] },
+      { x: 'Japan', y: 125, path: ['World', 'Asia'] },
+    ];
+
+    expect(stat('Top level', world)).toBeUndefined();
+    expect(stat('Inside World', world)).toBe('Asia 65.1%, Europe 34.9%');
+  });
+
+  test('the breakdown stops rather than reading every rectangle out', () => {
+    // A flat treemap is what a disk-usage or a market-cap chart is, and an
+    // uncapped list named every node on it in one stat.
+    const flat: TreemapPoint[] = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+      .map(value => ({ x: `n${value}`, y: value }));
+
+    expect(stat('Top level', flat)).toBe(
+      'n100 18.2%, n90 16.4%, n80 14.5%, n70 12.7%, n60 10.9%, n50 9.1%, '
+      + 'n40 7.3%, n30 5.5%, and 2 more',
+    );
+  });
+
+  test('names the largest leaf with its branch and its share', () => {
     // A leaf's name alone does not say which branch it is the largest thing
-    // in, and on a hierarchy that is most of the finding.
-    expect(stat('Largest leaf')).toBe('Asia > India, 1400');
+    // in, and on a hierarchy that is most of the finding. The share says
+    // whether it is most of the chart, which is what the areas are drawn for.
+    expect(stat('Largest leaf')).toBe('Asia > India, 1400, 81.1% of total');
+  });
+
+  test('the magnitude in the stat is rounded the way the table rounds it', () => {
+    // Interpolated into a string, so the description service takes it for
+    // display text and leaves it alone: the same node printed
+    // `0.3333333333333333` in the summary and `0.33` in the table below.
+    const thirds: TreemapPoint[] = [
+      { x: 'Bo', y: 1 / 3, path: ['Ada'] },
+      { x: 'Cy', y: 1 / 6, path: ['Ada'] },
+    ];
+
+    expect(stat('Largest leaf', thirds)).toBe('Ada > Bo, 0.33, 66.7% of total');
   });
 
   test('the data table carries the path, so the tree survives flattening', () => {
@@ -288,6 +350,22 @@ describe('the description answers what a walk cannot', () => {
     expect(headers).toEqual(['Path', 'Region', 'Population', 'Share of total']);
     expect(rows[0]).toEqual(['', 'Europe', 150, '8.7%']);
     expect(rows[2]).toEqual(['Europe', 'France', 67, '3.9%']);
+  });
+
+  test('a layer that names no axes still heads its columns with nouns', () => {
+    // A hierarchy has no scales, so a producer authoring no axis labels is
+    // being accurate -- and the table then headed a column of populations
+    // `Y`, which is the placeholder `getDescriptionAxes` keeps out of the
+    // Axes block three lines above.
+    const trace = TraceFactory.create({
+      id: 'no-axes-treemap',
+      type: TraceType.TREEMAP,
+      title: 'Population by region',
+      data: NATIONS,
+    }) as TreemapTrace;
+
+    expect(trace.description.dataTable.headers)
+      .toEqual(['Path', 'Node', 'Value', 'Share of total']);
   });
 });
 
@@ -462,7 +540,13 @@ describe('a tree that declares no magnitude', () => {
   test('the description keeps the shape and drops the totals', () => {
     const labels = treemap(ORG).description.stats.map(entry => entry.label);
 
-    expect(labels).toEqual(['Levels', 'Number of nodes', 'Number of leaves']);
+    // `Nodes per level` is shape rather than magnitude, so it stays.
+    expect(labels).toEqual([
+      'Levels',
+      'Number of nodes',
+      'Number of leaves',
+      'Nodes per level',
+    ]);
   });
 
   test('a valued tree keeps every stat it had', () => {

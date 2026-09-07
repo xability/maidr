@@ -443,6 +443,18 @@ const GO_TO_EXTREMA_KEYMAP = {
  */
 const DESCRIPTION_KEYMAP = {
   TOGGLE_DESCRIPTION: key(`esc`, 'Close Chart Description', { showInHelp: false }),
+
+  // The layer tab strip's own keys -- left/right along the strip, Space to
+  // confirm -- are handled by the strip itself rather than bound here.
+  //
+  // A scoped binding fires wherever focus is in the dialog and is
+  // `preventDefault`ed before its command runs, so claiming these three would
+  // have taken Space off the data table's scroll region and the Close button,
+  // and taken the arrows off every other focusable thing in the dialog --
+  // paying for a strip most charts do not even have. The strip has focus
+  // whenever those keys mean anything, so handling them there costs nothing
+  // and takes nothing. Escape is still bound, and the strip does not stop the
+  // event, so it keeps reaching this scope.
 } as const;
 
 /**

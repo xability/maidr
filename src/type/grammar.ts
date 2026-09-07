@@ -275,6 +275,16 @@ export interface BarPoint {
  */
 export interface BoxPoint {
   z: string;
+  /**
+   * The group's name as the segmented-style producers write it.
+   *
+   * `z` is the field this schema asks for and the one to prefer, but the
+   * violin bindings emit `fill` and no `z` at all -- the shipped
+   * `examples/violin.html` is one -- so a reader of those charts was shown a
+   * blank Group column and heard "326 (undefined)" for every extreme. Read as
+   * a fallback rather than replacing `z`, since a producer may send either.
+   */
+  fill?: string;
   lowerOutliers: number[];
   min: number;
   q1: number;

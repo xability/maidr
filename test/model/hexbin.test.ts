@@ -171,6 +171,16 @@ describe('the description says what the cloud looks like', () => {
   const read = (label: string): unknown =>
     hexbin().description.stats.find(stat => stat.label === label)?.value;
 
+  /**
+   * Read a description stat off a lattice other than the default one.
+   * @param data The lattice the layer carries
+   * @param label The stat to find
+   * @returns Its value, or undefined
+   */
+  function readOf(data: HexbinPoint[][], label: string): unknown {
+    return hexbin(0, 0, data).description.stats.find(stat => stat.label === label)?.value;
+  }
+
   test('counts the bins that hold anything, not just the bins', () => {
     // A scatter spread evenly fills most of its lattice and a tight one
     // leaves most of it empty, which is not recoverable from the counts
@@ -192,6 +202,83 @@ describe('the description says what the cloud looks like', () => {
     // occupied part of the chart does not have.
     expect(read('Min count')).toBe(1);
     expect(read('Max count')).toBe(12);
+  });
+
+  test('says where the lattice sits, not only how dense it is', () => {
+    // Every other stat is a count. Without the extent, `Densest bin` names a
+    // pair of coordinates with no scale to place them on -- the reader cannot
+    // tell whether that is the left edge of the cloud or the middle of it.
+    expect(read('X range')).toBe('0 to 4');
+    expect(read('Y range')).toBe('0 to 2');
+  });
+
+  test('rounds the densest bin, which a real lattice never lands round on', () => {
+    // A hex centre is `radius * sqrt(3) * (i + 0.5)`, so d3-hexbin never
+    // produces a round number. Composed into a string the stat escapes the
+    // service's rounding entirely, and the same two numbers appear in the
+    // table below at two decimals.
+    const offset: HexbinPoint[][] = [
+      [
+        { x: 0, y: 0, count: 1 },
+        { x: 3.4641016151377544, y: 2.598076211353316, count: 8 },
+      ],
+    ];
+
+    expect(readOf(offset, 'Densest bin')).toBe('X 3.46, Y 2.6');
+  });
+
+  test('caps the table on a lattice of the size a hexbin routinely carries', () => {
+    // Every bin is a row, re-rounded on every press of `d` and then held in
+    // the store, for a table the dialog paints a hundred of.
+    const wide: HexbinPoint[][] = [
+      Array.from({ length: 1200 }, (_unused, x) => ({ x, y: 0, count: x + 1 })),
+    ];
+
+    expect(hexbin(0, 0, wide).description.dataTable.rows).toHaveLength(1000);
+    expect(readOf(wide, 'Table rows')).toBe('first 1000 of 1200');
+  });
+});
+
+describe('a hexbin\'s third dimension is a count, not a level', () => {
+  /**
+   * A lattice whose layer names no z axis, which is the common case.
+   * @returns The trace
+   */
+  function unlabelled(): HexbinTrace {
+    const trace = TraceFactory.create({
+      id: 'bare-hexbin-layer',
+      type: TraceType.HEXBIN,
+      axes: { x: { label: 'X' }, y: { label: 'Y' } },
+      data: LATTICE,
+    }) as HexbinTrace;
+    trace.moveToIndex(1, 1);
+    return trace;
+  }
+
+  test('the announcement says count rather than the generic level', () => {
+    // `Level` is the fallback `AbstractTrace` applies to any z, and on a
+    // hexbin it invites a reader to hear a banding in what is a tally of
+    // points.
+    expect(nonEmptyState(unlabelled()).text.z?.label).toBe('Count');
+  });
+
+  test('the table heads the same column the same way', () => {
+    expect(unlabelled().description.dataTable.headers).toEqual(['X', 'Y', 'Count']);
+  });
+
+  test('an authored z label still wins', () => {
+    // The fallback is a fallback: a layer that named the dimension keeps its
+    // own word in both places.
+    const trace = TraceFactory.create({
+      id: 'named-hexbin-layer',
+      type: TraceType.HEXBIN,
+      axes: { x: { label: 'X' }, y: { label: 'Y' }, z: { label: 'Observations' } },
+      data: LATTICE,
+    }) as HexbinTrace;
+    trace.moveToIndex(1, 1);
+
+    expect(nonEmptyState(trace).text.z?.label).toBe('Observations');
+    expect(trace.description.dataTable.headers[2]).toBe('Observations');
   });
 });
 

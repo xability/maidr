@@ -1,11 +1,16 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
-import type { AudioState, BrailleState, DescriptionState, TraceState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import { MathUtil } from '@util/math';
+import { named } from './abstract';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
 
 /** Reported for an axis the chart draws but never measured anything on. */
 const NOTHING_MEASURED = 'no readings';
+
+/** What the two data columns are called when the layer names neither axis. */
+const AXIS_COLUMN = 'Axis';
+const VALUE_COLUMN = 'Value';
 
 /**
  * The axis names, in the order the chart draws them.
@@ -74,8 +79,12 @@ export class ParallelTrace extends LineTrace {
    * range with a car's weight at the top of it, which is the exact mixing of
    * units this class exists to prevent (#1182). Every point already names its
    * own axis in `x`, so nothing has to be inferred from where it sits.
+   *
+   * The reading count travels with the extent because the dialog reports the
+   * two together: a range measured from one observation and a range measured
+   * from four hundred are the same pair of numbers and not the same claim.
    */
-  private readonly axisExtent: Map<string, { min: number; max: number }>;
+  private readonly axisExtent: Map<string, { min: number; max: number; readings: number }>;
 
   /**
    * The axis names, in the order the chart draws them.
@@ -127,7 +136,11 @@ export class ParallelTrace extends LineTrace {
     this.axisExtent = new Map(
       [...perAxis].map(([axis, values]) => [
         axis,
-        { min: MathUtil.safeMin(values), max: MathUtil.safeMax(values) },
+        {
+          min: MathUtil.safeMin(values),
+          max: MathUtil.safeMax(values),
+          readings: values.length,
+        },
       ]),
     );
 
@@ -167,10 +180,30 @@ export class ParallelTrace extends LineTrace {
    * class is arranged against.
    *
    * @param axis - The axis name a point carries
-   * @returns Its extent, or a non-finite pair for a name the layer never used
+   * @returns Its extent and how many readings it was taken from, or a
+   *   non-finite pair for a name the layer never used
    */
-  private extentOf(axis: string): { min: number; max: number } {
-    return this.axisExtent.get(axis) ?? { min: Number.NaN, max: Number.NaN };
+  private extentOf(axis: string): { min: number; max: number; readings: number } {
+    return this.axisExtent.get(axis) ?? { min: Number.NaN, max: Number.NaN, readings: 0 };
+  }
+
+  /**
+   * What the description's two data columns are called.
+   *
+   * The first holds the **axis** a reading was taken on and the second the
+   * reading itself, in that axis's own units -- which is why the per-axis
+   * ranges exist at all. `LineTrace` heads them with the layer's single x and
+   * y labels, which on this chart name neither column, and falls back to the
+   * literal `'X'` and `'Y'` for a producer that authored no labels -- which
+   * both parallel adapters do whenever their optional config omits them.
+   */
+  private get axisColumnLabel(): string {
+    return named(this.layer.axes?.x?.label, AXIS_COLUMN);
+  }
+
+  /** @see {@link ParallelTrace.axisColumnLabel} */
+  private get valueColumnLabel(): string {
+    return named(this.layer.axes?.y?.label, VALUE_COLUMN);
   }
 
   /** The axis the cursor is on, by the name the point under it carries. */
@@ -283,9 +316,26 @@ export class ParallelTrace extends LineTrace {
     // those are the smallest and largest numbers anywhere in the chart, taken
     // across axes that measure different things -- a figure with no referent,
     // and the dialog is where a reader goes to learn what the axes are.
-    const stats = base.stats.filter(
-      stat => stat.label !== 'Min value' && stat.label !== 'Max value',
-    );
+    //
+    // The x extent goes with them. On a line chart it is the period the chart
+    // covers; here the x values are the axis names, so it reads "mpg to
+    // weight" -- the first and last entries of the list `Axes, in order`
+    // gives in full a few lines below, under a label built from the same
+    // placeholder the table header used to carry.
+    const stats = base.stats
+      .filter(stat =>
+        stat.label !== 'Min value'
+        && stat.label !== 'Max value'
+        && stat.label !== `${this.xAxis} range`)
+      // `Axes per observation` is `LineTrace`'s point count per series, which
+      // is a lower bound on the axis count rather than the axis count: an
+      // axis only gappy observations reach is still drawn, still in
+      // `axisOrder`, still walked, and still gets its own range below. The
+      // dialog therefore said "Axes per observation: 2" directly above a list
+      // of three axes (#1182).
+      .map(stat => (stat.label === this.seriesLabels.perSeries
+        ? { label: 'Number of axes', value: this.axisOrder.length }
+        : stat));
 
     if (this.axisOrder.length > 0) {
       // The order is part of the chart: which variables sit next to each other
@@ -294,21 +344,55 @@ export class ParallelTrace extends LineTrace {
       stats.push({ label: 'Axes, in order', value: this.axisOrder.join(', ') });
 
       for (const name of this.axisOrder) {
-        const { min, max } = this.extentOf(name);
+        const { min, max, readings } = this.extentOf(name);
         // An axis every observation gapped has no extent to report, and
         // `MathUtil.spanned` of an empty set is the literal "Infinity to
         // -Infinity" -- a range in no units, offered to a reader who opened
         // the dialog to find out what the axis measures.
+        const span = Number.isFinite(min) && Number.isFinite(max)
+          ? MathUtil.spanned(min, max)
+          : NOTHING_MEASURED;
         stats.push({
           label: name,
-          value: Number.isFinite(min) && Number.isFinite(max)
-            ? MathUtil.spanned(min, max)
-            : NOTHING_MEASURED,
+          // How many observations the range rests on, said only when it is
+          // short of all of them: a span taken from one observation and a span
+          // taken from four hundred are the same two numbers and not the same
+          // claim, and this is the chart where different observations reach
+          // different axes.
+          value: readings > 0 && readings < this.points.length
+            ? `${span}, from ${readings} of ${this.points.length} observations`
+            : span,
         });
       }
     }
 
-    return { ...base, stats };
+    // The first column holds the axis a reading was taken on and the second
+    // the reading, in that axis's own units. `LineTrace` heads them with the
+    // layer's single x and y labels, which name neither column here.
+    const { headers, rows } = base.dataTable;
+    return {
+      ...base,
+      stats,
+      dataTable: {
+        headers: [this.axisColumnLabel, this.valueColumnLabel, ...headers.slice(2)],
+        rows,
+      },
+    };
+  }
+
+  protected override get text(): TextState {
+    const base = super.text;
+
+    // The same two nouns the table is headed with, for the same reason: the
+    // main value is an axis name rather than a position on one axis, and the
+    // cross value is measured in that axis's units rather than in the layer's.
+    return {
+      ...base,
+      main: { ...base.main, label: this.axisColumnLabel },
+      ...(base.cross === undefined
+        ? {}
+        : { cross: { ...base.cross, label: this.valueColumnLabel } }),
+    };
   }
 
   public override get state(): TraceState {

@@ -10,8 +10,9 @@ import type {
   TraceState,
 } from '@type/state';
 import type { CompareModeInfo, Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { MovableGrid } from './movable';
 
 /** OHLC fields a user can compare against a reference line. */
@@ -39,6 +40,36 @@ const ON_LINE_KEY = 'onLine';
 const ABOVE_LINE = 'above line';
 const BELOW_LINE = 'below line';
 const ON_LINE = 'on line';
+
+/**
+ * What the reference series is called when nothing named it.
+ *
+ * `LineTrace.getSeries()` falls back to the layer's own title for a single
+ * unnamed series, and a layer whose producer authored no title carries
+ * {@link DEFAULT_SUBPLOT_TITLE} -- which the dialog blanks. So the one stat
+ * saying what the prices are being compared against disappeared, and the
+ * column of reference values lost its header and became "Column 3". A generic
+ * name says less than the producer's, and it is what every other number in
+ * this layer is measured from.
+ */
+const REFERENCE_FALLBACK = 'Reference line';
+
+/**
+ * What the reference line is called, with the fallback already applied.
+ *
+ * Exported so the service that composes the delta layer's *title* resolves the
+ * name the same way the trace resolves its stat and its column header. Built
+ * from the raw label, that title read "OHLC price vs unavailable" -- the
+ * placeholder reaching the reader one line above the column the trace is
+ * careful to name.
+ *
+ * @param declared - The reference line's name as the chart declared it
+ * @returns The declared name, or the generic one when nobody authored it
+ */
+export function referenceName(declared: string): string {
+  const trimmed = declared.trim();
+  return trimmed !== '' && trimmed !== DEFAULT_SUBPLOT_TITLE ? trimmed : REFERENCE_FALLBACK;
+}
 
 /**
  * One matched candle of the virtual delta layer: the shared x value, the
@@ -143,6 +174,13 @@ export class CandlestickDeltaTrace extends AbstractTrace {
 
   private readonly candles: CandlestickDeltaCandle[];
   private readonly referenceLabel: string;
+  /**
+   * Whether {@link REFERENCE_FALLBACK} stood in for a name nobody authored.
+   *
+   * The column still needs a header either way; the stat naming the reference
+   * does not, and "Reference line is Reference line" says nothing twice.
+   */
+  private readonly hasNamedReference: boolean;
   private readonly initialField: CandlestickDeltaField;
 
   /** Signed deltas per field, indexed [field][candle]. */
@@ -175,7 +213,9 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     super(layer);
 
     this.candles = config.candles;
-    this.referenceLabel = config.referenceLabel;
+    const declared = config.referenceLabel.trim();
+    this.hasNamedReference = declared !== '' && declared !== DEFAULT_SUBPLOT_TITLE;
+    this.referenceLabel = referenceName(config.referenceLabel);
     this.initialField = config.initialField ?? 'close';
     this.currentField = this.initialField;
 
@@ -503,18 +543,55 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     const minDelta = deltas.reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Reference line', value: this.referenceLabel },
-      { label: 'Compared value', value: field },
+      // Omitted rather than filled with the placeholder: the header below
+      // still names the column, and a stat that repeats its own label back is
+      // a line a reader listens through for nothing.
+      ...(this.hasNamedReference
+        ? [{ label: 'Reference line', value: this.referenceLabel }]
+        : []),
+      // The field is one of the four prices, and `Compared value is close`
+      // reads as a truncated sentence -- the label promises a number and
+      // delivers a word.
+      { label: 'Compared price', value: field },
       { label: 'Number of points', value: this.candles.length },
       { label: 'Points above line', value: aboveCount },
       { label: 'Points below line', value: belowCount },
       { label: 'Points on line', value: onLineCount },
-      { label: 'Delta range', value: MathUtil.spanned(minDelta, maxDelta) },
+      // `spannedOrMissing`, because both reductions seed from an infinity: a
+      // layer with no matched candles would otherwise print the literal text
+      // `Infinity to -Infinity`, which the dialog's blanking cannot catch
+      // because it is a string.
+      {
+        label: 'Delta range',
+        value: MathUtil.spannedOrMissing(minDelta, maxDelta),
+      },
     ];
 
+    // Where the price pulls away from the line, which is the question this
+    // layer exists to answer. The range says how far the largest gap ran and
+    // the counts say how often, and neither says when -- leaving a reader to
+    // walk the series or open the extrema menu for a fact the summary is
+    // already most of the way to.
+    if (maxDelta > 0) {
+      stats.push({
+        label: 'Largest gap above line',
+        value: `${this.candles[deltas.indexOf(maxDelta)].x}, ${defaultFormat(maxDelta)}`,
+      });
+    }
+    if (minDelta < 0) {
+      stats.push({
+        label: 'Largest gap below line',
+        value: `${this.candles[deltas.indexOf(minDelta)].x}, ${defaultFormat(Math.abs(minDelta))}`,
+      });
+    }
+
+    // Capitalised beside the authored axis label and the 'Delta'/'Position'
+    // columns: a column headed by the bare word `close` does not say it holds
+    // a price, next to one headed with the reference series' name that does.
+    const fieldLabel = `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
     const headers = [
       this.xAxis,
-      field,
+      fieldLabel,
       this.referenceLabel,
       'Delta',
       'Position',

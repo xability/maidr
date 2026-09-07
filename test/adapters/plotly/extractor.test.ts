@@ -1450,10 +1450,10 @@ describe('plotly extractor', () => {
         expect(summaries).toHaveLength(4);
         expect(summaries.map(summary => summary.title)).toEqual(['A', 'B', 'C', 'D']);
         expect(summaries.map(summary => summary.traceTypes)).toEqual([
-          ['bar'],
-          ['bar'],
-          ['bar'],
-          ['bar'],
+          ['Bar Chart'],
+          ['Bar Chart'],
+          ['Bar Chart'],
+          ['Bar Chart'],
         ]);
 
         // Reading the state exercises Subplot/Trace construction end-to-end
@@ -1721,11 +1721,14 @@ describe('plotly extractor', () => {
 
         // Every payload is one the core's factory recognises and can build a
         // trace from — the emitted shapes, not just the emitted type names.
+        // `SubplotSummary.traceTypes` carries the description dialog's display
+        // labels, which are a one-to-one function of the wire type, so this
+        // still says which trace the factory built.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['waterfall'],
-          ['funnel'],
-          ['error_bar'],
-          ['stacked_area'],
+          ['Waterfall Chart'],
+          ['Funnel Chart'],
+          ['Error Bar Chart'],
+          ['Stacked Area Chart'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });
@@ -1778,11 +1781,14 @@ describe('plotly extractor', () => {
 
         // Every payload is one the core's factory recognises and can build a
         // trace from — the emitted shapes, not just the emitted type names.
+        // `SubplotSummary.traceTypes` carries the description dialog's display
+        // labels, which are a one-to-one function of the wire type, so this
+        // still says which trace the factory built.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['sunburst'],
-          ['sankey'],
-          ['gauge'],
-          ['parallel_coordinates'],
+          ['Sunburst Chart'],
+          ['Sankey Diagram'],
+          ['Gauge'],
+          ['Parallel Coordinates Plot'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });
@@ -1858,11 +1864,14 @@ describe('plotly extractor', () => {
 
         // Every payload is one the core's factory recognises and can build a
         // trace from — the emitted shapes, not just the emitted type names.
+        // `SubplotSummary.traceTypes` carries the description dialog's display
+        // labels, which are a one-to-one function of the wire type, so this
+        // still says which trace the factory built.
         expect(figure.getSubplotSummaries().map(summary => summary.traceTypes)).toEqual([
-          ['gantt'],
-          ['diverging_bar'],
-          ['dot'],
-          ['word_cloud'],
+          ['Gantt Chart'],
+          ['Diverging Bar Chart'],
+          ['Dot Plot'],
+          ['Word Cloud'],
         ]);
         expect(figure.state).toMatchObject({ empty: false });
       });

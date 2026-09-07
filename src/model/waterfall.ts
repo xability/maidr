@@ -4,10 +4,11 @@ import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured } from './bar';
+import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -198,6 +199,7 @@ export class WaterfallTrace extends AbstractTrace {
     const steps = this.points.filter(point => point.kind !== 'total');
     const increases = steps.filter(point => point.kind === 'increase').length;
     const decreases = steps.filter(point => point.kind === 'decrease').length;
+    const totals = this.points.length - steps.length;
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of steps', value: this.points.length },
@@ -205,15 +207,52 @@ export class WaterfallTrace extends AbstractTrace {
       { label: 'Decreases', value: decreases },
     ];
 
+    if (totals > 0) {
+      // The restated bars the two counts above deliberately leave out. `kind`
+      // is a three-way union, so without them the counts never add up to the
+      // number of steps and a reader doing that arithmetic concludes the
+      // chart holds steps that neither rose nor fell.
+      stats.push({ label: 'Totals', value: totals });
+    }
+
     if (this.points.length > 0) {
       // Where the chart starts and where it ends is the whole point of the
       // form, and it is not recoverable from the contributions: the reader
       // would have to sum every delta while navigating.
+      //
+      // The opening balance is the first *contributing* step's `start`, not
+      // the first bar's. A total is drawn from the baseline, so its `start` is
+      // zero by construction -- and on the ordinary bridge, which opens on
+      // one, the description therefore said the chart began at 0 while the
+      // same bar announced a running total of the whole opening balance. A
+      // chart of nothing but totals has no contributing step to read, and its
+      // first bar's `end` is the balance it restates.
+      const firstStep = this.points.find(point => point.kind !== 'total');
+      const startingValue = firstStep === undefined
+        ? Number(this.points[0].end)
+        : Number(firstStep.start);
+      const endingValue = Number(this.points[this.points.length - 1].end);
+      // Named rather than left to blank. The dialog blanks a non-finite
+      // number, so a bridge whose totals do not parse stood three labels over
+      // nothing at all -- which reads as the dialog failing rather than as the
+      // chart withholding, and `missing` is the word every other absent value
+      // here already uses.
+      const reads = (value: number): number | string =>
+        isMeasured(value) ? value : MISSING_TEXT;
       stats.push(
-        { label: 'Starting value', value: Number(this.points[0].start) },
+        { label: 'Starting value', value: reads(startingValue) },
+        { label: 'Ending value', value: reads(endingValue) },
         {
-          label: 'Ending value',
-          value: Number(this.points[this.points.length - 1].end),
+          label: 'Net change',
+          // How big the whole move was, which is the headline of a bridge and
+          // the one number two large running totals heard seconds apart leave
+          // the reader to subtract by ear.
+          //
+          // Trimmed, because it is a subtraction: `1360.2 - 1200.1` is
+          // `160.09999999999991` in IEEE 754, and a screen reader spells out
+          // every one of those digits. Twelve significant figures for the
+          // reason {@link DumbbellTrace} gives.
+          value: reads(Number((endingValue - startingValue).toPrecision(12))),
         },
       );
     }
@@ -221,22 +260,39 @@ export class WaterfallTrace extends AbstractTrace {
     // Ranked over the measured steps only, as `getExtremaTargets` ranks
     // them: a NaN would win `Math.max` and name no step at all.
     const measured = steps.filter(point => isMeasured(Number(point.delta)));
-    if (measured.length > 0) {
-      // The largest mover is what a waterfall is read to find, and scanning
-      // for it by ear means walking every step.
-      const magnitudes = measured.map(point => Math.abs(Number(point.delta)));
-      const largest = measured[magnitudes.indexOf(Math.max(...magnitudes))];
+    // Both movers, each named by the direction it has. One `Largest
+    // contribution` ranked by magnitude answered "what drove this" with
+    // whichever end happened to be bigger and never named the other -- while
+    // the extrema menu, built from the same steps, offers both -- and it put
+    // the direction in a minus sign, which is the reading `text` adds a
+    // section to avoid.
+    const rises = measured.filter(point => Number(point.delta) > 0);
+    if (rises.length > 0) {
+      const top = rises.reduce((a, b) => (Number(b.delta) > Number(a.delta) ? b : a));
       stats.push({
-        label: 'Largest contribution',
-        value: `${largest.x} (${Number(largest.delta)})`,
+        label: 'Largest increase',
+        value: `${top.x}, ${defaultFormat(Number(top.delta))}`,
+      });
+    }
+    const falls = measured.filter(point => Number(point.delta) < 0);
+    if (falls.length > 0) {
+      const bottom = falls.reduce((a, b) => (Number(b.delta) < Number(a.delta) ? b : a));
+      stats.push({
+        label: 'Largest decrease',
+        value: `${bottom.x}, ${defaultFormat(Math.abs(Number(bottom.delta)))}`,
       });
     }
 
-    const headers = [this.xAxis, 'Change', 'Running total'];
+    const headers = [this.xAxis, 'Change', 'Running total', 'Kind'];
     const rows: (string | number)[][] = this.points.map(point => [
       point.x,
       Number(point.delta),
       Number(point.end),
+      // The distinction the grammar carries `kind` for, and the one the table
+      // dropped: a total restates the running value rather than moving it, so
+      // its `delta` is normally the largest number in the column and reads as
+      // the chart's biggest mover. The word the announcement already uses.
+      KIND_LABEL[point.kind],
     ]);
 
     return {

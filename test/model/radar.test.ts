@@ -243,6 +243,54 @@ describe('the description dialog', () => {
     ]);
   });
 
+  test('counts a polar area\'s sectors rather than its spokes', () => {
+    // Both circular types share this trace, and a polar area draws wedges. It
+    // is announced as a `polar area` and then had its spokes counted.
+    const labels = radar(0, 0, TraceType.POLAR_AREA).description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Sectors per series');
+    expect(labels).not.toContain('Spokes per series');
+  });
+
+  test('names the categories in the order they are drawn', () => {
+    // A radar has few categories and they are its whole vocabulary, so a
+    // reader opening `d` before navigating was given a count and no names --
+    // and the order decides the outline's shape outright.
+    expect(radar().description.stats).toContainEqual({
+      label: 'Spokes, in order',
+      value: 'speed, range, comfort, price',
+    });
+  });
+
+  test('names a polar area\'s categories under its own noun', () => {
+    expect(radar(0, 0, TraceType.POLAR_AREA).description.stats).toContainEqual({
+      label: 'Sectors, in order',
+      value: 'speed, range, comfort, price',
+    });
+  });
+
+  test('does not report an extent across a circle', () => {
+    // Inherited from the line, the x extent names the first and last column.
+    // On a circle those two are neighbours, so "speed to price" describes a
+    // sweep the chart never makes.
+    expect(radar().description.stats.map(stat => stat.label))
+      .not
+      .toContain('Attribute range');
+  });
+
+  test('names an unnamed series after the series, not after a line', () => {
+    // `Series names: Line 1, Line 2`, in a column headed `Series`, named a
+    // chart type the reader is not on and offered an index where a name was
+    // promised.
+    const unnamed: LinePoint[][] = [
+      [{ x: 'speed', y: 8 }, { x: 'range', y: 4 }],
+      [{ x: 'speed', y: 5 }, { x: 'range', y: 7 }],
+    ];
+
+    expect(radar(0, 0, TraceType.RADAR, unnamed).description.stats)
+      .toContainEqual({ label: 'Series names', value: 'Series 1, Series 2' });
+  });
+
   test('leaves a line chart\'s own wording alone', () => {
     // The labels are parameterised on `LineTrace`, so this is what says the
     // parameterisation did not change the chart it is named after.
@@ -257,6 +305,17 @@ describe('the description dialog', () => {
 
     expect(labels).toContain('Number of lines');
     expect(labels).toContain('Points per line');
+  });
+});
+
+describe('what a series is called out loud', () => {
+  test('is what the dialog calls it, not the line\'s "Group"', () => {
+    // The rename landed in the dialog and not in speech, so a radar announced
+    // "Group is model A" on every move under a description headed `Series` --
+    // two words for one referent, which is the defect the rename removes.
+    const state = nonEmptyState(radar(0, 0));
+
+    expect(state.text.z).toEqual({ label: 'Series', value: 'model A' });
   });
 });
 

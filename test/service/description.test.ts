@@ -1,6 +1,7 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
-import type { PlotState, SubplotSummary } from '@type/state';
+import type { RotorNavigationService } from '@service/rotor';
+import type { LayerSummary, PlotState, SubplotSummary } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { DescriptionService } from '@service/description';
 
@@ -16,6 +17,7 @@ interface ContextOverrides {
   figureYAxis?: string;
   authored?: string[];
   subplotSummaries?: SubplotSummary[];
+  layerSummaries?: LayerSummary[];
 }
 
 /**
@@ -37,7 +39,19 @@ function createMockContext(overrides: ContextOverrides): Context {
     isAuthoredCaption: (value: string) => authored.has(value),
     isAuthoredAxisLabel: (value: string) => value.trim() !== '',
     getSubplotSummaries: () => overrides.subplotSummaries ?? [],
+    getLayerSummaries: () => overrides.layerSummaries ?? [],
+    // The cheap accessor the service asks instead of building the whole
+    // figure state to read one field off it.
+    activeLevel: overrides.state.type,
   } as unknown as Context;
+}
+
+/**
+ * The rotor surface `DescriptionService` touches: picking a layer hands the
+ * rotor back to data mode while the outgoing layer is still active.
+ */
+function createMockRotorService(): RotorNavigationService {
+  return { resetToDataMode: jest.fn() } as unknown as RotorNavigationService;
 }
 
 function createMockDisplayService(): DisplayService {
@@ -63,7 +77,7 @@ describe('descriptionService figure-level description', () => {
       subplotSummaries: subplots,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -72,7 +86,13 @@ describe('descriptionService figure-level description', () => {
     expect(description!.axes).toEqual({});
     expect(description!.dataTable).toEqual({ headers: [], rows: [] });
     expect(description!.subplots).toEqual(subplots);
-    expect(description!.stats).toEqual([{ label: 'Subplots', value: 2 }]);
+    // Not the subplot count: the list the dialog renders is headed with that
+    // already. Where the reader is standing, and what kinds of chart the
+    // figure holds, are what the list cannot tell them.
+    expect(description!.stats).toEqual([
+      { label: 'Currently on', value: 'subplot 1 of 2' },
+      { label: 'Chart types', value: 'bar, line' },
+    ]);
   });
 
   test('includes authored subtitle and caption as stats', () => {
@@ -83,12 +103,11 @@ describe('descriptionService figure-level description', () => {
       authored: ['A subtitle', 'A caption'],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
     expect(description!.stats).toEqual([
-      { label: 'Subplots', value: 3 },
       { label: 'Subtitle', value: 'A subtitle' },
       { label: 'Caption', value: 'A caption' },
     ]);
@@ -101,7 +120,7 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -114,7 +133,7 @@ describe('descriptionService figure-level description', () => {
       figureXAxis: 'Year',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -131,7 +150,7 @@ describe('descriptionService figure-level description', () => {
       figureYAxis: 'Revenue',
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
@@ -147,23 +166,26 @@ describe('descriptionService figure-level description', () => {
       authored: [],
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
     const description = service.getDescription();
 
     expect(description).not.toBeNull();
     expect(description!.title).toBe('');
-    expect(description!.stats).toEqual([{ label: 'Subplots', value: 4 }]);
+    // Nothing left to say: the subplot count is the heading of the list the
+    // dialog renders, and this mock supplies no summaries to census.
+    expect(description!.stats).toEqual([]);
   });
 
   // Documents the defensive null contract that DescriptionViewModel's guard
-  // relies on. Figure.state never actually yields an empty variant at runtime
-  // (see getDescription's comment), so this fabricates one via the mock.
-  test('returns null for an empty figure state', () => {
+  // relies on. The stack never exposes a bare Subplot at runtime (a Subplot is
+  // always pushed with a Trace on top — see Context.enterSubplot), so this
+  // fabricates one via the mock.
+  test('returns null when the active element is neither a trace nor the figure', () => {
     const context = createMockContext({
-      state: { empty: true, type: 'figure' } as unknown as PlotState,
+      state: { empty: false, type: 'subplot' } as unknown as PlotState,
     });
 
-    const service = new DescriptionService(context, createMockDisplayService());
+    const service = new DescriptionService(context, createMockDisplayService(), createMockRotorService());
 
     expect(service.getDescription()).toBeNull();
   });

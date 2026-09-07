@@ -1,5 +1,6 @@
 import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
+import type { RotorNavigationService } from '@service/rotor';
 import type { DescriptionState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
 import { BoxTrace } from '@model/box';
@@ -21,6 +22,7 @@ function createMockContext(active: unknown): Context {
     isAuthoredCaption: () => false,
     isAuthoredAxisLabel: (value: string) => value.trim() !== '',
     getSubplotSummaries: () => [],
+    getLayerSummaries: () => [],
   } as unknown as Context;
 }
 
@@ -57,6 +59,7 @@ function describeTrace(trace: BoxTrace): DescriptionState {
   const service = new DescriptionService(
     createMockContext(trace),
     createMockDisplayService(),
+    { resetToDataMode: jest.fn() } as unknown as RotorNavigationService,
   );
   const description = service.getDescription();
   expect(description).not.toBeNull();
@@ -108,7 +111,7 @@ describe('descriptionService value rounding', () => {
     expect(cells[7]).toBe('156.38');
   });
 
-  test('drops a non-finite outlier instead of joining the text "NaN" in', () => {
+  test('names a non-finite outlier rather than dropping it from the joined cell', () => {
     const description = describeTrace(
       boxTrace(
         { min: 5, q1: 10, q2: 15, q3: 20, max: 25 },
@@ -116,12 +119,14 @@ describe('descriptionService value rounding', () => {
       ),
     );
 
-    // `join` coerces a non-finite number back into the very text the scalar
-    // guard exists to avoid, and a joined cell cannot hand a blank back for
-    // one entry, so the entry goes.
+    // `join` coerces a non-finite number back into the text "NaN", and a
+    // joined cell cannot hand a blank back for one entry — but dropping the
+    // entry made the cell claim two outliers where the trace reported three,
+    // with nothing to say one had gone. `missing` is the word the
+    // announcements already use for a value that is not there.
     const cells = row(description, 'A');
-    expect(cells[1]).toBe('-2.56, -1');
-    expect(cells[7]).toBe('');
+    expect(cells[1]).toBe('-2.56, missing, -1');
+    expect(cells[7]).toBe('missing');
   });
 
   test('leaves an integer alone rather than padding it with decimals', () => {

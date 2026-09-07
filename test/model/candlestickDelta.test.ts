@@ -8,6 +8,7 @@ import {
   DELTA_POINT_MODE,
   deltaTrend,
   ON_LINE_MODE,
+  referenceName,
   roundDelta,
 } from '@model/candlestickDelta';
 import { TraceType } from '@type/grammar';
@@ -298,7 +299,7 @@ describe('candlestickDelta state', () => {
       label: 'Reference line',
       value: 'Moving Average 3 days',
     });
-    expect(description.stats).toContainEqual({ label: 'Compared value', value: 'close' });
+    expect(description.stats).toContainEqual({ label: 'Compared price', value: 'close' });
     expect(description.stats).toContainEqual({ label: 'Points above line', value: 2 });
     expect(description.stats).toContainEqual({ label: 'Points below line', value: 1 });
     expect(description.stats).toContainEqual({ label: 'Points on line', value: 1 });
@@ -310,6 +311,68 @@ describe('candlestickDelta state', () => {
       -1.5,
       'below line',
     ]);
+  });
+
+  test('says where the price pulled furthest from the line', () => {
+    // The layer exists to answer where the price pulls away, and the range
+    // and the counts say how far and how often but never when -- leaving a
+    // reader to walk the series for a fact the summary already holds.
+    const description = createTrace().description;
+
+    expect(description.stats).toContainEqual({
+      label: 'Largest gap above line',
+      value: '2026-01-01, 2',
+    });
+    expect(description.stats).toContainEqual({
+      label: 'Largest gap below line',
+      value: '2026-01-02, 1.5',
+    });
+  });
+
+  test('heads the price column with a name that says it is a price', () => {
+    // Between an authored axis label and the capitalised Delta and Position,
+    // a column headed by the bare word `close` does not say it holds a price.
+    expect(createTrace().description.dataTable.headers).toEqual([
+      'Date',
+      'Close',
+      'Moving Average 3 days',
+      'Delta',
+      'Position',
+    ]);
+  });
+
+  test('refuses the placeholder a nameless reference line arrives as', () => {
+    // `LineTrace.getSeries()` falls back to the layer title for a single
+    // unnamed series, and a layer with no title carries the literal
+    // 'unavailable' -- which the dialog blanks, deleting the stat and leaving
+    // the reference column headed "Column 3".
+    const trace = new CandlestickDeltaTrace(createLayer(), {
+      candles: CANDLES.map(candle => ({ ...candle })),
+      referenceLabel: 'unavailable',
+      initialField: 'close',
+    });
+    const description = trace.description;
+
+    expect(description.dataTable.headers[2]).toBe('Reference line');
+    // Not restated as a stat: "Reference line is Reference line" is a line a
+    // reader listens through for nothing the header has not said.
+    expect(description.stats.map(stat => stat.label)).not.toContain('Reference line');
+  });
+
+  test('reports no delta range on a layer with no matched candles', () => {
+    // Both reductions seed from an infinity, so the range composed the
+    // literal text "Infinity to -Infinity" -- a string, which the dialog's
+    // non-finite blanking cannot catch.
+    const trace = new CandlestickDeltaTrace(createLayer(), {
+      candles: [],
+      referenceLabel: 'Moving Average 3 days',
+      initialField: 'close',
+    });
+
+    expect(trace.description.stats).toContainEqual({
+      label: 'Delta range',
+      value: 'missing',
+    });
   });
 });
 
@@ -431,5 +494,25 @@ describe('candlestickDelta rotor', () => {
 
     expect(trace.moveToNextCompareValue('up', 'higher')).toBe(false);
     expect(trace.moveToNextCompareValue('down', 'lower')).toBe(false);
+  });
+});
+
+describe('what the reference line is called', () => {
+  test('keeps the name the chart declared', () => {
+    expect(referenceName('50-day moving average')).toBe('50-day moving average');
+  });
+
+  test('trims it, so the padding is not read out as a pause', () => {
+    expect(referenceName('  SMA 50  ')).toBe('SMA 50');
+  });
+
+  test('stands a generic name in for one nobody authored', () => {
+    // An unnamed reference arrives as the model's `unavailable` placeholder,
+    // which the dialog erases — so the one stat saying what the prices are
+    // being compared against would disappear, and its column would lose its
+    // header.
+    expect(referenceName('')).toBe('Reference line');
+    expect(referenceName('   ')).toBe('Reference line');
+    expect(referenceName('unavailable')).toBe('Reference line');
   });
 });

@@ -106,6 +106,76 @@ describe('a period the competitor was not ranked in', () => {
   });
 });
 
+describe('the description across a gap', () => {
+  /**
+   * Ash is not ranked in R1 at all, and is the FIRST row on purpose.
+   *
+   * A gap is `NaN`, not `undefined`, so a guard written for the missing
+   * column let it through -- and `NaN` then loses every later comparison, so
+   * row zero won the period outright and stayed won. The chart says Birch led
+   * R1; the description named the competitor who was not in it.
+   */
+  const LATE_START: LinePoint[][] = [
+    [
+      { x: 'R1', y: null, z: 'Ash' },
+      { x: 'R2', y: 2, z: 'Ash' },
+      { x: 'R3', y: 1, z: 'Ash' },
+    ],
+    [
+      { x: 'R1', y: 1, z: 'Birch' },
+      { x: 'R2', y: 1, z: 'Birch' },
+      { x: 'R3', y: 2, z: 'Birch' },
+    ],
+  ];
+
+  /**
+   * Read a description stat by label.
+   * @param data The competitors the layer carries
+   * @param label The stat to find
+   * @returns Its value, or undefined
+   */
+  function read(data: LinePoint[][], label: string): unknown {
+    return bump(data, 0, 0).description.stats.find(stat => stat.label === label)?.value;
+  }
+
+  test('the leader of a period is one of the competitors ranked in it', () => {
+    expect(read(LATE_START, 'Led at the start')).toBe('Birch');
+    expect(read(LATE_START, 'Led at the end')).toBe('Ash');
+  });
+
+  test('names no leader for a period nobody was ranked in', () => {
+    // Inventing one out of a column of gaps is the failure above; the honest
+    // answer is to say nothing, as the rest of the dialog does for a fact the
+    // layer does not carry.
+    const unranked: LinePoint[][] = [
+      [{ x: 'R1', y: null, z: 'Ash' }, { x: 'R2', y: 1, z: 'Ash' }],
+      [{ x: 'R1', y: null, z: 'Birch' }, { x: 'R2', y: 2, z: 'Birch' }],
+    ];
+
+    expect(read(unranked, 'Led at the start')).toBeUndefined();
+    expect(read(unranked, 'Led at the end')).toBe('Ash');
+  });
+
+  test('a competitor who joined late is still measured over the rounds it ran', () => {
+    // Ash goes 2nd to 1st over the rounds it was ranked in, which is the
+    // biggest climb on the chart. Subtracting across the gap gave NaN, and
+    // NaN fails both comparisons rather than one -- so the competitor was
+    // dropped from the climb and the fall alike, silently.
+    expect(read(LATE_START, 'Climbed furthest')).toBe('Ash, 1 place');
+    expect(read(LATE_START, 'Fell furthest')).toBe('Birch, 1 place');
+  });
+
+  test('a competitor ranked in one period only has no move to report', () => {
+    const once: LinePoint[][] = [
+      [{ x: 'R1', y: null, z: 'Ash' }, { x: 'R2', y: 1, z: 'Ash' }],
+      [{ x: 'R1', y: 2, z: 'Birch' }, { x: 'R2', y: 2, z: 'Birch' }],
+    ];
+
+    expect(read(once, 'Climbed furthest')).toBeUndefined();
+    expect(read(once, 'Fell furthest')).toBeUndefined();
+  });
+});
+
 describe('the rotor across a gap', () => {
   test('offers nothing on a table where no measured rank ever moved', () => {
     expect(bump(FROZEN_WITH_GAP, 0, 0).getRotorFilterUnits()).toEqual([]);

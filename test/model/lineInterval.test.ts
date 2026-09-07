@@ -130,4 +130,46 @@ describe('the description', () => {
     expect(labels).not.toContain('Narrowest interval');
     expect(labels).not.toContain('Widest interval');
   });
+
+  test('reads a null bound as no bound, the way the announcement does', () => {
+    // `null` is how a producer spells "no band here" -- NaN is not JSON -- and
+    // `Number(null)` is `0`. So a band-less sample measured a finite width of
+    // zero and the dialog reported "Narrowest interval: 0", telling a reader
+    // the fit is perfectly determined somewhere, while the cursor announced no
+    // interval anywhere on the same chart.
+    const trace = new LineTrace(layer([[
+      { x: 1, y: 3, yMin: null as unknown as number, yMax: null as unknown as number },
+      { x: 2, y: 4, yMin: null as unknown as number, yMax: null as unknown as number },
+    ]]));
+    const labels = trace.description.stats.map((stat: DescriptionStat) => stat.label);
+
+    expect(labels).not.toContain('Narrowest interval');
+    expect(labels).not.toContain('Widest interval');
+  });
+
+  test('reads a half-null pair as no band rather than as a width from zero', () => {
+    // Worse than the pair: `5 - Number(null)` is 5, a width measured against a
+    // baseline the chart never drew. A one-sided interval has no width.
+    const trace = new LineTrace(layer([[
+      { x: 1, y: 3, yMin: null as unknown as number, yMax: 5 },
+    ]]));
+    const labels = trace.description.stats.map((stat: DescriptionStat) => stat.label);
+
+    expect(labels).not.toContain('Narrowest interval');
+    expect(labels).not.toContain('Widest interval');
+  });
+
+  test('counts only the samples that carry both bounds', () => {
+    const trace = new LineTrace(layer([[
+      { x: 1, y: 3, yMin: 2.5, yMax: 3.5 },
+      { x: 2, y: 4, yMin: null as unknown as number, yMax: null as unknown as number },
+      { x: 3, y: 5, yMin: 2, yMax: 6 },
+    ]]));
+    const widths = trace.description.stats.filter(
+      (stat: DescriptionStat) =>
+        stat.label === 'Narrowest interval' || stat.label === 'Widest interval',
+    );
+
+    expect(widths.map((stat: DescriptionStat) => stat.value)).toEqual([1, 4]);
+  });
 });

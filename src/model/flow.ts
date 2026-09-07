@@ -3,9 +3,10 @@ import type { Coordinate, MovableDirection, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
 /** Rotor unit that steps through the flows leaving the current node. */
@@ -24,6 +25,10 @@ const IN_ROTOR_UNIT: RotorFilterUnit = {
 
 /** How many hops the dominant path follows before it stops describing itself. */
 const PATH_HOPS = 8;
+
+/** What a flow chart calls its two dimensions when the layer names neither. */
+const NODE_AXIS = 'Node';
+const VALUE_AXIS = 'Value';
 
 /** One edge of the graph, resolved to node indices. */
 interface Edge {
@@ -390,6 +395,27 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   /**
+   * What this chart calls a node, and what it calls an amount.
+   *
+   * A sankey has no scales, so a producer that authors no axis labels is
+   * being accurate rather than careless -- the Chart.js and AnyChart branches
+   * both do it deliberately, on the understanding that this trace names its
+   * own dimensions. It did not: `xAxis` and `yAxis` fall back to the literal
+   * `'X'` and `'Y'`, and while {@link AbstractTrace.getDescriptionAxes} keeps
+   * those out of the dialog's Axes block, the table header and every move
+   * announcement printed them -- a column of petajoules headed `Y`, read cell
+   * by cell as "Y, 34".
+   */
+  private get nodeLabel(): string {
+    return named(this.layer.axes?.x?.label, NODE_AXIS);
+  }
+
+  /** @see {@link FlowTrace.nodeLabel} */
+  private get valueLabel(): string {
+    return named(this.layer.axes?.y?.label, VALUE_AXIS);
+  }
+
+  /**
    * What a node carries.
    *
    * A source has no input and a sink no output, so the larger of the two is
@@ -482,8 +508,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     const node = this.current;
     if (node === null) {
       return {
-        main: { label: this.xAxis, value: '' },
-        cross: { label: this.yAxis, value: 0 },
+        main: { label: this.nodeLabel, value: '' },
+        cross: { label: this.valueLabel, value: 0 },
         mainAxis: 'x',
         crossAxis: 'y',
       };
@@ -500,9 +526,13 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       const target = this.nodes[via.to];
       const basis = source.outTotal;
       const share = basis === 0 ? '' : `, ${asPercent(via.value / basis)} of ${source.name}`;
+      // The amounts go through `defaultFormat` because they are announced
+      // inside a sentence this trace assembles, which `TextService` speaks as
+      // it is given: a derived total said "34.000000000000004" where the same
+      // figure read through the cross axis said "34".
       asides.push({
         label: 'Along',
-        value: `${source.name} to ${target.name}, ${via.value}${share}`,
+        value: `${source.name} to ${target.name}, ${defaultFormat(via.value)}${share}`,
       });
     }
 
@@ -510,7 +540,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // Where the quantity goes once it arrives, which is the split a reader
       // is tracing. A pure source or sink has only one side and the
       // throughput already carries it.
-      asides.push({ label: 'In and out', value: `${node.inTotal}, ${node.outTotal}` });
+      asides.push({
+        label: 'In and out',
+        value: `${defaultFormat(node.inTotal)}, ${defaultFormat(node.outTotal)}`,
+      });
     }
 
     const branches = node.out.length;
@@ -519,8 +552,8 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     }
 
     return {
-      main: { label: this.xAxis, value: node.name },
-      cross: { label: this.yAxis, value: this.throughputOf(node) },
+      main: { label: this.nodeLabel, value: node.name },
+      cross: { label: this.valueLabel, value: this.throughputOf(node) },
       mainAxis: 'x',
       crossAxis: 'y',
       ...(asides.length > 0 ? { asides } : {}),
@@ -636,20 +669,58 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   }
 
   public get description(): DescriptionState {
-    const total = this.nodes
-      .filter(node => node.in.length === 0)
-      .reduce((sum, node) => sum + node.outTotal, 0);
+    const sources = this.nodes.filter(node => node.in.length === 0);
+    const sinks = this.nodes.filter(node => node.out.length === 0);
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of nodes', value: this.nodes.length },
       { label: 'Number of flows', value: this.nodes.reduce((n, node) => n + node.out.length, 0) },
-      { label: 'Stages', value: this.stages.length },
+      // A single stage is not a one-column drawing: `assignStages` answers
+      // with one stage holding everything exactly when the sort does not
+      // complete, which is what a chord diagram always is and what a sankey
+      // fed by a cycle is. Reporting `1` presented that as a geometry, and on
+      // a graph with a source upstream of a cycle it is plainly not one.
+      this.stages.length === 1
+        ? { label: 'Stages', value: 'none, the flows form a cycle' }
+        : { label: 'Stages', value: this.stages.length },
     ];
 
+    // A sankey conserves its quantity across the stages, so what enters is
+    // the total and adding every ribbon would count the same energy again at
+    // each hop. A chord diagram has no source at all -- it is cyclic by
+    // construction -- and there the ribbons are disjoint, so their sum is the
+    // total and the source reading is 0. Taking the source sum unconditionally
+    // dropped the stat on the one layout whose ribbons are the whole chart.
+    const total = sources.length > 0
+      ? sources.reduce((sum, node) => sum + node.outTotal, 0)
+      : this.nodes.reduce((sum, node) => sum + node.outTotal, 0);
     if (total > 0) {
-      // What enters the system, which is the number every share is against
-      // and the one a walk of the nodes would double-count.
-      stats.push({ label: 'Total flow', value: total });
+      stats.push({
+        label: sources.length > 0 ? 'Total flow' : 'Total of all flows',
+        value: total,
+      });
+    }
+
+    if (sources.length > 0 || sinks.length > 0) {
+      // Where the quantity enters the chart and where it leaves, in the order
+      // the label names them -- the two ends of every route, and the shape a
+      // reader stepping from node to node has no vantage point on.
+      stats.push({
+        label: 'Sources and sinks',
+        value: `${sources.length}, ${sinks.length}`,
+      });
+    }
+
+    const busiest = this.nodes.reduce<FlowNode | null>((best, node) =>
+      (best === null || this.throughputOf(node) > this.throughputOf(best) ? node : best), null);
+    if (busiest !== null && this.throughputOf(busiest) > 0) {
+      // The node the widest ribbons meet at, which is what the pitch is
+      // scaled against and the finding a walk would have to hold every total
+      // in mind to make. `NetworkTrace` names its hub for the same reason.
+      stats.push({
+        label: 'Busiest node',
+        value: `${busiest.name}, ${defaultFormat(this.throughputOf(busiest))}`,
+      });
     }
 
     const biggest = this.nodes
@@ -657,19 +728,30 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       .reduce<Edge | null>((best, edge) =>
         (best === null || edge.value > best.value ? edge : best), null);
     if (biggest !== null) {
+      // Through `defaultFormat`, because an amount interpolated into a string
+      // reaches the dialog as display text and is never rounded again -- the
+      // table below prints the same flow to two decimals.
       stats.push({
         label: 'Largest flow',
-        value: `${this.nodes[biggest.from].name} to ${this.nodes[biggest.to].name}, ${biggest.value}`,
+        value: `${this.nodes[biggest.from].name} to ${this.nodes[biggest.to].name}, `
+          + `${defaultFormat(biggest.value)}`,
       });
     }
 
-    const path = this.dominantPath();
+    const { names: path, truncated } = this.dominantPath();
     if (path.length > 1) {
       // The route the eye takes: start at the biggest source and follow the
       // widest ribbon at every branch. It is the one thing a reader walking
       // node by node cannot assemble, because it is a fact about the
       // succession of choices rather than about any node.
-      stats.push({ label: 'Main route', value: path.join(' to ') });
+      //
+      // A route the cap cut short says so. Ending silently at the eighth hop
+      // names a node the flow passes straight through as though it were where
+      // the chart ends, which is worse than the truncation it hides.
+      stats.push({
+        label: 'Main route',
+        value: truncated ? `${path.join(' to ')}, and on` : path.join(' to '),
+      });
     }
 
     return {
@@ -678,7 +760,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       axes: this.getDescriptionAxes(),
       stats,
       dataTable: {
-        headers: ['From', 'To', this.yAxis],
+        headers: ['From', 'To', this.valueLabel],
         rows: this.nodes.flatMap(node =>
           node.out.map(edge => [
             this.nodes[edge.from].name,
@@ -695,15 +777,20 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * Starts at the largest source and takes the biggest branch at each step.
    * Capped, and guarded against revisiting so a cycle terminates.
    *
-   * @returns The node names along the route
+   * Whether the cap cut the walk short travels with the names, because the
+   * caller cannot tell the two endings apart from the names alone and a route
+   * that stopped at the cap would otherwise name a false last node.
+   *
+   * @returns The node names along the route, and whether it continues past
+   *   the last of them
    */
-  private dominantPath(): string[] {
+  private dominantPath(): { names: string[]; truncated: boolean } {
     const sources = this.nodes.filter(node => node.in.length === 0);
     const start = (sources.length > 0 ? sources : this.nodes)
       .reduce<FlowNode | null>((best, node) =>
         (best === null || node.outTotal > best.outTotal ? node : best), null);
     if (start === null) {
-      return [];
+      return { names: [], truncated: false };
     }
 
     const seen = new Set<FlowNode>([start]);
@@ -722,7 +809,11 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       path.push(next.name);
       at = next;
     }
-    return path;
+
+    // Cut off rather than finished: the node the walk stopped on still has a
+    // ribbon leaving it for somewhere the route has not been.
+    const beyond = at.out[0] === undefined ? undefined : this.nodes[at.out[0].to];
+    return { names: path, truncated: beyond !== undefined && !seen.has(beyond) };
   }
 
   /**

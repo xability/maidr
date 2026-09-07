@@ -189,7 +189,11 @@ describe('the description reports what the figure is scanned for', () => {
     const read = (label: string): unknown =>
       stats.find(stat => stat.label === label)?.value;
 
-    expect(read('Pooled estimate')).toBe('Pooled, 1.28, does not cross the null');
+    // With its interval: the pooled estimate alone is half the headline
+    // result, and a reader told that it clears the null is not told how near
+    // it came.
+    expect(read('Pooled estimate'))
+      .toBe('Pooled, 1.28 (1.02 to 1.61), does not cross the null');
   });
 
   test('counts the studies, not the rows', () => {
@@ -230,6 +234,82 @@ describe('the description reports what the figure is scanned for', () => {
       .toBe('Okafor 2022, 55.0%');
   });
 
+  test('states the null every verdict is judged against', () => {
+    // Every crossing verdict in the dialog is measured from this number, and
+    // it appeared nowhere: told an interval crosses, a reader could not tell
+    // whether an estimate of 1.28 is a 28% increase over a null of 1 or a
+    // large effect over a null of 0.
+    const stats = forest().description.stats;
+
+    expect(stats.find(stat => stat.label === 'No-effect value')?.value).toBe(1);
+  });
+
+  test('counts only the studies the bounds can decide', () => {
+    // A study with neither bound is undecidable. Left in the denominator the
+    // stat read `1 of 3`, indistinguishable from two studies that definitely
+    // did not cross -- the guess `text` refuses to make when it omits the
+    // verdict on such a row.
+    const partial: ForestPoint[] = [
+      { x: 'Decided', y: 1.7, yMin: 1.2, yMax: 2.4 },
+      { x: 'Crossing', y: 1.3, yMin: 0.9, yMax: 1.8 },
+      { x: 'No interval', y: 1.1 },
+    ];
+    const stats = forest(1, 0, 1, partial).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Studies crossing the null')?.value)
+      .toBe('1 of 2');
+  });
+
+  test('withholds the crossing count when no study can be asked', () => {
+    // `0 of 0` is the same guess the denominator above refuses, made about
+    // the whole figure: a reader hears that no study crossed, where the truth
+    // is that none of them carries an interval to compare.
+    const summaryOnly: ForestPoint[] = [
+      { x: 'Bare', y: 1.4 },
+      { x: 'Also bare', y: 1.2 },
+      { x: 'Pooled', y: 1.3, yMin: 1.25, yMax: 1.35, pooled: true },
+    ];
+    const stats = forest(0, 0, 1, summaryOnly).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Studies crossing the null'))
+      .toBeUndefined();
+    // The null itself is still stated -- the pooled row's verdict is measured
+    // from it, and the table's own column still reads against it.
+    expect(stats.find(stat => stat.label === 'No-effect value')?.value).toBe(1);
+  });
+
+  test('drops the width stats when only the summary carries bounds', () => {
+    // The guard on the override used to fail open: with no study width to
+    // report, the parent's pair -- measured over every row, the summary
+    // included -- was left standing as a description of the summary alone,
+    // with nothing saying so.
+    const summaryOnly: ForestPoint[] = [
+      { x: 'Bare', y: 1.4, weight: 0.5 },
+      { x: 'Also bare', y: 1.2, weight: 0.5 },
+      { x: 'Pooled', y: 1.3, yMin: 1.25, yMax: 1.35, pooled: true },
+    ];
+    const labels = forest(0, 0, 1, summaryOnly).description.stats.map(stat => stat.label);
+
+    expect(labels).not.toContain('Narrowest interval');
+    expect(labels).not.toContain('Widest interval');
+  });
+
+  test('measures no width from a bound that is null', () => {
+    // `Number(null)` is 0, so a study with one bound used to contribute a
+    // width measured from zero -- a number derived from a bound the figure
+    // never drew.
+    const halfBound: ForestPoint[] = [
+      { x: 'One bound', y: 1.4, yMin: null as unknown as number, yMax: 2.2 },
+      { x: 'Both', y: 1.2, yMin: 0.9, yMax: 1.5 },
+    ];
+    const stats = forest(1, 1, 1, halfBound).description.stats;
+    const read = (label: string): unknown =>
+      stats.find(stat => stat.label === label)?.value;
+
+    expect(read('Narrowest interval')).toBe(0.6);
+    expect(read('Widest interval')).toBe(0.6);
+  });
+
   test('withholds the crossing count when no null is declared', () => {
     const stats = forest(1, 0, null).description.stats;
 
@@ -237,6 +317,74 @@ describe('the description reports what the figure is scanned for', () => {
       .toBeUndefined();
     // The pooled row is still named -- that does not depend on a null value.
     expect(stats.find(stat => stat.label === 'Pooled estimate')?.value)
-      .toBe('Pooled, 1.28');
+      .toBe('Pooled, 1.28 (1.02 to 1.61)');
+  });
+});
+
+describe('the table is where the studies are compared side by side', () => {
+  test('carries the weight and marks the row that is not a study', () => {
+    // The two facts the class exists for. A reader hears a weight one row at
+    // a time and can never see the distribution, and the summary sits among
+    // the studies distinguishable only by whatever the producer called it --
+    // 'Pooled', 'RE Model', 'Overall' -- which is the miscount the class is
+    // written to prevent.
+    const { dataTable } = forest().description;
+
+    expect(dataTable.headers).toEqual([
+      'Study',
+      'Odds ratio',
+      'Lower',
+      'Upper',
+      'Weight',
+      'Crosses null',
+      'Row',
+    ]);
+    expect(dataTable.rows[1]).toEqual([
+      'Nguyen 2020',
+      1.34,
+      0.98,
+      1.83,
+      '8.0%',
+      'crosses',
+      'study',
+    ]);
+    expect(dataTable.rows[4]).toEqual([
+      'Pooled',
+      1.28,
+      1.02,
+      1.61,
+      '',
+      'does not cross',
+      'pooled',
+    ]);
+  });
+
+  test('adds no column for a fact the figure does not carry', () => {
+    // A forest plot with no weights and no declared null tabulates exactly
+    // what an error bar does.
+    const plain: ForestPoint[] = [
+      { x: 'Alpha', y: 1.4, yMin: 1.1, yMax: 1.9 },
+      { x: 'Beta', y: 0.9, yMin: 0.6, yMax: 1.3 },
+    ];
+    const { dataTable } = forest(1, 0, null, plain).description;
+
+    expect(dataTable.headers).toEqual(['Study', 'Odds ratio', 'Lower', 'Upper']);
+  });
+
+  test('leaves a study the null cannot decide blank rather than guessing', () => {
+    const partial: ForestPoint[] = [
+      { x: 'Decided', y: 1.7, yMin: 1.2, yMax: 2.4 },
+      { x: 'No interval', y: 1.1 },
+    ];
+    const { dataTable } = forest(1, 0, 1, partial).description;
+
+    expect(dataTable.headers).toEqual([
+      'Study',
+      'Odds ratio',
+      'Lower',
+      'Upper',
+      'Crosses null',
+    ]);
+    expect(dataTable.rows[1]).toEqual(['No interval', 1.1, '', '', '']);
   });
 });

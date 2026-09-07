@@ -84,12 +84,32 @@ export function extremeStat(
  * @returns The trimmed name, or null when the group is unnamed or blank.
  */
 function groupName(point: BoxPoint): string | null {
-  const name = point.z as string | undefined;
+  const name = (point.z ?? point.fill) as string | undefined;
   if (typeof name !== 'string') {
     return null;
   }
   const trimmed = name.trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * What a box-shaped group is called in a description's data table.
+ *
+ * The authored name where there is one, and a positional fallback where there
+ * is not -- an unnamed group used to put `undefined` in the cell, which the
+ * dialog blanks, so the whole column came out empty with nothing to say which
+ * row was which. `fill` is read alongside `z` for the reason
+ * {@link BoxPoint.fill} gives.
+ *
+ * @param points - The trace's groups, in navigation order.
+ * @param index - Which group.
+ * @param noun - What one of these is called, for the fallback.
+ * @returns The group's name.
+ */
+export function groupNameAt(points: BoxPoint[], index: number, noun = 'Group'): string {
+  const point = points[index];
+  const name = point === undefined ? null : groupName(point);
+  return name ?? `${noun} ${index + 1}`;
 }
 
 /**

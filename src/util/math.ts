@@ -1,3 +1,5 @@
+import { defaultFormat } from '@util/format';
+
 /**
  * Mathematical utility functions for common operations across the codebase.
  * These utilities help reduce code duplication while maintaining type safety.
@@ -39,7 +41,9 @@ export abstract class MathUtil {
    * @returns `constant <value>` when the axis never moves, `<min> to <max>` otherwise
    */
   static spanned(min: number, max: number): string {
-    return min === max ? `constant ${min}` : `${min} to ${max}`;
+    return min === max
+      ? `constant ${defaultFormat(min)}`
+      : `${defaultFormat(min)} to ${defaultFormat(max)}`;
   }
 
   /**
@@ -120,6 +124,178 @@ export abstract class MathUtil {
   static minMaxFrom2D(values: number[][]): { min: number; max: number } {
     const flattened = values.flat();
     return this.minMax(flattened);
+  }
+
+  /**
+   * How an axis's extent reads when the extent may not exist.
+   *
+   * {@link safeMin} and {@link safeMax} answer `Infinity` and `-Infinity` for
+   * an empty array by design, and a non-finite coordinate makes both `NaN`.
+   * Handing either pair to {@link spanned} produces the *string*
+   * `Infinity to -Infinity` or `NaN to NaN`, and a string is exactly what the
+   * description dialog's own non-finite blanking cannot catch -- it tests
+   * numbers, so the placeholder sails through and is printed and spoken.
+   *
+   * `missing` is the word the announcements already use for a value that is
+   * not there (see `FormatUtil.wrapFormat`), so the two surfaces agree.
+   *
+   * A genuinely constant axis is not this case: `constant 0` is finite, true,
+   * and {@link spanned}'s to say.
+   *
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @returns The span, or `missing` when there is no finite extent
+   */
+  static spannedOrMissing(min: number, max: number): string {
+    return Number.isFinite(min) && Number.isFinite(max)
+      ? MathUtil.spanned(min, max)
+      : 'missing';
+  }
+
+  /**
+   * Pearson's product-moment correlation over paired samples, or null when the
+   * pairs cannot support the claim.
+   *
+   * What a sighted reader takes from a scatter cloud before any individual
+   * point: whether it tilts up, tilts down, or does not tilt. A reader who
+   * walks 150 points one at a time has heard 150 numbers and still not been
+   * told the relationship they were plotted to show.
+   *
+   * Two-pass and mean-centred rather than the textbook one-pass form
+   * (`sum(xy) - n*meanX*meanY`), which cancels catastrophically when the values
+   * are large beside their spread -- a Manhattan plot's genomic positions on x,
+   * or epoch-millisecond timestamps -- and can return an `r` outside [-1, 1] or
+   * a negative radicand. Two passes over an in-memory array cost nothing beside
+   * the sorts a trace has already paid to build itself.
+   *
+   * Pairs where either coordinate is non-finite are skipped rather than
+   * treated as zero: a missing y is not a y of 0, and traces deliberately keep
+   * gaps as `NaN`. Null comes back when:
+   * - fewer than three pairs survive. Any two distinct points lie exactly on a
+   *   line, so `r` would be +/-1 by construction and say nothing about the data;
+   * - either axis has zero variance, where `r` is 0/0. An axis that does not
+   *   move cannot correlate with anything, and the description says so
+   *   already, in the `constant` span {@link spanned} gives it;
+   * - the result is not finite.
+   *
+   * Clamped to [-1, 1] because float error routinely yields 1.0000000000000002
+   * on a perfect line, which would print as that and fall outside every
+   * strength band a caller tests.
+   *
+   * @param xs - The x coordinate of each pair
+   * @param ys - The y coordinate of each pair, index-aligned with `xs`
+   * @returns Pearson's r in [-1, 1], or null when there is nothing to claim
+   */
+  static pearson(xs: readonly number[], ys: readonly number[]): number | null {
+    const length = Math.min(xs.length, ys.length);
+    let count = 0;
+    let sumX = 0;
+    let sumY = 0;
+    for (let i = 0; i < length; i++) {
+      if (!Number.isFinite(xs[i]) || !Number.isFinite(ys[i])) {
+        continue;
+      }
+      count++;
+      sumX += xs[i];
+      sumY += ys[i];
+    }
+    if (count < 3) {
+      return null;
+    }
+
+    const meanX = sumX / count;
+    const meanY = sumY / count;
+    let varX = 0;
+    let varY = 0;
+    let covariance = 0;
+    for (let i = 0; i < length; i++) {
+      if (!Number.isFinite(xs[i]) || !Number.isFinite(ys[i])) {
+        continue;
+      }
+      const dx = xs[i] - meanX;
+      const dy = ys[i] - meanY;
+      varX += dx * dx;
+      varY += dy * dy;
+      covariance += dx * dy;
+    }
+    if (varX === 0 || varY === 0) {
+      return null;
+    }
+
+    const r = covariance / Math.sqrt(varX * varY);
+    return Number.isFinite(r) ? MathUtil.clamp(r, -1, 1) : null;
+  }
+
+  /**
+   * Counts as whole percentages of their total, adjusted so they add up to 100.
+   *
+   * Largest-remainder apportionment, not four independent roundings. The
+   * shares of a scatter's quadrants are read out one after another, and a
+   * reader who adds 20, 18, 43 and 20 to 101 has no way to see that the extra
+   * point is rounding rather than a chart they have misunderstood -- the
+   * arithmetic is the only check they have. Rounding each share on its own
+   * lands off 100 routinely: three counts of one in seven give 14, 14, 14 and
+   * then 57, which sums to 99.
+   *
+   * The unit is handed to whichever share has the largest discarded fraction,
+   * which is the standard rule and the one that moves each share least.
+   *
+   * An empty set of counts, or one summing to zero, comes back as zeroes:
+   * there is no share of nothing, and the caller decides whether to say so.
+   *
+   * @param counts - The counts to apportion. Negative entries are not expected
+   *   and are counted as given.
+   * @returns One whole percentage per count, summing to exactly 100 whenever
+   *   the counts sum to more than zero.
+   */
+  static sharePercentages(counts: readonly number[]): number[] {
+    const total = counts.reduce((sum, count) => sum + count, 0);
+    if (counts.length === 0 || total <= 0) {
+      return counts.map(() => 0);
+    }
+
+    const exact = counts.map(count => (count / total) * 100);
+    const shares = exact.map(share => Math.floor(share));
+    let remaining = 100 - shares.reduce((sum, share) => sum + share, 0);
+
+    // Ties go to the earlier quadrant, which is the one the reader hears first
+    // -- an arbitrary rule, but a stable one, so the same chart always reads
+    // the same way.
+    const byRemainder = exact
+      .map((share, index) => ({ index, remainder: share - Math.floor(share) }))
+      .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+    for (const { index } of byRemainder) {
+      if (remaining <= 0) {
+        break;
+      }
+      shares[index] += 1;
+      remaining -= 1;
+    }
+
+    return shares;
+  }
+
+  /**
+   * How many pairs {@link pearson} was able to use -- both coordinates finite.
+   *
+   * Reported alongside `r` so a reader is told the sample the coefficient was
+   * actually computed over, which on a layer with gaps is not the point count
+   * the summary states above it.
+   *
+   * @param xs - The x coordinate of each pair
+   * @param ys - The y coordinate of each pair, index-aligned with `xs`
+   * @returns The number of usable pairs
+   */
+  static pairedCount(xs: readonly number[], ys: readonly number[]): number {
+    const length = Math.min(xs.length, ys.length);
+    let count = 0;
+    for (let i = 0; i < length; i++) {
+      if (Number.isFinite(xs[i]) && Number.isFinite(ys[i])) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /**

@@ -135,8 +135,12 @@ describe('a candlestick trace whose chart records no opening price', () => {
   test('leaves the trend columns out of the data table', () => {
     const description = new Candlestick(layerOf(WITHOUT_OPEN)).description;
 
+    // `Volatility` sits where it sits in the braille grid -- first, ahead of
+    // the prices -- so the table's columns and the braille's rows are the
+    // same quantities in the same order.
     expect(description.dataTable.headers).toEqual([
       'Date',
+      'Volatility',
       'High',
       'Low',
       'Close',
@@ -144,7 +148,10 @@ describe('a candlestick trace whose chart records no opening price', () => {
     ]);
     // "Bull count 0" says the chart rose on no day, which is a finding. The
     // truth is that it never said.
-    expect(description.stats?.map(stat => stat.label)).not.toContain('Bull count');
+    const labels = description.stats?.map(stat => stat.label);
+    expect(labels).not.toContain('Bull count');
+    expect(labels).not.toContain('Bear count');
+    expect(labels).not.toContain('Neutral count');
   });
 
   test('reads every price it does have', () => {

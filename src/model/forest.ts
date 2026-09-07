@@ -1,6 +1,8 @@
 import type { ForestPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
-import { ErrorBarTrace } from './errorBar';
+import { defaultFormat } from '@util/format';
+import { MathUtil } from '@util/math';
+import { ErrorBarTrace, intervalWidth } from './errorBar';
 
 /**
  * Formats a weight as a percentage, to one decimal place.
@@ -137,63 +139,99 @@ export class ForestTrace extends ErrorBarTrace {
     const base = super.description;
     const evidence = this.studies.filter(point => point.pooled !== true);
 
+    // Interval widths. A pooled interval is typically the tightest on the
+    // figure -- that is what pooling is for -- so `Narrowest interval` would
+    // routinely report it, and a reader comparing the precision of the
+    // studies would be handed the summary instead.
+    const widths = evidence
+      .map(intervalWidth)
+      .filter(Number.isFinite)
+      .map(width => Number(width.toPrecision(12)));
+
     // The inherited stats count every row, and a forest plot has one that is
     // not evidence. Left alone the description says `Number of points is 5`
     // beside `Studies crossing the null is 2 of 4` -- two counts of the same
     // thing that disagree, in one paragraph, with nothing to say which is
     // right. So the study count is restated over the evidence and named for
     // what it counts.
-    const stats = base.stats.map(stat =>
-      stat.label === 'Number of points'
+    const stats = base.stats
+      // On a figure where only the pooled row carries bounds there is no
+      // study width to report at all, and the inherited pair -- measured
+      // over every row, the summary included -- would then be left standing
+      // as a description of the summary alone, with nothing saying so. That
+      // is the leak the override exists to stop, at its most complete.
+      .filter(stat => widths.length > 0
+        || (stat.label !== 'Narrowest interval' && stat.label !== 'Widest interval'))
+      // Copied, so the rewrites below reach only this array and not the one
+      // the parent built.
+      .map(stat => (stat.label === 'Number of points'
         ? { label: 'Number of studies', value: evidence.length }
-        : stat,
-    );
+        : { ...stat }));
 
-    // Interval widths likewise. A pooled interval is typically the tightest
-    // on the figure -- that is what pooling is for -- so `Narrowest interval`
-    // would routinely report it, and a reader comparing the precision of the
-    // studies would be handed the summary instead.
-    const widths = evidence
-      .map(point => Number(point.yMax) - Number(point.yMin))
-      .filter(Number.isFinite)
-      .map(width => Number(width.toPrecision(12)));
-    if (widths.length > 0) {
-      for (const stat of stats) {
-        if (stat.label === 'Narrowest interval') {
-          stat.value = Math.min(...widths);
-        } else if (stat.label === 'Widest interval') {
-          stat.value = Math.max(...widths);
-        }
+    for (const stat of stats) {
+      if (stat.label === 'Narrowest interval') {
+        stat.value = MathUtil.safeMin(widths);
+      } else if (stat.label === 'Widest interval') {
+        stat.value = MathUtil.safeMax(widths);
       }
     }
 
-    // `Min value` and `Max value` are left counting every row on purpose:
-    // they describe the extent of the axis the figure is drawn on, and the
-    // pooled estimate sits on that axis like anything else. The same reason
-    // the extrema navigation is not overridden -- jumping to the largest
-    // value should reach whatever is largest, and the pooled row announces
-    // itself as pooled on arrival.
+    // `Min value`, `Max value` and `Estimate range` are left counting every
+    // row on purpose: they describe the extent of the axis the figure is
+    // drawn on, and the pooled estimate sits on that axis like anything else.
+    // The same reason the extrema navigation is not overridden -- jumping to
+    // the largest value should reach whatever is largest, and the pooled row
+    // announces itself as pooled on arrival.
 
     const pooled = this.studies.find(point => point.pooled === true);
     if (pooled !== undefined) {
       const crosses = this.crossesNull(pooled);
+      // The pooled estimate *with* its interval is the headline result of a
+      // meta-analysis; the estimate alone is half of it, and a reader told
+      // that it clears the null is not told how near it came. Formatted here
+      // rather than left to the service, which rounds numbers and not numbers
+      // inside a string -- a producer emitting 1.2799999999999998 otherwise
+      // has all seventeen digits read out.
+      const interval = Number.isFinite(pooled.yMin) && Number.isFinite(pooled.yMax)
+        ? ` (${defaultFormat(Number(pooled.yMin))} to ${defaultFormat(Number(pooled.yMax))})`
+        : '';
+      const verdict = crosses === null
+        ? ''
+        : crosses ? ', crosses the null' : ', does not cross the null';
       stats.push({
         label: 'Pooled estimate',
-        value: crosses === null
-          ? `${pooled.x}, ${pooled.y}`
-          : `${pooled.x}, ${pooled.y}, ${crosses ? 'crosses' : 'does not cross'} the null`,
+        value: `${pooled.x}, ${defaultFormat(pooled.y)}${interval}${verdict}`,
       });
     }
 
     if (this.nullValue !== null) {
+      // The verdicts above and below are judged against a number the
+      // description otherwise never states. Told that an interval crosses,
+      // a reader cannot tell whether an estimate of 1.28 is a 28% increase
+      // over a null of 1 or a large effect over a null of 0 -- and so cannot
+      // check a single one of them.
+      stats.push({ label: 'No-effect value', value: this.nullValue });
+
       // How many studies individually reached significance is the shape of
       // the evidence, and a reader cannot count it without walking every row
       // and comparing two bounds against a number at each one.
-      const crossing = evidence.filter(point => this.crossesNull(point) === true);
-      stats.push({
-        label: 'Studies crossing the null',
-        value: `${crossing.length} of ${evidence.length}`,
-      });
+      //
+      // A study with neither bound is undecidable, and leaving it in the
+      // denominator reads `1 of 4` -- indistinguishable from three studies
+      // that definitely did not cross. `text` omits the verdict on such a row
+      // rather than guess at it, and the count is owed the same restraint.
+      //
+      // Withheld entirely where nothing is decidable: `0 of 0` is that same
+      // guess made about the whole figure, and a reader hearing it is told
+      // that no study crossed rather than that none of them could be asked.
+      const decided = evidence.filter(point => this.crossesNull(point) !== null);
+      const crossing = decided.filter(point => this.crossesNull(point) === true);
+      if (decided.length > 0) {
+        stats.push({
+          label: 'Studies crossing the null',
+          value: `${crossing.length} of ${decided.length}`,
+        });
+      }
     }
 
     const heaviest = this.heaviestStudy();
@@ -208,7 +246,60 @@ export class ForestTrace extends ErrorBarTrace {
       });
     }
 
-    return { ...base, stats };
+    return { ...base, stats, dataTable: this.tabulated(base.dataTable) };
+  }
+
+  /**
+   * The inherited table with the two facts a forest plot is read for.
+   *
+   * The parent tabulates an estimate and its bounds, which is an error bar's
+   * reading of the figure. The table is the one surface where the studies are
+   * compared side by side, and it is where the weight and the pooled row went
+   * missing: a reader hears a weight one row at a time and can never see the
+   * distribution, and the summary sits among the studies distinguishable only
+   * by whatever the producer happened to call it -- 'Pooled', 'RE Model',
+   * 'Overall' -- which is the miscount this class exists to prevent.
+   *
+   * Each column is gated on the figure having the fact, so a forest plot with
+   * no weights and no declared null tabulates exactly what it did before.
+   *
+   * @param base - The table the error bar built
+   * @returns The same table with the forest columns appended
+   */
+  private tabulated(
+    base: DescriptionState['dataTable'],
+  ): DescriptionState['dataTable'] {
+    const hasWeight = this.studies.some(
+      study => typeof study.weight === 'number' && Number.isFinite(study.weight),
+    );
+    const hasPooled = this.studies.some(study => study.pooled === true);
+
+    const headers = [
+      ...base.headers,
+      ...(hasWeight ? ['Weight'] : []),
+      ...(this.nullValue === null ? [] : ['Crosses null']),
+      ...(hasPooled ? ['Row'] : []),
+    ];
+    // Row `index` is study `index`: the parent builds its rows by flattening
+    // the same groups `points` -- and so `studies` -- is flattened from.
+    const rows = base.rows.map((row, index) => {
+      const study = this.studies[index];
+      const crosses = this.crossesNull(study);
+      return [
+        ...row,
+        ...(hasWeight
+          ? [typeof study.weight === 'number' && Number.isFinite(study.weight)
+              ? asPercent(study.weight)
+              : '']
+          : []),
+        ...(this.nullValue === null
+          ? []
+          : [crosses === null ? '' : crosses ? 'crosses' : 'does not cross']),
+        ...(hasPooled ? [study.pooled === true ? 'pooled' : 'study'] : []),
+      ];
+    });
+
+    return { headers, rows };
   }
 
   /**

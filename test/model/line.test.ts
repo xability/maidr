@@ -409,6 +409,30 @@ describe('lineTrace ordinal levels', () => {
     });
   });
 
+  test('prints the level name in the data table, not the code behind it', () => {
+    // The cursor says "Y is Awake" and the table said `3`, with no key
+    // anywhere in the dialog mapping the two -- the same defect `ScatterTrace`
+    // names in its own table: a table still showing slot indices after the
+    // cursor said "a" is that defect one surface over.
+    const trace = new LineTrace(createLineLayer(HYPNOGRAM));
+
+    expect(trace.description.dataTable.rows).toEqual([
+      [0, 'Awake'],
+      [1, 'N2'],
+      [2, 'REM'],
+    ]);
+  });
+
+  test('prints the number where the data names no level', () => {
+    const trace = new LineTrace(createLineLayer([[
+      { x: 0, y: 3 },
+      { x: 1, y: null },
+    ]]));
+
+    // A gap stays an empty cell rather than a number it does not have.
+    expect(trace.description.dataTable.rows).toEqual([[0, 3], [1, '']]);
+  });
+
   test('keeps the series name alongside the level name on a multi-series line', () => {
     const trace = new LineTrace(createLineLayer([
       [

@@ -3,7 +3,8 @@ import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
-import { Orientation } from '@type/grammar';
+import { Orientation, TraceType } from '@type/grammar';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -102,6 +103,37 @@ function warnOnMislabelledMagnitude(
  * @param value - A magnitude from `barValues`
  * @returns True when the value can take part in a range or a comparison
  */
+/**
+ * How an absent value reads in a description's data table.
+ *
+ * The word the announcements already use, rather than the raw `null` a chart
+ * library reports, which the table used to print verbatim -- the one surface
+ * where a reader could take it for a value.
+ */
+export const MISSING_TEXT = 'missing';
+
+/**
+ * What the marks of a bar-family layer are called, where they are not bars.
+ *
+ * `BarTrace` serves DOT and LOLLIPOP as well as BAR, and `FunnelTrace` extends
+ * it, so one hardcoded noun was announced over four chart types. Partial on
+ * purpose: everything absent from here really is a bar.
+ */
+const MARK_NOUN: Partial<Record<TraceType, string>> = {
+  [TraceType.DOT]: 'dots',
+  [TraceType.LOLLIPOP]: 'lollipops',
+  [TraceType.FUNNEL]: 'stages',
+};
+
+/**
+ * The same nouns, capitalised, for a label that opens with one.
+ */
+const MARK_NOUN_LEADING: Partial<Record<TraceType, string>> = {
+  [TraceType.DOT]: 'Dots',
+  [TraceType.LOLLIPOP]: 'Lollipops',
+  [TraceType.FUNNEL]: 'Stages',
+};
+
 export function isMeasured(value: number): boolean {
   return Number.isFinite(value);
 }
@@ -229,14 +261,25 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    * Shared so `SegmentedTrace`, which replaces the whole stats block rather
    * than extending it, cannot drift back to announcing an infinity.
    *
+   * @param noun - What the magnitudes are, when they are not plain values. A
+   *   histogram's are bin *counts*, and sit next to a `Bin range` that is the
+   *   binned variable -- two adjacent lines about two different axes, under
+   *   labels naming neither.
+   * @param values - The rows to take the extremes over, when they are not
+   *   every row. A segmented trace appends a synthetic Total row to
+   *   `barValues`, so its unqualified range spans a number no bar has.
    * @returns The min and max stats, in that order
    */
-  protected rangeStats(): DescriptionState['stats'] {
-    const chartMin = MathUtil.safeMin(this.min);
-    const chartMax = MathUtil.safeMax(this.max);
+  protected rangeStats(
+    noun = 'value',
+    values: number[][] = this.barValues,
+  ): DescriptionState['stats'] {
+    const measured = values.flat().filter(isMeasured);
+    const chartMin = MathUtil.safeMin(measured);
+    const chartMax = MathUtil.safeMax(measured);
     return [
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : 'missing' },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : 'missing' },
+      { label: `Min ${noun}`, value: isMeasured(chartMin) ? chartMin : 'missing' },
+      { label: `Max ${noun}`, value: isMeasured(chartMax) ? chartMax : 'missing' },
     ];
   }
 
@@ -246,23 +289,68 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    */
   public get description(): DescriptionState {
     const isVertical = this.orientation === Orientation.VERTICAL;
+    const values = this.barValues[0] ?? [];
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of bars', value: this.points[0].length },
+      // `bars` is wrong for half the types that reach this line: BarTrace also
+      // serves DOT and LOLLIPOP, and FunnelTrace reaches it through `super`,
+      // so the dialog read "Chart Type: Dot Plot" and then "Number of bars".
+      { label: `Number of ${MARK_NOUN[this.type] ?? 'bars'}`, value: this.points[0].length },
       ...this.rangeStats(),
     ];
 
-    if (this.points.length > 1) {
-      stats.push({ label: 'Number of groups', value: this.points.length });
+    // Which bar holds the extreme, not just what the extreme is. The trace
+    // already builds exactly this pairing for the Go To Extrema dialog
+    // (`getExtremaTargets`), so the summary was the one surface left telling a
+    // reader that something peaks at 120 without saying where.
+    const nameAt = (col: number): string | number => {
+      const point = this.points[0][col];
+      return point === undefined ? '' : (isVertical ? point.x : point.y);
+    };
+    const chartMax = MathUtil.safeMax(values.filter(isMeasured));
+    const chartMin = MathUtil.safeMin(values.filter(isMeasured));
+    // `7 at Q1`, not `Q1, 7`: two values separated by a comma read as two
+    // numbers when the category is one, and `at` is the word the Go To Extrema
+    // dialog already uses for the same pairing.
+    //
+    // Rounded here, because composing the name onto the value makes this a
+    // string and `DescriptionService` treats a string as finished display text
+    // -- so a computed magnitude reached a reader as
+    // `3333.3333333333335 at a`.
+    if (isMeasured(chartMax)) {
+      stats.push({
+        label: 'Largest',
+        value: `${defaultFormat(chartMax)} at ${nameAt(values.indexOf(chartMax))}`,
+      });
+    }
+    if (isMeasured(chartMin)) {
+      stats.push({
+        label: 'Smallest',
+        value: `${defaultFormat(chartMin)} at ${nameAt(values.indexOf(chartMin))}`,
+      });
+    }
+
+    // A gap is not a zero, and until now nothing in the summary said a chart
+    // had any: `[120, null, null, 40]` read as four bars between 40 and 120.
+    const gaps = values.filter(value => !isMeasured(value)).length;
+    if (gaps > 0) {
+      // Named by the same noun as the count above it. Hardcoding `Bars` here
+      // while that line already read `Number of stages` left one summary using
+      // two words for the same objects, and a reader working out that a bar
+      // and a stage are the same thing.
+      stats.push({ label: `${MARK_NOUN_LEADING[this.type] ?? 'Bars'} with no value`, value: gaps });
     }
 
     const headers = isVertical
       ? [this.xAxis, this.yAxis]
       : [this.yAxis, this.xAxis];
 
-    const rows: (string | number)[][] = this.points[0].map((p) => {
+    // The magnitude comes from the normalized array, not the raw point: a
+    // library reports an absent bar as `null`, which rendered as the literal
+    // text "null" in the one place a reader could read it as a value.
+    const rows: (string | number)[][] = this.points[0].map((p, col) => {
       const main = isVertical ? p.x : p.y;
-      const cross = isVertical ? p.y : p.x;
-      return [main, cross];
+      const value = values[col];
+      return [main, isMeasured(value) ? value : MISSING_TEXT];
     });
 
     return {

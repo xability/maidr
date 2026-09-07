@@ -279,13 +279,13 @@ describe('a table where a competitor joined late or dropped out', () => {
   test('a net move is measured against a competitor\'s own last round', () => {
     // Cedar goes 3rd to 1st over four rounds. Measured to R2 it has gained
     // one place and Birch also one, so the tie would name Birch instead.
-    expect(read('Climbed furthest')).toBe('Cedar, 2');
+    expect(read('Climbed furthest')).toBe('Cedar, 2 places');
   });
 
   test('a competitor who ran fewer rounds is measured over the rounds it ran', () => {
     // Ash ran two and fell two places. Reading past the end of its row would
     // compare its start against nothing.
-    expect(read('Fell furthest')).toBe('Ash, 2');
+    expect(read('Fell furthest')).toBe('Ash, 2 places');
   });
 });
 
@@ -339,8 +339,11 @@ describe('the description says who moved', () => {
     // size -- which is the ordinary case, since ranks are a permutation and
     // somebody's gain is somebody else's loss. Reporting only the larger
     // would silently drop one of the two findings on exactly those charts.
-    expect(read('Climbed furthest')).toBe('Cyan, 3');
-    expect(read('Fell furthest')).toBe('Ash, 3');
+    // "Cyan, 3" is three what -- places, periods, third position? The
+    // per-point announcement says "Places gained is 3"; the description was
+    // the one surface that dropped the noun.
+    expect(read('Climbed furthest')).toBe('Cyan, 3 places');
+    expect(read('Fell furthest')).toBe('Ash, 3 places');
   });
 
   test('reports no climb on a chart where every rank fell or held', () => {
@@ -354,7 +357,7 @@ describe('the description says who moved', () => {
 
     expect(stats.find(stat => stat.label === 'Climbed furthest')).toBeUndefined();
     expect(stats.find(stat => stat.label === 'Fell furthest')?.value)
-      .toBe('Ash, 1');
+      .toBe('Ash, 1 place');
   });
 
   test('drops the layer-wide min and max, which say nothing on a rank axis', () => {
@@ -364,6 +367,28 @@ describe('the description says who moved', () => {
 
     expect(labels).not.toContain('Min value');
     expect(labels).not.toContain('Max value');
+  });
+
+  test('says how far the table ranks and how much of it moved', () => {
+    // What the rank axis does carry, and what dropping the min and max left
+    // the reader without: a twelve-team season with two overtakes and one
+    // with forty read identically.
+    expect(read('Ranks shown')).toBe('1 to 4');
+    // Cedar moves at R2, R3 and R4; Cyan at R3; Ash at R2, R3 and R4; Birch
+    // at R2 and R3.
+    expect(read('Rank changes')).toBe(9);
+  });
+
+  test('reports no rank changes rather than staying silent on a frozen table', () => {
+    // A table where nobody moved is a real reading, and a zero renders where
+    // an absent stat would leave the reader to assume the chart was unread.
+    const frozen: LinePoint[][] = [
+      [{ x: 'R1', y: 1, z: 'Ash' }, { x: 'R2', y: 1, z: 'Ash' }],
+      [{ x: 'R1', y: 2, z: 'Birch' }, { x: 'R2', y: 2, z: 'Birch' }],
+    ];
+    const stats = bump(0, 0, frozen).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Rank changes')?.value).toBe(0);
   });
 
   test('counts competitors and periods, not lines and points', () => {

@@ -2,10 +2,17 @@ import type { MaidrLayer, ViolinKdePoint } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { MovableGrid } from './movable';
+
+/** The tallest sample of one curve: where it sits, and how tall it is. */
+interface Mode {
+  at: number;
+  density: number;
+}
 
 /**
  * Trace implementation for ridgeline (joy) plots.
@@ -277,14 +284,57 @@ export class RidgelineTrace extends AbstractTrace {
   /**
    * What a group is called.
    *
+   * `ViolinKdePoint.x` is `string | number`, and a ridgeline over years, months
+   * or bin numbers is the canonical form of the chart -- so a test for a string
+   * threw away every one of those names and replaced it with an ordinal that
+   * looks authoritative enough to hide the substitution. The siblings that name
+   * a series from their own data all coerce and fall back only on an absent or
+   * empty name.
+   *
    * @param group - Which curve
    * @returns Its name
    */
   private groupNameAt(group: number): string {
     const authored = this.points[group]?.[0]?.x;
-    return typeof authored === 'string' && authored !== ''
-      ? authored
-      : `Group ${group + 1}`;
+    return authored === undefined || authored === null || String(authored) === ''
+      ? `Group ${group + 1}`
+      : String(authored);
+  }
+
+  /**
+   * What this chart calls the height of a ridge.
+   *
+   * Read off the layer rather than through `this.z`, whose fallback is the
+   * generic `Level` placeholder: `Level is 0.9` says nothing about a KDE, and
+   * the same word would then head the table column holding the densities.
+   *
+   * A `z` repeating the group axis's own label is not a name for the height.
+   * `examples/ridgeline.html` labels both of them `Cohort` -- the shape a
+   * producer emits when it has one categorical axis and puts it on both -- and
+   * taking it headed the group column and the density column beside it with
+   * the same word, then announced a KDE value as a cohort.
+   * {@link ViolinKdeTrace} reads the same point shape and heads that column
+   * with the word below unconditionally, for the same reason.
+   *
+   * @returns The authored z label, or `Density`
+   */
+  private get densityLabel(): string {
+    const authored = this.layer.axes?.z?.label?.trim();
+    return authored && authored !== this.groupLabel ? authored : 'Density';
+  }
+
+  /**
+   * What this chart calls the axis its groups sit on.
+   *
+   * A ridgeline stacks its groups down the y axis -- `ggridges` puts the
+   * groups there and the measured value on x -- so that label heads the
+   * table's group column. Its own fallback rather than `this.yAxis`'s bare
+   * `Y`, for the reason {@link densityLabel} has one.
+   *
+   * @returns The authored y label, or `Group`
+   */
+  private get groupLabel(): string {
+    return named(this.layer.axes?.y?.label, 'Group');
   }
 
   protected get audio(): AudioState {
@@ -330,7 +380,7 @@ export class RidgelineTrace extends AbstractTrace {
 
     return {
       main: { label: this.xAxis, value: point === undefined ? Number.NaN : Number(point.y) },
-      cross: { label: this.z, value: density === undefined ? Number.NaN : density },
+      cross: { label: this.densityLabel, value: density === undefined ? Number.NaN : density },
       section: this.groupNameAt(this.row),
     };
   }
@@ -341,42 +391,83 @@ export class RidgelineTrace extends AbstractTrace {
       { label: 'Groups', value: this.points.map((_, i) => this.groupNameAt(i)).join(', ') },
     ];
 
+    if (this.points.length > 0) {
+      // How far a walk along one ridge is. Groups are not obliged to share a
+      // sample grid -- this trace exists because they do not -- so a single
+      // number would be a claim about every curve that a KDE fitted per group
+      // does not support.
+      const lengths = this.points.map(row => row.length);
+      const fewest = MathUtil.safeMin(lengths);
+      const most = MathUtil.safeMax(lengths);
+      stats.push({
+        label: 'Samples per group',
+        value: fewest === most ? most : `${fewest} to ${most}`,
+      });
+    }
+
     // Where each group peaks, which is the ridgeline's headline finding: the
     // chart is drawn so a reader can see the modes march across the axis, or
     // fail to. Reading it by ear otherwise means walking every sample of
     // every group and holding a dozen maxima in mind.
     const modes = this.points
       .map((_, group) => ({ group, mode: this.modeOf(group) }))
-      .filter((entry): entry is { group: number; mode: number } => entry.mode !== null);
+      .filter((entry): entry is { group: number; mode: Mode } => entry.mode !== null);
 
     if (modes.length > 0) {
+      // Formatted here rather than left to the description service, which
+      // rounds a value that is a number and passes a composed string through
+      // untouched. A KDE is evaluated on a `linspace` grid, so these positions
+      // are full-precision floats -- `early at 3.2857142857142856` spoken.
       stats.push({
         label: 'Peak of each group',
         value: modes
-          .map(({ group, mode }) => `${this.groupNameAt(group)} at ${mode}`)
+          .map(({ group, mode }) => `${this.groupNameAt(group)} at ${defaultFormat(mode.at)}`)
           .join(', '),
       });
 
       // Two groups whose peaks sit at the same place have the same typical
       // value however different their spread, and a reader comparing shapes
       // wants to know which it is.
-      const widest = modes.reduce((a, b) => (a.mode > b.mode ? a : b));
-      const narrowest = modes.reduce((a, b) => (a.mode < b.mode ? a : b));
-      if (widest.mode !== narrowest.mode) {
+      const latest = modes.reduce((a, b) => (a.mode.at > b.mode.at ? a : b));
+      const earliest = modes.reduce((a, b) => (a.mode.at < b.mode.at ? a : b));
+      if (latest.mode.at !== earliest.mode.at) {
         stats.push({
           label: 'Peaks span',
-          value: `${narrowest.mode} to ${widest.mode}`,
+          value: `${defaultFormat(earliest.mode.at)} to ${defaultFormat(latest.mode.at)}`,
         });
       }
+
+      // Which ridge is tallest -- the other half of the question this chart is
+      // drawn for, and the half the positions above cannot answer. The pitch
+      // is scaled across the whole chart so that half is answerable by ear at
+      // all, but only by walking every sample of every group to find it.
+      const tallest = modes.reduce((a, b) =>
+        (a.mode.density > b.mode.density ? a : b));
+      stats.push({
+        label: 'Tallest ridge',
+        value: `${this.groupNameAt(tallest.group)}, peak density ${defaultFormat(tallest.mode.density)}`,
+      });
     }
 
-    const headers = [this.z, this.xAxis, 'Density'];
-    const rows: (string | number)[][] = this.points.flatMap((row, group) =>
+    const headers = [this.groupLabel, this.xAxis, this.densityLabel];
+    const allRows: (string | number)[][] = this.points.flatMap((row, group) =>
       row.map((point, col) => [
         this.groupNameAt(group),
         Number(point.y),
         this.densities[group][col],
       ]));
+
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      // A KDE is conventionally evaluated on 512 grid points per group, so ten
+      // groups make five thousand rows of an estimator's evaluation grid. Said
+      // rather than silently done, the way `ScatterTrace` says it: the dialog
+      // prints the row count it is given.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
+    }
 
     return {
       chartType: this.getChartTypeLabel(),
@@ -388,28 +479,30 @@ export class RidgelineTrace extends AbstractTrace {
   }
 
   /**
-   * The value at which a group's density is highest.
+   * Where a group's density is highest, and how high.
+   *
+   * Both, because the position alone answers only half of "which distribution
+   * is tallest, and where" -- and the scan had the density in hand and threw
+   * it away.
    *
    * @param group - Which curve
-   * @returns The modal value, or null when the curve carries no density
+   * @returns The mode, or null when the curve carries no density
    */
-  private modeOf(group: number): number | null {
+  private modeOf(group: number): Mode | null {
     const densities = this.densities[group];
     const positions = this.positions[group];
     if (densities === undefined || densities.length === 0) {
       return null;
     }
 
-    let best: number | null = null;
-    let bestDensity = Number.NEGATIVE_INFINITY;
+    let best: Mode | null = null;
     for (let index = 0; index < densities.length; index++) {
       const density = densities[index];
-      if (Number.isFinite(density) && density > bestDensity) {
-        bestDensity = density;
-        best = positions[index];
+      if (Number.isFinite(density) && (best === null || density > best.density)) {
+        best = { at: positions[index], density };
       }
     }
-    return best === null || !Number.isFinite(best) ? null : best;
+    return best === null || !Number.isFinite(best.at) ? null : best;
   }
 
   /**

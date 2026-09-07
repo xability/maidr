@@ -20,6 +20,7 @@ import {
   candleTrioPatterns,
   DEFAULT_CANDLE_SHAPE_THRESHOLDS,
 } from '@util/candlePattern';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
@@ -645,38 +646,107 @@ export class Candlestick extends AbstractTrace {
   public get description(): DescriptionState {
     const bullCount = this.candles.filter(c => c.trend === 'Bull').length;
     const bearCount = this.candles.filter(c => c.trend === 'Bear').length;
+    const neutralCount = this.candles.filter(c => c.trend === 'Neutral').length;
 
-    // A chart with no open has no bodies to count, so the two trend tallies
-    // are left out rather than reported as zero -- "Bull count 0" says the
-    // chart rose on no day, which is a finding, where the truth is that it
-    // never said.
+    // `this.min`/`this.max` span the volatility row as well, and volatility is
+    // a high-minus-low *difference* rather than a price -- an order of
+    // magnitude below the prices on any real chart, so the low end of a range
+    // labelled `Price range` was never a price. The audio scale goes on
+    // spanning all five rows, because one pitch scale across the sections is
+    // what makes them comparable by ear; only the stat is narrowed to what it
+    // says it reports.
+    const priceRows = this.candleValues.filter(
+      (_row, index) => this.sections[index] !== 'volatility',
+    );
+
+    // A chart with no open has no bodies to count, so the trend tallies are
+    // left out rather than reported as zero -- "Bull count 0" says the chart
+    // rose on no day, which is a finding, where the truth is that it never
+    // said.
     const stats: DescriptionState['stats'] = [
       { label: 'Number of periods', value: this.candles.length },
-      { label: 'Price range', value: `${this.min} to ${this.max}` },
+      {
+        label: 'Price range',
+        value: MathUtil.spannedOrMissing(
+          MathUtil.minFrom2D(priceRows),
+          MathUtil.maxFrom2D(priceRows),
+        ),
+      },
       ...(this.hasOpen
         ? [
             { label: 'Bull count', value: bullCount },
             { label: 'Bear count', value: bearCount },
+            // Counted with the other two, or the tallies do not add up to the
+            // number of periods and a reader cannot tell whether the
+            // remainder is neutral candles or a miscount -- while the rotor
+            // offers to walk neutral points wherever there are any.
+            { label: 'Neutral count', value: neutralCount },
           ]
         : []),
     ];
 
+    if (this.candles.length > 1) {
+      const first = this.candles[0];
+      const last = this.candles[this.candles.length - 1];
+      // What window the chart covers and where the price finished against
+      // where it started: what a sighted reader takes before reading a single
+      // candle, and what a listener otherwise has to walk to the first candle
+      // for, remember, jump to the last and subtract. The trend tallies do
+      // not answer it -- a series can close lower over more up days than down.
+      stats.push({
+        label: 'Period covered',
+        value: `${first.value} to ${last.value}`,
+      });
+      if (Number.isFinite(first.close) && Number.isFinite(last.close)) {
+        const change = Number((last.close - first.close).toPrecision(12));
+        const percent = first.close === 0
+          ? ''
+          : ` (${defaultFormat(Number(((change / first.close) * 100).toPrecision(4)))}%)`;
+        stats.push({
+          label: 'Net change',
+          value: `${defaultFormat(change)}${percent}`,
+        });
+      }
+    }
+
+    // Volume is gated the way Open and Trend already are. Several producers
+    // draw an OHLC chart with no volume at all -- and say so deliberately,
+    // rather than filling it with a zero -- so an unconditional column leaves
+    // a header announced over an empty cell on every row, which reads as data
+    // the export lost rather than a measurement the chart never took.
+    const hasVolume = this.candles.some(
+      candle => typeof candle.volume === 'number' && Number.isFinite(candle.volume),
+    );
+    // Named for the axis the announcement names, and following the same
+    // orientation it does. A chart whose period axis is labelled `Session`
+    // announced "Session is 2026-01-01" on every move and then tabulated the
+    // same column under `Date`: two names for one thing in one dialog, and on
+    // a horizontal chart a name for an axis the periods do not run along.
+    const periodLabel = this.orientation === Orientation.HORIZONTAL
+      ? this.yAxis
+      : this.xAxis;
     const headers = [
-      'Date',
+      periodLabel,
+      // First, where it is the first braille row and the cursor's first stop
+      // at every candle. Left out, the braille showed five lanes and the
+      // table four price columns, and the two surfaces of one chart disagreed
+      // about how many quantities it has.
+      'Volatility',
       ...(this.hasOpen ? ['Open'] : []),
       'High',
       'Low',
       'Close',
-      'Volume',
+      ...(hasVolume ? ['Volume'] : []),
       ...(this.hasOpen ? ['Trend'] : []),
     ];
     const rows: (string | number)[][] = this.candles.map(c => [
       c.value,
+      c.volatility,
       ...(this.hasOpen ? [c.open ?? ''] : []),
       c.high,
       c.low,
       c.close,
-      c.volume ?? '',
+      ...(hasVolume ? [c.volume ?? ''] : []),
       ...(this.hasOpen ? [c.trend ?? ''] : []),
     ]);
 

@@ -11,7 +11,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
-import { extremeStat, isHigher, isLower } from './boxExtremes';
+import { extremeStat, groupNameAt, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -183,19 +183,44 @@ export class BoxTrace extends AbstractTrace {
    * @returns The description state containing chart metadata and data table
    */
   public get description(): DescriptionState {
-    const groupNames = this.points.map(p => p.z).join(', ');
+    // Filtered, not joined blind. `BoxPoint.z` is typed `string` but is absent
+    // at runtime for the violin/box family and for any producer that names its
+    // groups on the axis instead, so an unnamed chart of three boxes read
+    // "Group names: undefined, undefined, undefined" — and a single unnamed
+    // box read as an empty line with a stray colon.
+    const groupNames = this.points
+      .map(point => (point.z ?? point.fill))
+      .filter((name): name is string => typeof name === 'string' && name.trim() !== '')
+      .map(name => name.trim());
+
+    const outliers = this.points.reduce(
+      (total, point) =>
+        total + (point.lowerOutliers?.length ?? 0) + (point.upperOutliers?.length ?? 0),
+      0,
+    );
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of groups', value: this.points.length },
-      { label: 'Group names', value: groupNames },
+      ...(groupNames.length > 0
+        ? [{ label: 'Group names', value: groupNames.join(', ') }]
+        : []),
       ...this.rangeStats(),
+      // Unconditional: a box plot always draws whiskers, so "Outliers: 0" is a
+      // reading about the data rather than an absence of it.
+      { label: 'Outliers', value: outliers },
     ];
 
     // Both the headers and the cells walk `this.sections`, so every section the
     // user can navigate to — the outliers included — gets a column, and the two
     // stay aligned if the section list ever changes.
-    const headers = ['Group', ...this.sections];
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
+    // The authored label for whichever axis carries the categories, read off
+    // the layer rather than through `this.xAxis` so the 'X'/'Y' placeholders
+    // `named()` substitutes do not become a column heading.
+    const categorical = isHorizontal
+      ? this.layer.axes?.y?.label
+      : this.layer.axes?.x?.label;
+    const headers = [categorical?.trim() ? categorical.trim() : 'Group', ...this.sections];
 
     const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
@@ -206,7 +231,7 @@ export class BoxTrace extends AbstractTrace {
         // description service can round each value before joining them.
         return value ?? '';
       });
-      return [point.z, ...sectionValues];
+      return [groupNameAt(this.points, pointIdx), ...sectionValues];
     });
 
     return {
@@ -232,6 +257,14 @@ export class BoxTrace extends AbstractTrace {
    * Minimum and Maximum columns of the very table underneath.
    */
   private rangeStats(): DescriptionState['stats'] {
+    // Nothing to describe, and `extremeStat`'s singular branch would otherwise
+    // emit "Minimum: missing" and "Maximum: missing" for a chart with no boxes
+    // at all.
+    if (this.points.length === 0) {
+      return [];
+    }
+
+    const single = this.points.length === 1;
     return [
       extremeStat(
         this.points,
@@ -239,6 +272,32 @@ export class BoxTrace extends AbstractTrace {
         p => p.min,
         isLower,
       ),
+      // The median and the spread between the quartiles are the statistics a
+      // box plot is drawn for, and they reached the description only as table
+      // columns — so a reader had to walk the table to learn what the chart
+      // was about.
+      ...(single
+        ? [
+            { label: 'Median', value: this.points[0].q2 },
+            {
+              label: 'Interquartile range',
+              value: MathUtil.spannedOrMissing(this.points[0].q1, this.points[0].q3),
+            },
+          ]
+        : [
+            extremeStat(
+              this.points,
+              { single: 'Median', grouped: 'Lowest median' },
+              p => p.q2,
+              isLower,
+            ),
+            extremeStat(
+              this.points,
+              { single: 'Median', grouped: 'Highest median' },
+              p => p.q2,
+              isHigher,
+            ),
+          ]),
       extremeStat(
         this.points,
         { single: 'Maximum', grouped: 'Highest maximum' },

@@ -3,11 +3,35 @@ import type { MaidrLayer, WordCloudPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
+import { isMeasured, MISSING_TEXT } from './bar';
 import { MovableGrid } from './movable';
+
+/**
+ * How a term's share of the corpus reads.
+ *
+ * A term with no weight has no share to report, and a corpus weighing nothing
+ * has nothing to divide by -- `0 / 0` is `NaN`, and "NaN percent" is the one
+ * thing this must never announce. An exact zero rather than the one-decimal
+ * form used for real ratios, because nothing was rounded to get there.
+ *
+ * @param weight - The term's weight, `NaN` when it has none
+ * @param total - What every measured term weighs together
+ * @returns The share as display text, e.g. `49.6%`
+ */
+function toShare(weight: number, total: number): string {
+  if (!isMeasured(weight)) {
+    return MISSING_TEXT;
+  }
+  if (total === 0) {
+    return '0%';
+  }
+  return `${((weight / total) * 100).toFixed(1)}%`;
+}
 
 /**
  * Orders terms by weight, heaviest first, keeping each term's original index.
@@ -19,6 +43,14 @@ import { MovableGrid } from './movable';
  * Ties keep their original relative order, so a chart whose weights repeat
  * still reads the same way twice.
  *
+ * A term whose weight is not a number sorts to the end rather than wherever
+ * the comparator happens to drop it. `WordCloudPoint.y` admits a string
+ * because producers send one, and `Number('n/a')` is `NaN`: subtracting it
+ * answers `NaN` for every pair, which is neither negative nor positive, so
+ * the sort leaves that term in an arbitrary place -- and the summary then
+ * reported whatever landed first as the heaviest term, at a weight of `NaN`.
+ * Unmeasured last is the same treatment a gap gets everywhere else here.
+ *
  * @param points - The terms as authored
  * @returns The terms heaviest first, each with the index it was authored at
  */
@@ -27,7 +59,14 @@ function byDescendingWeight(
 ): { point: WordCloudPoint; source: number }[] {
   return points
     .map((point, source) => ({ point, source }))
-    .sort((a, b) => Number(b.point.y) - Number(a.point.y));
+    .sort((a, b) => {
+      const left = Number(a.point.y);
+      const right = Number(b.point.y);
+      if (!isMeasured(left) || !isMeasured(right)) {
+        return Number(isMeasured(right)) - Number(isMeasured(left));
+      }
+      return right - left;
+    });
 }
 
 /**
@@ -58,6 +97,16 @@ export class WordCloudTrace extends AbstractTrace {
 
   private readonly points: WordCloudPoint[];
   private readonly weights: number[][];
+
+  /**
+   * How many of the terms carry a weight the chart could size a glyph by.
+   *
+   * The sort puts them first, so this is also where the measured terms end:
+   * the heaviest is term 0 and the lightest is term `measuredCount - 1`.
+   * Everything past it is a term whose weight did not parse, which belongs in
+   * neither an extreme nor a total.
+   */
+  private readonly measuredCount: number;
 
   private readonly min: number;
   private readonly max: number;
@@ -102,8 +151,13 @@ export class WordCloudTrace extends AbstractTrace {
     const ordered = byDescendingWeight(layer.data as WordCloudPoint[]);
     this.points = ordered.map(entry => entry.point);
     this.weights = [this.points.map(point => Number(point.y))];
+    this.measuredCount = this.weights[0].filter(isMeasured).length;
 
-    const { min, max } = MathUtil.minMax(this.weights[0]);
+    // Over the measured weights only. An unparseable one is `NaN`, and every
+    // comparison against it is false -- so it slipped through `minMax`
+    // unnoticed except when it landed first, where it became the min and the
+    // max and flattened the pitch of every term in the cloud.
+    const { min, max } = MathUtil.minMax(this.weights[0].filter(isMeasured));
     this.min = min;
     this.max = max;
 
@@ -202,31 +256,66 @@ export class WordCloudTrace extends AbstractTrace {
 
   public get description(): DescriptionState {
     const weights = this.weights[0];
-    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    // Measured weights only: an unparseable one summed into the corpus made
+    // the total `NaN`, which the dialog blanks -- so the line vanished with
+    // nothing saying why.
+    const total = weights
+      .filter(isMeasured)
+      .reduce((sum, weight) => sum + weight, 0);
+    const lightest = this.measuredCount - 1;
 
     const stats: DescriptionState['stats'] = [
       { label: 'Number of terms', value: this.points.length },
     ];
 
-    if (this.points.length > 0) {
+    if (this.measuredCount > 0) {
       // Which term is heaviest is the question a cloud is drawn to answer at a
       // glance, and it is the one thing a reader walking the terms one at a
       // time has to hold in their head to recover.
-      stats.push(
-        { label: 'Heaviest term', value: `${this.points[0].x} (${weights[0]})` },
-        {
-          label: 'Lightest term',
-          value: `${this.points[this.points.length - 1].x} `
-            + `(${weights[weights.length - 1]})`,
-        },
-        { label: 'Total weight', value: total },
-      );
+      stats.push({ label: 'Heaviest term', value: this.termSummary(0) });
+      // The same guard {@link getExtremaTargets} applies, and for the same
+      // reason: one term, or a cloud whose weights are all equal, has a single
+      // extreme. Naming a second one told a reader the weights differ on a
+      // chart where they do not -- while the rotor, asked the same question,
+      // offered one target.
+      if (lightest !== 0 && weights[lightest] !== weights[0]) {
+        stats.push({ label: 'Lightest term', value: this.termSummary(lightest) });
+      }
+      stats.push({ label: 'Total weight', value: total });
     }
 
-    const headers = [this.xAxis, this.yAxis];
-    const rows: (string | number)[][] = this.points.map(point => [
+    // A term whose weight did not parse is one of the terms the chart draws
+    // and none of the arithmetic above it, and until now the only sign of it
+    // was a blank cell in the table.
+    const unweighted = this.points.length - this.measuredCount;
+    if (unweighted > 0) {
+      stats.push({ label: 'Terms with no weight', value: unweighted });
+    }
+
+    if (this.points.length > 1) {
+      // Navigation and this table both depart from the authored order, and a
+      // reader comparing either against the source data would otherwise find
+      // the rows rearranged with nothing to explain it. Said once here, the
+      // way `orientationLabel` says it for the families that reverse theirs.
+      stats.push({ label: 'Order', value: 'Terms are listed heaviest first, not as authored' });
+    }
+
+    // Domain names where the layer labelled nothing: `named()` would fall back
+    // to the literal 'X' and 'Y', and the dialog's table names every cell by
+    // its column header -- so a screen reader walked it announcing "X,
+    // machine, Y, 412".
+    const headers = [
+      this.layer.axes?.x?.label?.trim() ? this.xAxis : 'Term',
+      this.layer.axes?.y?.label?.trim() ? this.yAxis : 'Weight',
+      'Share of total',
+    ];
+    // A cloud encodes prominence, and prominence is a share: 412 of 830 is
+    // half the corpus, which is the reading a sighted reader takes from glyph
+    // size and the one this table left them to divide out.
+    const rows: (string | number)[][] = this.points.map((point, term) => [
       point.x,
-      Number(point.y),
+      isMeasured(weights[term]) ? weights[term] : MISSING_TEXT,
+      toShare(weights[term], total),
     ]);
 
     return {
@@ -239,6 +328,22 @@ export class WordCloudTrace extends AbstractTrace {
   }
 
   /**
+   * How one term reads where the summary names it.
+   *
+   * The weight goes through `defaultFormat` because it is interpolated into a
+   * string, which `DescriptionService` takes for display text and leaves
+   * alone: a cloud weighted by a computed score reached the dialog naming its
+   * heaviest term at `0.3333333333333333`, beside the `0.33` the announcement
+   * speaks for the same term.
+   *
+   * @param term - Which term, in weight order
+   * @returns The term and its weight, e.g. `machine (412)`
+   */
+  private termSummary(term: number): string {
+    return `${this.points[term].x} (${defaultFormat(this.weights[0][term])})`;
+  }
+
+  /**
    * Offers the heaviest and lightest terms as extrema targets.
    *
    * They sit at the two ends of the sorted row, so this is a lookup rather
@@ -248,11 +353,14 @@ export class WordCloudTrace extends AbstractTrace {
    * @returns The heaviest and lightest terms, when the cloud has any
    */
   public override getExtremaTargets(): ExtremaTarget[] {
-    if (this.points.length === 0) {
+    if (this.measuredCount === 0) {
       return [];
     }
 
-    const last = this.points.length - 1;
+    // The lightest *measured* term, not the last one walked: the terms whose
+    // weight did not parse sort after it, and offering one as an extreme
+    // would send the reader to a term at a weight of `NaN`.
+    const last = this.measuredCount - 1;
     const targets: ExtremaTarget[] = [{
       label: `Heaviest term, ${this.points[0].x}`,
       value: this.weights[0][0],

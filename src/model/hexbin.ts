@@ -2,10 +2,11 @@ import type { HexbinPoint, MaidrLayer } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { defaultFormat } from '@util/format';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -143,6 +144,22 @@ export class HexbinTrace extends AbstractTrace {
 
     let taken = 0;
     return this.bins.map(row => flat.slice(taken, taken += row.length));
+  }
+
+  /**
+   * What this chart calls its third dimension.
+   *
+   * A hexbin's z is a count of points, never a level -- and the generic
+   * fallback `AbstractTrace` applies to `this.z` is the word `Level`, which
+   * invites a reader to hear a banding or a contour level in a number that is
+   * neither. `LineTrace` resolves its own fallback to `Group` for the same
+   * reason. The stats already say count, so this brings the announcement and
+   * the table onto their word.
+   *
+   * @returns The label the count is announced and tabulated under
+   */
+  private get countLabel(): string {
+    return named(this.layer.axes?.z?.label, 'Count');
   }
 
   protected get values(): number[][] {
@@ -349,7 +366,10 @@ export class HexbinTrace extends AbstractTrace {
       // to or compare between rows.
       main: { label: this.xAxis, value: bin?.x ?? Number.NaN },
       cross: { label: this.yAxis, value: bin?.y ?? Number.NaN },
-      z: { label: this.z, value: this.counts[this.row]?.[this.col] ?? Number.NaN },
+      z: {
+        label: this.countLabel,
+        value: this.counts[this.row]?.[this.col] ?? Number.NaN,
+      },
     };
   }
 
@@ -368,6 +388,27 @@ export class HexbinTrace extends AbstractTrace {
       { label: 'Total points', value: total },
     ];
 
+    // Where the lattice sits. A hexbin is a scatter with its points binned,
+    // and every stat above it is a count: a reader is told how dense the
+    // cloud is and never what it covers, so `Densest bin` arrives with no
+    // scale to place it on -- left edge or middle, there is no way to tell.
+    // `ScatterTrace` reports the same two spans, in the same words.
+    const centres = this.bins.flat();
+    const xs = centres.map(bin => Number(bin.x)).filter(Number.isFinite);
+    const ys = centres.map(bin => Number(bin.y)).filter(Number.isFinite);
+    if (xs.length > 0) {
+      stats.push({
+        label: `${this.xAxis} range`,
+        value: MathUtil.spannedOrMissing(MathUtil.safeMin(xs), MathUtil.safeMax(xs)),
+      });
+    }
+    if (ys.length > 0) {
+      stats.push({
+        label: `${this.yAxis} range`,
+        value: MathUtil.spannedOrMissing(MathUtil.safeMin(ys), MathUtil.safeMax(ys)),
+      });
+    }
+
     if (occupied.length > 0) {
       stats.push(
         { label: 'Min count', value: MathUtil.safeMin(occupied) },
@@ -376,16 +417,32 @@ export class HexbinTrace extends AbstractTrace {
 
       const densest = this.densestBin();
       if (densest !== null) {
+        // Rounded here rather than left to the service, which rounds numbers
+        // and passes composed strings through. A hex lattice's centres are
+        // `radius * sqrt(3) * (i + 0.5)`, so the one stat that says where the
+        // cloud peaks was thirty spoken digits over a table row saying the
+        // same two numbers to two decimals.
         stats.push({
           label: 'Densest bin',
-          value: `${this.xAxis} ${densest.x}, ${this.yAxis} ${densest.y}`,
+          value: `${this.xAxis} ${defaultFormat(densest.x)}, `
+            + `${this.yAxis} ${defaultFormat(densest.y)}`,
         });
       }
     }
 
-    const headers = [this.xAxis, this.yAxis, this.z];
-    const rows: (string | number)[][] = this.bins.flatMap((row, y) =>
+    const headers = [this.xAxis, this.yAxis, this.countLabel];
+    const allRows: (string | number)[][] = this.bins.flatMap((row, y) =>
       row.map((bin, x) => [bin.x, bin.y, this.counts[y][x]]));
+    const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
+    if (allRows.length > rows.length) {
+      // Said rather than silently done, as `ScatterTrace` says it: the dialog
+      // prints the row count it is given, and a count claiming the whole
+      // lattice over a table holding a fraction of it is worse than no table.
+      stats.push({
+        label: 'Table rows',
+        value: `first ${rows.length} of ${allRows.length}`,
+      });
+    }
 
     return {
       chartType: this.getChartTypeLabel(),

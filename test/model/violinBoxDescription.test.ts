@@ -122,13 +122,17 @@ describe('violinBoxTrace description summary', () => {
     expect(stat(trace, 'Highest maximum')).toBe('25 (A)');
   });
 
-  test('still counts the groups and lists the sections', () => {
+  test('still counts the violins and lists the sections', () => {
     const trace = new ViolinBoxTrace(makeViolinBoxLayer([
       group('A', 5, 10, 15, 20, 25),
       group('B', 1, 4, 6, 8, 12),
     ]));
 
-    expect(stat(trace, 'Number of groups')).toBe(2);
+    // "violins", not "groups": the KDE layer beside this one in the same
+    // figure already used the chart's own noun, so the two layers counted the
+    // same violins under two different words in adjacent tabs of one dialog.
+    expect(stat(trace, 'Number of violins')).toBe(2);
+    expect(stat(trace, 'Violin names')).toBe('A, B');
     expect(stat(trace, 'Sections')).toBe('Minimum, 25%, 50%, 75%, Maximum');
   });
 });

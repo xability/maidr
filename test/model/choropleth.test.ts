@@ -1,6 +1,6 @@
 import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { NonEmptyTraceState } from '@type/state';
+import type { BarBrailleState, NonEmptyTraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { ChoroplethTrace } from '@model/choropleth';
 import { TraceFactory } from '@model/factory';
@@ -27,6 +27,20 @@ const WEST: ChoroplethPoint[] = [
   { x: 'Utah', y: 85, lat: 39.5, lon: -111.7, neighbors: ['Idaho', 'Nevada'] },
   { x: 'Nevada', y: 90, lat: 39.3, lon: -116.6, neighbors: ['Oregon', 'Idaho', 'Utah', 'California'] },
   { x: 'California', y: 95, lat: 37.2, lon: -119.4, neighbors: ['Oregon', 'Nevada'] },
+];
+
+/**
+ * A map carrying one region the layer gave no value for.
+ *
+ * `NaN` is what `Number(point.y)` leaves of a value that is absent, or that
+ * arrived as a string that is not a number. It is the shape every reduction
+ * over the values has to survive: `Math.min` answers `NaN` for a set holding
+ * one, and both `>` and `<` are false against it.
+ */
+const BLANK_IN_IT: ChoroplethPoint[] = [
+  { x: 'Blank', y: Number.NaN, lat: 1, lon: 1, neighbors: ['Alpha'] },
+  { x: 'Alpha', y: 5, lat: 2, lon: 1, neighbors: ['Blank', 'Beta'] },
+  { x: 'Beta', y: 9, lat: 3, lon: 1, neighbors: ['Alpha'] },
 ];
 
 /**
@@ -197,6 +211,64 @@ describe('the description answers what a ranked list cannot', () => {
   test('names the extremes', () => {
     expect(stat('Highest')).toBe('California, 95');
     expect(stat('Lowest')).toBe('Washington, 10');
+  });
+
+  test('a region the layer gave no value for does not take the extremes with it', () => {
+    // `>` and `<` are both false against a `NaN`, so an unvalued region held
+    // the seed against every comparison and came out as both the highest and
+    // the lowest -- one region, so the pair was withheld from a map that
+    // plainly has a high and a low. The range went the same way: `Math.min`
+    // of anything holding a `NaN` is one, so the map with one blank in it
+    // reported no range at all beside two extremes it had just named.
+    expect(stat('Min value', BLANK_IN_IT)).toBe(5);
+    expect(stat('Max value', BLANK_IN_IT)).toBe(9);
+    expect(stat('Highest', BLANK_IN_IT)).toBe('Beta, 9');
+    expect(stat('Lowest', BLANK_IN_IT)).toBe('Alpha, 5');
+  });
+
+  test('a map with nothing measured on it says so rather than nothing', () => {
+    // `safeMin`/`safeMax` answer an empty set with the infinities, which the
+    // dialog blanks -- so the two lines were a label, a colon and nothing
+    // after them, reading as a failure rather than as a map with no range.
+    const nothing: ChoroplethPoint[] = [
+      { x: 'Blank', y: Number.NaN, lat: 1, lon: 1 },
+      { x: 'Void', y: Number.NaN, lat: 2, lon: 1 },
+    ];
+
+    expect(stat('Min value', nothing)).toBe('missing');
+    expect(stat('Max value', nothing)).toBe('missing');
+  });
+
+  test('one blank region does not scale the whole map against NaN', () => {
+    // The pair the description prints is the pair every region's pitch and
+    // every braille cell is placed against. Taken over the `NaN` too, both
+    // bounds were `NaN` and the map sounded and shaded against nothing --
+    // one region with no value silencing the five that had one.
+    const { audio, braille } = nonEmptyState(choropleth(BLANK_IN_IT));
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+
+    expect(audio.freq.min).toBe(5);
+    expect(audio.freq.max).toBe(9);
+    // One bound per band, which is how the map hands the whole scale to every
+    // row of the display.
+    expect((braille as BarBrailleState).min).toEqual([5, 5]);
+    expect((braille as BarBrailleState).max).toEqual([9, 9]);
+  });
+
+  test('speaks a rate at the precision the rest of the dialog does', () => {
+    // The extremes and the border jump are composed strings, which the
+    // service passes through where it would have rounded a number -- so a map
+    // of rates named its highest region at seventeen digits two lines under a
+    // `Max value` spoken at two.
+    const rates: ChoroplethPoint[] = [
+      { x: 'North', y: 0.3, lat: 3, lon: 0, neighbors: ['South'] },
+      { x: 'South', y: 0.1, lat: 1, lon: 0, neighbors: ['North'] },
+    ];
+
+    expect(stat('Highest', rates)).toBe('North, 0.3');
+    expect(stat('Sharpest borders', rates)).toBe('North to South, 0.2');
   });
 
   test('finds the borders the value jumps hardest across', () => {
@@ -414,5 +486,73 @@ describe('the border walk can be entered in either direction', () => {
 
     expect(trace.moveToRotorFilter('neighbours', 'right')).toBe(true);
     expect(nonEmptyState(trace).text.main.value).toBe(last);
+  });
+});
+
+describe('the description says what kind of map this is', () => {
+  test('a placed map says the arrows are compass directions', () => {
+    expect(stat('Layout')).toBe('South to north, then west to east');
+  });
+
+  test('a map with no centroids says the arrows are not', () => {
+    // `arrange` bands by latitude only when every region carries a centroid,
+    // and otherwise walks the declared order -- usually alphabetical. MAIDR
+    // promises this trace that up is north, and withdrawing that silently
+    // leaves a reader building a map the data does not support.
+    const unplaced: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1 },
+      { x: 'Beta', y: 2 },
+    ];
+
+    expect(String(stat('Layout', unplaced))).toMatch(/declared order/i);
+  });
+
+  test('a map declaring some of its borders says how many', () => {
+    // The border readings simply disappear when adjacency is missing, which
+    // reads exactly like a map whose values never jump -- and a cluster found
+    // over half a map is half a finding.
+    const partial: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1, lat: 1, lon: 1, neighbors: ['Beta'] },
+      { x: 'Beta', y: 2, lat: 2, lon: 1, neighbors: ['Alpha'] },
+      { x: 'Gamma', y: 3, lat: 3, lon: 1 },
+    ];
+
+    expect(stat('Regions with declared borders', partial)).toBe('2 of 3');
+  });
+
+  test('a map declaring all of them says nothing, and one declaring none says so', () => {
+    const bare: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1, lat: 1, lon: 1 },
+      { x: 'Beta', y: 2, lat: 2, lon: 1 },
+    ];
+
+    expect(stat('Regions with declared borders')).toBeUndefined();
+    expect(stat('Regions with declared borders', bare)).toBe('0 of 2');
+  });
+});
+
+describe('the high cluster is listed in the order the map is walked', () => {
+  /**
+   * Three regions at one value, joined through the middle one.
+   *
+   * The hub is reached first in grid order and both its neighbours are pushed
+   * from it, so a stack-driven traversal names the second of them before the
+   * first -- an order about the search rather than about the map, and one
+   * that changes if a producer reorders its `neighbors`.
+   */
+  const STAR: ChoroplethPoint[] = [
+    { x: 'Hub', y: 50, lat: 1, lon: 0, neighbors: ['Left', 'Right'] },
+    { x: 'Left', y: 50, lat: 1.1, lon: 1, neighbors: ['Hub'] },
+    { x: 'Right', y: 50, lat: 1.2, lon: 2, neighbors: ['Hub'] },
+    { x: 'A', y: 1, lat: 2, lon: 0 },
+    { x: 'B', y: 2, lat: 2.1, lon: 1 },
+    { x: 'C', y: 3, lat: 2.2, lon: 2 },
+  ];
+
+  test('names its members west to east rather than in traversal order', () => {
+    // The same order the border rotor walks, which is the order a reader
+    // meets them in.
+    expect(stat('Largest cluster of high regions', STAR))
+      .toBe('3 regions, Hub, Left, Right');
   });
 });

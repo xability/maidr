@@ -4,10 +4,9 @@ import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractBarPlot, isMeasured } from './bar';
+import { AbstractBarPlot, isMeasured, MISSING_TEXT } from './bar';
 
 const SUM = 'Sum';
-const UNDEFINED = 'undefined';
 
 /**
  * Whether a cell is one the chart library may have left out of the DOM.
@@ -172,6 +171,26 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    * @param groupIndex The index of the group
    * @returns A label for the group
    */
+  /**
+   * What a series is called, in one place, so the summary, the data table and
+   * the spoken announcement cannot come to disagree.
+   *
+   * The first point that carries a `z` names the series -- not `row[0]` alone,
+   * which loses a series whose leading point is unnamed and, worse, made the
+   * category list shorter than the count printed above it. A series that names
+   * itself nowhere is numbered, rather than given the literal text
+   * `'undefined'`: the dialog blanks that string by design, so the table's
+   * whole series column came out empty, and the announcement said the word
+   * aloud.
+   *
+   * @param index - Zero-based series index
+   * @returns The series name
+   */
+  private seriesNameAt(index: number): string {
+    return this.points[index]?.find(point => point.z?.trim())?.z?.trim()
+      ?? `Series ${index + 1}`;
+  }
+
   private getGroupLabel(groupIndex: number): string {
     if (this.points[groupIndex] && this.points[groupIndex].length > 0) {
       const firstPoint = this.points[groupIndex][0];
@@ -236,29 +255,63 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     const isVertical = this.orientation === Orientation.VERTICAL;
     // Exclude the summary row (last row) for stats and data
     const dataPoints = this.points.slice(0, -1);
+    const segmentValues = this.barValues.slice(0, -1);
+    const totals = this.barValues.at(-1) ?? [];
 
-    const zCategories = [
-      ...new Set(
-        dataPoints.map(row => row[0]?.z).filter(Boolean),
-      ),
-    ] as string[];
+    // One name per series, in series order, so the list can be read against
+    // the count on the line above it. `row[0]?.z` alone dropped a series whose
+    // first point carried no z -- leaving "Number of series: 2" followed by a
+    // list of one -- and consulted only the first point, so a producer that
+    // names later points lost the series entirely.
+    const seriesNames = dataPoints.map((_, index) => this.seriesNameAt(index));
 
+    // `Number of bars` was the *category* count, which happens to equal the
+    // bar count only when the bars are stacked. A 3-series by 4-category
+    // dodged chart draws twelve and reported four.
+    const zLabel = this.layer.axes?.z?.label?.trim();
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of bars', value: this.points[0].length },
-      ...this.rangeStats(),
-      { label: 'Number of groups', value: dataPoints.length },
-      { label: `${this.z} categories`, value: zCategories.join(', ') },
+      { label: 'Number of categories', value: this.points[0].length },
+      { label: 'Number of series', value: dataPoints.length },
+      { label: 'Number of segments', value: segmentValues.flat().length },
+      // Over the segments alone: `barValues` carries a synthetic Total row, so
+      // the inherited range spanned a number no drawn bar has.
+      ...this.rangeStats('segment value', segmentValues),
+      // A fixed word when the layer authored no z label, rather than the
+      // 'Level' placeholder `getDescriptionAxes` is careful to suppress.
+      { label: zLabel ? `${zLabel} categories` : 'Series names', value: seriesNames.join(', ') },
     ];
 
-    const headers = isVertical
-      ? [this.xAxis, this.yAxis, this.z]
-      : [this.yAxis, this.xAxis, this.z];
+    const measuredTotals = totals.filter(isMeasured);
+    if (measuredTotals.length > 0) {
+      stats.push({ label: 'Largest bar total', value: MathUtil.safeMax(measuredTotals) });
+      stats.push({ label: 'Smallest bar total', value: MathUtil.safeMin(measuredTotals) });
+    }
 
-    const rows: (string | number)[][] = dataPoints.flatMap(group =>
-      group.map((p) => {
+    const gaps = segmentValues.flat().filter(value => !isMeasured(value)).length;
+    if (gaps > 0) {
+      stats.push({ label: 'Segments with no value', value: gaps });
+    }
+
+    const headers = isVertical
+      ? [this.xAxis, this.yAxis, zLabel ?? 'Series']
+      : [this.yAxis, this.xAxis, zLabel ?? 'Series'];
+
+    // Every row of the navigable grid, the summary row included: a reader can
+    // reach it with PageUp and the chart announces it there, so a table that
+    // stops short of it does not describe the chart they are walking. The
+    // summary row names itself through the same helper, so the table and the
+    // announcement call it the same thing. A series with no name is numbered
+    // rather than given the literal text 'undefined', which the dialog is
+    // required to blank -- leaving a column of nothing.
+    const rows: (string | number)[][] = this.points.flatMap((group, index) =>
+      group.map((p, col) => {
         const main = isVertical ? p.x : p.y;
-        const cross = isVertical ? p.y : p.x;
-        return [main, cross, p.z ?? UNDEFINED];
+        const value = this.barValues[index]?.[col];
+        return [
+          main,
+          isMeasured(value) ? value : MISSING_TEXT,
+          this.seriesNameAt(index),
+        ];
       }),
     );
 
@@ -276,7 +329,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       ...super.text,
       z: {
         label: this.z,
-        value: this.points[this.row][this.col].z ?? UNDEFINED,
+        value: this.seriesNameAt(this.row),
       },
     };
   }

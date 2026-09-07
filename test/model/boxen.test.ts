@@ -221,8 +221,11 @@ describe('the description says how deep the sample went', () => {
 
     expect(dataTable?.headers).toEqual(['Group', 'Quantile', 'Milliseconds']);
     expect(dataTable?.rows[0]).toEqual(['light', '12.5th percentile', 42]);
-    // Five positions for the shallow ladder plus nine for the deep one.
-    expect(dataTable?.rows).toHaveLength(14);
+    // Five positions for the shallow ladder plus nine for the deep one, and
+    // the one outlier: it is counted in the summary, and the table is the only
+    // place a reader can reach it, since navigation does not visit outliers.
+    expect(dataTable?.rows).toHaveLength(15);
+    expect(dataTable?.rows).toContainEqual(['light', 'upper outlier', 70]);
   });
 });
 

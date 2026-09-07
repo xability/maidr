@@ -11,7 +11,7 @@ import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { RotorNavigationService } from './rotor';
 import { Candlestick } from '@model/candlestick';
-import { CandlestickDeltaTrace } from '@model/candlestickDelta';
+import { CandlestickDeltaTrace, referenceName } from '@model/candlestickDelta';
 import { LineTrace } from '@model/line';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
@@ -453,7 +453,13 @@ export class CandlestickDeltaService implements Disposable {
       // currency) apply to the delta layer's x values and magnitudes too.
       id: candlestick.getId(),
       type: TraceType.CANDLESTICK_DELTA,
-      title: `OHLC price vs ${referenceLabel}`,
+      // Named the way the layer names it. An unnamed reference line arrives
+      // here as the model's `unavailable` placeholder, and composing it into
+      // the title put "OHLC price vs unavailable" at the top of the dialog --
+      // directly above the column the trace is careful to head `Reference
+      // line`. The placeholder reached the reader in the line above the one
+      // that was guarded.
+      title: `OHLC price vs ${referenceName(referenceLabel)}`,
       axes: {
         x: { label: xAxis },
         y: { label: `${yAxis} delta` },

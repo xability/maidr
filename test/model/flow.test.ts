@@ -309,7 +309,9 @@ describe('stages are derived, and a cycle is answered honestly', () => {
       { source: 'C', target: 'A', value: 1 },
     ];
 
-    expect(stat('Stages', circle)).toBe(1);
+    // One stage is what "the sort did not complete" is spelled as, and a
+    // chart drawn as a ring has no columns to report a count of.
+    expect(stat('Stages', circle)).toBe('none, the flows form a cycle');
   });
 
   test('a graph that is only partly cyclic is not half-layered', () => {
@@ -328,7 +330,7 @@ describe('stages are derived, and a cycle is answered honestly', () => {
       { source: 'C', target: 'A', value: 1 },
     ];
 
-    expect(stat('Stages', tethered)).toBe(1);
+    expect(stat('Stages', tethered)).toBe('none, the flows form a cycle');
   });
 
   test('the ribbons still follow on a cyclic graph', () => {
@@ -365,6 +367,41 @@ describe('the description answers what tracing one ribbon cannot', () => {
     expect(stat('Largest flow')).toBe('Coal to Electricity, 34');
   });
 
+  test('a cyclic chart is totalled by its ribbons rather than by its sources', () => {
+    // A chord diagram has no source at all, so the source sum is 0 and the
+    // stat was dropped on the one layout whose ribbons are the whole chart.
+    // The ribbons are disjoint there, so adding them counts nothing twice.
+    const circle: FlowPoint[] = [
+      { source: 'A', target: 'B', value: 3 },
+      { source: 'B', target: 'C', value: 2 },
+      { source: 'C', target: 'A', value: 1 },
+    ];
+
+    expect(stat('Total flow', circle)).toBeUndefined();
+    expect(stat('Total of all flows', circle)).toBe(6);
+  });
+
+  test('names the two ends of the chart and the node the ribbons meet at', () => {
+    // Coal and Gas feed it; Losses, Homes and Industry are where it stops.
+    // The busiest node is what the pitch is scaled against and what a reader
+    // would have to hold every total in mind to find.
+    expect(stat('Sources and sinks')).toBe('2, 3');
+    expect(stat('Busiest node')).toBe('Coal, 56');
+  });
+
+  test('a route cut short by the cap says so', () => {
+    // Ending silently at the eighth hop names a node the flow runs straight
+    // through as though it were where the chart ends.
+    const chain: FlowPoint[] = Array.from({ length: 9 }, (_unused, at) => ({
+      source: `n${at}`,
+      target: `n${at + 1}`,
+      value: 10 - at,
+    }));
+
+    expect(stat('Main route', chain))
+      .toBe('n0 to n1 to n2 to n3 to n4 to n5 to n6 to n7, and on');
+  });
+
   test('names the route the eye takes', () => {
     // Start at the biggest source, take the widest branch at each step. It is
     // a fact about the succession of choices rather than about any node, so a
@@ -378,6 +415,22 @@ describe('the description answers what tracing one ribbon cannot', () => {
     expect(headers).toEqual(['From', 'To', 'Petajoules']);
     expect(rows).toHaveLength(8);
     expect(rows[0]).toEqual(['Coal', 'Electricity', 34]);
+  });
+
+  test('a layer that names no axes still heads the amounts with a noun', () => {
+    // A sankey has no scales, so both in-repo adapters author no axes at all
+    // -- and the column of petajoules was then headed `Y`, the placeholder
+    // the dialog's own Axes block drops.
+    const trace = TraceFactory.create({
+      id: 'no-axes-flow',
+      type: TraceType.SANKEY,
+      title: 'Energy flow',
+      data: ENERGY,
+    }) as FlowTrace;
+
+    expect(trace.description.dataTable.headers).toEqual(['From', 'To', 'Value']);
+    trace.moveOnce('FORWARD');
+    expect(nonEmptyState(trace).text.main.label).toBe('Node');
   });
 });
 
