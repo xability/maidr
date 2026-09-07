@@ -2,6 +2,7 @@ import type { BoxplotSectionType } from '@type/boxplotSection';
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
 import { BoxplotSection } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
@@ -383,6 +384,74 @@ export class BoxTrace extends AbstractTrace {
       });
     });
 
+    // Phase 1.5: measure and build everything that has to be measured, for
+    // every box at once. Each derived quartile edge costs a `getBBox` and a
+    // `getComputedStyle` on the box, and each whisker costs a `getBBox` on
+    // the box and on the cap; drawing them a box at a time put those reads
+    // straight after the previous box's inserts, so the chart was laid out
+    // again before each -- measured at 4 forced layouts per box, 120 over 30
+    // boxes, paid again on every live-data rebuild. The same box was measured
+    // four times over.
+    //
+    // Nothing is inserted here. The lines come back detached and Phase 2 puts
+    // them in exactly where the one-at-a-time code did, because a box whose
+    // body element is also one of its own parts -- Victory names one `<path>`
+    // as both `iq` and `q1`, Plotly's violin box names one as `min`, `iq`,
+    // `q2` and `max` -- would otherwise have its hidden clone land directly
+    // after that element instead of behind the derived lines, and
+    // `getAllOriginalElements` pairs clone to original by
+    // `previousElementSibling`.
+    const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
+    const edgeRequests: LineRequest[] = [];
+    const edgeOwners: number[] = [];
+    originals.forEach((original, boxIdx) => {
+      // Direct Q1/Q3 selectors bypass iq edge derivation (used by Plotly).
+      if ((original.q1Direct && original.q3Direct) || !original.iq) {
+        return;
+      }
+      const [q1Edge, q3Edge]: [Edge, Edge] = isVertical
+        ? (isIqrReversed ? ['top', 'bottom'] : ['bottom', 'top'])
+        : ['left', 'right'];
+      edgeRequests.push(
+        { box: original.iq, edge: q1Edge },
+        { box: original.iq, edge: q3Edge },
+      );
+      edgeOwners.push(boxIdx);
+    });
+    const edges = Svg.buildLineElements(edgeRequests);
+    const derivedEdges = new Map<number, [SVGElement, SVGElement]>();
+    edgeOwners.forEach((boxIdx, request) => {
+      derivedEdges.set(boxIdx, [edges[request * 2], edges[request * 2 + 1]]);
+    });
+
+    // The lower cap's whisker then the upper cap's, box by box, which is the
+    // order `getGeometryElements` reports them in and `test/model/
+    // boxGeometry.test.ts` pins, and the order `offerGeometry` inserts them
+    // in.
+    const whiskerRequests: WhiskerRequest[] = [];
+    const whiskerOwners: number[] = [];
+    originals.forEach((original, boxIdx) => {
+      const body = original.iq ?? original.q1Direct;
+      if (body === null) {
+        return;
+      }
+      for (const cap of [original.min, original.max]) {
+        if (cap === null) {
+          continue;
+        }
+        whiskerRequests.push({ cap, body, vertical: isVertical });
+        whiskerOwners.push(boxIdx);
+      }
+    });
+    const whiskers = Svg.buildWhiskerElements(whiskerRequests);
+    const whiskersByBox: SVGElement[][] = originals.map(() => []);
+    whiskerOwners.forEach((boxIdx, request) => {
+      const whisker = whiskers[request];
+      if (whisker !== null) {
+        whiskersByBox[boxIdx].push(whisker);
+      }
+    });
+
     // Phase 2: Clone and create elements from originals (DOM queries complete)
     originals.forEach((original, boxIdx) => {
       const lowerOutliers = original.lowerOutliers.map((el) => {
@@ -403,36 +472,24 @@ export class BoxTrace extends AbstractTrace {
       const q2 = this.cloneElementOrEmpty(original.q2);
 
       // Use direct Q1/Q3 selectors if provided (Plotly: highlight entire box).
-      // Otherwise, derive Q1/Q3 line elements from iq edges (matplotlib/seaborn).
+      // Otherwise, take the Q1/Q3 edges derived from iq in Phase 1.5
+      // (matplotlib/seaborn) and insert them here, after this box's clones,
+      // where deriving them one at a time used to insert them.
+      const derived = derivedEdges.get(boxIdx);
       let q1: SVGElement;
       let q3: SVGElement;
       if (original.q1Direct && original.q3Direct) {
         q1 = this.cloneElementOrEmpty(original.q1Direct);
         q3 = this.cloneElementOrEmpty(original.q3Direct);
+      } else if (derived && original.iq) {
+        [q1, q3] = derived;
+        Svg.insertDerived(original.iq, q1, q3);
       } else {
-        const isIqrReversed = this.layer.domMapping?.iqrDirection === 'reverse';
-        [q1, q3] = original.iq
-          ? (isVertical
-              ? isIqrReversed
-                ? [
-                    Svg.createLineElement(original.iq, 'top'),
-                    Svg.createLineElement(original.iq, 'bottom'),
-                  ]
-                : [
-                    Svg.createLineElement(original.iq, 'bottom'),
-                    Svg.createLineElement(original.iq, 'top'),
-                  ]
-              : [
-                  Svg.createLineElement(original.iq, 'left'),
-                  Svg.createLineElement(original.iq, 'right'),
-                ])
-          : [
-              Svg.createEmptyElement('line'),
-              Svg.createEmptyElement('line'),
-            ];
+        q1 = Svg.createEmptyElement('line');
+        q3 = Svg.createEmptyElement('line');
       }
 
-      this.offerGeometry(original, isVertical);
+      this.offerGeometry(original, whiskersByBox[boxIdx]);
 
       const sections = [lowerOutliers, min, q1, q2, q3, max, upperOutliers];
 
@@ -467,7 +524,9 @@ export class BoxTrace extends AbstractTrace {
    * @param original.q2 - The median
    * @param original.q1Direct - The lower quartile, where the chart drew it
    * @param original.q3Direct - The upper quartile, where the chart drew it
-   * @param isVertical - Whether the box stands upright
+   * @param whiskers - The box's whiskers, built in Phase 1.5 and inserted
+   *   here, lower cap first; the ones that could not be drawn are already
+   *   left out
    */
   private offerGeometry(
     original: {
@@ -480,7 +539,7 @@ export class BoxTrace extends AbstractTrace {
       q1Direct: SVGElement | null;
       q3Direct: SVGElement | null;
     },
-    isVertical: boolean,
+    whiskers: readonly SVGElement[],
   ): void {
     const body = original.iq ?? original.q1Direct;
     const parts = new Set<SVGElement>();
@@ -498,13 +557,15 @@ export class BoxTrace extends AbstractTrace {
         parts.add(part);
       }
     }
-    if (body !== null) {
-      for (const cap of [original.min, original.max]) {
-        const whisker = cap === null ? null : Svg.createWhiskerElement(cap, body, isVertical);
-        if (whisker !== null) {
-          parts.add(whisker);
-        }
+    // The whiskers go in beside the box here rather than when they were
+    // built, so that on a box whose body element is also one of its own
+    // parts the hidden clones stand between the body and its whiskers, as
+    // they did when each whisker was drawn at this point.
+    for (const whisker of whiskers) {
+      if (body !== null) {
+        Svg.insertDerived(body, whisker);
       }
+      parts.add(whisker);
     }
     this.geometry.push(...parts);
   }

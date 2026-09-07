@@ -10,6 +10,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
+import type { LineRequest } from '@util/svg';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
 import {
@@ -834,62 +835,99 @@ export class Candlestick extends AbstractTrace {
     const closes = this.collectElements(cs.close);
     // Volatility will be composed from [wickHigh, body, wickLow]; no direct selectors used
 
-    const derivedOpen: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
-    const derivedClose: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
-    const derivedVolatility: SVGElement[] = Array.from({ length: N }, () =>
-      Svg.createEmptyElement());
+    // Every index of both is written unconditionally by the loop below, so
+    // there is nothing to pre-fill: an element made here would be discarded
+    // a few lines later, and at 200 candles that was 400 hidden `<rect>`s
+    // built and thrown away per construction -- paid again on every
+    // live-data rebuild.
+    const derivedOpen = Array.from({ length: N }) as SVGElement[];
+    const derivedClose = Array.from({ length: N }) as SVGElement[];
+
+    // The edges are drawn along the body, and every line costs a `getBBox`
+    // and a `getComputedStyle` on it. Drawing them one at a time put those
+    // reads immediately after the insert of the previous line, so the chart
+    // had to be laid out again before each -- measured at exactly 2N forced
+    // layouts, 400 at 200 candles, paid again on every live-data rebuild.
+    // Decide what to draw for every candle first, then draw the batch.
+    const lineRequests: LineRequest[] = [];
+    // Where each request's line belongs: the candle, and which edge of it.
+    const lineSlots: { readonly index: number; readonly isOpen: boolean }[] = [];
 
     for (let i = 0; i < N; i++) {
+      const body = this.getElementAt(bodies, i);
+      const { open, close } = this.candles[i];
+
       // Open (explicit otherwise derive from body using data)
-      let openEl = this.getElementAt(opens, i);
-      if (!openEl) {
-        const body = this.getElementAt(bodies, i);
-        const { open, close } = this.candles[i];
+      const openEl = this.getElementAt(opens, i);
+      if (openEl) {
+        derivedOpen[i] = openEl;
+      } else if (body && this.hasOpen && open !== undefined) {
         // Which edge of the body is the open depends on which way the body
         // ran, so a candle with none has no edge to derive -- and no `open`
         // section for the element to be reached through either. The section
         // is a property of the chart, not of the candle: on a chart without
         // one, a candle that does state an open still has nowhere to place
-        // the line, and `createLineElement` inserts it the moment it is made,
-        // so deriving it left a `<line>` in the chart `dispose()` never saw.
-        if (body && this.hasOpen && open !== undefined) {
-          const edge: 'top' | 'bottom'
-            = close > open ? 'bottom' : close < open ? 'top' : 'bottom';
-          openEl = Svg.createLineElement(body, edge);
-        } else {
-          openEl = Svg.createEmptyElement();
-        }
+        // the line, and the line is inserted into the chart, so deriving it
+        // left a `<line>` behind that `dispose()` never saw.
+        lineRequests.push({
+          box: body,
+          edge: close > open ? 'bottom' : close < open ? 'top' : 'bottom',
+        });
+        lineSlots.push({ index: i, isOpen: true });
+      } else {
+        derivedOpen[i] = Svg.createEmptyElement();
       }
-      derivedOpen[i] = openEl;
 
       // Close (explicit otherwise derive from body using data)
-      let closeEl = this.getElementAt(closes, i);
-      if (!closeEl) {
-        const body = this.getElementAt(bodies, i);
-        const { open, close } = this.candles[i];
+      const closeEl = this.getElementAt(closes, i);
+      if (closeEl) {
+        derivedClose[i] = closeEl;
+      } else if (body && open !== undefined) {
         // The close is the body's other edge, so it is derivable on exactly
         // the charts the open is. A high-low-close chart draws no body at
         // all; its close comes from the explicit selector or from nothing.
-        if (body && open !== undefined) {
-          const edge: 'top' | 'bottom'
-            = close > open ? 'top' : close < open ? 'bottom' : 'top';
-          closeEl = Svg.createLineElement(body, edge);
-        } else {
-          closeEl = Svg.createEmptyElement();
-        }
+        lineRequests.push({
+          box: body,
+          edge: close > open ? 'top' : close < open ? 'bottom' : 'top',
+        });
+        lineSlots.push({ index: i, isOpen: false });
+      } else {
+        derivedClose[i] = Svg.createEmptyElement();
       }
-      derivedClose[i] = closeEl;
-
-      // Volatility: composed later as [high, body, low]; no single element here
-      derivedVolatility[i] = Svg.createEmptyElement();
     }
 
-    // Build 2D array in value-sorted navigation order per point
+    // Requested open-then-close per candle, as the one-at-a-time code drew
+    // them, and inserted in that same order, one call per line, so each body
+    // keeps the child order it had. The anchors are the hidden body clones
+    // `collectElements` inserted before any of this ran, and nothing is
+    // inserted beside them afterwards, so where these lines land is the same
+    // as it was.
+    const lines = Svg.buildLineElements(lineRequests);
+    lineRequests.forEach(({ box }, request) => {
+      Svg.insertDerived(box, lines[request]);
+    });
+    lineSlots.forEach((slot, request) => {
+      if (slot.isOpen) {
+        derivedOpen[slot.index] = lines[request];
+      } else {
+        derivedClose[slot.index] = lines[request];
+      }
+    });
+
+    // Build 2D array in value-sorted navigation order per point.
+    //
+    // The rows start empty rather than pre-filled: the loop below writes
+    // `segmentElements[pos][pointIndex]` for every `pos` in
+    // `0..navOrder.length - 1`, and `navOrder` is
+    // `sortedSegmentsByPoint[pointIndex]`, which `precomputeSortedSegments`
+    // builds as `['volatility', ...ohlc]` with `ohlc` four long when
+    // {@link hasOpen} and three otherwise -- exactly `sections.length`, which
+    // `candlestickSectionsOf` derives from the same flag. Every cell is
+    // therefore written, and pre-filling one only built an element to
+    // overwrite it.
     const segmentElements: HighlightValue[][] = Array.from(
       { length: this.sections.length },
-      () => Array.from({ length: N }, () => Svg.createEmptyElement()),
+      () => Array.from({ length: N }) as HighlightValue[],
     );
 
     for (let pointIndex = 0; pointIndex < N; pointIndex++) {

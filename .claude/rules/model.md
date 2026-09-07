@@ -101,7 +101,7 @@ every one of them at once.
 
 **Every code path that creates a highlight element must mark it.** The `Svg`
 helpers (`selectAllElements` / `selectElement` with clone,
-`createEmptyElement`, `createCircleElement`, `createLineElement`,
-`createHighlightElement`) already do. If you clone or synthesize an element by
+`createEmptyElement`, `createCircleElements`, `buildLineElements`,
+`buildWhiskerElements`, `createHighlightElement`) already do. If you clone or synthesize an element by
 hand, wrap it in `Svg.markOwned(...)`. Elements selected with
 `shouldClone = false` are live chart geometry — never mark or remove them.
