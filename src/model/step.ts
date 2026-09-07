@@ -207,7 +207,7 @@ export class StepTrace extends LineTrace {
 
   /**
    * Column indices, per series, at which the level differs from the previous
-   * *measured* column — that is, the first point of every run after the first.
+   * measured* column — that is, the first point of every run after the first.
    * Computed once because trace data is immutable (live-data updates rebuild
    * the trace).
    */

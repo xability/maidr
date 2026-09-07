@@ -410,11 +410,11 @@ export class ChoroplethTrace extends AbstractTrace {
     const stats: DescriptionState['stats'] = [
       { label: 'Number of regions', value: every.length },
       // A region the layer gave no value for makes both of these `NaN` --
-      // `Math.min` of anything holding one is one -- and an empty map makes
-      // them infinite. The dialog blanks a non-finite number, so the two
-      // lines were spoken as a label, a colon and nothing at all, which reads
-      // as MAIDR having failed rather than as a map with no range. `Heatmap`
-      // guards the same pair the same way.
+      // `Math.min` over anything holding one answers `NaN` -- and an empty
+      // map makes them infinite. The dialog blanks a non-finite number, so
+      // the two lines were spoken as a label, a colon and nothing after it,
+      // which reads as MAIDR having failed rather than as a map with no
+      // range. `Heatmap` guards the same pair the same way.
       { label: 'Min value', value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
       { label: 'Max value', value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
     ];
@@ -436,7 +436,7 @@ export class ChoroplethTrace extends AbstractTrace {
     });
 
     const bordered = every.filter(region => this.neighboursOf(region).length > 0);
-    if (every.length > 0 && bordered.length < every.length) {
+    if (bordered.length < every.length) {
       // Adjacency is declared, so a map can carry all of it, some, or none --
       // and the border readings below simply disappear when it is missing,
       // which reads exactly like a map whose values never jump. This is what

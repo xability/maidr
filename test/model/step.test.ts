@@ -122,6 +122,50 @@ describe('step trace description', () => {
     expect(stats.get('Levels')).toBe('Awake, N2, REM');
   });
 
+  test('prints the level name in the data table, not the code behind it', () => {
+    const trace = new StepTrace(createStepLayer([HYPNOGRAM]));
+
+    expect(trace.description.dataTable.rows).toEqual([
+      [0, 'Awake'],
+      [1, 'N2'],
+      [2, 'N2'],
+      [3, 'REM'],
+    ]);
+  });
+
+  test('drops the magnitude stats when the y axis names its levels', () => {
+    // The codes exist to drive the pitch, the braille and the range. Reported
+    // as "Min value: 1, Max value: 3" two lines above `Awake, N2, REM`, with
+    // no mapping between them, they invite the reading that one stage is three
+    // times another.
+    const labels = new StepTrace(createStepLayer([HYPNOGRAM]))
+      .description
+      .stats
+      .map(stat => stat.label);
+
+    expect(labels).not.toContain('Min value');
+    expect(labels).not.toContain('Max value');
+    expect(labels).toContain('Levels');
+  });
+
+  test('counts the distinct levels of a numeric staircase, which names none', () => {
+    // A purely numeric step chart said nothing about levels at all, though how
+    // many values the staircase takes is exactly what it encodes.
+    const trace = new StepTrace(createStepLayer([[
+      { x: 0, y: 3 },
+      { x: 1, y: 1 },
+      { x: 2, y: 1 },
+      { x: 3, y: 3 },
+    ]]));
+    const stats = new Map(
+      trace.description.stats.map(stat => [stat.label, stat.value]),
+    );
+
+    expect(stats.get('Distinct levels')).toBe(2);
+    // The magnitudes are magnitudes here, so they stay.
+    expect(stats.get('Min value')).toBe(1);
+  });
+
   test('reports the step direction only when the data authors one', () => {
     const withoutDirection = new StepTrace(createStepLayer([HYPNOGRAM]));
     expect(
@@ -132,6 +176,52 @@ describe('step trace description', () => {
     expect(
       withDirection.description.stats.find(stat => stat.label === 'Step direction')?.value,
     ).toBe('value jumps at the current x value, then holds');
+  });
+});
+
+describe('a step series with a missing epoch', () => {
+  /** A level that never moves, with one epoch unmeasured in the middle. */
+  const GAPPED = [
+    { x: 0, y: 3 },
+    { x: 1, y: null },
+    { x: 2, y: 3 },
+  ];
+
+  test('does not count the absence as two level changes', () => {
+    // `null !== 3` twice made one gap two transitions -- for a level that
+    // never moved -- and inflated the count a reader uses to judge how
+    // restless the night was.
+    const stats = new Map(
+      new StepTrace(createStepLayer([GAPPED])).description.stats.map(stat => [stat.label, stat.value]),
+    );
+
+    expect(stats.get('Transitions')).toBe(0);
+  });
+
+  test('does not let the absence break the run it sits inside', () => {
+    const stats = new Map(
+      new StepTrace(createStepLayer([GAPPED])).description.stats.map(stat => [stat.label, stat.value]),
+    );
+
+    expect(stats.get('Longest run')).toBe(2);
+  });
+
+  test('offers no transitions rotor, so it cannot stop on the absence', () => {
+    // The same array drives the rotor, which would have stopped the reader
+    // twice at a point with nothing to announce and called it a change.
+    expect(new StepTrace(createStepLayer([GAPPED])).getRotorFilterUnits()).toEqual([]);
+  });
+
+  test('still sees a real change either side of one', () => {
+    const trace = new StepTrace(createStepLayer([[
+      { x: 0, y: 3 },
+      { x: 1, y: null },
+      { x: 2, y: 1 },
+    ]]));
+
+    expect(
+      trace.description.stats.find(stat => stat.label === 'Transitions')?.value,
+    ).toBe(1);
   });
 });
 
@@ -215,6 +305,37 @@ describe('multi-series step trace', () => {
     const state = nonEmptyState(trace);
     expect(state.plotType).toBe('step');
     expect(state.groupCount).toBe(2);
+  });
+
+  test('names the series the per-series stats belong to', () => {
+    // Everything inherited above them is a fact about the whole layer, so an
+    // unqualified "Transitions: 2" beside a second night with three read as
+    // the chart's count -- and it changed as the reader moved, with nothing in
+    // the dialog to say why.
+    const named = (points: StepPoint[], z: string): StepPoint[] =>
+      points.map(point => ({ ...point, z }));
+    const trace = new StepTrace(createStepLayer([
+      named(HYPNOGRAM, 'Night one'),
+      named(NIGHT_TWO, 'Night two'),
+    ]));
+    const labels = trace.description.stats.map(stat => stat.label);
+
+    expect(labels).toContain('Transitions in Night one');
+    expect(labels).toContain('Longest run in Night one');
+    expect(labels).not.toContain('Transitions');
+  });
+
+  test('lists every level the layer draws, not only the current series\' own', () => {
+    // A stage drawn only in the second night still belongs in the list;
+    // leaving it out reads as a chart that never reaches it.
+    const trace = new StepTrace(createStepLayer([
+      [{ x: 0, y: 3, label: 'Awake' }],
+      [{ x: 0, y: 2, label: 'REM' }],
+    ]));
+
+    expect(
+      trace.description.stats.find(stat => stat.label === 'Levels')?.value,
+    ).toBe('Awake, REM');
   });
 
   test('offers the transitions unit when only one series ever changes level', () => {

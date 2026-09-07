@@ -451,3 +451,71 @@ describe('the border walk can be entered in either direction', () => {
     expect(nonEmptyState(trace).text.main.value).toBe(last);
   });
 });
+
+describe('the description says what kind of map this is', () => {
+  test('a placed map says the arrows are compass directions', () => {
+    expect(stat('Layout')).toBe('South to north, then west to east');
+  });
+
+  test('a map with no centroids says the arrows are not', () => {
+    // `arrange` bands by latitude only when every region carries a centroid,
+    // and otherwise walks the declared order -- usually alphabetical. MAIDR
+    // promises this trace that up is north, and withdrawing that silently
+    // leaves a reader building a map the data does not support.
+    const unplaced: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1 },
+      { x: 'Beta', y: 2 },
+    ];
+
+    expect(String(stat('Layout', unplaced))).toMatch(/declared order/i);
+  });
+
+  test('a map declaring some of its borders says how many', () => {
+    // The border readings simply disappear when adjacency is missing, which
+    // reads exactly like a map whose values never jump -- and a cluster found
+    // over half a map is half a finding.
+    const partial: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1, lat: 1, lon: 1, neighbors: ['Beta'] },
+      { x: 'Beta', y: 2, lat: 2, lon: 1, neighbors: ['Alpha'] },
+      { x: 'Gamma', y: 3, lat: 3, lon: 1 },
+    ];
+
+    expect(stat('Regions with declared borders', partial)).toBe('2 of 3');
+  });
+
+  test('a map declaring all of them says nothing, and one declaring none says so', () => {
+    const bare: ChoroplethPoint[] = [
+      { x: 'Alpha', y: 1, lat: 1, lon: 1 },
+      { x: 'Beta', y: 2, lat: 2, lon: 1 },
+    ];
+
+    expect(stat('Regions with declared borders')).toBeUndefined();
+    expect(stat('Regions with declared borders', bare)).toBe('0 of 2');
+  });
+});
+
+describe('the high cluster is listed in the order the map is walked', () => {
+  /**
+   * Three regions at one value, joined through the middle one.
+   *
+   * The hub is reached first in grid order and both its neighbours are pushed
+   * from it, so a stack-driven traversal names the second of them before the
+   * first -- an order about the search rather than about the map, and one
+   * that changes if a producer reorders its `neighbors`.
+   */
+  const STAR: ChoroplethPoint[] = [
+    { x: 'Hub', y: 50, lat: 1, lon: 0, neighbors: ['Left', 'Right'] },
+    { x: 'Left', y: 50, lat: 1.1, lon: 1, neighbors: ['Hub'] },
+    { x: 'Right', y: 50, lat: 1.2, lon: 2, neighbors: ['Hub'] },
+    { x: 'A', y: 1, lat: 2, lon: 0 },
+    { x: 'B', y: 2, lat: 2.1, lon: 1 },
+    { x: 'C', y: 3, lat: 2.2, lon: 2 },
+  ];
+
+  test('names its members west to east rather than in traversal order', () => {
+    // The same order the border rotor walks, which is the order a reader
+    // meets them in.
+    expect(stat('Largest cluster of high regions', STAR))
+      .toBe('3 regions, Hub, Left, Right');
+  });
+});

@@ -178,8 +178,7 @@ describe('the description says what the cloud looks like', () => {
    * @returns Its value, or undefined
    */
   function readOf(data: HexbinPoint[][], label: string): unknown {
-    return hexbin(0, 0, data).description.stats
-      .find(stat => stat.label === label)?.value;
+    return hexbin(0, 0, data).description.stats.find(stat => stat.label === label)?.value;
   }
 
   test('counts the bins that hold anything, not just the bins', () => {

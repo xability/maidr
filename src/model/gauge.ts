@@ -4,7 +4,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint } from './abstract';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractTrace } from './abstract';
+import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { MovableGrid } from './movable';
 
 /**
@@ -214,8 +214,12 @@ export class GaugeTrace extends AbstractTrace {
     }
 
     const headers = ['Measure', 'Value'];
+    // Falls back to the fixed word, not to `this.title`: a layer that names
+    // neither its measure nor its chart leaves the title as the model's
+    // `unavailable` placeholder, and the dialog erases that string -- so the
+    // one row of the one table a gauge has came out with no name at all.
     const rows: (string | number)[][] = [
-      [this.point.label ?? this.title, this.value],
+      [this.point.label ?? (this.title === DEFAULT_SUBPLOT_TITLE ? 'Measure' : this.title), this.value],
     ];
 
     return {

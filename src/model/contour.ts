@@ -345,12 +345,13 @@ export class ContourTrace extends LineTrace {
     const base = super.description;
     const declared = this.levels.filter(Number.isFinite);
 
-    // Inherited, these two are the line layer's per-series min and max of
-    // **y** -- the vertical extent of the drawn vertices. Under the most
-    // value-shaped labels in the dialog, beside a column of levels, they
-    // answer "what range does this field cover?" with the height of the plot:
-    // the fixture's field runs 0.1 to 0.3 and the stats said 0 to 18. Named
-    // for the axis they actually measure, they are a fact about the drawing.
+    // Inherited, `Min value` and `Max value` are the line layer's min and max
+    // of **y** -- the vertical extent of the drawn vertices. "What range does
+    // this field cover?" is the first question a contour is read with, and
+    // under the two most value-shaped labels in the dialog, beside a column
+    // of levels, they answered it with the height of the plot: a field
+    // running 0.1 to 0.3 was stated as 0 to 18. Named for the axis they
+    // actually measure, they are a fact about the drawing and read as one.
     const stats = base.stats.map((stat) => {
       if (stat.label === 'Min value') {
         return { ...stat, label: `Minimum ${this.yAxis}` };
@@ -396,8 +397,6 @@ export class ContourTrace extends LineTrace {
       // 0.2, 0.3, 0.1 diffed in place is a step that "varies" on a field
       // whose levels are evenly spaced.
       const distinct = [...new Set(declared)].sort((a, b) => a - b);
-      // One level drawn as several islands leaves nothing to measure, and a
-      // step of 0 would read as a measurement.
       if (distinct.length > 1) {
         const steps = distinct
           .slice(1)
