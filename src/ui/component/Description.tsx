@@ -191,7 +191,11 @@ const LayerTabs: React.FC<LayerTabsProps> = ({ layers, focusedIndex, activeIndex
               fontSize: '0.875rem',
             }}
           >
-            {formatCell(layer.label) || `Layer ${layer.index + 1}`}
+            {/* Not run through `formatCell`: the model guarantees a non-blank
+                label (the producer's `name`, or the chart-type label), and a
+                layer a producer genuinely called "unavailable" should be shown
+                under that name rather than have its tab silently emptied. */}
+            {layer.label}
           </ButtonBase>
         ))}
       </Box>
