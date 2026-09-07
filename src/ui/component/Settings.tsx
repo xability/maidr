@@ -559,6 +559,8 @@ const Settings: React.FC = () => {
   const copyStatusId = `${id}-copy-status`;
   const tactileLabelId = `${id}-tactile-label`;
   const tactileStatusId = `${id}-tactile-status`;
+  const saveBlockedId = `${id}-save-blocked`;
+  const customInstructionStatusId = `${id}-custom-instruction-status`;
   const tactileMenu = useModalContainer();
   const contentRef = React.useRef<HTMLDivElement>(null);
   // `HTMLDivElement` because that is what MUI declares `Tab`'s ref as, even
@@ -819,6 +821,31 @@ const Settings: React.FC = () => {
     = llmSettings.expertiseLevel !== 'custom'
       || llmSettings.customInstruction.length >= MIN_CUSTOM_INSTRUCTION_LENGTH;
 
+  /**
+   * Answers a save that cannot go through.
+   *
+   * Doing nothing would leave a reader with no response at all — no sound, no
+   * text, nothing saying why. Opening the tab that holds the field is the
+   * answer to "why not", and puts them where the fix is; the effect above
+   * then moves focus there, which is the part they can actually perceive.
+   */
+  const refuseSave = useCallback((): void => {
+    setActiveTab('ai');
+    setVisitedTabs(previous =>
+      previous.has('ai') ? previous : new Set(previous).add('ai'));
+    setRefusedSaves(previous => previous + 1);
+  }, []);
+
+  // The single entry point for "the reader asked to save", so the button and
+  // the shortcut cannot answer a refusal differently.
+  const handleSaveRequest = useCallback((): void => {
+    if (!isCustomInstructionValid) {
+      refuseSave();
+      return;
+    }
+    handleSave();
+  }, [isCustomInstructionValid, refuseSave, handleSave]);
+
   // Dialog-scoped: KeybindingService's hotkeys.filter blocks shortcuts while
   // focus is in a non-MAIDR <input>, which would silently break Alt+s / Alt+c
   // inside the manual cells/lines fields.
@@ -831,26 +858,13 @@ const Settings: React.FC = () => {
       const key = e.key.toLowerCase();
       if (key === SAVE_SHORTCUT_KEY) {
         e.preventDefault();
-        if (!isCustomInstructionValid) {
-          // Returning silently would leave a reader who pressed the shortcut
-          // the dialog advertises with no response at all — no sound, no
-          // text, nothing saying why. Opening the tab that holds the field is
-          // the answer to "why not", and puts them where the fix is; the
-          // effect above then moves focus there, which is the part they can
-          // actually perceive.
-          setActiveTab('ai');
-          setVisitedTabs(previous =>
-            previous.has('ai') ? previous : new Set(previous).add('ai'));
-          setRefusedSaves(previous => previous + 1);
-          return;
-        }
-        handleSave();
+        handleSaveRequest();
       } else if (key === CANCEL_SHORTCUT_KEY) {
         e.preventDefault();
         handleClose();
       }
     },
-    [isCustomInstructionValid, handleSave, handleClose],
+    [handleSaveRequest, handleClose],
   );
 
   return (
@@ -1710,24 +1724,57 @@ const Settings: React.FC = () => {
                       }}
                       placeholder="Enter custom instruction..."
                       aria-label="Custom Instructions"
+                      // The field that blocks Save has to say so itself. A
+                      // reader who lands on it hears the requirement as its
+                      // description, rather than having to find the warning
+                      // sitting underneath.
+                      aria-invalid={!isCustomInstructionValid || undefined}
+                      aria-describedby={customInstructionStatusId}
                     />
                   </FormControl>
                 </Grid>
-                {llmSettings.customInstruction.length
-                  < MIN_CUSTOM_INSTRUCTION_LENGTH && (
-                  <Grid size={12} sx={{ mt: 1 }}>
-                    <Alert severity="warning">
-                      Custom instructions must be at least
-                      {' '}
-                      {MIN_CUSTOM_INSTRUCTION_LENGTH}
-                      {' '}
-                      characters long
-                    </Alert>
-                  </Grid>
-                )}
               </Grid>
             </Grid>
           )}
+
+          {/* The warning about the instruction's length, and deliberately
+              outside the block above rather than in it.
+
+              `Alert` defaults to `role="alert"`, which interrupts — too much
+              for a field the reader is in the middle of typing. But simply
+              asking for `role="status"` instead would trade one fault for a
+              worse one: a status region created already holding its text is
+              routinely not announced at all, where an alert on insertion is.
+              What makes the polite role work is the region outliving its
+              content, so that the warning arrives as a change to something
+              already there.
+
+              Which is why it cannot live inside the `custom` block. That
+              block mounts the moment the reader picks "Custom" from the
+              dropdown — with the instruction still empty, so the warning is
+              true immediately — and a region mounting alongside its own
+              first message is the very case this shape exists to avoid.
+              Out here it lives as long as the panel, and every arrival of
+              the warning is a mutation. It costs no space while empty. */}
+          <Grid size={12}>
+            <div
+              id={customInstructionStatusId}
+              role="status"
+              aria-live="polite"
+            >
+              {llmSettings.expertiseLevel === 'custom'
+                && llmSettings.customInstruction.length
+                < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                <Alert severity="warning" role="presentation" sx={{ mt: 1 }}>
+                  Custom instructions must be at least
+                  {' '}
+                  {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                  {' '}
+                  characters long
+                </Alert>
+              )}
+            </div>
+          </Grid>
         </SettingsTabPanel>
 
         <SettingsTabPanel
@@ -1896,21 +1943,51 @@ const Settings: React.FC = () => {
             </Button>
           </Grid>
           <Grid size="auto">
+            {/* `aria-disabled`, not `disabled`. A disabled button leaves the
+                tab order, so a reader working through the footer never meets
+                Save at all and never learns it is unavailable, let alone why
+                — and `title` cannot tell them either, since it needs a hover
+                they have no way to perform. Kept focusable, the button
+                announces its own state and carries the reason as its
+                description, and pressing it answers the same way the
+                shortcut does instead of doing nothing. */}
             <Button
               variant="contained"
               color="primary"
-              onClick={handleSave}
-              disabled={!isCustomInstructionValid}
-              title={
-                !isCustomInstructionValid
-                  ? `Custom instructions must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
-                  : ''
+              onClick={handleSaveRequest}
+              aria-disabled={!isCustomInstructionValid || undefined}
+              aria-describedby={
+                isCustomInstructionValid ? undefined : saveBlockedId
               }
               aria-label="Save & Close Settings"
               aria-keyshortcuts={`Alt+${SAVE_SHORTCUT_KEY}`}
+              // Reads as unavailable without being it. `disabled` would style
+              // this for free, at the cost of the reachability above.
+              sx={
+                isCustomInstructionValid
+                  ? undefined
+                  : {
+                      'backgroundColor': 'action.disabledBackground',
+                      'color': 'action.disabled',
+                      'boxShadow': 'none',
+                      '&:hover': {
+                        backgroundColor: 'action.disabledBackground',
+                        boxShadow: 'none',
+                      },
+                    }
+              }
             >
               Save & Close
             </Button>
+            {/* The button's description. Separate from the footer hint above,
+                which is a live region announcing a change and stays quiet on
+                the AI tab; this is a static description, and has to be there
+                on every tab, because the button is. */}
+            {!isCustomInstructionValid && (
+              <span id={saveBlockedId} style={visuallyHidden}>
+                {`Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`}
+              </span>
+            )}
           </Grid>
         </Grid>
       </Grid>

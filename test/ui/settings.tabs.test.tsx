@@ -10,14 +10,16 @@
  * split across six tabs, which puts three things at risk that the flat list
  * could not get wrong:
  *
- * - **Edits have to survive a tab switch.** Only the selected panel is
- *   mounted, so an edit typed on one tab is no longer backed by a field in
- *   the DOM when Save is pressed from another. It has to be saved anyway.
+ * - **Edits have to survive a tab switch.** A panel the reader has left is
+ *   hidden, and one they have never opened is not rendered at all, so an
+ *   edit is no longer backed by a reachable field when Save is pressed from
+ *   another tab. It has to be saved anyway.
  * - **The tablist has to be operable and named.** It is the only way to reach
  *   five of the six panels, by keyboard as much as by pointer.
- * - **A blocked Save has to stay explainable.** Save is disabled while the
- *   custom instruction is too short, and that field is on a tab the reader
- *   may not be looking at.
+ * - **A blocked Save has to stay explainable.** Save is marked unavailable
+ *   while the custom instruction is too short — `aria-disabled`, so it keeps
+ *   its tab stop — and that field is on a tab the reader may not be looking
+ *   at.
  */
 
 import type { CommandExecutor } from '@service/commandExecutor';
@@ -175,9 +177,9 @@ describe('settings tabs', () => {
       expect(tab.getAttribute('aria-controls')).toBe(panel.id);
       expect(panel).toHaveAccessibleName(label);
 
-      // The unselected tabs have no panel in the document, so they must not
-      // name one: an `aria-controls` pointing at an absent id is a dangling
-      // reference.
+      // Only the selected tab names a panel. The others either have none in
+      // the document or have one that is hidden, and so out of the
+      // accessibility tree — nothing worth pointing at either way.
       for (const other of screen.getAllByRole('tab')) {
         if (other !== tab) {
           expect(other).not.toHaveAttribute('aria-controls');
@@ -194,8 +196,9 @@ describe('settings tabs', () => {
       target: { value: '35' },
     });
 
-    // The field that carried the edit is unmounted by this point, so what is
-    // saved can only come from the dialog's own state.
+    // The field that carried the edit is hidden by this point, and out of the
+    // accessibility tree, so what is saved can only come from the dialog's
+    // own state rather than from anything the reader could still reach.
     openTab('Visual');
     fireEvent.change(screen.getByLabelText('High Contrast Levels'), {
       target: { value: '7' },
@@ -296,17 +299,28 @@ describe('settings tabs', () => {
       },
     });
 
-    // Disabled, and — now that the field can be several tabs away — with no
-    // way to reach the reason from where the reader is standing. The hint and
-    // the tab's badge are that way back.
-    expect(screen.getByRole('button', { name: SAVE_BUTTON_NAME })).toBeDisabled();
+    // Marked unavailable rather than `disabled`, so it keeps its place in the
+    // tab order and the reason stays reachable from the button itself.
+    const save = screen.getByRole('button', { name: SAVE_BUTTON_NAME });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).not.toBeDisabled();
 
-    const hint = screen.getByText(
+    // Two nodes carry the reason, and each has a job the other cannot do.
+    // The footer's is a live region: it announces the moment Save becomes
+    // unavailable, to a reader who is looking elsewhere.
+    const hint = document.querySelector('.settings-footer-hint');
+    expect(hint).toHaveAttribute('role', 'status');
+    expect(hint).toHaveTextContent(
       'Custom instructions on the AI tab must be at least 10 characters long',
     );
-    // A live region, so it reaches a reader who is on another tab when Save
-    // goes disabled rather than only one who happens to read the footer.
-    expect(hint).toHaveAttribute('role', 'status');
+
+    // The button's is a description, read when the reader arrives at it —
+    // which a live region fired minutes earlier would not be.
+    const describedBy = save.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
+      'Custom instructions on the AI tab must be at least 10 characters long',
+    );
     // The visible label stays inside the accessible name rather than being
     // replaced by it, so "AI" is still what a reader hears the tab called.
     expect(
@@ -377,8 +391,123 @@ describe('settings tabs', () => {
     // The panel is named by the badged tab, so entering it repeats why the
     // reader was sent here.
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('AI needs attention');
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(
+      document.getElementById(
+        screen.getByLabelText('Custom Instructions').getAttribute('aria-describedby') as string,
+      ),
+    ).toHaveTextContent('Custom instructions must be at least');
+  });
+
+  it('should announce the instruction warning by mutating, not by appearing', async () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: { ...DEFAULT_SETTINGS.llm, expertiseLevel: 'custom', customInstruction: '' },
+    });
+
+    openTab(/^AI/);
+    const field = screen.getByLabelText('Custom Instructions');
+    const region = document.getElementById(
+      field.getAttribute('aria-describedby') as string,
+    );
+    // Present before it has anything to say. A region created already holding
+    // its text is routinely not announced, which is why the polite role only
+    // works if the region outlives its content.
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('role', 'status');
+
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push((region as HTMLElement).textContent ?? '');
+    });
+    observer.observe(region as HTMLElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    // Long enough to clear the bar, so the warning goes away and comes back.
+    fireEvent.change(field, { target: { value: 'a'.repeat(20) } });
+    await Promise.resolve();
+    fireEvent.change(field, { target: { value: 'short' } });
+    await Promise.resolve();
+    observer.disconnect();
+
+    expect(mutations).not.toHaveLength(0);
+    expect(mutations[mutations.length - 1]).toContain(
       'Custom instructions must be at least',
+    );
+  });
+
+  it('should announce the warning when Custom is picked, not spring it into being', async () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: { ...DEFAULT_SETTINGS.llm, expertiseLevel: 'basic', customInstruction: '' },
+    });
+
+    openTab(/^AI/);
+
+    // The region has to be there before "Custom" is picked. Choosing it is
+    // the ordinary way into this state — the instruction is empty, so the
+    // warning is true immediately — and if the region arrived carrying that
+    // first message it would be the case the polite role cannot survive.
+    const region = document.querySelector('[id$="-custom-instruction-status"]');
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('role', 'status');
+    expect(region).toHaveTextContent('');
+
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push((region as HTMLElement).textContent ?? '');
+    });
+    observer.observe(region as HTMLElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    // A MUI `Select`, so it opens on mousedown and commits on the option
+    // click rather than taking a value the way a native select would.
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Expertise Level' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Custom' }));
+    // `MutationObserver` delivers on a microtask, so the records are not in
+    // hand until the queue drains.
+    await Promise.resolve();
+    observer.disconnect();
+
+    // The field itself arrived with the switch; only the warning had to be a
+    // change to something already standing.
+    expect(screen.getByLabelText('Custom Instructions')).toBeInTheDocument();
+    expect(mutations).not.toHaveLength(0);
+    expect(mutations[mutations.length - 1]).toContain(
+      'Custom instructions must be at least',
+    );
+  });
+
+  it('should keep an unavailable Save reachable and answering', () => {
+    const saveAndClose = renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: {
+        ...DEFAULT_SETTINGS.llm,
+        expertiseLevel: 'custom',
+        customInstruction: 'too short',
+      },
+    });
+
+    const save = screen.getByRole('button', { name: SAVE_BUTTON_NAME });
+    // In the tab order, which `disabled` would have taken it out of — the
+    // whole point, since a button a reader never reaches cannot explain
+    // itself however good its description is.
+    expect(save).not.toHaveAttribute('tabindex', '-1');
+    save.focus();
+    expect(document.activeElement).toBe(save);
+
+    fireEvent.click(save);
+
+    // Answers rather than doing nothing, and answers the same way the
+    // shortcut does — the two go through one path.
+    expect(saveAndClose).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      screen.getByRole('tab', { name: 'AI needs attention' }),
     );
   });
 
@@ -432,11 +561,18 @@ describe('settings tabs', () => {
     // The panel's own warning sits beside the field. Repeating it in the
     // footer would announce the same sentence twice to a reader who is
     // already looking at the field it is about.
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    // Resolved the way a reader reaches it — through the field's own
+    // description — rather than by role, which would not distinguish it from
+    // the dialog's other status regions.
+    const field = screen.getByLabelText('Custom Instructions');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = field.getAttribute('aria-describedby');
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
       'Custom instructions must be at least',
     );
-    expect(
-      screen.queryByText(/Custom instructions on the AI tab/),
-    ).not.toBeInTheDocument();
+
+    // The footer's own region specifically: the Save button's description
+    // carries similar words and is meant to be there on every tab.
+    expect(document.querySelector('.settings-footer-hint')).toHaveTextContent('');
   });
 });
