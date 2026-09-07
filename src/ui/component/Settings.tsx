@@ -560,6 +560,7 @@ const Settings: React.FC = () => {
   const tactileLabelId = `${id}-tactile-label`;
   const tactileStatusId = `${id}-tactile-status`;
   const saveBlockedId = `${id}-save-blocked`;
+  const customInstructionStatusId = `${id}-custom-instruction-status`;
   const tactileMenu = useModalContainer();
   const contentRef = React.useRef<HTMLDivElement>(null);
   // `HTMLDivElement` because that is what MUI declares `Tab`'s ref as, even
@@ -1723,21 +1724,41 @@ const Settings: React.FC = () => {
                       }}
                       placeholder="Enter custom instruction..."
                       aria-label="Custom Instructions"
+                      // The field that blocks Save has to say so itself. A
+                      // reader who lands on it hears the requirement as its
+                      // description, rather than having to find the warning
+                      // sitting underneath.
+                      aria-invalid={!isCustomInstructionValid || undefined}
+                      aria-describedby={customInstructionStatusId}
                     />
                   </FormControl>
+                  {/* Rendered whether or not there is anything to say, and
+                      polite rather than assertive. `Alert` defaults to
+                      `role="alert"`, which interrupts — too much for a field
+                      the reader is in the middle of typing. But simply asking
+                      for `role="status"` instead would have traded one fault
+                      for a worse one: a status region created already holding
+                      its text is routinely not announced at all, while an
+                      alert on insertion is. Keeping the region mounted and
+                      letting its text change is what makes it both polite and
+                      reliably heard. */}
+                  <div
+                    id={customInstructionStatusId}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {llmSettings.customInstruction.length
+                      < MIN_CUSTOM_INSTRUCTION_LENGTH && (
+                      <Alert severity="warning" role="presentation" sx={{ mt: 1 }}>
+                        Custom instructions must be at least
+                        {' '}
+                        {MIN_CUSTOM_INSTRUCTION_LENGTH}
+                        {' '}
+                        characters long
+                      </Alert>
+                    )}
+                  </div>
                 </Grid>
-                {llmSettings.customInstruction.length
-                  < MIN_CUSTOM_INSTRUCTION_LENGTH && (
-                  <Grid size={12} sx={{ mt: 1 }}>
-                    <Alert severity="warning">
-                      Custom instructions must be at least
-                      {' '}
-                      {MIN_CUSTOM_INSTRUCTION_LENGTH}
-                      {' '}
-                      characters long
-                    </Alert>
-                  </Grid>
-                )}
               </Grid>
             </Grid>
           )}

@@ -388,7 +388,49 @@ describe('settings tabs', () => {
     // The panel is named by the badged tab, so entering it repeats why the
     // reader was sent here.
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName('AI needs attention');
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(
+      document.getElementById(
+        screen.getByLabelText('Custom Instructions').getAttribute('aria-describedby') as string,
+      ),
+    ).toHaveTextContent('Custom instructions must be at least');
+  });
+
+  it('should announce the instruction warning by mutating, not by appearing', async () => {
+    renderSettings({
+      ...DEFAULT_SETTINGS,
+      llm: { ...DEFAULT_SETTINGS.llm, expertiseLevel: 'custom', customInstruction: '' },
+    });
+
+    openTab(/^AI/);
+    const field = screen.getByLabelText('Custom Instructions');
+    const region = document.getElementById(
+      field.getAttribute('aria-describedby') as string,
+    );
+    // Present before it has anything to say. A region created already holding
+    // its text is routinely not announced, which is why the polite role only
+    // works if the region outlives its content.
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('role', 'status');
+
+    const mutations: string[] = [];
+    const observer = new MutationObserver(() => {
+      mutations.push((region as HTMLElement).textContent ?? '');
+    });
+    observer.observe(region as HTMLElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    // Long enough to clear the bar, so the warning goes away and comes back.
+    fireEvent.change(field, { target: { value: 'a'.repeat(20) } });
+    await Promise.resolve();
+    fireEvent.change(field, { target: { value: 'short' } });
+    await Promise.resolve();
+    observer.disconnect();
+
+    expect(mutations).not.toHaveLength(0);
+    expect(mutations[mutations.length - 1]).toContain(
       'Custom instructions must be at least',
     );
   });
@@ -471,9 +513,16 @@ describe('settings tabs', () => {
     // The panel's own warning sits beside the field. Repeating it in the
     // footer would announce the same sentence twice to a reader who is
     // already looking at the field it is about.
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    // Resolved the way a reader reaches it — through the field's own
+    // description — rather than by role, which would not distinguish it from
+    // the dialog's other status regions.
+    const field = screen.getByLabelText('Custom Instructions');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = field.getAttribute('aria-describedby');
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(
       'Custom instructions must be at least',
     );
+
     // The footer's own region specifically: the Save button's description
     // carries similar words and is meant to be there on every tab.
     expect(document.querySelector('.settings-footer-hint')).toHaveTextContent('');
