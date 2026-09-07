@@ -227,6 +227,56 @@ export abstract class MathUtil {
   }
 
   /**
+   * Counts as whole percentages of their total, adjusted so they add up to 100.
+   *
+   * Largest-remainder apportionment, not four independent roundings. The
+   * shares of a scatter's quadrants are read out one after another, and a
+   * reader who adds 20, 18, 43 and 20 to 101 has no way to see that the extra
+   * point is rounding rather than a chart they have misunderstood -- the
+   * arithmetic is the only check they have. Rounding each share on its own
+   * lands off 100 routinely: three counts of one in seven give 14, 14, 14 and
+   * then 57, which sums to 99.
+   *
+   * The unit is handed to whichever share has the largest discarded fraction,
+   * which is the standard rule and the one that moves each share least.
+   *
+   * An empty set of counts, or one summing to zero, comes back as zeroes:
+   * there is no share of nothing, and the caller decides whether to say so.
+   *
+   * @param counts - The counts to apportion. Negative entries are not expected
+   *   and are counted as given.
+   * @returns One whole percentage per count, summing to exactly 100 whenever
+   *   the counts sum to more than zero.
+   */
+  static sharePercentages(counts: readonly number[]): number[] {
+    const total = counts.reduce((sum, count) => sum + count, 0);
+    if (counts.length === 0 || total <= 0) {
+      return counts.map(() => 0);
+    }
+
+    const exact = counts.map(count => (count / total) * 100);
+    const shares = exact.map(share => Math.floor(share));
+    let remaining = 100 - shares.reduce((sum, share) => sum + share, 0);
+
+    // Ties go to the earlier quadrant, which is the one the reader hears first
+    // -- an arbitrary rule, but a stable one, so the same chart always reads
+    // the same way.
+    const byRemainder = exact
+      .map((share, index) => ({ index, remainder: share - Math.floor(share) }))
+      .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+    for (const { index } of byRemainder) {
+      if (remaining <= 0) {
+        break;
+      }
+      shares[index] += 1;
+      remaining -= 1;
+    }
+
+    return shares;
+  }
+
+  /**
    * How many pairs {@link pearson} was able to use -- both coordinates finite.
    *
    * Reported alongside `r` so a reader is told the sample the coefficient was

@@ -158,6 +158,31 @@ function correlationStrength(r: number): string {
 }
 
 /**
+ * The four regions of a scatter, in quadrant order.
+ *
+ * Numbered anticlockwise from the upper right, as the convention has it, and
+ * each carries the plain words for where it is. A reader who cannot see the
+ * chart has no picture to hang "quadrant 3" on, and a reader who knows the
+ * convention should not have to take "lower left" on trust -- so both are
+ * said, every time.
+ */
+const QUADRANTS = [
+  { number: 1, where: 'upper right', right: true, top: true },
+  { number: 2, where: 'upper left', right: false, top: true },
+  { number: 3, where: 'lower left', right: false, top: false },
+  { number: 4, where: 'lower right', right: true, top: false },
+] as const;
+
+/**
+ * How evenly the shares have to sit before the cloud is called evenly spread.
+ *
+ * In percentage points, between the largest quadrant and the smallest. Naming
+ * a "densest" quadrant that holds 26% against another's 25% would report the
+ * shape of the sample rather than the shape of the data.
+ */
+const EVEN_SPREAD_TOLERANCE = 5;
+
+/**
  * The same, for the index-aligned arrays a column or row announces.
  *
  * Returns the numbers untouched when no element carries a name, so a
@@ -210,6 +235,15 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /** How many category names the summary lists before it stops. */
   private static readonly MAX_NAMED_CATEGORIES = 20;
+
+  /**
+   * The fewest points a quadrant breakdown is offered for.
+   *
+   * Below this the four percentages are a restatement of four small counts --
+   * "25%, 25%, 25%, 25%" over four points tells a reader nothing they did not
+   * already have from `Total points`.
+   */
+  private static readonly MIN_QUADRANT_POINTS = 8;
 
   private mode: NavMode;
   protected readonly movable: MovablePlane;
@@ -1159,6 +1193,13 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       stats.push(correlation);
     }
 
+    // Beside the correlation, and before the counts: the two of them are what
+    // the cloud looks like, and the counts are what it is made of.
+    const quadrants = this.quadrantStats();
+    if (quadrants.length > 0) {
+      stats.push(quadrants[0]);
+    }
+
     stats.push({ label: 'Total points', value: totalPoints });
 
     // Named after the axes rather than after `x` and `y`, so the summary and
@@ -1188,6 +1229,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     if (tallest > 1) {
       stats.push({ label: `Most points at one ${this.xAxis}`, value: tallest });
     }
+
+    // The breakdown sits down here rather than beside its headline: a reader
+    // who wants the shape has already had it in one line, and four percentages
+    // and a pair of dividing values in front of the counts would bury them.
+    stats.push(...quadrants.slice(1));
 
     if (this.gridCells) {
       stats.push({ label: 'Grid', value: `${this.numGridRows} by ${this.numGridCols} cells` });
@@ -1272,6 +1318,102 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // service, which rounds numbers and passes composed strings through.
       value: `${correlationStrength(r)} (r = ${defaultFormat(r)}, n = ${MathUtil.pairedCount(xs, ys)})`,
     };
+  }
+
+  /**
+   * Where the cloud actually sits: the share of the points in each quarter of
+   * the plotted area, and which quarter holds most of them.
+   *
+   * The second thing a sighted reader takes from a scatter, after the tilt.
+   * Correlation says which way the cloud leans; this says where it is, which
+   * is a different fact and one r cannot carry -- an r of 0.9 is the same
+   * number whether the cloud sits low and left or high and right.
+   *
+   * WHERE THE LINES ARE DRAWN. Through the origin when both axes actually
+   * cross it, which is what a sighted reader sees and what "quadrant" means
+   * everywhere else. Through the middle of each axis's extent otherwise: most
+   * scatters -- horsepower against mileage, height against weight -- hold no
+   * negative value at all, so origin quadrants would put every point in the
+   * first and say nothing. The dividing values are reported either way, as
+   * their own line, so a reader never has to guess which rule applied.
+   *
+   * A point sitting exactly on a dividing line is counted up and to the right,
+   * so every point lands in exactly one quadrant and the four shares are a
+   * partition of the whole. With the midpoint rule the highest point sits on
+   * neither line and the lowest sits on both, which is why the rule has to be
+   * stated rather than left to whichever comparison was written first.
+   *
+   * Claimed only for two measured axes, for the same reason
+   * {@link correlationStat} is: on a named axis the horizontal split falls
+   * between two categories the producer happened to order that way, and
+   * "62% on the left" would be a fact about that ordering. An axis that never
+   * moves is excluded too -- a split through a constant puts every point on
+   * one side of it.
+   *
+   * @returns The headline, the breakdown and the dividing values, or nothing
+   *   when no honest claim can be made.
+   */
+  private quadrantStats(): DescriptionStat[] {
+    const usable = this.flatPoints.filter(
+      point =>
+        point.xLabel === undefined
+        && point.yLabel === undefined
+        && Number.isFinite(point.x)
+        && Number.isFinite(point.y),
+    );
+    // Four shares of three points are three statements about one point each,
+    // dressed up as percentages.
+    if (usable.length < ScatterTrace.MIN_QUADRANT_POINTS
+      || usable.length !== this.flatPoints.length) {
+      return [];
+    }
+    if (this.minX === this.maxX || this.minY === this.maxY) {
+      return [];
+    }
+
+    const splitX = ScatterTrace.splitOf(this.minX, this.maxX);
+    const splitY = ScatterTrace.splitOf(this.minY, this.maxY);
+
+    const counts = QUADRANTS.map(quadrant => usable.filter(
+      point =>
+        (point.x >= splitX) === quadrant.right && (point.y >= splitY) === quadrant.top,
+    ).length);
+    const shares = MathUtil.sharePercentages(counts);
+
+    const highest = Math.max(...shares);
+    const lowest = Math.min(...shares);
+    const densest = QUADRANTS.filter((_, index) => shares[index] === highest);
+
+    return [
+      {
+        label: 'Most points',
+        value: highest - lowest <= EVEN_SPREAD_TOLERANCE
+          ? 'spread evenly across the four quadrants'
+          : `${highest}% in the ${densest.map(q => `${q.where} (quadrant ${q.number})`).join(' and the ')}`,
+      },
+      {
+        label: 'Points by quadrant',
+        value: QUADRANTS
+          .map((quadrant, index) =>
+            `${quadrant.number} ${quadrant.where} ${shares[index]}%`)
+          .join(', '),
+      },
+      {
+        label: 'Quadrants split at',
+        value: `${this.xAxis} ${defaultFormat(splitX)}, ${this.yAxis} ${defaultFormat(splitY)}`,
+      },
+    ];
+  }
+
+  /**
+   * Where an axis is cut in two for the quadrant count.
+   *
+   * @param min - The axis minimum
+   * @param max - The axis maximum
+   * @returns Zero when the axis crosses it, the midpoint of the extent otherwise
+   */
+  private static splitOf(min: number, max: number): number {
+    return min < 0 && max > 0 ? 0 : (min + max) / 2;
   }
 
   /**

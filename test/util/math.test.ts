@@ -138,3 +138,35 @@ describe('MathUtil.spanned', () => {
     expect(MathUtil.spanned(21.957700280519678, 99.3836370729716)).toBe('21.96 to 99.38');
   });
 });
+
+describe('MathUtil.sharePercentages', () => {
+  it('apportions counts as whole percentages', () => {
+    expect(MathUtil.sharePercentages([1, 1, 1, 1])).toEqual([25, 25, 25, 25]);
+  });
+
+  it('adds up to a hundred where independent rounding would not', () => {
+    // 14.28 four ways plus 42.85 rounds to 14, 14, 14, 43 on its own — 85,
+    // and floored, 14, 14, 14, 42 — 84. A reader summing four spoken shares
+    // has no way to see that the missing points are rounding.
+    const shares = MathUtil.sharePercentages([1, 1, 1, 4]);
+
+    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+  });
+
+  it('hands the odd unit to the largest discarded fraction', () => {
+    expect(MathUtil.sharePercentages([1, 1, 1])).toEqual([34, 33, 33]);
+  });
+
+  it('keeps a zero count at zero rather than rounding it up', () => {
+    const shares = MathUtil.sharePercentages([5, 0, 3, 0]);
+
+    expect(shares[1]).toBe(0);
+    expect(shares[3]).toBe(0);
+    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(100);
+  });
+
+  it('has no share of nothing to apportion', () => {
+    expect(MathUtil.sharePercentages([0, 0, 0, 0])).toEqual([0, 0, 0, 0]);
+    expect(MathUtil.sharePercentages([])).toEqual([]);
+  });
+});
