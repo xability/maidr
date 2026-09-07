@@ -284,6 +284,16 @@ export class WaterfallTrace extends AbstractTrace {
     }
 
     const headers = [this.xAxis, 'Change', 'Running total', 'Kind'];
+    // The step name sits on x and both magnitudes on y, which is the pair
+    // `text` announces and the axis it announces the running total through --
+    // `end` is where the bar's top is drawn, not a total this trace summed.
+    // `kind` is a word for the direction, so it is read off no axis at all.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      'x',
+      'y',
+      'y',
+      undefined,
+    ];
     const rows: (string | number)[][] = this.points.map(point => [
       point.x,
       Number(point.delta),
@@ -300,7 +310,7 @@ export class WaterfallTrace extends AbstractTrace {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

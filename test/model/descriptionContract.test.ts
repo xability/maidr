@@ -277,6 +277,180 @@ addCase('choropleth', {
   data: [{ x: 'CA', y: 4 }, { x: 'NV', y: 9 }],
 });
 
+/*
+ * The cases below exist for the *conditional* columns. A table whose width
+ * depends on what the data carries -- a candlestick with no volume, an error
+ * bar with no groups, a treemap of a pure hierarchy -- has a second shape that
+ * the ordinary case never builds, and a column list that drifts from its
+ * headers in that shape is invisible until someone reads that chart.
+ */
+
+addCase('candlestick carrying volume', {
+  id: 'candle-volume',
+  type: TraceType.CANDLESTICK,
+  axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+  data: [
+    { value: '2024-01-01', open: 1, high: 4, low: 0.5, close: 3, volatility: 3.5, volume: 1200 },
+    { value: '2024-01-02', open: 3, high: 5, low: 2, close: 4, volatility: 3, volume: 900 },
+  ],
+});
+
+addCase('candlestick drawing no open', {
+  id: 'candle-no-open',
+  type: TraceType.CANDLESTICK,
+  axes: { x: { label: 'Date' }, y: { label: 'Price' } },
+  data: [
+    { value: '2024-01-01', high: 4, low: 0.5, close: 3, volatility: 3.5 },
+    { value: '2024-01-02', high: 5, low: 2, close: 4, volatility: 3 },
+  ] as unknown as MaidrLayer['data'],
+});
+
+addCase('error bar with groups', {
+  id: 'errorbar-grouped',
+  type: TraceType.ERROR_BAR,
+  axes: { x: { label: 'Dose' }, y: { label: 'Response' }, z: { label: 'Arm' } },
+  // Grouped by nesting, which is what `toGroups` reads -- a flat list is the
+  // one group it is, however its points are labelled.
+  data: [
+    [{ x: 1, y: 5, yMin: 4, yMax: 6, z: 'Treated' }],
+    [{ x: 1, y: 3, yMin: 2, yMax: 4, z: 'Control' }],
+  ],
+});
+
+addCase('error bar drawing bounds only', {
+  id: 'errorbar-bounds',
+  type: TraceType.ERROR_BAR,
+  axes: { x: { label: 'Dose' }, y: { label: 'Response' } },
+  data: [{ x: 1, yMin: 4, yMax: 6 }, { x: 2, yMin: 6, yMax: 8 }],
+});
+
+addCase('forest', {
+  id: 'forest',
+  type: TraceType.FOREST,
+  axes: { x: { label: 'Study' }, y: { label: 'Odds ratio' } },
+  data: [
+    { x: 'Alpha', y: 1.2, yMin: 0.9, yMax: 1.6, weight: 0.4 },
+    { x: 'Beta', y: 0.8, yMin: 0.5, yMax: 1.1, weight: 0.6 },
+  ],
+  forestOptions: { nullValue: 1 },
+} as unknown as MaidrLayer);
+
+addCase('funnel', {
+  id: 'funnel',
+  type: TraceType.FUNNEL,
+  axes: { x: { label: 'Stage' }, y: { label: 'People' } },
+  data: [{ x: 'Visited', y: 1000 }, { x: 'Bought', y: 240 }],
+});
+
+addCase('scatter carrying a third dimension and names', {
+  id: 'scatter-z',
+  type: TraceType.SCATTER,
+  axes: { x: { label: 'Carat' }, y: { label: 'Price' }, z: { label: 'Depth' } },
+  data: [
+    { x: 1, y: 2, z: 60, label: 'Alpha' },
+    { x: 2, y: 3, z: 62, label: 'Beta' },
+  ] as unknown as MaidrLayer['data'],
+});
+
+addCase('network', {
+  id: 'network',
+  type: TraceType.NETWORK,
+  axes: { x: { label: 'Person' }, y: { label: 'Links' } },
+  data: [{ source: 'Ada', target: 'Grace' }, { source: 'Grace', target: 'Alan' }],
+});
+
+addCase('network of several components', {
+  id: 'network-components',
+  type: TraceType.NETWORK,
+  axes: { x: { label: 'Person' }, y: { label: 'Links' } },
+  // Two disconnected pairs, which is what puts the `Group` column in the
+  // table -- one component leaves it out.
+  data: [{ source: 'Ada', target: 'Grace' }, { source: 'Alan', target: 'Edsger' }],
+});
+
+addCase('mosaic carrying counts', {
+  id: 'mosaic',
+  type: TraceType.MOSAIC,
+  axes: { x: { label: 'Class' }, y: { label: 'Share' }, z: { label: 'Survived' } },
+  data: [
+    [{ x: 'First', y: 0.6, width: 0.3, count: 180 }, { x: 'Second', y: 0.4, width: 0.7, count: 120 }],
+    [{ x: 'First', y: 0.4, width: 0.3, count: 120 }, { x: 'Second', y: 0.6, width: 0.7, count: 180 }],
+  ] as unknown as MaidrLayer['data'],
+});
+
+addCase('parallel', {
+  id: 'parallel',
+  type: TraceType.PARALLEL,
+  axes: { x: { label: 'Variable' }, y: { label: 'Value' } },
+  data: [
+    [{ x: 'mpg', y: 21 }, { x: 'hp', y: 110 }],
+    [{ x: 'mpg', y: 30 }, { x: 'hp', y: 66 }],
+  ],
+});
+
+addCase('survival with censoring', {
+  id: 'survival',
+  type: TraceType.SURVIVAL,
+  axes: { x: { label: 'Months' }, y: { label: 'Survival' }, z: { label: 'Arm' } },
+  data: [[
+    { x: 0, y: 1 },
+    { x: 6, y: 0.8, censored: true },
+    { x: 12, y: 0.6 },
+  ]],
+});
+
+addCase('ridgeline', {
+  id: 'ridgeline',
+  type: TraceType.RIDGELINE,
+  axes: { x: { label: 'Days' }, y: { label: 'Cohort' }, z: { label: 'Cohort' } },
+  data: [
+    [{ x: 'Spring', y: 1, density: 0.1 }, { x: 'Spring', y: 2, density: 0.4 }],
+    [{ x: 'Summer', y: 1, density: 0.2 }, { x: 'Summer', y: 2, density: 0.3 }],
+  ],
+});
+
+addCase('violin kde', {
+  id: 'violin-kde',
+  type: TraceType.VIOLIN_KDE,
+  axes: { x: { label: 'Species' }, y: { label: 'Length' } },
+  data: [
+    [{ x: 'setosa', y: 1, density: 0.1 }, { x: 'setosa', y: 2, density: 0.4 }],
+    [{ x: 'virginica', y: 1, density: 0.2 }, { x: 'virginica', y: 2, density: 0.3 }],
+  ],
+});
+
+addCase('treemap of a pure hierarchy', {
+  id: 'treemap-hierarchy',
+  type: TraceType.TREEMAP,
+  axes: { x: { label: 'Region' } },
+  data: [
+    { x: 'North', ancestors: [] },
+    { x: 'Leeds', ancestors: ['North'] },
+  ] as unknown as MaidrLayer['data'],
+});
+
+addCase('histogram drawn horizontally', {
+  id: 'histogram-horizontal',
+  type: TraceType.HISTOGRAM,
+  orientation: Orientation.HORIZONTAL,
+  axes: { x: { label: 'Count' }, y: { label: 'Value' } },
+  data: [
+    { x: 1, y: 3, xMin: 0, xMax: 2, yMin: 0, yMax: 3 },
+    { x: 3, y: 5, xMin: 2, xMax: 4, yMin: 0, yMax: 5 },
+  ],
+});
+
+addCase('gantt drawn horizontally', {
+  id: 'gantt-horizontal',
+  type: TraceType.GANTT,
+  orientation: Orientation.HORIZONTAL,
+  axes: { x: { label: 'Day' }, y: { label: 'Task' } },
+  data: {
+    points: [[{ x: 'Design', start: 0, end: 3 }], [{ x: 'Build', start: 3, end: 9 }]],
+    lanes: ['Design', 'Build'],
+  },
+});
+
 /**
  * Every value the description puts in front of a reader: the stats, the table
  * headers, and every cell.

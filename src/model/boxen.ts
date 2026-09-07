@@ -367,12 +367,22 @@ export class BoxenTrace extends AbstractTrace {
       ...(point.upperOutliers ?? []).map(value => [point.z, 'upper outlier', value]),
     ]);
 
+    // Swapped the same way the headers just were: the distribution sits on
+    // whichever axis carries the categories and its value on the other one.
+    // `Quantile` is the rung's own name -- a percentile or an outlier -- and
+    // is measured on nothing.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      isHorizontal ? 'y' : 'x',
+      undefined,
+      isHorizontal ? 'x' : 'y',
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

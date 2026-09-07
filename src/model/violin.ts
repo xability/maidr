@@ -237,12 +237,22 @@ export class ViolinKdeTrace extends AbstractTrace {
       );
     });
 
+    // The violin name sits on whichever axis carries the categories and the
+    // sampled value on the other one, so both read the way the layer's own
+    // format asks for. `Density` is the height of the curve, which no axis
+    // declares.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      isHorizontal ? 'y' : 'x',
+      isHorizontal ? 'x' : 'y',
+      undefined,
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

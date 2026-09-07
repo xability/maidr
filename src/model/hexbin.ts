@@ -444,12 +444,17 @@ export class HexbinTrace extends AbstractTrace {
       });
     }
 
+    // A bin's centre is a reading on x and y, and its count on z -- the axis
+    // `countLabel` is named from, and the one the announcement already speaks
+    // the count through -- so the table says what the cursor says.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = ['x', 'y', 'z'];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

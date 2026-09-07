@@ -280,6 +280,16 @@ export class ForestTrace extends ErrorBarTrace {
       ...(this.nullValue === null ? [] : ['Crosses null']),
       ...(hasPooled ? ['Row'] : []),
     ];
+    // The parent's columns keep the axes it gave them, and the appended three
+    // sit on none: the weight is a share of one computed here, the verdict a
+    // comparison against the null value, and the row kind a flag -- not
+    // readings taken on an axis the figure draws.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = base.columnAxes && [
+      ...base.columnAxes,
+      ...(hasWeight ? [undefined] : []),
+      ...(this.nullValue === null ? [] : [undefined]),
+      ...(hasPooled ? [undefined] : []),
+    ];
     // Row `index` is study `index`: the parent builds its rows by flattening
     // the same groups `points` -- and so `studies` -- is flattened from.
     const rows = base.rows.map((row, index) => {
@@ -299,7 +309,7 @@ export class ForestTrace extends ErrorBarTrace {
       ];
     });
 
-    return { headers, rows };
+    return { headers, columnAxes, rows };
   }
 
   /**

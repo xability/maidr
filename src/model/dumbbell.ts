@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { DumbbellData, DumbbellPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
@@ -394,12 +394,24 @@ export class DumbbellTrace extends AbstractTrace {
       this.changes[index],
     ]);
 
+    // The category column sits on whichever axis carries the names, the same
+    // swap the headers above make, and both ends on the value axis. `Change`
+    // is a subtraction the chart draws on neither, so it keeps the dialog's
+    // own rounding.
+    const valueAxis: AxisType = this.orientation === Orientation.HORIZONTAL ? 'x' : 'y';
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      this.orientation === Orientation.HORIZONTAL ? 'y' : 'x',
+      valueAxis,
+      valueAxis,
+      undefined,
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

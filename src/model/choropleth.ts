@@ -510,6 +510,9 @@ export class ChoroplethTrace extends AbstractTrace {
       stats,
       dataTable: {
         headers: [this.xAxis, this.yAxis],
+        // The region name is read off x and its shaded value off y -- the two
+        // axes every move announcement already names them with.
+        columnAxes: ['x', 'y'],
         rows: every.map(region => [region.name, region.value]),
       },
     };

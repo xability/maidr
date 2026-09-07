@@ -786,6 +786,11 @@ export class TreemapTrace extends AbstractTrace {
       dataTable: this.valued
         ? {
             headers: ['Path', this.nodeLabel, this.valueLabel, 'Share of total'],
+            // The name sits on x and the magnitude on y, the axes the
+            // announcement already speaks a node through. The path is an
+            // ancestry joined here and the share is divided out of the total,
+            // so neither is a reading the layer declared an axis for.
+            columnAxes: [undefined, 'x', 'y', undefined],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
               node.name,
@@ -798,6 +803,9 @@ export class TreemapTrace extends AbstractTrace {
             // the ancestry and the name are the whole of what a pure
             // hierarchy has to tabulate.
             headers: ['Path', this.nodeLabel],
+            // The same two columns, so the same two entries: the joined
+            // ancestry sits on no axis, the name on x.
+            columnAxes: [undefined, 'x'],
             rows: every.map(node => [
               this.ancestorsOf(node).join(' > '),
               node.name,

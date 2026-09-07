@@ -90,12 +90,20 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       return [main, isMeasured(count) ? count : MISSING_TEXT, min, max];
     });
 
+    // The bin's own value and its two bounds are all read off the binned
+    // axis, swapping with the headers above, and the count off the other one:
+    // a layer that formats its bin edges as a date says the same thing here as
+    // it does when the reader walks the bins.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = isVertical
+      ? ['x', 'y', 'x', 'x']
+      : ['y', 'x', 'y', 'y'];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

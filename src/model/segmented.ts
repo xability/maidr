@@ -296,6 +296,14 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       ? [this.xAxis, this.yAxis, zLabel ?? 'Series']
       : [this.yAxis, this.xAxis, zLabel ?? 'Series'];
 
+    // Swapped on the same condition as the headers above, so the two cannot
+    // fall out of step: the category column sits on whichever axis carries the
+    // categories and the magnitude on the other. The series column is the
+    // fill, which is the z axis the legend is read off.
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = isVertical
+      ? ['x', 'y', 'z']
+      : ['y', 'x', 'z'];
+
     // Every row of the navigable grid, the summary row included: a reader can
     // reach it with PageUp and the chart announces it there, so a table that
     // stops short of it does not describe the chart they are walking. The
@@ -320,7 +328,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

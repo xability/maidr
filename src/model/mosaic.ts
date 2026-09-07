@@ -203,6 +203,16 @@ export class MosaicTrace extends SegmentedTrace {
       'Share of all',
       ...(hasCounts ? ['Count'] : []),
     ];
+    // The parent's three columns keep the axes it gave them; the two added
+    // here have none, since a column's share of the whole chart and a cell
+    // tally are computed from the table rather than read off an axis. Dropped
+    // whole rather than padded, so a short array cannot misname a column.
+    const baseAxes = base.dataTable.columnAxes;
+    const columnAxes = baseAxes && [
+      ...baseAxes,
+      undefined,
+      ...(hasCounts ? [undefined] : []),
+    ];
     const rows = base.dataTable.rows.map((row, index) => {
       const col = columns === 0 ? -1 : index % columns;
       const width = this.widths[col];
@@ -216,7 +226,7 @@ export class MosaicTrace extends SegmentedTrace {
       ];
     });
 
-    return { ...base, stats, dataTable: { headers, rows } };
+    return { ...base, stats, dataTable: { headers, columnAxes, rows } };
   }
 
   /**

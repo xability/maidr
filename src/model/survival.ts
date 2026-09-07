@@ -302,6 +302,10 @@ export class SurvivalTrace extends StepTrace {
       stats,
       dataTable: {
         headers: [...base.dataTable.headers, 'Censored'],
+        // The step chart's columns keep their axes; the flag is a mark on a
+        // time rather than a reading taken on an axis, so it sits on none and
+        // is left to the dialog's own rendering.
+        columnAxes: base.dataTable.columnAxes && [...base.dataTable.columnAxes, undefined],
         rows: base.dataTable.rows.map((row, index) => [...row, flags[index] ?? '']),
       },
     };

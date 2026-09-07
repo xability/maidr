@@ -8,7 +8,7 @@ import type {
 } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
 import type { LineRequest } from '@util/svg';
 import { AbstractTrace } from '@model/abstract';
@@ -750,12 +750,30 @@ export class Candlestick extends AbstractTrace {
       ...(this.hasOpen ? [c.trend ?? ''] : []),
     ]);
 
+    // The periods run along one axis and every price column sits on the other
+    // -- volatility included, because the cursor announces that against the
+    // same axis. Volume is not a price and a trend is a word, so neither is
+    // read off an axis at all.
+    const priceAxis: AxisType = this.orientation === Orientation.HORIZONTAL
+      ? 'x'
+      : 'y';
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      this.orientation === Orientation.HORIZONTAL ? 'y' : 'x',
+      priceAxis,
+      ...(this.hasOpen ? [priceAxis] : []),
+      priceAxis,
+      priceAxis,
+      priceAxis,
+      ...(hasVolume ? [undefined] : []),
+      ...(this.hasOpen ? [undefined] : []),
+    ];
+
     return {
       chartType: this.getChartTypeLabel(),
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

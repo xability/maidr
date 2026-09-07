@@ -2,7 +2,7 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { MathUtil } from '@util/math';
@@ -576,6 +576,20 @@ export class ErrorBarTrace extends AbstractTrace {
       ...(shows('lower') ? ['Lower'] : []),
       ...(shows('upper') ? ['Upper'] : []),
     ];
+    // Built from the same conditions the headers are, so the two cannot come
+    // apart: the group column is the z the legend is read off, the category
+    // column sits on whichever axis the announcement calls the main one, and
+    // the estimate and both bounds are readings on the other.
+    const groupAxis: AxisType = 'z';
+    const categoryAxis: AxisType = isHorizontal ? 'y' : 'x';
+    const valueAxis: AxisType = isHorizontal ? 'x' : 'y';
+    const columnAxes: DescriptionState['dataTable']['columnAxes'] = [
+      ...(grouped ? [groupAxis] : []),
+      categoryAxis,
+      ...(shows('value') ? [valueAxis] : []),
+      ...(shows('lower') ? [valueAxis] : []),
+      ...(shows('upper') ? [valueAxis] : []),
+    ];
     const rows: (string | number)[][] = this.groups.flatMap((group, index) =>
       group.map((point) => {
         const cells: (string | number)[] = [
@@ -598,7 +612,7 @@ export class ErrorBarTrace extends AbstractTrace {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 

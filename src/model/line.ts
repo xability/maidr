@@ -584,16 +584,23 @@ export class LineTrace extends AbstractTrace {
       point.label === undefined || point.label === '' ? (point.y ?? '') : point.label;
 
     let headers: string[];
+    // The sample's x, its reading on y, and -- when there is more than one
+    // series -- the series column, which is the z axis whether or not a
+    // subclass renamed the noun over it. Built in the same branch as the
+    // headers so the two cannot come apart.
+    let columnAxes: DescriptionState['dataTable']['columnAxes'];
     let allRows: (string | number)[][];
 
     if (isMultiline) {
       headers = [this.xAxis, this.yAxis, this.seriesColumnHeader];
+      columnAxes = ['x', 'y', 'z'];
       allRows = this.points.flatMap((line, i) => {
         const lineName = this.groupNameAt(i);
         return line.map(p => [p.x, cellOf(p), lineName]);
       });
     } else {
       headers = [this.xAxis, this.yAxis];
+      columnAxes = ['x', 'y'];
       allRows = (this.points[0] ?? []).map(p => [p.x, cellOf(p)]);
     }
 
@@ -613,7 +620,7 @@ export class LineTrace extends AbstractTrace {
       title: this.title,
       axes: this.getDescriptionAxes(),
       stats,
-      dataTable: { headers, rows },
+      dataTable: { headers, columnAxes, rows },
     };
   }
 
