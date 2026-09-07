@@ -35,4 +35,17 @@ export abstract class Platform {
   public static get enter(): string {
     return Platform.IS_MAC ? 'return' : 'enter';
   }
+
+  /**
+   * Returns the control/command key's name as it should be spoken.
+   *
+   * Separate from {@link ctrl}, which yields the lower-case token hotkeys-js
+   * parses. A screen reader reads an announcement out loud, so the word has to
+   * be the one the reader would say -- capitalised, and never abbreviated to
+   * the symbol, which many voices skip entirely.
+   * @returns 'Command' on macOS, 'Control' on other platforms
+   */
+  public static get ctrlSpoken(): string {
+    return Platform.IS_MAC ? 'Command' : 'Control';
+  }
 }

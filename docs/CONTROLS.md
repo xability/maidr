@@ -39,6 +39,21 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Open/Close keyboard shortcut help       | Control + /                 | Command + /                 |
 | Open AI chat (API key set in Settings)  | Shift + / (?)               | Shift + / (?)               |
 
+## Unassigned Keys
+
+A key that no shortcut in the current mode uses answers with a short warning —
+"Invalid key. Press Control Slash for keyboard help." (Command Slash on a Mac)
+— together with the warning tone, so a guess is never met with silence.
+
+Keys held with Control, Command, or Option are left alone, because that is
+where the browser and your screen reader keep their own commands.
+
+The warning appears only where the help shortcut itself works — reading a
+chart, in braille mode, and in label mode. Anywhere it does not, such as the
+dialogs, review mode, and inside a grid cell, an unassigned key stays silent:
+there would be nothing useful to point you at, and what you press there is
+often text rather than a missed shortcut.
+
 ## Monitor Mode (Live Charts)
 
 On charts configured with `live: true`, press **M** to toggle monitor mode. While monitoring is on, every newly streamed data point is automatically sonified and announced by your screen reader without moving your current position. See the [Live & Streaming Data](LIVE_DATA.html) guide for details.

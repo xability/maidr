@@ -6,6 +6,7 @@ import type { KeybindingEntry, Keys } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
 import { CommandFactory } from '@command/factory';
+import { InvalidKeyCommand } from '@command/invalidKey';
 import { PointerGuidanceCommand } from '@command/pointerGuidance';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
@@ -22,6 +23,16 @@ function key(hotkey: string, description: string, options?: Partial<KeybindingEn
     ...options,
   };
 }
+
+/**
+ * The chord that opens the help menu, and the mark of a scope that can point a
+ * reader at it.
+ *
+ * Named rather than repeated so the two uses cannot drift apart: the scopes
+ * below bind it, and {@link KeybindingService.warnOnUnassignedKeys} advertises
+ * it only where it is bound. Rebinding help here moves both at once.
+ */
+const HELP_CHORD = `${Platform.ctrl}+/`;
 
 /**
  * Tactile display bindings, shared by every scope the display can be up in.
@@ -120,7 +131,7 @@ const BRAILLE_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
   TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
   TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 
@@ -189,7 +200,7 @@ const CANDLESTICK_DELTA_KEYMAP = {
   TOGGLE_REVIEW: key(`r`, 'Toggle Review Mode'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
   TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
   TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 
@@ -246,7 +257,7 @@ const FIGURE_LABEL_KEYMAP = {
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
 } as const;
 
 /**
@@ -299,7 +310,7 @@ const SUBPLOT_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
   TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
   TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
 } as const;
@@ -319,7 +330,7 @@ const TRACE_LABEL_KEYMAP = {
   ANNOUNCE_CAPTION: key(`c`, 'Announce Caption'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
 } as const;
 
 /**
@@ -397,7 +408,7 @@ const TRACE_KEYMAP = {
   TOGGLE_MONITOR: key(`m`, 'Toggle Monitor Mode (Live Charts)'),
 
   // Misc
-  TOGGLE_HELP: key(`${Platform.ctrl}+/`, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
+  TOGGLE_HELP: key(HELP_CHORD, 'Open/Close Help', { helpKey: `${Platform.ctrl} + /` }),
   TOGGLE_CHAT: key(`shift+/`, 'Open Chat', { helpKey: '?' }),
   TOGGLE_COMMAND_PALETTE: key(`${Platform.ctrl}+shift+p`, 'Open Command Palette', { helpKey: `${Platform.ctrl} + shift + p` }),
   TOGGLE_SETTINGS: key(`${Platform.ctrl}+,`, 'Open Settings', { helpKey: `${Platform.ctrl} + ,` }),
@@ -535,6 +546,15 @@ export function getKeymapForScope(scope: Scope): ScopeKeymap {
  */
 export class KeybindingService {
   private readonly commandFactory: CommandFactory;
+  private readonly invalidKeyCommand: InvalidKeyCommand;
+
+  /**
+   * The keydown event a binding last claimed.
+   *
+   * Read only by {@link warnOnUnassignedKeys}, which compares by identity to
+   * tell an unassigned press from one a shortcut has just handled.
+   */
+  private lastBoundEvent: KeyboardEvent | null = null;
 
   /**
    * Creates a new KeybindingService instance with command factory.
@@ -542,6 +562,10 @@ export class KeybindingService {
    */
   public constructor(commandContext: CommandContext) {
     this.commandFactory = new CommandFactory(commandContext);
+    this.invalidKeyCommand = new InvalidKeyCommand(
+      commandContext.notificationService,
+      commandContext.audioService,
+    );
   }
 
   /**
@@ -579,6 +603,7 @@ export class KeybindingService {
         if (commandName === 'STOP_AUTOPLAY') {
           hotkeys('*', scope, (event: KeyboardEvent): void => {
             if (hotkeys.command || hotkeys.ctrl) {
+              this.lastBoundEvent = event;
               const command = this.commandFactory.create(commandName);
               command.execute(event);
             }
@@ -586,6 +611,7 @@ export class KeybindingService {
         }
 
         hotkeys(hotkey, { scope }, (event: KeyboardEvent): void => {
+          this.lastBoundEvent = event;
           if (commandName !== 'ALLOW_DEFAULT') {
             event.preventDefault();
             const command = this.commandFactory.create(commandName);
@@ -593,9 +619,47 @@ export class KeybindingService {
           }
         });
       }
+
+      this.warnOnUnassignedKeys(scope, keymap as ScopeKeymap);
     }
 
     this.setScope(initialScope);
+  }
+
+  /**
+   * Speaks up when a key this scope has no shortcut for is pressed.
+   *
+   * The old answer was silence, which a reader cannot tell apart from a chart
+   * that has stopped responding, and which never mentions that a key list
+   * exists at all. Only scopes that bind {@link HELP_CHORD} take the warning:
+   * the advice it gives has to be advice the reader can act on, and inside a
+   * modal -- settings, chat, the command palette -- help is not reachable and
+   * the keystroke is likelier to be typing than a missed shortcut.
+   *
+   * hotkeys-js dispatches every `*` handler for an event before any of the
+   * handlers bound to that specific key, so at this point no shortcut has had
+   * the chance to claim the press yet. Deferring the check to a microtask lets
+   * the rest of the dispatch run first, and makes hotkeys-js itself the judge
+   * of what counts as bound -- there is no second copy of its key parsing here
+   * to fall out of step with the keymaps.
+   *
+   * @param scope - The scope whose unassigned keys should warn.
+   * @param keymap - That scope's keymap, checked for the help chord.
+   */
+  private warnOnUnassignedKeys(scope: Scope, keymap: ScopeKeymap): void {
+    if (keymap.TOGGLE_HELP?.hotkey !== HELP_CHORD) {
+      return;
+    }
+
+    hotkeys('*', scope, (event: KeyboardEvent): void => {
+      queueMicrotask(() => {
+        const claimed = this.lastBoundEvent === event;
+        this.lastBoundEvent = null;
+        if (!claimed) {
+          this.invalidKeyCommand.execute(event);
+        }
+      });
+    });
   }
 
   /**
