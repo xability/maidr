@@ -11,7 +11,7 @@ import {
 } from '@model/candlestick';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
-import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 
 /**
  * Builds a candle; the constructor derives the trend from open/close.
@@ -123,9 +123,9 @@ describe('candlestick rotor service integration', () => {
 
     const modes = collectModes(service);
     expect(modes).toEqual([
-      Constant.DATA_MODE,
-      Constant.LOWER_VALUE_MODE,
-      Constant.HIGHER_VALUE_MODE,
+      t('rotor.dataMode'),
+      t('rotor.lowerValueMode'),
+      t('rotor.higherValueMode'),
       bullishPointMode(),
       bearishPointMode(),
       neutralPointMode(),
