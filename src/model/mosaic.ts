@@ -1,6 +1,7 @@
 import type { MaidrLayer, MosaicPoint } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { t } from '@util/i18n';
 import { SegmentedTrace } from './segmented';
 
 /**
@@ -123,7 +124,7 @@ export class MosaicTrace extends SegmentedTrace {
 
     const width = this.widths[this.col];
     if (Number.isFinite(width)) {
-      asides.push({ label: 'Share of all', value: asPercent(width) });
+      asides.push({ label: t('model.asideShareOfAll'), value: asPercent(width) });
     }
 
     // The summary row the segmented bar appends is a column total, not a
@@ -132,7 +133,7 @@ export class MosaicTrace extends SegmentedTrace {
     const cell = this.cells[this.row]?.[this.col];
     if (!isSummaryRow && typeof cell?.count === 'number'
       && Number.isFinite(cell.count)) {
-      asides.push({ label: 'Count', value: String(cell.count) });
+      asides.push({ label: t('model.asideCount'), value: String(cell.count) });
     }
 
     if (asides.length > 0) {
@@ -159,12 +160,15 @@ export class MosaicTrace extends SegmentedTrace {
       // data table below, which is a place a reader can walk; a mosaic of
       // twenty states put all twenty into one unbroken sentence.
       stats.push({
-        label: 'Share of all observations',
+        label: t('model.statShareOfAllObservations'),
         value: named.length <= MAX_LISTED_SHARES
           ? named
-              .map(({ col, width }) => `${this.categoryNameAt(col)} ${asPercent(width)}`)
+              .map(({ col, width }) => t('model.mosaicShare', {
+                name: this.categoryNameAt(col),
+                share: asPercent(width),
+              }))
               .join(', ')
-          : `${named.length} groups; see the data table`,
+          : t('model.mosaicSeeTable', { count: named.length }),
       });
 
       const widest = named.reduce((a, b) => (a.width > b.width ? a : b));
@@ -175,19 +179,25 @@ export class MosaicTrace extends SegmentedTrace {
         // six observations and one computed from six hundred are announced
         // identically, and this is the only thing that separates them.
         stats.push({
-          label: 'Largest group',
-          value: `${this.categoryNameAt(widest.col)}, ${asPercent(widest.width)}`,
+          label: t('model.statLargestGroup'),
+          value: t('model.nameWithValue', {
+            name: this.categoryNameAt(widest.col),
+            value: asPercent(widest.width),
+          }),
         });
         stats.push({
-          label: 'Smallest group',
-          value: `${this.categoryNameAt(narrowest.col)}, ${asPercent(narrowest.width)}`,
+          label: t('model.statSmallestGroup'),
+          value: t('model.nameWithValue', {
+            name: this.categoryNameAt(narrowest.col),
+            value: asPercent(narrowest.width),
+          }),
         });
       }
     }
 
     const total = this.grandTotal();
     if (total !== null) {
-      stats.push({ label: 'Total observations', value: total });
+      stats.push({ label: t('model.statTotalObservations'), value: total });
     }
 
     // The two fields a mosaic exists for reached the announcement as asides
@@ -200,8 +210,8 @@ export class MosaicTrace extends SegmentedTrace {
       .some(row => row.some(cell => Number.isFinite(cell?.count)));
     const headers = [
       ...base.dataTable.headers,
-      'Share of all',
-      ...(hasCounts ? ['Count'] : []),
+      t('model.asideShareOfAll'),
+      ...(hasCounts ? [t('model.asideCount')] : []),
     ];
     // The parent's three columns keep the axes it gave them; the two added
     // here have none, since a column's share of the whole chart and a cell
@@ -238,13 +248,15 @@ export class MosaicTrace extends SegmentedTrace {
   private categoryNameAt(col: number): string {
     const point = this.cells[0]?.[col];
     if (point === undefined) {
-      return `Category ${col + 1}`;
+      return t('model.fallbackCategory', { index: col + 1 });
     }
     // The parent's resolved field, not the raw layer: every other method in
     // the family branches on `this.orientation`, and a second derivation of
     // the same fact is a second place for it to drift.
     const name = this.orientation === Orientation.VERTICAL ? point.x : point.y;
-    return name === undefined || name === '' ? `Category ${col + 1}` : String(name);
+    return name === undefined || name === ''
+      ? t('model.fallbackCategory', { index: col + 1 })
+      : String(name);
   }
 
   /**

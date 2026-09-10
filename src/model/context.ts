@@ -2,13 +2,26 @@ import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { MovableDirection } from '@type/movable';
 import type { LayerSummary, PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Figure, Subplot, Trace } from './plot';
 import { Emitter, Scope } from '@type/event';
 import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 import { formatPlotType } from '@util/orientation';
 import { Stack } from '@util/stack';
+import { plotTypeLabel } from './abstract';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
+
+/**
+ * What each level of the figure is called, for the message that says a level
+ * has nothing to report.
+ */
+const LEVEL_NOUN: Record<PlotState['type'], MessageKey> = {
+  figure: 'model.levelFigure',
+  subplot: 'model.levelSubplot',
+  trace: 'model.levelTrace',
+};
 
 type Plot = Figure | Subplot | Trace;
 
@@ -805,32 +818,39 @@ export class Context implements Disposable {
   public getInstruction(includeClickPrompt: boolean): string {
     const state = this.instructionContext.state;
     if (state.empty) {
-      return `No ${state.type} info available`;
+      return t('model.instructionNoInfo', { type: t(LEVEL_NOUN[state.type]) });
     }
 
     const clickPrompt = includeClickPrompt
-      ? 'Click to activate.'
+      ? t('model.instructionClickPrompt')
       : Constant.EMPTY;
     switch (state.type) {
       case 'figure':
-        return `This is a maidr figure containing ${state.size} subplots. ${clickPrompt}
-        Use arrow keys to navigate subplots and press 'ENTER'.`;
+        return t('model.instructionFigure', { size: state.size, clickPrompt });
 
       case 'subplot': {
         const subplotTraceOrientation = !state.trace.empty ? state.trace.orientation : undefined;
-        const subplotPlotType = formatPlotType(state.trace.traceType, subplotTraceOrientation);
-        return `This is a maidr plot containing ${state.size} layers, and
-        this is layer ${state.index} of ${state.size}: ${subplotPlotType} plot. ${clickPrompt}
-        Use Arrows to navigate data points. Toggle B for Braille, T for Text,
-        S for Sonification, and R for Review mode.`;
+        const subplotPlotType = formatPlotType(
+          plotTypeLabel(state.trace.traceType),
+          subplotTraceOrientation,
+        );
+        return t('model.instructionSubplot', {
+          size: state.size,
+          index: state.index,
+          plotType: subplotPlotType,
+          clickPrompt,
+        });
       }
 
       case 'trace': {
-        // Handle edge case: if plotType is 'multiline' but only 1 group, treat as single line
+        // Handle edge case: if the trace calls itself multiline but has only
+        // one group, treat it as a single line. Compared against the rendering
+        // of the same key the trace announced itself with, so the two agree in
+        // every language.
         let effectivePlotType = state.plotType;
 
-        if (state.plotType === 'multiline' && state.groupCount === 1) {
-          effectivePlotType = 'single line';
+        if (state.plotType === t('model.plotTypeMultiline') && state.groupCount === 1) {
+          effectivePlotType = t('model.plotTypeSingleLine');
         }
 
         // Gated on the group count itself rather than on the plot type naming
@@ -840,12 +860,16 @@ export class Context implements Disposable {
         // groupCount when there is more than one series.
         const groupCountText
           = state.groupCount && state.groupCount > 1
-            ? ` with ${state.groupCount} groups`
+            ? t('model.instructionGroupCount', { count: state.groupCount })
             : '';
 
         const displayType = formatPlotType(effectivePlotType, state.orientation);
 
-        return `This is a maidr plot of type: ${displayType}${groupCountText}. ${clickPrompt} Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+        return t('model.instructionTrace', {
+          displayType,
+          groupCount: groupCountText,
+          clickPrompt,
+        });
       }
     }
   }

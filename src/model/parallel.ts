@@ -1,16 +1,37 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { named } from './abstract';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
 
-/** Reported for an axis the chart draws but never measured anything on. */
-const NOTHING_MEASURED = 'no readings';
+/**
+ * Reported for an axis the chart draws but never measured anything on.
+ *
+ * @returns The phrase in the active language
+ */
+function nothingMeasured(): string {
+  return t('model.parallelNothingMeasured');
+}
 
-/** What the two data columns are called when the layer names neither axis. */
-const AXIS_COLUMN = 'Axis';
-const VALUE_COLUMN = 'Value';
+/**
+ * What the axis column is called when the layer names no x axis.
+ *
+ * @returns The heading in the active language
+ */
+function axisColumn(): string {
+  return t('model.tableAxis');
+}
+
+/**
+ * What the value column is called when the layer names no y axis.
+ *
+ * @returns The heading in the active language
+ */
+function valueColumn(): string {
+  return t('model.tableValue');
+}
 
 /**
  * The axis names, in the order the chart draws them.
@@ -198,12 +219,12 @@ export class ParallelTrace extends LineTrace {
    * both parallel adapters do whenever their optional config omits them.
    */
   private get axisColumnLabel(): string {
-    return named(this.layer.axes?.x?.label, AXIS_COLUMN);
+    return named(this.layer.axes?.x?.label, axisColumn());
   }
 
   /** @see {@link ParallelTrace.axisColumnLabel} */
   private get valueColumnLabel(): string {
-    return named(this.layer.axes?.y?.label, VALUE_COLUMN);
+    return named(this.layer.axes?.y?.label, valueColumn());
   }
 
   /** The axis the cursor is on, by the name the point under it carries. */
@@ -290,7 +311,7 @@ export class ParallelTrace extends LineTrace {
     // Announced beside the series' own name on every move, so inheriting the
     // line's "Group" puts two words for one referent in one sentence --
     // "Observation 1 of 4, Group is Honda Civic".
-    return 'Observation';
+    return t('model.nounObservation');
   }
 
   protected override get seriesLabels(): {
@@ -302,10 +323,10 @@ export class ParallelTrace extends LineTrace {
     // Rendered literally by the description dialog, so the line's wording
     // tells a reader they are on a chart with "lines" and "points per line".
     return {
-      count: 'Number of observations',
-      perSeries: 'Axes per observation',
-      names: 'Observation names',
-      column: 'Observation',
+      count: t('model.statNumberOfObservations'),
+      perSeries: t('model.statAxesPerObservation'),
+      names: t('model.statObservationNames'),
+      column: t('model.nounObservation'),
     };
   }
 
@@ -324,9 +345,9 @@ export class ParallelTrace extends LineTrace {
     // placeholder the table header used to carry.
     const stats = base.stats
       .filter(stat =>
-        stat.label !== 'Min value'
-        && stat.label !== 'Max value'
-        && stat.label !== `${this.xAxis} range`)
+        stat.label !== t('model.statMinValue')
+        && stat.label !== t('model.statMaxValue')
+        && stat.label !== t('model.statAxisRange', { axis: this.xAxis }))
       // `Axes per observation` is `LineTrace`'s point count per series, which
       // is a lower bound on the axis count rather than the axis count: an
       // axis only gappy observations reach is still drawn, still in
@@ -334,14 +355,14 @@ export class ParallelTrace extends LineTrace {
       // dialog therefore said "Axes per observation: 2" directly above a list
       // of three axes (#1182).
       .map(stat => (stat.label === this.seriesLabels.perSeries
-        ? { label: 'Number of axes', value: this.axisOrder.length }
+        ? { label: t('model.statNumberOfAxes'), value: this.axisOrder.length }
         : stat));
 
     if (this.axisOrder.length > 0) {
       // The order is part of the chart: which variables sit next to each other
       // decides which crossings are visible at all, and it is a choice the
       // author made rather than a property of the data.
-      stats.push({ label: 'Axes, in order', value: this.axisOrder.join(', ') });
+      stats.push({ label: t('model.statAxesInOrder'), value: this.axisOrder.join(', ') });
 
       for (const name of this.axisOrder) {
         const { min, max, readings } = this.extentOf(name);
@@ -351,7 +372,7 @@ export class ParallelTrace extends LineTrace {
         // the dialog to find out what the axis measures.
         const span = Number.isFinite(min) && Number.isFinite(max)
           ? MathUtil.spanned(min, max)
-          : NOTHING_MEASURED;
+          : nothingMeasured();
         stats.push({
           label: name,
           // How many observations the range rests on, said only when it is
@@ -360,7 +381,11 @@ export class ParallelTrace extends LineTrace {
           // claim, and this is the chart where different observations reach
           // different axes.
           value: readings > 0 && readings < this.points.length
-            ? `${span}, from ${readings} of ${this.points.length} observations`
+            ? t('model.parallelSpanFrom', {
+                span,
+                readings,
+                total: this.points.length,
+              })
             : span,
         });
       }
@@ -407,6 +432,6 @@ export class ParallelTrace extends LineTrace {
 
     // `LineTrace` reports itself as a 'single line' or 'multiline' plot, which
     // is what the instruction text and the layer-switch cue announce.
-    return { ...base, plotType: 'parallel coordinates' };
+    return { ...base, plotType: t('model.plotTypeParallelCoordinatesSpoken') };
   }
 }

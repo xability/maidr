@@ -2,12 +2,12 @@ import type { CandlestickDeltaCandle } from '@model/candlestickDelta';
 import type { MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import {
-  ABOVE_LINE_MODE,
-  BELOW_LINE_MODE,
+  aboveLineMode,
+  belowLineMode,
   CandlestickDeltaTrace,
-  DELTA_POINT_MODE,
+  deltaPointMode,
   deltaTrend,
-  ON_LINE_MODE,
+  onLineMode,
   referenceName,
   roundDelta,
 } from '@model/candlestickDelta';
@@ -419,17 +419,17 @@ describe('candlestickDelta rotor', () => {
   test('renames the default unit and the compare units', () => {
     const trace = createTrace();
 
-    expect(trace.dataModeName()).toBe(DELTA_POINT_MODE);
+    expect(trace.dataModeName()).toBe(deltaPointMode());
     const info = trace.compareModeInfo();
-    expect(info.higher.label).toBe(ABOVE_LINE_MODE);
-    expect(info.lower.label).toBe(BELOW_LINE_MODE);
+    expect(info.higher.label).toBe(aboveLineMode());
+    expect(info.lower.label).toBe(belowLineMode());
   });
 
   test('always offers the on-line filter unit, regardless of the current field', () => {
     const trace = createTrace();
     const closeUnits = trace.getRotorFilterUnits();
     expect(closeUnits).toHaveLength(1);
-    expect(closeUnits[0].label).toBe(ON_LINE_MODE);
+    expect(closeUnits[0].label).toBe(onLineMode());
 
     // high never touches the line (deltas +3, +1, +0.5, +1), but the unit
     // stays offered so the above/on/below trichotomy is stable as the user

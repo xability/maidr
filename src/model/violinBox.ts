@@ -1,12 +1,14 @@
+import type { BoxplotSectionType } from '@type/boxplotSection';
 import type { BoxPoint, BoxSelector, MaidrLayer, ViolinOptions } from '@type/grammar';
 import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
-import { BoxplotSection } from '@type/boxplotSection';
+import { BoxplotSection, boxSectionLabel } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -72,7 +74,7 @@ export class ViolinBoxTrace extends AbstractTrace {
   });
 
   private readonly orientation: Orientation;
-  private readonly sections: string[];
+  private readonly sections: BoxplotSectionType[];
   private readonly violinOptions: ViolinOptions;
 
   private readonly min: number;
@@ -132,10 +134,10 @@ export class ViolinBoxTrace extends AbstractTrace {
    * Outliers are excluded — violin plots do not produce outliers.
    */
   private buildViolinSections(): {
-    sections: string[];
+    sections: BoxplotSectionType[];
     accessors: ((p: BoxPoint) => number | number[])[];
   } {
-    const sections: string[] = [BoxplotSection.MIN];
+    const sections: BoxplotSectionType[] = [BoxplotSection.MIN];
     const accessors: ((p: BoxPoint) => number | number[])[] = [
       (p: BoxPoint) => p.min,
     ];
@@ -200,11 +202,11 @@ export class ViolinBoxTrace extends AbstractTrace {
       .map(name => name.trim());
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of violins', value: this.points.length },
+      { label: t('model.statNumberOfViolins'), value: this.points.length },
       ...(violinNames.length > 0
-        ? [{ label: 'Violin names', value: violinNames.join(', ') }]
+        ? [{ label: t('model.statViolinNames'), value: violinNames.join(', ') }]
         : []),
-      { label: 'Sections', value: this.sections.join(', ') },
+      { label: t('model.statSections'), value: this.sections.map(boxSectionLabel).join(', ') },
       ...this.rangeStats(),
     ];
 
@@ -215,7 +217,10 @@ export class ViolinBoxTrace extends AbstractTrace {
     const categorical = isHorizontal
       ? this.layer.axes?.y?.label
       : this.layer.axes?.x?.label;
-    const headers = [categorical?.trim() ? categorical.trim() : 'Violin', ...this.sections];
+    const headers = [
+      categorical?.trim() ? categorical.trim() : t('model.nounViolin'),
+      ...this.sections.map(boxSectionLabel),
+    ];
 
     const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
@@ -226,7 +231,7 @@ export class ViolinBoxTrace extends AbstractTrace {
       });
       // Not `point.z`: the violin bindings emit `fill` and no `z`, so every
       // cell of this column was blank on the shipped violin example.
-      return [groupNameAt(this.points, pointIdx, 'Violin'), ...sectionValues];
+      return [groupNameAt(this.points, pointIdx, 'model.nounViolin'), ...sectionValues];
     });
 
     // The violin column sits on whichever axis carries the categories and
@@ -271,7 +276,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     const stats = [
       extremeStat(
         this.points,
-        { single: 'Minimum', grouped: 'Lowest minimum' },
+        { single: 'model.statMinimum', grouped: 'model.statLowestMinimum' },
         p => p.min,
         isLower,
       ),
@@ -280,7 +285,7 @@ export class ViolinBoxTrace extends AbstractTrace {
     if (this.sections.includes(BoxplotSection.MAX)) {
       stats.push(extremeStat(
         this.points,
-        { single: 'Maximum', grouped: 'Highest maximum' },
+        { single: 'model.statMaximum', grouped: 'model.statHighestMaximum' },
         p => p.max,
         isHigher,
       ));
@@ -404,9 +409,9 @@ export class ViolinBoxTrace extends AbstractTrace {
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
     const mainLabel = isHorizontal ? this.yAxis : this.xAxis;
-    const section = isHorizontal
-      ? this.sections[this.col]
-      : this.sections[this.row];
+    const section = boxSectionLabel(
+      isHorizontal ? this.sections[this.col] : this.sections[this.row],
+    );
 
     const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
     const crossValue = this.boxValues[this.row][this.col];

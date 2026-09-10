@@ -3,6 +3,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
@@ -297,7 +298,7 @@ export class RidgelineTrace extends AbstractTrace {
   private groupNameAt(group: number): string {
     const authored = this.points[group]?.[0]?.x;
     return authored === undefined || authored === null || String(authored) === ''
-      ? `Group ${group + 1}`
+      ? t('model.fallbackNumbered', { noun: t('model.nounGroup'), index: group + 1 })
       : String(authored);
   }
 
@@ -320,7 +321,7 @@ export class RidgelineTrace extends AbstractTrace {
    */
   private get densityLabel(): string {
     const authored = this.layer.axes?.z?.label?.trim();
-    return authored && authored !== this.groupLabel ? authored : 'Density';
+    return authored && authored !== this.groupLabel ? authored : t('model.tableDensity');
   }
 
   /**
@@ -334,7 +335,7 @@ export class RidgelineTrace extends AbstractTrace {
    * @returns The authored y label, or `Group`
    */
   private get groupLabel(): string {
-    return named(this.layer.axes?.y?.label, 'Group');
+    return named(this.layer.axes?.y?.label, t('model.nounGroup'));
   }
 
   protected get audio(): AudioState {
@@ -387,8 +388,11 @@ export class RidgelineTrace extends AbstractTrace {
 
   public get description(): DescriptionState {
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of groups', value: this.points.length },
-      { label: 'Groups', value: this.points.map((_, i) => this.groupNameAt(i)).join(', ') },
+      { label: t('model.statNumberOfGroups'), value: this.points.length },
+      {
+        label: t('model.statGroups'),
+        value: this.points.map((_, i) => this.groupNameAt(i)).join(', '),
+      },
     ];
 
     if (this.points.length > 0) {
@@ -400,8 +404,8 @@ export class RidgelineTrace extends AbstractTrace {
       const fewest = MathUtil.safeMin(lengths);
       const most = MathUtil.safeMax(lengths);
       stats.push({
-        label: 'Samples per group',
-        value: fewest === most ? most : `${fewest} to ${most}`,
+        label: t('model.statSamplesPerGroup'),
+        value: fewest === most ? most : t('model.spanRange', { min: fewest, max: most }),
       });
     }
 
@@ -419,9 +423,12 @@ export class RidgelineTrace extends AbstractTrace {
       // untouched. A KDE is evaluated on a `linspace` grid, so these positions
       // are full-precision floats -- `early at 3.2857142857142856` spoken.
       stats.push({
-        label: 'Peak of each group',
+        label: t('model.statPeakOfEachGroup'),
         value: modes
-          .map(({ group, mode }) => `${this.groupNameAt(group)} at ${defaultFormat(mode.at)}`)
+          .map(({ group, mode }) => t('model.nameAtValue', {
+            name: this.groupNameAt(group),
+            value: defaultFormat(mode.at),
+          }))
           .join(', '),
       });
 
@@ -432,8 +439,11 @@ export class RidgelineTrace extends AbstractTrace {
       const earliest = modes.reduce((a, b) => (a.mode.at < b.mode.at ? a : b));
       if (latest.mode.at !== earliest.mode.at) {
         stats.push({
-          label: 'Peaks span',
-          value: `${defaultFormat(earliest.mode.at)} to ${defaultFormat(latest.mode.at)}`,
+          label: t('model.statPeaksSpan'),
+          value: t('model.spanRange', {
+            min: defaultFormat(earliest.mode.at),
+            max: defaultFormat(latest.mode.at),
+          }),
         });
       }
 
@@ -444,8 +454,11 @@ export class RidgelineTrace extends AbstractTrace {
       const tallest = modes.reduce((a, b) =>
         (a.mode.density > b.mode.density ? a : b));
       stats.push({
-        label: 'Tallest ridge',
-        value: `${this.groupNameAt(tallest.group)}, peak density ${defaultFormat(tallest.mode.density)}`,
+        label: t('model.statTallestRidge'),
+        value: t('model.ridgelinePeakDensity', {
+          group: this.groupNameAt(tallest.group),
+          density: defaultFormat(tallest.mode.density),
+        }),
       });
     }
 
@@ -464,8 +477,8 @@ export class RidgelineTrace extends AbstractTrace {
       // rather than silently done, the way `ScatterTrace` says it: the dialog
       // prints the row count it is given.
       stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${allRows.length}`,
+        label: t('model.statTableRows'),
+        value: t('model.statTableRowsFirstOf', { shown: rows.length, total: allRows.length }),
       });
     }
 

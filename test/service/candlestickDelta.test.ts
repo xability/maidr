@@ -3,11 +3,11 @@ import type { DisplayService } from '@service/display';
 import type { CandlestickPoint, LinePoint, Maidr } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import {
-  ABOVE_LINE_MODE,
-  BELOW_LINE_MODE,
+  aboveLineMode,
+  belowLineMode,
   CandlestickDeltaTrace,
-  DELTA_POINT_MODE,
-  ON_LINE_MODE,
+  deltaPointMode,
+  onLineMode,
 } from '@model/candlestickDelta';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
@@ -399,13 +399,13 @@ describe('candlestickDelta rotor integration', () => {
     const { service, rotor } = createHarness();
     service.activate('ma-layer:0');
 
-    expect(rotor.getMode()).toBe(DELTA_POINT_MODE);
-    expect(rotor.moveToNextRotorUnit()).toBe(BELOW_LINE_MODE);
+    expect(rotor.getMode()).toBe(deltaPointMode());
+    expect(rotor.moveToNextRotorUnit()).toBe(belowLineMode());
     expect(rotor.getCompareType()).toBe('lower');
-    expect(rotor.moveToNextRotorUnit()).toBe(ABOVE_LINE_MODE);
+    expect(rotor.moveToNextRotorUnit()).toBe(aboveLineMode());
     expect(rotor.getCompareType()).toBe('higher');
-    expect(rotor.moveToNextRotorUnit()).toBe(ON_LINE_MODE);
-    expect(rotor.moveToNextRotorUnit()).toBe(DELTA_POINT_MODE);
+    expect(rotor.moveToNextRotorUnit()).toBe(onLineMode());
+    expect(rotor.moveToNextRotorUnit()).toBe(deltaPointMode());
   });
 
   test('right arrow in above-line mode jumps to the next above-line point', () => {
@@ -439,7 +439,7 @@ describe('candlestickDelta rotor integration', () => {
 
     rotor.moveToNextRotorUnit(); // below line
     rotor.moveToNextRotorUnit(); // above line
-    expect(rotor.getMode()).toBe(ABOVE_LINE_MODE);
+    expect(rotor.getMode()).toBe(aboveLineMode());
 
     // Up must move to the field above close (high) on the SAME candle, not fall
     // through to a right/candle jump (the pre-fix behaviour).

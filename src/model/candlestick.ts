@@ -10,17 +10,23 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Ohlc } from '@util/candlePattern';
+import type { MessageKey } from '@util/i18n';
 import type { LineRequest } from '@util/svg';
 import { AbstractTrace } from '@model/abstract';
 import { Orientation } from '@type/grammar';
 import {
+  candlePairPatternLabel,
   candlePairPatterns,
   candleShape,
+  candleShapeLabel,
   candleTrendPattern,
+  candleTrendPatternLabel,
+  candleTrioPatternLabel,
   candleTrioPatterns,
   DEFAULT_CANDLE_SHAPE_THRESHOLDS,
 } from '@util/candlePattern';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
@@ -32,40 +38,112 @@ import { MovableGrid } from './movable';
  */
 type HighlightValue = SVGElement | SVGElement[];
 
-const TREND = 'trend';
+/**
+ * What the candle's own direction is announced as.
+ *
+ * @returns The label in the active language
+ */
+function trendLabel(): string {
+  return t('model.asideTrend');
+}
 /**
  * What the candle's own shape is announced as -- a doji, a marubozu, a
  * spinning top. It is the half of a candlestick chart a sighted reader takes
  * in at a glance and a listener would otherwise have to reconstruct from four
  * numbers (#731, #732, #733).
+ *
+ * @returns The label in the active language
  */
-const SHAPE = 'shape';
+function shapeLabel(): string {
+  return t('model.asideShape');
+}
 /**
  * What the candle makes of the one before it -- an engulfing, a piercing
  * line, a tweezer. Unlike {@link SHAPE} there may be more than one at a time,
  * because these say different things about the same pair rather than the same
  * thing at different strictnesses (#735, #736, #737, #738).
+ *
+ * @returns The label in the active language
  */
-const PATTERN = 'pattern';
+function patternLabel(): string {
+  return t('model.asidePattern');
+}
 const VOLATILITY_PRECISION_MULTIPLIER = 100;
 
-/** Rotor unit that walks only bullish (close > open) candles. */
-export const BULLISH_POINT_MODE = 'BULLISH POINT NAVIGATION';
-/** Rotor unit that walks only bearish (close < open) candles. */
-export const BEARISH_POINT_MODE = 'BEARISH POINT NAVIGATION';
-/** Rotor unit that walks only neutral (close === open) candles. */
-export const NEUTRAL_POINT_MODE = 'NEUTRAL POINT NAVIGATION';
+/**
+ * Rotor unit that walks only bullish (close > open) candles.
+ *
+ * @returns The mode's name in the active language
+ */
+export function bullishPointMode(): string {
+  return t('model.candlestickBullishMode');
+}
+
+/**
+ * Rotor unit that walks only bearish (close < open) candles.
+ *
+ * @returns The mode's name in the active language
+ */
+export function bearishPointMode(): string {
+  return t('model.candlestickBearishMode');
+}
+
+/**
+ * Rotor unit that walks only neutral (close === open) candles.
+ *
+ * @returns The mode's name in the active language
+ */
+export function neutralPointMode(): string {
+  return t('model.candlestickNeutralMode');
+}
+
+/**
+ * How each of a candle's rows is announced.
+ *
+ * The union's members stay the wire words the grid is built from; these are
+ * the words a reader hears.
+ */
+const SECTION_LABEL: Record<CandlestickNavSegmentType, MessageKey> = {
+  volatility: 'model.candlestickSectionVolatility',
+  open: 'model.candlestickSectionOpen',
+  high: 'model.candlestickSectionHigh',
+  low: 'model.candlestickSectionLow',
+  close: 'model.candlestickSectionClose',
+};
+
+/** The same rows as a data table heads them, which English capitalises. */
+const SECTION_HEADER: Record<CandlestickNavSegmentType, MessageKey> = {
+  volatility: 'model.tableVolatility',
+  open: 'model.tableOpen',
+  high: 'model.tableHigh',
+  low: 'model.tableLow',
+  close: 'model.tableClose',
+};
+
+/** How each candle's direction is announced. */
+const TREND_LABEL: Record<CandlestickTrend, MessageKey> = {
+  Bull: 'model.candlestickTrendBull',
+  Bear: 'model.candlestickTrendBear',
+  Neutral: 'model.candlestickTrendNeutral',
+};
 
 /**
  * Trend-filter rotor units for the candlestick trace, in cycle order. The
  * `key` is the {@link CandlestickTrend} each unit navigates; the default
  * "all data point" unit is the built-in data mode and is not listed here.
+ *
+ * Built per call rather than held as a constant, because the names are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The three units, named in the active language
  */
-const TREND_ROTOR_UNITS: readonly (RotorFilterUnit & { key: CandlestickTrend })[] = [
-  { key: 'Bull', label: BULLISH_POINT_MODE, noun: 'bullish point' },
-  { key: 'Bear', label: BEARISH_POINT_MODE, noun: 'bearish point' },
-  { key: 'Neutral', label: NEUTRAL_POINT_MODE, noun: 'neutral point' },
-];
+function trendRotorUnits(): readonly (RotorFilterUnit & { key: CandlestickTrend })[] {
+  return [
+    { key: 'Bull', label: bullishPointMode(), noun: t('model.rotorNounBullishPoint') },
+    { key: 'Bear', label: bearishPointMode(), noun: t('model.rotorNounBearishPoint') },
+    { key: 'Neutral', label: neutralPointMode(), noun: t('model.rotorNounNeutralPoint') },
+  ];
+}
 
 /**
  * Segment types for candlestick data (open, high, low, close)
@@ -249,7 +327,7 @@ export class Candlestick extends AbstractTrace {
     // becoming a cycle that can never advance, the keyboard trap
     // `test/model/extremaContract.test.ts` exists for.
     const presentTrends = new Set(this.trends);
-    this.rotorFilterUnits = TREND_ROTOR_UNITS.filter(unit =>
+    this.rotorFilterUnits = trendRotorUnits().filter(unit =>
       presentTrends.has(unit.key),
     );
 
@@ -664,9 +742,9 @@ export class Candlestick extends AbstractTrace {
     // rose on no day, which is a finding, where the truth is that it never
     // said.
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of periods', value: this.candles.length },
+      { label: t('model.statNumberOfPeriods'), value: this.candles.length },
       {
-        label: 'Price range',
+        label: t('model.statPriceRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.minFrom2D(priceRows),
           MathUtil.maxFrom2D(priceRows),
@@ -674,13 +752,13 @@ export class Candlestick extends AbstractTrace {
       },
       ...(this.hasOpen
         ? [
-            { label: 'Bull count', value: bullCount },
-            { label: 'Bear count', value: bearCount },
+            { label: t('model.statBullCount'), value: bullCount },
+            { label: t('model.statBearCount'), value: bearCount },
             // Counted with the other two, or the tallies do not add up to the
             // number of periods and a reader cannot tell whether the
             // remainder is neutral candles or a miscount -- while the rotor
             // offers to walk neutral points wherever there are any.
-            { label: 'Neutral count', value: neutralCount },
+            { label: t('model.statNeutralCount'), value: neutralCount },
           ]
         : []),
     ];
@@ -694,17 +772,22 @@ export class Candlestick extends AbstractTrace {
       // for, remember, jump to the last and subtract. The trend tallies do
       // not answer it -- a series can close lower over more up days than down.
       stats.push({
-        label: 'Period covered',
-        value: `${first.value} to ${last.value}`,
+        label: t('model.statPeriodCovered'),
+        value: t('model.spanRange', { min: first.value, max: last.value }),
       });
       if (Number.isFinite(first.close) && Number.isFinite(last.close)) {
         const change = Number((last.close - first.close).toPrecision(12));
         const percent = first.close === 0
           ? ''
-          : ` (${defaultFormat(Number(((change / first.close) * 100).toPrecision(4)))}%)`;
+          : t('model.candlestickPercent', {
+              value: defaultFormat(Number(((change / first.close) * 100).toPrecision(4))),
+            });
         stats.push({
-          label: 'Net change',
-          value: `${defaultFormat(change)}${percent}`,
+          label: t('model.statNetChange'),
+          value: t('model.candlestickNetChange', {
+            change: defaultFormat(change),
+            percent,
+          }),
         });
       }
     }
@@ -731,13 +814,13 @@ export class Candlestick extends AbstractTrace {
       // at every candle. Left out, the braille showed five lanes and the
       // table four price columns, and the two surfaces of one chart disagreed
       // about how many quantities it has.
-      'Volatility',
-      ...(this.hasOpen ? ['Open'] : []),
-      'High',
-      'Low',
-      'Close',
-      ...(hasVolume ? ['Volume'] : []),
-      ...(this.hasOpen ? ['Trend'] : []),
+      t('model.tableVolatility'),
+      ...(this.hasOpen ? [t('model.tableOpen')] : []),
+      t('model.tableHigh'),
+      t('model.tableLow'),
+      t('model.tableClose'),
+      ...(hasVolume ? [t('model.tableVolume')] : []),
+      ...(this.hasOpen ? [t('model.tableTrend')] : []),
     ];
     const rows: (string | number)[][] = this.candles.map(c => [
       c.value,
@@ -747,7 +830,7 @@ export class Candlestick extends AbstractTrace {
       c.low,
       c.close,
       ...(hasVolume ? [c.volume ?? ''] : []),
-      ...(this.hasOpen ? [c.trend ?? ''] : []),
+      ...(this.hasOpen ? [c.trend === undefined ? '' : t(TREND_LABEL[c.trend])] : []),
     ]);
 
     // The periods run along one axis and every price column sits on the other
@@ -1135,10 +1218,18 @@ export class Candlestick extends AbstractTrace {
       ? []
       : candleTrioPatterns(first, before, bodied);
     const asides = [
-      ...(shape === null ? [] : [{ label: SHAPE, value: shape }]),
-      ...pairs.map(pattern => ({ label: PATTERN, value: pattern })),
-      ...(named === null ? [] : [{ label: PATTERN, value: named }]),
-      ...trios.map(pattern => ({ label: PATTERN, value: pattern })),
+      ...(shape === null ? [] : [{ label: shapeLabel(), value: candleShapeLabel(shape) }]),
+      ...pairs.map(pattern => ({
+        label: patternLabel(),
+        value: candlePairPatternLabel(pattern),
+      })),
+      ...(named === null
+        ? []
+        : [{ label: patternLabel(), value: candleTrendPatternLabel(named) }]),
+      ...trios.map(pattern => ({
+        label: patternLabel(),
+        value: candleTrioPatternLabel(pattern),
+      })),
     ];
 
     return {
@@ -1150,13 +1241,13 @@ export class Candlestick extends AbstractTrace {
         label: isHorizontal ? this.xAxis : this.yAxis,
         value: crossValue,
       },
-      section: this.currentSegmentType ?? this.sections[0],
+      section: t(SECTION_LABEL[this.currentSegmentType ?? this.sections[0]]),
       // No `z` on a chart with no body: the field carries the trend, and a
       // trend is what a body is. Announcing an empty one would put "trend"
       // in every reading with nothing after it.
       ...(point.trend === undefined
         ? {}
-        : { z: { label: TREND, value: point.trend } }),
+        : { z: { label: trendLabel(), value: t(TREND_LABEL[point.trend]) } }),
       ...(asides.length === 0 ? {} : { asides }),
       mainAxis: isHorizontal ? 'y' : 'x',
       crossAxis: isHorizontal ? 'x' : 'y',
@@ -1253,7 +1344,7 @@ export class Candlestick extends AbstractTrace {
       maxVolatilityIndices.forEach((index, _count) => {
         const candle = this.candles[index];
         targets.push({
-          label: `Max Volatility at ${candle.value}`,
+          label: t('model.extremaMaxVolatilityAt', { label: candle.value }),
           value: candle.volatility,
           pointIndex: index,
           segment: 'volatility',
@@ -1267,7 +1358,7 @@ export class Candlestick extends AbstractTrace {
       minVolatilityIndices.forEach((index, _count) => {
         const candle = this.candles[index];
         targets.push({
-          label: `Min Volatility at ${candle.value}`,
+          label: t('model.extremaMinVolatilityAt', { label: candle.value }),
           value: candle.volatility,
           pointIndex: index,
           segment: 'volatility',
@@ -1298,10 +1389,12 @@ export class Candlestick extends AbstractTrace {
       // Add all max targets
       maxIndices.forEach((index, _count) => {
         const candle = this.candles[index];
-        const segmentLabel
-          = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        const segmentLabel = t(SECTION_HEADER[currentSegment]);
         targets.push({
-          label: `Max ${segmentLabel} at ${candle.value}`,
+          label: t('model.extremaMaxSegmentAt', {
+            segment: segmentLabel,
+            label: candle.value,
+          }),
           value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,
@@ -1314,10 +1407,12 @@ export class Candlestick extends AbstractTrace {
       // Add all min targets
       minIndices.forEach((index, _count) => {
         const candle = this.candles[index];
-        const segmentLabel
-          = currentSegment.charAt(0).toUpperCase() + currentSegment.slice(1);
+        const segmentLabel = t(SECTION_HEADER[currentSegment]);
         targets.push({
-          label: `Min ${segmentLabel} at ${candle.value}`,
+          label: t('model.extremaMinSegmentAt', {
+            segment: segmentLabel,
+            label: candle.value,
+          }),
           value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,

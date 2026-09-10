@@ -1,8 +1,9 @@
 import type { HistogramPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
-import { AbstractBarPlot, isMeasured, MISSING_TEXT } from './bar';
+import { AbstractBarPlot, isMeasured, missingText } from './bar';
 
 export class Histogram extends AbstractBarPlot<HistogramPoint> {
   public constructor(layer: MaidrLayer) {
@@ -35,18 +36,18 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
     );
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of bins', value: points.length },
+      { label: t('model.statNumberOfBins'), value: points.length },
       // `count`, not `value`: these are bin heights, and they sat directly
       // above a `Bin range` that is the binned variable -- two adjacent lines
       // about two different axes, under labels naming neither.
-      ...this.rangeStats('count'),
-      { label: 'Bin range', value: binRange },
+      ...this.rangeStats({ min: 'model.statMinCount', max: 'model.statMaxCount' }),
+      { label: t('model.statBinRange'), value: binRange },
     ];
 
     const measuredCounts = counts.filter(isMeasured);
     if (measuredCounts.length > 0) {
       stats.push({
-        label: 'Total observations',
+        label: t('model.statTotalObservations'),
         value: measuredCounts.reduce((sum, count) => sum + count, 0),
       });
 
@@ -57,11 +58,14 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       const peakPoint = points[peak];
       if (peakPoint !== undefined) {
         stats.push({
-          label: 'Modal bin',
-          value: `${MathUtil.spannedOrMissing(
-            Number(isVertical ? peakPoint.xMin : peakPoint.yMin),
-            Number(isVertical ? peakPoint.xMax : peakPoint.yMax),
-          )}, ${counts[peak]}`,
+          label: t('model.statModalBin'),
+          value: t('model.statModalBinValue', {
+            range: MathUtil.spannedOrMissing(
+              Number(isVertical ? peakPoint.xMin : peakPoint.yMin),
+              Number(isVertical ? peakPoint.xMax : peakPoint.yMax),
+            ),
+            count: counts[peak],
+          }),
         });
       }
     }
@@ -73,21 +77,21 @@ export class Histogram extends AbstractBarPlot<HistogramPoint> {
       .filter(Number.isFinite);
     if (widths.length > 0) {
       stats.push({
-        label: 'Bin width',
+        label: t('model.statBinWidth'),
         value: MathUtil.spannedOrMissing(MathUtil.safeMin(widths), MathUtil.safeMax(widths)),
       });
     }
 
     const headers = isVertical
-      ? [this.xAxis, this.yAxis, 'Bin Min', 'Bin Max']
-      : [this.yAxis, this.xAxis, 'Bin Min', 'Bin Max'];
+      ? [this.xAxis, this.yAxis, t('model.tableBinMin'), t('model.tableBinMax')]
+      : [this.yAxis, this.xAxis, t('model.tableBinMin'), t('model.tableBinMax')];
 
     const rows: (string | number)[][] = points.map((p, col) => {
       const main = isVertical ? p.x : p.y;
       const count = counts[col];
       const min = isVertical ? p.xMin : p.yMin;
       const max = isVertical ? p.xMax : p.yMax;
-      return [main, isMeasured(count) ? count : MISSING_TEXT, min, max];
+      return [main, isMeasured(count) ? count : missingText(), min, max];
     });
 
     // The bin's own value and its two bounds are all read off the binned

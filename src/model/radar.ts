@@ -1,7 +1,9 @@
 import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TraceState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { LineTrace } from './line';
 
 /**
@@ -15,9 +17,9 @@ import { LineTrace } from './line';
 type RadarVariant = 'radar' | 'polar';
 
 /** Spoken plot type, per variant, for the instruction and layer-switch cues. */
-const PLOT_TYPE_LABEL: Record<RadarVariant, string> = {
-  radar: 'radar',
-  polar: 'polar area',
+const PLOT_TYPE_LABEL: Record<RadarVariant, MessageKey> = {
+  radar: 'model.plotTypeRadar',
+  polar: 'model.plotTypePolarAreaSpoken',
 };
 
 /**
@@ -27,9 +29,9 @@ const PLOT_TYPE_LABEL: Record<RadarVariant, string> = {
  * a polar area's description counted its "spokes" under a chart type announced
  * as `polar area`.
  */
-const SPOKE_NOUN: Record<RadarVariant, string> = {
-  radar: 'Spokes',
-  polar: 'Sectors',
+const SPOKE_NOUN: Record<RadarVariant, MessageKey> = {
+  radar: 'model.nounSpokes',
+  polar: 'model.nounSectors',
 };
 
 /**
@@ -148,7 +150,7 @@ export class RadarTrace extends LineTrace {
    * @returns The fallback label
    */
   protected override get groupFallbackLabel(): string {
-    return 'Series';
+    return t('model.nounSeries');
   }
 
   protected override get seriesLabels(): {
@@ -167,10 +169,12 @@ export class RadarTrace extends LineTrace {
     // fallback name, so a read during construction would find the field
     // undefined and index the record with it.
     return {
-      count: 'Number of series',
-      perSeries: `${SPOKE_NOUN[variantOf(this.layer.type)]} per series`,
-      names: 'Series names',
-      column: 'Series',
+      count: t('model.statNumberOfSeries'),
+      perSeries: t('model.statNounPerSeries', {
+        noun: t(SPOKE_NOUN[variantOf(this.layer.type)]),
+      }),
+      names: t('model.statSeriesNames'),
+      column: t('model.nounSeries'),
     };
   }
 
@@ -204,9 +208,10 @@ export class RadarTrace extends LineTrace {
     // The inherited x extent goes with it. It reports the first and last
     // column of the axis, and on a circle those two are neighbours, so
     // "speed to price" names a sweep the chart never makes.
-    const stats = base.stats.filter(stat => stat.label !== `${this.xAxis} range`);
+    const xRangeLabel = t('model.statAxisRange', { axis: this.xAxis });
+    const stats = base.stats.filter(stat => stat.label !== xRangeLabel);
     stats.push({
-      label: `${SPOKE_NOUN[this.variant]}, in order`,
+      label: t('model.statNounInOrder', { noun: t(SPOKE_NOUN[this.variant]) }),
       // Composed here, so it is rounded here: the description service rounds a
       // bare number and passes a composed string through untouched, and a
       // polar area binned on a numeric axis carries numbers around its circle.
@@ -225,6 +230,6 @@ export class RadarTrace extends LineTrace {
     // `LineTrace` reports itself as a 'single line' or 'multiline' plot, which
     // is what the instruction text and the layer-switch cue announce. A reader
     // told they are on a line plot has been told the wrong chart.
-    return { ...base, plotType: PLOT_TYPE_LABEL[this.variant] };
+    return { ...base, plotType: t(PLOT_TYPE_LABEL[this.variant]) };
   }
 }

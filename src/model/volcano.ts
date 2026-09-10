@@ -2,14 +2,27 @@ import type { MaidrLayer, VolcanoPoint } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { ScatterTrace } from './scatter';
 
-/** Rotor unit that restricts navigation to the points clearing the threshold. */
-const SIGNIFICANT_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'significant',
-  label: 'Significant',
-  noun: 'significant points',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const SIGNIFICANT_ROTOR_KEY = 'significant';
+
+/**
+ * Rotor unit that restricts navigation to the points clearing the threshold.
+ *
+ * Built per call rather than held as a constant, because its words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function significantRotorUnit(): RotorFilterUnit {
+  return {
+    key: SIGNIFICANT_ROTOR_KEY,
+    label: t('model.rotorUnitSignificant'),
+    noun: t('model.rotorNounSignificantPoints'),
+  };
+}
 
 /** How many named hits the description lists before it stops. */
 const NAMED_HITS = 10;
@@ -163,10 +176,10 @@ export class VolcanoTrace extends ScatterTrace {
     // on an axis, and a gene name is not a value on one.
     const asides: { label: string; value: string }[] = [];
     if (typeof point.label === 'string' && point.label !== '') {
-      asides.push({ label: 'Name', value: point.label });
+      asides.push({ label: t('model.asideName'), value: point.label });
     }
     if (typeof point.group === 'string' && point.group !== '') {
-      asides.push({ label: 'Region', value: point.group });
+      asides.push({ label: t('model.asideRegion'), value: point.group });
     }
     if (this.significance !== null || this.effect !== null) {
       // Which side of the line the point is on, said the way the line is
@@ -175,8 +188,12 @@ export class VolcanoTrace extends ScatterTrace {
       // `significanceDirection` exists for -- and named it while the cursor
       // stood on a point that had cleared it.
       asides.push({
-        label: 'Threshold',
-        value: this.clearsThreshold(this.pointModeIndex) ? 'cleared' : 'not cleared',
+        label: t('model.asideThreshold'),
+        value: t(
+          this.clearsThreshold(this.pointModeIndex)
+            ? 'model.volcanoCleared'
+            : 'model.volcanoNotCleared',
+        ),
       });
     }
 
@@ -197,7 +214,7 @@ export class VolcanoTrace extends ScatterTrace {
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const inherited = super.getRotorFilterUnits();
     return this.significantIndices.length > 0
-      ? [...inherited, SIGNIFICANT_ROTOR_UNIT]
+      ? [...inherited, significantRotorUnit()]
       : inherited;
   }
 
@@ -205,7 +222,7 @@ export class VolcanoTrace extends ScatterTrace {
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== SIGNIFICANT_ROTOR_UNIT.key) {
+    if (key !== SIGNIFICANT_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 
@@ -260,7 +277,7 @@ export class VolcanoTrace extends ScatterTrace {
     // linear relationship over two axes that were never drawn to have one,
     // and states it confidently. `BumpTrace` drops the line's Min and Max on
     // the same grounds.
-    const stats = base.stats.filter(stat => stat.label !== 'Correlation');
+    const stats = base.stats.filter(stat => stat.label !== t('model.statCorrelation'));
 
     if (this.significance !== null || this.effect !== null) {
       // The finding, and the one thing a per-point reading of twelve thousand
@@ -272,8 +289,11 @@ export class VolcanoTrace extends ScatterTrace {
       // those charts is the inverse of the reading on the other.
       stats.unshift(
         {
-          label: 'Points clearing the threshold',
-          value: `${this.significantIndices.length} of ${this.flatPoints.length}`,
+          label: t('model.statPointsClearingThreshold'),
+          value: t('model.countOfTotal', {
+            count: this.significantIndices.length,
+            total: this.flatPoints.length,
+          }),
         },
         // Where the line actually sits. -log10(p) at 1.3, -log10(p) at 7.3 and
         // raw p at 0.05 are three different cutoffs, and "43 of 12,000" with
@@ -293,8 +313,8 @@ export class VolcanoTrace extends ScatterTrace {
         const shown = named.slice(0, NAMED_HITS);
         stats.push({
           label: named.length > NAMED_HITS
-            ? `Top ${NAMED_HITS} by significance`
-            : 'Clearing the threshold, named',
+            ? t('model.statTopBySignificance', { count: NAMED_HITS })
+            : t('model.statClearingThresholdNamed'),
           value: shown.join(', '),
         });
       }
@@ -311,11 +331,11 @@ export class VolcanoTrace extends ScatterTrace {
           // so a silent cut left a list that looks complete and names half of
           // them -- with the label promising every region that has a hit.
           label: hits.length > NAMED_HITS
-            ? `Top ${NAMED_HITS} regions by hits`
-            : 'Regions with hits',
+            ? t('model.statTopRegionsByHits', { count: NAMED_HITS })
+            : t('model.statRegionsWithHits'),
           value: hits
             .slice(0, NAMED_HITS)
-            .map(([region, count]) => `${region} (${count})`)
+            .map(([region, count]) => t('model.volcanoRegionCount', { region, count }))
             .join(', '),
         });
       }
@@ -323,7 +343,7 @@ export class VolcanoTrace extends ScatterTrace {
 
     const regions = this.regionCount();
     if (regions !== null) {
-      stats.push({ label: 'Regions', value: regions });
+      stats.push({ label: t('model.statRegions'), value: regions });
     }
 
     return { ...base, stats };
@@ -358,8 +378,14 @@ export class VolcanoTrace extends ScatterTrace {
     const stats: DescriptionState['stats'] = [];
     if (this.significance !== null) {
       stats.push({
-        label: 'Significance threshold',
-        value: `${this.yAxis} ${this.significantAbove ? 'at or above' : 'at or below'} ${defaultFormat(this.significance)}`,
+        label: t('model.statSignificanceThreshold'),
+        value: t('model.volcanoSignificanceValue', {
+          axis: this.yAxis,
+          direction: t(
+            this.significantAbove ? 'model.volcanoAtOrAbove' : 'model.volcanoAtOrBelow',
+          ),
+          value: defaultFormat(this.significance),
+        }),
       });
     }
     if (this.effect !== null) {
@@ -367,8 +393,11 @@ export class VolcanoTrace extends ScatterTrace {
       // clears an effect threshold of 2 as surely as one of +3 does, and a
       // reader told only "2 or more" would expect half the hits it names.
       stats.push({
-        label: 'Effect threshold',
-        value: `${this.xAxis} of magnitude ${defaultFormat(this.effect)} or more`,
+        label: t('model.statEffectThreshold'),
+        value: t('model.volcanoEffectValue', {
+          axis: this.xAxis,
+          value: defaultFormat(this.effect),
+        }),
       });
     }
     return stats;

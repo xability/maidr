@@ -2,9 +2,11 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation, TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -109,8 +111,16 @@ function warnOnMislabelledMagnitude(
  * The word the announcements already use, rather than the raw `null` a chart
  * library reports, which the table used to print verbatim -- the one surface
  * where a reader could take it for a value.
+ *
+ * A function rather than a constant: the word is translated, and a trace
+ * outlives a language change, so it has to be resolved when the table is
+ * built rather than when this module is loaded.
+ *
+ * @returns The word for a value that is not there
  */
-export const MISSING_TEXT = 'missing';
+export function missingText(): string {
+  return t('common.missing');
+}
 
 /**
  * What the marks of a bar-family layer are called, where they are not bars.
@@ -119,19 +129,19 @@ export const MISSING_TEXT = 'missing';
  * it, so one hardcoded noun was announced over four chart types. Partial on
  * purpose: everything absent from here really is a bar.
  */
-const MARK_NOUN: Partial<Record<TraceType, string>> = {
-  [TraceType.DOT]: 'dots',
-  [TraceType.LOLLIPOP]: 'lollipops',
-  [TraceType.FUNNEL]: 'stages',
+const MARK_NOUN: Partial<Record<TraceType, MessageKey>> = {
+  [TraceType.DOT]: 'model.markNounDots',
+  [TraceType.LOLLIPOP]: 'model.markNounLollipops',
+  [TraceType.FUNNEL]: 'model.markNounStages',
 };
 
 /**
  * The same nouns, capitalised, for a label that opens with one.
  */
-const MARK_NOUN_LEADING: Partial<Record<TraceType, string>> = {
-  [TraceType.DOT]: 'Dots',
-  [TraceType.LOLLIPOP]: 'Lollipops',
-  [TraceType.FUNNEL]: 'Stages',
+const MARK_NOUN_LEADING: Partial<Record<TraceType, MessageKey>> = {
+  [TraceType.DOT]: 'model.markNounLeadingDots',
+  [TraceType.LOLLIPOP]: 'model.markNounLeadingLollipops',
+  [TraceType.FUNNEL]: 'model.markNounLeadingStages',
 };
 
 export function isMeasured(value: number): boolean {
@@ -261,25 +271,30 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    * Shared so `SegmentedTrace`, which replaces the whole stats block rather
    * than extending it, cannot drift back to announcing an infinity.
    *
-   * @param noun - What the magnitudes are, when they are not plain values. A
-   *   histogram's are bin *counts*, and sit next to a `Bin range` that is the
-   *   binned variable -- two adjacent lines about two different axes, under
-   *   labels naming neither.
+   * @param labels - What to call the two rows, when the magnitudes are not
+   *   plain values. A histogram's are bin *counts*, and sit next to a `Bin
+   *   range` that is the binned variable -- two adjacent lines about two
+   *   different axes, under labels naming neither.
+   * @param labels.min - The label of the minimum row.
+   * @param labels.max - The label of the maximum row.
    * @param values - The rows to take the extremes over, when they are not
    *   every row. A segmented trace appends a synthetic Total row to
    *   `barValues`, so its unqualified range spans a number no bar has.
    * @returns The min and max stats, in that order
    */
   protected rangeStats(
-    noun = 'value',
+    labels: { min: MessageKey; max: MessageKey } = {
+      min: 'model.statMinValue',
+      max: 'model.statMaxValue',
+    },
     values: number[][] = this.barValues,
   ): DescriptionState['stats'] {
     const measured = values.flat().filter(isMeasured);
     const chartMin = MathUtil.safeMin(measured);
     const chartMax = MathUtil.safeMax(measured);
     return [
-      { label: `Min ${noun}`, value: isMeasured(chartMin) ? chartMin : 'missing' },
-      { label: `Max ${noun}`, value: isMeasured(chartMax) ? chartMax : 'missing' },
+      { label: t(labels.min), value: isMeasured(chartMin) ? chartMin : missingText() },
+      { label: t(labels.max), value: isMeasured(chartMax) ? chartMax : missingText() },
     ];
   }
 
@@ -294,7 +309,12 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       // `bars` is wrong for half the types that reach this line: BarTrace also
       // serves DOT and LOLLIPOP, and FunnelTrace reaches it through `super`,
       // so the dialog read "Chart Type: Dot Plot" and then "Number of bars".
-      { label: `Number of ${MARK_NOUN[this.type] ?? 'bars'}`, value: this.points[0].length },
+      {
+        label: t('model.statNumberOfMarks', {
+          noun: t(MARK_NOUN[this.type] ?? 'model.markNounBars'),
+        }),
+        value: this.points[0].length,
+      },
       ...this.rangeStats(),
     ];
 
@@ -318,14 +338,20 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     // `3333.3333333333335 at a`.
     if (isMeasured(chartMax)) {
       stats.push({
-        label: 'Largest',
-        value: `${defaultFormat(chartMax)} at ${nameAt(values.indexOf(chartMax))}`,
+        label: t('model.statLargest'),
+        value: t('model.valueAtName', {
+          value: defaultFormat(chartMax),
+          name: nameAt(values.indexOf(chartMax)),
+        }),
       });
     }
     if (isMeasured(chartMin)) {
       stats.push({
-        label: 'Smallest',
-        value: `${defaultFormat(chartMin)} at ${nameAt(values.indexOf(chartMin))}`,
+        label: t('model.statSmallest'),
+        value: t('model.valueAtName', {
+          value: defaultFormat(chartMin),
+          name: nameAt(values.indexOf(chartMin)),
+        }),
       });
     }
 
@@ -337,7 +363,12 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       // while that line already read `Number of stages` left one summary using
       // two words for the same objects, and a reader working out that a bar
       // and a stage are the same thing.
-      stats.push({ label: `${MARK_NOUN_LEADING[this.type] ?? 'Bars'} with no value`, value: gaps });
+      stats.push({
+        label: t('model.statMarksWithNoValue', {
+          noun: t(MARK_NOUN_LEADING[this.type] ?? 'model.markNounLeadingBars'),
+        }),
+        value: gaps,
+      });
     }
 
     const headers = isVertical
@@ -350,7 +381,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
     const rows: (string | number)[][] = this.points[0].map((p, col) => {
       const main = isVertical ? p.x : p.y;
       const value = values[col];
-      return [main, isMeasured(value) ? value : MISSING_TEXT];
+      return [main, isMeasured(value) ? value : missingText()];
     });
 
     // The category column sits on whichever axis carries the names and the
@@ -692,7 +723,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Add max targets
     for (const maxIndex of indicesAt(groupMax)) {
       targets.push({
-        label: `Max Bar at ${this.getPointLabel(maxIndex)}`,
+        label: t('model.extremaMaxBarAt', { label: this.getPointLabel(maxIndex) }),
         value: groupMax,
         pointIndex: maxIndex,
         segment: 'bar',
@@ -705,7 +736,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Add min targets
     for (const minIndex of indicesAt(groupMin)) {
       targets.push({
-        label: `Min Bar at ${this.getPointLabel(minIndex)}`,
+        label: t('model.extremaMinBarAt', { label: this.getPointLabel(minIndex) }),
         value: groupMin,
         pointIndex: minIndex,
         segment: 'bar',
@@ -746,7 +777,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
       }
     }
 
-    return `Point ${pointIndex}`;
+    return t('model.fallbackPoint', { index: pointIndex });
   }
 
   /**

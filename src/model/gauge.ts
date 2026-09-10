@@ -3,6 +3,7 @@ import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
@@ -53,13 +54,27 @@ function bandOf(value: number, bands: GaugeBand[] | undefined): string | null {
  * read "Progress is unavailable" about a chart that had simply never named
  * its measure.
  */
-const MEASURE_FALLBACK = 'Measure';
+function measureFallback(): string {
+  return t('model.gaugeMeasureFallback');
+}
 
-/** How the value column reads where the layer labelled no y axis. */
-const VALUE_FALLBACK = 'Value';
+/**
+ * How the value column reads where the layer labelled no y axis.
+ *
+ * @returns The heading in the active language
+ */
+function valueFallback(): string {
+  return t('model.gaugeValueFallback');
+}
 
-/** Where the needle sits when it has passed every band the chart declares. */
-const ABOVE_ALL_BANDS = 'above every band';
+/**
+ * Where the needle sits when it has passed every band the chart declares.
+ *
+ * @returns The phrase in the active language
+ */
+function aboveAllBands(): string {
+  return t('model.gaugeAboveAllBands');
+}
 
 /**
  * The bands the chart draws, ascending, each with the edge it reaches.
@@ -84,7 +99,10 @@ function describeBands(bands: GaugeBand[]): string {
   return [...bands]
     .filter(band => Number.isFinite(Number(band.to)))
     .sort((a, b) => Number(a.to) - Number(b.to))
-    .map(band => `${band.label} up to ${defaultFormat(Number(band.to))}`)
+    .map(band => t('model.gaugeBandEdge', {
+      label: band.label,
+      edge: defaultFormat(Number(band.to)),
+    }))
     .join(', ');
 }
 
@@ -229,7 +247,7 @@ export class GaugeTrace extends AbstractTrace {
     if (this.title.trim() && this.title !== DEFAULT_SUBPLOT_TITLE) {
       return this.title;
     }
-    return MEASURE_FALLBACK;
+    return measureFallback();
   }
 
   protected get text(): TextState {
@@ -255,7 +273,7 @@ export class GaugeTrace extends AbstractTrace {
       // makes both `Number(undefined)`, and `spanned` renders that pair as the
       // *string* "NaN to NaN" -- a value like any other to everything
       // downstream, so it is announced and printed verbatim.
-      z: { label: 'Range', value: MathUtil.spannedOrMissing(this.min, this.max) },
+      z: { label: t('model.asideRange'), value: MathUtil.spannedOrMissing(this.min, this.max) },
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -265,7 +283,7 @@ export class GaugeTrace extends AbstractTrace {
       // rather than as "7 below" so the formatter can render it in the axis's
       // own units, and so the reader hears the target itself rather than only
       // a difference they cannot place.
-      state.stack = { label: 'Target', value: Number(this.point.target) };
+      state.stack = { label: t('model.asideTarget'), value: Number(this.point.target) };
     }
     if (band !== null) {
       state.section = band;
@@ -276,8 +294,8 @@ export class GaugeTrace extends AbstractTrace {
 
   public get description(): DescriptionState {
     const stats: DescriptionState['stats'] = [
-      { label: 'Value', value: this.value },
-      { label: 'Range', value: MathUtil.spannedOrMissing(this.min, this.max) },
+      { label: t('model.gaugeValueFallback'), value: this.value },
+      { label: t('model.asideRange'), value: MathUtil.spannedOrMissing(this.min, this.max) },
     ];
 
     // Where the needle sits, which is what a sighted reader takes from the
@@ -288,14 +306,16 @@ export class GaugeTrace extends AbstractTrace {
     const span = this.max - this.min;
     if (Number.isFinite(span) && span !== 0 && Number.isFinite(this.value)) {
       stats.push({
-        label: 'Position in range',
-        value: `${(((this.value - this.min) / span) * 100).toFixed(1)}%`,
+        label: t('model.statPositionInRange'),
+        value: t('model.percentValue', {
+          value: (((this.value - this.min) / span) * 100).toFixed(1),
+        }),
       });
     }
 
     if (this.point.target !== undefined) {
       const target = Number(this.point.target);
-      stats.push({ label: 'Target', value: target });
+      stats.push({ label: t('model.asideTarget'), value: target });
       stats.push(...this.versusTarget(target));
     }
 
@@ -306,7 +326,7 @@ export class GaugeTrace extends AbstractTrace {
     if (edges !== '') {
       const band = bandOf(this.value, this.point.bands);
       if (band !== null) {
-        stats.push({ label: 'Band', value: band });
+        stats.push({ label: t('model.statBand'), value: band });
       } else if (Number.isFinite(this.value)) {
         // Stated even when the needle has passed every band: a chart that
         // draws bands and a summary that says nothing about them read alike,
@@ -317,13 +337,13 @@ export class GaugeTrace extends AbstractTrace {
         // `NaN` is false -- and reading that as "above every band" states a
         // position for a measure the chart never reported, on the one line a
         // reader would trust over the blank the `Value` stat becomes.
-        stats.push({ label: 'Band', value: ABOVE_ALL_BANDS });
+        stats.push({ label: t('model.statBand'), value: aboveAllBands() });
       }
       // Named apart from `Band` rather than pluralised: the two sit adjacent
       // in the list, and a trailing sibilant is the whole of the difference a
       // screen reader would speak between the band the needle is in and every
       // band the chart draws.
-      stats.push({ label: 'All bands', value: edges });
+      stats.push({ label: t('model.statAllBands'), value: edges });
     }
 
     // Headed from the axes the announcement already names these two fields
@@ -332,8 +352,8 @@ export class GaugeTrace extends AbstractTrace {
     // the layer labelled nothing, `named()`'s generic 'X' and 'Y' being worse
     // than either in a column header.
     const headers = [
-      this.layer.axes?.x?.label?.trim() ? this.xAxis : MEASURE_FALLBACK,
-      this.layer.axes?.y?.label?.trim() ? this.yAxis : VALUE_FALLBACK,
+      this.layer.axes?.x?.label?.trim() ? this.xAxis : measureFallback(),
+      this.layer.axes?.y?.label?.trim() ? this.yAxis : valueFallback(),
     ];
     const rows: (string | number)[][] = [[this.measureName, this.value]];
 
@@ -377,10 +397,10 @@ export class GaugeTrace extends AbstractTrace {
       return [];
     }
     if (delta === 0) {
-      return [{ label: 'Versus target', value: 'on target' }];
+      return [{ label: t('model.statVersusTarget'), value: t('model.gaugeOnTarget') }];
     }
     return [{
-      label: delta > 0 ? 'Above target by' : 'Below target by',
+      label: t(delta > 0 ? 'model.statAboveTargetBy' : 'model.statBelowTargetBy'),
       value: Math.abs(delta),
     }];
   }

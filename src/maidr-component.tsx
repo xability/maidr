@@ -1,7 +1,9 @@
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
+import { plotTypeLabel } from '@model/abstract';
 import { TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { useCallback, useMemo, useRef } from 'react';
 import { useLocale } from './state/hook/useLocale';
@@ -49,28 +51,35 @@ export interface MaidrProps {
 function getInitialInstruction(data: MaidrData): string {
   const subplots = data.subplots;
   const subplotCount = subplots.flat().length;
+  // Every sentence below is rendered from the same message keys
+  // `Context.getInstruction` uses, so the label a reader hears before the
+  // chart is focused and the one they hear after it say the same thing in
+  // whatever language is active.
+  const clickPrompt = t('model.instructionClickPrompt');
 
   if (subplotCount > 1) {
-    return `This is a maidr figure containing ${subplotCount} subplots. Click to activate. Use arrow keys to navigate subplots and press 'ENTER'.`;
+    return t('model.initialInstructionFigure', { size: subplotCount, clickPrompt });
   }
 
   // Single subplot — describe the first layer's trace type.
   const firstSubplot = subplots[0]?.[0];
   const layerCount = firstSubplot?.layers.length ?? 0;
   const firstLayer = firstSubplot?.layers[0];
-  const traceType = firstLayer?.type ?? 'chart';
+  const traceType = firstLayer?.type;
 
   // Normalize line plot type: data is LinePoint[][] where outer array = groups.
   // A line trace with exactly 1 group is "single line", not "multiline".
-  let plotType: string = traceType;
+  let plotType: string = traceType === undefined
+    ? t('model.plotTypeUnknownChart')
+    : plotTypeLabel(traceType);
   let groupCountText = '';
   if (traceType === TraceType.LINE && Array.isArray(firstLayer?.data)) {
     const groupCount = firstLayer.data.length;
     if (groupCount > 1) {
-      plotType = 'multiline';
-      groupCountText = ` with ${groupCount} groups`;
+      plotType = t('model.plotTypeMultiline');
+      groupCountText = t('model.instructionGroupCount', { count: groupCount });
     } else {
-      plotType = 'single line';
+      plotType = t('model.plotTypeSingleLine');
     }
   } else if (traceType === TraceType.STEP && Array.isArray(firstLayer?.data)) {
     // A step trace keeps calling itself 'step' whatever its series count —
@@ -79,7 +88,7 @@ function getInitialInstruction(data: MaidrData): string {
     // changes when the user clicks.
     const groupCount = firstLayer.data.length;
     if (groupCount > 1) {
-      groupCountText = ` with ${groupCount} groups`;
+      groupCountText = t('model.instructionGroupCount', { count: groupCount });
     }
   }
 
@@ -87,14 +96,23 @@ function getInitialInstruction(data: MaidrData): string {
   // announcement and the one DisplayService writes on focus-in agree.
   const displayType = formatPlotType(
     plotType,
-    resolveOrientation(traceType, firstLayer?.orientation),
+    resolveOrientation(traceType ?? '', firstLayer?.orientation),
   );
 
   if (layerCount > 1) {
-    return `This is a maidr plot containing ${layerCount} layers, and this is layer 1 of ${layerCount}: ${displayType} plot. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+    return t('model.initialInstructionSubplot', {
+      size: layerCount,
+      index: 1,
+      plotType: displayType,
+      clickPrompt,
+    });
   }
 
-  return `This is a maidr plot of type: ${displayType}${groupCountText}. Click to activate. Use Arrows to navigate data points. Toggle B for Braille, T for Text, S for Sonification, and R for Review mode.`;
+  return t('model.instructionTrace', {
+    displayType,
+    groupCount: groupCountText,
+    clickPrompt,
+  });
 }
 
 export function Maidr({ data, children }: MaidrProps): JSX.Element {
@@ -111,7 +129,10 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
 
   // Compute the initial instruction once so the plot is discoverable by screen
   // readers (role="img" + aria-label) before any user interaction.
-  const initialInstruction = useMemo(() => getInitialInstruction(data), [data]);
+  // `locale` is a dependency because the instruction is built from translated
+  // messages: without it the pre-activation label would keep the language the
+  // chart first rendered in.
+  const initialInstruction = useMemo(() => getInitialInstruction(data), [data, locale]);
 
   // Click-to-activate shim: most chart libraries render the plot as inert SVG
   // children of our `tabIndex={0}` wrapper. Browsers do NOT auto-focus a

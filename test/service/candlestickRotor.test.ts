@@ -4,10 +4,10 @@ import type { TextService } from '@service/text';
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import { describe, expect, jest, test } from '@jest/globals';
 import {
-  BEARISH_POINT_MODE,
-  BULLISH_POINT_MODE,
+  bearishPointMode,
+  bullishPointMode,
   Candlestick,
-  NEUTRAL_POINT_MODE,
+  neutralPointMode,
 } from '@model/candlestick';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
@@ -126,9 +126,9 @@ describe('candlestick rotor service integration', () => {
       Constant.DATA_MODE,
       Constant.LOWER_VALUE_MODE,
       Constant.HIGHER_VALUE_MODE,
-      BULLISH_POINT_MODE,
-      BEARISH_POINT_MODE,
-      NEUTRAL_POINT_MODE,
+      bullishPointMode(),
+      bearishPointMode(),
+      neutralPointMode(),
     ]);
   });
 
@@ -140,8 +140,8 @@ describe('candlestick rotor service integration', () => {
       createMockNotificationService(),
     );
 
-    cycleTo(service, BULLISH_POINT_MODE);
-    expect(service.getMode()).toBe(BULLISH_POINT_MODE);
+    cycleTo(service, bullishPointMode());
+    expect(service.getMode()).toBe(bullishPointMode());
 
     expect(service.moveRight()).toBeNull();
     expect(trace.col).toBe(3);
@@ -157,8 +157,8 @@ describe('candlestick rotor service integration', () => {
     );
 
     // Neutral unit: only candle index 2 is neutral.
-    cycleTo(service, NEUTRAL_POINT_MODE);
-    expect(service.getMode()).toBe(NEUTRAL_POINT_MODE);
+    cycleTo(service, neutralPointMode());
+    expect(service.getMode()).toBe(neutralPointMode());
 
     expect(service.moveRight()).toBeNull();
     expect(trace.col).toBe(2);
@@ -183,7 +183,7 @@ describe('candlestick rotor service integration', () => {
       createMockNotificationService(),
     );
 
-    cycleTo(service, BULLISH_POINT_MODE);
+    cycleTo(service, bullishPointMode());
     const result = service.moveUp();
 
     expect(result).not.toBeNull();

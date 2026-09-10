@@ -4,6 +4,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
@@ -36,19 +37,45 @@ interface TreeNode {
   source: number | null;
 }
 
-/** Rotor unit that walks a whole level of the tree, across parents. */
-const LEVEL_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'level',
-  label: 'Level',
-  noun: 'nodes on this level',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const LEVEL_ROTOR_KEY = 'level';
+
+/**
+ * Rotor unit that walks a whole level of the tree, across parents.
+ *
+ * Built per call rather than held as a constant, because its words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function levelRotorUnit(): RotorFilterUnit {
+  return {
+    key: LEVEL_ROTOR_KEY,
+    label: t('model.rotorUnitLevel'),
+    noun: t('model.rotorNounNodesOnLevel'),
+  };
+}
 
 /** How many branches the top-level breakdown names before it stops. */
 const NAMED_BRANCHES = 8;
 
-/** What a hierarchy calls its two dimensions when the layer names neither. */
-const NODE_AXIS = 'Node';
-const VALUE_AXIS = 'Value';
+/**
+ * What a hierarchy calls its node dimension when the layer names no x axis.
+ *
+ * @returns The label in the active language
+ */
+function nodeAxis(): string {
+  return t('model.tableNode');
+}
+
+/**
+ * What a hierarchy calls its value dimension when the layer names no y axis.
+ *
+ * @returns The label in the active language
+ */
+function valueAxis(): string {
+  return t('model.tableValue');
+}
 
 /** Formats a fraction as a percentage, to one decimal place. */
 function asPercent(fraction: number): string {
@@ -382,12 +409,12 @@ export class TreemapTrace extends AbstractTrace {
    * a column of populations headed `Y`, read cell by cell as "Y, 1400".
    */
   private get nodeLabel(): string {
-    return named(this.layer.axes?.x?.label, NODE_AXIS);
+    return named(this.layer.axes?.x?.label, nodeAxis());
   }
 
   /** @see {@link TreemapTrace.nodeLabel} */
   private get valueLabel(): string {
-    return named(this.layer.axes?.y?.label, VALUE_AXIS);
+    return named(this.layer.axes?.y?.label, valueAxis());
   }
 
   protected get values(): number[][] {
@@ -533,7 +560,7 @@ export class TreemapTrace extends AbstractTrace {
       // The breadcrumb, from the second level down. At the first level the
       // parent's name is the whole of the path and the share clause below
       // already carries it.
-      asides.push({ label: 'Path', value: ancestors.join(' > ') });
+      asides.push({ label: t('model.asidePath'), value: ancestors.join(' > ') });
     }
 
     // The two share clauses need no `valued` guard of their own, and one was
@@ -552,12 +579,12 @@ export class TreemapTrace extends AbstractTrace {
       // terse mode -- which drops aside labels -- still has one clause
       // carrying both, rather than a bare percentage of nothing stated.
       asides.push({
-        label: `Share of ${parent.name}`,
+        label: t('model.asideShareOfParent', { parent: parent.name }),
         value: asPercent(node.value / parent.value),
       });
     } else if (parent === null && this.grandTotal !== 0) {
       asides.push({
-        label: 'Share of total',
+        label: t('model.asideShareOfTotal'),
         value: asPercent(node.value / this.grandTotal),
       });
     }
@@ -565,7 +592,7 @@ export class TreemapTrace extends AbstractTrace {
     if (node.children.length > 0) {
       // Whether there is anything below, which is the one thing the reader
       // cannot discover without pressing down and being told there is not.
-      asides.push({ label: 'Children', value: String(node.children.length) });
+      asides.push({ label: t('model.asideChildren'), value: String(node.children.length) });
     }
 
     return {
@@ -629,14 +656,14 @@ export class TreemapTrace extends AbstractTrace {
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const inherited = super.getRotorFilterUnits();
     const hasBand = this.nodes.some(level => level.length > 1);
-    return hasBand ? [...inherited, LEVEL_ROTOR_UNIT] : inherited;
+    return hasBand ? [...inherited, levelRotorUnit()] : inherited;
   }
 
   public override moveToRotorFilter(
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== LEVEL_ROTOR_UNIT.key) {
+    if (key !== LEVEL_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 
@@ -695,9 +722,9 @@ export class TreemapTrace extends AbstractTrace {
     // the total is not. A pure hierarchy keeps the counts and loses every
     // stat derived from a value it never declared (#1153).
     const stats: DescriptionState['stats'] = [
-      { label: 'Levels', value: this.nodes.length },
-      { label: 'Number of nodes', value: every.length },
-      { label: 'Number of leaves', value: leaves.length },
+      { label: t('model.statLevels'), value: this.nodes.length },
+      { label: t('model.statNumberOfNodes'), value: every.length },
+      { label: t('model.statNumberOfLeaves'), value: leaves.length },
       // How the tree is shaped, not only how deep it is: two roots over five
       // leaves and forty roots over forty-one are both `Levels: 2`.
       //
@@ -707,11 +734,11 @@ export class TreemapTrace extends AbstractTrace {
       // dialog prints for a value it blanks.
       ...(this.nodes.length > 1
         ? [{
-            label: 'Nodes per level',
+            label: t('model.statNodesPerLevel'),
             value: this.nodes.map(level => level.length).join(', '),
           }]
         : []),
-      ...(this.valued ? [{ label: 'Total', value: this.grandTotal }] : []),
+      ...(this.valued ? [{ label: t('model.statTotal'), value: this.grandTotal }] : []),
     ];
 
     if (this.valued && leaves.length > 1) {
@@ -721,7 +748,7 @@ export class TreemapTrace extends AbstractTrace {
       // to support.
       const magnitudes = leaves.map(node => node.value);
       stats.push({
-        label: 'Leaf range',
+        label: t('model.statLeafRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(magnitudes),
           MathUtil.safeMax(magnitudes),
@@ -743,12 +770,20 @@ export class TreemapTrace extends AbstractTrace {
       const ordered = [...division.branches].sort((a, b) => b.value - a.value);
       const shown = ordered
         .slice(0, NAMED_BRANCHES)
-        .map(node => `${node.name} ${asPercent(node.value / basis)}`)
+        .map(node => t('model.treemapShare', {
+          name: node.name,
+          share: asPercent(node.value / basis),
+        }))
         .join(', ');
       stats.push({
-        label: division.parent === null ? 'Top level' : `Inside ${division.parent.name}`,
+        label: division.parent === null
+          ? t('model.statTopLevel')
+          : t('model.statInsideNode', { name: division.parent.name }),
         value: ordered.length > NAMED_BRANCHES
-          ? `${shown}, and ${ordered.length - NAMED_BRANCHES} more`
+          ? t('model.treemapAndMore', {
+              shown,
+              count: ordered.length - NAMED_BRANCHES,
+            })
           : shown,
       });
     }
@@ -769,12 +804,16 @@ export class TreemapTrace extends AbstractTrace {
       // `1400.0000000000002` beside the `1400` the table printed for the same
       // node.
       stats.push({
-        label: 'Largest leaf',
-        value: `${[...this.ancestorsOf(largest), largest.name].join(' > ')}, `
-          + `${defaultFormat(largest.value)}${
-            this.grandTotal === 0
-              ? ''
-              : `, ${asPercent(largest.value / this.grandTotal)} of total`}`,
+        label: t('model.statLargestLeaf'),
+        value: t('model.treemapLargestLeaf', {
+          path: [...this.ancestorsOf(largest), largest.name].join(' > '),
+          value: defaultFormat(largest.value),
+          share: this.grandTotal === 0
+            ? ''
+            : t('model.treemapShareOfTotal', {
+                share: asPercent(largest.value / this.grandTotal),
+              }),
+        }),
       });
     }
 
@@ -785,7 +824,12 @@ export class TreemapTrace extends AbstractTrace {
       stats,
       dataTable: this.valued
         ? {
-            headers: ['Path', this.nodeLabel, this.valueLabel, 'Share of total'],
+            headers: [
+              t('model.asidePath'),
+              this.nodeLabel,
+              this.valueLabel,
+              t('model.asideShareOfTotal'),
+            ],
             // The name sits on x and the magnitude on y, the axes the
             // announcement already speaks a node through. The path is an
             // ancestry joined here and the share is divided out of the total,
@@ -802,7 +846,7 @@ export class TreemapTrace extends AbstractTrace {
             // Two columns rather than four, half of them zeroes and blanks:
             // the ancestry and the name are the whole of what a pure
             // hierarchy has to tabulate.
-            headers: ['Path', this.nodeLabel],
+            headers: [t('model.asidePath'), this.nodeLabel],
             // The same two columns, so the same two entries: the joined
             // ancestry sits on no axis, the name on x.
             columnAxes: [undefined, 'x'],

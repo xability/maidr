@@ -4,9 +4,10 @@ import type { Movable } from '@type/movable';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
-import { BoxplotSection } from '@type/boxplotSection';
+import { BoxplotSection, boxSectionLabel } from '@type/boxplotSection';
 import { Orientation } from '@type/grammar';
 import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -86,7 +87,7 @@ export class BoxTrace extends AbstractTrace {
   });
 
   private readonly orientation: Orientation;
-  private readonly sections: string[];
+  private readonly sections: BoxplotSectionType[];
 
   private readonly min: number;
   private readonly max: number;
@@ -161,7 +162,7 @@ export class BoxTrace extends AbstractTrace {
    * Exposes full Tukey structure including all quartiles.
    */
   private buildStandardBoxDataSections(): {
-    sections: string[];
+    sections: BoxplotSectionType[];
     accessors: ((p: BoxPoint) => number | number[])[];
   } {
     return {
@@ -200,14 +201,14 @@ export class BoxTrace extends AbstractTrace {
     );
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of groups', value: this.points.length },
+      { label: t('model.statNumberOfGroups'), value: this.points.length },
       ...(groupNames.length > 0
-        ? [{ label: 'Group names', value: groupNames.join(', ') }]
+        ? [{ label: t('model.statGroupNames'), value: groupNames.join(', ') }]
         : []),
       ...this.rangeStats(),
       // Unconditional: a box plot always draws whiskers, so "Outliers: 0" is a
       // reading about the data rather than an absence of it.
-      { label: 'Outliers', value: outliers },
+      { label: t('model.statOutliers'), value: outliers },
     ];
 
     // Both the headers and the cells walk `this.sections`, so every section the
@@ -220,7 +221,10 @@ export class BoxTrace extends AbstractTrace {
     const categorical = isHorizontal
       ? this.layer.axes?.y?.label
       : this.layer.axes?.x?.label;
-    const headers = [categorical?.trim() ? categorical.trim() : 'Group', ...this.sections];
+    const headers = [
+      categorical?.trim() ? categorical.trim() : t('model.nounGroup'),
+      ...this.sections.map(boxSectionLabel),
+    ];
 
     const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
       const sectionValues = this.sections.map((_, sectionIdx) => {
@@ -277,7 +281,7 @@ export class BoxTrace extends AbstractTrace {
     return [
       extremeStat(
         this.points,
-        { single: 'Minimum', grouped: 'Lowest minimum' },
+        { single: 'model.statMinimum', grouped: 'model.statLowestMinimum' },
         p => p.min,
         isLower,
       ),
@@ -287,29 +291,29 @@ export class BoxTrace extends AbstractTrace {
       // was about.
       ...(single
         ? [
-            { label: 'Median', value: this.points[0].q2 },
+            { label: t('model.statMedian'), value: this.points[0].q2 },
             {
-              label: 'Interquartile range',
+              label: t('model.statInterquartileRange'),
               value: MathUtil.spannedOrMissing(this.points[0].q1, this.points[0].q3),
             },
           ]
         : [
             extremeStat(
               this.points,
-              { single: 'Median', grouped: 'Lowest median' },
+              { single: 'model.statMedian', grouped: 'model.statLowestMedian' },
               p => p.q2,
               isLower,
             ),
             extremeStat(
               this.points,
-              { single: 'Median', grouped: 'Highest median' },
+              { single: 'model.statMedian', grouped: 'model.statHighestMedian' },
               p => p.q2,
               isHigher,
             ),
           ]),
       extremeStat(
         this.points,
-        { single: 'Maximum', grouped: 'Highest maximum' },
+        { single: 'model.statMaximum', grouped: 'model.statHighestMaximum' },
         p => p.max,
         isHigher,
       ),
@@ -378,9 +382,9 @@ export class BoxTrace extends AbstractTrace {
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
     const mainLabel = isHorizontal ? this.yAxis : this.xAxis;
-    const section = isHorizontal
-      ? this.sections[this.col]
-      : this.sections[this.row];
+    const section = boxSectionLabel(
+      isHorizontal ? this.sections[this.col] : this.sections[this.row],
+    );
 
     const crossLabel = isHorizontal ? this.xAxis : this.yAxis;
     const crossValue = this.boxValues[this.row][this.col];

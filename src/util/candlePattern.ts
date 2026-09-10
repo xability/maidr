@@ -28,6 +28,9 @@
  * @packageDocumentation
  */
 
+import type { MessageKey } from './i18n';
+import { t } from './i18n';
+
 /** A candle's four prices, the only input any shape test needs. */
 export interface Ohlc {
   open: number;
@@ -48,6 +51,30 @@ export type CandleShape
     | 'dragonfly doji'
     | 'gravestone doji'
     | 'spinning top';
+
+/**
+ * How each shape is named to the reader.
+ *
+ * The union's members stay the identities the tests return, and the words a
+ * reader hears are looked up here — so a name can be translated without the
+ * shape it stands for changing.
+ */
+const CANDLE_SHAPE_LABEL: Record<CandleShape, MessageKey> = {
+  'marubozu': 'model.candleShapeMarubozu',
+  'doji': 'model.candleShapeDoji',
+  'dragonfly doji': 'model.candleShapeDragonflyDoji',
+  'gravestone doji': 'model.candleShapeGravestoneDoji',
+  'spinning top': 'model.candleShapeSpinningTop',
+};
+
+/**
+ * The reader's name for a candle's shape.
+ * @param shape - The shape {@link candleShape} decided
+ * @returns The shape's name in the active language
+ */
+export function candleShapeLabel(shape: CandleShape): string {
+  return t(CANDLE_SHAPE_LABEL[shape]);
+}
 
 /** How strict each test is, as fractions of the candle's own range. */
 export interface CandleShapeThresholds {
@@ -224,6 +251,25 @@ export type CandlePairPattern
     | 'tweezer bottom'
     | 'tweezer top';
 
+/** How each two-candle pattern is named to the reader. */
+const CANDLE_PAIR_PATTERN_LABEL: Record<CandlePairPattern, MessageKey> = {
+  'bullish engulfing': 'model.candlePatternBullishEngulfing',
+  'bearish engulfing': 'model.candlePatternBearishEngulfing',
+  'piercing line': 'model.candlePatternPiercingLine',
+  'dark cloud cover': 'model.candlePatternDarkCloudCover',
+  'tweezer bottom': 'model.candlePatternTweezerBottom',
+  'tweezer top': 'model.candlePatternTweezerTop',
+};
+
+/**
+ * The reader's name for a two-candle pattern.
+ * @param pattern - One of the patterns {@link candlePairPatterns} found
+ * @returns The pattern's name in the active language
+ */
+export function candlePairPatternLabel(pattern: CandlePairPattern): string {
+  return t(CANDLE_PAIR_PATTERN_LABEL[pattern]);
+}
+
 /**
  * Whether two candles share a level closely enough to be a tweezer.
  *
@@ -358,6 +404,21 @@ export function candlePairPatterns(
  */
 export type CandleTrendPattern = 'hammer' | 'hanging man';
 
+/** How each of the two readings of that shape is named to the reader. */
+const CANDLE_TREND_PATTERN_LABEL: Record<CandleTrendPattern, MessageKey> = {
+  'hammer': 'model.candlePatternHammer',
+  'hanging man': 'model.candlePatternHangingMan',
+};
+
+/**
+ * The reader's name for a hammer or a hanging man.
+ * @param pattern - The name {@link candleTrendPattern} decided
+ * @returns The pattern's name in the active language
+ */
+export function candleTrendPatternLabel(pattern: CandleTrendPattern): string {
+  return t(CANDLE_TREND_PATTERN_LABEL[pattern]);
+}
+
 /**
  * Whether a candle is drawn in the hammer shape: a small body high in the
  * range, over a long lower shadow, with next to nothing above it.
@@ -461,6 +522,27 @@ export type CandleTrioPattern
     | 'upside tasuki gap filled'
     | 'three inside down'
     | 'three outside down';
+
+/** How each three-candle formation is named to the reader. */
+const CANDLE_TRIO_PATTERN_LABEL: Record<CandleTrioPattern, MessageKey> = {
+  'morning star': 'model.candlePatternMorningStar',
+  'evening star': 'model.candlePatternEveningStar',
+  'three white soldiers': 'model.candlePatternThreeWhiteSoldiers',
+  'three black crows': 'model.candlePatternThreeBlackCrows',
+  'upside tasuki gap': 'model.candlePatternUpsideTasukiGap',
+  'upside tasuki gap filled': 'model.candlePatternUpsideTasukiGapFilled',
+  'three inside down': 'model.candlePatternThreeInsideDown',
+  'three outside down': 'model.candlePatternThreeOutsideDown',
+};
+
+/**
+ * The reader's name for a three-candle formation.
+ * @param pattern - One of the formations {@link candleTrioPatterns} found
+ * @returns The formation's name in the active language
+ */
+export function candleTrioPatternLabel(pattern: CandleTrioPattern): string {
+  return t(CANDLE_TRIO_PATTERN_LABEL[pattern]);
+}
 
 /**
  * Whether a candle's body fills enough of its range to be a decisive one.

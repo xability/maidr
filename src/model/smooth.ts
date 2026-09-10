@@ -1,5 +1,6 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, TraceState } from '@type/state';
+import { t } from '@util/i18n';
 import { LineTrace } from './line';
 
 /**
@@ -32,7 +33,7 @@ export class SmoothTrace extends LineTrace {
 
     return {
       ...baseState,
-      plotType: 'smooth',
+      plotType: t('model.plotTypeSmooth'),
     };
   }
 
@@ -45,7 +46,7 @@ export class SmoothTrace extends LineTrace {
    * @returns The fallback label
    */
   protected override get groupFallbackLabel(): string {
-    return 'Curve';
+    return t('model.nounCurve');
   }
 
   /**
@@ -66,10 +67,10 @@ export class SmoothTrace extends LineTrace {
     column: string;
   } {
     return {
-      count: 'Number of curves',
-      perSeries: 'Samples per curve',
-      names: 'Curve names',
-      column: 'Curve',
+      count: t('model.statNumberOfCurves'),
+      perSeries: t('model.statSamplesPerCurve'),
+      names: t('model.statCurveNames'),
+      column: t('model.nounCurve'),
     };
   }
 

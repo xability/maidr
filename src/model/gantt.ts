@@ -4,11 +4,12 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat, FormatUtil } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
-import { isMeasured, MISSING_TEXT } from './bar';
+import { isMeasured, missingText } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -303,7 +304,8 @@ export class GanttTrace extends AbstractTrace {
     if (own !== undefined) {
       return own;
     }
-    return this.laneNames[row] ?? `Lane ${row + 1}`;
+    return this.laneNames[row]
+      ?? t('model.fallbackNumbered', { noun: t('model.nounLane'), index: row + 1 });
   }
 
   protected get braille(): BrailleState {
@@ -346,7 +348,7 @@ export class GanttTrace extends AbstractTrace {
       return {
         main: { label: mainLabel, value: this.laneNameAt(this.row) },
         cross: { label: crossLabel, value: Number.NaN },
-        z: { label: 'Intervals', value: 0 },
+        z: { label: t('model.asideIntervals'), value: 0 },
         mainAxis: isHorizontal ? 'y' : 'x',
         crossAxis: isHorizontal ? 'x' : 'y',
       };
@@ -359,7 +361,9 @@ export class GanttTrace extends AbstractTrace {
       // chart labels it.
       main: {
         label: mainLabel,
-        value: point.label ? `${point.x}, ${point.label}` : point.x,
+        value: point.label
+          ? t('model.ganttLabelled', { name: point.x, label: point.label })
+          : point.x,
       },
       // Carried for the traces and modes that read a single cross value; the
       // span below replaces it wherever both are present.
@@ -371,7 +375,7 @@ export class GanttTrace extends AbstractTrace {
       // two of them -- so the unit travels with the value rather than through
       // the formatter.
       z: {
-        label: 'Length',
+        label: t('model.asideLength'),
         // Rounded before the unit is attached. Attaching it makes the value a
         // string, and a string is the one thing the formatter hands back
         // untouched -- so a length of `1.23456` was spoken in full here and
@@ -379,7 +383,10 @@ export class GanttTrace extends AbstractTrace {
         // which are the same number under four labels.
         value: this.unit === undefined
           ? length
-          : `${defaultFormat(length)} ${this.unit}`,
+          : t('model.ganttLengthWithUnit', {
+              value: defaultFormat(length),
+              unit: this.unit,
+            }),
       },
       // Which real axis each value came from, so the formatter picks the
       // right per-axis format. It defaults to x/y when absent, which for a
@@ -393,8 +400,8 @@ export class GanttTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const intervals = this.lanes.flat();
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of lanes', value: this.lanes.length },
-      { label: 'Number of intervals', value: intervals.length },
+      { label: t('model.statNumberOfLanes'), value: this.lanes.length },
+      { label: t('model.statNumberOfIntervals'), value: intervals.length },
     ];
 
     const empty = this.lanes.filter(lane => lane.length === 0).length;
@@ -408,7 +415,7 @@ export class GanttTrace extends AbstractTrace {
       // an interval to compute: a schedule of nothing but empty lanes is the
       // one this count has the most to say about, and it was the one schedule
       // that never reported it.
-      stats.push({ label: 'Empty lanes', value: empty });
+      stats.push({ label: t('model.statEmptyLanes'), value: empty });
     }
 
     if (intervals.length > 0) {
@@ -419,21 +426,21 @@ export class GanttTrace extends AbstractTrace {
       // `NaN days` neither the dialog's own non-finite blanking nor the
       // service's rounding can catch it, because both of them test numbers.
       const withUnit = (value: number): string =>
-        isMeasured(value) ? `${defaultFormat(value)}${spanLabel}` : MISSING_TEXT;
+        isMeasured(value) ? `${defaultFormat(value)}${spanLabel}` : missingText();
 
       const from = MathUtil.safeMin(intervals.map(point => Number(point.start)));
       const to = MathUtil.safeMax(intervals.map(point => Number(point.end)));
       stats.push(
-        { label: 'Shortest', value: withUnit(this.min) },
-        { label: 'Longest', value: withUnit(this.max) },
+        { label: t('model.statShortest'), value: withUnit(this.min) },
+        { label: t('model.statLongest'), value: withUnit(this.max) },
         {
-          label: 'Spans',
+          label: t('model.statSpans'),
           // The chart's own rendering of its two ends when it has one, and
           // `spannedOrMissing` otherwise -- which answers a schedule whose
           // ends do not parse with `missing` rather than with the string
           // `NaN to NaN`, a string the dialog's blanking cannot see.
           value: this.timeFormat !== undefined && isMeasured(from) && isMeasured(to)
-            ? `${this.timeFormat(from)} to ${this.timeFormat(to)}`
+            ? t('model.spanRange', { min: this.timeFormat(from), max: this.timeFormat(to) })
             : MathUtil.spannedOrMissing(from, to),
         },
       );
@@ -445,8 +452,11 @@ export class GanttTrace extends AbstractTrace {
         // Pitch and pan put an overlap within reach one interval at a time;
         // the busiest moment is the one number that summarises the lot.
         stats.push({
-          label: 'Most intervals at once',
-          value: `${busiest.count} from ${this.atTimeText(busiest.at)}`,
+          label: t('model.statMostIntervalsAtOnce'),
+          value: t('model.ganttBusiest', {
+            count: busiest.count,
+            at: this.atTimeText(busiest.at),
+          }),
         });
       }
     }
@@ -462,8 +472,16 @@ export class GanttTrace extends AbstractTrace {
     // The unit belongs in the header rather than in every cell of the column:
     // a length is the one number here that is unit-bearing by definition, and
     // the announcement never says it without one.
-    const lengthHeader = this.unit === undefined ? 'Length' : `Length (${this.unit})`;
-    const headers = [laneLabel, 'Label', 'Start', 'End', lengthHeader];
+    const lengthHeader = this.unit === undefined
+      ? t('model.asideLength')
+      : t('model.ganttLengthHeader', { unit: this.unit });
+    const headers = [
+      laneLabel,
+      t('model.tableLabel'),
+      t('model.tableStart'),
+      t('model.tableEnd'),
+      lengthHeader,
+    ];
     // The lane column sits on whichever axis carries the lanes, the same swap
     // the header above makes. Start and End are already rendered through the
     // time axis's own format by `atTime`, so naming it here would run the
@@ -500,8 +518,8 @@ export class GanttTrace extends AbstractTrace {
     const rows = allRows.slice(0, MAX_DESCRIPTION_TABLE_ROWS);
     if (allRows.length > rows.length) {
       stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${allRows.length}`,
+        label: t('model.statTableRows'),
+        value: t('model.statTableRowsFirstOf', { shown: rows.length, total: allRows.length }),
       });
     }
 

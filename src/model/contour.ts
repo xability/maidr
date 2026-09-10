@@ -1,6 +1,7 @@
 import type { ContourPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { LineTrace } from './line';
@@ -184,7 +185,7 @@ export class ContourTrace extends LineTrace {
   }
 
   protected override get groupFallbackLabel(): string {
-    return 'Contour';
+    return t('model.nounContour');
   }
 
   /**
@@ -204,9 +205,9 @@ export class ContourTrace extends LineTrace {
     column: string;
   } {
     return {
-      count: 'Number of levels',
-      perSeries: 'Points per level',
-      names: 'Levels',
+      count: t('model.statNumberOfLevels'),
+      perSeries: t('model.statPointsPerLevel'),
+      names: t('model.statLevels'),
       // The layer's own word for the field, which is what the announcement
       // already calls this number: a reader who hears "Density 0.2" walking
       // the chart and then finds a column headed `Level` holding 0.2, with
@@ -234,7 +235,8 @@ export class ContourTrace extends LineTrace {
     }
     // No level: an authored name if the layer carried one, and otherwise a
     // noun that at least does not read as a level.
-    return this.authoredGroupNameAt(row) ?? `Curve ${row + 1}`;
+    return this.authoredGroupNameAt(row)
+      ?? t('model.fallbackNumbered', { noun: t('model.nounCurve'), index: row + 1 });
   }
 
   protected override get text(): TextState {
@@ -266,9 +268,11 @@ export class ContourTrace extends LineTrace {
       // straight out of a square root is a dozen digits spoken on every
       // point of every curve.
       state.asides = [{
-        label: 'Spacing',
-        value: `${defaultFormat(spacing.distance)} to level `
-          + `${defaultFormat(spacing.to)}`,
+        label: t('model.asideSpacing'),
+        value: t('model.contourSpacingValue', {
+          distance: defaultFormat(spacing.distance),
+          level: defaultFormat(spacing.to),
+        }),
       }];
     }
 
@@ -341,11 +345,11 @@ export class ContourTrace extends LineTrace {
     // running 0.1 to 0.3 was stated as 0 to 18. Named for the axis they
     // actually measure, they are a fact about the drawing and read as one.
     const stats = base.stats.map((stat) => {
-      if (stat.label === 'Min value') {
-        return { ...stat, label: `Minimum ${this.yAxis}` };
+      if (stat.label === t('model.statMinValue')) {
+        return { ...stat, label: t('model.statMinimumAxis', { axis: this.yAxis }) };
       }
-      if (stat.label === 'Max value') {
-        return { ...stat, label: `Maximum ${this.yAxis}` };
+      if (stat.label === t('model.statMaxValue')) {
+        return { ...stat, label: t('model.statMaximumAxis', { axis: this.yAxis }) };
       }
       return stat;
     });
@@ -357,7 +361,7 @@ export class ContourTrace extends LineTrace {
     // a single-curve layer is the one case the parent stays silent about,
     // since it has no series list to print.
     if (this.curves.length === 1 && declared.length === 1) {
-      stats.push({ label: 'Level', value: declared[0] });
+      stats.push({ label: t('model.statLevel'), value: declared[0] });
     }
 
     if (declared.length > 1) {
@@ -365,7 +369,7 @@ export class ContourTrace extends LineTrace {
       // like they were saying. Withheld on a single curve, whose level is
       // already stated above and is not a range.
       stats.push({
-        label: 'Level range',
+        label: t('model.statLevelRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(declared),
           MathUtil.safeMax(declared),
@@ -395,9 +399,9 @@ export class ContourTrace extends LineTrace {
           // directly: equal value between curves means the distance between
           // them IS the slope. A varying step does not, so it is named as
           // varying rather than averaged into a number that would mislead.
-          stats.push({ label: 'Level step', value: steps[0] });
+          stats.push({ label: t('model.statLevelStep'), value: steps[0] });
         } else {
-          stats.push({ label: 'Level step', value: 'varies' });
+          stats.push({ label: t('model.statLevelStep'), value: t('model.contourStepVaries') });
         }
       }
     }
@@ -408,7 +412,7 @@ export class ContourTrace extends LineTrace {
       // crowd together -- and which a reader walking one curve at a time
       // cannot find, because the finding is about the gap between curves.
       stats.push({
-        label: 'Closest approach between levels',
+        label: t('model.statClosestApproach'),
         value: this.gapPhrase(spacing.closest),
       });
       if (spacing.widest.distance !== spacing.closest.distance) {
@@ -418,7 +422,7 @@ export class ContourTrace extends LineTrace {
         // reader walking one curve can least reconstruct -- on a density
         // field, where the data thins out.
         stats.push({
-          label: 'Widest separation between levels',
+          label: t('model.statWidestSeparation'),
           value: this.gapPhrase(spacing.widest),
         });
       }
@@ -445,9 +449,13 @@ export class ContourTrace extends LineTrace {
    * @returns The phrase the description states
    */
   private gapPhrase(gap: Gap): string {
-    return `${defaultFormat(gap.distance)} at `
-      + `${this.xAxis} ${defaultFormat(gap.x)}, `
-      + `${this.yAxis} ${defaultFormat(gap.y)}`;
+    return t('model.contourGapPhrase', {
+      distance: defaultFormat(gap.distance),
+      xAxis: this.xAxis,
+      x: defaultFormat(gap.x),
+      yAxis: this.yAxis,
+      y: defaultFormat(gap.y),
+    });
   }
 
   /**

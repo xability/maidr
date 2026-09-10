@@ -1,6 +1,7 @@
 import type { RotorFilterUnit } from '@model/abstract';
 import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { LineTrace } from './line';
@@ -14,10 +15,12 @@ import { LineTrace } from './line';
  * the uninteresting part. These are the candlestick's bullish/bearish filters
  * applied to the event this chart is drawn for.
  */
-const RANK_ROTOR_UNITS: readonly RotorFilterUnit[] = [
-  { key: 'gained', label: 'Rank gained', noun: 'rank gain' },
-  { key: 'lost', label: 'Rank lost', noun: 'rank loss' },
-];
+function rankRotorUnits(): readonly RotorFilterUnit[] {
+  return [
+    { key: 'gained', label: t('model.rotorUnitRankGained'), noun: t('model.rotorNounRankGain') },
+    { key: 'lost', label: t('model.rotorUnitRankLost'), noun: t('model.rotorNounRankLoss') },
+  ];
+}
 
 /**
  * Trace implementation for bump charts -- rank over time, one line per
@@ -115,7 +118,7 @@ export class BumpTrace extends LineTrace {
     // asks for this twice per keystroke.
     this.rotorUnits = this.moves.some(row =>
       row.some(move => move !== undefined && move !== 0))
-      ? RANK_ROTOR_UNITS
+      ? rankRotorUnits()
       : [];
   }
 
@@ -154,7 +157,11 @@ export class BumpTrace extends LineTrace {
     return {
       ...base,
       stack: {
-        label: move > 0 ? 'Places gained' : move < 0 ? 'Places lost' : 'Change',
+        label: t(
+          move > 0
+            ? 'model.asidePlacesGained'
+            : move < 0 ? 'model.asidePlacesLost' : 'model.asideChange',
+        ),
         value: Math.abs(move),
       },
     };
@@ -164,7 +171,7 @@ export class BumpTrace extends LineTrace {
     // Announced beside the competitor's own name on every move, so inheriting
     // the line's "Group" puts two words for one referent in one sentence --
     // "Competitor 1 of 4, Group is Ash".
-    return 'Competitor';
+    return t('model.nounCompetitor');
   }
 
   protected override get seriesLabels(): {
@@ -174,10 +181,10 @@ export class BumpTrace extends LineTrace {
     column: string;
   } {
     return {
-      count: 'Number of competitors',
-      perSeries: 'Periods',
-      names: 'Competitor names',
-      column: 'Competitor',
+      count: t('model.statNumberOfCompetitors'),
+      perSeries: t('model.statPeriods'),
+      names: t('model.statCompetitorNames'),
+      column: t('model.nounCompetitor'),
     };
   }
 
@@ -188,7 +195,8 @@ export class BumpTrace extends LineTrace {
     // "somebody came first" and "somebody came last" -- true of every bump
     // chart ever drawn, and so worth nothing.
     const stats = base.stats.filter(
-      stat => stat.label !== 'Min value' && stat.label !== 'Max value',
+      stat => stat.label !== t('model.statMinValue')
+        && stat.label !== t('model.statMaxValue'),
     );
 
     // What a rank axis does carry, and what dropping those two left the reader
@@ -197,9 +205,9 @@ export class BumpTrace extends LineTrace {
     // forty read identically. Zero changes is a real reading of a chart where
     // nobody moved, and a number renders rather than being blanked.
     stats.push(
-      { label: 'Ranks shown', value: MathUtil.spannedOrMissing(this.bestRank, this.worstRank) },
+      { label: t('model.statRanksShown'), value: MathUtil.spannedOrMissing(this.bestRank, this.worstRank) },
       {
-        label: 'Rank changes',
+        label: t('model.statRankChanges'),
         value: this.moves
           .flat()
           .filter(move => move !== undefined && move !== 0)
@@ -229,10 +237,10 @@ export class BumpTrace extends LineTrace {
       const first = leaderAt(0);
       const last = leaderAt(this.periods - 1);
       if (first !== null) {
-        stats.push({ label: 'Led at the start', value: first });
+        stats.push({ label: t('model.statLedAtTheStart'), value: first });
       }
       if (last !== null) {
-        stats.push({ label: 'Led at the end', value: last });
+        stats.push({ label: t('model.statLedAtTheEnd'), value: last });
       }
     }
 
@@ -247,14 +255,20 @@ export class BumpTrace extends LineTrace {
     const faller = this.extremeMover('down');
     if (climber !== null) {
       stats.push({
-        label: 'Climbed furthest',
-        value: `${this.groupNameAt(climber.row)}, ${BumpTrace.inPlaces(climber.places)}`,
+        label: t('model.statClimbedFurthest'),
+        value: t('model.nameWithValue', {
+          name: this.groupNameAt(climber.row),
+          value: BumpTrace.inPlaces(climber.places),
+        }),
       });
     }
     if (faller !== null) {
       stats.push({
-        label: 'Fell furthest',
-        value: `${this.groupNameAt(faller.row)}, ${BumpTrace.inPlaces(-faller.places)}`,
+        label: t('model.statFellFurthest'),
+        value: t('model.nameWithValue', {
+          name: this.groupNameAt(faller.row),
+          value: BumpTrace.inPlaces(-faller.places),
+        }),
       });
     }
 
@@ -272,7 +286,7 @@ export class BumpTrace extends LineTrace {
    * @returns The count and its unit
    */
   private static inPlaces(places: number): string {
-    return `${places} ${places === 1 ? 'place' : 'places'}`;
+    return t(places === 1 ? 'model.placesOne' : 'model.placesMany', { count: places });
   }
 
   /**
@@ -325,7 +339,7 @@ export class BumpTrace extends LineTrace {
       return base;
     }
 
-    return { ...base, plotType: 'bump' };
+    return { ...base, plotType: t('model.plotTypeBump') };
   }
 
   /**

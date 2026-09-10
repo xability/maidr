@@ -1,17 +1,36 @@
 import type { MaidrLayer, SurvivalPoint } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
 import type { RotorFilterUnit } from './abstract';
+import { t } from '@util/i18n';
 import { StepTrace } from './step';
 
-/** Rotor unit that restricts navigation to the censored times. */
-const CENSOR_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'censored',
-  label: 'Censored',
-  noun: 'censored times',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const CENSOR_ROTOR_KEY = 'censored';
 
-/** How a censored time announces itself. */
-const CENSORED = 'censored';
+/**
+ * Rotor unit that restricts navigation to the censored times.
+ *
+ * Built per call for the reason the step chart's is: its words are
+ * translated, and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function censorRotorUnit(): RotorFilterUnit {
+  return {
+    key: CENSOR_ROTOR_KEY,
+    label: t('model.rotorUnitCensored'),
+    noun: t('model.rotorNounCensoredTimes'),
+  };
+}
+
+/**
+ * How a censored time announces itself.
+ *
+ * @returns The section name in the active language
+ */
+function censoredSection(): string {
+  return t('model.sectionCensored');
+}
 
 /**
  * Trace implementation for Kaplan-Meier survival curves.
@@ -77,7 +96,7 @@ export class SurvivalTrace extends StepTrace {
     // itself by its raw layer type. A survival curve is a step chart, but it
     // is not *a* step chart to a reader, and the type is one of the few places
     // they learn what they are looking at.
-    return base.empty ? base : { ...base, plotType: 'survival' };
+    return base.empty ? base : { ...base, plotType: t('model.plotTypeSurvival') };
   }
 
   protected override get text(): TextState {
@@ -92,7 +111,7 @@ export class SurvivalTrace extends StepTrace {
     if (point.censored === true) {
       // The curve does not step here, so nothing else in the announcement
       // distinguishes this time from the one before it.
-      state.section = CENSORED;
+      state.section = censoredSection();
     }
 
     // The band travels as the `interval` the line trace already read off
@@ -117,14 +136,14 @@ export class SurvivalTrace extends StepTrace {
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const inherited = super.getRotorFilterUnits();
     const hasCensored = this.censoredIndices.some(indices => indices.length > 0);
-    return hasCensored ? [...inherited, CENSOR_ROTOR_UNIT] : inherited;
+    return hasCensored ? [...inherited, censorRotorUnit()] : inherited;
   }
 
   public override moveToRotorFilter(
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== CENSOR_ROTOR_UNIT.key) {
+    if (key !== CENSOR_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 
@@ -157,7 +176,7 @@ export class SurvivalTrace extends StepTrace {
   }
 
   protected override get groupFallbackLabel(): string {
-    return 'Arm';
+    return t('model.nounArm');
   }
 
   /**
@@ -184,10 +203,10 @@ export class SurvivalTrace extends StepTrace {
     column: string;
   } {
     return {
-      count: 'Number of arms',
-      perSeries: 'Times per arm',
-      names: 'Arm names',
-      column: 'Arm',
+      count: t('model.statNumberOfArms'),
+      perSeries: t('model.statTimesPerArm'),
+      names: t('model.statArmNames'),
+      column: t('model.nounArm'),
     };
   }
 
@@ -204,7 +223,7 @@ export class SurvivalTrace extends StepTrace {
     // alive at the end of follow-up -- and leaving the arm out of the list
     // would read as a chart that forgot it.
     const reads = (median: number | string | null): number | string =>
-      median === null ? 'not reached' : median;
+      median === null ? t('model.survivalNotReached') : median;
 
     // Withheld on a layer carrying no curve at all, where `join` answers with
     // the empty string and the dialog blanks it -- leaving the label standing
@@ -213,7 +232,7 @@ export class SurvivalTrace extends StepTrace {
     // statistics below are already silent on the same grounds.
     if (medians.length > 0) {
       stats.push({
-        label: 'Median survival',
+        label: t('model.statMedianSurvival'),
         // Per arm on a comparison, and bare on a single curve. Prefixed there
         // too, a lone curve authoring no name was told its median belonged to
         // "Arm 1" -- a name nothing else in the figure uses, and one that
@@ -222,7 +241,10 @@ export class SurvivalTrace extends StepTrace {
         value: medians.length === 1
           ? reads(medians[0].median)
           : medians
-              .map(({ arm, median }) => `${this.groupNameAt(arm)}: ${reads(median)}`)
+              .map(({ arm, median }) => t('model.armWithValue', {
+                arm: this.groupNameAt(arm),
+                value: reads(median),
+              }))
               .join(', '),
       });
     }
@@ -244,10 +266,13 @@ export class SurvivalTrace extends StepTrace {
       // so a reader on `Treatment` counting one could not reconcile it with a
       // total across both.
       stats.push({
-        label: 'Censored times',
+        label: t('model.statCensoredTimes'),
         value: this.censoredIndices.length > 1
           ? this.censoredIndices
-              .map((indices, arm) => `${this.groupNameAt(arm)}: ${indices.length}`)
+              .map((indices, arm) => t('model.armWithValue', {
+                arm: this.groupNameAt(arm),
+                value: indices.length,
+              }))
               .join(', ')
           : censored,
       });
@@ -268,11 +293,17 @@ export class SurvivalTrace extends StepTrace {
       // there is no "above" to report.
       const between = separation.high === separation.low
         ? ''
-        : `, ${this.groupNameAt(separation.high)} above `
-          + `${this.groupNameAt(separation.low)}`;
+        : t('model.survivalSeparationBetween', {
+            high: this.groupNameAt(separation.high),
+            low: this.groupNameAt(separation.low),
+          });
       stats.push({
-        label: 'Separation at the end of shared follow-up',
-        value: `${separation.gap} at ${separation.at}${between}`,
+        label: t('model.statSeparationAtEnd'),
+        value: t('model.survivalSeparation', {
+          gap: separation.gap,
+          at: separation.at,
+          between,
+        }),
       });
     }
 
@@ -296,12 +327,12 @@ export class SurvivalTrace extends StepTrace {
       .flat()
       // Blank rather than "no", so the column can be scanned for the times
       // that carry something.
-      .map(point => (point.censored === true ? CENSORED : ''));
+      .map(point => (point.censored === true ? censoredSection() : ''));
     return {
       ...base,
       stats,
       dataTable: {
-        headers: [...base.dataTable.headers, 'Censored'],
+        headers: [...base.dataTable.headers, t('model.tableCensored')],
         // The step chart's columns keep their axes; the flag is a mark on a
         // time rather than a reading taken on an axis, so it sits on none and
         // is left to the dialog's own rendering.

@@ -6,10 +6,11 @@ import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } 
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured, MISSING_TEXT } from './bar';
+import { isMeasured, missingText } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -78,12 +79,12 @@ function changeOf(point: DumbbellPoint): number {
  */
 function rankLabel(kind: 'max' | 'min', change: number): string {
   if (change === 0) {
-    return 'No change';
+    return t('model.rankNoChange');
   }
   if (kind === 'max') {
-    return change > 0 ? 'Largest increase' : 'Smallest decrease';
+    return t(change > 0 ? 'model.rankLargestIncrease' : 'model.rankSmallestDecrease');
   }
-  return change < 0 ? 'Largest decrease' : 'Smallest increase';
+  return t(change < 0 ? 'model.rankLargestDecrease' : 'model.rankSmallestIncrease');
 }
 
 /**
@@ -111,7 +112,7 @@ export class DumbbellTrace extends AbstractTrace {
 
   private readonly points: DumbbellPoint[];
   private readonly endValues: number[][];
-  private readonly endLabels: Record<End, string>;
+  private readonly authoredEndLabels: Partial<Record<End, string>>;
   private readonly changes: number[];
   private readonly orientation: Orientation;
 
@@ -138,10 +139,7 @@ export class DumbbellTrace extends AbstractTrace {
     // two ends emits a chart that still reads. "start" and "end" say less than
     // "1990" and "2020", but they do say which dot the cursor is on, which is
     // the minimum a paired chart has to convey.
-    this.endLabels = {
-      start: data.startLabel ?? 'start',
-      end: data.endLabel ?? 'end',
-    };
+    this.authoredEndLabels = { start: data.startLabel, end: data.endLabel };
 
     this.endValues = ENDS.map(end =>
       this.points.map(point => Number(point[end])),
@@ -266,6 +264,22 @@ export class DumbbellTrace extends AbstractTrace {
     };
   }
 
+  /**
+   * What each end of the pair is called.
+   *
+   * The producer's names where it gave any, and the generic words otherwise --
+   * resolved on each read rather than at construction, because the generic
+   * words are translated and the trace outlives a language change.
+   *
+   * @returns A label for each end
+   */
+  private get endLabels(): Record<End, string> {
+    return {
+      start: this.authoredEndLabels.start ?? t('model.dumbbellStart'),
+      end: this.authoredEndLabels.end ?? t('model.dumbbellEnd'),
+    };
+  }
+
   protected get text(): TextState {
     const point = this.points[this.col];
     const change = this.changes[this.col];
@@ -292,7 +306,11 @@ export class DumbbellTrace extends AbstractTrace {
       // needs no interpretation; "-3.1" asks the reader to hear a minus sign
       // and work out which way it points, on every row of the chart.
       stack: {
-        label: change > 0 ? 'Increase' : change < 0 ? 'Decrease' : 'Change',
+        label: t(
+          change > 0
+            ? 'model.asideIncrease'
+            : change < 0 ? 'model.asideDecrease' : 'model.asideChange',
+        ),
         value: Math.abs(change),
       },
       // Which real axis each value came from, so the formatter service picks
@@ -316,9 +334,9 @@ export class DumbbellTrace extends AbstractTrace {
     const chartMin = MathUtil.safeMin(ends);
     const chartMax = MathUtil.safeMax(ends);
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of pairs', value: this.points.length },
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
+      { label: t('model.statNumberOfPairs'), value: this.points.length },
+      { label: t('model.statMinValue'), value: isMeasured(chartMin) ? chartMin : missingText() },
+      { label: t('model.statMaxValue'), value: isMeasured(chartMax) ? chartMax : missingText() },
     ];
 
     // The count each way is what a sighted reader takes from the shape of the
@@ -335,11 +353,11 @@ export class DumbbellTrace extends AbstractTrace {
     const falls = this.changes.filter(change => change < 0).length;
     const flat = this.changes.filter(change => change === 0).length;
     stats.push(
-      { label: 'Increased', value: rises },
-      { label: 'Decreased', value: falls },
+      { label: t('model.statIncreased'), value: rises },
+      { label: t('model.statDecreased'), value: falls },
     );
     if (flat > 0) {
-      stats.push({ label: 'Unchanged', value: flat });
+      stats.push({ label: t('model.statUnchanged'), value: flat });
     }
 
     // The rows whose change cannot be computed at all, which is the fourth
@@ -350,7 +368,7 @@ export class DumbbellTrace extends AbstractTrace {
     // chart, the way `LineTrace` is about its gaps.
     const unmeasured = this.changes.length - rises - falls - flat;
     if (unmeasured > 0) {
-      stats.push({ label: 'Missing values', value: unmeasured });
+      stats.push({ label: t('model.statMissingValues'), value: unmeasured });
     }
 
     const largest = this.extremeChange('max');
@@ -361,13 +379,19 @@ export class DumbbellTrace extends AbstractTrace {
         // Formatted here rather than left to the dialog, which rounds a stat
         // whose value is a number and passes a composed string through
         // untouched -- so a change of 0.004567 read two ways in one modal.
-        value: `${this.points[largest.index].x}, ${defaultFormat(Math.abs(largest.change))}`,
+        value: t('model.nameWithValue', {
+          name: this.points[largest.index].x,
+          value: defaultFormat(Math.abs(largest.change)),
+        }),
       });
     }
     if (smallest !== null && smallest.index !== largest?.index) {
       stats.push({
         label: rankLabel('min', smallest.change),
-        value: `${this.points[smallest.index].x}, ${defaultFormat(Math.abs(smallest.change))}`,
+        value: t('model.nameWithValue', {
+          name: this.points[smallest.index].x,
+          value: defaultFormat(Math.abs(smallest.change)),
+        }),
       });
     }
 
@@ -380,7 +404,7 @@ export class DumbbellTrace extends AbstractTrace {
       this.orientation === Orientation.HORIZONTAL ? this.yAxis : this.xAxis,
       this.endLabels.start,
       this.endLabels.end,
-      'Change',
+      t('model.tableChange'),
     ];
     const rows: (string | number)[][] = this.points.map((point, index) => [
       point.x,
@@ -468,7 +492,10 @@ export class DumbbellTrace extends AbstractTrace {
     }
 
     const targets: ExtremaTarget[] = [{
-      label: `${rankLabel('max', largest.change)} at ${this.points[largest.index].x}`,
+      label: t('model.extremaRankAt', {
+        rank: rankLabel('max', largest.change),
+        label: this.points[largest.index].x,
+      }),
       value: largest.change,
       pointIndex: largest.index,
       segment: 'end',
@@ -482,7 +509,10 @@ export class DumbbellTrace extends AbstractTrace {
     // the chart does not have.
     if (smallest.index !== largest.index) {
       targets.push({
-        label: `${rankLabel('min', smallest.change)} at ${this.points[smallest.index].x}`,
+        label: t('model.extremaRankAt', {
+          rank: rankLabel('min', smallest.change),
+          label: this.points[smallest.index].x,
+        }),
         value: smallest.change,
         pointIndex: smallest.index,
         segment: 'end',

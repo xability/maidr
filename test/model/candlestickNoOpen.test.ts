@@ -1,12 +1,12 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
 import {
-  BEARISH_POINT_MODE,
-  BULLISH_POINT_MODE,
+  bearishPointMode,
+  bullishPointMode,
   Candlestick,
   CANDLESTICK_SECTIONS,
   candlestickSectionsOf,
-  NEUTRAL_POINT_MODE,
+  neutralPointMode,
 } from '@model/candlestick';
 import { TraceType } from '@type/grammar';
 
@@ -93,9 +93,9 @@ describe('a candlestick trace whose chart records no opening price', () => {
     // and never leave — the keyboard trap `extremaContract.test.ts` exists
     // for. With no body there is no trend at all, so none of the three is
     // offered.
-    expect(labels).not.toContain(BULLISH_POINT_MODE);
-    expect(labels).not.toContain(BEARISH_POINT_MODE);
-    expect(labels).not.toContain(NEUTRAL_POINT_MODE);
+    expect(labels).not.toContain(bullishPointMode());
+    expect(labels).not.toContain(bearishPointMode());
+    expect(labels).not.toContain(neutralPointMode());
   });
 
   test('still offers them where the chart has bodies', () => {
@@ -103,9 +103,9 @@ describe('a candlestick trace whose chart records no opening price', () => {
       .getRotorFilterUnits()
       .map(unit => unit.label);
 
-    expect(labels).toContain(BULLISH_POINT_MODE);
-    expect(labels).toContain(BEARISH_POINT_MODE);
-    expect(labels).toContain(NEUTRAL_POINT_MODE);
+    expect(labels).toContain(bullishPointMode());
+    expect(labels).toContain(bearishPointMode());
+    expect(labels).toContain(neutralPointMode());
   });
 
   test('announces no trend and no body-derived aside', () => {
@@ -263,9 +263,9 @@ describe('a chart where only some candles record an open', () => {
       .getRotorFilterUnits()
       .map(unit => unit.label);
 
-    expect(labels).not.toContain(BULLISH_POINT_MODE);
-    expect(labels).not.toContain(BEARISH_POINT_MODE);
-    expect(labels).not.toContain(NEUTRAL_POINT_MODE);
+    expect(labels).not.toContain(bullishPointMode());
+    expect(labels).not.toContain(bearishPointMode());
+    expect(labels).not.toContain(neutralPointMode());
   });
 
   test('shades the braille with no trend markers, as the sections say', () => {

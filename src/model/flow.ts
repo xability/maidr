@@ -4,31 +4,65 @@ import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
-/** Rotor unit that steps through the flows leaving the current node. */
-const OUT_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'outgoing',
-  label: 'Outgoing',
-  noun: 'outgoing flows',
-};
+/** The two rotor units' keys, which the trace recognises a move request by. */
+const OUT_ROTOR_KEY = 'outgoing';
+const IN_ROTOR_KEY = 'incoming';
 
-/** Rotor unit that steps through the flows arriving at the current node. */
-const IN_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'incoming',
-  label: 'Incoming',
-  noun: 'incoming flows',
-};
+/**
+ * Rotor unit that steps through the flows leaving the current node.
+ *
+ * Built per call rather than held as a constant, because its words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function outRotorUnit(): RotorFilterUnit {
+  return {
+    key: OUT_ROTOR_KEY,
+    label: t('model.rotorUnitOutgoing'),
+    noun: t('model.rotorNounOutgoingFlows'),
+  };
+}
+
+/**
+ * Rotor unit that steps through the flows arriving at the current node.
+ *
+ * @returns The unit, named in the active language
+ */
+function inRotorUnit(): RotorFilterUnit {
+  return {
+    key: IN_ROTOR_KEY,
+    label: t('model.rotorUnitIncoming'),
+    noun: t('model.rotorNounIncomingFlows'),
+  };
+}
 
 /** How many hops the dominant path follows before it stops describing itself. */
 const PATH_HOPS = 8;
 
-/** What a flow chart calls its two dimensions when the layer names neither. */
-const NODE_AXIS = 'Node';
-const VALUE_AXIS = 'Value';
+/**
+ * What a flow chart calls its node dimension when the layer names no x axis.
+ *
+ * @returns The label in the active language
+ */
+function nodeAxis(): string {
+  return t('model.tableNode');
+}
+
+/**
+ * What a flow chart calls its value dimension when the layer names no y axis.
+ *
+ * @returns The label in the active language
+ */
+function valueAxis(): string {
+  return t('model.tableValue');
+}
 
 /** One edge of the graph, resolved to node indices. */
 interface Edge {
@@ -407,12 +441,12 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
    * by cell as "Y, 34".
    */
   private get nodeLabel(): string {
-    return named(this.layer.axes?.x?.label, NODE_AXIS);
+    return named(this.layer.axes?.x?.label, nodeAxis());
   }
 
   /** @see {@link FlowTrace.nodeLabel} */
   private get valueLabel(): string {
-    return named(this.layer.axes?.y?.label, VALUE_AXIS);
+    return named(this.layer.axes?.y?.label, valueAxis());
   }
 
   /**
@@ -525,14 +559,24 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       const source = this.nodes[via.from];
       const target = this.nodes[via.to];
       const basis = source.outTotal;
-      const share = basis === 0 ? '' : `, ${asPercent(via.value / basis)} of ${source.name}`;
+      const share = basis === 0
+        ? ''
+        : t('model.flowShareOfSource', {
+            share: asPercent(via.value / basis),
+            source: source.name,
+          });
       // The amounts go through `defaultFormat` because they are announced
       // inside a sentence this trace assembles, which `TextService` speaks as
       // it is given: a derived total said "34.000000000000004" where the same
       // figure read through the cross axis said "34".
       asides.push({
-        label: 'Along',
-        value: `${source.name} to ${target.name}, ${defaultFormat(via.value)}${share}`,
+        label: t('model.asideAlong'),
+        value: t('model.flowAlongValue', {
+          source: source.name,
+          target: target.name,
+          value: defaultFormat(via.value),
+          share,
+        }),
       });
     }
 
@@ -541,14 +585,17 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // is tracing. A pure source or sink has only one side and the
       // throughput already carries it.
       asides.push({
-        label: 'In and out',
-        value: `${defaultFormat(node.inTotal)}, ${defaultFormat(node.outTotal)}`,
+        label: t('model.asideInAndOut'),
+        value: t('model.flowInOut', {
+          in: defaultFormat(node.inTotal),
+          out: defaultFormat(node.outTotal),
+        }),
       });
     }
 
     const branches = node.out.length;
     if (branches > 1) {
-      asides.push({ label: 'Splits into', value: String(branches) });
+      asides.push({ label: t('model.asideSplitsInto'), value: String(branches) });
     }
 
     return {
@@ -580,10 +627,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const units = [...super.getRotorFilterUnits()];
     if (this.nodes.some(node => node.out.length > 1)) {
-      units.push(OUT_ROTOR_UNIT);
+      units.push(outRotorUnit());
     }
     if (this.nodes.some(node => node.in.length > 1)) {
-      units.push(IN_ROTOR_UNIT);
+      units.push(inRotorUnit());
     }
     return units;
   }
@@ -592,9 +639,9 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    const along = key === OUT_ROTOR_UNIT.key
+    const along = key === OUT_ROTOR_KEY
       ? 'out'
-      : key === IN_ROTOR_UNIT.key ? 'in' : null;
+      : key === IN_ROTOR_KEY ? 'in' : null;
     if (along === null) {
       return super.moveToRotorFilter(key, direction);
     }
@@ -673,16 +720,19 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
     const sinks = this.nodes.filter(node => node.out.length === 0);
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of nodes', value: this.nodes.length },
-      { label: 'Number of flows', value: this.nodes.reduce((n, node) => n + node.out.length, 0) },
+      { label: t('model.statNumberOfNodes'), value: this.nodes.length },
+      {
+        label: t('model.statNumberOfFlows'),
+        value: this.nodes.reduce((n, node) => n + node.out.length, 0),
+      },
       // A single stage is not a one-column drawing: `assignStages` answers
       // with one stage holding everything exactly when the sort does not
       // complete, which is what a chord diagram always is and what a sankey
       // fed by a cycle is. Reporting `1` presented that as a geometry, and on
       // a graph with a source upstream of a cycle it is plainly not one.
       this.stages.length === 1
-        ? { label: 'Stages', value: 'none, the flows form a cycle' }
-        : { label: 'Stages', value: this.stages.length },
+        ? { label: t('model.statStages'), value: t('model.flowCycle') }
+        : { label: t('model.statStages'), value: this.stages.length },
     ];
 
     // A sankey conserves its quantity across the stages, so what enters is
@@ -696,7 +746,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       : this.nodes.reduce((sum, node) => sum + node.outTotal, 0);
     if (total > 0) {
       stats.push({
-        label: sources.length > 0 ? 'Total flow' : 'Total of all flows',
+        label: t(sources.length > 0 ? 'model.statTotalFlow' : 'model.statTotalOfAllFlows'),
         value: total,
       });
     }
@@ -706,8 +756,11 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // the label names them -- the two ends of every route, and the shape a
       // reader stepping from node to node has no vantage point on.
       stats.push({
-        label: 'Sources and sinks',
-        value: `${sources.length}, ${sinks.length}`,
+        label: t('model.statSourcesAndSinks'),
+        value: t('model.flowSourcesSinks', {
+          sources: sources.length,
+          sinks: sinks.length,
+        }),
       });
     }
 
@@ -718,8 +771,11 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // scaled against and the finding a walk would have to hold every total
       // in mind to make. `NetworkTrace` names its hub for the same reason.
       stats.push({
-        label: 'Busiest node',
-        value: `${busiest.name}, ${defaultFormat(this.throughputOf(busiest))}`,
+        label: t('model.statBusiestNode'),
+        value: t('model.nameWithValue', {
+          name: busiest.name,
+          value: defaultFormat(this.throughputOf(busiest)),
+        }),
       });
     }
 
@@ -732,9 +788,12 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // reaches the dialog as display text and is never rounded again -- the
       // table below prints the same flow to two decimals.
       stats.push({
-        label: 'Largest flow',
-        value: `${this.nodes[biggest.from].name} to ${this.nodes[biggest.to].name}, `
-          + `${defaultFormat(biggest.value)}`,
+        label: t('model.statLargestFlow'),
+        value: t('model.flowLargest', {
+          from: this.nodes[biggest.from].name,
+          to: this.nodes[biggest.to].name,
+          value: defaultFormat(biggest.value),
+        }),
       });
     }
 
@@ -749,8 +808,10 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       // names a node the flow passes straight through as though it were where
       // the chart ends, which is worse than the truncation it hides.
       stats.push({
-        label: 'Main route',
-        value: truncated ? `${path.join(' to ')}, and on` : path.join(' to '),
+        label: t('model.statMainRoute'),
+        value: truncated
+          ? t('model.flowRouteTruncated', { path: path.join(t('model.flowRouteJoin')) })
+          : path.join(t('model.flowRouteJoin')),
       });
     }
 
@@ -760,7 +821,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       axes: this.getDescriptionAxes(),
       stats,
       dataTable: {
-        headers: ['From', 'To', this.valueLabel],
+        headers: [t('model.tableFrom'), t('model.tableTo'), this.valueLabel],
         // Both ends of a ribbon are node names, which this chart carries on x,
         // and the amount is the y reading `cross` announces.
         columnAxes: ['x', 'x', 'y'],
