@@ -1,5 +1,6 @@
 import type { Llm } from '@type/llm';
 import { ANTHROPIC_API_VERSION } from '@type/llm';
+import { t } from '@util/i18n';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import modelFilters from './modelFilters.json';
 
@@ -130,17 +131,17 @@ export class LlmValidationService {
             models,
             error: reachable
               ? undefined
-              : 'Cannot reach Ollama server. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.',
+              : t('llm.errorOllamaUnreachable'),
           };
         }
         default:
-          return { isValid: false, models: [], error: 'Invalid model key' };
+          return { isValid: false, models: [], error: t('llm.errorInvalidModelKey') };
       }
     } catch (error) {
       return {
         isValid: false,
         models: [],
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? error.message : t('llm.errorUnknown'),
       };
     }
   }
@@ -154,9 +155,9 @@ export class LlmValidationService {
    */
   private static describeProbeFailure(error: unknown): string {
     if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-      return 'The provider did not respond in time. Check your network connection and try again.';
+      return t('llm.errorProviderTimeout');
     }
-    return 'Could not reach the provider. Check your network connection.';
+    return t('llm.errorProviderUnreachable');
   }
 
   /**
@@ -169,12 +170,12 @@ export class LlmValidationService {
    */
   private static describeProbeStatus(status: number): ProviderProbeResult {
     if (status === 401 || status === 403) {
-      return { isValid: false, models: [], error: 'Invalid API key' };
+      return { isValid: false, models: [], error: t('llm.errorInvalidApiKey') };
     }
     return {
       isValid: false,
       models: [],
-      error: `The provider returned ${status}. This is not a problem with your key; try again later.`,
+      error: t('llm.errorProviderStatus', { status }),
     };
   }
 

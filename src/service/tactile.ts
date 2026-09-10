@@ -9,6 +9,7 @@ import type { BrailleService } from './braille';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
+import { t } from '@util/i18n';
 import { TactileBraille } from '@util/tactile/brailleText';
 import { DotPack } from '@util/tactile/pack';
 import { DotRaster } from '@util/tactile/raster';
@@ -232,8 +233,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * chart has no measurable region, or no navigation has happened yet. Every
    * other refusal in this service explains itself; falling silent here would
    * leave the reader pressing a key that does nothing for no stated reason.
+   *
+   * Read on each use rather than held in a field, so it is rendered in the
+   * language in force when it is said, not the one loaded in.
    */
-  private static readonly NO_VIEW = 'Nothing is on the tactile display yet';
+  private static get noView(): string {
+    return t('tactile.noView');
+  }
 
   private readonly display: DisplayService;
   private readonly notification: NotificationService;
@@ -588,14 +594,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * Zooms the tactile view in one step.
    */
   public zoomIn(): void {
-    this.changeZoom(viewport => viewport.zoomIn(), 'Already at the closest zoom');
+    this.changeZoom(viewport => viewport.zoomIn(), t('tactile.zoomAtClosest'));
   }
 
   /**
    * Zooms the tactile view out one step.
    */
   public zoomOut(): void {
-    this.changeZoom(viewport => viewport.zoomOut(), 'Already showing the whole plot');
+    this.changeZoom(viewport => viewport.zoomOut(), t('tactile.zoomAtWholePlot'));
   }
 
   /**
@@ -608,7 +614,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * your way back to it.
    */
   public resetZoom(): void {
-    this.changeZoom(viewport => viewport.reset(), 'Already showing the whole plot');
+    this.changeZoom(viewport => viewport.reset(), t('tactile.zoomAtWholePlot'));
   }
 
   /**
@@ -622,7 +628,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
     const viewport = this.viewport;
     if (viewport === null) {
-      this.notification.notify(TactileService.NO_VIEW);
+      this.notification.notify(TactileService.noView);
       return;
     }
     if (!step(viewport)) {
@@ -649,12 +655,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
     const viewport = this.viewport;
     if (viewport === null) {
-      this.notification.notify(TactileService.NO_VIEW);
+      this.notification.notify(TactileService.noView);
       return;
     }
     if (!viewport.pan(direction)) {
       this.notification.notify(viewport.isWholePlotVisible
-        ? 'The whole plot is already shown; zoom in to pan'
+        ? t('tactile.panWholePlot')
         : TactileService.edgeRefusal(direction));
       return;
     }
@@ -672,11 +678,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private static edgeRefusal(direction: PanDirection): string {
     switch (direction) {
       case 'up':
-        return 'No more to show above';
+        return t('tactile.panEdgeUp');
       case 'down':
-        return 'No more to show below';
+        return t('tactile.panEdgeDown');
+      case 'left':
+        return t('tactile.panEdgeLeft');
       default:
-        return `No more to show to the ${direction}`;
+        return t('tactile.panEdgeRight');
     }
   }
 
@@ -700,10 +708,16 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param outcome - What the redraw did to the pins
    */
   private announceView(viewport: TactileViewport, outcome: FrameOutcome): void {
-    const suffix = outcome === 'empty'
-      ? '; nothing is in view'
-      : (outcome === 'unchanged' ? '; the pins are unchanged' : '');
-    this.notification.notify(`${viewport.describe()}${suffix}`);
+    const view = viewport.describe();
+    if (outcome === 'empty') {
+      this.notification.notify(t('tactile.viewEmpty', { view }));
+      return;
+    }
+    if (outcome === 'unchanged') {
+      this.notification.notify(t('tactile.viewUnchanged', { view }));
+      return;
+    }
+    this.notification.notify(view);
   }
 
   /**
@@ -714,8 +728,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return true;
     }
     this.notification.notify(dotPadSession.isConnected
-      ? 'Turn braille on to use the tactile display'
-      : 'No tactile display is connected');
+      ? t('tactile.brailleOff')
+      : t('tactile.notConnected'));
     return false;
   }
 
@@ -756,19 +770,19 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     const lastWindow = TactileBraille.windowCount(this.textCells, cellCount) - 1;
     if (lastWindow <= 0) {
-      this.notification.notify('The whole line is already shown');
+      this.notification.notify(t('tactile.lineWholeShown'));
       return;
     }
 
     const next = Math.min(Math.max(this.textWindow + step, 0), lastWindow);
     if (next === this.textWindow) {
-      this.notification.notify(step < 0 ? 'Start of the line' : 'End of the line');
+      this.notification.notify(step < 0 ? t('tactile.lineStart') : t('tactile.lineEnd'));
       return;
     }
 
     this.textWindow = next;
     this.writeTextWindow(cellCount);
-    this.notification.notify(`Line part ${next + 1} of ${lastWindow + 1}`);
+    this.notification.notify(t('tactile.linePart', { index: next + 1, total: lastWindow + 1 }));
   }
 
   /**
@@ -1383,9 +1397,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
     this.warnedUncontracted = true;
-    this.notification.notify(
-      'Contracted braille is unavailable, so the tactile display\'s text line is uncontracted',
-    );
+    this.notification.notify(t('tactile.lineUncontracted'));
   }
 
   /**

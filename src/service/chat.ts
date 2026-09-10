@@ -8,6 +8,7 @@ import { HttpStatus } from '@type/api';
 import { Scope } from '@type/event';
 import { ANTHROPIC_API_VERSION } from '@type/llm';
 import { Api } from '@util/api';
+import { t } from '@util/i18n';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
 import { MODEL_VERSIONS } from './modelVersions';
@@ -292,7 +293,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       } else if (!response.data) {
         return {
           success: false,
-          error: 'Response unavailable',
+          error: t('llm.errorResponseUnavailable'),
         };
       } else {
         return this.formatResponse(response.data);
@@ -300,7 +301,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? error.message : t('llm.errorUnknown'),
       };
     }
   }
@@ -332,7 +333,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         success: false,
         error: {
           statusCode: HttpStatus.SERVER_ERROR,
-          message: 'Chat request aborted',
+          message: t('llm.errorAborted'),
         },
       };
     }
@@ -344,12 +345,12 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
     const aborted = new Promise<never>((_, reject) => {
       if (signal.aborted) {
-        reject(new Error('Chat request aborted'));
+        reject(new Error(t('llm.errorAborted')));
         return;
       }
       signal.addEventListener(
         'abort',
-        () => reject(new Error('Chat request aborted')),
+        () => reject(new Error(t('llm.errorAborted'))),
         { once: true },
       );
     });
@@ -537,7 +538,7 @@ class Gpt extends AbstractLlmModel<GptResponse> {
     if (!content) {
       return {
         success: false,
-        error: 'Invalid response format',
+        error: t('llm.errorInvalidFormat'),
       };
     }
 
@@ -652,7 +653,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     if (!textBlock?.text) {
       return {
         success: false,
-        error: 'Invalid response format',
+        error: t('llm.errorInvalidFormat'),
       };
     }
 
@@ -715,7 +716,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
    */
   protected getApiUrl(apiKey: string, version?: LlmVersion): string {
     if (!apiKey) {
-      throw new Error('API key is required for Gemini API');
+      throw new Error(t('llm.errorGeminiKeyRequired'));
     }
     return `https://generativelanguage.googleapis.com/v1beta/models/${version ?? this.version}:generateContent?key=${apiKey}`;
   }
@@ -804,7 +805,7 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
     if (!text) {
       return {
         success: false,
-        error: 'Invalid response format',
+        error: t('llm.errorInvalidFormat'),
       };
     }
 
@@ -858,7 +859,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
    */
   protected getApiUrl(baseUrl?: string): string {
     if (!isValidOllamaBaseUrl(baseUrl)) {
-      throw new Error('Invalid Ollama server URL: it must start with http:// or https://');
+      throw new Error(t('llm.errorOllamaUrl'));
     }
     return `${normalizeOllamaBaseUrl(baseUrl)}/api/chat`;
   }
@@ -871,7 +872,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
    * @throws {Error} Always; Ollama requests cannot be proxied
    */
   protected getEndPoint(): string {
-    throw new Error('Ollama requests cannot be routed through the MAIDR proxy');
+    throw new Error(t('llm.errorOllamaProxy'));
   }
 
   /**
@@ -936,7 +937,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
     if (!response.message?.content) {
       return {
         success: false,
-        error: 'Invalid response format',
+        error: t('llm.errorInvalidFormat'),
       };
     }
 

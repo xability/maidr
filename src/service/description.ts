@@ -8,6 +8,7 @@ import type { DescriptionStat, DescriptionState, DisplayDescriptionState } from 
 import { AbstractTrace } from '@model/abstract';
 import { Scope } from '@type/event';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 
 /**
  * Rounds one cell or summary value for display.
@@ -101,12 +102,12 @@ function roundNonFinite(value: number): string | null {
     return null;
   }
   if (value === Number.POSITIVE_INFINITY) {
-    return 'infinity';
+    return t('description.valueInfinity');
   }
   if (value === Number.NEGATIVE_INFINITY) {
-    return 'negative infinity';
+    return t('description.valueNegativeInfinity');
   }
-  return 'missing';
+  return t('common.missing');
 }
 
 /**
@@ -174,7 +175,7 @@ export class DescriptionService implements Disposable {
         ...description,
         ...rounded,
         stats: [
-          ...(orientation ? [{ label: 'Orientation', value: orientation }] : []),
+          ...(orientation ? [{ label: t('description.statOrientation'), value: orientation }] : []),
           ...rounded.stats,
           ...this.figureNotes(),
         ],
@@ -224,11 +225,11 @@ export class DescriptionService implements Disposable {
     const notes: DescriptionStat[] = [];
     const subtitle = this.context.figureSubtitle;
     if (this.context.isAuthoredSubtitle(subtitle)) {
-      notes.push({ label: 'Subtitle', value: subtitle });
+      notes.push({ label: t('description.statSubtitle'), value: subtitle });
     }
     const caption = this.context.figureCaption;
     if (this.context.isAuthoredCaption(caption)) {
-      notes.push({ label: 'Caption', value: caption });
+      notes.push({ label: t('description.statCaption'), value: caption });
     }
     return notes;
   }
@@ -342,19 +343,27 @@ export class DescriptionService implements Disposable {
     );
     const stats: DescriptionStat[] = [
       ...(active
-        ? [{ label: 'Currently on', value: `subplot ${active.index} of ${subplots.length}` }]
+        ? [{
+            label: t('description.statCurrentlyOn'),
+            value: t('description.subplotPosition', {
+              index: active.index,
+              total: subplots.length,
+            }),
+          }]
         : []),
       ...(kinds.size > 0
         ? [{
-            label: 'Chart types',
-            value: [...kinds].map(([kind, n]) => (n > 1 ? `${kind} (${n})` : kind)).join(', '),
+            label: t('description.statChartTypes'),
+            value: [...kinds]
+              .map(([kind, n]) => (n > 1 ? t('description.chartTypeCount', { kind, count: n }) : kind))
+              .join(', '),
           }]
         : []),
       ...this.figureNotes(),
     ];
 
     return {
-      chartType: 'Multi-panel figure',
+      chartType: t('description.multiPanelFigure'),
       title,
       axes: this.getFigureAxes(),
       stats,

@@ -1,5 +1,6 @@
 import type { Llm } from '@type/llm';
 import { DEFAULT_OLLAMA_BASE_URL } from '@type/llm';
+import { t } from '@util/i18n';
 
 /**
  * Normalizes an Ollama server base URL by trimming whitespace and trailing
@@ -62,6 +63,6 @@ export function getModelDisplayName(modelKey?: Llm | string): string {
     case 'OLLAMA':
       return 'Ollama';
     default:
-      return 'AI Assistant';
+      return t('llm.fallbackModelName');
   }
 }

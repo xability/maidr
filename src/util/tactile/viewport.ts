@@ -1,3 +1,5 @@
+import { t } from '@util/i18n';
+
 /**
  * A rectangle in viewport (client) pixels, as `getBoundingClientRect` reports.
  */
@@ -371,10 +373,10 @@ export class TactileViewport {
    */
   public describe(): string {
     if (this.isWholePlotVisible) {
-      return 'Whole plot';
+      return t('tactile.viewWholePlot');
     }
     const percentX = Math.round(this.centre.x * 100);
     const percentY = Math.round(this.centre.y * 100);
-    return `Zoom ${this.zoom}x, centred ${percentX}% across and ${percentY}% down`;
+    return t('tactile.viewZoomed', { zoom: this.zoom, x: percentX, y: percentY });
   }
 }

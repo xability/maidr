@@ -17,6 +17,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { visuallyHidden } from '@ui/visuallyHidden';
@@ -30,18 +31,19 @@ interface DataTableProps {
 }
 
 const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
+  const { t } = useLocale();
   const headingId = useId();
   const [shown, setShown] = useState(DEFAULT_ROW_LIMIT);
   const displayedRows = rows.slice(0, shown);
   const remaining = rows.length - displayedRows.length;
-  const noun = rows.length === 1 ? 'row' : 'rows';
+  const noun = rows.length === 1 ? t('description.rowOne') : t('description.rowMany');
   // The count the table actually shows, not the count it holds. The heading
   // used to state the full total over a table cut off at a hundred, so a
   // reader who reached the last rendered row had been told there were five
   // thousand and was given no signal that the rest were missing.
   const caption = remaining > 0
-    ? `Data: showing ${displayedRows.length} of ${rows.length} ${noun}`
-    : `Data: ${rows.length} ${noun}`;
+    ? t('description.tableCaptionTruncated', { shown: displayedRows.length, total: rows.length, rows: noun })
+    : t('description.tableCaption', { total: rows.length, rows: noun });
   return (
     <>
       <Typography id={headingId} variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1, mb: 1 }}>
@@ -64,7 +66,7 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
                 <TableCell key={i} sx={{ fontWeight: 'bold' }}>
                   {/* A blank header would leave an unnamed column, and every
                       cell under it unlabelled with it. */}
-                  {formatCell(header) || `Column ${i + 1}`}
+                  {formatCell(header) || t('description.tableColumn', { index: i + 1 })}
                 </TableCell>
               ))}
             </TableRow>
@@ -97,7 +99,11 @@ const DataTable: React.FC<DataTableProps> = ({ headers, rows }) => {
           onClick={() => setShown(count => count + DEFAULT_ROW_LIMIT)}
           sx={{ mt: 1 }}
         >
-          {`Show ${Math.min(DEFAULT_ROW_LIMIT, remaining)} more of ${rows.length} ${noun}`}
+          {t('description.tableShowMore', {
+            count: Math.min(DEFAULT_ROW_LIMIT, remaining),
+            total: rows.length,
+            rows: noun,
+          })}
         </Button>
       )}
     </>
@@ -154,6 +160,7 @@ const LayerTabs: React.FC<LayerTabsProps> = ({
   onFocusPrev,
   onFocusNext,
 }) => {
+  const { t } = useLocale();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -180,18 +187,14 @@ const LayerTabs: React.FC<LayerTabsProps> = ({
   return (
     <>
       <Typography id={`${idBase}-layers-label`} variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
-        Layers
-        {' '}
-        (
-        {layers.length}
-        )
+        {t('description.layersHeading', { count: layers.length })}
       </Typography>
       <Typography variant="body2">
-        {`Showing layer ${activeIndex + 1} of ${layers.length}`}
+        {t('description.showingLayer', { index: activeIndex + 1, total: layers.length })}
         {active ? `: ${active.label}` : ''}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Use the left and right arrow keys to move between layers and Space to open one.
+        {t('description.layerHint')}
       </Typography>
       <Box
         role="tablist"
@@ -264,6 +267,7 @@ function formatCell(value: unknown): string {
 }
 
 const Description: React.FC = () => {
+  const { t } = useLocale();
   const id = useId();
   const viewModel = useViewModel('description');
   const { data, focusedLayerIndex } = useViewModelState('description');
@@ -292,8 +296,8 @@ const Description: React.FC = () => {
   // figure unable to tell whether they were being told about this panel or
   // about the whole figure.
   const titleLabel = data.subplots && data.titleSource
-    ? (data.titleSource === 'layer' ? 'Subplot title' : 'Figure title')
-    : 'Title';
+    ? (data.titleSource === 'layer' ? t('description.titleLabelSubplot') : t('description.titleLabelFigure'))
+    : t('description.titleLabel');
 
   const layers = data.layers ?? [];
   const activeLayerIndex = layers.find(layer => layer.isActive)?.index ?? -1;
@@ -319,7 +323,7 @@ const Description: React.FC = () => {
           carrying that id leaves two elements claiming it, and the wrapper
           being a heading too puts the title in the outline twice. */}
       <DialogTitle id={`${id}-title`} sx={{ fontWeight: 'bold' }}>
-        Chart Description
+        {t('description.title')}
       </DialogTitle>
 
       <DialogContent>
@@ -342,7 +346,7 @@ const Description: React.FC = () => {
                 region turns into noise. Keyed by the layer so coming back to
                 one speaks again rather than silently. */}
             <div key={activeLayerIndex} role="status" style={visuallyHidden}>
-              {`Description updated for layer ${activeLayerIndex + 1} of ${layers.length}`}
+              {t('description.layerUpdated', { index: activeLayerIndex + 1, total: layers.length })}
             </div>
             <Divider sx={{ my: 1 }} />
           </>
@@ -358,8 +362,7 @@ const Description: React.FC = () => {
           {/* Chart type and title */}
           {isDisplayable(data.chartType) && (
             <Typography variant="body2">
-              Chart Type:
-              {' '}
+              {t('description.chartTypePrefix')}
               {data.chartType}
             </Typography>
           )}
@@ -376,20 +379,16 @@ const Description: React.FC = () => {
             <>
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
-                Subplots
-                {' '}
-                (
-                {data.subplots.length}
-                )
+                {t('description.subplotsHeading', { count: data.subplots.length })}
               </Typography>
               {data.subplots.map(subplot => (
                 <Typography key={subplot.index} variant="body2">
                   {subplot.index}
                   .
                   {' '}
-                  {subplot.traceTypes.filter(isDisplayable).join(', ') || 'unknown'}
+                  {subplot.traceTypes.filter(isDisplayable).join(', ') || t('description.subplotUnknown')}
                   {isDisplayable(subplot.title) && ` — ${subplot.title}`}
-                  {subplot.isActive && ' (current)'}
+                  {subplot.isActive && t('description.subplotCurrent')}
                 </Typography>
               ))}
             </>
@@ -405,16 +404,14 @@ const Description: React.FC = () => {
             <>
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
-                Axes
+                {t('description.axesHeading')}
               </Typography>
               {axisEntries.map(([key, value]) => (
-                // `{' axis: '}` as one child, not a bare `:` on its own line:
-                // JSX drops the whitespace around a text-only line, so the
-                // three children used to concatenate to "X:Sepal Length".
+                // One interpolated child, not three: JSX drops the whitespace
+                // around a text-only line, so a bare `:` on its own line used
+                // to make the children concatenate to "X:Sepal Length".
                 <Typography key={key} variant="body2">
-                  {key.toUpperCase()}
-                  {' axis: '}
-                  {value}
+                  {t('description.axisEntry', { axis: key.toUpperCase(), label: value })}
                 </Typography>
               ))}
             </>
@@ -425,7 +422,7 @@ const Description: React.FC = () => {
             <>
               <Divider sx={{ my: 1 }} />
               <Typography variant="subtitle2" component="h3" fontWeight="bold" sx={{ mt: 1 }}>
-                Summary
+                {t('description.summaryHeading')}
               </Typography>
               {displayableStats.map((stat, index) => (
                 <Typography key={index} variant="body2">
@@ -457,7 +454,7 @@ const Description: React.FC = () => {
         >
           <Grid size="auto">
             <Button variant="contained" color="primary" onClick={handleClose}>
-              Close
+              {t('description.close')}
             </Button>
           </Grid>
         </Grid>

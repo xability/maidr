@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@type/api';
 import { HttpStatus } from '@type/api';
+import { t } from '@util/i18n';
 
 /**
  * HTTP method types for API requests.
@@ -88,7 +89,7 @@ export abstract class Api {
           success: false,
           error: {
             statusCode: response.status as HttpStatus,
-            message: `API Error: ${response.status} - ${response.statusText}`,
+            message: t('llm.errorApi', { status: response.status, statusText: response.statusText }),
           },
         };
       }
@@ -104,7 +105,7 @@ export abstract class Api {
       // some runtimes embed the full request URL in fetch failure text.
       const redactQuery = (text: string): string => text.replace(/\?\S*/g, '');
       const safeUrl = redactQuery(url);
-      const rawMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const rawMessage = error instanceof Error ? error.message : t('llm.errorUnknown');
       const safeMessage = redactQuery(rawMessage);
       console.error(`Error in API ${method} request to ${safeUrl}: ${safeMessage}`);
       return {

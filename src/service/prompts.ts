@@ -2,6 +2,9 @@
  * Prompt templates and constants for LLM interactions
  */
 
+import type { Locale } from '@util/i18n';
+import { getLocale, LOCALE_NAMES } from '@util/i18n';
+
 const BASIC_SYSTEM_PROMPT = `You are a helpful assistant that answers questions about statistical visualizations. Your role is to:
 1. Answer the user's specific question directly and clearly
 2. Use simple, everyday language with minimal statistical terms
@@ -46,6 +49,20 @@ export interface PromptContext {
   expertiseLevel: 'basic' | 'intermediate' | 'advanced';
 }
 
+/**
+ * How each non-English locale is named *to the model*, in English.
+ *
+ * The instruction is part of the prompt rather than of the interface, so it
+ * stays in the language the rest of the prompt is written in; the locale's own
+ * name comes from {@link LOCALE_NAMES} beside it, which is what a model that
+ * knows the script but not the English name has to go on. Typed over the
+ * non-English locales, so adding a locale fails the type check here rather
+ * than silently leaving its readers answered in English.
+ */
+const PROMPT_LANGUAGES: Record<Exclude<Locale, 'en'>, string> = {
+  ko: 'Korean',
+};
+
 const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
   basic: BASIC_SYSTEM_PROMPT,
   intermediate: INTERMEDIATE_SYSTEM_PROMPT,
@@ -72,7 +89,24 @@ function selectPromptByLevel(expertiseLevel: PromptContext['expertiseLevel']): s
  */
 export function formatSystemPrompt(customInstruction: string, expertiseLevel: PromptContext['expertiseLevel']): string {
   const basePrompt = selectPromptByLevel(expertiseLevel);
-  return `${basePrompt}\n\n${customInstruction}`;
+  return `${basePrompt}${languageInstruction()}\n\n${customInstruction}`;
+}
+
+/**
+ * Tells the model which language to answer in, when it is not English.
+ *
+ * The reader has asked for MAIDR in a language, and an answer they cannot read
+ * is no answer -- but the prompt itself stays English, which is what the models
+ * follow most reliably. Nothing is added for English, so the prompt an English
+ * reader sends is byte for byte the one they sent before.
+ * @returns The sentence to append, or an empty string in English
+ */
+function languageInstruction(): string {
+  const locale = getLocale();
+  if (locale === 'en') {
+    return '';
+  }
+  return `\n\nRespond in ${PROMPT_LANGUAGES[locale]} (${LOCALE_NAMES[locale]}).`;
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -18,6 +19,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { Suggestions } from '../components/Suggestions';
 
 const Chat: React.FC = () => {
+  const { t } = useLocale();
   const id = useId();
   const theme = useTheme();
 
@@ -256,13 +258,13 @@ const Chat: React.FC = () => {
               component="h2"
               sx={{ margin: 0 }}
             >
-              Chart Assistant
+              {t('dialogs.chatTitle')}
             </Typography>
           </Grid>
           <Grid size="auto">
             <IconButton
               onClick={handleClose}
-              aria-label="Close chat dialog"
+              aria-label={t('dialogs.chatClose')}
             >
               <Close />
             </IconButton>
@@ -277,7 +279,7 @@ const Chat: React.FC = () => {
             ref={messagesContainerRef}
             size={12}
             component="section"
-            aria-label="Chat messages"
+            aria-label={t('dialogs.chatMessagesRegion')}
             sx={{
               'flex': 1,
               'overflowY': 'auto',
@@ -324,7 +326,7 @@ const Chat: React.FC = () => {
           <Grid
             size={12}
             component="section"
-            aria-label="Message input"
+            aria-label={t('dialogs.chatInputRegion')}
             sx={{
               p: 2,
               borderTop: `1px solid ${theme.palette.divider}`,
@@ -338,13 +340,13 @@ const Chat: React.FC = () => {
                   onChange={e => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
                   maxRows={4}
-                  placeholder="What can I help you with?"
+                  placeholder={t('dialogs.chatPlaceholder')}
                   variant="outlined"
                   size="small"
                   autoFocus
                   fullWidth
                   multiline
-                  aria-label="Type your message to the AI assistant"
+                  aria-label={t('dialogs.chatInputLabel')}
                 />
               </Grid>
               <Grid size={{ xs: 2 }} container justifyContent="flex-end">
@@ -352,7 +354,7 @@ const Chat: React.FC = () => {
                   onClick={handleSend}
                   disabled={disabled}
                   color="primary"
-                  aria-label="Send message to AI assistant"
+                  aria-label={t('dialogs.chatSend')}
                   sx={{
                     'bgcolor': theme.palette.primary.main,
                     'color': theme.palette.primary.contrastText,
