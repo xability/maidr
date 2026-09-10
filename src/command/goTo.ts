@@ -4,6 +4,7 @@ import type { NotificationService } from '@service/notification';
 import type { TextService } from '@service/text';
 import type { GoToExtremaViewModel } from '@state/viewModel/goToExtremaViewModel';
 import type { Command } from './command';
+import { t } from '@util/i18n';
 
 /**
  * Command to toggle the go-to-extrema navigation interface.
@@ -108,7 +109,11 @@ abstract class AbstractGoToExtremeValueCommand implements Command {
     }
 
     const point = this.textService.format(this.context.state);
-    this.notification.notify(`${point}, ${landed.position} of ${landed.total}`);
+    this.notification.notify(t('text.pointPosition', {
+      point,
+      position: landed.position,
+      total: landed.total,
+    }));
   }
 }
 
@@ -137,7 +142,7 @@ export class GoToMinValueCommand extends AbstractGoToExtremeValueCommand {
   }
 
   protected get unavailableMessage(): string {
-    return 'No minimum value to go to in this layer';
+    return t('text.noMinimumValue');
   }
 }
 
@@ -166,6 +171,6 @@ export class GoToMaxValueCommand extends AbstractGoToExtremeValueCommand {
   }
 
   protected get unavailableMessage(): string {
-    return 'No maximum value to go to in this layer';
+    return t('text.noMaximumValue');
   }
 }

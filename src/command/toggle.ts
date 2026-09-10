@@ -16,6 +16,7 @@ import type { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import type { TextViewModel } from '@state/viewModel/textViewModel';
 import type { Command } from './command';
 import { Scope } from '@type/event';
+import { t } from '@util/i18n';
 
 /**
  * Command to toggle the braille display on or off.
@@ -118,9 +119,7 @@ export class ToggleBrailleCommand implements Command {
       this.brailleViewModel.toggle(state);
       return;
     }
-    this.notificationService.notify(
-      'Braille is not available here. Press Enter to select a subplot first.',
-    );
+    this.notificationService.notify(t('text.brailleUnavailableHere'));
     this.audioService.playWarningTone();
   }
 }

@@ -86,8 +86,6 @@ export abstract class Constant {
   static readonly AFTER_END = 'afterend';
   /** ARIA application role value */
   static readonly APPLICATION = 'application';
-  /** Text string for 'are' with spaces */
-  static readonly ARE = ' are ';
   /** SVG circle element tag name */
   static readonly CIRCLE = 'circle';
   /** Close bracket character */
@@ -100,8 +98,6 @@ export abstract class Constant {
   static readonly EMPTY = '';
   /** CSS visibility hidden value */
   static readonly HIDDEN = 'hidden';
-  /** Text string for 'is' with spaces */
-  static readonly IS = ' is ';
   /** SVG line element tag name */
   static readonly LINE = 'line';
   /** MAIDR data attribute identifier */
@@ -116,10 +112,8 @@ export abstract class Constant {
   static readonly POLYLINE = 'polyline';
   /** Space character */
   static readonly SPACE = ' ';
-  /** Terse-mode span joiner, the short form of {@link Constant.THROUGH} */
+  /** Terse-mode span joiner, standing in for the word a verbose reading uses */
   static readonly TO_DASH = '-';
-  /** Text string for 'through' with spaces */
-  static readonly THROUGH = ' through ';
   /** CSS transparent color value */
   static readonly TRANSPARENT = 'transparent';
   /** CSS visibility visible value */

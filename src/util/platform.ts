@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 /**
  * Abstract utility class for platform-specific keyboard key name mappings.
  */
@@ -43,9 +45,9 @@ export abstract class Platform {
    * parses. A screen reader reads an announcement out loud, so the word has to
    * be the one the reader would say -- capitalised, and never abbreviated to
    * the symbol, which many voices skip entirely.
-   * @returns 'Command' on macOS, 'Control' on other platforms
+   * @returns The Command key's name on macOS, the Control key's on other platforms
    */
   public static get ctrlSpoken(): string {
-    return Platform.IS_MAC ? 'Command' : 'Control';
+    return Platform.IS_MAC ? t('text.modifierCommand') : t('text.modifierControl');
   }
 }
