@@ -2,6 +2,7 @@ import type { NotificationService } from '@service/notification';
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { TraceState } from '@type/state';
+import { t } from '@util/i18n';
 
 /**
  * Monitor mode for live charts.
@@ -60,11 +61,11 @@ export class MonitorService implements Disposable {
    */
   public toggle(): void {
     if (!this.isLive) {
-      this.notification.notify('Monitoring is available only for live charts');
+      this.notification.notify(t('notification.monitoringLiveOnly'));
       return;
     }
     this.enabled = !this.enabled;
-    this.notification.notify(this.enabled ? 'Monitoring on' : 'Monitoring off');
+    this.notification.notify(t(this.enabled ? 'notification.monitoringOn' : 'notification.monitoringOff'));
   }
 
   /**

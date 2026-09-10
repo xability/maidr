@@ -6,6 +6,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { SCOPED_KEYMAP } from '@service/keybinding';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
 import { Scope } from '@type/event';
+import { t } from '@util/i18n';
 
 /**
  * Represents a single command item in the command palette.
@@ -144,13 +145,15 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
    * Shows the command palette with available commands for the current scope.
    */
   public show(): void {
-    // Get available commands for current scope
+    // Get available commands for current scope. Descriptions are resolved
+    // here rather than held translated, so the list is rebuilt in the active
+    // language every time the palette opens.
     const scopeKeymap = SCOPED_KEYMAP.TRACE; // Default to TRACE scope
     const commands = Object.entries(scopeKeymap)
       .filter(([commandKey]) => !commandKey.startsWith('ALLOW_'))
       .map(([commandKey, entry]) => ({
         key: entry.helpKey ?? entry.hotkey,
-        description: entry.description,
+        description: t(entry.description),
         commandKey: commandKey as Keys,
       }));
 

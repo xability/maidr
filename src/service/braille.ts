@@ -50,6 +50,7 @@ import { Emitter, Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
 import { DEFAULT_BRAILLE_LINES, DEFAULT_BRAILLE_SIZE, MAX_BRAILLE_LINES } from '@type/settings';
 import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 
 /**
  * Normalizes configured braille display size to a safe positive integer.
@@ -1566,7 +1567,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.update(state);
     this.onToggleEmitter.fire({ enabled: false, state });
     this.display.toggleFocus(Scope.BRAILLE);
-    this.notification.notify('Braille is off');
+    this.notification.notify(t('notification.brailleIsOff'));
   }
 
   /**
@@ -1575,13 +1576,13 @@ implements Observer<SubplotState | TraceState>, Disposable {
    */
   public toggle(state: TraceState): void {
     if (state.empty) {
-      const noInfo = 'No info for braille';
+      const noInfo = t('notification.brailleNoInfo');
       this.notification.notify(noInfo);
       return;
     }
 
     if (state.braille.empty) {
-      const notSupported = `Braille is not supported for plot type: ${state.braille.traceType}`;
+      const notSupported = t('notification.brailleNotSupported', { type: state.braille.traceType });
       this.notification.notify(notSupported);
       return;
     }
@@ -1591,7 +1592,7 @@ implements Observer<SubplotState | TraceState>, Disposable {
     this.onToggleEmitter.fire({ enabled: this.enabled, state });
     this.display.toggleFocus(Scope.BRAILLE);
 
-    const message = `Braille is ${this.enabled ? 'on' : 'off'}`;
+    const message = t(this.enabled ? 'notification.brailleIsOn' : 'notification.brailleIsOff');
     this.notification.notify(message);
   }
 }

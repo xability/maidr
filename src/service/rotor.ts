@@ -4,7 +4,7 @@ import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { AbstractTrace } from '@model/abstract';
 import { isGridNavigable, isPointNavigable } from '@type/navigation';
-import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 
 /**
  * Manages rotor-based navigation for the active trace via alt+shift+up and alt+shift+down
@@ -95,12 +95,12 @@ export class RotorNavigationService {
    */
   private formatModeDisplay(): string {
     const mode = this.getMode();
-    if (mode === Constant.GRID_MODE) {
+    if (mode === t('rotor.gridMode')) {
       const activeTrace = this.context.active;
       if (isGridNavigable(activeTrace)) {
         const dims = activeTrace.getGridDimensions();
         if (dims) {
-          return `GRID NAVIGATION: ${dims.rows}×${dims.cols} GRID`;
+          return t('rotor.gridModeDimensions', { rows: dims.rows, cols: dims.cols });
         }
       }
     }
@@ -157,13 +157,13 @@ export class RotorNavigationService {
     // list via getAvailableModes(), so caching it here avoids doing that
     // twice per keystroke when dispatching to GRID_MODE / INTERSECTION_MODE.
     const mode = this.getMode();
-    if (mode === Constant.GRID_MODE) {
+    if (mode === t('rotor.gridMode')) {
       return this.moveGrid('up');
     }
-    if (mode === Constant.POINT_MODE) {
+    if (mode === t('rotor.pointMode')) {
       return this.movePoint('up');
     }
-    if (mode === Constant.INTERSECTION_MODE) {
+    if (mode === t('rotor.intersectionMode')) {
       // The model is intentionally NOT moved here — vertical navigation is
       // unavailable in intersection mode. We still must push the message
       // through notification.notify so the text alert region re-mounts and
@@ -202,13 +202,13 @@ export class RotorNavigationService {
    */
   public moveDown(): string | null {
     const mode = this.getMode();
-    if (mode === Constant.GRID_MODE) {
+    if (mode === t('rotor.gridMode')) {
       return this.moveGrid('down');
     }
-    if (mode === Constant.POINT_MODE) {
+    if (mode === t('rotor.pointMode')) {
       return this.movePoint('down');
     }
-    if (mode === Constant.INTERSECTION_MODE) {
+    if (mode === t('rotor.intersectionMode')) {
       // See moveUp() — model not moved; route through notification so the
       // alert region re-mounts and the SR re-announces on repeat presses.
       return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
@@ -243,13 +243,13 @@ export class RotorNavigationService {
    */
   public moveLeft(): string | null {
     const mode = this.getMode();
-    if (mode === Constant.GRID_MODE) {
+    if (mode === t('rotor.gridMode')) {
       return this.moveGrid('left');
     }
-    if (mode === Constant.POINT_MODE) {
+    if (mode === t('rotor.pointMode')) {
       return this.movePoint('left');
     }
-    if (mode === Constant.INTERSECTION_MODE) {
+    if (mode === t('rotor.intersectionMode')) {
       return this.moveIntersection('left');
     }
 
@@ -282,13 +282,13 @@ export class RotorNavigationService {
    */
   public moveRight(): string | null {
     const mode = this.getMode();
-    if (mode === Constant.GRID_MODE) {
+    if (mode === t('rotor.gridMode')) {
       return this.moveGrid('right');
     }
-    if (mode === Constant.POINT_MODE) {
+    if (mode === t('rotor.pointMode')) {
       return this.movePoint('right');
     }
-    if (mode === Constant.INTERSECTION_MODE) {
+    if (mode === t('rotor.intersectionMode')) {
       return this.moveIntersection('right');
     }
 
@@ -339,9 +339,9 @@ export class RotorNavigationService {
     this.notifyGridMode(false);
     this.notifyPointMode(false);
     this.notifyIntersectionMode(false);
-    this.notifyGridMode(currMode === Constant.GRID_MODE);
-    this.notifyPointMode(currMode === Constant.POINT_MODE);
-    this.notifyIntersectionMode(currMode === Constant.INTERSECTION_MODE);
+    this.notifyGridMode(currMode === t('rotor.gridMode'));
+    this.notifyPointMode(currMode === t('rotor.pointMode'));
+    this.notifyIntersectionMode(currMode === t('rotor.intersectionMode'));
   }
 
   /**
@@ -376,8 +376,8 @@ export class RotorNavigationService {
       return activeTrace.compareModeInfo();
     }
     return {
-      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
-      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+      lower: { label: t('rotor.lowerValueMode'), noun: t('rotor.lowerValueNoun') },
+      higher: { label: t('rotor.higherValueMode'), noun: t('rotor.higherValueNoun') },
     };
   }
 
@@ -408,12 +408,33 @@ export class RotorNavigationService {
 
   public getMessage(noun: string, direction: string): string {
     const isVertical = direction === 'above' || direction === 'below';
-    const preposition = isVertical ? '' : 'on the ';
-    const position = isVertical ? `${direction} ` : `to the ${direction} of `;
+    const params = { noun, direction: this.getDirectionWord(direction) };
     return this.buildMessage(
-      `No ${noun} found ${preposition}${direction}`,
-      `No ${noun} found ${position}the current value.`,
+      t(isVertical ? 'rotor.noneFoundVerticalTerse' : 'rotor.noneFoundHorizontalTerse', params),
+      t(isVertical ? 'rotor.noneFoundVerticalVerbose' : 'rotor.noneFoundHorizontalVerbose', params),
     );
+  }
+
+  /**
+   * Names a direction in the reader's language. The directions themselves stay
+   * the internal English words — they select the message and, for the compare
+   * traces, the movement — so only the spoken form is translated here.
+   * @param direction - The internal direction name
+   * @returns The word to speak for it
+   */
+  private getDirectionWord(direction: string): string {
+    switch (direction) {
+      case 'above':
+        return t('rotor.directionAbove');
+      case 'below':
+        return t('rotor.directionBelow');
+      case 'left':
+        return t('rotor.directionLeft');
+      case 'right':
+        return t('rotor.directionRight');
+      default:
+        return direction;
+    }
   }
 
   /**
@@ -444,22 +465,22 @@ export class RotorNavigationService {
       }
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
-        modes.push(Constant.GRID_MODE);
+        modes.push(t('rotor.gridMode'));
       }
 
       if (activeTrace.supportsPointMode()) {
-        modes.push(Constant.POINT_MODE);
+        modes.push(t('rotor.pointMode'));
       }
 
       if (activeTrace.supportsIntersectionMode()) {
-        modes.push(Constant.INTERSECTION_MODE);
+        modes.push(t('rotor.intersectionMode'));
       }
 
       for (const unit of activeTrace.getRotorFilterUnits()) {
         modes.push(unit.label);
       }
     } else {
-      modes.push(Constant.DATA_MODE);
+      modes.push(t('rotor.dataMode'));
     }
 
     return modes;
@@ -532,8 +553,8 @@ export class RotorNavigationService {
    */
   private getFilterVerticalUnavailableMessage(unit: RotorFilterUnit): string {
     return this.buildMessage(
-      `Up/down unavailable in ${unit.noun} mode`,
-      `Up and down navigation is not available in ${unit.noun} mode.`,
+      t('rotor.filterVerticalUnavailableTerse', { noun: unit.noun }),
+      t('rotor.filterVerticalUnavailableVerbose', { noun: unit.noun }),
     );
   }
 
@@ -543,7 +564,7 @@ export class RotorNavigationService {
    * candlestick delta layer rename their default unit.
    */
   private isDataMode(mode: string): boolean {
-    if (mode === Constant.DATA_MODE || mode === Constant.ROW_COL_MODE) {
+    if (mode === t('rotor.dataMode') || mode === t('rotor.rowColMode')) {
       return true;
     }
     const activeTrace = this.context.active;
@@ -588,8 +609,8 @@ export class RotorNavigationService {
       // (not null — null means "move succeeded" to callers) so the user is
       // told their key press had no effect.
       return this.announceRotorMessage(this.buildMessage(
-        'Intersection mode unavailable',
-        'Intersection navigation is not available in the current context.',
+        t('rotor.intersectionUnavailableTerse'),
+        t('rotor.intersectionUnavailableVerbose'),
       ));
     }
     const moved = direction === 'right'
@@ -636,9 +657,10 @@ export class RotorNavigationService {
    * coordinate, not a value.
    */
   private getIntersectionBoundMessage(direction: 'left' | 'right'): string {
+    const params = { direction: this.getDirectionWord(direction) };
     return this.buildMessage(
-      `No intersection to the ${direction}`,
-      `No intersection found to the ${direction} of the current point.`,
+      t('rotor.noIntersectionTerse', params),
+      t('rotor.noIntersectionVerbose', params),
     );
   }
 
@@ -650,8 +672,8 @@ export class RotorNavigationService {
    */
   private getIntersectionVerticalUnavailableMessage(): string {
     return this.buildMessage(
-      'Up/down unavailable in intersection mode',
-      'Up and down navigation is not available in intersection point mode.',
+      t('rotor.intersectionVerticalUnavailableTerse'),
+      t('rotor.intersectionVerticalUnavailableVerbose'),
     );
   }
 
@@ -703,7 +725,7 @@ export class RotorNavigationService {
   private movePoint(direction: 'up' | 'down' | 'left' | 'right'): string | null {
     const activeTrace = this.context.active;
     if (!isPointNavigable(activeTrace)) {
-      return this.announceRotorMessage(this.getMessage('point', direction));
+      return this.announceRotorMessage(this.getMessage(t('rotor.pointNoun'), direction));
     }
 
     switch (direction) {
@@ -736,7 +758,7 @@ export class RotorNavigationService {
       // GRID_MODE is offered by getAvailableModes() only when supportsGridMode()
       // is true, so this branch is not reachable through the normal getMode()
       // dispatch — hence there is no black-box test for it.
-      return this.announceRotorMessage(this.getMessage('grid value', direction));
+      return this.announceRotorMessage(this.getMessage(t('rotor.gridValueNoun'), direction));
     }
 
     // Grid move methods call notifyOutOfBounds() on boundary, which handles audio/text

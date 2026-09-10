@@ -1,4 +1,5 @@
 import type { Keymap } from '@service/keybinding';
+import type { MessageKey } from '@util/i18n';
 import type { Disposable } from './disposable';
 
 /**
@@ -7,8 +8,8 @@ import type { Disposable } from './disposable';
 export interface KeybindingEntry {
   /** The hotkey string (e.g., 's', 'ctrl+up', 'shift+/') */
   hotkey: string;
-  /** Human-readable description for the help menu */
-  description: string;
+  /** Message key of the human-readable description for the help menu */
+  description: MessageKey;
   /** Override the key display in help menu (e.g., 'cmd + up' instead of 'cmd+up') */
   helpKey?: string;
   /** Whether to show this entry in the help menu (default: true) */

@@ -14,6 +14,7 @@ import { GoToExtremaService as RealGoToExtremaService } from '@service/goToExtre
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 
 /** A single-series bar layer whose extreme bars sit away from the ends. */
 function barLayer(values: number[]): MaidrLayer {
@@ -295,8 +296,10 @@ describe('bracket key wiring', () => {
   test('both carry a description so the generated help menu lists them', () => {
     const keymap = getKeymapForScope(Scope.TRACE);
 
-    expect(keymap.GO_TO_MIN_VALUE.description).toBe('Go to Minimum Value');
-    expect(keymap.GO_TO_MAX_VALUE.description).toBe('Go to Maximum Value');
+    // The description is the message key the help menu resolves, so assert
+    // what a reader ends up hearing rather than the key itself.
+    expect(t(keymap.GO_TO_MIN_VALUE.description)).toBe('Go to Minimum Value');
+    expect(t(keymap.GO_TO_MAX_VALUE.description)).toBe('Go to Maximum Value');
     expect(keymap.GO_TO_MIN_VALUE.showInHelp).not.toBe(false);
     expect(keymap.GO_TO_MAX_VALUE.showInHelp).not.toBe(false);
   });

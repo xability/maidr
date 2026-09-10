@@ -1,12 +1,14 @@
 import type { CommandItem } from '@state/viewModel/commandPaletteViewModel';
 import type { Keys } from '@type/event';
 import { Box, Dialog, DialogContent, List, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { filterCommands } from '@state/viewModel/commandPaletteViewModel';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 const CommandPalette: React.FC = () => {
+  const { t } = useLocale();
   const commandPaletteViewModel = useViewModel('commandPalette');
   const state = useViewModelState('commandPalette');
   const { modalRef, container } = useModalContainer();
@@ -108,21 +110,21 @@ const CommandPalette: React.FC = () => {
     >
       <Box component="h2" id="command-palette-title" sx={{ p: 2, m: 0 }}>
         <Box component="span" sx={{ fontSize: '1.25rem', fontWeight: 600 }}>
-          Command Palette
+          {t('keybinding.commandPaletteTitle')}
         </Box>
       </Box>
 
       <DialogContent dividers sx={{ p: 2, overflow: 'hidden' }}>
         <Box id="command-palette-description" sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-            Type to search commands, use arrow keys to navigate the list, and press Enter to execute a command
+            {t('keybinding.commandPaletteInstructions')}
           </Typography>
         </Box>
 
         <TextField
           inputRef={searchInputRef}
           fullWidth
-          placeholder="Search commands..."
+          placeholder={t('keybinding.commandPaletteSearchPlaceholder')}
           value={state.search}
           onChange={handleSearchChange}
           sx={{ mb: 2 }}
@@ -134,7 +136,7 @@ const CommandPalette: React.FC = () => {
             'aria-controls': 'command-list',
             'aria-expanded': true,
             'aria-activedescendant': state.selectedIndex >= 0 ? `command-${state.selectedIndex}` : undefined,
-            'aria-label': 'Search commands',
+            'aria-label': t('keybinding.commandPaletteSearchLabel'),
             'aria-describedby': 'command-palette-description',
             'onKeyDown': (e) => {
               if (e.key === 'Enter') {
@@ -168,7 +170,7 @@ const CommandPalette: React.FC = () => {
           ref={listRef}
           id="command-list"
           role="listbox"
-          aria-label="Available commands"
+          aria-label={t('keybinding.commandPaletteListLabel')}
           sx={{ flex: 1, overflow: 'auto', maxHeight: '60vh' }}
         >
           {filteredCommands.map((command: CommandItem, index: number) => (
