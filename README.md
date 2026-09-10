@@ -31,12 +31,13 @@ and encourages a multi-modal exploration on visualization.
 4. [Controls](#controls)
 5. [Live & Streaming Data](#live--streaming-data)
 6. [Braille Generation](#braille-generation)
-7. [Examples](#examples)
-8. [Related projects](#related-projects)
-9. [Papers](#papers)
-10. [License](#license)
-11. [Contact](#contact)
-12. [Acknowledgments](#acknowledgments)
+7. [Languages](#languages)
+8. [Examples](#examples)
+9. [Related projects](#related-projects)
+10. [Papers](#papers)
+11. [License](#license)
+12. [Contact](#contact)
+13. [Acknowledgments](#acknowledgments)
 
 ## Usage
 
@@ -146,6 +147,11 @@ For the full API and examples, see the [Live & Streaming Data documentation](doc
 
 MAIDR incorporates a Braille mode that represents plots using Braille symbols, allowing users to explore data using a refreshable Braille display. Different plot types use unique encoding strategies tailored to convey data distribution, patterns, and trends.
 For detailed encoding schemes for each plot type, see the [Braille Generation documentation](docs/BRAILLE.md).
+
+## Languages
+
+Every announcement and dialog can be read in English or Korean (한국어). Choose the language on the **General** tab of Settings; by default MAIDR follows the browser's language. Chart data is read as the author wrote it; only MAIDR's own words are translated.
+For how the dictionaries work and how to add a language, see the [Languages documentation](docs/LOCALIZATION.md).
 
 ## Examples
 
