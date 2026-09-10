@@ -1,3 +1,4 @@
+import type { LanguageSetting } from '@util/i18n';
 import type { Llm, LlmVersion } from './llm';
 import { DEFAULT_OLLAMA_BASE_URL } from './llm';
 
@@ -223,6 +224,12 @@ export interface LlmSettings {
  * General application settings for audio, visual, and accessibility features.
  */
 export interface GeneralSettings {
+  /**
+   * The language MAIDR speaks and shows: every announcement, dialog, and
+   * setting label. `auto` follows the browser's language, falling back to
+   * English when the browser asks for a language MAIDR does not have.
+   */
+  language: LanguageSetting;
   volume: number;
   /**
    * Maximum number of echoes for 3D charts. A point with z = zMax produces this
@@ -273,6 +280,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   general: {
+    language: 'auto',
     volume: 50,
     echoCount: DEFAULT_ECHO_COUNT,
     echoVolume: 50,

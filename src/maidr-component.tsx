@@ -4,6 +4,7 @@ import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
 import { TraceType } from '@type/grammar';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
 import { useCallback, useMemo, useRef } from 'react';
+import { useLocale } from './state/hook/useLocale';
 import { useMaidrController } from './state/hook/useMaidrController';
 import { createMaidrStore } from './state/store';
 import { MaidrApp } from './ui/App';
@@ -106,6 +107,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
   const store = storeRef.current;
 
   const { plotRef, figureRef, contextValue, onFocusIn, onFocusOut } = useMaidrController(data, store);
+  const { locale } = useLocale();
 
   // Compute the initial instruction once so the plot is discoverable by screen
   // readers (role="img" + aria-label) before any user interaction.
@@ -126,7 +128,7 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
   }, [plotRef]);
 
   return (
-    <article id={`maidr-article-${data.id}`}>
+    <article id={`maidr-article-${data.id}`} lang={locale}>
       <figure
         ref={figureRef}
         id={`maidr-figure-${data.id}`}
