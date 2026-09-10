@@ -10,6 +10,7 @@ import {
   MAX_BRAILLE_LINES,
   MAX_BRAILLE_SIZE,
 } from '@type/settings';
+import { t } from './i18n';
 
 export type NonEmptyBraillePresets = readonly [
   BrailleDisplayPreset,
@@ -79,11 +80,20 @@ export function parseManualBrailleInput(
 }
 
 export function formatSingleLinePreset(p: BrailleDisplayPreset): string {
-  return `${p.label} — ${p.manufacturer} (${p.cells} cells)`;
+  return t('settings.braillePresetSingle', {
+    label: p.label,
+    manufacturer: p.manufacturer,
+    cells: p.cells,
+  });
 }
 
 export function formatMultiLinePreset(p: BrailleDisplayPreset): string {
-  return `${p.label} — ${p.manufacturer} (${p.lines} lines × ${p.cells} cells)`;
+  return t('settings.braillePresetMulti', {
+    label: p.label,
+    manufacturer: p.manufacturer,
+    lines: p.lines,
+    cells: p.cells,
+  });
 }
 
 export function findBraillePreset(
