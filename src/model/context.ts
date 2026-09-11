@@ -9,8 +9,8 @@ import { isGridNavigable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
 import { formatPlotType } from '@util/orientation';
+import { plotTypeLabel } from '@util/plotTypeLabel';
 import { Stack } from '@util/stack';
-import { plotTypeLabel } from './abstract';
 import { DEFAULT_CAPTION, DEFAULT_FIGURE_AXIS, DEFAULT_SUBTITLE, isAuthoredTitle as isAuthoredTitleValue } from './plot';
 
 /**

@@ -1,10 +1,10 @@
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { JSX, ReactNode, PointerEvent as ReactPointerEvent } from 'react';
-import { plotTypeLabel } from '@model/abstract';
 import { TraceType } from '@type/grammar';
 import { t } from '@util/i18n';
 import { formatPlotType, resolveOrientation } from '@util/orientation';
+import { plotTypeLabel } from '@util/plotTypeLabel';
 import { useCallback, useMemo, useRef } from 'react';
 import { useLocale } from './state/hook/useLocale';
 import { useMaidrController } from './state/hook/useMaidrController';
