@@ -27,6 +27,36 @@ Chart data is never translated. Axis labels, category names, and titles are
 read exactly as the chart's author wrote them; only MAIDR's own words around
 them change. The AI chat is asked to answer in the chosen language.
 
+## Loading a language
+
+English is built into `maidr.js`. Every other language is a **locale pack**, a
+small file beside the bundle, so a page pays only for the languages it uses.
+
+MAIDR fetches the pack itself when a language is chosen, from the directory
+`maidr.js` was loaded from: a page that loads
+`https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js` fetches
+`https://cdn.jsdelivr.net/npm/maidr/dist/locale-ko.js` the moment Korean is
+needed. Until the pack arrives, announcements are in English; the pack
+re-renders them as soon as it registers.
+
+To have the first announcement already in the reader's language, or on a page
+that cannot fetch at runtime, load the pack yourself, before or after the
+bundle:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/locale-ko.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/maidr.js"></script>
+```
+
+```ts
+import 'maidr/locale/ko';
+```
+
+Either order works: a pack loaded first waits in `window.maidrLocales` until
+the bundle adopts the queue. When the packs live somewhere else, name the
+directory in `window.maidrLocaleBaseUrl` before the bundle runs; when MAIDR
+cannot locate them at all, it warns once and stays in English.
+
 ## Languages available
 
 | Code | Language  |
@@ -51,14 +81,16 @@ other language is typed against it, so a missing key is a type error rather
 than a silent fallback.
 
 1. Add the locale code to `Locale`, `SUPPORTED_LOCALES`, and `LOCALE_NAMES` in
-   `src/util/i18n/index.ts`. Name the language in itself, the way a reader who
-   does not read the current language would look for it.
+   `src/util/i18n/index.ts`, to `PROMPT_LANGUAGES` in `src/service/prompts.ts`,
+   and to `LOCALE_PACKS` in `scripts/build.js`. Name the language in itself,
+   the way a reader who does not read the current language would look for it.
 2. Create `src/util/i18n/<code>/` by copying `src/util/i18n/ko/`. Each file
    covers one area of the code (`text.ts`, `keybinding.ts`, `settings.ts`, …)
    and is typed `satisfies Partial<Record<MessageKey, string>>`; the
    `index.ts` that merges them is typed `Record<MessageKey, string>`, which is
    what makes an omission fail `npm run type-check`.
-3. Register the dictionary in `MESSAGES` in `src/util/i18n/index.ts`.
+3. Add the pack entry `src/locale/<code>.ts` (copy `src/locale/ko.ts`) and
+   import it from `src/locale/all.ts`; list the pack in `cdnjs/maidr.json`.
 4. Translate every value. Placeholders such as `{label}` and `{index}` are
    filled at render time; keep them, and reorder them freely to suit the
    language's word order.
