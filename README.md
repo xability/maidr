@@ -150,7 +150,7 @@ For detailed encoding schemes for each plot type, see the [Braille Generation do
 
 ## Languages
 
-Every announcement and dialog can be read in English, 한국어, 日本語, 中文, Español, Deutsch, Français, Italiano, or हिन्दी. Choose the language on the **General** tab of Settings; by default MAIDR follows the browser's language. Chart data is read as the author wrote it; only MAIDR's own words are translated.
+Every announcement and dialog can be read in English, 한국어, 日本語, 中文, Español, Deutsch, Français, Italiano, or हिन्दी. Choose the language on the **General** tab of Settings; by default MAIDR follows the browser's language. English is built in and each other language is a small locale pack beside `maidr.js` that MAIDR fetches when needed (or `import 'maidr/locale/ko'`). Chart data is read as the author wrote it; only MAIDR's own words are translated.
 For how the dictionaries work and how to add a language, see the [Languages documentation](docs/LOCALIZATION.md).
 
 ## Examples

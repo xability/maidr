@@ -32,6 +32,8 @@ import { setLocale } from '@util/i18n';
 // The `/jest-globals` entry point augments the imported `expect`; the bare
 // one only augments the ambient global.
 import '@testing-library/jest-dom/jest-globals';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 /** The `SettingsViewModel` surface `Settings` actually calls. */
 type SettingsStub = Pick<

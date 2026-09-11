@@ -1,23 +1,26 @@
 import type { Disposable } from '@type/disposable';
-import { de } from './de';
 import { en } from './en';
-import { es } from './es';
-import { fr } from './fr';
-import { hi } from './hi';
-import { it } from './it';
-import { ja } from './ja';
 import { attachJosa, isJosaPair } from './josa';
-import { ko } from './ko';
-import { zh } from './zh';
+import { adoptLocalePacks } from './pack';
 
 /**
  * A language MAIDR can speak. Every dictionary under `src/util/i18n/` has an
  * entry for every key of the English one, so any locale can render any
  * message.
+ *
+ * English ships inside the core bundle. Every other dictionary is a locale
+ * pack — `dist/locale-ko.js`, or `maidr/locale/ko` from npm — registered
+ * through {@link registerLocale}, so adding a language costs nothing to a
+ * page that does not load it. A locale that is active but not registered
+ * renders in English until its pack arrives.
  */
 export type Locale = 'en' | 'ko' | 'ja' | 'zh' | 'es' | 'de' | 'fr' | 'it' | 'hi';
 
-/** The locales offered, in the order the settings dialog lists them. */
+/**
+ * The locales MAIDR knows a dictionary for, in the order the settings dialog
+ * lists them. Knowing one is not the same as having it loaded; see
+ * {@link isLocaleLoaded}.
+ */
 export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
 
 /** The language before a preference is set and when the browser's is unknown. */
@@ -51,10 +54,65 @@ export type MessageKey = keyof typeof en;
 /** Values substituted into a message's `{placeholders}`. */
 export type MessageParams = Record<string, string | number | undefined>;
 
-const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, ko, ja, zh, es, de, fr, it, hi };
+const MESSAGES: Partial<Record<Locale, Readonly<Record<MessageKey, string>>>> = { en };
 
 let activeLocale: Locale = DEFAULT_LOCALE;
+let revision = 0;
 const listeners = new Set<(locale: Locale) => void>();
+
+function notify(): void {
+  revision += 1;
+  for (const listener of listeners) {
+    listener(activeLocale);
+  }
+}
+
+/**
+ * A counter that advances every time what {@link t} would render changes:
+ * on a locale switch, and when the active locale's pack registers.
+ *
+ * The locale alone is not enough for a subscriber to key on. A pack arriving
+ * for the locale already active changes every message and leaves the locale
+ * string as it was, so a React subscription keyed on the locale would see
+ * nothing to re-render.
+ * @returns The current revision
+ */
+export function getLocaleRevision(): number {
+  return revision;
+}
+
+/**
+ * Whether a locale's dictionary is present, so {@link t} can render it.
+ * @param locale - The locale to check
+ * @returns True for English and for any registered pack
+ */
+export function isLocaleLoaded(locale: Locale): boolean {
+  return MESSAGES[locale] !== undefined;
+}
+
+/**
+ * Adds a dictionary to the registry.
+ *
+ * When the dictionary is the one the active locale has been waiting for,
+ * listeners are told, so every open dialog and the pre-activation
+ * instruction re-render out of English and into the reader's language.
+ * A dictionary for a locale MAIDR does not know is ignored with a warning
+ * rather than thrown, since it arrives from a script the page author chose.
+ * @param locale - The locale the dictionary speaks
+ * @param messages - Its messages, one per English key
+ */
+export function registerLocale(locale: Locale, messages: Readonly<Record<MessageKey, string>>): void {
+  if (!isLocale(locale)) {
+    console.warn(`[maidr] Ignoring a locale pack for an unknown locale: ${String(locale)}`);
+    return;
+  }
+  MESSAGES[locale] = messages;
+  if (locale === activeLocale) {
+    notify();
+  }
+}
+
+adoptLocalePacks(registerLocale);
 
 /**
  * Whether a value names a supported locale.
@@ -126,7 +184,7 @@ export function resolveLocale(
  * @param locale - The locale whose dictionary to read
  * @returns The locale's templates by key
  */
-export function dictionary(locale: Locale): Readonly<Record<MessageKey, string>> {
+export function dictionary(locale: Locale): Readonly<Record<MessageKey, string>> | undefined {
   return MESSAGES[locale];
 }
 
@@ -150,9 +208,7 @@ export function setLocale(locale: Locale): void {
     return;
   }
   activeLocale = locale;
-  for (const listener of listeners) {
-    listener(locale);
-  }
+  notify();
 }
 
 /**
@@ -192,15 +248,14 @@ export function interpolate(template: string, params: MessageParams = {}): strin
 /**
  * Renders a message in the active locale.
  *
- * A key the active dictionary lacks — which the types prevent, but a locale
- * loaded at runtime could omit — falls back to English rather than to the
- * key, so the reader always hears words.
+ * A locale whose pack has not arrived, or a key a pack lacks, falls back to
+ * English rather than to the key, so the reader always hears words.
  * @param key - The message key
  * @param params - Values for the message's placeholders
  * @returns The rendered message
  */
 export function t(key: MessageKey, params?: MessageParams): string {
-  const template = MESSAGES[activeLocale][key] ?? en[key];
+  const template = MESSAGES[activeLocale]?.[key] ?? en[key];
   return interpolate(template, params);
 }
 
@@ -215,6 +270,6 @@ export function t(key: MessageKey, params?: MessageParams): string {
  * @returns The rendered message
  */
 export function tIn(locale: Locale, key: MessageKey, params?: MessageParams): string {
-  const template = MESSAGES[locale][key] ?? en[key];
+  const template = MESSAGES[locale]?.[key] ?? en[key];
   return interpolate(template, params);
 }

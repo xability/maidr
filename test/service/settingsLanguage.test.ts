@@ -1,10 +1,13 @@
 import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
 import type { Settings } from '@type/settings';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { applyStoredLanguage, SETTINGS_KEY, SettingsService } from '@service/settings';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { getLocale, setLocale } from '@util/i18n';
+import { stubNavigatorLanguages } from '../util/i18n/navigatorLanguages';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 // `jest-environment-jsdom` does not expose `structuredClone`, which
 // `SettingsService` uses to clone the default settings.
@@ -37,7 +40,16 @@ function withLanguage(language: string): Settings {
 }
 
 describe('SettingsService language', () => {
+  // `auto` follows the browser, and the machine running this may well be set
+  // to Korean; pin an English one so the expectations below hold anywhere.
+  let restoreNavigator: () => void = () => {};
+
+  beforeEach(() => {
+    restoreNavigator = stubNavigatorLanguages(['en-US']);
+  });
+
   afterEach(() => {
+    restoreNavigator();
     setLocale('en');
   });
 

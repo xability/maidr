@@ -144,6 +144,38 @@ function onWarn(warning, warn) {
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
  */
+/**
+ * The locales that ship as packs beside `maidr.js`, one classic script and one
+ * ES module each. English lives in the core bundle, so it is not here. Keep in
+ * step with `SUPPORTED_LOCALES` in `src/util/i18n/index.ts`; the pack entry
+ * files under `src/locale/` are what the list points at.
+ */
+export const LOCALE_PACKS = ['ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
+
+/**
+ * A pack is a side-effect entry with no exports and no React, so it needs no
+ * declaration file. Flat filenames rather than a `locale/` directory: each
+ * pack builds in its own worker, and the merge step treats a directory two
+ * workers both emit as a collision.
+ * @param locale - The pack's locale code
+ * @returns The build configuration for that pack
+ */
+function localePackBuild(locale) {
+  const capitalised = locale.charAt(0).toUpperCase() + locale.slice(1);
+  return {
+    name: `locale-${locale}`,
+    entry: `src/locale/${locale}.ts`,
+    libName: `maidrLocale${capitalised}`,
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? `locale-${locale}.mjs` : `locale-${locale}.js`,
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: false,
+    aliases: baseAliases,
+  };
+}
+
 export const builds = [
   {
     name: 'core',
@@ -365,6 +397,7 @@ export const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  ...LOCALE_PACKS.map(localePackBuild),
 ];
 
 export function createViteConfig(config) {
@@ -602,6 +635,21 @@ async function runParallel(selected, jobs, outDir) {
  * @param {typeof builds} configs Entries to check.
  * @throws {Error} If any entry maps two formats onto the same filename.
  */
+/**
+ * Turns the bundle names on the command line into build names.
+ *
+ * `locales` stands for every locale pack, so a caller that needs the packs
+ * beside the core -- the E2E job, which serves the example pages from `dist`
+ * -- does not have to repeat the list and fall behind it when a language is
+ * added. Any other name is passed through to be checked against `builds`.
+ * @param {string[]} requested - The names as typed
+ * @returns {string[]} The build names they mean
+ */
+export function expandBuildNames(requested) {
+  return requested.flatMap(name =>
+    name === 'locales' ? LOCALE_PACKS.map(locale => `locale-${locale}`) : [name]);
+}
+
 export function assertUniqueOutputFilenames(configs) {
   for (const config of configs) {
     // Vite's lib-mode default when `name` is set. Every entry declares
@@ -670,7 +718,8 @@ async function main() {
     process.exit(1);
   }
 
-  const unknown = requested.filter(name => !builds.some(b => b.name === name));
+  const requestedBuilds = expandBuildNames(requested);
+  const unknown = requestedBuilds.filter(name => !builds.some(b => b.name === name));
   if (unknown.length > 0) {
     console.error(`Unknown bundle name(s): ${unknown.join(', ')}`);
     console.error(`Available: ${builds.map(b => b.name).join(', ')}`);
@@ -691,7 +740,7 @@ async function main() {
 
   const selected = requested.length > 0
     ? builds
-        .filter(b => requested.includes(b.name))
+        .filter(b => requestedBuilds.includes(b.name))
         // Selective builds must not wipe the other bundles from dist.
         .map(b => ({ ...b, emptyOutDir: false }))
     : builds;

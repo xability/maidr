@@ -7,6 +7,8 @@ import { TraceFactory } from '@model/factory';
 import { TextService } from '@service/text';
 import { TraceType } from '@type/grammar';
 import { setLocale } from '@util/i18n';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 /**
  * The text service is the surface a reader hears on every arrow key, so it is

@@ -26,6 +26,8 @@ import Description from '@ui/component/Description';
 import { DEFAULT_LOCALE, setLocale } from '@util/i18n';
 import { Provider } from 'react-redux';
 import '@testing-library/jest-dom/jest-globals';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 const DESCRIPTION_DATA: DescriptionState = {
   chartType: 'Bar Chart',
