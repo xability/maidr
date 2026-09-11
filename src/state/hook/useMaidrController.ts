@@ -3,6 +3,8 @@ import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData } from '@type/grammar';
 import type { RefObject } from 'react';
 import { cloneMaidrData, liveDataManager } from '@service/liveData';
+import { applyStoredLanguage } from '@service/settings';
+import { LocalStorageService } from '@service/storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller } from '../../controller';
 
@@ -148,6 +150,13 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       }
     }, 0);
   }, [disposeController]);
+
+  // Speak the stored language from the first render, so the activation
+  // instruction a screen reader announces before any focus-in is already in
+  // it; the controller's own SettingsService takes over once it exists.
+  useEffect(() => {
+    applyStoredLanguage(new LocalStorageService());
+  }, []);
 
   // Register this chart with the live data manager so external producers
   // (script-tag consumers via window.maidrLive, or React prop updates routed

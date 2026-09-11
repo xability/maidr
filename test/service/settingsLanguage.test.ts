@@ -2,7 +2,7 @@ import type { DisplayService } from '@service/display';
 import type { StorageService } from '@service/storage';
 import type { Settings } from '@type/settings';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { SETTINGS_KEY, SettingsService } from '@service/settings';
+import { applyStoredLanguage, SETTINGS_KEY, SettingsService } from '@service/settings';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { getLocale, setLocale } from '@util/i18n';
 
@@ -78,5 +78,23 @@ describe('SettingsService language', () => {
     const service = new SettingsService(createStorage(legacy), display);
 
     expect(service.loadSettings().general.language).toBe('auto');
+  });
+
+  describe('applyStoredLanguage', () => {
+    it('should speak the stored language before a settings service exists', () => {
+      applyStoredLanguage(createStorage(withLanguage('ko')));
+
+      expect(getLocale()).toBe('ko');
+    });
+
+    it('should follow the browser when nothing or something unknown is stored', () => {
+      setLocale('ko');
+      applyStoredLanguage(createStorage());
+      expect(getLocale()).toBe('en');
+
+      setLocale('ko');
+      applyStoredLanguage(createStorage(withLanguage('tlh')));
+      expect(getLocale()).toBe('en');
+    });
   });
 });
