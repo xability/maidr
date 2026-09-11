@@ -17,6 +17,8 @@ import { TraceType } from '@type/grammar';
 import { setLocale } from '@util/i18n';
 import { renderToString } from 'react-dom/server.node';
 import { Maidr } from '../../src/maidr-component';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 const data: MaidrData = {
   id: 'language-test',

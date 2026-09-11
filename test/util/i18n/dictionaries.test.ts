@@ -1,5 +1,7 @@
 import { dictionary, SUPPORTED_LOCALES } from '@util/i18n';
 import { en } from '@util/i18n/en';
+// Every dictionary is a locale pack, not part of the core, so load them all.
+import '../../../src/locale/all';
 
 type Dictionary = Record<string, string>;
 
@@ -9,7 +11,7 @@ type Dictionary = Record<string, string>;
  * @returns Each supported locale with its dictionary
  */
 function dictionaries(): Array<[string, Dictionary]> {
-  return SUPPORTED_LOCALES.map(locale => [locale, dictionary(locale) as Dictionary]);
+  return SUPPORTED_LOCALES.map(locale => [locale, (dictionary(locale) ?? {}) as Dictionary]);
 }
 
 /**
@@ -23,6 +25,10 @@ function placeholders(template: string): string[] {
 
 describe('dictionaries', () => {
   const english = en as Dictionary;
+
+  it('should have every known locale loaded', () => {
+    expect(SUPPORTED_LOCALES.filter(locale => dictionary(locale) === undefined)).toEqual([]);
+  });
 
   describe.each(dictionaries())('%s', (locale, dictionary) => {
     // A placeholder the English fills may be dropped where the language says

@@ -125,14 +125,14 @@ export function Maidr({ data, children }: MaidrProps): JSX.Element {
   const store = storeRef.current;
 
   const { plotRef, figureRef, contextValue, onFocusIn, onFocusOut } = useMaidrController(data, store);
-  const { locale } = useLocale();
+  const { locale, revision } = useLocale();
 
   // Compute the initial instruction once so the plot is discoverable by screen
   // readers (role="img" + aria-label) before any user interaction.
-  // `locale` is a dependency because the instruction is built from translated
-  // messages: without it the pre-activation label would keep the language the
-  // chart first rendered in.
-  const initialInstruction = useMemo(() => getInitialInstruction(data), [data, locale]);
+  // `revision` is a dependency because the instruction is built from
+  // translated messages: it advances on a language change and when the
+  // language's pack arrives, which leaves `locale` itself unchanged.
+  const initialInstruction = useMemo(() => getInitialInstruction(data), [data, revision]);
 
   // Click-to-activate shim: most chart libraries render the plot as inert SVG
   // children of our `tabIndex={0}` wrapper. Browsers do NOT auto-focus a

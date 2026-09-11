@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from '@jest/globals';
 import { applyStoredLanguage, SETTINGS_KEY, SettingsService } from '@service/settings';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { getLocale, setLocale } from '@util/i18n';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 // `jest-environment-jsdom` does not expose `structuredClone`, which
 // `SettingsService` uses to clone the default settings.

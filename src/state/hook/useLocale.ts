@@ -1,5 +1,5 @@
 import type { Locale, MessageKey, MessageParams } from '@util/i18n';
-import { getLocale, onLocaleChange, t } from '@util/i18n';
+import { getLocale, getLocaleRevision, onLocaleChange, t } from '@util/i18n';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
@@ -18,6 +18,12 @@ function subscribe(onStoreChange: () => void): () => void {
 export interface LocaleApi {
   /** The active locale, for `lang` attributes and locale-aware formatting. */
   locale: Locale;
+  /**
+   * Advances whenever `t` would render differently: on a locale switch, and
+   * when the active locale's pack arrives. A memo that caches rendered text
+   * keys on this rather than on `locale`, which a late pack leaves unchanged.
+   */
+  revision: number;
   /** Renders a message in the active locale; see `t` in `@util/i18n`. */
   t: (key: MessageKey, params?: MessageParams) => string;
 }
@@ -31,11 +37,14 @@ export interface LocaleApi {
  * @returns The active locale and its `t`
  */
 export function useLocale(): LocaleApi {
-  const locale = useSyncExternalStore(subscribe, getLocale, getLocale);
-  // Bound to `locale` so memoised callers see a new function per language.
+  // The revision is the snapshot, not the locale: a pack registering for the
+  // active locale changes every message without changing the locale string,
+  // and a subscription keyed on the string would not re-render for it.
+  const revision = useSyncExternalStore(subscribe, getLocaleRevision, getLocaleRevision);
+  // Bound to `revision` so memoised callers see a new function per change.
   const translate = useCallback(
     (key: MessageKey, params?: MessageParams) => t(key, params),
-    [locale],
+    [revision],
   );
-  return { locale, t: translate };
+  return { locale: getLocale(), revision, t: translate };
 }

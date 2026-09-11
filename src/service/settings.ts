@@ -4,11 +4,13 @@ import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
 import type { Settings } from '@type/settings';
+import type { Locale } from '@util/i18n';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 import { isLanguageSetting, resolveLocale, setLocale } from '@util/i18n';
+import { ensureLocalePack } from './localePack';
 
 export const SETTINGS_KEY = 'maidr-settings';
 
@@ -58,9 +60,21 @@ class SettingsChangedEvent {
 export function applyStoredLanguage(storage: StorageService): void {
   const saved = storage.load<{ general?: { language?: unknown } }>(SETTINGS_KEY);
   const language = saved?.general?.language;
-  setLocale(resolveLocale(
+  speak(resolveLocale(
     isLanguageSetting(language) ? language : DEFAULT_SETTINGS.general.language,
   ));
+}
+
+/**
+ * Makes a locale the active one and fetches its pack if the page lacks it.
+ *
+ * The switch is immediate so nothing waits on the network: until the pack
+ * registers, messages render in English, and registration re-renders them.
+ * @param locale - The locale to speak
+ */
+function speak(locale: Locale): void {
+  setLocale(locale);
+  void ensureLocalePack(locale);
 }
 
 export class SettingsService implements Disposable {
@@ -104,7 +118,7 @@ export class SettingsService implements Disposable {
    * who picks a language hears the next announcement in it.
    */
   private applyLanguage(): void {
-    setLocale(resolveLocale(this.currentSettings.general.language));
+    speak(resolveLocale(this.currentSettings.general.language));
   }
 
   public dispose(): void {

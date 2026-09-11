@@ -5,6 +5,8 @@ import { HelpService } from '@service/help';
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
 import { setLocale, tIn } from '@util/i18n';
+// The Korean dictionary is a locale pack, not part of the core, so load it.
+import '../../src/locale/ko';
 
 /**
  * Scopes the user can open the help menu from, paired with the label scope

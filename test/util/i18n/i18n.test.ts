@@ -11,6 +11,8 @@ import {
   setLocale,
   SUPPORTED_LOCALES,
 } from '@util/i18n';
+// Every dictionary is a locale pack, not part of the core, so load them all.
+import '../../../src/locale/all';
 
 describe('i18n', () => {
   afterEach(() => {
