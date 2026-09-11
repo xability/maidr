@@ -37,10 +37,14 @@ type GoToExtremaStub = Pick<
   | 'selectTarget'
 >;
 
-/** Builds a min/max target the dialog can render. */
-function createTarget(label: string, value: number): ExtremaTarget {
+/**
+ * Builds a min/max target the way a trace does: the sentence, and the parts
+ * the dialog composes its line from.
+ */
+function createTarget(name: string, x: string, value: number, y?: string): ExtremaTarget {
   return {
-    label,
+    label: y === undefined ? `${name} at ${x}` : `${name} at ${x}, ${y}`,
+    display: y === undefined ? { name, x } : { name, x, y },
     value,
     pointIndex: 0,
     segment: 'bar',
@@ -50,8 +54,8 @@ function createTarget(label: string, value: number): ExtremaTarget {
 }
 
 const TARGETS = [
-  createTarget('Max Bar at Q1', 8),
-  createTarget('Min Bar at Q3', 2),
+  createTarget('Max Bar', 'Q1', 8),
+  createTarget('Min Bar', 'Q3', 2),
 ];
 
 interface Rendered {
@@ -255,5 +259,34 @@ describe('go to dialog: keyboard reach', () => {
 
     expect(screen.getByRole('option', { name: 'Q3' })).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('option', { name: 'Q4' })).toHaveAttribute('tabindex', '-1');
+  });
+});
+
+describe('go to dialog: the line each target is listed under', () => {
+  it('should compose the line from the parts the trace supplied, not from its sentence', () => {
+    // The Korean sentence puts the position first and has no " at " in it.
+    // Nothing here takes the sentence apart: the parts carry the name and the
+    // position, and the line reads the same however the language orders them.
+    renderDialog({
+      targets: [{
+        ...createTarget('최대 막대', 'Q1', 8),
+        label: 'Q1의 최대 막대',
+      }],
+    });
+
+    expect(screen.getByLabelText('최대 막대 Value: 8.00 at Q1')).toBeInTheDocument();
+  });
+
+  it('should place a grid cell by both its coordinates', () => {
+    renderDialog({ targets: [createTarget('Global Maximum', '9', 0.95, '2')] });
+
+    expect(screen.getByLabelText('Global Maximum Value: 0.95 at 9, 2')).toBeInTheDocument();
+  });
+
+  it('should list a target without parts under its sentence as it is', () => {
+    const { display: _display, ...bare } = createTarget('Max Bar', 'Q1', 8);
+    renderDialog({ targets: [{ ...bare, label: 'Somewhere worth going' }] });
+
+    expect(screen.getByLabelText('Somewhere worth going')).toBeInTheDocument();
   });
 });

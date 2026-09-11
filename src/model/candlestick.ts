@@ -31,6 +31,7 @@ import { MathUtil } from '@util/math';
 import { computeIndexAndSegment } from '@util/navigation';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -1344,7 +1345,7 @@ export class Candlestick extends AbstractTrace {
       maxVolatilityIndices.forEach((index, _count) => {
         const candle = this.candles[index];
         targets.push({
-          label: t('model.extremaMaxVolatilityAt', { label: candle.value }),
+          ...extremumAt(t('model.extremaMaxVolatility'), candle.value),
           value: candle.volatility,
           pointIndex: index,
           segment: 'volatility',
@@ -1358,7 +1359,7 @@ export class Candlestick extends AbstractTrace {
       minVolatilityIndices.forEach((index, _count) => {
         const candle = this.candles[index];
         targets.push({
-          label: t('model.extremaMinVolatilityAt', { label: candle.value }),
+          ...extremumAt(t('model.extremaMinVolatility'), candle.value),
           value: candle.volatility,
           pointIndex: index,
           segment: 'volatility',
@@ -1391,10 +1392,7 @@ export class Candlestick extends AbstractTrace {
         const candle = this.candles[index];
         const segmentLabel = t(SECTION_HEADER[currentSegment]);
         targets.push({
-          label: t('model.extremaMaxSegmentAt', {
-            segment: segmentLabel,
-            label: candle.value,
-          }),
+          ...extremumAt(t('model.extremaMaxSegment', { segment: segmentLabel }), candle.value),
           value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,
@@ -1409,10 +1407,7 @@ export class Candlestick extends AbstractTrace {
         const candle = this.candles[index];
         const segmentLabel = t(SECTION_HEADER[currentSegment]);
         targets.push({
-          label: t('model.extremaMinSegmentAt', {
-            segment: segmentLabel,
-            label: candle.value,
-          }),
+          ...extremumAt(t('model.extremaMinSegment', { segment: segmentLabel }), candle.value),
           value: this.priceOf(candle, currentSegment),
           pointIndex: index,
           segment: currentSegment,

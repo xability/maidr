@@ -10,6 +10,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -723,7 +724,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Add max targets
     for (const maxIndex of indicesAt(groupMax)) {
       targets.push({
-        label: t('model.extremaMaxBarAt', { label: this.getPointLabel(maxIndex) }),
+        ...extremumAt(t('model.extremaMaxBar'), this.getPointLabel(maxIndex)),
         value: groupMax,
         pointIndex: maxIndex,
         segment: 'bar',
@@ -736,7 +737,7 @@ export class BarTrace extends AbstractBarPlot<BarPoint> {
     // Add min targets
     for (const minIndex of indicesAt(groupMin)) {
       targets.push({
-        label: t('model.extremaMinBarAt', { label: this.getPointLabel(minIndex) }),
+        ...extremumAt(t('model.extremaMinBar'), this.getPointLabel(minIndex)),
         value: groupMin,
         pointIndex: minIndex,
         segment: 'bar',

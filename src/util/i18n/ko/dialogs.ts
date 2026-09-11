@@ -44,6 +44,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} 값 {value}, 위치 {x}',
   'dialogs.extremaValue': '{label} 값 {value}',
 
+  'dialogs.extremaCell': '{x}, {y}',
+
   'dialogs.extremaMovedToSearch': '검색으로 이동했습니다. 입력하여 X 값을 필터링하세요.',
   'dialogs.extremaFirstOption': '첫 번째 항목입니다',
   'dialogs.extremaNoResults': '검색 결과가 없습니다',

@@ -34,12 +34,19 @@ function buildTargetDisplayLabel(target: ExtremaTarget, t: LocaleApi['t']): stri
     // Fallback for intersection without display fields
     return target.label;
   }
-  // For min/max, show: "Max point Value: 8.00 at X"
-  const labelParts = target.label.split(' at ');
-  // Guard against labels without " at " separator
-  return labelParts[1]
-    ? t('dialogs.extremaValueAt', { label: labelParts[0], value: target.value.toFixed(2), x: labelParts[1] })
-    : t('dialogs.extremaValue', { label: labelParts[0], value: target.value.toFixed(2) });
+  // For min/max, show: "Max point Value: 8.00 at X", composed from the parts
+  // the trace supplied. The sentence in `label` is never taken apart: where
+  // the position sits in it is the language's business, not this dialog's.
+  const { name, x, y } = target.display ?? {};
+  if (name === undefined) {
+    return target.label;
+  }
+  const value = target.value.toFixed(2);
+  if (x === undefined) {
+    return t('dialogs.extremaValue', { label: name, value });
+  }
+  const where = y === undefined ? x : t('dialogs.extremaCell', { x, y });
+  return t('dialogs.extremaValueAt', { label: name, value, x: where });
 }
 
 // Helper function to generate styles for target boxes

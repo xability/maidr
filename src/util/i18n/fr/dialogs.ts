@@ -44,6 +44,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} Valeur : {value} à {x}',
   'dialogs.extremaValue': '{label} Valeur : {value}',
 
+  'dialogs.extremaCell': '{x}, {y}',
+
   'dialogs.extremaMovedToSearch': 'Passage à la recherche. Saisissez du texte pour filtrer les valeurs X.',
   'dialogs.extremaFirstOption': 'Première option d\'extremum',
   'dialogs.extremaNoResults': 'Aucun résultat',

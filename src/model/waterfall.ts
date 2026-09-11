@@ -11,6 +11,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -375,7 +376,7 @@ export class WaterfallTrace extends AbstractTrace {
     const smallest = moving.reduce((a, b) => (deltaOf(b) < deltaOf(a) ? b : a));
 
     const targets: ExtremaTarget[] = [{
-      label: t('model.extremaLargestIncreaseAt', { label: largest.point.x }),
+      ...extremumAt(t('model.extremaLargestIncrease'), largest.point.x),
       value: deltaOf(largest),
       pointIndex: largest.index,
       segment: 'waterfall',
@@ -389,7 +390,7 @@ export class WaterfallTrace extends AbstractTrace {
     // biggest rise and the biggest fall are the same bar.
     if (smallest.index !== largest.index) {
       targets.push({
-        label: t('model.extremaLargestDecreaseAt', { label: smallest.point.x }),
+        ...extremumAt(t('model.extremaLargestDecrease'), smallest.point.x),
         value: deltaOf(smallest),
         pointIndex: smallest.index,
         segment: 'waterfall',

@@ -57,10 +57,19 @@ export interface ExtremaTarget {
   intersectingLines?: number[];
 
   /**
-   * Structured display data for UI rendering.
-   * Avoids string parsing in UI components.
+   * The parts the Go To dialog composes its line from, so that no consumer
+   * has to parse `label` — a sentence whose word order is the language's.
    */
   display?: {
+    /** The extremum without its position, translated: "Max Bar", "Row Maximum" */
+    name?: string;
+    /**
+     * The x value, or category, as `label` speaks it. The view model swaps in
+     * the layer's formatted form when this is `xValue` written out.
+     */
+    x?: string;
+    /** The row a grid cell is on, spoken after `x` */
+    y?: string;
     /** Pre-formatted coordinates string (e.g., "x=1.50, y=2.50") */
     coords?: string;
     /** Names of other lines involved (for intersections, excludes current line) */

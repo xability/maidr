@@ -11,6 +11,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -743,9 +744,9 @@ export class ErrorBarTrace extends AbstractTrace {
     const what = t(SECTION_LABEL[found.section]);
 
     return {
-      label: t(
-        type === 'max' ? 'model.extremaMaxSectionAt' : 'model.extremaMinSectionAt',
-        { section: what, where },
+      ...extremumAt(
+        t(type === 'max' ? 'model.extremaMaxSection' : 'model.extremaMinSection', { section: what }),
+        where,
       ),
       value: found.value,
       pointIndex: found.index,

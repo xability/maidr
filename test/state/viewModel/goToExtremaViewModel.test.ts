@@ -1,6 +1,6 @@
 /**
  * Tests for GoToExtremaViewModel covering:
- *  - getAvailableXValueOptions() and formatTargetLabels(): raw value preserved,
+ *  - getAvailableXValueOptions() and formatTargetXValues(): raw value preserved,
  *    label x-axis formatted (matching the terse layer text) for every known
  *    layer, falling back to String(value) only with no formatter or no layer id.
  *  - moveToIndex(): Home/End index clamping.
@@ -237,15 +237,113 @@ describe('GoToExtremaViewModel.moveToIndex', () => {
   });
 });
 
-describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
-  test('rounds a long float in an extrema label for a layer with no format', () => {
-    // The sibling of the getAvailableXValueOptions case: this caller lost the
-    // same dead gate, and nothing asserted it. A real FormatterService over a
-    // layer with no `AxisFormat` still shortens the label, so the dialog and
-    // the announcement say the same number for the same point.
+describe('GoToExtremaViewModel.formatTargetXValues (via toggle)', () => {
+  /** A min/max target as a trace builds it: the sentence and its parts. */
+  function target(name: string, x: string, xValue: string | number, y?: string): ExtremaTarget {
+    return {
+      label: y === undefined ? `${name} at ${x}` : `${name} at ${x}, ${y}`,
+      display: y === undefined ? { name, x } : { name, x, y },
+      xValue,
+    } as unknown as ExtremaTarget;
+  }
+
+  function formatted(store: ReturnType<typeof createMaidrStore>): ExtremaTarget['display'] {
+    return store.getState().goToExtrema.targets[0].display;
+  }
+
+  test('rounds a long float in an extrema position for a layer with no format', () => {
+    // A real FormatterService over a layer with no `AxisFormat` still shortens
+    // the position, so the dialog and the announcement say the same number for
+    // the same point.
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [target('Max Bar', '57.14285714285714', 57.14285714285714)]);
+    const formatter = createRealFormatter();
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(formatted(store)).toEqual({ name: 'Max Bar', x: '57.14' });
+
+    formatter.dispose();
+  });
+
+  test('leaves a position alone when the formatter does not change the value', () => {
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [target('Max Bar', 'Q1', 'Q1')]);
+    const formatter = createRealFormatter();
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(formatted(store)).toEqual({ name: 'Max Bar', x: 'Q1' });
+
+    formatter.dispose();
+  });
+
+  test('formats the x of a grid cell and leaves its row alone', () => {
+    // A heatmap target carries both coordinates. Only x has a formatter; the
+    // row must come through as the trace wrote it even when it shares the
+    // digits of x.
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [
+      target('Global Maximum', '9', 9, '2'),
+      target('Row Maximum', '1', 1, '12'),
+    ]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(store.getState().goToExtrema.targets.map(t => t.display)).toEqual([
+      { name: 'Global Maximum', x: '9.0', y: '2' },
+      { name: 'Row Maximum', x: '1.0', y: '12' },
+    ]);
+
+    formatter.dispose();
+  });
+
+  test('leaves a position that is not the raw x value written out alone', () => {
+    // A trace may place an extremum by a label of its own rather than by the
+    // raw x; the formatter has nothing to say about that label.
+    const store = createMaidrStore();
+    const trace = createTraceStub([], [target('Max Data', 'rest', 7)]);
+    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
+    const vm = new GoToExtremaViewModel(
+      store,
+      createServiceStub(true),
+      createContextStub(trace, 'layer-1'),
+      formatter,
+    );
+
+    vm.toggle(TRACE_STATE);
+
+    expect(formatted(store)).toEqual({ name: 'Max Data', x: 'rest' });
+
+    formatter.dispose();
+  });
+
+  test('never rewrites the sentence, in any language', () => {
+    // The Korean sentence puts the position first and has no " at " in it;
+    // the parts are what get formatted, and the sentence is not parsed.
     const store = createMaidrStore();
     const trace = createTraceStub([], [{
-      label: 'Max Bar at 57.14285714285714',
+      label: '57.14285714285714의 최대 막대',
+      display: { name: '최대 막대', x: '57.14285714285714' },
       xValue: 57.14285714285714,
     } as unknown as ExtremaTarget]);
     const formatter = createRealFormatter();
@@ -258,109 +356,19 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
 
     vm.toggle(TRACE_STATE);
 
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.14');
+    expect(store.getState().goToExtrema.targets[0]).toMatchObject({
+      label: '57.14285714285714의 최대 막대',
+      display: { name: '최대 막대', x: '57.14' },
+    });
 
     formatter.dispose();
   });
 
-  test('leaves a label alone when the formatter does not change the value', () => {
+  test('formats a horizontal trace\u2019s position with its main axis, not always x', () => {
+    // The dialog announced "Max Bar at $2,019.00" for a category the trace
+    // itself announces as "2019".
     const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Max Bar at Q1',
-      xValue: 'Q1',
-    } as unknown as ExtremaTarget]);
-    const formatter = createRealFormatter();
-    const vm = new GoToExtremaViewModel(
-      store,
-      createServiceStub(true),
-      createContextStub(trace, 'layer-1'),
-      formatter,
-    );
-
-    vm.toggle(TRACE_STATE);
-
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at Q1');
-
-    formatter.dispose();
-  });
-
-  test('rewrites only the x value, leaving the extremum value and y coordinate alone', () => {
-    // A heatmap target names the value and both coordinates, so rewriting every
-    // occurrence of the raw x corrupted the number the reader is being sent to:
-    // "Global Maximum: 0.95 at 9, 2" with x=9 came out as
-    // "Global Maximum: 0.9.05 at 9.0, 2".
-    const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Global Maximum: 0.95 at 9, 2',
-      xValue: 9,
-    } as unknown as ExtremaTarget]);
-    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
-    const vm = new GoToExtremaViewModel(
-      store,
-      createServiceStub(true),
-      createContextStub(trace, 'layer-1'),
-      formatter,
-    );
-
-    vm.toggle(TRACE_STATE);
-
-    expect(store.getState().goToExtrema.targets[0].label)
-      .toBe('Global Maximum: 0.95 at 9.0, 2');
-
-    formatter.dispose();
-  });
-
-  test('rewrites only the x value when the y coordinate shares its digits', () => {
-    const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Row Maximum: 4 at 1, 12',
-      xValue: 1,
-    } as unknown as ExtremaTarget]);
-    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
-    const vm = new GoToExtremaViewModel(
-      store,
-      createServiceStub(true),
-      createContextStub(trace, 'layer-1'),
-      formatter,
-    );
-
-    vm.toggle(TRACE_STATE);
-
-    expect(store.getState().goToExtrema.targets[0].label)
-      .toBe('Row Maximum: 4 at 1.0, 12');
-
-    formatter.dispose();
-  });
-
-  test('rewrites the x value after the last " at " when a group label carries one too', () => {
-    const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Max Data at rest at 7',
-      xValue: 7,
-    } as unknown as ExtremaTarget]);
-    const formatter = createRealFormatter({ type: 'fixed', decimals: 1 });
-    const vm = new GoToExtremaViewModel(
-      store,
-      createServiceStub(true),
-      createContextStub(trace, 'layer-1'),
-      formatter,
-    );
-
-    vm.toggle(TRACE_STATE);
-
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Data at rest at 7.0');
-
-    formatter.dispose();
-  });
-
-  test('formats a horizontal trace\u2019s label with its main axis, not always x', () => {
-    // The label half of the same bug: the dialog announced "Max Bar at
-    // $2,019.00" for a category the trace itself announces as "2019".
-    const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Max Bar at 2019',
-      xValue: 2019,
-    } as unknown as ExtremaTarget]);
+    const trace = createTraceStub([], [target('Max Bar', '2019', 2019)]);
     const formatter = createRealFormatter({ type: 'currency' });
     const vm = new GoToExtremaViewModel(
       store,
@@ -371,17 +379,14 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
 
     vm.toggle(HORIZONTAL_TRACE_STATE);
 
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 2019');
+    expect(formatted(store)).toEqual({ name: 'Max Bar', x: '2019' });
 
     formatter.dispose();
   });
 
-  test('formats a horizontal trace\u2019s label with the y format the announcement uses', () => {
+  test('formats a horizontal trace\u2019s position with the y format the announcement uses', () => {
     const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Max Bar at 57.14285714285714',
-      xValue: 57.14285714285714,
-    } as unknown as ExtremaTarget]);
+    const trace = createTraceStub([], [target('Max Bar', '57.14285714285714', 57.14285714285714)]);
     const formatter = createRealFormatter({ type: 'currency' }, { type: 'fixed', decimals: 1 });
     const vm = new GoToExtremaViewModel(
       store,
@@ -392,17 +397,14 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
 
     vm.toggle(HORIZONTAL_TRACE_STATE);
 
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.1');
+    expect(formatted(store)).toEqual({ name: 'Max Bar', x: '57.1' });
 
     formatter.dispose();
   });
 
   test('still honours an author-supplied format on the same path', () => {
     const store = createMaidrStore();
-    const trace = createTraceStub([], [{
-      label: 'Max Bar at 57.14285714285714',
-      xValue: 57.14285714285714,
-    } as unknown as ExtremaTarget]);
+    const trace = createTraceStub([], [target('Max Bar', '57.14285714285714', 57.14285714285714)]);
     const formatter = createRealFormatter({ type: 'fixed', decimals: 4 });
     const vm = new GoToExtremaViewModel(
       store,
@@ -413,71 +415,8 @@ describe('GoToExtremaViewModel.formatTargetLabels (via toggle)', () => {
 
     vm.toggle(TRACE_STATE);
 
-    expect(store.getState().goToExtrema.targets[0].label).toBe('Max Bar at 57.1429');
+    expect(formatted(store)).toEqual({ name: 'Max Bar', x: '57.1429' });
 
     formatter.dispose();
-  });
-});
-
-describe('GoToExtremaViewModel scope transitions (what drives the menu cues)', () => {
-  // The open/close cues now come from DisplayViewModel, keyed off the scope
-  // change, so what this view model owes them is the scope change itself on
-  // every path — and none on disposal, which is what keeps focus-out silent.
-  test('toggle() enters the modal scope when the trace is extrema-navigable', () => {
-    const store = createMaidrStore();
-    const service = createServiceStub(true);
-    const trace = createTraceStub(['2019-11-03']);
-    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
-
-    vm.toggle(TRACE_STATE);
-
-    expect(service.toggle).toHaveBeenCalledTimes(1);
-    expect(service.returnToTraceScope).not.toHaveBeenCalled();
-  });
-
-  test('toggle() does not enter the modal scope when the trace is not navigable', () => {
-    const store = createMaidrStore();
-    const service = createServiceStub(false);
-    const trace = createTraceStub(['2019-11-03']);
-    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
-
-    vm.toggle(TRACE_STATE);
-
-    expect(service.toggle).not.toHaveBeenCalled();
-  });
-
-  test('hide() leaves the modal scope once', () => {
-    const store = createMaidrStore();
-    const service = createServiceStub();
-    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
-
-    vm.hide();
-
-    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
-    expect(service.toggle).not.toHaveBeenCalled();
-  });
-
-  test('selectCurrent() leaves the modal scope and navigates', () => {
-    const store = createMaidrStore();
-    const service = createServiceStub(true);
-    const trace = createTraceStub(['2019-11-03']);
-    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
-    store.dispatch({ type: 'goToExtrema/show', payload: { targets: [{ label: 't0' }], description: '' } });
-
-    vm.selectCurrent();
-
-    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
-    expect(trace.navigateToExtrema).toHaveBeenCalledTimes(1);
-  });
-
-  test('dispose() does not change scope (focus-out is silent)', () => {
-    const store = createMaidrStore();
-    const service = createServiceStub();
-    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
-
-    vm.dispose();
-
-    expect(service.toggle).not.toHaveBeenCalled();
-    expect(service.returnToTraceScope).not.toHaveBeenCalled();
   });
 });

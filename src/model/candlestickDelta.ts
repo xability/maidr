@@ -15,6 +15,7 @@ import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /** OHLC fields a user can compare against a reference line. */
@@ -739,10 +740,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private buildExtremaTarget(type: 'max' | 'min', index: number): ExtremaTarget {
     const candle = this.candles[index];
     return {
-      label: t(
-        type === 'max' ? 'model.extremaMaxDeltaAt' : 'model.extremaMinDeltaAt',
-        { label: candle.x },
-      ),
+      ...extremumAt(t(type === 'max' ? 'model.extremaMaxDelta' : 'model.extremaMinDelta'), candle.x),
       value: this.deltaByField[this.currentField][index],
       pointIndex: index,
       segment: this.currentField,

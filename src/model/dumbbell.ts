@@ -11,6 +11,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -492,10 +493,7 @@ export class DumbbellTrace extends AbstractTrace {
     }
 
     const targets: ExtremaTarget[] = [{
-      label: t('model.extremaRankAt', {
-        rank: rankLabel('max', largest.change),
-        label: this.points[largest.index].x,
-      }),
+      ...extremumAt(rankLabel('max', largest.change), this.points[largest.index].x),
       value: largest.change,
       pointIndex: largest.index,
       segment: 'end',
@@ -509,10 +507,7 @@ export class DumbbellTrace extends AbstractTrace {
     // the chart does not have.
     if (smallest.index !== largest.index) {
       targets.push({
-        label: t('model.extremaRankAt', {
-          rank: rankLabel('min', smallest.change),
-          label: this.points[smallest.index].x,
-        }),
+        ...extremumAt(rankLabel('min', smallest.change), this.points[smallest.index].x),
         value: smallest.change,
         pointIndex: smallest.index,
         segment: 'end',
