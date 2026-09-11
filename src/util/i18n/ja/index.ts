@@ -13,7 +13,7 @@ import { text } from './text';
 
 /**
  * The 日本語 dictionary. Typed against the English key set, so a key added
- * to English without a Korean rendering fails the type check rather than
+ * to English without a Japanese rendering fails the type check rather than
  * falling silently back to English at runtime.
  */
 export const ja: Record<MessageKey, string> = {

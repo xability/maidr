@@ -1,5 +1,5 @@
 import type { MessageKey } from '../index';
 
 export const common = {
-  'common.missing': '없음',
+  'common.missing': '欠損',
 } satisfies Partial<Record<MessageKey, string>>;
