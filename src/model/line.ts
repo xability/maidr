@@ -12,6 +12,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { isMeasured, missingText, toBarValue } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGraph } from './movable';
 
 /**
@@ -2119,7 +2120,7 @@ export class LineTrace extends AbstractTrace {
     // Add max targets
     for (const maxIndex of maxIndices) {
       targets.push({
-        label: t('model.extremaMaxPointAt', { label: this.getPointLabel(maxIndex) }),
+        ...extremumAt(t('model.extremaMaxPoint'), this.getPointLabel(maxIndex)),
         value: groupMax,
         pointIndex: maxIndex,
         segment: 'line',
@@ -2132,7 +2133,7 @@ export class LineTrace extends AbstractTrace {
     // Add min target
     for (const minIndex of minIndices) {
       targets.push({
-        label: t('model.extremaMinPointAt', { label: this.getPointLabel(minIndex) }),
+        ...extremumAt(t('model.extremaMinPoint'), this.getPointLabel(minIndex)),
         value: groupMin,
         pointIndex: minIndex,
         segment: 'line',

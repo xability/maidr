@@ -48,6 +48,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} Wert: {value} bei {x}',
   'dialogs.extremaValue': '{label} Wert: {value}',
 
+  'dialogs.extremaCell': '{x}, {y}',
+
   // What focus does not announce on its own.
   'dialogs.extremaMovedToSearch': 'Zur Suche gewechselt. Tippen Sie, um die X-Werte zu filtern.',
   'dialogs.extremaFirstOption': 'Bei der ersten Extremwert-Option',

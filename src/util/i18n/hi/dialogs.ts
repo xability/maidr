@@ -44,6 +44,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} मान: {value}, {x} पर',
   'dialogs.extremaValue': '{label} मान: {value}',
 
+  'dialogs.extremaCell': '{x}, {y}',
+
   'dialogs.extremaMovedToSearch': 'खोज पर पहुँचे। X मान फ़िल्टर करने के लिए टाइप करें।',
   'dialogs.extremaFirstOption': 'पहले चरम मान विकल्प पर',
   'dialogs.extremaNoResults': 'कोई खोज परिणाम नहीं',

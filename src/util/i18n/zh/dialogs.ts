@@ -44,6 +44,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} 值：{value}，位于 {x}',
   'dialogs.extremaValue': '{label} 值：{value}',
 
+  'dialogs.extremaCell': '{x}，{y}',
+
   'dialogs.extremaMovedToSearch': '已移动到搜索框。输入以筛选 X 值。',
   'dialogs.extremaFirstOption': '已在第一个跳转选项',
   'dialogs.extremaNoResults': '没有搜索结果',

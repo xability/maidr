@@ -44,6 +44,8 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} 値 {value}、位置 {x}',
   'dialogs.extremaValue': '{label} 値 {value}',
 
+  'dialogs.extremaCell': '{x}、{y}',
+
   'dialogs.extremaMovedToSearch': '検索に移動しました。入力してX値を絞り込んでください。',
   'dialogs.extremaFirstOption': '最初の移動先です',
   'dialogs.extremaNoResults': '検索結果はありません',

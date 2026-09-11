@@ -214,8 +214,10 @@ export const model = {
   'model.markNounLeadingStages': 'Stufen',
   // Go To Extrema target names, and the positional fallback for a point the
   // layer does not name.
-  'model.extremaMaxBarAt': 'Höchster Balken bei {label}',
-  'model.extremaMinBarAt': 'Niedrigster Balken bei {label}',
+  'model.extremaMaxBar': 'Höchster Balken',
+  'model.extremaMinBar': 'Niedrigster Balken',
+  'model.extremaAt': '{name} bei {where}',
+  'model.extremaCell': '{x}, {y}',
   'model.fallbackPoint': 'Punkt {index}',
   // Histogram summary and table labels.
   'model.statNumberOfBins': 'Anzahl der Klassen',
@@ -299,12 +301,12 @@ export const model = {
   'model.statLowestCell': 'Niedrigste Zelle',
   'model.fallbackColumn': 'Spalte {index}',
   'model.heatmapCellName': '{column}, {row}',
-  'model.extremaGlobalMaximum': 'Globales Maximum: {value} bei {x}, {y}',
-  'model.extremaGlobalMinimum': 'Globales Minimum: {value} bei {x}, {y}',
-  'model.extremaRowMaximum': 'Zeilenmaximum: {value} bei {x}, {y}',
-  'model.extremaRowMinimum': 'Zeilenminimum: {value} bei {x}, {y}',
-  'model.extremaColumnMaximum': 'Spaltenmaximum: {value} bei {x}, {y}',
-  'model.extremaColumnMinimum': 'Spaltenminimum: {value} bei {x}, {y}',
+  'model.extremaGlobalMaximum': 'Globales Maximum',
+  'model.extremaGlobalMinimum': 'Globales Minimum',
+  'model.extremaRowMaximum': 'Zeilenmaximum',
+  'model.extremaRowMinimum': 'Zeilenminimum',
+  'model.extremaColumnMaximum': 'Spaltenmaximum',
+  'model.extremaColumnMinimum': 'Spaltenminimum',
   // Line family: what a series is called, and what the summary says about them.
   // Each subclass of LineTrace names its own series noun.
   'model.seriesColumnLine': 'Linie',
@@ -314,8 +316,8 @@ export const model = {
   'model.statMissingValues': 'Fehlende Werte',
   'model.statNarrowestInterval': 'Schmalstes Intervall',
   'model.statWidestInterval': 'Breitestes Intervall',
-  'model.extremaMaxPointAt': 'Höchster Punkt bei {label}',
-  'model.extremaMinPointAt': 'Niedrigster Punkt bei {label}',
+  'model.extremaMaxPoint': 'Höchster Punkt',
+  'model.extremaMinPoint': 'Niedrigster Punkt',
   'model.intersectionPoint': 'Schnittpunkt am Datenpunkt',
   'model.intersectionSlope': 'Schnittpunkt zwischen Datenpunkten',
   'model.extremaIntersectionAt': '{kind} bei {coords}',
@@ -427,8 +429,8 @@ export const model = {
   'model.statSeriesNamesFallback': 'Reihennamen',
   // Stacked, dodged and normalized bars.
   'model.asideSum': 'Summe',
-  'model.extremaMaxGroupAt': 'Maximum {group} bei {category}',
-  'model.extremaMinGroupAt': 'Minimum {group} bei {category}',
+  'model.extremaMaxGroup': 'Maximum {group}',
+  'model.extremaMinGroup': 'Minimum {group}',
   'model.segmentedTotalGroup': 'Gesamt',
   'model.segmentedGroupNamed': '{axis}: {value}',
   'model.fallbackGroupIndexed': 'Gruppe {index}',
@@ -461,7 +463,6 @@ export const model = {
   'model.statDecreased': 'Gesunken',
   'model.statUnchanged': 'Unverändert',
   'model.tableChange': 'Änderung',
-  'model.extremaRankAt': '{rank} bei {label}',
   // Funnel chart: what each stage retains of the one before it.
   'model.asideRetained': 'Verbleibend',
   'model.asideEntered': 'Eingetreten',
@@ -497,8 +498,8 @@ export const model = {
   'model.tableLower': 'Untere',
   'model.tableUpper': 'Obere',
   'model.errorBarWhere': '{x}, {group}',
-  'model.extremaMaxSectionAt': 'Maximum {section} bei {where}',
-  'model.extremaMinSectionAt': 'Minimum {section} bei {where}',
+  'model.extremaMaxSection': 'Maximum {section}',
+  'model.extremaMinSection': 'Minimum {section}',
   // Forest plot: whether a study's interval clears the no-effect value.
   // "{section}, gepoolt" needs no adjective agreement with the section word.
   'model.forestPooledSection': '{section}, gepoolt',
@@ -530,8 +531,8 @@ export const model = {
   'model.statLargestIncrease': 'Größter Anstieg',
   'model.statLargestDecrease': 'Größter Rückgang',
   'model.tableKind': 'Art',
-  'model.extremaLargestIncreaseAt': 'Größter Anstieg bei {label}',
-  'model.extremaLargestDecreaseAt': 'Größter Rückgang bei {label}',
+  'model.extremaLargestIncrease': 'Größter Anstieg',
+  'model.extremaLargestDecrease': 'Größter Rückgang',
   // Word cloud.
   'model.statNumberOfTerms': 'Anzahl der Begriffe',
   'model.statHeaviestTerm': 'Schwerster Begriff',
@@ -544,8 +545,8 @@ export const model = {
   'model.tableWeight': 'Gewicht',
   'model.tableShareOfTotal': 'Anteil an der Summe',
   'model.wordCloudTermSummary': '{term} ({weight})',
-  'model.extremaHeaviestTerm': 'Schwerster Begriff, {term}',
-  'model.extremaLightestTerm': 'Leichtester Begriff, {term}',
+  'model.extremaHeaviestTerm': 'Schwerster Begriff',
+  'model.extremaLightestTerm': 'Leichtester Begriff',
   // Volcano and Manhattan plots: which points clear the threshold.
   'model.rotorUnitSignificant': 'Signifikant',
   'model.rotorNounSignificantPoints': 'Signifikante Punkte',
@@ -736,10 +737,10 @@ export const model = {
   'model.tableClose': 'Schluss',
   'model.tableVolume': 'Volumen',
   'model.tableTrend': 'Trend',
-  'model.extremaMaxVolatilityAt': 'Höchste Volatilität bei {label}',
-  'model.extremaMinVolatilityAt': 'Niedrigste Volatilität bei {label}',
-  'model.extremaMaxSegmentAt': 'Maximum {segment} bei {label}',
-  'model.extremaMinSegmentAt': 'Minimum {segment} bei {label}',
+  'model.extremaMaxVolatility': 'Höchste Volatilität',
+  'model.extremaMinVolatility': 'Niedrigste Volatilität',
+  'model.extremaMaxSegment': 'Maximum {segment}',
+  'model.extremaMinSegment': 'Minimum {segment}',
   // Candlestick reference-delta layer: each price against a reference line.
   'model.candlestickAboveLineMode': 'Navigation über der Linie',
   'model.candlestickBelowLineMode': 'Navigation unter der Linie',
@@ -772,6 +773,6 @@ export const model = {
   'model.forestDoesNotCross': 'schneidet nicht',
   'model.forestRowPooled': 'gepoolt',
   'model.forestRowStudy': 'Studie',
-  'model.extremaMaxDeltaAt': 'Höchstes Delta bei {label}',
-  'model.extremaMinDeltaAt': 'Niedrigstes Delta bei {label}',
+  'model.extremaMaxDelta': 'Höchstes Delta',
+  'model.extremaMinDelta': 'Niedrigstes Delta',
 } satisfies Partial<Record<MessageKey, string>>;

@@ -31,52 +31,6 @@ export interface XValueOption {
   label: string;
 }
 
-/**
- * The separator every extrema label puts in front of its x value, in
- * `Max Bar at Q1` and `Global Maximum: 0.95 at 9, 2` alike.
- */
-const X_VALUE_SEPARATOR = ' at ';
-
-/**
- * Rewrites the x value of an extrema label with its formatted form.
- *
- * The x value is the only part of the label the formatter has anything to say
- * about, and it is written directly after the label's final ` at `. Every
- * other number in there belongs to something else: the extremum's own value
- * and, on a heatmap, the y coordinate. Rewriting every occurrence of the raw x
- * corrupted those too whenever they shared its digits — an x of 9 formatted to
- * one decimal turned `Global Maximum: 0.95 at 9, 2` into
- * `Global Maximum: 0.9.05 at 9.0, 2`, which is the value the dialog shows and
- * the screen reader announces.
- *
- * Earlier separators are tried in turn so a group label containing ` at ` (a
- * label reads `Max Data at rest at 7`) still formats; a label whose x value is
- * nowhere to be found after one is returned untouched rather than guessed at.
- * @param label - The target label as the model built it.
- * @param raw - The x value, stringified.
- * @param formatted - The x value as the layer's formatter writes it.
- * @returns The label with its x value formatted.
- */
-function replaceXValueInLabel(label: string, raw: string, formatted: string): string {
-  const starts: number[] = [];
-  for (
-    let index = label.indexOf(X_VALUE_SEPARATOR);
-    index !== -1;
-    index = label.indexOf(X_VALUE_SEPARATOR, index + 1)
-  ) {
-    starts.push(index + X_VALUE_SEPARATOR.length);
-  }
-
-  for (let i = starts.length - 1; i >= 0; i--) {
-    const start = starts[i];
-    if (label.startsWith(raw, start)) {
-      return label.slice(0, start) + formatted + label.slice(start + raw.length);
-    }
-  }
-
-  return label;
-}
-
 export interface GoToExtremaState {
   visible: boolean;
   targets: any[];
@@ -163,7 +117,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
       const extremaTargets = activeTrace.getExtremaTargets();
 
       // Apply formatting to target labels using FormatterService
-      const formattedTargets = this.formatTargetLabels(
+      const formattedTargets = this.formatTargetXValues(
         extremaTargets,
         state.layerId,
         state.text.mainAxis ?? 'x',
@@ -301,15 +255,18 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
   }
 
   /**
-   * Format extrema target labels by replacing raw xValues with formatted ones.
+   * Writes each target's x value the way the layer's formatter does.
    *
    * Every layer is formatted, not only those with an author-supplied
    * `AxisFormat`: the default formatter rounds a long float to two decimals,
-   * which is what the announcement says, and a dialog label that disagreed with
-   * the announcement for the same point would be worse than either. A value the
-   * formatter leaves alone is detected below and passes through untouched.
+   * which is what the announcement says, and a dialog line that disagreed with
+   * the announcement for the same point would be worse than either.
    *
-   * Only the x value itself is rewritten — see {@link replaceXValueInLabel}.
+   * Only `display.x` is rewritten, and only when it is `xValue` written out:
+   * a target whose position reads differently from its raw x (a point label
+   * of its own, say) keeps what the trace wrote. `label`, the sentence, is
+   * left alone — the dialog composes its line from the parts, and the parts
+   * are what the reader hears.
    *
    * `axis` is the trace's main axis, not always 'x': a horizontal trace reports
    * its category as `xValue` while that category lives on the y axis, and the
@@ -319,9 +276,9 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * @param targets - The extrema targets as the trace built them.
    * @param layerId - The layer whose formatters apply.
    * @param axis - The axis the trace reports its main value on.
-   * @returns The targets, with formatted labels.
+   * @returns The targets, with their x values formatted.
    */
-  private formatTargetLabels(
+  private formatTargetXValues(
     targets: ExtremaTarget[],
     layerId: string,
     axis: AxisType,
@@ -332,18 +289,15 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     }
 
     return targets.map((target) => {
-      if (target.xValue === undefined) {
+      const x = target.display?.x;
+      if (target.xValue === undefined || x === undefined || x !== String(target.xValue)) {
         return target;
       }
       const formatted = formatter.formatSingleValue(target.xValue, layerId, axis);
-      const raw = String(target.xValue);
-      if (formatted === raw) {
+      if (formatted === x) {
         return target;
       }
-      return {
-        ...target,
-        label: replaceXValueInLabel(target.label, raw, formatted),
-      };
+      return { ...target, display: { ...target.display, x: formatted } };
     });
   }
 
@@ -385,7 +339,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
 
     const formatter = this.formatter;
     const layer = this.activeLayerFormat();
-    // Same rule the extrema target labels follow (formatTargetLabels): format
+    // Same rule the extrema target labels follow (formatTargetXValues): format
     // whenever there is a formatter and a layer to look it up by, so these
     // labels round the way the announcement does.
     if (!formatter || layer === null) {
@@ -395,7 +349,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
     // String()-coerce the formatter output (custom `function` formatters are
     // built via new Function and only nominally return a string) so the label
     // is always safe to call string methods on downstream, matching the
-    // tolerance of formatTargetLabels.
+    // tolerance of formatTargetXValues.
     return rawValues.map(value => ({
       value,
       label: String(formatter.formatSingleValue(value, layer.layerId, layer.axis)),
@@ -409,7 +363,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * context.state resolves to the same trace whose X values are being listed.
    *
    * The axis is the trace's own main axis rather than always 'x', for the
-   * reason formatTargetLabels gives: on a horizontal trace the value listed
+   * reason formatTargetXValues gives: on a horizontal trace the value listed
    * here is the category, and the category sits on y.
    * @returns The active layer id and its main axis, or null.
    */

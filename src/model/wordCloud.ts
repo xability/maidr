@@ -10,6 +10,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -371,7 +372,7 @@ export class WordCloudTrace extends AbstractTrace {
     // would send the reader to a term at a weight of `NaN`.
     const last = this.measuredCount - 1;
     const targets: ExtremaTarget[] = [{
-      label: t('model.extremaHeaviestTerm', { term: this.points[0].x }),
+      ...extremumAt(t('model.extremaHeaviestTerm'), this.points[0].x),
       value: this.weights[0][0],
       pointIndex: 0,
       segment: 'term',
@@ -383,7 +384,7 @@ export class WordCloudTrace extends AbstractTrace {
     // One term, or a cloud whose weights are all equal, has a single extreme.
     if (last !== 0 && this.weights[0][last] !== this.weights[0][0]) {
       targets.push({
-        label: t('model.extremaLightestTerm', { term: this.points[last].x }),
+        ...extremumAt(t('model.extremaLightestTerm'), this.points[last].x),
         value: this.weights[0][last],
         pointIndex: last,
         segment: 'term',

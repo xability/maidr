@@ -6,6 +6,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot, isMeasured, missingText } from './bar';
+import { extremumAt } from './extremaTarget';
 
 function sumLabel(): string {
   return t('model.asideSum');
@@ -124,7 +125,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     // Add max target
     targets.push({
-      label: t('model.extremaMaxGroupAt', { group: groupLabel, category: maxCategoryLabel }),
+      ...extremumAt(t('model.extremaMaxGroup', { group: groupLabel }), maxCategoryLabel),
       value: groupMax,
       pointIndex: maxIndex,
       segment: groupLabel,
@@ -137,7 +138,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     // Add min target
     targets.push({
-      label: t('model.extremaMinGroupAt', { group: groupLabel, category: minCategoryLabel }),
+      ...extremumAt(t('model.extremaMinGroup', { group: groupLabel }), minCategoryLabel),
       value: groupMin,
       pointIndex: minIndex,
       segment: groupLabel,

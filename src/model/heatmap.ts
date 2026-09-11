@@ -10,6 +10,7 @@ import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
+import { extremumAt } from './extremaTarget';
 import { MovableGrid } from './movable';
 
 /**
@@ -713,11 +714,7 @@ export class Heatmap extends AbstractTrace {
     const globalMax = this.findGlobalExtrema('max');
     if (globalMax) {
       targets.push({
-        label: t('model.extremaGlobalMaximum', {
-          value: globalMax.value,
-          x: this.x[globalMax.col],
-          y: this.y[globalMax.row],
-        }),
+        ...extremumAt(t('model.extremaGlobalMaximum'), this.x[globalMax.col], this.y[globalMax.row]),
         value: globalMax.value,
         pointIndex: globalMax.row * this.heatmapValues[0].length + globalMax.col,
         segment: 'global',
@@ -733,11 +730,7 @@ export class Heatmap extends AbstractTrace {
     const globalMin = this.findGlobalExtrema('min');
     if (globalMin) {
       targets.push({
-        label: t('model.extremaGlobalMinimum', {
-          value: globalMin.value,
-          x: this.x[globalMin.col],
-          y: this.y[globalMin.row],
-        }),
+        ...extremumAt(t('model.extremaGlobalMinimum'), this.x[globalMin.col], this.y[globalMin.row]),
         value: globalMin.value,
         pointIndex: globalMin.row * this.heatmapValues[0].length + globalMin.col,
         segment: 'global',
@@ -753,11 +746,7 @@ export class Heatmap extends AbstractTrace {
     const rowMax = this.findRowExtrema(currentRow, 'max');
     if (rowMax) {
       targets.push({
-        label: t('model.extremaRowMaximum', {
-          value: rowMax.value,
-          x: this.x[rowMax.col],
-          y: this.y[currentRow],
-        }),
+        ...extremumAt(t('model.extremaRowMaximum'), this.x[rowMax.col], this.y[currentRow]),
         value: rowMax.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMax.col,
         segment: `row-${currentRow}`,
@@ -773,11 +762,7 @@ export class Heatmap extends AbstractTrace {
     const rowMin = this.findRowExtrema(currentRow, 'min');
     if (rowMin) {
       targets.push({
-        label: t('model.extremaRowMinimum', {
-          value: rowMin.value,
-          x: this.x[rowMin.col],
-          y: this.y[currentRow],
-        }),
+        ...extremumAt(t('model.extremaRowMinimum'), this.x[rowMin.col], this.y[currentRow]),
         value: rowMin.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMin.col,
         segment: `row-${currentRow}`,
@@ -793,11 +778,7 @@ export class Heatmap extends AbstractTrace {
     const colMax = this.findColExtrema(currentCol, 'max');
     if (colMax) {
       targets.push({
-        label: t('model.extremaColumnMaximum', {
-          value: colMax.value,
-          x: this.x[currentCol],
-          y: this.y[colMax.row],
-        }),
+        ...extremumAt(t('model.extremaColumnMaximum'), this.x[currentCol], this.y[colMax.row]),
         value: colMax.value,
         pointIndex: colMax.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,
@@ -813,11 +794,7 @@ export class Heatmap extends AbstractTrace {
     const colMin = this.findColExtrema(currentCol, 'min');
     if (colMin) {
       targets.push({
-        label: t('model.extremaColumnMinimum', {
-          value: colMin.value,
-          x: this.x[currentCol],
-          y: this.y[colMin.row],
-        }),
+        ...extremumAt(t('model.extremaColumnMinimum'), this.x[currentCol], this.y[colMin.row]),
         value: colMin.value,
         pointIndex: colMin.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,
