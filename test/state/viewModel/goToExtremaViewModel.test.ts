@@ -420,3 +420,66 @@ describe('GoToExtremaViewModel.formatTargetXValues (via toggle)', () => {
     formatter.dispose();
   });
 });
+
+describe('GoToExtremaViewModel scope transitions (what drives the menu cues)', () => {
+  // The open/close cues now come from DisplayViewModel, keyed off the scope
+  // change, so what this view model owes them is the scope change itself on
+  // every path — and none on disposal, which is what keeps focus-out silent.
+  test('toggle() enters the modal scope when the trace is extrema-navigable', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub(true);
+    const trace = createTraceStub(['2019-11-03']);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
+
+    vm.toggle(TRACE_STATE);
+
+    expect(service.toggle).toHaveBeenCalledTimes(1);
+    expect(service.returnToTraceScope).not.toHaveBeenCalled();
+  });
+
+  test('toggle() does not enter the modal scope when the trace is not navigable', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub(false);
+    const trace = createTraceStub(['2019-11-03']);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
+
+    vm.toggle(TRACE_STATE);
+
+    expect(service.toggle).not.toHaveBeenCalled();
+  });
+
+  test('hide() leaves the modal scope once', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub();
+    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
+
+    vm.hide();
+
+    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
+    expect(service.toggle).not.toHaveBeenCalled();
+  });
+
+  test('selectCurrent() leaves the modal scope and navigates', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub(true);
+    const trace = createTraceStub(['2019-11-03']);
+    const vm = new GoToExtremaViewModel(store, service, createContextStub(trace, 'layer-1'));
+    store.dispatch({ type: 'goToExtrema/show', payload: { targets: [{ label: 't0' }], description: '' } });
+
+    vm.selectCurrent();
+
+    expect(service.returnToTraceScope).toHaveBeenCalledTimes(1);
+    expect(trace.navigateToExtrema).toHaveBeenCalledTimes(1);
+  });
+
+  test('dispose() does not change scope (focus-out is silent)', () => {
+    const store = createMaidrStore();
+    const service = createServiceStub();
+    const vm = new GoToExtremaViewModel(store, service, createContextStub({}, 'layer-1'));
+
+    vm.dispose();
+
+    expect(service.toggle).not.toHaveBeenCalled();
+    expect(service.returnToTraceScope).not.toHaveBeenCalled();
+  });
+});
