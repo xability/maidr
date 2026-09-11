@@ -239,7 +239,7 @@ describe('cdnjs file map', () => {
     }
   });
 
-  // The packs are fetched at runtime by src/service/localePack.ts, resolved
+  // The packs are fetched at runtime by src/util/i18n/localePack.ts, resolved
   // against the URL maidr.js was loaded from, the same way as the maths
   // stylesheet. A pack left unmirrored is a language cdnjs pages cannot speak.
   it('should mirror every locale pack maidr.js fetches at runtime', () => {

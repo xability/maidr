@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS } from '@type/settings';
 import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
 import { isLanguageSetting, resolveLocale, setLocale } from '@util/i18n';
-import { ensureLocalePack } from './localePack';
+import { ensureLocalePack } from '@util/i18n/localePack';
 
 export const SETTINGS_KEY = 'maidr-settings';
 

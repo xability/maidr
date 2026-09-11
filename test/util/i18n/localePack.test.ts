@@ -3,9 +3,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ensureLocalePack, resolveLocalePackUrl } from '@service/localePack';
 import { registerLocale, setLocale } from '@util/i18n';
 import { en } from '@util/i18n/en';
+import { ensureLocalePack, resolveLocalePackUrl } from '@util/i18n/localePack';
 
 const CDN = 'https://cdn.example.test/npm/maidr@5.0.0/dist/';
 

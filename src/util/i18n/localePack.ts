@@ -1,6 +1,6 @@
-import type { Locale } from '@util/i18n';
+import type { Locale } from './index';
 import { detectMaidrSource } from '@util/diagnostics';
-import { isLocaleLoaded } from '@util/i18n';
+import { isLocaleLoaded } from './index';
 
 declare global {
   interface Window {
@@ -29,7 +29,7 @@ export function localePackFilename(locale: Locale): string {
  */
 export function resolveLocalePackUrl(locale: Locale): string | null {
   const override = typeof window === 'undefined' ? undefined : window.maidrLocaleBaseUrl;
-  const base = override ? `${override.replace(/\/?$/, '/')}` : detectMaidrSource().url;
+  const base = override ? override.replace(/\/?$/, '/') : detectMaidrSource().url;
   if (!base) {
     return null;
   }

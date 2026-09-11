@@ -200,8 +200,10 @@ jobs:
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Build core bundle
-        run: node scripts/build.js core
+      # The example pages fetch a locale pack from beside maidr.js when the
+      # browser asks for a language, so the packs have to be in dist too.
+      - name: Build core bundle and locale packs
+        run: node scripts/build.js core locales
 
       - name: Run e2e specs
         id: e2e

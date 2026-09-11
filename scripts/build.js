@@ -635,6 +635,21 @@ async function runParallel(selected, jobs, outDir) {
  * @param {typeof builds} configs Entries to check.
  * @throws {Error} If any entry maps two formats onto the same filename.
  */
+/**
+ * Turns the bundle names on the command line into build names.
+ *
+ * `locales` stands for every locale pack, so a caller that needs the packs
+ * beside the core -- the E2E job, which serves the example pages from `dist`
+ * -- does not have to repeat the list and fall behind it when a language is
+ * added. Any other name is passed through to be checked against `builds`.
+ * @param {string[]} requested - The names as typed
+ * @returns {string[]} The build names they mean
+ */
+export function expandBuildNames(requested) {
+  return requested.flatMap(name =>
+    name === 'locales' ? LOCALE_PACKS.map(locale => `locale-${locale}`) : [name]);
+}
+
 export function assertUniqueOutputFilenames(configs) {
   for (const config of configs) {
     // Vite's lib-mode default when `name` is set. Every entry declares
@@ -703,7 +718,8 @@ async function main() {
     process.exit(1);
   }
 
-  const unknown = requested.filter(name => !builds.some(b => b.name === name));
+  const requestedBuilds = expandBuildNames(requested);
+  const unknown = requestedBuilds.filter(name => !builds.some(b => b.name === name));
   if (unknown.length > 0) {
     console.error(`Unknown bundle name(s): ${unknown.join(', ')}`);
     console.error(`Available: ${builds.map(b => b.name).join(', ')}`);
@@ -724,7 +740,7 @@ async function main() {
 
   const selected = requested.length > 0
     ? builds
-        .filter(b => requested.includes(b.name))
+        .filter(b => requestedBuilds.includes(b.name))
         // Selective builds must not wipe the other bundles from dist.
         .map(b => ({ ...b, emptyOutDir: false }))
     : builds;
