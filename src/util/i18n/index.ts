@@ -1,17 +1,24 @@
 import type { Disposable } from '@type/disposable';
+import { de } from './de';
 import { en } from './en';
+import { es } from './es';
+import { fr } from './fr';
+import { hi } from './hi';
+import { it } from './it';
+import { ja } from './ja';
 import { attachJosa, isJosaPair } from './josa';
 import { ko } from './ko';
+import { zh } from './zh';
 
 /**
  * A language MAIDR can speak. Every dictionary under `src/util/i18n/` has an
  * entry for every key of the English one, so any locale can render any
  * message.
  */
-export type Locale = 'en' | 'ko';
+export type Locale = 'en' | 'ko' | 'ja' | 'zh' | 'es' | 'de' | 'fr' | 'it' | 'hi';
 
 /** The locales offered, in the order the settings dialog lists them. */
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'ko'];
+export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
 
 /** The language before a preference is set and when the browser's is unknown. */
 export const DEFAULT_LOCALE: Locale = 'en';
@@ -23,6 +30,13 @@ export const DEFAULT_LOCALE: Locale = 'en';
 export const LOCALE_NAMES: Record<Locale, string> = {
   en: 'English',
   ko: '한국어',
+  ja: '日本語',
+  zh: '中文',
+  es: 'Español',
+  de: 'Deutsch',
+  fr: 'Français',
+  it: 'Italiano',
+  hi: 'हिन्दी',
 };
 
 /**
@@ -37,7 +51,7 @@ export type MessageKey = keyof typeof en;
 /** Values substituted into a message's `{placeholders}`. */
 export type MessageParams = Record<string, string | number | undefined>;
 
-const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, ko };
+const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, ko, ja, zh, es, de, fr, it, hi };
 
 let activeLocale: Locale = DEFAULT_LOCALE;
 const listeners = new Set<(locale: Locale) => void>();
@@ -102,6 +116,18 @@ export function resolveLocale(
     }
   }
   return DEFAULT_LOCALE;
+}
+
+/**
+ * Every message of a locale, as templates rather than rendered text.
+ *
+ * For tooling that checks the dictionaries against each other; code that
+ * speaks to a reader goes through {@link t}.
+ * @param locale - The locale whose dictionary to read
+ * @returns The locale's templates by key
+ */
+export function dictionary(locale: Locale): Readonly<Record<MessageKey, string>> {
+  return MESSAGES[locale];
 }
 
 /**

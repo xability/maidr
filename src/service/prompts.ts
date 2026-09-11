@@ -61,6 +61,13 @@ export interface PromptContext {
  */
 const PROMPT_LANGUAGES: Record<Exclude<Locale, 'en'>, string> = {
   ko: 'Korean',
+  ja: 'Japanese',
+  zh: 'Chinese',
+  es: 'Spanish',
+  de: 'German',
+  fr: 'French',
+  it: 'Italian',
+  hi: 'Hindi',
 };
 
 const SYSTEM_PROMPTS: Record<PromptContext['expertiseLevel'], string> = {
