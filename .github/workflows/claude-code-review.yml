@@ -27,7 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      # Claude posts through the action's own app token, as claude[bot]. The
+      # write here is for the last step, which can only use GITHUB_TOKEN
+      # because the action revokes its app token when it finishes.
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -37,24 +40,23 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Record when the review starts
+        id: start
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Forces tag mode, where the action creates a tracking comment up
-          # front and the review is written into it through
-          # mcp__github_comment__update_claude_comment. Without this the run is
-          # in agent mode, where publishing depends on the agent choosing to
-          # shell out to `gh pr comment`; if it ends its final turn with text
-          # instead, nothing is published and the job still reports success.
-          # xability/r-maidr#48 hit exactly that -- 26 turns, $1.96, zero
-          # comments, green check. This repo has been lucky rather than safe.
-          # The prompt below survives: tag mode appends it as
-          # <custom_instructions> to its own.
-          track_progress: true
-
+          # Agent mode, set up the same way as py-maidr: no "Claude is working"
+          # tracking comment, and the review arrives as one ordinary PR comment
+          # that reads without opening the job. #745 had forced tag mode
+          # (track_progress: true) because agent mode publishes only if the
+          # agent chooses to run `gh pr comment`; xability/r-maidr#48 ended its
+          # final turn with text instead -- 26 turns, $1.96, zero comments,
+          # green check. The last step below now covers that case.
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -68,10 +70,49 @@ jobs:
 
             Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
 
-          # No claude_args here on purpose. Tag mode builds its own
-          # `--allowedTools` list -- the one carrying
-          # mcp__github_comment__update_claude_comment -- and then appends
-          # whatever claude_args says. A second --allowed-tools flag risks
-          # overriding that list and taking the comment-update tool with it.
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
 
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+      # If Claude ended without running `gh pr comment`, post its final message
+      # so the review is never lost behind a green check. When that message is
+      # empty too, fail the job rather than pass silently.
+      - name: Publish the review if Claude did not
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          STARTED_AT: ${{ steps.start.outputs.at }}
+          EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # No execution file means Claude never ran. The action skips itself
+          # on a PR that edits this file, since it no longer matches main.
+          if [ -z "$EXECUTION_FILE" ] || [ ! -f "$EXECUTION_FILE" ]; then
+            echo "Claude did not run; nothing to publish."
+            exit 0
+          fi
+
+          posted=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?since=$STARTED_AT" --paginate \
+            --jq ".[] | select(.user.login == \"claude[bot]\" and .created_at >= \"$STARTED_AT\") | .id" | wc -l)
+          if [ "$posted" -gt 0 ]; then
+            echo "Claude posted its review."
+            exit 0
+          fi
+
+          review=$(jq -r '[.[] | select(.type == "result")] | last | .result // empty' "$EXECUTION_FILE")
+          if [ -z "$review" ]; then
+            echo "::error::Claude finished without posting a review, and its final message is empty."
+            exit 1
+          fi
+
+          echo "::warning::Claude finished without posting its review; publishing its final message instead."
+          {
+            printf '%s\n\n---\n' "$review"
+            printf '_Posted by the workflow: Claude ended [this run](%s) without publishing the review itself._\n' "$RUN_URL"
+          } > "$RUNNER_TEMP/review.md"
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$RUNNER_TEMP/review.md"
