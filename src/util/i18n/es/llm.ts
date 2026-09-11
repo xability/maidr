@@ -1,32 +1,41 @@
 import type { MessageKey } from '../index';
 
+/**
+ * Spanish renderings of what the AI assistant says on its own account: the
+ * welcome message, the suggested follow-ups, and every failure the chat and
+ * the credential probe can report.
+ */
 export const llm = {
-  'llm.welcome': '차트 도우미에 오신 것을 환영합니다. 아래 드롭다운에서 원하는 AI 모델을 선택하고 바꿀 수 있습니다. 현재 사용 설정된 모델: {models}.',
-  'llm.welcomeNoAgents': '사용 설정된 에이전트가 없습니다. 설정 페이지에서 에이전트를 하나 이상 사용 설정하고 API 키를 입력하거나 로컬 Ollama 서버를 지정하세요.',
-  'llm.processing': '요청을 처리하고 있습니다...',
-  'llm.messageError': '오류: {error}',
-  'llm.fallbackModelName': 'AI 도우미',
+  // Transcript.
+  'llm.welcome': 'Le damos la bienvenida al Asistente de gráficos. Puede seleccionar distintos modelos de IA y cambiar entre ellos con las listas desplegables de abajo. Habilitados actualmente: {models}.',
+  'llm.welcomeNoAgents': 'No hay agentes habilitados. Habilite al menos un agente e indique una clave de API o un servidor local de Ollama en la página de configuración.',
+  'llm.processing': 'Procesando la solicitud...',
+  'llm.messageError': 'Error: {error}',
+  'llm.fallbackModelName': 'Asistente de IA',
 
-  'llm.suggestionExplain': '조금 더 자세히 설명해 주시겠어요?',
-  'llm.suggestionCurrentPoint': '현재 데이터 점에 대해 무엇을 알 수 있나요?',
-  'llm.suggestionCompare': '다른 데이터 점과 비교하면 어떤가요?',
-  'llm.suggestionStatistics': '이 데이터를 통계적으로 분석해 주시겠어요?',
-  'llm.suggestionOutliers': '이 데이터에서 이상치가 될 만한 값은 무엇인가요?',
+  // Suggested follow-up questions.
+  'llm.suggestionExplain': '¿Puede explicarlo con más detalle?',
+  'llm.suggestionCurrentPoint': '¿Qué puede decir sobre el punto de datos actual?',
+  'llm.suggestionCompare': '¿Cómo se compara con los demás puntos de datos?',
+  'llm.suggestionStatistics': '¿Puede hacer un análisis estadístico de estos datos?',
+  'llm.suggestionOutliers': '¿Cuáles son los posibles valores atípicos de este conjunto de datos?',
 
-  'llm.errorProcessing': '요청을 처리하는 중 오류가 발생했습니다',
-  'llm.errorUnknown': '알 수 없는 오류가 발생했습니다',
-  'llm.errorResponseUnavailable': '응답을 받을 수 없습니다',
-  'llm.errorAborted': '채팅 요청이 취소되었습니다',
-  'llm.errorInvalidFormat': '응답 형식이 올바르지 않습니다',
-  'llm.errorApi': 'API 오류: {status} - {statusText}',
+  // Request failures.
+  'llm.errorProcessing': 'Error al procesar la solicitud',
+  'llm.errorUnknown': 'Ocurrió un error desconocido',
+  'llm.errorResponseUnavailable': 'Respuesta no disponible',
+  'llm.errorAborted': 'Solicitud de chat cancelada',
+  'llm.errorInvalidFormat': 'Formato de respuesta no válido',
+  'llm.errorApi': 'Error de API: {status}, {statusText}',
 
-  'llm.errorGeminiKeyRequired': 'Gemini API를 사용하려면 API 키가 필요합니다',
-  'llm.errorOllamaUrl': 'Ollama 서버 주소가 올바르지 않습니다. http:// 또는 https://로 시작해야 합니다',
-  'llm.errorOllamaProxy': 'Ollama 요청은 MAIDR 프록시를 거쳐 보낼 수 없습니다',
-  'llm.errorOllamaUnreachable': 'Ollama 서버에 연결할 수 없습니다. Ollama가 실행 중인지, localhost가 아닌 페이지라면 OLLAMA_ORIGINS가 이 사이트를 허용하는지 확인하세요.',
-  'llm.errorInvalidModelKey': '모델 키가 올바르지 않습니다',
-  'llm.errorProviderTimeout': '제공자가 제한 시간 안에 응답하지 않았습니다. 네트워크 연결을 확인한 뒤 다시 시도하세요.',
-  'llm.errorProviderUnreachable': '제공자에 연결할 수 없습니다. 네트워크 연결을 확인하세요.',
-  'llm.errorInvalidApiKey': 'API 키가 올바르지 않습니다',
-  'llm.errorProviderStatus': '제공자가 {status} 상태를 반환했습니다. 키의 문제가 아니므로 잠시 후 다시 시도하세요.',
+  // Provider and credential failures.
+  'llm.errorGeminiKeyRequired': 'Se requiere una clave de API para la API de Gemini',
+  'llm.errorOllamaUrl': 'La URL del servidor de Ollama no es válida: debe comenzar con http:// o https://',
+  'llm.errorOllamaProxy': 'Las solicitudes a Ollama no pueden enrutarse a través del proxy de MAIDR',
+  'llm.errorOllamaUnreachable': 'No se puede conectar con el servidor de Ollama. Asegúrese de que Ollama esté en ejecución y, en páginas que no sean localhost, de que OLLAMA_ORIGINS permita este sitio.',
+  'llm.errorInvalidModelKey': 'Clave de modelo no válida',
+  'llm.errorProviderTimeout': 'El proveedor no respondió a tiempo. Compruebe su conexión de red e inténtelo de nuevo.',
+  'llm.errorProviderUnreachable': 'No se pudo conectar con el proveedor. Compruebe su conexión de red.',
+  'llm.errorInvalidApiKey': 'Clave de API no válida',
+  'llm.errorProviderStatus': 'El proveedor devolvió {status}. No es un problema de su clave; inténtelo de nuevo más tarde.',
 } satisfies Partial<Record<MessageKey, string>>;

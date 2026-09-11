@@ -1,54 +1,56 @@
 import type { MessageKey } from '../index';
 
+/** Spanish renderings of the short spoken confirmations: mode toggles, speed changes, and status alerts. */
 export const notification = {
   // Autoplay speed.
-  'notification.speedUp': '속도 높임',
-  'notification.maxSpeed': '최고 속도',
-  'notification.speedDown': '속도 낮춤',
-  'notification.minSpeed': '최저 속도',
-  'notification.resetSpeed': '속도 초기화',
+  'notification.speedUp': 'Velocidad aumentada',
+  'notification.maxSpeed': 'Velocidad máxima',
+  'notification.speedDown': 'Velocidad reducida',
+  'notification.minSpeed': 'Velocidad mínima',
+  'notification.resetSpeed': 'Velocidad restablecida',
 
-  // Sonification.
-  'notification.soundIs': '소리 {mode}',
-  'notification.audioModeOff': '꺼짐',
-  'notification.audioModeOn': '켜짐',
-  'notification.audioModeCombined': '통합',
-  'notification.audioModeSeparate': '분리',
+  // Sonification. The mode word is a message of its own so the sentence can be
+  // shaped differently per language.
+  'notification.soundIs': 'El sonido está {mode}',
+  'notification.audioModeOff': 'desactivado',
+  'notification.audioModeOn': 'activado',
+  'notification.audioModeCombined': 'en modo combinado',
+  'notification.audioModeSeparate': 'en modo separado',
 
   // Braille.
-  'notification.brailleIsOn': '점자 켜짐',
-  'notification.brailleIsOff': '점자 꺼짐',
-  'notification.brailleNoInfo': '점자로 나타낼 정보가 없습니다',
-  'notification.brailleNotSupported': '{type} 그래프 유형은 점자를 지원하지 않습니다',
-  'notification.brailleDisplay': '점자 디스플레이',
+  'notification.brailleIsOn': 'Braille activado',
+  'notification.brailleIsOff': 'Braille desactivado',
+  'notification.brailleNoInfo': 'No hay información para braille',
+  'notification.brailleNotSupported': 'El braille no es compatible con el tipo de gráfico: {type}',
+  'notification.brailleDisplay': 'Pantalla braille',
 
   // Monitor mode on live charts.
-  'notification.monitoringLiveOnly': '모니터링은 실시간 차트에서만 사용할 수 있습니다',
-  'notification.monitoringOn': '모니터링 켜짐',
-  'notification.monitoringOff': '모니터링 꺼짐',
+  'notification.monitoringLiveOnly': 'El monitoreo solo está disponible para gráficos en vivo',
+  'notification.monitoringOn': 'Monitoreo activado',
+  'notification.monitoringOff': 'Monitoreo desactivado',
 
   // High contrast.
-  'notification.highContrastOn': '고대비 모드 켜짐',
-  'notification.highContrastOff': '고대비 모드 꺼짐',
+  'notification.highContrastOn': 'Modo de alto contraste activado',
+  'notification.highContrastOff': 'Modo de alto contraste desactivado',
 
   // Candlestick reference comparison (the virtual delta layer).
-  'notification.deltaCandlestickOnly': '기준선 비교는 촛대 차트에서만 사용할 수 있습니다.',
-  'notification.deltaNeedsLineLayer': '기준선 비교는 선 레이어가 있는 촛대 차트에서만 사용할 수 있습니다.',
-  'notification.deltaReferenceUnavailable': '선택한 기준선을 사용할 수 없습니다.',
-  'notification.deltaNoMatchingX': '촛대 차트와 {reference} 사이에 일치하는 x 값이 없습니다.',
-  'notification.deltaKeepingComparison': '현재 비교를 유지합니다. {reference|은는} {x}까지 이어지지 않습니다. 해당 기준선이 지나는 캔들로 이동한 뒤 다시 선택하세요.',
-  'notification.deltaNoComparisonAtX': '{x}에는 기준선 비교가 없습니다. {reference|은는} 이 캔들까지 이어지지 않습니다. 이동평균선이 지나는 캔들로 이동한 뒤 Alt L 키를 누르세요.',
-  'notification.deltaActivationFailed': '여기에서는 기준선 비교를 시작할 수 없습니다.',
-  'notification.deltaActivated': '기준선 비교 켜짐. OHLC 가격에서 {reference|을를} 뺀 값이며 데이터 점은 {count}개, {field}에서 시작합니다. 양수는 선 위, 음수는 선 아래를 뜻합니다. 왼쪽과 오른쪽 화살표로 캔들 사이를 이동하고, 위와 아래 화살표로 시가, 고가, 저가, 종가를 전환하세요. Alt L 키로 비교를 끄고, G 키로 극값을 찾고, 로터로 선 위, 선 아래, 선과 일치하는 점을 살펴볼 수 있습니다. Escape 키를 누르면 차트로 돌아갑니다.',
-  'notification.deltaClosed': '기준선 비교를 끝내고 차트 레이어로 돌아왔습니다. 다시 비교하려면 Alt L 키를 누르세요.',
-  'notification.deltaClosedByUpdate': '데이터 업데이트로 기준선 비교가 종료되었습니다.',
-  'notification.deltaNoReferenceChosen': '아직 선택한 기준선이 없습니다. 목록에서 이동평균선을 고르고 Enter 키를 눌러 비교하세요. 취소하려면 Escape 키를 누르세요.',
-  'notification.deltaTraceTitle': 'OHLC 가격 대 {reference}',
-  'notification.deltaYAxisLabel': '{axis} 편차',
+  'notification.deltaCandlestickOnly': 'La comparación con la referencia solo está disponible en gráficos de velas.',
+  'notification.deltaNeedsLineLayer': 'La comparación con la referencia solo está disponible en gráficos de velas con una capa de líneas.',
+  'notification.deltaReferenceUnavailable': 'La línea de referencia seleccionada no está disponible.',
+  'notification.deltaNoMatchingX': 'No hay valores de x coincidentes entre el gráfico de velas y {reference}.',
+  'notification.deltaKeepingComparison': 'Se mantiene la comparación actual: {reference} no llega hasta {x}. Muévase a una vela que sí cubra y vuelva a elegirla.',
+  'notification.deltaNoComparisonAtX': 'No hay comparación con la referencia en {x}: {reference} no llega hasta esta vela. Muévase a una vela cubierta por la media móvil y presione Alt L.',
+  'notification.deltaActivationFailed': 'No se pudo activar aquí la comparación con la referencia.',
+  'notification.deltaActivated': 'Comparación con la referencia activada: precio OHLC menos {reference}, {count} puntos, comenzando en {field}. Los valores positivos están por encima de la línea y los negativos por debajo. Use las flechas izquierda y derecha para moverse entre las velas, y arriba y abajo para cambiar entre apertura, máximo, mínimo y cierre. Presione Alt L para desactivar la comparación, G para los valores extremos y el rotor para recorrer los puntos por encima, por debajo o sobre la línea. Presione Escape para volver al gráfico.',
+  'notification.deltaClosed': 'Comparación con la referencia cerrada. Se volvió a la capa del gráfico. Presione Alt L para comparar de nuevo.',
+  'notification.deltaClosedByUpdate': 'La comparación con la referencia se cerró por una actualización de los datos.',
+  'notification.deltaNoReferenceChosen': 'Aún no se ha elegido una línea de referencia. Use la lista para elegir una línea de media móvil y presione Enter para comparar. Presione Escape para cancelar.',
+  'notification.deltaTraceTitle': 'Precio OHLC frente a {reference}',
+  'notification.deltaYAxisLabel': 'Delta de {axis}',
 
   // The reference-line picker.
-  'notification.deltaPickerTitle': '기준선과 비교',
-  'notification.deltaPickerClose': '기준선 선택 창 닫기',
-  'notification.deltaPickerDescription': '각 캔들과 비교할 기준선을 고르세요. 위와 아래 화살표로 이동한 뒤 Enter 키를 누르세요. 선택한 뒤에는 Alt L 키로 비교를 켜고 끌 수 있습니다.',
-  'notification.deltaPickerListLabel': '기준선 목록',
+  'notification.deltaPickerTitle': 'Comparar con una línea de referencia',
+  'notification.deltaPickerClose': 'Cerrar el selector de referencia',
+  'notification.deltaPickerDescription': 'Elija una línea de referencia con la que comparar cada vela. Use las flechas arriba y abajo para moverse y luego presione Enter. Una vez elegida, presione Alt L para activar o desactivar la comparación.',
+  'notification.deltaPickerListLabel': 'Líneas de referencia',
 } satisfies Partial<Record<MessageKey, string>>;
