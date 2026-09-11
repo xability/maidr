@@ -61,22 +61,41 @@ export function isLanguageSetting(value: unknown): value is LanguageSetting {
 }
 
 /**
+ * The languages the browser asks for, in preference order.
+ *
+ * `navigator.languages` is the full list, but some embedded browsers leave
+ * it empty and set only `navigator.language`; a reader there would otherwise
+ * fall through to English no matter what their browser is set to.
+ * @returns The browser's languages, or none outside a browser
+ */
+export function browserLanguages(): readonly string[] {
+  if (typeof navigator === 'undefined') {
+    return [];
+  }
+  const languages = navigator.languages ?? [];
+  if (languages.length > 0) {
+    return languages;
+  }
+  return navigator.language ? [navigator.language] : [];
+}
+
+/**
  * Picks the locale a language preference means.
  *
  * `auto` follows the first browser language MAIDR supports, matched on its
  * primary subtag so `ko-KR` finds Korean. When none match, English.
  * @param setting - The stored preference
- * @param browserLanguages - The browser's languages in preference order, `navigator.languages` by default
+ * @param languages - The browser's languages in preference order, {@link browserLanguages} by default
  * @returns The locale to speak
  */
 export function resolveLocale(
   setting: LanguageSetting,
-  browserLanguages: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? [],
+  languages: readonly string[] = browserLanguages(),
 ): Locale {
   if (setting !== 'auto') {
     return setting;
   }
-  for (const language of browserLanguages) {
+  for (const language of languages) {
     const primary = language.toLowerCase().split('-')[0];
     if (isLocale(primary)) {
       return primary;

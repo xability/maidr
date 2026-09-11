@@ -12,7 +12,7 @@ The first row of the **General** tab is **Language**:
 
 | Option          | Effect                                                                 |
 | --------------- | ---------------------------------------------------------------------- |
-| Browser default | Follow the browser's language; English when MAIDR has no dictionary for it |
+| Browser default | Follow the browser's language (its preference list, or its single language where the list is empty); English when MAIDR has no dictionary for it |
 | English         | Always English                                                         |
 | 한국어          | Always Korean                                                          |
 

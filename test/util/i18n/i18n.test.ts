@@ -1,4 +1,5 @@
 import {
+  browserLanguages,
   DEFAULT_LOCALE,
   getLocale,
   interpolate,
@@ -59,6 +60,38 @@ describe('i18n', () => {
       setLocale('ko');
 
       expect(listener.mock.calls).toEqual([['ko'], ['en']]);
+    });
+  });
+
+  describe('browserLanguages', () => {
+    const original = Object.getOwnPropertyDescriptors(navigator);
+
+    function stubNavigator(languages: readonly string[] | undefined, language: string): void {
+      Object.defineProperty(navigator, 'languages', { value: languages, configurable: true });
+      Object.defineProperty(navigator, 'language', { value: language, configurable: true });
+    }
+
+    afterEach(() => {
+      Object.defineProperties(navigator, original);
+    });
+
+    it('should prefer the full preference list', () => {
+      stubNavigator(['ko-KR', 'en-US'], 'en-US');
+
+      expect(browserLanguages()).toEqual(['ko-KR', 'en-US']);
+    });
+
+    it('should fall back to the single language when the list is empty', () => {
+      stubNavigator([], 'ko-KR');
+
+      expect(browserLanguages()).toEqual(['ko-KR']);
+      expect(resolveLocale('auto')).toBe('ko');
+    });
+
+    it('should fall back to the single language when the list is missing', () => {
+      stubNavigator(undefined, 'ko');
+
+      expect(resolveLocale('auto')).toBe('ko');
     });
   });
 
