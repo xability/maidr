@@ -13,7 +13,7 @@ import { text } from './text';
 
 /**
  * The हिन्दी dictionary. Typed against the English key set, so a key added
- * to English without a Korean rendering fails the type check rather than
+ * to English without a Hindi rendering fails the type check rather than
  * falling silently back to English at runtime.
  */
 export const hi: Record<MessageKey, string> = {
