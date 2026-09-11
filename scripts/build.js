@@ -144,6 +144,38 @@ function onWarn(warning, warn) {
  * Exported so the build-config test can assert against the real array rather
  * than a fixture that could drift away from it.
  */
+/**
+ * The locales that ship as packs beside `maidr.js`, one classic script and one
+ * ES module each. English lives in the core bundle, so it is not here. Keep in
+ * step with `SUPPORTED_LOCALES` in `src/util/i18n/index.ts`; the pack entry
+ * files under `src/locale/` are what the list points at.
+ */
+export const LOCALE_PACKS = ['ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi'];
+
+/**
+ * A pack is a side-effect entry with no exports and no React, so it needs no
+ * declaration file. Flat filenames rather than a `locale/` directory: each
+ * pack builds in its own worker, and the merge step treats a directory two
+ * workers both emit as a collision.
+ * @param locale - The pack's locale code
+ * @returns The build configuration for that pack
+ */
+function localePackBuild(locale) {
+  const capitalised = locale.charAt(0).toUpperCase() + locale.slice(1);
+  return {
+    name: `locale-${locale}`,
+    entry: `src/locale/${locale}.ts`,
+    libName: `maidrLocale${capitalised}`,
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? `locale-${locale}.mjs` : `locale-${locale}.js`,
+    emptyOutDir: false,
+    external: [],
+    useReact: false,
+    useDts: false,
+    aliases: baseAliases,
+  };
+}
+
 export const builds = [
   {
     name: 'core',
@@ -365,6 +397,7 @@ export const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  ...LOCALE_PACKS.map(localePackBuild),
 ];
 
 export function createViteConfig(config) {

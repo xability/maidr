@@ -56,6 +56,10 @@
       "import": "./dist/recharts.mjs",
       "default": "./dist/recharts.mjs"
     },
+    "./locale/*": {
+      "import": "./dist/locale-*.mjs",
+      "default": "./dist/locale-*.js"
+    },
     "./vegalite": {
       "types": "./dist/vegalite.d.mts",
       "import": "./dist/vegalite.mjs",

@@ -65,6 +65,8 @@ interface BuildOutputs {
   coreStylesheet: string;
   /** The KaTeX stylesheet `maidr.js` fetches on demand. */
   mathStylesheet: string;
+  /** The classic-script locale packs, `locale-ko.js` and its siblings. */
+  localePacks: string[];
   /** Every filename any bundle writes, adapters included. */
   all: string[];
 }
@@ -108,6 +110,9 @@ function readBuildOutputs(): BuildOutputs {
 
     process.stdout.write(JSON.stringify({
       core: namesOf(builds.find(build => build.name === 'core')),
+      localePacks: builds
+        .filter(build => build.name.startsWith('locale-'))
+        .map(build => build.fileName('umd', entryNameOf(build))),
       coreStylesheet: CORE_STYLESHEET_FILENAME,
       mathStylesheet: MATH_STYLESHEET_FILENAME,
       all: builds.flatMap(namesOf),
@@ -226,11 +231,20 @@ describe('cdnjs auto-update', () => {
 
 describe('cdnjs file map', () => {
   it('should only mirror files the build emits', () => {
-    const emitted = [...outputs.core, outputs.coreStylesheet, outputs.mathStylesheet];
+    const emitted = [...outputs.core, ...outputs.localePacks, outputs.coreStylesheet, outputs.mathStylesheet];
 
     expect(mirrored.length).toBeGreaterThan(0);
     for (const file of mirrored) {
       expect(emitted).toContain(file);
+    }
+  });
+
+  // The packs are fetched at runtime by src/service/localePack.ts, resolved
+  // against the URL maidr.js was loaded from, the same way as the maths
+  // stylesheet. A pack left unmirrored is a language cdnjs pages cannot speak.
+  it('should mirror every locale pack maidr.js fetches at runtime', () => {
+    for (const pack of outputs.localePacks) {
+      expect(mirrored).toContain(pack);
     }
   });
 
@@ -251,7 +265,9 @@ describe('cdnjs file map', () => {
   });
 
   it('should not mirror sourcemaps or adapter bundles', () => {
-    const adapters = outputs.all.filter(name => !outputs.core.includes(name));
+    const adapters = outputs.all.filter(
+      name => !outputs.core.includes(name) && !outputs.localePacks.includes(name),
+    );
 
     for (const file of mirrored) {
       expect(file).not.toMatch(/\.map$/);
