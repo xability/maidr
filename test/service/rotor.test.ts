@@ -620,3 +620,52 @@ describe('RotorNavigationService point mode', () => {
     expect(second.moveOnce('FORWARD')).toBe(true);
   });
 });
+
+describe('RotorNavigationService mode identity', () => {
+  // A mode is identified by its key, never by the name it is announced under.
+  // Names are translated, and nothing stops two of them rendering the same in
+  // some language; two modes with one name must still be two modes.
+
+  test('tells the two compare modes apart when their labels render the same', () => {
+    const trace = createTraceWithIntersections();
+    jest.spyOn(trace, 'compareModeInfo').mockReturnValue({
+      lower: { label: 'SAME NAME', noun: 'lower' },
+      higher: { label: 'SAME NAME', noun: 'higher' },
+    });
+    const service = new RotorNavigationService(
+      createMockContext(trace),
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    service.moveToNextRotorUnit();
+    const first = service.getCompareType();
+    service.moveToNextRotorUnit();
+    const second = service.getCompareType();
+
+    expect([first, second]).toEqual(['lower', 'higher']);
+  });
+
+  test('keeps a filter unit apart from the data mode when their labels collide', () => {
+    const trace = createTraceWithIntersections();
+    jest.spyOn(trace, 'getRotorFilterUnits').mockReturnValue([
+      { key: 'twin', label: trace.dataModeName(), noun: 'twin' },
+    ]);
+    const moveToRotorFilter = jest.spyOn(trace, 'moveToRotorFilter').mockReturnValue(true);
+    const context = createMockContext(trace);
+    const service = new RotorNavigationService(
+      context,
+      createMockTextService(),
+      createMockNotificationService(),
+    );
+
+    // data → lower → higher → intersection → the filter unit
+    for (let i = 0; i < 4; i++) {
+      service.moveToNextRotorUnit();
+    }
+    service.moveRight();
+
+    expect(context.setRotorEnabled).toHaveBeenLastCalledWith(true);
+    expect(moveToRotorFilter).toHaveBeenCalledWith('twin', 'right');
+  });
+});

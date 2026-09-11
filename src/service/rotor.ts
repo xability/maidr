@@ -7,6 +7,35 @@ import { isGridNavigable, isPointNavigable } from '@type/navigation';
 import { t } from '@util/i18n';
 
 /**
+ * What identifies a rotor mode: the six built-in modes by name, and a
+ * trace's own filter units by their {@link RotorFilterUnit.key}.
+ */
+export type RotorModeKey
+  = | 'data'
+    | 'lower'
+    | 'higher'
+    | 'grid'
+    | 'point'
+    | 'intersection'
+    | `filter:${string}`;
+
+/**
+ * A mode the rotor can cycle to.
+ *
+ * `key` is the mode's identity and is what every dispatch compares on;
+ * `label` is only what gets announced. Keeping them apart means two modes
+ * whose names happen to render alike in some language stay two modes, and
+ * a keystroke never has to render a name to find out where it is.
+ */
+export interface RotorMode {
+  key: RotorModeKey;
+  label: string;
+}
+
+/** What a filter unit's key is prefixed with to become a rotor mode key. */
+const FILTER_PREFIX = 'filter:';
+
+/**
  * Manages rotor-based navigation for the active trace via alt+shift+up and alt+shift+down
  *
  * Purpose:
@@ -94,8 +123,8 @@ export class RotorNavigationService {
    * For other modes, returns the mode name.
    */
   private formatModeDisplay(): string {
-    const mode = this.getMode();
-    if (mode === t('rotor.gridMode')) {
+    const mode = this.activeMode();
+    if (mode.key === 'grid') {
       const activeTrace = this.context.active;
       if (isGridNavigable(activeTrace)) {
         const dims = activeTrace.getGridDimensions();
@@ -104,7 +133,7 @@ export class RotorNavigationService {
         }
       }
     }
-    return mode;
+    return mode.label;
   }
 
   /**
@@ -153,17 +182,17 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveUp(): string | null {
-    // Resolve the current rotor mode once. getMode() walks the capability
+    // Resolve the current rotor mode once. activeMode() walks the capability
     // list via getAvailableModes(), so caching it here avoids doing that
     // twice per keystroke when dispatching to GRID_MODE / INTERSECTION_MODE.
-    const mode = this.getMode();
-    if (mode === t('rotor.gridMode')) {
+    const mode = this.activeMode();
+    if (mode.key === 'grid') {
       return this.moveGrid('up');
     }
-    if (mode === t('rotor.pointMode')) {
+    if (mode.key === 'point') {
       return this.movePoint('up');
     }
-    if (mode === t('rotor.intersectionMode')) {
+    if (mode.key === 'intersection') {
       // The model is intentionally NOT moved here — vertical navigation is
       // unavailable in intersection mode. We still must push the message
       // through notification.notify so the text alert region re-mounts and
@@ -201,14 +230,14 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveDown(): string | null {
-    const mode = this.getMode();
-    if (mode === t('rotor.gridMode')) {
+    const mode = this.activeMode();
+    if (mode.key === 'grid') {
       return this.moveGrid('down');
     }
-    if (mode === t('rotor.pointMode')) {
+    if (mode.key === 'point') {
       return this.movePoint('down');
     }
-    if (mode === t('rotor.intersectionMode')) {
+    if (mode.key === 'intersection') {
       // See moveUp() — model not moved; route through notification so the
       // alert region re-mounts and the SR re-announces on repeat presses.
       return this.announceRotorMessage(this.getIntersectionVerticalUnavailableMessage());
@@ -242,14 +271,14 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveLeft(): string | null {
-    const mode = this.getMode();
-    if (mode === t('rotor.gridMode')) {
+    const mode = this.activeMode();
+    if (mode.key === 'grid') {
       return this.moveGrid('left');
     }
-    if (mode === t('rotor.pointMode')) {
+    if (mode.key === 'point') {
       return this.movePoint('left');
     }
-    if (mode === t('rotor.intersectionMode')) {
+    if (mode.key === 'intersection') {
       return this.moveIntersection('left');
     }
 
@@ -281,14 +310,14 @@ export class RotorNavigationService {
    * @returns Error message if move failed, null otherwise
    */
   public moveRight(): string | null {
-    const mode = this.getMode();
-    if (mode === t('rotor.gridMode')) {
+    const mode = this.activeMode();
+    if (mode.key === 'grid') {
       return this.moveGrid('right');
     }
-    if (mode === t('rotor.pointMode')) {
+    if (mode.key === 'point') {
       return this.movePoint('right');
     }
-    if (mode === t('rotor.intersectionMode')) {
+    if (mode.key === 'intersection') {
       return this.moveIntersection('right');
     }
 
@@ -318,8 +347,8 @@ export class RotorNavigationService {
    * Sets the rotor mode based on the current index and updates context state.
    */
   public setMode(): void {
-    const currMode = this.getMode();
-    if (this.isDataMode(currMode)) {
+    const mode = this.activeMode();
+    if (mode.key === 'data') {
       this.context.setRotorEnabled(false);
       this.notifyGridMode(false);
       this.notifyPointMode(false);
@@ -339,9 +368,9 @@ export class RotorNavigationService {
     this.notifyGridMode(false);
     this.notifyPointMode(false);
     this.notifyIntersectionMode(false);
-    this.notifyGridMode(currMode === t('rotor.gridMode'));
-    this.notifyPointMode(currMode === t('rotor.pointMode'));
-    this.notifyIntersectionMode(currMode === t('rotor.intersectionMode'));
+    this.notifyGridMode(mode.key === 'grid');
+    this.notifyPointMode(mode.key === 'point');
+    this.notifyIntersectionMode(mode.key === 'intersection');
   }
 
   /**
@@ -358,10 +387,17 @@ export class RotorNavigationService {
    * @returns The display name of the current rotor mode
    */
   public getMode(): string {
+    return this.activeMode().label;
+  }
+
+  /**
+   * The mode the rotor index points at, with its key.
+   * @returns The current rotor mode
+   */
+  private activeMode(): RotorMode {
     const modes = this.getAvailableModes();
     // Clamp index in case modes list changed between cycles
-    const idx = this.rotorIndex % modes.length;
-    return modes[idx];
+    return modes[this.rotorIndex % modes.length];
   }
 
   /**
@@ -386,14 +422,7 @@ export class RotorNavigationService {
    * @returns 'lower' or 'higher' based on the current mode
    */
   public getCompareType(): 'lower' | 'higher' {
-    const info = this.getCompareInfo();
-    const currMode = this.getMode();
-    if (currMode === info.higher.label) {
-      return 'higher';
-    } else if (currMode === info.lower.label) {
-      return 'lower';
-    }
-    return 'lower'; // fallback
+    return this.activeMode().key === 'higher' ? 'higher' : 'lower';
   }
 
   /**
@@ -451,55 +480,56 @@ export class RotorNavigationService {
    *   6. INTERSECTION_MODE  (if supportsIntersectionMode — e.g. multiline lines)
    *   7. Filter units       (getRotorFilterUnits — e.g. candlestick trend filters)
    */
-  private getAvailableModes(): string[] {
+  private getAvailableModes(): RotorMode[] {
     const activeTrace = this.context.active;
-    const modes: string[] = [];
+    const modes: RotorMode[] = [];
 
     if (activeTrace instanceof AbstractTrace) {
-      modes.push(activeTrace.dataModeName());
+      modes.push({ key: 'data', label: activeTrace.dataModeName() });
 
       if (activeTrace.supportsCompareMode()) {
         const compareInfo = activeTrace.compareModeInfo();
-        modes.push(compareInfo.lower.label);
-        modes.push(compareInfo.higher.label);
+        modes.push({ key: 'lower', label: compareInfo.lower.label });
+        modes.push({ key: 'higher', label: compareInfo.higher.label });
       }
 
       if (isGridNavigable(activeTrace) && activeTrace.supportsGridMode()) {
-        modes.push(t('rotor.gridMode'));
+        modes.push({ key: 'grid', label: t('rotor.gridMode') });
       }
 
       if (activeTrace.supportsPointMode()) {
-        modes.push(t('rotor.pointMode'));
+        modes.push({ key: 'point', label: t('rotor.pointMode') });
       }
 
       if (activeTrace.supportsIntersectionMode()) {
-        modes.push(t('rotor.intersectionMode'));
+        modes.push({ key: 'intersection', label: t('rotor.intersectionMode') });
       }
 
       for (const unit of activeTrace.getRotorFilterUnits()) {
-        modes.push(unit.label);
+        modes.push({ key: `${FILTER_PREFIX}${unit.key}`, label: unit.label });
       }
     } else {
-      modes.push(t('rotor.dataMode'));
+      modes.push({ key: 'data', label: t('rotor.dataMode') });
     }
 
     return modes;
   }
 
   /**
-   * Resolves the trace's rotor filter unit matching the current mode, or null
-   * when the current mode is a built-in (data/compare/grid/intersection) mode.
-   * Filter units are matched by label, the same string cycled through the
-   * rotor, so a stale index from a previous trace cannot resolve to the wrong
-   * unit.
+   * Resolves the trace's rotor filter unit behind a mode, or null when the
+   * mode is a built-in (data/compare/grid/point/intersection) one. Units are
+   * matched on the key the trace gave them, read back out of the mode's key,
+   * so a stale index from a previous trace cannot resolve to the wrong unit.
+   * @param mode - The current rotor mode
    * @returns The active filter unit, or null
    */
-  private getActiveFilterUnit(mode: string): RotorFilterUnit | null {
+  private getActiveFilterUnit(mode: RotorMode): RotorFilterUnit | null {
     const activeTrace = this.context.active;
-    if (!(activeTrace instanceof AbstractTrace)) {
+    if (!(activeTrace instanceof AbstractTrace) || !mode.key.startsWith(FILTER_PREFIX)) {
       return null;
     }
-    return activeTrace.getRotorFilterUnits().find(unit => unit.label === mode) ?? null;
+    const key = mode.key.slice(FILTER_PREFIX.length);
+    return activeTrace.getRotorFilterUnits().find(unit => unit.key === key) ?? null;
   }
 
   /**
@@ -556,19 +586,6 @@ export class RotorNavigationService {
       t('rotor.filterVerticalUnavailableTerse', { noun: unit.noun }),
       t('rotor.filterVerticalUnavailableVerbose', { noun: unit.noun }),
     );
-  }
-
-  /**
-   * Checks if the given mode name is a data mode. Besides the two classic
-   * names, the active trace's own dataModeName() counts — traces like the
-   * candlestick delta layer rename their default unit.
-   */
-  private isDataMode(mode: string): boolean {
-    if (mode === t('rotor.dataMode') || mode === t('rotor.rowColMode')) {
-      return true;
-    }
-    const activeTrace = this.context.active;
-    return activeTrace instanceof AbstractTrace && mode === activeTrace.dataModeName();
   }
 
   /**
