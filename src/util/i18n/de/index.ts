@@ -12,8 +12,8 @@ import { tactile } from './tactile';
 import { text } from './text';
 
 /**
- * The Deutsch dictionary. Typed against the English key set, so a key added
- * to English without a Korean rendering fails the type check rather than
+ * The German dictionary. Typed against the English key set, so a key added
+ * to English without a German rendering fails the type check rather than
  * falling silently back to English at runtime.
  */
 export const de: Record<MessageKey, string> = {

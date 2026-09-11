@@ -1,138 +1,144 @@
 import type { MessageKey } from '../index';
 
 export const text = {
-  // Reading fragments. The label is data the producer chose, so the particle
-  // after it is attached at render time rather than written into the template.
-  'text.labelIsValue': '{label|은는} {value}',
-  'text.labelAreValues': '{label|은는} {values}',
-  'text.labelIsRange': '{label|은는} {min}부터 {max}까지',
-  'text.rangeThrough': '{min}부터 {max}까지',
+  // Reading fragments the per-point announcements are composed from. Every
+  // clause of a verbose reading is one of these, joined with ", ".
+  'text.labelIsValue': '{label} ist {value}',
+  'text.labelAreValues': '{label} sind {values}',
+  'text.labelIsRange': '{label} ist {min} bis {max}',
+  'text.rangeThrough': '{min} bis {max}',
   'text.sectionLabel': '{section} {label}',
-  'text.plotOfType': '{type} 그래프',
-  'text.gridCell': '{row}행 {col}열 칸',
+  // The plot type words under `model.plotType…` are bare type words
+  // ("Balken"), so every surface that names a plot spells "Diagramm vom Typ".
+  'text.plotOfType': 'Diagramm vom Typ {type}',
+  'text.gridCell': 'Zelle Zeile {row}, Spalte {col}',
 
-  // Layer navigation and the states with nothing to read.
-  'text.layerOfSize': '레이어 {size}개 중 {index}: {identity}',
-  'text.layerSwitchAt': '{layer}, {details}',
-  'text.noAdditionalLayer': '추가 레이어가 없습니다',
-  'text.noPlotInfo': '표시할 그래프 정보가 없습니다',
-  'text.noFigureInfo': '표시할 그림 정보가 없습니다',
+  // Layer navigation (Page Up / Page Down) and the states with nothing to read.
+  'text.layerOfSize': 'Ebene {index} von {size}: {identity}',
+  'text.layerSwitchAt': '{layer} bei {details}',
+  'text.noAdditionalLayer': 'Keine weitere Ebene',
+  'text.noPlotInfo': 'Keine Diagramminformationen zum Anzeigen',
+  'text.noFigureInfo': 'Keine Abbildungsinformationen zum Anzeigen',
 
-  // The multi-panel figure lobby.
-  'text.figureSingleType': '{type} 그래프입니다',
-  'text.figureMultiType': '{types} 그래프를 포함한 다중 레이어 그래프입니다',
-  'text.subplotOfSize': '서브플롯 {size}개 중 {index}',
-  'text.subplotOfSizeTitled': '서브플롯 {size}개 중 {index}, {title}',
-  'text.subplotIndex': '서브플롯 {index}',
+  // The multi-panel figure lobby: what a subplot is, and how to enter it.
+  'text.figureSingleType': 'Dies ist ein Diagramm vom Typ {type}',
+  'text.figureMultiType': 'Dies ist ein mehrschichtiges Diagramm mit den Typen {types}',
+  'text.subplotOfSize': 'Teildiagramm {index} von {size}',
+  'text.subplotOfSizeTitled': 'Teildiagramm {index} von {size}, {title}',
+  'text.subplotIndex': 'Teildiagramm {index}',
   'text.figureLobbyDetails': '{position}: {details}. {prompt}',
-  'text.pressEnterToSelect': '이 서브플롯을 선택하려면 Enter 키를 누르세요.',
+  'text.pressEnterToSelect': 'Drücken Sie Enter, um dieses Teildiagramm auszuwählen.',
 
-  // Entering, refusing, and leaving a subplot.
-  'text.enteredSubplot': '서브플롯 {size}개 중 {index}에 진입했습니다.',
-  'text.enteredSubplotTitled': '서브플롯 {size}개 중 {index}, {title}에 진입했습니다.',
-  'text.enteredSubplotTyped': '서브플롯 {size}개 중 {index}, {type} 그래프에 진입했습니다.',
-  'text.enteredSubplotTitledTyped': '서브플롯 {size}개 중 {index}, {title}, {type} 그래프에 진입했습니다.',
-  'text.terseEmptySubplot': '{label}, 비어 있음',
-  'text.subplotEmpty': '서브플롯 {size}개 중 {index|은는} 비어 있어 설명할 내용이 없습니다.',
-  'text.subplotEmptyTitled': '서브플롯 {size}개 중 {index}, {title|은는} 비어 있어 설명할 내용이 없습니다.',
-  'text.figureTerse': '그림',
-  'text.figureTerseTitled': '그림, {title}',
-  'text.figureTerseSubplot': '그림, 서브플롯 {index}',
-  'text.returnedToFigure': '그림 개요로 돌아왔습니다.',
-  'text.returnedToFigureSubplot': '그림 개요, 서브플롯 {size}개 중 {index|으로} 돌아왔습니다.',
-  'text.returnedToFigureSubplotTitled': '그림 개요, 서브플롯 {size}개 중 {index}, {title|으로} 돌아왔습니다.',
+  // Entering a subplot, refusing to enter an empty one, and returning to the
+  // lobby.
+  'text.enteredSubplot': 'Teildiagramm {index} von {size} betreten.',
+  'text.enteredSubplotTitled': 'Teildiagramm {index} von {size} betreten, {title}.',
+  'text.enteredSubplotTyped': 'Teildiagramm {index} von {size} betreten, Diagramm vom Typ {type}.',
+  'text.enteredSubplotTitledTyped': 'Teildiagramm {index} von {size} betreten, {title}, Diagramm vom Typ {type}.',
+  'text.terseEmptySubplot': '{label}, leer',
+  'text.subplotEmpty': 'Teildiagramm {index} von {size} ist leer, nichts zu beschreiben.',
+  'text.subplotEmptyTitled': 'Teildiagramm {index} von {size}, {title} ist leer, nichts zu beschreiben.',
+  'text.figureTerse': 'Abbildung',
+  'text.figureTerseTitled': 'Abbildung, {title}',
+  'text.figureTerseSubplot': 'Abbildung, Teildiagramm {index}',
+  'text.returnedToFigure': 'Zurück zur Übersicht der Abbildung.',
+  'text.returnedToFigureSubplot': 'Zurück zur Übersicht der Abbildung, Teildiagramm {index} von {size}.',
+  'text.returnedToFigureSubplotTitled': 'Zurück zur Übersicht der Abbildung, Teildiagramm {index} von {size}, {title}.',
 
-  // Outlier sections. Korean does not agree a verb with the count, so the
-  // one/many pair English needs renders the same either way.
-  'text.noOutliersFor': '{label}의 {section} 없음',
-  'text.outliersForOne': '{label}의 {section} {values}',
-  'text.outliersForMany': '{label}의 {section} {values}',
-  'text.terseNoOutliers': '{value}, {section} 없음',
-  'text.terseOutliers': '{value}, {section} {count}개 {values}',
+  // Box plot outlier sections. "Ausreißer" has the same form in the singular
+  // and the plural, so the section names ("Ausreißer unten") fit both verbs.
+  'text.noOutliersFor': 'keine {section} für {label}',
+  'text.outliersForOne': '{section} für {label} ist {values}',
+  'text.outliersForMany': '{section} für {label} sind {values}',
+  'text.terseNoOutliers': '{value}, keine {section}',
+  'text.terseOutliers': '{value}, {count} {section} {values}',
 
-  // Share of a stack, and the uncertainty around a value.
-  'text.shareOfTotal': '전체의 {percent}%',
-  'text.intervalRange': '구간 {min}부터 {max}까지',
-  'text.intervalFrom': '구간 {min}부터',
-  'text.intervalUpTo': '구간 {max}까지',
+  // Facts announced after the point's own value: its share of a stack, and
+  // the uncertainty drawn around it.
+  'text.shareOfTotal': '{percent} % davon',
+  'text.intervalRange': 'Intervall {min} bis {max}',
+  'text.intervalFrom': 'Intervall ab {min}',
+  'text.intervalUpTo': 'Intervall bis {max}',
 
-  // Scatter grid cells.
-  'text.noPoints': '점 없음',
-  'text.pointIsOne': '점 {points}',
-  'text.pointsAreMany': '점 {points}',
-  'text.tersePoints': '점 {points}',
-  'text.noPointsInCell': '이 칸에는 점이 없습니다',
+  // Scatter grid cells: the points a cell holds, and entering one that has none.
+  'text.noPoints': 'keine Punkte',
+  'text.pointIsOne': 'Punkt ist: {points}',
+  'text.pointsAreMany': 'Punkte sind: {points}',
+  'text.tersePoints': 'Punkte: {points}',
+  'text.noPointsInCell': 'Keine Punkte in dieser Zelle',
 
-  // Edges of the data and of the lobby.
-  'text.noMoreData': '데이터 끝',
-  'text.noMoreDataVerbose': '표시할 데이터가 더 없습니다',
-  'text.noMoreSubplots': '서브플롯 끝',
-  'text.noMoreSubplotsVerbose': '표시할 서브플롯이 더 없습니다',
+  // Reaching an edge of the data or of the lobby, in each verbosity.
+  'text.noMoreData': 'Keine weiteren Daten',
+  'text.noMoreDataVerbose': 'Keine weiteren Daten zum Anzeigen',
+  'text.noMoreSubplots': 'Keine weiteren Teildiagramme',
+  'text.noMoreSubplotsVerbose': 'Keine weiteren Teildiagramme zum Anzeigen',
 
-  // Text mode.
-  'text.textMode': '텍스트 모드: {mode}',
-  'text.modeOff': '끔',
-  'text.modeTerse': '간략',
-  'text.modeVerbose': '상세',
-  'text.textModeOffHint': '텍스트 모드가 꺼져 있습니다. 켜려면 T 키를 누르세요.',
+  // Text mode itself.
+  'text.textMode': 'Textmodus ist {mode}',
+  'text.modeOff': 'aus',
+  'text.modeTerse': 'knapp',
+  'text.modeVerbose': 'ausführlich',
+  'text.textModeOffHint': 'Der Textmodus ist aus. Drücken Sie die Taste T, um ihn einzuschalten.',
 
-  // A candlestick's trend.
-  'text.trendBull': '상승',
-  'text.trendBear': '하락',
-  'text.trendNeutral': '보합',
+  // A candlestick's trend, which is a word rather than a measurement.
+  'text.trendBull': 'bullisch',
+  'text.trendBear': 'bärisch',
+  'text.trendNeutral': 'neutral',
 
   // Review mode.
-  'text.noInfoForReview': '검토할 정보가 없습니다',
-  'text.reviewMode': '검토 모드: {mode}',
-  'text.reviewOn': '켬',
-  'text.reviewOff': '끔',
+  'text.noInfoForReview': 'Keine Informationen zur Überprüfung',
+  'text.reviewMode': 'Überprüfung ist {mode}',
+  'text.reviewOn': 'an',
+  'text.reviewOff': 'aus',
 
-  // Key names stay as they are; the words around them are translated.
+  // The modifier key as a reader hears it spoken, and the unassigned-key
+  // warning that names it. The key names themselves are not translated.
   'text.modifierControl': 'Control',
   'text.modifierCommand': 'Command',
-  'text.invalidKey': '잘못된 키입니다. 키보드 도움말을 보려면 {modifier} 슬래시를 누르세요.',
+  'text.invalidKey': 'Ungültige Taste. Drücken Sie {modifier} Schrägstrich für die Tastaturhilfe.',
 
-  'text.brailleUnavailableHere': '여기서는 점자를 사용할 수 없습니다. 먼저 Enter 키를 눌러 서브플롯을 선택하세요.',
+  // Offering the braille key where braille has nothing to encode.
+  'text.brailleUnavailableHere': 'Braille ist hier nicht verfügbar. Drücken Sie Enter, um zuerst ein Teildiagramm auszuwählen.',
 
-  // Label announcements. The trailing space of `text.subplotPrefix` is part of
-  // the message: it is prepended to an announcement rather than joined with one.
-  'text.subplotPrefix': '서브플롯 {index}, ',
-  'text.figureAxisLabelIs': '그림 {axis}축 레이블은 {label}',
-  'text.axisLabelIs': '{axis}축 레이블은 {label}',
-  'text.axisLabelUnavailable': '{axis}축 레이블이 없습니다',
-  'text.unavailable': '사용할 수 없음',
-  'text.figureTitle': '그림 제목',
-  'text.subplotTitleIndexed': '서브플롯 {index} 제목',
-  'text.subplotTitle': '서브플롯 제목',
-  'text.title': '제목',
-  'text.noTitleAvailable': '제목이 없습니다',
-  'text.subtitle': '부제목',
-  'text.noSubtitleAvailable': '부제목이 없습니다',
-  'text.caption': '캡션',
-  'text.noCaptionAvailable': '캡션이 없습니다',
+  // Label announcements. `text.subplotPrefix` keeps its trailing space: it is
+  // prepended to an announcement rather than joined with one.
+  'text.subplotPrefix': 'Teildiagramm {index}, ',
+  'text.figureAxisLabelIs': 'Beschriftung der {axis}-Achse der Abbildung ist {label}',
+  'text.axisLabelIs': 'Beschriftung der {axis}-Achse ist {label}',
+  'text.axisLabelUnavailable': 'Beschriftung der {axis}-Achse ist nicht verfügbar',
+  'text.unavailable': 'nicht verfügbar',
+  'text.figureTitle': 'Titel der Abbildung',
+  'text.subplotTitleIndexed': 'Titel von Teildiagramm {index}',
+  'text.subplotTitle': 'Titel des Teildiagramms',
+  'text.title': 'Titel',
+  'text.noTitleAvailable': 'Kein Titel verfügbar',
+  'text.subtitle': 'Untertitel',
+  'text.noSubtitleAvailable': 'Kein Untertitel verfügbar',
+  'text.caption': 'Bildunterschrift',
+  'text.noCaptionAvailable': 'Keine Bildunterschrift verfügbar',
 
-  // Position announcements.
-  'text.notInChart': '차트 안이 아니어서 위치를 표시할 수 없습니다.',
-  'text.indexOfSize': '{size}개 중 {index}',
-  'text.positionIs': '위치 {total}개 중 {position}',
-  'text.positionIsColumnRow': '위치 열 {cols}개 중 {col}, 행 {rows}개 중 {row}',
-  'text.positionInSection': '위치 {total}개 중 {position}, {section}',
-  'text.positionOfTotalWith': '위치 {total}개 중 {position}, {detail}',
-  'text.level': '수준',
-  'text.violinOfTotal': '바이올린 {total}개 중 {index}',
-  'text.seriesOfTotal': '{noun} {total}개 중 {index}',
-  'text.seriesNounLine': '선',
-  'text.seriesNounObservation': '관측치',
-  'text.seriesNounCompetitor': '참가자',
-  'text.seriesNounSeries': '계열',
-  'text.columnRowPosition': '열 {cols}개 중 {col}, 행 {rows}개 중 {row}',
-  'text.wholeCircle': '원 전체',
-  'text.nearlyWholeCircle': '원 거의 전체',
-  'text.atClockHour': '{hour}시 방향',
-  'text.fromClockHourTo': '{start}시 방향부터 {end}시 방향까지',
+  // Position announcements, one shape per chart family.
+  'text.notInChart': 'Nicht in einem Diagramm, Position kann nicht angezeigt werden.',
+  'text.indexOfSize': '{index} von {size}',
+  'text.positionIs': 'Position ist {position} von {total}',
+  'text.positionIsColumnRow': 'Position ist Spalte {col} von {cols}, Zeile {row} von {rows}',
+  'text.positionInSection': 'Position ist {position} von {total} in {section}',
+  'text.positionOfTotalWith': 'Position ist {position} von {total}, {detail}',
+  'text.level': 'Level',
+  'text.violinOfTotal': 'Violine {index} von {total}',
+  'text.seriesOfTotal': '{noun} {index} von {total}',
+  'text.seriesNounLine': 'Linie',
+  'text.seriesNounObservation': 'Beobachtung',
+  'text.seriesNounCompetitor': 'Wettbewerber',
+  'text.seriesNounSeries': 'Reihe',
+  'text.columnRowPosition': 'Spalte {col} von {cols}, Zeile {row} von {rows}',
+  'text.wholeCircle': 'der ganze Kreis',
+  'text.nearlyWholeCircle': 'fast der ganze Kreis',
+  'text.atClockHour': 'auf {hour} Uhr',
+  'text.fromClockHourTo': 'von {start} Uhr bis {end} Uhr',
 
-  // Jumping to a layer's extreme value.
-  'text.noMinimumValue': '이 레이어에는 이동할 최솟값이 없습니다',
-  'text.noMaximumValue': '이 레이어에는 이동할 최댓값이 없습니다',
-  'text.pointPosition': '{point}, {total}개 중 {position}',
+  // Jumping straight to a layer's extreme value.
+  'text.noMinimumValue': 'In dieser Ebene gibt es keinen Minimalwert zum Anspringen',
+  'text.noMaximumValue': 'In dieser Ebene gibt es keinen Maximalwert zum Anspringen',
+  'text.pointPosition': '{point}, {position} von {total}',
 } satisfies Partial<Record<MessageKey, string>>;
