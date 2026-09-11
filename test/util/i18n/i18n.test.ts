@@ -11,6 +11,7 @@ import {
   setLocale,
   SUPPORTED_LOCALES,
 } from '@util/i18n';
+import { stubNavigatorLanguages } from './navigatorLanguages';
 // Every dictionary is a locale pack, not part of the core, so load them all.
 import '../../../src/locale/all';
 
@@ -75,15 +76,14 @@ describe('i18n', () => {
   });
 
   describe('browserLanguages', () => {
-    const original = Object.getOwnPropertyDescriptors(navigator);
+    let restoreNavigator: () => void = () => {};
 
     function stubNavigator(languages: readonly string[] | undefined, language: string): void {
-      Object.defineProperty(navigator, 'languages', { value: languages, configurable: true });
-      Object.defineProperty(navigator, 'language', { value: language, configurable: true });
+      restoreNavigator = stubNavigatorLanguages(languages, language);
     }
 
     afterEach(() => {
-      Object.defineProperties(navigator, original);
+      restoreNavigator();
     });
 
     it('should prefer the full preference list', () => {
