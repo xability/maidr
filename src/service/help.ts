@@ -2,8 +2,10 @@ import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { KeybindingEntry } from '@type/event';
 import type { HelpMenuItem } from '@type/help';
+import type { Locale } from '@util/i18n';
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
+import { getLocale, t } from '@util/i18n';
 
 /**
  * Configuration for nested scopes that are entered via a key from parent scope.
@@ -44,7 +46,7 @@ function generateHelpMenuFromKeymap(keymap: Record<string, KeybindingEntry>): He
     }
 
     items.push({
-      description: entry.description,
+      description: t(entry.description),
       key: entry.helpKey ?? entry.hotkey,
     });
   }
@@ -86,7 +88,7 @@ function generateNestedScopeHelp(
     }
 
     items.push({
-      description: entry.description,
+      description: t(entry.description),
       key: `${entryKey} ${hotkey}`,
     });
   }
@@ -123,22 +125,31 @@ export class HelpService {
   private readonly context: Context;
   private readonly display: DisplayService;
 
-  private readonly scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>>;
+  private scopedMenuItems: Partial<Record<Scope, HelpMenuItem[]>> | null;
+  private menuLocale: Locale | null;
 
   /**
-   * Creates a new HelpService instance with auto-generated scoped menu configurations.
+   * Creates a new HelpService instance.
    * @param context - The application context for determining current scope
    * @param display - The display service for toggling help UI
    */
   public constructor(context: Context, display: DisplayService) {
     this.context = context;
     this.display = display;
+    this.scopedMenuItems = null;
+    this.menuLocale = null;
+  }
 
-    // Auto-generate help menus from keymaps including nested scopes.
-    // Braille mode gets its own menu rather than borrowing the trace one: its
-    // keymap is a subset of TRACE, so reusing TRACE would advertise shortcuts
-    // (the command palette, Go To Extrema, the candlestick reference keys)
-    // that are not bound while the braille field has focus.
+  /**
+   * Auto-generates the help menus from the keymaps, including nested scopes.
+   *
+   * Braille mode gets its own menu rather than borrowing the trace one: its
+   * keymap is a subset of TRACE, so reusing TRACE would advertise shortcuts
+   * (the command palette, Go To Extrema, the candlestick reference keys)
+   * that are not bound while the braille field has focus.
+   * @returns The menu items for every scope that can open help
+   */
+  private buildScopedMenuItems(): Partial<Record<Scope, HelpMenuItem[]>> {
     const traceHelpMenu = generateCompleteHelpMenu(Scope.TRACE);
     const brailleHelpMenu = generateCompleteHelpMenu(Scope.BRAILLE);
     const subplotHelpMenu = generateCompleteHelpMenu(Scope.SUBPLOT);
@@ -146,7 +157,7 @@ export class HelpService {
 
     // The label scopes are transient — the user is mid-chord after pressing
     // `l`, so they see the menu of the scope they came from.
-    this.scopedMenuItems = {
+    return {
       [Scope.TRACE]: traceHelpMenu,
       [Scope.TRACE_LABEL]: traceHelpMenu,
       [Scope.BRAILLE]: brailleHelpMenu,
@@ -158,9 +169,18 @@ export class HelpService {
 
   /**
    * Retrieves help menu items for the current application scope.
+   *
+   * Built on first use and kept until the language changes, so a reader who
+   * switches language sees the shortcut list in the new one the next time
+   * they open help.
    * @returns Array of help menu items or empty array if no items for current scope
    */
   public getMenuItems(): HelpMenuItem[] {
+    const locale = getLocale();
+    if (this.scopedMenuItems === null || this.menuLocale !== locale) {
+      this.scopedMenuItems = this.buildScopedMenuItems();
+      this.menuLocale = locale;
+    }
     return this.scopedMenuItems[this.context.scope] ?? [];
   }
 

@@ -5,6 +5,7 @@ import type { NotificationService } from '@service/notification';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import { PatternService } from '@service/pattern';
+import { t } from '@util/i18n';
 
 /**
  * Settings paths for high contrast configuration.
@@ -331,7 +332,7 @@ export class HighContrastService implements Disposable {
 
     // The update() method will be called via observer pattern to apply/restore colors
 
-    const message = `High Contrast Mode ${newHighContrastMode ? 'on' : 'off'}`;
+    const message = t(newHighContrastMode ? 'notification.highContrastOn' : 'notification.highContrastOff');
     this.notificationService.notify(message);
   }
 

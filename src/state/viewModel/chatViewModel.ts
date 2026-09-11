@@ -6,6 +6,7 @@ import type { Llm, Message, SelectedModel } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
+import { t } from '@util/i18n';
 import { getModelDisplayName } from '@util/llm';
 import { AbstractViewModel } from './viewModel';
 
@@ -90,10 +91,10 @@ const chatSlice = createSlice({
       }),
     },
     addPendingResponse: {
-      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string; text: string }>) => {
         state.messages.push({
           id: action.payload.id,
-          text: 'Processing request...',
+          text: action.payload.text,
           isUser: false,
           model: action.payload.model,
           timestamp: action.payload.timestamp,
@@ -101,9 +102,15 @@ const chatSlice = createSlice({
         });
       },
       // The model stays in the id, where it has always been, because it is what
-      // makes a pending response identifiable in devtools.
+      // makes a pending response identifiable in devtools. The placeholder text
+      // is rendered here too: it depends on the active language, which is
+      // state the reducer must not read.
       prepare: (response: { model: Llm; timestamp: string }) => ({
-        payload: { ...response, id: `${nextId('resp')}-${response.model}` },
+        payload: {
+          ...response,
+          id: `${nextId('resp')}-${response.model}`,
+          text: t('llm.processing'),
+        },
       }),
     },
     updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
@@ -116,15 +123,25 @@ const chatSlice = createSlice({
         message.status = 'SUCCESS';
       }
     },
-    updateError: (state, action: PayloadAction<{ model: Llm; error: string; timestamp: string }>) => {
-      const message = state.messages.find(m =>
-        m.model === action.payload.model
-        && m.timestamp === action.payload.timestamp,
-      );
-      if (message) {
-        message.text = `Error: ${action.payload.error}`;
-        message.status = 'FAILED';
-      }
+    updateError: {
+      reducer: (state, action: PayloadAction<{ model: Llm; text: string; timestamp: string }>) => {
+        const message = state.messages.find(m =>
+          m.model === action.payload.model
+          && m.timestamp === action.payload.timestamp,
+        );
+        if (message) {
+          message.text = action.payload.text;
+          message.status = 'FAILED';
+        }
+      },
+      // Rendered before dispatch for the same reason as the pending text above.
+      prepare: (failure: { model: Llm; error: string; timestamp: string }) => ({
+        payload: {
+          model: failure.model,
+          timestamp: failure.timestamp,
+          text: t('llm.messageError', { error: failure.error }),
+        },
+      }),
     },
     updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
       state.suggestions = action.payload;
@@ -244,15 +261,27 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   /**
+   * The welcome message for a set of enabled models.
+   *
+   * Shared by the first message and by every refresh of it, which used to
+   * carry their own copy of the same two sentences.
+   * @param {string[]} enabledModels - Enabled models, named and versioned.
+   * @returns {string} The message to show.
+   */
+  private static welcomeText(enabledModels: string[]): string {
+    return enabledModels.length > 0
+      ? t('llm.welcome', { models: enabledModels.join(', ') })
+      : t('llm.welcomeNoAgents');
+  }
+
+  /**
    * Loads the initial welcome message displaying available AI models.
    */
   public loadInitialMessage(): void {
     const timestamp = new Date().toISOString();
     const { enabledModels, modelSelections } = this.getEnabledModelsData();
 
-    const text = enabledModels.length > 0
-      ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
+    const text = ChatViewModel.welcomeText(enabledModels);
 
     this.store.dispatch(addSystemMessage({
       text,
@@ -277,9 +306,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   public updateWelcomeMessage(): void {
     const { enabledModels, modelSelections } = this.getEnabledModelsData();
 
-    const text = enabledModels.length > 0
-      ? `Welcome to the Chart Assistant. You can select and switch between different AI models using the dropdowns below. Currently enabled: ${enabledModels.join(', ')}.`
-      : 'No agents are enabled. Please enable at least one agent and provide an API key (or a local Ollama server) in the settings page.';
+    const text = ChatViewModel.welcomeText(enabledModels);
 
     this.store.dispatch(updateWelcomeMessage({
       text,
@@ -302,17 +329,17 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
       const baseSuggestions: Suggestion[] = [
         {
           id: nextId('suggestion'),
-          text: 'Can you explain that in more detail?',
+          text: t('llm.suggestionExplain'),
           type: 'clarification',
         },
         {
           id: nextId('suggestion'),
-          text: 'What can you say about the current datapoint?',
+          text: t('llm.suggestionCurrentPoint'),
           type: 'analysis',
         },
         {
           id: nextId('suggestion'),
-          text: 'How does this compare to other data points?',
+          text: t('llm.suggestionCompare'),
           type: 'analysis',
         },
       ];
@@ -322,12 +349,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         baseSuggestions.push(
           {
             id: nextId('suggestion'),
-            text: 'Can you perform a statistical analysis of this data?',
+            text: t('llm.suggestionStatistics'),
             type: 'analysis',
           },
           {
             id: nextId('suggestion'),
-            text: 'What are the potential outliers in this dataset?',
+            text: t('llm.suggestionOutliers'),
             type: 'analysis',
           },
         );
@@ -413,7 +440,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         this.audioService.stop(audioId);
         this.store.dispatch(updateError({
           model,
-          error: error instanceof Error ? error.message : 'Error processing request',
+          error: error instanceof Error ? error.message : t('llm.errorProcessing'),
           timestamp,
         }));
       }

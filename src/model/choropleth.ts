@@ -2,18 +2,31 @@ import type { ChoroplethPoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { MISSING_TEXT } from './bar';
+import { missingText } from './bar';
 import { MovableGrid } from './movable';
 
-/** Rotor unit that walks the regions bordering the current one. */
-const NEIGHBOUR_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'neighbours',
-  label: 'Neighbours',
-  noun: 'bordering regions',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const NEIGHBOUR_ROTOR_KEY = 'neighbours';
+
+/**
+ * Rotor unit that walks the regions bordering the current one.
+ *
+ * Built per call rather than held as a constant, because its words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function neighbourRotorUnit(): RotorFilterUnit {
+  return {
+    key: NEIGHBOUR_ROTOR_KEY,
+    label: t('model.rotorUnitNeighbours'),
+    noun: t('model.rotorNounBorderingRegions'),
+  };
+}
 
 /** Which share of the regions counts as high, when naming clusters. */
 const HIGH_QUANTILE = 0.8;
@@ -303,13 +316,13 @@ export class ChoroplethTrace extends AbstractTrace {
       if (higher === 0 && lower === neighbours.length) {
         // A local maximum. On the map this is a hotspot, and it is the shape
         // the reader is hunting for.
-        summary = `${neighbours.length}, all lower`;
+        summary = t('model.choroplethAllLower', { count: neighbours.length });
       } else if (lower === 0 && higher === neighbours.length) {
-        summary = `${neighbours.length}, all higher`;
+        summary = t('model.choroplethAllHigher', { count: neighbours.length });
       } else {
-        summary = `${neighbours.length}, ${higher} higher`;
+        summary = t('model.choroplethSomeHigher', { count: neighbours.length, higher });
       }
-      state.asides = [{ label: 'Neighbours', value: summary }];
+      state.asides = [{ label: t('model.asideNeighbours'), value: summary }];
     }
 
     return state;
@@ -336,14 +349,14 @@ export class ChoroplethTrace extends AbstractTrace {
     const hasBorders = this.regions
       .flat()
       .some(region => this.neighboursOf(region).length > 0);
-    return hasBorders ? [...inherited, NEIGHBOUR_ROTOR_UNIT] : inherited;
+    return hasBorders ? [...inherited, neighbourRotorUnit()] : inherited;
   }
 
   public override moveToRotorFilter(
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== NEIGHBOUR_ROTOR_UNIT.key) {
+    if (key !== NEIGHBOUR_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 
@@ -414,15 +427,15 @@ export class ChoroplethTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const every = this.regions.flat();
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of regions', value: every.length },
+      { label: t('model.statNumberOfRegions'), value: every.length },
       // A map with nothing measured on it has no range, and the infinities
       // `safeMin` and `safeMax` answer an empty set with are not one. The
       // dialog blanks a non-finite number, so the two lines were spoken as a
       // label, a colon and nothing after it, which reads as MAIDR having
       // failed rather than as a map with no range. `Heatmap` guards the same
       // pair the same way.
-      { label: 'Min value', value: Number.isFinite(this.min) ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: Number.isFinite(this.max) ? this.max : MISSING_TEXT },
+      { label: t('model.statMinValue'), value: Number.isFinite(this.min) ? this.min : missingText() },
+      { label: t('model.statMaxValue'), value: Number.isFinite(this.max) ? this.max : missingText() },
     ];
 
     // Whether the arrows mean compass directions on this map. `arrange` bands
@@ -435,10 +448,10 @@ export class ChoroplethTrace extends AbstractTrace {
       region => Number.isFinite(region.lat) && Number.isFinite(region.lon),
     );
     stats.push({
-      label: 'Layout',
-      value: placed
-        ? 'South to north, then west to east'
-        : 'Declared order; no centroids, so the arrows do not follow the compass',
+      label: t('model.statLayout'),
+      value: t(
+        placed ? 'model.choroplethLayoutCompass' : 'model.choroplethLayoutDeclared',
+      ),
     });
 
     const bordered = every.filter(region => this.neighboursOf(region).length > 0);
@@ -449,8 +462,8 @@ export class ChoroplethTrace extends AbstractTrace {
       // separates the two, and it warns that a cluster found over half a map
       // is half a finding.
       stats.push({
-        label: 'Regions with declared borders',
-        value: `${bordered.length} of ${every.length}`,
+        label: t('model.statRegionsWithBorders'),
+        value: t('model.countOfTotal', { count: bordered.length, total: every.length }),
       });
     }
 
@@ -472,8 +485,20 @@ export class ChoroplethTrace extends AbstractTrace {
       // stat and passes a composed string through: a map of rates would
       // otherwise name its highest region at seventeen digits two lines under
       // a `Max value` spoken at two.
-      stats.push({ label: 'Highest', value: `${highest.name}, ${defaultFormat(highest.value)}` });
-      stats.push({ label: 'Lowest', value: `${lowest.name}, ${defaultFormat(lowest.value)}` });
+      stats.push({
+        label: t('model.statHighest'),
+        value: t('model.nameWithValue', {
+          name: highest.name,
+          value: defaultFormat(highest.value),
+        }),
+      });
+      stats.push({
+        label: t('model.statLowest'),
+        value: t('model.nameWithValue', {
+          name: lowest.name,
+          value: defaultFormat(lowest.value),
+        }),
+      });
     }
 
     const borders = this.sharpestBorders();
@@ -485,9 +510,13 @@ export class ChoroplethTrace extends AbstractTrace {
       // The jump is a float subtraction, so it is rounded here for the same
       // reason the extremes are: 0.3 against 0.1 is 0.19999999999999998.
       stats.push({
-        label: 'Sharpest borders',
+        label: t('model.statSharpestBorders'),
         value: borders
-          .map(({ from, to, jump }) => `${from} to ${to}, ${defaultFormat(jump)}`)
+          .map(({ from, to, jump }) => t('model.choroplethJump', {
+            from,
+            to,
+            jump: defaultFormat(jump),
+          }))
           .join('; '),
       });
     }
@@ -498,8 +527,11 @@ export class ChoroplethTrace extends AbstractTrace {
       // the high ones touch. A reader given a ranked list is told the first
       // and never the second.
       stats.push({
-        label: 'Largest cluster of high regions',
-        value: `${cluster.length} regions, ${cluster.join(', ')}`,
+        label: t('model.statLargestHighCluster'),
+        value: t('model.choroplethCluster', {
+          count: cluster.length,
+          names: cluster.join(', '),
+        }),
       });
     }
 

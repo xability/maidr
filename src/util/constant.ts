@@ -86,8 +86,6 @@ export abstract class Constant {
   static readonly AFTER_END = 'afterend';
   /** ARIA application role value */
   static readonly APPLICATION = 'application';
-  /** Text string for 'are' with spaces */
-  static readonly ARE = ' are ';
   /** SVG circle element tag name */
   static readonly CIRCLE = 'circle';
   /** Close bracket character */
@@ -100,8 +98,6 @@ export abstract class Constant {
   static readonly EMPTY = '';
   /** CSS visibility hidden value */
   static readonly HIDDEN = 'hidden';
-  /** Text string for 'is' with spaces */
-  static readonly IS = ' is ';
   /** SVG line element tag name */
   static readonly LINE = 'line';
   /** MAIDR data attribute identifier */
@@ -116,10 +112,8 @@ export abstract class Constant {
   static readonly POLYLINE = 'polyline';
   /** Space character */
   static readonly SPACE = ' ';
-  /** Terse-mode span joiner, the short form of {@link Constant.THROUGH} */
+  /** Terse-mode span joiner, standing in for the word a verbose reading uses */
   static readonly TO_DASH = '-';
-  /** Text string for 'through' with spaces */
-  static readonly THROUGH = ' through ';
   /** CSS transparent color value */
   static readonly TRANSPARENT = 'transparent';
   /** CSS visibility visible value */
@@ -138,19 +132,4 @@ export abstract class Constant {
   static readonly HIGHLIGHT_COLOR_RATIO = 0.6;
   /** Maximum RGB color value */
   static readonly HIGHLIGHT_MAX_COLOR = 255;
-
-  // rotor mode values
-  /** Rotor mode for navigating to higher values */
-  static readonly HIGHER_VALUE_MODE = 'HIGHER VALUE NAVIGATION';
-  /** Rotor mode for navigating to lower values */
-  static readonly LOWER_VALUE_MODE = 'LOWER VALUE NAVIGATION';
-  /** Rotor mode for navigating data points */
-  static readonly DATA_MODE = 'DATA POINT NAVIGATION';
-  static readonly ROW_COL_MODE = 'ROW AND COLUMN NAVIGATION';
-  /** Rotor mode for navigating grid cells in scatter plots */
-  static readonly GRID_MODE = 'GRID NAVIGATION';
-  /** Rotor mode for navigating point intersections between lines in multiline plots */
-  static readonly INTERSECTION_MODE = 'INTERSECTING POINT NAVIGATION';
-  /** Rotor mode for navigating individual points one at a time (scatter only) */
-  static readonly POINT_MODE = 'POINT NAVIGATION';
 }

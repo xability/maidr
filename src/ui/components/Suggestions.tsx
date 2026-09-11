@@ -1,5 +1,6 @@
 import type { Suggestion } from '@type/chat';
 import { Box, Chip, useTheme } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import React, { memo } from 'react';
 
 interface SuggestionsProps {
@@ -8,13 +9,14 @@ interface SuggestionsProps {
 }
 
 const SuggestionChip = memo(({ suggestion, onClick }: { suggestion: Suggestion; onClick: () => void }) => {
+  const { t } = useLocale();
   const theme = useTheme();
   return (
     <Chip
       label={suggestion.text}
       onClick={onClick}
       role="button"
-      aria-label={`Suggestion: ${suggestion.text}`}
+      aria-label={t('dialogs.chatSuggestion', { text: suggestion.text })}
       sx={{
         'bgcolor': theme.palette.primary.main,
         'color': theme.palette.primary.contrastText,
@@ -29,6 +31,7 @@ const SuggestionChip = memo(({ suggestion, onClick }: { suggestion: Suggestion; 
 SuggestionChip.displayName = 'SuggestionChip';
 
 export const Suggestions: React.FC<SuggestionsProps> = memo(({ suggestions, onSuggestionClick }) => {
+  const { t } = useLocale();
   const theme = useTheme();
 
   if (!suggestions || !suggestions.length)
@@ -37,7 +40,7 @@ export const Suggestions: React.FC<SuggestionsProps> = memo(({ suggestions, onSu
   return (
     <Box
       role="region"
-      aria-label="Suggested responses"
+      aria-label={t('dialogs.chatSuggestionsRegion')}
       sx={{
         p: 2,
         display: 'flex',

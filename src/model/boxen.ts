@@ -4,6 +4,7 @@ import type { AudioState, BrailleState, DescriptionState, TextState } from '@typ
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -36,7 +37,7 @@ interface Rung {
 function percentileLabel(fraction: number): string {
   const percent = fraction * 100;
   const text = Number(percent.toPrecision(3)).toString();
-  return `${text}th percentile`;
+  return t('model.boxenPercentile', { percent: text });
 }
 
 /**
@@ -135,7 +136,7 @@ export class BoxenTrace extends AbstractTrace {
 
     return [
       ...lower,
-      { value: Number(point.median), label: 'median' },
+      { value: Number(point.median), label: t('model.boxenMedianRung') },
       ...upper,
     ];
   }
@@ -275,14 +276,14 @@ export class BoxenTrace extends AbstractTrace {
 
   public get description(): DescriptionState {
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of distributions', value: this.points.length },
+      { label: t('model.statNumberOfDistributions'), value: this.points.length },
     ];
 
     const names = this.points
       .map(point => (typeof point.z === 'string' ? point.z.trim() : ''))
       .filter(name => name !== '');
     if (names.length > 0) {
-      stats.push({ label: 'Distribution names', value: names.join(', ') });
+      stats.push({ label: t('model.statDistributionNames'), value: names.join(', ') });
     }
 
     // Off the ladder that is actually walked, not the raw `levels`:
@@ -298,25 +299,36 @@ export class BoxenTrace extends AbstractTrace {
       const deepest = MathUtil.safeMax(depths);
       const shallowest = MathUtil.safeMin(depths);
       stats.push({
-        label: 'Quantile levels',
-        value: deepest === shallowest ? deepest : `${shallowest} to ${deepest}`,
+        label: t('model.statQuantileLevels'),
+        value: deepest === shallowest
+          ? deepest
+          : t('model.spanRange', { min: shallowest, max: deepest }),
       });
     }
 
     // Named for what it is. `min`/`max` are the ends of the quantile ladder,
     // and the outlier count on the very next line is a tally of points beyond
     // them -- so "Max value" was a maximum the chart draws points above.
-    stats.push({ label: 'Quantile range', value: MathUtil.spannedOrMissing(this.min, this.max) });
+    stats.push({
+      label: t('model.statQuantileRange'),
+      value: MathUtil.spannedOrMissing(this.min, this.max),
+    });
 
     const medians = this.points
       .map((point, index) => ({ index, median: Number(point.median) }))
       .filter(entry => Number.isFinite(entry.median));
     if (medians.length > 0) {
       stats.push({
-        label: 'Median of each distribution',
+        label: t('model.statMedianOfEachDistribution'),
         value: medians
-          .map(({ index, median }) =>
-            `${names[index] ?? `Distribution ${index + 1}`} at ${defaultFormat(median)}`)
+          .map(({ index, median }) => t('model.nameAtValue', {
+            name: names[index]
+              ?? t('model.fallbackNumbered', {
+                noun: t('model.nounDistribution'),
+                index: index + 1,
+              }),
+            value: defaultFormat(median),
+          }))
           .join(', '),
       });
     }
@@ -326,7 +338,7 @@ export class BoxenTrace extends AbstractTrace {
       .filter(Number.isFinite);
     if (outlierValues.length > 0) {
       stats.push({
-        label: 'Outlier range',
+        label: t('model.statOutlierRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(outlierValues),
           MathUtil.safeMax(outlierValues),
@@ -346,7 +358,7 @@ export class BoxenTrace extends AbstractTrace {
       // deep rungs absorb what a whisker would have thrown out. The count
       // being small is itself informative, so it is reported rather than
       // left to be discovered.
-      stats.push({ label: 'Outliers', value: outliers });
+      stats.push({ label: t('model.statOutliers'), value: outliers });
     }
 
     // Swapped for orientation, as the trace's own `text` getter already is: a
@@ -355,16 +367,16 @@ export class BoxenTrace extends AbstractTrace {
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const headers = [
       isHorizontal ? this.yAxis : this.xAxis,
-      'Quantile',
+      t('model.tableQuantile'),
       isHorizontal ? this.xAxis : this.yAxis,
     ];
     // Outliers among the rungs, in the same long format: they were counted in
     // the summary and then existed nowhere a reader could reach them -- the
     // table listed the ladder alone, and navigation does not visit them.
     const rows: (string | number)[][] = this.points.flatMap((point, row) => [
-      ...(point.lowerOutliers ?? []).map(value => [point.z, 'lower outlier', value]),
+      ...(point.lowerOutliers ?? []).map(value => [point.z, t('model.boxenLowerOutlier'), value]),
       ...this.rungs[row].map(rung => [point.z, rung.label, rung.value]),
-      ...(point.upperOutliers ?? []).map(value => [point.z, 'upper outlier', value]),
+      ...(point.upperOutliers ?? []).map(value => [point.z, t('model.boxenUpperOutlier'), value]),
     ]);
 
     // Swapped the same way the headers just were: the distribution sits on

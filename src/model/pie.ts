@@ -3,17 +3,30 @@ import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
 
-/** Label the percentage rides under in text and in the data table. */
-const PERCENTAGE_LABEL = 'Percentage';
+/**
+ * Label the percentage rides under in text and in the data table.
+ *
+ * @returns The label in the active language
+ */
+function percentageLabel(): string {
+  return t('model.asidePercentage');
+}
 
-/** How a gap is named wherever a slice has no measurement to report. */
-const MISSING_TEXT = 'missing';
+/**
+ * How a gap is named wherever a slice has no measurement to report.
+ *
+ * @returns The word for a value that is not there
+ */
+function missingText(): string {
+  return t('common.missing');
+}
 
 /**
  * Formats one slice's share of the whole.
@@ -40,7 +53,7 @@ const MISSING_TEXT = 'missing';
  */
 function toPercentage(value: number, basis: number): string {
   if (!isMeasured(value)) {
-    return MISSING_TEXT;
+    return missingText();
   }
   if (basis === 0) {
     return '0%';
@@ -258,7 +271,7 @@ export class PieTrace extends AbstractTrace {
     return {
       main: { label: this.xAxis, value: point.x },
       cross: { label: this.yAxis, value: this.sliceValues[this.row][this.col] },
-      z: { label: PERCENTAGE_LABEL, value: this.percentages[this.col] },
+      z: { label: percentageLabel(), value: this.percentages[this.col] },
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -275,10 +288,10 @@ export class PieTrace extends AbstractTrace {
     // an infinity or a total of zero that was never measured.
     const hasMeasured = isMeasured(this.min);
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of slices', value: this.points[0].length },
-      { label: 'Min value', value: hasMeasured ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: hasMeasured ? this.max : MISSING_TEXT },
-      { label: 'Total', value: hasMeasured ? this.total : MISSING_TEXT },
+      { label: t('model.statNumberOfSlices'), value: this.points[0].length },
+      { label: t('model.statMinValue'), value: hasMeasured ? this.min : missingText() },
+      { label: t('model.statMaxValue'), value: hasMeasured ? this.max : missingText() },
+      { label: t('model.statTotal'), value: hasMeasured ? this.total : missingText() },
     ];
 
     if (hasMeasured) {
@@ -294,12 +307,12 @@ export class PieTrace extends AbstractTrace {
       const largest = measured.reduce((a, b) => (b.value > a.value ? b : a));
       const smallest = measured.reduce((a, b) => (b.value < a.value ? b : a));
 
-      stats.push({ label: 'Largest slice', value: this.sliceSummary(largest.col) });
+      stats.push({ label: t('model.statLargestSlice'), value: this.sliceSummary(largest.col) });
       // One measured slice, or a pie whose slices are all equal, has a single
       // extreme; naming the same slice twice would report a spread it has not
       // got.
       if (smallest.col !== largest.col) {
-        stats.push({ label: 'Smallest slice', value: this.sliceSummary(smallest.col) });
+        stats.push({ label: t('model.statSmallestSlice'), value: this.sliceSummary(smallest.col) });
       }
     }
 
@@ -311,7 +324,7 @@ export class PieTrace extends AbstractTrace {
     // slices.
     const gaps = this.sliceValues[0].filter(value => !isMeasured(value)).length;
     if (gaps > 0) {
-      stats.push({ label: 'Slices with no value', value: gaps });
+      stats.push({ label: t('model.statSlicesWithNoValue'), value: gaps });
     }
 
     // Said here rather than on every move, and here rather than in the cue for
@@ -320,22 +333,19 @@ export class PieTrace extends AbstractTrace {
     // is the one summary every layout can reach, on `d`.
     if (this.hasNegative) {
       stats.push({
-        label: 'Note',
-        value:
-          'This pie contains a negative value, so a slice cannot be a share of '
-          + 'the total. Percentages are shares of the circle as drawn, out of '
-          + `${defaultFormat(this.shareBasis)}.`,
+        label: t('model.statNote'),
+        value: t('model.pieNegativeNote', { basis: defaultFormat(this.shareBasis) }),
       });
     }
 
-    const headers = [this.xAxis, this.yAxis, PERCENTAGE_LABEL];
+    const headers = [this.xAxis, this.yAxis, percentageLabel()];
     // A gap is spelled out rather than left as the NaN the dialog would blank:
     // a blank cell and a cell nobody filled in read the same way to a screen
     // reader walking the table, and the percentage column has to say something
     // in any case.
     const rows: (string | number)[][] = this.points[0].map((point, col) => [
       point.x,
-      isMeasured(this.sliceValues[0][col]) ? this.sliceValues[0][col] : MISSING_TEXT,
+      isMeasured(this.sliceValues[0][col]) ? this.sliceValues[0][col] : missingText(),
       this.percentages[col],
     ]);
 
@@ -367,7 +377,11 @@ export class PieTrace extends AbstractTrace {
    */
   private sliceSummary(col: number): string {
     const value = this.sliceValues[0][col];
-    return `${this.points[0][col].x}, ${defaultFormat(value)} (${this.percentages[col]})`;
+    return t('model.pieSliceSummary', {
+      name: this.points[0][col].x,
+      value: defaultFormat(value),
+      share: this.percentages[col],
+    });
   }
 
   protected get dimension(): Dimension {

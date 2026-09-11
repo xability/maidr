@@ -1,4 +1,5 @@
 import { Box } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useViewModelState } from '@state/hook/useViewModel';
 import { visuallyHidden } from '@ui/visuallyHidden';
 import { rehypeScopeIds } from '@util/footnoteScope';
@@ -49,6 +50,7 @@ function markAnimationCompleted(key: string): void {
 }
 
 export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, messageId, onTypingUpdate }) => {
+  const { t } = useLocale();
   // The body is declared a string, but it arrives from a provider response and
   // a null one has reached here. Every tick of the animation below reads its
   // length, so that threw every 10 ms without ever clearing `isTyping` — and
@@ -186,7 +188,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
                 remarkPlugins={[remarkGfm, remarkMath]}
                 components={{
                   pre: ({ node, ...props }) => (
-                    <pre {...props} role="text" aria-label="Code block" />
+                    <pre {...props} role="text" aria-label={t('dialogs.chatCodeBlock')} />
                   ),
                   // No `a` override. A link's accessible name comes from its own
                   // text, which is right in every case and needs no help: the one
@@ -198,7 +200,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = memo(({ text, isUser, m
                   // Dropping it also lets the footnote backref keep the label
                   // remark-gfm gives it, without a fallback expression to get wrong.
                   img: ({ node, ...props }) => (
-                    <img {...props} alt={props.alt || 'Image in message'} />
+                    <img {...props} alt={props.alt || t('dialogs.chatImageAlt')} />
                   ),
                   // The footnotes heading arrives as `<h2 class="sr-only">`, which
                   // mdast-util-to-hast hardcodes and expects a stylesheet to honour.

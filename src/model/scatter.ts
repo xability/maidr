@@ -2,9 +2,10 @@ import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
-import { Constant } from '@util/constant';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -139,39 +140,39 @@ function named(value: number, label: string | undefined): number | string {
 function correlationStrength(r: number): string {
   const magnitude = Math.abs(r);
   if (magnitude < 0.1) {
-    return 'none';
+    return t('model.correlationNone');
   }
-  const direction = r > 0 ? 'positive' : 'negative';
+  const direction = t(r > 0 ? 'model.correlationPositive' : 'model.correlationNegative');
   if (magnitude < 0.2) {
-    return `very weak ${direction}`;
+    return t('model.correlationVeryWeak', { direction });
   }
   if (magnitude < 0.4) {
-    return `weak ${direction}`;
+    return t('model.correlationWeak', { direction });
   }
   if (magnitude < 0.6) {
-    return `moderate ${direction}`;
+    return t('model.correlationModerate', { direction });
   }
   if (magnitude < 0.8) {
-    return `strong ${direction}`;
+    return t('model.correlationStrong', { direction });
   }
-  return `very strong ${direction}`;
+  return t('model.correlationVeryStrong', { direction });
 }
 
 /**
  * The four regions of a scatter, in quadrant order.
  *
  * Numbered anticlockwise from the upper right, as the convention has it, and
- * each carries the plain words for where it is. A reader who cannot see the
+ * each carries the key for the plain words for where it is. A reader who cannot see the
  * chart has no picture to hang "quadrant 3" on, and a reader who knows the
  * convention should not have to take "lower left" on trust -- so both are
  * said, every time.
  */
 const QUADRANTS = [
-  { number: 1, where: 'upper right', right: true, top: true },
-  { number: 2, where: 'upper left', right: false, top: true },
-  { number: 3, where: 'lower left', right: false, top: false },
-  { number: 4, where: 'lower right', right: true, top: false },
-] as const;
+  { number: 1, where: 'model.quadrantUpperRight', right: true, top: true },
+  { number: 2, where: 'model.quadrantUpperLeft', right: false, top: true },
+  { number: 3, where: 'model.quadrantLowerLeft', right: false, top: false },
+  { number: 4, where: 'model.quadrantLowerRight', right: true, top: false },
+] as const satisfies readonly { number: number; where: MessageKey; right: boolean; top: boolean }[];
 
 /**
  * How evenly the shares have to sit before the cloud is called evenly spread.
@@ -1047,7 +1048,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     const only = names[0];
     return only === undefined || only === ''
       ? undefined
-      : [{ label: 'Name', value: only }];
+      : [{ label: t('model.asideName'), value: only }];
   }
 
   /**
@@ -1187,25 +1188,25 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       stats.push(quadrants[0]);
     }
 
-    stats.push({ label: 'Total points', value: totalPoints });
+    stats.push({ label: t('model.statTotalPoints'), value: totalPoints });
 
     // Named after the axes rather than after `x` and `y`, so the summary and
     // the table headers three lines down call the same axis the same thing.
     const xNames = ScatterTrace.categoriesOf(this.xPoints);
     const yNames = ScatterTrace.categoriesOf(this.yPoints);
     stats.push(
-      { label: `Unique ${this.xAxis} values`, value: this.xPoints.length },
-      { label: `Unique ${this.yAxis} values`, value: this.yPoints.length },
+      { label: t('model.statUniqueAxisValues', { axis: this.xAxis }), value: this.xPoints.length },
+      { label: t('model.statUniqueAxisValues', { axis: this.yAxis }), value: this.yPoints.length },
       xNames
-        ? { label: `${this.xAxis} categories`, value: ScatterTrace.listed(xNames) }
-        : { label: `${this.xAxis} range`, value: MathUtil.spannedOrMissing(this.minX, this.maxX) },
+        ? { label: t('model.statAxisCategories', { axis: this.xAxis }), value: ScatterTrace.listed(xNames) }
+        : { label: t('model.statAxisRange', { axis: this.xAxis }), value: MathUtil.spannedOrMissing(this.minX, this.maxX) },
       yNames
-        ? { label: `${this.yAxis} categories`, value: ScatterTrace.listed(yNames) }
-        : { label: `${this.yAxis} range`, value: MathUtil.spannedOrMissing(this.minY, this.maxY) },
+        ? { label: t('model.statAxisCategories', { axis: this.yAxis }), value: ScatterTrace.listed(yNames) }
+        : { label: t('model.statAxisRange', { axis: this.yAxis }), value: MathUtil.spannedOrMissing(this.minY, this.maxY) },
     );
 
     if (this.hasZ) {
-      stats.push({ label: `${this.z} range`, value: MathUtil.spannedOrMissing(this.minZ, this.maxZ) });
+      stats.push({ label: t('model.statAxisRange', { axis: this.z }), value: MathUtil.spannedOrMissing(this.minZ, this.maxZ) });
     }
 
     // How deep the deepest column is. A plain scatter, where every point has
@@ -1214,7 +1215,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     // all, which `Total points` beside `Unique x values` only implies.
     const tallest = this.xPoints.reduce((most, xp) => Math.max(most, xp.y.length), 0);
     if (tallest > 1) {
-      stats.push({ label: `Most points at one ${this.xAxis}`, value: tallest });
+      stats.push({ label: t('model.statMostPointsAtOne', { axis: this.xAxis }), value: tallest });
     }
 
     // The breakdown sits down here rather than beside its headline: a reader
@@ -1223,7 +1224,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     stats.push(...quadrants.slice(1));
 
     if (this.gridCells) {
-      stats.push({ label: 'Grid', value: `${this.numGridRows} by ${this.numGridCols} cells` });
+      stats.push({
+        label: t('model.statGrid'),
+        value: t('model.statGridValue', { rows: this.numGridRows, cols: this.numGridCols }),
+      });
     }
 
     const hasNames = this.xPoints.some(xp => xp.names.some(Boolean));
@@ -1231,7 +1235,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       this.xAxis,
       this.yAxis,
       ...(this.hasZ ? [this.z] : []),
-      ...(hasNames ? ['Name'] : []),
+      ...(hasNames ? [t('model.asideName')] : []),
     ];
     // Named the same way the announcements are, so the table a reader exports
     // or reads cell by cell agrees with what navigation told them. A table
@@ -1251,8 +1255,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       // given, and a count that claims the whole layer over a table holding a
       // thousandth of it is worse than no table.
       stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${allRows.length}`,
+        label: t('model.statTableRows'),
+        value: t('model.statTableRowsFirstOf', { shown: rows.length, total: allRows.length }),
       });
     }
 
@@ -1309,12 +1313,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     }
 
     return {
-      label: 'Correlation',
+      label: t('model.statCorrelation'),
       // `n` travels inside the value because it is the count the coefficient
       // was actually computed over, which on a layer with gaps is not the
       // `Total points` stated below it. Rounded here rather than left to the
       // service, which rounds numbers and passes composed strings through.
-      value: `${correlationStrength(r)} (r = ${defaultFormat(r)}, n = ${MathUtil.pairedCount(xs, ys)})`,
+      value: t('model.statCorrelationValue', {
+        strength: correlationStrength(r),
+        r: defaultFormat(r),
+        n: MathUtil.pairedCount(xs, ys),
+      }),
     };
   }
 
@@ -1384,21 +1392,34 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
     return [
       {
-        label: 'Most points',
+        label: t('model.statMostPoints'),
         value: highest - lowest <= EVEN_SPREAD_TOLERANCE
-          ? 'spread evenly across the four quadrants'
-          : `${highest}% in the ${densest.map(q => `${q.where} (quadrant ${q.number})`).join(' and the ')}`,
+          ? t('model.quadrantsEvenSpread')
+          : t('model.quadrantDensest', {
+              share: highest,
+              quadrants: densest
+                .map(q => t('model.quadrantNamed', { where: t(q.where), number: q.number }))
+                .join(t('model.quadrantJoin')),
+            }),
       },
       {
-        label: 'Points by quadrant',
+        label: t('model.statPointsByQuadrant'),
         value: QUADRANTS
-          .map((quadrant, index) =>
-            `${quadrant.number} ${quadrant.where} ${shares[index]}%`)
+          .map((quadrant, index) => t('model.quadrantShare', {
+            number: quadrant.number,
+            where: t(quadrant.where),
+            share: shares[index],
+          }))
           .join(', '),
       },
       {
-        label: 'Quadrants split at',
-        value: `${this.xAxis} ${defaultFormat(splitX)}, ${this.yAxis} ${defaultFormat(splitY)}`,
+        label: t('model.statQuadrantsSplitAt'),
+        value: t('model.quadrantSplitValue', {
+          xAxis: this.xAxis,
+          x: defaultFormat(splitX),
+          yAxis: this.yAxis,
+          y: defaultFormat(splitY),
+        }),
       },
     ];
   }
@@ -1437,7 +1458,10 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
     const cap = ScatterTrace.MAX_NAMED_CATEGORIES;
     return names.length <= cap
       ? names.join(', ')
-      : `${names.slice(0, cap).join(', ')}, and ${names.length - cap} more`;
+      : t('model.listedAndMore', {
+          names: names.slice(0, cap).join(', '),
+          count: names.length - cap,
+        });
   }
 
   protected get dimension(): Dimension {
@@ -2275,7 +2299,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   }
 
   public override dataModeName(): string {
-    return Constant.ROW_COL_MODE;
+    return t('rotor.rowColMode');
   }
 
   public supportsGridMode(): boolean {

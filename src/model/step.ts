@@ -1,14 +1,28 @@
 import type { LinePoint, MaidrLayer, StepDirection, StepPoint } from '@type/grammar';
 import type { DescriptionState, TraceState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { RotorFilterUnit } from './abstract';
+import { t } from '@util/i18n';
 import { LineTrace } from './line';
 
-/** Rotor unit that restricts navigation to the points where the level changes. */
-const TRANSITION_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'transition',
-  label: 'Transitions',
-  noun: 'transitions',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const TRANSITION_ROTOR_KEY = 'transition';
+
+/**
+ * Rotor unit that restricts navigation to the points where the level changes.
+ *
+ * Built per call rather than held as a constant, because its two words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function transitionRotorUnit(): RotorFilterUnit {
+  return {
+    key: TRANSITION_ROTOR_KEY,
+    label: t('model.rotorUnitTransitions'),
+    noun: t('model.rotorNounTransitions'),
+  };
+}
 
 /**
  * Spoken description of each step convention, used in the description modal.
@@ -19,10 +33,10 @@ const TRANSITION_ROTOR_UNIT: RotorFilterUnit = {
  * is filled. One definition rather than two, so the two cannot drift into
  * describing the same convention differently.
  */
-export const STEP_DIRECTION_LABEL: Record<StepDirection, string> = {
-  hv: 'value holds until the next x value, then jumps',
-  vh: 'value jumps at the current x value, then holds',
-  mid: 'value jumps midway between x values',
+export const STEP_DIRECTION_LABEL: Record<StepDirection, MessageKey> = {
+  hv: 'model.stepDirectionHv',
+  vh: 'model.stepDirectionVh',
+  mid: 'model.stepDirectionMid',
 };
 
 /**
@@ -258,7 +272,7 @@ export class StepTrace extends LineTrace {
 
     return {
       ...baseState,
-      plotType: 'step',
+      plotType: t('model.plotTypeStep'),
     };
   }
 
@@ -289,7 +303,9 @@ export class StepTrace extends LineTrace {
     // beside a second night with forty read as the chart's count rather than
     // as this series' -- and it changed as the reader moved between series,
     // with nothing in the dialog to say why.
-    const scoped = this.points.length > 1 ? ` in ${this.groupNameAt(row)}` : '';
+    const scoped = this.points.length > 1
+      ? t('model.statScopeIn', { group: this.groupNameAt(row) })
+      : '';
 
     // A y that names its levels is an ordinal code: it exists to drive the
     // pitch, the braille and the range, and nothing else. Reported as "Min
@@ -307,20 +323,21 @@ export class StepTrace extends LineTrace {
     const stats: DescriptionState['stats'] = [
       ...(ordinal
         ? baseDescription.stats.filter(
-            stat => stat.label !== 'Min value' && stat.label !== 'Max value',
+            stat => stat.label !== t('model.statMinValue')
+              && stat.label !== t('model.statMaxValue'),
           )
         : baseDescription.stats),
       {
-        label: `Transitions${scoped}`,
+        label: t('model.statTransitions', { scope: scoped }),
         value: this.transitionIndices[row]?.length ?? 0,
       },
-      { label: `Longest run${scoped}`, value: this.longestRunLength(series) },
+      { label: t('model.statLongestRun', { scope: scoped }), value: this.longestRunLength(series) },
     ];
 
     if (this.stepDirection !== undefined) {
       stats.push({
-        label: 'Step direction',
-        value: STEP_DIRECTION_LABEL[this.stepDirection],
+        label: t('model.statStepDirection'),
+        value: t(STEP_DIRECTION_LABEL[this.stepDirection]),
       });
     }
 
@@ -329,7 +346,7 @@ export class StepTrace extends LineTrace {
     // reads as a chart that never reaches it.
     const levelNames = this.levelNames(every);
     if (levelNames.length > 0) {
-      stats.push({ label: 'Levels', value: levelNames.join(', ') });
+      stats.push({ label: t('model.statLevels'), value: levelNames.join(', ') });
     } else {
       // A numeric staircase names no level, and said nothing about them at
       // all. How many distinct values it takes is the one thing a reader
@@ -339,7 +356,7 @@ export class StepTrace extends LineTrace {
         every.filter(point => point.y !== null).map(point => point.y),
       );
       if (distinct.size > 0) {
-        stats.push({ label: 'Distinct levels', value: distinct.size });
+        stats.push({ label: t('model.statDistinctLevels'), value: distinct.size });
       }
     }
 
@@ -458,7 +475,7 @@ export class StepTrace extends LineTrace {
    */
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const hasTransition = this.transitionIndices.some(indices => indices.length > 0);
-    return hasTransition ? [TRANSITION_ROTOR_UNIT] : [];
+    return hasTransition ? [transitionRotorUnit()] : [];
   }
 
   /**
@@ -472,7 +489,7 @@ export class StepTrace extends LineTrace {
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== TRANSITION_ROTOR_UNIT.key) {
+    if (key !== TRANSITION_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 

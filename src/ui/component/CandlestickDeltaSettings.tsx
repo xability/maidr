@@ -1,5 +1,6 @@
 import { Close } from '@mui/icons-material';
 import { Box, IconButton, Typography } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useEffect, useRef } from 'react';
 
@@ -23,6 +24,7 @@ import React, { useEffect, useRef } from 'react';
  * the picker instead of letting it escape behind the backdrop into the page.
  */
 const CandlestickDeltaSettings: React.FC = () => {
+  const { t } = useLocale();
   const viewModel = useViewModel('candlestickDelta');
   const state = useViewModelState('candlestickDelta');
 
@@ -140,9 +142,9 @@ const CandlestickDeltaSettings: React.FC = () => {
             component="h2"
             sx={{ m: 0, fontWeight: 600 }}
           >
-            Compare to Reference Line
+            {t('notification.deltaPickerTitle')}
           </Typography>
-          <IconButton ref={closeButtonRef} onClick={handleClose} aria-label="Close reference picker" size="small">
+          <IconButton ref={closeButtonRef} onClick={handleClose} aria-label={t('notification.deltaPickerClose')} size="small">
             <Close />
           </IconButton>
         </Box>
@@ -153,9 +155,7 @@ const CandlestickDeltaSettings: React.FC = () => {
           color="text.secondary"
           sx={{ mb: 2 }}
         >
-          Choose a reference line to compare each candle against. Use the Up and
-          Down arrows to move, then press Enter. Once chosen, press Alt L to
-          turn the comparison on or off.
+          {t('notification.deltaPickerDescription')}
         </Typography>
 
         {/*
@@ -167,7 +167,7 @@ const CandlestickDeltaSettings: React.FC = () => {
         <Box
           ref={listContainerRef}
           role="listbox"
-          aria-label="Reference lines"
+          aria-label={t('notification.deltaPickerListLabel')}
           sx={{ maxHeight: 320, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}
         >
           {state.references.map((reference, index) => {

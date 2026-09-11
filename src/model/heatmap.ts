@@ -4,6 +4,7 @@ import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -11,8 +12,14 @@ import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
 import { MovableGrid } from './movable';
 
-/** How an unmeasured cell is named in the data table, matching the text service. */
-const MISSING_CELL = 'missing';
+/**
+ * How an unmeasured cell is named in the data table, matching the text service.
+ *
+ * @returns The word for a cell with no value
+ */
+function missingCell(): string {
+  return t('common.missing');
+}
 
 /**
  * Reads one grid row, keeping a cell the chart drew nothing at out of the data.
@@ -186,11 +193,11 @@ export class Heatmap extends AbstractTrace {
       // payloads are where adapters have been wrong before (#1191) -- and a
       // count taken from the labels then describes a chart the cursor cannot
       // walk.
-      { label: 'Rows', value: this.heatmapValues.length },
-      { label: 'Columns', value: this.heatmapValues[0]?.length ?? 0 },
+      { label: t('model.statRows'), value: this.heatmapValues.length },
+      { label: t('model.statColumns'), value: this.heatmapValues[0]?.length ?? 0 },
       // A grid of nothing but holes has no range, and `-Infinity` is not one.
-      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_CELL },
-      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_CELL },
+      { label: t('model.statMinValue'), value: isMeasured(this.min) ? this.min : missingCell() },
+      { label: t('model.statMaxValue'), value: isMeasured(this.max) ? this.max : missingCell() },
     ];
 
     if (measured.length < cells.length) {
@@ -201,8 +208,8 @@ export class Heatmap extends AbstractTrace {
       // readings. Only where there is a hole, so an ordinary full grid gains
       // no line.
       stats.push({
-        label: 'Cells with a value',
-        value: `${measured.length} of ${cells.length}`,
+        label: t('model.statCellsWithAValue'),
+        value: t('model.countOfTotal', { count: measured.length, total: cells.length }),
       });
     }
 
@@ -223,8 +230,8 @@ export class Heatmap extends AbstractTrace {
       const coldestAt = this.cellName(coldest.row, coldest.col);
       if (hottestAt !== null && coldestAt !== null) {
         stats.push(
-          { label: 'Highest cell', value: hottestAt },
-          { label: 'Lowest cell', value: coldestAt },
+          { label: t('model.statHighestCell'), value: hottestAt },
+          { label: t('model.statLowestCell'), value: coldestAt },
         );
       }
     }
@@ -239,7 +246,7 @@ export class Heatmap extends AbstractTrace {
     const columns = this.heatmapValues[0] ?? [];
     const headers = [
       this.yAxis,
-      ...columns.map((_cell, c) => this.x[c] ?? `Column ${c + 1}`),
+      ...columns.map((_cell, c) => this.x[c] ?? t('model.fallbackColumn', { index: c + 1 })),
     ];
     // Walked over the grid, so a label array longer than the payload cannot
     // index past the end of it -- `this.heatmapValues[r]` was `undefined` and
@@ -256,7 +263,7 @@ export class Heatmap extends AbstractTrace {
       .map((row, r) => [
         this.y[r] ?? '',
         // `NaN` in a table cell reads as the string "NaN", which is a value.
-        ...row.map(cell => (isMeasured(cell) ? cell : MISSING_CELL)),
+        ...row.map(cell => (isMeasured(cell) ? cell : missingCell())),
       ])
       .reverse();
 
@@ -294,7 +301,7 @@ export class Heatmap extends AbstractTrace {
     const band = this.y[row];
     return column === undefined || band === undefined
       ? null
-      : `${column}, ${band}`;
+      : t('model.heatmapCellName', { column, row: band });
   }
 
   protected get dimension(): Dimension {
@@ -706,7 +713,11 @@ export class Heatmap extends AbstractTrace {
     const globalMax = this.findGlobalExtrema('max');
     if (globalMax) {
       targets.push({
-        label: `Global Maximum: ${globalMax.value} at ${this.x[globalMax.col]}, ${this.y[globalMax.row]}`,
+        label: t('model.extremaGlobalMaximum', {
+          value: globalMax.value,
+          x: this.x[globalMax.col],
+          y: this.y[globalMax.row],
+        }),
         value: globalMax.value,
         pointIndex: globalMax.row * this.heatmapValues[0].length + globalMax.col,
         segment: 'global',
@@ -722,7 +733,11 @@ export class Heatmap extends AbstractTrace {
     const globalMin = this.findGlobalExtrema('min');
     if (globalMin) {
       targets.push({
-        label: `Global Minimum: ${globalMin.value} at ${this.x[globalMin.col]}, ${this.y[globalMin.row]}`,
+        label: t('model.extremaGlobalMinimum', {
+          value: globalMin.value,
+          x: this.x[globalMin.col],
+          y: this.y[globalMin.row],
+        }),
         value: globalMin.value,
         pointIndex: globalMin.row * this.heatmapValues[0].length + globalMin.col,
         segment: 'global',
@@ -738,7 +753,11 @@ export class Heatmap extends AbstractTrace {
     const rowMax = this.findRowExtrema(currentRow, 'max');
     if (rowMax) {
       targets.push({
-        label: `Row Maximum: ${rowMax.value} at ${this.x[rowMax.col]}, ${this.y[currentRow]}`,
+        label: t('model.extremaRowMaximum', {
+          value: rowMax.value,
+          x: this.x[rowMax.col],
+          y: this.y[currentRow],
+        }),
         value: rowMax.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMax.col,
         segment: `row-${currentRow}`,
@@ -754,7 +773,11 @@ export class Heatmap extends AbstractTrace {
     const rowMin = this.findRowExtrema(currentRow, 'min');
     if (rowMin) {
       targets.push({
-        label: `Row Minimum: ${rowMin.value} at ${this.x[rowMin.col]}, ${this.y[currentRow]}`,
+        label: t('model.extremaRowMinimum', {
+          value: rowMin.value,
+          x: this.x[rowMin.col],
+          y: this.y[currentRow],
+        }),
         value: rowMin.value,
         pointIndex: currentRow * this.heatmapValues[0].length + rowMin.col,
         segment: `row-${currentRow}`,
@@ -770,7 +793,11 @@ export class Heatmap extends AbstractTrace {
     const colMax = this.findColExtrema(currentCol, 'max');
     if (colMax) {
       targets.push({
-        label: `Column Maximum: ${colMax.value} at ${this.x[currentCol]}, ${this.y[colMax.row]}`,
+        label: t('model.extremaColumnMaximum', {
+          value: colMax.value,
+          x: this.x[currentCol],
+          y: this.y[colMax.row],
+        }),
         value: colMax.value,
         pointIndex: colMax.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,
@@ -786,7 +813,11 @@ export class Heatmap extends AbstractTrace {
     const colMin = this.findColExtrema(currentCol, 'min');
     if (colMin) {
       targets.push({
-        label: `Column Minimum: ${colMin.value} at ${this.x[currentCol]}, ${this.y[colMin.row]}`,
+        label: t('model.extremaColumnMinimum', {
+          value: colMin.value,
+          x: this.x[currentCol],
+          y: this.y[colMin.row],
+        }),
         value: colMin.value,
         pointIndex: colMin.row * this.heatmapValues[0].length + currentCol,
         segment: `col-${currentCol}`,

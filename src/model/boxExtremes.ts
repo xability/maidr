@@ -1,15 +1,17 @@
 import type { BoxPoint } from '@type/grammar';
 import type { DescriptionState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 
 /**
  * Labels for a range row, one for each shape the summary can take.
  */
 interface ExtremeLabels {
   /** Used when the chart holds a single box. */
-  single: string;
+  single: MessageKey;
   /** Used when the chart holds several boxes. */
-  grouped: string;
+  grouped: MessageKey;
 }
 
 /**
@@ -45,11 +47,11 @@ export function extremeStat(
   beats: (candidate: number, current: number) => boolean,
 ): DescriptionState['stats'][number] {
   const grouped = points.length > 1;
-  const label = grouped ? labels.grouped : labels.single;
+  const label = t(grouped ? labels.grouped : labels.single);
 
   const measured = points.filter(point => Number.isFinite(valueOf(point)));
   if (measured.length === 0) {
-    return { label, value: 'missing' };
+    return { label, value: t('common.missing') };
   }
 
   const winner = measured.reduce((best, point) =>
@@ -64,7 +66,10 @@ export function extremeStat(
   // Composing the group name onto the value makes this a string, past the
   // point where the service can round what is inside it, so the number is
   // rounded here with the same `defaultFormat` the service would have used.
-  return { label, value: `${defaultFormat(value)} (${name})` };
+  return {
+    label,
+    value: t('model.extremeValueWithGroup', { value: defaultFormat(value), name }),
+  };
 }
 
 /**
@@ -106,10 +111,14 @@ function groupName(point: BoxPoint): string | null {
  * @param noun - What one of these is called, for the fallback.
  * @returns The group's name.
  */
-export function groupNameAt(points: BoxPoint[], index: number, noun = 'Group'): string {
+export function groupNameAt(
+  points: BoxPoint[],
+  index: number,
+  noun: MessageKey = 'model.nounGroup',
+): string {
   const point = points[index];
   const name = point === undefined ? null : groupName(point);
-  return name ?? `${noun} ${index + 1}`;
+  return name ?? t('model.fallbackNumbered', { noun: t(noun), index: index + 1 });
 }
 
 /**

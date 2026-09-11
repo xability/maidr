@@ -2,6 +2,7 @@ import type { Context } from '@model/context';
 import type { NotificationService } from '@service/notification';
 import type { Command } from './command';
 import { isGridNavigable } from '@type/navigation';
+import { t } from '@util/i18n';
 
 /**
  * Command to enter grid cell mode for navigating points within a cell.
@@ -27,7 +28,7 @@ export class EnterGridCellCommand implements Command {
     // Grid-navigable trace: notify only when the target cell is genuinely empty.
     const success = this.context.enterGridCell();
     if (!success) {
-      this.notification.notify('No points in this cell');
+      this.notification.notify(t('text.noPointsInCell'));
     }
   }
 }

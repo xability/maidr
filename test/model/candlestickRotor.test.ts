@@ -1,10 +1,10 @@
 import type { CandlestickPoint, MaidrLayer } from '@type/grammar';
 import { describe, expect, test } from '@jest/globals';
 import {
-  BEARISH_POINT_MODE,
-  BULLISH_POINT_MODE,
+  bearishPointMode,
+  bullishPointMode,
   Candlestick,
-  NEUTRAL_POINT_MODE,
+  neutralPointMode,
 } from '@model/candlestick';
 import { TraceType } from '@type/grammar';
 
@@ -55,9 +55,9 @@ describe('candlestick rotor filter units', () => {
 
     const units = trace.getRotorFilterUnits();
     expect(units.map(u => u.label)).toEqual([
-      BULLISH_POINT_MODE,
-      BEARISH_POINT_MODE,
-      NEUTRAL_POINT_MODE,
+      bullishPointMode(),
+      bearishPointMode(),
+      neutralPointMode(),
     ]);
     expect(units.map(u => u.key)).toEqual(['Bull', 'Bear', 'Neutral']);
   });
@@ -78,7 +78,7 @@ describe('candlestick rotor filter units', () => {
     });
 
     expect(trace.getRotorFilterUnits().map(u => u.label)).toEqual([
-      BULLISH_POINT_MODE,
+      bullishPointMode(),
     ]);
   });
 

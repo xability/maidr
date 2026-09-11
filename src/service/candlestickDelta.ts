@@ -15,6 +15,7 @@ import { CandlestickDeltaTrace, referenceName } from '@model/candlestickDelta';
 import { LineTrace } from '@model/line';
 import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 
 /** A selectable reference series (one line of a line layer) for comparison. */
 export interface CandlestickDeltaReference {
@@ -152,22 +153,20 @@ export class CandlestickDeltaService implements Disposable {
 
     const candlestick = this.resolveCandlestick();
     if (!candlestick) {
-      this.notification.notify(
-        'Reference comparison is only available on candlestick charts.',
-      );
+      this.notification.notify(t('notification.deltaCandlestickOnly'));
       return false;
     }
 
     const reference = this.resolveReference(referenceId);
     if (!reference) {
-      this.notification.notify('The selected reference line is unavailable.');
+      this.notification.notify(t('notification.deltaReferenceUnavailable'));
       return false;
     }
 
     const candles = this.buildDeltaCandles(candlestick, reference.points);
     if (candles.length === 0) {
       this.notification.notify(
-        `No matching x values between the candlestick chart and ${reference.label}.`,
+        t('notification.deltaNoMatchingX', { reference: reference.label }),
       );
       return false;
     }
@@ -193,8 +192,10 @@ export class CandlestickDeltaService implements Disposable {
         // rather than silently jumping to the new reference's first candle.
         // The previous reference stays remembered.
         this.notification.notify(
-          `Keeping the current comparison: ${reference.label} does not reach `
-          + `${currentX}. Move to a candle it covers, then choose it again.`,
+          t('notification.deltaKeepingComparison', {
+            reference: reference.label,
+            x: String(currentX),
+          }),
         );
         return false;
       }
@@ -202,9 +203,10 @@ export class CandlestickDeltaService implements Disposable {
       // covered candle re-enables it, then alert that there is nothing here.
       this.selectedReferenceId = referenceId;
       this.notification.notify(
-        `No reference comparison at ${currentX}: ${reference.label} does not `
-        + 'reach this candle. Move to a candle the moving average covers, then '
-        + 'press Alt L.',
+        t('notification.deltaNoComparisonAtX', {
+          x: String(currentX),
+          reference: reference.label,
+        }),
       );
       return false;
     }
@@ -226,7 +228,7 @@ export class CandlestickDeltaService implements Disposable {
     const previous = this.context.swapActiveTrace(trace);
     if (!previous) {
       trace.dispose();
-      this.notification.notify('Reference comparison could not be activated here.');
+      this.notification.notify(t('notification.deltaActivationFailed'));
       return false;
     }
 
@@ -249,13 +251,11 @@ export class CandlestickDeltaService implements Disposable {
     // update would wipe these instructions before screen readers read them.
     trace.notifyStateUpdate();
     this.notification.notify(
-      `Reference comparison on: OHLC price minus ${reference.label}, `
-      + `${candles.length} points, starting on ${initialField}. `
-      + 'Positive values are above the line, negative below. '
-      + 'Use Left and Right arrows to move between candles, Up and Down to '
-      + 'switch between open, high, low and close. Press Alt L to turn the '
-      + 'comparison off, G for extrema, and the rotor to browse above-line, '
-      + 'below-line, or on-line points. Press Escape to return to the chart.',
+      t('notification.deltaActivated', {
+        reference: reference.label,
+        count: candles.length,
+        field: initialField,
+      }),
     );
     return true;
   }
@@ -307,10 +307,7 @@ export class CandlestickDeltaService implements Disposable {
       if (anchor && lastX !== null) {
         anchor.moveToXValue(lastX);
       }
-      this.notification.notify(
-        'Reference comparison closed. Returned to the chart layer. '
-        + 'Press Alt L to compare again.',
-      );
+      this.notification.notify(t('notification.deltaClosed'));
     }
     return true;
   }
@@ -459,10 +456,10 @@ export class CandlestickDeltaService implements Disposable {
       // directly above the column the trace is careful to head `Reference
       // line`. The placeholder reached the reader in the line above the one
       // that was guarded.
-      title: `OHLC price vs ${referenceName(referenceLabel)}`,
+      title: t('notification.deltaTraceTitle', { reference: referenceName(referenceLabel) }),
       axes: {
         x: { label: xAxis },
-        y: { label: `${yAxis} delta` },
+        y: { label: t('notification.deltaYAxisLabel', { axis: yAxis }) },
       },
       data: [],
     };

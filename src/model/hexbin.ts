@@ -3,6 +3,7 @@ import type { Movable, MovableDirection } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -159,7 +160,7 @@ export class HexbinTrace extends AbstractTrace {
    * @returns The label the count is announced and tabulated under
    */
   private get countLabel(): string {
-    return named(this.layer.axes?.z?.label, 'Count');
+    return named(this.layer.axes?.z?.label, t('model.asideCount'));
   }
 
   protected get values(): number[][] {
@@ -379,13 +380,13 @@ export class HexbinTrace extends AbstractTrace {
     const total = occupied.reduce((sum, count) => sum + count, 0);
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of bins', value: flat.length },
+      { label: t('model.statNumberOfBins'), value: flat.length },
       // How many bins hold anything is the shape of the cloud: a scatter
       // spread evenly fills most of its lattice, and a tight one leaves most
       // of it empty. That is not recoverable from the counts alone without
       // walking every cell.
-      { label: 'Occupied bins', value: occupied.length },
-      { label: 'Total points', value: total },
+      { label: t('model.statOccupiedBins'), value: occupied.length },
+      { label: t('model.statTotalPoints'), value: total },
     ];
 
     // Where the lattice sits. A hexbin is a scatter with its points binned,
@@ -398,21 +399,21 @@ export class HexbinTrace extends AbstractTrace {
     const ys = centres.map(bin => Number(bin.y)).filter(Number.isFinite);
     if (xs.length > 0) {
       stats.push({
-        label: `${this.xAxis} range`,
+        label: t('model.statAxisRange', { axis: this.xAxis }),
         value: MathUtil.spannedOrMissing(MathUtil.safeMin(xs), MathUtil.safeMax(xs)),
       });
     }
     if (ys.length > 0) {
       stats.push({
-        label: `${this.yAxis} range`,
+        label: t('model.statAxisRange', { axis: this.yAxis }),
         value: MathUtil.spannedOrMissing(MathUtil.safeMin(ys), MathUtil.safeMax(ys)),
       });
     }
 
     if (occupied.length > 0) {
       stats.push(
-        { label: 'Min count', value: MathUtil.safeMin(occupied) },
-        { label: 'Max count', value: this.max },
+        { label: t('model.statMinCount'), value: MathUtil.safeMin(occupied) },
+        { label: t('model.statMaxCount'), value: this.max },
       );
 
       const densest = this.densestBin();
@@ -423,9 +424,13 @@ export class HexbinTrace extends AbstractTrace {
         // cloud peaks was thirty spoken digits over a table row saying the
         // same two numbers to two decimals.
         stats.push({
-          label: 'Densest bin',
-          value: `${this.xAxis} ${defaultFormat(densest.x)}, `
-            + `${this.yAxis} ${defaultFormat(densest.y)}`,
+          label: t('model.statDensestBin'),
+          value: t('model.hexbinBinPosition', {
+            xAxis: this.xAxis,
+            x: defaultFormat(densest.x),
+            yAxis: this.yAxis,
+            y: defaultFormat(densest.y),
+          }),
         });
       }
     }
@@ -439,8 +444,8 @@ export class HexbinTrace extends AbstractTrace {
       // prints the row count it is given, and a count claiming the whole
       // lattice over a table holding a fraction of it is worse than no table.
       stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${allRows.length}`,
+        label: t('model.statTableRows'),
+        value: t('model.statTableRowsFirstOf', { shown: rows.length, total: allRows.length }),
       });
     }
 

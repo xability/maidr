@@ -1,4 +1,5 @@
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 
 /**
  * Mathematical utility functions for common operations across the codebase.
@@ -42,8 +43,8 @@ export abstract class MathUtil {
    */
   static spanned(min: number, max: number): string {
     return min === max
-      ? `constant ${defaultFormat(min)}`
-      : `${defaultFormat(min)} to ${defaultFormat(max)}`;
+      ? t('model.spanConstant', { value: defaultFormat(min) })
+      : t('model.spanRange', { min: defaultFormat(min), max: defaultFormat(max) });
   }
 
   /**
@@ -149,7 +150,7 @@ export abstract class MathUtil {
   static spannedOrMissing(min: number, max: number): string {
     return Number.isFinite(min) && Number.isFinite(max)
       ? MathUtil.spanned(min, max)
-      : 'missing';
+      : t('common.missing');
   }
 
   /**

@@ -5,13 +5,10 @@ import type { NonEmptyTraceState, PlotState, TextState, TraceState } from '@type
 import type { AxisType, FormatterService } from './formatter';
 import type { NotificationService } from './notification';
 import { focusedSubplotTitle } from '@model/plot';
-import { BoxplotSection } from '@type/boxplotSection';
 import { Emitter } from '@type/event';
 import { isLayerSwitchTraceState } from '@type/state';
 import { Constant } from '@util/constant';
-
-/** How an absent value is named wherever a trace has nothing to report. */
-const MISSING_TEXT = 'missing';
+import { t } from '@util/i18n';
 
 /**
  * Enumeration of available text output modes.
@@ -103,10 +100,10 @@ export class TextService implements Observer<PlotState>, Disposable {
    */
   private formatSingleValue(value: number | string | null | undefined, axis: AxisType): string {
     if (value === null || value === undefined) {
-      return MISSING_TEXT;
+      return t('common.missing');
     }
     if (typeof value === 'number' && !Number.isFinite(value)) {
-      return MISSING_TEXT;
+      return t('common.missing');
     }
     if (this.formatter && this.currentLayerId) {
       return this.formatter.formatSingleValue(value, this.currentLayerId, axis);
@@ -134,6 +131,35 @@ export class TextService implements Observer<PlotState>, Disposable {
     axis: AxisType,
   ): string[] {
     return values.map(value => this.formatSingleValue(value, axis));
+  }
+
+  /**
+   * Formats the third value a trace carries: the heatmap's cell value, the
+   * segmented bar's level, the candlestick's trend, the pie's percentage.
+   *
+   * A candlestick's trend is a word rather than a measurement. The model
+   * carries it capitalised because the audio palette keys off it, and text
+   * mode reads it lower case -- which was done by lower-casing the string
+   * itself, an operation that only produces the right word in English. It is
+   * looked up instead. Any other z value is a reading and is formatted.
+   *
+   * @param value - The z reading from the text state
+   * @returns The formatted value
+   */
+  private formatZValue(value: number | number[] | string): string {
+    if (value === 'Bull') {
+      return t('text.trendBull');
+    }
+    if (value === 'Bear') {
+      return t('text.trendBear');
+    }
+    if (value === 'Neutral') {
+      return t('text.trendNeutral');
+    }
+    if (Array.isArray(value)) {
+      return this.formatArrayValue(value, 'z').join(Constant.COMMA_SPACE);
+    }
+    return this.formatSingleValue(value, 'z');
   }
 
   /**
@@ -180,7 +206,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       const mainValue = Array.isArray(text.main.value)
         ? this.formatArrayValue(text.main.value as (number | string)[], mainAxisType).join(', ')
         : this.formatSingleValue(text.main.value as number | string, mainAxisType);
-      parts.push(`${text.main.label} is ${mainValue}`);
+      parts.push(t('text.labelIsValue', { label: text.main.label, value: mainValue }));
     }
 
     // Add cross coordinate (y for vertical, x for horizontal)
@@ -188,7 +214,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       const crossValue = Array.isArray(text.cross.value)
         ? this.formatArrayValue(text.cross.value as (number | string)[], crossAxisType).join(', ')
         : this.formatSingleValue(text.cross.value as number | string, crossAxisType);
-      parts.push(`${text.cross.label} is ${crossValue}`);
+      parts.push(t('text.labelIsValue', { label: text.cross.label, value: crossValue }));
     }
 
     // Add z/type information (for line plots this includes group/type like "MAV=3")
@@ -196,7 +222,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       const zValue = Array.isArray(text.z.value)
         ? this.formatArrayValue(text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
         : this.formatSingleValue(text.z.value as number | string, 'z');
-      parts.push(`${text.z.label} is ${zValue}`);
+      parts.push(t('text.labelIsValue', { label: text.z.label, value: zValue }));
     }
 
     return parts.length > 0 ? parts.join(', ') : null;
@@ -214,7 +240,11 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Set currentLayerId for formatting
     this.currentLayerId = state.layerId;
 
-    let announcement = `Layer ${state.index} of ${state.size}: ${TextService.layerIdentity(state)}`;
+    let announcement = t('text.layerOfSize', {
+      index: state.index,
+      size: state.size,
+      identity: TextService.layerIdentity(state),
+    });
     if (state.text) {
       const parts: string[] = [];
 
@@ -226,7 +256,7 @@ export class TextService implements Observer<PlotState>, Disposable {
         const mainValue = Array.isArray(state.text.main.value)
           ? this.formatArrayValue(state.text.main.value as (number | string)[], mainAxisType).join(', ')
           : this.formatSingleValue(state.text.main.value as number | string, mainAxisType);
-        parts.push(`${state.text.main.label} is ${mainValue}`);
+        parts.push(t('text.labelIsValue', { label: state.text.main.label, value: mainValue }));
       }
       // Exclude cross value for violin box plots during layer switch.
       // With explicit violin_box trace type, no heuristic is needed.
@@ -235,16 +265,19 @@ export class TextService implements Observer<PlotState>, Disposable {
         const crossValue = Array.isArray(state.text.cross.value)
           ? this.formatArrayValue(state.text.cross.value as (number | string)[], crossAxisType).join(', ')
           : this.formatSingleValue(state.text.cross.value as number | string, crossAxisType);
-        parts.push(`${state.text.cross.label} is ${crossValue}`);
+        parts.push(t('text.labelIsValue', { label: state.text.cross.label, value: crossValue }));
       }
       if (state.text.z && state.text.z.value !== undefined) {
         const zValue = Array.isArray(state.text.z.value)
           ? this.formatArrayValue(state.text.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE)
           : this.formatSingleValue(state.text.z.value as number | string, 'z');
-        parts.push(`${state.text.z.label} is ${zValue}`);
+        parts.push(t('text.labelIsValue', { label: state.text.z.label, value: zValue }));
       }
       if (parts.length > 0) {
-        announcement += ` at ${parts.join(', ')}`;
+        announcement = t('text.layerSwitchAt', {
+          layer: announcement,
+          details: parts.join(Constant.COMMA_SPACE),
+        });
       }
     }
     return announcement;
@@ -260,9 +293,9 @@ export class TextService implements Observer<PlotState>, Disposable {
       return state;
     } else if (!state || state.empty) {
       if (state.type === 'subplot') {
-        return 'No additional layer';
+        return t('text.noAdditionalLayer');
       }
-      return `No ${state.type === 'trace' ? 'plot' : state.type} info to display`;
+      return state.type === 'trace' ? t('text.noPlotInfo') : t('text.noFigureInfo');
     } else if (state.type === 'figure') {
       return this.formatFigureText(
         state.index,
@@ -302,12 +335,15 @@ export class TextService implements Observer<PlotState>, Disposable {
       return this.terseSubplotLabel(index, subplotTitle);
     }
     const details = traceTypes.length === 1
-      ? `This is a ${traceTypes[0]} plot`
-      : `This is a multi-layered plot containing ${traceTypes.join(Constant.COMMA_SPACE)} plots`;
+      ? t('text.figureSingleType', { type: traceTypes[0] })
+      : t('text.figureMultiType', { types: traceTypes.join(Constant.COMMA_SPACE) });
     // Verbose: the full framing, now naming the panel by its authored title
     // (when present) alongside the position.
-    const titlePart = subplotTitle ? `, ${subplotTitle}` : '';
-    return `Subplot ${index} of ${size}${titlePart}: ${details}. Press 'ENTER' to select this subplot.`;
+    return t('text.figureLobbyDetails', {
+      position: TextService.subplotPosition(index, size, subplotTitle),
+      details,
+      prompt: t('text.pressEnterToSelect'),
+    });
   }
 
   /**
@@ -320,7 +356,22 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns The terse panel identifier.
    */
   private terseSubplotLabel(index: number, title: string): string {
-    return title || `Subplot ${index}`;
+    return title || t('text.subplotIndex', { index });
+  }
+
+  /**
+   * Names a subplot by its position, adding the authored title when there is
+   * one. The one place the "Subplot N of M, Title" phrase is built, so the
+   * lobby description and the empty-panel cue cannot word it differently.
+   * @param index - 1-based visual position of the subplot.
+   * @param size - Total number of subplots in the figure.
+   * @param title - The subplot's authored title ('' when none).
+   * @returns The panel identifier.
+   */
+  private static subplotPosition(index: number, size: number, title: string): string {
+    return title
+      ? t('text.subplotOfSizeTitled', { index, size, title })
+      : t('text.subplotOfSize', { index, size });
   }
 
   /**
@@ -346,9 +397,16 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (this.mode === TextMode.TERSE) {
       return this.terseSubplotLabel(index, title);
     }
-    const titlePart = title ? `, ${title}` : '';
-    const suffix = plotType ? `, ${plotType} plot` : '';
-    return `Entered subplot ${index} of ${size}${titlePart}${suffix}.`;
+    if (title && plotType) {
+      return t('text.enteredSubplotTitledTyped', { index, size, title, type: plotType });
+    }
+    if (title) {
+      return t('text.enteredSubplotTitled', { index, size, title });
+    }
+    if (plotType) {
+      return t('text.enteredSubplotTyped', { index, size, type: plotType });
+    }
+    return t('text.enteredSubplot', { index, size });
   }
 
   /**
@@ -372,10 +430,11 @@ export class TextService implements Observer<PlotState>, Disposable {
       return null;
     }
     if (this.mode === TextMode.TERSE) {
-      return `${this.terseSubplotLabel(index, title)}, empty`;
+      return t('text.terseEmptySubplot', { label: this.terseSubplotLabel(index, title) });
     }
-    const titlePart = title ? `, ${title}` : '';
-    return `Subplot ${index} of ${size}${titlePart} is empty, nothing to describe.`;
+    return title
+      ? t('text.subplotEmptyTitled', { index, size, title })
+      : t('text.subplotEmpty', { index, size });
   }
 
   /**
@@ -400,12 +459,15 @@ export class TextService implements Observer<PlotState>, Disposable {
     const terse = this.mode === TextMode.TERSE;
     if (state.type === 'figure' && !state.empty) {
       if (terse) {
-        return title ? `Figure, ${title}` : `Figure, subplot ${state.index}`;
+        return title
+          ? t('text.figureTerseTitled', { title })
+          : t('text.figureTerseSubplot', { index: state.index });
       }
-      const titlePart = title ? `, ${title}` : '';
-      return `Returned to figure overview, subplot ${state.index} of ${state.size}${titlePart}.`;
+      return title
+        ? t('text.returnedToFigureSubplotTitled', { index: state.index, size: state.size, title })
+        : t('text.returnedToFigureSubplot', { index: state.index, size: state.size });
     }
-    return terse ? 'Figure' : 'Returned to figure overview.';
+    return terse ? t('text.figureTerse') : t('text.returnedToFigure');
   }
 
   /**
@@ -419,8 +481,8 @@ export class TextService implements Observer<PlotState>, Disposable {
   private formatSubplotText(index: number, size: number, traceType: string, traceState?: TraceState): string {
     const identity = traceState && !traceState.empty
       ? TextService.layerIdentity(traceState)
-      : `${traceType} plot`;
-    return `Layer ${index} of ${size}: ${identity}`;
+      : t('text.plotOfType', { type: traceType });
+    return t('text.layerOfSize', { index, size, identity });
   }
 
   /**
@@ -441,7 +503,7 @@ export class TextService implements Observer<PlotState>, Disposable {
    * @returns The layer's name, or a phrase naming its type
    */
   private static layerIdentity(state: NonEmptyTraceState): string {
-    return state.name ?? `${state.plotType || state.traceType} plot`;
+    return state.name ?? t('text.plotOfType', { type: state.plotType || state.traceType });
   }
 
   /**
@@ -466,6 +528,22 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * Whether a section is one of the box plot's two outlier groups, which read
+   * as a list of values rather than as a single one.
+   *
+   * Compared against the rendered section names rather than against
+   * `BoxplotSection`, because the model announces the section in the reader's
+   * language and the raw enum would only ever match English.
+   *
+   * @param section - The section label carried by the text state
+   * @returns True for the upper or lower outlier section
+   */
+  private static isOutlierSection(section: string): boolean {
+    return section === t('model.boxSectionUpperOutlier')
+      || section === t('model.boxSectionLowerOutlier');
+  }
+
+  /**
    * Formats trace text in verbose mode with full descriptions.
    * @param state - The text state to format
    * @returns Verbose formatted text with complete coordinate information
@@ -478,9 +556,12 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     const verbose = new Array<string>();
 
-    // Grid cell point navigation: add "Cell [row,col]" prefix
+    // Grid cell point navigation: add the "Cell [row,col]" clause
     if (state.gridPosition && state.gridPoints === undefined) {
-      verbose.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+      verbose.push(t('text.gridCell', {
+        row: state.gridPosition.row,
+        col: state.gridPosition.col,
+      }));
     }
 
     // Use axis identity from TextState, fallback to default mapping
@@ -491,27 +572,33 @@ export class TextService implements Observer<PlotState>, Disposable {
     // -- see {@link TextState.cross}.
     const cross = state.cross;
 
-    // Format main-axis values.
-    verbose.push(state.main.label, Constant.IS);
-
-    // Format for histogram and scatter plot.
+    // Format main-axis values. Each clause is translated whole and the clauses
+    // are joined, so a language that orders the words inside one differently
+    // still reads the same facts in the same order.
     if (state.range !== undefined) {
-      verbose.push(
-        this.formatSingleValue(state.range.min, mainAxisType),
-        Constant.THROUGH,
-        this.formatSingleValue(state.range.max, mainAxisType),
-      );
+      // Format for histogram and scatter plot.
+      verbose.push(t('text.labelIsRange', {
+        label: state.main.label,
+        min: this.formatSingleValue(state.range.min, mainAxisType),
+        max: this.formatSingleValue(state.range.max, mainAxisType),
+      }));
     } else if (Array.isArray(state.main.value)) {
-      verbose.push(this.formatArrayValue(state.main.value as (number | string)[], mainAxisType).join(Constant.COMMA_SPACE));
+      verbose.push(t('text.labelIsValue', {
+        label: state.main.label,
+        value: this.formatArrayValue(state.main.value as (number | string)[], mainAxisType).join(Constant.COMMA_SPACE),
+      }));
     } else {
-      verbose.push(this.formatSingleValue(state.main.value as number | string, mainAxisType));
+      verbose.push(t('text.labelIsValue', {
+        label: state.main.label,
+        value: this.formatSingleValue(state.main.value as number | string, mainAxisType),
+      }));
     }
 
     // Special handling for boxplot outlier sections
     if (
       state.section
       && this.announcesSectionBeforeLabel(state)
-      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && TextService.isOutlierSection(state.section)
       && cross !== undefined
       && Array.isArray(cross.value)
     ) {
@@ -519,16 +606,21 @@ export class TextService implements Observer<PlotState>, Disposable {
       const label = cross.label;
       const outliers = cross.value as (number | string)[];
       const formattedOutliers = this.formatArrayValue(outliers, crossAxisType);
-      const outlierStr = `[${formattedOutliers.join(', ')}]`;
-      const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
+      const outlierStr = `${Constant.OPEN_BRACKET}${formattedOutliers.join(Constant.COMMA_SPACE)}${Constant.CLOSE_BRACKET}`;
+      const reading = t('text.labelIsValue', {
+        label: state.main.label,
+        value: this.formatSingleValue(state.main.value as number | string, mainAxisType),
+      });
       if (outliers.length === 0) {
         // No outliers
-        return `${state.main.label} is ${formattedMainValue}, no ${state.section} for ${label}`;
-      } else {
-        // Outlier values present
-        const verb = outliers.length === 1 ? 'is' : 'are';
-        return `${state.main.label} is ${formattedMainValue}, ${state.section} for ${label} ${verb} ${outlierStr}`;
+        return [reading, t('text.noOutliersFor', { section: state.section, label })].join(Constant.COMMA_SPACE);
       }
+      // Outlier values present. English agrees the verb with the count, so the
+      // caller picks the key rather than a plural engine picking a form.
+      const clause = outliers.length === 1
+        ? t('text.outliersForOne', { section: state.section, label, values: outlierStr })
+        : t('text.outliersForMany', { section: state.section, label, values: outlierStr });
+      return [reading, clause].join(Constant.COMMA_SPACE);
     }
 
     // Format cross-axis label. A trace with no cross axis at all skips both
@@ -536,24 +628,19 @@ export class TextService implements Observer<PlotState>, Disposable {
     // and a bare label with nothing after it would be worse than silence
     // (#1153).
     if (cross !== undefined) {
-      if (state.section !== undefined) {
-        if (this.announcesSectionBeforeLabel(state)) {
-          const label = cross.label;
-          // Verbatim, as terse renders it. Lower-casing here meant the same
-          // point announced two different ways depending on the mode, and the
-          // difference was in a label that came from neither the user nor the
-          // data. It also destroyed case a producer chose: a dumbbell's end
-          // names and a ridgeline's group names are authored strings, so
-          // `Control` became `control` in one mode and stayed `Control` in
-          // the other.
-          verbose.push(Constant.COMMA_SPACE, state.section, Constant.SPACE, label);
-        } else {
-          // For candlestick plots: "section cross.label" (e.g., "high Price")
-          verbose.push(Constant.COMMA_SPACE, state.section, Constant.SPACE, cross.label);
-        }
-      } else {
-        verbose.push(Constant.COMMA_SPACE, cross.label);
-      }
+      // A section is announced ahead of the label, whichever kind of trace
+      // carries it: a box plot's "Minimum Value" and a candlestick's "high
+      // Price" are the same shape.
+      //
+      // Verbatim, as terse renders it. Lower-casing here meant the same point
+      // announced two different ways depending on the mode, and the difference
+      // was in a label that came from neither the user nor the data. It also
+      // destroyed case a producer chose: a dumbbell's end names and a
+      // ridgeline's group names are authored strings, so `Control` became
+      // `control` in one mode and stayed `Control` in the other.
+      const crossLabel = state.section !== undefined
+        ? t('text.sectionLabel', { section: state.section, label: cross.label })
+        : cross.label;
 
       // Format cross-axis values.
       //
@@ -564,18 +651,30 @@ export class TextService implements Observer<PlotState>, Disposable {
       // bar. Every trace that carries one value is unaffected -- `crossRange`
       // is absent on all of them.
       if (state.crossRange !== undefined) {
-        verbose.push(
-          Constant.IS,
-          this.formatSingleValue(state.crossRange.min, crossAxisType),
-          Constant.THROUGH,
-          this.formatSingleValue(state.crossRange.max, crossAxisType),
-        );
+        verbose.push(t('text.labelIsRange', {
+          label: crossLabel,
+          min: this.formatSingleValue(state.crossRange.min, crossAxisType),
+          max: this.formatSingleValue(state.crossRange.max, crossAxisType),
+        }));
       } else if (!Array.isArray(cross.value)) {
-        verbose.push(Constant.IS, this.formatSingleValue(cross.value as number | string, crossAxisType));
+        verbose.push(t('text.labelIsValue', {
+          label: crossLabel,
+          value: this.formatSingleValue(cross.value as number | string, crossAxisType),
+        }));
       } else if (cross.value.length > 1) {
-        verbose.push(Constant.ARE, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
+        verbose.push(t('text.labelAreValues', {
+          label: crossLabel,
+          values: this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE),
+        }));
       } else if (cross.value.length > 0) {
-        verbose.push(Constant.IS, this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE));
+        verbose.push(t('text.labelIsValue', {
+          label: crossLabel,
+          value: this.formatArrayValue(cross.value as (number | string)[], crossAxisType).join(Constant.COMMA_SPACE),
+        }));
+      } else {
+        // A cross axis with nothing on it at this point: the label alone, as
+        // it read before the clauses were joined rather than concatenated.
+        verbose.push(crossLabel);
       }
     }
 
@@ -583,22 +682,10 @@ export class TextService implements Observer<PlotState>, Disposable {
     // the segmented bar's level, the candlestick's trend, the pie's percentage.
     // Reads as ", Percentage is 33.3%" after the label and the value.
     if (state.z !== undefined) {
-      // Convert candlestick trend values to lowercase for text mode
-      let zValue: string;
-      if (state.z.value === 'Bull' || state.z.value === 'Bear') {
-        zValue = state.z.value.toLowerCase();
-      } else if (Array.isArray(state.z.value)) {
-        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
-      } else {
-        zValue = this.formatSingleValue(state.z.value as number | string, 'z');
-      }
-
-      verbose.push(
-        Constant.COMMA_SPACE,
-        state.z.label,
-        Constant.IS,
-        zValue,
-      );
+      verbose.push(t('text.labelIsValue', {
+        label: state.z.label,
+        value: this.formatZValue(state.z.value),
+      }));
     }
 
     // The running total a stacked point sits inside. Reads as ", Total is 30,
@@ -611,22 +698,17 @@ export class TextService implements Observer<PlotState>, Disposable {
     // cross axis's format would be the wrong one to apply.
     if (state.asides !== undefined) {
       for (const aside of state.asides) {
-        verbose.push(Constant.COMMA_SPACE, aside.label, Constant.IS, aside.value);
+        verbose.push(t('text.labelIsValue', { label: aside.label, value: aside.value }));
       }
     }
 
     if (state.stack !== undefined) {
-      verbose.push(
-        Constant.COMMA_SPACE,
-        state.stack.label,
-        Constant.IS,
-        this.formatSingleValue(state.stack.value, crossAxisType),
-      );
+      verbose.push(t('text.labelIsValue', {
+        label: state.stack.label,
+        value: this.formatSingleValue(state.stack.value, crossAxisType),
+      }));
       if (state.stack.share !== undefined) {
-        verbose.push(
-          Constant.COMMA_SPACE,
-          `${(state.stack.share * 100).toFixed(1)}% of it`,
-        );
+        verbose.push(t('text.shareOfTotal', { percent: (state.stack.share * 100).toFixed(1) }));
       }
     }
 
@@ -637,32 +719,18 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (state.interval !== undefined) {
       const { min, max } = state.interval;
       if (min !== undefined && max !== undefined) {
-        verbose.push(
-          Constant.COMMA_SPACE,
-          'interval',
-          Constant.SPACE,
-          this.formatSingleValue(min, crossAxisType),
-          Constant.THROUGH,
-          this.formatSingleValue(max, crossAxisType),
-        );
+        verbose.push(t('text.intervalRange', {
+          min: this.formatSingleValue(min, crossAxisType),
+          max: this.formatSingleValue(max, crossAxisType),
+        }));
       } else if (min !== undefined) {
-        verbose.push(
-          Constant.COMMA_SPACE,
-          'interval from',
-          Constant.SPACE,
-          this.formatSingleValue(min, crossAxisType),
-        );
+        verbose.push(t('text.intervalFrom', { min: this.formatSingleValue(min, crossAxisType) }));
       } else if (max !== undefined) {
-        verbose.push(
-          Constant.COMMA_SPACE,
-          'interval up to',
-          Constant.SPACE,
-          this.formatSingleValue(max, crossAxisType),
-        );
+        verbose.push(t('text.intervalUpTo', { max: this.formatSingleValue(max, crossAxisType) }));
       }
     }
 
-    return verbose.join(Constant.EMPTY);
+    return verbose.join(Constant.COMMA_SPACE);
   }
 
   /**
@@ -680,7 +748,10 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Grid cell point navigation: add "Cell [row,col]" prefix
     if (state.gridPosition && state.gridPoints === undefined) {
-      terse.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+      terse.push(
+        t('text.gridCell', { row: state.gridPosition.row, col: state.gridPosition.col }),
+        Constant.COMMA_SPACE,
+      );
     }
 
     // Use axis identity from state (supports orientation-aware formatting)
@@ -698,19 +769,23 @@ export class TextService implements Observer<PlotState>, Disposable {
     if (
       state.section
       && this.announcesSectionBeforeLabel(state)
-      && (state.section === BoxplotSection.UPPER_OUTLIER || state.section === BoxplotSection.LOWER_OUTLIER)
+      && TextService.isOutlierSection(state.section)
       && cross !== undefined
       && Array.isArray(cross.value)
     ) {
       const outliers = cross.value as (number | string)[];
       const formattedOutliers = this.formatArrayValue(outliers, crossAxisType);
-      const outlierStr = `[${formattedOutliers.join(', ')}]`;
+      const outlierStr = `${Constant.OPEN_BRACKET}${formattedOutliers.join(Constant.COMMA_SPACE)}${Constant.CLOSE_BRACKET}`;
       const formattedMainValue = this.formatSingleValue(state.main.value as number | string, mainAxisType);
       if (outliers.length === 0) {
-        return `${formattedMainValue}, no ${state.section}`;
-      } else {
-        return `${formattedMainValue}, ${outliers.length} ${state.section} ${outlierStr}`;
+        return t('text.terseNoOutliers', { value: formattedMainValue, section: state.section });
       }
+      return t('text.terseOutliers', {
+        value: formattedMainValue,
+        count: outliers.length,
+        section: state.section,
+        values: outlierStr,
+      });
     }
 
     // Format for cross axis values.
@@ -742,18 +817,8 @@ export class TextService implements Observer<PlotState>, Disposable {
     // Format for heatmap, segmented and pie plots. Terse drops the label, so a
     // pie slice reads "Apples, 30, 33.3%".
     if (state.z !== undefined) {
-      // Convert candlestick trend values to lowercase for text mode
-      let zValue: string;
-      if (state.z.value === 'Bull' || state.z.value === 'Bear') {
-        zValue = state.z.value.toLowerCase();
-      } else if (Array.isArray(state.z.value)) {
-        zValue = this.formatArrayValue(state.z.value as (number | string)[], 'z').join(Constant.COMMA_SPACE);
-      } else {
-        zValue = this.formatSingleValue(state.z.value as number | string, 'z');
-      }
-
       // For candlestick plots this reads e.g. "open 100, bear"
-      terse.push(Constant.COMMA_SPACE, zValue);
+      terse.push(Constant.COMMA_SPACE, this.formatZValue(state.z.value));
     }
 
     // Terse drops the labels, as it does everywhere else, but keeps each
@@ -779,41 +844,41 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Cell position
     if (state.gridPosition) {
-      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+      parts.push(t('text.gridCell', {
+        row: state.gridPosition.row,
+        col: state.gridPosition.col,
+      }));
     }
 
     // X range
-    parts.push(
-      state.main.label,
-      Constant.IS,
-      this.formatSingleValue(state.range!.min, mainAxisType),
-      Constant.THROUGH,
-      this.formatSingleValue(state.range!.max, mainAxisType),
-    );
+    parts.push(t('text.labelIsRange', {
+      label: state.main.label,
+      min: this.formatSingleValue(state.range!.min, mainAxisType),
+      max: this.formatSingleValue(state.range!.max, mainAxisType),
+    }));
 
     // Y range
-    parts.push(
-      Constant.COMMA_SPACE,
-      state.cross?.label ?? '',
-      Constant.IS,
-      this.formatSingleValue(state.crossRange!.min, crossAxisType),
-      Constant.THROUGH,
-      this.formatSingleValue(state.crossRange!.max, crossAxisType),
-    );
+    parts.push(t('text.labelIsRange', {
+      label: state.cross?.label ?? '',
+      min: this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      max: this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    }));
 
-    // Points
+    // Points. English agrees the verb with the count, so the caller picks the
+    // key rather than a plural engine picking a form.
     const points = state.gridPoints!;
     if (points.length === 0) {
-      parts.push(Constant.COMMA_SPACE, 'no points');
+      parts.push(t('text.noPoints'));
     } else {
       const pointStrs = points.map(
         p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
-      );
-      const verb = points.length === 1 ? ' is' : 's are';
-      parts.push(Constant.COMMA_SPACE, `point${verb}: `, pointStrs.join(Constant.COMMA_SPACE));
+      ).join(Constant.COMMA_SPACE);
+      parts.push(points.length === 1
+        ? t('text.pointIsOne', { points: pointStrs })
+        : t('text.pointsAreMany', { points: pointStrs }));
     }
 
-    return parts.join(Constant.EMPTY);
+    return parts.join(Constant.COMMA_SPACE);
   }
 
   /**
@@ -827,36 +892,36 @@ export class TextService implements Observer<PlotState>, Disposable {
 
     // Cell position
     if (state.gridPosition) {
-      parts.push(`Cell [${state.gridPosition.row},${state.gridPosition.col}]`, Constant.COMMA_SPACE);
+      parts.push(t('text.gridCell', {
+        row: state.gridPosition.row,
+        col: state.gridPosition.col,
+      }));
     }
 
     // X range
-    parts.push(
-      this.formatSingleValue(state.range!.min, mainAxisType),
-      Constant.THROUGH,
-      this.formatSingleValue(state.range!.max, mainAxisType),
-    );
+    parts.push(t('text.rangeThrough', {
+      min: this.formatSingleValue(state.range!.min, mainAxisType),
+      max: this.formatSingleValue(state.range!.max, mainAxisType),
+    }));
 
     // Y range
-    parts.push(
-      Constant.COMMA_SPACE,
-      this.formatSingleValue(state.crossRange!.min, crossAxisType),
-      Constant.THROUGH,
-      this.formatSingleValue(state.crossRange!.max, crossAxisType),
-    );
+    parts.push(t('text.rangeThrough', {
+      min: this.formatSingleValue(state.crossRange!.min, crossAxisType),
+      max: this.formatSingleValue(state.crossRange!.max, crossAxisType),
+    }));
 
     // Points
     const points = state.gridPoints!;
     if (points.length === 0) {
-      parts.push(Constant.COMMA_SPACE, 'no points');
+      parts.push(t('text.noPoints'));
     } else {
       const pointStrs = points.map(
         p => `(${this.formatSingleValue(p.x, mainAxisType)}, ${this.formatSingleValue(p.y, crossAxisType)})`,
       );
-      parts.push(Constant.COMMA_SPACE, 'points: ', pointStrs.join(Constant.COMMA_SPACE));
+      parts.push(t('text.tersePoints', { points: pointStrs.join(Constant.COMMA_SPACE) }));
     }
 
-    return parts.join(Constant.EMPTY);
+    return parts.join(Constant.COMMA_SPACE);
   }
 
   /**
@@ -886,7 +951,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
-        const text = this.mode === TextMode.TERSE ? 'No more data' : 'No more data to display';
+        const text = this.mode === TextMode.TERSE ? t('text.noMoreData') : t('text.noMoreDataVerbose');
         this.onChangeEmitter.fire({ value: text });
       }
       return;
@@ -904,7 +969,7 @@ export class TextService implements Observer<PlotState>, Disposable {
       && !state.warning
     ) {
       if (this.mode !== TextMode.OFF) {
-        const text = this.mode === TextMode.TERSE ? 'No more subplots' : 'No more subplots to display';
+        const text = this.mode === TextMode.TERSE ? t('text.noMoreSubplots') : t('text.noMoreSubplotsVerbose');
         this.onChangeEmitter.fire({ value: text });
       }
       return;
@@ -1011,10 +1076,29 @@ export class TextService implements Observer<PlotState>, Disposable {
         break;
     }
 
-    const message = `Text mode is ${this.mode}`;
-    this.notification.notify(message);
+    this.notification.notify(t('text.textMode', { mode: TextService.modeName(this.mode) }));
 
     return this.mode !== TextMode.OFF;
+  }
+
+  /**
+   * The name of a text mode as the reader hears it.
+   *
+   * The enum's values double as the English words, which is why the toggle
+   * message used to interpolate the mode directly. They are identifiers, not
+   * a translation, so the word is looked up from them instead.
+   * @param mode - The mode to name
+   * @returns The mode's name in the active locale
+   */
+  private static modeName(mode: TextMode): string {
+    switch (mode) {
+      case TextMode.OFF:
+        return t('text.modeOff');
+      case TextMode.TERSE:
+        return t('text.modeTerse');
+      case TextMode.VERBOSE:
+        return t('text.modeVerbose');
+    }
   }
 
   /**

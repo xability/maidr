@@ -8,6 +8,7 @@ import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { normalizeBrailleDisplay } from '@util/braillePreset';
 import { deepMerge } from '@util/deepMerge';
+import { isLanguageSetting, resolveLocale, setLocale } from '@util/i18n';
 
 export const SETTINGS_KEY = 'maidr-settings';
 
@@ -45,6 +46,23 @@ class SettingsChangedEvent {
   }
 }
 
+/**
+ * Speaks the stored language before any controller exists.
+ *
+ * A `SettingsService` is built on the chart's first focus, but the reader
+ * meets the chart before that: the activation instruction is its accessible
+ * name from page load. Without this, a reader whose settings say Korean
+ * would hear that first sentence in English.
+ * @param storage - Where settings are persisted
+ */
+export function applyStoredLanguage(storage: StorageService): void {
+  const saved = storage.load<{ general?: { language?: unknown } }>(SETTINGS_KEY);
+  const language = saved?.general?.language;
+  setLocale(resolveLocale(
+    isLanguageSetting(language) ? language : DEFAULT_SETTINGS.general.language,
+  ));
+}
+
 export class SettingsService implements Disposable {
   private readonly storage: StorageService;
   private readonly display: DisplayService;
@@ -72,6 +90,21 @@ export class SettingsService implements Disposable {
     // (BrailleService, UI) reads the settings, so they see a coherent state
     // from page load — not just after the settings dialog opens.
     this.currentSettings = { ...merged, general: normalizeBrailleDisplay(merged.general) };
+    // A saved language that is no longer offered falls back to following the
+    // browser rather than to whatever string was stored.
+    if (!isLanguageSetting(this.currentSettings.general.language)) {
+      this.currentSettings.general.language = DEFAULT_SETTINGS.general.language;
+    }
+    this.applyLanguage();
+  }
+
+  /**
+   * Switches the dictionary every message is rendered from to the language
+   * the settings ask for. Called whenever the settings change, so a reader
+   * who picks a language hears the next announcement in it.
+   */
+  private applyLanguage(): void {
+    setLocale(resolveLocale(this.currentSettings.general.language));
   }
 
   public dispose(): void {
@@ -85,6 +118,7 @@ export class SettingsService implements Disposable {
   public saveSettings(newSettings: Settings): void {
     const oldSettings = this.currentSettings;
     this.currentSettings = newSettings;
+    this.applyLanguage();
 
     this.storage.save(SETTINGS_KEY, this.currentSettings);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, newSettings));
@@ -97,6 +131,7 @@ export class SettingsService implements Disposable {
   public resetSettings(): Settings {
     const oldSettings = this.currentSettings;
     this.currentSettings = this.defaultSettings;
+    this.applyLanguage();
 
     this.storage.remove(SETTINGS_KEY);
     this.onChangeEmitter.fire(new SettingsChangedEvent(oldSettings, this.currentSettings));

@@ -6,6 +6,7 @@ import type { TextService } from '@service/text';
 import type { PlotState } from '@type/state';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
+import { t } from '@util/i18n';
 import { AbstractViewModel } from './viewModel';
 
 /**
@@ -203,7 +204,7 @@ export class TextViewModel extends AbstractViewModel<TextState> {
     if (!this.textService.isOff()) {
       return false;
     }
-    this.notify('Text mode is off. To enable, press the T key.');
+    this.notify(t('text.textModeOffHint'));
     this.audioService.playWarningTone();
     return true;
   }

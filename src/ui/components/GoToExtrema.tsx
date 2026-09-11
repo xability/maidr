@@ -1,8 +1,10 @@
+import type { LocaleApi } from '@state/hook/useLocale';
 import type { XValueOption } from '@state/viewModel/goToExtremaViewModel';
 import type { ExtremaTarget } from '@type/extrema';
 import type { XValue } from '@type/navigation';
 import { Close, KeyboardArrowDown } from '@mui/icons-material';
 import { Box, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { computeListWindow } from '@util/listWindow';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -10,17 +12,23 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 // Builds the user-facing label for an extrema target. Used for the visible
 // text, the option's aria-label, AND the keyboard-navigation announcements so
 // all three stay in sync (e.g. "Max point Value: 8.00 at Nov 3" — including the
-// numeric value, which target.label alone omits).
-function buildTargetDisplayLabel(target: ExtremaTarget): string {
+// numeric value, which target.label alone omits). The translator is passed in
+// because this is called from two components and from a keyboard handler, none
+// of which can share one `useLocale` call.
+function buildTargetDisplayLabel(target: ExtremaTarget, t: LocaleApi['t']): string {
   const isIntersection = target.type === 'intersection';
   if (isIntersection && target.display) {
     // Prefix tells users whether this is a sampled-point or segment-only crossing.
     const intersectionPrefix = target.intersectionKind === 'point'
-      ? 'Point intersection'
+      ? t('dialogs.extremaPointIntersection')
       : target.intersectionKind === 'slope'
-        ? 'Slope intersection'
-        : 'Intersection';
-    return `${intersectionPrefix} with ${target.display.otherLines} at ${target.display.coords}`;
+        ? t('dialogs.extremaSlopeIntersection')
+        : t('dialogs.extremaIntersection');
+    return t('dialogs.extremaIntersectionAt', {
+      prefix: intersectionPrefix,
+      otherLines: target.display.otherLines,
+      coords: target.display.coords,
+    });
   }
   if (isIntersection) {
     // Fallback for intersection without display fields
@@ -30,8 +38,8 @@ function buildTargetDisplayLabel(target: ExtremaTarget): string {
   const labelParts = target.label.split(' at ');
   // Guard against labels without " at " separator
   return labelParts[1]
-    ? `${labelParts[0]} Value: ${target.value.toFixed(2)} at ${labelParts[1]}`
-    : `${labelParts[0]} Value: ${target.value.toFixed(2)}`;
+    ? t('dialogs.extremaValueAt', { label: labelParts[0], value: target.value.toFixed(2), x: labelParts[1] })
+    : t('dialogs.extremaValue', { label: labelParts[0], value: target.value.toFixed(2) });
 }
 
 // Helper function to generate styles for target boxes
@@ -82,7 +90,8 @@ interface TargetOptionRowProps {
  * navigation visibly sluggish.
  */
 const TargetOptionRow = React.memo(({ target, index, isSelected, onSelect, optionRef }: TargetOptionRowProps): React.JSX.Element => {
-  const displayLabel = buildTargetDisplayLabel(target);
+  const { t } = useLocale();
+  const displayLabel = buildTargetDisplayLabel(target, t);
 
   return (
     <Box
@@ -108,6 +117,7 @@ const TargetOptionRow = React.memo(({ target, index, isSelected, onSelect, optio
 TargetOptionRow.displayName = 'TargetOptionRow';
 
 export const GoToExtrema: React.FC = () => {
+  const { t } = useLocale();
   const goToExtremaViewModel = useViewModel('goToExtrema');
   const state = useViewModelState('goToExtrema');
   const selectedItemRef = useRef<HTMLDivElement>(null);
@@ -176,10 +186,10 @@ export const GoToExtrema: React.FC = () => {
       'aria-expanded': isDropdownOpen,
       'aria-activedescendant': dropdownSelectedIndex >= 0 ? `option-${dropdownSelectedIndex}` : undefined,
       'aria-valuetext': activeOptionText,
-      'aria-label': 'Search and select X value',
+      'aria-label': t('dialogs.extremaSearchCombobox'),
       'endAdornment': (
         <IconButton
-          aria-label={isDropdownOpen ? 'Close dropdown' : 'Open dropdown'}
+          aria-label={isDropdownOpen ? t('dialogs.extremaCloseDropdown') : t('dialogs.extremaOpenDropdown')}
           size="small"
           onClick={(e) => {
             e.stopPropagation();
@@ -304,7 +314,7 @@ export const GoToExtrema: React.FC = () => {
         focusSearchInput();
         setIsDropdownOpen(true);
         setDropdownSelectedIndex(0);
-        announceToScreenReader('Moved to search. Type to filter X values.');
+        announceToScreenReader(t('dialogs.extremaMovedToSearch'));
       } else {
         // The selection effect moves real DOM focus onto the new option, and
         // that focus move is the announcement ("<label>, option, N of M").
@@ -317,7 +327,7 @@ export const GoToExtrema: React.FC = () => {
       event.stopPropagation();
 
       if (state.selectedIndex === 0) {
-        announceToScreenReader('At first extrema option');
+        announceToScreenReader(t('dialogs.extremaFirstOption'));
       } else {
         goToExtremaViewModel.moveUp();
       }
@@ -361,14 +371,14 @@ export const GoToExtrema: React.FC = () => {
       event.stopPropagation();
       if (filteredOptions.length === 0) {
         // No options to move onto; keep the highlight cleared (aria-activedescendant undefined).
-        announceToScreenReader('No search results');
+        announceToScreenReader(t('dialogs.extremaNoResults'));
       } else if (dropdownSelectedIndex === filteredOptions.length - 1) {
-        announceToScreenReader('At last search result');
+        announceToScreenReader(t('dialogs.extremaLastResult'));
       } else {
         setDropdownSelectedIndex(i => Math.min(i + 1, filteredOptions.length - 1));
         // Announce the newly selected search result
         if (filteredOptions[dropdownSelectedIndex + 1]) {
-          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex + 1].label}`);
+          announceToScreenReader(t('dialogs.extremaSelectedResult', { label: filteredOptions[dropdownSelectedIndex + 1].label }));
         }
       }
     } else if (event.key === 'ArrowUp') {
@@ -387,8 +397,8 @@ export const GoToExtrema: React.FC = () => {
         const lastSelectedOption = state.targets[state.selectedIndex];
         announceToScreenReader(
           lastSelectedOption
-            ? `Returning to extrema options: ${buildTargetDisplayLabel(lastSelectedOption)}`
-            : 'Returning to extrema options',
+            ? t('dialogs.extremaReturningTo', { label: buildTargetDisplayLabel(lastSelectedOption, t) })
+            : t('dialogs.extremaReturning'),
         );
         // Focus back on the selected option
         if (selectedItemRef.current) {
@@ -398,7 +408,7 @@ export const GoToExtrema: React.FC = () => {
         setDropdownSelectedIndex(i => Math.max(0, i - 1));
         // Announce the newly selected search result
         if (filteredOptions[dropdownSelectedIndex - 1]) {
-          announceToScreenReader(`Selected: ${filteredOptions[dropdownSelectedIndex - 1].label}`);
+          announceToScreenReader(t('dialogs.extremaSelectedResult', { label: filteredOptions[dropdownSelectedIndex - 1].label }));
         }
       }
     } else if (event.key === 'Home' || event.key === 'End') {
@@ -418,11 +428,11 @@ export const GoToExtrema: React.FC = () => {
       event.preventDefault();
       event.stopPropagation(); // don't also fire the listbox handler
       if (filteredOptions.length === 0) {
-        announceToScreenReader('No search results');
+        announceToScreenReader(t('dialogs.extremaNoResults'));
       } else {
         const targetIndex = event.key === 'Home' ? 0 : filteredOptions.length - 1;
         setDropdownSelectedIndex(targetIndex);
-        announceToScreenReader(`Selected: ${filteredOptions[targetIndex].label}`);
+        announceToScreenReader(t('dialogs.extremaSelectedResult', { label: filteredOptions[targetIndex].label }));
       }
     }
   };
@@ -536,20 +546,20 @@ export const GoToExtrema: React.FC = () => {
           >
             <Box id="go-to-extrema-title" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" component="h3" sx={{ m: 0, fontWeight: 600 }}>
-                Go To
+                {t('dialogs.extremaTitle')}
               </Typography>
-              <IconButton onClick={handleClose} aria-label="Close dialog" size="small">
+              <IconButton onClick={handleClose} aria-label={t('dialogs.extremaClose')} size="small">
                 <Close />
               </IconButton>
             </Box>
 
             <Box id="go-to-extrema-description" sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ m: 0 }}>
-                {state.description || 'Navigate to points of interest'}
+                {state.description || t('dialogs.extremaDescriptionFallback')}
               </Typography>
             </Box>
 
-            <Box ref={listContainerRef} role="listbox" aria-label="Navigation targets" onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+            <Box ref={listContainerRef} role="listbox" aria-label={t('dialogs.extremaTargets')} onKeyDown={handleListboxKeyDown} sx={{ maxHeight: 300, overflowY: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
               {state.targets.map((target: ExtremaTarget, index: number) => (
                 <TargetOptionRow
                   key={`target-${index}-${target.type}-${target.label}`}
@@ -568,7 +578,7 @@ export const GoToExtrema: React.FC = () => {
                   id="search-input-option"
                   role="option"
                   aria-selected={state.selectedIndex === state.targets.length}
-                  aria-label="Search and navigate to specific X value"
+                  aria-label={t('dialogs.extremaSearchOption')}
                   aria-expanded={isDropdownOpen}
                   aria-controls="x-value-listbox"
                   tabIndex={0}
@@ -582,8 +592,8 @@ export const GoToExtrema: React.FC = () => {
                   <TextField
                     ref={inputFieldWrapperRef}
                     inputRef={inputElRef}
-                    label="Search X values"
-                    placeholder={`Type to search ${availableOptions.length} values`}
+                    label={t('dialogs.extremaSearchLabel')}
+                    placeholder={t('dialogs.extremaSearchPlaceholder', { count: availableOptions.length })}
                     fullWidth
                     variant="outlined"
                     size="small"
@@ -610,7 +620,7 @@ export const GoToExtrema: React.FC = () => {
                       ref={listboxRef}
                       id="x-value-listbox"
                       role="listbox"
-                      aria-label="Available X values"
+                      aria-label={t('dialogs.extremaXValues')}
                       aria-hidden={!isDropdownOpen}
                       disablePadding
                       onScroll={(event: React.UIEvent<HTMLUListElement>) => setDropdownScrollTop(event.currentTarget.scrollTop)}

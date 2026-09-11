@@ -9,8 +9,10 @@ import type {
   TextState,
   TraceState,
 } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { CompareModeInfo, Dimension, NearestPoint, RotorFilterUnit } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { AbstractTrace, DEFAULT_SUBPLOT_TITLE } from './abstract';
 import { MovableGrid } from './movable';
@@ -25,21 +27,73 @@ export const CANDLESTICK_DELTA_FIELDS: readonly CandlestickDeltaField[] = [
   'close',
 ];
 
-/** Rotor unit for browsing only the points above the reference line. */
-export const ABOVE_LINE_MODE = 'ABOVE LINE NAVIGATION';
-/** Rotor unit for browsing only the points below the reference line. */
-export const BELOW_LINE_MODE = 'BELOW LINE NAVIGATION';
-/** Rotor unit for jumping between points exactly on the reference line. */
-export const ON_LINE_MODE = 'ON LINE NAVIGATION';
-/** Default rotor unit for the delta layer. */
-export const DELTA_POINT_MODE = 'DELTA POINT NAVIGATION';
+/** How each compared field is announced as the cursor's section. */
+const FIELD_SECTION_LABEL: Record<CandlestickDeltaField, MessageKey> = {
+  open: 'model.candlestickSectionOpen',
+  high: 'model.candlestickSectionHigh',
+  low: 'model.candlestickSectionLow',
+  close: 'model.candlestickSectionClose',
+};
+
+/** The same fields as the data table heads them, which English capitalises. */
+const FIELD_HEADER_LABEL: Record<CandlestickDeltaField, MessageKey> = {
+  open: 'model.tableOpen',
+  high: 'model.tableHigh',
+  low: 'model.tableLow',
+  close: 'model.tableClose',
+};
+
+/**
+ * Rotor unit for browsing only the points above the reference line.
+ *
+ * @returns The mode's name in the active language
+ */
+export function aboveLineMode(): string {
+  return t('model.candlestickAboveLineMode');
+}
+
+/**
+ * Rotor unit for browsing only the points below the reference line.
+ *
+ * @returns The mode's name in the active language
+ */
+export function belowLineMode(): string {
+  return t('model.candlestickBelowLineMode');
+}
+
+/**
+ * Rotor unit for jumping between points exactly on the reference line.
+ *
+ * @returns The mode's name in the active language
+ */
+export function onLineMode(): string {
+  return t('model.candlestickOnLineMode');
+}
+
+/**
+ * Default rotor unit for the delta layer.
+ *
+ * @returns The mode's name in the active language
+ */
+export function deltaPointMode(): string {
+  return t('model.candlestickDeltaPointMode');
+}
 
 /** Stable {@link RotorFilterUnit.key} for the on-line filter. */
 const ON_LINE_KEY = 'onLine';
 
-const ABOVE_LINE = 'above line';
-const BELOW_LINE = 'below line';
-const ON_LINE = 'on line';
+/**
+ * Where a price sits against the reference line.
+ *
+ * @param delta - The signed delta
+ * @returns The position in words
+ */
+function positionOf(delta: number): string {
+  if (delta > 0) {
+    return t('model.deltaAboveLine');
+  }
+  return delta < 0 ? t('model.deltaBelowLine') : t('model.deltaOnLine');
+}
 
 /**
  * What the reference series is called when nothing named it.
@@ -51,8 +105,12 @@ const ON_LINE = 'on line';
  * column of reference values lost its header and became "Column 3". A generic
  * name says less than the producer's, and it is what every other number in
  * this layer is measured from.
+ *
+ * @returns The generic name in the active language
  */
-const REFERENCE_FALLBACK = 'Reference line';
+function referenceFallback(): string {
+  return t('model.deltaReferenceFallback');
+}
 
 /**
  * What the reference line is called, with the fallback already applied.
@@ -68,7 +126,7 @@ const REFERENCE_FALLBACK = 'Reference line';
  */
 export function referenceName(declared: string): string {
   const trimmed = declared.trim();
-  return trimmed !== '' && trimmed !== DEFAULT_SUBPLOT_TITLE ? trimmed : REFERENCE_FALLBACK;
+  return trimmed !== '' && trimmed !== DEFAULT_SUBPLOT_TITLE ? trimmed : referenceFallback();
 }
 
 /**
@@ -175,7 +233,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private readonly candles: CandlestickDeltaCandle[];
   private readonly referenceLabel: string;
   /**
-   * Whether {@link REFERENCE_FALLBACK} stood in for a name nobody authored.
+   * Whether {@link referenceFallback} stood in for a name nobody authored.
    *
    * The column still needs a header either way; the stat naming the reference
    * does not, and "Reference line is Reference line" says nothing twice.
@@ -203,7 +261,7 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private readonly maxAbsDelta: number;
   /** Cached on-line rotor unit; always offered (see getRotorFilterUnits). */
   private readonly onLineUnits: readonly RotorFilterUnit[] = [
-    { key: ON_LINE_KEY, label: ON_LINE_MODE, noun: 'point on the line' },
+    { key: ON_LINE_KEY, label: onLineMode(), noun: t('model.rotorNounPointOnLine') },
   ];
 
   private currentPointIndex = 0;
@@ -518,16 +576,15 @@ export class CandlestickDeltaTrace extends AbstractTrace {
 
   protected get text(): TextState {
     const delta = this.currentDelta;
-    const position
-      = delta > 0 ? ABOVE_LINE : delta < 0 ? BELOW_LINE : ON_LINE;
+    const position = positionOf(delta);
 
     // Verbose: "Date is 2019-11-05, close delta is 1.25, position is above line"
     // Terse:   "2019-11-05, close 1.25, above line"
     return {
       main: { label: this.xAxis, value: this.candles[this.currentPointIndex].x },
-      cross: { label: 'delta', value: Math.abs(delta) },
-      section: this.currentField,
-      z: { label: 'position', value: position },
+      cross: { label: t('model.asideDelta'), value: Math.abs(delta) },
+      section: t(FIELD_SECTION_LABEL[this.currentField]),
+      z: { label: t('model.asidePosition'), value: position },
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -547,22 +604,22 @@ export class CandlestickDeltaTrace extends AbstractTrace {
       // still names the column, and a stat that repeats its own label back is
       // a line a reader listens through for nothing.
       ...(this.hasNamedReference
-        ? [{ label: 'Reference line', value: this.referenceLabel }]
+        ? [{ label: t('model.statReferenceLine'), value: this.referenceLabel }]
         : []),
       // The field is one of the four prices, and `Compared value is close`
       // reads as a truncated sentence -- the label promises a number and
       // delivers a word.
-      { label: 'Compared price', value: field },
-      { label: 'Number of points', value: this.candles.length },
-      { label: 'Points above line', value: aboveCount },
-      { label: 'Points below line', value: belowCount },
-      { label: 'Points on line', value: onLineCount },
+      { label: t('model.statComparedPrice'), value: t(FIELD_SECTION_LABEL[field]) },
+      { label: t('model.statNumberOfPoints'), value: this.candles.length },
+      { label: t('model.statPointsAboveLine'), value: aboveCount },
+      { label: t('model.statPointsBelowLine'), value: belowCount },
+      { label: t('model.statPointsOnLine'), value: onLineCount },
       // `spannedOrMissing`, because both reductions seed from an infinity: a
       // layer with no matched candles would otherwise print the literal text
       // `Infinity to -Infinity`, which the dialog's blanking cannot catch
       // because it is a string.
       {
-        label: 'Delta range',
+        label: t('model.statDeltaRange'),
         value: MathUtil.spannedOrMissing(minDelta, maxDelta),
       },
     ];
@@ -574,34 +631,40 @@ export class CandlestickDeltaTrace extends AbstractTrace {
     // already most of the way to.
     if (maxDelta > 0) {
       stats.push({
-        label: 'Largest gap above line',
-        value: `${this.candles[deltas.indexOf(maxDelta)].x}, ${defaultFormat(maxDelta)}`,
+        label: t('model.statLargestGapAbove'),
+        value: t('model.nameWithValue', {
+          name: this.candles[deltas.indexOf(maxDelta)].x,
+          value: defaultFormat(maxDelta),
+        }),
       });
     }
     if (minDelta < 0) {
       stats.push({
-        label: 'Largest gap below line',
-        value: `${this.candles[deltas.indexOf(minDelta)].x}, ${defaultFormat(Math.abs(minDelta))}`,
+        label: t('model.statLargestGapBelow'),
+        value: t('model.nameWithValue', {
+          name: this.candles[deltas.indexOf(minDelta)].x,
+          value: defaultFormat(Math.abs(minDelta)),
+        }),
       });
     }
 
     // Capitalised beside the authored axis label and the 'Delta'/'Position'
     // columns: a column headed by the bare word `close` does not say it holds
     // a price, next to one headed with the reference series' name that does.
-    const fieldLabel = `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
+    const fieldLabel = t(FIELD_HEADER_LABEL[field]);
     const headers = [
       this.xAxis,
       fieldLabel,
       this.referenceLabel,
-      'Delta',
-      'Position',
+      t('model.tableDelta'),
+      t('model.tablePosition'),
     ];
     const rows: (string | number)[][] = this.candles.map((candle, index) => [
       candle.x,
       candle[field],
       candle.reference,
       deltas[index],
-      deltas[index] > 0 ? ABOVE_LINE : deltas[index] < 0 ? BELOW_LINE : ON_LINE,
+      positionOf(deltas[index]),
     ]);
 
     // The x column carries the candle's own x and the two price columns -- the
@@ -676,7 +739,10 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   private buildExtremaTarget(type: 'max' | 'min', index: number): ExtremaTarget {
     const candle = this.candles[index];
     return {
-      label: `${type === 'max' ? 'Max' : 'Min'} Delta at ${candle.x}`,
+      label: t(
+        type === 'max' ? 'model.extremaMaxDeltaAt' : 'model.extremaMinDeltaAt',
+        { label: candle.x },
+      ),
       value: this.deltaByField[this.currentField][index],
       pointIndex: index,
       segment: this.currentField,
@@ -700,15 +766,15 @@ export class CandlestickDeltaTrace extends AbstractTrace {
   }
 
   public override dataModeName(): string {
-    return DELTA_POINT_MODE;
+    return deltaPointMode();
   }
 
   public override compareModeInfo(): CompareModeInfo {
     // The rotor's two compare units become sign filters for this layer:
     // 'higher' walks points above the reference line, 'lower' below it.
     return {
-      lower: { label: BELOW_LINE_MODE, noun: 'point below the line' },
-      higher: { label: ABOVE_LINE_MODE, noun: 'point above the line' },
+      lower: { label: belowLineMode(), noun: t('model.rotorNounPointBelowLine') },
+      higher: { label: aboveLineMode(), noun: t('model.rotorNounPointAboveLine') },
     };
   }
 

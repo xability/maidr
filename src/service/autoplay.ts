@@ -7,6 +7,7 @@ import type { AutoplayState, TraceState } from '@type/state';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { Emitter } from '@type/event';
+import { t } from '@util/i18n';
 
 /** Default autoplay speed in milliseconds between movements. */
 const DEFAULT_SPEED = 250;
@@ -251,9 +252,9 @@ export class AutoplayService implements Disposable {
       this.userSpeed = newSpeed - this.interval;
       this.autoplayRate = this.userSpeed;
       this.restart();
-      this.notification.notify('Speed up');
+      this.notification.notify(t('notification.speedUp'));
     } else {
-      this.notification.notify('Max speed');
+      this.notification.notify(t('notification.maxSpeed'));
     }
   }
 
@@ -266,9 +267,9 @@ export class AutoplayService implements Disposable {
       this.userSpeed = newSpeed + this.interval;
       this.autoplayRate = this.userSpeed;
       this.restart();
-      this.notification.notify('Speed down');
+      this.notification.notify(t('notification.speedDown'));
     } else {
-      this.notification.notify('Min speed');
+      this.notification.notify(t('notification.minSpeed'));
     }
   }
 
@@ -279,7 +280,7 @@ export class AutoplayService implements Disposable {
     this.userSpeed = null;
     this.autoplayRate = this.defaultSpeed;
     this.restart();
-    this.notification.notify('Reset speed');
+    this.notification.notify(t('notification.resetSpeed'));
   }
 
   /**

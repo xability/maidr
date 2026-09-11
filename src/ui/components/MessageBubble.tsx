@@ -1,6 +1,7 @@
 import type { Message } from '@type/llm';
 import { AccountCircle } from '@mui/icons-material';
 import { Avatar, Box, Button, CircularProgress, Typography } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { getModelDisplayName } from '@util/llm';
 import React, { memo } from 'react';
 import { ModelIcon } from './ModelIcon';
@@ -15,14 +16,18 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disabled, _onOpenSettings, onTypingUpdate }) => {
+  const { t } = useLocale();
+
   const getLLMAvatar = (): React.ReactElement => {
     return message.isUser ? <AccountCircle /> : <ModelIcon model={message.model} />;
   };
 
   const getAriaLabel = (): string => {
-    const role = message.isUser ? 'Your message' : 'AI Assistant message';
-    const model = !message.isUser ? ` from ${getModelDisplayName(message.model)}` : '';
-    const status = !message.isUser && message.status === 'PENDING' ? ' (typing)' : '';
+    const role = message.isUser ? t('dialogs.chatUserMessage') : t('dialogs.chatAssistantMessage');
+    const model = !message.isUser
+      ? t('dialogs.chatMessageFrom', { model: getModelDisplayName(message.model) })
+      : '';
+    const status = !message.isUser && message.status === 'PENDING' ? t('dialogs.chatMessageTyping') : '';
     return `${role}${model}${status}`;
   };
 
@@ -64,7 +69,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
               color="text.secondary"
               component="h3"
               sx={{ fontSize: '0.8rem', margin: 0, marginBottom: 0.5 }}
-              aria-label={`Model: ${getModelDisplayName(message.model)}`}
+              aria-label={t('dialogs.chatModelName', { model: getModelDisplayName(message.model) })}
             >
               {getModelDisplayName(message.model)}
             </Typography>
@@ -87,10 +92,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
               <Button
                 variant="text"
                 onClick={_onOpenSettings}
-                aria-label="Open settings"
+                aria-label={t('dialogs.chatOpenSettingsLabel')}
                 style={{ padding: 0 }}
               >
-                Open Settings
+                {t('dialogs.chatOpenSettings')}
               </Button>
             )}
             <Typography
@@ -99,7 +104,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
               color="text.secondary"
               component="time"
               dateTime={new Date(message.timestamp).toISOString()}
-              aria-label={`Sent at ${new Date(message.timestamp).toLocaleTimeString()}`}
+              aria-label={t('dialogs.chatSentAt', { time: new Date(message.timestamp).toLocaleTimeString() })}
             >
               {new Date(message.timestamp).toLocaleTimeString()}
             </Typography>
@@ -108,7 +113,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
           {!message.isUser && message.status === 'PENDING' && (
             <Box
               role="status"
-              aria-label="AI is typing"
+              aria-label={t('dialogs.chatTyping')}
             >
               <CircularProgress size={16} />
             </Box>

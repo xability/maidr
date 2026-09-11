@@ -1,4 +1,5 @@
 import type { AxisFormat, FormatFunction, FormatType } from '@type/grammar';
+import { t } from '@util/i18n';
 
 /**
  * Value type that can be formatted - single value or array of values.
@@ -323,7 +324,8 @@ export abstract class FormatUtil {
    *
    * @param format - The format function to wrap
    * @param options - Options for handling edge cases
-   * @param options.missingText - Text to display for missing/invalid values (default: 'missing')
+   * @param options.missingText - Text to display for missing/invalid values
+   *   (default: the localized `common.missing` word, resolved per call)
    * @returns Wrapped format function with edge case handling
    */
   static wrapFormat(
@@ -332,9 +334,12 @@ export abstract class FormatUtil {
       missingText?: string;
     },
   ): FormatFunction {
-    const { missingText = 'missing' } = options ?? {};
-
     return (value: number | string): string => {
+      // Resolved here rather than as a default parameter: the wrapper is built
+      // once per axis and used for the life of the layer, so a word captured
+      // at construction would keep the language the chart was created in.
+      const missingText = options?.missingText ?? t('common.missing');
+
       // Handle null/undefined (shouldn't happen with TypeScript, but defensive)
       if (value === null || value === undefined) {
         return missingText;

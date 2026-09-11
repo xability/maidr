@@ -1,6 +1,7 @@
 import type { AudioService } from '@service/audio';
 import type { NotificationService } from '@service/notification';
 import type { Command } from './command';
+import { t } from '@util/i18n';
 import { Platform } from '@util/platform';
 
 /**
@@ -79,7 +80,7 @@ export class InvalidKeyCommand implements Command {
     }
 
     this.notificationService.notify(
-      `Invalid key. Press ${Platform.ctrlSpoken} Slash for keyboard help.`,
+      t('text.invalidKey', { modifier: Platform.ctrlSpoken }),
     );
     // The conditional variant: a reader who switched sonification off asked
     // for silence, and the spoken warning lands either way.

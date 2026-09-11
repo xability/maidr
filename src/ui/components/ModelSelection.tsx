@@ -1,6 +1,7 @@
 import type { Llm, LlmVersion, SelectedModel } from '@type/llm';
 import { Box, FormControl, MenuItem, Select, Typography } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useOllamaModels } from '@state/hook/useOllamaModels';
 import { useViewModel } from '@state/hook/useViewModel';
@@ -58,6 +59,7 @@ const ModelVersionSelect: React.FC<ModelVersionSelectProps> = ({
 };
 
 export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels }) => {
+  const { t } = useLocale();
   const settingsViewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
   const currentSettings = settingsViewModel.state;
@@ -126,7 +128,7 @@ export const ModelSelection: React.FC<ModelSelectionProps> = ({ enabledModels })
             :
           </Typography>
           <ModelVersionSelect
-            label={`Select ${model.name} version`}
+            label={t('dialogs.chatSelectVersion', { name: model.name })}
             value={getCurrentVersion(model.modelKey)}
             versions={getModelVersions(model.modelKey)}
             onChange={version => handleModelChange(model.modelKey, version)}

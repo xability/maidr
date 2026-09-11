@@ -23,8 +23,21 @@ import { AbstractPlot, chartTypeLabel, DEFAULT_SUBPLOT_TITLE } from './abstract'
 import { TraceFactory } from './factory';
 import { MovableGrid } from './movable';
 
+/**
+ * What a figure that names no title is called.
+ *
+ * Left in English, as {@link DEFAULT_SUBPLOT_TITLE} is and for the same
+ * reason: {@link isAuthoredTitle} recognises it, so it is a sentinel and not
+ * only a word. "MAIDR" is a proper noun in any case.
+ */
 export const DEFAULT_FIGURE_TITLE = 'MAIDR Plot';
+/**
+ * What a figure that authors no subtitle reports. A sentinel the description
+ * dialog blanks and the announcement commands test for, so it stays English
+ * and is translated where it is spoken.
+ */
 export const DEFAULT_SUBTITLE = 'unavailable';
+/** What a figure that authors no caption reports. See {@link DEFAULT_SUBTITLE}. */
 export const DEFAULT_CAPTION = 'unavailable';
 /**
  * Sentinel for a figure-wide axis label that the JSON did not author. Empty

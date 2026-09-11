@@ -9,6 +9,7 @@ import type {
 } from '@type/dotPad';
 import type { Event } from '@type/event';
 import { Emitter } from '@type/event';
+import { t } from '@util/i18n';
 
 /**
  * Vendor display-mode names. String constants in the SDK, so MAIDR can pass
@@ -748,7 +749,7 @@ class DotPadSession {
             deviceName: null,
             transport: null,
             geometry: null,
-            message: 'DotPad disconnected',
+            message: t('tactile.deviceDisconnected'),
           });
         }
       },
@@ -789,8 +790,8 @@ class DotPadSession {
         transport: null,
         geometry: null,
         message: transport === 'bluetooth'
-          ? 'This page cannot reach a DotPad over Bluetooth. Web Bluetooth needs a Chromium browser, and a page — or an iframe — permitted to use it.'
-          : 'This page cannot reach a DotPad over USB. Web Serial needs a Chromium browser on desktop, and a page — or an iframe — permitted to use it.',
+          ? t('tactile.deviceNoBluetooth')
+          : t('tactile.deviceNoUsb'),
       });
       return this.state;
     }
@@ -804,7 +805,7 @@ class DotPadSession {
         deviceName: null,
         transport: null,
         geometry: null,
-        message: 'The DotPad SDK was not found on this page.',
+        message: t('tactile.deviceNoSdk'),
       });
       return this.state;
     }
@@ -822,12 +823,12 @@ class DotPadSession {
         ? await scanner.startBleScan()
         : await scanner.startUsbScan();
       if (selected === undefined || selected === null) {
-        this.setState({ status: 'disconnected', message: 'No DotPad was selected.' });
+        this.setState({ status: 'disconnected', message: t('tactile.deviceNoneSelected') });
         return this.state;
       }
 
       if (!await this.attach(sdk, transport, selected)) {
-        this.setState({ status: 'failed', message: 'Could not connect to the DotPad.' });
+        this.setState({ status: 'failed', message: t('tactile.deviceConnectFailed') });
         return this.state;
       }
       this.adopted = false;
@@ -840,8 +841,8 @@ class DotPadSession {
         // A SecurityError here is the page being refused the device, not the
         // device refusing the page, and "try again" is the wrong advice for it.
         message: denied
-          ? 'This page is not permitted to reach a DotPad. It needs to be served over HTTPS, and an iframe needs the matching allow attribute.'
-          : error instanceof Error ? error.message : 'Could not connect to the DotPad.',
+          ? t('tactile.deviceNotPermitted')
+          : error instanceof Error ? error.message : t('tactile.deviceConnectFailed'),
       });
     }
 

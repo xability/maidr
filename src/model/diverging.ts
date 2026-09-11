@@ -2,12 +2,19 @@ import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { isMeasured } from './bar';
 import { SegmentedTrace } from './segmented';
 
-/** What the summary row is called, in place of the segmented bar's "Sum". */
-const BALANCE = 'Balance';
+/**
+ * What the summary row is called, in place of the segmented bar's "Sum".
+ *
+ * @returns The label in the active language
+ */
+function balanceLabel(): string {
+  return t('model.asideBalance');
+}
 
 /**
  * Trace implementation for population pyramids and diverging bar charts.
@@ -188,10 +195,10 @@ export class DivergingTrace extends SegmentedTrace {
       return {
         ...sized(base),
         z: {
-          label: BALANCE,
+          label: balanceLabel(),
           value: magnitude === 0 || ahead === null
-            ? 'level'
-            : `${this.sideNameAt(ahead)} ahead`,
+            ? t('model.divergingLevel')
+            : t('model.divergingAhead', { side: this.sideNameAt(ahead) }),
         },
       };
     }
@@ -229,10 +236,10 @@ export class DivergingTrace extends SegmentedTrace {
     // and twice down the table's own series column, where the parent's
     // numbering had given each of them a name of its own.
     if (!this.isTwoSided) {
-      return `Series ${row + 1}`;
+      return t('model.nounSeriesNumbered', { index: row + 1 });
     }
     const measured = this.barValues[row]?.find(isMeasured) ?? 0;
-    return measured < 0 ? 'left' : 'right';
+    return t(measured < 0 ? 'model.divergingSideLeft' : 'model.divergingSideRight');
   }
 
   /**
@@ -278,15 +285,21 @@ export class DivergingTrace extends SegmentedTrace {
     // over the summary row, which on this chart is `(-left) + right`, so on a
     // pyramid whose bands hold thousands they report a largest bar total of a
     // hundred. `Widest gap` below is what those two numbers actually measure.
-    const sizes = this.rangeStats('bar size', this.magnitudes());
+    const sizes = this.rangeStats(
+      { min: 'model.statMinBarSize', max: 'model.statMaxBarSize' },
+      this.magnitudes(),
+    );
     const stats = base.stats.flatMap((stat) => {
-      if (stat.label === 'Min segment value') {
+      if (stat.label === t('model.statMinSegmentValue')) {
         return [sizes[0]];
       }
-      if (stat.label === 'Max segment value') {
+      if (stat.label === t('model.statMaxSegmentValue')) {
         return [sizes[1]];
       }
-      if (stat.label === 'Largest bar total' || stat.label === 'Smallest bar total') {
+      if (
+        stat.label === t('model.statLargestBarTotal')
+        || stat.label === t('model.statSmallestBarTotal')
+      ) {
         return [];
       }
       if (stat.label === this.seriesNamesLabel) {
@@ -315,7 +328,7 @@ export class DivergingTrace extends SegmentedTrace {
         .filter(isMeasured)
         .reduce((sum, value) => sum + Math.abs(value), 0);
       totals.push({ row, total });
-      stats.push({ label: `${this.sideNameAt(row)} total`, value: total });
+      stats.push({ label: t('model.statSideTotal', { side: this.sideNameAt(row) }), value: total });
     }
 
     if (this.isTwoSided && totals.length === 2) {
@@ -327,10 +340,13 @@ export class DivergingTrace extends SegmentedTrace {
       const leader = first.total >= second.total ? first : second;
       const gap = Math.abs(first.total - second.total);
       stats.push({
-        label: 'Overall balance',
+        label: t('model.statOverallBalance'),
         value: gap === 0
-          ? 'level'
-          : `${this.sideNameAt(leader.row)} ahead by ${defaultFormat(gap)}`,
+          ? t('model.divergingLevel')
+          : t('model.divergingAheadBy', {
+              side: this.sideNameAt(leader.row),
+              gap: defaultFormat(gap),
+            }),
       });
     }
 
@@ -340,9 +356,12 @@ export class DivergingTrace extends SegmentedTrace {
       // pyramid whose sides match everywhere except one cohort and one that
       // leans the same way throughout have the same overall balance.
       stats.push({
-        label: 'Widest gap',
-        value: `${this.sideNameAt(widest.ahead)} ahead by ${defaultFormat(Math.abs(widest.balance))}`
-          + ` at ${this.bandNameAt(widest.col)}`,
+        label: t('model.statWidestGap'),
+        value: t('model.divergingWidestGapValue', {
+          side: this.sideNameAt(widest.ahead),
+          gap: defaultFormat(Math.abs(widest.balance)),
+          band: this.bandNameAt(widest.col),
+        }),
       });
     }
 
@@ -361,7 +380,9 @@ export class DivergingTrace extends SegmentedTrace {
    */
   private get seriesNamesLabel(): string {
     const zLabel = this.layer.axes?.z?.label?.trim();
-    return zLabel ? `${zLabel} categories` : 'Series names';
+    return zLabel
+      ? t('model.statAxisCategoriesNamed', { axis: zLabel })
+      : t('model.statSeriesNamesFallback');
   }
 
   /**
@@ -383,13 +404,18 @@ export class DivergingTrace extends SegmentedTrace {
       // Every segment of the band is a gap. The value cell beside this one
       // already says `missing`, and "level" would claim a comparison that was
       // never made.
-      return BALANCE;
+      return balanceLabel();
     }
     if (balance === 0) {
-      return `${BALANCE}, level`;
+      return t('model.divergingBalanceLevel', { balance: balanceLabel() });
     }
     const ahead = this.sideGrowing(balance > 0);
-    return ahead === null ? BALANCE : `${BALANCE}, ${this.sideNameAt(ahead)} ahead`;
+    return ahead === null
+      ? balanceLabel()
+      : t('model.divergingBalanceAhead', {
+          balance: balanceLabel(),
+          side: this.sideNameAt(ahead),
+        });
   }
 
   /**
@@ -470,6 +496,6 @@ export class DivergingTrace extends SegmentedTrace {
       return base;
     }
 
-    return { ...base, plotType: 'diverging bar' };
+    return { ...base, plotType: t('model.plotTypeDivergingBarSpoken') };
   }
 }

@@ -7,6 +7,7 @@ import type { NotificationService } from '@service/notification';
 import type { AppStore } from '@state/store';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { t } from '@util/i18n';
 
 /**
  * State for the candlestick delta reference picker (Ctrl+Shift+L): a listbox
@@ -101,10 +102,7 @@ export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDelt
     if (!this.openReferencePicker()) {
       return;
     }
-    this.notification.notify(
-      'No reference line chosen yet. Use the list to pick a moving average '
-      + 'line and press Enter to compare. Press Escape to cancel.',
-    );
+    this.notification.notify(t('notification.deltaNoReferenceChosen'));
   }
 
   /**
@@ -121,9 +119,7 @@ export class CandlestickDeltaViewModel extends AbstractViewModel<CandlestickDelt
 
     const references = this.deltaService.getReferences();
     if (!references) {
-      this.notification.notify(
-        'Reference comparison is only available on candlestick charts with a line layer.',
-      );
+      this.notification.notify(t('notification.deltaNeedsLineLayer'));
       return false;
     }
 

@@ -6,23 +6,27 @@ import type { AudioState, BrailleState, DescriptionState, TextState, TraceState 
 import type { Dimension, NearestPoint } from './abstract';
 import { Constant } from '@util/constant';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
-import { isMeasured, MISSING_TEXT, toBarValue } from './bar';
+import { isMeasured, missingText, toBarValue } from './bar';
 import { MovableGraph } from './movable';
-
-const TYPE = 'Group';
 
 /**
  * What the description calls a series column when the chart is a line.
  *
- * Named rather than repeated because {@link LineTrace.seriesColumnHeader}
- * has to tell "the noun a subclass chose" apart from "the noun nobody chose",
- * and a second literal would let the two drift.
+ * A function rather than a constant because the word is translated, and
+ * because {@link LineTrace.seriesColumnHeader} has to tell "the noun a
+ * subclass chose" apart from "the noun nobody chose" -- both sides of that
+ * comparison come from this one key, so they cannot drift.
+ *
+ * @returns The default series column heading
  */
-const DEFAULT_SERIES_COLUMN = 'Line';
+function defaultSeriesColumn(): string {
+  return t('model.seriesColumnLine');
+}
 
 /**
  * Splits a path `d` attribute into commands, each with its argument text.
@@ -277,7 +281,7 @@ export class LineTrace extends AbstractTrace {
    * @returns The fallback label
    */
   protected get groupFallbackLabel(): string {
-    return TYPE;
+    return t('model.nounGroup');
   }
 
   /**
@@ -320,7 +324,8 @@ export class LineTrace extends AbstractTrace {
    * offering an index where a name was promised.
    */
   protected groupNameAt(row: number): string {
-    return this.authoredGroupNameAt(row) ?? `${this.seriesLabels.column} ${row + 1}`;
+    return this.authoredGroupNameAt(row)
+      ?? t('model.fallbackNumbered', { noun: this.seriesLabels.column, index: row + 1 });
   }
 
   /**
@@ -342,7 +347,9 @@ export class LineTrace extends AbstractTrace {
     return this.points.map((line, index) => ({
       label: String(
         line[0]?.z
-        ?? (this.points.length > 1 ? `Line ${index + 1}` : this.title),
+        ?? (this.points.length > 1
+          ? t('model.fallbackNumbered', { noun: defaultSeriesColumn(), index: index + 1 })
+          : this.title),
       ),
       points: line,
     }));
@@ -368,10 +375,10 @@ export class LineTrace extends AbstractTrace {
     column: string;
   } {
     return {
-      count: 'Number of lines',
-      perSeries: 'Points per line',
-      names: 'Line names',
-      column: DEFAULT_SERIES_COLUMN,
+      count: t('model.statNumberOfLines'),
+      perSeries: t('model.statPointsPerLine'),
+      names: t('model.statLineNames'),
+      column: defaultSeriesColumn(),
     };
   }
 
@@ -394,7 +401,7 @@ export class LineTrace extends AbstractTrace {
    */
   private get seriesColumnHeader(): string {
     const { column } = this.seriesLabels;
-    return column === DEFAULT_SERIES_COLUMN
+    return column === defaultSeriesColumn()
       ? named(this.layer.axes?.z?.label, column)
       : column;
   }
@@ -461,7 +468,7 @@ export class LineTrace extends AbstractTrace {
     const order = [...drawn];
     const first = order[0];
     const last = order[order.length - 1];
-    return first === last ? first : `${first} to ${last}`;
+    return first === last ? first : t('model.spanRange', { min: first, max: last });
   }
 
   /**
@@ -487,7 +494,9 @@ export class LineTrace extends AbstractTrace {
         label: labels.perSeries,
         value: lengths.length === 0
           ? 0
-          : narrowest === widest ? widest : `${narrowest} to ${widest}`,
+          : narrowest === widest
+            ? widest
+            : t('model.spanRange', { min: narrowest, max: widest }),
       },
     ];
 
@@ -495,7 +504,7 @@ export class LineTrace extends AbstractTrace {
       // How big the chart is, which a span of per-series lengths no longer
       // gives and a reader cannot recover from one.
       stats.push({
-        label: 'Total points',
+        label: t('model.statTotalPoints'),
         value: this.points.reduce((total, line) => total + line.length, 0),
       });
     }
@@ -505,7 +514,7 @@ export class LineTrace extends AbstractTrace {
       // What the chart covers. A line is usually a series over time, and the
       // period is the first question a reader brings to one -- answerable
       // until now only by walking to both ends of it.
-      stats.push({ label: `${this.xAxis} range`, value: extent });
+      stats.push({ label: t('model.statAxisRange', { axis: this.xAxis }), value: extent });
     }
 
     // A layer of nothing but gaps has no range at all, and `safeMin`/`safeMax`
@@ -516,8 +525,8 @@ export class LineTrace extends AbstractTrace {
     const chartMin = MathUtil.safeMin(this.min);
     const chartMax = MathUtil.safeMax(this.max);
     stats.push(
-      { label: 'Min value', value: isMeasured(chartMin) ? chartMin : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(chartMax) ? chartMax : MISSING_TEXT },
+      { label: t('model.statMinValue'), value: isMeasured(chartMin) ? chartMin : missingText() },
+      { label: t('model.statMaxValue'), value: isMeasured(chartMax) ? chartMax : missingText() },
     );
 
     // How much of the chart has no reading. A gap is not a zero (#925), and
@@ -529,7 +538,7 @@ export class LineTrace extends AbstractTrace {
       0,
     );
     if (unmeasured > 0) {
-      stats.push({ label: 'Missing values', value: unmeasured });
+      stats.push({ label: t('model.statMissingValues'), value: unmeasured });
     }
 
     if (isMultiline) {
@@ -569,8 +578,8 @@ export class LineTrace extends AbstractTrace {
     });
     if (widths.length > 0) {
       stats.push(
-        { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
-        { label: 'Widest interval', value: MathUtil.safeMax(widths) },
+        { label: t('model.statNarrowestInterval'), value: MathUtil.safeMin(widths) },
+        { label: t('model.statWidestInterval'), value: MathUtil.safeMax(widths) },
       );
     }
 
@@ -610,8 +619,8 @@ export class LineTrace extends AbstractTrace {
       // table holding a thousand rows of a curve's several thousand, with
       // nothing to admit the cut, is worse than no table.
       stats.push({
-        label: 'Table rows',
-        value: `first ${rows.length} of ${allRows.length}`,
+        label: t('model.statTableRows'),
+        value: t('model.statTableRowsFirstOf', { shown: rows.length, total: allRows.length }),
       });
     }
 
@@ -806,7 +815,7 @@ export class LineTrace extends AbstractTrace {
       zData = {
         z: {
           label: zLabel,
-          value: `intersection at (${lineTypes.join(', ')})`,
+          value: t('model.intersectionAtLines', { lines: lineTypes.join(', ') }),
         },
       };
     } else {
@@ -1591,7 +1600,7 @@ export class LineTrace extends AbstractTrace {
     // Add the plotType field for non-empty states
     const stateWithPlotType = {
       ...baseState,
-      plotType: isMultiline ? 'multiline' : 'single line',
+      plotType: t(isMultiline ? 'model.plotTypeMultiline' : 'model.plotTypeSingleLine'),
       ...(isMultiline && { groupCount: this.points.length }),
       ...(group && { group }),
     };
@@ -2013,7 +2022,8 @@ export class LineTrace extends AbstractTrace {
       // Access first point to get the line's z/name
       // Falls back to "Line N" if z is not defined
       const firstPoint = this.points[lineIndex][0];
-      return firstPoint?.z || `Line ${lineIndex + 1}`;
+      return firstPoint?.z
+        || t('model.fallbackNumbered', { noun: defaultSeriesColumn(), index: lineIndex + 1 });
     }).join(', ');
   }
 
@@ -2109,7 +2119,7 @@ export class LineTrace extends AbstractTrace {
     // Add max targets
     for (const maxIndex of maxIndices) {
       targets.push({
-        label: `Max point at ${this.getPointLabel(maxIndex)}`,
+        label: t('model.extremaMaxPointAt', { label: this.getPointLabel(maxIndex) }),
         value: groupMax,
         pointIndex: maxIndex,
         segment: 'line',
@@ -2122,7 +2132,7 @@ export class LineTrace extends AbstractTrace {
     // Add min target
     for (const minIndex of minIndices) {
       targets.push({
-        label: `Min point at ${this.getPointLabel(minIndex)}`,
+        label: t('model.extremaMinPointAt', { label: this.getPointLabel(minIndex) }),
         value: groupMin,
         pointIndex: minIndex,
         segment: 'line',
@@ -2144,13 +2154,21 @@ export class LineTrace extends AbstractTrace {
       const xDisplay = nearestX !== undefined && !Number.isFinite(Number(nearestX))
         ? String(nearestX)
         : intersection.x.toFixed(2);
-      const coordsDisplay = `x=${xDisplay}, y=${intersection.y.toFixed(2)}`;
-      const intersectionLabel = intersection.intersectionKind === 'point'
-        ? 'Point intersection'
-        : 'Slope intersection';
+      const coordsDisplay = t('model.intersectionCoords', {
+        x: xDisplay,
+        y: intersection.y.toFixed(2),
+      });
+      const intersectionLabel = t(
+        intersection.intersectionKind === 'point'
+          ? 'model.intersectionPoint'
+          : 'model.intersectionSlope',
+      );
 
       targets.push({
-        label: `${intersectionLabel} at ${coordsDisplay}`,
+        label: t('model.extremaIntersectionAt', {
+          kind: intersectionLabel,
+          coords: coordsDisplay,
+        }),
         value: intersection.y,
         pointIndex: intersection.pointIndex,
         segment: 'intersection',
@@ -2190,7 +2208,7 @@ export class LineTrace extends AbstractTrace {
       const point = this.points[this.row][pointIndex];
       return `${point.x}`;
     }
-    return `Point ${pointIndex}`;
+    return t('model.fallbackPoint', { index: pointIndex });
   }
 
   /**

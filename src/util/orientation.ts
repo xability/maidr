@@ -1,4 +1,5 @@
 import { Orientation, TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 
 /**
  * Whether each trace type's model navigates along an orientation.
@@ -213,6 +214,6 @@ export function formatPlotType(
     return plotType;
   }
   return orientation === Orientation.HORIZONTAL
-    ? `horizontal ${plotType}`
-    : `vertical ${plotType}`;
+    ? t('model.plotTypeHorizontal', { type: plotType })
+    : t('model.plotTypeVertical', { type: plotType });
 }

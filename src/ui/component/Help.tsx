@@ -8,6 +8,7 @@ import {
   Grid,
   Typography,
 } from '@mui/material';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import React, { useId } from 'react';
@@ -39,6 +40,7 @@ const HelpRow: React.FC<HelpRowProps> = ({ label, shortcut }) => (
 
 const Help: React.FC = () => {
   const id = useId();
+  const { t } = useLocale();
   const viewModel = useViewModel('help');
   const { items } = useViewModelState('help');
   const { modalRef, container } = useModalContainer();
@@ -63,7 +65,7 @@ const Help: React.FC = () => {
           directly — a heading `Typography` nested inside it would put
           "Keyboard Shortcuts" in the outline twice. */}
       <DialogTitle sx={{ fontWeight: 'bold' }}>
-        Keyboard Shortcuts
+        {t('keybinding.helpTitle')}
       </DialogTitle>
 
       <DialogContent>
@@ -97,7 +99,7 @@ const Help: React.FC = () => {
         >
           <Grid size="auto">
             <Button variant="contained" color="primary" onClick={handleClose}>
-              Close
+              {t('keybinding.helpCloseButton')}
             </Button>
           </Grid>
         </Grid>

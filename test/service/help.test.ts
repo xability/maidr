@@ -4,6 +4,7 @@ import type { HelpMenuItem } from '@type/help';
 import { HelpService } from '@service/help';
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
+import { setLocale, tIn } from '@util/i18n';
 
 /**
  * Scopes the user can open the help menu from, paired with the label scope
@@ -18,10 +19,14 @@ const HELP_SCOPES: { scope: Scope; nested?: Scope }[] = [
   { scope: Scope.CANDLESTICK_DELTA },
 ];
 
-function menuFor(scope: Scope): HelpMenuItem[] {
+function serviceFor(scope: Scope): HelpService {
   const context = { scope } as unknown as Context;
   const display = { toggleFocus: (): void => {} } as unknown as DisplayService;
-  return new HelpService(context, display).getMenuItems();
+  return new HelpService(context, display);
+}
+
+function menuFor(scope: Scope): HelpMenuItem[] {
+  return serviceFor(scope).getMenuItems();
 }
 
 /**
@@ -120,6 +125,31 @@ describe('help menu generation', () => {
   it('reuses the parent menu while a transient label scope is active', () => {
     expect(menuFor(Scope.TRACE_LABEL)).toEqual(menuFor(Scope.TRACE));
     expect(menuFor(Scope.FIGURE_LABEL)).toEqual(menuFor(Scope.SUBPLOT));
+  });
+
+  it('re-reads the shortcut list in the language chosen since it last opened', () => {
+    // The one service instance is the point: a menu built once at construction
+    // would keep the language it was built in for the life of the controller,
+    // so a reader who switches language would still be shown English.
+    const help = serviceFor(Scope.TRACE);
+    const english = help.getMenuItems();
+
+    expect(english).toContainEqual({ key: 'b', description: 'Toggle Braille Mode' });
+
+    try {
+      setLocale('ko');
+      const korean = help.getMenuItems();
+
+      expect(korean.map(item => item.key)).toEqual(english.map(item => item.key));
+      expect(korean).toContainEqual({
+        key: 'b',
+        description: tIn('ko', 'keybinding.toggleBrailleMode'),
+      });
+    } finally {
+      setLocale('en');
+    }
+
+    expect(help.getMenuItems()).toEqual(english);
   });
 
   it('returns an empty menu for scopes that cannot open help', () => {

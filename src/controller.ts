@@ -42,6 +42,7 @@ import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 
@@ -409,7 +410,7 @@ export class Controller implements Disposable {
     // the navigation stack and keyboard scope consistent.
     if (this.candlestickDeltaService.isActive) {
       this.candlestickDeltaService.deactivate({ silent: true });
-      this.notificationService.notify('Reference comparison closed by a data update.');
+      this.notificationService.notify(t('notification.deltaClosedByUpdate'));
     }
 
     // A rotor mode is an index on the service but a flag on the trace, and the

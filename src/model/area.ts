@@ -1,19 +1,27 @@
 import type { LinePoint, MaidrLayer, StepDirection } from '@type/grammar';
 import type { DescriptionState, TextState, TraceState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import { TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { toBarValue } from './bar';
 import { LineTrace } from './line';
 import { STEP_DIRECTION_LABEL, stepDataVertices } from './step';
 
-/** Label the running total is announced under. */
-const TOTAL = 'Total';
+/**
+ * Label the running total is announced under.
+ *
+ * @returns The label in the active language
+ */
+function totalLabel(): string {
+  return t('model.statTotal');
+}
 
 /** Spoken plot type, per variant, for the instruction and layer-switch cues. */
-const PLOT_TYPE_LABEL: Record<AreaVariant, string> = {
-  area: 'area',
-  stacked: 'stacked area',
-  normalized: '100% stacked area',
+const PLOT_TYPE_LABEL: Record<AreaVariant, MessageKey> = {
+  area: 'model.plotTypeArea',
+  stacked: 'model.plotTypeStackedAreaSpoken',
+  normalized: 'model.plotTypeNormalizedAreaSpoken',
 };
 
 /**
@@ -271,7 +279,7 @@ export class AreaTrace extends LineTrace {
    * @returns The fallback label
    */
   protected override get groupFallbackLabel(): string {
-    return 'Band';
+    return t('model.nounBand');
   }
 
   /**
@@ -292,10 +300,10 @@ export class AreaTrace extends LineTrace {
     column: string;
   } {
     return {
-      count: 'Number of bands',
-      perSeries: 'Points per band',
-      names: 'Band names',
-      column: 'Band',
+      count: t('model.statNumberOfBands'),
+      perSeries: t('model.statPointsPerBand'),
+      names: t('model.statBandNames'),
+      column: t('model.nounBand'),
     };
   }
 
@@ -311,7 +319,7 @@ export class AreaTrace extends LineTrace {
       return baseState;
     }
 
-    return { ...baseState, plotType: PLOT_TYPE_LABEL[this.variant] };
+    return { ...baseState, plotType: t(PLOT_TYPE_LABEL[this.variant]) };
   }
 
   /**
@@ -344,7 +352,7 @@ export class AreaTrace extends LineTrace {
     // stay silent about the share rather than announcing a share of nothing.
     const share = isMeasured(value) && total !== 0 ? value / total : undefined;
 
-    return { ...baseText, stack: { label: TOTAL, value: total, share } };
+    return { ...baseText, stack: { label: totalLabel(), value: total, share } };
   }
 
   /**
@@ -367,8 +375,8 @@ export class AreaTrace extends LineTrace {
     // area is as misread without it as a stacked one.
     if (this.stepDirection !== undefined) {
       stats.push({
-        label: 'Step direction',
-        value: STEP_DIRECTION_LABEL[this.stepDirection],
+        label: t('model.statStepDirection'),
+        value: t(STEP_DIRECTION_LABEL[this.stepDirection]),
       });
     }
 
@@ -385,7 +393,7 @@ export class AreaTrace extends LineTrace {
       // `spannedOrMissing` rather than `spanned` for the empty case the filter
       // above cannot quite rule out on its own.
       stats.push({
-        label: 'Total range',
+        label: t('model.statTotalRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(totals),
           MathUtil.safeMax(totals),
@@ -420,7 +428,7 @@ export class AreaTrace extends LineTrace {
     }
 
     return {
-      headers: [...table.headers, TOTAL],
+      headers: [...table.headers, totalLabel()],
       // The line's own columns keep their axes; the total is summed here out
       // of every band at that x rather than read off an axis the layer
       // declared, so it carries none and keeps the dialog's own rounding.

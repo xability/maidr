@@ -8,7 +8,7 @@ import { LineTrace } from '@model/line';
 import { ScatterTrace } from '@model/scatter';
 import { RotorNavigationService } from '@service/rotor';
 import { TraceType } from '@type/grammar';
-import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 
 /**
  * Build a minimal multiline layer suitable for a LineTrace unit test.
@@ -148,7 +148,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockNotificationService(),
     );
 
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     expect(service.moveRight()).toBeNull();
     expect(trace.col).toBe(1);
@@ -163,7 +163,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockNotificationService(),
     );
 
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     expect(service.moveLeft()).toBeNull();
     expect(trace.col).toBe(1);
@@ -177,7 +177,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     const result = service.moveRight();
 
@@ -194,7 +194,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     const result = service.moveUp();
 
@@ -209,7 +209,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     const result = service.moveDown();
 
@@ -225,7 +225,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService({ terse: true }),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     expect(service.moveRight()).toBe('No intersection to the right');
   });
@@ -238,7 +238,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService({ off: true }),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     expect(service.moveRight()).toBe('');
   });
@@ -260,7 +260,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       notification,
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     // Right at boundary -> bound message goes through notify.
     service.moveRight();
@@ -294,7 +294,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     expect(service.moveRight()).toBeNull();
     expect(service.moveRight()).toBeNull();
@@ -311,7 +311,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       createMockTextService(),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
 
     const result = service.moveLeft();
     expect(result).not.toBeNull();
@@ -336,7 +336,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       seen.add(service.getMode());
     }
 
-    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(true);
+    expect(seen.has(t('rotor.intersectionMode'))).toBe(true);
   });
 
   test('INTERSECTION_MODE is absent for scatter when every x-column has a single point', () => {
@@ -354,7 +354,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       seen.add(service.getMode());
     }
 
-    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
+    expect(seen.has(t('rotor.intersectionMode'))).toBe(false);
   });
 
   test('INTERSECTION_MODE is absent from the rotor cycle for a single-line trace', () => {
@@ -384,7 +384,7 @@ describe('RotorNavigationService intersection dispatch', () => {
       seen.add(service.getMode());
     }
 
-    expect(seen.has(Constant.INTERSECTION_MODE)).toBe(false);
+    expect(seen.has(t('rotor.intersectionMode'))).toBe(false);
   });
 });
 
@@ -419,7 +419,7 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
       createMockTextService(),
       notification,
     );
-    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+    cycleTo(service, t('rotor.higherValueMode'));
 
     const result = service.moveRight();
     expect(result).not.toBeNull();
@@ -448,7 +448,7 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
       createMockTextService(),
       notification,
     );
-    cycleTo(service, Constant.LOWER_VALUE_MODE);
+    cycleTo(service, t('rotor.lowerValueMode'));
 
     const result = service.moveLeft();
     expect(result).not.toBeNull();
@@ -487,7 +487,7 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
       createMockTextService(),
       notification,
     );
-    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+    cycleTo(service, t('rotor.higherValueMode'));
 
     const result = service.moveUp();
     expect(result).not.toBeNull();
@@ -509,7 +509,7 @@ describe('RotorNavigationService compare-mode boundary re-announcement', () => {
       createMockTextService({ off: true }),
       createMockNotificationService(),
     );
-    cycleTo(service, Constant.HIGHER_VALUE_MODE);
+    cycleTo(service, t('rotor.higherValueMode'));
 
     expect(service.moveRight()).toBe('');
   });
@@ -557,7 +557,7 @@ describe('RotorNavigationService point mode', () => {
     const trace = createScatterTraceWithStack();
     const service = createService(createMockContext(trace));
 
-    cycleTo(service, Constant.POINT_MODE);
+    cycleTo(service, t('rotor.pointMode'));
 
     expect(emitsColumnChord(trace)).toBe(false);
     expect(service.moveRight()).toBeNull();
@@ -574,10 +574,10 @@ describe('RotorNavigationService point mode', () => {
     const trace = createScatterTraceWithStack();
     const service = createService(createMockContext(trace));
 
-    cycleTo(service, Constant.INTERSECTION_MODE);
+    cycleTo(service, t('rotor.intersectionMode'));
     expect(service.moveRight()).toBeNull(); // walked the stack, so it moved
 
-    cycleTo(service, Constant.POINT_MODE);
+    cycleTo(service, t('rotor.pointMode'));
 
     // Point mode owns the cursor now: up/down walk the column order, which
     // intersection mode never allows.
@@ -590,12 +590,12 @@ describe('RotorNavigationService point mode', () => {
     const trace = createScatterTraceWithStack();
     const service = createService(createMockContext(trace));
 
-    cycleTo(service, Constant.POINT_MODE);
+    cycleTo(service, t('rotor.pointMode'));
     expect(emitsColumnChord(trace)).toBe(false);
 
     service.resetToDataMode();
 
-    expect(service.getMode()).toBe(Constant.ROW_COL_MODE);
+    expect(service.getMode()).toBe(t('rotor.rowColMode'));
     expect(emitsColumnChord(trace)).toBe(true);
   });
 
@@ -608,14 +608,14 @@ describe('RotorNavigationService point mode', () => {
     const context = createSwappableContext(first);
     const service = createService(context);
 
-    cycleTo(service, Constant.POINT_MODE);
+    cycleTo(service, t('rotor.pointMode'));
 
     // What MoveToNextTraceCommand / Controller.updateData now do, in order.
     service.resetToDataMode();
     const second = createScatterTraceWithStack();
     context.setActive(second);
 
-    expect(service.getMode()).toBe(Constant.ROW_COL_MODE);
+    expect(service.getMode()).toBe(t('rotor.rowColMode'));
     expect(emitsColumnChord(second)).toBe(true);
     expect(second.moveOnce('FORWARD')).toBe(true);
   });

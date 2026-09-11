@@ -11,6 +11,7 @@ import type {
   LlmSettings,
   SettingsSection,
 } from '@type/settings';
+import type { LanguageSetting, MessageKey } from '@util/i18n';
 import { Check as CheckIcon, Error as ErrorIcon } from '@mui/icons-material';
 import {
   Alert,
@@ -39,6 +40,7 @@ import {
 } from '@mui/material';
 import { getValidVersion, MODEL_VERSIONS } from '@service/modelVersions';
 import { useCredentialProbe } from '@state/hook/useCredentialProbe';
+import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel } from '@state/hook/useViewModel';
 import {
@@ -72,6 +74,13 @@ import {
   formatDiagnostics,
   redactScriptUrl,
 } from '@util/diagnostics';
+import {
+  LOCALE_NAMES,
+  SUPPORTED_LOCALES,
+  // Aliased because every component in this file names the hook's own
+  // translator `t`; only the plain functions outside them use this one.
+  t as translate,
+} from '@util/i18n';
 import { resolveVersionOptions } from '@util/llm';
 import { formatTactilePreset, isTactileDisplayId, TACTILE_DISPLAY_PRESETS } from '@util/tactilePreset';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
@@ -80,11 +89,22 @@ const MIN_CUSTOM_INSTRUCTION_LENGTH = 10;
 
 type CopyStatus = 'idle' | 'copied' | 'failed';
 
-const COPY_STATUS_MESSAGE: Record<CopyStatus, string> = {
-  idle: '',
-  copied: 'Copied to clipboard',
-  failed: 'Could not copy — select the values above and copy them manually',
+/** What each copy outcome announces; `idle` has nothing to say yet. */
+const COPY_STATUS_MESSAGE: Record<CopyStatus, MessageKey | null> = {
+  idle: null,
+  copied: 'settings.copiedToClipboard',
+  failed: 'settings.copyFailed',
 };
+
+/**
+ * Renders a copy outcome in the reader's language.
+ * @param status - The outcome of the last copy attempt
+ * @returns The announcement, or the empty string before any attempt
+ */
+function describeCopyStatus(status: CopyStatus): string {
+  const key = COPY_STATUS_MESSAGE[status];
+  return key === null ? '' : translate(key);
+}
 
 interface CopyState {
   readonly status: CopyStatus;
@@ -105,7 +125,8 @@ const CANCEL_SHORTCUT_KEY = 'c';
 
 interface SettingsTab {
   readonly id: SettingsSection;
-  readonly label: string;
+  /** Resolved at render, so a language change renames the tabs in place. */
+  readonly label: MessageKey;
 }
 
 /**
@@ -117,12 +138,12 @@ interface SettingsTab {
  * ask for a page; the labels are the view's own.
  */
 const SETTINGS_TABS: readonly SettingsTab[] = [
-  { id: 'general', label: 'General' },
-  { id: 'audio', label: 'Audio' },
-  { id: 'visual', label: 'Visual' },
-  { id: 'braille', label: 'Braille & Tactile' },
-  { id: 'ai', label: 'AI' },
-  { id: 'about', label: 'About' },
+  { id: 'general', label: 'settings.tabGeneral' },
+  { id: 'audio', label: 'settings.tabAudio' },
+  { id: 'visual', label: 'settings.tabVisual' },
+  { id: 'braille', label: 'settings.tabBraille' },
+  { id: 'ai', label: 'settings.tabAi' },
+  { id: 'about', label: 'settings.tabAbout' },
 ];
 
 // Keeps a tab's badge on the same baseline as its text.
@@ -226,18 +247,20 @@ interface SettingRowProps {
 function describeTactileState(state: DotPadState): string {
   switch (state.status) {
     case 'connected': {
-      const over = state.transport === 'serial' ? 'over USB' : 'over Bluetooth';
-      return `Connected to ${state.deviceName ?? 'a tactile display'} ${over}. Press b on the chart to show it.`;
+      const device = state.deviceName ?? translate('settings.tactileGenericDevice');
+      return state.transport === 'serial'
+        ? translate('settings.tactileConnectedUsb', { device })
+        : translate('settings.tactileConnectedBluetooth', { device });
     }
     case 'connecting':
-      return 'Connecting…';
+      return translate('settings.tactileConnecting');
     case 'unavailable':
       return state.message;
     case 'failed':
-      return `${state.message} Select the device again to retry.`;
+      return translate('settings.tactileRetry', { message: state.message });
     default:
       return state.message === ''
-        ? 'Not connected.'
+        ? translate('settings.tactileNotConnected')
         : state.message;
   }
 }
@@ -335,6 +358,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   onChangeKey,
   onChangeVersion,
 }) => {
+  const { t } = useLocale();
   const validVersion = getValidVersion(modelKey, modelSettings.version);
   const { modalRef, container } = useModalContainer();
   // The probe is a network side effect, so it belongs to the state layer
@@ -351,23 +375,31 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   // "validation" means reachability, so most labels differ from the cloud
   // providers' API-key wording.
   const isOllama = modelKey === 'OLLAMA';
-  const credentialLabel = isOllama ? 'Server URL' : 'API Key';
+  const credentialLabel = isOllama
+    ? t('settings.providerServerUrl', { name: modelSettings.name })
+    : t('settings.providerApiKey', { name: modelSettings.name });
 
   const getHelperText = (): string => {
     if (!modelSettings.enabled)
       return '';
-    if (isValidating)
-      return isOllama ? 'Checking Ollama server...' : 'Validating API key...';
+    if (isValidating) {
+      return t(isOllama
+        ? 'settings.checkingOllamaServerHelp'
+        : 'settings.validatingApiKeyHelp');
+    }
     if (isValid === false) {
       if (probeError) {
         return probeError;
       }
       return isOllama
-        ? 'Ollama server is unreachable. Make sure Ollama is running and, for non-localhost pages, that OLLAMA_ORIGINS allows this site.'
-        : `${modelSettings.name} API key is invalid`;
+        ? t('settings.ollamaUnreachableHelp')
+        : t('settings.providerApiKeyInvalid', { name: modelSettings.name });
     }
-    if (isValid === true)
-      return isOllama ? 'Ollama server is reachable' : `${modelSettings.name} API key is valid`;
+    if (isValid === true) {
+      return isOllama
+        ? t('settings.ollamaReachable')
+        : t('settings.providerApiKeyValid', { name: modelSettings.name });
+    }
     return '';
   };
 
@@ -376,11 +408,13 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
   // `aria-describedby` points at, so it carries the same reason.
   const getStatusLabel = (): string => {
     if (isValidating)
-      return isOllama ? 'Checking Ollama server' : 'Validating API key';
+      return t(isOllama ? 'settings.checkingOllamaServer' : 'settings.validatingApiKey');
     if (isValid === true)
-      return isOllama ? 'Ollama server is reachable' : 'API key is valid';
-    if (isValid === false)
-      return probeError ?? (isOllama ? 'Ollama server is unreachable' : 'API key is invalid');
+      return t(isOllama ? 'settings.ollamaReachable' : 'settings.apiKeyValid');
+    if (isValid === false) {
+      return probeError
+        ?? t(isOllama ? 'settings.ollamaUnreachable' : 'settings.apiKeyInvalid');
+    }
     return '';
   };
 
@@ -419,7 +453,9 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
               checked={modelSettings.enabled}
               onChange={e => onToggle(modelKey, e.target.checked)}
               slotProps={{
-                input: { 'aria-label': `Enable ${modelSettings.name}` },
+                input: {
+                  'aria-label': t('settings.enableProvider', { name: modelSettings.name }),
+                },
               }}
             />
           </Grid>
@@ -433,15 +469,15 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 onChange={e => onChangeKey(modelKey, e.target.value)}
                 placeholder={
                   isOllama
-                    ? 'Enter Ollama server URL (e.g. http://localhost:11434)'
-                    : `Enter ${modelSettings.name} API Key`
+                    ? t('settings.ollamaUrlPlaceholder')
+                    : t('settings.apiKeyPlaceholder', { name: modelSettings.name })
                 }
                 type={isOllama ? 'text' : 'password'}
                 error={isValid === false}
                 helperText={getHelperText()}
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} ${credentialLabel}`,
+                    'aria-label': credentialLabel,
                     'aria-describedby': `${modelKey}-status`,
                     'endAdornment': (
                       <InputAdornment position="end">
@@ -489,7 +525,7 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                 size="small"
                 slotProps={{
                   input: {
-                    'aria-label': `${modelSettings.name} Model Version`,
+                    'aria-label': t('settings.providerModelVersion', { name: modelSettings.name }),
                   },
                 }}
                 MenuProps={{
@@ -512,7 +548,10 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
                   role="status"
                   sx={{ mt: 0.5 }}
                 >
-                  {`"${validVersion}" is not in ${modelSettings.name}'s current model list — it may have been retired. Consider selecting another model.`}
+                  {t('settings.modelRetired', {
+                    version: validVersion,
+                    name: modelSettings.name,
+                  })}
                 </Typography>
               )}
             </FormControl>
@@ -525,9 +564,11 @@ const LlmModelSettingRow: React.FC<LlmModelSettingRowProps> = ({
 
 const Settings: React.FC = () => {
   const id = useId();
+  const { t } = useLocale();
   const viewModel = useViewModel('settings');
   const chatViewModel = useViewModel('chat');
   const dialog = useModalContainer();
+  const languageMenu = useModalContainer();
   const expertiseMenu = useModalContainer();
   const { general, llm } = viewModel.state;
 
@@ -895,7 +936,7 @@ const Settings: React.FC = () => {
           panel is named by its own tab, so a heading repeating that name
           would announce the same words twice. */}
       <DialogTitle id={titleId} className="settings-dialog-title">
-        Settings
+        {t('settings.title')}
       </DialogTitle>
 
       {/* The tablist sits outside `DialogContent` so it stays put while a
@@ -907,7 +948,7 @@ const Settings: React.FC = () => {
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
-        aria-label="Settings sections"
+        aria-label={t('settings.sections')}
         className="settings-tabs"
         sx={{
           'px': 3,
@@ -953,7 +994,7 @@ const Settings: React.FC = () => {
             sx={{ minWidth: 0, px: 1.5, textTransform: 'none' }}
             label={(
               <span className="settings-tab-label" style={TAB_LABEL_STYLE}>
-                {tab.label}
+                {t(tab.label)}
                 {/* Marks the tab holding the edit that is blocking Save, so
                     the reason is reachable from whichever tab is open. The
                     icon is decorative and the text beside it carries the
@@ -965,7 +1006,7 @@ const Settings: React.FC = () => {
                 {tab.id === 'ai' && !isCustomInstructionValid && (
                   <>
                     <ErrorIcon color="error" fontSize="small" aria-hidden="true" />
-                    <span style={visuallyHidden}>{' needs attention'}</span>
+                    <span style={visuallyHidden}>{t('settings.needsAttention')}</span>
                   </>
                 )}
               </span>
@@ -991,7 +1032,42 @@ const Settings: React.FC = () => {
         >
           <Grid size={12}>
             <SettingRow
-              label="Autoplay Duration (ms)"
+              label={t('settings.language')}
+              input={(
+                <FormControl fullWidth>
+                  <Select
+                    value={generalSettings.language}
+                    onChange={(e: SelectChangeEvent<LanguageSetting>) =>
+                      handleGeneralChange('language', e.target.value)}
+                    fullWidth
+                    size="small"
+                    slotProps={{
+                      input: {
+                        'aria-label': t('settings.language'),
+                      },
+                    }}
+                    MenuProps={{
+                      disablePortal: true,
+                      ref: languageMenu.modalRef,
+                      container: languageMenu.container,
+                    }}
+                  >
+                    <MenuItem value="auto">{t('settings.languageAuto')}</MenuItem>
+                    {/* Each language named in itself, so a reader who does not
+                        read the current one can still find their own. */}
+                    {SUPPORTED_LOCALES.map(locale => (
+                      <MenuItem key={locale} value={locale} lang={locale}>
+                        {LOCALE_NAMES[locale]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label={t('settings.autoplayDurationRow')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1007,7 +1083,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'Autoplay Duration',
+                          'aria-label': t('settings.autoplayDuration'),
                         },
                       },
                     }}
@@ -1018,7 +1094,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="ARIA Mode"
+              label={t('settings.ariaMode')}
               input={(
                 <FormControl>
                   <RadioGroup
@@ -1029,17 +1105,17 @@ const Settings: React.FC = () => {
                         'ariaMode',
                         e.target.value as AriaMode,
                       )}
-                    aria-label="ARIA Mode"
+                    aria-label={t('settings.ariaMode')}
                   >
                     <FormControlLabel
                       value="assertive"
                       control={<Radio size="small" />}
-                      label="Assertive"
+                      label={t('settings.ariaAssertive')}
                     />
                     <FormControlLabel
                       value="polite"
                       control={<Radio size="small" />}
-                      label="Polite"
+                      label={t('settings.ariaPolite')}
                     />
                   </RadioGroup>
                 </FormControl>
@@ -1048,7 +1124,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Hover Mode"
+              label={t('settings.hoverMode')}
               input={(
                 <FormControl>
                   <RadioGroup
@@ -1059,22 +1135,22 @@ const Settings: React.FC = () => {
                         'hoverMode',
                         e.target.value as HoverMode,
                       )}
-                    aria-label="Hover Mode"
+                    aria-label={t('settings.hoverMode')}
                   >
                     <FormControlLabel
                       value="off"
                       control={<Radio size="small" />}
-                      label="Off"
+                      label={t('settings.off')}
                     />
                     <FormControlLabel
                       value="pointermove"
                       control={<Radio size="small" />}
-                      label="Hover"
+                      label={t('settings.hoverOnHover')}
                     />
                     <FormControlLabel
                       value="click"
                       control={<Radio size="small" />}
-                      label="Click"
+                      label={t('settings.hoverOnClick')}
                     />
                   </RadioGroup>
                 </FormControl>
@@ -1091,7 +1167,7 @@ const Settings: React.FC = () => {
         >
           <Grid size={12}>
             <SettingRow
-              label="Volume"
+              label={t('settings.volume')}
               input={(
                 <FormControl fullWidth>
                   <Slider
@@ -1106,7 +1182,7 @@ const Settings: React.FC = () => {
                       input: {
                         'aria-valuemin': 0,
                         'aria-valuemax': 100,
-                        'aria-label': 'Volume',
+                        'aria-label': t('settings.volume'),
                         'aria-labelledby': 'volume-label',
                       },
                     }}
@@ -1118,7 +1194,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Min Frequency (Hz)"
+              label={t('settings.minFrequencyRow')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1134,7 +1210,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'Minimum Frequency',
+                          'aria-label': t('settings.minFrequency'),
                           'min': MIN_FREQUENCY_HZ,
                           'max': MAX_FREQUENCY_HZ,
                         },
@@ -1147,7 +1223,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Max Frequency (Hz)"
+              label={t('settings.maxFrequencyRow')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1163,7 +1239,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'Maximum Frequency',
+                          'aria-label': t('settings.maxFrequency'),
                           'min': MIN_FREQUENCY_HZ,
                           'max': MAX_FREQUENCY_HZ,
                         },
@@ -1176,7 +1252,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="3D Echo Count"
+              label={t('settings.echoCount')}
               labelId={`${id}-echo-count-label`}
               input={(
                 <FormControl fullWidth>
@@ -1204,7 +1280,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Echo Volume"
+              label={t('settings.echoVolume')}
               labelId={`${id}-echo-volume-label`}
               input={(
                 <FormControl fullWidth>
@@ -1231,7 +1307,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Echo Duration (s)"
+              label={t('settings.echoDuration')}
               labelId={`${id}-echo-duration-label`}
               input={(
                 <FormControl fullWidth>
@@ -1266,7 +1342,7 @@ const Settings: React.FC = () => {
         >
           <Grid size={12}>
             <SettingRow
-              label="Outline Color"
+              label={t('settings.outlineColor')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1279,7 +1355,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'Highlight Color',
+                          'aria-label': t('settings.highlightColor'),
                         },
                       },
                     }}
@@ -1290,7 +1366,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="High Contrast Mode"
+              label={t('settings.highContrastMode')}
               input={(
                 <FormControl>
                   <FormControlLabel
@@ -1302,13 +1378,13 @@ const Settings: React.FC = () => {
                         size="small"
                       />
                     )}
-                    label={generalSettings.highContrastMode ? 'On' : 'Off'}
+                    label={t(generalSettings.highContrastMode ? 'settings.on' : 'settings.off')}
                     slotProps={{
                       typography: {
                         variant: 'body2',
                       },
                     }}
-                    aria-label="High Contrast Mode"
+                    aria-label={t('settings.highContrastMode')}
                   />
                 </FormControl>
               )}
@@ -1316,7 +1392,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="High Contrast Levels"
+              label={t('settings.highContrastLevels')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1332,7 +1408,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'High Contrast Levels',
+                          'aria-label': t('settings.highContrastLevels'),
                           'min': 2,
                           'max': 20,
                         },
@@ -1345,7 +1421,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="High Contrast Light Color"
+              label={t('settings.highContrastLightColor')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1358,7 +1434,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'High Contrast Light Color',
+                          'aria-label': t('settings.highContrastLightColor'),
                         },
                       },
                     }}
@@ -1369,7 +1445,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="High Contrast Dark Color"
+              label={t('settings.highContrastDarkColor')}
               input={(
                 <FormControl fullWidth>
                   <TextField
@@ -1382,7 +1458,7 @@ const Settings: React.FC = () => {
                     slotProps={{
                       input: {
                         inputProps: {
-                          'aria-label': 'High Contrast Dark Color',
+                          'aria-label': t('settings.highContrastDarkColor'),
                         },
                       },
                     }}
@@ -1401,7 +1477,7 @@ const Settings: React.FC = () => {
         >
           <Grid size={12}>
             <SettingRow
-              label="Braille Display"
+              label={t('settings.brailleDisplay')}
               alignLabel="flex-start"
               labelId={`${id}-braille-kind-label`}
               input={(
@@ -1420,17 +1496,17 @@ const Settings: React.FC = () => {
                     <FormControlLabel
                       value="single"
                       control={<Radio size="small" />}
-                      label="Single line"
+                      label={t('settings.brailleSingleLine')}
                     />
                     <FormControlLabel
                       value="multi"
                       control={<Radio size="small" />}
-                      label="Multi-line"
+                      label={t('settings.brailleMultiLine')}
                     />
                     <FormControlLabel
                       value="manual"
                       control={<Radio size="small" />}
-                      label="Configure manually"
+                      label={t('settings.brailleManual')}
                     />
                   </RadioGroup>
                 </FormControl>
@@ -1440,26 +1516,26 @@ const Settings: React.FC = () => {
           {generalSettings.brailleDisplayKind === 'single' && (
             <Grid size={12}>
               <BraillePresetSelect
-                rowLabel="Single-Line Display"
-                placeholder="Select a single-line display"
+                rowLabel={t('settings.singleLineDisplay')}
+                placeholder={t('settings.selectSingleLineDisplay')}
                 presets={SINGLE_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatSingleLinePreset}
                 onPresetChange={handleSingleLinePresetChange}
-                hint={'Don\'t see your display? Choose "Configure manually".'}
+                hint={t('settings.braillePresetHint')}
               />
             </Grid>
           )}
           {generalSettings.brailleDisplayKind === 'multi' && (
             <Grid size={12}>
               <BraillePresetSelect
-                rowLabel="Multi-Line Display"
-                placeholder="Select a multi-line display"
+                rowLabel={t('settings.multiLineDisplay')}
+                placeholder={t('settings.selectMultiLineDisplay')}
                 presets={MULTI_LINE_BRAILLE_PRESETS}
                 selectedPresetId={generalSettings.brailleDisplayPresetId}
                 formatPreset={formatMultiLinePreset}
                 onPresetChange={handleMultiLinePresetChange}
-                hint={'Don\'t see your display? Choose "Configure manually".'}
+                hint={t('settings.braillePresetHint')}
               />
             </Grid>
           )}
@@ -1467,11 +1543,11 @@ const Settings: React.FC = () => {
             <Grid
               size={12}
               role="group"
-              aria-label="Manual braille display configuration"
+              aria-label={t('settings.manualBrailleGroup')}
             >
               <Grid size={12}>
                 <SettingRow
-                  label="Braille Display Size"
+                  label={t('settings.brailleDisplaySize')}
                   input={(
                     <FormControl fullWidth>
                       <TextField
@@ -1491,11 +1567,11 @@ const Settings: React.FC = () => {
                             handleGeneralChange('brailleDisplaySize', next);
                           }
                         }}
-                        helperText={`Cells per row on a physical braille display (1-${MAX_BRAILLE_SIZE}).`}
+                        helperText={t('settings.brailleDisplaySizeHelp', { max: MAX_BRAILLE_SIZE })}
                         slotProps={{
                           input: {
                             inputProps: {
-                              'aria-label': 'Braille Display Size',
+                              'aria-label': t('settings.brailleDisplaySize'),
                               'min': 1,
                               'max': MAX_BRAILLE_SIZE,
                               'step': 1,
@@ -1509,7 +1585,7 @@ const Settings: React.FC = () => {
               </Grid>
               <Grid size={12}>
                 <SettingRow
-                  label="Braille Display Lines"
+                  label={t('settings.brailleDisplayLines')}
                   input={(
                     <FormControl fullWidth>
                       <TextField
@@ -1529,11 +1605,11 @@ const Settings: React.FC = () => {
                             handleGeneralChange('brailleDisplayLines', next);
                           }
                         }}
-                        helperText={`Number of rows on a physical braille display (1-${MAX_BRAILLE_LINES}). Set above 1 to enable multi-line output.`}
+                        helperText={t('settings.brailleDisplayLinesHelp', { max: MAX_BRAILLE_LINES })}
                         slotProps={{
                           input: {
                             inputProps: {
-                              'aria-label': 'Braille Display Lines',
+                              'aria-label': t('settings.brailleDisplayLines'),
                               'min': 1,
                               'max': MAX_BRAILLE_LINES,
                               'step': 1,
@@ -1549,7 +1625,7 @@ const Settings: React.FC = () => {
           )}
           <Grid size={12}>
             <SettingRow
-              label="Tactile Graphics Display"
+              label={t('settings.tactileDisplay')}
               labelId={tactileLabelId}
               alignLabel="flex-start"
               input={(
@@ -1573,7 +1649,7 @@ const Settings: React.FC = () => {
                     }}
                   >
                     <MenuItem value="" disabled>
-                      Select a tactile display
+                      {t('settings.selectTactileDisplay')}
                     </MenuItem>
                     {TACTILE_DISPLAY_PRESETS.map(preset => (
                       <MenuItem key={preset.id} value={preset.id}>
@@ -1591,7 +1667,7 @@ const Settings: React.FC = () => {
                         || !viewModel.supportsTactileTransport('bluetooth')
                       }
                     >
-                      Connect over Bluetooth
+                      {t('settings.connectBluetooth')}
                     </Button>
                     <Button
                       size="small"
@@ -1602,7 +1678,7 @@ const Settings: React.FC = () => {
                         || !viewModel.supportsTactileTransport('serial')
                       }
                     >
-                      Connect over USB
+                      {t('settings.connectUsb')}
                     </Button>
                     {tactileState.status === 'connected' && (
                       <Button
@@ -1610,7 +1686,7 @@ const Settings: React.FC = () => {
                         variant="text"
                         onClick={() => viewModel.disconnectTactileDisplay()}
                       >
-                        Disconnect
+                        {t('settings.disconnect')}
                       </Button>
                     )}
                     {tactileState.status === 'connecting' && (
@@ -1664,7 +1740,7 @@ const Settings: React.FC = () => {
               className="settings-model-select"
             >
               <SettingRow
-                label="Expertise Level"
+                label={t('settings.expertiseLevel')}
                 input={(
                   <Select
                     value={llmSettings.expertiseLevel}
@@ -1672,7 +1748,7 @@ const Settings: React.FC = () => {
                     onClick={handleSelectClick}
                     slotProps={{
                       input: {
-                        'aria-label': 'Expertise Level',
+                        'aria-label': t('settings.expertiseLevel'),
                       },
                     }}
                     MenuProps={{
@@ -1684,10 +1760,10 @@ const Settings: React.FC = () => {
                       },
                     }}
                   >
-                    <MenuItem value="basic">Basic</MenuItem>
-                    <MenuItem value="intermediate">Intermediate</MenuItem>
-                    <MenuItem value="advanced">Advanced</MenuItem>
-                    <MenuItem value="custom">Custom</MenuItem>
+                    <MenuItem value="basic">{t('settings.expertiseBasic')}</MenuItem>
+                    <MenuItem value="intermediate">{t('settings.expertiseIntermediate')}</MenuItem>
+                    <MenuItem value="advanced">{t('settings.expertiseAdvanced')}</MenuItem>
+                    <MenuItem value="custom">{t('settings.expertiseCustom')}</MenuItem>
                   </Select>
                 )}
               />
@@ -1705,7 +1781,7 @@ const Settings: React.FC = () => {
               >
                 <Grid size={12} sx={{ py: 1 }}>
                   <Typography variant="body2" fontWeight="normal">
-                    Custom Instructions
+                    {t('settings.customInstructions')}
                   </Typography>
                 </Grid>
                 <Grid size={12}>
@@ -1722,8 +1798,8 @@ const Settings: React.FC = () => {
                         border: '1px solid #ccc',
                         borderRadius: '4px',
                       }}
-                      placeholder="Enter custom instruction..."
-                      aria-label="Custom Instructions"
+                      placeholder={t('settings.customInstructionPlaceholder')}
+                      aria-label={t('settings.customInstructions')}
                       // The field that blocks Save has to say so itself. A
                       // reader who lands on it hears the requirement as its
                       // description, rather than having to find the warning
@@ -1766,11 +1842,9 @@ const Settings: React.FC = () => {
                 && llmSettings.customInstruction.length
                 < MIN_CUSTOM_INSTRUCTION_LENGTH && (
                 <Alert severity="warning" role="presentation" sx={{ mt: 1 }}>
-                  Custom instructions must be at least
-                  {' '}
-                  {MIN_CUSTOM_INSTRUCTION_LENGTH}
-                  {' '}
-                  characters long
+                  {t('settings.customInstructionTooShort', {
+                    min: MIN_CUSTOM_INSTRUCTION_LENGTH,
+                  })}
                 </Alert>
               )}
             </div>
@@ -1785,7 +1859,7 @@ const Settings: React.FC = () => {
         >
           <Grid size={12}>
             <SettingRow
-              label="maidr.js Version"
+              label={t('settings.maidrVersion')}
               input={(
                 <Typography variant="body2">{diagnostics.version}</Typography>
               )}
@@ -1793,7 +1867,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Loaded From"
+              label={t('settings.loadedFrom')}
               alignLabel={sourceUrl ? 'flex-start' : 'center'}
               input={(
                 <>
@@ -1814,7 +1888,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Browser"
+              label={t('settings.browser')}
               input={(
                 <Typography variant="body2">{diagnostics.browser}</Typography>
               )}
@@ -1822,7 +1896,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Operating System"
+              label={t('settings.operatingSystem')}
               input={(
                 <Typography variant="body2">
                   {diagnostics.operatingSystem}
@@ -1832,7 +1906,7 @@ const Settings: React.FC = () => {
           </Grid>
           <Grid size={12}>
             <SettingRow
-              label="Diagnostics"
+              label={t('settings.diagnostics')}
               input={(
                 <Grid container spacing={1} alignItems="center">
                   <Grid size="auto">
@@ -1841,10 +1915,10 @@ const Settings: React.FC = () => {
                       color="inherit"
                       size="small"
                       onClick={handleCopyDiagnostics}
-                      aria-label="Copy diagnostics to clipboard"
+                      aria-label={t('settings.copyDiagnosticsAria')}
                       aria-describedby={copyStatusId}
                     >
-                      Copy diagnostics
+                      {t('settings.copyDiagnostics')}
                     </Button>
                   </Grid>
                   <Grid size="auto">
@@ -1867,7 +1941,7 @@ const Settings: React.FC = () => {
                           region untouched, and an untouched live region is
                           never announced. */}
                       <span key={copyState.attempt}>
-                        {COPY_STATUS_MESSAGE[copyState.status]}
+                        {describeCopyStatus(copyState.status)}
                       </span>
                     </Typography>
                   </Grid>
@@ -1909,7 +1983,9 @@ const Settings: React.FC = () => {
             sx={{ color: 'error.main' }}
           >
             {!isCustomInstructionValid && activeTab !== 'ai'
-              ? `Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`
+              ? t('settings.customInstructionTooShortOnAiTab', {
+                  min: MIN_CUSTOM_INSTRUCTION_LENGTH,
+                })
               : ''}
           </Typography>
         </Grid>
@@ -1918,9 +1994,9 @@ const Settings: React.FC = () => {
             variant="text"
             color="inherit"
             onClick={handleReset}
-            aria-label="Reset Settings"
+            aria-label={t('settings.resetAria')}
           >
-            Reset
+            {t('settings.reset')}
           </Button>
         </Grid>
         <Grid
@@ -1936,10 +2012,10 @@ const Settings: React.FC = () => {
               variant="outlined"
               color="inherit"
               onClick={handleClose}
-              aria-label="Close Settings with no changes"
+              aria-label={t('settings.closeAria')}
               aria-keyshortcuts={`Alt+${CANCEL_SHORTCUT_KEY}`}
             >
-              Close
+              {t('settings.close')}
             </Button>
           </Grid>
           <Grid size="auto">
@@ -1959,7 +2035,7 @@ const Settings: React.FC = () => {
               aria-describedby={
                 isCustomInstructionValid ? undefined : saveBlockedId
               }
-              aria-label="Save & Close Settings"
+              aria-label={t('settings.saveAria')}
               aria-keyshortcuts={`Alt+${SAVE_SHORTCUT_KEY}`}
               // Reads as unavailable without being it. `disabled` would style
               // this for free, at the cost of the reachability above.
@@ -1977,7 +2053,7 @@ const Settings: React.FC = () => {
                     }
               }
             >
-              Save & Close
+              {t('settings.save')}
             </Button>
             {/* The button's description. Separate from the footer hint above,
                 which is a live region announcing a change and stays quiet on
@@ -1985,7 +2061,9 @@ const Settings: React.FC = () => {
                 on every tab, because the button is. */}
             {!isCustomInstructionValid && (
               <span id={saveBlockedId} style={visuallyHidden}>
-                {`Custom instructions on the AI tab must be at least ${MIN_CUSTOM_INSTRUCTION_LENGTH} characters long`}
+                {t('settings.customInstructionTooShortOnAiTab', {
+                  min: MIN_CUSTOM_INSTRUCTION_LENGTH,
+                })}
               </span>
             )}
           </Grid>

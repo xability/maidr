@@ -8,6 +8,7 @@ import type { XValue } from '@type/navigation';
 import type { AxisType, TraceState } from '@type/state';
 import { createSlice } from '@reduxjs/toolkit';
 import { AbstractViewModel } from '@state/viewModel/viewModel';
+import { t } from '@util/i18n';
 
 // Type for plots that support getAvailableXValues
 interface PlotWithXValues {
@@ -352,7 +353,7 @@ export class GoToExtremaViewModel extends AbstractViewModel<GoToExtremaState> {
    * @returns A description appropriate for the plot type
    */
   private generateDescription(traceType: TraceType): string {
-    return `Navigate to points of interest within the current ${traceType}`;
+    return t('dialogs.extremaDescription', { traceType });
   }
 
   /**

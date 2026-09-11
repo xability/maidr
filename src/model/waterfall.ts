@@ -3,12 +3,14 @@ import type { MaidrLayer, WaterfallKind, WaterfallPoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
-import { isMeasured, MISSING_TEXT } from './bar';
+import { isMeasured, missingText } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -20,11 +22,26 @@ import { MovableGrid } from './movable';
  * would therefore be silently undone in verbose mode and kept in terse mode,
  * so the same step would read two different ways.
  */
-const KIND_LABEL: Record<WaterfallKind, string> = {
-  increase: 'increase',
-  decrease: 'decrease',
-  total: 'total',
+const KIND_LABEL: Record<WaterfallKind, MessageKey> = {
+  increase: 'model.waterfallKindIncrease',
+  decrease: 'model.waterfallKindDecrease',
+  total: 'model.waterfallKindTotal',
 };
+
+/**
+ * How a step's direction reads, or nothing when the layer declared no kind.
+ *
+ * A producer is not obliged to send one, and the lookup then misses -- which
+ * the announcement and the table both handle by saying nothing, as they did
+ * when the table held the word itself.
+ *
+ * @param kind - The step's declared kind
+ * @returns The word, or undefined when there is no kind to name
+ */
+function kindLabel(kind: WaterfallKind): string | undefined {
+  const key: MessageKey | undefined = KIND_LABEL[kind];
+  return key === undefined ? undefined : t(key);
+}
 
 /**
  * Trace implementation for waterfall charts — a starting value carried to an
@@ -184,12 +201,12 @@ export class WaterfallTrace extends AbstractTrace {
       // The total the step produced, alongside the contribution rather than
       // instead of it. A step announced only as "down 250" leaves the reader
       // tracking the running total in their head across the whole chart.
-      stack: { label: 'Running total', value: Number(point.end) },
+      stack: { label: t('model.asideRunningTotal'), value: Number(point.end) },
       // Which way the step moved. Without it a decrease is announced as a
       // bare negative number, and a total — which contributes nothing at all —
       // is indistinguishable from a step that happened to net to its own
       // value.
-      section: KIND_LABEL[point.kind],
+      section: kindLabel(point.kind),
       mainAxis: 'x',
       crossAxis: 'y',
     };
@@ -202,9 +219,9 @@ export class WaterfallTrace extends AbstractTrace {
     const totals = this.points.length - steps.length;
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of steps', value: this.points.length },
-      { label: 'Increases', value: increases },
-      { label: 'Decreases', value: decreases },
+      { label: t('model.statNumberOfSteps'), value: this.points.length },
+      { label: t('model.statIncreases'), value: increases },
+      { label: t('model.statDecreases'), value: decreases },
     ];
 
     if (totals > 0) {
@@ -212,7 +229,7 @@ export class WaterfallTrace extends AbstractTrace {
       // is a three-way union, so without them the counts never add up to the
       // number of steps and a reader doing that arithmetic concludes the
       // chart holds steps that neither rose nor fell.
-      stats.push({ label: 'Totals', value: totals });
+      stats.push({ label: t('model.statTotals'), value: totals });
     }
 
     if (this.points.length > 0) {
@@ -238,12 +255,12 @@ export class WaterfallTrace extends AbstractTrace {
       // chart withholding, and `missing` is the word every other absent value
       // here already uses.
       const reads = (value: number): number | string =>
-        isMeasured(value) ? value : MISSING_TEXT;
+        isMeasured(value) ? value : missingText();
       stats.push(
-        { label: 'Starting value', value: reads(startingValue) },
-        { label: 'Ending value', value: reads(endingValue) },
+        { label: t('model.statStartingValue'), value: reads(startingValue) },
+        { label: t('model.statEndingValue'), value: reads(endingValue) },
         {
-          label: 'Net change',
+          label: t('model.statNetChange'),
           // How big the whole move was, which is the headline of a bridge and
           // the one number two large running totals heard seconds apart leave
           // the reader to subtract by ear.
@@ -270,20 +287,31 @@ export class WaterfallTrace extends AbstractTrace {
     if (rises.length > 0) {
       const top = rises.reduce((a, b) => (Number(b.delta) > Number(a.delta) ? b : a));
       stats.push({
-        label: 'Largest increase',
-        value: `${top.x}, ${defaultFormat(Number(top.delta))}`,
+        label: t('model.statLargestIncrease'),
+        value: t('model.nameWithValue', {
+          name: top.x,
+          value: defaultFormat(Number(top.delta)),
+        }),
       });
     }
     const falls = measured.filter(point => Number(point.delta) < 0);
     if (falls.length > 0) {
       const bottom = falls.reduce((a, b) => (Number(b.delta) < Number(a.delta) ? b : a));
       stats.push({
-        label: 'Largest decrease',
-        value: `${bottom.x}, ${defaultFormat(Math.abs(Number(bottom.delta)))}`,
+        label: t('model.statLargestDecrease'),
+        value: t('model.nameWithValue', {
+          name: bottom.x,
+          value: defaultFormat(Math.abs(Number(bottom.delta))),
+        }),
       });
     }
 
-    const headers = [this.xAxis, 'Change', 'Running total', 'Kind'];
+    const headers = [
+      this.xAxis,
+      t('model.tableChange'),
+      t('model.asideRunningTotal'),
+      t('model.tableKind'),
+    ];
     // The step name sits on x and both magnitudes on y, which is the pair
     // `text` announces and the axis it announces the running total through --
     // `end` is where the bar's top is drawn, not a total this trace summed.
@@ -302,7 +330,7 @@ export class WaterfallTrace extends AbstractTrace {
       // dropped: a total restates the running value rather than moving it, so
       // its `delta` is normally the largest number in the column and reads as
       // the chart's biggest mover. The word the announcement already uses.
-      KIND_LABEL[point.kind],
+      kindLabel(point.kind) ?? '',
     ]);
 
     return {
@@ -347,7 +375,7 @@ export class WaterfallTrace extends AbstractTrace {
     const smallest = moving.reduce((a, b) => (deltaOf(b) < deltaOf(a) ? b : a));
 
     const targets: ExtremaTarget[] = [{
-      label: `Largest increase at ${largest.point.x}`,
+      label: t('model.extremaLargestIncreaseAt', { label: largest.point.x }),
       value: deltaOf(largest),
       pointIndex: largest.index,
       segment: 'waterfall',
@@ -361,7 +389,7 @@ export class WaterfallTrace extends AbstractTrace {
     // biggest rise and the biggest fall are the same bar.
     if (smallest.index !== largest.index) {
       targets.push({
-        label: `Largest decrease at ${smallest.point.x}`,
+        label: t('model.extremaLargestDecreaseAt', { label: smallest.point.x }),
         value: deltaOf(smallest),
         pointIndex: smallest.index,
         segment: 'waterfall',

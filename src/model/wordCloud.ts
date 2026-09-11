@@ -4,11 +4,12 @@ import type { Movable } from '@type/movable';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
-import { isMeasured, MISSING_TEXT } from './bar';
+import { isMeasured, missingText } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -25,7 +26,7 @@ import { MovableGrid } from './movable';
  */
 function toShare(weight: number, total: number): string {
   if (!isMeasured(weight)) {
-    return MISSING_TEXT;
+    return missingText();
   }
   if (total === 0) {
     return '0%';
@@ -265,23 +266,23 @@ export class WordCloudTrace extends AbstractTrace {
     const lightest = this.measuredCount - 1;
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of terms', value: this.points.length },
+      { label: t('model.statNumberOfTerms'), value: this.points.length },
     ];
 
     if (this.measuredCount > 0) {
       // Which term is heaviest is the question a cloud is drawn to answer at a
       // glance, and it is the one thing a reader walking the terms one at a
       // time has to hold in their head to recover.
-      stats.push({ label: 'Heaviest term', value: this.termSummary(0) });
+      stats.push({ label: t('model.statHeaviestTerm'), value: this.termSummary(0) });
       // The same guard {@link getExtremaTargets} applies, and for the same
       // reason: one term, or a cloud whose weights are all equal, has a single
       // extreme. Naming a second one told a reader the weights differ on a
       // chart where they do not -- while the rotor, asked the same question,
       // offered one target.
       if (lightest !== 0 && weights[lightest] !== weights[0]) {
-        stats.push({ label: 'Lightest term', value: this.termSummary(lightest) });
+        stats.push({ label: t('model.statLightestTerm'), value: this.termSummary(lightest) });
       }
-      stats.push({ label: 'Total weight', value: total });
+      stats.push({ label: t('model.statTotalWeight'), value: total });
     }
 
     // A term whose weight did not parse is one of the terms the chart draws
@@ -289,7 +290,7 @@ export class WordCloudTrace extends AbstractTrace {
     // was a blank cell in the table.
     const unweighted = this.points.length - this.measuredCount;
     if (unweighted > 0) {
-      stats.push({ label: 'Terms with no weight', value: unweighted });
+      stats.push({ label: t('model.statTermsWithNoWeight'), value: unweighted });
     }
 
     if (this.points.length > 1) {
@@ -297,7 +298,7 @@ export class WordCloudTrace extends AbstractTrace {
       // reader comparing either against the source data would otherwise find
       // the rows rearranged with nothing to explain it. Said once here, the
       // way `orientationLabel` says it for the families that reverse theirs.
-      stats.push({ label: 'Order', value: 'Terms are listed heaviest first, not as authored' });
+      stats.push({ label: t('model.statOrder'), value: t('model.wordCloudOrderNote') });
     }
 
     // Domain names where the layer labelled nothing: `named()` would fall back
@@ -305,16 +306,16 @@ export class WordCloudTrace extends AbstractTrace {
     // its column header -- so a screen reader walked it announcing "X,
     // machine, Y, 412".
     const headers = [
-      this.layer.axes?.x?.label?.trim() ? this.xAxis : 'Term',
-      this.layer.axes?.y?.label?.trim() ? this.yAxis : 'Weight',
-      'Share of total',
+      this.layer.axes?.x?.label?.trim() ? this.xAxis : t('model.tableTerm'),
+      this.layer.axes?.y?.label?.trim() ? this.yAxis : t('model.tableWeight'),
+      t('model.tableShareOfTotal'),
     ];
     // A cloud encodes prominence, and prominence is a share: 412 of 830 is
     // half the corpus, which is the reading a sighted reader takes from glyph
     // size and the one this table left them to divide out.
     const rows: (string | number)[][] = this.points.map((point, term) => [
       point.x,
-      isMeasured(weights[term]) ? weights[term] : MISSING_TEXT,
+      isMeasured(weights[term]) ? weights[term] : missingText(),
       toShare(weights[term], total),
     ]);
 
@@ -345,7 +346,10 @@ export class WordCloudTrace extends AbstractTrace {
    * @returns The term and its weight, e.g. `machine (412)`
    */
   private termSummary(term: number): string {
-    return `${this.points[term].x} (${defaultFormat(this.weights[0][term])})`;
+    return t('model.wordCloudTermSummary', {
+      term: this.points[term].x,
+      weight: defaultFormat(this.weights[0][term]),
+    });
   }
 
   /**
@@ -367,7 +371,7 @@ export class WordCloudTrace extends AbstractTrace {
     // would send the reader to a term at a weight of `NaN`.
     const last = this.measuredCount - 1;
     const targets: ExtremaTarget[] = [{
-      label: `Heaviest term, ${this.points[0].x}`,
+      label: t('model.extremaHeaviestTerm', { term: this.points[0].x }),
       value: this.weights[0][0],
       pointIndex: 0,
       segment: 'term',
@@ -379,7 +383,7 @@ export class WordCloudTrace extends AbstractTrace {
     // One term, or a cloud whose weights are all equal, has a single extreme.
     if (last !== 0 && this.weights[0][last] !== this.weights[0][0]) {
       targets.push({
-        label: `Lightest term, ${this.points[last].x}`,
+        label: t('model.extremaLightestTerm', { term: this.points[last].x }),
         value: this.weights[0][last],
         pointIndex: last,
         segment: 'term',

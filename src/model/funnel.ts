@@ -2,7 +2,8 @@ import type { MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
-import { BarTrace, isMeasured, MISSING_TEXT } from './bar';
+import { t } from '@util/i18n';
+import { BarTrace, isMeasured, missingText } from './bar';
 
 /**
  * Formats a fraction as a percentage, to one decimal place.
@@ -136,7 +137,10 @@ export class FunnelTrace extends BarTrace {
       // through as a number rather than formatted: a non-finite number is
       // what `TextService` reads as "missing", while the string "NaN%" is a
       // value like any other and would be announced as one.
-      z: { label: 'Retained', value: isMeasured(retention) ? asPercent(retention) : retention },
+      z: {
+        label: t('model.asideRetained'),
+        value: isMeasured(retention) ? asPercent(retention) : retention,
+      },
       // The population that entered, with this stage's share of it. Renders as
       // ", Entered is 10000, 24.0% of it" -- the cumulative view, which the
       // per-stage retention does not give and which a reader would otherwise
@@ -144,7 +148,7 @@ export class FunnelTrace extends BarTrace {
       // measured share the clause is dropped, as `AreaTrace` drops it:
       // "NaN% of it" claims a fraction of a population that was never counted.
       stack: {
-        label: 'Entered',
+        label: t('model.asideEntered'),
         value: this.counts[0],
         share: isMeasured(share) ? share : undefined,
       },
@@ -187,14 +191,17 @@ export class FunnelTrace extends BarTrace {
         // a fraction of exactly this number, and the summary named the stage
         // but declined to state the denominator -- which a reader who opened
         // the dialog from the rotor has never heard announced either.
-        label: 'Entry stage',
+        label: t('model.statEntryStage'),
         // The count goes through `defaultFormat` because it is interpolated
         // into a string, which `DescriptionService` takes for display text and
         // leaves alone -- so a stage counted at `3333.3333333333335` reached
         // the dialog at seventeen digits beside the `3333.33` the
         // announcement speaks for the same number.
         value: isMeasured(this.counts[0])
-          ? `${entry} (${defaultFormat(this.counts[0])})`
+          ? t('model.funnelEntryWithCount', {
+              stage: entry,
+              count: defaultFormat(this.counts[0]),
+            })
           : `${entry}`,
       });
     }
@@ -204,12 +211,16 @@ export class FunnelTrace extends BarTrace {
       const exit = this.stageNameAt(this.counts.length - 1);
       if (Number.isFinite(overall)) {
         stats.push({
-          label: 'Overall conversion',
+          label: t('model.statOverallConversion'),
           // Both endpoints, where they are known. The stat named where the
           // funnel starts and left what the percentage converted *into*
           // implicit, so a reader had to walk to the end to find out.
           value: entry !== undefined && exit !== undefined
-            ? `${asPercent(overall)} (${entry} to ${exit})`
+            ? t('model.funnelConversionRange', {
+                share: asPercent(overall),
+                from: entry,
+                to: exit,
+              })
             : asPercent(overall),
         });
       }
@@ -220,8 +231,11 @@ export class FunnelTrace extends BarTrace {
         // people, and it is the one thing a reader cannot assemble from a
         // sequence of counts without dividing each by the one before it.
         stats.push({
-          label: 'Steepest drop',
-          value: `${this.stageNameAt(worst)}, ${asPercent(this.retention[worst])} retained`,
+          label: t('model.statSteepestDrop'),
+          value: t('model.funnelStageRetained', {
+            stage: this.stageNameAt(worst),
+            share: asPercent(this.retention[worst]),
+          }),
         });
       }
     }
@@ -249,7 +263,7 @@ export class FunnelTrace extends BarTrace {
     base: DescriptionState['dataTable'],
   ): DescriptionState['dataTable'] {
     return {
-      headers: [...base.headers, 'Retained', 'Share of entry'],
+      headers: [...base.headers, t('model.asideRetained'), t('model.tableShareOfEntry')],
       // The stage name and its count keep the axes the parent gave them. The
       // two ratios are computed here out of the counts, so the funnel never
       // declared an axis for them -- and a layer that formats its counts as
@@ -257,7 +271,7 @@ export class FunnelTrace extends BarTrace {
       columnAxes: base.columnAxes && [...base.columnAxes, undefined, undefined],
       rows: base.rows.map((row, stage) => [
         ...row,
-        stage === 0 ? 'entry stage' : this.asRatioCell(this.retention[stage]),
+        stage === 0 ? t('model.funnelEntryStageCell') : this.asRatioCell(this.retention[stage]),
         this.asRatioCell(this.share[stage]),
       ]),
     };
@@ -275,7 +289,7 @@ export class FunnelTrace extends BarTrace {
    * @returns The percentage, or the word for an absent one
    */
   private asRatioCell(ratio: number): string {
-    return isMeasured(ratio) ? asPercent(ratio) : MISSING_TEXT;
+    return isMeasured(ratio) ? asPercent(ratio) : missingText();
   }
 
   /**
@@ -304,6 +318,6 @@ export class FunnelTrace extends BarTrace {
       return base;
     }
 
-    return { ...base, plotType: 'funnel' };
+    return { ...base, plotType: t('model.plotTypeFunnel') };
   }
 }

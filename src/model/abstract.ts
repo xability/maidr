@@ -15,9 +15,10 @@ import type {
   TraceEmptyState,
   TraceState,
 } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Trace } from './plot';
 import { Orientation, TraceType } from '@type/grammar';
-import { Constant } from '@util/constant';
+import { t } from '@util/i18n';
 import {
   extractXValueFromPoints,
   extractXValueFromValues,
@@ -25,13 +26,21 @@ import {
   moveToXValueInValues,
 } from '@util/navigation';
 import { resolveOrientation } from '@util/orientation';
+import { plotTypeLabel } from '@util/plotTypeLabel';
 import { Svg } from '@util/svg';
 
+/**
+ * What a layer that names no title is called.
+ *
+ * Left in English deliberately: this is a *sentinel* as much as a word. The
+ * description dialog blanks a title equal to it
+ * ({@link Description.isDisplayable}), `Figure.isAuthoredTitle` filters it, and
+ * `GaugeTrace` and `CandlestickDeltaTrace` compare against it — so translating
+ * what the model stores would make an unauthored title display as though the
+ * producer had authored one. The announcement is translated where it is
+ * spoken, not here.
+ */
 export const DEFAULT_SUBPLOT_TITLE = 'unavailable';
-
-const DEFAULT_X_AXIS = 'X';
-const DEFAULT_Y_AXIS = 'Y';
-const DEFAULT_Z_AXIS = 'Level';
 
 /**
  * Names an axis, falling back when the layer did not really name it.
@@ -58,60 +67,60 @@ export function named(label: string | undefined, fallback: string): string {
  * Maps internal TraceType identifiers to human-readable chart type labels
  * for display in the chart description modal and other user-facing surfaces.
  */
-const CHART_TYPE_LABEL: Record<TraceType, string> = {
-  [TraceType.AREA]: 'Area Chart',
-  [TraceType.BAR]: 'Bar Chart',
-  [TraceType.BUMP]: 'Bump Chart',
-  [TraceType.BOX]: 'Box Plot',
-  [TraceType.BOXEN]: 'Letter-Value Plot',
-  [TraceType.ALLUVIAL]: 'Alluvial Diagram',
-  [TraceType.CANDLESTICK]: 'Candlestick Chart',
-  [TraceType.CHORD]: 'Chord Diagram',
-  [TraceType.SANKEY]: 'Sankey Diagram',
-  [TraceType.NETWORK]: 'Network Diagram',
-  [TraceType.CANDLESTICK_DELTA]: 'Candlestick Reference Delta',
-  [TraceType.CHOROPLETH]: 'Choropleth Map',
-  [TraceType.CONTOUR]: 'Contour Plot',
-  [TraceType.DIVERGING]: 'Diverging Bar Chart',
-  [TraceType.DODGED]: 'Dodged Bar Chart',
-  [TraceType.DOT]: 'Dot Plot',
-  [TraceType.DUMBBELL]: 'Dumbbell Chart',
-  [TraceType.ERROR_BAR]: 'Error Bar Chart',
-  [TraceType.FOREST]: 'Forest Plot',
-  [TraceType.GANTT]: 'Gantt Chart',
-  [TraceType.FUNNEL]: 'Funnel Chart',
-  [TraceType.GAUGE]: 'Gauge',
-  [TraceType.HEATMAP]: 'Heatmap',
-  [TraceType.HEXBIN]: 'Hexbin Plot',
-  [TraceType.HISTOGRAM]: 'Histogram',
-  [TraceType.LINE]: 'Line Chart',
-  [TraceType.LOLLIPOP]: 'Lollipop Chart',
-  [TraceType.MOSAIC]: 'Mosaic Plot',
-  [TraceType.NORMALIZED]: 'Normalized Stacked Bar Chart',
-  [TraceType.NORMALIZED_AREA]: 'Normalized Stacked Area Chart',
-  [TraceType.PARALLEL]: 'Parallel Coordinates Plot',
-  [TraceType.PIE]: 'Pie Chart',
-  [TraceType.POLAR_AREA]: 'Polar Area Chart',
-  [TraceType.RADAR]: 'Radar Chart',
-  [TraceType.RIDGELINE]: 'Ridgeline Plot',
-  [TraceType.SCATTER]: 'Scatter Plot',
-  [TraceType.SUNFLOWER]: 'Sunflower Plot',
-  [TraceType.SMOOTH]: 'Smooth Line Chart',
-  [TraceType.STACKED]: 'Stacked Bar Chart',
-  [TraceType.STACKED_AREA]: 'Stacked Area Chart',
-  [TraceType.STEP]: 'Step Plot',
-  [TraceType.SURVIVAL]: 'Survival Curve',
-  [TraceType.ICICLE]: 'Icicle Chart',
-  [TraceType.SUNBURST]: 'Sunburst Chart',
-  [TraceType.TREE]: 'Tree Diagram',
-  [TraceType.PACK]: 'Circle Packing',
-  [TraceType.TREEMAP]: 'Treemap',
-  [TraceType.VIOLIN_BOX]: 'Violin Box Plot',
-  [TraceType.VIOLIN_KDE]: 'Violin Plot',
-  [TraceType.MANHATTAN]: 'Manhattan Plot',
-  [TraceType.VOLCANO]: 'Volcano Plot',
-  [TraceType.WATERFALL]: 'Waterfall Chart',
-  [TraceType.WORD_CLOUD]: 'Word Cloud',
+const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
+  [TraceType.AREA]: 'model.chartTypeArea',
+  [TraceType.BAR]: 'model.chartTypeBar',
+  [TraceType.BUMP]: 'model.chartTypeBump',
+  [TraceType.BOX]: 'model.chartTypeBox',
+  [TraceType.BOXEN]: 'model.chartTypeBoxen',
+  [TraceType.ALLUVIAL]: 'model.chartTypeAlluvial',
+  [TraceType.CANDLESTICK]: 'model.chartTypeCandlestick',
+  [TraceType.CHORD]: 'model.chartTypeChord',
+  [TraceType.SANKEY]: 'model.chartTypeSankey',
+  [TraceType.NETWORK]: 'model.chartTypeNetwork',
+  [TraceType.CANDLESTICK_DELTA]: 'model.chartTypeCandlestickDelta',
+  [TraceType.CHOROPLETH]: 'model.chartTypeChoropleth',
+  [TraceType.CONTOUR]: 'model.chartTypeContour',
+  [TraceType.DIVERGING]: 'model.chartTypeDiverging',
+  [TraceType.DODGED]: 'model.chartTypeDodged',
+  [TraceType.DOT]: 'model.chartTypeDot',
+  [TraceType.DUMBBELL]: 'model.chartTypeDumbbell',
+  [TraceType.ERROR_BAR]: 'model.chartTypeErrorBar',
+  [TraceType.FOREST]: 'model.chartTypeForest',
+  [TraceType.GANTT]: 'model.chartTypeGantt',
+  [TraceType.FUNNEL]: 'model.chartTypeFunnel',
+  [TraceType.GAUGE]: 'model.chartTypeGauge',
+  [TraceType.HEATMAP]: 'model.chartTypeHeatmap',
+  [TraceType.HEXBIN]: 'model.chartTypeHexbin',
+  [TraceType.HISTOGRAM]: 'model.chartTypeHistogram',
+  [TraceType.LINE]: 'model.chartTypeLine',
+  [TraceType.LOLLIPOP]: 'model.chartTypeLollipop',
+  [TraceType.MOSAIC]: 'model.chartTypeMosaic',
+  [TraceType.NORMALIZED]: 'model.chartTypeNormalized',
+  [TraceType.NORMALIZED_AREA]: 'model.chartTypeNormalizedArea',
+  [TraceType.PARALLEL]: 'model.chartTypeParallel',
+  [TraceType.PIE]: 'model.chartTypePie',
+  [TraceType.POLAR_AREA]: 'model.chartTypePolarArea',
+  [TraceType.RADAR]: 'model.chartTypeRadar',
+  [TraceType.RIDGELINE]: 'model.chartTypeRidgeline',
+  [TraceType.SCATTER]: 'model.chartTypeScatter',
+  [TraceType.SUNFLOWER]: 'model.chartTypeSunflower',
+  [TraceType.SMOOTH]: 'model.chartTypeSmooth',
+  [TraceType.STACKED]: 'model.chartTypeStacked',
+  [TraceType.STACKED_AREA]: 'model.chartTypeStackedArea',
+  [TraceType.STEP]: 'model.chartTypeStep',
+  [TraceType.SURVIVAL]: 'model.chartTypeSurvival',
+  [TraceType.ICICLE]: 'model.chartTypeIcicle',
+  [TraceType.SUNBURST]: 'model.chartTypeSunburst',
+  [TraceType.TREE]: 'model.chartTypeTree',
+  [TraceType.PACK]: 'model.chartTypePack',
+  [TraceType.TREEMAP]: 'model.chartTypeTreemap',
+  [TraceType.VIOLIN_BOX]: 'model.chartTypeViolinBox',
+  [TraceType.VIOLIN_KDE]: 'model.chartTypeViolinKde',
+  [TraceType.MANHATTAN]: 'model.chartTypeManhattan',
+  [TraceType.VOLCANO]: 'model.chartTypeVolcano',
+  [TraceType.WATERFALL]: 'model.chartTypeWaterfall',
+  [TraceType.WORD_CLOUD]: 'model.chartTypeWordCloud',
 };
 
 /**
@@ -120,14 +129,14 @@ const CHART_TYPE_LABEL: Record<TraceType, string> = {
  * A free function beside the map because two callers need it and only one of
  * them holds a trace: `Figure.getSubplotSummaries` names the layers of panels
  * the reader has not entered, and has nothing but their {@link TraceType}. The
- * map is declared `Record<TraceType, string>`, so every member has an entry and
- * a lookup cannot miss.
+ * map is declared `Record<TraceType, MessageKey>`, so every member has an entry
+ * and a lookup cannot miss.
  *
  * @param type - The layer's trace type
  * @returns The label, e.g. `Scatter Plot` for {@link TraceType.SCATTER}
  */
 export function chartTypeLabel(type: TraceType): string {
-  return CHART_TYPE_LABEL[type];
+  return t(CHART_TYPE_LABEL[type]);
 }
 
 /**
@@ -506,7 +515,7 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    * Override to provide a trace-specific name (e.g., "ROW AND COLUMN NAVIGATION" for scatter).
    */
   public dataModeName(): string {
-    return Constant.DATA_MODE;
+    return t('rotor.dataMode');
   }
 
   /**
@@ -516,8 +525,8 @@ export abstract class AbstractPlot<State> implements Movable, Observable<State>,
    */
   public compareModeInfo(): CompareModeInfo {
     return {
-      lower: { label: Constant.LOWER_VALUE_MODE, noun: 'lower value' },
-      higher: { label: Constant.HIGHER_VALUE_MODE, noun: 'higher value' },
+      lower: { label: t('rotor.lowerValueMode'), noun: t('model.rotorNounLowerValue') },
+      higher: { label: t('rotor.higherValueMode'), noun: t('model.rotorNounHigherValue') },
     };
   }
 
@@ -548,10 +557,6 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   /** What this layer is, when the producer named it. See `MaidrLayer.name`. */
   protected readonly name: string | undefined;
 
-  protected readonly xAxis: string;
-  protected readonly yAxis: string;
-  protected readonly z: string;
-
   protected readonly layer: MaidrLayer;
 
   protected constructor(layer: MaidrLayer) {
@@ -564,10 +569,27 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     // the trace type, which is the better answer for a figure whose layers
     // differ in kind, and a default here would replace it with a placeholder.
     this.name = layer.name?.trim() || undefined;
+  }
 
-    this.xAxis = named(layer.axes?.x?.label, DEFAULT_X_AXIS);
-    this.yAxis = named(layer.axes?.y?.label, DEFAULT_Y_AXIS);
-    this.z = named(layer.axes?.z?.label, DEFAULT_Z_AXIS);
+  /**
+   * The x axis's name, falling back to a generic one the layer authored none.
+   *
+   * A getter rather than a field set in the constructor: the fallback is a
+   * translated word, and a trace outlives a language change — a name resolved
+   * once at construction would keep the language the chart was built in.
+   */
+  protected get xAxis(): string {
+    return named(this.layer.axes?.x?.label, t('model.defaultXAxis'));
+  }
+
+  /** The y axis's name, or a generic one. See {@link xAxis}. */
+  protected get yAxis(): string {
+    return named(this.layer.axes?.y?.label, t('model.defaultYAxis'));
+  }
+
+  /** The z axis's name, or a generic one. See {@link xAxis}. */
+  protected get z(): string {
+    return named(this.layer.axes?.z?.label, t('model.defaultZAxis'));
   }
 
   /**
@@ -652,7 +674,8 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
       type: 'trace',
       layerId: this.id,
       traceType: this.type,
-      plotType: this.type, // Default to traceType for other plot types
+      // Default to the trace type for plot types that do not name themselves.
+      plotType: plotTypeLabel(this.type),
       title: this.title,
       name: this.name,
       xAxis: this.xAxis,
@@ -922,7 +945,9 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
     // entry announcement has always spelled it -- "a maidr plot of type:
     // horizontal bar" -- and the dialog should not be the one surface that
     // does not.
-    return orientation === Orientation.HORIZONTAL ? 'horizontal' : 'vertical';
+    return orientation === Orientation.HORIZONTAL
+      ? t('model.orientationHorizontal')
+      : t('model.orientationVertical');
   }
 
   /**

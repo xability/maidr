@@ -1,6 +1,7 @@
 import type { ForestPoint, MaidrLayer } from '@type/grammar';
 import type { DescriptionState, TextState } from '@type/state';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { ErrorBarTrace, intervalWidth } from './errorBar';
 
@@ -110,26 +111,26 @@ export class ForestTrace extends ErrorBarTrace {
       return base;
     }
 
-    const isEstimateRow = base.section === 'value';
+    const isEstimateRow = base.section === t('model.errorBarSectionValue');
     if (!isEstimateRow) {
       // On a bound row the reader is reading the bound. Repeating the verdict
       // and the weight at every one of a study's three rows would bury the
       // number they navigated to.
       return point.pooled === true
-        ? { ...base, section: `pooled ${base.section}` }
+        ? { ...base, section: t('model.forestPooledSection', { section: base.section }) }
         : base;
     }
 
     const crosses = this.crossesNull(point);
-    const kind = point.pooled === true ? 'pooled estimate' : 'estimate';
+    const kind = t(point.pooled === true ? 'model.forestPooledEstimate' : 'model.forestEstimate');
     const verdict = crosses === null
       ? ''
-      : crosses ? ', crosses the null' : ', does not cross the null';
+      : t(crosses ? 'model.forestCrossesNull' : 'model.forestDoesNotCrossNull');
 
-    const state: TextState = { ...base, section: `${kind}${verdict}` };
+    const state: TextState = { ...base, section: t('model.forestSection', { kind, verdict }) };
 
     if (typeof point.weight === 'number' && Number.isFinite(point.weight)) {
-      state.z = { label: 'Weight', value: asPercent(point.weight) };
+      state.z = { label: t('model.asideWeight'), value: asPercent(point.weight) };
     }
 
     return state;
@@ -161,17 +162,18 @@ export class ForestTrace extends ErrorBarTrace {
       // as a description of the summary alone, with nothing saying so. That
       // is the leak the override exists to stop, at its most complete.
       .filter(stat => widths.length > 0
-        || (stat.label !== 'Narrowest interval' && stat.label !== 'Widest interval'))
+        || (stat.label !== t('model.statNarrowestInterval')
+          && stat.label !== t('model.statWidestInterval')))
       // Copied, so the rewrites below reach only this array and not the one
       // the parent built.
-      .map(stat => (stat.label === 'Number of points'
-        ? { label: 'Number of studies', value: evidence.length }
+      .map(stat => (stat.label === t('model.statNumberOfPoints')
+        ? { label: t('model.statNumberOfStudies'), value: evidence.length }
         : { ...stat }));
 
     for (const stat of stats) {
-      if (stat.label === 'Narrowest interval') {
+      if (stat.label === t('model.statNarrowestInterval')) {
         stat.value = MathUtil.safeMin(widths);
-      } else if (stat.label === 'Widest interval') {
+      } else if (stat.label === t('model.statWidestInterval')) {
         stat.value = MathUtil.safeMax(widths);
       }
     }
@@ -193,14 +195,22 @@ export class ForestTrace extends ErrorBarTrace {
       // inside a string -- a producer emitting 1.2799999999999998 otherwise
       // has all seventeen digits read out.
       const interval = Number.isFinite(pooled.yMin) && Number.isFinite(pooled.yMax)
-        ? ` (${defaultFormat(Number(pooled.yMin))} to ${defaultFormat(Number(pooled.yMax))})`
+        ? t('model.forestInterval', {
+            min: defaultFormat(Number(pooled.yMin)),
+            max: defaultFormat(Number(pooled.yMax)),
+          })
         : '';
       const verdict = crosses === null
         ? ''
-        : crosses ? ', crosses the null' : ', does not cross the null';
+        : t(crosses ? 'model.forestCrossesNull' : 'model.forestDoesNotCrossNull');
       stats.push({
-        label: 'Pooled estimate',
-        value: `${pooled.x}, ${defaultFormat(pooled.y)}${interval}${verdict}`,
+        label: t('model.statPooledEstimate'),
+        value: t('model.forestPooledValue', {
+          name: pooled.x,
+          value: defaultFormat(pooled.y),
+          interval,
+          verdict,
+        }),
       });
     }
 
@@ -210,7 +220,7 @@ export class ForestTrace extends ErrorBarTrace {
       // a reader cannot tell whether an estimate of 1.28 is a 28% increase
       // over a null of 1 or a large effect over a null of 0 -- and so cannot
       // check a single one of them.
-      stats.push({ label: 'No-effect value', value: this.nullValue });
+      stats.push({ label: t('model.statNoEffectValue'), value: this.nullValue });
 
       // How many studies individually reached significance is the shape of
       // the evidence, and a reader cannot count it without walking every row
@@ -228,8 +238,8 @@ export class ForestTrace extends ErrorBarTrace {
       const crossing = decided.filter(point => this.crossesNull(point) === true);
       if (decided.length > 0) {
         stats.push({
-          label: 'Studies crossing the null',
-          value: `${crossing.length} of ${decided.length}`,
+          label: t('model.statStudiesCrossingNull'),
+          value: t('model.countOfTotal', { count: crossing.length, total: decided.length }),
         });
       }
     }
@@ -241,8 +251,11 @@ export class ForestTrace extends ErrorBarTrace {
       // spread, and the announcement gives a weight per row without ever
       // saying where the mass is.
       stats.push({
-        label: 'Heaviest study',
-        value: `${heaviest.x}, ${asPercent(Number(heaviest.weight))}`,
+        label: t('model.statHeaviestStudy'),
+        value: t('model.nameWithValue', {
+          name: heaviest.x,
+          value: asPercent(Number(heaviest.weight)),
+        }),
       });
     }
 
@@ -304,8 +317,12 @@ export class ForestTrace extends ErrorBarTrace {
           : []),
         ...(this.nullValue === null
           ? []
-          : [crosses === null ? '' : crosses ? 'crosses' : 'does not cross']),
-        ...(hasPooled ? [study.pooled === true ? 'pooled' : 'study'] : []),
+          : [crosses === null
+              ? ''
+              : t(crosses ? 'model.forestCrosses' : 'model.forestDoesNotCross')]),
+        ...(hasPooled
+          ? [t(study.pooled === true ? 'model.forestRowPooled' : 'model.forestRowStudy')]
+          : []),
       ];
     });
 

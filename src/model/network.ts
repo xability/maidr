@@ -3,26 +3,51 @@ import type { Coordinate, Node } from '@type/movable';
 import type { PointCloudHighlightable } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Dimension, NearestPoint, RotorFilterUnit } from './abstract';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
 import { MovableGraph } from './movable';
 
-/** Rotor unit that steps through the nodes this one is linked to. */
-const LINK_ROTOR_UNIT: RotorFilterUnit = {
-  key: 'links',
-  label: 'Links',
-  noun: 'linked nodes',
-};
+/** The rotor unit's key, which the trace recognises a move request by. */
+const LINK_ROTOR_KEY = 'links';
+
+/**
+ * Rotor unit that steps through the nodes this one is linked to.
+ *
+ * Built per call rather than held as a constant, because its words are
+ * translated and the trace outlives a language change.
+ *
+ * @returns The unit, named in the active language
+ */
+function linkRotorUnit(): RotorFilterUnit {
+  return {
+    key: LINK_ROTOR_KEY,
+    label: t('model.rotorUnitLinks'),
+    noun: t('model.rotorNounLinkedNodes'),
+  };
+}
 
 /** How many names the description lists before it stops. */
 const NAMED_NODES = 5;
 
-/** What a node-link diagram calls its nodes when the layer names no x axis. */
-const NODE_AXIS = 'Node';
+/**
+ * What a node-link diagram calls its nodes when the layer names no x axis.
+ *
+ * @returns The label in the active language
+ */
+function nodeAxis(): string {
+  return t('model.tableNode');
+}
 
-/** And what it calls a node's degree when the layer names no y axis. */
-const LINK_AXIS = 'Links';
+/**
+ * And what it calls a node's degree when the layer names no y axis.
+ *
+ * @returns The label in the active language
+ */
+function linkAxis(): string {
+  return t('model.networkLinkAxis');
+}
 
 /** One node of the network. */
 interface NetworkNode {
@@ -322,7 +347,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * printed it -- a column of people's names headed `X`.
    */
   private get nodeLabel(): string {
-    return named(this.layer.axes?.x?.label, NODE_AXIS);
+    return named(this.layer.axes?.x?.label, nodeAxis());
   }
 
   /**
@@ -338,7 +363,7 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
    * renaming only half.
    */
   private get linkLabel(): string {
-    return named(this.layer.axes?.y?.label, LINK_AXIS);
+    return named(this.layer.axes?.y?.label, linkAxis());
   }
 
   protected get values(): number[][] {
@@ -394,14 +419,17 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     if (links === 0) {
       // An isolated node is a finding rather than an absence: it is drawn
       // sitting apart, and "no links" is what the picture shows.
-      asides.push({ label: 'Links', value: 'none' });
+      asides.push({ label: t('model.asideLinks'), value: t('model.networkNoLinks') });
     } else {
       // The degree, which is primary information on this chart -- the hub is
       // usually the whole point of drawing it.
       asides.push({
-        label: 'Links',
-        value: `${links}, to ${node.links.slice(0, 3).map(one => this.nodes[one].name).join(', ')}${
-          links > 3 ? ` and ${links - 3} more` : ''}`,
+        label: t('model.asideLinks'),
+        value: t('model.networkLinkList', {
+          count: links,
+          names: node.links.slice(0, 3).map(one => this.nodes[one].name).join(', '),
+          more: links > 3 ? t('model.networkAndMore', { count: links - 3 }) : '',
+        }),
       });
     }
 
@@ -410,8 +438,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // it a reader walking one component has no way to tell whether the
       // chart is that component or one of several.
       asides.push({
-        label: 'Group',
-        value: `${this.row + 1} of ${this.components.length}, ${this.grid[this.row].length} nodes`,
+        label: t('model.nounGroup'),
+        value: t('model.networkGroupPosition', {
+          index: this.row + 1,
+          total: this.components.length,
+          size: this.grid[this.row].length,
+        }),
       });
     }
 
@@ -446,14 +478,14 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
   public override getRotorFilterUnits(): readonly RotorFilterUnit[] {
     const inherited = super.getRotorFilterUnits();
     const linked = this.nodes.some(node => node.links.length > 0);
-    return linked ? [...inherited, LINK_ROTOR_UNIT] : inherited;
+    return linked ? [...inherited, linkRotorUnit()] : inherited;
   }
 
   public override moveToRotorFilter(
     key: string,
     direction: 'left' | 'right',
   ): boolean {
-    if (key !== LINK_ROTOR_UNIT.key) {
+    if (key !== LINK_ROTOR_KEY) {
       return super.moveToRotorFilter(key, direction);
     }
 
@@ -505,25 +537,25 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
     const grouped = this.components.length > 1;
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of nodes', value: this.nodes.length },
-      { label: 'Number of links', value: edges },
+      { label: t('model.statNumberOfNodes'), value: this.nodes.length },
+      { label: t('model.statNumberOfLinks'), value: edges },
     ];
 
     if (this.selfLinks > 0) {
       // Kept out of every degree on purpose, so the count above is short of
       // the lines the chart drew and a reader comparing the two would find
       // one missing with nothing to explain it.
-      stats.push({ label: 'Self links', value: this.selfLinks });
+      stats.push({ label: t('model.statSelfLinks'), value: this.selfLinks });
     }
 
-    stats.push({ label: 'Separate groups', value: this.components.length });
+    stats.push({ label: t('model.statSeparateGroups'), value: this.components.length });
 
     // The range the pitch is scaled against, so a reader hearing degree knows
     // what the two ends of the register mean. `Most connected` names the top
     // of it and nothing named the bottom, which leaves "Ada 4" with nothing
     // to be read against short of walking every node.
     stats.push({
-      label: 'Links per node',
+      label: t('model.statLinksPerNode'),
       value: MathUtil.spannedOrMissing(this.minDegree, this.maxDegree),
     });
 
@@ -536,8 +568,13 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // the one thing a reader walking node by node would have to hold every
       // degree in mind to find.
       stats.push({
-        label: 'Most connected',
-        value: hubs.map(node => `${node.name} ${node.links.length}`).join(', '),
+        label: t('model.statMostConnected'),
+        value: hubs
+          .map(node => t('model.networkNodeDegree', {
+            name: node.name,
+            count: node.links.length,
+          }))
+          .join(', '),
       });
     }
 
@@ -557,9 +594,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
         // bare "Group sizes: 5, 2" under "Separate groups: 3" reads as a third
         // size having been dropped, and a reader should not have to reconcile
         // it against the `Unconnected` line below to hear that it was not.
-        label: 'Linked group sizes',
+        label: t('model.statLinkedGroupSizes'),
         value: clusters.length > NAMED_NODES
-          ? `${shown}, and ${clusters.length - NAMED_NODES} more`
+          ? t('model.networkAndMoreList', {
+              shown,
+              count: clusters.length - NAMED_NODES,
+            })
           : shown,
       });
     }
@@ -570,10 +610,14 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       // of fifty that had lost forty-five of its names.
       const shown = isolated.slice(0, NAMED_NODES).map(node => node.name).join(', ');
       stats.push({
-        label: 'Unconnected',
+        label: t('model.statUnconnected'),
         value: isolated.length > NAMED_NODES
-          ? `${isolated.length}: ${shown}, and ${isolated.length - NAMED_NODES} more`
-          : `${isolated.length}: ${shown}`,
+          ? t('model.networkIsolatedListMore', {
+              count: isolated.length,
+              shown,
+              more: isolated.length - NAMED_NODES,
+            })
+          : t('model.networkIsolatedList', { count: isolated.length, shown }),
       });
     }
 
@@ -583,7 +627,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
       axes: this.getDescriptionAxes(),
       stats,
       dataTable: {
-        headers: [this.nodeLabel, this.linkLabel, ...(grouped ? ['Group'] : []), 'Linked to'],
+        headers: [
+          this.nodeLabel,
+          this.linkLabel,
+          ...(grouped ? [t('model.nounGroup')] : []),
+          t('model.tableLinkedTo'),
+        ],
         // The node sits on x and its degree on y, as `text` announces them.
         // `Group` is a position among the components and `Linked to` is
         // several names joined into one cell rather than one x reading, so
@@ -601,7 +650,12 @@ export class NetworkTrace extends AbstractTrace implements PointCloudHighlightab
             return [
               node.name,
               node.links.length,
-              ...(grouped ? [`${component + 1} of ${this.components.length}`] : []),
+              ...(grouped
+                ? [t('model.networkGroupCell', {
+                    index: component + 1,
+                    total: this.components.length,
+                  })]
+                : []),
               node.links.map(one => this.nodes[one].name).join(', '),
             ];
           })),

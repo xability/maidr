@@ -1,11 +1,13 @@
 import type { Disposable } from '@type/disposable';
 import type { Observer } from '@type/observable';
 import type { AudioState, PlotState, PointerGuidanceState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { AudioPaletteEntry } from './audioPalette';
 import type { NotificationService } from './notification';
 import type { SettingsService } from './settings';
 import { TraceType } from '@type/grammar';
 import { clampEchoCount, clampEchoDuration } from '@type/settings';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { AudioPaletteIndex, AudioPaletteService } from './audioPalette';
 import { resolvePointerGuidanceBeep } from './pointerGuidance';
@@ -71,6 +73,17 @@ enum AudioMode {
   SEPARATE = 'on',
   COMBINED = 'combined',
 }
+
+/**
+ * The word each audio mode is announced by, as a message key. The enum values
+ * are the English words themselves, so this is what keeps the announcement
+ * translatable without renaming the modes.
+ */
+const AUDIO_MODE_MESSAGE_KEY: Record<AudioMode, MessageKey> = {
+  [AudioMode.OFF]: 'notification.audioModeOff',
+  [AudioMode.SEPARATE]: 'notification.audioModeOn',
+  [AudioMode.COMBINED]: 'notification.audioModeCombined',
+};
 
 enum AudioSettings {
   VOLUME = 'general.volume',
@@ -1718,9 +1731,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
 
     const mode
       = this.isCombinedAudio && this.mode === AudioMode.SEPARATE
-        ? 'separate'
-        : this.mode;
-    const message = `Sound is ${mode}`;
+        ? t('notification.audioModeSeparate')
+        : t(AUDIO_MODE_MESSAGE_KEY[this.mode]);
+    const message = t('notification.soundIs', { mode });
     this.notification.notify(message);
   }
 

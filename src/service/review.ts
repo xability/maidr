@@ -6,6 +6,7 @@ import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { Emitter, Scope } from '@type/event';
+import { t } from '@util/i18n';
 
 /**
  * Event data emitted when the review content changes.
@@ -74,8 +75,7 @@ export class ReviewService implements Observer<PlotState>, Disposable {
    */
   public toggle(state: PlotState): void {
     if (state.empty) {
-      const noInfo = 'No info for review';
-      this.notification.notify(noInfo);
+      this.notification.notify(t('text.noInfoForReview'));
       return;
     }
 
@@ -83,7 +83,7 @@ export class ReviewService implements Observer<PlotState>, Disposable {
     this.update(state);
     this.display.toggleFocus(Scope.REVIEW);
 
-    const message = `Review is ${this.enabled ? 'on' : 'off'}`;
-    this.notification.notify(message);
+    const mode = this.enabled ? t('text.reviewOn') : t('text.reviewOff');
+    this.notification.notify(t('text.reviewMode', { mode }));
   }
 }

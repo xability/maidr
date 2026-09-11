@@ -87,6 +87,7 @@ const DOC_TITLES = {
   BRAILLE: 'Braille Generation',
   CONTROLS: 'Keyboard Controls',
   LIVE_DATA: 'Live & Streaming Data',
+  LOCALIZATION: 'Languages',
   TACTILE_DISPLAY: 'Tactile Graphics Display',
   VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
 };
@@ -117,6 +118,7 @@ const PAGE_DESCRIPTIONS = {
   'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
   'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
   'Keyboard Controls': 'Keyboard controls reference for MAIDR: moving through data points, switching between braille, text and sonification modes, and opening the help and chat menus.',
+  'Languages': 'How to choose the language MAIDR speaks, English or Korean, how the Korean particle placeholders work, and how to add a new language dictionary.',
   'Live & Streaming Data': 'How to update MAIDR charts in realtime: setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
   'Tactile Graphics Display': 'How MAIDR renders charts on the Dot Pad X tactile graphics display over Bluetooth or USB, with the keyboard controls and setup steps the tactile mode needs.',
   'Violin Plot Specification': 'Technical specification for MAIDR violin plots: the KDE and box layer data structures, how each layer is navigated and sonified, and a backend checklist.',

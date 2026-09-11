@@ -2,11 +2,14 @@ import type { ExtremaTarget } from '@type/extrema';
 import type { MaidrLayer, SegmentedPoint } from '@type/grammar';
 import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { AbstractBarPlot, isMeasured, MISSING_TEXT } from './bar';
+import { AbstractBarPlot, isMeasured, missingText } from './bar';
 
-const SUM = 'Sum';
+function sumLabel(): string {
+  return t('model.asideSum');
+}
 
 /**
  * Whether a cell is one the chart library may have left out of the DOM.
@@ -52,12 +55,12 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         ? {
             x: this.points[0][i].x,
             y: sum,
-            z: SUM,
+            z: sumLabel(),
           }
         : {
             x: sum,
             y: this.points[0][i].y,
-            z: SUM,
+            z: sumLabel(),
           };
       summaryPoints.push(point);
     }
@@ -121,7 +124,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     // Add max target
     targets.push({
-      label: `Max ${groupLabel} at ${maxCategoryLabel}`,
+      label: t('model.extremaMaxGroupAt', { group: groupLabel, category: maxCategoryLabel }),
       value: groupMax,
       pointIndex: maxIndex,
       segment: groupLabel,
@@ -134,7 +137,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
     // Add min target
     targets.push({
-      label: `Min ${groupLabel} at ${minCategoryLabel}`,
+      label: t('model.extremaMinGroupAt', { group: groupLabel, category: minCategoryLabel }),
       value: groupMin,
       pointIndex: minIndex,
       segment: groupLabel,
@@ -188,7 +191,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
    */
   private seriesNameAt(index: number): string {
     return this.points[index]?.find(point => point.z?.trim())?.z?.trim()
-      ?? `Series ${index + 1}`;
+      ?? t('model.nounSeriesNumbered', { index: index + 1 });
   }
 
   private getGroupLabel(groupIndex: number): string {
@@ -197,16 +200,19 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
 
       // Check if this is the summary level
       if (groupIndex === this.barValues.length - 1) {
-        return 'Total';
+        return t('model.segmentedTotalGroup');
       }
 
       // For dodged/stacked plots, use the z value as group identifier
       if (firstPoint.z) {
-        return `${this.getZAxisLabel()}: '${firstPoint.z}'`;
+        return t('model.segmentedGroupNamed', {
+          axis: this.getZAxisLabel(),
+          value: firstPoint.z,
+        });
       }
     }
 
-    return `Group ${groupIndex}`;
+    return t('model.fallbackGroupIndexed', { index: groupIndex });
   }
 
   /**
@@ -223,7 +229,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         return `${point.y}`;
       }
     }
-    return `Category ${categoryIndex}`;
+    return t('model.fallbackCategory', { index: categoryIndex });
   }
 
   /**
@@ -270,31 +276,39 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // dodged chart draws twelve and reported four.
     const zLabel = this.layer.axes?.z?.label?.trim();
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of categories', value: this.points[0].length },
-      { label: 'Number of series', value: dataPoints.length },
-      { label: 'Number of segments', value: segmentValues.flat().length },
+      { label: t('model.statNumberOfCategories'), value: this.points[0].length },
+      { label: t('model.statNumberOfSeries'), value: dataPoints.length },
+      { label: t('model.statNumberOfSegments'), value: segmentValues.flat().length },
       // Over the segments alone: `barValues` carries a synthetic Total row, so
       // the inherited range spanned a number no drawn bar has.
-      ...this.rangeStats('segment value', segmentValues),
+      ...this.rangeStats(
+        { min: 'model.statMinSegmentValue', max: 'model.statMaxSegmentValue' },
+        segmentValues,
+      ),
       // A fixed word when the layer authored no z label, rather than the
       // 'Level' placeholder `getDescriptionAxes` is careful to suppress.
-      { label: zLabel ? `${zLabel} categories` : 'Series names', value: seriesNames.join(', ') },
+      {
+        label: zLabel
+          ? t('model.statAxisCategoriesNamed', { axis: zLabel })
+          : t('model.statSeriesNamesFallback'),
+        value: seriesNames.join(', '),
+      },
     ];
 
     const measuredTotals = totals.filter(isMeasured);
     if (measuredTotals.length > 0) {
-      stats.push({ label: 'Largest bar total', value: MathUtil.safeMax(measuredTotals) });
-      stats.push({ label: 'Smallest bar total', value: MathUtil.safeMin(measuredTotals) });
+      stats.push({ label: t('model.statLargestBarTotal'), value: MathUtil.safeMax(measuredTotals) });
+      stats.push({ label: t('model.statSmallestBarTotal'), value: MathUtil.safeMin(measuredTotals) });
     }
 
     const gaps = segmentValues.flat().filter(value => !isMeasured(value)).length;
     if (gaps > 0) {
-      stats.push({ label: 'Segments with no value', value: gaps });
+      stats.push({ label: t('model.statSegmentsWithNoValue'), value: gaps });
     }
 
     const headers = isVertical
-      ? [this.xAxis, this.yAxis, zLabel ?? 'Series']
-      : [this.yAxis, this.xAxis, zLabel ?? 'Series'];
+      ? [this.xAxis, this.yAxis, zLabel ?? t('model.nounSeries')]
+      : [this.yAxis, this.xAxis, zLabel ?? t('model.nounSeries')];
 
     // Swapped on the same condition as the headers above, so the two cannot
     // fall out of step: the category column sits on whichever axis carries the
@@ -317,7 +331,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
         const value = this.barValues[index]?.[col];
         return [
           main,
-          isMeasured(value) ? value : MISSING_TEXT,
+          isMeasured(value) ? value : missingText(),
           this.seriesNameAt(index),
         ];
       }),

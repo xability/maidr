@@ -1,3 +1,4 @@
+import { useLocale } from '@state/hook/useLocale';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
 import { DomEventType } from '@type/event';
 import { Constant } from '@util/constant';
@@ -5,6 +6,7 @@ import React, { useEffect, useId, useRef } from 'react';
 
 const Braille: React.FC = () => {
   const id = useId();
+  const { t } = useLocale();
   const viewModel = useViewModel('braille');
   const { value, index, displaySize, displayLines } = useViewModelState('braille');
 
@@ -64,7 +66,7 @@ const Braille: React.FC = () => {
     // announce "edit braille app" and broke arrow-key cursor movement.
     // Browse-mode suppression for sibling content is not a concern here
     // because the textarea is the sole interactive child.
-    <div id={id} role="application" aria-label="Braille display">
+    <div id={id} role="application" aria-label={t('notification.brailleDisplay')}>
       <textarea
         id={`${Constant.BRAILLE_TEXT_AREA}-${id}`}
         ref={brailleRef}

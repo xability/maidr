@@ -3,12 +3,14 @@ import type { ErrorBarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
 import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { AbstractTrace, named } from './abstract';
-import { MISSING_TEXT } from './bar';
+import { missingText } from './bar';
 import { MovableGrid } from './movable';
 
 /**
@@ -30,10 +32,10 @@ type Section = (typeof SECTIONS)[number];
  * would therefore be silently undone in verbose mode and kept in terse mode,
  * so the same bound would read two different ways.
  */
-const SECTION_LABEL: Record<Section, string> = {
-  lower: 'lower bound',
-  value: 'value',
-  upper: 'upper bound',
+const SECTION_LABEL: Record<Section, MessageKey> = {
+  lower: 'model.errorBarSectionLower',
+  value: 'model.errorBarSectionValue',
+  upper: 'model.errorBarSectionUpper',
 };
 
 /**
@@ -416,7 +418,7 @@ export class ErrorBarTrace extends AbstractTrace {
     }
     const authored = this.groups[group]?.[0]?.z;
     return authored === undefined || authored === null || authored === ''
-      ? `Group ${group + 1}`
+      ? t('model.fallbackNumbered', { noun: t('model.nounGroup'), index: group + 1 })
       : String(authored);
   }
 
@@ -436,7 +438,10 @@ export class ErrorBarTrace extends AbstractTrace {
     if (authored === undefined || authored === null || authored === '') {
       return undefined;
     }
-    return { label: named(this.layer.axes?.z?.label, 'Group'), value: String(authored) };
+    return {
+      label: named(this.layer.axes?.z?.label, t('model.nounGroup')),
+      value: String(authored),
+    };
   }
 
   protected get text(): TextState {
@@ -449,7 +454,7 @@ export class ErrorBarTrace extends AbstractTrace {
       return {
         main: { label: isHorizontal ? this.yAxis : this.xAxis, value: '' },
         cross: { label: isHorizontal ? this.xAxis : this.yAxis, value: '' },
-        section: SECTION_LABEL[section],
+        section: t(SECTION_LABEL[section]),
         mainAxis: isHorizontal ? 'y' : 'x',
         crossAxis: isHorizontal ? 'x' : 'y',
       };
@@ -464,7 +469,7 @@ export class ErrorBarTrace extends AbstractTrace {
       // The same field the box plot and the candlestick use to say which of a
       // point's several magnitudes is being read. Without it "3.8" and "4.6"
       // at one x are indistinguishable from two samples.
-      section: SECTION_LABEL[section],
+      section: t(SECTION_LABEL[section]),
       // Which real axis each value came from, so the formatter service picks
       // the right per-axis format. It defaults to x/y when absent, which is
       // silently wrong for a horizontal layer whose two axes format
@@ -487,14 +492,14 @@ export class ErrorBarTrace extends AbstractTrace {
       .map(withoutFloatNoise);
 
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of points', value: this.points.length },
+      { label: t('model.statNumberOfPoints'), value: this.points.length },
       // `minMax` answers Infinity and -Infinity for a layer with nothing
       // measured -- a `data: []` layer, or one whose points carry no
       // magnitude at all -- and the dialog speaks those as words rather than
       // blanking them: "Min value is infinity" about a chart that drew
       // nothing. `missing` is what the rest of the library says here.
-      { label: 'Min value', value: isMeasured(this.min) ? this.min : MISSING_TEXT },
-      { label: 'Max value', value: isMeasured(this.max) ? this.max : MISSING_TEXT },
+      { label: t('model.statMinValue'), value: isMeasured(this.min) ? this.min : missingText() },
+      { label: t('model.statMaxValue'), value: isMeasured(this.max) ? this.max : missingText() },
     ];
 
     // Reported only where the chart draws a bound as well. The pair above
@@ -510,7 +515,7 @@ export class ErrorBarTrace extends AbstractTrace {
         .flatMap((_group, index) => this.sectionValues[this.valueRowOf(index)])
         .filter(isMeasured);
       stats.push({
-        label: 'Estimate range',
+        label: t('model.statEstimateRange'),
         value: MathUtil.spannedOrMissing(
           MathUtil.safeMin(estimates),
           MathUtil.safeMax(estimates),
@@ -524,8 +529,8 @@ export class ErrorBarTrace extends AbstractTrace {
       // per-section ranges above: those describe the bounds across the whole
       // chart, not the spread at any one sample.
       stats.push(
-        { label: 'Narrowest interval', value: MathUtil.safeMin(widths) },
-        { label: 'Widest interval', value: MathUtil.safeMax(widths) },
+        { label: t('model.statNarrowestInterval'), value: MathUtil.safeMin(widths) },
+        { label: t('model.statWidestInterval'), value: MathUtil.safeMax(widths) },
       );
     }
 
@@ -535,21 +540,22 @@ export class ErrorBarTrace extends AbstractTrace {
     // written down. Added only when there is more than one group, so an
     // ungrouped chart's table keeps the columns it had.
     const grouped = this.groups.length > 1;
-    const groupLabel = named(this.layer.axes?.z?.label, 'Group');
+    const groupLabel = named(this.layer.axes?.z?.label, t('model.nounGroup'));
     const groupNames = this.groups.map(
-      (_group, index) => this.groupNameAt(index) ?? `Group ${index + 1}`,
+      (_group, index) => this.groupNameAt(index)
+        ?? t('model.fallbackNumbered', { noun: t('model.nounGroup'), index: index + 1 }),
     );
 
     if (grouped) {
       stats.splice(
         1,
         0,
-        { label: 'Number of groups', value: this.groups.length },
+        { label: t('model.statNumberOfGroups'), value: this.groups.length },
         // `Number of points` is the flattened total across the groups, so the
         // count alone leaves a reader knowing there are two series and six
         // samples and nothing about which series -- while the announcement
         // names one on every move. The same pair {@link LineTrace} reports.
-        { label: 'Group names', value: groupNames.join(', ') },
+        { label: t('model.statGroupNames'), value: groupNames.join(', ') },
       );
     }
 
@@ -573,8 +579,8 @@ export class ErrorBarTrace extends AbstractTrace {
       ...(grouped ? [groupLabel] : []),
       categoryLabel,
       ...(shows('value') ? [valueLabel] : []),
-      ...(shows('lower') ? ['Lower'] : []),
-      ...(shows('upper') ? ['Upper'] : []),
+      ...(shows('lower') ? [t('model.tableLower')] : []),
+      ...(shows('upper') ? [t('model.tableUpper')] : []),
     ];
     // Built from the same conditions the headers are, so the two cannot come
     // apart: the group column is the z the legend is read off, the category
@@ -731,11 +737,16 @@ export class ErrorBarTrace extends AbstractTrace {
   ): ExtremaTarget {
     const point = this.groups[found.groupIndex][found.index];
     const group = this.groupNameAt(found.groupIndex);
-    const where = group === undefined ? `${point.x}` : `${point.x}, ${group}`;
-    const what = SECTION_LABEL[found.section];
+    const where = group === undefined
+      ? `${point.x}`
+      : t('model.errorBarWhere', { x: point.x, group });
+    const what = t(SECTION_LABEL[found.section]);
 
     return {
-      label: `${type === 'max' ? 'Max' : 'Min'} ${what} at ${where}`,
+      label: t(
+        type === 'max' ? 'model.extremaMaxSectionAt' : 'model.extremaMinSectionAt',
+        { section: what, where },
+      ),
       value: found.value,
       pointIndex: found.index,
       groupIndex: found.groupIndex,

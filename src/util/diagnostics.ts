@@ -1,3 +1,5 @@
+import type { Locale } from './i18n';
+import { getLocale, tIn } from './i18n';
 import { MAIDR_VERSION } from './version';
 
 /**
@@ -232,21 +234,36 @@ export function detectMaidrSource(): MaidrSource {
 }
 
 /**
- * Renders a source as a short label for the settings dialog.
+ * Renders a source as a short label in a given language.
+ *
+ * Taking the locale rather than reading the active one is what lets the
+ * clipboard block stay English while the dialog above it is translated: the
+ * block is read by a maintainer, not by the reader who copied it.
+ * @param locale - The language to render the label in.
  * @param source - The detected bundle source.
  * @returns A label such as `CDN` or `Local assets`.
  */
-export function describeMaidrSource(source: MaidrSource): string {
+function describeMaidrSourceIn(locale: Locale, source: MaidrSource): string {
   switch (source.kind) {
     case 'cdn':
+      // A proper noun in every language MAIDR speaks.
       return 'CDN';
     case 'local':
-      return 'Local assets';
+      return tIn(locale, 'settings.sourceLocal');
     case 'inline':
-      return 'Embedded in the page';
+      return tIn(locale, 'settings.sourceInline');
     case 'unknown':
-      return 'Unknown';
+      return tIn(locale, 'settings.sourceUnknown');
   }
+}
+
+/**
+ * Renders a source as a short label for the settings dialog.
+ * @param source - The detected bundle source.
+ * @returns A label such as `CDN` or `Local assets`, in the active language.
+ */
+export function describeMaidrSource(source: MaidrSource): string {
+  return describeMaidrSourceIn(getLocale(), source);
 }
 
 /**
@@ -313,9 +330,12 @@ export function redactScriptUrl(url: string): string | null {
 export function formatDiagnostics(diagnostics: Diagnostics): string {
   const { version, browser, operatingSystem, source, userAgent } = diagnostics;
   const redactedUrl = source.url ? redactScriptUrl(source.url) : null;
+  // English regardless of the reader's language: this block is pasted into a
+  // bug report for a maintainer.
+  const sourceLabel = describeMaidrSourceIn('en', source);
   const loadedFrom = redactedUrl
-    ? `${describeMaidrSource(source)} (${redactedUrl})`
-    : describeMaidrSource(source);
+    ? `${sourceLabel} (${redactedUrl})`
+    : sourceLabel;
 
   return [
     'MAIDR diagnostics',

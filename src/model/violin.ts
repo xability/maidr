@@ -5,6 +5,7 @@ import type { AudioState, AutoplayState, BrailleState, DescriptionState, TextSta
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation } from '@type/grammar';
 import { defaultFormat } from '@util/format';
+import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
@@ -171,7 +172,9 @@ export class ViolinKdeTrace extends AbstractTrace {
   public get description(): DescriptionState {
     const violinNames = this.points.map((row, i) => {
       const firstPoint = row[0];
-      return typeof firstPoint?.x === 'string' ? firstPoint.x : `Violin ${i + 1}`;
+      return typeof firstPoint?.x === 'string'
+        ? firstPoint.x
+        : t('model.fallbackNumbered', { noun: t('model.nounViolin'), index: i + 1 });
     });
 
     // Across every curve, not the first one's length: every other read in the
@@ -183,12 +186,14 @@ export class ViolinKdeTrace extends AbstractTrace {
 
     const isHorizontal = this.orientation === Orientation.HORIZONTAL;
     const stats: DescriptionState['stats'] = [
-      { label: 'Number of violins', value: this.points.length },
+      { label: t('model.statNumberOfViolins'), value: this.points.length },
       {
-        label: 'Points per curve',
-        value: shortest === longest ? longest : `${shortest} to ${longest}`,
+        label: t('model.statPointsPerCurve'),
+        value: shortest === longest
+          ? longest
+          : t('model.spanRange', { min: shortest, max: longest }),
       },
-      { label: 'Violin names', value: violinNames.join(', ') },
+      { label: t('model.statViolinNames'), value: violinNames.join(', ') },
     ];
 
     // Where each curve is fattest, and how far it runs -- the two things a
@@ -200,16 +205,19 @@ export class ViolinKdeTrace extends AbstractTrace {
       .filter((entry): entry is { violin: number; mode: number } => entry.mode !== null);
     if (peaks.length > 0) {
       stats.push({
-        label: 'Peak of each violin',
+        label: t('model.statPeakOfEachViolin'),
         value: peaks
-          .map(({ violin, mode }) => `${violinNames[violin]} at ${defaultFormat(mode)}`)
+          .map(({ violin, mode }) => t('model.nameAtValue', {
+            name: violinNames[violin],
+            value: defaultFormat(mode),
+          }))
           .join(', '),
       });
     }
     const allY = this.yValues.flat().filter(Number.isFinite);
     if (allY.length > 0) {
       stats.push({
-        label: `${isHorizontal ? this.xAxis : this.yAxis} range`,
+        label: t('model.statAxisRange', { axis: isHorizontal ? this.xAxis : this.yAxis }),
         value: MathUtil.spannedOrMissing(MathUtil.safeMin(allY), MathUtil.safeMax(allY)),
       });
     }
@@ -219,7 +227,7 @@ export class ViolinKdeTrace extends AbstractTrace {
     const headers = [
       isHorizontal ? this.yAxis : this.xAxis,
       isHorizontal ? this.xAxis : this.yAxis,
-      'Density',
+      t('model.tableDensity'),
     ];
     // Sampled, not dumped. A curve arrives with of the order of a hundred
     // samples, so the full cross product filled the dialog's first page with
@@ -568,7 +576,7 @@ export class ViolinKdeTrace extends AbstractTrace {
       const firstInRow = this.points[this.row][0];
       categoricalValue = typeof firstInRow?.x === 'string'
         ? firstInRow.x
-        : `Violin ${this.row + 1}`;
+        : t('model.fallbackNumbered', { noun: t('model.nounViolin'), index: this.row + 1 });
     }
 
     const roundedY = roundTo4(Number(currentPoint.y));
@@ -587,7 +595,7 @@ export class ViolinKdeTrace extends AbstractTrace {
       ? roundTo4(currentPoint.width)
       : undefined;
     if (roundedWidth !== undefined) {
-      textState.z = { label: 'volume', value: String(roundedWidth) };
+      textState.z = { label: t('model.asideVolume'), value: String(roundedWidth) };
     }
 
     return textState;
