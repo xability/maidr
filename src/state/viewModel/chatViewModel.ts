@@ -91,10 +91,10 @@ const chatSlice = createSlice({
       }),
     },
     addPendingResponse: {
-      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string; text: string }>) => {
         state.messages.push({
           id: action.payload.id,
-          text: t('llm.processing'),
+          text: action.payload.text,
           isUser: false,
           model: action.payload.model,
           timestamp: action.payload.timestamp,
@@ -102,9 +102,15 @@ const chatSlice = createSlice({
         });
       },
       // The model stays in the id, where it has always been, because it is what
-      // makes a pending response identifiable in devtools.
+      // makes a pending response identifiable in devtools. The placeholder text
+      // is rendered here too: it depends on the active language, which is
+      // state the reducer must not read.
       prepare: (response: { model: Llm; timestamp: string }) => ({
-        payload: { ...response, id: `${nextId('resp')}-${response.model}` },
+        payload: {
+          ...response,
+          id: `${nextId('resp')}-${response.model}`,
+          text: t('llm.processing'),
+        },
       }),
     },
     updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
@@ -117,15 +123,25 @@ const chatSlice = createSlice({
         message.status = 'SUCCESS';
       }
     },
-    updateError: (state, action: PayloadAction<{ model: Llm; error: string; timestamp: string }>) => {
-      const message = state.messages.find(m =>
-        m.model === action.payload.model
-        && m.timestamp === action.payload.timestamp,
-      );
-      if (message) {
-        message.text = t('llm.messageError', { error: action.payload.error });
-        message.status = 'FAILED';
-      }
+    updateError: {
+      reducer: (state, action: PayloadAction<{ model: Llm; text: string; timestamp: string }>) => {
+        const message = state.messages.find(m =>
+          m.model === action.payload.model
+          && m.timestamp === action.payload.timestamp,
+        );
+        if (message) {
+          message.text = action.payload.text;
+          message.status = 'FAILED';
+        }
+      },
+      // Rendered before dispatch for the same reason as the pending text above.
+      prepare: (failure: { model: Llm; error: string; timestamp: string }) => ({
+        payload: {
+          model: failure.model,
+          timestamp: failure.timestamp,
+          text: t('llm.messageError', { error: failure.error }),
+        },
+      }),
     },
     updateSuggestions: (state, action: PayloadAction<Suggestion[]>) => {
       state.suggestions = action.payload;
