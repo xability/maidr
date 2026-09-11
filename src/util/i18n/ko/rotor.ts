@@ -9,7 +9,7 @@ export const rotor = {
   'rotor.gridMode': '격자 탐색',
   'rotor.intersectionMode': '교차점 탐색',
   'rotor.pointMode': '점 탐색',
-  'rotor.gridModeDimensions': '격자 탐색: {rows}×{cols} 격자',
+  'rotor.gridModeDimensions': '격자 탐색: {rows}행 {cols}열 격자',
 
   // Directions, and the nouns the boundary messages name.
   'rotor.directionAbove': '위쪽',

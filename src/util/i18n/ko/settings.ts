@@ -63,12 +63,12 @@ export const settings = {
   'settings.tactileConnectedBluetooth': '{device}에 Bluetooth로 연결되었습니다. 차트에서 b 키를 누르면 표시됩니다.',
   'settings.tactileConnectedUsb': '{device}에 USB로 연결되었습니다. 차트에서 b 키를 누르면 표시됩니다.',
   'settings.tactileGenericDevice': '촉각 디스플레이',
-  'settings.tactileConnecting': '연결 중…',
-  'settings.tactileRetry': '{message} 장치를 다시 선택하면 재시도합니다.',
+  'settings.tactileConnecting': '연결 중...',
+  'settings.tactileRetry': '{message} 다시 시도하려면 장치를 다시 선택하세요.',
   'settings.tactileNotConnected': '연결되지 않았습니다.',
 
-  'settings.braillePresetSingle': '{label} — {manufacturer} ({cells} 셀)',
-  'settings.braillePresetMulti': '{label} — {manufacturer} ({lines} 줄 × {cells} 셀)',
+  'settings.braillePresetSingle': '{label}, {manufacturer} ({cells}셀)',
+  'settings.braillePresetMulti': '{label}, {manufacturer} ({lines}줄 {cells}셀)',
 
   'settings.enableProvider': '{name} 사용',
   'settings.providerApiKey': '{name} API 키',

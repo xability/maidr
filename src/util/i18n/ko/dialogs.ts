@@ -44,11 +44,11 @@ export const dialogs = {
   'dialogs.extremaValueAt': '{label} 값 {value}, 위치 {x}',
   'dialogs.extremaValue': '{label} 값 {value}',
 
-  'dialogs.extremaMovedToSearch': '검색으로 이동했습니다. X 값을 거르려면 입력하세요.',
+  'dialogs.extremaMovedToSearch': '검색으로 이동했습니다. 입력하여 X 값을 필터링하세요.',
   'dialogs.extremaFirstOption': '첫 번째 항목입니다',
   'dialogs.extremaNoResults': '검색 결과가 없습니다',
   'dialogs.extremaLastResult': '마지막 검색 결과입니다',
-  'dialogs.extremaSelectedResult': '선택함, {label}',
+  'dialogs.extremaSelectedResult': '{label|을를} 선택했습니다',
   'dialogs.extremaReturningTo': '이동 대상 목록으로 돌아갑니다, {label}',
   'dialogs.extremaReturning': '이동 대상 목록으로 돌아갑니다',
 } satisfies Partial<Record<MessageKey, string>>;

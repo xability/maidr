@@ -1,7 +1,7 @@
 import type { MessageKey } from '../index';
 
 export const llm = {
-  'llm.welcome': '차트 도우미에 오신 것을 환영합니다. 아래 드롭다운에서 원하는 AI 모델을 선택하고 바꿀 수 있습니다. 현재 사용 중인 모델: {models}.',
+  'llm.welcome': '차트 도우미에 오신 것을 환영합니다. 아래 드롭다운에서 원하는 AI 모델을 선택하고 바꿀 수 있습니다. 현재 사용 설정된 모델: {models}.',
   'llm.welcomeNoAgents': '사용 설정된 에이전트가 없습니다. 설정 페이지에서 에이전트를 하나 이상 사용 설정하고 API 키를 입력하거나 로컬 Ollama 서버를 지정하세요.',
   'llm.processing': '요청을 처리하고 있습니다...',
   'llm.messageError': '오류: {error}',

@@ -9,7 +9,7 @@ export const text = {
   'text.rangeThrough': '{min}부터 {max}까지',
   'text.sectionLabel': '{section} {label}',
   'text.plotOfType': '{type} 그래프',
-  'text.gridCell': '셀 {row}행 {col}열',
+  'text.gridCell': '{row}행 {col}열 칸',
 
   // Layer navigation and the states with nothing to read.
   'text.layerOfSize': '레이어 {size}개 중 {index}: {identity}',
@@ -51,7 +51,7 @@ export const text = {
   'text.terseOutliers': '{value}, {section} {count}개 {values}',
 
   // Share of a stack, and the uncertainty around a value.
-  'text.shareOfTotal': '그중 {percent}%',
+  'text.shareOfTotal': '전체의 {percent}%',
   'text.intervalRange': '구간 {min}부터 {max}까지',
   'text.intervalFrom': '구간 {min}부터',
   'text.intervalUpTo': '구간 {max}까지',
@@ -61,7 +61,7 @@ export const text = {
   'text.pointIsOne': '점 {points}',
   'text.pointsAreMany': '점 {points}',
   'text.tersePoints': '점 {points}',
-  'text.noPointsInCell': '이 셀에는 점이 없습니다',
+  'text.noPointsInCell': '이 칸에는 점이 없습니다',
 
   // Edges of the data and of the lobby.
   'text.noMoreData': '데이터 끝',
@@ -97,9 +97,9 @@ export const text = {
   // Label announcements. The trailing space of `text.subplotPrefix` is part of
   // the message: it is prepended to an announcement rather than joined with one.
   'text.subplotPrefix': '서브플롯 {index}, ',
-  'text.figureAxisLabelIs': '그림 {axis}축 이름은 {label}',
-  'text.axisLabelIs': '{axis}축 이름은 {label}',
-  'text.axisLabelUnavailable': '{axis}축 이름을 사용할 수 없습니다',
+  'text.figureAxisLabelIs': '그림 {axis}축 레이블은 {label}',
+  'text.axisLabelIs': '{axis}축 레이블은 {label}',
+  'text.axisLabelUnavailable': '{axis}축 레이블이 없습니다',
   'text.unavailable': '사용할 수 없음',
   'text.figureTitle': '그림 제목',
   'text.subplotTitleIndexed': '서브플롯 {index} 제목',
@@ -108,11 +108,11 @@ export const text = {
   'text.noTitleAvailable': '제목이 없습니다',
   'text.subtitle': '부제목',
   'text.noSubtitleAvailable': '부제목이 없습니다',
-  'text.caption': '자막',
-  'text.noCaptionAvailable': '자막이 없습니다',
+  'text.caption': '캡션',
+  'text.noCaptionAvailable': '캡션이 없습니다',
 
   // Position announcements.
-  'text.notInChart': '그래프 안이 아니어서 위치를 표시할 수 없습니다.',
+  'text.notInChart': '차트 안이 아니어서 위치를 표시할 수 없습니다.',
   'text.indexOfSize': '{size}개 중 {index}',
   'text.positionIs': '위치 {total}개 중 {position}',
   'text.positionIsColumnRow': '위치 열 {cols}개 중 {col}, 행 {rows}개 중 {row}',
@@ -122,14 +122,14 @@ export const text = {
   'text.violinOfTotal': '바이올린 {total}개 중 {index}',
   'text.seriesOfTotal': '{noun} {total}개 중 {index}',
   'text.seriesNounLine': '선',
-  'text.seriesNounObservation': '관측값',
-  'text.seriesNounCompetitor': '경쟁자',
+  'text.seriesNounObservation': '관측치',
+  'text.seriesNounCompetitor': '참가자',
   'text.seriesNounSeries': '계열',
   'text.columnRowPosition': '열 {cols}개 중 {col}, 행 {rows}개 중 {row}',
   'text.wholeCircle': '원 전체',
   'text.nearlyWholeCircle': '원 거의 전체',
   'text.atClockHour': '{hour}시 방향',
-  'text.fromClockHourTo': '{start}시부터 {end}시 방향까지',
+  'text.fromClockHourTo': '{start}시 방향부터 {end}시 방향까지',
 
   // Jumping to a layer's extreme value.
   'text.noMinimumValue': '이 레이어에는 이동할 최솟값이 없습니다',
