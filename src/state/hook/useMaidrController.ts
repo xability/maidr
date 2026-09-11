@@ -154,9 +154,17 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // Speak the stored language from the first render, so the activation
   // instruction a screen reader announces before any focus-in is already in
   // it; the controller's own SettingsService takes over once it exists.
-  useEffect(() => {
+  //
+  // Applied during render rather than in an effect: an effect runs after the
+  // first commit, and the label is computed in that first render, so the
+  // reader would meet one English frame before it changes. Setting a locale
+  // that is already active notifies nobody, so a second chart on the page
+  // costs nothing and re-renders nothing.
+  const languageApplied = useRef(false);
+  if (!languageApplied.current) {
+    languageApplied.current = true;
     applyStoredLanguage(new LocalStorageService());
-  }, []);
+  }
 
   // Register this chart with the live data manager so external producers
   // (script-tag consumers via window.maidrLive, or React prop updates routed
