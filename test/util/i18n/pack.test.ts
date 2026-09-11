@@ -93,4 +93,18 @@ describe('locale packs', () => {
     expect(first).toHaveBeenCalledWith('it', expect.anything());
     expect(second).toHaveBeenCalledWith('it', expect.anything());
   });
+
+  it('should catch a later bundle up on packs an earlier one already took', async () => {
+    const pack = await import('@util/i18n/pack');
+    const first = jest.fn();
+    pack.registerLocalePack('es', stub('hola'));
+    pack.adoptLocalePacks(first);
+    pack.registerLocalePack('de', stub('hallo'));
+    const second = jest.fn();
+
+    pack.adoptLocalePacks(second);
+
+    expect(second.mock.calls.map(([locale]) => locale)).toEqual(['es', 'de']);
+    expect(first).toHaveBeenCalledTimes(2);
+  });
 });

@@ -76,15 +76,18 @@ describe('locale pack loading', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('should not fetch a pack the author already put on the page', async () => {
+  it('should wait for a pack the author already put on the page rather than fetch it again', async () => {
     loadedFrom(CDN);
     const own = document.createElement('script');
     own.src = `${CDN}locale-fr.js`;
     document.head.appendChild(own);
 
-    await ensureLocalePack('fr');
-
+    const attempt = ensureLocalePack('fr');
     expect(packScripts()).toHaveLength(1);
+    registerLocale('fr', en);
+    own.dispatchEvent(new Event('load'));
+
+    await expect(attempt).resolves.toBe(true);
   });
 
   it('should warn once and stay English when the bundle location is unknown', async () => {

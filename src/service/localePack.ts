@@ -43,19 +43,39 @@ export function resolveLocalePackUrl(locale: Locale): string | null {
 const inFlight = new Map<Locale, Promise<boolean>>();
 
 /**
- * Whether a script for this URL is already on the page, from the author or
- * from an earlier call, so it is never added twice.
+ * The script for this URL already on the page, from the author or from an
+ * earlier call, so it is never added twice.
  * @param url - The pack's absolute URL
- * @returns True when a matching script element exists
+ * @returns The matching script element, or null
  */
-function alreadyOnPage(url: string): boolean {
+function alreadyOnPage(url: string): HTMLScriptElement | null {
   const scripts = document.querySelectorAll<HTMLScriptElement>('script[src]');
   for (const script of scripts) {
     if (script.src === url) {
-      return true;
+      return script;
     }
   }
-  return false;
+  return null;
+}
+
+/**
+ * Settles once a pack script has loaded or failed.
+ *
+ * Used for the author's own tag as much as for one added here: a tag that is
+ * on the page but still downloading has not registered anything yet, and
+ * answering "not loaded" for it would be wrong the moment it finishes.
+ * @param script - The pack's script element
+ * @param locale - The locale it carries
+ * @returns Whether the locale is loaded once the script has settled
+ */
+function settled(script: HTMLScriptElement, locale: Locale): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    script.addEventListener('load', () => resolve(isLocaleLoaded(locale)), { once: true });
+    script.addEventListener('error', () => {
+      console.warn(`[maidr] Could not load the locale pack at ${script.src}; announcements stay in English.`);
+      resolve(false);
+    }, { once: true });
+  });
 }
 
 /**
@@ -82,22 +102,14 @@ export function ensureLocalePack(locale: Locale): Promise<boolean> {
     console.warn(`[maidr] Cannot locate the locale pack for "${locale}"; add <script src="…/${localePackFilename(locale)}"> or set window.maidrLocaleBaseUrl.`);
     return Promise.resolve(false);
   }
-  const attempt = new Promise<boolean>((resolve) => {
-    if (alreadyOnPage(url)) {
-      // The author's own tag will register it; nothing to wait on here.
-      resolve(isLocaleLoaded(locale));
-      return;
-    }
-    const script = document.createElement('script');
+  let script = alreadyOnPage(url);
+  if (!script) {
+    script = document.createElement('script');
     script.src = url;
     script.async = true;
-    script.onload = () => resolve(isLocaleLoaded(locale));
-    script.onerror = () => {
-      console.warn(`[maidr] Could not load the locale pack at ${url}; announcements stay in English.`);
-      resolve(false);
-    };
     document.head.appendChild(script);
-  }).finally(() => inFlight.delete(locale));
+  }
+  const attempt = settled(script, locale).finally(() => inFlight.delete(locale));
   inFlight.set(locale, attempt);
   return attempt;
 }

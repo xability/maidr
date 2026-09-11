@@ -9,6 +9,8 @@ export type LocalePack = readonly [locale: Locale, messages: Readonly<Record<Mes
 /** Where packs register, once the core bundle has adopted the queue. */
 interface LocalePackQueue {
   push: (...packs: LocalePack[]) => number;
+  /** Every pack seen so far, so a bundle adopting later can catch up. */
+  readonly seen: readonly LocalePack[];
 }
 
 /**
@@ -46,21 +48,25 @@ export function registerLocalePack(locale: Locale, messages: Readonly<Record<Mes
  * Takes over the pack queue for a registry.
  *
  * Packs queued before this call are handed to `register` at once; packs pushed
- * afterwards go straight through. A second bundle adopting the queue chains
- * onto the first, so two MAIDR bundles on one page both hear every pack.
+ * afterwards go straight through. A second bundle adopting the queue receives
+ * every pack the first already took, and chains onto it for the rest, so two
+ * MAIDR bundles on one page both hear every pack whenever it arrived.
  * @param register - Where a pack's dictionary goes
  */
 export function adoptLocalePacks(register: (locale: Locale, messages: Readonly<Record<MessageKey, string>>) => void): void {
   const holder = packGlobal();
   const previous = holder[GLOBAL_KEY];
-  const queued = Array.isArray(previous) ? previous : [];
-  const forward = !Array.isArray(previous) && previous ? previous.push.bind(previous) : null;
+  const earlier = !Array.isArray(previous) && previous ? previous : null;
+  const queued: LocalePack[] = Array.isArray(previous) ? previous : [...(earlier?.seen ?? [])];
+  const seen: LocalePack[] = [...queued];
   holder[GLOBAL_KEY] = {
+    seen,
     push: (...packs: LocalePack[]): number => {
-      for (const [locale, messages] of packs) {
-        register(locale, messages);
+      for (const pack of packs) {
+        seen.push(pack);
+        register(pack[0], pack[1]);
       }
-      forward?.(...packs);
+      earlier?.push(...packs);
       return packs.length;
     },
   };
