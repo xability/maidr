@@ -38,6 +38,11 @@ export interface Diagnostics {
  * or at a bundled copy — report the tag that loaded maidr.js. Module scripts
  * report `null`, which the DOM scan in {@link findMaidrScriptUrl} covers.
  *
+ * Both globals are checked, not only `document`: a test can stand up a
+ * `document` without the element constructors beside it, and this module is
+ * now on the path every chart takes (the locale pack loader reads the bundle
+ * URL from here), so its evaluation must not throw in a partial DOM.
+ *
  * This carries a load-order assumption worth stating: it holds only while this
  * module is evaluated as part of the bundle's initial synchronous execution,
  * which is true of every build target today because none of them code-split.
@@ -47,7 +52,9 @@ export interface Diagnostics {
  * than reading the tag that actually loaded the bundle.
  */
 const loadingScript: HTMLScriptElement | null
-  = typeof document !== 'undefined' && document.currentScript instanceof HTMLScriptElement
+  = typeof document !== 'undefined'
+    && typeof HTMLScriptElement !== 'undefined'
+    && document.currentScript instanceof HTMLScriptElement
     ? document.currentScript
     : null;
 
