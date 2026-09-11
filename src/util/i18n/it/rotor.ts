@@ -1,41 +1,36 @@
 import type { MessageKey } from '../index';
 
 export const rotor = {
-  // Mode names, announced when the rotor lands on a mode.
-  'rotor.higherValueMode': '높은 값 탐색',
-  'rotor.lowerValueMode': '낮은 값 탐색',
-  'rotor.dataMode': '데이터 점 탐색',
-  'rotor.rowColMode': '행과 열 탐색',
-  'rotor.gridMode': '격자 탐색',
-  'rotor.intersectionMode': '교차점 탐색',
-  'rotor.pointMode': '점 탐색',
-  'rotor.gridModeDimensions': '격자 탐색: {rows}행 {cols}열 격자',
+  'rotor.higherValueMode': 'NAVIGAZIONE PER VALORE SUPERIORE',
+  'rotor.lowerValueMode': 'NAVIGAZIONE PER VALORE INFERIORE',
+  'rotor.dataMode': 'NAVIGAZIONE PER PUNTI DATI',
+  'rotor.rowColMode': 'NAVIGAZIONE PER RIGHE E COLONNE',
+  'rotor.gridMode': 'NAVIGAZIONE A GRIGLIA',
+  'rotor.intersectionMode': 'NAVIGAZIONE PER PUNTI DI INTERSEZIONE',
+  'rotor.pointMode': 'NAVIGAZIONE PER PUNTI',
+  'rotor.gridModeDimensions': 'NAVIGAZIONE A GRIGLIA: GRIGLIA {rows}×{cols}',
 
-  // Directions, and the nouns the boundary messages name.
-  'rotor.directionAbove': '위쪽',
-  'rotor.directionBelow': '아래쪽',
-  'rotor.directionLeft': '왼쪽',
-  'rotor.directionRight': '오른쪽',
-  'rotor.lowerValueNoun': '더 낮은 값',
-  'rotor.higherValueNoun': '더 높은 값',
-  'rotor.pointNoun': '점',
-  'rotor.gridValueNoun': '격자 값',
+  'rotor.directionAbove': 'sopra',
+  'rotor.directionBelow': 'sotto',
+  'rotor.directionLeft': 'sinistra',
+  'rotor.directionRight': 'destra',
+  'rotor.lowerValueNoun': 'valore inferiore',
+  'rotor.higherValueNoun': 'valore superiore',
+  'rotor.pointNoun': 'punto',
+  'rotor.gridValueNoun': 'valore della griglia',
 
-  // Nothing further in that direction.
-  'rotor.noneFoundVerticalTerse': '{direction}에 {noun|이가} 없습니다',
-  'rotor.noneFoundVerticalVerbose': '현재 값의 {direction}에 {noun|이가} 없습니다.',
-  'rotor.noneFoundHorizontalTerse': '{direction}에 {noun|이가} 없습니다',
-  'rotor.noneFoundHorizontalVerbose': '현재 값의 {direction}에 {noun|이가} 없습니다.',
+  'rotor.noneFoundVerticalTerse': 'Nessun {noun} trovato {direction}',
+  'rotor.noneFoundVerticalVerbose': 'Nessun {noun} trovato {direction} il valore corrente.',
+  'rotor.noneFoundHorizontalTerse': 'Nessun {noun} trovato a {direction}',
+  'rotor.noneFoundHorizontalVerbose': 'Nessun {noun} trovato a {direction} del valore corrente.',
 
-  // Modes that navigate along one axis only.
-  'rotor.filterVerticalUnavailableTerse': '{noun} 모드에서는 위아래 이동을 할 수 없습니다',
-  'rotor.filterVerticalUnavailableVerbose': '{noun} 모드에서는 위아래 이동을 사용할 수 없습니다.',
-  'rotor.intersectionVerticalUnavailableTerse': '교차점 모드에서는 위아래 이동을 할 수 없습니다',
-  'rotor.intersectionVerticalUnavailableVerbose': '교차점 탐색 모드에서는 위아래 이동을 사용할 수 없습니다.',
+  'rotor.filterVerticalUnavailableTerse': 'Su e giù non disponibili in modalità {noun}',
+  'rotor.filterVerticalUnavailableVerbose': 'La navigazione su e giù non è disponibile in modalità {noun}.',
+  'rotor.intersectionVerticalUnavailableTerse': 'Su e giù non disponibili in modalità intersezione',
+  'rotor.intersectionVerticalUnavailableVerbose': 'La navigazione su e giù non è disponibile in modalità punti di intersezione.',
 
-  // Intersection mode.
-  'rotor.intersectionUnavailableTerse': '교차점 모드를 사용할 수 없습니다',
-  'rotor.intersectionUnavailableVerbose': '현재 상황에서는 교차점 탐색을 사용할 수 없습니다.',
-  'rotor.noIntersectionTerse': '{direction}에 교차점이 없습니다',
-  'rotor.noIntersectionVerbose': '현재 점의 {direction}에 교차점이 없습니다.',
+  'rotor.intersectionUnavailableTerse': 'Modalità intersezione non disponibile',
+  'rotor.intersectionUnavailableVerbose': 'La navigazione per intersezioni non è disponibile nel contesto corrente.',
+  'rotor.noIntersectionTerse': 'Nessuna intersezione a {direction}',
+  'rotor.noIntersectionVerbose': 'Nessuna intersezione trovata a {direction} del punto corrente.',
 } satisfies Partial<Record<MessageKey, string>>;
