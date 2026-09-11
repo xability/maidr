@@ -5,6 +5,7 @@ import {
   interpolate,
   isLanguageSetting,
   isLocale,
+  LOCALE_NAMES,
   onLocaleChange,
   resolveLocale,
   setLocale,
@@ -38,12 +39,20 @@ describe('i18n', () => {
   describe('locale', () => {
     it('should start in English', () => {
       expect(getLocale()).toBe('en');
-      expect(SUPPORTED_LOCALES).toContain('ko');
+      expect(SUPPORTED_LOCALES).toEqual(['en', 'ko', 'ja', 'zh', 'es', 'de', 'fr', 'it', 'hi']);
+    });
+
+    it('should name every locale in itself', () => {
+      for (const locale of SUPPORTED_LOCALES) {
+        expect(LOCALE_NAMES[locale]).not.toBe('');
+      }
+      expect(LOCALE_NAMES.ja).toBe('日本語');
+      expect(LOCALE_NAMES.hi).toBe('हिन्दी');
     });
 
     it('should recognise supported locales and the auto setting', () => {
       expect(isLocale('ko')).toBe(true);
-      expect(isLocale('fr')).toBe(false);
+      expect(isLocale('pt')).toBe(false);
       expect(isLocale(undefined)).toBe(false);
       expect(isLanguageSetting('auto')).toBe(true);
       expect(isLanguageSetting('xx')).toBe(false);
@@ -101,12 +110,23 @@ describe('i18n', () => {
     });
 
     it('should follow the first browser language MAIDR supports', () => {
-      expect(resolveLocale('auto', ['fr-FR', 'ko-KR', 'en-US'])).toBe('ko');
+      expect(resolveLocale('auto', ['pt-BR', 'ko-KR', 'en-US'])).toBe('ko');
       expect(resolveLocale('auto', ['EN-GB'])).toBe('en');
     });
 
+    it('should match every supported language on its primary subtag', () => {
+      expect(resolveLocale('auto', ['ja-JP'])).toBe('ja');
+      expect(resolveLocale('auto', ['zh-Hant-TW'])).toBe('zh');
+      expect(resolveLocale('auto', ['zh-CN'])).toBe('zh');
+      expect(resolveLocale('auto', ['es-419'])).toBe('es');
+      expect(resolveLocale('auto', ['de-CH'])).toBe('de');
+      expect(resolveLocale('auto', ['fr-CA'])).toBe('fr');
+      expect(resolveLocale('auto', ['it-IT'])).toBe('it');
+      expect(resolveLocale('auto', ['hi-IN'])).toBe('hi');
+    });
+
     it('should fall back to English when no browser language is supported', () => {
-      expect(resolveLocale('auto', ['fr-FR'])).toBe('en');
+      expect(resolveLocale('auto', ['pt-BR'])).toBe('en');
       expect(resolveLocale('auto', [])).toBe('en');
     });
   });

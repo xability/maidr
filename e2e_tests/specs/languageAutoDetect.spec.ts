@@ -52,6 +52,28 @@ test.describe('language from the browser', () => {
     });
   });
 
+  for (const [browserLocale, lang] of [
+    ['ja-JP', 'ja'],
+    ['zh-CN', 'zh'],
+    ['es-ES', 'es'],
+    ['de-DE', 'de'],
+    ['fr-FR', 'fr'],
+    ['it-IT', 'it'],
+    ['hi-IN', 'hi'],
+  ] as const) {
+    test.describe(`a ${browserLocale} browser`, () => {
+      test.use({ locale: browserLocale });
+
+      test(`loads in ${lang} before the chart is activated`, async ({ page }) => {
+        const { instruction, lang: declared } = await preActivationState(page);
+
+        expect(declared).toBe(lang);
+        expect(instruction).not.toContain('This is a maidr plot');
+        expect(instruction.length).toBeGreaterThan(20);
+      });
+    });
+  }
+
   test.describe('an English browser', () => {
     test.use({ locale: 'en-US' });
 

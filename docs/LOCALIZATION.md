@@ -13,8 +13,10 @@ The first row of the **General** tab is **Language**:
 | Option          | Effect                                                                 |
 | --------------- | ---------------------------------------------------------------------- |
 | Browser default | Follow the browser's language (its preference list, or its single language where the list is empty); English when MAIDR has no dictionary for it |
-| English         | Always English                                                         |
-| 한국어          | Always Korean                                                          |
+| A language      | Always that language, whatever the browser asks for                    |
+
+Each language is listed in its own name, so a reader who does not read the
+current language can still find theirs.
 
 The choice is saved with the other settings and takes effect as soon as you
 save: the next announcement, and every dialog you open afterwards, use the new
@@ -27,10 +29,20 @@ them change. The AI chat is asked to answer in the chosen language.
 
 ## Languages available
 
-| Code | Language |
-| ---- | -------- |
-| `en` | English  |
-| `ko` | 한국어   |
+| Code | Language  |
+| ---- | --------- |
+| `en` | English   |
+| `ko` | 한국어    |
+| `ja` | 日本語    |
+| `zh` | 中文 (简体) |
+| `es` | Español   |
+| `de` | Deutsch   |
+| `fr` | Français  |
+| `it` | Italiano  |
+| `hi` | हिन्दी     |
+
+`auto` matches on the primary language subtag, so `zh-TW` and `zh-CN` both
+find the Chinese dictionary, and `pt-BR` finds none and falls back to English.
 
 ## Adding a language
 
