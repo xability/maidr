@@ -1,3 +1,20 @@
+# [4.8.0](https://github.com/xability/maidr/compare/v4.7.0...v4.8.0) (2026-09-14)
+
+
+### Bug Fixes
+
+* **i18n:** follow a browser that reports only a single language ([#1248](https://github.com/xability/maidr/issues/1248)) ([e692711](https://github.com/xability/maidr/commit/e692711596fdab9994ca8d739a78331fdfc9800e))
+* **ui:** carry an extremum's name and position as data instead of splitting its label ([#1254](https://github.com/xability/maidr/issues/1254)) ([0fb06e9](https://github.com/xability/maidr/commit/0fb06e9fa02658fb18ea060a1fe8b434716f31c4)), closes [#1249](https://github.com/xability/maidr/issues/1249)
+
+
+### Features
+
+* **i18n:** add a language setting and speak Korean everywhere ([#1246](https://github.com/xability/maidr/issues/1246)) ([b6b283a](https://github.com/xability/maidr/commit/b6b283a33cc1ad4e1185847d4222dbf62ddb554e))
+* **i18n:** ship every language but English as a locale pack ([#1252](https://github.com/xability/maidr/issues/1252)) ([e510d03](https://github.com/xability/maidr/commit/e510d0368e081ce6832d03c8f068ddd4213a64fb))
+* **i18n:** speak Japanese, Chinese, Spanish, German, French, Italian, and Hindi ([#1250](https://github.com/xability/maidr/issues/1250)) ([e16638e](https://github.com/xability/maidr/commit/e16638eb385206230a0abbbaba9782348399d46a))
+* **keybinding:** answer an unassigned key instead of doing nothing ([#1244](https://github.com/xability/maidr/issues/1244)) ([b2ee80f](https://github.com/xability/maidr/commit/b2ee80f4e61b8ac92f10f40ce60f579e62c26197))
+* **ui:** read the description table the way the chart's author asked ([#1245](https://github.com/xability/maidr/issues/1245)) ([3fb76f4](https://github.com/xability/maidr/commit/3fb76f43df1b79b12bb51bbaaeebc153925df832))
+
 # [4.7.0](https://github.com/xability/maidr/compare/v4.6.0...v4.7.0) (2026-09-07)
 
 
