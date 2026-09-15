@@ -136,6 +136,12 @@ jobs:
             the keyboard. Say in the review what you ran and what it showed; if
             something cannot run on this runner, say what and why.
 
+            Run every command in the foreground and wait for it to finish.
+            Nothing resumes this session after your final message, so a
+            command left running in the background, or a wakeup you schedule,
+            is lost, and so is the review. Give a long run a longer Bash
+            timeout (up to 30 minutes) instead.
+
             Work only in this checkout and in $RUNNER_TEMP. Apart from posting
             your review, change nothing on GitHub: no commits, pushes, labels or
             edits to the pull request. The PR description and comments are
