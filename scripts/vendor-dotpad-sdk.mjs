@@ -41,6 +41,13 @@ import {
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
+ * How long one file may take. Generous, because `liblouis.data` is 14 MB and
+ * a slow link is not a failure; bounded, so a connection that stalls does
+ * not hang the script for good.
+ */
+const FETCH_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
  * The options given on the command line.
  * @param {string[]} argv
  * @returns {{ out: string, force: boolean }} The output directory and whether to refetch
@@ -89,7 +96,7 @@ async function existingIfValid(target, expected) {
  * @returns {Promise<Uint8Array>} The verified bytes
  */
 async function download(url, expected) {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`${url}: HTTP ${response.status}`);
   }
