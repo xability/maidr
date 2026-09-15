@@ -74,20 +74,52 @@ the chart works exactly as before.
 
 ### The SDK
 
-MAIDR does not bundle the vendor's SDK — it ships without a licence permitting
-redistribution. Instead MAIDR loads it from the copy Dot Inc. publish
-themselves, pinned by commit so the bytes cannot change under a release.
+MAIDR does not bundle the vendor's SDK by default. Its braille engine is a
+14 MB liblouis build, and shipping that inside every copy of `maidr.js` would
+make every page heavier for a device most readers do not have. Instead MAIDR
+loads the SDK from the copy Dot Inc. publish themselves, pinned by commit so
+the bytes cannot change under a release. The pin is recorded, with the size
+and digest of every file, in `src/service/dotPadSdk.json`.
 
-A host page that would rather serve its own copy — an air-gapped deployment, or
-one whose Content-Security-Policy admits no third-party origin — points MAIDR at
-it before MAIDR loads, and nothing is fetched:
+The pinned commit is the first one whose `liblouis.data` is intact. Earlier
+ones had it rewritten by git's line-ending normalisation, which broke every
+braille table at once and dropped the text line to uncontracted braille
+without a word. That is fixed upstream now, so nothing is served from anywhere
+but the vendor's own tree.
+
+#### Serving it yourself
+
+Dot Inc. permit MAIDR to redistribute the SDK, so a host page that would
+rather not reach a CDN — an air-gapped deployment, or one whose
+Content-Security-Policy admits no third-party origin — can carry its own copy:
+
+```bash
+npm run vendor:dotpad                    # writes dist/dotpad/
+npm run vendor:dotpad -- --out public/dotpad
+```
+
+That fetches the same files the runtime would have loaded, verifies each
+against the digests in the manifest, and writes them with a `manifest.json`
+recording the commit they came from. The liblouis build is LGPL-2.1-or-later,
+and its licence text and wrapper sources come along under `lib/`, which is
+what the vendor asks of anyone who redistributes it; keep the directory
+together. `dist/dotpad` is not part of the npm package and `npm run build`
+never runs this, so the default stays small.
+
+Then point MAIDR at the copy before it loads, and nothing is fetched from the
+CDN:
 
 ```html
 <script>
-  window.MAIDR_DOTPAD_SDK_URL = '/vendor/DotPadSDK-3.0.2.js';
-  window.MAIDR_DOTPAD_ASSET_BASE_URL = '/vendor/lib/';
+  window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.2.js';
+  window.MAIDR_DOTPAD_ASSET_BASE_URL = '/dotpad/lib/';
 </script>
 ```
+
+The Python and R bindings and the agent skill do the same on their side: each
+has a helper that fetches this manifest's files and writes the two globals
+into the documents it produces, so an offline notebook or report reaches a
+DotPad without the network.
 
 Setting the SDK URL and not the asset one leaves the braille engine unfetched
 rather than reaching for the CDN: a page that serves its own SDK usually does so
@@ -97,7 +129,7 @@ can expose it as `window.DotPadSDK` and skip the import entirely.
 
 The pin is a commit, not a digest. It means the bytes at that URL cannot change
 under a release — it is not a runtime integrity check, which a dynamic `import()`
-cannot carry.
+cannot carry. The vendoring script is where the digests are checked.
 
 ## Using the display
 
