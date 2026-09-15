@@ -10,6 +10,7 @@ import type {
 import type { Event } from '@type/event';
 import { Emitter } from '@type/event';
 import { t } from '@util/i18n';
+import sdkManifest from './dotPadSdk.json';
 
 /**
  * Vendor display-mode names. String constants in the SDK, so MAIDR can pass
@@ -86,51 +87,37 @@ function readGlobalConfig(key: string): string | null {
 /**
  * The vendor's own published copy of the SDK, pinned by commit.
  *
- * MAIDR does not bundle the SDK -- it ships without a licence permitting
- * redistribution -- so this points at the files Dot Inc. publish themselves,
- * mirrored by a CDN. Referencing is not redistributing, and the pin means the
- * bytes cannot change underneath a release: this commit's `DotPadSDK-3.0.2.js`
- * is byte-identical to the one this integration was written against.
+ * MAIDR does not bundle the SDK by default: the braille engine's liblouis
+ * build is 14 MB, which would multiply the size of every package that
+ * carries `maidr.js`, for a device most readers do not have. So this points
+ * at the files Dot Inc. publish themselves, mirrored by a CDN. The pin means
+ * the bytes cannot change underneath a release: `dotPadSdk.json` records the
+ * commit, and the digest of every file, that this integration was written
+ * against.
+ *
+ * The commit matters beyond immutability. Earlier ones carry a corrupt
+ * `liblouis.data`: the vendor's `.gitattributes` said `* text=auto`, and the
+ * file is braille-table text with no NUL byte in it, so git rewrote its line
+ * endings on commit. The file is an Emscripten package addressed by absolute
+ * byte offsets, so every table after the first dropped byte was read from
+ * the wrong place, `translateText` resolved to an empty string, and the line
+ * silently fell back to grade 1. The pinned commit marks `*.data binary` and
+ * restores the bytes, which is why it is the floor for this pin.
  *
  * Only a default. A host page that would rather serve its own copy -- an
  * air-gapped deployment, a page whose Content-Security-Policy admits no
- * third-party origin -- sets {@link CONFIG_KEYS} on the page or exposes the
- * SDK itself as a global, and this is never fetched.
+ * third-party origin -- runs `npm run vendor:dotpad` to fetch the same files
+ * (verified against the same digests), sets {@link CONFIG_KEYS} on the page
+ * or exposes the SDK itself as a global, and this is never fetched.
  */
-const VENDOR_BASE_URL = 'https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@437210b1e5b3f4cc5aaa8db5759206067b4edd6e/Web/3.0.2';
+const VENDOR_BASE_URL = sdkManifest.baseUrl;
 
 /**
- * Directory the braille engine's liblouis build is fetched from.
- *
- * Separate from {@link VENDOR_BASE_URL}, and pointing at a different copy of
- * the same release, because the copy in the vendor's own repository tree is
- * corrupt. `.gitattributes` there says `* text=auto`, and `liblouis.data` is
- * braille-table text with no NUL byte in it, so git detects it as text and
- * rewrites its line endings on commit -- 7,685 carriage returns gone.
- *
- * That is fatal rather than cosmetic. The file is an Emscripten file package:
- * a flat concatenation addressed by absolute byte offsets held in
- * `liblouis.js`. Drop bytes anywhere and every table after that point is read
- * from the wrong place. `unicode.dis` lands mid-way through an Arabic table
- * and liblouis rejects it at the first line ("opcode 'Name' not defined"),
- * every table pairs with `unicode.dis`, so all 32 languages fail together and
- * `translateText` resolves to an empty string. The line then falls back to the
- * uncontracted table here, which is what a reader sees: grade 1, silently.
- *
- * These are still the vendor's own bytes. They are the ones in the release zip
- * the vendor publishes beside the tree -- 13,751,594 bytes, matching what the
- * package's own index declares -- restored into a fork with the file marked
- * binary so the round trip stops eating it. The SDK module itself is unchanged
- * and still comes from the vendor's tree above: the only thing served from
- * elsewhere is a data file whose contents are byte-for-byte the vendor's.
- *
- * Pinned to a commit on that fork's default branch rather than to the branch
- * the fix was written on. A commit reachable only from a topic branch stops
- * being reachable when the branch is deleted, and an unreachable commit is
- * eventually collected -- at which point this URL starts returning 404 and the
- * braille line silently drops to grade 1 again.
+ * The SDK module itself, beside the directory the braille engine's liblouis
+ * build is fetched from. Both come from the same pinned commit.
  */
-const VENDOR_ASSET_BASE_URL = 'https://cdn.jsdelivr.net/gh/xability/dotpad-sdk-guide@0e8577fb95869256a4485ad7b2427ae5ac619760/Web/3.0.2/lib/';
+const VENDOR_MODULE_URL = `${VENDOR_BASE_URL}${sdkManifest.module}`;
+const VENDOR_ASSET_BASE_URL = `${VENDOR_BASE_URL}${sdkManifest.assetDir}`;
 
 /**
  * Language table the braille text line is translated with.
@@ -161,9 +148,10 @@ const CLOSE_FLUSH_TIMEOUT_MS = 2000;
  * which there is no way to ask for mid-navigation. The connection outlives every
  * chart on the page; the per-chart service borrows it.
  *
- * The vendor SDK is loaded at runtime rather than bundled: it ships without a
- * licence permitting redistribution, so MAIDR discovers whatever the host page
- * provides and holds it to a structural contract.
+ * The vendor SDK is loaded at runtime rather than bundled: its braille engine
+ * is 14 MB that most readers would never use, so MAIDR discovers whatever the
+ * host page provides -- a global, a configured URL, or the vendor's published
+ * copy -- and holds it to a structural contract.
  */
 class DotPadSession {
   /**
@@ -416,7 +404,7 @@ class DotPadSession {
       return global;
     }
 
-    const url = this.configuredModuleUrl ?? `${VENDOR_BASE_URL}/DotPadSDK-3.0.2.js`;
+    const url = this.configuredModuleUrl ?? VENDOR_MODULE_URL;
     try {
       const imported: unknown = await import(/* @vite-ignore */ url);
       if (this.isVendorModule(imported)) {
