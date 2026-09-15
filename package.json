@@ -99,7 +99,8 @@
   "main": "dist/maidr.js",
   "files": [
     "dist",
-    "!dist/**/*.map"
+    "!dist/**/*.map",
+    "!dist/dotpad"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -113,6 +114,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check-models": "node scripts/check-model-catalog.mjs",
+    "vendor:dotpad": "node scripts/vendor-dotpad-sdk.mjs",
     "check:conflicts": "node scripts/conflictMarkers.js",
     "sync:copilot": "node scripts/sync-copilot-instructions.mjs",
     "sync:copilot:check": "node scripts/sync-copilot-instructions.mjs --check",
