@@ -109,6 +109,14 @@ describe('vendored file verification', () => {
     const other = new TextEncoder().encode('hellp');
     expect(mismatch(other, expected)).toMatch(/^expected sha256 /);
   });
+
+  it('should hold the md5 the R binding will check against', () => {
+    // `tools::md5sum` is the digest base R has, so r-maidr verifies its copy
+    // by MD5. A manifest whose MD5 is wrong would pass here on SHA-256 and
+    // fail there, which is why both are checked.
+    const wrongMd5 = { ...expected, md5: '0'.repeat(32) };
+    expect(mismatch(bytes, wrongMd5)).toMatch(/^expected md5 /);
+  });
 });
 
 describe('vendored output', () => {

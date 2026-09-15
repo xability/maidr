@@ -49,6 +49,11 @@ export function fileUrl(manifest, file) {
  * `liblouis.data` that motivated the pin was 7,685 bytes short, and a size
  * says so where a digest only says "different".
  *
+ * Both digests are checked. SHA-256 is the one that matters here; MD5 is in
+ * the manifest because the R binding verifies its copy with `tools::md5sum`,
+ * base R having no SHA-256, and checking it here too is what keeps a re-pin
+ * from recording an MD5 that R would then reject.
+ *
  * @param {Uint8Array} bytes
  * @param {import('./dotPadSdk').SdkFile} expected
  * @returns {string | null} What differs, or null when nothing does
@@ -57,9 +62,11 @@ export function mismatch(bytes, expected) {
   if (bytes.byteLength !== expected.bytes) {
     return `expected ${expected.bytes} bytes, got ${bytes.byteLength}`;
   }
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
-  if (sha256 !== expected.sha256) {
-    return `expected sha256 ${expected.sha256}, got ${sha256}`;
+  for (const algorithm of ['sha256', 'md5']) {
+    const digest = createHash(algorithm).update(bytes).digest('hex');
+    if (digest !== expected[algorithm]) {
+      return `expected ${algorithm} ${expected[algorithm]}, got ${digest}`;
+    }
   }
   return null;
 }

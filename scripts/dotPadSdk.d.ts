@@ -6,7 +6,12 @@
  * test needs these to import it too. Keep both files in sync.
  */
 
-/** One file of the SDK: its size and digests at the pinned commit. */
+/**
+ * One file of the SDK: its size and digests at the pinned commit.
+ *
+ * `md5` is for the R binding, which verifies with `tools::md5sum` because
+ * base R has no SHA-256; the vendoring script checks both.
+ */
 export interface SdkFile {
   bytes: number;
   sha256: string;
