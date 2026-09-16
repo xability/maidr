@@ -9,6 +9,13 @@ const config: ReturnType<typeof antfu> = antfu({
     '.github/',
     '.claude/',
     '.claude/**',
+    // The Claude review action copies a pull request's CLAUDE.md, .claude/
+    // and .husky/ here before restoring the base branch's versions, and
+    // leaves the copy in the checkout. Those files are ignored where they
+    // live; without this, their copies fail the markdown formatter on every
+    // review.
+    '.claude-pr/',
+    '.claude-pr/**',
     'docs/',
     'CLAUDE.md',
     '_site/',
