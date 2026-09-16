@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { build } from 'vite';
 import dts from 'vite-plugin-dts';
+import { DIST_MANIFEST_NAME, publishManifest } from './dotPadSdk.js';
 import { mathStylesheet } from './vite-plugin-math-stylesheet.js';
 import { woff2OnlyFonts } from './vite-plugin-woff2-only.js';
 
@@ -761,8 +762,10 @@ async function main() {
     if (!isWorker)
       console.log('Building MAIDR library...\n');
     await runSequential(selected);
-    if (!isWorker)
+    if (!isWorker) {
+      publishManifest(path.resolve(rootDir, 'dist'));
       console.log(`All builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+    }
     return;
   }
 
@@ -786,6 +789,12 @@ async function main() {
     await fs.rm(path.join(outDir, '.tmp'), { recursive: true, force: true })
       .catch(() => {});
   }
+
+  // The DotPad SDK pin ships with the package (`dist/dotpad-sdk.json`) so the
+  // bindings and the skill can copy it when they refresh the bundle. Written
+  // by the parent only: workers each own one bundle, and this is not one.
+  publishManifest(outDir);
+  console.log(`Wrote ${DIST_MANIFEST_NAME}`);
 
   console.log(`\nAll builds complete in ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 }
