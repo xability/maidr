@@ -25,11 +25,30 @@ export const DEFAULT_OUT_DIR = 'dist/dotpad';
 export const OUTPUT_MANIFEST_NAME = 'manifest.json';
 
 /**
+ * The name the build publishes the manifest under in `dist/`, so the npm
+ * package carries it and the Python and R bindings and the skill can copy
+ * their pins from `dist/dotpad-sdk.json` when they refresh the bundle.
+ */
+export const DIST_MANIFEST_NAME = 'dotpad-sdk.json';
+
+/**
  * Reads the manifest from disk.
  * @returns {import('./dotPadSdk').SdkManifest} The parsed manifest
  */
 export function readManifest() {
   return JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+}
+
+/**
+ * Copies the manifest into the build output.
+ * @param {string} distDir - The directory `npm run build` writes to
+ * @returns {string} The path written
+ */
+export function publishManifest(distDir) {
+  const target = path.join(distDir, DIST_MANIFEST_NAME);
+  fs.mkdirSync(distDir, { recursive: true });
+  fs.copyFileSync(MANIFEST_PATH, target);
+  return target;
 }
 
 /**

@@ -77,15 +77,43 @@ the chart works exactly as before.
 MAIDR does not bundle the vendor's SDK by default. Its braille engine is a
 14 MB liblouis build, and shipping that inside every copy of `maidr.js` would
 make every page heavier for a device most readers do not have. Instead MAIDR
-loads the SDK from the copy Dot Inc. publish themselves, pinned by commit so
-the bytes cannot change under a release. The pin is recorded, with the size
-and digest of every file, in `src/service/dotPadSdk.json`.
+loads the SDK over a CDN from a git commit, pinned so the bytes cannot change
+under a release. The pin is recorded, with the size and digest of every file
+and the vendor archive they were verified against, in
+`src/service/dotPadSdk.json`. The build copies that file into the npm package
+as `dist/dotpad-sdk.json`, and the Python and R bindings and the agent skill
+take their pins from it when they refresh the bundle, so all four load the
+same release.
 
-The pinned commit is the first one whose `liblouis.data` is intact. Earlier
-ones had it rewritten by git's line-ending normalisation, which broke every
-braille table at once and dropped the text line to uncontracted braille
-without a word. That is fixed upstream now, so nothing is served from anywhere
-but the vendor's own tree.
+Dot Inc. publish each release in `dotincorp/dotpad-sdk-guide`, but as a zip
+under `Web/<version>/download/`, and a CDN cannot serve a file from inside an
+archive. So the files MAIDR loads live extracted, byte for byte, in
+`xability/dotpad-sdk-guide`, a mirror Dot Inc. permit MAIDR to keep, and the
+pin names a commit of that mirror. Nothing is served from the mirror that the
+repin script did not first verify against the vendor's own archive.
+
+#### Moving the pin
+
+`npm run check:dotpad` asks whether the vendor names a release newer than the
+pinned one; `.github/workflows/dotpad-sdk-check.yml` asks the same every Monday
+and opens an issue when the answer is yes. Moving the pin is two commands with
+a commit to the mirror between them:
+
+```bash
+# 1. Download the vendor's archive for the release and extract it into a
+#    checkout of the mirror, under Web/<version>/. Commit and merge that.
+npm run repin:dotpad -- --version 3.0.3 --extract-to ../dotpad-sdk-guide
+
+# 2. Verify that every file the mirror now serves at that commit is the
+#    archive's, and rewrite src/service/dotPadSdk.json to point at it.
+npm run repin:dotpad -- --version 3.0.3 --mirror-commit <sha>
+```
+
+Both read the archive from the vendor's default branch; `--upstream-commit`
+pins that too. Then run the tests, which check the manifest's shape, and
+commit the manifest. The pin is a commit, not a digest: it is not a runtime
+integrity check, which a dynamic `import()` cannot carry. The vendoring script
+below is where the digests are checked.
 
 #### Serving it yourself
 
@@ -111,7 +139,7 @@ CDN:
 
 ```html
 <script>
-  window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.2.js';
+  window.MAIDR_DOTPAD_SDK_URL = '/dotpad/DotPadSDK-3.0.3.js';
   window.MAIDR_DOTPAD_ASSET_BASE_URL = '/dotpad/lib/';
 </script>
 ```
@@ -126,10 +154,6 @@ rather than reaching for the CDN: a page that serves its own SDK usually does so
 because of a policy that would refuse the CDN too, and the line falls back to
 uncontracted braille instead of failing. A page that already has the SDK loaded
 can expose it as `window.DotPadSDK` and skip the import entirely.
-
-The pin is a commit, not a digest. It means the bytes at that URL cannot change
-under a release — it is not a runtime integrity check, which a dynamic `import()`
-cannot carry. The vendoring script is where the digests are checked.
 
 ## Using the display
 
@@ -486,21 +510,22 @@ it, an older SDK build without the translation surface — MAIDR falls back to
 its own uncontracted (grade 1) table. That is worse to read, but the line never
 goes blank for want of a translator.
 
-Its **tables come from a different copy of the same release** than the SDK
-module does, and deliberately. The copy in the vendor's own repository tree is
-corrupt: `.gitattributes` there says `* text=auto`, and `liblouis.data` is
-braille-table text with no NUL byte in it, so git detects it as text and
-rewrites its line endings on commit — 7,685 carriage returns gone. The file is
-an Emscripten file package addressed by absolute byte offsets, so every table
-past that point is read from the wrong place: `unicode.dis` lands mid-way
-through an Arabic table, liblouis rejects it at its first line, every table
-pairs with `unicode.dis`, and all 32 languages fail together. `translateText`
-then resolves to an empty string rather than to an error, which is quieter than
-it sounds — the line falls back to grade 1 and nothing about the cells says
-whether the description was contracted or simply that long. The bytes served
-instead are the vendor's own, taken from the release zip published beside the
-tree and restored into a fork with the file marked binary. The SDK module
-itself is unchanged and still comes from the vendor's tree.
+Its **tables are verified against the vendor's release archive**, not taken
+from a repository tree on trust, and there is a reason. The copy that once
+lived in the vendor's own tree was corrupt: `.gitattributes` there said
+`* text=auto`, and `liblouis.data` is braille-table text with no NUL byte in
+it, so git detected it as text and rewrote its line endings on commit — 7,685
+carriage returns gone. The file is an Emscripten file package addressed by
+absolute byte offsets, so every table past that point was read from the wrong
+place: `unicode.dis` landed mid-way through an Arabic table, liblouis rejected
+it at its first line, every table pairs with `unicode.dis`, and all 32
+languages failed together. `translateText` then resolves to an empty string
+rather than to an error, which is quieter than it sounds — the line falls back
+to grade 1 and nothing about the cells says whether the description was
+contracted or simply that long. The vendor has since marked the file binary,
+the mirror does the same, and the repin script refuses to record a mirror file
+whose bytes are not the archive's, so the manifest's size for `liblouis.data`
+is the one the tests check.
 
 Because that failure is silent by nature, the reader is **told once per
 session** when the line comes out uncontracted — from either cause, the engine

@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { describe, expect, it } from '@jest/globals';
 import {
   DEFAULT_OUT_DIR,
+  DIST_MANIFEST_NAME,
   fileUrl,
   MANIFEST_PATH,
   mismatch,
   outputManifest,
+  publishManifest,
   readManifest,
 } from '../../scripts/dotPadSdk';
 
@@ -41,12 +44,27 @@ describe('dotPad SDK manifest', () => {
       .toContain('./dotPadSdk.json');
   });
 
-  it('should pin the vendor repository by full commit', () => {
+  it('should pin the repository it loads from by full commit', () => {
     expect(manifest.commit).toMatch(COMMIT);
+    const repository = manifest.repository.replace(/^https:\/\/github\.com\//, '');
+    expect(repository).toMatch(/^[\w.-]+\/[\w.-]+$/);
     expect(manifest.baseUrl).toBe(
-      `https://cdn.jsdelivr.net/gh/dotincorp/dotpad-sdk-guide@${manifest.commit}/Web/${manifest.version}/`,
+      `https://cdn.jsdelivr.net/gh/${repository}@${manifest.commit}/Web/${manifest.version}/`,
     );
-    expect(manifest.repository).toBe('https://github.com/dotincorp/dotpad-sdk-guide');
+  });
+
+  it('should record the vendor archive the mirrored files were verified against', () => {
+    // The vendor publishes a release only as a zip, so the files are served
+    // from a mirror; the manifest says which archive at which vendor commit
+    // they were checked against, so the provenance can be re-verified.
+    expect(manifest.upstream.repository).toBe('https://github.com/dotincorp/dotpad-sdk-guide');
+    expect(manifest.upstream.commit).toMatch(COMMIT);
+    expect(manifest.upstream.archive).toBe(`Web/${manifest.version}/download/web-sdk-${manifest.version}.zip`);
+    expect(manifest.upstream.sha256).toMatch(SHA256);
+  });
+
+  it('should name the module after the pinned version', () => {
+    expect(manifest.module).toBe(`DotPadSDK-${manifest.version}.js`);
   });
 
   it('should pin a commit at or after the liblouis.data fix', () => {
@@ -129,5 +147,27 @@ describe('vendored output', () => {
   it('should default to a directory the npm package excludes', () => {
     const { files } = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as { files: string[] };
     expect(files).toContain(`!${DEFAULT_OUT_DIR}`);
+  });
+});
+
+describe('published manifest', () => {
+  // The bindings and the skill copy their pins from the npm package, so the
+  // build must publish the manifest where `files: ["dist"]` ships it.
+  it('should copy the manifest into dist under the name the bindings fetch', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'maidr-dotpad-'));
+    try {
+      const written = publishManifest(dir);
+      expect(written).toBe(join(dir, DIST_MANIFEST_NAME));
+      expect(readFileSync(written, 'utf8')).toBe(readFileSync(MANIFEST_PATH, 'utf8'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('should be written by the build, not excluded from the package', () => {
+    expect(DIST_MANIFEST_NAME).toBe('dotpad-sdk.json');
+    expect(readFileSync(resolve(ROOT, 'scripts/build.js'), 'utf8')).toContain('publishManifest(');
+    const { files } = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as { files: string[] };
+    expect(files.some(pattern => pattern.startsWith('!') && pattern.includes(DIST_MANIFEST_NAME))).toBe(false);
   });
 });

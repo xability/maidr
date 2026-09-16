@@ -18,12 +18,24 @@ export interface SdkFile {
   md5: string;
 }
 
+/**
+ * Where the pinned files came from: the vendor's release archive, which
+ * `scripts/repin-dotpad-sdk.mjs` verified every mirrored file against.
+ */
+export interface SdkUpstream {
+  repository: string;
+  commit: string;
+  archive: string;
+  sha256: string;
+}
+
 /** `src/service/dotPadSdk.json`. */
 export interface SdkManifest {
   version: string;
   repository: string;
   commit: string;
   baseUrl: string;
+  upstream: SdkUpstream;
   module: string;
   assetDir: string;
   files: Record<string, SdkFile>;
@@ -37,8 +49,10 @@ export interface VendoredManifest extends SdkManifest {
 export const MANIFEST_PATH: string;
 export const DEFAULT_OUT_DIR: string;
 export const OUTPUT_MANIFEST_NAME: string;
+export const DIST_MANIFEST_NAME: string;
 
 export function readManifest(): SdkManifest;
+export function publishManifest(distDir: string): string;
 export function fileUrl(manifest: SdkManifest, file: string): string;
 export function mismatch(bytes: Uint8Array, expected: SdkFile): string | null;
 export function outputManifest(manifest: SdkManifest, retrieved: Date): VendoredManifest;
