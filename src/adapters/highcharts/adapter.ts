@@ -1801,9 +1801,10 @@ function convertSeries(
     //   hull drawn over a scatter that is already read, so the shape is
     //   drawing rather than data.
     // - `mapline` is geometry for the same reason.
-    // - `venn` and `euler` carry a declared size per set combination but no
-    //   set-membership navigation to ask what a Venn diagram is drawn to
-    //   ask. Left to a maintainer; the Chart.js side is declined too.
+    // - `venn` and `euler` are set-overlap diagrams, which no trace
+    //   navigates by set membership. The decision is recorded once, under
+    //   "Shapes deliberately not read" in `docs/SCHEMA.md` (#1190); this
+    //   branch points there rather than carrying its own reason.
     default:
       console.warn(`[MAIDR Highcharts] Unsupported series type: "${seriesType}"; skipping.`);
       return null;

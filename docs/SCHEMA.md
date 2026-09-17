@@ -257,6 +257,48 @@ git show 84d9003:src/type/grammar.ts | grep -oE "= '[a-z_0-9]+'"
 neither list or in both, so a new trace type has to be placed deliberately
 rather than inherit either promise by being forgotten.
 
+## Shapes deliberately not read
+
+A chart no trace type describes is declined rather than forced into the
+nearest shape, because a reading that sounds confident and says something
+false is worse than no reading — the lesson #814 recorded for every chart it
+added. A decline that is a decision rather than an omission is written down
+here, once, and an adapter that meets the chart points at this section rather
+than carrying an argument of its own. Three adapters had each written their own
+reason for the same chart, and the reasons did not agree (#1190).
+
+### Set-overlap diagrams (Venn, Euler)
+
+**Declined, in every adapter, for one reason: MAIDR has no trace whose
+navigation is set membership.**
+
+The data is not the objection. A Highcharts `venn` or `euler` point carries the
+author's own declaration of a region — `sets: ['A', 'B']`, `value: 2` — and
+`chartjs-chart-venn` and `am5hierarchy.Venn` take the same input. A region list
+could be extracted from any of them today, and it would report the numbers the
+author wrote, not a measurement of the drawing.
+
+What no trace can hold is the question the diagram is drawn to answer: what
+these sets share, and what belongs to only one of them. A flat list of `A`,
+`B`, `A∩B` says *how big* each region is, and a reader stepping through it by
+index is walking a layout rather than a membership. Read as a bar chart of
+region sizes it would announce every number correctly and say nothing about
+which sets a region belongs to — the parent trace reading the data and
+answering the wrong question, which is the pattern #814 named.
+
+If a reading is ever added it is a tier C trace in #814's sense: a
+`MovableGraph` over regions addressed as `(set count, index among regions of
+that count)`, where up and down move to regions of fewer or more sets and left
+and right move between the regions sharing that count. The producers' data is
+already in that shape; the work is the trace and its announcement, not the
+extraction.
+
+Two earlier reasons are retired. That a Venn's areas are drawn approximately
+is true of the layout and not of what would be read — the producers declare
+the size, and a reading would announce the declaration, not the drawing. That
+a Venn has no axis is true, and no more of an obstacle than it was for the
+treemap or the sankey.
+
 ## Data Formats by Plot Type
 
 The data property is defined as a list of objects where each object is a record with fields x and y.

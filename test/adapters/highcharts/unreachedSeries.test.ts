@@ -24,8 +24,8 @@ import { fakeAxis, fakeChart, fakeSeries } from './helpers';
  * it. `mappoint` and `mapbubble` left it there (`test/adapters/highcharts/
  * mapMarkers.test.ts`). `vector`, `windbarb`, `polygon` and `mapline` are
  * declines on record at the branch itself; `hlc` needs
- * `CandlestickPoint.open` to become optional first, and `venn` is a
- * maintainer's call.
+ * `CandlestickPoint.open` to become optional first, and `venn` is declined
+ * once for every adapter in `docs/SCHEMA.md` (#1190).
  */
 
 const CATEGORIES = ['a', 'b', 'c'];
@@ -154,8 +154,9 @@ describe('highcharts series the adapter did not reach', () => {
 
   it('still declines a series with no statistical reading', () => {
     // The guard on the change: dispatching more types must not turn into
-    // dispatching every type. A `venn` has no axis and a `polygon` has no
-    // reading, so both stay declined rather than being forced into a shape.
+    // dispatching every type. A `venn` is a set-overlap diagram (declined
+    // once, in `docs/SCHEMA.md`, #1190) and a `polygon` has no reading, so
+    // both stay declined rather than being forced into a shape.
     expect(layersOf('venn', PLAIN)).toHaveLength(0);
     expect(layersOf('polygon', PLAIN)).toHaveLength(0);
   });

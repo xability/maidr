@@ -123,9 +123,9 @@ describe('amCharts hierarchy paintings', () => {
   });
 
   it('still declines a Venn', () => {
-    // Not an oversight. An overlap diagram has no axis and no per-category
-    // magnitude to walk, so not reading it is the reading -- the same answer
-    // `polygon` gets in the Highcharts sweep (#1138).
+    // Not an oversight. A set-overlap diagram is declined in every adapter,
+    // for the one reason recorded under "Shapes deliberately not read" in
+    // `docs/SCHEMA.md` (#1190).
     const root = fakeRoot([fakeContainer([hierarchy('Venn')])]);
 
     expect(() => layerTypes(root)).toThrow(/no XYChart or PieChart/);
