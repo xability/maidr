@@ -14,6 +14,7 @@ on:
       - 'examples/**'
       - 'media/**'
       - 'scripts/build-site.js'
+      - 'scripts/siteOrigin.js'
       - 'scripts/markdown.js'
       - 'scripts/examplesGallery.js'
       - 'scripts/typedoc-seo-plugin.mjs'

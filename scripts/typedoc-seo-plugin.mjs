@@ -24,20 +24,26 @@
  * The description is the same text the page shows in its comment block, so
  * the structured data mirrors visible content, as Google asks.
  *
+ * Every absolute URL comes from `scripts/siteOrigin.js`, so `SITE_ORIGIN`
+ * moves the API reference along with the rest of the site. TypeDoc's own
+ * `hostedBaseUrl` and `titleLink` -- the canonical on index.html, the sitemap
+ * and the title's link home -- are re-pointed at bootstrap for the same
+ * reason. `typedoc.json` still spells the production values, which is what
+ * these resolve to when `SITE_ORIGIN` is unset, so a reader of that file
+ * sees where the site lives without following the plugin.
+ *
  * Registered in `typedoc.json` under `plugin` with a `./`-relative path,
  * which TypeDoc resolves against the config file.
  */
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Comment, JSX, ReflectionKind } from 'typedoc';
+import { Application, Comment, JSX, ReflectionKind } from 'typedoc';
 import { dublinCorePairs } from './dublinCore.js';
 import { lastCommitDate } from './gitDates.js';
 import { inlineJson } from './jsonLd.js';
+import { API_URL, SITE_URL } from './siteOrigin.js';
 import { fallbackDescription, PROJECT_PAGES, truncate } from './typedocSeo.js';
-
-const SITE_URL = 'https://maidr.ai/';
-const API_URL = 'https://maidr.ai/api/';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -126,6 +132,11 @@ function ldScript(value) {
 }
 
 export function load(app) {
+  app.on(Application.EVENT_BOOTSTRAP_END, () => {
+    app.options.setValue('hostedBaseUrl', API_URL);
+    app.options.setValue('titleLink', SITE_URL);
+  });
+
   app.renderer.hooks.on('head.end', (context) => {
     const { page, router } = context;
     const project = page.project;

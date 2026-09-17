@@ -214,6 +214,12 @@ npm run docs:serve
 
 This builds the docs and starts a local HTTP server. Alternatively, open `_site/index.html` directly in your browser.
 
+Every absolute URL the site writes (canonical links, Open Graph tags, JSON-LD, the sitemaps, `robots.txt`) points at `https://maidr.ai/` by default. To build for somewhere else, such as a local preview, a staging deployment or a fork's own domain, set `SITE_ORIGIN`:
+
+```shell
+SITE_ORIGIN=http://localhost:3000 npm run docs
+```
+
 5. Deploy to GitHub Pages
 
 The documentation will automatically deploy when you push to:
