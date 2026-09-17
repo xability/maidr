@@ -41,6 +41,7 @@
 import type { PlotlyCalcData, PlotlyFullLayout, PlotlyGraphDiv, PlotlyTrace } from '@adapters/plotly/types';
 import type { MaidrLayer } from '@type/grammar';
 import { extractPlotlyData } from '@adapters/plotly/extractor';
+import { choroplethRegionSelectors, polarSeriesSelectors } from '@adapters/plotly/selectors';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 
@@ -266,5 +267,74 @@ describe('a double-digit geo id', () => {
 
     expect(layers.map(layer => resolved(layer)))
       .toEqual([['USA', 'CAN', 'MEX'], ['FRA', 'DEU', 'ITA'], ['IND', 'AUS']]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A subplot id that plotly could not have written.
+//
+// Both families interpolate their subplot id straight into a selector, and the
+// geo one lands inside `[class='…']` — where a quote ends the string early and
+// what follows is read as selector syntax rather than matched as text. Plotly
+// types both as subplot ids and resolves them before they reach `_fullData`,
+// so neither is a value an author can steer today; these pin the behaviour so
+// that stays true of a hand-built graph div and of whatever plotly does next.
+//
+// Withdrawing is the right answer rather than escaping: a selector nobody can
+// name is one `ChoroplethTrace` and `LineTrace` already handle, by keeping the
+// layer's audio, braille and text and dropping only the outline.
+// ---------------------------------------------------------------------------
+
+describe('a subplot id that is not the shape plotly writes', () => {
+  function geoTrace(id: string): PlotlyGraphDiv {
+    const gd = document.createElement('div') as PlotlyGraphDiv;
+    gd._fullData = [{ type: 'choropleth', geo: id } as unknown as PlotlyTrace];
+    return gd;
+  }
+
+  it.each([
+    ['a quote that would end the attribute string', 'geo\' ], path'],
+    ['a selector of its own', 'geo, *'],
+    ['a class step', 'geo.geo2'],
+    ['whitespace', 'geo 2'],
+    ['a different family', 'polar'],
+    ['empty', ''],
+  ])('withdraws the choropleth selectors on %s', (_why, id) => {
+    expect(choroplethRegionSelectors(geoTrace(id), 0, [0, 1])).toBeUndefined();
+  });
+
+  it.each(['geo', 'geo2', 'geo10'])('still names the real id %s', (id) => {
+    const selectors = choroplethRegionSelectors(geoTrace(id), 0, [0]);
+
+    expect(selectors).toEqual([
+      `.geolayer > g[class='geo ${id}'] > g.backplot > g.choroplethlayer`
+      + ' > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(1)',
+    ]);
+  });
+
+  it.each([
+    ['a class step', 'polar.polar2'],
+    ['a selector of its own', 'polar, *'],
+    ['a different family', 'geo'],
+    ['empty', ''],
+  ])('withdraws the polar selectors on %s', (_why, id) => {
+    const series = [{
+      trace: { uid: 'abc' } as unknown as PlotlyTrace,
+      position: 0,
+    }];
+
+    expect(polarSeriesSelectors(series, id, false)).toBeUndefined();
+    expect(polarSeriesSelectors(series, id, true)).toBeUndefined();
+  });
+
+  it.each(['polar', 'polar2'])('still names the real polar id %s', (id) => {
+    const series = [{
+      trace: { uid: 'abc' } as unknown as PlotlyTrace,
+      position: 0,
+    }];
+
+    expect(polarSeriesSelectors(series, id, false)).toEqual([
+      `.polarlayer > g.${id} > g.frontplot > g.scatterlayer > g.trace.traceabc .point`,
+    ]);
   });
 });
