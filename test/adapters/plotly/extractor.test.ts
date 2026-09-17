@@ -4235,8 +4235,8 @@ describe('plotly extractor', () => {
       // The dropped region keeps its own path in the DOM, so the ones after it
       // are still addressed by their own position.
       expect(layer.selectors).toEqual([
-        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(1)',
-        '.geolayer > g.geo.geo > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(3)',
+        '.geolayer > g[class=\'geo geo\'] > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(1)',
+        '.geolayer > g[class=\'geo geo\'] > g.backplot > g.choroplethlayer > g.trace.choropleth:nth-of-type(1) > path.choroplethlocation:nth-of-type(3)',
       ]);
     });
 
@@ -4260,7 +4260,7 @@ describe('plotly extractor', () => {
       expect(maidr!.subplots[0].map(panel => panel.layers[0].type))
         .toEqual([TraceType.BAR, TraceType.CHOROPLETH]);
       expect(maidr!.subplots[0][1].layers[0].selectors)
-        .toEqual(expect.arrayContaining([expect.stringContaining('g.geo.geo2')]));
+        .toEqual(expect.arrayContaining([expect.stringContaining('g[class=\'geo geo2\']')]));
     });
   });
   describe('contour', () => {

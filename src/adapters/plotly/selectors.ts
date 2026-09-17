@@ -328,6 +328,34 @@ export function barPointSelector(
  * The trace's group is counted within its own geo subplot, since plotly hangs
  * no uid class on these groups either.
  *
+ * **The subplot is named by its whole class attribute, not by a class token.**
+ * Plotly writes a geo subplot's attribute as `"geo " + id`, so the first one
+ * reads `class="geo geo"` — a doubled string whose `classList` is the single
+ * token `["geo"]`, which is a token every other geo subplot carries as well
+ * (`class="geo geo2"` → `["geo", "geo2"]`). Measured in Chromium on a
+ * two-map figure: `.geolayer > g.geo` and `.geolayer > g.geo.geo` are the same
+ * selector and both matched 2 of 2 subplots, so every region selector scoped
+ * to `geo` resolved to one path in *every* map — region 1 came back as USA
+ * and FRA at once. `g[class='geo geo']` matched exactly 1, and attribute
+ * matching is whole-string, so `geo10` collides with neither `geo` nor `geo2`.
+ *
+ * What that cost was the first map's whole highlight.
+ * `ChoroplethTrace.mapToSvgElements` compares the resolved elements against
+ * the declared regions and returns null on any mismatch, so an N-region layer
+ * resolving N elements in each of M maps is withdrawn outright rather than
+ * outlining the wrong country. The loss falls on the layer drawn on `geo`
+ * alone: measured on a three-map figure, its region-1 selector matched 3
+ * (USA, FRA, IND) while `g.geo.geo2` and `g.geo.geo10` matched 1 apiece, since
+ * only the doubled id collapses to an ambiguous token. So the symptom is one
+ * map on a figure silently losing its outline while its neighbours keep
+ * theirs — which is also why nothing upstream flagged it.
+ *
+ * The exact-attribute form is right for this family alone. Measured beside it,
+ * a polar subplot's attribute is the bare id — `class="polar"`,
+ * `class="polar2"` — and a ternary's likewise, so `g.polar` already names one
+ * subplot and `g[class='polar polar']` matched nothing at all. That is why
+ * {@link polarSeriesSelectors} scopes by token and is correct as written.
+ *
  * @param gd         - The plotly graph div
  * @param traceIndex - The global index of the choropleth trace
  * @param indices    - The calc index of each region the layer emitted
@@ -345,8 +373,8 @@ export function choroplethRegionSelectors(
     'choropleth',
     trace => (trace.geo ?? 'geo') === geoId,
   ) + 1;
-  const group = `.geolayer > g.geo.${geoId} > g.backplot > g.choroplethlayer`
-    + ` > g.trace.choropleth:nth-of-type(${position})`;
+  const group = `.geolayer > g[class='geo ${geoId}'] > g.backplot`
+    + ` > g.choroplethlayer > g.trace.choropleth:nth-of-type(${position})`;
   return indices.map(index =>
     `${group} > path.choroplethlocation:nth-of-type(${index + 1})`);
 }
