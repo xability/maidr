@@ -1313,6 +1313,10 @@ implements Observer<SubplotState | TraceState>, Disposable {
       // its own, so a row of full cells means a dense group and not merely
       // the densest part of a sparse one. `docs/BRAILLE.md` says so.
       [TraceType.RIDGELINE, asGeneric(new LineBrailleEncoder())],
+      // A rug's braille is the observation count per bin along the marked
+      // axis -- one row of magnitudes, which is the bar encoder's input
+      // exactly, and an empty bin reads as the blank a zero bar does.
+      [TraceType.RUG, asGeneric(new BarBrailleEncoder())],
       [TraceType.VIOLIN_KDE, asGeneric(new LineBrailleEncoder())],
       [TraceType.VIOLIN_BOX, asGeneric(new BoxBrailleEncoder())],
     ]);

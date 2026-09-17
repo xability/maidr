@@ -130,6 +130,11 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // does not reach the class where that handling lives (#949). The answer
   // WATERFALL gives, for the same reason.
   [TraceType.RIDGELINE]: false,
+  // The ticks stand on one axis, and which axis decides which field of a
+  // point is the position and which label it is announced against -- the
+  // same reason a bar is oriented. A rug drawn beside the y axis of a
+  // scatter's margin is the ordinary alternative, not an exotic one.
+  [TraceType.RUG]: true,
   // Two continuous axes, so there is no main and cross axis to swap -- the
   // answer a scatter already gives, and both of these are scatters.
   [TraceType.MANHATTAN]: false,

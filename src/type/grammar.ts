@@ -1050,6 +1050,27 @@ export interface PiePoint {
 }
 
 /**
+ * One observation of a rug, given by its position along the marked axis.
+ *
+ * A vertical rug ({@link Orientation.VERTICAL}, the default) draws its ticks
+ * standing on the x axis, so the position is `x`; a horizontal one draws them
+ * lying along the y axis, so the position is `y`. The trace reads the field
+ * the orientation names and ignores the other, which lets a producer that
+ * already emits a rug as a scatter with a constant on the other axis switch
+ * by changing `type` alone.
+ *
+ * @example
+ * // three observations on the x axis
+ * { type: 'rug', data: [{ x: 1.5 }, { x: 2.5 }, { x: 7 }] }
+ */
+export interface RugPoint {
+  /** The observation's position, for a vertical rug. */
+  x?: number;
+  /** The observation's position, for a horizontal rug. */
+  y?: number;
+}
+
+/**
  * Data point for scatter plots with x and y coordinates, plus optional z for 3D.
  */
 export interface ScatterPoint {
@@ -1316,11 +1337,11 @@ export interface SurvivalPoint extends StepPoint {
 export interface AxisConfig {
   /** Axis label displayed in text descriptions. Defaults applied when absent. */
   label?: string;
-  /** Minimum value for grid navigation (scatter only). */
+  /** Minimum value for scatter grid navigation, and the lower edge of a rug's braille bins. */
   min?: number;
-  /** Maximum value for grid navigation (scatter only). */
+  /** Maximum value for scatter grid navigation, and the upper edge of a rug's braille bins. */
   max?: number;
-  /** Step size for grid navigation (scatter only). */
+  /** Step size for scatter grid navigation, and the width of a rug's braille bins. */
   tickStep?: number;
   /** Optional per-axis value formatting applied in text descriptions. */
   format?: AxisFormat;
@@ -1436,6 +1457,7 @@ export interface MaidrLayer {
    * | `error_bar`, `forest` | `x` is the category, `y`/`yMin`/`yMax` the magnitudes | unchanged — only the axis labels swap |
    * | `box`, `boxen`, `violin_box` | quantile fields, no axis assignment | unchanged |
    * | `gantt`, `dumbbell` | — | unchanged; navigation and panning only |
+   * | `rug` | the ticks stand on the x axis and `x` is the position | the ticks lie along the y axis and `y` is the position |
    *
    * The bar family is defined by what a type is built on rather than by what
    * it is called, because the exchange is inherited from `AbstractBarPlot`'s
@@ -1578,6 +1600,7 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | PiePoint[]
+    | RugPoint[]
     | ScatterPoint[]
     | MosaicPoint[][]
     | VolcanoPoint[]
@@ -1819,6 +1842,16 @@ export enum TraceType {
    * one a ridgeline is drawn to ask.
    */
   RIDGELINE = 'ridgeline',
+  /**
+   * Observations drawn as ticks along one axis -- a rug. The chart has one
+   * quantity per observation, its position, and is drawn to show where the
+   * observations fall and where they bunch up. Read as a
+   * {@link TraceType.SCATTER} whose other coordinate is a constant, every
+   * tick sounds the same note and the clustering reaches the reader only as
+   * text, one observation at a time (#1132). Here the position is what the
+   * pitch carries, and the braille is the observation count along the axis.
+   */
+  RUG = 'rug',
   /**
    * Weighted flow between nodes, drawn as ribbons whose width is the
    * magnitude. The chart exists to show routing and proportion at once, which

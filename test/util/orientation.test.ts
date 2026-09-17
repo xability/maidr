@@ -18,6 +18,9 @@ describe('resolveOrientation', () => {
     TraceType.DOT,
     TraceType.LOLLIPOP,
     TraceType.DODGED,
+    // The ticks stand on one axis, and which axis decides which field of a
+    // point is the position and which label it is announced against.
+    TraceType.RUG,
     // A dumbbell is commonly drawn with its categories running down the page,
     // and the pair runs along the value axis either way -- so which axis a dot
     // moves on depends on which way it was drawn.

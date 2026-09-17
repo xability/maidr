@@ -188,6 +188,22 @@ In multiline braille displays, all cells are represented simultaneously. Horizon
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
 
+## Rug plot
+
+A rug marks each observation as a tick on one axis, so the chart has one quantity per observation: its position. The braille is a density strip along that axis. The axis is cut into bins, and each Braille character is the number of observations in its bin, encoded as a bar plot's magnitudes are:
+
+- a blank cell is a bin with no observation in it
+- ⣀ represents counts from 0% to 25% of the fullest bin
+- ⠤ represents counts from 25% to 50%
+- ⠒ represents counts from 50% to 75%
+- ⠉ represents counts from 75% to 100%
+
+When the layer declares `axes.x.tickStep` (or `axes.y.tickStep` for a horizontal rug) together with the axis `min` and `max`, the bins are that wide, so the strip lines up with the ticks the chart draws. Otherwise the axis is cut into `ceil(sqrt(n))` equal bins over the observations' own span, the square-root rule a histogram falls back on. As the reader walks the observations, the braille cursor sits in the bin the current observation falls in.
+
+### Multiline Displays
+
+The strip is one row, and the remaining lines of a multiline display are unused.
+
 ## Segmented Bar Plots
 
 Stacked bar, dodged bar, and normalized stacked bar all share the same system:

@@ -47,6 +47,7 @@ const PLOT_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.POLAR_AREA]: 'model.plotTypePolarArea',
   [TraceType.RADAR]: 'model.plotTypeRadar',
   [TraceType.RIDGELINE]: 'model.plotTypeRidgeline',
+  [TraceType.RUG]: 'model.plotTypeRug',
   [TraceType.SCATTER]: 'model.plotTypeScatter',
   [TraceType.SUNFLOWER]: 'model.plotTypeSunflower',
   [TraceType.SMOOTH]: 'model.plotTypeSmooth',
