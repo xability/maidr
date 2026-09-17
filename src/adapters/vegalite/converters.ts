@@ -33,6 +33,7 @@ import type {
   MaidrLayer,
   MaidrSubplot,
   PiePoint,
+  RugPoint,
   ScatterPoint,
   SegmentedPoint,
   StepDirection,
@@ -739,6 +740,8 @@ function getStepDirection(spec: VegaLiteSpec): StepDirection | undefined {
  *   - `rect`                           → HEATMAP
  *   - `point` / `circle` / `square` / `tick` → SCATTER, or DOT when one
  *     positional channel is a category
+ *   - `tick` with one positional channel → RUG: the marks stand on one axis
+ *     and carry a position and nothing else
  *   - `line` with a stepping `interpolate` → STEP
  *   - `area`                           → AREA / STACKED_AREA / NORMALIZED_AREA
  *   - `arc` with a `theta` encoding    → PIE (a doughnut is the same mark
@@ -979,6 +982,28 @@ function resolveFoldedAxes(
 }
 
 /**
+ * What a point-shaped mark reads as.
+ *
+ * A point mark against a category is a Cleveland dot plot, not a scatter:
+ * one of its two coordinates is a name. `extractScatterData` coerces both
+ * channels with `Number()`, so reading one as a scatter put `x: NaN` on
+ * every point -- audible as silence at every sample. Exactly one categorical
+ * positional channel, because a point with two (a dot matrix) has no
+ * magnitude to sonify at all, and a point with none is a scatter.
+ *
+ * @param encoding - The layer's encoding, when it has one
+ * @returns DOT against a category, SCATTER otherwise
+ */
+function resolvePointMarkType(encoding?: VegaLiteEncoding): TraceType {
+  const categoricalX = isCategorical(encoding?.x);
+  const categoricalY = isCategorical(encoding?.y);
+  if (hasField(encoding?.x) && hasField(encoding?.y) && categoricalX !== categoricalY) {
+    return TraceType.DOT;
+  }
+  return TraceType.SCATTER;
+}
+
+/**
  * Classify a mark that spans a range on one axis instead of standing on a
  * baseline.
  *
@@ -1122,23 +1147,25 @@ function resolveTraceType(
       // accumulating, STEP loses nothing that AREA would preserve.
       return stepDirection ? TraceType.STEP : TraceType.AREA;
     }
-    // A point mark against a category is a Cleveland dot plot, not a
-    // scatter: one of its two coordinates is a name. `extractScatterData`
-    // coerces both channels with `Number()`, so reading one as a scatter
-    // put `x: NaN` on every point — audible as silence at every sample.
-    // Exactly one categorical positional channel, because a point with two
-    // (a dot matrix) has no magnitude to sonify at all, and a point with
-    // none is the scatter this case has always meant.
     case 'point':
     case 'circle':
     case 'square':
+      return resolvePointMarkType(encoding);
+    // A tick bound to one quantitative channel is a rug: every mark stands
+    // on that axis at its observation's value and the other axis carries
+    // nothing. Read as a scatter it was a point trace whose other
+    // coordinate was a constant, so every tick sounded the same note and
+    // the clustering the chart is drawn to show was inaudible (#1132). A
+    // tick with both channels is a strip plot against a category, or a
+    // scatter drawn with ticks, and reads as the point marks above do; a
+    // tick on one *categorical* axis has no position to read and keeps
+    // the reading it always had rather than becoming a rug of nothing.
     case 'tick': {
-      const categoricalX = isCategorical(encoding?.x);
-      const categoricalY = isCategorical(encoding?.y);
-      if (hasField(encoding?.x) && hasField(encoding?.y) && categoricalX !== categoricalY) {
-        return TraceType.DOT;
-      }
-      return TraceType.SCATTER;
+      const bound = hasField(encoding?.x) ? encoding?.x : hasField(encoding?.y) ? encoding?.y : undefined;
+      const onOneAxis = hasField(encoding?.x) !== hasField(encoding?.y);
+      return onOneAxis && !isCategorical(bound)
+        ? TraceType.RUG
+        : resolvePointMarkType(encoding);
     }
     // A `rule` draws a segment, and `x`–`x2` (or `y`–`y2`) makes that segment
     // an interval per row — the same chart `bar` draws with the same two
@@ -2040,6 +2067,30 @@ function extractScatterData(
       point.label = String(label);
     return point;
   });
+}
+
+/**
+ * The observations of a rug, one position each, off whichever channel the
+ * ticks stand on.
+ *
+ * A rug's marks are on one axis; the other channel is not bound to a field,
+ * so there is nothing to read there and the point carries the one
+ * coordinate the chart draws. Coerced with `Number()` as the scatter's are:
+ * a rug is only ever drawn on a quantitative axis, and a name here would be
+ * a strip plot, which resolves to a dot plot before this runs.
+ *
+ * @param rows - The layer's rows
+ * @param encoding - The layer's encoding
+ * @param onY - Whether the ticks stand on the y axis
+ * @returns One point per row
+ */
+function extractRugData(
+  rows: Record<string, unknown>[],
+  encoding: VegaLiteEncoding,
+  onY: boolean,
+): RugPoint[] {
+  const field = (onY ? encoding.y?.field : encoding.x?.field) ?? (onY ? 'y' : 'x');
+  return rows.map(row => (onY ? { y: Number(row[field] ?? 0) } : { x: Number(row[field] ?? 0) }));
 }
 
 /**
@@ -3510,6 +3561,18 @@ function convertLayerSpec(
       data = extractScatterData(rows, encoding);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
       break;
+    // The ticks stand on whichever axis is bound; a rug beside the y axis
+    // is the horizontal one, and `RugTrace` reads the position off `y`
+    // only when told so.
+    case TraceType.RUG: {
+      const onY = !hasField(encoding.x);
+      data = extractRugData(rows, encoding, onY);
+      selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);
+      if (onY) {
+        orientation = Orientation.HORIZONTAL;
+      }
+      break;
+    }
     case TraceType.HEATMAP:
       data = extractHeatmapData(rows, encoding, view, markGroupPrefix);
       selectors = buildSelector(mark, selectorLayerIndex, layered, markGroupPrefix);

@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -198,9 +198,9 @@ var maidr = {
 Not every declarable type carries the same promise, and that is not visible
 from the list above.
 
-Fifteen of them predate the chart-type coverage roadmap (#814). The other
-thirty-seven were added by it, most of them inside about two weeks, and
-**none of the thirty-seven has been through a user study**.
+Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
+were added by it, most of them inside about two weeks, and `rug` after it
+(#1132). **None of the thirty-eight has been through a user study**.
 
 ### Stable
 
@@ -218,7 +218,7 @@ change to any of them changes behaviour people already depend on.
 `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
 `network`, `pack`, `parallel_coordinates`, `polar_area`, `radar`,
-`ridgeline`, `sankey`, `stacked_area`, `stacked_normalized_area`,
+`ridgeline`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
 `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
 `waterfall`, `word_cloud`
 
@@ -605,6 +605,32 @@ The data property is defined as a list of objects where each object is a record 
        { "x": 0, "xLabel": "a", "y": 1.4 },
        { "x": 0, "xLabel": "a", "y": 2.1 },
        { "x": 1, "xLabel": "b", "y": 3.0 }
+     ],
+   };
+
+   // rug: observations marked as ticks along one axis. One position per
+   // observation and nothing else -- the chart is drawn to show where the
+   // observations fall and where they bunch up. `x` for a vertical rug (the
+   // ticks stand on the x axis, the default), `y` for a horizontal one
+   // (`orientation: 'horz'`); the trace reads the field the orientation
+   // names and ignores the other, so a producer that already emits a rug as
+   // a `point` layer with a constant on the other axis switches by changing
+   // `type`. Listed in any order: the observations are walked from the
+   // lowest position up, and a flat selector pairs elements in this order.
+   //
+   // The pitch and the stereo pan follow the position on the axis, read
+   // against `axes.x.min` / `max` when they cover the data and the data's
+   // own span otherwise. The braille is the observation count per bin along
+   // the axis: `tickStep` sets the bin width when declared, so the strip
+   // lines up with the ticks the chart draws, and the axis is cut into
+   // `ceil(sqrt(n))` equal bins when it is not.
+   maidr = {
+     type: 'rug',
+     axes: { x: { label: 'Seconds', min: 0, max: 10, tickStep: 2.5 } },
+     data: [
+       { "x": 2.2 },
+       { "x": 1.5 },
+       { "x": 9.4 }
      ],
    };
 
