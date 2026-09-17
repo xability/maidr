@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lastCommitDate } from './gitDates.js';
+import { API_URL } from './siteOrigin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
@@ -157,7 +158,7 @@ function fixSitemap() {
   const today = new Date().toISOString().split('T')[0];
   const lastmod = lastCommitDate(path.join(__dirname, '..'), 'src', today);
   const sitemap = fs.readFileSync(sitemapPath, 'utf-8')
-    .replace('<loc>https://maidr.ai/api/index.html</loc>', '<loc>https://maidr.ai/api/</loc>')
+    .replace(`<loc>${API_URL}index.html</loc>`, `<loc>${API_URL}</loc>`)
     .replace(/<lastmod>[^<]*<\/lastmod>/g, `<lastmod>${lastmod}</lastmod>`);
   fs.writeFileSync(sitemapPath, sitemap, 'utf-8');
   console.log(`Rewrote api/sitemap.xml (lastmod ${lastmod})`);

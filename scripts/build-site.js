@@ -18,6 +18,7 @@ import { buildGallery, listExamplePages, renderGallery } from './examplesGallery
 import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
 import { inlineJson } from './jsonLd.js';
 import { renderMarkdown } from './markdown.js';
+import { SITE_URL } from './siteOrigin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +26,6 @@ const ROOT = path.join(__dirname, '..');
 const SITE_DIR = path.join(ROOT, '_site');
 const TEMPLATE_PATH = path.join(ROOT, 'docs', 'template.html');
 const PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'));
-const SITE_URL = 'https://maidr.ai/';
 
 // Ensure _site directory exists
 if (!fs.existsSync(SITE_DIR)) {
@@ -187,10 +187,10 @@ function buildTechArticleSchema(title, description, canonicalUrl, datePublished,
     'url': canonicalUrl,
     'datePublished': datePublished,
     'dateModified': dateModified,
-    'author': { '@id': 'https://maidr.ai/#organization' },
-    'publisher': { '@id': 'https://maidr.ai/#organization' },
-    'isPartOf': { '@id': 'https://maidr.ai/#website' },
-    'about': { '@id': 'https://maidr.ai/#software' },
+    'author': { '@id': `${SITE_URL}#organization` },
+    'publisher': { '@id': `${SITE_URL}#organization` },
+    'isPartOf': { '@id': `${SITE_URL}#website` },
+    'about': { '@id': `${SITE_URL}#software` },
   }, 2);
 }
 
@@ -205,7 +205,7 @@ const PAPERS = [
     '@id': 'https://doi.org/10.1145/3613904.3642730',
     'name': 'MAIDR: Making Statistical Visualizations Accessible with Multimodal Data Representation',
     'author': [
-      { '@id': 'https://maidr.ai/#jooyoung-seo' },
+      { '@id': `${SITE_URL}#jooyoung-seo` },
       { '@type': 'Person', 'name': 'Yilin Xia' },
       { '@type': 'Person', 'name': 'Bongshin Lee' },
       { '@type': 'Person', 'name': 'Sean Mccurry' },
@@ -226,7 +226,7 @@ const PAPERS = [
     '@id': 'https://doi.org/10.2312/eved.20241053',
     'name': 'Designing Born-Accessible Courses in Data Science and Visualization: Challenges and Opportunities of a Remote Curriculum Taught by Blind Instructors to Blind Students',
     'author': [
-      { '@id': 'https://maidr.ai/#jooyoung-seo' },
+      { '@id': `${SITE_URL}#jooyoung-seo` },
       { '@type': 'Person', 'name': 'Sile O\'Modhrain' },
       { '@type': 'Person', 'name': 'Yilin Xia' },
       { '@type': 'Person', 'name': 'Sanchita Kamath' },
@@ -248,10 +248,10 @@ const PAPERS = [
 /** The home page's own node, cross-linking the Python and R sites. */
 const HOME_WEBPAGE = {
   '@type': 'WebPage',
-  '@id': 'https://maidr.ai/#webpage',
+  '@id': `${SITE_URL}#webpage`,
   'url': SITE_URL,
-  'isPartOf': { '@id': 'https://maidr.ai/#website' },
-  'mainEntity': { '@id': 'https://maidr.ai/#software' },
+  'isPartOf': { '@id': `${SITE_URL}#website` },
+  'mainEntity': { '@id': `${SITE_URL}#software` },
   'relatedLink': ['https://py.maidr.ai/', 'https://r.maidr.ai/'],
 };
 
@@ -299,6 +299,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     : '';
 
   const page = template
+    .replace(/\{\{SITE_URL\}\}/g, () => SITE_URL)
     .replace(/\{\{TITLE\}\}/g, () => title)
     .replace(/\{\{SEO_TITLE\}\}/g, () => seoTitle)
     .replace(/\{\{DESCRIPTION\}\}/g, () => description)
@@ -689,6 +690,11 @@ if (fs.existsSync(docsSource)) {
     } else if (fs.statSync(src).isDirectory()) {
       // Copy directories to _site/ root
       fs.cpSync(src, path.join(SITE_DIR, file), { recursive: true });
+    } else if (file === 'robots.txt') {
+      // robots.txt names both sitemaps by absolute URL, so it is written for
+      // the origin the site is built for, like every other absolute URL.
+      const robots = fs.readFileSync(src, 'utf-8').replace(/\{\{SITE_URL\}\}/g, () => SITE_URL);
+      fs.writeFileSync(path.join(SITE_DIR, file), robots);
     } else {
       // Copy other static files to _site/ root
       fs.copyFileSync(src, path.join(SITE_DIR, file));
