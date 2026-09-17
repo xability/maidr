@@ -359,14 +359,26 @@ export function barPointSelector(
  * @param gd         - The plotly graph div
  * @param traceIndex - The global index of the choropleth trace
  * @param indices    - The calc index of each region the layer emitted
- * @returns One selector per region
+ * @returns One selector per region, or undefined when the subplot cannot be
+ *          named safely
  */
 export function choroplethRegionSelectors(
   gd: PlotlyGraphDiv,
   traceIndex: number,
   indices: number[],
-): string[] {
+): string[] | undefined {
   const geoId = gd._fullData?.[traceIndex]?.geo ?? 'geo';
+  // The id goes inside `[class='…']`, where a quote would end the string early
+  // and the rest would be read as selector syntax. Plotly types `geo` as a
+  // subplot id and resolves it before it reaches `_fullData`, so this is not a
+  // value an author can currently steer -- but an attribute selector is the one
+  // place in this file where a stray character changes what is *matched*
+  // rather than matching nothing, so it is checked rather than assumed.
+  // Anything that is not a shape plotly writes withdraws the selector, the way
+  // `scatterTraceScope` withdraws on an unusable uid.
+  if (!/^geo\d*$/.test(geoId)) {
+    return undefined;
+  }
   const position = drawnBefore(
     gd,
     traceIndex,
@@ -758,13 +770,20 @@ function gaugeSelector(gd: PlotlyGraphDiv, traceIndex: number): string {
  * @param series    - The layer's series, each with its position among the subplot's traces
  * @param subplotId - The polar subplot they are drawn on (`polar`, `polar2`, …)
  * @param isBar     - Whether these are barpolar traces rather than scatterpolar
- * @returns One selector per series, or undefined when none can be built
+ * @returns One selector per series, or undefined when none can be built or the
+ *          subplot cannot be named safely
  */
 export function polarSeriesSelectors(
   series: PolarSeries[],
   subplotId: string,
   isBar: boolean,
 ): string[] | undefined {
+  // Checked for the reason the geo id is, and against this family's own shape:
+  // a `.` or a `[` here would not break out of a string but would still change
+  // which element the prefix names.
+  if (!/^polar\d*$/.test(subplotId)) {
+    return undefined;
+  }
   const prefix = `.polarlayer > g.${subplotId} > g.frontplot`;
 
   if (isBar) {
