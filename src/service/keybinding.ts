@@ -11,6 +11,7 @@ import { InvalidKeyCommand } from '@command/invalidKey';
 import { PointerGuidanceCommand } from '@command/pointerGuidance';
 import { Scope } from '@type/event';
 import { Constant } from '@util/constant';
+import { combosOf, formatCombo, normalizeCombo } from '@util/keyCombo';
 import { Platform } from '@util/platform';
 import hotkeys from 'hotkeys-js';
 
@@ -538,20 +539,174 @@ export type Keymap = {
 };
 
 /**
- * Gets the keymap for a specific scope with proper typing.
+ * Shortcuts a reader has changed, keyed by command: the value of
+ * `settings.general.keybindings`, once {@link resolveOverrides} has
+ * discarded anything that is not a command with a shortcut of its own.
+ */
+export type KeybindingOverrides = Readonly<Record<string, string>>;
+
+/**
+ * Commands a reader may not rebind.
+ *
+ * The help chord is the way back to the list of shortcuts, and the warning
+ * an unassigned key gives spells that chord out in words -- a reader who
+ * moved it and forgot where would be told to press a key that no longer
+ * opens anything. `ALLOW_DEFAULT` is the browser's own behaviour, not a
+ * shortcut. `STOP_AUTOPLAY` is bound through a wildcard handler that fires
+ * on a bare modifier press (see {@link KeybindingService.bindAll}), which
+ * no override reaches: offering it as movable would list a new key while
+ * the old one kept working.
+ */
+const FIXED_COMMANDS: ReadonlySet<string> = new Set(['TOGGLE_HELP', 'ALLOW_DEFAULT', 'STOP_AUTOPLAY']);
+
+/**
+ * Every command name a keymap binds, with the scopes that bind it.
+ *
+ * Computed once: the keymaps are module constants, so the answer never
+ * changes, and both the conflict check and the help menu ask it per row.
+ */
+const SCOPES_BY_COMMAND: ReadonlyMap<string, readonly Scope[]> = (() => {
+  const map = new Map<string, Scope[]>();
+  for (const [scope, keymap] of Object.entries(SCOPED_KEYMAP) as [Scope, ScopeKeymap][]) {
+    for (const commandName of Object.keys(keymap)) {
+      const scopes = map.get(commandName) ?? [];
+      scopes.push(scope);
+      map.set(commandName, scopes);
+    }
+  }
+  return map;
+})();
+
+/**
+ * Whether a reader may give this command a shortcut of their choosing.
+ * @param commandName - A key of a scope's keymap
+ * @returns True for every bound command but the fixed few
+ */
+export function isRebindable(commandName: string): boolean {
+  return SCOPES_BY_COMMAND.has(commandName) && !FIXED_COMMANDS.has(commandName);
+}
+
+/**
+ * The overrides a settings object carries, reduced to the ones that can
+ * apply.
+ *
+ * Settings come back from localStorage, where anything may have been
+ * written: a command that no longer exists, a value that is not a string,
+ * a shortcut that names no key. None of those should reach hotkeys-js,
+ * which would bind them silently, so they are dropped here and the reader's
+ * other overrides survive.
+ * @param raw - `settings.general.keybindings`, or anything that stood in for it
+ * @returns The overrides worth applying
+ */
+export function resolveOverrides(raw: unknown): KeybindingOverrides {
+  const overrides: Record<string, string> = {};
+  if (raw === null || typeof raw !== 'object') {
+    return overrides;
+  }
+  for (const [commandName, combo] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isRebindable(commandName) || typeof combo !== 'string') {
+      continue;
+    }
+    const normalized = normalizeCombo(combo);
+    if (normalized.length === 0) {
+      continue;
+    }
+    overrides[commandName] = normalized;
+  }
+  return overrides;
+}
+
+/**
+ * The keymap of a scope with a reader's overrides applied.
+ *
+ * An overridden entry keeps its description and its visibility and takes the
+ * reader's shortcut, spelled for the help menu by {@link formatCombo} rather
+ * than by the hand-written `helpKey` of the default, which named a key the
+ * reader no longer presses.
  * @param scope - The scope to get the keymap for.
+ * @param overrides - Shortcuts the reader has changed, by command.
  * @returns The keymap for the scope.
  */
-export function getKeymapForScope(scope: Scope): ScopeKeymap {
-  return SCOPED_KEYMAP[scope] as ScopeKeymap;
+export function getKeymapForScope(scope: Scope, overrides: KeybindingOverrides = {}): ScopeKeymap {
+  const keymap = SCOPED_KEYMAP[scope] as ScopeKeymap;
+  const applied: Record<string, KeybindingEntry> = {};
+  for (const [commandName, entry] of Object.entries(keymap)) {
+    const combo = overrides[commandName];
+    applied[commandName] = combo === undefined || !isRebindable(commandName)
+      ? entry
+      : { ...entry, hotkey: combo, helpKey: formatCombo(combo) };
+  }
+  return applied;
+}
+
+/** What a rebinding would collide with: the other command and where. */
+export interface BindingConflict {
+  scope: Scope;
+  commandName: string;
+  description: MessageKey;
+}
+
+/**
+ * The command a shortcut already runs in a scope the given command is bound
+ * in, or null when the shortcut is free everywhere it would apply.
+ *
+ * Checked against the effective keymap -- the defaults with the reader's
+ * other overrides applied -- and against every scope the command lives in,
+ * because a command moved in trace and braille mode at once has to be free
+ * in both. Hidden bindings count: Escape is bound and unlisted in most
+ * scopes, and a shortcut that would shadow it is still taken.
+ *
+ * When several commands claim the key, the one named is the one the reader
+ * would recognise from the help menu: a listed, movable command before a
+ * fixed or hidden one. `STOP_AUTOPLAY` lists the arrow keys among its
+ * alternatives -- part of the wildcard workaround, not what the help menu
+ * shows for it -- and sits above the Move commands in every keymap, so
+ * without the preference a reader asking for a bare arrow was told it was
+ * used by Stop Autoplay rather than by Navigate Up.
+ * @param commandName - The command being rebound
+ * @param combo - The shortcut it would take
+ * @param overrides - The reader's other overrides
+ * @returns The conflict, or null
+ */
+export function findBindingConflict(
+  commandName: string,
+  combo: string,
+  overrides: KeybindingOverrides,
+): BindingConflict | null {
+  const wanted = normalizeCombo(combo);
+  for (const scope of SCOPES_BY_COMMAND.get(commandName) ?? []) {
+    const keymap = getKeymapForScope(scope, overrides);
+    const claiming = Object.entries(keymap)
+      .filter(([other, entry]) => other !== commandName && combosOf(entry.hotkey).includes(wanted));
+    if (claiming.length === 0) {
+      continue;
+    }
+    const recognisable = claiming.find(([other, entry]) =>
+      !FIXED_COMMANDS.has(other) && entry.showInHelp !== false)
+    ?? claiming.find(([other]) => !FIXED_COMMANDS.has(other))
+    ?? claiming[0];
+    const [other, entry] = recognisable;
+    return { scope, commandName: other, description: entry.description };
+  }
+  return null;
 }
 
 /**
  * Service for registering and managing keyboard bindings across application scopes.
+ *
+ * Observes the settings so a shortcut the reader changes in the help menu
+ * takes effect at once: the bindings are torn down and put back with the new
+ * overrides, in the scope the reader is in, without the page reloading.
  */
-export class KeybindingService {
+export class KeybindingService implements Observer<Settings> {
   private readonly commandFactory: CommandFactory;
   private readonly invalidKeyCommand: InvalidKeyCommand;
+
+  /** The overrides the current bindings were made with, for change detection. */
+  private overrides: KeybindingOverrides = {};
+
+  /** The scope in force, so a rebind can put it back after unbinding. */
+  private scope: Scope | null = null;
 
   /**
    * The keydown event a binding last claimed.
@@ -576,8 +731,10 @@ export class KeybindingService {
   /**
    * Registers all keyboard bindings and sets the initial scope.
    * @param initialScope - The initial application scope to activate
+   * @param overrides - Shortcuts the reader has changed, by command
    */
-  public register(initialScope: Scope): void {
+  public register(initialScope: Scope, overrides: KeybindingOverrides = {}): void {
+    this.overrides = overrides;
     hotkeys.filter = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName.toLowerCase() === Constant.INPUT) {
@@ -592,12 +749,17 @@ export class KeybindingService {
       }
     };
 
-    // Register all bindings.
-    for (const [scope, keymap] of Object.entries(SCOPED_KEYMAP) as [
-      Scope,
-      Keymap[Scope],
-    ][]) {
-      for (const [commandName, entry] of Object.entries(keymap as Record<string, KeybindingEntry>) as [
+    this.bindAll();
+    this.setScope(initialScope);
+  }
+
+  /**
+   * Binds every scope's keymap, with the current overrides applied.
+   */
+  private bindAll(): void {
+    for (const scope of Object.keys(SCOPED_KEYMAP) as Scope[]) {
+      const keymap = getKeymapForScope(scope, this.overrides);
+      for (const [commandName, entry] of Object.entries(keymap) as [
         Keys,
         KeybindingEntry,
       ][]) {
@@ -625,10 +787,30 @@ export class KeybindingService {
         });
       }
 
-      this.warnOnUnassignedKeys(scope, keymap as ScopeKeymap);
+      this.warnOnUnassignedKeys(scope, keymap);
     }
+  }
 
-    this.setScope(initialScope);
+  /**
+   * Re-binds everything when the reader's shortcuts change.
+   *
+   * Nothing moves for a settings change that leaves the shortcuts alone --
+   * volume, language, a braille display -- because unbinding and rebinding
+   * is not free and the reader may be mid-chord.
+   * @param settings - The settings just saved
+   */
+  public update(settings: Settings): void {
+    const overrides = resolveOverrides(settings.general.keybindings);
+    if (sameOverrides(overrides, this.overrides)) {
+      return;
+    }
+    this.overrides = overrides;
+    if (this.scope === null) {
+      return;
+    }
+    hotkeys.unbind();
+    this.bindAll();
+    this.setScope(this.scope);
   }
 
   /**
@@ -678,6 +860,7 @@ export class KeybindingService {
    * @param scope - The scope to activate
    */
   public setScope(scope: Scope): void {
+    this.scope = scope;
     hotkeys.setScope(scope);
   }
 
@@ -685,8 +868,20 @@ export class KeybindingService {
    * Unregisters all keyboard bindings.
    */
   public unregister(): void {
+    this.scope = null;
     hotkeys.unbind();
   }
+}
+
+/**
+ * Whether two sets of overrides bind the same shortcuts.
+ * @param a - One set
+ * @param b - The other
+ * @returns True when every command has the same shortcut in both
+ */
+function sameOverrides(a: KeybindingOverrides, b: KeybindingOverrides): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(key => a[key] === b[key]);
 }
 
 /**

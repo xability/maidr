@@ -268,6 +268,15 @@ export interface GeneralSettings {
   autoplayDuration: number;
   ariaMode: AriaMode;
   hoverMode: HoverMode;
+  /**
+   * Shortcuts the reader has changed, keyed by the command they run
+   * (`TOGGLE_BRAILLE`, `MOVE_UP`, ...) with the new shortcut in the form
+   * hotkeys-js binds (`shift+b`, `ctrl+shift+p`). A command bound in
+   * several scopes -- the arrows in trace and braille mode -- moves in all
+   * of them at once, which is what a reader who changed it expects. Empty
+   * means every shortcut is the default.
+   */
+  keybindings: Record<string, string>;
 }
 
 /**
@@ -300,6 +309,7 @@ export const DEFAULT_SETTINGS: Settings = {
     autoplayDuration: 4000,
     ariaMode: 'assertive',
     hoverMode: 'pointermove',
+    keybindings: {},
   },
   llm: {
     expertiseLevel: 'basic',
