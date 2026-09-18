@@ -125,6 +125,13 @@ export const settings = {
   'settings.sourceInline': 'Embedded in the page',
   'settings.sourceUnknown': 'Unknown',
 
+  // The "Report an Issue" button, which opens GitHub's issue form with the
+  // block above already in it.
+  'settings.reportIssue': 'Report an Issue',
+  'settings.reportIssueOpen': 'Open a bug report',
+  'settings.reportIssueAria': 'Open a bug report on GitHub in a new tab',
+  'settings.reportIssueHint': 'Opens GitHub with a bug report already carrying the diagnostics above. Nothing is sent until you submit it there, so edit out anything you would rather not share.',
+
   // Footer. Each button's visible text and its longer accessible name.
   'settings.reset': 'Reset',
   'settings.resetAria': 'Reset Settings',

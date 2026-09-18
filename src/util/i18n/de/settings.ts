@@ -124,6 +124,11 @@ export const settings = {
   'settings.sourceInline': 'In die Seite eingebettet',
   'settings.sourceUnknown': 'Unbekannt',
 
+  'settings.reportIssue': 'Problem melden',
+  'settings.reportIssueOpen': 'Fehlerbericht öffnen',
+  'settings.reportIssueAria': 'Fehlerbericht öffnen: auf GitHub, in einem neuen Tab',
+  'settings.reportIssueHint': 'Öffnet auf GitHub einen Fehlerbericht, der die Diagnose von oben bereits enthält. Bis Sie ihn dort absenden, wird nichts übertragen — entfernen Sie also alles, was Sie nicht teilen möchten.',
+
   // Footer. Each button's visible text and its longer accessible name.
   'settings.reset': 'Zurücksetzen',
   'settings.resetAria': 'Einstellungen zurücksetzen',

@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import {
+  buildIssueUrl,
   classifyScriptOrigin,
   describeBrowser,
   describeMaidrSource,
@@ -386,5 +388,110 @@ describe('formatDiagnostics', () => {
     // The filename still says which bundle; the home directory does not travel.
     expect(report).not.toContain('jane.doe');
     expect(report).not.toContain('reports');
+  });
+});
+
+describe('buildIssueUrl', () => {
+  const diagnostics = {
+    version: '3.74.0',
+    browser: 'Chrome 141',
+    operatingSystem: 'Linux',
+    source: {
+      kind: 'cdn' as const,
+      url: 'https://cdn.jsdelivr.net/npm/maidr@latest/dist/maidr.js',
+    },
+    userAgent: CHROME,
+  };
+
+  /**
+   * Reads the report back the way GitHub's form does.
+   * @param url - A URL from `buildIssueUrl`.
+   * @returns The decoded `body` parameter.
+   */
+  function body(url: string): string {
+    return new URL(url).searchParams.get('body') ?? '';
+  }
+
+  /**
+   * Collects the level-two headings of a Markdown document.
+   * @param markdown - The document to read.
+   * @returns The heading texts, in document order.
+   */
+  function sections(markdown: string): string[] {
+    return [...markdown.matchAll(/^## (.+)$/gm)].map(match => match[1].trim());
+  }
+
+  it('opens the upstream repository, not whichever binding the reader came through', () => {
+    // Asserted on the whole prefix rather than a substring: this is also what
+    // catches `package.json` gaining a `git+` scheme or a `.git` suffix, which
+    // would leave a link that resolves to nothing.
+    expect(buildIssueUrl(diagnostics)).toMatch(
+      /^https:\/\/github\.com\/xability\/maidr\/issues\/new\?/,
+    );
+  });
+
+  it('carries the title and label the bug template applies', () => {
+    const params = new URL(buildIssueUrl(diagnostics)).searchParams;
+
+    // The conventional-commit type without the summary: commitlint takes the
+    // release commit from the pull request title, so the report starts on a
+    // prefix that already parses and the reporter finishes the sentence.
+    expect(params.get('title')).toBe('fix: ');
+    expect(params.get('labels')).toBe('bug');
+  });
+
+  it('opens the form directly rather than the template chooser', () => {
+    // No `template=` parameter: GitHub's precedence between a named Markdown
+    // template and an explicit body is not something the prefill can depend
+    // on, so the body is written out in full instead.
+    expect(new URL(buildIssueUrl(diagnostics)).searchParams.has('template')).toBe(false);
+  });
+
+  it('fills the Environment section with the block the copy button produces', () => {
+    const report = body(buildIssueUrl(diagnostics));
+
+    expect(report).toContain('## Environment');
+    // The same text, not a second rendering of it — a maintainer reading a
+    // pasted block and a filed report has to be reading the same fields.
+    expect(report).toContain(formatDiagnostics(diagnostics));
+    // Fenced, so the user agent's slashes and parentheses survive Markdown.
+    expect(report).toContain(`\`\`\`text\n${formatDiagnostics(diagnostics)}\n\`\`\``);
+  });
+
+  it('asks the same questions as the checked-in bug template', () => {
+    // The template is a repository file GitHub expands server side and never
+    // ships in the bundle, so the body reproduces it. This is what notices a
+    // section added to one and not the other.
+    const template = readFileSync('.github/ISSUE_TEMPLATE/bug_report.md', 'utf8');
+
+    expect(sections(body(buildIssueUrl(diagnostics)))).toEqual(sections(template));
+  });
+
+  it('tells the reporter the prefill is theirs to edit before they submit', () => {
+    // Said in the report itself, not only in the dialog: this is the last
+    // point at which something can still be taken out.
+    expect(body(buildIssueUrl(diagnostics))).toContain('Edit or remove anything');
+  });
+
+  it('carries the redaction into the report', () => {
+    const report = body(buildIssueUrl({
+      ...diagnostics,
+      source: { kind: 'local', url: 'file:///Users/jane.doe/reports/dist/maidr.js' },
+    }));
+
+    expect(report).toContain('file:///.../maidr.js');
+    expect(report).not.toContain('jane.doe');
+  });
+
+  it('drops the diagnostics rather than build a URL GitHub answers with a 414', () => {
+    const url = buildIssueUrl({ ...diagnostics, userAgent: `Mozilla/5.0 ${'x'.repeat(9000)}` });
+
+    // Under the cap, so the form still opens...
+    expect(url.length).toBeLessThan(8000);
+    expect(body(url)).not.toContain('x'.repeat(9000));
+    // ...and the reader is told where to get what was left out, rather than
+    // meeting an Environment section that is silently empty.
+    expect(body(url)).toContain('Copy diagnostics');
+    expect(sections(body(url))).toContain('Environment');
   });
 });

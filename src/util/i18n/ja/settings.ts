@@ -112,6 +112,11 @@ export const settings = {
   'settings.sourceInline': 'ページに埋め込み',
   'settings.sourceUnknown': '不明',
 
+  'settings.reportIssue': '問題を報告',
+  'settings.reportIssueOpen': 'バグ報告を開く',
+  'settings.reportIssueAria': 'GitHub でバグ報告を開く、新しいタブで開きます',
+  'settings.reportIssueHint': '上の診断情報を記入済みのバグ報告を GitHub で開きます。そこで送信するまで何も送られないので、共有したくない内容は削除してください。',
+
   'settings.reset': 'リセット',
   'settings.resetAria': '設定をリセット',
   'settings.close': '閉じる',

@@ -111,6 +111,11 @@ export const settings = {
   'settings.sourceInline': 'Incorporato nella pagina',
   'settings.sourceUnknown': 'Sconosciuto',
 
+  'settings.reportIssue': 'Segnala un problema',
+  'settings.reportIssueOpen': 'Apri una segnalazione di bug',
+  'settings.reportIssueAria': 'Apri una segnalazione di bug su GitHub, in una nuova scheda',
+  'settings.reportIssueHint': 'Apre su GitHub una segnalazione di bug che contiene già la diagnostica qui sopra. Nulla viene inviato finché non la pubblichi lì, quindi rimuovi ciò che preferisci non condividere.',
+
   'settings.reset': 'Reimposta',
   'settings.resetAria': 'Reimposta le impostazioni',
   'settings.close': 'Chiudi',

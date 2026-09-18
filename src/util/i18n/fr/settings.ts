@@ -112,6 +112,11 @@ export const settings = {
   'settings.sourceInline': 'Intégré à la page',
   'settings.sourceUnknown': 'Inconnu',
 
+  'settings.reportIssue': 'Signaler un problème',
+  'settings.reportIssueOpen': 'Ouvrir un rapport de bogue',
+  'settings.reportIssueAria': 'Ouvrir un rapport de bogue sur GitHub, dans un nouvel onglet',
+  'settings.reportIssueHint': 'Ouvre sur GitHub un rapport de bogue contenant déjà les diagnostics ci-dessus. Rien n\'est envoyé tant que vous ne le publiez pas, alors supprimez ce que vous préférez ne pas partager.',
+
   'settings.reset': 'Réinitialiser',
   'settings.resetAria': 'Réinitialiser les paramètres',
   'settings.close': 'Fermer',

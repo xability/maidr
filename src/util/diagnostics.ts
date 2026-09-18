@@ -1,6 +1,6 @@
 import type { Locale } from './i18n';
 import { getLocale, tIn } from './i18n';
-import { MAIDR_VERSION } from './version';
+import { MAIDR_REPOSITORY_URL, MAIDR_VERSION } from './version';
 
 /**
  * Where the running maidr.js bundle was loaded from.
@@ -352,4 +352,129 @@ export function formatDiagnostics(diagnostics: Diagnostics): string {
     `Operating system: ${operatingSystem}`,
     `User agent: ${userAgent}`,
   ].join('\n');
+}
+
+/**
+ * Where the About tab files a bug report.
+ *
+ * Always the upstream repository, whichever binding the reader arrived
+ * through: py-maidr, r-maidr and the chart-library adapters all ship this same
+ * bundle, and everything the About tab describes — the version, the browser,
+ * the script that loaded it — belongs to maidr.js, so this is the tracker where
+ * the report can be acted on.
+ */
+const ISSUE_URL = `${MAIDR_REPOSITORY_URL}/issues/new`;
+
+/**
+ * The title the bug report opens with, matching the `title:` front matter of
+ * `.github/ISSUE_TEMPLATE/bug_report.md`. Left incomplete on purpose: commitlint
+ * takes the pull request title from it, so the reader finishes the summary after
+ * a type that already parses.
+ */
+const ISSUE_TITLE = 'fix: ';
+
+/** The label the bug template applies, so a prefilled report is triaged like one opened by hand. */
+const ISSUE_LABELS = 'bug';
+
+/**
+ * How long the issue URL may get before the diagnostics block is dropped from it.
+ *
+ * GitHub answers a request line much over 8 KB with a 414 and no issue form at
+ * all, which would cost the reader the button rather than just the prefill. An
+ * unusual user agent or a long script URL is the only way to get near it, so the
+ * cap sits well below with room for whatever GitHub appends.
+ */
+const MAX_ISSUE_URL_LENGTH = 6000;
+
+/**
+ * Builds the body of the prefilled bug report.
+ *
+ * The headings mirror `.github/ISSUE_TEMPLATE/bug_report.md` rather than being
+ * read from it: the template is a repository file that GitHub expands server
+ * side and never ships in the bundle. `test/util/diagnostics.test.ts` compares
+ * the two, so a section added to the template is caught here instead of leaving
+ * a report from this button quietly shaped differently from one opened by hand.
+ *
+ * English regardless of the reader's language, on the same reasoning as
+ * {@link formatDiagnostics}: what is written here is read by a maintainer.
+ * @param diagnostics - The snapshot to prefill the Environment section with.
+ * @param withDiagnostics - Whether the snapshot fits; see {@link MAX_ISSUE_URL_LENGTH}.
+ * @returns The Markdown body.
+ */
+function formatIssueBody(diagnostics: Diagnostics, withDiagnostics: boolean): string {
+  const environment = withDiagnostics
+    // Fenced so the user agent's slashes and parentheses survive Markdown, and
+    // so the block can be read back as the same text the copy button produces.
+    ? ['```text', formatDiagnostics(diagnostics), '```']
+    : ['<!-- Use "Copy diagnostics" in the About tab and paste the block here. -->'];
+
+  return [
+    '## Description',
+    '',
+    '<!-- Please provide a clear and concise description of the bug. -->',
+    '',
+    '## Steps to Reproduce',
+    '',
+    '1. ',
+    '2. ',
+    '3. ',
+    '',
+    '## Actual Behavior',
+    '',
+    '<!-- Please describe what actually happened. -->',
+    '',
+    '## Expected Behavior',
+    '',
+    '<!-- Please describe what you expected to happen. -->',
+    '',
+    '## Screenshots',
+    '',
+    '<!-- If applicable, add screenshots to help explain the problem. -->',
+    '',
+    '## Environment',
+    '',
+    // Said in the report itself, not only in the dialog: this is the last point
+    // at which the reader can still take something out, and the field most
+    // likely to carry more than they meant to share is right below it.
+    '<!-- Filled in from the About tab. Edit or remove anything you would rather not share. -->',
+    '',
+    ...environment,
+    '',
+    '## Additional Information',
+    '',
+    '<!-- Add any other relevant information about the problem here. -->',
+    '',
+  ].join('\n');
+}
+
+/**
+ * Builds the `issues/new` URL for a given body.
+ * @param body - The Markdown body to prefill.
+ * @returns The absolute URL.
+ */
+function issueUrlFor(body: string): string {
+  // No `template=` parameter. GitHub's precedence between a named Markdown
+  // template and an explicit `body` is not something to stake the feature on —
+  // losing that race would open the form with the diagnostics gone, which is
+  // the only reason the button exists — so the body is written out in full and
+  // the template's own front matter is reproduced by `title` and `labels`.
+  const params = new URLSearchParams({ title: ISSUE_TITLE, labels: ISSUE_LABELS, body });
+  return `${ISSUE_URL}?${params.toString()}`;
+}
+
+/**
+ * Builds the link that opens a bug report against the upstream repository with
+ * the reader's diagnostics already filled in.
+ *
+ * Nothing is sent anywhere: the whole report travels in the URL, so it is the
+ * reader who decides — on GitHub's own form, with the block in front of them —
+ * whether to submit it at all.
+ * @param diagnostics - The snapshot to prefill the Environment section with.
+ * @returns An absolute `github.com` URL for the prefilled issue form.
+ */
+export function buildIssueUrl(diagnostics: Diagnostics): string {
+  const url = issueUrlFor(formatIssueBody(diagnostics, true));
+  return url.length <= MAX_ISSUE_URL_LENGTH
+    ? url
+    : issueUrlFor(formatIssueBody(diagnostics, false));
 }

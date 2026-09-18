@@ -123,6 +123,11 @@ export const settings = {
   'settings.sourceInline': '嵌入在页面中',
   'settings.sourceUnknown': '未知',
 
+  'settings.reportIssue': '报告问题',
+  'settings.reportIssueOpen': '打开缺陷报告',
+  'settings.reportIssueAria': '在 GitHub 上打开缺陷报告，将在新标签页中打开',
+  'settings.reportIssueHint': '在 GitHub 上打开已填好上述诊断信息的缺陷报告。在那里提交之前不会发送任何内容，因此可以删除你不想公开的部分。',
+
   // Footer. Each button's visible text and its longer accessible name.
   'settings.reset': '重置',
   'settings.resetAria': '重置设置',

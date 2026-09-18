@@ -69,6 +69,7 @@ import {
 } from '@util/braillePreset';
 import { copyToClipboard } from '@util/clipboard';
 import {
+  buildIssueUrl,
   collectDiagnostics,
   describeMaidrSource,
   formatDiagnostics,
@@ -601,6 +602,7 @@ const Settings: React.FC = () => {
   const tactileLabelId = `${id}-tactile-label`;
   const tactileStatusId = `${id}-tactile-status`;
   const saveBlockedId = `${id}-save-blocked`;
+  const reportIssueHintId = `${id}-report-issue-hint`;
   const customInstructionStatusId = `${id}-custom-instruction-status`;
   const tactileMenu = useModalContainer();
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -621,6 +623,11 @@ const Settings: React.FC = () => {
     () => (diagnostics.source.url ? redactScriptUrl(diagnostics.source.url) : null),
     [diagnostics],
   );
+  // The whole bug report travels in this URL, so it is built here rather than
+  // on click: a plain link hands the reader the destination in their status
+  // bar, their browser's own "open in new tab", and an announcement of "link"
+  // rather than "button" — and no popup blocker stands between them and it.
+  const issueUrl = useMemo(() => buildIssueUrl(diagnostics), [diagnostics]);
 
   const handleCopyDiagnostics = useCallback(async (): Promise<void> => {
     let status: CopyStatus;
@@ -1943,6 +1950,52 @@ const Settings: React.FC = () => {
                       <span key={copyState.attempt}>
                         {describeCopyStatus(copyState.status)}
                       </span>
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <SettingRow
+              label={t('settings.reportIssue')}
+              alignLabel="flex-start"
+              input={(
+                <Grid container spacing={0.5} direction="column">
+                  <Grid size="auto">
+                    {/* An anchor, not a button with an onClick: `href` is what
+                        makes this a link to assistive technology and to the
+                        browser's own open-in-new-tab, and `rel` closes the
+                        reverse-tabnabbing hole `target="_blank"` opens. The
+                        accessible name says where it goes and that it leaves
+                        this tab — the one thing the visible text cannot,
+                        since a reader meets the new tab before they can see
+                        it. */}
+                    <Button
+                      component="a"
+                      href={issueUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outlined"
+                      color="inherit"
+                      size="small"
+                      aria-label={t('settings.reportIssueAria')}
+                      aria-describedby={reportIssueHintId}
+                    >
+                      {t('settings.reportIssueOpen')}
+                    </Button>
+                  </Grid>
+                  <Grid size="auto">
+                    {/* Static, not a live region: it describes the link rather
+                        than reporting an outcome, and it is what tells the
+                        reader the diagnostics go with them and are still
+                        theirs to edit before anything is filed. */}
+                    <Typography
+                      id={reportIssueHintId}
+                      variant="caption"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {t('settings.reportIssueHint')}
                     </Typography>
                   </Grid>
                 </Grid>
