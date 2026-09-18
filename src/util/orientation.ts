@@ -130,6 +130,9 @@ const IS_ORIENTED: Record<TraceType, boolean> = {
   // does not reach the class where that handling lives (#949). The answer
   // WATERFALL gives, for the same reason.
   [TraceType.RIDGELINE]: false,
+  // Two rates on two fixed axes: the false positive rate is always across
+  // and the true positive rate always up, whichever library drew it.
+  [TraceType.ROC]: false,
   // The ticks stand on one axis, and which axis decides which field of a
   // point is the position and which label it is announced against -- the
   // same reason a bar is oriented. A rug drawn beside the y axis of a

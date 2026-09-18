@@ -103,6 +103,7 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
   [TraceType.POLAR_AREA]: 'model.chartTypePolarArea',
   [TraceType.RADAR]: 'model.chartTypeRadar',
   [TraceType.RIDGELINE]: 'model.chartTypeRidgeline',
+  [TraceType.ROC]: 'model.chartTypeRoc',
   [TraceType.RUG]: 'model.chartTypeRug',
   [TraceType.SCATTER]: 'model.chartTypeScatter',
   [TraceType.SUNFLOWER]: 'model.chartTypeSunflower',

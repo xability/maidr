@@ -125,6 +125,7 @@ export const text = {
   'text.seriesNounLine': 'Ligne',
   'text.seriesNounObservation': 'Observation',
   'text.seriesNounCompetitor': 'Concurrent',
+  'text.seriesNounCurve': 'Courbe',
   'text.seriesNounSeries': 'Série',
   'text.columnRowPosition': 'Colonne {col} sur {cols}, ligne {row} sur {rows}',
   'text.wholeCircle': 'le cercle entier',
