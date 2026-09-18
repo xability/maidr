@@ -151,6 +151,11 @@ describe('getKeymapForScope with overrides', () => {
     expect(isRebindable('TOGGLE_HELP')).toBe(false);
     expect(getKeymapForScope(Scope.TRACE, { TOGGLE_HELP: 'x' }).TOGGLE_HELP.hotkey).not.toBe('x');
   });
+
+  it('never moves Stop Autoplay, whose wildcard binding no override reaches', () => {
+    expect(isRebindable('STOP_AUTOPLAY')).toBe(false);
+    expect(resolveOverrides({ STOP_AUTOPLAY: 'q' })).toEqual({});
+  });
 });
 
 describe('findBindingConflict', () => {

@@ -275,8 +275,15 @@ export class HelpService {
   public resetBinding(commandKey: string): RebindResult {
     const description = this.describe(commandKey);
     const overrides = this.overrides;
-    if (this.settings === null || description === null || overrides[commandKey] === undefined) {
+    if (this.settings === null || description === null) {
       return { changed: false, message: t('keybinding.helpUnsupportedKey') };
+    }
+    // A row still at its default has nothing to restore. The recording
+    // prompt offers Backspace on every row, so this is an ordinary way to
+    // arrive here, and the honest answer is that nothing moved -- not that
+    // Backspace is a key no shortcut may take.
+    if (overrides[commandKey] === undefined) {
+      return { changed: false, message: t('keybinding.helpRecordingCancelled') };
     }
     const { [commandKey]: _dropped, ...rest } = overrides;
     this.saveOverrides(rest);

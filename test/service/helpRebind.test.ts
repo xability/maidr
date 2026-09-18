@@ -139,8 +139,13 @@ describe('restoring defaults', () => {
     expect(harness.service.getMenuItems().find(item => item.commandKey === 'TOGGLE_BRAILLE')?.isCustom).toBeUndefined();
   });
 
-  it('does nothing for a command already at its default', () => {
-    expect(harness.service.resetBinding('MOVE_UP').changed).toBe(false);
+  it('says nothing moved for a command already at its default', () => {
+    // Backspace during a recording lands here on any row, so the answer
+    // must be that the shortcut is unchanged, not that Backspace is invalid.
+    expect(harness.service.resetBinding('MOVE_UP')).toEqual({
+      changed: false,
+      message: 'Shortcut unchanged.',
+    });
     expect(harness.saveSettings).not.toHaveBeenCalled();
   });
 

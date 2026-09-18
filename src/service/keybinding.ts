@@ -552,9 +552,12 @@ export type KeybindingOverrides = Readonly<Record<string, string>>;
  * an unassigned key gives spells that chord out in words -- a reader who
  * moved it and forgot where would be told to press a key that no longer
  * opens anything. `ALLOW_DEFAULT` is the browser's own behaviour, not a
- * shortcut.
+ * shortcut. `STOP_AUTOPLAY` is bound through a wildcard handler that fires
+ * on a bare modifier press (see {@link KeybindingService.bindAll}), which
+ * no override reaches: offering it as movable would list a new key while
+ * the old one kept working.
  */
-const FIXED_COMMANDS: ReadonlySet<string> = new Set(['TOGGLE_HELP', 'ALLOW_DEFAULT']);
+const FIXED_COMMANDS: ReadonlySet<string> = new Set(['TOGGLE_HELP', 'ALLOW_DEFAULT', 'STOP_AUTOPLAY']);
 
 /**
  * Every command name a keymap binds, with the scopes that bind it.
