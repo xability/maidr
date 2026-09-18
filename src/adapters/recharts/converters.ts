@@ -59,6 +59,7 @@ import type {
 } from '@type/grammar';
 import type { RechartsAdapterConfig, RechartsChartType, RechartsLayerConfig, RechartsSubplotConfig } from './types';
 import { toCategoryShares } from '@adapters/shared/normalize';
+import { clockFromCounterclockwiseOf3, pieGeometry } from '@adapters/shared/pieGeometry';
 import { cssEscape } from '@adapters/shared/selectorUtil';
 import { resolveFieldRef } from '@adapters/shared/traceDeclaration';
 import { Orientation, TraceType } from '@type/grammar';
@@ -2172,6 +2173,17 @@ function layerOptions(
     case 'survival':
       // Only reachable from composed mode; buildSurvivalLayer sets its own.
       return { stepDirection: config.survivalConfig?.stepDirection ?? 'hv' };
+    // Recharts measures a pie's angles counterclockwise from 3 o'clock and
+    // sweeps from `startAngle` (0) to `endAngle` (360), so a `<Pie>` left at
+    // its defaults runs counterclockwise from the right -- and MAIDR walks a
+    // pie clockwise. The layer says where the ring begins in the grammar's
+    // terms and which way it goes, and the trace turns the walk round.
+    // `endAngle` below `startAngle` is the clockwise recipe (`90` to `-270`).
+    case 'pie': {
+      const start = config.pieAngles?.startAngle ?? 0;
+      const end = config.pieAngles?.endAngle ?? 360;
+      return pieGeometry(clockFromCounterclockwiseOf3(start), end < start);
+    }
     // A step and an area both carry the convention their riser is drawn with —
     // an area because `AreaTrace` reads `stepDirection` to reconcile the extra
     // vertices a staircase has, a step because `StepTrace` announces it. No

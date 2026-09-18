@@ -39,11 +39,11 @@
  */
 
 import type { JSX, ReactNode } from 'react';
-import type { MaidrRechartsProps, RechartsSubplotConfig } from './types';
+import type { MaidrRechartsProps, RechartsPieAngles, RechartsSubplotConfig } from './types';
 import { Children, useMemo } from 'react';
 import { Maidr } from '../../maidr-component';
 import { Orientation } from '../../type/grammar';
-import { categoryAxisReversedFor, categoryAxisReversedPerPanelFor, stepDirectionFor } from './childProps';
+import { categoryAxisReversedFor, categoryAxisReversedPerPanelFor, pieAnglesFor, stepDirectionFor } from './childProps';
 import { convertRechartsToMaidr, normalizeRechartsSubplotGrid } from './converters';
 import { getPanelClassName } from './selectors';
 
@@ -125,6 +125,7 @@ export function MaidrRecharts({
   yLabel,
   orientation,
   stepDirection,
+  pieAngles,
   fillKeys,
   binConfig,
   flowConfig,
@@ -177,6 +178,13 @@ export function MaidrRecharts({
   const resolvedStepDirection = subplots
     ? stepDirection
     : (stepDirection ?? stepDirectionFor(children));
+  // The angles are on the `<Pie>` the chart already declares, read the same
+  // way and with the same abstention in subplot mode. Serialised for the memo
+  // for the reason the per-panel answers are.
+  const resolvedPieAngles = subplots
+    ? pieAngles
+    : (pieAngles ?? pieAnglesFor(children));
+  const pieAnglesKey = resolvedPieAngles === undefined ? undefined : JSON.stringify(resolvedPieAngles);
 
   const maidrData = useMemo(
     () => convertRechartsToMaidr({
@@ -185,6 +193,9 @@ export function MaidrRecharts({
         ? undefined
         : (JSON.parse(perPanelKey) as boolean[]),
       stepDirection: resolvedStepDirection,
+      pieAngles: pieAnglesKey === undefined
+        ? undefined
+        : (JSON.parse(pieAnglesKey) as RechartsPieAngles),
       id,
       title,
       subtitle,
@@ -218,7 +229,7 @@ export function MaidrRecharts({
     // The three facts read out of `children` stand in for it, so a chart that
     // flips `reversed` is still picked up while a parent re-render that only
     // rebuilds the same subtree is not.
-    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, categoryAxisReversed, perPanelKey, resolvedStepDirection, pieAnglesKey, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 
   return (

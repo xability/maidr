@@ -5,6 +5,7 @@ import type {
   ErrorBarPoint,
   HistogramPoint,
   LinePoint,
+  MaidrLayer,
   Orientation,
   PiePoint,
   ScatterPoint,
@@ -120,8 +121,12 @@ export type VictoryLayerData
     | { kind: 'box'; points: BoxPoint[] }
     | { kind: 'candlestick'; points: CandlestickPoint[] }
     | { kind: 'histogram'; points: HistogramPoint[] }
-    /** A `VictoryPie` (or a doughnut — the same component with an `innerRadius`). */
-    | { kind: 'pie'; points: PiePoint[] }
+    /**
+     * A `VictoryPie` (or a doughnut — the same component with an
+     * `innerRadius`). `dial` is where its ring begins and which way it runs,
+     * in the grammar's terms, already left empty at the defaults.
+     */
+    | { kind: 'pie'; points: PiePoint[]; dial: Pick<MaidrLayer, 'startAngle' | 'direction'> }
     | { kind: 'segmented'; points: SegmentedPoint[][] }
     /**
      * A `VictoryGroup` of `VictoryBar` children -- the grouped bar chart that

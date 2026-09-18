@@ -1,7 +1,7 @@
 import type { PiePoint } from '@type/grammar';
 import { bindD3Pie } from '@adapters/d3/binders/pie';
 import { describe, expect, test } from '@jest/globals';
-import { TraceType } from '@type/grammar';
+import { PieDirection, TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
 
 /** The shape `d3.pie()` emits for one slice, around the caller's own datum. */
@@ -133,5 +133,67 @@ describe('bindD3Pie', () => {
 
     expect(() => bindD3Pie(svg, { selector: 'path.wedge' }))
       .toThrow(/pie slice/);
+  });
+});
+
+describe('bindD3Pie dial geometry', () => {
+  /** An arc laid out by hand: radians clockwise from 12 o'clock, as `d3.pie()` writes them. */
+  function arcAt(data: unknown, value: number, startAngle: number, endAngle: number): unknown {
+    return { data, value, index: 0, startAngle, endAngle, padAngle: 0 };
+  }
+
+  test('declares nothing for the layout\'s default: clockwise from the top', () => {
+    // `arc()` above lays the wedges out contiguously from 0, going up.
+    const svg = buildPieSvg([
+      arc({ label: 'A', value: 1 }, 1, 0),
+      arc({ label: 'B', value: 2 }, 2, 1),
+    ]);
+
+    const result = bindD3Pie(svg, { selector: 'path.slice' });
+
+    expect(result.layer.startAngle).toBeUndefined();
+    expect(result.layer.direction).toBeUndefined();
+  });
+
+  test('reads where the ring begins off the first arc', () => {
+    // `d3.pie().startAngle(Math.PI / 2)`: the first wedge begins at 3 o'clock.
+    const svg = buildPieSvg([
+      arcAt({ label: 'A', value: 1 }, 1, Math.PI / 2, Math.PI),
+      arcAt({ label: 'B', value: 1 }, 1, Math.PI, Math.PI * 1.5),
+    ]);
+
+    const result = bindD3Pie(svg, { selector: 'path.slice' });
+
+    expect(result.layer.startAngle).toBeCloseTo(90, 6);
+    expect(result.layer.direction).toBeUndefined();
+  });
+
+  test('declares a counterclockwise layout as such', () => {
+    // `d3.pie().startAngle(0).endAngle(-2 * Math.PI)`: each arc's end is
+    // below its start and the next begins where the last ended.
+    const svg = buildPieSvg([
+      arcAt({ label: 'A', value: 1 }, 1, 0, -1),
+      arcAt({ label: 'B', value: 1 }, 1, -1, -2),
+    ]);
+
+    const result = bindD3Pie(svg, { selector: 'path.slice' });
+
+    expect(result.layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+    expect(result.layer.startAngle).toBeUndefined();
+  });
+
+  test('declares nothing when the wedges are not in DOM order round the dial', () => {
+    // `d3.pie()` sorts by value before assigning angles, so the largest slice
+    // starts the ring however early or late it is in the data. A start and a
+    // direction describe a walk in DOM order, which this is not.
+    const svg = buildPieSvg([
+      arcAt({ label: 'A', value: 1 }, 1, 2, 3),
+      arcAt({ label: 'B', value: 2 }, 2, 0, 2),
+    ]);
+
+    const result = bindD3Pie(svg, { selector: 'path.slice' });
+
+    expect(result.layer.startAngle).toBeUndefined();
+    expect(result.layer.direction).toBeUndefined();
   });
 });

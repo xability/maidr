@@ -1152,6 +1152,22 @@ export interface RechartsAdapterConfig {
    */
   categoryAxisReversedPerPanel?: boolean[];
 
+  /**
+   * Where a `<Pie>` starts and ends, in Recharts' own terms: degrees
+   * counterclockwise from 3 o'clock, `startAngle` 0 and `endAngle` 360 by
+   * default — which draws the slices counterclockwise from the right, not
+   * clockwise from the top. MAIDR walks a pie clockwise, so the layer says
+   * which way the wedges were laid out and where the ring begins, and the
+   * trace turns the walk round to match; the `startAngle={90}
+   * endAngle={-270}` recipe for a clockwise pie from 12 o'clock reads as
+   * exactly that.
+   *
+   * Read off the `<Pie>` in `children` by {@link MaidrRecharts} when not
+   * given, in simple and composed mode; through {@link useRechartsAdapter}
+   * it is yours to state. Left out, Recharts' defaults are assumed.
+   */
+  pieAngles?: RechartsPieAngles;
+
   /** Key in data objects for x-axis values. */
   xKey: string;
 
@@ -1318,6 +1334,18 @@ export interface RechartsAdapterConfig {
 /**
  * Props for the MaidrRecharts wrapper component.
  */
+/**
+ * A `<Pie>`'s `startAngle` / `endAngle` props, as Recharts reads them:
+ * degrees counterclockwise from 3 o'clock, sweeping from the first to the
+ * second. See {@link RechartsAdapterConfig.pieAngles}.
+ */
+export interface RechartsPieAngles {
+  /** Where the first slice begins. Recharts' default is 0, 3 o'clock. */
+  startAngle?: number;
+  /** Where the last slice ends. Recharts' default is 360. */
+  endAngle?: number;
+}
+
 export interface MaidrRechartsProps extends RechartsAdapterConfig {
   /** Recharts chart component(s) to make accessible. */
   children: React.ReactNode;

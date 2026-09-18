@@ -230,6 +230,12 @@ export interface AnyChartInstance {
   /** Chart type string (e.g. "bar", "line", "pie"). */
   getType?: () => string;
   /**
+   * Where a pie's first slice begins, in degrees clockwise from 12 o'clock
+   * (AnyChart's own convention, and the grammar's); 0 by default. Present
+   * only on a pie chart, and read as a getter.
+   */
+  startAngle?: () => unknown;
+  /**
    * Circle packing's own label placement, and the one public method that
    * separates it from the other two hierarchy charts: a treemap and a
    * sunburst have neither it nor anything else readable of their own, and a

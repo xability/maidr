@@ -779,6 +779,22 @@ describe('anyChartToMaidr (pie chart)', () => {
     ]);
   });
 
+  it('carries a rotated start over and declares nothing for the default', () => {
+    // AnyChart's `startAngle()` is already degrees clockwise from 12 o'clock,
+    // and its sweep is always clockwise, so only a rotation is declared.
+    const rotated = {
+      ...createPieChart('Fruit', [['Apples', 30], ['Bananas', 70]]),
+      startAngle: () => 90,
+    } as unknown as AnyChartInstance;
+
+    expect(anyChartToMaidr(rotated)!.subplots[0][0].layers[0].startAngle).toBe(90);
+    expect(anyChartToMaidr(rotated)!.subplots[0][0].layers[0].direction).toBeUndefined();
+
+    const plain = anyChartToMaidr(createPieChart('Fruit', [['Apples', 30]]))!.subplots[0][0].layers[0];
+    expect(plain.startAngle).toBeUndefined();
+    expect(plain.direction).toBeUndefined();
+  });
+
   it('names the two dimensions a pie has no axis to name', () => {
     const chart = createPieChart('Fruit', [['Apples', 30]]);
 

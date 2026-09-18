@@ -77,6 +77,7 @@ function AccessibleBarChart() {
 | `yLabel` | `string` | No | Y-axis label. |
 | `orientation` | `Orientation` | No | Bar orientation. Defaults to vertical. |
 | `stepDirection` | `StepDirection` | No | Which way a step curve's riser goes, for `step` and the area types. Read off the `<Line type>` / `<Area type>` in `children` when not given (simple and composed mode only). |
+| `pieAngles` | `RechartsPieAngles` | No | A `<Pie>`'s `startAngle` / `endAngle`, in Recharts' own degrees counterclockwise from 3 o'clock (defaults 0 and 360). Read off the `<Pie>` in `children` when not given (simple and composed mode only). MAIDR walks a pie clockwise, so the layer declares which way the wedges were laid out and where the ring begins, and the trace turns the walk round to match. |
 | `fillKeys` | `string[]` | No | Display names for series in stacked/dodged/normalized charts. Maps 1:1 with `yKeys`. |
 | `binConfig` | `HistogramBinConfig` | Histogram only | Bin range configuration for histograms. |
 | `flowConfig` | `FlowLinkConfig` | Alluvial only | Target key and the `nodes` half of the `<Sankey>` data. |

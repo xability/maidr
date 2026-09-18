@@ -57,6 +57,7 @@ import type {
   AnyChartTree,
   AnyChartTreeItem,
 } from './types';
+import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { nextId } from '@adapters/shared/selectorUtil';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -5046,6 +5047,7 @@ function buildPieLayer(
   seriesIndex: number,
   selectors: string | string[] | undefined,
   panel?: PanelContext,
+  chart?: AnyChartInstance,
 ): MaidrLayer {
   const data: PiePoint[] = rows
     .filter(isDrawnDatum)
@@ -5058,11 +5060,16 @@ function buildPieLayer(
   // {@link stampPieAttributes}, which writes one per wedge in slice order.
   const defaultSelector
     = `${panelScope(panel)}[${PIE_ATTR}^="${panelStampPrefix(panel)}${seriesIndex}-"]`;
+  // AnyChart sweeps clockwise from `startAngle()`, degrees clockwise from
+  // 12 o'clock -- the grammar's own convention -- so only a rotated pie
+  // declares one. Read as a getter, and only when the chart has one.
+  const start = chart?.startAngle?.();
   return {
     id: String(seriesIndex),
     type: TraceType.PIE,
     selectors: selectors ?? defaultSelector,
     data,
+    ...pieGeometry(isAngle(start) ? start : 0, true),
   };
 }
 
@@ -6035,7 +6042,7 @@ function buildLayer(
     case TraceType.CHOROPLETH:
       return buildChoroplethLayer(chart, series, seriesIndex, selectors, panel);
     case TraceType.PIE:
-      return buildPieLayer(extractRawRows(series), seriesIndex, selectors, panel);
+      return buildPieLayer(extractRawRows(series), seriesIndex, selectors, panel, chart);
   }
 }
 
@@ -6236,7 +6243,7 @@ function buildSubplot(
       | string
       | string[]
       | undefined;
-    const layer = buildPieLayer(rows, 0, userPieSelector, panel);
+    const layer = buildPieLayer(rows, 0, userPieSelector, panel, chart);
     attachAxes(layer, PIE_AXIS_FALLBACKS);
     return finalize([layer]);
   }

@@ -51,6 +51,7 @@ import type {
   AmXYSeries,
 } from './types';
 import { toSegmentedShares } from '@adapters/shared/normalize';
+import { clockFromClockwiseOf3, isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { Orientation, TraceType } from '@type/grammar';
 import {
   choroplethFields,
@@ -1232,6 +1233,15 @@ function buildPieLayer(
   data: PiePoint[],
   options?: AmChartsBinderOptions,
 ): MaidrLayer {
+  // am5percent measures a pie's angles clockwise from 3 o'clock, so its
+  // default `startAngle` of -90 is the top and `endAngle` of 270 a full
+  // clockwise turn; an `endAngle` below the start sweeps the other way. The
+  // grammar counts from 12, so the origin is converted and the direction
+  // declared; a series left at the defaults declares nothing.
+  const start = series.get('startAngle');
+  const end = series.get('endAngle');
+  const from = isAngle(start) ? start : -90;
+  const to = isAngle(end) ? end : from + 360;
   return {
     id: layerId(series),
     type: TraceType.PIE,
@@ -1241,6 +1251,7 @@ function buildPieLayer(
       y: { label: options?.axisLabels?.y ?? PIE_VALUE_AXIS },
     },
     data,
+    ...pieGeometry(clockFromClockwiseOf3(from), to >= from),
   };
 }
 
