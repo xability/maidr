@@ -99,6 +99,37 @@ export function isPointCloudHighlightable(plot: unknown): plot is PointCloudHigh
 }
 
 /**
+ * Interface for point-cloud traces that can be asked where one of their
+ * layer's `data` points sits in their own navigation coordinates.
+ *
+ * The inverse of {@link PointCloudHighlightable}: that one reports which
+ * points the cursor is on, this one takes a point and answers with the cell
+ * to move to. A host that was handed `pointIndices` can therefore send one of
+ * them back -- the mark a sighted user clicked -- and the trace translates it
+ * out of data order into whatever it navigates by.
+ */
+export interface PointCloudAddressable {
+  /**
+   * The position to read a data point at.
+   * @param index - An index into the layer's `data` array
+   * @returns The cell, or null when the index is not one the trace has
+   */
+  positionOfDataIndex: (index: number) => { row: number; col: number } | null;
+}
+
+/**
+ * Type guard to check if a plot can translate a data index into a position.
+ */
+export function isPointCloudAddressable(plot: unknown): plot is PointCloudAddressable {
+  return (
+    plot !== null
+    && typeof plot === 'object'
+    && 'positionOfDataIndex' in plot
+    && typeof (plot as PointCloudAddressable).positionOfDataIndex === 'function'
+  );
+}
+
+/**
  * Union type for all point types that have an 'x' property
  */
 export type PointWithX = BarPoint | LinePoint | ScatterPoint | SegmentedPoint | SmoothPoint;

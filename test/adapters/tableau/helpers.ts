@@ -40,6 +40,8 @@ import type {
   TableauEncodingType,
   TableauFieldInstance,
   TableauGetSummaryDataOptions,
+  TableauMarksCollection,
+  TableauMarksSelectedEvent,
   TableauMarksSpecification,
   TableauMarkType,
   TableauRow,
@@ -730,4 +732,46 @@ export function fakeDashboardViz(
   objects?: readonly TableauDashboardObject[],
 ): TableauViz {
   return fakeViz(fakeDashboard(worksheets, name, objects), name).viz;
+}
+
+/**
+ * The marks a selection covers, as `getMarksAsync()` would report them.
+ *
+ * Built on {@link fakeDataTable}, so the columns arrive alphabetically here as
+ * well -- a lookup that trusted column *positions* rather than field names
+ * would resolve the wrong field.
+ *
+ * @param columns - The worksheet's columns, in view order.
+ * @param rows - One row per selected mark, in view order.
+ * @returns The collection.
+ */
+export function fakeMarks(
+  columns: readonly TableauColumn[],
+  rows: readonly (readonly FakeCell[])[],
+): TableauMarksCollection {
+  return { data: [fakeDataTable(columns, rows)] };
+}
+
+/**
+ * The `detail` of a `markselectionchanged` event.
+ *
+ * @param worksheet - The worksheet the selection changed in, or `null` for an
+ * event that names none.
+ * @param marks - What `getMarksAsync()` resolves to, or an error for it to
+ * reject with.
+ * @returns The payload.
+ */
+export function fakeMarkSelection(
+  worksheet: TableauWorksheet | null,
+  marks: TableauMarksCollection | Error,
+): TableauMarksSelectedEvent {
+  return {
+    ...(worksheet === null ? {} : { worksheet }),
+    getMarksAsync: async (): Promise<TableauMarksCollection> => {
+      if (marks instanceof Error) {
+        throw marks;
+      }
+      return marks;
+    },
+  };
 }

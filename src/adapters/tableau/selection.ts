@@ -22,11 +22,36 @@
  *   **permanently**, with one warning. Everything else about MAIDR — audio,
  *   text, braille, autoplay, review — is untouched. Degrading quietly is the
  *   contract; retrying a call that is known to reject is not.
+ *
+ * The bridge also runs the other way. A mark a sighted user clicks in the viz
+ * arrives as a `markselectionchanged` event, and {@link handleMarkSelection}
+ * turns the marks it covers back into the position they were read from, so
+ * MAIDR's cursor follows the click. Two things make that harder than the
+ * forward direction, and both are handled here rather than in the binder:
+ *
+ * - **MAIDR's own selections come back as the same event**, and the API does
+ *   not say which are which. Every selection and clear this module issues is
+ *   remembered (see {@link SelectionBridge.issued}), and an event that resolves
+ *   to one of them is its echo, consumed and ignored -- so the adapter never
+ *   answers its own write, and a burst of arrow keys whose echoes arrive late
+ *   cannot drag the cursor back through where it has been.
+ * - **A mark carries no id**, so the position is found by matching the mark's
+ *   dimension values against the criteria the index recorded. Where two rows
+ *   share those values the match is ambiguous, and an ambiguous mark moves
+ *   nothing: landing the reader on the wrong one of two is worse than
+ *   leaving them where they are.
  */
 
-import type { NavigateCallback } from '../../type/grammar';
+import type { NavigateCallback, NavigationTarget } from '../../type/grammar';
 import type { SelectionIndex } from './extractor';
-import type { TableauSelectionCriteria, TableauWorksheet } from './types';
+import type {
+  TableauDataTable,
+  TableauMarksCollection,
+  TableauMarksSelectedEvent,
+  TableauSelectionCriteria,
+  TableauWorksheet,
+} from './types';
+import { toCategoryKey, toDateValue } from './fields';
 
 /**
  * The navigation position MAIDR reports, exactly as the grammar defines it.
@@ -88,7 +113,68 @@ export interface SelectionBridge {
    * rebuilt.
    */
   readonly disabled: Set<string>;
+  /**
+   * Worksheets, **by name**, whose selection MAIDR currently holds.
+   *
+   * Shared across refreshes like {@link SelectionBridge.disabled}. A worksheet
+   * joins when a navigation selects marks in it and leaves when MAIDR clears
+   * it or a user's own click replaces the selection. It is what lets focus
+   * leaving the figure clear only what MAIDR put there: a colleague's click
+   * on a mark takes the focus with it, and clearing that selection because
+   * focus left would undo the very click the reader is about to follow.
+   */
+  readonly owned: Set<string>;
+  /**
+   * The selections and clears this bridge issued most recently, so their
+   * echoes can be told from a user's own clicks. See
+   * {@link handleMarkSelection}; bounded by {@link MAX_ISSUED_SELECTIONS}.
+   */
+  readonly issued: IssuedSelection[];
 }
+
+/**
+ * One selection or clear MAIDR issued, in the position it was issued for.
+ *
+ * Kept as a position rather than as criteria because that is what an incoming
+ * event is resolved to before it is compared: the two sides then meet in one
+ * currency, and a point cloud's multi-mark selection is one entry whose
+ * echo, resolved to any one of its points, is recognised.
+ */
+export interface IssuedSelection {
+  /** The worksheet the call went to. */
+  readonly worksheet: string;
+  /** The position selected, or `null` for a clear. */
+  readonly position: IssuedPosition | null;
+}
+
+/** The position a forward selection covered. */
+type IssuedPosition
+  = | { layerId: string; row: number; col: number }
+    | { layerId: string; pointIndices: readonly number[] };
+
+/**
+ * How many issued selections a bridge remembers.
+ *
+ * Tableau answers a selection with one event, so a consumed echo frees its
+ * entry and the ring only ever holds the calls still in flight -- a handful
+ * during autoplay at its fastest. The bound is for the calls Tableau answers
+ * with no event at all (a selection that changed nothing), which would
+ * otherwise accumulate for the life of the bridge.
+ */
+const MAX_ISSUED_SELECTIONS = 16;
+
+/**
+ * What {@link handleMarkSelection} did with an event.
+ *
+ * - `echo`: the event answered a selection or clear this bridge issued.
+ * - `cleared`: a user deselected everything; a kept target was withdrawn.
+ * - `unresolved`: a user selected marks no position names exactly; a kept
+ *   target was withdrawn, since it no longer describes the selection.
+ * - `navigated`: the cursor moved to the mark, or will on the next focus-in.
+ * - `refused`: the chart would not take the position -- it is not mounted, or
+ *   the position is not one the figure has.
+ */
+export type MarkSelectionOutcome = 'echo' | 'cleared' | 'unresolved' | 'navigated' | 'refused';
 
 /**
  * Create an empty guard.
@@ -350,14 +436,338 @@ export function applySelection(
     : bridge.index.cells.get(layerId)?.[info.row]?.[info.col] ?? null;
 
   if (criteria === null || criteria.length === 0) {
-    return clearSelection(worksheet, bridge.guard);
+    return clearOwnedSelection(bridge, worksheet);
   }
 
+  recordIssued(bridge, worksheet.name, info.pointIndices !== undefined
+    ? { layerId, pointIndices: info.pointIndices }
+    : { layerId, row: info.row, col: info.col });
+  bridge.owned.add(worksheet.name);
   return withGuard(bridge.guard, () =>
     worksheet.selectMarksByValueAsync(criteria, SELECT_REPLACE)).catch(
     (error: unknown) => {
       disableWorksheetSelection(bridge, worksheet.name, criteria, error);
-      return clearSelection(worksheet, bridge.guard);
+      return clearOwnedSelection(bridge, worksheet);
     },
   );
+}
+
+/**
+ * Clear one worksheet through the bridge, so the clear is remembered and the
+ * worksheet is no longer counted as held.
+ *
+ * @param bridge - The selection bridge.
+ * @param worksheet - The worksheet to clear.
+ * @returns A promise that settles once the clear has been requested.
+ */
+function clearOwnedSelection(bridge: SelectionBridge, worksheet: TableauWorksheet): Promise<void> {
+  recordIssued(bridge, worksheet.name, null);
+  bridge.owned.delete(worksheet.name);
+  return clearSelection(worksheet, bridge.guard);
+}
+
+/**
+ * Clear every worksheet MAIDR currently holds a selection in, and only those.
+ *
+ * Used when focus leaves the figure. A worksheet whose selection a user has
+ * since replaced with a click of their own is left alone: that click is the
+ * one the reader is about to be taken to, and its highlight is the colleague's
+ * pointer, not MAIDR's.
+ *
+ * @param bridge - The selection bridge.
+ * @returns A promise that settles once every clear has been requested.
+ */
+export function clearOwnedSelections(bridge: SelectionBridge): Promise<void> {
+  const pending: Promise<void>[] = [];
+  const seen = new Set<string>();
+  for (const worksheet of bridge.worksheets.values()) {
+    if (!bridge.owned.has(worksheet.name) || seen.has(worksheet.name)) {
+      continue;
+    }
+    seen.add(worksheet.name);
+    pending.push(clearOwnedSelection(bridge, worksheet));
+  }
+  return Promise.all(pending).then(() => undefined);
+}
+
+/**
+ * Remember a selection or clear this bridge issued, for echo detection.
+ *
+ * @param bridge - The selection bridge.
+ * @param worksheet - The worksheet the call went to.
+ * @param position - The position selected, or `null` for a clear.
+ */
+function recordIssued(
+  bridge: SelectionBridge,
+  worksheet: string,
+  position: IssuedPosition | null,
+): void {
+  bridge.issued.push({ worksheet, position });
+  if (bridge.issued.length > MAX_ISSUED_SELECTIONS) {
+    bridge.issued.splice(0, bridge.issued.length - MAX_ISSUED_SELECTIONS);
+  }
+}
+
+/**
+ * Whether an incoming event answers something this bridge issued, consuming
+ * the entry when it does.
+ *
+ * The oldest matching entry is the one consumed, since Tableau answers calls
+ * in the order they were made. A clear matches a clear; a cell matches the
+ * same cell; a point matches any point of a multi-point selection.
+ *
+ * @param bridge - The selection bridge.
+ * @param worksheet - The worksheet the event names, or `null` when it names none.
+ * @param target - What the event's marks resolved to.
+ * @returns True when the event was an echo.
+ */
+function takeEcho(
+  bridge: SelectionBridge,
+  worksheet: string | null,
+  target: NavigationTarget | null,
+): boolean {
+  const index = bridge.issued.findIndex((entry) => {
+    if (worksheet !== null && entry.worksheet !== worksheet) {
+      return false;
+    }
+    if (target === null || entry.position === null) {
+      return target === null && entry.position === null;
+    }
+    if (entry.position.layerId !== target.layerId) {
+      return false;
+    }
+    if ('pointIndex' in target) {
+      return 'pointIndices' in entry.position
+        && entry.position.pointIndices.includes(target.pointIndex);
+    }
+    return 'row' in entry.position
+      && entry.position.row === target.row
+      && entry.position.col === target.col;
+  });
+  if (index === -1) {
+    return false;
+  }
+  bridge.issued.splice(index, 1);
+  return true;
+}
+
+/**
+ * A comparable key for one criteria list, field by field.
+ *
+ * @param criteria - The criteria addressing one position.
+ * @returns A string equal exactly when two lists address the same marks.
+ */
+function criteriaKey(criteria: readonly TableauSelectionCriteria[]): string {
+  return criteria.map(criterion => `${criterion.fieldName}=${valueKey(criterion.value)}`).join('\u0000');
+}
+
+/**
+ * The key a mark's row would have been given by the extractor, or `null`
+ * when the row cannot be addressed the way the index addresses its positions.
+ *
+ * Spelled exactly as `rowCriteria` in the extractor spells a criterion -- a
+ * date as a single-day range, anything else as its category key -- so the two
+ * meet. A field the marks table does not carry, or a gap in one, is `null`:
+ * a partial key would match a whole band of positions.
+ *
+ * @param table - The marks table the row is from.
+ * @param row - The row.
+ * @param fields - The dimension fields the index addresses this layer by.
+ * @returns The key, or `null`.
+ */
+function markKey(
+  table: TableauDataTable,
+  row: readonly (TableauDataTable['data'][number][number] | undefined)[],
+  fields: readonly string[],
+): string | null {
+  const parts: string[] = [];
+  for (const fieldName of fields) {
+    const column = table.columns.find(candidate => candidate.fieldName === fieldName);
+    if (column === undefined) {
+      return null;
+    }
+    const cell = row[column.index];
+    const date = toDateValue(cell);
+    if (date !== null) {
+      parts.push(`${fieldName}=${valueKey({ min: date, max: date })}`);
+      continue;
+    }
+    const key = toCategoryKey(cell);
+    if (key === '') {
+      return null;
+    }
+    parts.push(`${fieldName}=${valueKey(key)}`);
+  }
+  return parts.join('\u0000');
+}
+
+/** A position's key, or the marker for a key two positions share. */
+type Resolution = NavigationTarget | 'ambiguous';
+
+/**
+ * Every position of one layer, keyed the way {@link markKey} keys a mark.
+ *
+ * @param index - The selection index.
+ * @param layerId - The layer.
+ * @returns The positions by key, and the fields the keys are built from; or
+ * `null` when the layer has no addressable position at all.
+ */
+function positionsOfLayer(
+  index: SelectionIndex,
+  layerId: string,
+): { fields: readonly string[]; positions: Map<string, Resolution> } | null {
+  const positions = new Map<string, Resolution>();
+  let fields: readonly string[] | null = null;
+
+  const record = (criteria: readonly TableauSelectionCriteria[] | null, target: NavigationTarget): void => {
+    if (criteria === null || criteria.length === 0) {
+      return;
+    }
+    fields ??= criteria.map(criterion => criterion.fieldName);
+    const key = criteriaKey(criteria);
+    positions.set(key, positions.has(key) ? 'ambiguous' : target);
+  };
+
+  const cells = index.cells.get(layerId);
+  if (cells !== undefined) {
+    cells.forEach((cellRow, row) => {
+      cellRow.forEach((criteria, col) => record(criteria, { layerId, row, col }));
+    });
+  }
+  const points = index.points.get(layerId);
+  if (points !== undefined) {
+    points.forEach((criteria, pointIndex) => record(criteria, { layerId, pointIndex }));
+  }
+
+  return fields === null ? null : { fields, positions };
+}
+
+/**
+ * The one position a set of selected marks was read from, or `null`.
+ *
+ * Every layer built from the named worksheet is tried -- every layer at all
+ * when the event names none -- and every selected mark is resolved against it.
+ * The answer is a position only when all of the marks resolve to the same one:
+ * a multi-mark selection that spans several positions names no single place
+ * to land, and an ambiguous mark names two.
+ *
+ * @param index - The selection index of the mounted read.
+ * @param marks - The marks the selection covers.
+ * @param worksheetName - The worksheet the event names, or `null`.
+ * @returns The position, or `null` when the marks name none exactly.
+ */
+export function positionOfMarks(
+  index: SelectionIndex,
+  marks: TableauMarksCollection,
+  worksheetName: string | null,
+): NavigationTarget | null {
+  let found: NavigationTarget | null = null;
+  let foundKey: string | null = null;
+
+  for (const [layerId, name] of index.worksheets) {
+    if (worksheetName !== null && name !== worksheetName) {
+      continue;
+    }
+    const layer = positionsOfLayer(index, layerId);
+    if (layer === null) {
+      continue;
+    }
+    for (const table of marks.data) {
+      for (const row of table.data) {
+        const key = markKey(table, row, layer.fields);
+        if (key === null) {
+          continue;
+        }
+        const resolution = layer.positions.get(key);
+        if (resolution === undefined) {
+          continue;
+        }
+        if (resolution === 'ambiguous') {
+          return null;
+        }
+        const resolvedKey = `${layerId}\u0000${key}`;
+        if (foundKey !== null && foundKey !== resolvedKey) {
+          return null;
+        }
+        found = resolution;
+        foundKey = resolvedKey;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Whether an event's `detail` is a mark-selection payload this module can read.
+ *
+ * @param detail - `event.detail`, whatever the host put there.
+ * @returns True when it carries `getMarksAsync`.
+ */
+export function isMarksSelectedEvent(detail: unknown): detail is TableauMarksSelectedEvent {
+  return detail !== null
+    && typeof detail === 'object'
+    && typeof (detail as TableauMarksSelectedEvent).getMarksAsync === 'function';
+}
+
+/**
+ * Follow a change of selection in the viz with MAIDR's cursor.
+ *
+ * The marks the selection now covers are fetched and resolved to the position
+ * they were read from ({@link positionOfMarks}). An event that answers a
+ * selection or clear this bridge issued is consumed as an echo and changes
+ * nothing. Anything else is a user's doing, and the worksheet is no longer
+ * counted as one MAIDR holds a selection in -- the click replaced it. A
+ * position is handed to `navigate`; no position (nothing selected, or marks no
+ * position names exactly) withdraws a target the chart may still be holding,
+ * since it no longer describes what is selected.
+ *
+ * @param bridge - The selection bridge of the mounted read.
+ * @param detail - The event's payload.
+ * @param navigate - Moves the chart's cursor, or keeps the target for the
+ * next focus-in; `null` withdraws a kept target. Returns whether the chart
+ * accepted it.
+ * @returns What was done with the event. Never rejects: a marks fetch that
+ * fails is logged and read as an event that resolved to nothing an echo.
+ */
+export async function handleMarkSelection(
+  bridge: SelectionBridge,
+  detail: TableauMarksSelectedEvent,
+  navigate: (target: NavigationTarget | null) => boolean,
+): Promise<MarkSelectionOutcome> {
+  const worksheetName = typeof detail.worksheet?.name === 'string' ? detail.worksheet.name : null;
+  let marks: TableauMarksCollection;
+  try {
+    marks = await detail.getMarksAsync();
+  } catch (error: unknown) {
+    console.warn(
+      `${ADAPTER_PREFIX} could not read the marks a selection covers; `
+      + `the cursor stays where it is.`,
+      error,
+    );
+    return 'refused';
+  }
+  const tables = Array.isArray(marks?.data) ? marks.data : [];
+  const target = positionOfMarks(bridge.index, { data: tables }, worksheetName);
+
+  // The flag catches an echo that arrives before the issuing call has settled;
+  // the ring catches the ones that arrive after. Both are consulted so an
+  // entry the flag answered for does not linger to swallow a later click.
+  const echoed = takeEcho(bridge, worksheetName, target);
+  if (echoed || bridge.guard.programmatic) {
+    return 'echo';
+  }
+
+  if (target === null) {
+    if (worksheetName !== null) {
+      bridge.owned.delete(worksheetName);
+    }
+    navigate(null);
+    return tables.every(table => table.data.length === 0) ? 'cleared' : 'unresolved';
+  }
+
+  const worksheet = bridge.worksheets.get(target.layerId);
+  if (worksheet !== undefined) {
+    bridge.owned.delete(worksheet.name);
+  }
+  return navigate(target) ? 'navigated' : 'refused';
 }

@@ -599,6 +599,36 @@ export interface TableauViz extends HTMLElement {
   readonly workbook?: TableauWorkbook;
 }
 
+/**
+ * The marks a selection covers, as `getMarksAsync()` reports them.
+ *
+ * Mirrors `MarksCollection` in
+ * `ExternalContract/Shared/SheetInterfaces.d.ts`: one summary
+ * {@link TableauDataTable} per set of marks, whose columns are the fields of
+ * the worksheet and whose rows are the selected marks. The columns are looked
+ * up by `fieldName`, never by position, so whether they arrive alphabetically
+ * or in view order changes nothing.
+ */
+export interface TableauMarksCollection {
+  readonly data: readonly TableauDataTable[];
+}
+
+/**
+ * The payload of a `markselectionchanged` event -- `event.detail` on the
+ * `<tableau-viz>` element.
+ *
+ * Mirrors `MarksSelectedEvent`, which extends `TableauWorksheetEvent`:
+ * `worksheet` names where the selection changed, and `getMarksAsync` fetches
+ * the marks it now covers. Only the worksheet's name is read, and it is read
+ * defensively -- an event that arrives without one is resolved against every
+ * bound worksheet instead, since the field names in the marks table tell the
+ * layers apart on their own.
+ */
+export interface TableauMarksSelectedEvent {
+  readonly worksheet?: TableauSheetBase;
+  getMarksAsync: () => Promise<TableauMarksCollection>;
+}
+
 /** Whether a classified column is read as a value or as a category. */
 export type TableauColumnRole = 'measure' | 'dimension';
 

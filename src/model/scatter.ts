@@ -1,6 +1,6 @@
 import type { MaidrLayer, ScatterPoint } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
-import type { GridNavigable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
+import type { GridNavigable, PointCloudAddressable, PointCloudHighlightable, PointNavigable, XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionStat, DescriptionState, HighlightState, TextState, TraceEmptyState, TraceState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
@@ -220,7 +220,7 @@ interface FlatPoint {
   yIndexInColumn: number;
 }
 
-export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable {
+export class ScatterTrace extends AbstractTrace implements GridNavigable, PointNavigable, PointCloudHighlightable, PointCloudAddressable {
   /** How many category names the summary lists before it stops. */
   private static readonly MAX_NAMED_CATEGORIES = 20;
 

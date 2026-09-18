@@ -824,6 +824,68 @@ function createMultiLayerFigure(): Figure {
   });
 }
 
+describe('liveDataManager.navigateTo', () => {
+  let manager: LiveDataManager;
+  let warn: jest.SpiedFunction<typeof console.warn>;
+
+  beforeEach(() => {
+    manager = new LiveDataManager();
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  test('hands the target to the chart\'s navigator and answers what it answered', () => {
+    const navigator = jest.fn((_target: unknown) => true);
+    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart' })).toBe(true);
+
+    expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 });
+    navigator.mockReturnValue(false);
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 9 }, { id: 'chart' })).toBe(false);
+  });
+
+  test('passes a withdrawal through as null', () => {
+    const navigator = jest.fn((_target: unknown) => true);
+    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+
+    expect(manager.navigateTo(null, { id: 'chart' })).toBe(true);
+
+    expect(navigator).toHaveBeenCalledWith(null);
+  });
+
+  test('finds the only registered chart when no id is given', () => {
+    const navigator = jest.fn((_target: unknown) => true);
+    manager.register(createBarMaidr('only'), jest.fn(), navigator);
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 })).toBe(true);
+
+    expect(navigator).toHaveBeenCalledTimes(1);
+  });
+
+  test('refuses, with a warning, when several charts are registered and none is named', () => {
+    manager.register(createBarMaidr('one'), jest.fn(), jest.fn((_target: unknown) => true));
+    manager.register(createLineMaidr('two'), jest.fn(), jest.fn((_target: unknown) => true));
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 })).toBe(false);
+
+    expect(warn.mock.calls[0][0]).toContain('navigateTo: chart id is required');
+  });
+
+  test('refuses an unknown chart and a chart that registered no navigator', () => {
+    manager.register(createBarMaidr('plain'), jest.fn());
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 }, { id: 'missing' })).toBe(false);
+    expect(warn.mock.calls[0][0]).toContain('no chart registered with id "missing"');
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 }, { id: 'plain' })).toBe(false);
+    expect(warn.mock.calls[1][0]).toContain('cannot be navigated from outside');
+  });
+});
+
 describe('isAppendedPointFocused', () => {
   test('append to the focused layer is focused', () => {
     const figure = createMultiLayerFigure();

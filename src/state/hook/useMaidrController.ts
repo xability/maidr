@@ -1,6 +1,6 @@
 import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
-import type { Maidr as MaidrData } from '@type/grammar';
+import type { Maidr as MaidrData, NavigationTarget } from '@type/grammar';
 import type { RefObject } from 'react';
 import { cloneMaidrData, liveDataManager } from '@service/liveData';
 import { applyStoredLanguage } from '@service/settings';
@@ -59,6 +59,14 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // (window.maidrLive / liveDataManager). The controller is built from this
   // ref so a focus-in after an update always sees the freshest data.
   const latestDataRef = useRef<MaidrData>(data);
+
+  // A position the host asked for while no controller was alive -- the mark a
+  // sighted colleague clicked before the reader focused in, or the click that
+  // took focus out of the figure and disposed the controller with it. Applied
+  // on the next focus-in, so the reader arrives where the host is pointing,
+  // and dropped when the data changes underneath it, since it addressed the
+  // figure that data described.
+  const pendingTargetRef = useRef<NavigationTarget | null>(null);
 
   const createController = useCallback((): Controller | null => {
     const plotElement = plotRef.current;
@@ -126,6 +134,14 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         hasAnnouncedRef.current = true;
         controllerRef.current?.showInitialInstructionInText();
       }
+      // After the instruction, not instead of it: the instruction is shown
+      // without an announcement, and the move that follows is the first
+      // navigation, which is what turns announcements on.
+      const pending = pendingTargetRef.current;
+      if (pending !== null) {
+        pendingTargetRef.current = null;
+        controllerRef.current?.navigateTo(pending);
+      }
     }, 0);
   }, []);
 
@@ -173,8 +189,22 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // place, preserving the user's navigation position.
   useEffect(() => {
     latestDataRef.current = data;
+    const navigate = (target: NavigationTarget | null): boolean => {
+      if (target === null) {
+        pendingTargetRef.current = null;
+        return true;
+      }
+      const controller = controllerRef.current;
+      if (controller !== null) {
+        pendingTargetRef.current = null;
+        return controller.navigateTo(target);
+      }
+      pendingTargetRef.current = target;
+      return true;
+    };
     const disposable = liveDataManager.register(data, (event) => {
       latestDataRef.current = event.maidr;
+      pendingTargetRef.current = null;
       // In-place refresh is opt-in via `live: true`; static charts pick the
       // new data up on the next focus-in instead.
       if (event.maidr.live === true && controllerRef.current) {
@@ -187,7 +217,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
           disposeController();
         }
       }
-    });
+    }, navigate);
     return () => disposable.dispose();
     // Re-register only when the chart identity changes; data *content*
     // changes flow through the effect below.
@@ -207,6 +237,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       return;
     }
     previousDataRef.current = data;
+    pendingTargetRef.current = null;
     if (data.live) {
       liveDataManager.setData(data);
     } else {

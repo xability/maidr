@@ -159,6 +159,24 @@ export type NavigateCallback = (info: {
 } | null) => void;
 
 /**
+ * A position a host asks MAIDR to move its cursor to.
+ *
+ * The inbound counterpart of {@link NavigateCallback}, spelled in the same
+ * currency so a host can hand back what it was given: a `{row, col}` cell for
+ * a grid-shaped trace, or a `pointIndex` into the layer's `data` array for a
+ * point cloud, where no row/column pair names a mark. It is what lets a
+ * click in the host's own chart -- a Tableau mark, a canvas hit-test -- land
+ * the reader on the same mark, so a sighted colleague pointing at a bar and a
+ * screen-reader user reading the chart are on the same one.
+ *
+ * Delivered through `window.maidrLive.navigateTo` or `navigateMaidr`; see
+ * `docs/LIVE_DATA.md`.
+ */
+export type NavigationTarget
+  = | { layerId: string; row: number; col: number }
+    | { layerId: string; pointIndex: number };
+
+/**
  * Root MAIDR data structure containing figure metadata and subplot grid.
  * This is the type for the `data` prop passed to the `<Maidr>` React component.
  *

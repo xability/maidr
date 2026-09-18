@@ -51,6 +51,8 @@ export type {
   TableauEncoding,
   TableauEncodingType,
   TableauFieldInstance,
+  TableauMarksCollection,
+  TableauMarksSelectedEvent,
   TableauMarksSpecification,
   TableauMarkType,
   TableauSelectionCriteria,

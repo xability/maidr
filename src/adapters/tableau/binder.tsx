@@ -30,6 +30,16 @@
  *    otherwise MAIDR would announce one mark while Tableau highlighted another.
  *    Leaving the figure also clears the selection, so no highlight outlives the
  *    cursor that put it there.
+ * 5. **A click in the viz is followed, and never undone.** Tableau's
+ *    `markselectionchanged` is resolved back to the position the marks were
+ *    read from and MAIDR's cursor is sent there — at once when the reader is
+ *    inside the figure, and on their next focus-in otherwise, which is the
+ *    usual case, because the click that selected the mark also took the focus
+ *    and disposed the controller with it. That same click is why focus leaving
+ *    into the viz clears nothing straight away: the selection MAIDR held has
+ *    just been replaced by the one the reader is about to follow, and the
+ *    event saying so is still on its way. The clear waits
+ *    {@link SELECTION_HANDOFF_MS} and then removes only what MAIDR still holds.
  *
  * @example
  * ```html
@@ -57,9 +67,17 @@ import type {
 } from './types';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
+import { liveDataManager } from '../../service/liveData';
 import { extractTableau } from './extractor';
 import { enqueueTableauRead, readWorksheet } from './reader';
-import { applySelection, clearAllSelections, createSelectionGuard } from './selection';
+import {
+  applySelection,
+  clearAllSelections,
+  clearOwnedSelections,
+  createSelectionGuard,
+  handleMarkSelection,
+  isMarksSelectedEvent,
+} from './selection';
 
 const ADAPTER_PREFIX = '[MAIDR tableau]';
 
@@ -107,6 +125,26 @@ const CHANGE_EVENTS: readonly string[] = [
   'summarydatachanged',
   'tabswitched',
 ];
+
+/**
+ * Tableau's "the selected marks changed" event, for a user's click as much as
+ * for the adapter's own `selectMarksByValueAsync`; `handleMarkSelection` tells
+ * the two apart.
+ */
+const MARK_SELECTION_EVENT = 'markselectionchanged';
+
+/**
+ * How long a clear waits after focus leaves the figure *into the viz*.
+ *
+ * A click on a mark takes the focus with it, and Tableau reports the new
+ * selection a moment later, through the iframe's message channel. Clearing on
+ * the focus change alone would remove the mark the user just selected — the
+ * one the reader is about to be taken to — so the clear waits long enough for
+ * that report to arrive and release the worksheet, and then removes only what
+ * MAIDR still holds. A click on a filter control, which changes no marks,
+ * leaves MAIDR's highlight in place for this long and no longer.
+ */
+const SELECTION_HANDOFF_MS = 1000;
 
 /**
  * Trailing debounce window for a burst of change events.
@@ -535,6 +573,10 @@ export async function bindTableau(
   // worksheets it was earned on.
   const guard = createSelectionGuard();
   const disabled = new Set<string>();
+  // Which worksheets MAIDR currently holds a selection in. Shared for the same
+  // reason `disabled` is: a selection made against one read is still on screen
+  // after the next.
+  const owned = new Set<string>();
 
   const state: { data: MaidrData | null } = { data: null };
   let bridge: SelectionBridge | null = null;
@@ -574,6 +616,7 @@ export async function bindTableau(
     // so the adapter removes the selection instead of guessing what the flag
     // would have done to the read.
     await enqueueTableauRead(() => clearAllSelections(worksheets, guard));
+    owned.clear();
 
     // Re-discovered rather than reused: `tabswitched` is one of the events that
     // brings us here, and the worksheets captured on the previous tab describe
@@ -641,6 +684,8 @@ export async function bindTableau(
       worksheets: resolveBridgeWorksheets(selection, worksheets),
       guard,
       disabled,
+      owned,
+      issued: [],
     };
     // A `{layerId, row, col}` address only means anything against the read it
     // was built from. `useMaidrController` rebuilds the model from new data
@@ -712,6 +757,35 @@ export async function bindTableau(
     viz.addEventListener(type, handleChange);
   }
 
+  // A change of selection in the viz, whoever made it. The marks are resolved
+  // against the *mounted* bridge, since that is the figure the controller is
+  // navigating; the staged one, if any, describes a read MAIDR has not adopted.
+  const handleMarkSelectionEvent = (event: Event): void => {
+    if (disposed || bridge === null) {
+      return;
+    }
+    const detail = (event as CustomEvent<unknown>).detail;
+    if (!isMarksSelectedEvent(detail)) {
+      return;
+    }
+    void handleMarkSelection(bridge, detail, target =>
+      liveDataManager.navigateTo(target, { id: figureId }));
+  };
+  viz.addEventListener(MARK_SELECTION_EVENT, handleMarkSelectionEvent);
+
+  let handoffTimer: ReturnType<typeof setTimeout> | null = null;
+  const cancelHandoff = (): void => {
+    if (handoffTimer !== null) {
+      clearTimeout(handoffTimer);
+      handoffTimer = null;
+    }
+  };
+  const clearOwned = (): void => {
+    if (bridge !== null) {
+      void clearOwnedSelections(bridge);
+    }
+  };
+
   // `focusout` bubbles out of the mounted figure, which is what tells this
   // adapter that the reader's session ended: `useMaidrController` disposes the
   // controller on the same signal, and nothing downstream of that disposal
@@ -723,6 +797,11 @@ export async function bindTableau(
   // `event.relatedTarget`: `relatedTarget` is null both when focus moves into
   // the cross-origin viz iframe *and* when it goes to browser chrome, and only
   // the former ends the session.
+  //
+  // Only what MAIDR holds is cleared, and when focus went into the viz the
+  // clear waits: the click that took it there may have selected a mark, and
+  // the report of that arrives after the focus does. See
+  // {@link SELECTION_HANDOFF_MS}.
   const handleFocusOut = (): void => {
     if (disposed) {
       return;
@@ -736,10 +815,24 @@ export async function bindTableau(
       if (pendingBridge !== null) {
         adopt(pendingBridge);
       }
-      void clearAllSelections(worksheets, guard);
+      const active = document.activeElement;
+      const intoViz = active !== null && (active === viz || viz.contains(active));
+      if (!intoViz) {
+        clearOwned();
+        return;
+      }
+      cancelHandoff();
+      handoffTimer = setTimeout(() => {
+        handoffTimer = null;
+        if (!disposed) {
+          clearOwned();
+        }
+      }, SELECTION_HANDOFF_MS);
     }, 0);
   };
   wrapper.addEventListener('focusout', handleFocusOut);
+  // Back inside before the handoff ran: the selection is the reader's again.
+  wrapper.addEventListener('focusin', cancelHandoff);
 
   return {
     get maidr(): MaidrData {
@@ -760,7 +853,10 @@ export async function bindTableau(
       for (const type of CHANGE_EVENTS) {
         viz.removeEventListener(type, handleChange);
       }
+      viz.removeEventListener(MARK_SELECTION_EVENT, handleMarkSelectionEvent);
       wrapper.removeEventListener('focusout', handleFocusOut);
+      wrapper.removeEventListener('focusin', cancelHandoff);
+      cancelHandoff();
       // A staged index has nothing left to be adopted into, and dropping it
       // releases the read it holds.
       pendingBridge = null;

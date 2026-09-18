@@ -8,14 +8,18 @@ import type {
   TableauSheet,
   TableauViz,
 } from '@adapters/tableau/types';
+import type { Maidr, NavigationTarget } from '@type/grammar';
 import type { ReactNode } from 'react';
 import type { FakeCell, FakeWorksheet } from './helpers';
 import { bindTableau } from '@adapters/tableau/binder';
+import { liveDataManager } from '@service/liveData';
 import {
   fakeColumn,
   fakeDashboard,
   fakeDashboardObject,
   fakeDashboardViz,
+  fakeMarks,
+  fakeMarkSelection,
   fakeViz,
   fakeWorksheet,
 } from './helpers';
@@ -64,7 +68,13 @@ jest.mock('../../../src/maidr-component', () => ({
  *    `live`, MAIDR keeps navigating the previous read until focus leaves, so a
  *    bridge built from a newer read is staged until then — otherwise MAIDR
  *    announces one mark while Tableau highlights another. Leaving the figure
- *    also clears the selection.
+ *    also clears the selection MAIDR holds.
+ * 8. **A click in the viz is followed, and never undone.** A user's
+ *    `markselectionchanged` moves MAIDR's cursor through the chart registry;
+ *    the adapter's own selections come back as the same event and are
+ *    ignored. Focus leaving into the viz waits for that event before clearing
+ *    anything, because the click that took the focus is the selection the
+ *    reader is about to follow.
  *
  * The debounce is driven with fake timers so the burst is expressed as the
  * milliseconds between two events rather than as a sleep. `queueMicrotask` is
@@ -838,6 +848,8 @@ describe('tableau binder', () => {
       rows[1] = ['South', 40];
       viz.dispatchEvent(new Event('filterchanged'));
       await settle();
+      // The reader is on a mark, so MAIDR holds a selection in the workbook.
+      await navigateToFirstCell(binding, sales);
       const clearsBeforeLeaving = sales.calls.clears;
 
       // A real blur, not a synthesised event: `focusout` is what the browser
@@ -876,6 +888,206 @@ describe('tableau binder', () => {
       ]);
 
       binding.dispose();
+    });
+  });
+
+  describe('following a click in the viz', () => {
+    const FIGURE_ID = 'clicked-figure';
+
+    /** A registered chart that records what it is asked to navigate to. */
+    interface Registered {
+      readonly targets: (NavigationTarget | null)[];
+      /** What the navigator answers; a chart that cannot take the target answers false. */
+      accept: boolean;
+      dispose: () => void;
+    }
+
+    /**
+     * Stand in for the mounted `<Maidr>`, which is stubbed here: register a
+     * chart under the binding's figure id so the registry has somewhere to
+     * deliver a target.
+     * @returns The registration and its record.
+     */
+    function registerChart(): Registered {
+      const registered: Registered = {
+        targets: [],
+        accept: true,
+        dispose: () => {},
+      };
+      const stub: Maidr = { id: FIGURE_ID, subplots: [] };
+      const disposable = liveDataManager.register(stub, () => {}, (target) => {
+        registered.targets.push(target);
+        return registered.accept;
+      });
+      registered.dispose = (): void => disposable.dispose();
+      return registered;
+    }
+
+    /**
+     * Mount a two-row worksheet and register a chart under its figure id.
+     * @returns Everything the cases below drive.
+     */
+    async function mountClickable(): Promise<{
+      sales: FakeWorksheet;
+      viz: TableauViz;
+      wrapper: HTMLElement;
+      binding: NonNullable<Awaited<ReturnType<typeof bindTableau>>>;
+      chart: Registered;
+    }> {
+      const chart = registerChart();
+      const sales = salesWorksheet('Sales');
+      const { viz } = mountViz([sales]);
+      const binding = await bindTableau(viz, { id: FIGURE_ID });
+      if (binding === null) {
+        throw new Error('expected bindTableau to mount a figure');
+      }
+      return { sales, viz, wrapper: mountedWrapper(), binding, chart };
+    }
+
+    /**
+     * Tableau reporting that the selection in a worksheet changed.
+     * @param viz - The viz to fire on.
+     * @param sales - The worksheet.
+     * @param rows - The marks now selected.
+     */
+    function selectionChanged(
+      viz: TableauViz,
+      sales: FakeWorksheet,
+      rows: readonly (readonly FakeCell[])[],
+    ): void {
+      viz.dispatchEvent(new CustomEvent('markselectionchanged', {
+        detail: fakeMarkSelection(sales, fakeMarks([REGION, SALES], rows)),
+      }));
+    }
+
+    it('should move the cursor to the mark a user clicked', async () => {
+      const { sales, viz, binding, chart } = await mountClickable();
+
+      selectionChanged(viz, sales, [['West', 20]]);
+      await flush();
+
+      expect(chart.targets).toEqual([{ layerId: '0', row: 0, col: 1 }]);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should ignore the echo of its own selection', async () => {
+      const { sales, viz, binding, chart } = await mountClickable();
+      binding.maidr.onNavigate?.({ layerId: '0', row: 0, col: 0 });
+      await flush();
+      expect(sales.calls.selections).toHaveLength(1);
+
+      selectionChanged(viz, sales, [['East', 10]]);
+      await flush();
+
+      expect(chart.targets).toEqual([]);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should withdraw a kept target when the user deselects', async () => {
+      const { sales, viz, binding, chart } = await mountClickable();
+
+      selectionChanged(viz, sales, []);
+      await flush();
+
+      expect(chart.targets).toEqual([null]);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should not clear the mark a click selected as focus follows the click into the viz', async () => {
+      const { sales, viz, wrapper, binding, chart } = await mountClickable();
+      wrapper.focus();
+      binding.maidr.onNavigate?.({ layerId: '0', row: 0, col: 0 });
+      await flush();
+      const clearsBefore = sales.calls.clears;
+
+      // The click lands in the viz: focus goes with it, and the report of the
+      // new selection follows a moment later.
+      viz.tabIndex = -1;
+      viz.focus();
+      await flush();
+      selectionChanged(viz, sales, [['West', 20]]);
+      await jest.advanceTimersByTimeAsync(1500);
+      await flush();
+
+      expect(sales.calls.clears).toBe(clearsBefore);
+      expect(chart.targets).toEqual([{ layerId: '0', row: 0, col: 1 }]);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should still clear its own selection when focus went into the viz and no click followed', async () => {
+      const { sales, viz, wrapper, binding, chart } = await mountClickable();
+      wrapper.focus();
+      binding.maidr.onNavigate?.({ layerId: '0', row: 0, col: 0 });
+      await flush();
+      const clearsBefore = sales.calls.clears;
+
+      viz.tabIndex = -1;
+      viz.focus();
+      await flush();
+      await jest.advanceTimersByTimeAsync(500);
+      // Still waiting for a report that may be on its way.
+      expect(sales.calls.clears).toBe(clearsBefore);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      await flush();
+
+      expect(sales.calls.clears).toBe(clearsBefore + 1);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should clear at once when focus leaves for anywhere but the viz', async () => {
+      const { sales, wrapper, binding, chart } = await mountClickable();
+      wrapper.focus();
+      binding.maidr.onNavigate?.({ layerId: '0', row: 0, col: 0 });
+      await flush();
+      const clearsBefore = sales.calls.clears;
+
+      wrapper.blur();
+      await flush();
+      await jest.advanceTimersByTimeAsync(1);
+      await flush();
+
+      expect(sales.calls.clears).toBe(clearsBefore + 1);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should clear nothing when it holds no selection', async () => {
+      const { sales, wrapper, binding, chart } = await mountClickable();
+      wrapper.focus();
+      const clearsBefore = sales.calls.clears;
+
+      wrapper.blur();
+      await settle();
+
+      expect(sales.calls.clears).toBe(clearsBefore);
+
+      chart.dispose();
+      binding.dispose();
+    });
+
+    it('should stop listening once disposed', async () => {
+      const { sales, viz, binding, chart } = await mountClickable();
+      binding.dispose();
+      await flush();
+
+      selectionChanged(viz, sales, [['West', 20]]);
+      await flush();
+
+      expect(chart.targets).toEqual([]);
+
+      chart.dispose();
     });
   });
 
