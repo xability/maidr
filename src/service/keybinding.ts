@@ -655,6 +655,14 @@ export interface BindingConflict {
  * because a command moved in trace and braille mode at once has to be free
  * in both. Hidden bindings count: Escape is bound and unlisted in most
  * scopes, and a shortcut that would shadow it is still taken.
+ *
+ * When several commands claim the key, the one named is the one the reader
+ * would recognise from the help menu: a listed, movable command before a
+ * fixed or hidden one. `STOP_AUTOPLAY` lists the arrow keys among its
+ * alternatives -- part of the wildcard workaround, not what the help menu
+ * shows for it -- and sits above the Move commands in every keymap, so
+ * without the preference a reader asking for a bare arrow was told it was
+ * used by Stop Autoplay rather than by Navigate Up.
  * @param commandName - The command being rebound
  * @param combo - The shortcut it would take
  * @param overrides - The reader's other overrides
@@ -668,14 +676,17 @@ export function findBindingConflict(
   const wanted = normalizeCombo(combo);
   for (const scope of SCOPES_BY_COMMAND.get(commandName) ?? []) {
     const keymap = getKeymapForScope(scope, overrides);
-    for (const [other, entry] of Object.entries(keymap)) {
-      if (other === commandName) {
-        continue;
-      }
-      if (combosOf(entry.hotkey).includes(wanted)) {
-        return { scope, commandName: other, description: entry.description };
-      }
+    const claiming = Object.entries(keymap)
+      .filter(([other, entry]) => other !== commandName && combosOf(entry.hotkey).includes(wanted));
+    if (claiming.length === 0) {
+      continue;
     }
+    const recognisable = claiming.find(([other, entry]) =>
+      !FIXED_COMMANDS.has(other) && entry.showInHelp !== false)
+    ?? claiming.find(([other]) => !FIXED_COMMANDS.has(other))
+    ?? claiming[0];
+    const [other, entry] = recognisable;
+    return { scope, commandName: other, description: entry.description };
   }
   return null;
 }

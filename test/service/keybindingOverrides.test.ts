@@ -191,4 +191,13 @@ describe('findBindingConflict', () => {
   it('answers null for a free shortcut', () => {
     expect(findBindingConflict('TOGGLE_TEXT', 'shift+x', {})).toBeNull();
   });
+
+  it('names the command the help menu shows for a key several commands claim', () => {
+    // Stop Autoplay lists the arrows among its alternatives, above the Move
+    // commands; the reader knows the arrows as Navigate Up and friends.
+    expect(findBindingConflict('TOGGLE_TEXT', 'up', {})).toMatchObject({ commandName: 'MOVE_UP' });
+    expect(findBindingConflict('TOGGLE_TEXT', 'left', {})).toMatchObject({ commandName: 'MOVE_LEFT' });
+    // Escape is claimed only by hidden bindings, which are still named.
+    expect(findBindingConflict('TOGGLE_TEXT', 'esc', {})?.commandName).toMatch(/^(EXIT_BRAILLE_AND_SUBPLOT|MOVE_TO_SUBPLOT_CONTEXT)$/);
+  });
 });
