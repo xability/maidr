@@ -1517,9 +1517,12 @@ export interface MaidrLayer {
    * audio pan follows each slice round the circle and `p` names the slice's
    * clock position — so a producer whose pie does not start at the top says
    * where it does. matplotlib's default `startangle=0` puts the first edge
-   * at 3 o'clock, which is `90` here; its `startangle=90` is `0`. Plotly's
-   * `rotation` and Chart.js's `rotation` are already clockwise from the top
-   * and carry over unchanged.
+   * at 3 o'clock, which is `90` here; its `startangle=90` is `0`. Chart.js's
+   * `rotation` is already clockwise from the top and carries over unchanged.
+   * Plotly's `rotation` is too, but a counterclockwise plotly pie starts
+   * `rotation` plus its first wedge's sweep round: plotly ends the first
+   * wedge at `rotation` and draws it clockwise of there, then lays the rest
+   * out counterclockwise from `rotation`.
    *
    * Read by the pie trace and ignored by every other type.
    *

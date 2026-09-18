@@ -4133,18 +4133,28 @@ function extractPieLayer(
 
   const data: PiePoint[] = slices.map(slice => ({ x: slice.label, y: slice.value }));
 
-  // Plotly lays the wedges out counterclockwise from 12 o'clock unless the
-  // trace says otherwise, and MAIDR walks a pie clockwise -- so the drawn
-  // order is declared as such and the trace turns the walk round, keeping
-  // Right on the next slice clockwise and the highlight on the slice read.
-  // `rotation` is already degrees clockwise from the top, which is what the
-  // grammar takes.
-  const direction = trace.direction === 'clockwise'
-    ? PieDirection.CLOCKWISE
-    : PieDirection.COUNTERCLOCKWISE;
-  const startAngle = typeof trace.rotation === 'number' && Number.isFinite(trace.rotation)
+  // Plotly lays the wedges out counterclockwise unless the trace says
+  // otherwise, and MAIDR walks a pie clockwise -- so the drawn order is
+  // declared as such and the trace turns the walk round, keeping Right on
+  // the next slice clockwise and the highlight on the slice read.
+  //
+  // Where the wedges start is not `rotation` alone. `rotation` is degrees
+  // clockwise from 12 o'clock, but a counterclockwise pie does not begin
+  // there: plotly (`pie/plot.js`, `setCoords`) puts the first wedge's *end*
+  // at `rotation` and the wedge itself clockwise of it, then lays the rest
+  // out counterclockwise from `rotation` -- which is how the largest slice
+  // of a default pie sits to the right of 12 o'clock while its neighbours
+  // go round to the left. Measured against the drawn wedges: with values
+  // 50/30/20/15 the 50 spans 12 to 5 o'clock and the 15 ends at 5. So the
+  // ring starts at `rotation` plus the first wedge's own sweep, and the
+  // walk, clockwise from there, ends on that first wedge.
+  const clockwise = trace.direction === 'clockwise';
+  const rotation = typeof trace.rotation === 'number' && Number.isFinite(trace.rotation)
     ? trace.rotation
-    : undefined;
+    : 0;
+  const total = slices.reduce((sum, slice) => sum + Math.max(slice.value, 0), 0);
+  const firstSweep = clockwise || total === 0 ? 0 : (Math.max(slices[0].value, 0) / total) * 360;
+  const startAngle = rotation + firstSweep;
 
   return {
     id,
@@ -4156,8 +4166,8 @@ function extractPieLayer(
       y: { label: PIE_VALUE_AXIS },
     },
     data,
-    direction,
-    ...(startAngle !== undefined && { startAngle }),
+    direction: clockwise ? PieDirection.CLOCKWISE : PieDirection.COUNTERCLOCKWISE,
+    ...(startAngle !== 0 && { startAngle }),
   };
 }
 

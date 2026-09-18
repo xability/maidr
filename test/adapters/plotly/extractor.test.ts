@@ -205,11 +205,26 @@ describe('plotly extractor', () => {
 
       const layer = onlyPieLayer(gd);
 
-      // Plotly's default lays the slices out counterclockwise from the top;
-      // MAIDR walks clockwise, so the layer has to say which way it was drawn
-      // or Right steps the wrong way round the dial.
+      // Plotly's default lays the slices out counterclockwise; MAIDR walks
+      // clockwise, so the layer has to say which way it was drawn or Right
+      // steps the wrong way round the dial.
       expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
-      expect(layer.startAngle).toBeUndefined();
+      // The ring does not start at 12 o'clock: plotly ends the first wedge
+      // there and draws it clockwise of the top, so Bananas (50 of 100)
+      // spans 12 to 6 and the ring starts at 6.
+      expect(layer.startAngle).toBe(180);
+    });
+
+    it('adds the rotation to where a counterclockwise ring starts', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, rotation: 90 }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.startAngle).toBe(270);
     });
 
     it('carries a clockwise direction and a rotation over as they are', () => {
@@ -221,7 +236,8 @@ describe('plotly extractor', () => {
 
       const layer = onlyPieLayer(gd);
 
-      // Plotly's rotation is already degrees clockwise from 12 o'clock.
+      // A clockwise ring begins at `rotation` itself, which is already
+      // degrees clockwise from 12 o'clock.
       expect(layer.direction).toBe(PieDirection.CLOCKWISE);
       expect(layer.startAngle).toBe(90);
     });
