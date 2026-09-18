@@ -215,6 +215,17 @@ describe('plotly extractor', () => {
       expect(layer.startAngle).toBe(180);
     });
 
+    it('leaves the start undeclared when the first drawn wedge is unknown', () => {
+      // No calcdata and `sort` left on: the authored order is not the drawn
+      // order, so `slices[0]` is not the wedge the ring starts after.
+      const gd = createGraphDiv({ traces: [{ ...FRUIT, rotation: 90 }], layout: {} });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+      expect(layer.startAngle).toBeUndefined();
+    });
+
     it('adds the rotation to where a counterclockwise ring starts', () => {
       const gd = createGraphDiv({
         traces: [{ ...FRUIT, rotation: 90 }],

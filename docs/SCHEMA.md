@@ -556,7 +556,12 @@ The data property is defined as a list of objects where each object is a record 
     //
     //`startAngle`: where the first slice begins, in degrees clockwise from
     //12 o'clock. Defaults to 0. matplotlib's `startangle=0` (3 o'clock) is
-    //90 here; plotly's and Chart.js's `rotation` carry over unchanged.
+    //90 here, and Chart.js's `rotation` carries over unchanged. Plotly's
+    //`rotation` is clockwise from 12 too, but only a clockwise plotly pie
+    //starts there: a counterclockwise one (plotly's default) ends its FIRST
+    //wedge at `rotation` and draws it clockwise of there, so the ring starts
+    //at `rotation` plus that wedge's sweep -- 50 of 100 at `rotation: 0`
+    //means `startAngle: 180`.
     //
     //`direction`: `"clockwise"` (the default) or `"counterclockwise"`, the
     //way successive slices follow one another from `startAngle`. Declare

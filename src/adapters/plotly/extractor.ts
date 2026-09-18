@@ -4148,13 +4148,19 @@ function extractPieLayer(
   // 50/30/20/15 the 50 spans 12 to 5 o'clock and the 15 ends at 5. So the
   // ring starts at `rotation` plus the first wedge's own sweep, and the
   // walk, clockwise from there, ends on that first wedge.
+  //
+  // The first wedge is `slices[0]` only in drawn order. Without calcdata and
+  // with `sort` left on, the authored order is all there is and the wedge
+  // plotly drew first is unknown, so the start is left undeclared rather
+  // than measured off the wrong wedge; the renderer then assumes the top,
+  // which is where every pie was placed before the start was carried.
   const clockwise = trace.direction === 'clockwise';
   const rotation = typeof trace.rotation === 'number' && Number.isFinite(trace.rotation)
     ? trace.rotation
     : 0;
   const total = slices.reduce((sum, slice) => sum + Math.max(slice.value, 0), 0);
   const firstSweep = clockwise || total === 0 ? 0 : (Math.max(slices[0].value, 0) / total) * 360;
-  const startAngle = rotation + firstSweep;
+  const startAngle = clockwise || inDrawnOrder ? rotation + firstSweep : 0;
 
   return {
     id,
