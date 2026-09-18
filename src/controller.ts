@@ -19,7 +19,7 @@ import { GoToExtremaService } from '@service/goToExtrema';
 import { HelpService } from '@service/help';
 import { HighContrastService } from '@service/highContrast';
 import { HighlightService } from '@service/highlight';
-import { KeybindingService, Mousebindingservice } from '@service/keybinding';
+import { KeybindingService, Mousebindingservice, resolveOverrides } from '@service/keybinding';
 import { appendedPointPosition, isAppendedPointFocused } from '@service/liveData';
 import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
@@ -177,7 +177,7 @@ export class Controller implements Disposable {
       this.rotorNavigationService,
       this.formatterService,
     );
-    this.helpService = new HelpService(this.context, this.displayService);
+    this.helpService = new HelpService(this.context, this.displayService, this.settingsService);
     this.chatService = new ChatService(
       this.displayService,
       this.textService,
@@ -359,7 +359,11 @@ export class Controller implements Disposable {
     this.scopeSubscription = this.context.onScopeChange(
       scope => this.keybinding.setScope(scope),
     );
-    this.keybinding.register(this.context.scope);
+    this.keybinding.register(
+      this.context.scope,
+      resolveOverrides(this.settingsService.loadSettings().general.keybindings),
+    );
+    this.settingsService.addObserver(this.keybinding);
     this.mousebinding.registerEvents();
   }
 
@@ -517,6 +521,7 @@ export class Controller implements Disposable {
    */
   public dispose(): void {
     this.scopeSubscription.dispose();
+    this.settingsService.removeObserver(this.keybinding);
     this.keybinding.unregister();
     this.mousebinding.dispose();
     this.commandExecutor.dispose();

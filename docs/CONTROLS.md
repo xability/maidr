@@ -39,6 +39,28 @@ Below is a detailed list of keyboard shortcuts for various functions:
 | Open/Close keyboard shortcut help       | Control + /                 | Command + /                 |
 | Open AI chat (API key set in Settings)  | Shift + / (?)               | Shift + / (?)               |
 
+## Customizing Shortcuts
+
+Every shortcut in the help menu except the help chord itself can be changed.
+Open the help menu with **Control + /** (**Command + /** on a Mac), move to the
+**Change** button of the shortcut you want -- each one is named after its
+action, so a screen reader reads "Change shortcut for Toggle Braille Mode" --
+and press it. The dialog asks you to press the new shortcut. Press the key or
+key combination you want, and the dialog announces the result: the new
+shortcut, or the action that already uses that key if it is taken. Escape keeps
+the old shortcut, and Backspace puts the default back.
+
+A changed shortcut applies everywhere its action is bound -- the arrow keys
+move in braille mode as well as while reading a chart -- and is kept in your
+browser with the other settings, so it is there the next time you open a chart.
+A changed row shows its default beside the new key and gains a **Restore
+default** button; **Restore all default shortcuts** at the top of the list
+puts everything back at once.
+
+Tab, the function keys and the lock keys cannot be used: Tab is how a keyboard
+user leaves the chart, and the others belong to the browser and the screen
+reader.
+
 ## Unassigned Keys
 
 A key that no shortcut in the current mode uses answers with a short warning —

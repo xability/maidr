@@ -136,17 +136,17 @@ describe('help menu generation', () => {
     const help = serviceFor(Scope.TRACE);
     const english = help.getMenuItems();
 
-    expect(english).toContainEqual({ key: 'b', description: 'Toggle Braille Mode' });
+    expect(english).toContainEqual(expect.objectContaining({ key: 'b', description: 'Toggle Braille Mode' }));
 
     try {
       setLocale('ko');
       const korean = help.getMenuItems();
 
       expect(korean.map(item => item.key)).toEqual(english.map(item => item.key));
-      expect(korean).toContainEqual({
+      expect(korean).toContainEqual(expect.objectContaining({
         key: 'b',
         description: tIn('ko', 'keybinding.toggleBrailleMode'),
-      });
+      }));
     } finally {
       setLocale('en');
     }
