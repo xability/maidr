@@ -294,6 +294,22 @@ describe('Context.navigateTo', () => {
     });
   });
 
+  it('answers whether a target can be reached without moving anything', () => {
+    const figure = laidOut(createPanels(2));
+    const context = new Context(figure);
+    const { observer, states } = recorder();
+    traceAt(figure, 1).addObserver(observer);
+
+    expect(context.canNavigateTo({ layerId: '1', row: 0, col: 2 })).toBe(true);
+    expect(context.canNavigateTo({ layerId: '1', row: 0, col: 3 })).toBe(false);
+    expect(context.canNavigateTo({ layerId: 'elsewhere', row: 0, col: 0 })).toBe(false);
+    expect(context.canNavigateTo({ layerId: '1', pointIndex: 0 })).toBe(false);
+
+    expect(states).toEqual([]);
+    expect(context.activeLevel).toBe('figure');
+    expect(figure.activeSubplot).toBe(figure.subplots[0][0]);
+  });
+
   it('is refused while a virtual layer is on top of the stack', () => {
     const figure = laidOut(createPanels(1));
     const context = new Context(figure);

@@ -376,25 +376,27 @@ describe('tableau selection bridge', () => {
 });
 
 /**
- * The cell of layer `'0'` whose criteria carry exactly these values, found by
+ * The cell of a layer whose criteria carry exactly these values, found by
  * walking the index rather than assumed, so a test asserts what the reverse
  * lookup found against what the forward index recorded.
  *
  * @param bridge - The bridge whose index to walk.
  * @param values - The criteria values, in field order.
+ * @param layerId - The layer to walk.
  * @returns The cell as a navigation target.
  * @throws When no cell carries them.
  */
 function cellWith(
   bridge: SelectionBridge,
   values: readonly string[],
+  layerId = '0',
 ): { layerId: string; row: number; col: number } {
-  const cells = bridge.index.cells.get('0') ?? [];
+  const cells = bridge.index.cells.get(layerId) ?? [];
   for (let row = 0; row < cells.length; row++) {
     for (let col = 0; col < cells[row].length; col++) {
       const criteria = cells[row][col];
       if (criteria !== null && criteria.every((criterion, i) => criterion.value === values[i])) {
-        return { layerId: '0', row, col };
+        return { layerId, row, col };
       }
     }
   }
@@ -618,19 +620,55 @@ describe('tableau selection bridge, the other way', () => {
       expect(targets).toEqual([cell]);
     });
 
-    it('should read a selection while its own call is still in flight as an echo', async () => {
+    it('should read an echo that arrives while its own call is still in flight as an echo', async () => {
       const { bridge, worksheet } = bind(groupedSnapshot(GROUPED_ROWS));
       const { navigate, targets } = recorder();
-      bridge.guard.programmatic = true;
+      // Not awaited: the selection is recorded before the call is made, and
+      // the event may well beat the promise.
+      const inFlight = applySelection(bridge, cellWith(bridge, ['West', 'Corporate']));
 
       const outcome = await handleMarkSelection(
         bridge,
         fakeMarkSelection(worksheet, fakeMarks(GROUPED_COLUMNS, [['West', 'Corporate', 40]])),
         navigate,
       );
+      await inFlight;
 
       expect(outcome).toBe('echo');
       expect(targets).toEqual([]);
+    });
+
+    it('should take a click in one worksheet while a call to another is in flight as the click it is', async () => {
+      const columns = GROUPED_COLUMNS;
+      const sales = fakeWorksheet({ name: 'Sales by Region', columns, rows: [] });
+      const profit = fakeWorksheet({ name: 'Profit by Region', columns, rows: [] });
+      const { selection } = extractTableau([
+        fakeSnapshot({ name: sales.name, columns, rows: GROUPED_ROWS }),
+        fakeSnapshot({ name: profit.name, columns, rows: GROUPED_ROWS }),
+      ]);
+      const bridge: SelectionBridge = {
+        index: selection,
+        worksheets: new Map([['0', sales], ['1', profit]]),
+        guard: createSelectionGuard(),
+        disabled: new Set<string>(),
+        owned: new Set<string>(),
+        issued: [],
+      };
+      const { navigate, targets } = recorder();
+      // MAIDR's own call to `Sales` is in flight, so the shared guard's flag
+      // is up -- and a colleague clicks a mark in `Profit`.
+      const inFlight = applySelection(bridge, { layerId: '0', row: 0, col: 0 });
+      expect(bridge.guard.programmatic).toBe(true);
+
+      const outcome = await handleMarkSelection(
+        bridge,
+        fakeMarkSelection(profit, fakeMarks(columns, [['West', 'Corporate', 40]])),
+        navigate,
+      );
+      await inFlight;
+
+      expect(outcome).toBe('navigated');
+      expect(targets).toEqual([cellWith(bridge, ['West', 'Corporate'], '1')]);
     });
 
     it('should withdraw a kept target when a user deselects everything', async () => {

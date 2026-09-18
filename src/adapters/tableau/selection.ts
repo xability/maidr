@@ -749,11 +749,12 @@ export async function handleMarkSelection(
   const tables = Array.isArray(marks?.data) ? marks.data : [];
   const target = positionOfMarks(bridge.index, { data: tables }, worksheetName);
 
-  // The flag catches an echo that arrives before the issuing call has settled;
-  // the ring catches the ones that arrive after. Both are consulted so an
-  // entry the flag answered for does not linger to swallow a later click.
-  const echoed = takeEcho(bridge, worksheetName, target);
-  if (echoed || bridge.guard.programmatic) {
+  // The ring alone decides. A selection is recorded before its call is made,
+  // so an echo that arrives while the call is still in flight matches as
+  // surely as one that arrives after; the guard's flag, which is shared by
+  // every worksheet the bridge binds, would read a user's click in one
+  // worksheet as the echo of a call still in flight to another.
+  if (takeEcho(bridge, worksheetName, target)) {
     return 'echo';
   }
 

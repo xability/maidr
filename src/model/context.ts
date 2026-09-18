@@ -564,6 +564,21 @@ export class Context implements Disposable {
   }
 
   /**
+   * Whether {@link navigateTo} would move to a target, without moving.
+   *
+   * Answers only for the target itself -- the layer exists and the cell or
+   * point is on it. A caller that has modes to leave before the move (the
+   * controller closes the delta layer and resets the rotor) asks this first,
+   * so a target that will be refused leaves those modes exactly as they were.
+   *
+   * @param target - The layer and the cell or data point to land on
+   * @returns True when the target names a position the figure has
+   */
+  public canNavigateTo(target: NavigationTarget): boolean {
+    return this.resolveTarget(target) !== null;
+  }
+
+  /**
    * Moves the cursor to a position a host chose, wherever in the figure it is.
    *
    * The arrow keys move one step from where the reader stands; this lands them
@@ -585,18 +600,11 @@ export class Context implements Disposable {
    * @returns True when the cursor moved there
    */
   public navigateTo(target: NavigationTarget): boolean {
-    const located = this.locateLayer(target.layerId);
-    if (located === null) {
+    const resolved = this.resolveTarget(target);
+    if (resolved === null) {
       return false;
     }
-    const { subplotRow, subplotCol, layerIndex, subplot, trace } = located;
-
-    const cell = 'pointIndex' in target
-      ? (isPointCloudAddressable(trace) ? trace.positionOfDataIndex(target.pointIndex) : null)
-      : { row: target.row, col: target.col };
-    if (cell === null || !trace.isMovable([cell.row, cell.col])) {
-      return false;
-    }
+    const { subplotRow, subplotCol, layerIndex, subplot, trace, cell } = resolved;
 
     const active = this.plotContext.peek();
     if (active !== undefined && active.level === 'trace' && !this.isOnRealLayer()) {
@@ -605,23 +613,19 @@ export class Context implements Disposable {
 
     const figure = this.figure;
     if (figure.activeSubplot !== subplot || this.active.level === 'figure') {
-      // Another panel, or the lobby of this one: the stack is rebuilt the way
-      // `enterSubplot` builds it, figure at the bottom, and the figure's own
-      // cursor is moved without a word so the lobby is never announced on the
-      // way through.
+      // Another panel, or the lobby of this one. The layer is selected within
+      // its subplot first -- the one step that can still refuse -- so that a
+      // refusal leaves the figure's cursor and the stack untouched; then the
+      // stack is rebuilt the way `enterSubplot` builds it, figure at the
+      // bottom, with the figure's own cursor moved without a word so the
+      // lobby is never announced on the way through.
+      if (layerIndex !== subplot.activeLayerIndex && subplot.selectLayer(layerIndex) === null) {
+        return false;
+      }
       figure.runSilently(() => figure.moveToIndex(subplotRow, subplotCol));
       this.plotContext.clear();
       this.plotContext.push(figure);
       this.plotContext.push(subplot);
-      if (layerIndex !== subplot.activeLayerIndex && subplot.selectLayer(layerIndex) === null) {
-        // Unreachable once `locateLayer` found the layer, but a stack with no
-        // trace on top must never be left behind: fall back to the layer the
-        // subplot already had.
-        this.plotContext.pop();
-        this.plotContext.pop();
-        this.plotContext.push(figure);
-        return false;
-      }
       this.plotContext.push(trace);
       this.toggleScope(Scope.TRACE);
     } else if (layerIndex !== subplot.activeLayerIndex) {
@@ -633,6 +637,35 @@ export class Context implements Disposable {
     }
 
     return trace.moveToIndex(cell.row, cell.col);
+  }
+
+  /**
+   * Resolves a target to the layer it names and the cell to land on.
+   *
+   * @param target - The layer and the cell or data point
+   * @returns Where the layer sits and which cell to move to, or null when the
+   *   layer is unknown, the point cannot be placed, or the cell is off the grid
+   */
+  private resolveTarget(target: NavigationTarget): {
+    subplotRow: number;
+    subplotCol: number;
+    layerIndex: number;
+    subplot: Subplot;
+    trace: Trace;
+    cell: { row: number; col: number };
+  } | null {
+    const located = this.locateLayer(target.layerId);
+    if (located === null) {
+      return null;
+    }
+    const { trace } = located;
+    const cell = 'pointIndex' in target
+      ? (isPointCloudAddressable(trace) ? trace.positionOfDataIndex(target.pointIndex) : null)
+      : { row: target.row, col: target.col };
+    if (cell === null || !trace.isMovable([cell.row, cell.col])) {
+      return null;
+    }
+    return { ...located, cell };
   }
 
   /**
