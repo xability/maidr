@@ -4,7 +4,7 @@ import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
 
@@ -194,6 +194,63 @@ describe('plotly extractor', () => {
       expect(layer.axes?.x?.label).toBe('Label');
       expect(layer.axes?.y?.label).toBe('Value');
       expect(layer.orientation).toBeUndefined();
+    });
+
+    it('declares the direction plotly drew the wedges in', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      // Plotly's default lays the slices out counterclockwise; MAIDR walks
+      // clockwise, so the layer has to say which way it was drawn or Right
+      // steps the wrong way round the dial.
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+      // The ring does not start at 12 o'clock: plotly ends the first wedge
+      // there and draws it clockwise of the top, so Bananas (50 of 100)
+      // spans 12 to 6 and the ring starts at 6.
+      expect(layer.startAngle).toBe(180);
+    });
+
+    it('leaves the start undeclared when the first drawn wedge is unknown', () => {
+      // No calcdata and `sort` left on: the authored order is not the drawn
+      // order, so `slices[0]` is not the wedge the ring starts after.
+      const gd = createGraphDiv({ traces: [{ ...FRUIT, rotation: 90 }], layout: {} });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+      expect(layer.startAngle).toBeUndefined();
+    });
+
+    it('adds the rotation to where a counterclockwise ring starts', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, rotation: 90 }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      expect(layer.startAngle).toBe(270);
+    });
+
+    it('carries a clockwise direction and a rotation over as they are', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, direction: 'clockwise', rotation: 90 }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      // A clockwise ring begins at `rotation` itself, which is already
+      // degrees clockwise from 12 o'clock.
+      expect(layer.direction).toBe(PieDirection.CLOCKWISE);
+      expect(layer.startAngle).toBe(90);
     });
 
     it('withholds the selectors when only the authored order is known', () => {

@@ -1413,6 +1413,15 @@ export interface AxisConfig {
 }
 
 /**
+ * The way round the dial the slices of a pie follow one another from the
+ * start angle. See {@link MaidrLayer.direction}.
+ */
+export enum PieDirection {
+  CLOCKWISE = 'clockwise',
+  COUNTERCLOCKWISE = 'counterclockwise',
+}
+
+/**
  * Which way a layer is drawn, for the many trace types that can go either way
  * — the bar family, the box and violin family, error bars, funnels, Gantt
  * charts and dumbbells among them.
@@ -1547,6 +1556,51 @@ export interface MaidrLayer {
    * { orientation: 'horz', data: [{ x: 30, y: 'apple' }] }
    */
   orientation?: Orientation;
+  /**
+   * Where a pie's first slice begins, in degrees clockwise from 12 o'clock.
+   * Defaults to `0`.
+   *
+   * MAIDR lays the slices of a pie out round a dial from this point — the
+   * audio pan follows each slice round the circle and `p` names the slice's
+   * clock position — so a producer whose pie does not start at the top says
+   * where it does. matplotlib's default `startangle=0` puts the first edge
+   * at 3 o'clock, which is `90` here; its `startangle=90` is `0`. Chart.js's
+   * `rotation` is already clockwise from the top and carries over unchanged.
+   * Plotly's `rotation` is too, but a counterclockwise plotly pie starts
+   * `rotation` plus its first wedge's sweep round: plotly ends the first
+   * wedge at `rotation` and draws it clockwise of there, then lays the rest
+   * out counterclockwise from `rotation`.
+   *
+   * Read by the pie trace and ignored by every other type.
+   *
+   * @example
+   * // a pie whose first slice starts at 3 o'clock
+   * { type: 'pie', startAngle: 90, data: [...] }
+   */
+  startAngle?: number;
+  /**
+   * The way round the dial a pie's slices follow one another from
+   * {@link MaidrLayer.startAngle}. Defaults to {@link PieDirection.CLOCKWISE}.
+   *
+   * MAIDR steps Right through a pie **clockwise**: the next slice under the
+   * Right arrow is the next one round the dial the way a clock hand goes,
+   * whatever order the producer wrote them in. A producer whose library laid
+   * the slices out the other way — matplotlib, base R's `pie()` and plotly
+   * all draw counterclockwise by default — says so here, and the trace walks
+   * `data` in reverse: the slice drawn last is the first one clockwise from
+   * the start, so Right still moves clockwise and the outline, the pan and
+   * the clock position all describe the wedge under the cursor. `data` and
+   * `selectors` stay in drawn order either way; only the walk changes.
+   *
+   * Read by the pie trace and ignored by every other type. Omit it unless the
+   * drawn direction is known: a layer that declares `'counterclockwise'` and
+   * is not drawn that way walks the pie backwards.
+   *
+   * @example
+   * // a plotly pie drawn with its default direction
+   * { type: 'pie', direction: 'counterclockwise', data: [...] }
+   */
+  direction?: PieDirection;
   /**
    * Optional DOM mapping hints. When provided, individual traces can opt-in
    * to use these hints to map DOM elements to the internal row-major data grid

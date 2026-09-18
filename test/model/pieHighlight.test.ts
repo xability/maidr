@@ -15,7 +15,7 @@ import type { MaidrLayer } from '@type/grammar';
 import type { TraceState } from '@type/state';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { PieTrace } from '@model/pie';
-import { TraceType } from '@type/grammar';
+import { PieDirection, TraceType } from '@type/grammar';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
@@ -75,6 +75,27 @@ describe('pie highlight resolution', () => {
       ? highlight.elements[0]
       : highlight.elements;
     expect(element.getAttribute('data-slice')).toBe('Bananas');
+  });
+
+  it('highlights the wedge drawn for the slice when the walk is reversed', () => {
+    // The wedges are in the document in drawn order; a counterclockwise pie
+    // walks them backwards, so the first stop must outline the last wedge.
+    const trace = new PieTrace({
+      ...pieLayer('#pie path.slice'),
+      direction: PieDirection.COUNTERCLOCKWISE,
+    });
+
+    trace.moveToIndex(0, 0);
+    const { highlight, text } = stateOf(trace);
+
+    if (highlight.empty) {
+      throw new Error('expected the last wedge to be highlighted');
+    }
+    const element = Array.isArray(highlight.elements)
+      ? highlight.elements[0]
+      : highlight.elements;
+    expect(text.main.value).toBe('Cherries');
+    expect(element.getAttribute('data-slice')).toBe('Cherries');
   });
 
   it('reports no highlight when the selector resolves the wrong number of wedges', () => {

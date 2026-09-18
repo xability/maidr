@@ -215,12 +215,13 @@ describe('AnnouncePositionCommand on multi-series step plots', () => {
  * takes for its own trace-specific data, so this mirrors what the trace
  * actually puts there rather than inventing a shape.
  */
-function pieState(values: number[], col: number): PlotState {
+function pieState(values: number[], col: number, startAngle?: number): PlotState {
   return {
     empty: false,
     type: 'trace',
     traceType: TraceType.PIE,
     plotType: 'pie',
+    ...(startAngle !== undefined && { startAngle }),
     audio: { panning: { x: 0, y: 0, rows: 1, cols: 2 } },
     braille: {
       empty: false,
@@ -268,6 +269,41 @@ describe('AnnouncePositionCommand on a pie', () => {
 
     expect(textViewModel.update).toHaveBeenCalledWith(
       'Position is 4 of 4, from 9 o\'clock to 12 o\'clock',
+    );
+  });
+
+  test('places the slices from where the trace says the dial starts', () => {
+    // The same four quarters, begun at 3 o'clock: the first runs 3 to 6.
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 0, 90));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 4, from 3 o\'clock to 6 o\'clock',
+    );
+  });
+
+  test('reads a slice that straddles the top as ending after it starts', () => {
+    // Begun at 9 o'clock, the last quarter runs from 6 back round to 9, and
+    // the third from 3 to 6; nothing here should read as ending at 0.
+    const { command, textViewModel } = createCommand(pieState([1, 1, 1, 1], 3, 270));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 4 of 4, from 6 o\'clock to 9 o\'clock',
+    );
+  });
+
+  test('carries a slice across 12 rather than ending it before it starts', () => {
+    // Begun at 10 o'clock, a half-turn slice runs 10 round to 4. Read as a
+    // plain fraction of the dial it would end at 4/12, before its own start.
+    const { command, textViewModel } = createCommand(pieState([1, 1], 0, 300));
+
+    command.execute();
+
+    expect(textViewModel.update).toHaveBeenCalledWith(
+      'Position is 1 of 2, from 10 o\'clock to 4 o\'clock',
     );
   });
 

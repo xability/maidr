@@ -669,6 +669,19 @@ describe('chart.js extractor', () => {
       expect(layerDatasetIndices.get('0')).toEqual([0]);
     });
 
+    it('carries a rotated start over and says nothing for the default', () => {
+      // Chart.js sweeps clockwise from `rotation` degrees past the top, the
+      // grammar's own convention, so the number is the layer's `startAngle`.
+      const rotated = extractChartData(
+        createChart({ type: 'pie', data: pieData, options: { rotation: -90 } }),
+      );
+      const plain = extractChartData(createChart({ type: 'pie', data: pieData }));
+
+      expect(rotated.maidr.subplots[0][0].layers[0].startAngle).toBe(-90);
+      expect(plain.maidr.subplots[0][0].layers[0].startAngle).toBeUndefined();
+      expect(plain.maidr.subplots[0][0].layers[0].direction).toBeUndefined();
+    });
+
     it('names the axes for a chart that has no scales to read', () => {
       const { maidr } = extractChartData(createChart({ type: 'pie', data: pieData }));
 

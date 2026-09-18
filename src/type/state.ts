@@ -119,6 +119,13 @@ export type TraceState
        * Plot orientation, if applicable (e.g. bar, box, violin).
        */
       orientation?: Orientation;
+      /**
+       * Where the first slice of a pie begins, in degrees clockwise from
+       * 12 o'clock, as the layer declared it (see `MaidrLayer.startAngle`).
+       * Present only for a pie, whose position announcement places each
+       * slice on the dial from here.
+       */
+      startAngle?: number;
     };
 
 /**
