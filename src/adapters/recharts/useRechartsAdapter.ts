@@ -79,6 +79,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
     categoryAxisReversed,
     categoryAxisReversedPerPanel,
     stepDirection,
+    pieAngles,
     xKey,
     yKeys,
     layers,
@@ -115,6 +116,7 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       categoryAxisReversed,
       categoryAxisReversedPerPanel,
       stepDirection,
+      pieAngles,
       xKey,
       yKeys,
       layers,
@@ -139,6 +141,6 @@ export function useRechartsAdapter(config: RechartsAdapterConfig): Maidr {
       boxenConfig,
       selectorOverride,
     }),
-    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
+    [id, title, subtitle, caption, data, chartType, categoryAxisReversed, categoryAxisReversedPerPanel, stepDirection, pieAngles, xKey, yKeys, layers, subplots, columns, xLabel, yLabel, orientation, fillKeys, binConfig, flowConfig, volcanoConfig, errorConfig, forestConfig, survivalConfig, waterfallConfig, ganttConfig, gaugeConfig, parallelConfig, ridgelineConfig, hexbinConfig, boxenConfig, selectorOverride],
   );
 }

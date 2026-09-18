@@ -62,6 +62,7 @@ import type {
 import type { DeclarationContext } from '../shared/traceDeclaration';
 import type { HighchartsAdapterOptions, HighchartsAxis, HighchartsChart, HighchartsNode, HighchartsPoint, HighchartsSeries } from './types';
 import { Orientation, TraceType } from '../../type/grammar';
+import { isAngle, pieGeometry } from '../shared/pieGeometry';
 import {
   isFlagValue,
   readDeclarationSlot,
@@ -4593,6 +4594,9 @@ function convertPieSeries(
       y: p.y as number,
     }));
 
+  // Highcharts always sweeps clockwise, and its `startAngle` is already
+  // degrees clockwise from 12 o'clock, so only a rotated pie declares one.
+  const start = series.options.startAngle;
   return {
     id: String(series.index),
     type: TraceType.PIE,
@@ -4603,6 +4607,7 @@ function convertPieSeries(
       y: { label: PIE_VALUE_AXIS },
     },
     data,
+    ...pieGeometry(isAngle(start) ? start : 0, true),
   };
 }
 

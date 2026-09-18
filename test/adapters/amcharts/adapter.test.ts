@@ -16,7 +16,7 @@ import type {
   WordCloudPoint,
 } from '@type/grammar';
 import { findCharts, findXYCharts, fromAmCharts, fromXYChart } from '@adapters/amcharts/adapter';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 import {
   fakeAreaSeries,
   fakeBarSeries,
@@ -224,6 +224,38 @@ describe('fromAmCharts (pie chart)', () => {
     expect(findCharts(root)).toEqual([pie]);
     // The narrower query still answers only for XY charts.
     expect(findXYCharts(root)).toEqual([]);
+  });
+
+  it('declares nothing for the default dial and converts a rotated one', () => {
+    // am5percent measures clockwise from 3 o'clock: the default `startAngle`
+    // of -90 is the top and `endAngle` 270 a full clockwise turn.
+    const plain = fromAmCharts(fakeRoot([
+      fakePieChart({ series: [fakePieSeries('Fruit', PIE_DATA)] }),
+    ], 'plain')).subplots[0][0].layers[0];
+    const rotated = fromAmCharts(fakeRoot([
+      fakePieChart({ series: [fakeSeries({
+        className: 'PieSeries',
+        name: 'Fruit',
+        settings: { categoryField: 'category', valueField: 'value', startAngle: 0, endAngle: 360 },
+        data: PIE_DATA,
+      })] }),
+    ], 'rotated')).subplots[0][0].layers[0];
+    const backwards = fromAmCharts(fakeRoot([
+      fakePieChart({ series: [fakeSeries({
+        className: 'PieSeries',
+        name: 'Fruit',
+        settings: { categoryField: 'category', valueField: 'value', startAngle: -90, endAngle: -450 },
+        data: PIE_DATA,
+      })] }),
+    ], 'backwards')).subplots[0][0].layers[0];
+
+    expect(plain.startAngle).toBeUndefined();
+    expect(plain.direction).toBeUndefined();
+    // 0 in amCharts' terms is 3 o'clock.
+    expect(rotated.startAngle).toBe(90);
+    expect(rotated.direction).toBeUndefined();
+    expect(backwards.startAngle).toBeUndefined();
+    expect(backwards.direction).toBe(PieDirection.COUNTERCLOCKWISE);
   });
 
   it('converts a pie series into a flat pie layer', () => {

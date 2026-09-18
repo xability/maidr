@@ -13,7 +13,7 @@
  */
 import type { StepDirection } from '@type/grammar';
 import type { ReactNode } from 'react';
-import type { RechartsSubplotConfig } from './types';
+import type { RechartsPieAngles, RechartsSubplotConfig } from './types';
 import { Orientation } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -170,6 +170,49 @@ export function stepDirectionFor(children: ReactNode): StepDirection | undefined
           found = STEP_DIRECTIONS[props.type];
           return;
         }
+      }
+      walk(props.children);
+    });
+  };
+
+  walk(children);
+  return found;
+}
+
+/**
+ * Where the chart's `<Pie>` starts and ends, when it draws one.
+ *
+ * `<Pie startAngle={90} endAngle={-270}>` is how Recharts states it, and it
+ * lives in the chart subtree {@link MaidrRecharts} renders but never used to
+ * read -- so every pie was placed from the top going clockwise, which is
+ * neither where Recharts' default starts (3 o'clock) nor the way it goes
+ * (counterclockwise). Both angles are returned as written, in Recharts' own
+ * terms, for the converter to turn into the grammar's.
+ *
+ * Depth-first for the same reason the other walks are, and stops at the
+ * first `<Pie>`. A tree with none answers `undefined`, and so does a `<Pie>`
+ * that sets neither angle: Recharts' defaults then apply, which the converter
+ * knows. An angle that is not a number is left out rather than guessed.
+ *
+ * @param children - The chart subtree this component was given
+ * @returns The angles the pie declares, or `undefined` when there is no pie
+ */
+export function pieAnglesFor(children: ReactNode): RechartsPieAngles | undefined {
+  let found: RechartsPieAngles | undefined;
+
+  const walk = (nodes: ReactNode): void => {
+    if (found !== undefined)
+      return;
+    Children.forEach(nodes, (child) => {
+      if (found !== undefined || !isValidElement(child))
+        return;
+      const props = child.props as { startAngle?: unknown; endAngle?: unknown; children?: ReactNode };
+      if (displayNameOf(child.type) === 'Pie') {
+        found = {
+          ...(typeof props.startAngle === 'number' ? { startAngle: props.startAngle } : {}),
+          ...(typeof props.endAngle === 'number' ? { endAngle: props.endAngle } : {}),
+        };
+        return;
       }
       walk(props.children);
     });

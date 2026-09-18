@@ -39,6 +39,26 @@ describe('highcharts pie series', () => {
     expect(layer.orientation).toBeUndefined();
   });
 
+  it('carries a rotated start over and declares nothing for the default', () => {
+    // Highcharts' `startAngle` is already degrees clockwise from 12 o'clock
+    // and its sweep is always clockwise, so only a rotation is declared.
+    const rotated = highchartsToMaidr(fakeChart({
+      type: 'pie',
+      renderToId: 'rotated-pie',
+      series: [fakeSeries({ index: 0, type: 'pie', data: BROWSERS, options: { startAngle: 90 } })],
+    })).subplots[0][0].layers[0];
+    const plain = highchartsToMaidr(fakeChart({
+      type: 'pie',
+      renderToId: 'plain-pie',
+      series: [fakeSeries({ index: 0, type: 'pie', data: BROWSERS })],
+    })).subplots[0][0].layers[0];
+
+    expect(rotated.startAngle).toBe(90);
+    expect(rotated.direction).toBeUndefined();
+    expect(plain.startAngle).toBeUndefined();
+    expect(plain.direction).toBeUndefined();
+  });
+
   it('resolves the series type from the chart when the series omits it', () => {
     const chart = fakeChart({
       type: 'pie',

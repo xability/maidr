@@ -17,6 +17,7 @@
 import type { BarPoint, GaugePoint, MaidrLayer, PiePoint } from '@type/grammar';
 import type { EChartsSeriesModel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
+import { clockFromCounterclockwiseOf3, pieGeometry } from '../shared/pieGeometry';
 import { nextId } from '../shared/selectorUtil';
 
 /** One datum: what it is called, and what it measures. */
@@ -134,6 +135,11 @@ function pieLayer(
     y: value,
   }));
   const name = authored(seriesModel);
+  // ECharts measures `startAngle` counterclockwise from 3 o'clock, `90` (the
+  // top) by default, and sweeps clockwise unless `clockwise: false`. The
+  // grammar counts clockwise from 12, so the origin is converted and the
+  // direction declared; a pie left at the defaults declares nothing.
+  const start = numeric(seriesModel.get('startAngle'), 90);
 
   return {
     id: nextId('layer'),
@@ -141,6 +147,7 @@ function pieLayer(
     ...(name ? { name } : {}),
     ...(selectors ? { selectors } : {}),
     data,
+    ...pieGeometry(clockFromCounterclockwiseOf3(start), seriesModel.get('clockwise') !== false),
   };
 }
 

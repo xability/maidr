@@ -29,7 +29,7 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
 import type { LinePoint } from '@type/grammar';
 import type { ReactNode } from 'react';
-import { stepDirectionFor } from '@adapters/recharts/childProps';
+import { pieAnglesFor, stepDirectionFor } from '@adapters/recharts/childProps';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
 import { describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
@@ -214,5 +214,53 @@ describe('reading the convention out of the children', () => {
   it('answers nothing for a chart it does not recognise', () => {
     expect(stepDirectionFor(tree())).toBeUndefined();
     expect(stepDirectionFor(null)).toBeUndefined();
+  });
+});
+
+describe('reading the pie angles out of the children', () => {
+  /** A stand-in for a Recharts component: only `displayName` is read. */
+  function stub(displayName: string): { (): null; displayName: string } {
+    const component = (): null => null;
+    component.displayName = displayName;
+    return component;
+  }
+
+  const Pie = stub('Pie');
+  const Bar = stub('Bar');
+  const PieChart = stub('PieChart');
+  const Container = stub('ResponsiveContainer');
+
+  it('reads both angles off the pie, as written', () => {
+    const angles = pieAnglesFor(
+      createElement(PieChart, null, createElement(Pie, { startAngle: 90, endAngle: -270 })),
+    );
+
+    expect(angles).toEqual({ startAngle: 90, endAngle: -270 });
+  });
+
+  it('finds a pie nested inside a container', () => {
+    const angles = pieAnglesFor(
+      createElement(Container, null, createElement(PieChart, null, createElement(Pie, { startAngle: 180 }))),
+    );
+
+    expect(angles).toEqual({ startAngle: 180 });
+  });
+
+  it('answers an empty set for a pie left at the defaults', () => {
+    // The converter knows Recharts' defaults; the walk only says what the
+    // pie itself declared.
+    expect(pieAnglesFor(createElement(PieChart, null, createElement(Pie, {})))).toEqual({});
+  });
+
+  it('answers nothing for a tree with no pie', () => {
+    expect(pieAnglesFor(createElement(PieChart, null, createElement(Bar, {})))).toBeUndefined();
+  });
+
+  it('leaves out an angle that is not a number', () => {
+    const angles = pieAnglesFor(
+      createElement(PieChart, null, createElement(Pie, { startAngle: '90', endAngle: 0 })),
+    );
+
+    expect(angles).toEqual({ endAngle: 0 });
   });
 });

@@ -24,7 +24,7 @@ import { createMaidrFromEChart } from '@adapters/echarts/converters';
 import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { FunnelTrace } from '@model/funnel';
 import { PieTrace } from '@model/pie';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -37,6 +37,10 @@ interface FakeSeries {
   max?: number;
   /** ECharts' own name for the direction a funnel's STAGES progress. */
   orient?: 'vertical' | 'horizontal';
+  /** A pie's first edge, degrees counterclockwise from 3 o'clock. */
+  startAngle?: number;
+  /** Whether a pie's slices follow one another clockwise. */
+  clockwise?: boolean;
 }
 
 function fakeSeriesModel(series: FakeSeries): EChartsSeriesModel {
@@ -45,6 +49,8 @@ function fakeSeriesModel(series: FakeSeries): EChartsSeriesModel {
     min: series.min,
     max: series.max,
     orient: series.orient,
+    startAngle: series.startAngle,
+    clockwise: series.clockwise,
   };
   const list: EChartsList = {
     dimensions: ['value'],
@@ -190,6 +196,32 @@ describe('an eCharts pie chart', () => {
     const trace = new PieTrace(layer);
     expect(highlighted(trace, 0, 0)).toEqual(['mark-0']);
     expect(highlighted(trace, 0, 2)).toEqual(['mark-2']);
+  });
+
+  it('declares nothing for the default dial: clockwise from the top', () => {
+    // ECharts' `startAngle` of 90, counterclockwise from 3 o'clock, is the
+    // top, and it sweeps clockwise -- the grammar's own defaults.
+    const layer = layerFor({ type: 'pie', names: ['A', 'B'], values: [1, 2] }, 2);
+
+    expect(layer.startAngle).toBeUndefined();
+    expect(layer.direction).toBeUndefined();
+  });
+
+  it('converts a rotated start and declares a counterclockwise sweep', () => {
+    const rotated = layerFor(
+      { type: 'pie', names: ['A', 'B'], values: [1, 2], startAngle: 0 },
+      2,
+    );
+    const backwards = layerFor(
+      { type: 'pie', names: ['A', 'B'], values: [1, 2], clockwise: false },
+      2,
+    );
+
+    // `startAngle: 0` is 3 o'clock, which the grammar counts as 90.
+    expect(rotated.startAngle).toBe(90);
+    expect(rotated.direction).toBeUndefined();
+    expect(backwards.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+    expect(backwards.startAngle).toBeUndefined();
   });
 
   it('names a slice the author left unnamed', () => {

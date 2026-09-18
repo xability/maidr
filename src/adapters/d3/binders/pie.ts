@@ -12,6 +12,7 @@ import type { LinePoint, MaidrLayer, PiePoint } from '../../../type/grammar';
 import type { D3PanelScope } from '../selectors';
 import type { D3BinderResult, D3BuiltLayer, D3PieConfig, D3PolarAreaConfig, DataAccessor } from '../types';
 import { TraceType } from '../../../type/grammar';
+import { pieGeometry } from '../../shared/pieGeometry';
 import { scopeSelector } from '../selectors';
 import { buildAxes, buildNoDatumError, buildNoElementsError, finalizeSingleChart, generateId, inferAccessor, queryD3Elements, resolveAccessor } from '../util';
 
@@ -217,6 +218,55 @@ function extractWedges(
 }
 
 /**
+ * Where the ring the wedges form begins and which way it runs, read off the
+ * `d3.pie()` arcs bound to them.
+ *
+ * `d3.pie()` measures its angles in radians clockwise from 12 o'clock, which
+ * is the grammar's own origin; a layout given `endAngle` below `startAngle`
+ * lays the arcs out counterclockwise instead. Either way the layout keeps
+ * each arc contiguous with the one before it, so the ring runs from the
+ * first arc's start in the direction its own sweep goes.
+ *
+ * That is only a description of the wedges when they sit round the dial in
+ * the order MAIDR walks them — DOM order, which is data order. `d3.pie()`
+ * sorts its arcs by value before assigning angles, and by default it does,
+ * so a chart that left `sort` alone has its wedges in one order round the
+ * dial and its data in another. No start angle and direction can say where
+ * such a walk goes, and declaring one would place every slice at another's
+ * position; the layer then declares nothing, which places every slice from
+ * the top as before. A wedge with no arc, or a ring with fewer than two
+ * wedges, is left undeclared for the same reason.
+ *
+ * @param root - The extraction root (the SVG, or a panel element)
+ * @param selector - The wedge selector
+ * @returns The layer's `startAngle` / `direction`, or nothing declarable
+ */
+function dialGeometry(root: Element, selector: string): Pick<MaidrLayer, 'startAngle' | 'direction'> {
+  const arcs = queryD3Elements(root, selector).map(({ datum }) => datum);
+  if (arcs.length < 2 || !arcs.every(isPieArc)) {
+    return {};
+  }
+
+  const clockwise = arcs[0].endAngle >= arcs[0].startAngle;
+  // Contiguous in DOM order, each arc going the same way as the first.
+  const tolerance = 1e-6;
+  for (let index = 0; index < arcs.length; index++) {
+    const arc = arcs[index];
+    if (![arc.startAngle, arc.endAngle].every(Number.isFinite)) {
+      return {};
+    }
+    if (clockwise ? arc.endAngle < arc.startAngle : arc.endAngle > arc.startAngle) {
+      return {};
+    }
+    if (index > 0 && Math.abs(arc.startAngle - arcs[index - 1].endAngle) > tolerance) {
+      return {};
+    }
+  }
+
+  return pieGeometry((arcs[0].startAngle * 180) / Math.PI, clockwise);
+}
+
+/**
  * Pure extraction core for pie charts. See {@link buildBarLayer} for the
  * single-chart vs multi-panel contract.
  *
@@ -237,6 +287,7 @@ export function buildPieLayer(root: Element, config: D3PieConfig, panel?: D3Pane
     // derived from the values, so there is nothing for a fill axis to label.
     axes: buildAxes({ x: axes?.x, y: axes?.y }, format),
     data,
+    ...dialGeometry(root, selector),
   };
 
   return { layer };

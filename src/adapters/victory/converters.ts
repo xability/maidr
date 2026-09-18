@@ -24,6 +24,7 @@ import type {
   VictoryPanelLayout,
   VictorySubplotInfo,
 } from './types';
+import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, isValidElement } from 'react';
 
@@ -505,7 +506,14 @@ function extractPieData(
     y: Number(getY(d)),
   }));
 
-  return { data: { kind: 'pie', points }, count: rawData.length };
+  // Victory measures `startAngle` / `endAngle` clockwise from 12 o'clock --
+  // the grammar's own convention -- sweeping 0 to 360 by default. An
+  // `endAngle` below the start runs the other way round.
+  const start = isAngle(props.startAngle) ? props.startAngle : 0;
+  const end = isAngle(props.endAngle) ? props.endAngle : start + 360;
+  const dial = pieGeometry(start, end >= start);
+
+  return { data: { kind: 'pie', points, dial }, count: rawData.length };
 }
 
 /**
@@ -1783,6 +1791,7 @@ export function toMaidrLayer(
       return {
         id: layer.id,
         type: TraceType.PIE,
+        ...data.dial,
         // A VictoryPie stands alone — there is no VictoryAxis to read a label
         // off, and the core's "X"/"Y" fallback would announce "X is Apples, Y
         // is 30", naming neither position. Name what the two actually mean on

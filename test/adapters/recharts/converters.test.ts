@@ -1,7 +1,7 @@
 import type { RechartsAdapterConfig } from '@adapters/recharts/types';
 import type { BarPoint, BoxenPoint, DumbbellData, ErrorBarPoint, FlowPoint, ForestPoint, GanttData, GaugePoint, HexbinPoint, HistogramPoint, LinePoint, PiePoint, ScatterPoint, SegmentedPoint, SurvivalPoint, TreemapPoint, ViolinKdePoint, VolcanoPoint, WaterfallPoint } from '@type/grammar';
 import { convertRechartsToMaidr } from '@adapters/recharts/converters';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 
 describe('convertRechartsToMaidr', () => {
   describe('bar chart', () => {
@@ -1714,6 +1714,37 @@ describe('convertRechartsToMaidr', () => {
       expect(layer.selectors).toBe(
         '#maidr-article-fruit .recharts-pie-sector .recharts-sector',
       );
+    });
+
+    it('declares Recharts\' default layout: counterclockwise from 3 o\'clock', () => {
+      // `<Pie>` sweeps from `startAngle` 0 to `endAngle` 360, measured
+      // counterclockwise from the right; MAIDR walks clockwise from the top
+      // unless told otherwise, so a pie left at the defaults has to say so.
+      const layer = convertRechartsToMaidr(pieConfig).subplots[0][0].layers[0];
+
+      expect(layer.startAngle).toBe(90);
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+    });
+
+    it('reads the clockwise-from-the-top recipe as the grammar\'s default', () => {
+      const layer = convertRechartsToMaidr({
+        ...pieConfig,
+        pieAngles: { startAngle: 90, endAngle: -270 },
+      }).subplots[0][0].layers[0];
+
+      expect(layer.startAngle).toBeUndefined();
+      expect(layer.direction).toBeUndefined();
+    });
+
+    it('converts a half pie\'s angles', () => {
+      // 180 to 0: from 9 o'clock, clockwise over the top.
+      const layer = convertRechartsToMaidr({
+        ...pieConfig,
+        pieAngles: { startAngle: 180, endAngle: 0 },
+      }).subplots[0][0].layers[0];
+
+      expect(layer.startAngle).toBe(270);
+      expect(layer.direction).toBeUndefined();
     });
 
     it('never emits an orientation, even when the config sets one', () => {

@@ -8,7 +8,7 @@ import {
   toMaidrLayer,
 } from '@adapters/victory/converters';
 import { describe, expect, it, jest } from '@jest/globals';
-import { TraceType } from '@type/grammar';
+import { PieDirection, TraceType } from '@type/grammar';
 import { createElement } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -375,6 +375,26 @@ describe('toMaidrLayer', () => {
       { x: 'Cherries', y: 20 },
     ]);
     expect(layer.orientation).toBeUndefined();
+  });
+
+  it('declares nothing for the default dial and converts a rotated one', () => {
+    // Victory measures clockwise from 12 o'clock, sweeping 0 to 360, which
+    // is the grammar's own convention; an `endAngle` below the start turns
+    // the sweep round.
+    const [plain] = extractVictoryLayers(createElement(VictoryPie, { data: pieData }));
+    const [rotated] = extractVictoryLayers(
+      createElement(VictoryPie, { data: pieData, startAngle: 90, endAngle: 450 }),
+    );
+    const [backwards] = extractVictoryLayers(
+      createElement(VictoryPie, { data: pieData, startAngle: 0, endAngle: -360 }),
+    );
+
+    expect(toMaidrLayer(plain).startAngle).toBeUndefined();
+    expect(toMaidrLayer(plain).direction).toBeUndefined();
+    expect(toMaidrLayer(rotated).startAngle).toBe(90);
+    expect(toMaidrLayer(rotated).direction).toBeUndefined();
+    expect(toMaidrLayer(backwards).startAngle).toBeUndefined();
+    expect(toMaidrLayer(backwards).direction).toBe(PieDirection.COUNTERCLOCKWISE);
   });
 
   it('prefers an enclosing chart axis label over the pie fallback', () => {

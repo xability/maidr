@@ -268,6 +268,12 @@ export interface HighchartsSeries {
      * columns; a square tilemap is an aligned grid.
      */
     tileShape?: string;
+    /**
+     * Where a pie's first slice begins, in degrees clockwise from 12 o'clock
+     * (Highcharts' own convention, and the grammar's). Resolved here from
+     * `plotOptions.pie` however the chart asked for it; 0 when unset.
+     */
+    startAngle?: number;
     /** Set by Highcharts on internal series (e.g. the Highstock navigator). */
     isInternal?: boolean;
     /** User- or Highcharts-assigned class name (e.g. `highcharts-navigator-series`). */
