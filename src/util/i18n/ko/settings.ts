@@ -111,6 +111,11 @@ export const settings = {
   'settings.sourceInline': '페이지에 포함됨',
   'settings.sourceUnknown': '알 수 없음',
 
+  'settings.reportIssue': '문제 신고',
+  'settings.reportIssueOpen': '버그 리포트 열기',
+  'settings.reportIssueAria': 'GitHub에서 버그 리포트 열기, 새 탭에서 열림',
+  'settings.reportIssueHint': '위 진단 정보가 이미 채워진 버그 리포트를 GitHub에서 엽니다. 거기서 제출하기 전에는 아무것도 전송되지 않으므로, 공유하고 싶지 않은 내용은 지우세요.',
+
   'settings.reset': '초기화',
   'settings.resetAria': '설정 초기화',
   'settings.close': '닫기',

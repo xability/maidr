@@ -127,6 +127,11 @@ export const settings = {
   'settings.sourceInline': 'Incrustado en la página',
   'settings.sourceUnknown': 'Desconocido',
 
+  'settings.reportIssue': 'Informar de un problema',
+  'settings.reportIssueOpen': 'Abrir un informe de error',
+  'settings.reportIssueAria': 'Abrir un informe de error en GitHub en una pestaña nueva',
+  'settings.reportIssueHint': 'Abre en GitHub un informe de error que ya lleva el diagnóstico de arriba. No se envía nada hasta que lo publique allí, así que borre lo que prefiera no compartir.',
+
   // Footer. Each button's visible text and its longer accessible name.
   'settings.reset': 'Restablecer',
   'settings.resetAria': 'Restablecer la configuración',

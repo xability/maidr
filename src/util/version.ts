@@ -14,3 +14,15 @@ import packageJson from '../../package.json';
  * where `TypingEffect` reaches this module through `@util/katex`.
  */
 export const MAIDR_VERSION: string = packageJson.version;
+
+/**
+ * The project's GitHub repository, as `package.json` declares it.
+ *
+ * Read from the same manifest as {@link MAIDR_VERSION} rather than written out
+ * again, so the "Report an issue" button in the About tab cannot end up
+ * pointing somewhere the package does not claim to live.
+ * `test/util/diagnostics.test.ts` asserts the URL it builds, which is what
+ * catches the manifest gaining a `git+` prefix or a `.git` suffix that this
+ * plain read would otherwise carry into a broken link.
+ */
+export const MAIDR_REPOSITORY_URL: string = packageJson.repository.url;

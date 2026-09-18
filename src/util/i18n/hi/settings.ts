@@ -112,6 +112,11 @@ export const settings = {
   'settings.sourceInline': 'पेज में एम्बेडेड',
   'settings.sourceUnknown': 'अज्ञात',
 
+  'settings.reportIssue': 'समस्या की रिपोर्ट करें',
+  'settings.reportIssueOpen': 'बग रिपोर्ट खोलें',
+  'settings.reportIssueAria': 'GitHub पर बग रिपोर्ट खोलें, नए टैब में',
+  'settings.reportIssueHint': 'GitHub पर एक बग रिपोर्ट खोलता है जिसमें ऊपर दी गई डायग्नोस्टिक जानकारी पहले से भरी है। वहाँ सबमिट करने तक कुछ भी नहीं भेजा जाता, इसलिए जो साझा नहीं करना चाहते उसे हटा दें।',
+
   'settings.reset': 'रीसेट',
   'settings.resetAria': 'सेटिंग्स रीसेट करें',
   'settings.close': 'बंद करें',
