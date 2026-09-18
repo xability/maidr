@@ -387,10 +387,12 @@ export class AudioService implements Observer<PlotState>, Disposable {
       return;
     }
 
-    // Handle intersection logic for multiline plots. Step traces inherit
-    // LineTrace's intersection detection — two series sharing an exact (x, y)
-    // sample is a data property, not a path-geometry one — so they belong here
-    // too. Compared against the enum rather than a bare string so a renamed
+    // Handle intersection logic for multiline plots. Step and ROC traces
+    // inherit LineTrace's intersection detection — two series sharing an
+    // exact (x, y) sample is a data property, not a path-geometry one — so
+    // they belong here too; every ROC curve shares (0, 0) and (1, 1) with
+    // every other, and the rotor's intersection mode lands on exactly those.
+    // Compared against the enum rather than a bare string so a renamed
     // member breaks the build instead of silently disabling the chord.
     //
     // RADAR and POLAR_AREA also inherit that detection and their state does
@@ -401,7 +403,9 @@ export class AudioService implements Observer<PlotState>, Disposable {
     // one cue the layout has. Adding them here would sound correct, so this is
     // a choice about what a radar is for, not a gap to close by accident.
     if (
-      (state.traceType === TraceType.LINE || state.traceType === TraceType.STEP)
+      (state.traceType === TraceType.LINE
+        || state.traceType === TraceType.STEP
+        || state.traceType === TraceType.ROC)
       && !state.empty
       && Array.isArray(state.intersections)
       && state.intersections.length > 1

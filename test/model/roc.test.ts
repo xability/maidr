@@ -288,6 +288,150 @@ describe('the description gives the numbers the chart is quoted by', () => {
   });
 });
 
+describe('the up and down keys move between curves at the cursor\'s false positive rate', () => {
+  /**
+   * Where the cursor is after a move, as the reader hears it.
+   * @param trace - The trace to read
+   * @returns The curve's name and the point's rates
+   */
+  function at(trace: RocTrace): { curve: unknown; fpr: unknown; tpr: unknown } {
+    const { group, text } = stateOf(trace);
+    return { curve: group?.value, fpr: text.main.value, tpr: text.cross?.value };
+  }
+
+  test('down goes to the curve below, though it has no point at this rate', () => {
+    // Logistic (0.05, 0.55); the forest is drawn at 0.2 there, between its
+    // points at 0 and 0.1. Both are as near in x, so the one nearer in rate.
+    const trace = roc(0, 1);
+
+    expect(trace.isMovable('DOWNWARD')).toBe(true);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(at(trace)).toEqual({ curve: 'Forest', fpr: 0.1, tpr: 0.4 });
+  });
+
+  test('up goes to the curve above, landing on its nearest point', () => {
+    // Forest (0.25, 0.6); logistic is drawn at 0.883 there.
+    const trace = roc(1, 2);
+
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(at(trace)).toEqual({ curve: 'Logistic', fpr: 0.2, tpr: 0.86 });
+  });
+
+  test('a direction with no curve that way is out of bounds', () => {
+    const trace = roc(0, 1);
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(false);
+    expect(at(trace)).toEqual({ curve: 'Logistic', fpr: 0.05, tpr: 0.55 });
+  });
+
+  test('curves level at a corner are stacked in series order', () => {
+    // Every curve is at (0, 0), which the line reads as neither above nor
+    // below and so refuses; here the first curve is on top.
+    const trace = roc(0, 0);
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(at(trace)).toEqual({ curve: 'Forest', fpr: 0, tpr: 0 });
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+    expect(trace.moveOnce('UPWARD')).toBe(true);
+    expect(at(trace)).toEqual({ curve: 'Logistic', fpr: 0, tpr: 0 });
+  });
+
+  test('three curves level at a corner are walked one at a time', () => {
+    const third: RocPoint[] = [{ x: 0, y: 0, z: 'Third' }, { x: 0.5, y: 0.5, z: 'Third' }, { x: 1, y: 1, z: 'Third' }];
+    const trace = roc(2, 0, [LOGISTIC, FOREST, third]);
+
+    trace.moveOnce('UPWARD');
+    expect(at(trace).curve).toBe('Forest');
+    trace.moveOnce('UPWARD');
+    expect(at(trace).curve).toBe('Logistic');
+  });
+
+  test('the nearest curve in that direction wins', () => {
+    // At 0.5 the logistic is drawn at 0.952 and the forest at 0.804; a
+    // curve at 0.9 is nearer the forest going up than the logistic.
+    const middle: RocPoint[] = [{ x: 0, y: 0, z: 'Middle' }, { x: 0.5, y: 0.82, z: 'Middle' }, { x: 1, y: 1, z: 'Middle' }];
+    const trace = roc(2, 1, [LOGISTIC, FOREST, middle]);
+
+    trace.moveOnce('DOWNWARD');
+    expect(at(trace).curve).toBe('Forest');
+    trace.moveToIndex(2, 1);
+    trace.moveOnce('UPWARD');
+    expect(at(trace).curve).toBe('Logistic');
+  });
+
+  test('a cursor inside a vertical run of the other curve is level with it', () => {
+    // The other curve climbs from 0 to 0.5 at x = 0, as `roc_curve` output
+    // does; a cursor at 0.3 there is neither above nor below it.
+    const flat: RocPoint[] = [{ x: 0, y: 0.3, z: 'Flat' }, { x: 1, y: 1, z: 'Flat' }];
+    const run: RocPoint[] = [{ x: 0, y: 0, z: 'Run' }, { x: 0, y: 0.5, z: 'Run' }, { x: 1, y: 1, z: 'Run' }];
+    const trace = roc(0, 0, [flat, run]);
+
+    expect(trace.isMovable('UPWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    // Both points of the run are at x = 0; the one nearer in rate.
+    expect(at(trace)).toEqual({ curve: 'Run', fpr: 0, tpr: 0.5 });
+  });
+
+  test('a curve not drawn at this rate is not a neighbour', () => {
+    const partial: RocPoint[] = [{ x: 0.5, y: 0.2, z: 'Partial' }, { x: 1, y: 1, z: 'Partial' }];
+    const trace = roc(0, 1, [LOGISTIC, partial]);
+
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+    expect(trace.moveOnce('DOWNWARD')).toBe(false);
+  });
+
+  test('a gap at the cursor has no rate to compare', () => {
+    const gapped: RocPoint[] = [{ x: 0, y: 0, z: 'Gapped' }, { x: 0.1, y: null, z: 'Gapped' }, { x: 1, y: 1, z: 'Gapped' }];
+    const trace = roc(0, 1, [gapped, FOREST]);
+
+    expect(trace.isMovable('DOWNWARD')).toBe(false);
+    expect(trace.isMovable('UPWARD')).toBe(false);
+  });
+
+  test('the producer\'s order does not matter', () => {
+    // A curve listed from (1, 1) down, as the thresholds come out.
+    const reversed = [...FOREST].reverse();
+    const trace = roc(0, 1, [LOGISTIC, reversed]);
+
+    expect(trace.moveOnce('DOWNWARD')).toBe(true);
+    expect(at(trace)).toEqual({ curve: 'Forest', fpr: 0.1, tpr: 0.4 });
+  });
+});
+
+describe('a point two curves share sounds as both', () => {
+  test('moving onto a shared corner carries every curve at it', () => {
+    const trace = roc(0, 0);
+
+    trace.moveOnce('DOWNWARD');
+
+    const { intersections } = stateOf(trace);
+    expect(intersections?.map(tone => tone.group)).toEqual([0, 1]);
+    // From where the point is, for every tone in the chord.
+    expect(intersections?.map(tone => tone.panning)).toEqual([
+      { x: 0, y: 1, rows: 2, cols: 2 },
+      { x: 0, y: 1, rows: 2, cols: 2 },
+    ]);
+  });
+
+  test('the rotor\'s next intersection is the far corner, carrying both curves', () => {
+    const trace = roc(0, 0);
+
+    expect(trace.supportsIntersectionMode()).toBe(true);
+    expect(trace.moveToNextIntersection()).toBe(true);
+
+    const state = stateOf(trace);
+    expect(state.text.main.value).toBe(1);
+    expect(state.intersections?.map(tone => tone.group)).toEqual([0, 1]);
+    expect(state.intersections?.[0].panning.x).toBe(1);
+  });
+
+  test('a point one curve has to itself sounds alone', () => {
+    expect(stateOf(roc(0, 1)).intersections).toBeUndefined();
+  });
+});
+
 describe('the extremes are the best operating point, not the corners', () => {
   test('the target is the point furthest above chance on the current curve', () => {
     const targets = roc(1, 0).getExtremaTargets();
