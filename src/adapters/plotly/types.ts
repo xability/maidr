@@ -206,6 +206,16 @@ export interface PlotlyTrace {
    */
   sort?: boolean;
   /**
+   * The way round the dial a pie's slices follow one another. Plotly's
+   * default is `'counterclockwise'`, the opposite of the walk MAIDR takes.
+   */
+  direction?: 'clockwise' | 'counterclockwise';
+  /**
+   * Where a pie's first slice begins, in degrees clockwise from 12 o'clock;
+   * plotly's default is 0, the top.
+   */
+  rotation?: number;
+  /**
    * Fraction of the paper the trace occupies, `[start, end]` in [0, 1] on each
    * side. A pie is positioned by this rather than by axes, so it is the only
    * thing that says where one sits relative to its siblings.

@@ -2627,6 +2627,15 @@ function extractPieLayers(
   const labels = chart.data.labels ?? [];
   const axes = getPieAxes(pluginOptions);
 
+  // Chart.js sweeps clockwise from `rotation` degrees past the top, which is
+  // the grammar's own convention, so the value carries over as it is. The
+  // default is the top, which is also the grammar's, so nothing is declared
+  // for it.
+  const rotation = chart.options.rotation;
+  const startAngle = typeof rotation === 'number' && Number.isFinite(rotation) && rotation !== 0
+    ? rotation
+    : undefined;
+
   return chart.data.datasets.map((dataset, dsIdx) => {
     // Gap markers (`null` / `NaN`) are skipped rather than collapsed to 0: a
     // fabricated zero would be announced and sonified as a measured slice, and
@@ -2651,6 +2660,7 @@ function extractPieLayers(
       title: dataset.label,
       axes,
       data: points,
+      ...(startAngle !== undefined && { startAngle }),
     };
   });
 }

@@ -548,6 +548,23 @@ The data property is defined as a list of objects where each object is a record 
     //as addressing something other than the wedges and the layer is left
     //without highlighting rather than highlighting the wrong slice.
     //A doughnut is the same layer — the hole is a visual detail.
+    //
+    //MAIDR walks a pie CLOCKWISE: Right steps to the next slice round the
+    //dial the way a clock hand goes, the audio pans each slice to where it
+    //sits, and `p` names its clock position. Two optional keys say how the
+    //slices were laid out so that reading matches the drawing:
+    //
+    //`startAngle`: where the first slice begins, in degrees clockwise from
+    //12 o'clock. Defaults to 0. matplotlib's `startangle=0` (3 o'clock) is
+    //90 here; plotly's and Chart.js's `rotation` carry over unchanged.
+    //
+    //`direction`: `"clockwise"` (the default) or `"counterclockwise"`, the
+    //way successive slices follow one another from `startAngle`. Declare
+    //`"counterclockwise"` for a library that draws that way -- matplotlib,
+    //base R's `pie()` and plotly all do by default -- and MAIDR walks `data`
+    //in reverse so Right still moves clockwise, with the highlight, the pan
+    //and the clock position on the slice being read. `data` and `selectors`
+    //stay in drawn order either way; only the walk changes.
     maidr = {
       "type": "pie",
       "axes": {
@@ -555,6 +572,8 @@ The data property is defined as a list of objects where each object is a record 
         "y": { "label": "Units" }
       },
       "selectors": "#chart path.slice",
+      "startAngle": 0,
+      "direction": "clockwise",
       "data":[
         {
           "x": "Apples",

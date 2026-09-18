@@ -963,12 +963,13 @@ export class AnnouncePositionCommand extends AnnounceCommand {
    * that could meet that.
    *
    * The angles come from the braille state's magnitudes, the same route
-   * {@link announceBoxplotPosition} takes for its own trace-specific data, so
-   * no state has to grow a field. A slice's arc is its share of the sum of the
-   * absolute values — the circle as drawn, matching what the percentages are
-   * of — accumulated in order from 12 o'clock, clockwise. That origin is a
-   * convention rather than something the payload declares, and it is the one
-   * every producer wired up so far uses.
+   * {@link announceBoxplotPosition} takes for its own trace-specific data. A
+   * slice's arc is its share of the sum of the absolute values — the circle
+   * as drawn, matching what the percentages are of — accumulated in walking
+   * order, clockwise, from the trace's `startAngle`: where the layer said its
+   * first slice begins, and 12 o'clock when it said nothing (see
+   * `MaidrLayer.startAngle`). The trace has already turned a counterclockwise
+   * pie round, so the walk is clockwise here whichever way it was drawn.
    *
    * Clock positions rather than degrees because they are what people say out
    * loud. Rounded to the hour for the same reason: this is for orientation and
@@ -993,11 +994,16 @@ export class AnnouncePositionCommand extends AnnounceCommand {
       return;
     }
 
+    // Fractions of a turn from 12 o'clock. The start is kept in [0, 1) and
+    // the end runs on past it: `toClockHour` reads hours modulo 12, so a slice
+    // that straddles the top reads "from 11 o'clock to 1 o'clock" rather than
+    // ending before it starts.
+    const offset = (state.startAngle ?? 0) / 360;
     const before = values
       .slice(0, col)
       .reduce((sum, value) => sum + magnitude(value), 0);
-    const start = before / basis;
-    const end = (before + magnitude(values[col])) / basis;
+    const start = ((offset + before / basis) % 1 + 1) % 1;
+    const end = start + magnitude(values[col]) / basis;
 
     const startHour = toClockHour(start);
     const endHour = toClockHour(end);

@@ -3,7 +3,7 @@ import type { BarBrailleState, DescriptionStat, TraceState } from '@type/state';
 import { describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { PieTrace } from '@model/pie';
-import { TraceType } from '@type/grammar';
+import { PieDirection, TraceType } from '@type/grammar';
 
 /** Fixture slice labels, in slice order. */
 const SLICE_LABELS = ['Apples', 'Bananas', 'Cherries', 'Dates'];
@@ -143,6 +143,108 @@ describe('pie trace audio', () => {
 
     expect(audio.freq.min).toBe(0);
     expect(Number.isFinite(audio.freq.raw as number)).toBe(true);
+  });
+});
+
+describe('pie trace dial geometry', () => {
+  it('starts the sweep where the layer says the first slice begins', () => {
+    // Two equal slices from 3 o'clock: midpoints at 6 and 12, so both pan
+    // centre where the 12 o'clock default would pan them hard right and left.
+    const trace = new PieTrace({ ...pieLayer([50, 50]), startAngle: 90 });
+
+    expect(stateAtSlice(trace, 0).audio.panning.x).toBeCloseTo(0.5, 10);
+    expect(stateAtSlice(trace, 1).audio.panning.x).toBeCloseTo(0.5, 10);
+  });
+
+  it('reads a start angle past a full turn or below zero as the same point', () => {
+    const plain = new PieTrace({ ...pieLayer([1, 1, 1, 1]), startAngle: 90 });
+    const wrapped = new PieTrace({ ...pieLayer([1, 1, 1, 1]), startAngle: 450 });
+    const negative = new PieTrace({ ...pieLayer([1, 1, 1, 1]), startAngle: -270 });
+
+    for (const col of [0, 1, 2, 3]) {
+      expect(stateAtSlice(wrapped, col).audio.panning.x)
+        .toBeCloseTo(stateAtSlice(plain, col).audio.panning.x, 10);
+      expect(stateAtSlice(negative, col).audio.panning.x)
+        .toBeCloseTo(stateAtSlice(plain, col).audio.panning.x, 10);
+    }
+  });
+
+  it('hands the start angle to the state for the position announcement', () => {
+    expect(stateAtSlice(new PieTrace(pieLayer([1, 1])), 0).startAngle).toBe(0);
+    expect(stateAtSlice(new PieTrace({ ...pieLayer([1, 1]), startAngle: 90 }), 0).startAngle).toBe(90);
+    expect(stateAtSlice(new PieTrace({ ...pieLayer([1, 1]), startAngle: -90 }), 0).startAngle).toBe(270);
+  });
+
+  it('walks a counterclockwise pie backwards so Right still moves clockwise', () => {
+    // Drawn Apples, Bananas, Cherries counterclockwise from the top, the slice
+    // clockwise from the top is Cherries -- the last one drawn.
+    const trace = new PieTrace({
+      ...pieLayer([30, 50, 20]),
+      direction: PieDirection.COUNTERCLOCKWISE,
+    });
+
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(stateOf(trace).text.main.value).toBe('Cherries');
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(stateOf(trace).text.main.value).toBe('Bananas');
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(stateOf(trace).text.main.value).toBe('Apples');
+  });
+
+  it('keeps every slice paired with its own value and share when reversed', () => {
+    const trace = new PieTrace({
+      ...pieLayer([30, 50, 20]),
+      direction: PieDirection.COUNTERCLOCKWISE,
+    });
+
+    const { text } = stateAtSlice(trace, 0);
+
+    expect(text.main).toEqual({ label: 'Fruit', value: 'Cherries' });
+    expect(text.cross).toEqual({ label: 'Units', value: 20 });
+    expect(text.z).toEqual({ label: 'Percentage', value: '20.0%' });
+  });
+
+  it('pans a reversed pie to where each slice is actually drawn', () => {
+    // Drawn counterclockwise from the top, Apples (30%) occupies the top
+    // left, Cherries (20%) the top right. Walked clockwise, Cherries comes
+    // first and pans right; Apples comes last and pans left.
+    const trace = new PieTrace({
+      ...pieLayer([30, 50, 20]),
+      direction: PieDirection.COUNTERCLOCKWISE,
+    });
+
+    expect(stateAtSlice(trace, 0).audio.panning.x).toBeGreaterThan(0.5);
+    expect(stateAtSlice(trace, 2).audio.panning.x).toBeLessThan(0.5);
+  });
+
+  it('tabulates a reversed pie in walking order', () => {
+    const trace = new PieTrace({
+      ...pieLayer([30, 50, 20]),
+      direction: PieDirection.COUNTERCLOCKWISE,
+    });
+
+    expect(trace.description.dataTable.rows).toEqual([
+      ['Cherries', 20, '20.0%'],
+      ['Bananas', 50, '50.0%'],
+      ['Apples', 30, '30.0%'],
+    ]);
+  });
+
+  it('leaves the layer it was given untouched when it turns the walk round', () => {
+    const layer = { ...pieLayer([30, 50, 20]), direction: PieDirection.COUNTERCLOCKWISE };
+    const before = JSON.stringify(layer.data);
+
+    void new PieTrace(layer);
+
+    expect(JSON.stringify(layer.data)).toBe(before);
+  });
+
+  it('walks a pie declared clockwise, or declaring nothing, as written', () => {
+    const declared = new PieTrace({ ...pieLayer([30, 50, 20]), direction: PieDirection.CLOCKWISE });
+    const silent = new PieTrace(pieLayer([30, 50, 20]));
+
+    expect(stateAtSlice(declared, 0).text.main.value).toBe('Apples');
+    expect(stateAtSlice(silent, 0).text.main.value).toBe('Apples');
   });
 });
 

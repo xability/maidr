@@ -4,7 +4,7 @@ import { extractPlotlyData } from '@adapters/plotly/extractor';
 import { normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Figure } from '@model/plot';
-import { Orientation, TraceType } from '@type/grammar';
+import { Orientation, PieDirection, TraceType } from '@type/grammar';
 import { resolveSubplotLayout } from '@util/subplotLayout';
 import { JSDOM } from 'jsdom';
 
@@ -194,6 +194,36 @@ describe('plotly extractor', () => {
       expect(layer.axes?.x?.label).toBe('Label');
       expect(layer.axes?.y?.label).toBe('Value');
       expect(layer.orientation).toBeUndefined();
+    });
+
+    it('declares the direction plotly drew the wedges in', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      // Plotly's default lays the slices out counterclockwise from the top;
+      // MAIDR walks clockwise, so the layer has to say which way it was drawn
+      // or Right steps the wrong way round the dial.
+      expect(layer.direction).toBe(PieDirection.COUNTERCLOCKWISE);
+      expect(layer.startAngle).toBeUndefined();
+    });
+
+    it('carries a clockwise direction and a rotation over as they are', () => {
+      const gd = createGraphDiv({
+        traces: [{ ...FRUIT, direction: 'clockwise', rotation: 90 }],
+        layout: {},
+        calcdata: SORTED_CALCDATA,
+      });
+
+      const layer = onlyPieLayer(gd);
+
+      // Plotly's rotation is already degrees clockwise from 12 o'clock.
+      expect(layer.direction).toBe(PieDirection.CLOCKWISE);
+      expect(layer.startAngle).toBe(90);
     });
 
     it('withholds the selectors when only the authored order is known', () => {

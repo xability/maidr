@@ -1,7 +1,8 @@
 import type { MaidrLayer, PiePoint } from '@type/grammar';
 import type { Movable } from '@type/movable';
-import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
+import type { AudioState, BrailleState, DescriptionState, TextState, TraceState } from '@type/state';
 import type { Dimension, NearestPoint } from './abstract';
+import { PieDirection } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -62,35 +63,58 @@ function toPercentage(value: number, basis: number): string {
 }
 
 /**
+ * Normalizes a layer's start angle to `[0, 360)` degrees clockwise from
+ * 12 o'clock.
+ *
+ * A producer may write `-90` for 9 o'clock or `450` for 3; both are the same
+ * point on the dial, and a missing or unusable value is the top.
+ *
+ * @param startAngle - The layer's `startAngle`, as declared
+ * @returns The same point on the dial, in `[0, 360)`
+ */
+function toStartAngle(startAngle: number | undefined): number {
+  if (startAngle === undefined || !Number.isFinite(startAngle)) {
+    return 0;
+  }
+  return ((startAngle % 360) + 360) % 360;
+}
+
+/**
  * Where each slice sits on the dial, in radians clockwise from 12 o'clock.
  *
  * The angle a slice occupies is its share of the circle, so the midpoint of
- * slice *i* is everything before it plus half of itself. Producers lay a pie
- * out from 12 o'clock going clockwise — matplotlib, `graphics::pie`, ggplot2's
- * `coord_polar`, amCharts and AnyChart all do — so that is the origin used
- * here. The payload states no start angle, so a producer that ever laid one
- * out differently would pan the wrong way round; that is a grammar question,
- * noted in #780.
+ * slice *i* is the start angle plus everything before it plus half of itself.
+ * The slices are taken in walking order, which the trace has already made
+ * clockwise (see {@link PieTrace}), so the sweep from the start is clockwise
+ * whichever way the producer drew the pie.
+ *
+ * The start is the layer's {@link MaidrLayer.startAngle}, 12 o'clock when it
+ * declares none. That default is a convention rather than a fact about any
+ * producer: ggplot2's `coord_polar`, amCharts, AnyChart, Chart.js and plotly
+ * do start at the top, but matplotlib and base R's `pie()` start at 3
+ * o'clock, and each of those says so through the grammar (#780).
  *
  * A gap occupies no angle, having contributed nothing to the basis. It still
  * gets a midpoint — wherever the sweep has reached — so panning it is
  * meaningful rather than `NaN`.
  *
- * @param values - Every slice's value, `NaN` for a gap
+ * @param values - Every slice's value in walking order, `NaN` for a gap
  * @param basis - The sum of the absolute values of the measured slices
+ * @param startDegrees - Where the first slice begins, degrees clockwise from 12
  * @returns One angle per slice, in the same order
  */
-function toMidAngles(values: readonly number[], basis: number): number[] {
+function toMidAngles(values: readonly number[], basis: number, startDegrees: number): number[] {
+  const start = (startDegrees / 360) * 2 * Math.PI;
   if (basis === 0) {
-    // Nothing is drawn, so every slice sits at 12 o'clock and pans centre.
-    return values.map(() => 0);
+    // Nothing is drawn, so every slice sits at the start and pans from there.
+    return values.map(() => start);
   }
   let swept = 0;
   return values.map((value) => {
     const share = isMeasured(value) ? Math.abs(value) / basis : 0;
     const mid = swept + share / 2;
     swept += share;
-    return mid * 2 * Math.PI;
+    return start + mid * 2 * Math.PI;
   });
 }
 
@@ -133,6 +157,15 @@ function containsScreenPoint(element: SVGElement, x: number, y: number): boolean
  * each slice around the dial rather than along the row, so a sweep goes out
  * and comes back.
  *
+ * **Right moves clockwise.** The row is walked in the order the slices sit
+ * round the dial the way a clock hand goes, from the layer's `startAngle`.
+ * A producer whose library drew the slices the other way round declares
+ * `direction: 'counterclockwise'`, and the row is then `data` reversed: the
+ * slice drawn last is the first one clockwise from the start. The highlight
+ * elements are reversed with it, so element k is still slice k of the walk,
+ * and the description's table lists the slices in walking order. Nothing
+ * about the payload changes; only which slice is "next".
+ *
  * Extends {@link AbstractTrace} directly rather than `AbstractBarPlot`, which
  * bakes an orientation into its bar values, audio panning, text axes and
  * description. A pie has no orientation — its slices are arranged around a
@@ -159,6 +192,10 @@ export class PieTrace extends AbstractTrace {
   private readonly total: number;
   private readonly shareBasis: number;
   private readonly hasNegative: boolean;
+  /** Where the first slice of the walk begins, degrees clockwise from 12. */
+  private readonly startAngle: number;
+  /** Whether the walk runs through `data` backwards; see the class note. */
+  private readonly walksReversed: boolean;
   /** Each slice's angular midpoint, radians clockwise from 12 o'clock. */
   private readonly midAngles: number[];
 
@@ -171,7 +208,15 @@ export class PieTrace extends AbstractTrace {
   public constructor(layer: MaidrLayer) {
     super(layer);
 
-    this.points = [layer.data as PiePoint[]];
+    this.startAngle = toStartAngle(layer.startAngle);
+    this.walksReversed = layer.direction === PieDirection.COUNTERCLOCKWISE;
+
+    // The walk is clockwise from the start, whichever way the pie was drawn.
+    // A counterclockwise ring runs from the start back round to it, so its
+    // last-drawn slice is the first one clockwise from the same point: the
+    // reversed row starts where the drawn one did and goes the other way.
+    const drawn = layer.data as PiePoint[];
+    this.points = [this.walksReversed ? [...drawn].reverse() : drawn];
 
     // `toBarValue` and not a pie-specific reader: a negative slice keeps its
     // sign, and once it does the two are the same function. It used to be read
@@ -201,7 +246,7 @@ export class PieTrace extends AbstractTrace {
     // every navigation step (and again by getStateAt for monitor mode), and
     // they must stay cheap and side-effect free.
     this.percentages = values.map(value => toPercentage(value, this.shareBasis));
-    this.midAngles = toMidAngles(values, this.shareBasis);
+    this.midAngles = toMidAngles(values, this.shareBasis, this.startAngle);
 
     this.highlightValues = this.mapToSvgElements(layer.selectors as string);
     this.movable = new MovableGrid<PiePoint>(this.points);
@@ -218,6 +263,21 @@ export class PieTrace extends AbstractTrace {
     this.percentages.length = 0;
 
     super.dispose();
+  }
+
+  /**
+   * The trace state, with where the dial starts alongside it.
+   *
+   * The position announcement places a slice on the dial from the slice
+   * magnitudes it already reads out of the braille row; the one thing it
+   * cannot derive from those is where the first slice begins.
+   */
+  public override get state(): TraceState {
+    const state = super.state;
+    if (state.empty) {
+      return state;
+    }
+    return { ...state, startAngle: this.startAngle };
   }
 
   protected get audio(): AudioState {
@@ -398,11 +458,14 @@ export class PieTrace extends AbstractTrace {
   /**
    * Resolves the layer's selector to one SVG element per slice.
    *
-   * The contract is exactly N elements in slice order, so data index k and
+   * The contract is exactly N elements in drawn order, so data index k and
    * element k are the same slice. A different count means the selector is
    * addressing something other than the wedges, and index-aligning it anyway
    * would highlight the wrong slice — better to report no highlight for this
    * layer than a confidently wrong one.
+   *
+   * The elements are turned round with the data when the walk is reversed,
+   * so element k of the row is slice k of the walk either way.
    *
    * @param selector - The layer's CSS selector, when it declares one
    * @returns The single row of wedge elements, or null when unresolvable
@@ -420,7 +483,7 @@ export class PieTrace extends AbstractTrace {
       return null;
     }
 
-    return [wedges];
+    return [this.walksReversed ? wedges.reverse() : wedges];
   }
 
   /**

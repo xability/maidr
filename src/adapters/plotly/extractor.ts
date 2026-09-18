@@ -55,7 +55,7 @@ import type {
   PlotlyTrace,
   PolarSeries,
 } from './types';
-import { Orientation, TraceType } from '../../type/grammar';
+import { Orientation, PieDirection, TraceType } from '../../type/grammar';
 import { readDeclarationSlot, resolveFieldRef, warnUnresolvedRef } from '../shared/traceDeclaration';
 import {
   barGroupSelector,
@@ -4133,6 +4133,19 @@ function extractPieLayer(
 
   const data: PiePoint[] = slices.map(slice => ({ x: slice.label, y: slice.value }));
 
+  // Plotly lays the wedges out counterclockwise from 12 o'clock unless the
+  // trace says otherwise, and MAIDR walks a pie clockwise -- so the drawn
+  // order is declared as such and the trace turns the walk round, keeping
+  // Right on the next slice clockwise and the highlight on the slice read.
+  // `rotation` is already degrees clockwise from the top, which is what the
+  // grammar takes.
+  const direction = trace.direction === 'clockwise'
+    ? PieDirection.CLOCKWISE
+    : PieDirection.COUNTERCLOCKWISE;
+  const startAngle = typeof trace.rotation === 'number' && Number.isFinite(trace.rotation)
+    ? trace.rotation
+    : undefined;
+
   return {
     id,
     type: TraceType.PIE,
@@ -4143,6 +4156,8 @@ function extractPieLayer(
       y: { label: PIE_VALUE_AXIS },
     },
     data,
+    direction,
+    ...(startAngle !== undefined && { startAngle }),
   };
 }
 
