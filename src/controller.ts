@@ -1,7 +1,7 @@
 import type { AppendedPointInfo } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
-import type { Maidr, NavigateCallback } from '@type/grammar';
+import type { Maidr, NavigateCallback, NavigationTarget } from '@type/grammar';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
@@ -375,6 +375,34 @@ export class Controller implements Disposable {
     // Keep initial instruction visual-only; enable announce later on first nav update
     this.textViewModel.setAnnounce(false);
     this.textViewModel.update(text);
+  }
+
+  /**
+   * Moves the reader to a position the host chose -- the mark a sighted user
+   * clicked in the host's own chart.
+   *
+   * The target is checked before anything is touched: a position the figure
+   * does not have is refused with the delta layer, the grid cell and the rotor
+   * mode all exactly as they were. Only then are the modes that re-route the
+   * arrow keys left, the way a data update leaves them -- the candlestick delta
+   * layer closed silently, a rotor mode (grid, point, intersection) reset to
+   * data mode, since the target is spelled in the trace's data coordinates and
+   * would land somewhere else read through a mode's own cursor -- and the
+   * model does the move and announces the landing point once.
+   *
+   * @param target - The layer and the cell or data point to land on
+   * @returns True when the cursor moved there; false leaves everything as it was
+   */
+  public navigateTo(target: NavigationTarget): boolean {
+    if (!this.context.canNavigateTo(target)) {
+      return false;
+    }
+    if (this.candlestickDeltaService.isActive) {
+      this.candlestickDeltaService.deactivate({ silent: true });
+    }
+    this.context.exitGridCell();
+    this.rotorNavigationService.resetToDataMode();
+    return this.context.navigateTo(target);
   }
 
   /**

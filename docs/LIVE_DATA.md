@@ -130,6 +130,27 @@ window.maidrLive.setData(updated);
 
 If the figure keeps the same shape (same subplot grid and layer counts), the user's position is preserved and clamped into the new data bounds. If the shape changes, navigation resets to the initial state.
 
+### `window.maidrLive.navigateTo(target, options?)`
+
+Moves a chart's cursor to a position the host chose, and announces it — the inbound half of the `onNavigate` callback, spelled in the same currency. Hand back a `{ layerId, row, col }` the callback reported, or one of its `pointIndices` as `{ layerId, pointIndex }`, and the reader lands on that mark: another subplot or another layer if that is where it is, with text, braille, audio and highlight catching up together. It is what lets a click in the host's own chart — a canvas hit-test, a Tableau mark a sighted colleague pointed at — put the reader on the same mark.
+
+```javascript
+// The reader lands on the third bar of layer 'sales'.
+window.maidrLive.navigateTo({ layerId: 'sales', row: 0, col: 2 });
+
+// A scatter is addressed by data index: the point at data[7].
+window.maidrLive.navigateTo({ layerId: 'dots', pointIndex: 7 }, { id: 'scatter-chart' });
+
+// The host's selection was cleared: withdraw a target the chart is holding.
+window.maidrLive.navigateTo(null, { id: 'scatter-chart' });
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | string | the only registered chart | Which chart to move. Required when multiple charts are on the page. |
+
+Returns `true` when a registered chart accepted the target. A chart the reader is inside moves at once. A chart the reader is not focused on **keeps the target** and lands on it when they next focus in — so a colleague can point at a mark before the reader arrives — and `null` withdraws a kept target. A kept target is also discarded when the chart's data changes, since it addressed the figure that data described. The call answers `false`, and moves nothing, for a layer the figure does not have, a cell off its grid, or a point index the layer does not carry; a rotor mode (grid, point, intersection) is left first, since the target is spelled in the trace's data coordinates.
+
 ### Complete streaming example
 
 ```html
@@ -205,16 +226,19 @@ For static charts (no `live` flag), prop changes keep the existing behavior: the
 
 ### 2. Imperative helpers (streaming)
 
-`setMaidrData` and `appendMaidrData` mirror the script-tag API. Prefer `appendMaidrData` for streaming: it applies the `maxWidth` sliding window automatically, whereas prop updates and `setMaidrData` replace data verbatim:
+`setMaidrData`, `appendMaidrData` and `navigateMaidr` mirror the script-tag API. Prefer `appendMaidrData` for streaming: it applies the `maxWidth` sliding window automatically, whereas prop updates and `setMaidrData` replace data verbatim:
 
 ```tsx
-import { appendMaidrData, setMaidrData } from 'maidr/react';
+import { appendMaidrData, navigateMaidr, setMaidrData } from 'maidr/react';
 
 // Stream a point into the chart with id 'live-sensor'.
 appendMaidrData({ x: Date.now(), y: reading }, { id: 'live-sensor' });
 
 // Replace everything.
 setMaidrData(updatedMaidrJson);
+
+// Put the reader on the mark the user just clicked in your own chart.
+navigateMaidr({ layerId: 'sales', row: 0, col: 2 }, { id: 'live-sensor' });
 ```
 
 ## Using Real Data Feeds

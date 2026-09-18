@@ -1,11 +1,12 @@
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
+import type { NavigationTarget } from '@type/grammar';
 import type { MovableDirection } from '@type/movable';
 import type { LayerSummary, PlotState, PointerGuidanceState, SubplotSummary } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Figure, Subplot, Trace } from './plot';
 import { Emitter, Scope } from '@type/event';
-import { isGridNavigable } from '@type/navigation';
+import { isGridNavigable, isPointCloudAddressable } from '@type/navigation';
 import { Constant } from '@util/constant';
 import { t } from '@util/i18n';
 import { formatPlotType } from '@util/orientation';
@@ -560,6 +561,139 @@ export class Context implements Disposable {
 
   public moveToIndex(row: number, col: number): void {
     this.active.moveToIndex(row, col);
+  }
+
+  /**
+   * Whether {@link navigateTo} would move to a target, without moving.
+   *
+   * Answers only for the target itself -- the layer exists and the cell or
+   * point is on it. A caller that has modes to leave before the move (the
+   * controller closes the delta layer and resets the rotor) asks this first,
+   * so a target that will be refused leaves those modes exactly as they were.
+   *
+   * @param target - The layer and the cell or data point to land on
+   * @returns True when the target names a position the figure has
+   */
+  public canNavigateTo(target: NavigationTarget): boolean {
+    return this.resolveTarget(target) !== null;
+  }
+
+  /**
+   * Moves the cursor to a position a host chose, wherever in the figure it is.
+   *
+   * The arrow keys move one step from where the reader stands; this lands them
+   * on a mark somebody else pointed at -- a Tableau mark a sighted colleague
+   * clicked, a canvas hit-test -- which may be in another subplot or another
+   * layer of the one they are in. The plot stack is re-built to put that
+   * layer on top exactly as {@link enterSubplot} and {@link selectTrace} would
+   * have, but silently, so the reader hears one announcement: the mark they
+   * landed on, through the trace's usual observer chain, with text, braille,
+   * audio and highlight catching up together.
+   *
+   * Nothing moves unless the whole target resolves first: an unknown layer, a
+   * point the trace cannot place, or a cell off its grid leaves the stack and
+   * the cursor exactly as they were, and the caller is told so. A virtual
+   * layer on top of the stack (the candlestick delta) is refused the same way
+   * rather than popped from under the service that put it there.
+   *
+   * @param target - The layer and the cell or data point to land on
+   * @returns True when the cursor moved there
+   */
+  public navigateTo(target: NavigationTarget): boolean {
+    const resolved = this.resolveTarget(target);
+    if (resolved === null) {
+      return false;
+    }
+    const { subplotRow, subplotCol, layerIndex, subplot, trace, cell } = resolved;
+
+    const active = this.plotContext.peek();
+    if (active !== undefined && active.level === 'trace' && !this.isOnRealLayer()) {
+      return false;
+    }
+
+    const figure = this.figure;
+    if (figure.activeSubplot !== subplot || this.active.level === 'figure') {
+      // Another panel, or the lobby of this one. The layer is selected within
+      // its subplot first -- the one step that can still refuse -- so that a
+      // refusal leaves the figure's cursor and the stack untouched; then the
+      // stack is rebuilt the way `enterSubplot` builds it, figure at the
+      // bottom, with the figure's own cursor moved without a word so the
+      // lobby is never announced on the way through.
+      if (layerIndex !== subplot.activeLayerIndex && subplot.selectLayer(layerIndex) === null) {
+        return false;
+      }
+      figure.runSilently(() => figure.moveToIndex(subplotRow, subplotCol));
+      this.plotContext.clear();
+      this.plotContext.push(figure);
+      this.plotContext.push(subplot);
+      this.plotContext.push(trace);
+      this.toggleScope(Scope.TRACE);
+    } else if (layerIndex !== subplot.activeLayerIndex) {
+      if (subplot.selectLayer(layerIndex) === null) {
+        return false;
+      }
+      this.plotContext.pop();
+      this.plotContext.push(trace);
+    }
+
+    return trace.moveToIndex(cell.row, cell.col);
+  }
+
+  /**
+   * Resolves a target to the layer it names and the cell to land on.
+   *
+   * @param target - The layer and the cell or data point
+   * @returns Where the layer sits and which cell to move to, or null when the
+   *   layer is unknown, the point cannot be placed, or the cell is off the grid
+   */
+  private resolveTarget(target: NavigationTarget): {
+    subplotRow: number;
+    subplotCol: number;
+    layerIndex: number;
+    subplot: Subplot;
+    trace: Trace;
+    cell: { row: number; col: number };
+  } | null {
+    const located = this.locateLayer(target.layerId);
+    if (located === null) {
+      return null;
+    }
+    const { trace } = located;
+    const cell = 'pointIndex' in target
+      ? (isPointCloudAddressable(trace) ? trace.positionOfDataIndex(target.pointIndex) : null)
+      : { row: target.row, col: target.col };
+    if (cell === null || !trace.isMovable([cell.row, cell.col])) {
+      return null;
+    }
+    return { ...located, cell };
+  }
+
+  /**
+   * Finds a layer by its id across every subplot of the figure.
+   *
+   * @param layerId - The layer's id, as the grammar and `NavigateCallback` spell it
+   * @returns Where the layer sits, or null when no subplot has it
+   */
+  private locateLayer(layerId: string): {
+    subplotRow: number;
+    subplotCol: number;
+    layerIndex: number;
+    subplot: Subplot;
+    trace: Trace;
+  } | null {
+    const rows = this.figure.subplots;
+    for (let subplotRow = 0; subplotRow < rows.length; subplotRow++) {
+      for (let subplotCol = 0; subplotCol < rows[subplotRow].length; subplotCol++) {
+        const subplot = rows[subplotRow][subplotCol];
+        for (let layerIndex = 0; layerIndex < subplot.traces.length; layerIndex++) {
+          const trace = subplot.traces[layerIndex][0];
+          if (trace !== undefined && trace.getId() === layerId) {
+            return { subplotRow, subplotCol, layerIndex, subplot, trace };
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /**

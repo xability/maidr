@@ -8,6 +8,7 @@ import type {
   LinePoint,
   Maidr,
   MaidrLayer,
+  NavigationTarget,
   PiePoint,
   ScatterPoint,
   SegmentedPoint,
@@ -117,6 +118,16 @@ export interface LiveDataEvent {
 }
 
 type LiveDataListener = (event: LiveDataEvent) => void;
+
+/**
+ * Moves a mounted chart's cursor to a position the host chose.
+ *
+ * Registered by the chart alongside its data listener. `null` withdraws a
+ * target the chart is still holding for its next focus-in (see
+ * {@link LiveDataManager.navigateTo}). Returns whether the chart accepted the
+ * target -- moved to it now, or kept it for when the reader arrives.
+ */
+export type LiveNavigator = (target: NavigationTarget | null) => boolean;
 
 /**
  * Result of merging an appended point into a Maidr config.
@@ -340,6 +351,7 @@ export function appendPointToMaidr(
 interface LiveDataInstance {
   data: Maidr;
   listener: LiveDataListener;
+  navigator: LiveNavigator | null;
 }
 
 /**
@@ -400,11 +412,17 @@ export class LiveDataManager {
    *
    * @param initial - The chart's current Maidr config (keyed by `initial.id`)
    * @param listener - Invoked whenever the chart's data changes
+   * @param navigator - Moves the chart's cursor for {@link navigateTo}; a chart
+   *   that registers none cannot be navigated from outside
    * @returns A disposable that unregisters the instance
    */
-  public register(initial: Maidr, listener: LiveDataListener): Disposable {
+  public register(
+    initial: Maidr,
+    listener: LiveDataListener,
+    navigator: LiveNavigator | null = null,
+  ): Disposable {
     const id = initial.id;
-    this.instances.set(id, { data: initial, listener });
+    this.instances.set(id, { data: initial, listener, navigator });
     return {
       dispose: () => {
         // Guard against a newer registration for the same id.
@@ -496,6 +514,42 @@ export class LiveDataManager {
   }
 
   /**
+   * Moves a registered chart's cursor to a position the host chose.
+   *
+   * The inbound half of the navigation contract: `onNavigate` tells the host
+   * where the reader is, and this tells MAIDR where the host's own chart was
+   * clicked, in the same `{layerId, row, col}` or `{layerId, pointIndex}`
+   * currency. A chart the reader is inside moves and announces the mark at
+   * once; a chart the reader is not focused on keeps the target and lands on
+   * it when they next focus in, so a colleague can point at a mark before the
+   * reader arrives. Passing `null` withdraws a kept target -- the host's
+   * selection was cleared, and the reader should not be pulled to a mark that
+   * is no longer selected.
+   *
+   * @param target - The position, or `null` to withdraw a kept one
+   * @param options - Where to deliver it
+   * @param options.id - Target chart; may be omitted when exactly one chart is
+   *   registered
+   * @returns True when a registered chart accepted the target
+   */
+  public navigateTo(target: NavigationTarget | null, options: { id?: string } = {}): boolean {
+    const id = this.resolveId(options.id, 'navigateTo');
+    if (id === null) {
+      return false;
+    }
+    const instance = this.instances.get(id);
+    if (!instance) {
+      console.warn(`[maidr] navigateTo: no chart registered with id "${id}"`);
+      return false;
+    }
+    if (instance.navigator === null) {
+      console.warn(`[maidr] navigateTo: the chart with id "${id}" cannot be navigated from outside`);
+      return false;
+    }
+    return instance.navigator(target);
+  }
+
+  /**
    * Returns the current data for a registered chart.
    *
    * @param id - The chart id
@@ -509,9 +563,10 @@ export class LiveDataManager {
    * Resolves the target chart id, defaulting to the sole registered chart.
    *
    * @param id - The explicitly requested id, if any
+   * @param caller - The public method asking, for the warning
    * @returns The resolved id, or null when ambiguous or empty
    */
-  private resolveId(id?: string): string | null {
+  private resolveId(id: string | undefined, caller = 'appendData'): string | null {
     if (id !== undefined) {
       return id;
     }
@@ -519,7 +574,7 @@ export class LiveDataManager {
       return this.instances.keys().next().value!;
     }
     console.warn(
-      `[maidr] appendData: chart id is required when ${this.instances.size} charts are registered`,
+      `[maidr] ${caller}: chart id is required when ${this.instances.size} charts are registered`,
     );
     return null;
   }
@@ -635,6 +690,13 @@ export interface MaidrLiveApi {
     point: LiveDataPoint,
     options?: AppendDataOptions & { id?: string },
   ) => boolean;
+  /**
+   * Moves a chart's cursor to a position the host chose -- the mark a user
+   * clicked in the host's own chart -- and announces it. A chart the reader is
+   * not focused on keeps the target for their next focus-in; `null` withdraws
+   * a kept target.
+   */
+  navigateTo: (target: NavigationTarget | null, options?: { id?: string }) => boolean;
 }
 
 /**
@@ -664,4 +726,26 @@ export function appendMaidrData(
   options?: AppendDataOptions & { id?: string },
 ): boolean {
   return liveDataManager.appendData(point, options);
+}
+
+/**
+ * Moves a chart's cursor to a position the host chose and announces it.
+ * Convenience wrapper around {@link liveDataManager}.
+ *
+ * The inbound half of `onNavigate`: hand back a `{layerId, row, col}` the
+ * callback reported, or one of its `pointIndices` as `{layerId, pointIndex}`,
+ * and the reader lands on that mark. A chart the reader is not focused on
+ * keeps the target for their next focus-in; `null` withdraws a kept target.
+ *
+ * @param target - The position, or `null` to withdraw a kept one
+ * @param options - Where to deliver it
+ * @param options.id - Target chart; may be omitted when exactly one chart is
+ *   registered
+ * @returns True when a registered chart accepted the target
+ */
+export function navigateMaidr(
+  target: NavigationTarget | null,
+  options?: { id?: string },
+): boolean {
+  return liveDataManager.navigateTo(target, options);
 }

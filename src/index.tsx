@@ -10,8 +10,9 @@ declare global {
   interface Window {
     maidr?: Maidr;
     /**
-     * Realtime/streaming data API. Use `setData` to replace chart data and
-     * `appendData` to stream individual points into live charts.
+     * Realtime/streaming data API. Use `setData` to replace chart data,
+     * `appendData` to stream individual points into live charts, and
+     * `navigateTo` to move a chart's cursor to a position the host chose.
      */
     maidrLive?: MaidrLiveApi;
     /**
@@ -29,6 +30,7 @@ if (window.maidrLive) {
 window.maidrLive = {
   setData: maidr => liveDataManager.setData(maidr),
   appendData: (point, options) => liveDataManager.appendData(point, options),
+  navigateTo: (target, options) => liveDataManager.navigateTo(target, options),
 };
 
 /** Stores active MutationObservers for cleanup. */
