@@ -105,6 +105,7 @@ export const CHART_TITLES = {
   'pyramid': 'Population Pyramid',
   'radar': 'Radar Chart',
   'ridgeline': 'Ridgeline Plot',
+  'roc': 'ROC Curve',
   'rug': 'Rug Plot',
   'sankey': 'Sankey Diagram',
   'scatter': 'Scatter Plot',

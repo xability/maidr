@@ -188,6 +188,14 @@ In multiline braille displays, all cells are represented simultaneously. Horizon
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
 
+## ROC curve
+
+A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude within the curve. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.
+
+### Multiline Displays
+
+As for a line plot: each line of a multiline display is one classifier's curve, and a single-line display switches curves with the up and down arrow keys.
+
 ## Rug plot
 
 A rug marks each observation as a tick on one axis, so the chart has one quantity per observation: its position. The braille is a density strip along that axis. The axis is cut into bins, and each Braille character is the number of observations in its bin, encoded as a bar plot's magnitudes are:

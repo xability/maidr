@@ -56,6 +56,8 @@ describe('resolveOrientation', () => {
   });
 
   const unorientedTypes = [
+    // Two rates on two fixed axes, whichever library drew them.
+    TraceType.ROC,
     // Groups run one way and the value axis the other, but `RidgelineTrace`
     // reads the same either way round -- it never consults the key, and
     // announcing an adjective for it named something no reader could act on

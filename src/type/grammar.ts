@@ -1089,6 +1089,53 @@ export interface RugPoint {
 }
 
 /**
+ * One operating point of a ROC curve: the false positive rate a classifier
+ * pays and the true positive rate it gets at one decision threshold.
+ *
+ * A ROC layer is `RocPoint[][]`, one array per curve, so several classifiers
+ * (or the classes of one) are compared in one layer the way a multi-line
+ * layer holds several series; `z` names the curve, as it names a line.
+ * Both rates are fractions of one. Listed in any order: the area is
+ * measured over the points sorted by `x`.
+ *
+ * @example
+ * // one classifier, three thresholds, with the area it scored
+ * {
+ *   type: 'roc',
+ *   data: [[
+ *     { x: 0, y: 0, threshold: 1, z: 'Logistic', auc: 0.9 },
+ *     { x: 0.1, y: 0.8, threshold: 0.5, z: 'Logistic' },
+ *     { x: 1, y: 1, threshold: 0, z: 'Logistic' },
+ *   ]],
+ * }
+ */
+export interface RocPoint extends LinePoint {
+  /** The false positive rate at this threshold, from 0 to 1. */
+  x: number;
+  /** The true positive rate at this threshold, from 0 to 1, or `null` for a gap. */
+  y: number | null;
+  /**
+   * The decision threshold this operating point was scored at.
+   *
+   * It is the one number a reader can act on: the curve shows what each
+   * threshold costs and buys, and without it the reader learns the rates but
+   * not how to get them. Optional because a curve drawn from rates alone is
+   * still a ROC curve.
+   */
+  threshold?: number | null;
+  /**
+   * The area under this curve, as the producer computed it.
+   *
+   * Read from the first point of the curve that declares one, the way `z`
+   * names a series from its first point. When no point declares it, the area
+   * is the trapezoid rule over the curve's own points -- which is what
+   * `sklearn.metrics.auc` and `pROC::auc` compute, so a producer that has the
+   * number can pass it and one that does not can leave it out.
+   */
+  auc?: number | null;
+}
+
+/**
  * Data point for scatter plots with x and y coordinates, plus optional z for 3D.
  */
 export interface ScatterPoint {
@@ -1618,6 +1665,7 @@ export interface MaidrLayer {
     | HistogramPoint[]
     | LinePoint[][]
     | PiePoint[]
+    | RocPoint[][]
     | RugPoint[]
     | ScatterPoint[]
     | MosaicPoint[][]
@@ -1860,6 +1908,20 @@ export enum TraceType {
    * one a ridgeline is drawn to ask.
    */
   RIDGELINE = 'ridgeline',
+  /**
+   * A receiver operating characteristic curve: a classifier's true positive
+   * rate against its false positive rate, one point per decision threshold,
+   * one curve per classifier. Structurally a multi-line layer, and read as
+   * one it answers the wrong questions: the min and max are always 0 and 1,
+   * the pitch is scaled to each curve's own range so two classifiers sound
+   * alike, and the numbers the chart is drawn for -- the area under each
+   * curve, and how far each point sits above the chance diagonal -- are
+   * never said. Here the pitch is the rate on the unit interval, the pan
+   * follows the false positive rate, every point announces its threshold
+   * and its distance above chance, and the description gives the area and
+   * the best operating point.
+   */
+  ROC = 'roc',
   /**
    * Observations drawn as ticks along one axis -- a rug. The chart has one
    * quantity per observation, its position, and is drawn to show where the

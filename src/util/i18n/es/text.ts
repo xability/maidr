@@ -139,6 +139,7 @@ export const text = {
   'text.seriesNounLine': 'Línea',
   'text.seriesNounObservation': 'Observación',
   'text.seriesNounCompetitor': 'Competidor',
+  'text.seriesNounCurve': 'Curva',
   'text.seriesNounSeries': 'Serie',
   'text.columnRowPosition': 'Columna {col} de {cols}, fila {row} de {rows}',
   'text.wholeCircle': 'el círculo completo',

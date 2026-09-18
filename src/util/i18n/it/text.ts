@@ -107,6 +107,7 @@ export const text = {
   'text.seriesNounLine': 'Linea',
   'text.seriesNounObservation': 'Osservazione',
   'text.seriesNounCompetitor': 'Concorrente',
+  'text.seriesNounCurve': 'Curva',
   'text.seriesNounSeries': 'Serie',
   'text.columnRowPosition': 'Colonna {col} di {cols}, riga {row} di {rows}',
   'text.wholeCircle': 'l\'intero cerchio',

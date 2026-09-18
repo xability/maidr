@@ -122,6 +122,7 @@ export const text = {
   'text.seriesNounLine': 'लाइन',
   'text.seriesNounObservation': 'प्रेक्षण',
   'text.seriesNounCompetitor': 'प्रतियोगी',
+  'text.seriesNounCurve': 'वक्र',
   'text.seriesNounSeries': 'श्रृंखला',
   'text.columnRowPosition': '{cols} में से कॉलम {col}, {rows} में से पंक्ति {row}',
   'text.wholeCircle': 'पूरा वृत्त',

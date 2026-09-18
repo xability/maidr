@@ -121,7 +121,7 @@ Or multiple plots:
 
 Use the following to define the object properties:
 
-- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
+- `type`: the type of plot. The declarable types are `alluvial`, `area`, `bar`, `box`, `boxen`, `bump`, `candlestick`, `chord`, `choropleth`, `contour`, `diverging_bar`, `dodged_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`, `gantt`, `gauge`, `heat`, `hexbin`, `hist`, `icicle`, `line`, `lollipop`, `manhattan`, `mosaic`, `network`, `pack`, `parallel_coordinates`, `pie`, `point`, `polar_area`, `radar`, `ridgeline`, `roc`, `rug`, `sankey`, `smooth`, `stacked_area`, `stacked_bar`, `stacked_normalized_area`, `stacked_normalized_bar`, `step`, `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `violin_box`, `violin_kde`, `volcano`, `waterfall`, `word_cloud`. `TraceType` in `src/type/grammar.ts` is the source of truth; `candlestick_delta` appears there but is built at runtime from a candlestick and a reference line, so it is not something a page declares. Not all of them are equally settled — see [Trace type stability](#trace-type-stability).
 
 > **`candlestick_delta` has no example page, on purpose.** It should never be
 > given one: it is a reading mode the model derives at runtime from a
@@ -199,8 +199,8 @@ Not every declarable type carries the same promise, and that is not visible
 from the list above.
 
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
-were added by it, most of them inside about two weeks, and `rug` after it
-(#1132). **None of the thirty-eight has been through a user study**.
+were added by it, most of them inside about two weeks, and `rug` (#1132) and
+`roc` after it. **None of the thirty-nine has been through a user study**.
 
 ### Stable
 
@@ -218,7 +218,7 @@ change to any of them changes behaviour people already depend on.
 `diverging_bar`, `dot`, `dumbbell`, `error_bar`, `forest`, `funnel`,
 `gantt`, `gauge`, `hexbin`, `icicle`, `lollipop`, `manhattan`, `mosaic`,
 `network`, `pack`, `parallel_coordinates`, `polar_area`, `radar`,
-`ridgeline`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
+`ridgeline`, `roc`, `rug`, `sankey`, `stacked_area`, `stacked_normalized_area`,
 `sunburst`, `sunflower`, `survival`, `tree`, `treemap`, `volcano`,
 `waterfall`, `word_cloud`
 
@@ -605,6 +605,38 @@ The data property is defined as a list of objects where each object is a record 
        { "x": 0, "xLabel": "a", "y": 1.4 },
        { "x": 0, "xLabel": "a", "y": 2.1 },
        { "x": 1, "xLabel": "b", "y": 3.0 }
+     ],
+   };
+
+   // roc: a receiver operating characteristic curve, one array of operating
+   // points per classifier. `x` is the false positive rate and `y` the true
+   // positive rate, both fractions of one; `threshold` is the decision
+   // threshold the point was scored at, and `z` names the curve as it names
+   // a line. `auc` is the area the producer computed, read from the first
+   // point of the curve that carries one; when no point does, the area is the
+   // trapezoid rule over the curve's own points, which is what
+   // `sklearn.metrics.auc` and `pROC::auc` compute. The points may be listed
+   // in either order.
+   //
+   // The pitch is the true positive rate on the unit interval for every
+   // curve, so two classifiers are comparable by ear; the pan follows the
+   // false positive rate. Each point announces its threshold and how far it
+   // sits above (or below) the chance diagonal, and the description gives
+   // the area under each curve and the best operating point.
+   maidr = {
+     type: 'roc',
+     axes: { x: { label: 'False positive rate' }, y: { label: 'True positive rate' } },
+     data: [
+       [
+         { "x": 0, "y": 0, "threshold": 1, "z": "Logistic", "auc": 0.896 },
+         { "x": 0.1, "y": 0.75, "threshold": 0.6, "z": "Logistic" },
+         { "x": 1, "y": 1, "threshold": 0, "z": "Logistic" }
+       ],
+       [
+         { "x": 0, "y": 0, "threshold": 1, "z": "Random forest" },
+         { "x": 0.25, "y": 0.6, "threshold": 0.5, "z": "Random forest" },
+         { "x": 1, "y": 1, "threshold": 0, "z": "Random forest" }
+       ]
      ],
    };
 

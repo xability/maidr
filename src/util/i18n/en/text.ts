@@ -133,6 +133,7 @@ export const text = {
   'text.seriesNounLine': 'Line',
   'text.seriesNounObservation': 'Observation',
   'text.seriesNounCompetitor': 'Competitor',
+  'text.seriesNounCurve': 'Curve',
   'text.seriesNounSeries': 'Series',
   'text.columnRowPosition': 'Column {col} of {cols}, row {row} of {rows}',
   'text.wholeCircle': 'the whole circle',

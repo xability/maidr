@@ -27,6 +27,7 @@ import { ParallelTrace } from './parallel';
 import { PieTrace } from './pie';
 import { RadarTrace } from './radar';
 import { RidgelineTrace } from './ridgeline';
+import { RocTrace } from './roc';
 import { RugTrace } from './rug';
 import { ScatterTrace } from './scatter';
 import { SegmentedTrace } from './segmented';
@@ -154,6 +155,8 @@ export abstract class TraceFactory {
 
       case TraceType.RIDGELINE:
         return new RidgelineTrace(layer);
+      case TraceType.ROC:
+        return new RocTrace(layer);
       case TraceType.RUG:
         return new RugTrace(layer);
 

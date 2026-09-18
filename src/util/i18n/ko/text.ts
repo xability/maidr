@@ -124,6 +124,7 @@ export const text = {
   'text.seriesNounLine': '선',
   'text.seriesNounObservation': '관측치',
   'text.seriesNounCompetitor': '참가자',
+  'text.seriesNounCurve': '곡선',
   'text.seriesNounSeries': '계열',
   'text.columnRowPosition': '열 {cols}개 중 {col}, 행 {rows}개 중 {row}',
   'text.wholeCircle': '원 전체',
