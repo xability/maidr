@@ -122,6 +122,37 @@ test.describe('ROC curve', () => {
     expect(announcement).toContain('0.5');
   });
 
+  test('should move to the other classifier with the down arrow', async ({ page }) => {
+    // The curves are sampled at their own thresholds, so the second point of
+    // the logistic regression (0.05) has no counterpart on the random forest;
+    // the line's exact-x rule refused the move here.
+    const plot = new RocCurvePage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Random forest');
+    expect(announcement).toContain('0.4');
+  });
+
+  test('should announce both classifiers at the corner they share', async ({ page }) => {
+    // Every ROC curve passes through (0, 0); moving between curves there
+    // lands on a point both share, which is announced -- and sounded -- as
+    // both.
+    const plot = new RocCurvePage(page);
+    await plot.activateMaidr();
+    await plot.moveToNextDataPoint();
+    await plot.moveToDataPointBelow();
+
+    const announcement = normalizeText(await plot.getInstructionText());
+
+    expect(announcement).toContain('Logistic regression');
+    expect(announcement).toContain('Random forest');
+  });
+
   test('should render one braille row per classifier', async ({ page }) => {
     // Braille is the modality that fails silently for a new trace type: an
     // unregistered encoder leaves the display blank while text and audio keep

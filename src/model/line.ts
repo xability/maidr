@@ -893,42 +893,31 @@ export class LineTrace extends AbstractTrace {
 
     // Enhanced navigation for UPWARD/DOWNWARD - consider y values at current x position
     if (direction === 'UPWARD' || direction === 'DOWNWARD') {
-      const targetRow = this.findLineByXAndYDirection(direction);
-      const currentX = this.points[this.row][this.col].x;
-
-      if (targetRow !== null && targetRow !== this.row) {
-        // Find the column in the target line that has the same X value
-        const targetCol = this.findColumnByXValue(targetRow, currentX);
-
-        if (targetCol !== -1) {
-          this.row = targetRow;
-          this.col = targetCol;
-
-          // Check for intersections and emit appropriate state
-          const intersections = this.findIntersections();
-          if (intersections.length > 1) {
-            const baseState = super.state;
-            const stateWithIntersections = {
-              ...baseState,
-              intersections,
-            } as TraceState;
-            for (const observer of this.observers) {
-              observer.update(stateWithIntersections);
-            }
-          } else {
-            this.notifyStateUpdate();
-          }
-          return true;
-        } else {
-          // No matching X value found in target line
-          this.notifyOutOfBounds();
-          return false;
-        }
-      } else {
-        // No valid line found based on y values - hit boundary
+      const target = this.findVerticalTarget(direction);
+      if (target === null) {
+        // No series in that direction at this x - hit boundary
         this.notifyOutOfBounds();
         return false;
       }
+
+      this.row = target.row;
+      this.col = target.col;
+
+      // Check for intersections and emit appropriate state
+      const intersections = this.findIntersections();
+      if (intersections.length > 1) {
+        const baseState = super.state;
+        const stateWithIntersections = {
+          ...baseState,
+          intersections,
+        } as TraceState;
+        for (const observer of this.observers) {
+          observer.update(stateWithIntersections);
+        }
+      } else {
+        this.notifyStateUpdate();
+      }
+      return true;
     }
 
     // Default navigation for FORWARD/BACKWARD only
@@ -1027,26 +1016,42 @@ export class LineTrace extends AbstractTrace {
 
     switch (target) {
       case 'UPWARD':
-      case 'DOWNWARD': {
-        // Nothing at the cursor -- an empty series, or an entry that found
-        // no series at all -- has no x to match, so there is nowhere to go.
-        const current = this.points[this.row]?.[this.col];
-        if (current === undefined) {
-          return false;
-        }
-        // For y-value-based navigation, check if there's a valid target line with same X value
-        const targetRow = this.findLineByXAndYDirection(target);
-        if (targetRow === null) {
-          return false;
-        }
-        // Also check if the target line has a point with the same X value
-        return this.findColumnByXValue(targetRow, current.x) !== -1;
-      }
+      case 'DOWNWARD':
+        return this.findVerticalTarget(target) !== null;
       case 'FORWARD':
         return this.col < (this.values[this.row]?.length ?? 0) - 1;
       case 'BACKWARD':
         return this.col > 0;
     }
+  }
+
+  /**
+   * Where an up or down move from the cursor lands.
+   *
+   * The series whose y at the cursor's own x is the nearest one in that
+   * direction, at the column carrying that x. Nothing at the cursor -- an
+   * empty series, or an entry that found no series at all -- has no x to
+   * match, so there is nowhere to go. A subclass whose series are not
+   * sampled at shared x values (a ROC curve, sampled at its own thresholds)
+   * overrides this to answer the same question by interpolation; `moveOnce`
+   * and `isMovable` ask only this.
+   *
+   * @param direction - UPWARD for the nearest series above, DOWNWARD for the nearest below
+   * @returns The row and column to move to, or null when no series lies that way
+   */
+  protected findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    const current = this.points[this.row]?.[this.col];
+    if (current === undefined) {
+      return null;
+    }
+    const row = this.findLineByXAndYDirection(direction);
+    if (row === null) {
+      return null;
+    }
+    const col = this.findColumnByXValue(row, current.x);
+    return col === -1 ? null : { row, col };
   }
 
   /**

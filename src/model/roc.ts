@@ -91,6 +91,13 @@ export class RocTrace extends LineTrace {
   private readonly rateMax: number;
 
   /**
+   * Each curve's measured points sorted by false positive rate, which is
+   * the order the curve is drawn in whatever order the producer listed
+   * them; see {@link RocTrace.findVerticalTarget}.
+   */
+  private readonly sortedCurves: Array<Array<{ x: number; y: number }>>;
+
+  /**
    * Creates a new ROC trace.
    *
    * @param layer - The MAIDR layer carrying one curve per classifier
@@ -133,13 +140,40 @@ export class RocTrace extends LineTrace {
     const measured = this.lineValues.flat().filter(isMeasured);
     this.rateMin = Math.min(0, MathUtil.safeMin(measured));
     this.rateMax = Math.max(1, MathUtil.safeMax(measured));
+
+    this.sortedCurves = this.rocPoints.map((curve, row) =>
+      RocTrace.measuredByRate(curve, this.lineValues[row]));
   }
 
   public override dispose(): void {
     this.areas.length = 0;
     this.aboveChance.length = 0;
     this.bestPoints.length = 0;
+    this.sortedCurves.length = 0;
     super.dispose();
+  }
+
+  /**
+   * A curve's measured points in the order they are drawn: by false
+   * positive rate, and by true positive rate within a vertical run.
+   *
+   * @param curve - The curve's points
+   * @param rates - The true positive rates, `NaN` for a gap
+   * @returns The measured points, sorted
+   */
+  private static measuredByRate(
+    curve: readonly RocPoint[],
+    rates: readonly number[],
+  ): Array<{ x: number; y: number }> {
+    const measured: Array<{ x: number; y: number }> = [];
+    for (const [col, point] of curve.entries()) {
+      const x = Number(point?.x);
+      const y = rates[col];
+      if (Number.isFinite(x) && isMeasured(y)) {
+        measured.push({ x, y });
+      }
+    }
+    return measured.sort((a, b) => a.x - b.x || a.y - b.y);
   }
 
   /**
@@ -174,18 +208,10 @@ export class RocTrace extends LineTrace {
    * @returns The area, or `NaN` for fewer than two measured points
    */
   private static trapezoidArea(curve: readonly RocPoint[], rates: readonly number[]): number {
-    const measured: Array<{ x: number; y: number }> = [];
-    for (const [col, point] of curve.entries()) {
-      const x = Number(point?.x);
-      const y = rates[col];
-      if (Number.isFinite(x) && isMeasured(y)) {
-        measured.push({ x, y });
-      }
-    }
+    const measured = RocTrace.measuredByRate(curve, rates);
     if (measured.length < 2) {
       return Number.NaN;
     }
-    measured.sort((a, b) => a.x - b.x || a.y - b.y);
 
     let area = 0;
     for (let i = 1; i < measured.length; i++) {
@@ -207,19 +233,171 @@ export class RocTrace extends LineTrace {
 
   protected override get audio(): AudioState {
     const base = super.audio;
-    const fpr = Number(this.rocPoints[this.row]?.[this.col]?.x);
+    return {
+      ...base,
+      freq: { ...base.freq, min: this.rateMin, max: this.rateMax },
+    };
+  }
+
+  /**
+   * The pan for a point: its position on the x axis, so that a chord at a
+   * point two curves share arrives from where that point is, as the single
+   * tone does.
+   *
+   * @param row - The curve
+   * @param col - The point along it
+   * @returns The panning for that point
+   */
+  protected override panningFor(row: number, col: number): AudioState['panning'] {
+    const fpr = Number(this.rocPoints[row]?.[col]?.x);
     const span = this.rateMax - this.rateMin;
     const fraction = Number.isFinite(fpr) && span > 0
       ? MathUtil.clamp((fpr - this.rateMin) / span, 0, 1)
       : 0.5;
 
-    return {
-      ...base,
-      freq: { ...base.freq, min: this.rateMin, max: this.rateMax },
-      // `cols: 2` with a fraction in `x` is the idiom the rug and the pie use
-      // to pan by position rather than by index.
-      panning: { x: fraction, y: this.row, rows: this.lineValues.length, cols: 2 },
-    };
+    // `cols: 2` with a fraction in `x` is the idiom the rug and the pie use
+    // to pan by position rather than by index.
+    return { x: fraction, y: row, rows: this.lineValues.length, cols: 2 };
+  }
+
+  /**
+   * Where an up or down move lands: the curve nearest above or below the
+   * cursor at the cursor's own false positive rate.
+   *
+   * The line asks each other series for a point at exactly the cursor's x,
+   * and a ROC curve has none to offer: `roc_curve` samples each classifier
+   * at its own thresholds, so two curves share an x only at the corners --
+   * where they also share a y, which the line's strict comparison reads as
+   * neither above nor below. On a chart of two classifiers the up and down
+   * keys moved between them at one point in thirteen. What a reader means by
+   * "the curve above this one" is the curve whose true positive rate is
+   * higher at this false positive rate, and a drawn curve has a rate at
+   * every x it spans: the straight line between its two neighbouring points,
+   * which is what the chart draws. Where a curve climbs vertically at that
+   * x it has a range of rates, and a cursor inside the range is level with
+   * it. Curves level with the cursor -- every curve at (0, 0) and (1, 1) --
+   * are stacked in series order, the first curve on top, so the corners a
+   * reader starts at are still a place to move between curves.
+   *
+   * The landing point is the target curve's sample nearest in x, and
+   * nearest in rate among samples tied in x, since the interpolated rate is
+   * not a point a reader can be put on.
+   *
+   * @param direction - UPWARD for the nearest curve above, DOWNWARD for the nearest below
+   * @returns The curve and point to move to, or null when no curve lies that way
+   */
+  protected override findVerticalTarget(
+    direction: 'UPWARD' | 'DOWNWARD',
+  ): { row: number; col: number } | null {
+    const x = Number(this.rocPoints[this.row]?.[this.col]?.x);
+    const y = this.lineValues[this.row]?.[this.col];
+    if (!Number.isFinite(x) || !isMeasured(y)) {
+      return null;
+    }
+
+    let best: { row: number; distance: number } | null = null;
+    for (let row = 0; row < this.rocPoints.length; row++) {
+      if (row === this.row) {
+        continue;
+      }
+      const span = this.rateSpanAt(row, x);
+      if (span === null) {
+        continue;
+      }
+      // Level with the cursor when the cursor's rate is inside the curve's
+      // range at this x; otherwise the gap to the nearer end.
+      const delta = y < span.lo ? span.lo - y : y > span.hi ? span.hi - y : 0;
+      const liesThatWay = direction === 'UPWARD'
+        ? delta > 0 || (delta === 0 && row < this.row)
+        : delta < 0 || (delta === 0 && row > this.row);
+      if (!liesThatWay) {
+        continue;
+      }
+      const distance = Math.abs(delta);
+      const closer = best === null
+        || distance < best.distance
+        || (distance === best.distance
+          && Math.abs(row - this.row) < Math.abs(best.row - this.row));
+      if (closer) {
+        best = { row, distance };
+      }
+    }
+
+    if (best === null) {
+      return null;
+    }
+    return { row: best.row, col: this.nearestColumn(best.row, x, y) };
+  }
+
+  /**
+   * The true positive rates a curve is drawn at for one false positive
+   * rate: a single interpolated rate between two points, or the range of a
+   * vertical run sampled at exactly that x.
+   *
+   * @param row - The curve
+   * @param x - The false positive rate
+   * @returns The lowest and highest rate, or null where the curve is not drawn
+   */
+  private rateSpanAt(row: number, x: number): { lo: number; hi: number } | null {
+    const curve = this.sortedCurves[row];
+    if (curve === undefined || curve.length === 0
+      || x < curve[0].x || x > curve[curve.length - 1].x) {
+      return null;
+    }
+
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < curve.length; i++) {
+      const point = curve[i];
+      if (point.x === x) {
+        lo = Math.min(lo, point.y);
+        hi = Math.max(hi, point.y);
+        continue;
+      }
+      const next = curve[i + 1];
+      if (point.x < x && next !== undefined && next.x > x) {
+        const y = point.y + (next.y - point.y) * (x - point.x) / (next.x - point.x);
+        return { lo: y, hi: y };
+      }
+    }
+    return lo <= hi ? { lo, hi } : null;
+  }
+
+  /**
+   * The point of a curve nearest to a position: nearest in false positive
+   * rate, then in true positive rate, then the earlier point. A measured
+   * point over a gap, since a gap has no rate to compare.
+   *
+   * @param row - The curve
+   * @param x - The false positive rate to land near
+   * @param y - The true positive rate to land near
+   * @returns The column of the nearest point
+   */
+  private nearestColumn(row: number, x: number, y: number): number {
+    let bestCol = 0;
+    let bestDx = Number.POSITIVE_INFINITY;
+    let bestDy = Number.POSITIVE_INFINITY;
+    let bestMeasured = false;
+    for (const [col, point] of this.rocPoints[row].entries()) {
+      const px = Number(point?.x);
+      const py = this.lineValues[row][col];
+      const measured = Number.isFinite(px) && isMeasured(py);
+      if (bestMeasured && !measured) {
+        continue;
+      }
+      const dx = measured ? Math.abs(px - x) : Number.POSITIVE_INFINITY;
+      const dy = measured ? Math.abs(py - y) : Number.POSITIVE_INFINITY;
+      const closer = (measured && !bestMeasured)
+        || dx < bestDx
+        || (dx === bestDx && dy < bestDy);
+      if (closer) {
+        bestCol = col;
+        bestDx = dx;
+        bestDy = dy;
+        bestMeasured = measured;
+      }
+    }
+    return bestCol;
   }
 
   protected override get text(): TextState {
