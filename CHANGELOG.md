@@ -1,3 +1,26 @@
+# [4.9.0](https://github.com/xability/maidr/compare/v4.8.0...v4.9.0) (2026-09-21)
+
+
+### Bug Fixes
+
+* **plotly:** scope a choropleth's regions to its own map, not every map ([#1260](https://github.com/xability/maidr/issues/1260)) ([4ef10de](https://github.com/xability/maidr/commit/4ef10debb0a87707b09ff6a8177254b21ea9d78b)), closes [xability/py-maidr#798](https://github.com/xability/py-maidr/issues/798)
+* **plotly:** withdraw a subplot selector whose id is not one plotly writes ([#1261](https://github.com/xability/maidr/issues/1261)) ([f8dad97](https://github.com/xability/maidr/commit/f8dad978bdbaa865d3ea25da494910667061d17b)), closes [#1260](https://github.com/xability/maidr/issues/1260) [#1260](https://github.com/xability/maidr/issues/1260)
+* **roc:** move between curves at the cursor's rate and sound shared points as a chord ([#1271](https://github.com/xability/maidr/issues/1271)) ([b37aea2](https://github.com/xability/maidr/commit/b37aea2658dabfb622f9c9490ca29a7904e0f8bf))
+
+
+### Features
+
+* **adapters:** declare where each library's pie starts and which way it runs ([#1272](https://github.com/xability/maidr/issues/1272)) ([575de69](https://github.com/xability/maidr/commit/575de690e0aee61371d20ca8dcb6258f1a91aeb9)), closes [#1268](https://github.com/xability/maidr/issues/1268)
+* **docs:** build the site for the origin SITE_ORIGIN names, not always maidr.ai ([#1263](https://github.com/xability/maidr/issues/1263)) ([ca58599](https://github.com/xability/maidr/commit/ca5859904f50097a35d4d9fa3931679349e1b042)), closes [#588](https://github.com/xability/maidr/issues/588) [#588](https://github.com/xability/maidr/issues/588)
+* **keybinding:** let a reader change any shortcut from the help menu ([#1265](https://github.com/xability/maidr/issues/1265)) ([ff77112](https://github.com/xability/maidr/commit/ff771128de07b2ccf66eaa37653bd4300054e580)), closes [#189](https://github.com/xability/maidr/issues/189) [#189](https://github.com/xability/maidr/issues/189)
+* **model:** read a ROC curve as its own trace, with the area and the best operating point ([#1269](https://github.com/xability/maidr/issues/1269)) ([b035919](https://github.com/xability/maidr/commit/b03591995e8694d45631662d93a674e5d3e8a0ce)), closes [#814](https://github.com/xability/maidr/issues/814) [#814](https://github.com/xability/maidr/issues/814)
+* **model:** read a rug as its own trace, so the pitch carries the position ([#1264](https://github.com/xability/maidr/issues/1264)) ([5b2f64c](https://github.com/xability/maidr/commit/5b2f64ce33b390ce8e835bba745725b4dc1499bf)), closes [#1132](https://github.com/xability/maidr/issues/1132) [#814](https://github.com/xability/maidr/issues/814) [xability/py-maidr#605](https://github.com/xability/py-maidr/issues/605) [xability/r-maidr#224](https://github.com/xability/r-maidr/issues/224) [#1132](https://github.com/xability/maidr/issues/1132)
+* **pie:** carry a pie's start angle and drawn direction through the grammar ([#1268](https://github.com/xability/maidr/issues/1268)) ([34d2015](https://github.com/xability/maidr/commit/34d2015643b548efa847a988c4609e3b01edd084)), closes [#780](https://github.com/xability/maidr/issues/780) [xability/py-maidr#800](https://github.com/xability/py-maidr/issues/800)
+* **settings:** file a prefilled bug report from the About tab ([#1267](https://github.com/xability/maidr/issues/1267)) ([d95d5d6](https://github.com/xability/maidr/commit/d95d5d61a67ea09ddbdf2a66c2faf75b30c72e57))
+* **tableau:** follow a mark a user clicks in the viz with MAIDR's cursor ([#1266](https://github.com/xability/maidr/issues/1266)) ([cfd6e00](https://github.com/xability/maidr/commit/cfd6e00a8110a7eeed3490e47e8012389d587413)), closes [#938](https://github.com/xability/maidr/issues/938) [#938](https://github.com/xability/maidr/issues/938)
+* **tactile:** load the DotPad SDK from the vendor's repaired tree and add opt-in vendoring ([#1257](https://github.com/xability/maidr/issues/1257)) ([99de79b](https://github.com/xability/maidr/commit/99de79b00f4bb944a878f2a217253594e0dfb33a))
+* **tactile:** pin DotPad SDK 3.0.3 and make the pin a shipped, checked record ([#1259](https://github.com/xability/maidr/issues/1259)) ([e03a7d0](https://github.com/xability/maidr/commit/e03a7d0a0ddbd5d8e75b6176e315555364170f1b))
+
 # [4.8.0](https://github.com/xability/maidr/compare/v4.7.0...v4.8.0) (2026-09-14)
 
 
