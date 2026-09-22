@@ -84,6 +84,78 @@ function withoutBaseline(coordinates: LinePoint[], expected: number): LinePoint[
 }
 
 /**
+ * The two halves of a closed band.
+ */
+interface ClosedBand {
+  /** The vertices drawn out along the top of the band, the samples among them. */
+  edge: LinePoint[];
+  /** The vertices drawn back along its underside, the turn included. */
+  back: LinePoint[];
+}
+
+/**
+ * Splits a closed band into the edge it was drawn along and the journey back.
+ *
+ * A filled band is one closed shape: out along its top edge, then back along
+ * its underside -- the baseline, or the band below it in a stack. Only the
+ * way out carries the samples. The turn is the first vertex whose x does not
+ * rise past the one before it, which is also where a band whose edge ends in
+ * a vertical drop starts back, and the way back has to keep falling from
+ * there: vertices that wander are not a band, and are left for the caller to
+ * read as it did before.
+ *
+ * `null` for an edge stroked on its own, which never turns.
+ *
+ * @param coordinates - Vertices parsed from the rendered element
+ * @returns The two halves, or null when the vertices do not describe a band
+ */
+function closedBand(coordinates: readonly LinePoint[]): ClosedBand | null {
+  const xs = coordinates.map(vertex => Number(vertex.x));
+  let turn = 1;
+  while (turn < xs.length && xs[turn] > xs[turn - 1]) {
+    turn++;
+  }
+  if (turn >= xs.length) {
+    return null;
+  }
+  const returns = xs.slice(turn + 1).every((x, i) => x <= xs[turn + i]);
+  return returns
+    ? { edge: coordinates.slice(0, turn), back: coordinates.slice(turn) }
+    : null;
+}
+
+/**
+ * How close in x a band's vertex has to be to a sample to be that sample.
+ *
+ * gridSVG rounds to a hundredth of a pixel, so a sample vertex can sit that
+ * far from where the linear map puts it; the vertices ggplot2's `stat_align()`
+ * adds sit a thousandth of the axis away, which on any chart wider than a
+ * few dozen pixels is further than this.
+ */
+const SAMPLE_SNAP = 0.05;
+
+/**
+ * The x extent of some vertices.
+ *
+ * A loop rather than `Math.min(...xs)`: a dense band -- `cdplot()` draws one
+ * vertex per observation, and a density has thousands -- spread as arguments
+ * overflows the call stack.
+ *
+ * @param vertices - The vertices to measure
+ * @returns The smallest and largest x among them
+ */
+function xRange(vertices: readonly LinePoint[]): { min: number; max: number } {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  for (const vertex of vertices) {
+    const x = Number(vertex.x);
+    min = Math.min(min, x);
+    max = Math.max(max, x);
+  }
+  return { min, max };
+}
+
+/**
  * Whether a magnitude is a real number the totals may include.
  *
  * A gap travels as `NaN`, and `NaN` spreads: summing one into a column total
@@ -173,11 +245,12 @@ export class AreaTrace extends LineTrace {
   /**
    * Maps the vertices of a rendered band back onto the data points.
    *
-   * A plain band needs nothing from here: its path draws the data out along
-   * the top edge and then returns along the baseline, so the surplus is
-   * trailing* and the inherited trim-from-the-end keeps exactly the samples.
-   * `areaHighlight.test.ts` pins that, and it is why this override guards on
-   * `stepDirection` rather than running for every area.
+   * A plain band drawn one vertex per sample needs nothing from here: its
+   * path draws the data out along the top edge and then returns along the
+   * baseline, so the surplus is *trailing* and the inherited trim-from-the-end
+   * keeps exactly the samples. `areaHighlight.test.ts` pins that. A plain band
+   * drawn with more vertices than samples along its edge is the case that
+   * trim cannot serve, and {@link samplesAlongBand} takes it.
    *
    * A stepped band carries both kinds of surplus at once. Its top edge has the
    * corner vertices the steps introduce — `2N - 1` for `hv`/`vh`, `2N` for
@@ -209,12 +282,19 @@ export class AreaTrace extends LineTrace {
     // for every band and fell straight through to the inherited trim, which is
     // precisely the bug this override was added to fix. `AbstractTrace`
     // assigns `layer` before any subclass work, so it is readable.
+    const expected = this.points[row]?.length ?? 0;
     if (this.layer.stepDirection === undefined) {
+      const band = closedBand(coordinates);
+      if (band !== null && band.edge.length !== expected && expected > 0) {
+        const samples = this.samplesAlongBand(band, row);
+        coordinates.length = 0;
+        coordinates.push(...samples);
+        return;
+      }
       super.reconcilePathCoordinates(coordinates, row);
       return;
     }
 
-    const expected = this.points[row]?.length ?? 0;
     const dataVertices = stepDataVertices(
       withoutBaseline(coordinates, expected),
       expected,
@@ -226,6 +306,36 @@ export class AreaTrace extends LineTrace {
     }
 
     super.reconcilePathCoordinates(coordinates, row);
+  }
+
+  /**
+   * The sample positions of a band drawn with more vertices than samples.
+   *
+   * ggplot2 is the producer that draws one. `stat_align()` puts a vertex a
+   * hair either side of every sample so that stacked bands share their x, and
+   * a zero-height pad past each end so that a band which starts late rises
+   * from the baseline; r-maidr announces the samples alone. A six-point
+   * `geom_area()` so arrives as a 34-vertex polygon -- three vertices a sample
+   * and a pad at the end of the edge, then the same back along the baseline
+   * -- and keeping the first six vertices put every highlight in the first
+   * two columns (#1273).
+   *
+   * The samples are at the x positions both edges reach. A pad is reached by
+   * one edge only -- the trailing pad ends the way out, the leading pad ends
+   * the way back -- so the x range the two share is the range the data
+   * spans. The points are placed along the edge over that range, and a point
+   * lands on the vertex at its x rather than between the two a hair away.
+   *
+   * @param band - The band's two halves
+   * @param row - Index of the series the band belongs to
+   * @returns One vertex per data point, in data order
+   */
+  private samplesAlongBand(band: ClosedBand, row: number): LinePoint[] {
+    const edge = xRange(band.edge);
+    const back = xRange(band.back);
+    const xMin = Math.max(edge.min, back.min);
+    const xMax = Math.min(edge.max, back.max);
+    return this.interpolateAlongEdge(band.edge, row, xMin, xMax, SAMPLE_SNAP);
   }
 
   /**

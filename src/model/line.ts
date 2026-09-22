@@ -136,7 +136,7 @@ export class LineTrace extends AbstractTrace {
   protected readonly highlightValues: (SVGElement[] | SVGElement)[][] | null;
 
   /**
-   * The rendered `<path>` or `<polyline>` of each series, when the highlight
+   * The rendered `<path>`, `<polyline>` or `<polygon>` of each series, when the highlight
    * markers were synthesised from one.
    *
    * {@link mapViaPathParsing} builds a circle per data point and throws the
@@ -1204,7 +1204,8 @@ export class LineTrace extends AbstractTrace {
     // expected data points, use them directly — no path parsing needed.
     const elementBased = this.mapViaDomElements(selectors);
     // Fall back to path-based approach: parse coordinates from a single
-    // <path> or <polyline> element per series and create synthetic circles.
+    // <path>, <polyline> or <polygon> element per series and create
+    // synthetic circles.
     const mapped = elementBased ?? this.mapViaPathParsing(selectors);
 
     return this.drawsPointsReversed && mapped !== null
@@ -1352,11 +1353,17 @@ export class LineTrace extends AbstractTrace {
   }
 
   /**
-   * Path-based SVG mapping: find a single <path> or <polyline> per selector,
-   * parse data point coordinates from its attributes, and create synthetic
-   * circle elements for highlighting.
+   * Path-based SVG mapping: find a single <path>, <polyline> or <polygon> per
+   * selector, parse data point coordinates from its attributes, and create
+   * synthetic circle elements for highlighting.
    *
    * Supports M/L commands (linear paths) and C commands (cubic bezier curves).
+   * A polygon is read exactly as a polyline is: both list their vertices in
+   * `points`, and closing the shape adds none. gridSVG, which R renders
+   * through, writes every filled band -- `geom_area()`, `geom_ribbon()`,
+   * `cdplot()` -- and every `geom_polygon()` as a `<polygon>`, and a series
+   * that fell through both branches had no vertices, so no markers and no
+   * highlight, while it went on announcing every point (#1273).
    */
   private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
     const svgElements: SVGElement[][] = [];
@@ -1391,7 +1398,7 @@ export class LineTrace extends AbstractTrace {
       if (lineElement instanceof SVGPathElement) {
         const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
         this.extractPathCoordinates(pathD, coordinates);
-      } else if (lineElement instanceof SVGPolylineElement) {
+      } else if (LineTrace.listsPoints(lineElement)) {
         const pointsAttr
           = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
         const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
@@ -1462,56 +1469,12 @@ export class LineTrace extends AbstractTrace {
     }
 
     if (coordinates.length >= 2 && coordinates.length < expected) {
-      const pathXMin = Number(coordinates[0].x);
-      const pathXMax = Number(coordinates[coordinates.length - 1].x);
-      const dataPoints = this.points[row];
-      const dataXMin = Number(dataPoints[0].x);
-      const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
-      const dataXRange = dataXMax - dataXMin;
-
-      const svgXs = Array.from({ length: expected }, (_, i) => {
-        const dataX = Number(dataPoints[i].x);
-        return dataXRange > 0
-          ? pathXMin + ((dataX - dataXMin) / dataXRange) * (pathXMax - pathXMin)
-          : pathXMin;
-      });
-      // Where both the path and the points ascend in x, the segment holding
-      // a point can never lie before the segment holding the point before
-      // it, so each search carries on from where the last one stopped rather
-      // than starting at the first vertex again -- one pass over the
-      // vertices for the whole series instead of one per point. That is the
-      // ordinary case: a series is listed in x order and a path is drawn
-      // left to right, and this branch is reached whenever the renderer
-      // simplified the path, which Plotly and matplotlib both do by default
-      // on a dense line. Where either sequence doubles back the shortcut
-      // would settle on the wrong segment, so the cursor stays at zero and
-      // the search is the exhaustive one it was.
-      const ascending = ascends(svgXs)
-        && coordinates.every((vertex, j) =>
-          j === 0 || Number(coordinates[j - 1].x) <= Number(vertex.x));
-
-      const full: LinePoint[] = [];
-      let from = 0;
-      for (let i = 0; i < expected; i++) {
-        const svgX = svgXs[i];
-
-        // Find y by interpolating along the simplified path segments
-        let svgY = Number(coordinates[0].y);
-        for (let j = from; j < coordinates.length - 1; j++) {
-          const cjx = Number(coordinates[j].x);
-          const cj1x = Number(coordinates[j + 1].x);
-          if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
-            const segLen = cj1x - cjx;
-            const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
-            svgY = Number(coordinates[j].y) + t * (Number(coordinates[j + 1].y) - Number(coordinates[j].y));
-            if (ascending) {
-              from = j;
-            }
-            break;
-          }
-        }
-        full.push({ x: svgX, y: svgY });
-      }
+      const full = this.interpolateAlongEdge(
+        coordinates,
+        row,
+        Number(coordinates[0].x),
+        Number(coordinates[coordinates.length - 1].x),
+      );
       coordinates.length = 0;
       coordinates.push(...full);
     } else if (coordinates.length < expected) {
@@ -1521,6 +1484,108 @@ export class LineTrace extends AbstractTrace {
     } else {
       coordinates.length = expected;
     }
+  }
+
+  /**
+   * One vertex per data point, placed along an edge by x.
+   *
+   * Each point's x is mapped linearly from the series' x range onto
+   * `[xMin, xMax]`, and its y is read off the edge there: at a vertex within
+   * `snapWithin` of that x, the vertex itself; otherwise interpolated along
+   * the segment that spans it. This is how a simplified path gets its dropped
+   * points back, and how a band drawn with more vertices than it has samples
+   * finds the samples among them (see `AreaTrace`).
+   *
+   * @param edge - Vertices in drawing order
+   * @param row - Index of the series the edge belongs to
+   * @param xMin - The SVG x the series' first x maps onto
+   * @param xMax - The SVG x the series' last x maps onto
+   * @param snapWithin - How close in x a vertex has to be to a point to stand
+   * in for it exactly; 0 always interpolates
+   * @returns One vertex per data point, in data order
+   */
+  protected interpolateAlongEdge(
+    edge: readonly LinePoint[],
+    row: number,
+    xMin: number,
+    xMax: number,
+    snapWithin = 0,
+  ): LinePoint[] {
+    const expected = this.lineValues[row].length;
+    const dataPoints = this.points[row];
+    const dataXMin = Number(dataPoints[0].x);
+    const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
+    const dataXRange = dataXMax - dataXMin;
+
+    const svgXs = Array.from({ length: expected }, (_, i) => {
+      const dataX = Number(dataPoints[i].x);
+      return dataXRange > 0
+        ? xMin + ((dataX - dataXMin) / dataXRange) * (xMax - xMin)
+        : xMin;
+    });
+    // Where both the edge and the points ascend in x, the segment holding
+    // a point can never lie before the segment holding the point before
+    // it, so each search carries on from where the last one stopped rather
+    // than starting at the first vertex again -- one pass over the
+    // vertices for the whole series instead of one per point. That is the
+    // ordinary case: a series is listed in x order and a path is drawn
+    // left to right, and this is reached whenever the renderer simplified
+    // the path, which Plotly and matplotlib both do by default on a dense
+    // line. Where either sequence doubles back the shortcut would settle on
+    // the wrong segment, so the cursor stays at zero and the search is the
+    // exhaustive one it was.
+    const ascending = ascends(svgXs)
+      && edge.every((vertex, j) =>
+        j === 0 || Number(edge[j - 1].x) <= Number(vertex.x));
+
+    const full: LinePoint[] = [];
+    let from = 0;
+    for (let i = 0; i < expected; i++) {
+      const svgX = svgXs[i];
+
+      const vertex = snapWithin > 0
+        ? edge.find(candidate => Math.abs(Number(candidate.x) - svgX) <= snapWithin)
+        : undefined;
+      if (vertex !== undefined) {
+        full.push({ x: Number(vertex.x), y: Number(vertex.y) });
+        continue;
+      }
+
+      // Find y by interpolating along the simplified path segments
+      let svgY = Number(edge[0].y);
+      for (let j = from; j < edge.length - 1; j++) {
+        const cjx = Number(edge[j].x);
+        const cj1x = Number(edge[j + 1].x);
+        if (svgX >= cjx - 0.01 && svgX <= cj1x + 0.01) {
+          const segLen = cj1x - cjx;
+          const t = segLen > 0 ? (svgX - cjx) / segLen : 0;
+          svgY = Number(edge[j].y) + t * (Number(edge[j + 1].y) - Number(edge[j].y));
+          if (ascending) {
+            from = j;
+          }
+          break;
+        }
+      }
+      full.push({ x: svgX, y: svgY });
+    }
+    return full;
+  }
+
+  /**
+   * Whether an element carries its vertices in a `points` attribute.
+   *
+   * `<polyline>` and `<polygon>` both do, in the same `x,y x,y` form; the
+   * only difference between them is the closing segment, which adds no
+   * vertex. Decided by tag rather than by `instanceof`: jsdom defines neither
+   * interface, and a check that throws on the element it is asked about
+   * answers nothing.
+   *
+   * @param element - The element a series' selector resolved to
+   * @returns True for a polyline or a polygon
+   */
+  private static listsPoints(element: Element): boolean {
+    const tag = element.tagName.toLowerCase();
+    return tag === 'polyline' || tag === 'polygon';
   }
 
   /**
