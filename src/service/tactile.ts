@@ -639,6 +639,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * Overlay layers this service has asked to keep a clean canvas, released on
+   * dispose; see {@link canvasPicture}.
+   */
+  private readonly pixelLayers = new Set<Element>();
+
+  /**
    * Pending redraw of a canvas chart; see {@link update}.
    */
   private canvasDrawTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1739,6 +1745,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * be read
    */
   private canvasPicture(state: DrawableState): TactilePicture | null {
+    // Asks the adapter to keep a copy of the chart without its tooltip from
+    // the next frame on; see `@util/overlayRegions`.
+    for (const layer of this.display.plot.querySelectorAll(`[${OVERLAY_ATTRIBUTES.layer}]`)) {
+      layer.setAttribute(OVERLAY_ATTRIBUTES.pixelReader, '');
+      this.pixelLayers.add(layer);
+    }
     const snapshot = TactileService.snapshotCanvases(this.display.plot, this.chartCanvases());
     if (snapshot === null) {
       return null;
@@ -2263,6 +2275,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       clearTimeout(this.canvasDrawTimer);
       this.canvasDrawTimer = null;
     }
+    for (const layer of this.pixelLayers) {
+      layer.removeAttribute(OVERLAY_ATTRIBUTES.pixelReader);
+    }
+    this.pixelLayers.clear();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }

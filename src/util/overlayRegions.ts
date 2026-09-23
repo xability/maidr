@@ -29,6 +29,12 @@ export const OVERLAY_ATTRIBUTES = {
    * layer's box.
    */
   cleanCanvas: 'data-maidr-clean-canvas',
+  /**
+   * Set on the overlay layer by a reader of the pixels -- the tactile display
+   * -- while it reads them. An adapter keeps its clean canvas only then, so a
+   * chart nobody reads that way is not copied on every frame.
+   */
+  pixelReader: 'data-maidr-pixel-reader',
   /** The plot area, as `left top right bottom`. */
   plotArea: 'data-maidr-plot-area',
   /**

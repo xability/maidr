@@ -2568,6 +2568,21 @@ describe('tactileService', () => {
       canvasService.dispose();
     });
 
+    it('should ask the adapter for a clean copy only while it reads the canvas', async () => {
+      const { service: canvasService, highlight } = canvasChart();
+      const layer = highlight.parentElement as HTMLElement;
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const asked = layer.hasAttribute('data-maidr-pixel-reader');
+      canvasService.dispose();
+
+      expect(asked).toBe(true);
+      expect(layer.hasAttribute('data-maidr-pixel-reader')).toBe(false);
+    });
+
     it('should fill the bar the reader moved to, not the one they left', async () => {
       // The adapter moves its highlight box on the same move the display is
       // told about, and after it. Drawn at once, the pins filled the point the

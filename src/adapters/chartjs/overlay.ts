@@ -139,6 +139,15 @@ export class HighlightOverlay {
    */
   captureClean(): void {
     const source = this.canvas;
+    // Only while something reads the pixels: a copy per frame is otherwise
+    // a cost every chart would pay for a display few readers have. A copy
+    // left over from an earlier reading would be out of date by the next
+    // one, so it goes.
+    if (!this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+      this.clean?.remove();
+      this.clean = null;
+      return;
+    }
     if (source.width <= 0 || source.height <= 0) {
       return;
     }
