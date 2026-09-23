@@ -19,7 +19,7 @@
  */
 
 import type { MaidrLayer } from '@type/grammar';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { TraceFactory } from '@model/factory';
 import { Orientation, TraceType } from '@type/grammar';
 
@@ -158,24 +158,23 @@ describe('a bar layer whose selectors count the bar itself', () => {
 });
 
 describe('a segmented layer handed a flat selector list', () => {
-  it('declines rather than reporting an empty highlight', () => {
-    // A flat list says which bars there are but not which cell each one is
-    // in, and the chunking is exactly what would have to answer that — so it
-    // is declined, while the grid below is honoured. Pinned because the
-    // override takes the widened parameter by bivariance: without the guard an
-    // array reaches `selectAllElements`, which answers `[]` for anything but a
-    // string, and the decline happens by accident in a helper rather than on
-    // purpose here.
+  it('reads it as the one selector it stood for before 4.0', () => {
+    // A flat list of strings is not a grid: it is the shape producers emitted
+    // before 4.0, when the DOM joined the list into one selector list. It was
+    // declined from #991 on, which cost r-maidr's dodged and stacked bars
+    // their highlight; it is now joined and walked like a string, and the
+    // producer is told once to emit a string instead.
     buildBars();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const layer = {
       id: '0',
       type: TraceType.STACKED,
       orientation: Orientation.VERTICAL,
-      selectors: ['.points .point:nth-child(1) > path'],
+      selectors: ['.points .point > path'],
       axes: {},
       data: [
         [{ x: 'alpha', y: 1, z: 'A' }],
-        [{ x: 'alpha', y: 2, z: 'B' }],
+        [{ x: 'bravo', y: 2, z: 'A' }],
       ],
     } as unknown as MaidrLayer;
 
@@ -183,7 +182,10 @@ describe('a segmented layer handed a flat selector list', () => {
       highlightValues: SVGElement[][] | null;
     };
 
-    expect(trace.highlightValues).toBeNull();
+    expect(trace.highlightValues).not.toBeNull();
+    expect(warn.mock.calls.map(call => String(call[0])).join('\n'))
+      .toMatch(/is a list of 1 selector string/);
+    warn.mockRestore();
   });
 
   it('still resolves a plain selector string', () => {

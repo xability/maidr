@@ -6,6 +6,7 @@ import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } 
 import type { Dimension, NearestPoint } from './abstract';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
@@ -360,11 +361,24 @@ export class Heatmap extends AbstractTrace {
       return null;
     }
 
+    // A flat list of strings is not a grid: it is the pre-4.0 shape, the one
+    // selector that names every cell, which maidr.js read by handing the list
+    // to the DOM. r-maidr's heat maps emitted exactly that. Read it as the
+    // joined selector list, with a warning, rather than as a grid whose rows
+    // are not lists -- which fails as a whole and cost those charts their
+    // highlight.
+    let flatSelector: unknown = selector;
+    const joined = joinSelectorList(selector);
+    if (joined !== null) {
+      warnSelectors(this.layer, legacyListProblem((selector as unknown[]).length));
+      flatSelector = joined;
+    }
+
     // Per-cell selector grid: `selector[r][c]` resolves to the SVG element for
     // logical row `r`, column `c`. Used by adapters (e.g. Highcharts) that
     // stamp coordinate attributes onto cells so the model→DOM mapping is
     // independent of DOM insertion order.
-    if (Array.isArray(selector)) {
+    if (Array.isArray(flatSelector)) {
       if (selector.length !== numRows) {
         return null;
       }
@@ -402,7 +416,10 @@ export class Heatmap extends AbstractTrace {
       return svgElements;
     }
 
-    const domElements = Svg.selectAllElements(selector, false);
+    if (typeof flatSelector !== 'string') {
+      return null;
+    }
+    const domElements = Svg.selectAllElements(flatSelector, false);
 
     // Plotly renders heatmaps as a single <image> element (canvas PNG).
     // Create transparent overlay rects so the highlight service can work.

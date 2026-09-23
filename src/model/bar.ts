@@ -8,6 +8,7 @@ import { Orientation, TraceType } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { extremumAt } from './extremaTarget';
@@ -414,8 +415,9 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
   }
 
   protected mapToSvgElements(
-    selector?: string | string[] | (string | null)[][],
+    requested?: string | string[] | (string | null)[][],
   ): SVGElement[][] | null {
+    let selector = requested;
     if (!selector) {
       return null;
     }
@@ -444,6 +446,30 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       if (flat.length !== selector.length) {
         return null;
       }
+    }
+
+    // A list names one bar per entry only when there is one entry per bar of
+    // a single row; that is the shape #991 gave meaning. Any other flat list
+    // of strings is the pre-4.0 shape: one selector (or several) that together
+    // name every bar, which maidr.js read by handing the list to the DOM,
+    // where it became the comma-joined selector list. r-maidr's bar, histogram,
+    // dot and lollipop layers emitted that for years, and declining it cost
+    // them their highlight on every chart from 4.4 on. Read as the joined list
+    // instead, with a warning, and the per-bar meaning is untouched.
+    if (Array.isArray(selector)) {
+      const perBar = this.points.length === 1 && selector.length === this.points[0]?.length;
+      if (!perBar) {
+        const joined = joinSelectorList(selector);
+        if (joined === null) {
+          return null;
+        }
+        warnSelectors(this.layer, legacyListProblem(selector.length));
+        selector = joined;
+      }
+    }
+
+    if (Array.isArray(selector)) {
+      const flat = selector as string[];
 
       // Looked up before anything is inserted. `Svg.selectElement` puts its
       // clone straight after the element it matched, so resolving one at a

@@ -6,6 +6,7 @@ import { PieDirection } from '@type/grammar';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
 import { isMeasured, toBarValue } from './bar';
@@ -248,7 +249,10 @@ export class PieTrace extends AbstractTrace {
     this.percentages = values.map(value => toPercentage(value, this.shareBasis));
     this.midAngles = toMidAngles(values, this.shareBasis, this.startAngle);
 
-    this.highlightValues = this.mapToSvgElements(layer.selectors as string);
+    // Through `selectorString`, so the list r-maidr 0.5.0's first builds put
+    // the pie's one selector in is read as that selector rather than as
+    // nothing.
+    this.highlightValues = this.mapToSvgElements(selectorString(layer));
     this.movable = new MovableGrid<PiePoint>(this.points);
   }
 
