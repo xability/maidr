@@ -44,6 +44,26 @@ type DrawableState = NonEmptyTraceState | Extract<FigureState, { empty: false }>
 type FrameOutcome = 'changed' | 'unchanged' | 'empty';
 
 /**
+ * Whether a redraw moves the window to the focused mark.
+ *
+ * `centre` always does, and is what a zoom step asks for: the reader zooms to
+ * feel the mark they are on in more detail, so it has to be in the middle of
+ * the pins at every level, in and out, where a hand already resting there
+ * finds it without searching. `offscreen` moves only when the focus has left
+ * the window, which is what navigation wants -- a pan the reader chose stays
+ * put for as long as it still shows their point. `none` never moves, for the
+ * redraw a pan asks for.
+ */
+type FocusFollow = 'centre' | 'offscreen' | 'none';
+
+/**
+ * How close two edges have to be, in screen pixels, to count as the same
+ * line. Enough to absorb the sub-pixel rounding a renderer leaves between
+ * bars that share a baseline.
+ */
+const SHARED_EDGE_TOLERANCE = 0.5;
+
+/**
  * How hardware keys move the pin graphic.
  *
  * The display's own panning keys pan horizontally, which is what a reader
@@ -554,7 +574,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     }
 
     try {
-      this.draw(state, true);
+      this.draw(state, 'offscreen');
     } catch (error) {
       // A hardware or geometry failure must not break the navigation the
       // reader is in the middle of; the audio and text channels carry on.
@@ -567,23 +587,22 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * navigation move — a zoom step, a pan, or the device connecting.
    */
   public refresh(): void {
-    this.redraw(true);
+    this.redraw('offscreen');
   }
 
   /**
    * Redraws from the last known state.
-   * @param followFocus - Whether a focus outside the view should recentre it;
-   * false for a redraw the reader asked for by panning or zooming
-   * @returns True when the frame that reached the pins differed from the one
-   * already there
+   * @param follow - Whether the window moves to the focused mark; see
+   * {@link FocusFollow}
+   * @returns What the redraw did to the pins
    */
-  private redraw(followFocus: boolean): FrameOutcome {
+  private redraw(follow: FocusFollow): FrameOutcome {
     const state = this.lastState;
     if (state === null || !this.isActive) {
       return 'unchanged';
     }
     try {
-      return this.draw(state, followFocus);
+      return this.draw(state, follow);
     } catch (error) {
       console.error('Tactile render failed:', error instanceof Error ? error.message : error);
       return 'unchanged';
@@ -635,14 +654,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.notification.notify(refusal);
       return;
     }
-    // Follows the focus, unlike a pan. Zoom is asked for to feel one mark more
-    // closely, and the mark meant is the one the reader is on -- so the window
-    // has to close in on that rather than on the middle of the plot, which is
-    // where it would otherwise stay. Two steps in, the middle of a plot is
-    // usually a patch with nothing in it, and the reader who zoomed to feel
-    // their point in more detail gets a blank display and no way to tell that
-    // their point is simply somewhere off the edge of it.
-    this.announceView(viewport, this.redraw(true));
+    // Centres on the focus, unlike a pan, and on every step rather than only
+    // when the focus has left the window. Zoom is asked for to feel one mark
+    // more closely, and the mark meant is the one the reader is on. Following
+    // only on exit let each step close in on wherever the window happened to
+    // be, so the mark drifted towards an edge and the reader had to search for
+    // it again after every press; kept in the middle, it is under the hand
+    // that was already on it, in and out alike.
+    this.announceView(viewport, this.redraw('centre'));
   }
 
   /**
@@ -664,7 +683,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         : TactileService.edgeRefusal(direction));
       return;
     }
-    this.announceView(viewport, this.redraw(false));
+    this.announceView(viewport, this.redraw('none'));
   }
 
   /**
@@ -1196,12 +1215,89 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * The point of the focused mark the window is centred on.
+   *
+   * Its middle, on every axis where the mark fits in the window. Where it does
+   * not -- a tall bar, a few steps in -- the middle is the one place on the
+   * mark with nothing to feel: its top and its baseline are both off the pins,
+   * so the bar arrives as two parallel lines, and a few steps further the
+   * window is wholly inside it and every pin is down. The reader zoomed in to
+   * feel the bar and loses it.
+   *
+   * So on that axis the window goes to the mark's value end instead: the edge
+   * where the bar stops, which is the reading. It is told from the baseline by
+   * what the other marks do. Bars stand on a common baseline, so the edge the
+   * other marks share is the baseline and the other one is the value -- the
+   * top of a positive bar, the bottom of a negative one, the right end of a
+   * horizontal one, with no need to know the chart's orientation or sign.
+   * Where neither edge is shared more than the other there is no baseline to
+   * read, and the middle stays.
+   *
+   * @param focus - The focused mark's bounds, in viewport pixels
+   * @param marks - Every mark on the active layer
+   * @param window - The visible window's size, in viewport pixels
+   * @param window.width - Window width in viewport pixels
+   * @param window.height - Window height in viewport pixels
+   */
+  private static anchorOf(
+    focus: ClientRect,
+    marks: readonly SVGGraphicsElement[],
+    window: { width: number; height: number },
+  ): { x: number; y: number } {
+    const centreX = focus.left + focus.width / 2;
+    const centreY = focus.top + focus.height / 2;
+    const fitsX = focus.width <= window.width;
+    const fitsY = focus.height <= window.height;
+    if (fitsX && fitsY) {
+      return { x: centreX, y: centreY };
+    }
+
+    const boxes = marks.map(mark => mark.getBoundingClientRect());
+    const sharing = (edge: number, near: (box: DOMRect) => number, far: (box: DOMRect) => number): number =>
+      boxes.filter(box => Math.abs(near(box) - edge) <= SHARED_EDGE_TOLERANCE
+        || Math.abs(far(box) - edge) <= SHARED_EDGE_TOLERANCE).length;
+    const valueEnd = (low: number, high: number, centre: number, lowShared: number, highShared: number): number => {
+      if (lowShared > highShared) {
+        return high;
+      }
+      if (highShared > lowShared) {
+        return low;
+      }
+      return centre;
+    };
+
+    const right = focus.left + focus.width;
+    const bottom = focus.top + focus.height;
+    return {
+      x: fitsX
+        ? centreX
+        : valueEnd(
+            focus.left,
+            right,
+            centreX,
+            sharing(focus.left, box => box.left, box => box.right),
+            sharing(right, box => box.left, box => box.right),
+          ),
+      y: fitsY
+        ? centreY
+        : valueEnd(
+            focus.top,
+            bottom,
+            centreY,
+            sharing(focus.top, box => box.top, box => box.bottom),
+            sharing(bottom, box => box.top, box => box.bottom),
+          ),
+    };
+  }
+
+  /**
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
-   * @param followFocus - Whether a focus outside the view should recentre it
-   * @returns True when the frame differed from the one already on the device
+   * @param follow - Whether the window moves to the focused mark; see
+   * {@link FocusFollow}
+   * @returns What the redraw did to the pins
    */
-  private draw(state: DrawableState, followFocus: boolean): FrameOutcome {
+  private draw(state: DrawableState, follow: FocusFollow): FrameOutcome {
     const geometry = dotPadSession.geometry;
     const region = this.findRegionElement();
     if (geometry === null || region === null) {
@@ -1245,16 +1341,18 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       ? TactileService.focusedElements(state.highlight)
       : [];
 
-    // Follow the focus when a navigation move or a zoom step took it off the
-    // view, and never on the redraw a pan asks for. Panning is what moves the
-    // focus out of view deliberately, so recentring there would undo the
-    // reader's own pan on the very redraw it triggered — and for a mark bigger
-    // than the window, which can never be contained, panning would never move
-    // at all while still announcing that it had.
-    if (followFocus) {
+    // Follow the focus on a zoom step, and on a navigation move that took it
+    // off the view, and never on the redraw a pan asks for. Panning is what
+    // moves the focus out of view deliberately, so recentring there would undo
+    // the reader's own pan on the very redraw it triggered — and for a mark
+    // bigger than the window, which can never be contained, panning would
+    // never move at all while still announcing that it had.
+    if (follow !== 'none') {
       const focusBounds = TactileService.boundsOf(focused);
-      if (focusBounds !== null && !this.viewport.containsRect(focusBounds)) {
-        this.viewport.centreOn(focusBounds);
+      if (focusBounds !== null
+        && (follow === 'centre' || !this.viewport.containsRect(focusBounds))) {
+        const anchor = TactileService.anchorOf(focusBounds, marks, this.viewport.windowSize);
+        this.viewport.centreOnPoint(anchor.x, anchor.y);
       }
     }
 
@@ -1334,7 +1432,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       if (this.disposed || !this.isActive) {
         return;
       }
-      this.redraw(false);
+      this.redraw('none');
     });
   }
 

@@ -391,10 +391,22 @@ spending a second redrawing what is already there. The digit row reads the same
 way round as the zoom levels: <kbd>1</kbd> upwards is closer in, and
 <kbd>0</kbd> is the one before them.
 
-Zooming closes in on **the mark you are on**, not on the middle of the chart.
-That is the mark you asked to feel more closely, and after a step or two the
-middle of a chart is usually a patch with nothing in it — so holding the view
-there would hand you blank pins and no account of why.
+Zooming closes in on **the mark you are on**, not on the middle of the chart,
+and puts it in the middle of the pins on every step, in and out. That is the
+mark you asked to feel more closely; kept in the middle, it stays under the
+hand that was already resting on it instead of drifting towards an edge you
+then have to search.
+
+A mark too big for the window — a tall bar, a few steps in — is held by its
+value end rather than its middle: the top of a bar, the bottom of one that
+hangs below the baseline, the far end of a horizontal one. Centred on its
+middle, a tall bar lost its top and its baseline off the edges of the pins and
+arrived as two parallel lines, and a few steps further the window sat wholly
+inside it with every pin down. Which end is the value is read from the other
+bars: the edge they share is the baseline.
+
+Near the edge of the chart the view stops at the edge rather than showing
+empty space beyond it, so a mark there sits off-centre, towards that edge.
 
 Zooming out to where you started gives back the picture you started with,
 pin for pin. That is worth stating because it did not always hold. Only the

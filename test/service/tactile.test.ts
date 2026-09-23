@@ -1788,6 +1788,58 @@ describe('tactileService', () => {
       // centre left of the middle. One that did not stays at 50%.
       expect(lastAnnouncement()).toBe('Zoom 2x, centred 25% across and 25% down');
     });
+
+    it('should bring the focused mark back to the middle on every zoom step', () => {
+      // A pan leaves the focused mark off-centre but still in view. Following
+      // only a mark that has left the window then lets each zoom step close in
+      // on wherever the window happened to be, and the mark drifts to the edge
+      // of the pins; the reader has to search for it again after every press.
+      activate(1);
+      service.zoomIn();
+      session.fireKey('panRight');
+      notify.mockClear();
+
+      service.zoomIn();
+      expect(lastAnnouncement()).toBe('Zoom 2x, centred 50% across and 50% down');
+
+      session.fireKey('panRight');
+      service.zoomOut();
+      expect(lastAnnouncement()).toBe('Zoom 1.5x, centred 50% across and 50% down');
+    });
+
+    it('should hold a bar taller than the window by its top, not its middle', () => {
+      // Centred on its middle, a tall bar loses its top and its baseline to
+      // the edges of the pins and arrives as two parallel lines -- and a few
+      // steps in, the window is wholly inside it and every pin is down. Its
+      // top is the value, so that is what stays in view.
+      stubRect(chart.marks[0], { left: 0, top: 40, width: 10, height: 60 });
+      stubRect(chart.marks[1], { left: 95, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[2], { left: 190, top: 70, width: 10, height: 30 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and 25% down/);
+      expect(lastAnnouncement()).not.toContain('nothing is in view');
+    });
+
+    it('should hold a bar hanging below its baseline by its bottom', () => {
+      // The same rule with the sign turned over: the edge the other bars
+      // share is the baseline whichever side it is on, so a negative bar is
+      // held by the end it reaches down to.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 60 });
+      stubRect(chart.marks[1], { left: 95, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[2], { left: 190, top: 0, width: 10, height: 30 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and 75% down/);
+    });
   });
 
   describe('charts read by their shape', () => {

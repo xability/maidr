@@ -381,6 +381,43 @@ describe('tactileViewport centreOn', () => {
   });
 });
 
+describe('tactileViewport centreOnPoint and windowSize', () => {
+  let viewport: TactileViewport;
+
+  beforeEach(() => {
+    viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT);
+  });
+
+  it('should put a point at the middle of the dot grid', () => {
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    viewport.centreOnPoint(250, 120);
+
+    const centre = viewport.toDot(250, 120);
+    expect(centre.x).toBeCloseTo(CENTRE_X);
+    expect(centre.y).toBeCloseTo(CENTRE_Y);
+  });
+
+  it('should still stop at the edge of the chart', () => {
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    viewport.centreOnPoint(SOURCE.left, SOURCE.top);
+
+    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: FIRST_X, y: FIRST_Y });
+  });
+
+  it('should report the window as the whole source at zoom 1 and a slice of it zoomed in', () => {
+    expect(viewport.windowSize).toEqual({ width: SOURCE.width, height: SOURCE.height });
+
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    expect(viewport.windowSize).toEqual({ width: SOURCE.width / 2, height: SOURCE.height / 2 });
+  });
+});
+
 describe('tactileViewport reset and setSource', () => {
   let viewport: TactileViewport;
 

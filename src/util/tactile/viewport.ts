@@ -373,6 +373,17 @@ export class TactileViewport {
   }
 
   /**
+   * Size of the visible window, in viewport pixels.
+   *
+   * What decides whether a mark can be seen whole at this zoom, and so whether
+   * the window should sit on its middle or on one of its ends.
+   */
+  public get windowSize(): { width: number; height: number } {
+    const span = this.halfWindow * 2;
+    return { width: this.source.width * span, height: this.source.height * span };
+  }
+
+  /**
    * Centres the window on a viewport-pixel rectangle.
    *
    * Used to follow the focused mark when navigation takes it off the visible
@@ -383,13 +394,24 @@ export class TactileViewport {
    * @param rect - The rectangle to centre on, in viewport pixels
    */
   public centreOn(rect: ClientRect): void {
+    this.centreOnPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+
+  /**
+   * Centres the window on a viewport-pixel point, as far as the edges of the
+   * chart allow.
+   *
+   * @param clientX - Horizontal position in viewport pixels
+   * @param clientY - Vertical position in viewport pixels
+   */
+  public centreOnPoint(clientX: number, clientY: number): void {
     const { left, top, width, height } = this.source;
     if (width <= 0 || height <= 0) {
       return;
     }
     this.centre = {
-      x: (rect.left + rect.width / 2 - left) / width,
-      y: (rect.top + rect.height / 2 - top) / height,
+      x: (clientX - left) / width,
+      y: (clientY - top) / height,
     };
     this.clampCentre();
   }
