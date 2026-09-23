@@ -403,3 +403,19 @@ export class EmptySubplotError extends Error {
     this.name = 'EmptySubplotError';
   }
 }
+
+/**
+ * Error thrown when operations on a language binding's output fixture fail
+ */
+export class BindingOutputError extends Error {
+  /**
+   * Creates a new BindingOutputError
+   * @param message - Error message describing the issue
+   * @param options - Standard error options. Pass `{ cause }` so the
+   * original failure's message and stack stay attached to this one.
+   */
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'BindingOutputError';
+  }
+}
