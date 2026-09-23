@@ -1238,6 +1238,20 @@ describe('dotPadSession', () => {
       expect(writeFailure).not.toHaveBeenCalled();
     });
 
+    it('should report a vibration the device rejected asynchronously', async () => {
+      const Base = createVendor();
+      class RejectingSdk extends Base.module.DotPadSDK {
+        public override requestVibrator = (): Promise<void> => Promise.reject(new Error('busy'));
+      }
+      const { session } = await connectSession({ ...Base, module: { ...Base.module, DotPadSDK: RejectingSdk } });
+      const onFailure = jest.fn();
+
+      session.vibrate(onFailure);
+      await flushWrites();
+
+      expect(onFailure).toHaveBeenCalledTimes(1);
+    });
+
     it('should report that it could not when the SDK has no vibrator', async () => {
       const { session } = await connectSession(createVendor());
 

@@ -985,6 +985,10 @@ class DotPadSession {
       return false;
     }
     this.enqueue(async () => {
+      // A display that went away while the request waited has no edge to mark.
+      if (this.device !== device) {
+        return;
+      }
       try {
         await sdk.requestVibrator?.(
           device,

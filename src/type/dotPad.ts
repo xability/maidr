@@ -140,7 +140,7 @@ export interface DotPadVendorSdk {
    * checked at runtime: an SDK build without it leaves the display silent to
    * the hand rather than breaking the connection.
    */
-  requestVibrator?: (device?: DotPadVendorDevice | null, onMs?: number, offMs?: number, count?: number) => void;
+  requestVibrator?: (device?: DotPadVendorDevice | null, onMs?: number, offMs?: number, count?: number) => void | Promise<void>;
   setBrailleLanguage: (language: unknown, gradeOption?: number | null) => void;
   setNumberOfBraillePerLine: (count: number) => void;
   translateText: (inputText: string, applyWordWrap?: boolean) => Promise<string>;
