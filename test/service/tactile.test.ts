@@ -102,7 +102,7 @@ jest.mock('@service/dotPadSession', () => {
       writeGraphic: jest.fn(),
       writeGraphicRow: jest.fn(),
       writeText: jest.fn(),
-      vibrate: jest.fn((): boolean => true),
+      vibrate: jest.fn((_onFailure?: () => void): boolean => true),
       connect: jest.fn(),
       disconnect: jest.fn(),
       adopt: jest.fn(async (): Promise<boolean> => false),
@@ -161,7 +161,7 @@ interface FakeSession {
   writeGraphic: jest.Mock<(hex: string) => void>;
   writeGraphicRow: jest.Mock<(cellRow: number, hex: string) => void>;
   writeText: jest.Mock<(hex: string) => void>;
-  vibrate: jest.Mock<() => boolean>;
+  vibrate: jest.Mock<(onFailure?: () => void) => boolean>;
   disconnect: jest.Mock<() => void>;
   adopt: jest.Mock<() => Promise<boolean>>;
   releaseIfAdopted: jest.Mock<() => void>;
@@ -458,7 +458,7 @@ describe('tactileService', () => {
     session.writeGraphicRow.mockClear();
     session.writeText.mockClear();
     session.vibrate.mockReset();
-    session.vibrate.mockImplementation((): boolean => true);
+    session.vibrate.mockImplementation((_onFailure?: () => void): boolean => true);
     session.disconnect.mockClear();
     session.releaseIfAdopted.mockClear();
     session.adopt.mockReset();
@@ -1470,6 +1470,19 @@ describe('tactileService', () => {
       // A key that does nothing and says nothing is indistinguishable from a
       // broken one, so the edge still has to reach the reader somehow.
       session.vibrate.mockReturnValue(false);
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function1');
+
+      expect(notify).toHaveBeenCalledWith('Start of the line');
+    });
+
+    it('should speak the edge when the device refuses to vibrate', () => {
+      session.vibrate.mockImplementation((onFailure?: () => void): boolean => {
+        onFailure?.();
+        return true;
+      });
       activate();
       notify.mockClear();
 

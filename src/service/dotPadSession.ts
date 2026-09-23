@@ -973,21 +973,32 @@ class DotPadSession {
    * Queued with the writes, so it lands after the frame or line the key that
    * provoked it produced rather than ahead of it.
    *
+   * @param onFailure - Called when the device refused the request after it
+   * was queued, so the caller can still say it another way
    * @returns False when there is no device or its SDK cannot vibrate, so the
    * caller can say it another way
    */
-  public vibrate(): boolean {
+  public vibrate(onFailure?: () => void): boolean {
     const sdk = this.sdk;
     const device = this.device;
     if (sdk === null || device === null || typeof sdk.requestVibrator !== 'function') {
       return false;
     }
-    this.enqueue(() => sdk.requestVibrator?.(
-      device,
-      EDGE_VIBRATION.onMs,
-      EDGE_VIBRATION.offMs,
-      EDGE_VIBRATION.count,
-    ));
+    this.enqueue(async () => {
+      try {
+        await sdk.requestVibrator?.(
+          device,
+          EDGE_VIBRATION.onMs,
+          EDGE_VIBRATION.offMs,
+          EDGE_VIBRATION.count,
+        );
+      } catch (error) {
+        // Queued is not delivered: a request the firmware turns down would
+        // otherwise leave the key doing nothing and saying nothing.
+        onFailure?.();
+        throw error;
+      }
+    });
     return true;
   }
 

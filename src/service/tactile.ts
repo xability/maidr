@@ -921,11 +921,12 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
   /**
    * Tells the reader the text line goes no further in the way they pressed.
-   * @param fallback - What to say when the device cannot vibrate
+   * @param fallback - What to say when the device cannot vibrate, or would not
    */
   private signalLineEdge(fallback: string): void {
-    if (!dotPadSession.vibrate()) {
-      this.notification.notify(fallback);
+    const say = (): void => this.notification.notify(fallback);
+    if (!dotPadSession.vibrate(say)) {
+      say();
     }
   }
 

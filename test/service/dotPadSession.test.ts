@@ -1214,6 +1214,25 @@ describe('dotPadSession', () => {
       expect(requests).toEqual([[DEVICE, 300, 0, 1]]);
     });
 
+    it('should report a vibration the device refused after it was queued', async () => {
+      // The request is queued behind the frame, so the answer comes later
+      // than the return value. Refused, the reader would get no buzz and no
+      // speech.
+      const Base = createVendor();
+      class RefusingSdk extends Base.module.DotPadSDK {
+        public override requestVibrator = (): void => {
+          throw new Error('not supported by this firmware');
+        };
+      }
+      const { session } = await connectSession({ ...Base, module: { ...Base.module, DotPadSDK: RefusingSdk } });
+      const onFailure = jest.fn();
+
+      expect(session.vibrate(onFailure)).toBe(true);
+      await flushWrites();
+
+      expect(onFailure).toHaveBeenCalledTimes(1);
+    });
+
     it('should report that it could not when the SDK has no vibrator', async () => {
       const { session } = await connectSession(createVendor());
 
