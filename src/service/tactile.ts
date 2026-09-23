@@ -664,7 +664,9 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       if (this.disposed) {
         return;
       }
-      this.redraw('offscreen');
+      // Only the first pass follows the focus. By the second the reader may
+      // have panned, and following again would undo the pan unannounced.
+      this.redraw(settle ? 'none' : 'offscreen');
       if (!settle) {
         this.canvasDrawTimer = setTimeout(() => pass(true), TactileService.CANVAS_SETTLE_MS);
       }

@@ -2551,6 +2551,30 @@ describe('tactileService', () => {
       expect(pins.has(`${x},${y}`)).toBe(true);
       canvasService.dispose();
     });
+    it('should leave a pan alone when the chart is read again once settled', async () => {
+      // A canvas chart is read twice per move, the second time once its
+      // animation has finished. That second reading followed the focus too,
+      // and a pan made in between was undone without a word.
+      const { service: canvasService } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      canvasService.zoomIn();
+      canvasService.zoomIn();
+      canvasService.zoomIn();
+      canvasService.pan('right');
+      canvasService.pan('right');
+      const sent = (): number => session.writeGraphic.mock.calls.length + session.writeGraphicRow.mock.calls.length;
+      const panned = sent();
+
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // The settled reading draws the same view, so there is nothing to send.
+      expect(sent()).toBe(panned);
+      canvasService.dispose();
+    });
+
     it('should hold a tall canvas bar by its top when zoomed past it', async () => {
       // A canvas has no other marks to show which end of a bar is its
       // baseline. Centred on its middle, the bar came through as two parallel
