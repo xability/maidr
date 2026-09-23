@@ -1475,27 +1475,33 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       }
     };
 
-    for (const element of elements) {
-      for (const ring of TactileService.outlineRingsOf(element, SCREEN)) {
-        const points = ring.points.filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
-        if (points.length === 1) {
-          consider(points[0].x, points[0].y);
-          continue;
-        }
-        const segments = ring.closed ? points.length : points.length - 1;
-        for (let index = 0; index < segments; index++) {
-          const from = points[index];
-          const to = points[(index + 1) % points.length];
-          // The foot of the perpendicular, in window units, clamped to the
-          // segment.
-          const dx = (to.x - from.x) / scaleX;
-          const dy = (to.y - from.y) / scaleY;
-          const length = dx * dx + dy * dy;
-          const along = length === 0
-            ? 0
-            : Math.min(1, Math.max(0, (((target.x - from.x) / scaleX) * dx + ((target.y - from.y) / scaleY) * dy) / length));
-          consider(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * along);
-        }
+    // Piece by piece, as the renderer draws them: run together, the pieces of
+    // one path are joined by lines the chart never drew, and the nearest
+    // point could land on one of those, in the gap between the pieces.
+    const pieces = elements.flatMap(element => TactileService.outlineRingsOf(element, SCREEN))
+      .flatMap(ring => ring.parts ?? [{ points: ring.points, closed: ring.closed }]);
+    for (const piece of pieces) {
+      const points = piece.points.filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+      if (points.length === 0) {
+        continue;
+      }
+      if (points.length === 1) {
+        consider(points[0].x, points[0].y);
+        continue;
+      }
+      const segments = piece.closed ? points.length : points.length - 1;
+      for (let index = 0; index < segments; index++) {
+        const from = points[index];
+        const to = points[(index + 1) % points.length];
+        // The foot of the perpendicular, in window units, clamped to the
+        // segment.
+        const dx = (to.x - from.x) / scaleX;
+        const dy = (to.y - from.y) / scaleY;
+        const length = dx * dx + dy * dy;
+        const along = length === 0
+          ? 0
+          : Math.min(1, Math.max(0, (((target.x - from.x) / scaleX) * dx + ((target.y - from.y) / scaleY) * dy) / length));
+        consider(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * along);
       }
     }
     return best;

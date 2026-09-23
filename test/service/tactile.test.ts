@@ -1888,6 +1888,39 @@ describe('tactileService', () => {
       expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and (25|75)% down/);
     });
 
+    it('should hold a mark in pieces by a piece, not by the gap between them', () => {
+      // An error bar's two caps, drawn as one path with no stem. Run together,
+      // the caps were joined by a line the chart never drew, straight through
+      // the middle of the mark, and the window went there: nothing under it.
+      // The other marks share neither end of it, so there is no baseline to
+      // read and the window starts from the middle.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[1], { left: 90, top: 5, width: 20, height: 90 });
+      stubRect(chart.marks[2], { left: 190, top: 45, width: 10, height: 10 });
+      // jsdom makes a rect a plain SVGElement, which is measured by its box;
+      // the outline is only read from a graphics element.
+      Object.setPrototypeOf(chart.marks[1], SVGGraphicsElement.prototype);
+      ringsOf.mockImplementation((element, viewport) => {
+        if (element !== chart.marks[1]) {
+          return ringFor(element, viewport);
+        }
+        const top = [viewport.toDot(90, 5), viewport.toDot(110, 5)];
+        const bottom = [viewport.toDot(90, 95), viewport.toDot(110, 95)];
+        return [{
+          points: [...top, ...bottom],
+          closed: false,
+          parts: [{ points: top, closed: false }, { points: bottom, closed: false }],
+        }];
+      });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and (25|75)% down/);
+    });
+
     it('should move to the nearest mark rather than stop on an empty display', () => {
       // With no focused element to close in on -- a point with no element of
       // its own, or the multi-panel lobby -- the window stayed on the middle
