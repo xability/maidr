@@ -83,7 +83,12 @@ function readFirstBar(layer: MaidrLayer): { magnitude: unknown; warnings: string
   const state = (trace as unknown as { state: { audio: { freq: { raw: unknown } } } }).state;
   return {
     magnitude: state.audio.freq.raw,
-    warnings: warnSpy.mock.calls.map(call => String(call[0])),
+    // Only the magnitude warning is this file's subject. No chart is drawn
+    // here, so the layer's selectors resolve to nothing and the factory also
+    // says that -- true, and beside the point of an orientation test.
+    warnings: warnSpy.mock.calls
+      .map(call => String(call[0]))
+      .filter(message => message.startsWith('[BarTrace]')),
   };
 }
 

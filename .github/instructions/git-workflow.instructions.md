@@ -45,6 +45,30 @@ Squashed merges compose the release commit from the pull request title, so a
 breaking change needs its `!` **in the title**, not only in a commit inside
 the branch.
 
+## Changes producers depend on
+
+What a layer type reads from `selectors` and `domMapping`, and the shape of its
+`data`, is matched by every producer against its own rendering -- and most
+producers, r-maidr, py-maidr and hand-written pages among them, are not in this
+repository. py-maidr loads the latest release by default, so a change here
+reaches every installed copy of it on the day it is published. #750, #991 and
+#1135 each changed what a layer read, shipped as `fix:`, were checked against
+"every producer in the tree", and between them took the highlight off
+r-maidr's and py-maidr's charts for weeks with nothing failing.
+
+So a change to what any layer type reads from a producer:
+
+- keeps the shape producers emit today working, with a console warning, for at
+  least one major version -- `src/util/selectors.ts` is how the pre-4.0
+  selector lists are kept;
+- carries `!` in the pull request title and a `BREAKING CHANGE:` footer naming
+  the shape that changed, even when it also fixes a bug;
+- updates the "Selectors" section of `docs/SCHEMA.md`;
+- passes `e2e_tests/specs/bindingOutput.spec.ts`, which drives real r-maidr and
+  py-maidr output through the build. A fixture that fails there is a reader who
+  loses something on release day; change the fixture only when the binding has
+  shipped the new shape.
+
 ## Practice
 
 - One logical change per commit. Split unrelated fixes rather than bundling them.

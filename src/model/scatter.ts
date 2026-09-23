@@ -7,6 +7,7 @@ import type { Dimension, NearestPoint } from './abstract';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
@@ -481,8 +482,11 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       this.maxZ = 0;
     }
 
-    // Select SVG elements once, then share for COL/ROW grouping and grid cell mapping
-    const selector = layer.selectors as string;
+    // Select SVG elements once, then share for COL/ROW grouping and grid cell
+    // mapping. `selectorString` also reads the one-element list every
+    // py-maidr release up to 1.24 emits for a scatter, which 4.0 had silently
+    // stopped reading.
+    const selector = selectorString(layer);
     const allSvgClones = selector ? Svg.selectAllElements(selector) : [];
     this.svgClones = allSvgClones;
 

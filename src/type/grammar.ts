@@ -1477,8 +1477,13 @@ export interface MaidrLayer {
   /**
    * Which element of the chart each point of the layer is drawn as.
    *
-   * A plain string leaves the pairing to document order; an array names one
-   * element per point; a grid names one per cell of a segmented layer.
+   * What each shape means depends on the layer type, and is written down per
+   * type in the "Selectors" section of `docs/SCHEMA.md`: a string is resolved
+   * with `querySelectorAll`; a list is one element per point for a bar, one per
+   * series for the line family, and resolved entry by entry for most others; a
+   * grid names one element per cell of a segmented layer or a heat map. A
+   * layer whose selectors resolve to nothing is still read aloud, and MAIDR
+   * says so in the console.
    *
    * A grid cell may be `null`, which says the chart drew **no element** for
    * that cell — a category a series has no bar at, or a position a heat grid

@@ -4,6 +4,7 @@ import type { DescriptionState, HighlightState, TextState } from '@type/state';
 import { Orientation } from '@type/grammar';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractBarPlot, isMeasured, missingText } from './bar';
 import { extremumAt } from './extremaTarget';
@@ -486,12 +487,27 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // which end a category's series start from are all ways of guessing what
     // a grid has already said.
     //
-    // A flat list is still declined, and for the same reason it was when this
-    // branch declined every array (#990): it says which bars there are but not
-    // which cell each one is in, and the chunking below is exactly what would
-    // have to answer that.
+    // A flat list of strings is not a grid. It is the pre-4.0 shape: the
+    // selector (or several) that name every bar, which maidr.js read by
+    // handing the list to the DOM, where it became the comma-joined selector
+    // list. r-maidr's dodged, stacked, normalized and mosaic layers emitted
+    // exactly that, and declining it -- which `mapGridToSvgElements` does for
+    // a row that is not a list -- cost them their highlight. It is joined and
+    // walked like any other flat selector, with a warning; which cell each
+    // mark lands in is then `domMapping`'s to say, as it is for a string.
+    let flatSelector = selector;
+    let legacyList = false;
     if (Array.isArray(selector)) {
-      return this.mapGridToSvgElements(selector);
+      const joined = joinSelectorList(selector);
+      if (joined === null) {
+        return this.mapGridToSvgElements(selector);
+      }
+      warnSelectors(this.layer, legacyListProblem(selector.length));
+      flatSelector = joined;
+      legacyList = true;
+    }
+    if (typeof flatSelector !== 'string') {
+      return null;
     }
 
     // Resolved live; `claim` clones each mark as a cell takes it. Cloning
@@ -499,7 +515,7 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // selector matching more marks than there are cells left the surplus
     // copies unreferenced -- so `dispose()` never removed them, and the next
     // resolution matched them too.
-    const domElements = Svg.selectAllElements(selector, false);
+    const domElements = Svg.selectAllElements(flatSelector, false);
     if (domElements.length === 0) {
       return null;
     }
@@ -533,7 +549,19 @@ export class SegmentedTrace extends AbstractBarPlot<SegmentedPoint> {
     // -- the convention `groupsRunForward` describes -- says so with
     // `order: 'column'` and gets exactly what the rect branch used to give it
     // by default.
-    const isColumnMajor = this.layer.domMapping?.order === 'column';
+    //
+    // One exception, and only for the pre-4.0 shape. A layer that arrived as
+    // a flat list was written against maidr.js before #1135, where a `<rect>`
+    // layer that declared no order was walked category by category -- r-maidr
+    // relied on exactly that for its dodged and stacked bars. Reading that
+    // layer series-major outlines a bar other than the one announced, which
+    // is worse than no outline, so the old pairing is kept for it: the shape
+    // says which contract the producer wrote against. A string, or a list with
+    // a declared `order`, is read as today.
+    const isColumnMajor = this.layer.domMapping?.order === 'column'
+      || (legacyList
+        && this.layer.domMapping?.order === undefined
+        && domElements[0]?.tagName.toLowerCase() === 'rect');
     const isForward = this.groupsRunForward;
 
     const svgElements = this.barValues.map(() => new Array<SVGElement>());
