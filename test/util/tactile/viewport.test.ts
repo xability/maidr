@@ -459,6 +459,23 @@ describe('tactileViewport with a degenerate source rect', () => {
   });
 });
 
+describe('tactileViewport measurement noise', () => {
+  it('should put two points of one edge on the same pin when they differ only by noise', () => {
+    // The browser measures a path in single precision, so the samples along
+    // one straight edge come back a few millionths apart. On the boundary
+    // between two pin rows -- the middle of the drawn area is one, since it
+    // spans an odd number of pins -- unquantised they round to both, and a
+    // straight edge arrives as a staircase.
+    const viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT);
+
+    const above = viewport.toDot(MID_X, MID_Y - 1e-5);
+    const below = viewport.toDot(MID_X, MID_Y + 1e-5);
+
+    expect(CENTRE_Y % 1).toBe(0.5);
+    expect(Math.round(above.y)).toBe(Math.round(below.y));
+  });
+});
+
 describe('tactileViewport describe', () => {
   let viewport: TactileViewport;
 

@@ -108,6 +108,21 @@ export class TactileViewport {
   private static readonly MIN_PRESERVED_SHARE = 0.25;
 
   /**
+   * Resolution, in dots, projected coordinates are quantised to.
+   *
+   * The browser measures a path in single precision, so the samples along one
+   * straight edge come back a few millionths apart -- 158.71449 and 158.71448
+   * for the top of one matplotlib bar. That is nothing until the edge lands on
+   * the boundary between two pin rows, and then the samples round to both: a
+   * straight edge arrives as a staircase, and the heavy outline of the focused
+   * bar as a wedge. Centring the window on a mark makes that the ordinary case
+   * rather than the unlucky one, since the middle of an odd number of pins is a
+   * half. A thousandth of a dot is far below anything the pins resolve and far
+   * above that noise.
+   */
+  private static readonly DOT_QUANTUM = 1000;
+
+  /**
    * The chart region being mapped, in viewport pixels.
    */
   private source: ClientRect;
@@ -302,10 +317,10 @@ export class TactileViewport {
     const unitY = (normalizedY - (this.centre.y - half)) / span;
 
     if (this.aspect === 'stretch') {
-      return {
-        x: margin + unitX * usableWidth,
-        y: margin + unitY * usableHeight,
-      };
+      return TactileViewport.quantise(
+        margin + unitX * usableWidth,
+        margin + unitY * usableHeight,
+      );
     }
 
     // One scale for both axes, and the leftover pins split evenly so the chart
@@ -318,14 +333,28 @@ export class TactileViewport {
     if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
       < TactileViewport.MIN_PRESERVED_SHARE) {
       // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
-      return {
-        x: margin + unitX * usableWidth,
-        y: margin + unitY * usableHeight,
-      };
+      return TactileViewport.quantise(
+        margin + unitX * usableWidth,
+        margin + unitY * usableHeight,
+      );
     }
+    return TactileViewport.quantise(
+      margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
+      margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
+    );
+  }
+
+  /**
+   * Rounds a dot position to {@link DOT_QUANTUM}, so points on one edge that
+   * differ only by measurement noise land on the same pin.
+   * @param x - Dot column
+   * @param y - Dot row
+   */
+  private static quantise(x: number, y: number): DotPoint {
+    const quantum = TactileViewport.DOT_QUANTUM;
     return {
-      x: margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
-      y: margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
+      x: Math.round(x * quantum) / quantum,
+      y: Math.round(y * quantum) / quantum,
     };
   }
 

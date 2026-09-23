@@ -269,8 +269,10 @@ describe('tactileSvgGeometry.ringsOf on a circle', () => {
       x: ring.points.reduce((sum, p) => sum + p.x, 0) / ring.points.length,
       y: ring.points.reduce((sum, p) => sum + p.y, 0) / ring.points.length,
     };
+    // To three places: the viewport quantises every point to a thousandth of
+    // a dot, so measurement noise cannot split one edge across two pins.
     for (const point of ring.points) {
-      expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeCloseTo(3, 5);
+      expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeCloseTo(3, 2);
     }
   });
 });
