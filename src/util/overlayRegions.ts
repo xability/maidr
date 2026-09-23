@@ -12,50 +12,37 @@
  * Coordinates are CSS pixels relative to the overlay layer's own top-left.
  */
 
-/**
- * Marks the overlay layer an adapter draws its highlight into.
- */
-export const OVERLAY_LAYER_ATTRIBUTE = 'data-maidr-overlay';
+import type { PixelRect } from './tactile/canvasRaster';
 
 /**
- * Marks each highlight box or outline inside the overlay layer.
+ * The attributes an overlay layer carries, by what each one marks.
  */
-export const OVERLAY_HIGHLIGHT_ATTRIBUTE = 'data-maidr-overlay-highlight';
-
-/**
- * Marks a hidden canvas inside the overlay layer holding the chart as it was
- * before anything was painted over the data -- a tooltip -- for readers of
- * the pixels to read in place of the visible one. It covers the overlay
- * layer's box.
- */
-export const OVERLAY_CLEAN_CANVAS_ATTRIBUTE = 'data-maidr-clean-canvas';
-
-/**
- * The plot area, as `left top right bottom`.
- */
-export const OVERLAY_PLOT_AREA_ATTRIBUTE = 'data-maidr-plot-area';
-
-/**
- * Areas the library has painted over the data, as `left top right bottom`
- * boxes separated by `;`.
- */
-export const OVERLAY_EXCLUDE_ATTRIBUTE = 'data-maidr-exclude';
-
-/**
- * A box in overlay coordinates.
- */
-export interface OverlayBox {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
+export const OVERLAY_ATTRIBUTES = {
+  /** The overlay layer an adapter draws its highlight into. */
+  layer: 'data-maidr-overlay',
+  /** Each highlight box or outline inside the overlay layer. */
+  highlight: 'data-maidr-overlay-highlight',
+  /**
+   * A hidden canvas inside the overlay layer holding the chart as it was
+   * before anything was painted over the data -- a tooltip -- for readers of
+   * the pixels to read in place of the visible one. It covers the overlay
+   * layer's box.
+   */
+  cleanCanvas: 'data-maidr-clean-canvas',
+  /** The plot area, as `left top right bottom`. */
+  plotArea: 'data-maidr-plot-area',
+  /**
+   * Areas the library has painted over the data, as `left top right bottom`
+   * boxes separated by `;`.
+   */
+  exclude: 'data-maidr-exclude',
+} as const;
 
 /**
  * Whether a value is a box with four finite edges and some area.
  * @param box - The candidate
  */
-function isBox(box: OverlayBox | null | undefined): box is OverlayBox {
+function isBox(box: PixelRect | null | undefined): box is PixelRect {
   return box !== null && box !== undefined
     && [box.left, box.top, box.right, box.bottom].every(Number.isFinite)
     && box.right > box.left && box.bottom > box.top;
@@ -69,22 +56,22 @@ function isBox(box: OverlayBox | null | undefined): box is OverlayBox {
  */
 export function writeOverlayRegions(
   layer: HTMLElement,
-  plotArea: OverlayBox | null,
-  exclude: readonly (OverlayBox | null)[] = [],
+  plotArea: PixelRect | null,
+  exclude: readonly (PixelRect | null)[] = [],
 ): void {
   if (isBox(plotArea)) {
-    layer.setAttribute(OVERLAY_PLOT_AREA_ATTRIBUTE, [plotArea.left, plotArea.top, plotArea.right, plotArea.bottom].join(' '));
+    layer.setAttribute(OVERLAY_ATTRIBUTES.plotArea, [plotArea.left, plotArea.top, plotArea.right, plotArea.bottom].join(' '));
   } else {
-    layer.removeAttribute(OVERLAY_PLOT_AREA_ATTRIBUTE);
+    layer.removeAttribute(OVERLAY_ATTRIBUTES.plotArea);
   }
   const boxes = exclude.filter(isBox);
   if (boxes.length > 0) {
     layer.setAttribute(
-      OVERLAY_EXCLUDE_ATTRIBUTE,
+      OVERLAY_ATTRIBUTES.exclude,
       boxes.map(box => [box.left, box.top, box.right, box.bottom].join(' ')).join(';'),
     );
   } else {
-    layer.removeAttribute(OVERLAY_EXCLUDE_ATTRIBUTE);
+    layer.removeAttribute(OVERLAY_ATTRIBUTES.exclude);
   }
 }
 
@@ -92,7 +79,7 @@ export function writeOverlayRegions(
  * Reads one box written by {@link writeOverlayRegions}.
  * @param text - `left top right bottom`
  */
-function parseBox(text: string): OverlayBox | null {
+function parseBox(text: string): PixelRect | null {
   const [left, top, right, bottom] = text.trim().split(/\s+/).map(Number);
   const box = { left, top, right, bottom };
   return isBox(box) ? box : null;
@@ -105,16 +92,16 @@ function parseBox(text: string): OverlayBox | null {
  * @returns The plot area, or null when none was written, and the areas to
  * treat as background
  */
-export function readOverlayRegions(layer: Element): { plotArea: OverlayBox | null; exclude: OverlayBox[] } {
+export function readOverlayRegions(layer: Element): { plotArea: PixelRect | null; exclude: PixelRect[] } {
   const origin = layer.getBoundingClientRect();
-  const toScreen = (box: OverlayBox): OverlayBox => ({
+  const toScreen = (box: PixelRect): PixelRect => ({
     left: box.left + origin.left,
     top: box.top + origin.top,
     right: box.right + origin.left,
     bottom: box.bottom + origin.top,
   });
-  const area = parseBox(layer.getAttribute(OVERLAY_PLOT_AREA_ATTRIBUTE) ?? '');
-  const exclude = (layer.getAttribute(OVERLAY_EXCLUDE_ATTRIBUTE) ?? '')
+  const area = parseBox(layer.getAttribute(OVERLAY_ATTRIBUTES.plotArea) ?? '');
+  const exclude = (layer.getAttribute(OVERLAY_ATTRIBUTES.exclude) ?? '')
     .split(';')
     .map(parseBox)
     .filter(isBox)

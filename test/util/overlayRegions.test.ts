@@ -13,12 +13,7 @@
  */
 
 import { describe, expect, it } from '@jest/globals';
-import {
-  OVERLAY_EXCLUDE_ATTRIBUTE,
-  OVERLAY_PLOT_AREA_ATTRIBUTE,
-  readOverlayRegions,
-  writeOverlayRegions,
-} from '@util/overlayRegions';
+import { OVERLAY_ATTRIBUTES, readOverlayRegions, writeOverlayRegions } from '@util/overlayRegions';
 
 /**
  * An overlay layer sitting at a given place on the screen.
@@ -61,8 +56,8 @@ describe('overlayRegions', () => {
 
     writeOverlayRegions(layer, { left: 10, top: 10, right: 10, bottom: 50 }, [null]);
 
-    expect(layer.hasAttribute(OVERLAY_PLOT_AREA_ATTRIBUTE)).toBe(false);
-    expect(layer.hasAttribute(OVERLAY_EXCLUDE_ATTRIBUTE)).toBe(false);
+    expect(layer.hasAttribute(OVERLAY_ATTRIBUTES.plotArea)).toBe(false);
+    expect(layer.hasAttribute(OVERLAY_ATTRIBUTES.exclude)).toBe(false);
     expect(readOverlayRegions(layer)).toEqual({ plotArea: null, exclude: [] });
   });
 

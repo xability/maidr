@@ -18,9 +18,9 @@
  * overlay children (and as user units in the wedge svg, which is unscaled).
  */
 
-import type { OverlayBox } from '../../util/overlayRegions';
+import type { PixelRect } from '../../util/tactile/canvasRaster';
 import type { ChartJsMetaElement } from './types';
-import { OVERLAY_CLEAN_CANVAS_ATTRIBUTE, OVERLAY_HIGHLIGHT_ATTRIBUTE, OVERLAY_LAYER_ATTRIBUTE, writeOverlayRegions } from '../../util/overlayRegions';
+import { OVERLAY_ATTRIBUTES, writeOverlayRegions } from '../../util/overlayRegions';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -97,7 +97,7 @@ export class HighlightOverlay {
     this.container.setAttribute('data-maidr-chartjs-overlay', '');
     // Read by the tactile display, which draws canvas charts from the pixels
     // and needs these to know where the focused point is.
-    this.container.setAttribute(OVERLAY_LAYER_ATTRIBUTE, '');
+    this.container.setAttribute(OVERLAY_ATTRIBUTES.layer, '');
     this.container.style.position = 'absolute';
     this.container.style.pointerEvents = 'none';
     this.container.style.zIndex = '1';
@@ -125,7 +125,7 @@ export class HighlightOverlay {
    * @param plotArea - `chart.chartArea`, in canvas CSS pixels
    * @param exclude - Areas painted over the data, such as the tooltip
    */
-  setRegions(plotArea: OverlayBox | null, exclude: readonly (OverlayBox | null)[] = []): void {
+  setRegions(plotArea: PixelRect | null, exclude: readonly (PixelRect | null)[] = []): void {
     writeOverlayRegions(this.container, plotArea, exclude);
   }
 
@@ -144,7 +144,7 @@ export class HighlightOverlay {
     }
     if (this.clean === null) {
       this.clean = document.createElement('canvas');
-      this.clean.setAttribute(OVERLAY_CLEAN_CANVAS_ATTRIBUTE, '');
+      this.clean.setAttribute(OVERLAY_ATTRIBUTES.cleanCanvas, '');
       this.clean.setAttribute('aria-hidden', 'true');
       this.clean.style.display = 'none';
     }
@@ -186,7 +186,7 @@ export class HighlightOverlay {
   private createRectNode(rect: OverlayRect): HTMLDivElement {
     const node = document.createElement('div');
     node.setAttribute('data-maidr-chartjs-highlight', '');
-    node.setAttribute(OVERLAY_HIGHLIGHT_ATTRIBUTE, '');
+    node.setAttribute(OVERLAY_ATTRIBUTES.highlight, '');
     node.style.position = 'absolute';
     node.style.left = `${rect.left}px`;
     node.style.top = `${rect.top}px`;
@@ -210,7 +210,7 @@ export class HighlightOverlay {
   private createWedgeNode(wedge: OverlayWedge): SVGSVGElement {
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('data-maidr-chartjs-highlight', '');
-    svg.setAttribute(OVERLAY_HIGHLIGHT_ATTRIBUTE, '');
+    svg.setAttribute(OVERLAY_ATTRIBUTES.highlight, '');
     svg.style.position = 'absolute';
     svg.style.left = '0';
     svg.style.top = '0';

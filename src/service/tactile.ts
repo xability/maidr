@@ -12,12 +12,7 @@ import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { t } from '@util/i18n';
-import {
-  OVERLAY_CLEAN_CANVAS_ATTRIBUTE,
-  OVERLAY_HIGHLIGHT_ATTRIBUTE,
-  OVERLAY_LAYER_ATTRIBUTE,
-  readOverlayRegions,
-} from '@util/overlayRegions';
+import { OVERLAY_ATTRIBUTES, readOverlayRegions } from '@util/overlayRegions';
 import { TactileBraille } from '@util/tactile/brailleText';
 import { TactileCanvas } from '@util/tactile/canvasRaster';
 import { DotPack } from '@util/tactile/pack';
@@ -940,7 +935,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // highlighted with an SVG, and taking that for the chart drew the one
     // slice and nothing else.
     const svgs = Array.from(this.display.plot.querySelectorAll('svg'));
-    return svgs.find(svg => svg.closest(`[${OVERLAY_LAYER_ATTRIBUTE}], [${OVERLAY_HIGHLIGHT_ATTRIBUTE}]`) === null) ?? null;
+    return svgs.find(svg => svg.closest(`[${OVERLAY_ATTRIBUTES.layer}], [${OVERLAY_ATTRIBUTES.highlight}]`) === null) ?? null;
   }
 
   /**
@@ -1743,7 +1738,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // and which here would come out as blots of text. And whatever the library
     // painted over the data -- Chart.js's tooltip at the focused point -- is
     // read as background, or it would be felt as a mark.
-    const layer = this.display.plot.querySelector(`[${OVERLAY_LAYER_ATTRIBUTE}]`);
+    const layer = this.display.plot.querySelector(`[${OVERLAY_ATTRIBUTES.layer}]`);
     const regions = layer === null ? { plotArea: null, exclude: [] } : readOverlayRegions(layer);
     const source = TactileService.intersect(rect, regions.plotArea) ?? rect;
     const masks: PixelRect[] = regions.exclude.map(box => ({
@@ -1855,8 +1850,8 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   } | null {
     // The adapter's copy of the chart as it stood before anything was painted
     // over the data, where there is one; see `@util/overlayRegions`.
-    const clean = root.querySelector<HTMLCanvasElement>(`canvas[${OVERLAY_CLEAN_CANVAS_ATTRIBUTE}]`);
-    const layer = clean?.closest(`[${OVERLAY_LAYER_ATTRIBUTE}]`);
+    const clean = root.querySelector<HTMLCanvasElement>(`canvas[${OVERLAY_ATTRIBUTES.cleanCanvas}]`);
+    const layer = clean?.closest(`[${OVERLAY_ATTRIBUTES.layer}]`);
     if (clean && layer && clean.width > 0 && clean.height > 0) {
       const box = layer.getBoundingClientRect();
       if (box.width > 0 && box.height > 0) {
@@ -1934,7 +1929,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * @param root - The element holding the chart
    */
   private static overlayFocus(root: HTMLElement): Element[] {
-    const nodes = Array.from(root.querySelectorAll(`[${OVERLAY_HIGHLIGHT_ATTRIBUTE}]`));
+    const nodes = Array.from(root.querySelectorAll(`[${OVERLAY_ATTRIBUTES.highlight}]`));
     return nodes.flatMap((node) => {
       if (node.tagName.toLowerCase() === 'svg') {
         return Array.from(node.querySelectorAll('path, circle, rect, polygon, ellipse'));
