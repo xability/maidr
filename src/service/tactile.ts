@@ -2107,7 +2107,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const description = this.text.format(state);
     // A redraw of the same state -- a zoom, a pan, a repair -- leaves the line
     // where the reader scrolled it. The pan keys move the graphic, not the
-    // text, and sending the reader back to "Line part 1" on every one of them
+    // text, and sending the reader back to the line's start on every one of them
     // made the outer function keys unusable while zoomed in. Only a line that
     // has nothing on it yet is written again.
     if (description === this.lastDescription) {

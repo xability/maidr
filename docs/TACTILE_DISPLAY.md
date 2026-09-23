@@ -585,11 +585,10 @@ key would talk over the reading it describes.
 Chart.js and amCharts draw no SVG: the whole chart is pixels on a `<canvas>`,
 with no shapes to scale down. plotly's parallel coordinates draw their lines
 the same way, on canvases beside the SVG that carries only the axes. The
-display uses the pixels whenever they hold clearly more of the chart than
-the SVG does. The display reads those pixels instead. Each pin
-looks at the patch of the chart it stands over, and is raised where something
-drawn meets the page or a clearly different colour — so bars, boxes and
-candles arrive as outlines, the way the SVG path draws every mark but the one
+display reads those pixels instead, whenever they hold clearly more of the
+chart than an SVG does. Each pin looks at the patch of the chart it stands
+over, and is raised where something drawn meets the page or a clearly
+different colour — so bars, boxes and candles arrive as outlines, the way the SVG path draws every mark but the one
 you are on. A line thin enough to be a line on screen is raised whole, so it
 stays one line at every zoom rather than turning into its two edges.
 
