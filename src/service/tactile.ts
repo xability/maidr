@@ -1773,11 +1773,23 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         if (!Number.isFinite(from.x) || !Number.isFinite(to.x)) {
           return null;
         }
+        // Read no further than the plot area. The pins around the picture --
+        // the margin, and the bands either side of a picture kept in
+        // proportion -- stand over the canvas outside it, where the title,
+        // the axis labels and the legend are. A pixel's grace keeps an axis
+        // line drawn along the plot area's edge.
+        const left = Math.max(Math.min(from.x, to.x), source.left - 1);
+        const top = Math.max(Math.min(from.y, to.y), source.top - 1);
+        const right = Math.min(Math.max(from.x, to.x), source.left + source.width + 1);
+        const bottom = Math.min(Math.max(from.y, to.y), source.top + source.height + 1);
+        if (right <= left || bottom <= top) {
+          return null;
+        }
         return {
-          left: (Math.min(from.x, to.x) - rect.left) * scaleX,
-          top: (Math.min(from.y, to.y) - rect.top) * scaleY,
-          right: (Math.max(from.x, to.x) - rect.left) * scaleX,
-          bottom: (Math.max(from.y, to.y) - rect.top) * scaleY,
+          left: (left - rect.left) * scaleX,
+          top: (top - rect.top) * scaleY,
+          right: (right - rect.left) * scaleX,
+          bottom: (bottom - rect.top) * scaleY,
         };
       }, width, height, masks, TactileService.CANVAS_STROKE_PX * Math.max(scaleX, scaleY));
       const rings = focused.flatMap(element => TactileService.outlineRingsOf(element, viewport));

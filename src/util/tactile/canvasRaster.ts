@@ -176,7 +176,8 @@ export abstract class TactileCanvas {
     const hidden = new Uint8Array(width * height);
     const colours: ([number, number, number] | null)[] = Array.from({ length: width * height }, () => null);
 
-    // How many pixels one pin stands over, each way; the same for every pin.
+    // How many pixels one pin stands over, each way: the same for every pin
+    // but one whose patch the caller cut short at the edge of the picture.
     let pinWidth = 0;
     let pinHeight = 0;
     for (let y = 0; y < height; y++) {
@@ -185,8 +186,8 @@ export abstract class TactileCanvas {
         if (cell === null) {
           continue;
         }
-        pinWidth = cell.right - cell.left;
-        pinHeight = cell.bottom - cell.top;
+        pinWidth = Math.max(pinWidth, cell.right - cell.left);
+        pinHeight = Math.max(pinHeight, cell.bottom - cell.top);
         const sample = this.sampleCell(image, cell, background, masks);
         if (sample === 'hidden') {
           hidden[y * width + x] = 1;

@@ -2487,10 +2487,15 @@ describe('tactileService', () => {
      * A 100-pixel-square canvas chart of two bars, as Chart.js leaves it for
      * the tactile display: an overlay layer holding the clean copy of the
      * canvas and the box that highlights the focused bar.
+     * @param plotTop - Where the plot area starts down the canvas; the rows
+     * above it, but for a few clear of it, hold a dark title band
      */
-    function canvasChart(): { service: TactileService; highlight: HTMLElement } {
+    function canvasChart(plotTop: number = 0): { service: TactileService; highlight: HTMLElement } {
       const size = 100;
       const data = new Uint8ClampedArray(size * size * 4).fill(255);
+      for (let index = 0; index < size * Math.max(plotTop - 2, 0) * 4; index += 4) {
+        data.set([20, 20, 20, 255], index);
+      }
       for (const [left, right] of [[10, 30], [60, 80]]) {
         for (let y = 20; y < 90; y++) {
           for (let x = left; x < right; x++) {
@@ -2501,7 +2506,7 @@ describe('tactileService', () => {
       const plot = document.createElement('div');
       const layer = document.createElement('div');
       layer.setAttribute('data-maidr-overlay', '');
-      layer.setAttribute('data-maidr-plot-area', '0 0 100 100');
+      layer.setAttribute('data-maidr-plot-area', `0 ${plotTop} 100 100`);
       stubRect(layer, { left: 0, top: 0, width: size, height: size });
       const clean = document.createElement('canvas');
       clean.setAttribute('data-maidr-clean-canvas', '');
@@ -2542,6 +2547,24 @@ describe('tactileService', () => {
       // The focused bar is solid; the other one is an outline, hollow inside.
       expect(pins.has(middle(highlight.getBoundingClientRect()))).toBe(true);
       expect(pins.has(middle({ left: 60, top: 20, width: 20, height: 70 } as DOMRect))).toBe(false);
+      canvasService.dispose();
+    });
+
+    it('should leave down the pins beside the plot area, over the title', async () => {
+      // The pins around the picture stand over the canvas just outside the
+      // plot area. Read there, the chart's title came up as a band along the
+      // top of the display.
+      const { service: canvasService } = canvasChart(16);
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const topRow = Array.from(pins).filter(pin => pin.endsWith(',0'));
+      expect(topRow).toEqual([]);
       canvasService.dispose();
     });
 
