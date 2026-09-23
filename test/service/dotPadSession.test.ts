@@ -1209,7 +1209,9 @@ describe('dotPadSession', () => {
       expect(session.vibrate()).toBe(true);
       await flushWrites();
 
-      expect(requests).toEqual([[DEVICE, 70, 50, 2]]);
+      // One long pulse, not the SDK's default double pulse: the display gives
+      // that one when it connects, and the two must not feel alike.
+      expect(requests).toEqual([[DEVICE, 300, 0, 1]]);
     });
 
     it('should report that it could not when the SDK has no vibrator', async () => {

@@ -139,11 +139,15 @@ const BRAILLE_LANGUAGE = 'English';
 const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
 /**
- * The buzz that says "nothing further this way": two short pulses. Short
- * enough to feel like a knock rather than an alarm, and doubled so it cannot be
- * mistaken for the click of a key that did something.
+ * The buzz that says "nothing further this way": one long pulse.
+ *
+ * Not the SDK's default of two short pulses, because the display already
+ * gives that pattern when it connects. A reader who felt the same double knock
+ * at the end of a line could not tell "no more line" from "the device has just
+ * reconnected". A single long pulse feels different from that, and is long
+ * enough not to be mistaken for the click of a key that did something.
  */
-const EDGE_VIBRATION = { onMs: 70, offMs: 50, count: 2 } as const;
+const EDGE_VIBRATION = { onMs: 300, offMs: 0, count: 1 } as const;
 
 /**
  * Owns the connection to a tactile display, for as long as the page lives.
