@@ -1,3 +1,15 @@
+# [4.10.0](https://github.com/xability/maidr/compare/v4.9.0...v4.10.0) (2026-09-23)
+
+
+### Bug Fixes
+
+* **line:** read polygon vertices and find a band's samples among ggplot2's alignment vertices ([#1274](https://github.com/xability/maidr/issues/1274)) ([5f4c20a](https://github.com/xability/maidr/commit/5f4c20adc2703447d03cca122e4ffe6db8c5f49b))
+
+
+### Features
+
+* **model:** keep reading the selector shapes producers already ship, and warn when a layer loses its highlight ([#1275](https://github.com/xability/maidr/issues/1275)) ([86262be](https://github.com/xability/maidr/commit/86262be316da219177aefa72f40ac7cbaf5c1448)), closes [#750](https://github.com/xability/maidr/issues/750) [#991](https://github.com/xability/maidr/issues/991) [#1135](https://github.com/xability/maidr/issues/1135)
+
 # [4.9.0](https://github.com/xability/maidr/compare/v4.8.0...v4.9.0) (2026-09-21)
 
 
