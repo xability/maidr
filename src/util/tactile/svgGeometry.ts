@@ -8,6 +8,15 @@ import type { ClientRect, DotPoint, TactileViewport } from './viewport';
 export type DotProjector = Pick<TactileViewport, 'toDot'>;
 
 /**
+ * Where a subpath begins: its length along the path, and its move's index in
+ * the path data.
+ */
+interface SubpathStart {
+  length: number;
+  offset: number;
+}
+
+/**
  * A run of points in dot coordinates, taken from one SVG shape.
  */
 export interface DotRing {
@@ -427,25 +436,30 @@ export abstract class TactileSvgGeometry {
    * Where each subpath of a path begins, measured along the path, cached
    * against the path data it was measured from.
    */
-  private static readonly subpathCache = new WeakMap<Element, { d: string; starts: number[] }>();
+  private static readonly subpathCache = new WeakMap<Element, { d: string; starts: SubpathStart[] }>();
 
   /**
-   * The lengths along a path at which each of its subpaths begins, the first
-   * always at zero.
+   * Where along a path each of its subpaths begins, and where in the path
+   * data, the first always at zero.
    *
    * Measured rather than parsed: each boundary is the length of the path data
    * up to the next move, which a detached path reports exactly, arcs and
    * relative commands included, without MAIDR having to interpret either.
    *
+   * A subpath with no length -- a bare move, as a chart may leave for a
+   * missing point -- has no run of its own. The piece after it starts where
+   * it did along the path, and in the path data at its own move, so every
+   * run keeps the text it was drawn from.
+   *
    * @param element - The path to measure
    * @param d - Its path data
    */
-  private static subpathStarts(element: SVGPathElement, d: string): number[] {
+  private static subpathStarts(element: SVGPathElement, d: string): SubpathStart[] {
     const cached = this.subpathCache.get(element);
     if (cached !== undefined && cached.d === d) {
       return cached.starts;
     }
-    const starts = [0];
+    const starts: SubpathStart[] = [{ length: 0, offset: 0 }];
     const moves = Array.from(d.matchAll(/M/gi), match => match.index ?? 0).filter(index => index > 0);
     if (moves.length > 0) {
       try {
@@ -453,8 +467,14 @@ export abstract class TactileSvgGeometry {
         for (const index of moves) {
           probe.setAttribute('d', d.slice(0, index));
           const length = probe.getTotalLength();
-          if (Number.isFinite(length) && length > starts[starts.length - 1]) {
-            starts.push(length);
+          if (!Number.isFinite(length)) {
+            continue;
+          }
+          const last = starts[starts.length - 1];
+          if (length > last.length) {
+            starts.push({ length, offset: index });
+          } else {
+            last.offset = index;
           }
         }
       } catch {
@@ -513,11 +533,10 @@ export abstract class TactileSvgGeometry {
     // Each subpath sampled between its own ends, a hair inside them: at a
     // boundary exactly, the length names both the end of one subpath and the
     // start of the next, and either may come back.
-    const moves = Array.from(d.matchAll(/M/gi), match => match.index ?? 0).filter(index => index > 0);
     const runs: { points: DotPoint[]; d: string }[] = [];
     for (let part = 0; part < starts.length; part++) {
-      const from = starts[part];
-      const to = part + 1 < starts.length ? starts[part + 1] : totalLength;
+      const from = starts[part].length;
+      const to = part + 1 < starts.length ? starts[part + 1].length : totalLength;
       const length = to - from;
       if (length <= 0) {
         continue;
@@ -534,7 +553,7 @@ export abstract class TactileSvgGeometry {
           break;
         }
       }
-      const segment = d.slice(part === 0 ? 0 : moves[part - 1], part < moves.length ? moves[part] : undefined);
+      const segment = d.slice(starts[part].offset, starts[part + 1]?.offset);
       runs.push({ points, d: segment });
     }
     return runs;

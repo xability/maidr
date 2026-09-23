@@ -445,6 +445,18 @@ describe('tactileSvgGeometry.ringsOf on a path drawn in several pieces', () => {
     expect(ring.closed).toBe(true);
   });
 
+  it('should keep each piece its own path data past a bare move', () => {
+    // A bare move -- a missing point -- has no length, so it is no boundary
+    // along the path. It still stood in the path data, and counted there the
+    // piece after it was read from its neighbour's text: the closed box came
+    // back open.
+    const box = measuredPath('M 7 0 L 7 4 M 2 2 M 4 4 L 10 4 L 10 10 L 4 10 Z');
+
+    const [ring] = TactileSvgGeometry.ringsOf(box, viewport);
+
+    expect(ring.parts?.map(part => part.closed)).toEqual([false, true]);
+  });
+
   it('should leave a path in one piece as it was', () => {
     const line = measuredPath('M 4 4 L 10 4 L 10 10');
 
