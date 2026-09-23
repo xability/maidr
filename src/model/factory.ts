@@ -1,6 +1,7 @@
 import type { MaidrLayer } from '@type/grammar';
 import type { Trace } from './plot';
 import { TraceType } from '@type/grammar';
+import { declaresSelectors, warnSelectors } from '@util/selectors';
 import { AreaTrace } from './area';
 import { BarTrace } from './bar';
 import { BoxTrace } from './box';
@@ -51,6 +52,53 @@ export abstract class TraceFactory {
    * Each layer's type maps directly to a trace class. No heuristic detection needed.
    */
   public static create(layer: MaidrLayer): Trace {
+    const trace = TraceFactory.build(layer);
+    TraceFactory.reportUnresolvedSelectors(layer, trace);
+    return trace;
+  }
+
+  /**
+   * Says so when a layer names elements and none of them became a highlight.
+   *
+   * Every trace resolves its `selectors` while it is built, and one that
+   * resolves nothing still announces every point -- it only loses the outline.
+   * That failure is silent by design (#750: one bad layer must not take the
+   * figure down), which is exactly why it went unnoticed through the 4.x
+   * contract changes: r-maidr's and py-maidr's bars, points and pies spoke
+   * their values for weeks with nothing outlined. Checked here, once, for
+   * every trace type, rather than at each of the dozens of places a model can
+   * decline a selector.
+   *
+   * Three causes produce it, and the message names all three: a selector that
+   * matches nothing in the SVG, a shape this layer type does not read, and a
+   * payload attached before the chart finished drawing.
+   *
+   * @param layer - The layer the trace was built from
+   * @param trace - The trace built from it
+   */
+  private static reportUnresolvedSelectors(layer: MaidrLayer, trace: Trace): void {
+    if (!declaresSelectors(layer.selectors)) {
+      return;
+    }
+    if (trace.getAllHighlightElements().length > 0) {
+      return;
+    }
+    warnSelectors(
+      layer,
+      '`selectors` is set, but it resolved to no element this layer can highlight, so every '
+      + 'point is announced and none is outlined. Check that the selectors match the rendered '
+      + 'SVG, that their shape is one this layer type reads, and that the chart had finished '
+      + 'drawing when MAIDR was initialised.',
+    );
+  }
+
+  /**
+   * Builds the trace class for a layer's type.
+   *
+   * @param layer - The layer to build a trace for
+   * @returns The trace
+   */
+  private static build(layer: MaidrLayer): Trace {
     switch (layer.type) {
       // All three area variants share one class: the stacking is a property
       // of the layer it reads off `layer.type`, not a different navigation
