@@ -299,6 +299,86 @@ the size, and a reading would announce the declaration, not the drawing. That
 a Venn has no axis is true, and no more of an obstacle than it was for the
 treemap or the sankey.
 
+## Selectors
+
+`selectors` tells MAIDR which drawn element each point of a layer is, so it can
+outline the one being read. It is the only part of a layer MAIDR matches
+against the page rather than reading as data, and its shape means different
+things to different layer types.
+
+A layer whose selectors resolve to nothing still announces every point, sounds
+every value and moves the braille cursor. It loses only the outline a sighted
+or low-vision reader follows, which nobody who only listens will notice. MAIDR
+therefore says so in the browser console, once per layer:
+
+```
+[MAIDR] Layer "…" (bar): `selectors` is set, but it resolved to no element this layer can highlight, …
+```
+
+Three things cause it: a selector that matches nothing in the rendered SVG, a
+shape the layer type does not read (the table below), and a payload attached
+before the chart finished drawing. The last one happens to a charting library
+that draws asynchronously, such as Plotly: attach the payload once the library
+reports the chart drawn, not when its first `<svg>` appears.
+
+### The shapes
+
+- **A string** is one CSS selector, resolved with `querySelectorAll`. Several
+  elements can be named with a selector list, `"#a rect, #b rect"`; the
+  matches come back in document order whatever order the list is written in.
+- **A list of strings** means something different per layer type: one element
+  per point, one per series, or each entry resolved and the results
+  concatenated. The table says which.
+- **A grid** `(string | null)[][]` names one element per cell. `null` says the
+  chart drew no element for that cell, which is different from a selector that
+  resolves to nothing: that is a mistake, and declines the whole grid.
+- **`BoxSelector[]`** and **`CandlestickSelector`** name the parts of a box or
+  a candle; their fields are described under those plot types below.
+
+### By layer type
+
+| Layer types | Shapes read | How the matches pair with the data |
+|---|---|---|
+| `bar`, `hist`, `dot`, `lollipop`, `funnel` | string; list with one entry per bar (one row only) | A string pairs in document order; when fewer elements than bars match, bars whose value is 0 are the ones taken to be undrawn. |
+| `dodged_bar`, `stacked_bar`, `stacked_normalized_bar`, `mosaic`, `diverging_bar` | string; grid `[series][category]` | A string is walked series by series. `domMapping.order: 'column'` walks it category by category instead, each category from its last series unless `domMapping.groupDirection` is `'forward'` (`diverging_bar` runs forward by default). A grid is in payload order. |
+| `point`, `sunflower`, `volcano`, `manhattan` | string | Paired by the position each mark is drawn at, not by document order. |
+| `pie` | string | Exactly one element per slice, in drawn order; reversed when `direction` is `'counterclockwise'`. |
+| `heat` | string; grid `[row][column]` | A string names one element per cell: `<rect>` cells are read column by column (`domMapping.order: 'row'` reads them row by row), `<path>` cells row by row from the top, and a single `<image>` gets an overlay. A grid's rows run bottom first, the reverse of `data.points`. |
+| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of its first `<path>`, `<polyline>` or `<polygon>` are the points. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
+| `box`, `violin_box` | `BoxSelector[]`, one per box | See the box and violin plot types below. |
+| `violin_kde` | string; list with one entry per violin | Markers are drawn at each point's `svg_x`/`svg_y`; the list names the curve each violin belongs to. |
+| `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
+| `rug` | string; list with one entry per tick | Ticks are walked by position. |
+| `boxen`, `ridgeline`, `dumbbell`, `error_bar`, `forest`, `gantt`, `hexbin`, `waterfall`, `word_cloud`, `gauge`, `alluvial`, `chord`, `sankey`, `network`, `choropleth`, `treemap`, `sunburst`, `icicle`, `tree`, `pack` | string; list of strings | A list's entries are each resolved and the results concatenated. The total must be one element per item the layer declares -- distribution, group, pair, sample, interval, bin, step, term, flow, link, region or node -- in declared order; `gauge` uses the first match. |
+
+### Lists written for maidr.js before 4.0
+
+Before 4.0, a list that reached a layer type reading one string was handed to
+`querySelectorAll` as it was, and the DOM turned it into a comma-joined
+selector list: `["#bars rect"]` worked as `"#bars rect"`. Producers relied on
+that for years without knowing it, and 4.0 read those lists as nothing (#750)
+or, for bars, as one selector per bar (#991).
+
+That meaning is kept for them. For the `bar`, segmented, `point`, `pie` and
+`heat` rows above, a list of strings that is not one entry per bar is joined
+into one selector list and read as a string, and the console says so. A
+segmented list that declares no `domMapping.order` and whose marks are
+`<rect>` is walked category by category, as it was before #1135 made series by
+series the default. Emit a string instead; the list form is read only so that
+charts made by an older producer keep their highlight.
+
+### Changing this contract
+
+What a layer type reads from `selectors` and `domMapping` is the one part of
+the schema every producer matches against its own rendering, and most
+producers -- r-maidr, py-maidr, hand-written pages -- are not in this
+repository, so no test here can see them break. A change to it therefore keeps
+the shape producers emit today working, with a console warning, for at least
+one major version; carries `!` and a `BREAKING CHANGE:` footer naming the shape
+that changed; and updates this table. `e2e_tests/specs/bindingOutput.spec.ts`
+drives real r-maidr and py-maidr output through the build, so a change that
+breaks one of them fails before it is released.
+
 ## Data Formats by Plot Type
 
 The data property is defined as a list of objects where each object is a record with fields x and y.
