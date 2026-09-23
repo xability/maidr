@@ -89,6 +89,15 @@ export class ViolinKdeTrace extends AbstractTrace {
   private readonly maxDensity: number[];
 
   /**
+   * The elements the chart drew each violin's outline with, one per violin.
+   *
+   * The highlight markers are circles this trace synthesises along the curve,
+   * which is what the visual highlight wants and not what the chart drew. See
+   * {@link getGeometryElements}.
+   */
+  private readonly outlineElements: SVGElement[] = [];
+
+  /**
    * Precomputed safe min/max for the reference violin (row 0) used in audio pitch scaling.
    * Cached to avoid recomputing Math.min/max over ~200-element arrays on every autoplay tick.
    */
@@ -290,6 +299,7 @@ export class ViolinKdeTrace extends AbstractTrace {
 
   public override dispose(): void {
     this.stopViewportWatch();
+    this.outlineElements.length = 0;
 
     this.points.length = 0;
     this.densityValues.length = 0;
@@ -717,6 +727,20 @@ export class ViolinKdeTrace extends AbstractTrace {
   // ── SVG highlight ───────────────────────────────────────────────────
 
   /**
+   * The elements whose geometry is the violins themselves, for renderers that
+   * need the drawn shape rather than the points on it.
+   *
+   * The highlight markers are a column of circles along each curve. Drawn in
+   * the violin's place, they are a smooth outline at rest and, a few zoom
+   * steps in, a ladder of separate loops where the violin should be. Empty
+   * when no outline element was found, so the caller falls back to the
+   * markers.
+   */
+  public getGeometryElements(): SVGElement[] {
+    return [...this.outlineElements];
+  }
+
+  /**
    * The elements a violin's geometry could be, in preference order.
    *
    * `<use>` reference elements first, then `<path>` geometry, then
@@ -772,6 +796,10 @@ export class ViolinKdeTrace extends AbstractTrace {
       const primaryElement = candidates.length > 0
         ? candidates[isOnePerViolin ? 0 : (r < candidates.length ? r : 0)]
         : null;
+
+      if (primaryElement && !this.outlineElements.includes(primaryElement)) {
+        this.outlineElements.push(primaryElement);
+      }
 
       if (primaryElement && dataPoints) {
         // Use SVG viewport coordinates when available (from backend)
