@@ -606,7 +606,8 @@ drawn inside the plot area is read as background.
 
 Some things read less cleanly than on an SVG chart, because what the pixels
 cannot say has to be inferred: a translucent fill next to a line can add a
-second edge beside it, and text that is part of the data — a word cloud's
+second edge beside it, a bar only a few pixels wide is raised solid, since in
+pixels it is the same as a thick line, and text that is part of the data — a word cloud's
 words — is outlined letter by letter. A canvas whose pixels the page cannot
 read, one that has drawn an image from another site, leaves the pins down.
 
