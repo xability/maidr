@@ -86,6 +86,8 @@ jobs:
       # `main`, but as a `chore:`, which by design does not cut a PyPI
       # release: its release workflow re-resolves upstream when a release is
       # actually cut, so the news reaches its users then rather than now.
+      # maidr-skill (the agent skill) commits the refreshed bundle and its
+      # version pins to `main`, which is what installed copies update from.
       #
       # continue-on-error, because the release is the thing that matters
       # here. A missed ping costs a binding some currency -- each keeps its
@@ -112,10 +114,10 @@ jobs:
 
           # Each binding is notified independently. Looping with the whole run
           # gated on the first call would let one repository being unreachable
-          # decide whether the other ever hears about the release, which is
+          # decide whether the others ever hear about the release, which is
           # exactly the coupling this step exists to avoid.
           missed=0
-          for repo in xability/r-maidr xability/py-maidr; do
+          for repo in xability/r-maidr xability/py-maidr xability/maidr-skill; do
             if printf '%s' "$BODY" | gh api "repos/$repo/dispatches" --input -; then
               echo "Notified $repo of v${VERSION}."
             else
