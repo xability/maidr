@@ -18,7 +18,9 @@
  * overlay children (and as user units in the wedge svg, which is unscaled).
  */
 
+import type { OverlayBox } from '../../util/overlayRegions';
 import type { ChartJsMetaElement } from './types';
+import { OVERLAY_CLEAN_CANVAS_ATTRIBUTE, OVERLAY_HIGHLIGHT_ATTRIBUTE, OVERLAY_LAYER_ATTRIBUTE, writeOverlayRegions } from '../../util/overlayRegions';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -77,6 +79,11 @@ export class HighlightOverlay {
    * @param canvas - The Chart.js canvas the overlay aligns to.
    * @param highlightColor - Optional outline color override.
    */
+  /**
+   * The chart before its tooltip; see {@link captureClean}.
+   */
+  private clean: HTMLCanvasElement | null = null;
+
   constructor(
     host: HTMLElement,
     canvas: HTMLCanvasElement,
@@ -88,6 +95,9 @@ export class HighlightOverlay {
 
     this.container = document.createElement('div');
     this.container.setAttribute('data-maidr-chartjs-overlay', '');
+    // Read by the tactile display, which draws canvas charts from the pixels
+    // and needs these to know where the focused point is.
+    this.container.setAttribute(OVERLAY_LAYER_ATTRIBUTE, '');
     this.container.style.position = 'absolute';
     this.container.style.pointerEvents = 'none';
     this.container.style.zIndex = '1';
@@ -110,11 +120,58 @@ export class HighlightOverlay {
   }
 
   /**
+   * Records where the plot area is and what Chart.js has painted over it, for
+   * readers of the canvas's pixels; see `@util/overlayRegions`.
+   * @param plotArea - `chart.chartArea`, in canvas CSS pixels
+   * @param exclude - Areas painted over the data, such as the tooltip
+   */
+  setRegions(plotArea: OverlayBox | null, exclude: readonly (OverlayBox | null)[] = []): void {
+    writeOverlayRegions(this.container, plotArea, exclude);
+  }
+
+  /**
+   * Copies the chart as it stands before Chart.js paints its tooltip, for
+   * readers of the pixels; see `@util/overlayRegions`.
+   *
+   * The tooltip sits over the data at the focused point, so a reader of the
+   * visible canvas found it among the marks -- and masking it out hid the
+   * tops of the bars it covered. This copy has everything but the tooltip.
+   */
+  captureClean(): void {
+    const source = this.canvas;
+    if (source.width <= 0 || source.height <= 0) {
+      return;
+    }
+    if (this.clean === null) {
+      this.clean = document.createElement('canvas');
+      this.clean.setAttribute(OVERLAY_CLEAN_CANVAS_ATTRIBUTE, '');
+      this.clean.setAttribute('aria-hidden', 'true');
+      this.clean.style.display = 'none';
+    }
+    if (this.clean.parentNode !== this.container) {
+      // `clear` empties the container; the copy goes back in first.
+      this.container.prepend(this.clean);
+    }
+    if (this.clean.width !== source.width || this.clean.height !== source.height) {
+      this.clean.width = source.width;
+      this.clean.height = source.height;
+    }
+    const context = this.clean.getContext('2d');
+    if (context === null) {
+      return;
+    }
+    context.clearRect(0, 0, source.width, source.height);
+    context.drawImage(source, 0, 0);
+  }
+
+  /**
    * Remove all highlight nodes (e.g., on chart resize before recompute).
    */
   clear(): void {
-    while (this.container.firstChild) {
-      this.container.removeChild(this.container.firstChild);
+    for (const node of Array.from(this.container.children)) {
+      if (node !== this.clean) {
+        node.remove();
+      }
     }
   }
 
@@ -129,6 +186,7 @@ export class HighlightOverlay {
   private createRectNode(rect: OverlayRect): HTMLDivElement {
     const node = document.createElement('div');
     node.setAttribute('data-maidr-chartjs-highlight', '');
+    node.setAttribute(OVERLAY_HIGHLIGHT_ATTRIBUTE, '');
     node.style.position = 'absolute';
     node.style.left = `${rect.left}px`;
     node.style.top = `${rect.top}px`;
@@ -152,6 +210,7 @@ export class HighlightOverlay {
   private createWedgeNode(wedge: OverlayWedge): SVGSVGElement {
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('data-maidr-chartjs-highlight', '');
+    svg.setAttribute(OVERLAY_HIGHLIGHT_ATTRIBUTE, '');
     svg.style.position = 'absolute';
     svg.style.left = '0';
     svg.style.top = '0';

@@ -110,6 +110,8 @@ export interface ChartJsChart {
   readonly scales?: Record<string, ChartJsRuntimeScale>;
   getDatasetMeta: (datasetIndex: number) => ChartJsDatasetMeta;
   setActiveElements: (elements: ChartJsActiveElement[]) => void;
+  /** The plot area, in canvas CSS pixels, once the chart is laid out. */
+  readonly chartArea?: { left: number; top: number; right: number; bottom: number };
   tooltip?: {
     setActiveElements: (
       elements: ChartJsActiveElement[],
@@ -575,6 +577,7 @@ export interface ChartJsPlugin {
     options: unknown,
   ) => void;
   beforeDestroy?: (chart: ChartJsChart, args: unknown, options: unknown) => void;
+  afterDatasetsDraw?: (chart: ChartJsChart, args: unknown, options: unknown) => void;
 }
 
 /**

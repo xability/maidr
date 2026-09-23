@@ -34,7 +34,7 @@ import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
-import { readPlotBounds, readSliceBounds } from './geometry';
+import { readLegendBounds, readPlotBounds, readSliceBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap, groupSeries } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
@@ -136,6 +136,7 @@ function applyHighlight(
   // to the suppression below.
   const chart = navMap.chartFor(event.layerId);
   const plotBounds = chart ? readPlotBounds(chart) ?? readSliceBounds(chart) : null;
+  overlay.setPlotArea(plotBounds, chart ? readLegendBounds(chart) : []);
 
   // Without readable panel bounds an unclipped rect could bleed into a
   // sibling panel (all panels share one overlay canvas), so suppress the

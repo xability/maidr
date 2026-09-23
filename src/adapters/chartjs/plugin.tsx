@@ -63,6 +63,8 @@ interface MaidrChartBinding {
   targetMaps: TargetMaps;
   /** Resolved once the React tree mounts and provides the host wrapper. */
   overlayPromise: Promise<HighlightOverlay | null>;
+  /** The overlay, once resolved, for hooks that run synchronously in a draw. */
+  overlay?: HighlightOverlay | null;
   /** Latest MAIDR navigation event, replayed on resize. */
   lastActive: NavEvent | null;
 }
@@ -155,6 +157,8 @@ function applyHighlight(
 
   if (!overlay)
     return;
+
+  overlay.setRegions(chart.chartArea ?? null);
 
   const shapes = [];
   for (const t of targets) {
@@ -370,6 +374,12 @@ function initMaidrForChart(chart: ChartJsChart): void {
     if (!host)
       return null;
     overlay = new HighlightOverlay(host, chart.canvas, pluginOptions.highlightColor);
+    overlay.setRegions(chart.chartArea ?? null);
+    const binding = chartBindings.get(chart);
+    if (binding) {
+      binding.overlay = overlay;
+    }
+    overlay.captureClean();
     return overlay;
   });
 
@@ -484,6 +494,12 @@ export const maidrPlugin: ChartJsPlugin = {
 
   resize(chart: ChartJsChart) {
     handleResize(chart);
+  },
+
+  // After the data, before the tooltip: Chart.js paints its tooltip in
+  // `afterDraw`, so this is the last moment the canvas holds the chart alone.
+  afterDatasetsDraw(chart: ChartJsChart) {
+    chartBindings.get(chart)?.overlay?.captureClean();
   },
 
   beforeDestroy(chart: ChartJsChart) {

@@ -19,6 +19,7 @@
 
 import type { NavItemTarget, NavRibbonTarget, NavTarget } from './navmap';
 import type { AmBounds, AmPoint, AmSprite } from './types';
+import { OVERLAY_HIGHLIGHT_ATTRIBUTE, OVERLAY_LAYER_ATTRIBUTE, writeOverlayRegions } from '@util/overlayRegions';
 import { sliceExtent } from './geometry';
 
 /**
@@ -69,6 +70,9 @@ export class HighlightOverlay {
 
     this.container = document.createElement('div');
     this.container.setAttribute('data-maidr-amcharts-overlay', '');
+    // Read by the tactile display, which draws canvas charts from the pixels
+    // and needs these to know where the focused point is.
+    this.container.setAttribute(OVERLAY_LAYER_ATTRIBUTE, '');
     this.container.style.position = 'absolute';
     this.container.style.pointerEvents = 'none';
     this.container.style.zIndex = '1';
@@ -92,6 +96,7 @@ export class HighlightOverlay {
     for (const rect of rects) {
       const node = document.createElement('div');
       node.setAttribute('data-maidr-amcharts-highlight', '');
+      node.setAttribute(OVERLAY_HIGHLIGHT_ATTRIBUTE, '');
       node.style.position = 'absolute';
       node.style.left = `${rect.left}px`;
       node.style.top = `${rect.top}px`;
@@ -103,6 +108,16 @@ export class HighlightOverlay {
       node.style.pointerEvents = 'none';
       this.container.appendChild(node);
     }
+  }
+
+  /**
+   * Records where the focused panel's plot area is, and what is drawn over
+   * it, for readers of the canvas's pixels; see `@util/overlayRegions`.
+   * @param plotArea - The plot area, root-relative CSS pixels
+   * @param exclude - What amCharts has drawn over the data, such as a legend
+   */
+  public setPlotArea(plotArea: AmBounds | null, exclude: readonly AmBounds[] = []): void {
+    writeOverlayRegions(this.container, plotArea, exclude);
   }
 
   /**

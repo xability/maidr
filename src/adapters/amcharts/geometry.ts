@@ -36,6 +36,43 @@ export function readPlotBounds(chart: AmChart): AmBounds | null {
   return null;
 }
 
+/**
+ * The screen boxes of a chart's legends, root-relative CSS px.
+ *
+ * A legend is drawn into the same canvas as the data, and placed over the
+ * plot area often enough that a reader of the canvas's pixels would take its
+ * swatches and text for marks. Looked for a few levels down, since a legend
+ * may be pushed into the chart itself or into one of its containers.
+ */
+export function readLegendBounds(chart: AmChart): AmBounds[] {
+  const found: AmBounds[] = [];
+  const walk = (node: unknown, depth: number): void => {
+    if (node == null || typeof node !== 'object' || depth > 3) {
+      return;
+    }
+    const sprite = node as { className?: string; globalBounds?: () => AmBounds };
+    if (sprite.className === 'Legend') {
+      try {
+        const bounds = sprite.globalBounds?.();
+        if (bounds && [bounds.left, bounds.top, bounds.right, bounds.bottom].every(Number.isFinite)) {
+          found.push(bounds);
+        }
+      } catch {
+        // A legend with no measurable box has nothing to hide.
+      }
+      return;
+    }
+    const values = (node as { children?: { values?: unknown[] } }).children?.values;
+    if (Array.isArray(values)) {
+      for (const child of values) {
+        walk(child, depth + 1);
+      }
+    }
+  };
+  walk(chart, 0);
+  return found;
+}
+
 /** Cardinal directions, where a circle reaches its extreme in x or y. */
 const CARDINALS = [0, 90, 180, 270];
 
