@@ -945,6 +945,37 @@ describe('tactileRenderer.render', () => {
     expect(raster.get(10, 16)).toBe(true);
   });
 
+  it('should let a short square bar grow into its shape when zoomed in', () => {
+    // A short bar in a dense bar chart is small and square at rest, like a
+    // marker. Kept a disc at every zoom, it never showed its corners.
+    const mark = {} as SVGGraphicsElement;
+    const viewport = identityViewport();
+    while (viewport.zoomIn()) {
+      // To the closest zoom.
+    }
+    const half = 0.5 * viewport.zoom;
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: 10 - half, y: 10 - half },
+        { x: 10 + half, y: 10 - half },
+        { x: 10 + half, y: 10 + half },
+        { x: 10 - half, y: 10 + half },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      viewport,
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // Its corners are up, which no disc around its middle reaches.
+    expect(raster.get(Math.round(10 - half), Math.round(10 - half))).toBe(true);
+    expect(raster.get(Math.round(10 + half), Math.round(10 + half))).toBe(true);
+  });
+
   it('should draw each piece of a mark on its own, with nothing joining them', () => {
     // An error bar is one path in three pieces. Drawn as one run, the pen was
     // dragged between them and a few steps in the error bar came back as a Z.

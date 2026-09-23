@@ -160,6 +160,8 @@ export abstract class TactileRenderer {
    * chart encoded a value as fill colour; absent otherwise
    * @param endCaps - Whether an open stroke gets a dot at each end
    * @param zoom - The current zoom factor, where 1 fits the whole plot
+   * @param ownOutline - Whether the ring is the mark's own outline rather than
+   * a box standing in for it
    */
   private static drawRing(
     raster: DotRaster,
@@ -168,6 +170,7 @@ export abstract class TactileRenderer {
     shade?: number,
     endCaps: boolean = false,
     zoom: number = 1,
+    ownOutline: boolean = false,
   ): void {
     const box = this.bounds(ring);
     if (box === null) {
@@ -190,10 +193,17 @@ export abstract class TactileRenderer {
     // and zooming in is how a reader gets to feel it.
     const spanX = box.right - box.left;
     const spanY = box.bottom - box.top;
+    //
+    // Nor is a mark whose own outline is a rectangle square to the axes. That
+    // is a short bar in a dense bar chart far more often than it is a square
+    // marker, and zooming in on a bar is how a reader gets to its shape. Only
+    // its own outline says so: the box highlighting a point on a canvas chart
+    // is a rectangle whatever the point is.
     const isMarker = ring.closed
       && spanX / zoom < this.MIN_HOLLOW_SPAN
       && spanY / zoom < this.MIN_HOLLOW_SPAN
-      && Math.max(spanX, spanY) <= this.MARKER_ASPECT * Math.max(Math.min(spanX, spanY), Number.EPSILON);
+      && Math.max(spanX, spanY) <= this.MARKER_ASPECT * Math.max(Math.min(spanX, spanY), Number.EPSILON)
+      && !(ownOutline && this.isAxisRectangle(ring.points, box));
     const isPoint = isTiny || isMarker;
 
     // Each piece of the mark is drawn on its own, so a path the chart drew in
@@ -286,6 +296,30 @@ export abstract class TactileRenderer {
         raster.fillDisc(last.x, last.y, radius);
       }
     });
+  }
+
+  /**
+   * Whether every point of an outline lies on the edge of its bounding box:
+   * a rectangle square to the axes, however densely it was sampled.
+   * @param points - The outline
+   * @param box - Its bounds
+   * @param box.left - Left edge, in dots
+   * @param box.top - Top edge, in dots
+   * @param box.right - Right edge, in dots
+   * @param box.bottom - Bottom edge, in dots
+   */
+  private static isAxisRectangle(
+    points: DotRing['points'],
+    box: { left: number; top: number; right: number; bottom: number },
+  ): boolean {
+    const tolerance = 0.02 * Math.max(box.right - box.left, box.bottom - box.top);
+    return points.length >= 4 && points.every(point =>
+      Math.min(
+        Math.abs(point.x - box.left),
+        Math.abs(point.x - box.right),
+        Math.abs(point.y - box.top),
+        Math.abs(point.y - box.bottom),
+      ) <= tolerance);
   }
 
   /**
@@ -383,7 +417,7 @@ export abstract class TactileRenderer {
 
     for (const mark of scene.focused) {
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, true, undefined, endCaps, viewport.zoom);
+        this.drawRing(raster, ring, true, undefined, endCaps, viewport.zoom, true);
       }
     }
 
