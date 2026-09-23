@@ -580,10 +580,42 @@ being unreachable or the engine answering with nothing. Once, not per move: it
 is a standing condition rather than an event, and repeating it on every arrow
 key would talk over the reading it describes.
 
+### Charts drawn on a canvas
+
+Chart.js and amCharts draw no SVG: the whole chart is pixels on a `<canvas>`,
+with no shapes to scale down. plotly's parallel coordinates draw their lines
+the same way, on canvases beside the SVG that carries only the axes. The
+display uses the pixels whenever they hold clearly more of the chart than
+the SVG does. The display reads those pixels instead. Each pin
+looks at the patch of the chart it stands over, and is raised where something
+drawn meets the page or a clearly different colour — so bars, boxes and
+candles arrive as outlines, the way the SVG path draws every mark but the one
+you are on. A line thin enough to be a line on screen is raised whole, so it
+stays one line at every zoom rather than turning into its two edges.
+
+The mark you are on comes from the highlight box MAIDR draws over the canvas
+for sighted readers — the one place its position is written down — and is
+filled, followed through zoom and held by its edge as on an SVG chart. A
+canvas has no other marks to show which end of a bar is its baseline, so a bar
+taller than wide is held by its top and one wider than tall by its right end.
+
+Only the plot area is read, where the adapter can say where it is: the title,
+the axis labels and the legend are left off the pins, as they are for SVG.
+Chart.js's tooltip is left off too — MAIDR keeps a copy of the chart as it
+stands before the tooltip is painted and reads that — and an amCharts legend
+drawn inside the plot area is read as background.
+
+Some things read less cleanly than on an SVG chart, because what the pixels
+cannot say has to be inferred: a translucent fill next to a line can add a
+second edge beside it, and text that is part of the data — a word cloud's
+words — is outlined letter by letter. A canvas whose pixels the page cannot
+read, one that has drawn an image from another site, leaves the pins down.
+
 ## What the display does not show
 
-- **Charts with no SVG.** Canvas- and WebGL-rendered charts have no shapes to
-  scale down.
+- **WebGL canvases that discard what they drew.** Unless the chart asks the
+  browser to keep it, a WebGL canvas's picture is gone by the time it could be
+  read, and reading it gives an empty page.
 - **Charts in a cross-origin frame.** Their geometry cannot be measured.
 - **Shapes the chart gave no element for.** A lollipop whose selectors name
   the heads draws the heads and no stems; a treemap or icicle whose parent

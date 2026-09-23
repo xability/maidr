@@ -2414,6 +2414,133 @@ describe('tactileService', () => {
     });
   });
 
+  describe('a chart drawn on a canvas', () => {
+    /**
+     * The pins a full graphic payload raises, one entry per raised pin.
+     * @param hex - A payload `writeGraphic` was sent
+     */
+    function pinsOf(hex: string): Set<string> {
+      const raised = new Set<string>();
+      const bits = [[0x01, 0x02, 0x04, 0x08], [0x10, 0x20, 0x40, 0x80]];
+      for (let cell = 0; cell < GEOMETRY.cellColumns * GEOMETRY.cellRows; cell++) {
+        const value = Number.parseInt(hex.slice(cell * 2, cell * 2 + 2), 16);
+        const column = cell % GEOMETRY.cellColumns;
+        const row = Math.floor(cell / GEOMETRY.cellColumns);
+        for (let dx = 0; dx < 2; dx++) {
+          for (let dy = 0; dy < 4; dy++) {
+            if (value & bits[dx][dy]) {
+              raised.add(`${column * 2 + dx},${row * 4 + dy}`);
+            }
+          }
+        }
+      }
+      return raised;
+    }
+
+    /**
+     * A 100-pixel-square canvas chart of two bars, as Chart.js leaves it for
+     * the tactile display: an overlay layer holding the clean copy of the
+     * canvas and the box that highlights the focused bar.
+     */
+    function canvasChart(): { service: TactileService; highlight: HTMLElement } {
+      const size = 100;
+      const data = new Uint8ClampedArray(size * size * 4).fill(255);
+      for (const [left, right] of [[10, 30], [60, 80]]) {
+        for (let y = 20; y < 90; y++) {
+          for (let x = left; x < right; x++) {
+            data.set([40, 90, 200, 255], (y * size + x) * 4);
+          }
+        }
+      }
+      const plot = document.createElement('div');
+      const layer = document.createElement('div');
+      layer.setAttribute('data-maidr-overlay', '');
+      layer.setAttribute('data-maidr-plot-area', '0 0 100 100');
+      stubRect(layer, { left: 0, top: 0, width: size, height: size });
+      const clean = document.createElement('canvas');
+      clean.setAttribute('data-maidr-clean-canvas', '');
+      clean.width = size;
+      clean.height = size;
+      Object.defineProperty(clean, 'getContext', {
+        value: () => ({ getImageData: () => ({ data, width: size, height: size }) }),
+      });
+      const highlight = document.createElement('div');
+      highlight.setAttribute('data-maidr-overlay-highlight', '');
+      stubRect(highlight, { left: 10, top: 20, width: 20, height: 70 });
+      layer.append(clean, highlight);
+      plot.append(layer);
+
+      const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
+      const display = { plot } as unknown as DisplayService;
+      const canvasService = new TactileService(display, braille, notification, textService, createFigure(null, [[]]));
+      return { service: canvasService, highlight };
+    }
+
+    it('should draw the chart from its pixels, with the highlighted bar filled', async () => {
+      // Chart.js and amCharts draw no SVG at all, and the display used to come
+      // up empty on every one of their charts.
+      const { service: canvasService, highlight } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const middle = (box: DOMRect): string => {
+        const x = Math.round(((box.left + box.width / 2) / 100) * (GEOMETRY.dotWidth - 3) + 1);
+        const y = Math.round(((box.top + box.height / 2) / 100) * (GEOMETRY.dotHeight - 3) + 1);
+        return `${x},${y}`;
+      };
+      // The focused bar is solid; the other one is an outline, hollow inside.
+      expect(pins.has(middle(highlight.getBoundingClientRect()))).toBe(true);
+      expect(pins.has(middle({ left: 60, top: 20, width: 20, height: 70 } as DOMRect))).toBe(false);
+      canvasService.dispose();
+    });
+
+    it('should fill the bar the reader moved to, not the one they left', async () => {
+      // The adapter moves its highlight box on the same move the display is
+      // told about, and after it. Drawn at once, the pins filled the point the
+      // reader had just left.
+      const { service: canvasService, highlight } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      stubRect(highlight, { left: 60, top: 20, width: 20, height: 70 });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const x = Math.round((70 / 100) * (GEOMETRY.dotWidth - 3) + 1);
+      const y = Math.round((55 / 100) * (GEOMETRY.dotHeight - 3) + 1);
+      expect(pins.has(`${x},${y}`)).toBe(true);
+      canvasService.dispose();
+    });
+    it('should hold a tall canvas bar by its top when zoomed past it', async () => {
+      // A canvas has no other marks to show which end of a bar is its
+      // baseline. Centred on its middle, the bar came through as two parallel
+      // lines with neither end on the pins.
+      const { service: canvasService } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      notify.mockClear();
+
+      for (let step = 0; step < 5; step++) {
+        canvasService.zoomIn();
+      }
+
+      // At 6x the bar outgrows the window both ways. The nearest edge to its
+      // middle is then one of its long sides, and the window went there: 10%
+      // across, 55% down, the bar's side and nothing else. It goes to the top.
+      expect(notify).toHaveBeenLastCalledWith('Zoom 6x, centred 20% across and 20% down');
+      canvasService.dispose();
+    });
+  });
+
   describe('states it does not draw', () => {
     it('should ignore an empty trace state', () => {
       session.isConnected = true;

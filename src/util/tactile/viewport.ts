@@ -292,6 +292,44 @@ export class TactileViewport {
   }
 
   /**
+   * The affine map from the unit window onto the pins, per axis: a point at
+   * `unit` across the visible window lands on dot `offset + unit * extent`.
+   *
+   * Shared by {@link toDot} and {@link toClient}, so the two cannot drift.
+   */
+  private dotMapping(): { offsetX: number; extentX: number; offsetY: number; extentY: number } {
+    const { width, height } = this.source;
+    // Into the inset grid, not the whole one — see {@link MARGIN_DOTS}.
+    const margin = TactileViewport.MARGIN_DOTS;
+    const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
+    const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
+    const stretched = { offsetX: margin, extentX: usableWidth, offsetY: margin, extentY: usableHeight };
+
+    if (this.aspect === 'stretch') {
+      return stretched;
+    }
+
+    // One scale for both axes, and the leftover pins split evenly so the chart
+    // sits in the middle of the grid rather than in a corner. `width / height`
+    // is the shape the chart was drawn in; the scale that fits it is whichever
+    // of the two leaves it inside the grid.
+    const scale = Math.min(usableWidth / width, usableHeight / height);
+    const drawnWidth = width * scale;
+    const drawnHeight = height * scale;
+    if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
+      < TactileViewport.MIN_PRESERVED_SHARE) {
+      // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
+      return stretched;
+    }
+    return {
+      offsetX: margin + (usableWidth - drawnWidth) / 2,
+      extentX: drawnWidth,
+      offsetY: margin + (usableHeight - drawnHeight) / 2,
+      extentY: drawnHeight,
+    };
+  }
+
+  /**
    * Converts a viewport-pixel point to dot coordinates. The result may fall
    * outside the dot grid, which means the point is outside the visible window.
    * @param clientX - Horizontal position in viewport pixels
@@ -305,43 +343,36 @@ export class TactileViewport {
 
     const half = this.halfWindow;
     const span = half * 2;
-    const normalizedX = (clientX - left) / width;
-    const normalizedY = (clientY - top) / height;
+    const unitX = ((clientX - left) / width - (this.centre.x - half)) / span;
+    const unitY = ((clientY - top) / height - (this.centre.y - half)) / span;
+    const { offsetX, extentX, offsetY, extentY } = this.dotMapping();
+    return TactileViewport.quantise(offsetX + unitX * extentX, offsetY + unitY * extentY);
+  }
 
-    // Into the inset grid, not the whole one — see {@link MARGIN_DOTS}.
-    const margin = TactileViewport.MARGIN_DOTS;
-    const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
-    const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
-
-    const unitX = (normalizedX - (this.centre.x - half)) / span;
-    const unitY = (normalizedY - (this.centre.y - half)) / span;
-
-    if (this.aspect === 'stretch') {
-      return TactileViewport.quantise(
-        margin + unitX * usableWidth,
-        margin + unitY * usableHeight,
-      );
+  /**
+   * Converts dot coordinates back to a viewport-pixel point, the inverse of
+   * {@link toDot}.
+   *
+   * For a chart drawn on a canvas, where there is no shape to project and
+   * each pin has to be told what part of the picture it stands over.
+   *
+   * @param dotX - Dot column, fractional
+   * @param dotY - Dot row, fractional
+   */
+  public toClient(dotX: number, dotY: number): { x: number; y: number } {
+    const { left, top, width, height } = this.source;
+    if (width <= 0 || height <= 0) {
+      return { x: Number.NaN, y: Number.NaN };
     }
-
-    // One scale for both axes, and the leftover pins split evenly so the chart
-    // sits in the middle of the grid rather than in a corner. `width / height`
-    // is the shape the chart was drawn in; the scale that fits it is whichever
-    // of the two leaves it inside the grid.
-    const scale = Math.min(usableWidth / width, usableHeight / height);
-    const drawnWidth = width * scale;
-    const drawnHeight = height * scale;
-    if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
-      < TactileViewport.MIN_PRESERVED_SHARE) {
-      // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
-      return TactileViewport.quantise(
-        margin + unitX * usableWidth,
-        margin + unitY * usableHeight,
-      );
-    }
-    return TactileViewport.quantise(
-      margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
-      margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
-    );
+    const half = this.halfWindow;
+    const span = half * 2;
+    const { offsetX, extentX, offsetY, extentY } = this.dotMapping();
+    const unitX = (dotX - offsetX) / extentX;
+    const unitY = (dotY - offsetY) / extentY;
+    return {
+      x: left + (unitX * span + this.centre.x - half) * width,
+      y: top + (unitY * span + this.centre.y - half) * height,
+    };
   }
 
   /**

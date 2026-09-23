@@ -418,6 +418,27 @@ describe('tactileViewport centreOnPoint and windowSize', () => {
   });
 });
 
+describe('tactileViewport toClient', () => {
+  it('should undo toDot at every zoom and pan, stretched or not', () => {
+    // A canvas chart has no shape to project, so each pin is asked which part
+    // of the picture it stands over. An inverse that drifts from toDot reads
+    // the picture from beside where the focus is drawn.
+    for (const aspect of ['stretch', 'preserve'] as const) {
+      const viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT, aspect);
+      for (let step = 0; step < 4; step++) {
+        const dot = viewport.toDot(173, 121);
+        const back = viewport.toClient(dot.x, dot.y);
+
+        expect(back.x).toBeCloseTo(173, 1);
+        expect(back.y).toBeCloseTo(121, 1);
+
+        viewport.zoomIn();
+        viewport.pan('right');
+      }
+    }
+  });
+});
+
 describe('tactileViewport reset and setSource', () => {
   let viewport: TactileViewport;
 

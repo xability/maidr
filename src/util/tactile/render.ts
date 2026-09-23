@@ -332,6 +332,23 @@ export abstract class TactileRenderer {
   }
 
   /**
+   * Draws the focused mark's rings onto a buffer already holding the rest of
+   * the picture, exactly as a focused mark is drawn in a scene.
+   *
+   * For a chart whose marks are not shapes -- one drawn on a canvas -- where
+   * the picture comes from elsewhere and only the focus has an outline.
+   *
+   * @param raster - The pin buffer to draw into
+   * @param rings - The focused mark's rings, in dot coordinates
+   * @param zoom - The current zoom factor, where 1 fits the whole plot
+   */
+  public static drawFocus(raster: DotRaster, rings: readonly DotRing[], zoom: number): void {
+    for (const ring of rings) {
+      this.drawRing(raster, ring, true, undefined, false, zoom);
+    }
+  }
+
+  /**
    * Renders a scene to a new pin buffer.
    *
    * Every primitive raises pins and none lowers them, so drawing is a union
