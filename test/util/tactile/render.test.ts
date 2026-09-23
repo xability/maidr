@@ -876,6 +876,127 @@ describe('tactileRenderer.render', () => {
     expect(raster.raisedCount).toBeGreaterThan(8);
   });
 
+  it('should keep a focused point the same disc at every zoom', () => {
+    // The marker a chart draws on a point is a few pixels across, and it is
+    // the point that matters, not the marker. Scaled with the zoom, a line's
+    // vertex grew into an ellipse half the display across at the closest zoom,
+    // covering the line it was marking.
+    const mark = {} as SVGGraphicsElement;
+    const viewport = identityViewport();
+    while (viewport.zoomIn()) {
+      // To the closest zoom.
+    }
+    const radius = 1 * viewport.zoom;
+    ringsOf.mockReturnValue([{
+      points: Array.from({ length: 24 }, (_, index) => ({
+        x: 10 + radius * Math.cos((index / 24) * Math.PI * 2),
+        y: 10 + radius * Math.sin((index / 24) * Math.PI * 2),
+      })),
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      viewport,
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    const atRest = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+    ringsOf.mockReturnValue([{ points: [{ x: 10, y: 10 }], closed: false }]);
+    const point = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(10, 10)).toBe(true);
+    expect(raster.raisedCount).toBe(point.raisedCount);
+    // Whereas at rest the same ring is a shape of its own and is filled.
+    expect(atRest.raisedCount).toBeGreaterThan(point.raisedCount);
+  });
+
+  it('should let a mark that is small at rest but not round keep its shape zoomed in', () => {
+    // An error bar is a few pins at rest and is a disc there, like any small
+    // mark. Zoomed in, it is the error bar the reader came to feel, and a
+    // disc would keep its shape from them at every zoom.
+    const mark = {} as SVGGraphicsElement;
+    const viewport = identityViewport();
+    while (viewport.zoomIn()) {
+      // To the closest zoom.
+    }
+    ringsOf.mockReturnValue([{ points: [{ x: 10, y: 2 }, { x: 10, y: 17 }], closed: false }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      viewport,
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    // The whole length of the stroke is up, not a disc around its middle.
+    expect(raster.get(10, 3)).toBe(true);
+    expect(raster.get(10, 16)).toBe(true);
+  });
+
+  it('should draw each piece of a mark on its own, with nothing joining them', () => {
+    // An error bar is one path in three pieces. Drawn as one run, the pen was
+    // dragged between them and a few steps in the error bar came back as a Z.
+    const mark = {} as SVGGraphicsElement;
+    const top = [{ x: 2, y: 3 }, { x: 8, y: 3 }];
+    const bottom = [{ x: 12, y: 16 }, { x: 18, y: 16 }];
+    ringsOf.mockReturnValue([{
+      points: [...top, ...bottom],
+      closed: false,
+      parts: [{ points: top, closed: false }, { points: bottom, closed: false }],
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [mark], focused: [] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(5, 3)).toBe(true);
+    expect(raster.get(15, 16)).toBe(true);
+    // Halfway along where a bridge from (8, 3) to (12, 16) would run.
+    expect(raster.get(10, 9)).toBe(false);
+    expect(raster.get(10, 10)).toBe(false);
+  });
+
+  it('should outline a focused mark that covers most of the grid both ways', () => {
+    // A funnel stage or a boxen box a step or two in covered four fifths of
+    // the display and was filled: a slab with nothing to feel but the edge of
+    // the device.
+    const mark = {} as SVGGraphicsElement;
+    ringsOf.mockReturnValue([{
+      points: [
+        { x: 1, y: 1 },
+        { x: 18, y: 1 },
+        { x: 18, y: 18 },
+        { x: 1, y: 18 },
+      ],
+      closed: true,
+    }]);
+
+    const raster = TactileRenderer.render(
+      { marks: [], focused: [mark] },
+      identityViewport(),
+      DOTS_ACROSS,
+      DOTS_DOWN,
+    );
+
+    expect(raster.get(10, 10)).toBe(false);
+    expect(raster.get(1, 10)).toBe(true);
+  });
+
   it('should outline rather than fill a focused mark that would swamp the grid', () => {
     // Zoomed in, a filled mark stops being a cue and becomes the display: the
     // reader's hand meets a featureless plateau with the mark's own edges

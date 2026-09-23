@@ -384,6 +384,16 @@ export class TactileViewport {
   }
 
   /**
+   * Middle of the visible window, in viewport pixels.
+   */
+  public get windowCentre(): { x: number; y: number } {
+    return {
+      x: this.source.left + this.centre.x * this.source.width,
+      y: this.source.top + this.centre.y * this.source.height,
+    };
+  }
+
+  /**
    * Centres the window on a viewport-pixel rectangle.
    *
    * Used to follow the focused mark when navigation takes it off the visible

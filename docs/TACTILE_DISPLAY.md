@@ -405,6 +405,38 @@ arrived as two parallel lines, and a few steps further the window sat wholly
 inside it with every pin down. Which end is the value is read from the other
 bars: the edge they share is the baseline.
 
+Where there is no baseline to read — a funnel stage, a floating waterfall bar,
+a treemap tile, a pie wedge — the view goes to the nearest point of the mark's
+own outline, moving only in the direction the mark does not fit. A waterfall
+bar that fits across but not down is held by its top or bottom, never by a
+long side; a pie wedge is held on its arc or its edges, not in the corner of
+its bounding box where the wedge does not reach. Some edge of the mark you are
+on is always under your hand.
+
+A zoom step never lands on an empty display. Where there is no focused mark
+to close in on — the multi-panel lobby, or a chart whose points have no
+element of their own — and the step would leave every pin down, the view moves
+to the nearest mark instead. Every pin down is also what a disconnected display
+feels like, so a blank frame is never the answer to a zoom.
+
+Zooming changes how much of the chart you feel, not what the marks are:
+
+- **A point stays a point.** The dot marking where you are on a line, a
+  scatter or a dot plot is the same small disc at every zoom. It used to grow
+  with the chart's own marker, into an ellipse half the display across that
+  covered the line it was marking.
+- **A mark drawn in pieces stays in pieces.** An error bar, a box plot's box
+  and whiskers, a candle's body and wick, and a map region with islands are
+  often a single path in several pieces. They are drawn piece by piece, so no
+  line the chart never drew joins them — which at close zoom used to cut across
+  the mark as a slash, or turn an error bar into a Z.
+- **A shape placed by `<use>` is drawn as that shape.** matplotlib draws a
+  violin's outline once and places it with `<use>`; it is followed to the
+  outline rather than measured as a box.
+- **The focused mark is outlined, not filled, once it covers three quarters of
+  the display both ways**, so a step or two in you meet its shape under a
+  heavy stroke rather than a solid slab.
+
 Near the edge of the chart the view stops at the edge rather than showing
 empty space beyond it, so a mark there sits off-centre, towards that edge.
 

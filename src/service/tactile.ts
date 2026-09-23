@@ -4,6 +4,7 @@ import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
 import type { FigureState, HighlightState, NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
 import type { TactileScene } from '@util/tactile/render';
+import type { DotProjector } from '@util/tactile/svgGeometry';
 import type { ClientRect, PanDirection, TactileAspect } from '@util/tactile/viewport';
 import type { BrailleService } from './braille';
 import type { DisplayService } from './display';
@@ -62,6 +63,14 @@ type FocusFollow = 'centre' | 'offscreen' | 'none';
  * bars that share a baseline.
  */
 const SHARED_EDGE_TOLERANCE = 0.5;
+
+/**
+ * Leaves points where the page draws them, so a mark's outline can be read in
+ * screen pixels rather than in pins.
+ */
+const SCREEN: DotProjector = {
+  toDot: (x: number, y: number) => ({ x, y }),
+};
 
 /**
  * How hardware keys move the pin graphic.
@@ -1308,6 +1317,78 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * The point on the elements' outlines nearest a target, in viewport pixels.
+   *
+   * Distance is measured in windows rather than pixels, so a window stretched
+   * onto the pins weighs a step across the same as a step down.
+   *
+   * It moves only along the axes it is free on. A floating waterfall bar fits
+   * the window across but not down, so it is the top or the bottom that has to
+   * come into reach; allowed to move either way, the nearest outline is one of
+   * the bar's long sides, and the reader is handed two parallel lines with both
+   * ends of the bar off the pins.
+   *
+   * @param elements - The marks whose outlines to search
+   * @param target - Where the window would otherwise be centred
+   * @param target.x - Horizontal position in viewport pixels
+   * @param target.y - Vertical position in viewport pixels
+   * @param window - The visible window's size, in viewport pixels
+   * @param window.width - Window width in viewport pixels
+   * @param window.height - Window height in viewport pixels
+   * @param free - The axes the point may move along, both by default
+   * @param free.x - Whether it may move across
+   * @param free.y - Whether it may move down
+   * @returns The nearest outline point, or null when no outline can be read
+   */
+  private static nearestOutlinePoint(
+    elements: readonly SVGGraphicsElement[],
+    target: { x: number; y: number },
+    window: { width: number; height: number },
+    free: { x: boolean; y: boolean } = { x: true, y: true },
+  ): { x: number; y: number } | null {
+    // An axis the point may not move along is weighed so heavily that any
+    // point on the target's line beats every point off it.
+    const LOCKED = 1e-6;
+    const scaleX = (window.width > 0 ? window.width : 1) * (free.x ? 1 : LOCKED);
+    const scaleY = (window.height > 0 ? window.height : 1) * (free.y ? 1 : LOCKED);
+    let best: { x: number; y: number } | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    const consider = (x: number, y: number): void => {
+      const distance = ((x - target.x) / scaleX) ** 2 + ((y - target.y) / scaleY) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { x, y };
+      }
+    };
+
+    for (const element of elements) {
+      for (const ring of TactileSvgGeometry.ringsOf(element, SCREEN)) {
+        const points = ring.points.filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+        if (points.length === 1) {
+          consider(points[0].x, points[0].y);
+          continue;
+        }
+        const segments = ring.closed ? points.length : points.length - 1;
+        for (let index = 0; index < segments; index++) {
+          const from = points[index];
+          const to = points[(index + 1) % points.length];
+          // The foot of the perpendicular, in window units, clamped to the
+          // segment.
+          const dx = (to.x - from.x) / scaleX;
+          const dy = (to.y - from.y) / scaleY;
+          const length = dx * dx + dy * dy;
+          const along = length === 0
+            ? 0
+            : Math.min(1, Math.max(0, (((target.x - from.x) / scaleX) * dx + ((target.y - from.y) / scaleY) * dy) / length));
+          consider(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * along);
+        }
+      }
+    }
+    return best;
+  }
+
+  /**
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
    * @param follow - Whether the window moves to the focused mark; see
@@ -1368,7 +1449,20 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       const focusBounds = TactileService.boundsOf(focused);
       if (focusBounds !== null
         && (follow === 'centre' || !this.viewport.containsRect(focusBounds))) {
-        const anchor = TactileService.anchorOf(focusBounds, marks, this.viewport.windowSize);
+        const window = this.viewport.windowSize;
+        const target = TactileService.anchorOf(focusBounds, marks, window);
+        // A mark that fits is seen whole wherever in it the window sits. One
+        // that does not is only seen by its outline, so the window goes to the
+        // nearest point of that outline: the middle of a bounding box can be
+        // inside a bar with no edge in reach, or -- for a pie wedge or a
+        // sunburst arc -- somewhere the shape does not reach at all.
+        const free = {
+          x: focusBounds.width > window.width,
+          y: focusBounds.height > window.height,
+        };
+        const anchor = free.x || free.y
+          ? TactileService.nearestOutlinePoint(focused, target, window, free) ?? target
+          : target;
         this.viewport.centreOnPoint(anchor.x, anchor.y);
       }
     }
@@ -1391,12 +1485,33 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       endCaps: state.type === 'trace' && CONNECTOR_MARKS.has(state.traceType),
     };
 
-    const raster = TactileRenderer.render(
+    let raster = TactileRenderer.render(
       scene,
       this.viewport,
       geometry.dotWidth,
       geometry.dotHeight,
     );
+
+    // A zoom step must not land on an empty display. Every pin down is also
+    // what a disconnected display feels like, and a reader who zoomed in to
+    // feel more of the chart gets less than nothing. It happens where the
+    // focus gives no position to close in on -- the multi-panel lobby, or a
+    // chart whose focused point has no element of its own -- and the window
+    // stays on a patch of the plot with nothing in it. So the window moves to
+    // the nearest mark there is, which keeps the view as close as it can to
+    // where the reader was. A pan is left alone: an empty window is where the
+    // reader deliberately took it, and they are told it is empty.
+    if (raster.raisedCount === 0 && follow === 'centre' && !this.viewport.isWholePlotVisible) {
+      const nearest = TactileService.nearestOutlinePoint(
+        marks,
+        this.viewport.windowCentre,
+        this.viewport.windowSize,
+      );
+      if (nearest !== null) {
+        this.viewport.centreOnPoint(nearest.x, nearest.y);
+        raster = TactileRenderer.render(scene, this.viewport, geometry.dotWidth, geometry.dotHeight);
+      }
+    }
 
     const changed = this.send(raster, geometry.cellColumns, geometry.cellRows);
     this.sendText(state, geometry.textCells);

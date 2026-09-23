@@ -1870,6 +1870,44 @@ describe('tactileService', () => {
       expect(lastAnnouncement()).not.toContain('nothing is in view');
     });
 
+    it('should hold a floating bar by an end, not by one of its long sides', () => {
+      // A waterfall bar shares neither end with the others, so there is no
+      // baseline to read. Moved to the nearest part of its outline, the window
+      // went to a long side, and the reader got two parallel lines with both
+      // ends of the bar off the pins. It is the axis the bar does not fit that
+      // the window has to move along.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 10 });
+      stubRect(chart.marks[1], { left: 95, top: 5, width: 10, height: 90 });
+      stubRect(chart.marks[2], { left: 190, top: 90, width: 10, height: 10 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and (25|75)% down/);
+    });
+
+    it('should move to the nearest mark rather than stop on an empty display', () => {
+      // With no focused element to close in on -- a point with no element of
+      // its own, or the multi-panel lobby -- the window stayed on the middle
+      // of the plot, and a few steps in that was a patch with nothing in it:
+      // every pin down, which is also what a dead display feels like.
+      stubRect(chart.marks[1], { left: 150, top: 80, width: 10, height: 10 });
+      activate(1);
+      service.update({
+        ...traceState(chart, 1),
+        highlight: { empty: true },
+      } as unknown as NonEmptyTraceState);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).not.toContain('nothing is in view');
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 75% across and 75% down/);
+    });
+
     it('should hold a bar hanging below its baseline by its bottom', () => {
       // The same rule with the sign turned over: the edge the other bars
       // share is the baseline whichever side it is on, so a negative bar is
@@ -2368,7 +2406,11 @@ describe('tactileService', () => {
       // contained by a zoomed window, so a redraw that followed the focus
       // would pin the view to it for good and every pan would announce a move
       // it had not made.
-      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 50% down');
+      //
+      // 33% down rather than 50%: the zoom step before the pan put the window
+      // on the mark's top edge, since the middle of a mark filling the plot is
+      // the one place with nothing of it to feel.
+      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 33% down');
     });
   });
 

@@ -58,6 +58,12 @@ export abstract class TactileRenderer {
   private static readonly MIN_HOLLOW_SPAN = 3;
 
   /**
+   * How much longer than it is wide a mark may be and still count as a
+   * marker on a point rather than a shape of its own.
+   */
+  private static readonly MARKER_ASPECT = 3;
+
+  /**
    * Pins across an open stroke — a line, a curve, a whisker, an error bar.
    *
    * One. A stroke is the thinnest thing the grid can draw and that is what it
@@ -111,8 +117,15 @@ export abstract class TactileRenderer {
   /**
    * How much of an axis a mark must cover for that axis to count as filled
    * edge to edge.
+   *
+   * Three quarters. At nine tenths a focused mark a zoom step or two in -- a
+   * funnel stage, a boxen box, a stacked segment -- came out as a solid slab
+   * over most of the display, which feels no different from the edge of the
+   * device and tells the reader nothing but that they are somewhere inside
+   * something. Outlined heavily instead, it keeps the shape that says what it
+   * is, and the heavy stroke still says it is the one they are on.
    */
-  private static readonly FULL_SPAN = 0.9;
+  private static readonly FULL_SPAN = 0.75;
 
   /**
    * Bounding box of a ring in dot coordinates, ignoring points that failed to
@@ -146,6 +159,7 @@ export abstract class TactileRenderer {
    * @param shade - How much of the interior to raise as texture, where the
    * chart encoded a value as fill colour; absent otherwise
    * @param endCaps - Whether an open stroke gets a dot at each end
+   * @param zoom - The current zoom factor, where 1 fits the whole plot
    */
   private static drawRing(
     raster: DotRaster,
@@ -153,6 +167,7 @@ export abstract class TactileRenderer {
     filled: boolean,
     shade?: number,
     endCaps: boolean = false,
+    zoom: number = 1,
   ): void {
     const box = this.bounds(ring);
     if (box === null) {
@@ -162,46 +177,41 @@ export abstract class TactileRenderer {
     const isTiny = box.right - box.left < this.MIN_HOLLOW_SPAN
       && box.bottom - box.top < this.MIN_HOLLOW_SPAN;
 
-    const path = ring.closed && ring.points.length > 2
-      ? [...ring.points, ring.points[0]]
-      : ring.points;
+    // Whether the mark is a point rather than a shape is decided at the size
+    // it has with the whole plot in view, not at the current zoom. A line's
+    // vertex, a scatter point, a dot on a dot plot: each is drawn as a
+    // standard disc at rest, and it is the same point at every zoom. Measured
+    // at the current zoom instead, the marker the chart drew a few pixels
+    // across grew with every step -- an ellipse half the display across at the
+    // closest zoom, covering the line it marks and saying nothing about it.
+    //
+    // Only a closed, roughly round or square mark is a marker. An error bar
+    // or a sliver of a bar is small at rest too, but its shape is the reading,
+    // and zooming in is how a reader gets to feel it.
+    const spanX = box.right - box.left;
+    const spanY = box.bottom - box.top;
+    const isMarker = ring.closed
+      && spanX / zoom < this.MIN_HOLLOW_SPAN
+      && spanY / zoom < this.MIN_HOLLOW_SPAN
+      && Math.max(spanX, spanY) <= this.MARKER_ASPECT * Math.max(Math.min(spanX, spanY), Number.EPSILON);
+    const isPoint = isTiny || isMarker;
+
+    // Each piece of the mark is drawn on its own, so a path the chart drew in
+    // several pieces does not come back joined by lines it never drew.
+    const pieces = ring.parts ?? [{ points: ring.points, closed: ring.closed }];
+    const paths = pieces.map(piece => piece.closed && piece.points.length > 2
+      ? [...piece.points, piece.points[0]]
+      : piece.points);
+    // The closed pieces are filled together, even-odd, so a hole stays a hole
+    // and an island is filled as well as the mainland.
+    const areas = pieces.filter(piece => piece.closed).map(piece => piece.points);
 
     // Only the focused mark is thickened. An unfocused outline stays one pin
     // so its interior survives, and an unfocused point stays one pin so a
     // cloud of them does not smear into a single mass.
     const weight = filled ? this.FOCUS_STROKE_WEIGHT : this.STROKE_WEIGHT;
 
-    if (filled && ring.closed && !isTiny) {
-      if (this.overfills(box, raster)) {
-        // Too big to fill: the reader is inside this mark, not looking at it,
-        // and a solid field tells them nothing a blank one would not. Its
-        // boundary is the only thing left that carries information, so the
-        // pins are spent on that.
-        raster.strokePath(path, weight);
-        return;
-      }
-      // Fill the interior, then trace the edge. Scan-line filling samples pin
-      // centres, so a ring's own far edge falls outside every scan line and
-      // would be left lowered — a filled mark whose bottom boundary is simply
-      // missing, and a phantom gap between marks that touch in the chart.
-      // Stroking after filling costs one pass and makes the mark solid to its
-      // real boundary.
-      raster.fillPolygon([ring.points]);
-      raster.polyline(path);
-      return;
-    }
-
-    if (shade !== undefined && ring.closed && !isTiny && !filled) {
-      // The value the chart drew as a colour, as a texture a hand can read.
-      // The outline goes on too: the boundary is what says where one cell ends
-      // and the next begins, and a texture alone leaves neighbouring cells of
-      // similar value running into each other.
-      raster.fillDithered([ring.points], shade);
-      raster.polyline(path);
-      return;
-    }
-
-    if (filled && isTiny) {
+    if (filled && isPoint) {
       // A point, or a mark too small to have an inside. Filling it is not
       // enough to find it: on a line chart the focused vertex sat as a one-pin
       // spur against a two-pin stroke, which under a finger is the same line
@@ -211,26 +221,71 @@ export abstract class TactileRenderer {
       return;
     }
 
-    if (path.length === 1) {
+    if (filled && ring.closed && !isTiny) {
+      if (this.overfills(box, raster)) {
+        // Too big to fill: the reader is inside this mark, not looking at it,
+        // and a solid field tells them nothing a blank one would not. Its
+        // boundary is the only thing left that carries information, so the
+        // pins are spent on that.
+        for (const path of paths) {
+          raster.strokePath(path, weight);
+        }
+        return;
+      }
+      // Fill the interior, then trace the edge. Scan-line filling samples pin
+      // centres, so a ring's own far edge falls outside every scan line and
+      // would be left lowered — a filled mark whose bottom boundary is simply
+      // missing, and a phantom gap between marks that touch in the chart.
+      // Stroking after filling costs one pass and makes the mark solid to its
+      // real boundary. A piece with no inside -- a box plot's whisker -- is
+      // stroked at the focus weight, as it would be on its own.
+      raster.fillPolygon(areas);
+      pieces.forEach((piece, index) => {
+        if (piece.closed) {
+          raster.polyline(paths[index]);
+        } else {
+          raster.strokePath(paths[index], weight);
+        }
+      });
+      return;
+    }
+
+    if (shade !== undefined && ring.closed && !isTiny && !filled) {
+      // The value the chart drew as a colour, as a texture a hand can read.
+      // The outline goes on too: the boundary is what says where one cell ends
+      // and the next begins, and a texture alone leaves neighbouring cells of
+      // similar value running into each other.
+      raster.fillDithered(areas, shade);
+      for (const path of paths) {
+        raster.polyline(path);
+      }
+      return;
+    }
+
+    if (paths.length === 1 && paths[0].length === 1) {
+      const point = paths[0][0];
       // A mark with no extent at all, unfocused: left as the single pin it is,
       // so a cloud of them does not smear into one mass. A connector whose two
       // ends coincide is the exception -- both its values sit on that pin, and
       // a single pin is not a thing a finger finds.
       if (endCaps) {
-        raster.fillDisc(path[0].x, path[0].y, this.END_CAP_RADIUS);
+        raster.fillDisc(point.x, point.y, this.END_CAP_RADIUS);
         return;
       }
-      raster.set(path[0].x, path[0].y);
+      raster.set(point.x, point.y);
       return;
     }
-    raster.strokePath(path, weight);
-    if (endCaps && !ring.closed) {
-      const radius = filled ? this.FOCUS_DISC_RADIUS : this.END_CAP_RADIUS;
-      const first = path[0];
-      const last = path[path.length - 1];
-      raster.fillDisc(first.x, first.y, radius);
-      raster.fillDisc(last.x, last.y, radius);
-    }
+    pieces.forEach((piece, index) => {
+      const path = paths[index];
+      raster.strokePath(path, weight);
+      if (endCaps && !piece.closed && path.length > 0) {
+        const radius = filled ? this.FOCUS_DISC_RADIUS : this.END_CAP_RADIUS;
+        const first = path[0];
+        const last = path[path.length - 1];
+        raster.fillDisc(first.x, first.y, radius);
+        raster.fillDisc(last.x, last.y, radius);
+      }
+    });
   }
 
   /**
@@ -305,13 +360,13 @@ export abstract class TactileRenderer {
       }
       const shade = scene.shades?.get(mark);
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, false, shade, endCaps);
+        this.drawRing(raster, ring, false, shade, endCaps, viewport.zoom);
       }
     }
 
     for (const mark of scene.focused) {
       for (const ring of TactileSvgGeometry.ringsOf(mark, viewport)) {
-        this.drawRing(raster, ring, true, undefined, endCaps);
+        this.drawRing(raster, ring, true, undefined, endCaps, viewport.zoom);
       }
     }
 
