@@ -994,9 +994,12 @@ class DotPadSession {
         );
       } catch (error) {
         // Queued is not delivered: a request the firmware turns down would
-        // otherwise leave the key doing nothing and saying nothing.
+        // otherwise leave the key doing nothing and saying nothing. It is not
+        // a write failure, though -- no pin went stale -- so it is not passed
+        // on as one, which would repaint the whole display for nothing and
+        // spend a repair the next real failure may need.
+        console.error('DotPad vibration refused:', error instanceof Error ? error.message : error);
         onFailure?.();
-        throw error;
       }
     });
     return true;

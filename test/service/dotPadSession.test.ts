@@ -1226,11 +1226,16 @@ describe('dotPadSession', () => {
       }
       const { session } = await connectSession({ ...Base, module: { ...Base.module, DotPadSDK: RefusingSdk } });
       const onFailure = jest.fn();
+      const writeFailure = jest.fn();
+      session.onWriteFailure(writeFailure);
 
       expect(session.vibrate(onFailure)).toBe(true);
       await flushWrites();
 
       expect(onFailure).toHaveBeenCalledTimes(1);
+      // A refused buzz leaves every pin as it was, so it is no reason to
+      // repaint the display.
+      expect(writeFailure).not.toHaveBeenCalled();
     });
 
     it('should report that it could not when the SDK has no vibrator', async () => {
