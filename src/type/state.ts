@@ -494,6 +494,24 @@ export interface DescriptionStat {
 }
 
 /**
+ * A plain-language introduction to a kind of chart, shown in the description
+ * dialog's collapsible "About this chart type" section.
+ *
+ * The rest of the dialog assumes the reader already knows what the chart type
+ * is. A reader who has never seen one -- which, for someone blind from birth,
+ * may be most of them -- is told a name like "Violin Plot" and nothing else,
+ * so each type also says what it is, what it is for, and what it looks like.
+ */
+export interface ChartGuide {
+  /** What the chart is, in one or two sentences. */
+  definition: string;
+  /** What people use it for. */
+  purpose: string;
+  /** What it looks like, by shape and position rather than by colour alone. */
+  appearance: string;
+}
+
+/**
  * Summary of a single subplot in a multi-panel figure, used to give users
  * an at-a-glance list of what's available before they navigate in.
  */
@@ -548,6 +566,11 @@ export interface DescriptionState {
   };
   /** Chart-specific summary statistics */
   stats: DescriptionStat[];
+  /**
+   * A plain-language introduction to the chart type named by
+   * {@link chartType}. Absent when there is nothing to introduce.
+   */
+  guide?: ChartGuide;
   /**
    * Data table for raw data display.
    *

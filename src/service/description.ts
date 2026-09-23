@@ -180,6 +180,7 @@ export class DescriptionService implements Disposable {
           ...this.figureNotes(),
         ],
         title,
+        guide: active.guide,
         ...(titleSource && { titleSource }),
         ...(subplots.length > 0 && { subplots }),
         ...(layers.length > 0 && { layers }),
@@ -365,6 +366,11 @@ export class DescriptionService implements Disposable {
     return {
       chartType: t('description.multiPanelFigure'),
       title,
+      guide: {
+        definition: t('guide.figure.definition'),
+        purpose: t('guide.figure.purpose'),
+        appearance: t('guide.figure.appearance'),
+      },
       axes: this.getFigureAxes(),
       stats,
       dataTable: { headers: [], rows: [] },
