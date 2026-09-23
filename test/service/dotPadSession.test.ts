@@ -1186,6 +1186,51 @@ describe('dotPadSession', () => {
     });
   });
 
+  describe('vibration', () => {
+    /**
+     * The vendor module with an SDK that can vibrate, recording each request.
+     * @param vendor - The module to extend
+     * @param requests - Where each vibration request is recorded
+     */
+    function vibratingVendor(vendor: Vendor, requests: unknown[][]): Vendor {
+      const Base = vendor.module.DotPadSDK;
+      class VibratingSdk extends Base {
+        public override requestVibrator = (...args: unknown[]): void => {
+          requests.push(args);
+        };
+      }
+      return { ...vendor, module: { ...vendor.module, DotPadSDK: VibratingSdk } };
+    }
+
+    it('should buzz the connected device through the SDK', async () => {
+      const requests: unknown[][] = [];
+      const { session } = await connectSession(vibratingVendor(createVendor(), requests));
+
+      expect(session.vibrate()).toBe(true);
+      await flushWrites();
+
+      expect(requests).toEqual([[DEVICE, 70, 50, 2]]);
+    });
+
+    it('should report that it could not when the SDK has no vibrator', async () => {
+      const { session } = await connectSession(createVendor());
+
+      expect(session.vibrate()).toBe(false);
+    });
+
+    it('should report that it could not while disconnected', async () => {
+      const requests: unknown[][] = [];
+      setNavigator({ bluetooth: {} });
+      installVendor(vibratingVendor(createVendor(), requests));
+      const session = await loadSession();
+
+      expect(session.vibrate()).toBe(false);
+      await flushWrites();
+
+      expect(requests).toEqual([]);
+    });
+  });
+
   describe('vendor callbacks', () => {
     it('should return to disconnected and drop the geometry when the device drops', async () => {
       const vendor = createVendor();

@@ -139,6 +139,13 @@ const BRAILLE_LANGUAGE = 'English';
 const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
 /**
+ * The buzz that says "nothing further this way": two short pulses. Short
+ * enough to feel like a knock rather than an alarm, and doubled so it cannot be
+ * mistaken for the click of a key that did something.
+ */
+const EDGE_VIBRATION = { onMs: 70, offMs: 50, count: 2 } as const;
+
+/**
  * Owns the connection to a tactile display, for as long as the page lives.
  *
  * Deliberately a module-level singleton rather than a service on the MAIDR
@@ -954,6 +961,30 @@ class DotPadSession {
       return;
     }
     this.enqueue(() => sdk.displayLineData(cellRow + 1, 0, hex, GRAPHIC_MODE, device));
+  }
+
+  /**
+   * Buzzes the device once, to say the reader has reached an edge.
+   *
+   * Queued with the writes, so it lands after the frame or line the key that
+   * provoked it produced rather than ahead of it.
+   *
+   * @returns False when there is no device or its SDK cannot vibrate, so the
+   * caller can say it another way
+   */
+  public vibrate(): boolean {
+    const sdk = this.sdk;
+    const device = this.device;
+    if (sdk === null || device === null || typeof sdk.requestVibrator !== 'function') {
+      return false;
+    }
+    this.enqueue(() => sdk.requestVibrator?.(
+      device,
+      EDGE_VIBRATION.onMs,
+      EDGE_VIBRATION.offMs,
+      EDGE_VIBRATION.count,
+    ));
+    return true;
   }
 
   /**

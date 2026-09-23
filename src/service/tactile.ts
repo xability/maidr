@@ -779,6 +779,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * The device reports its keys but never scrolls its own buffer, so each
    * window is re-sent from the first cell of the line.
    *
+   * Nothing is spoken on a move. The reader is reading the line with their
+   * fingers, and a voice saying "part 2 of 4" on every press talks over the
+   * very thing they are reading while telling them nothing the cells do not.
+   * The one thing the cells cannot say is that there is no more line, so only
+   * that is signalled -- by a buzz, under the hand that pressed the key. Where
+   * the SDK cannot vibrate, the edge is spoken instead, since a key that does
+   * nothing and says nothing is indistinguishable from a broken one.
+   *
    * @param step - Windows to move; negative moves back toward the start
    */
   public scrollText(step: number): void {
@@ -789,19 +797,28 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     const lastWindow = TactileBraille.windowCount(this.textCells, cellCount) - 1;
     if (lastWindow <= 0) {
-      this.notification.notify(t('tactile.lineWholeShown'));
+      this.signalLineEdge(t('tactile.lineWholeShown'));
       return;
     }
 
     const next = Math.min(Math.max(this.textWindow + step, 0), lastWindow);
     if (next === this.textWindow) {
-      this.notification.notify(step < 0 ? t('tactile.lineStart') : t('tactile.lineEnd'));
+      this.signalLineEdge(step < 0 ? t('tactile.lineStart') : t('tactile.lineEnd'));
       return;
     }
 
     this.textWindow = next;
     this.writeTextWindow(cellCount);
-    this.notification.notify(t('tactile.linePart', { index: next + 1, total: lastWindow + 1 }));
+  }
+
+  /**
+   * Tells the reader the text line goes no further in the way they pressed.
+   * @param fallback - What to say when the device cannot vibrate
+   */
+  private signalLineEdge(fallback: string): void {
+    if (!dotPadSession.vibrate()) {
+      this.notification.notify(fallback);
+    }
   }
 
   /**

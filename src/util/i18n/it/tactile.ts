@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'La riga intera è già visualizzata',
   'tactile.lineStart': 'Inizio della riga',
   'tactile.lineEnd': 'Fine della riga',
-  'tactile.linePart': 'Parte {index} di {total} della riga',
   'tactile.lineUncontracted': 'Il braille contratto non è disponibile, quindi la riga di testo del display tattile è in braille integrale',
 
   'tactile.deviceDisconnected': 'DotPad disconnesso',

@@ -502,9 +502,11 @@ That description runs well past twenty cells, so the line scrolls:
 | Back along the line | Function 1  |
 | On along the line   | Function 4  |
 
-When more text follows, the final cell shows dots 7 and 8. MAIDR announces
-which part of the line you are on, and says so rather than moving silently when
-you reach either end. Moving to another data point returns the line to its
+When more text follows, the final cell shows dots 7 and 8. Moving along the line
+is silent — you are reading it with your fingers, and a voice naming the part
+would talk over it. When there is no more line in the direction you pressed, or
+the whole line already fits, the device **vibrates** with two short pulses.
+On an SDK build without vibration, MAIDR says it instead. Moving to another data point returns the line to its
 start, since it now describes something else.
 
 ### Contracted braille

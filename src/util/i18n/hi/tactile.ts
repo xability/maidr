@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'पूरी पंक्ति पहले से दिख रही है',
   'tactile.lineStart': 'पंक्ति की शुरुआत',
   'tactile.lineEnd': 'पंक्ति का अंत',
-  'tactile.linePart': '{total} में से पंक्ति भाग {index}',
   'tactile.lineUncontracted': 'संक्षिप्त ब्रेल उपलब्ध नहीं है, इसलिए स्पर्श डिस्प्ले की टेक्स्ट पंक्ति असंक्षिप्त ब्रेल में है',
 
   'tactile.deviceDisconnected': 'DotPad डिस्कनेक्ट हुआ',

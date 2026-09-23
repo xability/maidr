@@ -23,7 +23,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'Die ganze Zeile wird bereits angezeigt',
   'tactile.lineStart': 'Anfang der Zeile',
   'tactile.lineEnd': 'Ende der Zeile',
-  'tactile.linePart': 'Zeilenteil {index} von {total}',
   'tactile.lineUncontracted': 'Kurzschrift ist nicht verfügbar, daher wird die Textzeile des taktilen Displays in Vollschrift ausgegeben',
 
   // Device connection.

@@ -102,6 +102,7 @@ jest.mock('@service/dotPadSession', () => {
       writeGraphic: jest.fn(),
       writeGraphicRow: jest.fn(),
       writeText: jest.fn(),
+      vibrate: jest.fn((): boolean => true),
       connect: jest.fn(),
       disconnect: jest.fn(),
       adopt: jest.fn(async (): Promise<boolean> => false),
@@ -160,6 +161,7 @@ interface FakeSession {
   writeGraphic: jest.Mock<(hex: string) => void>;
   writeGraphicRow: jest.Mock<(cellRow: number, hex: string) => void>;
   writeText: jest.Mock<(hex: string) => void>;
+  vibrate: jest.Mock<() => boolean>;
   disconnect: jest.Mock<() => void>;
   adopt: jest.Mock<() => Promise<boolean>>;
   releaseIfAdopted: jest.Mock<() => void>;
@@ -455,6 +457,8 @@ describe('tactileService', () => {
     session.writeGraphic.mockClear();
     session.writeGraphicRow.mockClear();
     session.writeText.mockClear();
+    session.vibrate.mockReset();
+    session.vibrate.mockImplementation((): boolean => true);
     session.disconnect.mockClear();
     session.releaseIfAdopted.mockClear();
     session.adopt.mockReset();
@@ -1399,38 +1403,79 @@ describe('tactileService', () => {
 
       expect(session.writeText).toHaveBeenCalledTimes(2);
       expect(session.writeText.mock.calls[1][0]).not.toBe(first);
-      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 2 of'));
     });
 
     it('should scroll back through the line on function key 1', () => {
       activate();
       session.fireKey('function4');
       const second = session.writeText.mock.calls[1][0];
-      notify.mockClear();
 
       session.fireKey('function1');
 
       expect(session.writeText.mock.calls[2][0]).not.toBe(second);
-      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 1 of'));
     });
 
-    it('should say when there is no more line in that direction', () => {
+    it('should say nothing while moving along the line', () => {
+      // The reader is reading the line with their fingers; a voice saying
+      // which part they are on talks over it and tells them nothing the cells
+      // do not.
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function4');
+      session.fireKey('function1');
+
+      expect(notify).not.toHaveBeenCalled();
+      expect(session.vibrate).not.toHaveBeenCalled();
+    });
+
+    it('should buzz, not speak, when there is no more line in that direction', () => {
       activate();
       notify.mockClear();
 
       session.fireKey('function1');
 
-      expect(notify).toHaveBeenCalledWith('Start of the line');
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
     });
 
-    it('should say the whole line is shown when it fits the device', () => {
+    it('should buzz at the far end of the line too', () => {
+      activate();
+      const windows = TactileBraille.windowCount(
+        TactileBraille.toCells(format.mock.results[0].value as string),
+        GEOMETRY.textCells,
+      );
+      for (let step = 1; step < windows; step++) {
+        session.fireKey('function4');
+      }
+      expect(session.vibrate).not.toHaveBeenCalled();
+
+      session.fireKey('function4');
+
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should buzz when the whole line already fits the device', () => {
       format.mockReturnValue('a');
       activate();
       notify.mockClear();
 
       session.fireKey('function4');
 
-      expect(notify).toHaveBeenCalledWith('The whole line is already shown');
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('should speak the edge on a device whose SDK cannot vibrate', () => {
+      // A key that does nothing and says nothing is indistinguishable from a
+      // broken one, so the edge still has to reach the reader somehow.
+      session.vibrate.mockReturnValue(false);
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function1');
+
+      expect(notify).toHaveBeenCalledWith('Start of the line');
     });
 
     it('should carry contracted braille from the device engine when it has one', async () => {
