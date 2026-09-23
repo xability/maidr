@@ -75,19 +75,27 @@ export class HighlightOverlay {
   private readonly fillColor: string;
 
   /**
-   * @param host - Positioned wrapper element that contains the canvas.
-   * @param canvas - The Chart.js canvas the overlay aligns to.
-   * @param highlightColor - Optional outline color override.
-   */
-  /**
    * The chart before its tooltip; see {@link captureClean}.
    */
   private clean: HTMLCanvasElement | null = null;
 
+  /**
+   * Watches for a reader of the pixels arriving; see {@link captureClean}.
+   */
+  private readonly readerObserver: MutationObserver | null = null;
+
+  /**
+   * @param host - Positioned wrapper element that contains the canvas.
+   * @param canvas - The Chart.js canvas the overlay aligns to.
+   * @param highlightColor - Optional outline color override.
+   * @param repaint - Redraws the chart, so a copy for a reader of the pixels
+   * who has just arrived is taken now rather than on the chart's next frame.
+   */
   constructor(
     host: HTMLElement,
     canvas: HTMLCanvasElement,
     highlightColor?: string,
+    repaint?: () => void,
   ) {
     this.canvas = canvas;
     this.outlineColor = highlightColor ?? DEFAULT_HIGHLIGHT_COLOR;
@@ -103,6 +111,18 @@ export class HighlightOverlay {
     this.container.style.zIndex = '1';
     this.syncToCanvas();
     host.appendChild(this.container);
+
+    // The copy is only kept while it is read, so the first reading would find
+    // none and read the tooltip with the chart. Repainting as the reader
+    // arrives takes the copy then.
+    if (repaint !== undefined && typeof MutationObserver !== 'undefined') {
+      this.readerObserver = new MutationObserver(() => {
+        if (this.clean === null && this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+          repaint();
+        }
+      });
+      this.readerObserver.observe(this.container, { attributes: true, attributeFilter: [OVERLAY_ATTRIBUTES.pixelReader] });
+    }
   }
 
   /**
@@ -165,7 +185,9 @@ export class HighlightOverlay {
       this.clean.width = source.width;
       this.clean.height = source.height;
     }
-    const context = this.clean.getContext('2d');
+    // Read back by the tactile display on every move; the hint only counts
+    // on the first call, which is this one.
+    const context = this.clean.getContext('2d', { willReadFrequently: true });
     if (context === null) {
       return;
     }
@@ -188,6 +210,7 @@ export class HighlightOverlay {
    * Detach overlay from the DOM.
    */
   dispose(): void {
+    this.readerObserver?.disconnect();
     this.container.remove();
   }
 

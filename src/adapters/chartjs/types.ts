@@ -119,6 +119,8 @@ export interface ChartJsChart {
     ) => void;
   };
   update: (mode?: string) => void;
+  /** Repaints the chart as it stands, running the draw hooks, without animating. */
+  draw?: () => void;
 }
 
 /**

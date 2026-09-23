@@ -373,7 +373,7 @@ function initMaidrForChart(chart: ChartJsChart): void {
   const overlayPromise = result.hostPromise.then((host) => {
     if (!host)
       return null;
-    overlay = new HighlightOverlay(host, chart.canvas, pluginOptions.highlightColor);
+    overlay = new HighlightOverlay(host, chart.canvas, pluginOptions.highlightColor, () => chart.draw?.());
     overlay.setRegions(chart.chartArea ?? null);
     const binding = chartBindings.get(chart);
     if (binding) {
