@@ -112,6 +112,11 @@ describe('descriptionService figure-level description', () => {
       { label: 'Currently on', value: 'subplot 1 of 2' },
       { label: 'Chart types', value: 'bar, line' },
     ]);
+    // A reader in the lobby is told what a multi-panel figure is, the way a
+    // reader inside a subplot is told what its chart type is.
+    expect(description!.guide?.definition).toMatch(/multi-panel figure/i);
+    expect(description!.guide?.purpose).not.toBe('');
+    expect(description!.guide?.appearance).not.toBe('');
   });
 
   test('includes authored subtitle and caption as stats', () => {

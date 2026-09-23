@@ -1,6 +1,7 @@
 import { common } from './common';
 import { description } from './description';
 import { dialogs } from './dialogs';
+import { guide } from './guide';
 import { keybinding } from './keybinding';
 import { llm } from './llm';
 import { model } from './model';
@@ -24,6 +25,7 @@ export const en = {
   ...rotor,
   ...notification,
   ...description,
+  ...guide,
   ...tactile,
   ...settings,
   ...dialogs,

@@ -8,6 +8,7 @@ import type {
   AudioState,
   AutoplayState,
   BrailleState,
+  ChartGuide,
   DescriptionState,
   HighlightState,
   PointerGuidanceState,
@@ -139,6 +140,26 @@ const CHART_TYPE_LABEL: Record<TraceType, MessageKey> = {
  */
 export function chartTypeLabel(type: TraceType): string {
   return t(CHART_TYPE_LABEL[type]);
+}
+
+/**
+ * A plain-language introduction to a chart type: what it is, what it is for,
+ * and what it looks like.
+ *
+ * Beside {@link chartTypeLabel} for the same reason that function is free: the
+ * type is all it needs. The keys are built from the {@link TraceType} value,
+ * so a type added without a guide fails the type check here rather than
+ * rendering an empty section.
+ *
+ * @param type - The layer's trace type
+ * @returns The guide's three parts in the active locale
+ */
+export function chartGuide(type: TraceType): ChartGuide {
+  return {
+    definition: t(`guide.${type}.definition`),
+    purpose: t(`guide.${type}.purpose`),
+    appearance: t(`guide.${type}.appearance`),
+  };
 }
 
 /**
@@ -914,6 +935,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public get layerLabel(): string {
     return this.name ?? this.getChartTypeLabel();
+  }
+
+  /**
+   * A plain-language introduction to this layer's chart type, for the
+   * description dialog. See {@link chartGuide}.
+   */
+  public get guide(): ChartGuide {
+    return chartGuide(this.type);
   }
 
   /**

@@ -4,6 +4,7 @@ import type { RotorNavigationService } from '@service/rotor';
 import type { AxisFormat, Maidr } from '@type/grammar';
 import type { DescriptionState } from '@type/state';
 import { describe, expect, jest, test } from '@jest/globals';
+import { chartGuide } from '@model/abstract';
 import { BoxTrace } from '@model/box';
 import { DescriptionService } from '@service/description';
 import { FormatterService } from '@service/formatter';
@@ -102,6 +103,14 @@ function describeTrace(
 function row(description: DescriptionState, group: string): unknown[] {
   return description.dataTable.rows.find(r => r[0] === group) as unknown[];
 }
+
+describe('descriptionService chart type guide', () => {
+  test('introduces the chart type of the layer being described', () => {
+    const description = describeTrace(boxTrace({ min: 1, q1: 2, q2: 3, q3: 4, max: 5 }));
+
+    expect(description.guide).toEqual(chartGuide(TraceType.BOX));
+  });
+});
 
 describe('descriptionService value rounding', () => {
   test('rounds a computed float down to what a screen reader can speak', () => {

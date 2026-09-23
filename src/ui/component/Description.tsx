@@ -1,4 +1,5 @@
-import type { LayerSummary } from '@type/state';
+import type { ChartGuide, LayerSummary } from '@type/state';
+import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -241,6 +242,67 @@ const LayerTabs: React.FC<LayerTabsProps> = ({
   );
 };
 
+interface ChartGuideSectionProps {
+  chartType: string;
+  guide: ChartGuide;
+}
+
+/**
+ * The description dialog's collapsible "About this chart type" section.
+ *
+ * The rest of the dialog tells a reader about *this* chart -- its axes, its
+ * numbers -- on the assumption that they already know what kind of chart it
+ * is. A reader who has never seen a violin plot is given its name and nothing
+ * else. This section says what the type is, what it is for, and what it looks
+ * like, in plain words.
+ *
+ * Collapsed by default so a reader who knows the type is not made to listen
+ * through a paragraph they do not need on every press of `d`. It follows
+ * WAI-ARIA's disclosure pattern -- a native button carrying `aria-expanded`
+ * and `aria-controls` -- so a screen reader announces it as expandable, and
+ * Enter and Space work on it without any binding of our own. The button sits
+ * inside a heading so a reader browsing the dialog by heading lands on it.
+ */
+const ChartGuideSection: React.FC<ChartGuideSectionProps> = ({ chartType, guide }) => {
+  const { t } = useLocale();
+  const panelId = useId();
+  const [expanded, setExpanded] = useState(false);
+  const Arrow = expanded ? KeyboardArrowDown : KeyboardArrowRight;
+
+  const parts = [
+    { heading: t('guide.definitionHeading'), text: guide.definition },
+    { heading: t('guide.purposeHeading'), text: guide.purpose },
+    { heading: t('guide.appearanceHeading'), text: guide.appearance },
+  ];
+
+  return (
+    <Box sx={{ mt: 1, mb: 1 }}>
+      <Typography variant="subtitle2" component="h3" sx={{ m: 0 }}>
+        <Button
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() => setExpanded(open => !open)}
+          startIcon={<Arrow aria-hidden="true" />}
+          size="small"
+          sx={{ textTransform: 'none', fontWeight: 'bold', textAlign: 'left', px: 1 }}
+        >
+          {t('guide.toggle', { chartType })}
+        </Button>
+      </Typography>
+      <Box id={panelId} hidden={!expanded} sx={{ pl: 2, pt: 1 }}>
+        {parts.map(part => (
+          <React.Fragment key={part.heading}>
+            <Typography variant="body2" component="h4" fontWeight="bold" sx={{ mt: 1 }}>
+              {part.heading}
+            </Typography>
+            <Typography variant="body2">{part.text}</Typography>
+          </React.Fragment>
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
 /**
  * Checks whether a value is presentable in the UI.
  * Filters out null, undefined, NaN, empty strings, and known placeholder defaults.
@@ -365,6 +427,9 @@ const Description: React.FC = () => {
               {t('description.chartTypePrefix')}
               {data.chartType}
             </Typography>
+          )}
+          {data.guide && (
+            <ChartGuideSection chartType={data.chartType} guide={data.guide} />
           )}
           {isDisplayable(data.title) && (
             <Typography variant="body2" sx={{ mb: 2 }}>
