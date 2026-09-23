@@ -78,30 +78,41 @@ describe('chart type guide in the description dialog', () => {
   it('should start collapsed, naming the chart type it explains', () => {
     renderDescription(barDescription());
 
-    const toggle = screen.getByRole('button', { name: 'About this chart type: Bar Chart' });
+    const toggle = screen.getByRole('button', { name: 'About this chart type (Bar Chart)' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText(chartGuide(TraceType.BAR).definition)).not.toBeVisible();
   });
 
-  it('should be reachable by heading', () => {
+  it('should be reachable by heading without deepening the dialog outline', () => {
     renderDescription(barDescription());
 
-    expect(screen.getByRole('heading', { name: 'About this chart type: Bar Chart' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'About this chart type (Bar Chart)', level: 3 })).toBeInTheDocument();
+    // Every section of the dialog is an H3 under its H2 title; the guide's
+    // three parts are a definition list, not a level of their own.
+    expect(screen.queryAllByRole('heading', { level: 4, hidden: true })).toEqual([]);
+  });
+
+  // The static line above it reads "Chart Type: Bar Chart"; a label that
+  // contained it would make every search for that line find the button too.
+  it('should not repeat the chart type line word for word', () => {
+    renderDescription(barDescription());
+
+    const toggle = screen.getByRole('button', { name: 'About this chart type (Bar Chart)' });
+    expect(toggle.textContent?.toLowerCase()).not.toContain('chart type: bar chart');
   });
 
   it('should reveal what the chart is, what it is for and what it looks like when expanded', () => {
     renderDescription(barDescription());
     const guide = chartGuide(TraceType.BAR);
 
-    const toggle = screen.getByRole('button', { name: 'About this chart type: Bar Chart' });
+    const toggle = screen.getByRole('button', { name: 'About this chart type (Bar Chart)' });
     fireEvent.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     const panel = document.getElementById(toggle.getAttribute('aria-controls') ?? '');
     expect(panel).toBeVisible();
-    for (const heading of ['What it is', 'What it is used for', 'What it looks like']) {
-      expect(screen.getByRole('heading', { name: heading })).toBeVisible();
-    }
+    expect(screen.getAllByRole('term').map(term => term.textContent))
+      .toEqual(['What it is', 'What it is used for', 'What it looks like']);
     expect(screen.getByText(guide.definition)).toBeVisible();
     expect(screen.getByText(guide.purpose)).toBeVisible();
     expect(screen.getByText(guide.appearance)).toBeVisible();
@@ -110,7 +121,7 @@ describe('chart type guide in the description dialog', () => {
   it('should collapse again when toggled a second time', () => {
     renderDescription(barDescription());
 
-    const toggle = screen.getByRole('button', { name: 'About this chart type: Bar Chart' });
+    const toggle = screen.getByRole('button', { name: 'About this chart type (Bar Chart)' });
     fireEvent.click(toggle);
     fireEvent.click(toggle);
 
@@ -128,7 +139,7 @@ describe('chart type guide in the description dialog', () => {
     setLocale('ko');
     renderDescription(barDescription());
 
-    const toggle = screen.getByRole('button', { name: '이 차트 종류 알아보기: 막대 그래프' });
+    const toggle = screen.getByRole('button', { name: '이 차트 종류 알아보기 (막대 그래프)' });
     fireEvent.click(toggle);
 
     expect(screen.getByText(chartGuide(TraceType.BAR).definition)).toBeVisible();

@@ -2,7 +2,7 @@ import type { MessageKey } from '../index';
 
 export const guide = {
   // Dialog chrome.
-  'guide.toggle': 'इस चार्ट प्रकार के बारे में: {chartType}',
+  'guide.toggle': 'इस चार्ट प्रकार के बारे में ({chartType})',
   'guide.definitionHeading': 'यह क्या है',
   'guide.purposeHeading': 'इसका उपयोग किसलिए होता है',
   'guide.appearanceHeading': 'यह कैसा दिखता है',

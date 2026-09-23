@@ -14,7 +14,7 @@
  */
 export const guide = {
   // Dialog chrome.
-  'guide.toggle': 'About this chart type: {chartType}',
+  'guide.toggle': 'About this chart type ({chartType})',
   'guide.definitionHeading': 'What it is',
   'guide.purposeHeading': 'What it is used for',
   'guide.appearanceHeading': 'What it looks like',

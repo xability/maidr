@@ -262,6 +262,9 @@ interface ChartGuideSectionProps {
  * and `aria-controls` -- so a screen reader announces it as expandable, and
  * Enter and Space work on it without any binding of our own. The button sits
  * inside a heading so a reader browsing the dialog by heading lands on it.
+ *
+ * The label names the chart type in parentheses rather than after a colon so
+ * it does not repeat the "Chart Type: …" line above it word for word.
  */
 const ChartGuideSection: React.FC<ChartGuideSectionProps> = ({ chartType, guide }) => {
   const { t } = useLocale();
@@ -270,9 +273,9 @@ const ChartGuideSection: React.FC<ChartGuideSectionProps> = ({ chartType, guide 
   const Arrow = expanded ? KeyboardArrowDown : KeyboardArrowRight;
 
   const parts = [
-    { heading: t('guide.definitionHeading'), text: guide.definition },
-    { heading: t('guide.purposeHeading'), text: guide.purpose },
-    { heading: t('guide.appearanceHeading'), text: guide.appearance },
+    { key: 'definition', term: t('guide.definitionHeading'), text: guide.definition },
+    { key: 'purpose', term: t('guide.purposeHeading'), text: guide.purpose },
+    { key: 'appearance', term: t('guide.appearanceHeading'), text: guide.appearance },
   ];
 
   return (
@@ -289,13 +292,20 @@ const ChartGuideSection: React.FC<ChartGuideSectionProps> = ({ chartType, guide 
           {t('guide.toggle', { chartType })}
         </Button>
       </Typography>
-      <Box id={panelId} hidden={!expanded} sx={{ pl: 2, pt: 1 }}>
+      {/* A definition list rather than sub-headings: every section of this
+          dialog is an H3 directly under its H2 title, and nesting H4s here
+          would give the outline a level no other section has. `dt`/`dd` is
+          what these three term-and-answer pairs are, and a screen reader
+          announces it as a list of three. */}
+      <Box component="dl" id={panelId} hidden={!expanded} sx={{ pl: 2, pt: 1, m: 0 }}>
         {parts.map(part => (
-          <React.Fragment key={part.heading}>
-            <Typography variant="body2" component="h4" fontWeight="bold" sx={{ mt: 1 }}>
-              {part.heading}
+          <React.Fragment key={part.key}>
+            <Typography variant="body2" component="dt" fontWeight="bold" sx={{ mt: 1 }}>
+              {part.term}
             </Typography>
-            <Typography variant="body2">{part.text}</Typography>
+            <Typography variant="body2" component="dd" sx={{ m: 0 }}>
+              {part.text}
+            </Typography>
           </React.Fragment>
         ))}
       </Box>
