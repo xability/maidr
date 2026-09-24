@@ -644,6 +644,33 @@ describe('dotPadSession', () => {
       expect(vendor.counts.scans).toBe(1);
     });
 
+    it('should give the display back when taking it over fails', async () => {
+      // The ask closes a connection that was working. Opening it here can
+      // still fail -- a Bluetooth link dropping as it reconnects -- and the
+      // reader would then have no display anywhere.
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const first = await loadSession();
+      await first.connect('serial');
+      const second = await loadSession();
+      let refusals = 1;
+      vendor.hooks.connectDevice = () => {
+        if (refusals > 0) {
+          refusals -= 1;
+          return Promise.reject(new Error('link dropped'));
+        }
+        return Promise.resolve(DEVICE);
+      };
+
+      const adopted = await second.adopt();
+      await new Promise<void>(resolve => setTimeout(resolve, 400));
+
+      expect(adopted).toBe(false);
+      expect(second.isConnected).toBe(false);
+      expect(first.isConnected).toBe(true);
+    });
+
     it('should keep a display nobody else asks for', async () => {
       const vendor = createVendor();
       setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });

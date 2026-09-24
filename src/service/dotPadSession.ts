@@ -166,7 +166,7 @@ const HANDOFF_ACK_TIMEOUT_MS = 150;
  * A message between frames about who holds the display.
  */
 interface HandoffMessage {
-  type: 'release' | 'releasing' | 'released';
+  type: 'release' | 'releasing' | 'released' | 'return';
   from: string;
   to?: string;
 }
@@ -612,8 +612,16 @@ class DotPadSession {
         // Another chart on the page may be holding it -- one the reader
         // connected there and has since tabbed away from. The reader is here
         // now, so it is asked to let go.
-        await this.requestHandoff();
-        if (await this.attach(sdk, transport, granted)) {
+        const holder = await this.requestHandoff();
+        let attached = false;
+        try {
+          attached = await this.attach(sdk, transport, granted);
+        } finally {
+          if (!attached) {
+            this.returnHandoff(holder);
+          }
+        }
+        if (attached) {
           return true;
         }
       } catch (error) {
@@ -838,8 +846,16 @@ class DotPadSession {
         return this.state;
       }
 
-      await this.requestHandoff();
-      if (!await this.attach(sdk, transport, selected)) {
+      const holder = await this.requestHandoff();
+      let attached = false;
+      try {
+        attached = await this.attach(sdk, transport, selected);
+      } finally {
+        if (!attached) {
+          this.returnHandoff(holder);
+        }
+      }
+      if (!attached) {
         this.setState({ status: 'failed', message: t('tactile.deviceConnectFailed') });
         return this.state;
       }
@@ -939,14 +955,18 @@ class DotPadSession {
    *
    * Resolves at once where no frame holds the display, or where the browser
    * has no way to ask.
+   *
+   * @returns The frame that let the display go, to be given it back should
+   * opening it here fail, or null when no frame held it
    */
-  private requestHandoff(): Promise<void> {
+  private requestHandoff(): Promise<string | null> {
     const channel = this.handoffChannel();
     if (channel === null) {
-      return Promise.resolve();
+      return Promise.resolve(null);
     }
-    return new Promise<void>((resolve) => {
+    return new Promise<string | null>((resolve) => {
       let settled = false;
+      let holder: string | null = null;
       let timer: ReturnType<typeof setTimeout>;
       const listening = new AbortController();
       const finish = (): void => {
@@ -956,7 +976,7 @@ class DotPadSession {
         settled = true;
         clearTimeout(timer);
         listening.abort();
-        resolve();
+        resolve(holder);
       };
       const listen = (event: MessageEvent<HandoffMessage>): void => {
         const message = event.data;
@@ -964,6 +984,7 @@ class DotPadSession {
           return;
         }
         if (message.type === 'releasing') {
+          holder = message.from;
           // Someone holds it: wait for the close, bounded as the close is.
           clearTimeout(timer);
           timer = setTimeout(finish, CLOSE_FLUSH_TIMEOUT_MS + HANDOFF_ACK_TIMEOUT_MS);
@@ -986,6 +1007,11 @@ class DotPadSession {
    * @param message - The ask
    */
   private handleHandoff(message: HandoffMessage): void {
+    if (message?.type === 'return' && message.to === this.frameId) {
+      // Given back: the frame that asked for it could not open it after all.
+      void this.adopt();
+      return;
+    }
     if (message?.type !== 'release' || message.from === this.frameId) {
       return;
     }
@@ -1007,6 +1033,26 @@ class DotPadSession {
     void this.closeWhenQueueDrains(sdk, device).then(() => {
       channel.postMessage({ type: 'released', from: this.frameId, to: message.from } satisfies HandoffMessage);
     });
+  }
+
+  /**
+   * Gives the display back to the frame that let it go, when opening it here
+   * failed.
+   *
+   * The ask closed a connection that was working. A frame that then cannot
+   * open the device -- a Bluetooth link that drops as it reconnects, a display
+   * switched off a moment ago -- would otherwise leave the reader with no
+   * display anywhere, for a failure that had nothing to do with the chart
+   * that had it.
+   *
+   * @param holder - The frame that let it go, or null when none did
+   */
+  private returnHandoff(holder: string | null): void {
+    const channel = this.handoffChannel();
+    if (holder === null || channel === null) {
+      return;
+    }
+    channel.postMessage({ type: 'return', from: this.frameId, to: holder } satisfies HandoffMessage);
   }
 
   /**
