@@ -1365,8 +1365,8 @@ export class LineTrace extends AbstractTrace {
    * that fell through both branches had no vertices, so no markers and no
    * highlight, while it went on announcing every point (#1273).
    */
-  private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
-    const svgElements: SVGElement[][] = [];
+  private mapViaPathParsing(selectors: string[]): (SVGElement[] | SVGElement)[][] | null {
+    const svgElements: (SVGElement[] | SVGElement)[][] = [];
     let allFailed = true;
 
     // Detect selector layout:
@@ -1384,8 +1384,26 @@ export class LineTrace extends AbstractTrace {
     const uniqueSelectors = new Set(selectors).size === selectors.length;
 
     for (let r = 0; r < selectors.length; r++) {
+      // A unique selector may match several elements, in which case the
+      // series is drawn in pieces: gridSVG splits a line broken by an interior
+      // NA into sibling polylines (`...1a`, `...1b`), and a base R selector of
+      // the form `#grob polyline` matches every polyline in the grob. Reading
+      // the first piece alone stretched the whole series along it.
+      const matches = uniqueSelectors
+        ? Svg.selectAllElements(selectors[r], false)
+        : [];
+      if (matches.length > 1) {
+        this.lineElements.push(...matches);
+        const markers = this.markersAlongPieces(matches, r);
+        if (markers.length > 0) {
+          allFailed = false;
+        }
+        svgElements.push(markers);
+        continue;
+      }
+
       const lineElement = uniqueSelectors
-        ? Svg.selectElement(selectors[r], false)
+        ? matches[0] ?? null
         : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
@@ -1394,22 +1412,7 @@ export class LineTrace extends AbstractTrace {
 
       this.lineElements.push(lineElement as SVGElement);
 
-      const coordinates: LinePoint[] = [];
-      if (lineElement instanceof SVGPathElement) {
-        const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        this.extractPathCoordinates(pathD, coordinates);
-      } else if (LineTrace.listsPoints(lineElement)) {
-        const pointsAttr
-          = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
-        const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
-        for (const coordinate of strCoords) {
-          const [x, y] = coordinate.split(Constant.COMMA);
-          coordinates.push({
-            x: Number.parseFloat(x),
-            y: Number.parseFloat(y),
-          });
-        }
-      }
+      const coordinates = this.readVertices(lineElement);
       this.reconcilePathCoordinates(coordinates, r);
 
       // Where every marker of this series goes, worked out before any of
@@ -1446,6 +1449,96 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     return svgElements;
+  }
+
+  /**
+   * The vertices an element draws, in drawing order: a `<path>`'s command
+   * endpoints, or a `<polyline>`/`<polygon>`'s `points`. Empty for anything
+   * else.
+   * @param element - The element a series' selector resolved to
+   * @returns Its vertices
+   */
+  private readVertices(element: Element): LinePoint[] {
+    const coordinates: LinePoint[] = [];
+    if (element instanceof SVGPathElement) {
+      const pathD = element.getAttribute(Constant.D) || Constant.EMPTY;
+      this.extractPathCoordinates(pathD, coordinates);
+    } else if (LineTrace.listsPoints(element)) {
+      const pointsAttr
+        = element.getAttribute(Constant.POINTS) || Constant.EMPTY;
+      const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
+      for (const coordinate of strCoords) {
+        const [x, y] = coordinate.split(Constant.COMMA);
+        coordinates.push({
+          x: Number.parseFloat(x),
+          y: Number.parseFloat(y),
+        });
+      }
+    }
+    return coordinates;
+  }
+
+  /**
+   * Markers for a series drawn as several elements, one cell per data point.
+   *
+   * The pieces' vertices are joined in document order, which is the order the
+   * producer drew them in, and matched to the series' real readings -- a
+   * point with no y is where the line breaks, and is drawn by no vertex. Where
+   * there is a vertex per reading they pair up in order; otherwise (a piece
+   * the renderer simplified) each reading is placed by its x along the joined
+   * vertices, which puts it on the piece whose x range holds it. A point with
+   * no y gets no marker, an empty cell, so moving onto it outlines nothing.
+   *
+   * @param pieces - The elements the series' selector matched, in document order
+   * @param row - Index of the series
+   * @returns One cell per data point, in drawn order, or empty when the
+   * pieces cannot be placed
+   */
+  private markersAlongPieces(
+    pieces: readonly SVGElement[],
+    row: number,
+  ): (SVGElement[] | SVGElement)[] {
+    const edge = pieces.flatMap(piece => this.readVertices(piece));
+    const points = this.points[row];
+    const count = points.length;
+    // Cells are built in drawn order, as the single-element path builds them;
+    // `mapToSvgElements` puts a reversed series back in data order.
+    const dataIndex = (drawn: number): number =>
+      this.drawsPointsReversed ? count - 1 - drawn : drawn;
+    const readings = Array.from({ length: count }, (_, drawn) => drawn)
+      .filter(drawn => isMeasured(toBarValue(points[dataIndex(drawn)].y)));
+    if (readings.length === 0 || edge.length === 0) {
+      return [];
+    }
+
+    let placed: LinePoint[];
+    if (edge.length === readings.length) {
+      placed = edge;
+    } else if (edge.length >= 2) {
+      placed = this.interpolateAlongEdge(
+        edge,
+        row,
+        Number(edge[0].x),
+        Number(edge[edge.length - 1].x),
+        0,
+        readings.map(dataIndex),
+      );
+    } else {
+      return [];
+    }
+    if (placed.some(v => !Number.isFinite(Number(v.x)) || !Number.isFinite(Number(v.y)))) {
+      return [];
+    }
+
+    const circles = Svg.createCircleElements(
+      placed.map(v => ({ cx: v.x, cy: Number(v.y) })),
+      pieces[0],
+    );
+    const cells: (SVGElement[] | SVGElement)[] = Array.from({ length: count }, () => []);
+    readings.forEach((drawn, k) => {
+      cells[drawn] = circles[k];
+    });
+    return cells;
   }
 
   /**
@@ -1502,7 +1595,10 @@ export class LineTrace extends AbstractTrace {
    * @param xMax - The SVG x the series' last x maps onto
    * @param snapWithin - How close in x a vertex has to be to a point to stand
    * in for it exactly; 0 always interpolates
-   * @returns One vertex per data point, in data order
+   * @param only - The indices of the points to place, in the order to place
+   * them; every point when omitted. The first and last of them map onto
+   * `xMin` and `xMax`.
+   * @returns One vertex per data point placed, in the order placed
    */
   protected interpolateAlongEdge(
     edge: readonly LinePoint[],
@@ -1510,9 +1606,12 @@ export class LineTrace extends AbstractTrace {
     xMin: number,
     xMax: number,
     snapWithin = 0,
+    only?: readonly number[],
   ): LinePoint[] {
-    const expected = this.lineValues[row].length;
-    const dataPoints = this.points[row];
+    const expected = only === undefined ? this.lineValues[row].length : only.length;
+    const dataPoints = only === undefined
+      ? this.points[row]
+      : only.map(i => this.points[row][i]);
     const dataXMin = Number(dataPoints[0].x);
     const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
     const dataXRange = dataXMax - dataXMin;
