@@ -397,7 +397,7 @@ appendMaidrData({ x: 42, y: 3.14 }, { id: 'live-sensor' }); // stream one point
 setMaidrData(updatedMaidrJson); // replace everything
 ```
 
-While focused on a live chart, users can press **M** to toggle **monitor mode**, which auto-sonifies and announces each new point without moving their position. See the [Live & Streaming Data](docs/LIVE_DATA.html) guide for the full API.
+While focused on a live chart, users can press **M** to toggle **monitor mode**, which auto-sonifies and announces each new point without moving their position. See the [Live & Streaming Data](LIVE_DATA.md) guide for the full API.
 
 ## Axis Value Formatting
 
@@ -458,7 +458,7 @@ Once a chart is focused, the following keyboard shortcuts are available:
 | Open Settings | Ctrl + , | Cmd + , |
 | Open Command Palette | Ctrl + Shift + P | Cmd + Shift + P |
 
-For a complete list, see the [Controls documentation](index.html#controls).
+For a complete list, see the [Controls documentation](../README.md#controls).
 
 ## Vanilla JS vs React
 

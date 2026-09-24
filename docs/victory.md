@@ -419,4 +419,4 @@ Once a chart is focused, the following keyboard shortcuts are available:
 | Open Settings | Ctrl + , | Cmd + , |
 | Open Command Palette | Ctrl + Shift + P | Cmd + Shift + P |
 
-For a complete list, see the [Controls documentation](index.html#controls).
+For a complete list, see the [Controls documentation](../README.md#controls).

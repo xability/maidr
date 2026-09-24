@@ -18,6 +18,7 @@ import { buildGallery, listExamplePages, renderGallery } from './examplesGallery
 import { firstCommitDate as firstCommit, lastCommitDate as lastCommit } from './gitDates.js';
 import { inlineJson } from './jsonLd.js';
 import { renderMarkdown } from './markdown.js';
+import { INTEGRATION_PAGES, rewriteMarkdownLinks } from './siteLinks.js';
 import { SITE_URL } from './siteOrigin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,36 +49,6 @@ function markdownToHtml(md) {
 
   return renderMarkdown(content);
 }
-
-/**
- * The integration guides built as root-level pages.
- *
- * One list drives everything that used to be spelled out per integration:
- * the page build, the exclusion from the generic `docs/` loop (so a guide is
- * not built a second time under `docs/`), and the sitemap. Adding a guide is
- * one line here; the nav link in `docs/template.html` is still by hand.
- *
- * `slug` is the output filename without `.html` and the `activePage` key the
- * template's nav uses; `title` is the nav-facing title; `source` is the
- * markdown file under `docs/`.
- */
-const INTEGRATION_PAGES = [
-  { slug: 'react', title: 'React', source: 'react.md' },
-  { slug: 'recharts', title: 'Recharts', source: 'recharts.md' },
-  { slug: 'plotly', title: 'Plotly', source: 'plotly.md' },
-  { slug: 'google-charts', title: 'Google Charts', source: 'google-charts.md' },
-  { slug: 'd3', title: 'D3.js', source: 'd3.md' },
-  { slug: 'vegalite', title: 'Vega-Lite', source: 'vegalite.md' },
-  { slug: 'chartjs', title: 'Chart.js', source: 'chartjs.md' },
-  { slug: 'amcharts', title: 'amCharts', source: 'amcharts.md' },
-  { slug: 'observable', title: 'Observable Plot', source: 'observable.md' },
-  { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
-  { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
-  { slug: 'victory', title: 'Victory', source: 'victory.md' },
-  { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
-  { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
-  { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
-];
 
 const INTEGRATION_SOURCES = new Set(INTEGRATION_PAGES.map(page => page.source));
 
@@ -347,11 +318,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
 // Build index.html from README
 console.log('Building index.html from README.md...');
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf-8');
-let readmeContentHtml = markdownToHtml(readme);
-// Rewrite docs/*.md links to docs/*.html for the built site
-readmeContentHtml = readmeContentHtml.replace(/href="docs\/([^"]+)\.[mM][dD]"/g, 'href="docs/$1.html"');
-// React docs are built at root level, not in docs/ subdirectory
-readmeContentHtml = readmeContentHtml.replace(/href="docs\/react\.html"/g, 'href="react.html"');
+const readmeContentHtml = rewriteMarkdownLinks(markdownToHtml(readme), 'README.md');
 const readmeHtml = `
 <div class="hero">
   <img src="media/logo.svg" alt="MAIDR Logo" />
@@ -386,7 +353,7 @@ for (const { slug, title, source } of INTEGRATION_PAGES) {
   const md = fs.readFileSync(mdPath, 'utf-8');
   const html = `
 <div class="content">
-  ${renderMarkdown(md)}
+  ${rewriteMarkdownLinks(renderMarkdown(md), `docs/${source}`)}
 </div>
 `;
   const description = PAGE_DESCRIPTIONS[slug];
@@ -662,7 +629,7 @@ if (fs.existsSync(docsSource)) {
         fs.mkdirSync(docsSiteDest, { recursive: true });
       }
       const md = fs.readFileSync(src, 'utf-8');
-      const htmlContent = `<div class="content">${markdownToHtml(md)}</div>`;
+      const htmlContent = `<div class="content">${rewriteMarkdownLinks(markdownToHtml(md), `docs/${file}`)}</div>`;
       const baseName = path.basename(file, path.extname(file));
       const title = DOC_TITLES[baseName] ?? baseName;
       const docSlug = `docs/${baseName}.html`;

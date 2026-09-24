@@ -78,7 +78,7 @@ often text rather than a missed shortcut.
 
 ## Monitor Mode (Live Charts)
 
-On charts configured with `live: true`, press **M** to toggle monitor mode. While monitoring is on, every newly streamed data point is automatically sonified and announced by your screen reader without moving your current position. See the [Live & Streaming Data](LIVE_DATA.html) guide for details.
+On charts configured with `live: true`, press **M** to toggle monitor mode. While monitoring is on, every newly streamed data point is automatically sonified and announced by your screen reader without moving your current position. See the [Live & Streaming Data](LIVE_DATA.md) guide for details.
 
 ## Label Mode (Announce Axis Labels)
 

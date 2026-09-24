@@ -70,7 +70,7 @@ There are two entry points:
 - **`bindAmCharts(root, options?)`** (recommended) — mounts the MAIDR UI over the chart and returns `{ maidr, dispose }`. Because it hands a live data object (not JSON) to MAIDR's React component, it can wire an `onNavigate` callback that drives the **canvas highlight overlay**. This is the only way to get visual highlighting (see below). `bindXYChart(chart, root, options?)` is the same when you already hold the chart reference.
 - **`fromAmCharts(root, options?)`** — returns plain MAIDR JSON for the `maidr` HTML attribute or `<Maidr data={...}>`. Enables audio, text, and braille, but **not** visual highlighting, because the highlight callback is a function and cannot survive JSON serialization.
 
-Both walk the chart's series, classify each one, and extract its data into MAIDR's [schema](SCHEMA.html). Each series becomes a layer; all line series merge into a single multi-line layer. If no chart contains a supported series *with data*, both entry points throw a descriptive error — bind after your data has been set (see the `datavalidated` note in the Quick Start).
+Both walk the chart's series, classify each one, and extract its data into MAIDR's [schema](SCHEMA.md). Each series becomes a layer; all line series merge into a single multi-line layer. If no chart contains a supported series *with data*, both entry points throw a descriptive error — bind after your data has been set (see the `datavalidated` note in the Quick Start).
 
 Series are classified by their amCharts class name and field configuration:
 
@@ -718,7 +718,7 @@ Once a chart is focused, use the standard MAIDR shortcuts:
 | Auto-play | Ctrl + Shift + Arrow | Cmd + Shift + Arrow |
 | Stop Auto-play | Ctrl | Cmd |
 
-For the full list, see the [Keyboard Controls](CONTROLS.html) reference.
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## npm Installation (Optional)
 

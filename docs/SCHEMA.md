@@ -179,7 +179,7 @@ applies across all subplots:
 
 ### Top-Level Properties for Live Charts
 
-The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.html) guide):
+The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.md) guide):
 
 - `live` (boolean): enables live mode — in-place data updates via `window.maidrLive.setData()` / `appendData()` and the **M** monitor-mode key.
 - `maxWidth` (number): sliding window size; appending a point beyond this width drops the oldest point(s), keeping at most `maxWidth` points per series.
