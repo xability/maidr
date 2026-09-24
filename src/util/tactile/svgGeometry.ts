@@ -436,6 +436,11 @@ export abstract class TactileSvgGeometry {
    * Where each subpath of a path begins, measured along the path, cached
    * against the path data it was measured from.
    */
+  /**
+   * Most subpaths a path is split into; see {@link subpathStarts}.
+   */
+  private static readonly MAX_SUBPATHS = 256;
+
   private static readonly subpathCache = new WeakMap<Element, { d: string; starts: SubpathStart[] }>();
 
   /**
@@ -461,7 +466,11 @@ export abstract class TactileSvgGeometry {
     }
     const starts: SubpathStart[] = [{ length: 0, offset: 0 }];
     const moves = Array.from(d.matchAll(/M/gi), match => match.index ?? 0).filter(index => index > 0);
-    if (moves.length > 0) {
+    // Each boundary measures the path from its start, so the cost grows with
+    // the square of the pieces. Past a few hundred -- a hatching, a map's
+    // islands -- the path is sampled as one run, as it was before pieces were
+    // told apart, rather than stall the key that first draws it.
+    if (moves.length > 0 && moves.length <= this.MAX_SUBPATHS) {
       try {
         const probe = element.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
         for (const index of moves) {
