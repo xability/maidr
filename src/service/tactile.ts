@@ -1717,11 +1717,15 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         const box = canvas.getBoundingClientRect();
         const width = Math.min(box.right, plot.right) - Math.max(box.left, plot.left);
         const height = Math.min(box.bottom, plot.bottom) - Math.max(box.top, plot.top);
-        // Measured against the chart, not the canvas: a legend swatch drawn on
-        // a canvas of its own lies wholly inside the chart, and measured
-        // against itself it covered it completely.
+        // Measured both ways. Against the chart, so a legend swatch drawn on a
+        // canvas of its own, wholly inside the chart, does not count as
+        // covering it; and against the canvas, so a page's decorative canvas
+        // that the chart merely sits on does not either.
         const area = plot.width * plot.height;
-        return width > 0 && height > 0 && area > 0 && (width * height) / area >= 0.5;
+        const canvasArea = box.width * box.height;
+        const overlap = width * height;
+        return width > 0 && height > 0 && area > 0 && canvasArea > 0
+          && overlap / area >= 0.5 && overlap / canvasArea >= 0.5;
       });
       if (covering.length > 0) {
         return covering;
