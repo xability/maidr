@@ -9,7 +9,6 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
-import { pathVertices } from '@util/svgPath';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { MovablePlane } from './movable';
@@ -3097,7 +3096,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       }
     }
 
-    const vertices = pathVertices(d);
+    const vertices = Svg.pathVertices(d);
     if (vertices.length === 0) {
       return null;
     }

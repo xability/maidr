@@ -9,7 +9,6 @@ import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
-import { pathVertices } from '@util/svgPath';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS, named } from './abstract';
 import { isMeasured, missingText, toBarValue } from './bar';
@@ -1437,7 +1436,7 @@ export class LineTrace extends AbstractTrace {
     const coordinates: LinePoint[] = [];
     if (element instanceof SVGPathElement) {
       const pathD = element.getAttribute(Constant.D) || Constant.EMPTY;
-      coordinates.push(...pathVertices(pathD));
+      coordinates.push(...Svg.pathVertices(pathD));
     } else if (LineTrace.listsPoints(element)) {
       const pointsAttr
         = element.getAttribute(Constant.POINTS) || Constant.EMPTY;
