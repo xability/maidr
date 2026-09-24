@@ -562,10 +562,10 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     this.showing = next;
 
     if (!next) {
+      // Lowered, not disconnected: the connection is the reader's until they
+      // end it in Settings. A chart in another frame that wants the display
+      // asks for it; see `DotPadSession.requestHandoff`.
       this.blank();
-      // Handed back so the next chart can take it. Only if it was adopted:
-      // a display the reader connected here on purpose stays here.
-      dotPadSession.releaseIfAdopted();
       return;
     }
 
@@ -577,26 +577,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     // page rather than once for every chart.
     if (!dotPadSession.isConnected) {
       void dotPadSession.adopt().then((adopted) => {
-        if (!adopted) {
+        // A newer controller may own this frame by now -- focus-out disposes
+        // on a 0ms timer and this took a round trip -- and the display may
+        // have gone off again, a double press of `b` being enough.
+        if (!adopted || this.disposed || !this.showing) {
           return;
         }
-        // The display may have gone off again while this was in flight — a
-        // double press of `b` is enough. The release on the way out found
-        // nothing to release, because the adoption had not happened yet, so it
-        // has to happen here instead: otherwise the display stays checked out
-        // to a chart whose panel is shut, and the next chart to want it finds
-        // the device already open and gives up quietly. A newer controller may
-        // own this frame by now — focus-out disposes on a 0ms timer and this
-        // took a round trip. It shares the same session, so handing the device
-        // back here would take it from a chart that is using it.
-        if (this.disposed) {
-          return;
-        }
-        if (this.showing) {
-          this.refresh();
-        } else {
-          dotPadSession.releaseIfAdopted();
-        }
+        this.refresh();
       });
     }
     this.refresh();
@@ -2250,29 +2237,24 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   /**
    * Releases this chart's subscriptions.
    *
-   * Deliberately does NOT disconnect a device the reader connected here
-   * themselves. This runs on every focus-out and tab switch, and reconnecting
-   * one needs a user gesture that cannot be asked for mid-session — dropping
-   * that connection here would make the display unusable in ordinary use.
+   * Deliberately does NOT disconnect the device. This runs on every focus-out
+   * and tab switch, and the connection is the reader's until they end it in
+   * Settings. A chart in another frame that wants the display asks this one
+   * for it instead; see `DotPadSession.requestHandoff`.
    *
    * What it does do is leave the display the way turning braille off leaves
    * it. Nothing else closes the display on the way out: braille's own
    * `dispose()` does not fire its toggle, so {@link setShowing} never runs, and
    * the controller that replaces this one starts with the display off. Pins
    * left up then point the reader at a chart they have left while every other
-   * channel says nothing is there. An adopted device is handed back for the
-   * same reason: it is checked out to this frame and only this frame can
-   * return it, so keeping it past focus-out is what makes the next chart's `b`
-   * fail on a device another frame still holds — and re-adopting needs no
-   * gesture, which is the whole point of adoption.
+   * channel says nothing is there.
    */
   public dispose(): void {
     // Only what this chart put there. A display it never raised may be another
-    // chart's, and blanking or releasing that would take it from under them.
+    // chart's, and blanking that would take it from under them.
     if (this.showing) {
       this.showing = false;
       this.blank();
-      dotPadSession.releaseIfAdopted();
     }
     this.disposed = true;
     if (this.canvasDrawTimer !== null) {

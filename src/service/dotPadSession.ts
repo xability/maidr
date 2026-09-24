@@ -150,6 +150,28 @@ const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 const EDGE_VIBRATION = { onMs: 300, offMs: 0, count: 1 } as const;
 
 /**
+ * The channel the frames of one page hand the display between; see
+ * {@link DotPadSession.requestHandoff}.
+ */
+const HANDOFF_CHANNEL = 'maidr-tactile-display';
+
+/**
+ * How long a frame asking for the display waits to hear that another frame
+ * holds it. Frames on one page answer within a task or two; no answer by then
+ * means nobody holds it, and the ask is not worth more of the reader's time.
+ */
+const HANDOFF_ACK_TIMEOUT_MS = 150;
+
+/**
+ * A message between frames about who holds the display.
+ */
+interface HandoffMessage {
+  type: 'release' | 'releasing' | 'released';
+  from: string;
+  to?: string;
+}
+
+/**
  * Owns the connection to a tactile display, for as long as the page lives.
  *
  * Deliberately a module-level singleton rather than a service on the MAIDR
@@ -184,13 +206,6 @@ class DotPadSession {
    * URL a host page may set to point MAIDR at the SDK module.
    */
   /**
-   * True when the current connection was adopted silently rather than chosen
-   * by the reader. Only an adopted one is released again on going idle, so a
-   * device the reader deliberately connected is never taken from under them.
-   */
-  private adopted = false;
-
-  /**
    * The adoption in flight, if any, so a second request joins it rather than
    * opening the same device twice. Two quick presses of `b` are enough to ask
    * twice before the first answer arrives, and two `connectBleDevice` calls on
@@ -198,6 +213,18 @@ class DotPadSession {
    * finished.
    */
   private adopting: Promise<boolean> | null = null;
+
+  /**
+   * This frame's name on {@link HANDOFF_CHANNEL}, so it can tell its own asks
+   * from another frame's.
+   */
+  private readonly frameId = Math.random().toString(36).slice(2);
+
+  /**
+   * The channel to the page's other frames, opened on first use; null where
+   * the browser has none.
+   */
+  private channel: BroadcastChannel | null | undefined;
 
   private moduleUrl: string | null = null;
 
@@ -524,24 +551,6 @@ class DotPadSession {
   }
 
   /**
-   * Hands back a silently adopted display so another chart can take it.
-   *
-   * A device can only be open in one frame at a time, and every chart is its
-   * own frame. Releasing when this chart stops using the display is what lets
-   * the next one adopt it — without this, the first chart a reader opens keeps
-   * the device for as long as its frame lives.
-   *
-   * A connection the reader made themselves is left alone: they chose this
-   * chart, and taking the device away because they turned braille off would
-   * undo a decision they made deliberately.
-   */
-  public releaseIfAdopted(): void {
-    if (this.adopted) {
-      this.disconnect();
-    }
-  }
-
-  /**
    * Connects to a display this origin was already granted, without a picker.
    *
    * Every chart in a notebook is its own iframe, so every chart is its own
@@ -600,8 +609,11 @@ class DotPadSession {
         if (granted === null) {
           continue;
         }
+        // Another chart on the page may be holding it -- one the reader
+        // connected there and has since tabbed away from. The reader is here
+        // now, so it is asked to let go.
+        await this.requestHandoff();
         if (await this.attach(sdk, transport, granted)) {
-          this.adopted = true;
           return true;
         }
       } catch (error) {
@@ -826,11 +838,11 @@ class DotPadSession {
         return this.state;
       }
 
+      await this.requestHandoff();
       if (!await this.attach(sdk, transport, selected)) {
         this.setState({ status: 'failed', message: t('tactile.deviceConnectFailed') });
         return this.state;
       }
-      this.adopted = false;
     } catch (error) {
       this.device = null;
       const denied = error instanceof Error && error.name === 'SecurityError';
@@ -860,9 +872,6 @@ class DotPadSession {
     const sdk = this.sdk;
     const device = this.device;
     this.device = null;
-    // A released device is nobody's adoption, so the flag does not outlive
-    // the connection it described.
-    this.adopted = false;
     this.setState({
       status: 'disconnected',
       deviceName: null,
@@ -871,7 +880,7 @@ class DotPadSession {
       message: '',
     });
     if (sdk !== null && device !== null) {
-      this.closeWhenQueueDrains(sdk, device);
+      void this.closeWhenQueueDrains(sdk, device);
     }
   }
 
@@ -894,7 +903,7 @@ class DotPadSession {
    * @param sdk - The SDK the device was opened through
    * @param device - The device to close
    */
-  private closeWhenQueueDrains(sdk: DotPadVendorSdk, device: DotPadVendorDevice): void {
+  private closeWhenQueueDrains(sdk: DotPadVendorSdk, device: DotPadVendorDevice): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const bound = new Promise<void>((resolve) => {
       timer = setTimeout(resolve, CLOSE_FLUSH_TIMEOUT_MS);
@@ -914,6 +923,103 @@ class DotPadSession {
         clearTimeout(timer);
         console.error('DotPad disconnect failed:', error instanceof Error ? error.message : error);
       });
+    return this.writeChain;
+  }
+
+  /**
+   * Asks whichever other frame on the page holds the display to let it go,
+   * and waits until it has.
+   *
+   * A device can be open in one frame at a time, and in a notebook or a
+   * rendered document every chart is a frame of its own. A connection the
+   * reader made in one chart was kept there for as long as that frame lived,
+   * so every other chart found the device busy and the reader had to connect
+   * again in each one. Asking is what lets the connection follow the reader
+   * from chart to chart until they disconnect it themselves.
+   *
+   * Resolves at once where no frame holds the display, or where the browser
+   * has no way to ask.
+   */
+  private requestHandoff(): Promise<void> {
+    const channel = this.handoffChannel();
+    if (channel === null) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout>;
+      const listening = new AbortController();
+      const finish = (): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        listening.abort();
+        resolve();
+      };
+      const listen = (event: MessageEvent<HandoffMessage>): void => {
+        const message = event.data;
+        if (message?.to !== this.frameId) {
+          return;
+        }
+        if (message.type === 'releasing') {
+          // Someone holds it: wait for the close, bounded as the close is.
+          clearTimeout(timer);
+          timer = setTimeout(finish, CLOSE_FLUSH_TIMEOUT_MS + HANDOFF_ACK_TIMEOUT_MS);
+        } else if (message.type === 'released') {
+          finish();
+        }
+      };
+      channel.addEventListener('message', listen, { signal: listening.signal });
+      timer = setTimeout(finish, HANDOFF_ACK_TIMEOUT_MS);
+      channel.postMessage({ type: 'release', from: this.frameId } satisfies HandoffMessage);
+    });
+  }
+
+  /**
+   * Lets another frame have the display it asked for; see
+   * {@link requestHandoff}.
+   *
+   * The pins are left as they are: the frame that asked is about to draw.
+   *
+   * @param message - The ask
+   */
+  private handleHandoff(message: HandoffMessage): void {
+    if (message?.type !== 'release' || message.from === this.frameId) {
+      return;
+    }
+    const channel = this.handoffChannel();
+    const sdk = this.sdk;
+    const device = this.device;
+    if (channel === null || sdk === null || device === null) {
+      return;
+    }
+    channel.postMessage({ type: 'releasing', from: this.frameId, to: message.from } satisfies HandoffMessage);
+    this.device = null;
+    this.setState({
+      status: 'disconnected',
+      deviceName: null,
+      transport: null,
+      geometry: null,
+      message: '',
+    });
+    void this.closeWhenQueueDrains(sdk, device).then(() => {
+      channel.postMessage({ type: 'released', from: this.frameId, to: message.from } satisfies HandoffMessage);
+    });
+  }
+
+  /**
+   * The channel to the page's other frames, opened on first use.
+   */
+  private handoffChannel(): BroadcastChannel | null {
+    if (this.channel === undefined) {
+      this.channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(HANDOFF_CHANNEL);
+      this.channel?.addEventListener('message', (event: MessageEvent<HandoffMessage>) => {
+        this.handleHandoff(event.data);
+      });
+    }
+    return this.channel;
   }
 
   /**

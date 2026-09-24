@@ -418,6 +418,42 @@ function setGrantedNavigator(options: {
 
 const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 
+/**
+ * Stand-in for the page's `BroadcastChannel`, one hub per case.
+ *
+ * Node has a real one, and it reaches every copy of the session a suite has
+ * loaded: a display one case connected would answer the next case's ask for
+ * it. Each case gets a hub of its own, so only the copies it loaded talk.
+ */
+class FakeChannel {
+  public static hub = new Set<FakeChannel>();
+
+  private readonly listeners = new Set<(event: { data: unknown }) => void>();
+
+  public constructor(private readonly name: string) {
+    FakeChannel.hub.add(this);
+  }
+
+  public postMessage(data: unknown): void {
+    for (const channel of FakeChannel.hub) {
+      if (channel !== this && channel.name === this.name) {
+        setTimeout(() => channel.listeners.forEach(listener => listener({ data })), 0);
+      }
+    }
+  }
+
+  public addEventListener(
+    _type: string,
+    listener: (event: { data: unknown }) => void,
+    options?: { signal?: AbortSignal },
+  ): void {
+    this.listeners.add(listener);
+    options?.signal?.addEventListener('abort', () => this.listeners.delete(listener));
+  }
+}
+
+const channelDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'BroadcastChannel');
+
 // The failure paths log on purpose; a file-scope spy keeps the expected noise
 // out of every run without being reinstalled per test.
 const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -425,6 +461,8 @@ const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 describe('dotPadSession', () => {
   beforeEach(() => {
     pageScope().window = globalThis;
+    FakeChannel.hub = new Set();
+    pageScope().BroadcastChannel = FakeChannel;
     consoleError.mockClear();
   });
 
@@ -441,6 +479,11 @@ describe('dotPadSession', () => {
 
   afterAll(() => {
     consoleError.mockRestore();
+    if (channelDescriptor === undefined) {
+      delete pageScope().BroadcastChannel;
+    } else {
+      Object.defineProperty(globalThis, 'BroadcastChannel', channelDescriptor);
+    }
   });
 
   describe('support detection', () => {
@@ -573,6 +616,47 @@ describe('dotPadSession', () => {
       expect(vendor.counts.scans).toBe(0);
     });
 
+    it('should take the display over from another chart on the page, with no second connect', async () => {
+      // The reader connected in one chart and tabbed to the next. That chart
+      // is another frame, and the first one kept the device open, so the
+      // second found it busy and the reader had to connect again in every
+      // chart. It is asked for now, and handed over.
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const first = await loadSession();
+      await first.connect('serial');
+      const second = await loadSession();
+      let closedBeforeOpen = false;
+      vendor.hooks.connectDevice = () => {
+        closedBeforeOpen = vendor.disconnected.length === 1;
+        return Promise.resolve(DEVICE);
+      };
+
+      const adopted = await second.adopt();
+
+      expect(adopted).toBe(true);
+      expect(second.isConnected).toBe(true);
+      expect(first.isConnected).toBe(false);
+      // Closed where it was open before it is opened here: a device is open
+      // in one frame at a time.
+      expect(closedBeforeOpen).toBe(true);
+      expect(vendor.counts.scans).toBe(1);
+    });
+
+    it('should keep a display nobody else asks for', async () => {
+      const vendor = createVendor();
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      installVendor(vendor);
+      const session = await loadSession();
+
+      await session.connect('serial');
+      await new Promise<void>(resolve => setTimeout(resolve, 200));
+
+      expect(session.isConnected).toBe(true);
+      expect(vendor.disconnected).toEqual([]);
+    });
+
     it('should leave alone a granted port that is not a DotPad', async () => {
       // A page may hold a serial permission for something else entirely.
       // Opening that would be worse than doing nothing.
@@ -669,36 +753,12 @@ describe('dotPadSession', () => {
     });
   });
 
-  describe('handing a display back', () => {
-    it('should release one it took up on its own', async () => {
-      const vendor = createVendor();
-      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
-      installVendor(vendor);
-      const session = await loadSession();
-      await session.adopt();
-
-      session.releaseIfAdopted();
-
-      expect(session.isConnected).toBe(false);
-    });
-
-    it('should keep one the reader connected here themselves', async () => {
-      // They chose this chart. Taking the display away because braille went
-      // off would undo a decision they made deliberately.
-      const vendor = createVendor();
-      const { session } = await connectSession(vendor);
-
-      session.releaseIfAdopted();
-
-      expect(session.isConnected).toBe(true);
-    });
-
+  describe('closing a display', () => {
     it('should let a frame already queued reach the display before closing it', async () => {
-      // Turning braille off lowers every pin and then hands the display back,
-      // and the blank frame goes through the write queue like any other. A
-      // close that does not wait for the queue shuts the device under a frame
-      // still on its way out, so the next chart takes up a display still
-      // holding the chart the reader has just left.
+      // A frame and then the close: a chart handing the display to another
+      // frame, or the reader disconnecting straight after a move. A close that
+      // does not wait for the queue shuts the device under a frame still on
+      // its way out.
       const vendor = createVendor();
       setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
       installVendor(vendor);
@@ -710,7 +770,7 @@ describe('dotPadSession', () => {
       };
 
       session.writeGraphic('00');
-      session.releaseIfAdopted();
+      session.disconnect();
       await flushWrites();
 
       expect(closesBeforeTheFrame).toEqual([0]);
@@ -718,9 +778,9 @@ describe('dotPadSession', () => {
     });
 
     it('should close the display even when the queued frame is refused', async () => {
-      // The frame is a courtesy; handing the device back is not. A write the
-      // SDK throws on must not leave the display checked out to a chart the
-      // reader has left.
+      // The frame is a courtesy; closing the device is not. A write the SDK
+      // throws on must not leave the display open to a chart the reader has
+      // left.
       const vendor = createVendor();
       setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
       installVendor(vendor);
@@ -731,7 +791,7 @@ describe('dotPadSession', () => {
       };
 
       session.writeGraphic('00');
-      session.releaseIfAdopted();
+      session.disconnect();
       await flushWrites();
 
       expect(vendor.disconnected).toEqual([DEVICE]);
@@ -747,11 +807,15 @@ describe('dotPadSession', () => {
         setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
         installVendor(vendor);
         const session = await loadSession();
-        await session.adopt();
+        // Adopting first asks the page's other frames for the display, and
+        // that ask waits on a timer of its own.
+        const adoption = session.adopt();
+        await jest.advanceTimersByTimeAsync(1000);
+        await adoption;
         vendor.hooks.onText = (): Promise<void> => new Promise<void>(() => {});
 
         session.writeText('2801');
-        session.releaseIfAdopted();
+        session.disconnect();
         await jest.advanceTimersByTimeAsync(5000);
 
         expect(vendor.disconnected).toEqual([DEVICE]);
