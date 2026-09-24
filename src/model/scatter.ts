@@ -9,6 +9,7 @@ import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
 import { selectorString } from '@util/selectors';
 import { Svg } from '@util/svg';
+import { pathVertices } from '@util/svgPath';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace, MAX_DESCRIPTION_TABLE_ROWS } from './abstract';
 import { MovablePlane } from './movable';
@@ -3029,18 +3030,17 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         }
       }
 
-      // Highcharts (and other path-rendered marker libraries) embed the
-      // marker center in the `d` attribute as `M x y …`. Parse the initial
-      // moveTo command to recover (x, y) when none of the explicit attribute
-      // fallbacks matched.
+      // A marker drawn as an inline `<path>` -- Highcharts' symbols, and
+      // matplotlib's whenever the markers vary from point to point -- carries
+      // its position only in `d`, and is centred on the box that spans it.
+      // The first `M x y` is not the centre: it is wherever the shape's
+      // outline starts, the bottom of a matplotlib circle and a corner of its
+      // `X`, so two shapes at the same x fell into different columns.
       if (Number.isNaN(x) || Number.isNaN(y)) {
-        const d = element.getAttribute('d');
-        if (d) {
-          const match = d.match(/M\s*([\d.eE+-]+)[\s,]+([\d.eE+-]+)/);
-          if (match) {
-            x = Number.parseFloat(match[1]);
-            y = Number.parseFloat(match[2]);
-          }
+        const centre = ScatterTrace.pathCentre(element);
+        if (centre !== null) {
+          x = centre.x;
+          y = centre.y;
         }
       }
 
@@ -3065,6 +3065,48 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       .map(([_, elements]) => elements);
 
     return [sortedXElements, sortedYElements];
+  }
+
+  /**
+   * The centre of the box a path-drawn marker spans, or null for an element
+   * that draws no path.
+   *
+   * The browser's `getBBox()` when it has one to give; otherwise -- jsdom, or
+   * an element not laid out, which answers an empty box -- the box of the
+   * vertices `d` lists. Both are in the path's own user space, the space its
+   * `d` is written in.
+   *
+   * @param element - A scatter marker with no x/y, cx/cy or transform
+   * @returns The centre, or null when the element has no usable `d`
+   */
+  private static pathCentre(element: SVGElement): { x: number; y: number } | null {
+    const d = element.getAttribute('d');
+    if (!d) {
+      return null;
+    }
+
+    const graphics = element as SVGGraphicsElement;
+    if (typeof graphics.getBBox === 'function') {
+      try {
+        const box = graphics.getBBox();
+        if (box.width > 0 || box.height > 0) {
+          return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        }
+      } catch {
+        // Firefox throws for an element that is not rendered; read `d`.
+      }
+    }
+
+    const vertices = pathVertices(d);
+    if (vertices.length === 0) {
+      return null;
+    }
+    const xs = vertices.map(v => v.x);
+    const ys = vertices.map(v => v.y);
+    return {
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2,
+    };
   }
 
   /**
