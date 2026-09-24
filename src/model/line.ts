@@ -1344,12 +1344,20 @@ export class LineTrace extends AbstractTrace {
       // NA into sibling polylines (`...1a`, `...1b`), and a base R selector of
       // the form `#grob polyline` matches every polyline in the grob. Reading
       // the first piece alone stretched the whole series along it.
+      //
+      // Only elements that draw count as pieces. matplotlib writes a line's
+      // marker shape into a `<defs>` inside the line's own group, so py-maidr's
+      // `g[id='maidr-…'] path` matches the stroke and that template both, and
+      // joining them put every marker after the first on the template's
+      // vertices round the origin. A hidden copy MAIDR inserted is not a piece
+      // either.
       const matches = uniqueSelectors
         ? Svg.selectAllElements(selectors[r], false)
         : [];
-      if (matches.length > 1) {
-        this.lineElements.push(...matches);
-        const markers = this.markersAlongPieces(matches, r);
+      const pieces = matches.filter(LineTrace.drawsPiece);
+      if (pieces.length > 1) {
+        this.lineElements.push(...pieces);
+        const markers = this.markersAlongPieces(pieces, r);
         if (markers.length > 0) {
           allFailed = false;
         }
@@ -1358,7 +1366,7 @@ export class LineTrace extends AbstractTrace {
       }
 
       const lineElement = uniqueSelectors
-        ? matches[0] ?? null
+        ? pieces[0] ?? matches[0] ?? null
         : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
@@ -1404,6 +1412,18 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     return svgElements;
+  }
+
+  /**
+   * Whether a matched element is drawn where it stands: not a template inside
+   * `<defs>` (or a clip path, marker, symbol, pattern or mask, which are only
+   * drawn by reference), and not a copy MAIDR inserted.
+   * @param element - An element a series' selector matched
+   * @returns True when it can be a piece of the series' stroke
+   */
+  private static drawsPiece(element: SVGElement): boolean {
+    return !Svg.isOwned(element)
+      && element.closest('defs, clipPath, marker, symbol, pattern, mask') === null;
   }
 
   /**

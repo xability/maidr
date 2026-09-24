@@ -164,6 +164,34 @@ describe('a line series split into several elements', () => {
     expect(document.querySelectorAll('circle')).toHaveLength(5);
   });
 
+  test('a marker template in <defs> is not a piece of the stroke', () => {
+    // py-maidr's `g[id='maidr-…'] path` for `plt.plot(..., marker='o')`:
+    // matplotlib writes the marker shape into a `<defs>` inside the line's
+    // own group, so the selector matches the stroke and that template both.
+    const points: LinePoint[] = [
+      { x: 1, y: 3 },
+      { x: 2, y: 1 },
+      { x: 3, y: 4 },
+      { x: 4, y: 2 },
+    ];
+    document.body.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg"><g id="maidr-a">
+        <path d="M 73.83 134.21 L 182.05 295.49 L 290.27 53.57 L 398.49 214.85" fill="none"></path>
+        <defs><path id="m1" d="M 0 3 C 1.59 3 3 1.59 3 0 C 3 -1.59 1.59 -3 0 -3 z"></path></defs>
+        <g><use href="#m1" x="73.83" y="134.21"></use></g>
+      </g></svg>`;
+
+    const trace = new LineTrace(layer(points, 'g[id=\'maidr-a\'] path'));
+
+    expect(markerCentres(trace)).toEqual([
+      { x: 73.83, y: 134.21 },
+      { x: 182.05, y: 295.49 },
+      { x: 290.27, y: 53.57 },
+      { x: 398.49, y: 214.85 },
+    ]);
+    expect(trace.getGeometryElements()).toHaveLength(1);
+  });
+
   test('a single element is read exactly as before', () => {
     // One simplified polyline for a whole series: the x range is stretched
     // along it, as it always has been.
