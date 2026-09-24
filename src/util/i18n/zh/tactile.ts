@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': '已经显示整行',
   'tactile.lineStart': '行首',
   'tactile.lineEnd': '行尾',
-  'tactile.linePart': '第 {index} 段，共 {total} 段',
   'tactile.lineUncontracted': '缩写盲文不可用，触觉显示器的文本行以非缩写盲文显示',
 
   'tactile.deviceDisconnected': 'DotPad 已断开连接',

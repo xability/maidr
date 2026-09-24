@@ -21,7 +21,7 @@
  * contains "tick".
  */
 
-import { beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TactileSvgGeometry } from '@util/tactile/svgGeometry';
 import { TactileViewport } from '@util/tactile/viewport';
 
@@ -269,8 +269,10 @@ describe('tactileSvgGeometry.ringsOf on a circle', () => {
       x: ring.points.reduce((sum, p) => sum + p.x, 0) / ring.points.length,
       y: ring.points.reduce((sum, p) => sum + p.y, 0) / ring.points.length,
     };
+    // To three places: the viewport quantises every point to a thousandth of
+    // a dot, so measurement noise cannot split one edge across two pins.
     for (const point of ring.points) {
-      expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeCloseTo(3, 5);
+      expect(Math.hypot(point.x - centre.x, point.y - centre.y)).toBeCloseTo(3, 2);
     }
   });
 });
@@ -334,6 +336,236 @@ describe('tactileSvgGeometry.ringsOf on a path that walks back to its start', ()
     ]);
 
     expect(TactileSvgGeometry.ringsOf(closed, viewport)[0].closed).toBe(true);
+  });
+});
+
+describe('tactileSvgGeometry.ringsOf on a path drawn in several pieces', () => {
+  const viewport = new TactileViewport({ left: 0, top: 0, width: 60, height: 40 }, 60, 40);
+
+  /**
+   * Length of absolute `M`/`L` path data, the way a browser measures it: a
+   * move lifts the pen and adds nothing.
+   * @param d - Path data using only absolute `M` and `L`
+   */
+  function lengthOf(d: string): number {
+    const commands = d.match(/[ML][^ML]*/g) ?? [];
+    let length = 0;
+    let at: { x: number; y: number } | null = null;
+    for (const command of commands) {
+      const [x, y] = command.slice(1).trim().split(/[\s,]+/).map(Number);
+      if (command[0] === 'L' && at !== null) {
+        length += Math.hypot(x - at.x, y - at.y);
+      }
+      at = { x, y };
+    }
+    return length;
+  }
+
+  /**
+   * Walks absolute `M`/`L` path data to the point a length along it.
+   * @param d - Path data using only absolute `M` and `L`
+   * @param target - How far along
+   */
+  function pointAt(d: string, target: number): { x: number; y: number } {
+    const commands = d.match(/[ML][^ML]*/g) ?? [];
+    let walked = 0;
+    let at = { x: 0, y: 0 };
+    for (const command of commands) {
+      const [x, y] = command.slice(1).trim().split(/[\s,]+/).map(Number);
+      if (command[0] === 'L') {
+        const step = Math.hypot(x - at.x, y - at.y);
+        if (walked + step >= target && step > 0) {
+          const t = (target - walked) / step;
+          return { x: at.x + (x - at.x) * t, y: at.y + (y - at.y) * t };
+        }
+        walked += step;
+      }
+      at = { x, y };
+    }
+    return at;
+  }
+
+  /**
+   * A path measured the way a browser measures one, including the detached
+   * copies `ringsOf` makes to find where each piece starts.
+   * @param d - Path data using only absolute `M` and `L`
+   */
+  function measuredPath(d: string): SVGGraphicsElement {
+    const element = document.createElementNS(SVG_NS, 'path');
+    element.setAttribute('d', d);
+    const graphics = element as unknown as Record<string, unknown>;
+    graphics.getScreenCTM = (): unknown => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+    graphics.getTotalLength = (): number => lengthOf(d);
+    graphics.getPointAtLength = (length: number): unknown => pointAt(d, length);
+    return element as unknown as SVGGraphicsElement;
+  }
+
+  const create = document.createElementNS.bind(document);
+
+  beforeEach(() => {
+    jest.spyOn(document, 'createElementNS').mockImplementation(((namespace: string, tag: string) => {
+      const created = create(namespace, tag);
+      (created as unknown as Record<string, unknown>).getTotalLength = (): number =>
+        lengthOf(created.getAttribute('d') ?? '');
+      return created;
+    }) as typeof document.createElementNS);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should keep an error bar\'s caps and stem apart rather than joining them', () => {
+    // One path, three pieces. Sampled as one run, the pen was dragged from
+    // the end of the top cap to the top of the stem and from the foot of the
+    // stem to the start of the bottom cap: a few steps in, the error bar came
+    // back as a Z.
+    const errorBar = measuredPath('M 4 4 L 10 4 M 7 4 L 7 20 M 4 20 L 10 20');
+
+    const [ring] = TactileSvgGeometry.ringsOf(errorBar, viewport);
+
+    expect(ring.parts).toHaveLength(3);
+    expect(ring.parts?.map(part => part.closed)).toEqual([false, false, false]);
+    // Every point of each piece on that piece's own line, and none on a
+    // bridge between two of them.
+    const top = viewport.toDot(0, 4).y;
+    const stem = viewport.toDot(7, 0).x;
+    const bottom = viewport.toDot(0, 20).y;
+    expect(ring.parts?.[0].points.every(point => Math.abs(point.y - top) < 1e-3)).toBe(true);
+    expect(ring.parts?.[1].points.every(point => Math.abs(point.x - stem) < 1e-3)).toBe(true);
+    expect(ring.parts?.[2].points.every(point => Math.abs(point.y - bottom) < 1e-3)).toBe(true);
+  });
+
+  it('should tell a closed piece from an open one in the same path', () => {
+    const box = measuredPath('M 4 4 L 10 4 L 10 10 L 4 10 Z M 7 10 L 7 20');
+
+    const [ring] = TactileSvgGeometry.ringsOf(box, viewport);
+
+    expect(ring.parts?.map(part => part.closed)).toEqual([true, false]);
+    expect(ring.closed).toBe(true);
+  });
+
+  it('should keep each piece its own path data past a bare move', () => {
+    // A bare move -- a missing point -- has no length, so it is no boundary
+    // along the path. It still stood in the path data, and counted there the
+    // piece after it was read from its neighbour's text: the closed box came
+    // back open.
+    const box = measuredPath('M 7 0 L 7 4 M 2 2 M 4 4 L 10 4 L 10 10 L 4 10 Z');
+
+    const [ring] = TactileSvgGeometry.ringsOf(box, viewport);
+
+    expect(ring.parts?.map(part => part.closed)).toEqual([false, true]);
+  });
+
+  it('should leave a path in one piece as it was', () => {
+    const line = measuredPath('M 4 4 L 10 4 L 10 10');
+
+    const [ring] = TactileSvgGeometry.ringsOf(line, viewport);
+
+    expect(ring.parts).toBeUndefined();
+  });
+});
+
+describe('tactileSvgGeometry.ringsOf on a shape placed by <use>', () => {
+  const viewport = new TactileViewport({ left: 0, top: 0, width: 60, height: 40 }, 60, 40);
+
+  interface Affine {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    e: number;
+    f: number;
+    translate: (x: number, y: number) => Affine;
+    multiply: (other: Affine) => Affine;
+  }
+
+  /**
+   * The part of `DOMMatrix` the geometry reads, which jsdom does not supply.
+   */
+  function affine(a: number, b: number, c: number, d: number, e: number, f: number): Affine {
+    const self: Affine = {
+      a,
+      b,
+      c,
+      d,
+      e,
+      f,
+      translate: (x, y) => affine(a, b, c, d, a * x + c * y + e, b * x + d * y + f),
+      multiply: o => affine(
+        a * o.a + c * o.b,
+        b * o.a + d * o.b,
+        a * o.c + c * o.d,
+        b * o.c + d * o.d,
+        a * o.e + c * o.f + e,
+        b * o.e + d * o.f + f,
+      ),
+    };
+    return self;
+  }
+
+  /**
+   * An SVG holding a square declared in `<defs>` and a `<use>` placing it.
+   * @param attribute - The attribute the `<use>` names the square with
+   */
+  function placedSquare(attribute: 'href' | 'xlink:href'): { use: SVGGraphicsElement; declared: SVGGraphicsElement } {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    const declared = document.createElementNS(SVG_NS, 'rect');
+    declared.setAttribute('id', `square-${attribute.length}`);
+    declared.setAttribute('width', '10');
+    declared.setAttribute('height', '10');
+    defs.append(declared);
+    const use = document.createElementNS(SVG_NS, 'use');
+    if (attribute === 'href') {
+      use.setAttribute('href', `#square-${attribute.length}`);
+    } else {
+      use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', `#square-${attribute.length}`);
+    }
+    use.setAttribute('x', '20');
+    use.setAttribute('y', '5');
+    svg.append(defs, use);
+    document.body.append(svg);
+    for (const element of [use, declared]) {
+      (element as unknown as Record<string, unknown>).getScreenCTM = (): Affine => affine(1, 0, 0, 1, 0, 0);
+    }
+    return { use: use as unknown as SVGGraphicsElement, declared: declared as unknown as SVGGraphicsElement };
+  }
+
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it('should draw the shape a <use> places, where it places it', () => {
+    // matplotlib draws a violin's outline this way. Measured as a box of its
+    // own, the <use> came back as the violin's bounding rectangle.
+    const { use } = placedSquare('href');
+
+    const [ring] = TactileSvgGeometry.ringsOf(use, viewport);
+
+    expect(ring.points).toEqual([
+      viewport.toDot(20, 5),
+      viewport.toDot(30, 5),
+      viewport.toDot(30, 15),
+      viewport.toDot(20, 15),
+    ]);
+  });
+
+  it('should follow an xlink:href as well', () => {
+    const { use } = placedSquare('xlink:href');
+
+    const [ring] = TactileSvgGeometry.ringsOf(use, viewport);
+
+    expect(ring.points[0]).toEqual(viewport.toDot(20, 5));
+  });
+
+  it('should not draw a definition where it is declared', () => {
+    // A selector reaching into <defs> finds the definition, which is drawn
+    // only where a <use> places it; measured where it is declared it lands
+    // wherever its own coordinates point.
+    const { declared } = placedSquare('href');
+
+    expect(TactileSvgGeometry.ringsOf(declared, viewport)).toEqual([]);
   });
 });
 

@@ -1,6 +1,22 @@
 import type { ClientRect, DotPoint, TactileViewport } from './viewport';
 
 /**
+ * Whatever maps screen points onto the plane rings are measured in: the
+ * viewport, for the pins, or a pass-through that leaves them in screen pixels
+ * for a caller that needs a mark's outline where the page draws it.
+ */
+export type DotProjector = Pick<TactileViewport, 'toDot'>;
+
+/**
+ * Where a subpath begins: its length along the path, and its move's index in
+ * the path data.
+ */
+interface SubpathStart {
+  length: number;
+  offset: number;
+}
+
+/**
  * A run of points in dot coordinates, taken from one SVG shape.
  */
 export interface DotRing {
@@ -15,6 +31,18 @@ export interface DotRing {
    * shape can be filled.
    */
   closed: boolean;
+
+  /**
+   * The pieces of a shape drawn in more than one piece, when it is.
+   *
+   * One SVG path can hold several subpaths that do not touch: an error bar's
+   * two caps and its stem, a box plot's box and its whiskers, a region and its
+   * islands. {@link points} then runs through all of them, for measuring, and
+   * these say where the pen was lifted -- drawn as one run, the pieces come
+   * back joined by straight lines the chart never drew, which at whole-plot
+   * zoom land inside the mark but a few steps in cut across it as a slash.
+   */
+  parts?: { points: DotPoint[]; closed: boolean }[];
 }
 
 /**
@@ -355,7 +383,7 @@ export abstract class TactileSvgGeometry {
    * @param matrix - The shape's screen transform
    * @param viewport - The active zoom and pan
    */
-  private static project(x: number, y: number, matrix: DOMMatrix, viewport: TactileViewport): DotPoint {
+  private static project(x: number, y: number, matrix: DOMMatrix, viewport: DotProjector): DotPoint {
     const screenX = matrix.a * x + matrix.c * y + matrix.e;
     const screenY = matrix.b * x + matrix.d * y + matrix.f;
     return viewport.toDot(screenX, screenY);
@@ -405,23 +433,82 @@ export abstract class TactileSvgGeometry {
   }
 
   /**
-   * Samples a `path` along its length.
+   * Where each subpath of a path begins, measured along the path, cached
+   * against the path data it was measured from.
+   */
+  /**
+   * Most subpaths a path is split into; see {@link subpathStarts}.
+   */
+  private static readonly MAX_SUBPATHS = 256;
+
+  private static readonly subpathCache = new WeakMap<Element, { d: string; starts: SubpathStart[] }>();
+
+  /**
+   * Where along a path each of its subpaths begins, and where in the path
+   * data, the first always at zero.
    *
-   * A path holding several disconnected subpaths is sampled as one run, so the
-   * outline picks up a straight segment bridging the gap. Charting libraries
-   * emit one path per mark often enough that paying for full subpath parsing
-   * is not yet worth it; when it does happen the bridge lands inside the mark's
-   * own bounding box and reads as part of the shape.
+   * Measured rather than parsed: each boundary is the length of the path data
+   * up to the next move, which a detached path reports exactly, arcs and
+   * relative commands included, without MAIDR having to interpret either.
+   *
+   * A subpath with no length -- a bare move, as a chart may leave for a
+   * missing point -- has no run of its own. The piece after it starts where
+   * it did along the path, and in the path data at its own move, so every
+   * run keeps the text it was drawn from.
+   *
+   * @param element - The path to measure
+   * @param d - Its path data
+   */
+  private static subpathStarts(element: SVGPathElement, d: string): SubpathStart[] {
+    const cached = this.subpathCache.get(element);
+    if (cached !== undefined && cached.d === d) {
+      return cached.starts;
+    }
+    const starts: SubpathStart[] = [{ length: 0, offset: 0 }];
+    const moves = Array.from(d.matchAll(/M/gi), match => match.index ?? 0).filter(index => index > 0);
+    // Each boundary measures the path from its start, so the cost grows with
+    // the square of the pieces. Past a few hundred -- a hatching, a map's
+    // islands -- the path is sampled as one run, as it was before pieces were
+    // told apart, rather than stall the key that first draws it.
+    if (moves.length > 0 && moves.length <= this.MAX_SUBPATHS) {
+      try {
+        const probe = element.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'path');
+        for (const index of moves) {
+          probe.setAttribute('d', d.slice(0, index));
+          const length = probe.getTotalLength();
+          if (!Number.isFinite(length)) {
+            continue;
+          }
+          const last = starts[starts.length - 1];
+          if (length > last.length) {
+            starts.push({ length, offset: index });
+          } else {
+            last.offset = index;
+          }
+        }
+      } catch {
+        // A document that cannot measure a detached path: the path is sampled
+        // as one run, as it always was.
+        starts.length = 1;
+      }
+    }
+    this.subpathCache.set(element, { d, starts });
+    return starts;
+  }
+
+  /**
+   * Samples a `path` along its length, one run per subpath.
    *
    * @param element - The path to sample
    * @param matrix - The path's screen transform
    * @param viewport - The active zoom and pan
+   * @returns One run of points per subpath, with the path data it came from
    */
   private static samplePath(
     element: SVGPathElement,
     matrix: DOMMatrix,
-    viewport: TactileViewport,
-  ): DotPoint[] {
+    viewport: DotProjector,
+  ): { points: DotPoint[]; d: string }[] {
     let totalLength: number;
     try {
       totalLength = element.getTotalLength();
@@ -437,16 +524,48 @@ export abstract class TactileSvgGeometry {
       Math.max(this.MIN_SAMPLES, Math.ceil(totalLength / 2)),
     );
 
-    const points: DotPoint[] = [];
-    for (let i = 0; i <= samples; i++) {
-      try {
-        const point = element.getPointAtLength((i / samples) * totalLength);
-        points.push(this.project(point.x, point.y, matrix, viewport));
-      } catch {
-        break;
+    const d = element.getAttribute('d') ?? '';
+    const starts = this.subpathStarts(element, d);
+    if (starts.length === 1) {
+      const points: DotPoint[] = [];
+      for (let i = 0; i <= samples; i++) {
+        try {
+          const point = element.getPointAtLength((i / samples) * totalLength);
+          points.push(this.project(point.x, point.y, matrix, viewport));
+        } catch {
+          break;
+        }
       }
+      return [{ points, d }];
     }
-    return points;
+
+    // Each subpath sampled between its own ends, a hair inside them: at a
+    // boundary exactly, the length names both the end of one subpath and the
+    // start of the next, and either may come back.
+    const runs: { points: DotPoint[]; d: string }[] = [];
+    for (let part = 0; part < starts.length; part++) {
+      const from = starts[part].length;
+      const to = part + 1 < starts.length ? starts[part + 1].length : totalLength;
+      const length = to - from;
+      if (length <= 0) {
+        continue;
+      }
+      const inset = Math.min(1e-3, length / 1000);
+      const count = Math.max(1, Math.ceil(samples * length / totalLength));
+      const points: DotPoint[] = [];
+      for (let i = 0; i <= count; i++) {
+        const at = Math.min(to - inset, Math.max(from + inset, from + (i / count) * length));
+        try {
+          const point = element.getPointAtLength(at);
+          points.push(this.project(point.x, point.y, matrix, viewport));
+        } catch {
+          break;
+        }
+      }
+      const segment = d.slice(starts[part].offset, starts[part + 1]?.offset);
+      runs.push({ points, d: segment });
+    }
+    return runs;
   }
 
   /**
@@ -466,11 +585,11 @@ export abstract class TactileSvgGeometry {
    * was skipped, because only a shape with an inside can be given a texture. A
    * heatmap arrived as a thick lattice with all 64 of its values missing.
    *
-   * @param element - The path element
+   * @param d - The path data, or the part of it one subpath was drawn from
    * @param points - Its sampled points, in dot coordinates
    */
-  private static pathCloses(element: SVGGraphicsElement, points: readonly DotPoint[]): boolean {
-    if (/z\s*$/i.test(element.getAttribute('d') ?? '')) {
+  private static pathCloses(d: string, points: readonly DotPoint[]): boolean {
+    if (/z\s*$/i.test(d)) {
       return true;
     }
     if (points.length < 3) {
@@ -495,7 +614,7 @@ export abstract class TactileSvgGeometry {
   private static boundingBoxRing(
     element: SVGGraphicsElement,
     matrix: DOMMatrix,
-    viewport: TactileViewport,
+    viewport: DotProjector,
   ): DotRing | null {
     let box: DOMRect;
     try {
@@ -533,7 +652,7 @@ export abstract class TactileSvgGeometry {
     rx: number,
     ry: number,
     matrix: DOMMatrix,
-    viewport: TactileViewport,
+    viewport: DotProjector,
   ): DotRing {
     const samples = this.ellipseSamples(cx, cy, rx, ry, matrix, viewport);
     const points: DotPoint[] = [];
@@ -576,7 +695,7 @@ export abstract class TactileSvgGeometry {
     rx: number,
     ry: number,
     matrix: DOMMatrix,
-    viewport: TactileViewport,
+    viewport: DotProjector,
   ): number {
     const centre = this.project(cx, cy, matrix, viewport);
     const across = this.project(cx + rx, cy, matrix, viewport);
@@ -604,10 +723,11 @@ export abstract class TactileSvgGeometry {
    * `<g>` of parts renders as those parts rather than as its bounding box.
    *
    * @param element - The shape to reduce
-   * @param viewport - The active zoom and pan
+   * @param viewport - The active zoom and pan, or a pass-through projector for
+   * the outline in screen pixels
    * @returns Rings in dot coordinates; empty when the shape cannot be measured
    */
-  public static ringsOf(element: SVGGraphicsElement, viewport: TactileViewport): DotRing[] {
+  public static ringsOf(element: SVGGraphicsElement, viewport: DotProjector): DotRing[] {
     const tag = element.tagName.toLowerCase();
 
     if (tag === 'g' || tag === 'svg') {
@@ -623,11 +743,104 @@ export abstract class TactileSvgGeometry {
       return rings;
     }
 
+    // A definition is drawn only through a `<use>` that places it, and a
+    // selector reaching into `<defs>` has found the definition rather than the
+    // drawing. Measured where it is declared, it lands wherever its own
+    // coordinates happen to point -- matplotlib declares a violin's outline
+    // there at negative y and places it with a `<use>`.
+    if (element.closest('defs') !== null) {
+      return [];
+    }
+
     const matrix = this.screenMatrix(element);
     if (matrix === null) {
       return [];
     }
 
+    if (tag === 'use') {
+      return this.useRings(element, matrix, viewport);
+    }
+    return this.shapeRings(element, tag, matrix, viewport);
+  }
+
+  /**
+   * Deepest chain of `<use>` and group nesting followed, so a reference that
+   * refers back to itself cannot recurse forever.
+   */
+  private static readonly MAX_USE_DEPTH = 8;
+
+  /**
+   * Reduces a `<use>` to the rings of the shape it places.
+   *
+   * A `<use>` has no geometry of its own. Measured as a box, a violin placed
+   * this way arrived as its bounding rectangle, and the outline that is the
+   * whole of the chart was nowhere on the pins.
+   *
+   * @param use - The `<use>` element
+   * @param matrix - Its screen transform
+   * @param viewport - The active zoom and pan
+   * @param depth - How many references deep this is
+   */
+  private static useRings(
+    use: SVGGraphicsElement,
+    matrix: DOMMatrix,
+    viewport: DotProjector,
+    depth: number = 0,
+  ): DotRing[] {
+    const href = use.getAttribute('href') ?? use.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+    const target = href !== null && href.startsWith('#') && depth < this.MAX_USE_DEPTH
+      ? use.ownerDocument.getElementById(href.slice(1))
+      : null;
+    if (target === null) {
+      const fallback = this.boundingBoxRing(use, matrix, viewport);
+      return fallback === null ? [] : [fallback];
+    }
+    const placed = matrix.translate(this.length(use, 'x'), this.length(use, 'y'));
+    return this.placedRings(target, placed, viewport, depth + 1);
+  }
+
+  /**
+   * Reduces a referenced element, placed by the `<use>` that refers to it.
+   *
+   * @param element - The referenced element, or one of its descendants
+   * @param matrix - The transform it is placed with, before its own
+   * @param viewport - The active zoom and pan
+   * @param depth - How many references deep this is
+   */
+  private static placedRings(
+    element: Element,
+    matrix: DOMMatrix,
+    viewport: DotProjector,
+    depth: number,
+  ): DotRing[] {
+    const own = (element as SVGGraphicsElement).transform?.baseVal?.consolidate()?.matrix;
+    const placed = own === undefined ? matrix : matrix.multiply(own);
+    const tag = element.tagName.toLowerCase();
+    if (tag === 'g' || tag === 'symbol' || tag === 'svg') {
+      return Array.from(element.children)
+        .filter(child => this.isDrawable(child))
+        .flatMap(child => this.placedRings(child, placed, viewport, depth + 1));
+    }
+    if (tag === 'use') {
+      return this.useRings(element as SVGGraphicsElement, placed, viewport, depth);
+    }
+    return this.shapeRings(element as SVGGraphicsElement, tag, placed, viewport);
+  }
+
+  /**
+   * Reduces one leaf shape, under a given transform, to rings.
+   *
+   * @param element - The shape
+   * @param tag - Its tag name, lower case
+   * @param matrix - Its screen transform
+   * @param viewport - The active zoom and pan
+   */
+  private static shapeRings(
+    element: SVGGraphicsElement,
+    tag: string,
+    matrix: DOMMatrix,
+    viewport: DotProjector,
+  ): DotRing[] {
     switch (tag) {
       case 'rect': {
         const x = this.length(element, 'x');
@@ -690,11 +903,20 @@ export abstract class TactileSvgGeometry {
       }
 
       case 'path': {
-        const points = this.samplePath(element as SVGPathElement, matrix, viewport);
-        if (points.length === 0) {
+        const runs = this.samplePath(element as SVGPathElement, matrix, viewport)
+          .filter(run => run.points.length > 0);
+        if (runs.length === 0) {
           break;
         }
-        return [{ points, closed: this.pathCloses(element, points) }];
+        if (runs.length === 1) {
+          return [{ points: runs[0].points, closed: this.pathCloses(element.getAttribute('d') ?? '', runs[0].points) }];
+        }
+        const parts = runs.map(run => ({ points: run.points, closed: this.pathCloses(run.d, run.points) }));
+        return [{
+          points: parts.flatMap(part => part.points),
+          closed: parts.some(part => part.closed),
+          parts,
+        }];
       }
     }
 

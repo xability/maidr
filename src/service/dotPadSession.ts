@@ -139,6 +139,17 @@ const BRAILLE_LANGUAGE = 'English';
 const CLOSE_FLUSH_TIMEOUT_MS = 2000;
 
 /**
+ * The buzz that says "nothing further this way": one long pulse.
+ *
+ * Not the SDK's default of two short pulses, because the display already
+ * gives that pattern when it connects. A reader who felt the same double knock
+ * at the end of a line could not tell "no more line" from "the device has just
+ * reconnected". A single long pulse feels different from that, and is long
+ * enough not to be mistaken for the click of a key that did something.
+ */
+const EDGE_VIBRATION = { onMs: 300, offMs: 0, count: 1 } as const;
+
+/**
  * Owns the connection to a tactile display, for as long as the page lives.
  *
  * Deliberately a module-level singleton rather than a service on the MAIDR
@@ -954,6 +965,48 @@ class DotPadSession {
       return;
     }
     this.enqueue(() => sdk.displayLineData(cellRow + 1, 0, hex, GRAPHIC_MODE, device));
+  }
+
+  /**
+   * Buzzes the device once, to say the reader has reached an edge.
+   *
+   * Queued with the writes, so it lands after the frame or line the key that
+   * provoked it produced rather than ahead of it.
+   *
+   * @param onFailure - Called when the device refused the request after it
+   * was queued, so the caller can still say it another way
+   * @returns False when there is no device or its SDK cannot vibrate, so the
+   * caller can say it another way
+   */
+  public vibrate(onFailure?: () => void): boolean {
+    const sdk = this.sdk;
+    const device = this.device;
+    if (sdk === null || device === null || typeof sdk.requestVibrator !== 'function') {
+      return false;
+    }
+    this.enqueue(async () => {
+      // A display that went away while the request waited has no edge to mark.
+      if (this.device !== device) {
+        return;
+      }
+      try {
+        await sdk.requestVibrator?.(
+          device,
+          EDGE_VIBRATION.onMs,
+          EDGE_VIBRATION.offMs,
+          EDGE_VIBRATION.count,
+        );
+      } catch (error) {
+        // Queued is not delivered: a request the firmware turns down would
+        // otherwise leave the key doing nothing and saying nothing. It is not
+        // a write failure, though -- no pin went stale -- so it is not passed
+        // on as one, which would repaint the whole display for nothing and
+        // spend a repair the next real failure may need.
+        console.error('DotPad vibration refused:', error instanceof Error ? error.message : error);
+        onFailure?.();
+      }
+    });
+    return true;
   }
 
   /**

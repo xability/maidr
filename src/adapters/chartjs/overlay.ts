@@ -18,7 +18,9 @@
  * overlay children (and as user units in the wedge svg, which is unscaled).
  */
 
+import type { PixelRect } from '../../util/tactile/canvasRaster';
 import type { ChartJsMetaElement } from './types';
+import { OVERLAY_ATTRIBUTES, writeOverlayRegions } from '../../util/overlayRegions';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -73,14 +75,27 @@ export class HighlightOverlay {
   private readonly fillColor: string;
 
   /**
+   * The chart before its tooltip; see {@link captureClean}.
+   */
+  private clean: HTMLCanvasElement | null = null;
+
+  /**
+   * Watches for a reader of the pixels arriving; see {@link captureClean}.
+   */
+  private readonly readerObserver: MutationObserver | null = null;
+
+  /**
    * @param host - Positioned wrapper element that contains the canvas.
    * @param canvas - The Chart.js canvas the overlay aligns to.
    * @param highlightColor - Optional outline color override.
+   * @param repaint - Redraws the chart, so a copy for a reader of the pixels
+   * who has just arrived is taken now rather than on the chart's next frame.
    */
   constructor(
     host: HTMLElement,
     canvas: HTMLCanvasElement,
     highlightColor?: string,
+    repaint?: () => void,
   ) {
     this.canvas = canvas;
     this.outlineColor = highlightColor ?? DEFAULT_HIGHLIGHT_COLOR;
@@ -88,11 +103,26 @@ export class HighlightOverlay {
 
     this.container = document.createElement('div');
     this.container.setAttribute('data-maidr-chartjs-overlay', '');
+    // Read by the tactile display, which draws canvas charts from the pixels
+    // and needs these to know where the focused point is.
+    this.container.setAttribute(OVERLAY_ATTRIBUTES.layer, '');
     this.container.style.position = 'absolute';
     this.container.style.pointerEvents = 'none';
     this.container.style.zIndex = '1';
     this.syncToCanvas();
     host.appendChild(this.container);
+
+    // The copy is only kept while it is read, so the first reading would find
+    // none and read the tooltip with the chart. Repainting as the reader
+    // arrives takes the copy then.
+    if (repaint !== undefined && typeof MutationObserver !== 'undefined') {
+      this.readerObserver = new MutationObserver(() => {
+        if (this.clean === null && this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+          repaint();
+        }
+      });
+      this.readerObserver.observe(this.container, { attributes: true, attributeFilter: [OVERLAY_ATTRIBUTES.pixelReader] });
+    }
   }
 
   /**
@@ -110,11 +140,69 @@ export class HighlightOverlay {
   }
 
   /**
+   * Records where the plot area is and what Chart.js has painted over it, for
+   * readers of the canvas's pixels; see `@util/overlayRegions`.
+   * @param plotArea - `chart.chartArea`, in canvas CSS pixels
+   * @param exclude - Areas painted over the data, such as the tooltip
+   */
+  setRegions(plotArea: PixelRect | null, exclude: readonly (PixelRect | null)[] = []): void {
+    writeOverlayRegions(this.container, plotArea, exclude);
+  }
+
+  /**
+   * Copies the chart as it stands before Chart.js paints its tooltip, for
+   * readers of the pixels; see `@util/overlayRegions`.
+   *
+   * The tooltip sits over the data at the focused point, so a reader of the
+   * visible canvas found it among the marks -- and masking it out hid the
+   * tops of the bars it covered. This copy has everything but the tooltip.
+   */
+  captureClean(): void {
+    const source = this.canvas;
+    // Only while something reads the pixels: a copy per frame is otherwise
+    // a cost every chart would pay for a display few readers have. A copy
+    // left over from an earlier reading would be out of date by the next
+    // one, so it goes.
+    if (!this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+      this.clean?.remove();
+      this.clean = null;
+      return;
+    }
+    if (source.width <= 0 || source.height <= 0) {
+      return;
+    }
+    if (this.clean === null) {
+      this.clean = document.createElement('canvas');
+      this.clean.setAttribute(OVERLAY_ATTRIBUTES.cleanCanvas, '');
+      this.clean.setAttribute('aria-hidden', 'true');
+      this.clean.style.display = 'none';
+    }
+    if (this.clean.parentNode !== this.container) {
+      // `clear` empties the container; the copy goes back in first.
+      this.container.prepend(this.clean);
+    }
+    if (this.clean.width !== source.width || this.clean.height !== source.height) {
+      this.clean.width = source.width;
+      this.clean.height = source.height;
+    }
+    // Read back by the tactile display on every move; the hint only counts
+    // on the first call, which is this one.
+    const context = this.clean.getContext('2d', { willReadFrequently: true });
+    if (context === null) {
+      return;
+    }
+    context.clearRect(0, 0, source.width, source.height);
+    context.drawImage(source, 0, 0);
+  }
+
+  /**
    * Remove all highlight nodes (e.g., on chart resize before recompute).
    */
   clear(): void {
-    while (this.container.firstChild) {
-      this.container.removeChild(this.container.firstChild);
+    for (const node of Array.from(this.container.children)) {
+      if (node !== this.clean) {
+        node.remove();
+      }
     }
   }
 
@@ -122,6 +210,7 @@ export class HighlightOverlay {
    * Detach overlay from the DOM.
    */
   dispose(): void {
+    this.readerObserver?.disconnect();
     this.container.remove();
   }
 
@@ -129,6 +218,7 @@ export class HighlightOverlay {
   private createRectNode(rect: OverlayRect): HTMLDivElement {
     const node = document.createElement('div');
     node.setAttribute('data-maidr-chartjs-highlight', '');
+    node.setAttribute(OVERLAY_ATTRIBUTES.highlight, '');
     node.style.position = 'absolute';
     node.style.left = `${rect.left}px`;
     node.style.top = `${rect.top}px`;
@@ -152,6 +242,7 @@ export class HighlightOverlay {
   private createWedgeNode(wedge: OverlayWedge): SVGSVGElement {
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('data-maidr-chartjs-highlight', '');
+    svg.setAttribute(OVERLAY_ATTRIBUTES.highlight, '');
     svg.style.position = 'absolute';
     svg.style.left = '0';
     svg.style.top = '0';

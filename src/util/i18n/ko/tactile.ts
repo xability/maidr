@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': '이미 줄 전체가 표시되어 있습니다',
   'tactile.lineStart': '줄의 처음입니다',
   'tactile.lineEnd': '줄의 끝입니다',
-  'tactile.linePart': '줄 {total}부분 중 {index}번째',
   'tactile.lineUncontracted': '축약 점자를 사용할 수 없어 촉각 디스플레이의 텍스트 줄이 비축약 점자로 표시됩니다',
 
   'tactile.deviceDisconnected': 'DotPad 연결이 끊겼습니다',

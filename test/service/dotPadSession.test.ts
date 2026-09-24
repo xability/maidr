@@ -1186,6 +1186,91 @@ describe('dotPadSession', () => {
     });
   });
 
+  describe('vibration', () => {
+    /**
+     * The vendor module with an SDK that can vibrate, recording each request.
+     * @param vendor - The module to extend
+     * @param requests - Where each vibration request is recorded
+     */
+    function vibratingVendor(vendor: Vendor, requests: unknown[][]): Vendor {
+      const Base = vendor.module.DotPadSDK;
+      class VibratingSdk extends Base {
+        public override requestVibrator = (...args: unknown[]): void => {
+          requests.push(args);
+        };
+      }
+      return { ...vendor, module: { ...vendor.module, DotPadSDK: VibratingSdk } };
+    }
+
+    it('should buzz the connected device through the SDK', async () => {
+      const requests: unknown[][] = [];
+      const { session } = await connectSession(vibratingVendor(createVendor(), requests));
+
+      expect(session.vibrate()).toBe(true);
+      await flushWrites();
+
+      // One long pulse, not the SDK's default double pulse: the display gives
+      // that one when it connects, and the two must not feel alike.
+      expect(requests).toEqual([[DEVICE, 300, 0, 1]]);
+    });
+
+    it('should report a vibration the device refused after it was queued', async () => {
+      // The request is queued behind the frame, so the answer comes later
+      // than the return value. Refused, the reader would get no buzz and no
+      // speech.
+      const Base = createVendor();
+      class RefusingSdk extends Base.module.DotPadSDK {
+        public override requestVibrator = (): void => {
+          throw new Error('not supported by this firmware');
+        };
+      }
+      const { session } = await connectSession({ ...Base, module: { ...Base.module, DotPadSDK: RefusingSdk } });
+      const onFailure = jest.fn();
+      const writeFailure = jest.fn();
+      session.onWriteFailure(writeFailure);
+
+      expect(session.vibrate(onFailure)).toBe(true);
+      await flushWrites();
+
+      expect(onFailure).toHaveBeenCalledTimes(1);
+      // A refused buzz leaves every pin as it was, so it is no reason to
+      // repaint the display.
+      expect(writeFailure).not.toHaveBeenCalled();
+    });
+
+    it('should report a vibration the device rejected asynchronously', async () => {
+      const Base = createVendor();
+      class RejectingSdk extends Base.module.DotPadSDK {
+        public override requestVibrator = (): Promise<void> => Promise.reject(new Error('busy'));
+      }
+      const { session } = await connectSession({ ...Base, module: { ...Base.module, DotPadSDK: RejectingSdk } });
+      const onFailure = jest.fn();
+
+      session.vibrate(onFailure);
+      await flushWrites();
+
+      expect(onFailure).toHaveBeenCalledTimes(1);
+    });
+
+    it('should report that it could not when the SDK has no vibrator', async () => {
+      const { session } = await connectSession(createVendor());
+
+      expect(session.vibrate()).toBe(false);
+    });
+
+    it('should report that it could not while disconnected', async () => {
+      const requests: unknown[][] = [];
+      setNavigator({ bluetooth: {} });
+      installVendor(vibratingVendor(createVendor(), requests));
+      const session = await loadSession();
+
+      expect(session.vibrate()).toBe(false);
+      await flushWrites();
+
+      expect(requests).toEqual([]);
+    });
+  });
+
   describe('vendor callbacks', () => {
     it('should return to disconnected and drop the geometry when the device drops', async () => {
       const vendor = createVendor();

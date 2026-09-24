@@ -381,6 +381,64 @@ describe('tactileViewport centreOn', () => {
   });
 });
 
+describe('tactileViewport centreOnPoint and windowSize', () => {
+  let viewport: TactileViewport;
+
+  beforeEach(() => {
+    viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT);
+  });
+
+  it('should put a point at the middle of the dot grid', () => {
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    viewport.centreOnPoint(250, 120);
+
+    const centre = viewport.toDot(250, 120);
+    expect(centre.x).toBeCloseTo(CENTRE_X);
+    expect(centre.y).toBeCloseTo(CENTRE_Y);
+  });
+
+  it('should still stop at the edge of the chart', () => {
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    viewport.centreOnPoint(SOURCE.left, SOURCE.top);
+
+    expect(viewport.toDot(SOURCE.left, SOURCE.top)).toEqual({ x: FIRST_X, y: FIRST_Y });
+  });
+
+  it('should report the window as the whole source at zoom 1 and a slice of it zoomed in', () => {
+    expect(viewport.windowSize).toEqual({ width: SOURCE.width, height: SOURCE.height });
+
+    viewport.zoomIn();
+    viewport.zoomIn();
+
+    expect(viewport.windowSize).toEqual({ width: SOURCE.width / 2, height: SOURCE.height / 2 });
+  });
+});
+
+describe('tactileViewport toClient', () => {
+  it('should undo toDot at every zoom and pan, stretched or not', () => {
+    // A canvas chart has no shape to project, so each pin is asked which part
+    // of the picture it stands over. An inverse that drifts from toDot reads
+    // the picture from beside where the focus is drawn.
+    for (const aspect of ['stretch', 'preserve'] as const) {
+      const viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT, aspect);
+      for (let step = 0; step < 4; step++) {
+        const dot = viewport.toDot(173, 121);
+        const back = viewport.toClient(dot.x, dot.y);
+
+        expect(back.x).toBeCloseTo(173, 1);
+        expect(back.y).toBeCloseTo(121, 1);
+
+        viewport.zoomIn();
+        viewport.pan('right');
+      }
+    }
+  });
+});
+
 describe('tactileViewport reset and setSource', () => {
   let viewport: TactileViewport;
 
@@ -456,6 +514,23 @@ describe('tactileViewport with a degenerate source rect', () => {
 
     viewport.setSource(SOURCE);
     expect(viewport.toDot(MID_X, MID_Y).x).toBeCloseTo(CENTRE_X);
+  });
+});
+
+describe('tactileViewport measurement noise', () => {
+  it('should put two points of one edge on the same pin when they differ only by noise', () => {
+    // The browser measures a path in single precision, so the samples along
+    // one straight edge come back a few millionths apart. On the boundary
+    // between two pin rows -- the middle of the drawn area is one, since it
+    // spans an odd number of pins -- unquantised they round to both, and a
+    // straight edge arrives as a staircase.
+    const viewport = new TactileViewport(SOURCE, DOT_WIDTH, DOT_HEIGHT);
+
+    const above = viewport.toDot(MID_X, MID_Y - 1e-5);
+    const below = viewport.toDot(MID_X, MID_Y + 1e-5);
+
+    expect(CENTRE_Y % 1).toBe(0.5);
+    expect(Math.round(above.y)).toBe(Math.round(below.y));
   });
 });
 

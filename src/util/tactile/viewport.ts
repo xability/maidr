@@ -108,6 +108,21 @@ export class TactileViewport {
   private static readonly MIN_PRESERVED_SHARE = 0.25;
 
   /**
+   * Resolution, in dots, projected coordinates are quantised to.
+   *
+   * The browser measures a path in single precision, so the samples along one
+   * straight edge come back a few millionths apart -- 158.71449 and 158.71448
+   * for the top of one matplotlib bar. That is nothing until the edge lands on
+   * the boundary between two pin rows, and then the samples round to both: a
+   * straight edge arrives as a staircase, and the heavy outline of the focused
+   * bar as a wedge. Centring the window on a mark makes that the ordinary case
+   * rather than the unlucky one, since the middle of an odd number of pins is a
+   * half. A thousandth of a dot is far below anything the pins resolve and far
+   * above that noise.
+   */
+  private static readonly DOT_QUANTUM = 1000;
+
+  /**
    * The chart region being mapped, in viewport pixels.
    */
   private source: ClientRect;
@@ -277,6 +292,44 @@ export class TactileViewport {
   }
 
   /**
+   * The affine map from the unit window onto the pins, per axis: a point at
+   * `unit` across the visible window lands on dot `offset + unit * extent`.
+   *
+   * Shared by {@link toDot} and {@link toClient}, so the two cannot drift.
+   */
+  private dotMapping(): { offsetX: number; extentX: number; offsetY: number; extentY: number } {
+    const { width, height } = this.source;
+    // Into the inset grid, not the whole one — see {@link MARGIN_DOTS}.
+    const margin = TactileViewport.MARGIN_DOTS;
+    const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
+    const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
+    const stretched = { offsetX: margin, extentX: usableWidth, offsetY: margin, extentY: usableHeight };
+
+    if (this.aspect === 'stretch') {
+      return stretched;
+    }
+
+    // One scale for both axes, and the leftover pins split evenly so the chart
+    // sits in the middle of the grid rather than in a corner. `width / height`
+    // is the shape the chart was drawn in; the scale that fits it is whichever
+    // of the two leaves it inside the grid.
+    const scale = Math.min(usableWidth / width, usableHeight / height);
+    const drawnWidth = width * scale;
+    const drawnHeight = height * scale;
+    if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
+      < TactileViewport.MIN_PRESERVED_SHARE) {
+      // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
+      return stretched;
+    }
+    return {
+      offsetX: margin + (usableWidth - drawnWidth) / 2,
+      extentX: drawnWidth,
+      offsetY: margin + (usableHeight - drawnHeight) / 2,
+      extentY: drawnHeight,
+    };
+  }
+
+  /**
    * Converts a viewport-pixel point to dot coordinates. The result may fall
    * outside the dot grid, which means the point is outside the visible window.
    * @param clientX - Horizontal position in viewport pixels
@@ -290,42 +343,49 @@ export class TactileViewport {
 
     const half = this.halfWindow;
     const span = half * 2;
-    const normalizedX = (clientX - left) / width;
-    const normalizedY = (clientY - top) / height;
+    const unitX = ((clientX - left) / width - (this.centre.x - half)) / span;
+    const unitY = ((clientY - top) / height - (this.centre.y - half)) / span;
+    const { offsetX, extentX, offsetY, extentY } = this.dotMapping();
+    return TactileViewport.quantise(offsetX + unitX * extentX, offsetY + unitY * extentY);
+  }
 
-    // Into the inset grid, not the whole one — see {@link MARGIN_DOTS}.
-    const margin = TactileViewport.MARGIN_DOTS;
-    const usableWidth = Math.max(1, this.dotWidth - 1 - margin * 2);
-    const usableHeight = Math.max(1, this.dotHeight - 1 - margin * 2);
-
-    const unitX = (normalizedX - (this.centre.x - half)) / span;
-    const unitY = (normalizedY - (this.centre.y - half)) / span;
-
-    if (this.aspect === 'stretch') {
-      return {
-        x: margin + unitX * usableWidth,
-        y: margin + unitY * usableHeight,
-      };
+  /**
+   * Converts dot coordinates back to a viewport-pixel point, the inverse of
+   * {@link toDot}.
+   *
+   * For a chart drawn on a canvas, where there is no shape to project and
+   * each pin has to be told what part of the picture it stands over.
+   *
+   * @param dotX - Dot column, fractional
+   * @param dotY - Dot row, fractional
+   */
+  public toClient(dotX: number, dotY: number): { x: number; y: number } {
+    const { left, top, width, height } = this.source;
+    if (width <= 0 || height <= 0) {
+      return { x: Number.NaN, y: Number.NaN };
     }
-
-    // One scale for both axes, and the leftover pins split evenly so the chart
-    // sits in the middle of the grid rather than in a corner. `width / height`
-    // is the shape the chart was drawn in; the scale that fits it is whichever
-    // of the two leaves it inside the grid.
-    const scale = Math.min(usableWidth / width, usableHeight / height);
-    const drawnWidth = width * scale;
-    const drawnHeight = height * scale;
-    if ((drawnWidth * drawnHeight) / (usableWidth * usableHeight)
-      < TactileViewport.MIN_PRESERVED_SHARE) {
-      // Too little left to be worth it — see {@link MIN_PRESERVED_SHARE}.
-      return {
-        x: margin + unitX * usableWidth,
-        y: margin + unitY * usableHeight,
-      };
-    }
+    const half = this.halfWindow;
+    const span = half * 2;
+    const { offsetX, extentX, offsetY, extentY } = this.dotMapping();
+    const unitX = (dotX - offsetX) / extentX;
+    const unitY = (dotY - offsetY) / extentY;
     return {
-      x: margin + (usableWidth - drawnWidth) / 2 + unitX * drawnWidth,
-      y: margin + (usableHeight - drawnHeight) / 2 + unitY * drawnHeight,
+      x: left + (unitX * span + this.centre.x - half) * width,
+      y: top + (unitY * span + this.centre.y - half) * height,
+    };
+  }
+
+  /**
+   * Rounds a dot position to {@link DOT_QUANTUM}, so points on one edge that
+   * differ only by measurement noise land on the same pin.
+   * @param x - Dot column
+   * @param y - Dot row
+   */
+  private static quantise(x: number, y: number): DotPoint {
+    const quantum = TactileViewport.DOT_QUANTUM;
+    return {
+      x: Math.round(x * quantum) / quantum,
+      y: Math.round(y * quantum) / quantum,
     };
   }
 
@@ -344,6 +404,27 @@ export class TactileViewport {
   }
 
   /**
+   * Size of the visible window, in viewport pixels.
+   *
+   * What decides whether a mark can be seen whole at this zoom, and so whether
+   * the window should sit on its middle or on one of its ends.
+   */
+  public get windowSize(): { width: number; height: number } {
+    const span = this.halfWindow * 2;
+    return { width: this.source.width * span, height: this.source.height * span };
+  }
+
+  /**
+   * Middle of the visible window, in viewport pixels.
+   */
+  public get windowCentre(): { x: number; y: number } {
+    return {
+      x: this.source.left + this.centre.x * this.source.width,
+      y: this.source.top + this.centre.y * this.source.height,
+    };
+  }
+
+  /**
    * Centres the window on a viewport-pixel rectangle.
    *
    * Used to follow the focused mark when navigation takes it off the visible
@@ -354,13 +435,24 @@ export class TactileViewport {
    * @param rect - The rectangle to centre on, in viewport pixels
    */
   public centreOn(rect: ClientRect): void {
+    this.centreOnPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+
+  /**
+   * Centres the window on a viewport-pixel point, as far as the edges of the
+   * chart allow.
+   *
+   * @param clientX - Horizontal position in viewport pixels
+   * @param clientY - Vertical position in viewport pixels
+   */
+  public centreOnPoint(clientX: number, clientY: number): void {
     const { left, top, width, height } = this.source;
     if (width <= 0 || height <= 0) {
       return;
     }
     this.centre = {
-      x: (rect.left + rect.width / 2 - left) / width,
-      y: (rect.top + rect.height / 2 - top) / height,
+      x: (clientX - left) / width,
+      y: (clientY - top) / height,
     };
     this.clampCentre();
   }

@@ -102,6 +102,7 @@ jest.mock('@service/dotPadSession', () => {
       writeGraphic: jest.fn(),
       writeGraphicRow: jest.fn(),
       writeText: jest.fn(),
+      vibrate: jest.fn((_onFailure?: () => void): boolean => true),
       connect: jest.fn(),
       disconnect: jest.fn(),
       adopt: jest.fn(async (): Promise<boolean> => false),
@@ -160,6 +161,7 @@ interface FakeSession {
   writeGraphic: jest.Mock<(hex: string) => void>;
   writeGraphicRow: jest.Mock<(cellRow: number, hex: string) => void>;
   writeText: jest.Mock<(hex: string) => void>;
+  vibrate: jest.Mock<(onFailure?: () => void) => boolean>;
   disconnect: jest.Mock<() => void>;
   adopt: jest.Mock<() => Promise<boolean>>;
   releaseIfAdopted: jest.Mock<() => void>;
@@ -455,6 +457,8 @@ describe('tactileService', () => {
     session.writeGraphic.mockClear();
     session.writeGraphicRow.mockClear();
     session.writeText.mockClear();
+    session.vibrate.mockReset();
+    session.vibrate.mockImplementation((_onFailure?: () => void): boolean => true);
     session.disconnect.mockClear();
     session.releaseIfAdopted.mockClear();
     session.adopt.mockReset();
@@ -1399,22 +1403,73 @@ describe('tactileService', () => {
 
       expect(session.writeText).toHaveBeenCalledTimes(2);
       expect(session.writeText.mock.calls[1][0]).not.toBe(first);
-      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 2 of'));
     });
 
     it('should scroll back through the line on function key 1', () => {
       activate();
       session.fireKey('function4');
       const second = session.writeText.mock.calls[1][0];
-      notify.mockClear();
 
       session.fireKey('function1');
 
       expect(session.writeText.mock.calls[2][0]).not.toBe(second);
-      expect(notify).toHaveBeenCalledWith(expect.stringContaining('Line part 1 of'));
     });
 
-    it('should say when there is no more line in that direction', () => {
+    it('should say nothing while moving along the line', () => {
+      // The reader is reading the line with their fingers; a voice saying
+      // which part they are on talks over it and tells them nothing the cells
+      // do not.
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function4');
+      session.fireKey('function1');
+
+      expect(notify).not.toHaveBeenCalled();
+      expect(session.vibrate).not.toHaveBeenCalled();
+    });
+
+    it('should buzz, not speak, when there is no more line in that direction', () => {
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function1');
+
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('should buzz at the far end of the line too', () => {
+      activate();
+      const windows = TactileBraille.windowCount(
+        TactileBraille.toCells(format.mock.results[0].value as string),
+        GEOMETRY.textCells,
+      );
+      for (let step = 1; step < windows; step++) {
+        session.fireKey('function4');
+      }
+      expect(session.vibrate).not.toHaveBeenCalled();
+
+      session.fireKey('function4');
+
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should buzz when the whole line already fits the device', () => {
+      format.mockReturnValue('a');
+      activate();
+      notify.mockClear();
+
+      session.fireKey('function4');
+
+      expect(session.vibrate).toHaveBeenCalledTimes(1);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('should speak the edge on a device whose SDK cannot vibrate', () => {
+      // A key that does nothing and says nothing is indistinguishable from a
+      // broken one, so the edge still has to reach the reader somehow.
+      session.vibrate.mockReturnValue(false);
       activate();
       notify.mockClear();
 
@@ -1423,14 +1478,17 @@ describe('tactileService', () => {
       expect(notify).toHaveBeenCalledWith('Start of the line');
     });
 
-    it('should say the whole line is shown when it fits the device', () => {
-      format.mockReturnValue('a');
+    it('should speak the edge when the device refuses to vibrate', () => {
+      session.vibrate.mockImplementation((onFailure?: () => void): boolean => {
+        onFailure?.();
+        return true;
+      });
       activate();
       notify.mockClear();
 
-      session.fireKey('function4');
+      session.fireKey('function1');
 
-      expect(notify).toHaveBeenCalledWith('The whole line is already shown');
+      expect(notify).toHaveBeenCalledWith('Start of the line');
     });
 
     it('should carry contracted braille from the device engine when it has one', async () => {
@@ -1787,6 +1845,129 @@ describe('tactileService', () => {
       // Mark 0 sits at the left edge, so a window that followed it reports a
       // centre left of the middle. One that did not stays at 50%.
       expect(lastAnnouncement()).toBe('Zoom 2x, centred 25% across and 25% down');
+    });
+
+    it('should bring the focused mark back to the middle on every zoom step', () => {
+      // A pan leaves the focused mark off-centre but still in view. Following
+      // only a mark that has left the window then lets each zoom step close in
+      // on wherever the window happened to be, and the mark drifts to the edge
+      // of the pins; the reader has to search for it again after every press.
+      activate(1);
+      service.zoomIn();
+      session.fireKey('panRight');
+      notify.mockClear();
+
+      service.zoomIn();
+      expect(lastAnnouncement()).toBe('Zoom 2x, centred 50% across and 50% down');
+
+      session.fireKey('panRight');
+      service.zoomOut();
+      expect(lastAnnouncement()).toBe('Zoom 1.5x, centred 50% across and 50% down');
+    });
+
+    it('should hold a bar taller than the window by its top, not its middle', () => {
+      // Centred on its middle, a tall bar loses its top and its baseline to
+      // the edges of the pins and arrives as two parallel lines -- and a few
+      // steps in, the window is wholly inside it and every pin is down. Its
+      // top is the value, so that is what stays in view.
+      stubRect(chart.marks[0], { left: 0, top: 40, width: 10, height: 60 });
+      stubRect(chart.marks[1], { left: 95, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[2], { left: 190, top: 70, width: 10, height: 30 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and 25% down/);
+      expect(lastAnnouncement()).not.toContain('nothing is in view');
+    });
+
+    it('should hold a floating bar by an end, not by one of its long sides', () => {
+      // A waterfall bar shares neither end with the others, so there is no
+      // baseline to read. Moved to the nearest part of its outline, the window
+      // went to a long side, and the reader got two parallel lines with both
+      // ends of the bar off the pins. It is the axis the bar does not fit that
+      // the window has to move along.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 10 });
+      stubRect(chart.marks[1], { left: 95, top: 5, width: 10, height: 90 });
+      stubRect(chart.marks[2], { left: 190, top: 90, width: 10, height: 10 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and (25|75)% down/);
+    });
+
+    it('should hold a mark in pieces by a piece, not by the gap between them', () => {
+      // An error bar's two caps, drawn as one path with no stem. Run together,
+      // the caps were joined by a line the chart never drew, straight through
+      // the middle of the mark, and the window went there: nothing under it.
+      // The other marks share neither end of it, so there is no baseline to
+      // read and the window starts from the middle.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[1], { left: 90, top: 5, width: 20, height: 90 });
+      stubRect(chart.marks[2], { left: 190, top: 45, width: 10, height: 10 });
+      // jsdom makes a rect a plain SVGElement, which is measured by its box;
+      // the outline is only read from a graphics element.
+      Object.setPrototypeOf(chart.marks[1], SVGGraphicsElement.prototype);
+      ringsOf.mockImplementation((element, viewport) => {
+        if (element !== chart.marks[1]) {
+          return ringFor(element, viewport);
+        }
+        const top = [viewport.toDot(90, 5), viewport.toDot(110, 5)];
+        const bottom = [viewport.toDot(90, 95), viewport.toDot(110, 95)];
+        return [{
+          points: [...top, ...bottom],
+          closed: false,
+          parts: [{ points: top, closed: false }, { points: bottom, closed: false }],
+        }];
+      });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and (25|75)% down/);
+    });
+
+    it('should move to the nearest mark rather than stop on an empty display', () => {
+      // With no focused element to close in on -- a point with no element of
+      // its own, or the multi-panel lobby -- the window stayed on the middle
+      // of the plot, and a few steps in that was a patch with nothing in it:
+      // every pin down, which is also what a dead display feels like.
+      stubRect(chart.marks[1], { left: 150, top: 80, width: 10, height: 10 });
+      activate(1);
+      service.update({
+        ...traceState(chart, 1),
+        highlight: { empty: true },
+      } as unknown as NonEmptyTraceState);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).not.toContain('nothing is in view');
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 75% across and 75% down/);
+    });
+
+    it('should hold a bar hanging below its baseline by its bottom', () => {
+      // The same rule with the sign turned over: the edge the other bars
+      // share is the baseline whichever side it is on, so a negative bar is
+      // held by the end it reaches down to.
+      stubRect(chart.marks[0], { left: 0, top: 0, width: 10, height: 60 });
+      stubRect(chart.marks[1], { left: 95, top: 0, width: 10, height: 100 });
+      stubRect(chart.marks[2], { left: 190, top: 0, width: 10, height: 30 });
+      activate(1);
+      notify.mockClear();
+
+      service.zoomIn();
+      service.zoomIn();
+
+      expect(lastAnnouncement()).toMatch(/^Zoom 2x, centred 50% across and 75% down/);
     });
   });
 
@@ -2271,7 +2452,200 @@ describe('tactileService', () => {
       // contained by a zoomed window, so a redraw that followed the focus
       // would pin the view to it for good and every pan would announce a move
       // it had not made.
-      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 50% down');
+      //
+      // 33% down rather than 50%: the zoom step before the pan put the window
+      // on the mark's top edge, since the middle of a mark filling the plot is
+      // the one place with nothing of it to feel.
+      expect(notify).toHaveBeenCalledWith('Zoom 1.5x, centred 67% across and 33% down');
+    });
+  });
+
+  describe('a chart drawn on a canvas', () => {
+    /**
+     * The pins a full graphic payload raises, one entry per raised pin.
+     * @param hex - A payload `writeGraphic` was sent
+     */
+    function pinsOf(hex: string): Set<string> {
+      const raised = new Set<string>();
+      const bits = [[0x01, 0x02, 0x04, 0x08], [0x10, 0x20, 0x40, 0x80]];
+      for (let cell = 0; cell < GEOMETRY.cellColumns * GEOMETRY.cellRows; cell++) {
+        const value = Number.parseInt(hex.slice(cell * 2, cell * 2 + 2), 16);
+        const column = cell % GEOMETRY.cellColumns;
+        const row = Math.floor(cell / GEOMETRY.cellColumns);
+        for (let dx = 0; dx < 2; dx++) {
+          for (let dy = 0; dy < 4; dy++) {
+            if (value & bits[dx][dy]) {
+              raised.add(`${column * 2 + dx},${row * 4 + dy}`);
+            }
+          }
+        }
+      }
+      return raised;
+    }
+
+    /**
+     * A 100-pixel-square canvas chart of two bars, as Chart.js leaves it for
+     * the tactile display: an overlay layer holding the clean copy of the
+     * canvas and the box that highlights the focused bar.
+     * @param plotTop - Where the plot area starts down the canvas; the rows
+     * above it, but for a few clear of it, hold a dark title band
+     */
+    function canvasChart(plotTop: number = 0): { service: TactileService; highlight: HTMLElement } {
+      const size = 100;
+      const data = new Uint8ClampedArray(size * size * 4).fill(255);
+      for (let index = 0; index < size * Math.max(plotTop - 2, 0) * 4; index += 4) {
+        data.set([20, 20, 20, 255], index);
+      }
+      for (const [left, right] of [[10, 30], [60, 80]]) {
+        for (let y = 20; y < 90; y++) {
+          for (let x = left; x < right; x++) {
+            data.set([40, 90, 200, 255], (y * size + x) * 4);
+          }
+        }
+      }
+      const plot = document.createElement('div');
+      const layer = document.createElement('div');
+      layer.setAttribute('data-maidr-overlay', '');
+      layer.setAttribute('data-maidr-plot-area', `0 ${plotTop} 100 100`);
+      stubRect(layer, { left: 0, top: 0, width: size, height: size });
+      const clean = document.createElement('canvas');
+      clean.setAttribute('data-maidr-clean-canvas', '');
+      clean.width = size;
+      clean.height = size;
+      Object.defineProperty(clean, 'getContext', {
+        value: () => ({ getImageData: () => ({ data, width: size, height: size }) }),
+      });
+      const highlight = document.createElement('div');
+      highlight.setAttribute('data-maidr-overlay-highlight', '');
+      stubRect(highlight, { left: 10, top: 20, width: 20, height: 70 });
+      layer.append(clean, highlight);
+      plot.append(layer);
+
+      const braille = brailleStub as Pick<BrailleService, 'isEnabled' | 'onToggle'> as unknown as BrailleService;
+      const display = { plot } as unknown as DisplayService;
+      const canvasService = new TactileService(display, braille, notification, textService, createFigure(null, [[]]));
+      return { service: canvasService, highlight };
+    }
+
+    it('should draw the chart from its pixels, with the highlighted bar filled', async () => {
+      // Chart.js and amCharts draw no SVG at all, and the display used to come
+      // up empty on every one of their charts.
+      const { service: canvasService, highlight } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const middle = (box: DOMRect): string => {
+        const x = Math.round(((box.left + box.width / 2) / 100) * (GEOMETRY.dotWidth - 3) + 1);
+        const y = Math.round(((box.top + box.height / 2) / 100) * (GEOMETRY.dotHeight - 3) + 1);
+        return `${x},${y}`;
+      };
+      // The focused bar is solid; the other one is an outline, hollow inside.
+      expect(pins.has(middle(highlight.getBoundingClientRect()))).toBe(true);
+      expect(pins.has(middle({ left: 60, top: 20, width: 20, height: 70 } as DOMRect))).toBe(false);
+      canvasService.dispose();
+    });
+
+    it('should leave down the pins beside the plot area, over the title', async () => {
+      // The pins around the picture stand over the canvas just outside the
+      // plot area. Read there, the chart's title came up as a band along the
+      // top of the display.
+      const { service: canvasService } = canvasChart(16);
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const topRow = Array.from(pins).filter(pin => pin.endsWith(',0'));
+      expect(topRow).toEqual([]);
+      canvasService.dispose();
+    });
+
+    it('should ask the adapter for a clean copy only while it reads the canvas', async () => {
+      const { service: canvasService, highlight } = canvasChart();
+      const layer = highlight.parentElement as HTMLElement;
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const asked = layer.hasAttribute('data-maidr-pixel-reader');
+      canvasService.dispose();
+
+      expect(asked).toBe(true);
+      expect(layer.hasAttribute('data-maidr-pixel-reader')).toBe(false);
+    });
+
+    it('should fill the bar the reader moved to, not the one they left', async () => {
+      // The adapter moves its highlight box on the same move the display is
+      // told about, and after it. Drawn at once, the pins filled the point the
+      // reader had just left.
+      const { service: canvasService, highlight } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      stubRect(highlight, { left: 60, top: 20, width: 20, height: 70 });
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const x = Math.round((70 / 100) * (GEOMETRY.dotWidth - 3) + 1);
+      const y = Math.round((55 / 100) * (GEOMETRY.dotHeight - 3) + 1);
+      expect(pins.has(`${x},${y}`)).toBe(true);
+      canvasService.dispose();
+    });
+    it('should leave a pan alone when the chart is read again once settled', async () => {
+      // A canvas chart is read twice per move, the second time once its
+      // animation has finished. That second reading followed the focus too,
+      // and a pan made in between was undone without a word.
+      const { service: canvasService } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      canvasService.zoomIn();
+      canvasService.zoomIn();
+      canvasService.zoomIn();
+      canvasService.pan('right');
+      canvasService.pan('right');
+      const sent = (): number => session.writeGraphic.mock.calls.length + session.writeGraphicRow.mock.calls.length;
+      const panned = sent();
+
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // The settled reading draws the same view, so there is nothing to send.
+      expect(sent()).toBe(panned);
+      canvasService.dispose();
+    });
+
+    it('should hold a tall canvas bar by its top when zoomed past it', async () => {
+      // A canvas has no other marks to show which end of a bar is its
+      // baseline. Centred on its middle, the bar came through as two parallel
+      // lines with neither end on the pins.
+      const { service: canvasService } = canvasChart();
+      session.isConnected = true;
+      turnOn();
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      notify.mockClear();
+
+      for (let step = 0; step < 5; step++) {
+        canvasService.zoomIn();
+      }
+
+      // At 6x the bar outgrows the window both ways. The nearest edge to its
+      // middle is then one of its long sides, and the window went there: 10%
+      // across, 55% down, the bar's side and nothing else. It goes to the top.
+      expect(notify).toHaveBeenLastCalledWith('Zoom 6x, centred 20% across and 20% down');
+      canvasService.dispose();
     });
   });
 

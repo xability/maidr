@@ -34,7 +34,7 @@ import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
-import { readPlotBounds, readSliceBounds } from './geometry';
+import { readLegendBounds, readPlotBounds, readSliceBounds } from './geometry';
 import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap, groupSeries } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
@@ -120,12 +120,6 @@ function applyHighlight(
   navMap: NavMap,
   event: NavEvent,
 ): void {
-  const targets = navMap.resolve(event.layerId, event.row, event.col, event.pointIndices);
-  if (targets.length === 0) {
-    overlay.clear();
-    return;
-  }
-
   // Clip the highlight to the OWNING panel's visible plot area; a column's
   // geometry can extend to the value=0 baseline beyond a clipped (min > 0)
   // axis, and in multi-panel roots it must not bleed into sibling panels.
@@ -136,6 +130,15 @@ function applyHighlight(
   // to the suppression below.
   const chart = navMap.chartFor(event.layerId);
   const plotBounds = chart ? readPlotBounds(chart) ?? readSliceBounds(chart) : null;
+  // Written before anything else can return: the panel is the reader's even
+  // when nothing in it resolves, and a reader of the pixels crops to it.
+  overlay.setPlotArea(plotBounds, chart ? readLegendBounds(chart) : []);
+
+  const targets = navMap.resolve(event.layerId, event.row, event.col, event.pointIndices);
+  if (targets.length === 0) {
+    overlay.clear();
+    return;
+  }
 
   // Without readable panel bounds an unclipped rect could bleed into a
   // sibling panel (all panels share one overlay canvas), so suppress the
@@ -176,6 +179,8 @@ function createHighlightCallback(
       // otherwise put the stale box back on the next resize.
       if (!event) {
         overlay.clear();
+        // The lobby is the whole figure, not the panel just left.
+        overlay.setPlotArea(null);
         return;
       }
       applyHighlight(overlay, navMap, event);

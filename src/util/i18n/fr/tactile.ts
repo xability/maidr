@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'La ligne entière est déjà affichée',
   'tactile.lineStart': 'Début de la ligne',
   'tactile.lineEnd': 'Fin de la ligne',
-  'tactile.linePart': 'Partie {index} sur {total} de la ligne',
   'tactile.lineUncontracted': 'Le braille abrégé n\'est pas disponible, la ligne de texte de l\'afficheur tactile est donc en braille intégral',
 
   'tactile.deviceDisconnected': 'DotPad déconnecté',

@@ -135,4 +135,52 @@ describe('chart.js highlight overlay', () => {
       expect(host.querySelectorAll('[data-maidr-chartjs-highlight]')).toHaveLength(1);
     });
   });
+
+  describe('captureClean', () => {
+    it('keeps no copy of the chart while nothing reads its pixels', () => {
+      // A full-canvas copy on every frame is a cost every Chart.js chart
+      // would pay for a display few readers have.
+      const { host, overlay } = mount();
+
+      overlay.captureClean();
+
+      expect(host.querySelector('[data-maidr-clean-canvas]')).toBeNull();
+    });
+
+    it('repaints the chart as a reader of the pixels arrives', async () => {
+      // With no copy yet, the first reading would find the tooltip among the
+      // marks until the chart next drew of its own accord.
+      const host = document.createElement('div');
+      const canvas = document.createElement('canvas');
+      host.appendChild(canvas);
+      document.body.appendChild(host);
+      const repaint = jest.fn();
+      const overlay = new HighlightOverlay(host, canvas, undefined, repaint);
+      const layer = host.querySelector('[data-maidr-overlay]') as HTMLElement;
+
+      layer.setAttribute('data-maidr-pixel-reader', '');
+      await Promise.resolve();
+
+      expect(repaint).toHaveBeenCalledTimes(1);
+      overlay.dispose();
+    });
+
+    it('keeps a copy while a reader of the pixels asks for one, and drops it after', () => {
+      const { host, overlay } = mount();
+      const canvas = host.querySelector('canvas') as HTMLCanvasElement;
+      canvas.width = 10;
+      canvas.height = 10;
+      const layer = host.querySelector('[data-maidr-overlay]') as HTMLElement;
+
+      layer.setAttribute('data-maidr-pixel-reader', '');
+      overlay.captureClean();
+      const kept = host.querySelector('[data-maidr-clean-canvas]');
+      layer.removeAttribute('data-maidr-pixel-reader');
+      overlay.captureClean();
+
+      expect(kept).not.toBeNull();
+      // A copy left behind would be out of date by the next reading.
+      expect(host.querySelector('[data-maidr-clean-canvas]')).toBeNull();
+    });
+  });
 });

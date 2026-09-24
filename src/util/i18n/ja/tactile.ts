@@ -20,7 +20,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'すでに行全体が表示されています',
   'tactile.lineStart': '行の先頭です',
   'tactile.lineEnd': '行の末尾です',
-  'tactile.linePart': '行の{total}分割中{index}番目',
   'tactile.lineUncontracted': '縮約点字が使用できないため、触覚ディスプレイのテキスト行は非縮約点字で表示されます',
 
   'tactile.deviceDisconnected': 'DotPad の接続が切れました',

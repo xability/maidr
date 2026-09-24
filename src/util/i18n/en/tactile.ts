@@ -25,7 +25,6 @@ export const tactile = {
   'tactile.lineWholeShown': 'The whole line is already shown',
   'tactile.lineStart': 'Start of the line',
   'tactile.lineEnd': 'End of the line',
-  'tactile.linePart': 'Line part {index} of {total}',
   'tactile.lineUncontracted': 'Contracted braille is unavailable, so the tactile display\'s text line is uncontracted',
 
   // Device connection.

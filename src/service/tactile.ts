@@ -3,14 +3,18 @@ import type { Disposable } from '@type/disposable';
 import type { DotPadKey } from '@type/dotPad';
 import type { Observer } from '@type/observable';
 import type { FigureState, HighlightState, NonEmptyTraceState, SubplotState, TraceState } from '@type/state';
+import type { PixelImage, PixelRect } from '@util/tactile/canvasRaster';
 import type { TactileScene } from '@util/tactile/render';
+import type { DotProjector, DotRing } from '@util/tactile/svgGeometry';
 import type { ClientRect, PanDirection, TactileAspect } from '@util/tactile/viewport';
 import type { BrailleService } from './braille';
 import type { DisplayService } from './display';
 import type { NotificationService } from './notification';
 import type { TextService } from './text';
 import { t } from '@util/i18n';
+import { OVERLAY_ATTRIBUTES, readOverlayRegions } from '@util/overlayRegions';
 import { TactileBraille } from '@util/tactile/brailleText';
+import { TactileCanvas } from '@util/tactile/canvasRaster';
 import { DotPack } from '@util/tactile/pack';
 import { DotRaster } from '@util/tactile/raster';
 import { TactileRenderer } from '@util/tactile/render';
@@ -42,6 +46,69 @@ type DrawableState = NonEmptyTraceState | Extract<FigureState, { empty: false }>
  * every pin down is what a disconnected one also feels like.
  */
 type FrameOutcome = 'changed' | 'unchanged' | 'empty';
+
+/**
+ * Whether a redraw moves the window to the focused mark.
+ *
+ * `centre` always does, and is what a zoom step asks for: the reader zooms to
+ * feel the mark they are on in more detail, so it has to be in the middle of
+ * the pins at every level, in and out, where a hand already resting there
+ * finds it without searching. `offscreen` moves only when the focus has left
+ * the window, which is what navigation wants -- a pan the reader chose stays
+ * put for as long as it still shows their point. `none` never moves, for the
+ * redraw a pan asks for.
+ */
+type FocusFollow = 'centre' | 'offscreen' | 'none';
+
+/**
+ * How close two edges have to be, in screen pixels, to count as the same
+ * line. Enough to absorb the sub-pixel rounding a renderer leaves between
+ * bars that share a baseline.
+ */
+const SHARED_EDGE_TOLERANCE = 0.5;
+
+/**
+ * Leaves points where the page draws them, so a mark's outline can be read in
+ * screen pixels rather than in pins.
+ */
+/**
+ * What a frame is drawn from, whichever way the chart itself was drawn.
+ */
+interface TactilePicture {
+  /**
+   * The screen rectangle mapped onto the pins at whole-plot zoom.
+   */
+  source: ClientRect;
+
+  /**
+   * The active layer's marks, where the chart has marks to name; empty for a
+   * canvas.
+   */
+  marks: SVGGraphicsElement[];
+
+  /**
+   * What stands for the focused point.
+   */
+  focused: Element[];
+
+  /**
+   * Draws the picture through a viewport.
+   */
+  render: (viewport: TactileViewport, width: number, height: number) => DotRaster;
+
+  /**
+   * The nearest point that has something drawn at it, for a zoom that would
+   * otherwise land on nothing.
+   */
+  nearestContent: (
+    target: { x: number; y: number },
+    window: { width: number; height: number },
+  ) => { x: number; y: number } | null;
+}
+
+const SCREEN: DotProjector = {
+  toDot: (x: number, y: number) => ({ x, y }),
+};
 
 /**
  * How hardware keys move the pin graphic.
@@ -553,8 +620,17 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       return;
     }
 
+    // A chart drawn on a canvas is drawn a task later. Its focus is the box the
+    // adapter lays over the canvas, and the adapter moves that box on the same
+    // move this is being told about -- after this, as it happens -- so drawn
+    // now the pins filled the point the reader had just left.
+    if (this.findRegionElement() === null) {
+      this.scheduleCanvasDraw();
+      return;
+    }
+
     try {
-      this.draw(state, true);
+      this.draw(state, 'offscreen');
     } catch (error) {
       // A hardware or geometry failure must not break the navigation the
       // reader is in the middle of; the audio and text channels carry on.
@@ -563,27 +639,84 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * Overlay layers this service has asked to keep a clean canvas, released on
+   * dispose; see {@link canvasPicture}.
+   */
+  private readonly pixelLayers = new Set<Element>();
+
+  /**
+   * Pending redraw of a canvas chart; see {@link update}.
+   */
+  private canvasDrawTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Redraws a canvas chart once the adapter has moved its highlight, folding
+   * a burst of moves into one frame -- and once more when the chart has
+   * settled.
+   *
+   * The second pass is for what the library animates. Chart.js slides its
+   * tooltip to the new point over a few hundred milliseconds; the adapter
+   * says where it will come to rest, and that is masked out, but the first
+   * pass reads the canvas while it is still on its way and finds it
+   * somewhere in between. Redrawing once it has arrived costs nothing when
+   * nothing moved: an unchanged frame is not sent.
+   */
+  private scheduleCanvasDraw(): void {
+    if (this.canvasDrawTimer !== null) {
+      clearTimeout(this.canvasDrawTimer);
+    }
+    const pass = (settle: boolean): void => {
+      this.canvasDrawTimer = null;
+      if (this.disposed) {
+        return;
+      }
+      // Only the first pass follows the focus. By the second the reader may
+      // have panned, and following again would undo the pan unannounced.
+      this.redraw(settle ? 'none' : 'offscreen');
+      if (!settle) {
+        this.canvasDrawTimer = setTimeout(() => pass(true), TactileService.CANVAS_SETTLE_MS);
+      }
+    };
+    this.canvasDrawTimer = setTimeout(() => pass(false), 0);
+  }
+
+  /**
+   * How long a canvas chart is given to finish animating before it is read
+   * again; see {@link scheduleCanvasDraw}. Chart.js's default animation runs
+   * for 400.
+   */
+  private static readonly CANVAS_SETTLE_MS = 500;
+
+  /**
+   * Thickest a line on a canvas chart is drawn, in CSS pixels, with its
+   * anti-aliasing and measured across or down: Chart.js draws a line three
+   * pixels wide by default, and a highlighted one wider, and a line sloping
+   * at forty-five degrees measures half as thick again either way. Anything this thin is a line, not a shape to
+   * outline; see {@link TactileCanvas.render}.
+   */
+  private static readonly CANVAS_STROKE_PX = 8;
+
+  /**
    * Redraws from the last known state, for changes that did not come from a
    * navigation move — a zoom step, a pan, or the device connecting.
    */
   public refresh(): void {
-    this.redraw(true);
+    this.redraw('offscreen');
   }
 
   /**
    * Redraws from the last known state.
-   * @param followFocus - Whether a focus outside the view should recentre it;
-   * false for a redraw the reader asked for by panning or zooming
-   * @returns True when the frame that reached the pins differed from the one
-   * already there
+   * @param follow - Whether the window moves to the focused mark; see
+   * {@link FocusFollow}
+   * @returns What the redraw did to the pins
    */
-  private redraw(followFocus: boolean): FrameOutcome {
+  private redraw(follow: FocusFollow): FrameOutcome {
     const state = this.lastState;
     if (state === null || !this.isActive) {
       return 'unchanged';
     }
     try {
-      return this.draw(state, followFocus);
+      return this.draw(state, follow);
     } catch (error) {
       console.error('Tactile render failed:', error instanceof Error ? error.message : error);
       return 'unchanged';
@@ -635,14 +768,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       this.notification.notify(refusal);
       return;
     }
-    // Follows the focus, unlike a pan. Zoom is asked for to feel one mark more
-    // closely, and the mark meant is the one the reader is on -- so the window
-    // has to close in on that rather than on the middle of the plot, which is
-    // where it would otherwise stay. Two steps in, the middle of a plot is
-    // usually a patch with nothing in it, and the reader who zoomed to feel
-    // their point in more detail gets a blank display and no way to tell that
-    // their point is simply somewhere off the edge of it.
-    this.announceView(viewport, this.redraw(true));
+    // Centres on the focus, unlike a pan, and on every step rather than only
+    // when the focus has left the window. Zoom is asked for to feel one mark
+    // more closely, and the mark meant is the one the reader is on. Following
+    // only on exit let each step close in on wherever the window happened to
+    // be, so the mark drifted towards an edge and the reader had to search for
+    // it again after every press; kept in the middle, it is under the hand
+    // that was already on it, in and out alike.
+    this.announceView(viewport, this.redraw('centre'));
   }
 
   /**
@@ -664,7 +797,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
         : TactileService.edgeRefusal(direction));
       return;
     }
-    this.announceView(viewport, this.redraw(false));
+    this.announceView(viewport, this.redraw('none'));
   }
 
   /**
@@ -760,6 +893,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * The device reports its keys but never scrolls its own buffer, so each
    * window is re-sent from the first cell of the line.
    *
+   * Nothing is spoken on a move. The reader is reading the line with their
+   * fingers, and a voice saying "part 2 of 4" on every press talks over the
+   * very thing they are reading while telling them nothing the cells do not.
+   * The one thing the cells cannot say is that there is no more line, so only
+   * that is signalled -- by a buzz, under the hand that pressed the key. Where
+   * the SDK cannot vibrate, the edge is spoken instead, since a key that does
+   * nothing and says nothing is indistinguishable from a broken one.
+   *
    * @param step - Windows to move; negative moves back toward the start
    */
   public scrollText(step: number): void {
@@ -770,26 +911,40 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
 
     const lastWindow = TactileBraille.windowCount(this.textCells, cellCount) - 1;
     if (lastWindow <= 0) {
-      this.notification.notify(t('tactile.lineWholeShown'));
+      this.signalLineEdge(t('tactile.lineWholeShown'));
       return;
     }
 
     const next = Math.min(Math.max(this.textWindow + step, 0), lastWindow);
     if (next === this.textWindow) {
-      this.notification.notify(step < 0 ? t('tactile.lineStart') : t('tactile.lineEnd'));
+      this.signalLineEdge(step < 0 ? t('tactile.lineStart') : t('tactile.lineEnd'));
       return;
     }
 
     this.textWindow = next;
     this.writeTextWindow(cellCount);
-    this.notification.notify(t('tactile.linePart', { index: next + 1, total: lastWindow + 1 }));
+  }
+
+  /**
+   * Tells the reader the text line goes no further in the way they pressed.
+   * @param fallback - What to say when the device cannot vibrate, or would not
+   */
+  private signalLineEdge(fallback: string): void {
+    const say = (): void => this.notification.notify(fallback);
+    if (!dotPadSession.vibrate(say)) {
+      say();
+    }
   }
 
   /**
    * The root SVG of the chart, or null when it cannot be found.
    */
   private findSvg(): SVGSVGElement | null {
-    return this.display.plot.querySelector('svg');
+    // Not the highlight a canvas adapter lays over its chart: a pie slice is
+    // highlighted with an SVG, and taking that for the chart drew the one
+    // slice and nothing else.
+    const svgs = Array.from(this.display.plot.querySelectorAll('svg'));
+    return svgs.find(svg => svg.closest(`[${OVERLAY_ATTRIBUTES.layer}], [${OVERLAY_ATTRIBUTES.highlight}]`) === null) ?? null;
   }
 
   /**
@@ -1167,7 +1322,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
    * still shows them.
    * @param elements - The focused elements
    */
-  private static boundsOf(elements: readonly SVGGraphicsElement[]): ClientRect | null {
+  private static boundsOf(elements: readonly Element[]): ClientRect | null {
     let left = Number.POSITIVE_INFINITY;
     let top = Number.POSITIVE_INFINITY;
     let right = Number.NEGATIVE_INFINITY;
@@ -1196,18 +1351,290 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   }
 
   /**
+   * The point of the focused mark the window is centred on.
+   *
+   * Its middle, on every axis where the mark fits in the window. Where it does
+   * not -- a tall bar, a few steps in -- the middle is the one place on the
+   * mark with nothing to feel: its top and its baseline are both off the pins,
+   * so the bar arrives as two parallel lines, and a few steps further the
+   * window is wholly inside it and every pin is down. The reader zoomed in to
+   * feel the bar and loses it.
+   *
+   * So on that axis the window goes to the mark's value end instead: the edge
+   * where the bar stops, which is the reading. It is told from the baseline by
+   * what the other marks do. Bars stand on a common baseline, so the edge the
+   * other marks share is the baseline and the other one is the value -- the
+   * top of a positive bar, the bottom of a negative one, the right end of a
+   * horizontal one, with no need to know the chart's orientation or sign.
+   * Where neither edge is shared more than the other there is no baseline to
+   * read, and the middle stays.
+   *
+   * A chart read from a canvas has no marks to compare, only the focus box.
+   * There the common case is taken: a bar taller than wide is held by its top,
+   * one wider than tall by its right end. Left in the middle, a canvas bar was
+   * two parallel lines from the first step it outgrew the window.
+   *
+   * @param focus - The focused mark's bounds, in viewport pixels
+   * @param marks - Every mark on the active layer
+   * @param window - The visible window's size, in viewport pixels
+   * @param window.width - Window width in viewport pixels
+   * @param window.height - Window height in viewport pixels
+   */
+  private static anchorOf(
+    focus: ClientRect,
+    marks: readonly SVGGraphicsElement[],
+    window: { width: number; height: number },
+  ): { x: number; y: number } {
+    const centreX = focus.left + focus.width / 2;
+    const centreY = focus.top + focus.height / 2;
+    const fitsX = focus.width <= window.width;
+    const fitsY = focus.height <= window.height;
+    if (fitsX && fitsY) {
+      return { x: centreX, y: centreY };
+    }
+
+    const boxes = marks.map(mark => mark.getBoundingClientRect());
+    const sharing = (edge: number, near: (box: DOMRect) => number, far: (box: DOMRect) => number): number =>
+      boxes.filter(box => Math.abs(near(box) - edge) <= SHARED_EDGE_TOLERANCE
+        || Math.abs(far(box) - edge) <= SHARED_EDGE_TOLERANCE).length;
+    const valueEnd = (low: number, high: number, centre: number, lowShared: number, highShared: number): number => {
+      if (lowShared > highShared) {
+        return high;
+      }
+      if (highShared > lowShared) {
+        return low;
+      }
+      return centre;
+    };
+    if (marks.length === 0) {
+      const tall = focus.height >= focus.width;
+      return {
+        x: fitsX || tall ? centreX : focus.left + focus.width,
+        y: fitsY || !tall ? centreY : focus.top,
+      };
+    }
+
+    const right = focus.left + focus.width;
+    const bottom = focus.top + focus.height;
+    return {
+      x: fitsX
+        ? centreX
+        : valueEnd(
+            focus.left,
+            right,
+            centreX,
+            sharing(focus.left, box => box.left, box => box.right),
+            sharing(right, box => box.left, box => box.right),
+          ),
+      y: fitsY
+        ? centreY
+        : valueEnd(
+            focus.top,
+            bottom,
+            centreY,
+            sharing(focus.top, box => box.top, box => box.bottom),
+            sharing(bottom, box => box.top, box => box.bottom),
+          ),
+    };
+  }
+
+  /**
+   * The point on the elements' outlines nearest a target, in viewport pixels.
+   *
+   * Distance is measured in windows rather than pixels, so a window stretched
+   * onto the pins weighs a step across the same as a step down.
+   *
+   * It moves only along the axes it is free on. A floating waterfall bar fits
+   * the window across but not down, so it is the top or the bottom that has to
+   * come into reach; allowed to move either way, the nearest outline is one of
+   * the bar's long sides, and the reader is handed two parallel lines with both
+   * ends of the bar off the pins.
+   *
+   * @param elements - The marks whose outlines to search
+   * @param target - Where the window would otherwise be centred
+   * @param target.x - Horizontal position in viewport pixels
+   * @param target.y - Vertical position in viewport pixels
+   * @param window - The visible window's size, in viewport pixels
+   * @param window.width - Window width in viewport pixels
+   * @param window.height - Window height in viewport pixels
+   * @param free - The axes the point may move along, both by default
+   * @param free.x - Whether it may move across
+   * @param free.y - Whether it may move down
+   * @returns The nearest outline point, or null when no outline can be read
+   */
+  private static nearestOutlinePoint(
+    elements: readonly Element[],
+    target: { x: number; y: number },
+    window: { width: number; height: number },
+    free: { x: boolean; y: boolean } = { x: true, y: true },
+  ): { x: number; y: number } | null {
+    // An axis the point may not move along is weighed so heavily that any
+    // point on the target's line beats every point off it.
+    const LOCKED = 1e-6;
+    const scaleX = (window.width > 0 ? window.width : 1) * (free.x ? 1 : LOCKED);
+    const scaleY = (window.height > 0 ? window.height : 1) * (free.y ? 1 : LOCKED);
+    let best: { x: number; y: number } | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    const consider = (x: number, y: number): void => {
+      const distance = ((x - target.x) / scaleX) ** 2 + ((y - target.y) / scaleY) ** 2;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { x, y };
+      }
+    };
+
+    // Piece by piece, as the renderer draws them: run together, the pieces of
+    // one path are joined by lines the chart never drew, and the nearest
+    // point could land on one of those, in the gap between the pieces.
+    const pieces = elements.flatMap(element => TactileService.outlineRingsOf(element, SCREEN))
+      .flatMap(ring => ring.parts ?? [{ points: ring.points, closed: ring.closed }]);
+    for (const piece of pieces) {
+      const points = piece.points.filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+      if (points.length === 0) {
+        continue;
+      }
+      if (points.length === 1) {
+        consider(points[0].x, points[0].y);
+        continue;
+      }
+      const segments = piece.closed ? points.length : points.length - 1;
+      for (let index = 0; index < segments; index++) {
+        const from = points[index];
+        const to = points[(index + 1) % points.length];
+        // The foot of the perpendicular, in window units, clamped to the
+        // segment.
+        const dx = (to.x - from.x) / scaleX;
+        const dy = (to.y - from.y) / scaleY;
+        const length = dx * dx + dy * dy;
+        const along = length === 0
+          ? 0
+          : Math.min(1, Math.max(0, (((target.x - from.x) / scaleX) * dx + ((target.y - from.y) / scaleY) * dy) / length));
+        consider(from.x + (to.x - from.x) * along, from.y + (to.y - from.y) * along);
+      }
+    }
+    return best;
+  }
+
+  /**
    * Renders the current state and sends it to the device.
    * @param state - The trace state to draw
-   * @param followFocus - Whether a focus outside the view should recentre it
-   * @returns True when the frame differed from the one already on the device
+   * @param follow - Whether the window moves to the focused mark; see
+   * {@link FocusFollow}
+   * @returns What the redraw did to the pins
    */
-  private draw(state: DrawableState, followFocus: boolean): FrameOutcome {
+  private draw(state: DrawableState, follow: FocusFollow): FrameOutcome {
     const geometry = dotPadSession.geometry;
+    if (geometry === null) {
+      return 'unchanged';
+    }
     const region = this.findRegionElement();
-    if (geometry === null || region === null) {
+    const svg = region === null ? null : this.svgPicture(region, state);
+    const aspect = TactileService.aspectFor(state);
+    // A chart with SVG may still have drawn its marks on a canvas beside it:
+    // plotly draws a parallel-coordinates chart's axes in SVG and every one of
+    // its lines in WebGL, and the SVG then holds a few markers and nothing
+    // else. Where a canvas covers the chart, the picture that shows more of it
+    // with the whole plot in view is the one drawn -- decided at whole-plot
+    // zoom, so it does not change from one zoom step to the next. Asked only
+    // where there is a canvas to turn to, so an ordinary SVG chart pays
+    // nothing for it.
+    let picture = svg;
+    if (svg === null || this.chartCanvases().length > 0) {
+      const canvas = this.canvasPicture(state);
+      if (svg === null) {
+        picture = canvas;
+      } else if (canvas !== null) {
+        const atRest = (candidate: TactilePicture): number => candidate.render(
+          new TactileViewport(candidate.source, geometry.dotWidth, geometry.dotHeight, aspect),
+          geometry.dotWidth,
+          geometry.dotHeight,
+        ).raisedCount;
+        if (atRest(canvas) > 2 * atRest(svg)) {
+          picture = canvas;
+        }
+      }
+    }
+    if (picture === null) {
       return 'unchanged';
     }
 
+    if (this.viewport === null || this.aspect !== aspect) {
+      // Rebuilt rather than adjusted when the mode changes: a layer switch can
+      // move between a shape chart and an ordinary one, and the two map the
+      // same rect onto different pins.
+      this.viewport = new TactileViewport(picture.source, geometry.dotWidth, geometry.dotHeight, aspect);
+      this.aspect = aspect;
+    } else {
+      this.viewport.setSource(picture.source);
+    }
+    const viewport = this.viewport;
+    const focused = picture.focused;
+
+    // Follow the focus on a zoom step, and on a navigation move that took it
+    // off the view, and never on the redraw a pan asks for. Panning is what
+    // moves the focus out of view deliberately, so recentring there would undo
+    // the reader's own pan on the very redraw it triggered — and for a mark
+    // bigger than the window, which can never be contained, panning would
+    // never move at all while still announcing that it had.
+    if (follow !== 'none') {
+      const focusBounds = TactileService.boundsOf(focused);
+      if (focusBounds !== null
+        && (follow === 'centre' || !viewport.containsRect(focusBounds))) {
+        const window = viewport.windowSize;
+        const target = TactileService.anchorOf(focusBounds, picture.marks, window);
+        // A mark that fits is seen whole wherever in it the window sits. One
+        // that does not is only seen by its outline, so the window goes to the
+        // nearest point of that outline: the middle of a bounding box can be
+        // inside a bar with no edge in reach, or -- for a pie wedge or a
+        // sunburst arc -- somewhere the shape does not reach at all.
+        const free = {
+          x: focusBounds.width > window.width,
+          y: focusBounds.height > window.height,
+        };
+        const anchor = free.x || free.y
+          ? TactileService.nearestOutlinePoint(focused, target, window, free) ?? target
+          : target;
+        viewport.centreOnPoint(anchor.x, anchor.y);
+      }
+    }
+
+    let raster = picture.render(viewport, geometry.dotWidth, geometry.dotHeight);
+
+    // A zoom step must not land on an empty display. Every pin down is also
+    // what a disconnected display feels like, and a reader who zoomed in to
+    // feel more of the chart gets less than nothing. It happens where the
+    // focus gives no position to close in on -- the multi-panel lobby, or a
+    // chart whose focused point has no element of its own -- and the window
+    // stays on a patch of the plot with nothing in it. So the window moves to
+    // the nearest mark there is, which keeps the view as close as it can to
+    // where the reader was. A pan is left alone: an empty window is where the
+    // reader deliberately took it, and they are told it is empty.
+    if (raster.raisedCount === 0 && follow === 'centre' && !viewport.isWholePlotVisible) {
+      const nearest = picture.nearestContent(viewport.windowCentre, viewport.windowSize);
+      if (nearest !== null) {
+        viewport.centreOnPoint(nearest.x, nearest.y);
+        raster = picture.render(viewport, geometry.dotWidth, geometry.dotHeight);
+      }
+    }
+
+    const changed = this.send(raster, geometry.cellColumns, geometry.cellRows);
+    this.sendText(state, geometry.textCells);
+    if (raster.raisedCount === 0) {
+      return 'empty';
+    }
+    return changed ? 'changed' : 'unchanged';
+  }
+
+  /**
+   * The chart as the SVG draws it: its marks, its focus, and a renderer that
+   * traces their shapes.
+   *
+   * @param region - The element whose subtree holds the chart
+   * @param state - The state being drawn
+   * @returns The picture, or null when the chart has no measurable extent
+   */
+  private svgPicture(region: SVGGraphicsElement, state: DrawableState): TactilePicture | null {
     const { shapes: marks, allLayers } = this.shapesOf(region);
 
     // The window is the marks' own extent, not the plot region's. The region
@@ -1223,18 +1650,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       ? markBounds
       : TactileService.rectOf(region);
     if (source === null) {
-      return 'unchanged';
-    }
-
-    const aspect = TactileService.aspectFor(state);
-    if (this.viewport === null || this.aspect !== aspect) {
-      // Rebuilt rather than adjusted when the mode changes: a layer switch can
-      // move between a shape chart and an ordinary one, and the two map the
-      // same rect onto different pins.
-      this.viewport = new TactileViewport(source, geometry.dotWidth, geometry.dotHeight, aspect);
-      this.aspect = aspect;
-    } else {
-      this.viewport.setSource(source);
+      return null;
     }
 
     // The lobby has no focused mark: its highlight is the whole panel, and
@@ -1244,19 +1660,6 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const focused = state.type === 'trace'
       ? TactileService.focusedElements(state.highlight)
       : [];
-
-    // Follow the focus when a navigation move or a zoom step took it off the
-    // view, and never on the redraw a pan asks for. Panning is what moves the
-    // focus out of view deliberately, so recentring there would undo the
-    // reader's own pan on the very redraw it triggered — and for a mark bigger
-    // than the window, which can never be contained, panning would never move
-    // at all while still announcing that it had.
-    if (followFocus) {
-      const focusBounds = TactileService.boundsOf(focused);
-      if (focusBounds !== null && !this.viewport.containsRect(focusBounds)) {
-        this.viewport.centreOn(focusBounds);
-      }
-    }
 
     // The renderer pairs the two lists by object identity, so a mark that is
     // also the focus is drawn once, filled, rather than outlined and then
@@ -1276,19 +1679,332 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       endCaps: state.type === 'trace' && CONNECTOR_MARKS.has(state.traceType),
     };
 
-    const raster = TactileRenderer.render(
-      scene,
-      this.viewport,
-      geometry.dotWidth,
-      geometry.dotHeight,
-    );
+    return {
+      source,
+      marks,
+      focused,
+      render: (viewport, width, height) => TactileRenderer.render(scene, viewport, width, height),
+      nearestContent: (target, window) => TactileService.nearestOutlinePoint(marks, target, window),
+    };
+  }
 
-    const changed = this.send(raster, geometry.cellColumns, geometry.cellRows);
-    this.sendText(state, geometry.textCells);
-    if (raster.raisedCount === 0) {
-      return 'empty';
+  /**
+   * How far up from the plot element a chart's canvases are looked for.
+   */
+  private static readonly CANVAS_SEARCH_DEPTH = 8;
+
+  /**
+   * The canvases the chart is drawn on.
+   *
+   * Inside the plot element for a chart drawn wholly on a canvas. But a
+   * library that draws part of a chart in SVG and the rest on a canvas keeps
+   * the canvas where it put it: plotly's parallel coordinates has its WebGL
+   * canvases in its own container, around the element MAIDR wraps. So the
+   * search walks up from the plot, and stops at the first element holding
+   * canvases that cover the chart -- never reaching a canvas that belongs to
+   * some other chart on the page, which would not lie over this one.
+   */
+  private chartCanvases(): HTMLCanvasElement[] {
+    // The plot element can be a wrapper with no size of its own -- plotly's
+    // is -- so the chart's SVG stands in for it when it has one.
+    const own = this.display.plot.getBoundingClientRect();
+    const plot = own.width > 0 && own.height > 0
+      ? own
+      : this.findRegionElement()?.getBoundingClientRect() ?? own;
+    let node: HTMLElement | null = this.display.plot;
+    for (let depth = 0; node !== null && depth < TactileService.CANVAS_SEARCH_DEPTH; depth++) {
+      const covering = Array.from(node.querySelectorAll('canvas')).filter((canvas) => {
+        const box = canvas.getBoundingClientRect();
+        const width = Math.min(box.right, plot.right) - Math.max(box.left, plot.left);
+        const height = Math.min(box.bottom, plot.bottom) - Math.max(box.top, plot.top);
+        // Measured both ways. Against the chart, so a legend swatch drawn on a
+        // canvas of its own, wholly inside the chart, does not count as
+        // covering it; and against the canvas, so a page's decorative canvas
+        // that the chart merely sits on does not either.
+        const area = plot.width * plot.height;
+        const canvasArea = box.width * box.height;
+        const overlap = width * height;
+        return width > 0 && height > 0 && area > 0 && canvasArea > 0
+          && overlap / area >= 0.5 && overlap / canvasArea >= 0.5;
+      });
+      if (covering.length > 0) {
+        return covering;
+      }
+      node = node.parentElement;
     }
-    return changed ? 'changed' : 'unchanged';
+    return [];
+  }
+
+  /**
+   * The chart as a canvas draws it, for the charting libraries that draw no
+   * SVG at all -- Chart.js, amCharts, a WebGL layer.
+   *
+   * There are no shapes to trace, so the pins are read off the picture the
+   * canvas holds; see {@link TactileCanvas}. The focus comes from the box MAIDR
+   * draws over the canvas to highlight the point for sighted readers, which
+   * is the one place the position of the focused mark is written down.
+   *
+   * @param state - The state being drawn
+   * @returns The picture, or null when there is no canvas, or none that can
+   * be read
+   */
+  private canvasPicture(state: DrawableState): TactilePicture | null {
+    // Asks the adapter to keep a copy of the chart without its tooltip from
+    // the next frame on; see `@util/overlayRegions`.
+    for (const layer of this.display.plot.querySelectorAll(`[${OVERLAY_ATTRIBUTES.layer}]`)) {
+      layer.setAttribute(OVERLAY_ATTRIBUTES.pixelReader, '');
+      this.pixelLayers.add(layer);
+    }
+    const snapshot = TactileService.snapshotCanvases(this.display.plot, this.chartCanvases());
+    if (snapshot === null) {
+      return null;
+    }
+    const { image, rect, scaleX, scaleY } = snapshot;
+
+    // The plot area, where the adapter knows it: the canvas also holds the
+    // title, the axis labels and the legend, which the SVG path never draws
+    // and which here would come out as blots of text. And whatever the library
+    // painted over the data -- Chart.js's tooltip at the focused point -- is
+    // read as background, or it would be felt as a mark.
+    const layer = this.display.plot.querySelector(`[${OVERLAY_ATTRIBUTES.layer}]`);
+    const regions = layer === null ? { plotArea: null, exclude: [] } : readOverlayRegions(layer);
+    const source = TactileService.intersect(rect, regions.plotArea) ?? rect;
+    const masks: PixelRect[] = regions.exclude.map(box => ({
+      left: (box.left - rect.left) * scaleX,
+      top: (box.top - rect.top) * scaleY,
+      right: (box.right - rect.left) * scaleX,
+      bottom: (box.bottom - rect.top) * scaleY,
+    }));
+
+    // As in the SVG lobby, a panel the reader has not entered has no point to
+    // stand on.
+    const focused = state.type === 'trace'
+      ? TactileService.overlayFocus(this.display.plot)
+      : [];
+
+    const render = (viewport: TactileViewport, width: number, height: number): DotRaster => {
+      const raster = TactileCanvas.render(image, (x, y) => {
+        const from = viewport.toClient(x - 0.5, y - 0.5);
+        const to = viewport.toClient(x + 0.5, y + 0.5);
+        if (!Number.isFinite(from.x) || !Number.isFinite(to.x)) {
+          return null;
+        }
+        // Read no further than the plot area. The pins around the picture --
+        // the margin, and the bands either side of a picture kept in
+        // proportion -- stand over the canvas outside it, where the title,
+        // the axis labels and the legend are. A pixel's grace keeps an axis
+        // line drawn along the plot area's edge.
+        const left = Math.max(Math.min(from.x, to.x), source.left - 1);
+        const top = Math.max(Math.min(from.y, to.y), source.top - 1);
+        const right = Math.min(Math.max(from.x, to.x), source.left + source.width + 1);
+        const bottom = Math.min(Math.max(from.y, to.y), source.top + source.height + 1);
+        if (right <= left || bottom <= top) {
+          return null;
+        }
+        return {
+          left: (left - rect.left) * scaleX,
+          top: (top - rect.top) * scaleY,
+          right: (right - rect.left) * scaleX,
+          bottom: (bottom - rect.top) * scaleY,
+        };
+      }, width, height, masks, TactileService.CANVAS_STROKE_PX * Math.max(scaleX, scaleY));
+      const rings = focused.flatMap(element => TactileService.outlineRingsOf(element, viewport));
+      TactileRenderer.drawFocus(raster, rings, viewport.zoom);
+      return raster;
+    };
+
+    const nearestContent = (
+      target: { x: number; y: number },
+      window: { width: number; height: number },
+    ): { x: number; y: number } | null => {
+      const background = TactileCanvas.backgroundOf(image);
+      let best: { x: number; y: number } | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (let py = 0; py < image.height; py += 2) {
+        for (let px = 0; px < image.width; px += 2) {
+          if (TactileCanvas.masked(masks, px, py)
+            || !TactileCanvas.isInk(image, (py * image.width + px) * 4, background)) {
+            continue;
+          }
+          const x = rect.left + px / scaleX;
+          const y = rect.top + py / scaleY;
+          if (x < source.left || y < source.top
+            || x > source.left + source.width || y > source.top + source.height) {
+            continue;
+          }
+          const distance = ((x - target.x) / window.width) ** 2 + ((y - target.y) / window.height) ** 2;
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = { x, y };
+          }
+        }
+      }
+      return best;
+    };
+
+    return { source, marks: [], focused, render, nearestContent };
+  }
+
+  /**
+   * The overlap of two rectangles, or null when they do not overlap or the
+   * second is absent.
+   * @param rect - A rectangle
+   * @param box - Edges of the other, or null
+   * @param box.left - Left edge
+   * @param box.top - Top edge
+   * @param box.right - Right edge
+   * @param box.bottom - Bottom edge
+   */
+  private static intersect(
+    rect: ClientRect,
+    box: { left: number; top: number; right: number; bottom: number } | null,
+  ): ClientRect | null {
+    if (box === null) {
+      return null;
+    }
+    const left = Math.max(rect.left, box.left);
+    const top = Math.max(rect.top, box.top);
+    const right = Math.min(rect.left + rect.width, box.right);
+    const bottom = Math.min(rect.top + rect.height, box.bottom);
+    return right > left && bottom > top ? { left, top, width: right - left, height: bottom - top } : null;
+  }
+
+  /**
+   * The chart's visible canvases, composited into one picture.
+   *
+   * Composited rather than read one by one because a library may draw a chart
+   * across several stacked canvases, and a pin has to see what a sighted
+   * reader sees: the layers in the order the page paints them.
+   *
+   * @param root - The element holding the chart
+   * @param candidates - The chart's canvases; see {@link chartCanvases}
+   * @returns The pixels, the screen rectangle they cover, and how many pixels
+   * there are to a screen pixel each way; null when there is no visible
+   * canvas or its pixels cannot be read
+   */
+  private static snapshotCanvases(root: HTMLElement, candidates: readonly HTMLCanvasElement[]): {
+    image: PixelImage;
+    rect: ClientRect;
+    scaleX: number;
+    scaleY: number;
+  } | null {
+    // The adapter's copy of the chart as it stood before anything was painted
+    // over the data, where there is one; see `@util/overlayRegions`.
+    const clean = root.querySelector<HTMLCanvasElement>(`canvas[${OVERLAY_ATTRIBUTES.cleanCanvas}]`);
+    const layer = clean?.closest(`[${OVERLAY_ATTRIBUTES.layer}]`);
+    if (clean && layer && clean.width > 0 && clean.height > 0) {
+      const box = layer.getBoundingClientRect();
+      if (box.width > 0 && box.height > 0) {
+        try {
+          const context = clean.getContext('2d', { willReadFrequently: true });
+          if (context !== null) {
+            return {
+              image: context.getImageData(0, 0, clean.width, clean.height),
+              rect: { left: box.left, top: box.top, width: box.width, height: box.height },
+              scaleX: clean.width / box.width,
+              scaleY: clean.height / box.height,
+            };
+          }
+        } catch (error) {
+          console.error('[TactileService] Clean canvas could not be read:', error instanceof Error ? error.message : error);
+        }
+      }
+    }
+
+    const canvases = candidates.filter((canvas) => {
+      const box = canvas.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0 || canvas.width <= 0 || canvas.height <= 0) {
+        return false;
+      }
+      const style = window.getComputedStyle(canvas);
+      return style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0';
+    });
+    if (canvases.length === 0) {
+      return null;
+    }
+    const rect = TactileService.boundsOf(canvases);
+    if (rect === null || rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+    // At the resolution of the sharpest canvas, so a hairline drawn for a
+    // high-density screen is still there to be found.
+    const scale = Math.max(...canvases.map(canvas => canvas.width / canvas.getBoundingClientRect().width));
+    const width = Math.max(1, Math.round(rect.width * scale));
+    const height = Math.max(1, Math.round(rect.height * scale));
+    try {
+      const composite = document.createElement('canvas');
+      composite.width = width;
+      composite.height = height;
+      const context = composite.getContext('2d', { willReadFrequently: true });
+      if (context === null) {
+        return null;
+      }
+      for (const canvas of canvases) {
+        const box = canvas.getBoundingClientRect();
+        context.drawImage(
+          canvas,
+          (box.left - rect.left) * scale,
+          (box.top - rect.top) * scale,
+          box.width * scale,
+          box.height * scale,
+        );
+      }
+      return { image: context.getImageData(0, 0, width, height), rect, scaleX: scale, scaleY: scale };
+    } catch (error) {
+      // A canvas that has drawn an image from another origin cannot be read,
+      // and a document without a 2D context cannot composite one. Either way
+      // there is no picture to put on the pins.
+      console.error('[TactileService] Canvas could not be read:', error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  /**
+   * The highlight MAIDR draws over a canvas chart, which marks the focused
+   * point: a box for most marks, a wedge outline for a pie slice.
+   *
+   * A wedge is drawn as an SVG covering the whole chart, so it is the path
+   * inside it that says where the slice is, not the SVG's own box.
+   *
+   * @param root - The element holding the chart
+   */
+  private static overlayFocus(root: HTMLElement): Element[] {
+    const nodes = Array.from(root.querySelectorAll(`[${OVERLAY_ATTRIBUTES.highlight}]`));
+    return nodes.flatMap((node) => {
+      if (node.tagName.toLowerCase() === 'svg') {
+        return Array.from(node.querySelectorAll('path, circle, rect, polygon, ellipse'));
+      }
+      return [node];
+    }).filter((node) => {
+      const box = node.getBoundingClientRect();
+      return box.width > 0 || box.height > 0;
+    });
+  }
+
+  /**
+   * The outline of any element that can mark a focus, in a projector's plane:
+   * an SVG shape's own geometry, or an HTML box's rectangle.
+   *
+   * @param element - The element
+   * @param projector - Where to measure it: the pins, or the screen
+   */
+  private static outlineRingsOf(element: Element, projector: DotProjector): DotRing[] {
+    if (element instanceof SVGGraphicsElement) {
+      return TactileSvgGeometry.ringsOf(element, projector);
+    }
+    const box = element.getBoundingClientRect();
+    if (box.width <= 0 && box.height <= 0) {
+      return [];
+    }
+    return [{
+      points: [
+        projector.toDot(box.left, box.top),
+        projector.toDot(box.right, box.top),
+        projector.toDot(box.right, box.bottom),
+        projector.toDot(box.left, box.bottom),
+      ],
+      closed: true,
+    }];
   }
 
   /**
@@ -1334,7 +2050,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       if (this.disposed || !this.isActive) {
         return;
       }
-      this.redraw(false);
+      this.redraw('none');
     });
   }
 
@@ -1422,7 +2138,7 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
     const description = this.text.format(state);
     // A redraw of the same state -- a zoom, a pan, a repair -- leaves the line
     // where the reader scrolled it. The pan keys move the graphic, not the
-    // text, and sending the reader back to "Line part 1" on every one of them
+    // text, and sending the reader back to the line's start on every one of them
     // made the outer function keys unusable while zoomed in. Only a line that
     // has nothing on it yet is written again.
     if (description === this.lastDescription) {
@@ -1559,6 +2275,14 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
       dotPadSession.releaseIfAdopted();
     }
     this.disposed = true;
+    if (this.canvasDrawTimer !== null) {
+      clearTimeout(this.canvasDrawTimer);
+      this.canvasDrawTimer = null;
+    }
+    for (const layer of this.pixelLayers) {
+      layer.removeAttribute(OVERLAY_ATTRIBUTES.pixelReader);
+    }
+    this.pixelLayers.clear();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }

@@ -391,10 +391,54 @@ spending a second redrawing what is already there. The digit row reads the same
 way round as the zoom levels: <kbd>1</kbd> upwards is closer in, and
 <kbd>0</kbd> is the one before them.
 
-Zooming closes in on **the mark you are on**, not on the middle of the chart.
-That is the mark you asked to feel more closely, and after a step or two the
-middle of a chart is usually a patch with nothing in it — so holding the view
-there would hand you blank pins and no account of why.
+Zooming closes in on **the mark you are on**, not on the middle of the chart,
+and puts it in the middle of the pins on every step, in and out. That is the
+mark you asked to feel more closely; kept in the middle, it stays under the
+hand that was already resting on it instead of drifting towards an edge you
+then have to search.
+
+A mark too big for the window — a tall bar, a few steps in — is held by its
+value end rather than its middle: the top of a bar, the bottom of one that
+hangs below the baseline, the far end of a horizontal one. Centred on its
+middle, a tall bar lost its top and its baseline off the edges of the pins and
+arrived as two parallel lines, and a few steps further the window sat wholly
+inside it with every pin down. Which end is the value is read from the other
+bars: the edge they share is the baseline.
+
+Where there is no baseline to read — a funnel stage, a floating waterfall bar,
+a treemap tile, a pie wedge — the view goes to the nearest point of the mark's
+own outline, moving only in the direction the mark does not fit. A waterfall
+bar that fits across but not down is held by its top or bottom, never by a
+long side; a pie wedge is held on its arc or its edges, not in the corner of
+its bounding box where the wedge does not reach. Some edge of the mark you are
+on is always under your hand.
+
+A zoom step never lands on an empty display. Where there is no focused mark
+to close in on — the multi-panel lobby, or a chart whose points have no
+element of their own — and the step would leave every pin down, the view moves
+to the nearest mark instead. Every pin down is also what a disconnected display
+feels like, so a blank frame is never the answer to a zoom.
+
+Zooming changes how much of the chart you feel, not what the marks are:
+
+- **A point stays a point.** The dot marking where you are on a line, a
+  scatter or a dot plot is the same small disc at every zoom. It used to grow
+  with the chart's own marker, into an ellipse half the display across that
+  covered the line it was marking.
+- **A mark drawn in pieces stays in pieces.** An error bar, a box plot's box
+  and whiskers, a candle's body and wick, and a map region with islands are
+  often a single path in several pieces. They are drawn piece by piece, so no
+  line the chart never drew joins them — which at close zoom used to cut across
+  the mark as a slash, or turn an error bar into a Z.
+- **A shape placed by `<use>` is drawn as that shape.** matplotlib draws a
+  violin's outline once and places it with `<use>`; it is followed to the
+  outline rather than measured as a box.
+- **The focused mark is outlined, not filled, once it covers three quarters of
+  the display both ways**, so a step or two in you meet its shape under a
+  heavy stroke rather than a solid slab.
+
+Near the edge of the chart the view stops at the edge rather than showing
+empty space beyond it, so a mark there sits off-centre, towards that edge.
 
 Zooming out to where you started gives back the picture you started with,
 pin for pin. That is worth stating because it did not always hold. Only the
@@ -490,10 +534,18 @@ That description runs well past twenty cells, so the line scrolls:
 | Back along the line | Function 1  |
 | On along the line   | Function 4  |
 
-When more text follows, the final cell shows dots 7 and 8. MAIDR announces
-which part of the line you are on, and says so rather than moving silently when
-you reach either end. Moving to another data point returns the line to its
-start, since it now describes something else.
+When more text follows, the final cell shows dots 7 and 8. Moving along the line
+is silent — you are reading it with your fingers, and a voice naming the part
+would talk over it. When there is no more line in the direction you pressed, or
+the whole line already fits, the device **vibrates** with one long pulse —
+deliberately not the double pulse the display gives when it connects.
+
+On an SDK build without vibration, or a device that turns the request down,
+MAIDR says it instead. A device that accepts the request and then does not buzz
+cannot be told from one that did, so it says nothing.
+
+Moving to another data point returns the line to its start, since it now
+describes something else.
 
 ### Contracted braille
 
@@ -533,10 +585,42 @@ being unreachable or the engine answering with nothing. Once, not per move: it
 is a standing condition rather than an event, and repeating it on every arrow
 key would talk over the reading it describes.
 
+### Charts drawn on a canvas
+
+Chart.js and amCharts draw no SVG: the whole chart is pixels on a `<canvas>`,
+with no shapes to scale down. plotly's parallel coordinates draw their lines
+the same way, on canvases beside the SVG that carries only the axes. The
+display reads those pixels instead, whenever they hold clearly more of the
+chart than an SVG does. Each pin looks at the patch of the chart it stands
+over, and is raised where something drawn meets the page or a clearly
+different colour — so bars, boxes and candles arrive as outlines, the way the SVG path draws every mark but the one
+you are on. A line thin enough to be a line on screen is raised whole, so it
+stays one line at every zoom rather than turning into its two edges.
+
+The mark you are on comes from the highlight box MAIDR draws over the canvas
+for sighted readers — the one place its position is written down — and is
+filled, followed through zoom and held by its edge as on an SVG chart. A
+canvas has no other marks to show which end of a bar is its baseline, so a bar
+taller than wide is held by its top and one wider than tall by its right end.
+
+Only the plot area is read, where the adapter can say where it is: the title,
+the axis labels and the legend are left off the pins, as they are for SVG.
+Chart.js's tooltip is left off too — MAIDR keeps a copy of the chart as it
+stands before the tooltip is painted and reads that — and an amCharts legend
+drawn inside the plot area is read as background.
+
+Some things read less cleanly than on an SVG chart, because what the pixels
+cannot say has to be inferred: a translucent fill next to a line can add a
+second edge beside it, a bar only a few pixels wide is raised solid, since in
+pixels it is the same as a thick line, and text that is part of the data — a word cloud's
+words — is outlined letter by letter. A canvas whose pixels the page cannot
+read, one that has drawn an image from another site, leaves the pins down.
+
 ## What the display does not show
 
-- **Charts with no SVG.** Canvas- and WebGL-rendered charts have no shapes to
-  scale down.
+- **WebGL canvases that discard what they drew.** Unless the chart asks the
+  browser to keep it, a WebGL canvas's picture is gone by the time it could be
+  read, and reading it gives an empty page.
 - **Charts in a cross-origin frame.** Their geometry cannot be measured.
 - **Shapes the chart gave no element for.** A lollipop whose selectors name
   the heads draws the heads and no stems; a treemap or icicle whose parent
