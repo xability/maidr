@@ -30,52 +30,6 @@ function defaultSeriesColumn(): string {
 }
 
 /**
- * Splits a path `d` attribute into commands, each with its argument text.
- *
- * `A`/`a` is listed here but absent from {@link SVG_PATH_ARITY}, so an arc is
- * recognised and then skipped. Both halves matter. It has to be *recognised*
- * because the argument group runs to the next command letter: leaving `A` out
- * of the class would sweep an arc's flags and coordinates into the preceding
- * command's arguments, where they are consumed as further repetitions of that
- * command's arity. Measured on `M 0 0 L 10 10 A 5 5 0 0 1 20 20 L 30 30`,
- * that fabricated three vertices — `(5,5)`, `(0,0)`, `(1,20)` — rather than
- * leaving the arc merely unread.
- *
- * It is then *skipped* because an arc's flag arguments are legally written
- * without separators — `a1 1 0 011 1` is three flags and a coordinate pair —
- * so a plain number scan cannot tell where the endpoint starts. That leaves
- * the current point stale across an arc, which only misplaces a *relative*
- * command that follows one; line-family geometry contains neither.
- */
-const SVG_PATH_COMMAND_REGEX = /([MLHVCSQTAZ])([^MLHVCSQTAZ]*)/gi;
-
-/** One number of a path argument list, including exponent notation. */
-const SVG_PATH_NUMBER_REGEX = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
-
-/**
- * How many numbers each path command takes per repetition.
- *
- * A command may carry several repetitions in one argument list — `L1 2 3 4`
- * is two linetos — so the arity is what the argument list is walked in.
- *
- * `Z` and `A` are absent, and an absent entry contributes no vertices: the
- * walk's bound is `i + arity <= args.length`, and `undefined` makes that
- * comparison false at once. `Z` is handled before the lookup because it still
- * moves the pen; `A` is not, for the reason
- * {@link SVG_PATH_COMMAND_REGEX} gives.
- */
-const SVG_PATH_ARITY: Record<string, number> = {
-  M: 2,
-  L: 2,
-  H: 1,
-  V: 1,
-  C: 6,
-  S: 4,
-  Q: 4,
-  T: 2,
-};
-
-/**
  * Read the uncertainty band a sample carries, when it carries one.
  *
  * Spread into the text state rather than assigned, so a point with no bounds
@@ -1365,8 +1319,8 @@ export class LineTrace extends AbstractTrace {
    * that fell through both branches had no vertices, so no markers and no
    * highlight, while it went on announcing every point (#1273).
    */
-  private mapViaPathParsing(selectors: string[]): SVGElement[][] | null {
-    const svgElements: SVGElement[][] = [];
+  private mapViaPathParsing(selectors: string[]): (SVGElement[] | SVGElement)[][] | null {
+    const svgElements: (SVGElement[] | SVGElement)[][] = [];
     let allFailed = true;
 
     // Detect selector layout:
@@ -1384,8 +1338,34 @@ export class LineTrace extends AbstractTrace {
     const uniqueSelectors = new Set(selectors).size === selectors.length;
 
     for (let r = 0; r < selectors.length; r++) {
+      // A unique selector may match several elements, in which case the
+      // series is drawn in pieces: gridSVG splits a line broken by an interior
+      // NA into sibling polylines (`...1a`, `...1b`), and a base R selector of
+      // the form `#grob polyline` matches every polyline in the grob. Reading
+      // the first piece alone stretched the whole series along it.
+      //
+      // Only elements that draw count as pieces. matplotlib writes a line's
+      // marker shape into a `<defs>` inside the line's own group, so py-maidr's
+      // `g[id='maidr-…'] path` matches the stroke and that template both, and
+      // joining them put every marker after the first on the template's
+      // vertices round the origin. A hidden copy MAIDR inserted is not a piece
+      // either.
+      const matches = uniqueSelectors
+        ? Svg.selectAllElements(selectors[r], false)
+        : [];
+      const pieces = matches.filter(LineTrace.drawsPiece);
+      if (pieces.length > 1) {
+        this.lineElements.push(...pieces);
+        const markers = this.markersAlongPieces(pieces, r);
+        if (markers.length > 0) {
+          allFailed = false;
+        }
+        svgElements.push(markers);
+        continue;
+      }
+
       const lineElement = uniqueSelectors
-        ? Svg.selectElement(selectors[r], false)
+        ? pieces[0] ?? matches[0] ?? null
         : Svg.selectNthElement(selectors[0], r);
       if (!lineElement) {
         svgElements.push([]);
@@ -1394,22 +1374,7 @@ export class LineTrace extends AbstractTrace {
 
       this.lineElements.push(lineElement as SVGElement);
 
-      const coordinates: LinePoint[] = [];
-      if (lineElement instanceof SVGPathElement) {
-        const pathD = lineElement.getAttribute(Constant.D) || Constant.EMPTY;
-        this.extractPathCoordinates(pathD, coordinates);
-      } else if (LineTrace.listsPoints(lineElement)) {
-        const pointsAttr
-          = lineElement.getAttribute(Constant.POINTS) || Constant.EMPTY;
-        const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
-        for (const coordinate of strCoords) {
-          const [x, y] = coordinate.split(Constant.COMMA);
-          coordinates.push({
-            x: Number.parseFloat(x),
-            y: Number.parseFloat(y),
-          });
-        }
-      }
+      const coordinates = this.readVertices(lineElement);
       this.reconcilePathCoordinates(coordinates, r);
 
       // Where every marker of this series goes, worked out before any of
@@ -1446,6 +1411,108 @@ export class LineTrace extends AbstractTrace {
       return null;
     }
     return svgElements;
+  }
+
+  /**
+   * Whether a matched element is drawn where it stands: not a template inside
+   * `<defs>` (or a clip path, marker, symbol, pattern or mask, which are only
+   * drawn by reference), and not a copy MAIDR inserted.
+   * @param element - An element a series' selector matched
+   * @returns True when it can be a piece of the series' stroke
+   */
+  private static drawsPiece(element: SVGElement): boolean {
+    return !Svg.isOwned(element)
+      && element.closest('defs, clipPath, marker, symbol, pattern, mask') === null;
+  }
+
+  /**
+   * The vertices an element draws, in drawing order: a `<path>`'s command
+   * endpoints, or a `<polyline>`/`<polygon>`'s `points`. Empty for anything
+   * else.
+   * @param element - The element a series' selector resolved to
+   * @returns Its vertices
+   */
+  private readVertices(element: Element): LinePoint[] {
+    const coordinates: LinePoint[] = [];
+    if (element instanceof SVGPathElement) {
+      const pathD = element.getAttribute(Constant.D) || Constant.EMPTY;
+      coordinates.push(...Svg.pathVertices(pathD));
+    } else if (LineTrace.listsPoints(element)) {
+      const pointsAttr
+        = element.getAttribute(Constant.POINTS) || Constant.EMPTY;
+      const strCoords = pointsAttr.split(/\s+/).filter(Boolean);
+      for (const coordinate of strCoords) {
+        const [x, y] = coordinate.split(Constant.COMMA);
+        coordinates.push({
+          x: Number.parseFloat(x),
+          y: Number.parseFloat(y),
+        });
+      }
+    }
+    return coordinates;
+  }
+
+  /**
+   * Markers for a series drawn as several elements, one cell per data point.
+   *
+   * The pieces' vertices are joined in document order, which is the order the
+   * producer drew them in, and matched to the series' real readings -- a
+   * point with no y is where the line breaks, and is drawn by no vertex. Where
+   * there is a vertex per reading they pair up in order; otherwise (a piece
+   * the renderer simplified) each reading is placed by its x along the joined
+   * vertices, which puts it on the piece whose x range holds it. A point with
+   * no y gets no marker, an empty cell, so moving onto it outlines nothing.
+   *
+   * @param pieces - The elements the series' selector matched, in document order
+   * @param row - Index of the series
+   * @returns One cell per data point, in drawn order, or empty when the
+   * pieces cannot be placed
+   */
+  private markersAlongPieces(
+    pieces: readonly SVGElement[],
+    row: number,
+  ): (SVGElement[] | SVGElement)[] {
+    const edge = pieces.flatMap(piece => this.readVertices(piece));
+    const points = this.points[row];
+    const count = points.length;
+    // Cells are built in drawn order, as the single-element path builds them;
+    // `mapToSvgElements` puts a reversed series back in data order.
+    const dataIndex = (drawn: number): number =>
+      this.drawsPointsReversed ? count - 1 - drawn : drawn;
+    const readings = Array.from({ length: count }, (_, drawn) => drawn)
+      .filter(drawn => isMeasured(toBarValue(points[dataIndex(drawn)].y)));
+    if (readings.length === 0 || edge.length === 0) {
+      return [];
+    }
+
+    let placed: LinePoint[];
+    if (edge.length === readings.length) {
+      placed = edge;
+    } else if (edge.length >= 2) {
+      placed = this.interpolateAlongEdge(
+        edge,
+        row,
+        Number(edge[0].x),
+        Number(edge[edge.length - 1].x),
+        0,
+        readings.map(dataIndex),
+      );
+    } else {
+      return [];
+    }
+    if (placed.some(v => !Number.isFinite(Number(v.x)) || !Number.isFinite(Number(v.y)))) {
+      return [];
+    }
+
+    const circles = Svg.createCircleElements(
+      placed.map(v => ({ cx: v.x, cy: Number(v.y) })),
+      pieces[0],
+    );
+    const cells: (SVGElement[] | SVGElement)[] = Array.from({ length: count }, () => []);
+    readings.forEach((drawn, k) => {
+      cells[drawn] = circles[k];
+    });
+    return cells;
   }
 
   /**
@@ -1502,7 +1569,10 @@ export class LineTrace extends AbstractTrace {
    * @param xMax - The SVG x the series' last x maps onto
    * @param snapWithin - How close in x a vertex has to be to a point to stand
    * in for it exactly; 0 always interpolates
-   * @returns One vertex per data point, in data order
+   * @param only - The indices of the points to place, in the order to place
+   * them; every point when omitted. The first and last of them map onto
+   * `xMin` and `xMax`.
+   * @returns One vertex per data point placed, in the order placed
    */
   protected interpolateAlongEdge(
     edge: readonly LinePoint[],
@@ -1510,9 +1580,12 @@ export class LineTrace extends AbstractTrace {
     xMin: number,
     xMax: number,
     snapWithin = 0,
+    only?: readonly number[],
   ): LinePoint[] {
-    const expected = this.lineValues[row].length;
-    const dataPoints = this.points[row];
+    const expected = only === undefined ? this.lineValues[row].length : only.length;
+    const dataPoints = only === undefined
+      ? this.points[row]
+      : only.map(i => this.points[row][i]);
     const dataXMin = Number(dataPoints[0].x);
     const dataXMax = Number(dataPoints[dataPoints.length - 1].x);
     const dataXRange = dataXMax - dataXMin;
@@ -1586,79 +1659,6 @@ export class LineTrace extends AbstractTrace {
   private static listsPoints(element: Element): boolean {
     const tag = element.tagName.toLowerCase();
     return tag === 'polyline' || tag === 'polygon';
-  }
-
-  /**
-   * Extracts data point coordinates from an SVG path `d` attribute.
-   *
-   * One vertex per drawing command, taken at that command's endpoint — which
-   * for a curve is where it lands, not where its control points sit. The path
-   * is walked rather than pattern-matched because the endpoint of `H`, `V`,
-   * and every relative command is only defined against the current point,
-   * which a regex over the whole string cannot know.
-   *
-   * That is what this used to be, and it left `H`/`V` unread. A staircase is
-   * precisely the shape a renderer draws with them, every segment being
-   * axis-aligned, so a Plotly step chart parsed to its single `M` and nothing
-   * else: measured, `M0,399H246.67V147H493.33V273H740V21` yielded 1 vertex for
-   * 4 samples. `reconcilePathCoordinates` then padded with `NaN`, the series
-   * was marked failed, and `mapToSvgElements` returned null — correct audio,
-   * braille and text, no highlight, and nothing anywhere saying why (#907).
-   *
-   * `M`, `L` and `C` behave exactly as they did; a cubic still contributes its
-   * endpoint alone.
-   *
-   * @param pathD - The `d` attribute of the rendered path
-   * @param coordinates - Vertex list to append to, mutated in place
-   */
-  private extractPathCoordinates(pathD: string, coordinates: LinePoint[]): void {
-    let x = 0;
-    let y = 0;
-    // Where the current subpath began, which is where `Z` returns to.
-    let startX = 0;
-    let startY = 0;
-
-    SVG_PATH_COMMAND_REGEX.lastIndex = 0;
-    let match: RegExpExecArray | null = SVG_PATH_COMMAND_REGEX.exec(pathD);
-    while (match !== null) {
-      const command = match[1];
-      const absolute = command.toUpperCase();
-      const isRelative = command !== absolute;
-      const args = (match[2].match(SVG_PATH_NUMBER_REGEX) ?? []).map(Number);
-      match = SVG_PATH_COMMAND_REGEX.exec(pathD);
-
-      if (absolute === 'Z') {
-        // A closepath draws back to a vertex already recorded, so it moves the
-        // pen without adding a point. Emitting one would duplicate the start.
-        x = startX;
-        y = startY;
-        continue;
-      }
-
-      const arity = SVG_PATH_ARITY[absolute];
-      for (let i = 0; i + arity <= args.length; i += arity) {
-        if (absolute === 'H') {
-          x = isRelative ? x + args[i] : args[i];
-        } else if (absolute === 'V') {
-          y = isRelative ? y + args[i] : args[i];
-        } else {
-          // The endpoint is the last pair of every remaining command; the
-          // control points before it are not on the drawn path.
-          const endX = args[i + arity - 2];
-          const endY = args[i + arity - 1];
-          x = isRelative ? x + endX : endX;
-          y = isRelative ? y + endY : endY;
-        }
-
-        // Only the first pair of a moveto starts a subpath; the repetitions
-        // after it are implicit linetos, per the SVG path grammar.
-        if (absolute === 'M' && i === 0) {
-          startX = x;
-          startY = y;
-        }
-        coordinates.push({ x, y });
-      }
-    }
   }
 
   public override get state(): TraceState {
