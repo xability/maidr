@@ -42,6 +42,23 @@ const navbarHTML = `
   body {
     padding-top: 72px !important;
   }
+  /* Wrap rather than run off the right edge when the page is zoomed in. */
+  #maidr-site-navbar > div,
+  #maidr-site-navbar ul {
+    flex-wrap: wrap !important;
+    row-gap: 0.5rem !important;
+  }
+  /* Once it wraps, a fixed bar would outgrow the 72px reserved for it and
+     cover the page, so it scrolls away with it instead (as docs/template.html). */
+  @media (max-width: 60rem), (max-height: 30rem) {
+    #maidr-site-navbar {
+      position: static !important;
+      padding: 1rem !important;
+    }
+    body {
+      padding-top: 0 !important;
+    }
+  }
 </style>
 <nav id="maidr-site-navbar">
   <div style="
