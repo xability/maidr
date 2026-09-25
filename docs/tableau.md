@@ -48,7 +48,7 @@ The binder inserts a focusable block **immediately before** the viz element. Tab
 - **Audio sonification** — tones representing data values
 - **Text descriptions** — announced through the screen reader
 - **Braille output** — refreshable braille display support
-- **Keyboard navigation** — arrow keys through data points; <kbd>Escape</kbd> back out to the worksheet list, <kbd>Up</kbd>/<kbd>Down</kbd> to choose another worksheet, <kbd>Enter</kbd> to open it
+- **Keyboard navigation** — arrow keys through data points; <kbd>Escape</kbd> back out to the dashboard's worksheets, the arrow keys to choose another one (<kbd>Up</kbd>/<kbd>Down</kbd> between the dashboard's rows, <kbd>Left</kbd>/<kbd>Right</kbd> along a row), <kbd>Enter</kbd> to open it
 - **Mark selection** — the mark under the cursor is selected in the Tableau view itself, which is what a sighted colleague sees highlight
 
 A dashboard of several worksheets opens in MAIDR's *subplot lobby* rather than inside a chart: on activation MAIDR announces how many subplots the figure has and tells you to use the arrow keys and <kbd>Enter</kbd>. See [Keyboard Controls](#keyboard-controls) for the exact keys.
@@ -387,8 +387,8 @@ Once the figure is focused, the standard MAIDR shortcuts apply:
 |----------|--------------|-----------|
 | Move between data points | Arrow keys | Arrow keys |
 | Go to extremes | Ctrl + Arrow | Cmd + Arrow |
-| Leave a worksheet for the dashboard's worksheet list | Escape (or Backspace) | Escape (or Delete) |
-| Move between worksheets in that list | Up / Down arrows | Up / Down arrows |
+| Leave a worksheet for the dashboard's worksheets | Escape (or Backspace) | Escape (or Delete) |
+| Move between those worksheets | Arrow keys: Up / Down between rows, Left / Right along a row (column layout: Up / Down only) | Arrow keys: Up / Down between rows, Left / Right along a row (column layout: Up / Down only) |
 | Open the selected worksheet | Enter | Enter |
 | Toggle Sonification | S | S |
 | Toggle Braille Mode | B | B |
