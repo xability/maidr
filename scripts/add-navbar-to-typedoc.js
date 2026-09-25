@@ -26,75 +26,38 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SITE_DIR = path.join(__dirname, '..', '_site');
 const API_DIR = path.join(SITE_DIR, 'api');
 
+// Injected into every API page, and a few of those sit within a few hundred
+// bytes of the page-size limit (scripts/check-page-sizes.js), so it is kept
+// terse: one rule for the links rather than a style attribute on each.
+//
+// Both rows wrap, so zooming in moves links onto a new line instead of off the
+// right edge (#1290). A wrapped bar would outgrow the 72px reserved under a
+// fixed one and cover the page, so below the breakpoint docs/template.html
+// uses, the bar is static and scrolls away with the page.
 const navbarHTML = `
 <style>
-  #maidr-site-navbar {
-    background: black !important;
-    padding: 1rem 2rem !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 99999 !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif !important;
-  }
-  body {
-    padding-top: 72px !important;
-  }
-  /* Wrap rather than run off the right edge when the page is zoomed in. */
-  #maidr-site-navbar > div,
-  #maidr-site-navbar ul {
-    flex-wrap: wrap !important;
-    row-gap: 0.5rem !important;
-  }
-  /* Once it wraps, a fixed bar would outgrow the 72px reserved for it and
-     cover the page, so it scrolls away with it instead (as docs/template.html). */
-  @media (max-width: 60rem), (max-height: 30rem) {
-    #maidr-site-navbar {
-      position: static !important;
-      padding: 1rem !important;
-    }
-    body {
-      padding-top: 0 !important;
-    }
-  }
+#maidr-site-navbar{background:black!important;padding:1rem 2rem!important;position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:99999!important;box-shadow:0 2px 4px rgba(0,0,0,.1)!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif!important}
+body{padding-top:72px!important}
+#maidr-site-navbar>div{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;row-gap:.5rem}
+#maidr-site-navbar ul{list-style:none;display:flex;flex-wrap:wrap;gap:.5rem 2rem;margin:0;padding:0}
+#maidr-site-navbar a{display:flex;align-items:center;gap:10px;color:white;text-decoration:none;font-weight:bold;font-size:1.5rem}
+#maidr-site-navbar li a{display:inline;font-weight:500;font-size:inherit;padding:.5rem 1rem;border-radius:6px}
+#maidr-site-navbar .active{background:rgba(255,255,255,.2)}
+#maidr-site-navbar img{height:40px;width:40px;border-radius:6px}
+@media (max-width:60rem),(max-height:30rem){#maidr-site-navbar{position:static!important;padding:1rem!important}body{padding-top:0!important}}
 </style>
 <nav id="maidr-site-navbar">
-  <div style="
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  ">
-    <a href="../index.html" style="
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: white;
-      font-weight: bold;
-      font-size: 1.5rem;
-    ">
-      <img src="../media/logo.jpg" alt="MAIDR Logo" style="height: 40px; width: 40px; border-radius: 6px;" />
-      MAIDR
-    </a>
-    <ul style="
-      list-style: none;
-      display: flex;
-      gap: 2rem;
-      margin: 0;
-      padding: 0;
-    ">
-      <li><a href="../index.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Home</a></li>
-      <li><a href="../react.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">React</a></li>
-      <li><a href="../plotly.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Plotly</a></li>
-      <li><a href="../examples.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">Examples</a></li>
-      <li><a href="../api/index.html" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px; background: rgba(255, 255, 255, 0.2);">API Documentation</a></li>
-      <li><a href="https://github.com/xability/maidr" target="_blank" style="color: white; text-decoration: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 6px;">GitHub</a></li>
-    </ul>
-  </div>
+<div>
+<a href="../index.html"><img src="../media/logo.jpg" alt="MAIDR Logo" />MAIDR</a>
+<ul>
+<li><a href="../index.html">Home</a></li>
+<li><a href="../react.html">React</a></li>
+<li><a href="../plotly.html">Plotly</a></li>
+<li><a href="../examples.html">Examples</a></li>
+<li><a href="../api/index.html" class="active">API Documentation</a></li>
+<li><a href="https://github.com/xability/maidr" target="_blank">GitHub</a></li>
+</ul>
+</div>
 </nav>
 `;
 
