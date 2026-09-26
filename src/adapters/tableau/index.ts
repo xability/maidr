@@ -42,14 +42,23 @@
 
 export { bindTableau } from './binder';
 export type { TableauBinding } from './binder';
+export { bindTableauExtension, configureTableauExtension } from './extension';
+export type {
+  TableauExtensionBinding,
+  TableauExtensionDialogOptions,
+  TableauExtensionOptions,
+} from './extension';
 export { extractTableau } from './extractor';
 export type { SelectionIndex, TableauExtraction } from './extractor';
+export { parseTableauSettings } from './settings';
+export type { TableauSettingsResult } from './settings';
 export type {
   TableauAdapterOptions,
   TableauColumn,
   TableauDataType,
   TableauEncoding,
   TableauEncodingType,
+  TableauExtensions,
   TableauFieldInstance,
   TableauMarksCollection,
   TableauMarksSelectedEvent,

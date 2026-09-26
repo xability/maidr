@@ -202,8 +202,16 @@ jobs:
 
       # The example pages fetch a locale pack from beside maidr.js when the
       # browser asks for a language, so the packs have to be in dist too.
-      - name: Build core bundle and locale packs
-        run: node scripts/build.js core locales
+      # tableauExtension.spec.ts drives dist/tableau.js and
+      # lightweightCharts.spec.ts dist/lightweight-charts.js, the only adapter
+      # bundles a spec loads.
+      - name: Build core bundle, locale packs and the adapters the specs load
+        run: node scripts/build.js core locales tableau lightweight-charts
+
+      # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
+      # single-file bundle that is gitignored like dist/.
+      - name: Build MUI X Charts example
+        run: npm run build:mui-x-charts-example
 
       # e2e_tests/specs/nivo.spec.ts drives the Nivo example app, which is a
       # separate single-file Vite build of examples/nivo/ (it bundles the

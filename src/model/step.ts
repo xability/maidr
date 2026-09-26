@@ -80,6 +80,16 @@ export function stepDataVertices(
     return direct;
   }
 
+  // A staircase on a category axis can run on past its first and last sample
+  // to the edges of their bands: MUI X Charts draws one that way unless the
+  // series sets `strictStepCurve`, by adding a sample at each end at the
+  // level beside it and drawing the staircase through all `N + 2`. Read as
+  // that staircase, the two added samples are its flat ends and are dropped.
+  const extended = matchStepGeometry(coordinates, expected + 2);
+  if (extended !== null && isFlatExtension(extended)) {
+    return extended.slice(1, -1);
+  }
+
   // Only reached when the path matches neither shape, so a well-formed
   // staircase never takes this branch. That ordering is load-bearing: a step
   // chart holds its value across a run, so a real `2N - 1` path routinely
@@ -89,6 +99,22 @@ export function stepDataVertices(
   return collapsed.length === coordinates.length
     ? null
     : matchStepGeometry(collapsed, expected);
+}
+
+/**
+ * Whether the first and last samples of a staircase only carry the level
+ * beside them on, as an added end does.
+ *
+ * @param samples - The samples a staircase was drawn through
+ * @returns True when both ends repeat their neighbour's level at another x
+ */
+function isFlatExtension(samples: LinePoint[]): boolean {
+  if (samples.length < 3) {
+    return false;
+  }
+  const flat = (a: LinePoint, b: LinePoint): boolean =>
+    Number(a.y) === Number(b.y) && Number(a.x) !== Number(b.x);
+  return flat(samples[0], samples[1]) && flat(samples[samples.length - 1], samples[samples.length - 2]);
 }
 
 /**

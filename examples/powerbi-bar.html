@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Power BI Clustered Column Chart</title>
+
+    <!-- MAIDR core, then the MAIDR Power BI adapter (UMD, exposing the
+         `maidrPowerBI` global). A packaged custom visual imports
+         `maidr/powerbi` as a module instead; see docs/powerbi.md. -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/powerbi.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .note {
+        border-left: 4px solid #4682b4;
+        background: #f4f8fb;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      /* Stands in for the element Power BI hands a visual's constructor. */
+      #visual {
+        width: 640px;
+        max-width: 100%;
+        border: 1px dashed #999;
+        padding: 8px;
+      }
+      #visual rect.mark { cursor: pointer; }
+      #visual rect.mark.highlighted {
+        stroke: #000;
+        stroke-width: 3;
+      }
+      #visual.dimmed rect.mark:not(.highlighted) { opacity: 0.35; }
+      #selection {
+        font-family: monospace;
+        padding: 8px 12px;
+        border: 1px solid #999;
+        margin: 16px 0;
+        min-height: 1.2em;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + Power BI Clustered Column Chart</h1>
+    <p>
+      A simulated Power BI custom visual in <em>chart mode</em>. Tab to the
+      chart and use the arrow keys: Left and Right move between quarters, Up
+      and Down between regions and then the quarter's total. Toggle B for
+      Braille, T for Text, S for Sonification, and R for Review mode.
+    </p>
+
+    <div class="note">
+      <strong>No Power BI here.</strong> A real visual receives its data view
+      from Power BI in <code>update()</code>. This page writes one by hand, in
+      the same shape: a categorical data view with a Quarter category and Sales
+      values grouped by a Region legend field, the way Power BI hands over a
+      clustered column chart. The page then draws its own SVG and calls
+      <code>maidrPowerBI.bindPowerBI(element, { chartType: 'column', chart: svg, onNavigate })</code>,
+      as a visual would in its constructor. Build the bundles first with
+      <code>npm run build</code>.
+    </div>
+
+    <h2>The visual</h2>
+    <div id="visual"></div>
+
+    <p>
+      <button type="button" id="slicer">Slicer: show North only</button>
+    </p>
+
+    <h2>What the visual would select</h2>
+    <p>
+      In Power BI, the <code>onNavigate</code> callback builds selection ids
+      from these data points and calls <code>selectionManager.select()</code>,
+      so the other visuals on the page cross-highlight. Here it only outlines
+      the bars and writes down what it would select.
+    </p>
+    <div id="selection">Nothing selected.</div>
+
+    <script>
+      // What Power BI would pass in `options.dataViews[0]`. With a legend
+      // field bound, `categorical.values` holds one column per series value,
+      // each tagged with it in `source.groupName`, and carries the legend
+      // field itself as `values.source`.
+      function makeDataView(regions) {
+        const sales = {
+          North: [120, 135, 150, 170],
+          South: [90, 110, null, 140], // Q3 is blank: a gap, not a zero
+          West: [100, 95, 125, 160],
+        };
+        const values = regions.map(region => ({
+          source: {
+            displayName: 'Sales',
+            queryName: 'Sum(Orders.Sales)',
+            roles: { measure: true },
+            isMeasure: true,
+            type: { numeric: true },
+            groupName: region,
+          },
+          values: sales[region],
+        }));
+        values.source = {
+          displayName: 'Region',
+          queryName: 'Orders.Region',
+          roles: { series: true },
+          type: { text: true },
+        };
+        return {
+          categorical: {
+            categories: [{
+              source: {
+                displayName: 'Quarter',
+                queryName: 'Orders.Quarter',
+                roles: { category: true },
+                type: { text: true },
+              },
+              values: ['Q1', 'Q2', 'Q3', 'Q4'],
+            }],
+            values,
+          },
+        };
+      }
+
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c'];
+      const element = document.getElementById('visual');
+      const selection = document.getElementById('selection');
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('width', '600');
+      svg.setAttribute('height', '320');
+      svg.setAttribute('viewBox', '0 0 600 320');
+
+      let dataView = null;
+      let binding = null;
+
+      function svgEl(name, attrs, text) {
+        const node = document.createElementNS(SVG_NS, name);
+        for (const [key, value] of Object.entries(attrs)) {
+          node.setAttribute(key, String(value));
+        }
+        if (text !== undefined) {
+          node.textContent = text;
+        }
+        return node;
+      }
+
+      // The visual's own drawing. A real visual would usually use d3; what
+      // matters here is that every mark records the categorical indices it
+      // was drawn from, so a data point reference finds it again.
+      function draw(view) {
+        svg.replaceChildren();
+        const categories = view.categorical.categories[0].values;
+        const columns = view.categorical.values;
+        const max = 200;
+        const left = 50;
+        const bottom = 280;
+        const height = 240;
+        const groupWidth = (600 - left - 20) / categories.length;
+        const barWidth = (groupWidth - 20) / columns.length;
+
+        svg.appendChild(svgEl('line', { x1: left, y1: bottom, x2: 590, y2: bottom, stroke: '#333' }));
+        svg.appendChild(svgEl('text', { 'x': 12, 'y': 150, 'font-size': 12, 'transform': 'rotate(-90 12 150)' }, 'Sales'));
+
+        categories.forEach((category, categoryIndex) => {
+          const x0 = left + categoryIndex * groupWidth + 10;
+          svg.appendChild(svgEl('text', { 'x': x0 + groupWidth / 2 - 10, 'y': bottom + 18, 'font-size': 12 }, category));
+          columns.forEach((column, valueColumnIndex) => {
+            const value = column.values[categoryIndex];
+            if (value === null || value === undefined) {
+              return; // Power BI draws no bar for a blank
+            }
+            const h = (value / max) * height;
+            svg.appendChild(svgEl('rect', {
+              'class': 'mark',
+              'x': x0 + valueColumnIndex * barWidth,
+              'y': bottom - h,
+              'width': barWidth - 2,
+              'height': h,
+              'fill': COLORS[valueColumnIndex % COLORS.length],
+              'data-category-index': categoryIndex,
+              'data-value-column-index': valueColumnIndex,
+            }));
+          });
+        });
+
+        columns.forEach((column, i) => {
+          svg.appendChild(svgEl('rect', { x: left + i * 90, y: 8, width: 12, height: 12, fill: COLORS[i % COLORS.length] }));
+          svg.appendChild(svgEl('text', { 'x': left + i * 90 + 16, 'y': 18, 'font-size': 12 }, column.source.groupName));
+        });
+      }
+
+      function describe(ref) {
+        const categorical = dataView.categorical;
+        const parts = [];
+        if (ref.categoryIndex !== null) {
+          parts.push(`Quarter=${categorical.categories[0].values[ref.categoryIndex]}`);
+        }
+        if (ref.valueColumnIndex !== null) {
+          const column = categorical.values[ref.valueColumnIndex];
+          if (categorical.values.source) {
+            parts.push(`Region=${column.source.groupName}`);
+          }
+          parts.push(`measure ${column.source.queryName}`);
+        }
+        return parts.join(', ');
+      }
+
+      // onNavigate: the data points under MAIDR's cursor, or null when focus
+      // leaves the visual (or its frame loses focus) after a position was
+      // reported.
+      function onNavigate(points) {
+        svg.querySelectorAll('rect.mark.highlighted').forEach(node => node.classList.remove('highlighted'));
+        element.classList.toggle('dimmed', points !== null && points.length > 0);
+        if (points === null) {
+          selection.textContent = 'Nothing selected (selectionManager.clear()).';
+          return;
+        }
+        if (points.length === 0) {
+          selection.textContent = 'A gap: no data point to select (selectionManager.clear()).';
+          return;
+        }
+        for (const ref of points) {
+          const mark = svg.querySelector(
+            `rect.mark[data-category-index="${ref.categoryIndex}"][data-value-column-index="${ref.valueColumnIndex}"]`,
+          );
+          mark?.classList.add('highlighted');
+        }
+        selection.textContent = `selectionManager.select([${points.map(describe).join(' | ')}])`;
+      }
+
+      // A click on a bar puts MAIDR's cursor on it: at once when the reader
+      // is inside the chart, otherwise on their next focus-in.
+      svg.addEventListener('click', (event) => {
+        const mark = event.target.closest('rect.mark');
+        if (mark && binding) {
+          binding.navigateTo({
+            kind: 'categorical',
+            categoryIndex: Number(mark.dataset.categoryIndex),
+            valueColumnIndex: Number(mark.dataset.valueColumnIndex),
+          });
+        }
+      });
+
+      // What a visual's update() does: draw, then hand MAIDR the data view.
+      function update(view) {
+        dataView = view;
+        draw(view);
+        binding.update(view);
+      }
+
+      // What a visual's constructor does.
+      binding = maidrPowerBI.bindPowerBI(element, {
+        chartType: 'column',
+        barMode: 'grouped',
+        title: 'Sales by quarter and region',
+        chart: svg,
+        onNavigate,
+      });
+      update(makeDataView(['North', 'South', 'West']));
+
+      // A slicer changes the data view. One region left is a plain bar
+      // chart. The binding is live by default, so the new data is applied in
+      // place even while the reader is inside the chart, keeping their
+      // position where it still exists. Pass live: false to hold it until
+      // focus leaves the visual instead.
+      let filtered = false;
+      document.getElementById('slicer').addEventListener('click', (event) => {
+        filtered = !filtered;
+        update(makeDataView(filtered ? ['North'] : ['North', 'South', 'West']));
+        event.target.textContent = filtered ? 'Slicer: show all regions' : 'Slicer: show North only';
+      });
+    </script>
+  </body>
+</html>

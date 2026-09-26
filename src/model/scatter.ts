@@ -2991,6 +2991,16 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
         if (cx && cy) {
           x = Number.parseFloat(cx);
           y = Number.parseFloat(cy);
+          // A circle can be drawn at the origin and moved into place, as MUI
+          // X Charts draws every marker: `cx="0" cy="0"
+          // transform="translate(65, 255)"`. Reading `cx`/`cy` alone put the
+          // whole scatter at (0, 0) -- one column holding every marker, and
+          // no marker for any other point. The translate is part of where
+          // the circle is drawn, so it is added; a circle without one is
+          // read as before.
+          const offset = ScatterTrace.translateOffset(element);
+          x += offset.x;
+          y += offset.y;
         }
       }
 
@@ -3064,6 +3074,29 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
       .map(([_, elements]) => elements);
 
     return [sortedXElements, sortedYElements];
+  }
+
+  /**
+   * How far an element's own `transform` moves it, when that transform is a
+   * `translate`; nothing otherwise.
+   *
+   * Only a leading `translate` is read. A scale or rotation would move the
+   * element by an amount that depends on its coordinates, which no producer
+   * has been seen to draw a scatter marker with.
+   *
+   * @param element - A scatter marker
+   * @returns The translation, `{ x: 0, y: 0 }` when there is none
+   */
+  private static translateOffset(element: SVGElement): { x: number; y: number } {
+    const match = (element.getAttribute('transform') ?? '').match(
+      /^\s*translate\s*\(\s*([\d.eE+-]+)(?:[\s,]+([\d.eE+-]+))?\s*\)/,
+    );
+    if (!match)
+      return { x: 0, y: 0 };
+    const x = Number.parseFloat(match[1]);
+    // `translate(tx)` leaves y where it is.
+    const y = match[2] === undefined ? 0 : Number.parseFloat(match[2]);
+    return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 0 };
   }
 
   /**

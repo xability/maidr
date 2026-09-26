@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + TradingView Lightweight Charts: Candlestick, Moving Average and Volume</title>
+
+    <!-- 1. Load Lightweight Charts v5 (standalone build) from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5/dist/lightweight-charts.standalone.production.js"></script>
+
+    <!-- 2. Load the MAIDR Lightweight Charts adapter (UMD). `bindLightweightChart`
+         mounts the full MAIDR app (React bundled in) around the chart, so the
+         core maidr.js script is not needed here. -->
+    <script type="text/javascript" src="../dist/lightweight-charts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      #price-chart {
+        width: 720px;
+        height: 460px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + TradingView Lightweight Charts</h1>
+    <p>
+      Sixty trading days of a fictional stock, drawn by Lightweight Charts on a
+      canvas: candlesticks with a 10-day moving average in the top pane, and
+      volume in the pane below. Click the chart (or Tab to it), then use the
+      arrow keys. Left and Right move between days; Up and Down move through a
+      candle's open, high, low and close. PageUp and PageDown switch between the
+      candlesticks and the moving average; press Enter on the figure to choose
+      the price or the volume pane. Toggle B for Braille, T for Text and S for
+      Sonification.
+    </p>
+
+    <div id="price-chart"></div>
+
+    <script>
+      // A seeded random walk, so the chart reads the same on every load.
+      let seed = 7;
+      function random() {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      }
+
+      const candles = [];
+      const volumes = [];
+      let close = 100;
+      const day = Date.UTC(2025, 0, 2) / 1000;
+      for (let i = 0; i < 60; i++) {
+        const time = day + i * 86400;
+        const open = close;
+        close = Math.round((open + (random() - 0.48) * 4) * 100) / 100;
+        const high = Math.round((Math.max(open, close) + random() * 2) * 100) / 100;
+        const low = Math.round((Math.min(open, close) - random() * 2) * 100) / 100;
+        candles.push({ time, open, high, low, close });
+        volumes.push({
+          time,
+          value: Math.round(800000 + random() * 1200000),
+          color: close >= open ? 'rgba(38, 166, 154, 0.6)' : 'rgba(239, 83, 80, 0.6)',
+        });
+      }
+      const average = candles.slice(9).map((candle, i) => {
+        const window = candles.slice(i, i + 10);
+        const mean = window.reduce((sum, c) => sum + c.close, 0) / window.length;
+        return { time: candle.time, value: Math.round(mean * 100) / 100 };
+      });
+
+      const chart = LightweightCharts.createChart(document.getElementById('price-chart'), {
+        layout: { background: { color: '#ffffff' }, textColor: '#333333' },
+        timeScale: { timeVisible: false },
+      });
+      const candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
+        title: 'ACME',
+      });
+      const averageSeries = chart.addSeries(LightweightCharts.LineSeries, {
+        title: '10-day average',
+        color: '#1565c0',
+        lineWidth: 2,
+      });
+      const volumeSeries = chart.addSeries(
+        LightweightCharts.HistogramSeries,
+        { title: 'Volume', priceFormat: { type: 'volume' } },
+        1, // the pane below the prices
+      );
+      candleSeries.setData(candles);
+      averageSeries.setData(average);
+      volumeSeries.setData(volumes);
+      chart.timeScale().fitContent();
+
+      // 3. Bind MAIDR: reads both panes and all three series.
+      window.maidrBinding = maidrLightweightCharts.bindLightweightChart(chart, {
+        id: 'lwc-acme',
+        title: 'ACME daily prices, January to March 2025',
+        axes: { x: 'Date' },
+      });
+    </script>
+  </body>
+</html>

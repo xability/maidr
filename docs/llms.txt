@@ -30,9 +30,12 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Frappe Charts](https://maidr.ai/frappe.html): Bar, line, multi-line, scatter, mixed axis, pie and donut charts
 - [Victory](https://maidr.ai/victory.html): Bar, line, scatter, stacked, histogram, box plot, candlestick and pie charts for React
 - [Nivo](https://maidr.ai/nivo.html): Bar, stacked, dodged, line, step, scatter, pie, heatmap and box plot charts from Nivo's React SVG components
+- [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, grouped, stacked and horizontal bar, line, area, scatter and pie charts from @mui/x-charts
 - [AnyChart](https://maidr.ai/anychart.html): Bar, line, step, scatter, box, heatmap, candlestick and pie charts via a one-line binder
 - [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
-- [Tableau](https://maidr.ai/tableau.html): Sonification, braille and screen-reader navigation for embedded Tableau dashboards
+- [TradingView Lightweight Charts](https://maidr.ai/lightweight-charts.html): Candlestick, OHLC bar, line, area, baseline and histogram series across panes, with live streaming
+- [Tableau](https://maidr.ai/tableau.html): Sonification, braille and screen-reader navigation for embedded Tableau dashboards, or from inside one as a dashboard extension
+- [Power BI](https://maidr.ai/powerbi.html): Sonification, braille and keyboard navigation inside a Power BI custom visual
 
 ## Optional
 - [npm](https://www.npmjs.com/package/maidr): Install with `npm install maidr`
