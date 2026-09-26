@@ -520,14 +520,16 @@ function pieLayers(props: Props): NivoLayerInfo[] {
  */
 function heatmapLayers(props: Props): NivoLayerInfo[] {
   const rows = records(props.data);
-  const columns: string[] = [];
+  // Each label's column, so placing a cell is a lookup rather than a scan.
+  const columnOf = new Map<string, number>();
   for (const row of rows) {
     for (const datum of records(row.data)) {
       const x = toLabel(datum.x);
-      if (!columns.includes(x))
-        columns.push(x);
+      if (!columnOf.has(x))
+        columnOf.set(x, columnOf.size);
     }
   }
+  const columns = [...columnOf.keys()];
   if (rows.length === 0 || columns.length === 0)
     return [];
 
@@ -537,7 +539,9 @@ function heatmapLayers(props: Props): NivoLayerInfo[] {
     const valueRow: (number | null)[] = columns.map(() => null);
     const idRow: (string | null)[] = columns.map(() => null);
     for (const datum of records(row.data)) {
-      const column = columns.indexOf(toLabel(datum.x));
+      const column = columnOf.get(toLabel(datum.x));
+      if (column === undefined)
+        continue;
       const value = toMagnitude(datum.y);
       valueRow[column] = Number.isNaN(value) ? null : value;
       // Nivo concatenates the id and `x` as strings (`id + '.' + x`), so a
@@ -613,7 +617,9 @@ function boxLevels(levels: unknown, data: Datum[], by: unknown): string[] | null
  *
  * Nivo takes raw observations and computes each box itself, from its
  * `quantiles` prop — by default `[0.1, 0.25, 0.5, 0.75, 0.9]`, so the
- * whiskers end at the **10th and 90th percentiles**, not at 1.5 IQR. The
+ * whiskers end at the **10th and 90th percentiles**, not at 1.5 IQR, and
+ * the layer's `whiskerQuantiles` says so, so they are not announced as the
+ * minimum and maximum. The
  * summary is recomputed here exactly as Nivo does (stratification, sort,
  * interpolation), so the numbers read are the ones drawn. Nivo draws no
  * points beyond the whiskers, so no outliers are emitted.
@@ -682,6 +688,7 @@ function boxLayers(props: Props): NivoLayerInfo[] {
   for (let subGroupIndex = 0; subGroupIndex < nSubGroups; subGroupIndex++) {
     const boxes: BoxPoint[] = [];
     const keys: string[] = [];
+    const whiskers: [number, number][] = [];
     for (let groupIndex = 0; groupIndex < nGroups; groupIndex++) {
       const stratum = strata[groupIndex * nSubGroups + subGroupIndex];
       const summary = summarize(stratum, getValue, quantiles);
@@ -699,6 +706,7 @@ function boxLayers(props: Props): NivoLayerInfo[] {
         upperOutliers: [],
       });
       keys.push(`boxplot.${groupIndex}.${subGroupIndex}`);
+      whiskers.push([summary.quantiles[0], summary.quantiles[4]]);
     }
     if (boxes.length === 0)
       continue;
@@ -706,10 +714,11 @@ function boxLayers(props: Props): NivoLayerInfo[] {
       boxes.reverse();
       keys.reverse();
     }
+    const whiskerQuantiles = sharedWhiskerQuantiles(whiskers);
     layers.push({
       id: String(layers.length),
       ...(subGroups ? { name: subGroups[subGroupIndex] } : {}),
-      data: { kind: 'box', points: boxes },
+      data: { kind: 'box', points: boxes, ...(whiskerQuantiles ? { whiskerQuantiles } : {}) },
       ...labels,
       orientation: horizontal ? Orientation.HORIZONTAL : undefined,
       marks: {
@@ -729,6 +738,31 @@ function boxLayers(props: Props): NivoLayerInfo[] {
 }
 
 /**
+ * The quantiles a layer's whiskers end at, for the core to name them by.
+ *
+ * Omitted when they are 0 and 1 -- the whiskers then do end at the minimum
+ * and maximum -- and when the boxes disagree, which only precomputed
+ * summaries carrying different `quantiles` can do, since one pair cannot
+ * name them all.
+ *
+ * @param whiskers - Each box's lower and upper whisker quantile
+ * @returns The shared pair, or undefined
+ */
+function sharedWhiskerQuantiles(whiskers: [number, number][]): [number, number] | undefined {
+  const [first] = whiskers;
+  if (first === undefined || !first.every(Number.isFinite))
+    return undefined;
+  if (whiskers.some(([lower, upper]) => lower !== first[0] || upper !== first[1])) {
+    console.warn(
+      'MAIDR: the boxes of a Nivo box plot end their whiskers at different quantiles; '
+      + 'their ends are announced as the minimum and maximum.',
+    );
+    return undefined;
+  }
+  return first[0] === 0 && first[1] === 1 ? undefined : [first[0], first[1]];
+}
+
+/**
  * One stratum's summary, as `summarizeDistribution` in `@nivo/boxplot`
  * computes it: a single datum carrying a whole summary is drawn as given,
  * and anything else is a list of observations.
@@ -736,21 +770,23 @@ function boxLayers(props: Props): NivoLayerInfo[] {
  * @param stratum - The observations of one (group, sub-group)
  * @param getValue - Reads an observation's value
  * @param quantiles - The quantiles to draw
- * @returns How many observations there were, and the quantile values
+ * @returns How many observations there were, the quantiles drawn -- a
+ *          precomputed summary's own -- and their values
  */
 function summarize(
   stratum: Datum[],
   getValue: (datum: Datum) => unknown,
   quantiles: number[],
-): { n: number; values: number[] } {
+): { n: number; quantiles: number[]; values: number[] } {
   if (stratum.length === 1 && PRECOMPUTED_KEYS.every(key => key in stratum[0])) {
     const given = stratum[0];
     const values = Array.isArray(given.values) ? given.values.map(Number) : [];
-    return { n: Number(given.n), values };
+    const own = Array.isArray(given.quantiles) ? given.quantiles.map(Number) : [];
+    return { n: Number(given.n), quantiles: own, values };
   }
   const values = stratum.map(datum => Number(getValue(datum)));
   values.sort((a, b) => a - b);
-  return { n: values.length, values: quantiles.map(q => nivoQuantile(values, q)) };
+  return { n: values.length, quantiles, values: quantiles.map(q => nivoQuantile(values, q)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -844,7 +880,13 @@ export function toMaidrLayer(layer: NivoLayerInfo, selectors?: MaidrLayer['selec
     case 'heatmap':
       return { ...base, type: TraceType.HEATMAP, axes, data: data.points };
     case 'box':
-      return { ...base, type: TraceType.BOX, axes, data: data.points };
+      return {
+        ...base,
+        type: TraceType.BOX,
+        ...(data.whiskerQuantiles ? { whiskerQuantiles: data.whiskerQuantiles } : {}),
+        axes,
+        data: data.points,
+      };
   }
 }
 

@@ -120,10 +120,13 @@ const CASES: Case[] = [
     id: 'nivo-boxplot-horizontal',
     steps: [
       { key: 'ArrowRight', says: 'Departure is Morning, no Lower outlier(s)' },
-      { key: 'ArrowRight', says: 'Minimum', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 2 } },
+      // Nivo's default whiskers end at the 10th and 90th percentiles, and are
+      // named so rather than as a minimum and maximum.
+      { key: 'ArrowRight', says: '10th percentile', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 2 } },
       { key: 'ArrowRight', says: '25%', mark: { selector: '[data-key="boxplot.0.0"] > rect' } },
       { key: 'ArrowRight', says: '50%', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 0 } },
       { key: 'ArrowRight', says: '75%', mark: { selector: '[data-key="boxplot.0.0"] > rect' } },
+      { key: 'ArrowRight', says: '90th percentile', mark: { selector: '[data-key="boxplot.0.0"] > line', nth: 4 } },
     ],
   },
   {

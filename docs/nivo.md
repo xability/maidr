@@ -271,7 +271,7 @@ A `null` value is read as an empty cell. Nivo still draws that cell in its `empt
 
 `@nivo/boxplot` takes raw observations (`{ group, subGroup?, value }`) and computes each box itself. MAIDR repeats that computation the way Nivo does it, with the same grouping, sorting and interpolation, so the numbers you hear are the numbers drawn.
 
-**Nivo's whiskers are not Tukey's.** Its default `quantiles` are `[0.1, 0.25, 0.5, 0.75, 0.9]`. The box spans the 25th to 75th percentile and the whiskers end at the **10th and 90th percentiles**, not at 1.5 × IQR. MAIDR reads those whisker ends as the box's minimum and maximum. A custom `quantiles` prop is honoured. It must have five values, otherwise the adapter warns and emits nothing. Nivo draws no points beyond the whiskers, so MAIDR reports no outliers.
+**Nivo's whiskers are not Tukey's.** Its default `quantiles` are `[0.1, 0.25, 0.5, 0.75, 0.9]`. The box spans the 25th to 75th percentile and the whiskers end at the **10th and 90th percentiles**, not at 1.5 × IQR. MAIDR announces those whisker ends as the percentiles they are, "10th percentile" and "90th percentile", rather than as a minimum and maximum. It does so through the layer's `whiskerQuantiles` field, which the adapter omits when the quantiles run from 0 to 1 and the whiskers do end at the extremes. A custom `quantiles` prop is honoured. It must have five values, otherwise the adapter warns and emits nothing. Nivo draws no points beyond the whiskers, so MAIDR reports no outliers.
 
 ```tsx
 <MaidrNivo id="box-example" title="Scores by Class" type="boxplot">

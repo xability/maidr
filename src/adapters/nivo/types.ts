@@ -129,7 +129,8 @@ export type NivoLayerData
     | { kind: 'scatter'; points: ScatterPoint[] }
     | { kind: 'pie'; points: PiePoint[]; dial: Pick<MaidrLayer, 'startAngle' | 'direction'> }
     | { kind: 'heatmap'; points: HeatmapData }
-    | { kind: 'box'; points: BoxPoint[] };
+    /** `whiskerQuantiles` is set unless the whiskers end at the extremes. */
+    | { kind: 'box'; points: BoxPoint[]; whiskerQuantiles?: [number, number] };
 
 /**
  * Intermediate representation of one Nivo layer before conversion to the

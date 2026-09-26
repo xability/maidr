@@ -565,6 +565,177 @@ describe('MaidrNivo', () => {
   });
 });
 
+/**
+ * Every selector string a layer emits, whatever its shape.
+ * @param selectors - The layer's selectors
+ * @returns The strings
+ */
+function selectorStrings(selectors: MaidrLayer['selectors']): string[] {
+  const out: string[] = [];
+  const visit = (value: unknown): void => {
+    if (typeof value === 'string')
+      out.push(value);
+    else if (Array.isArray(value))
+      value.forEach(visit);
+    else if (value !== null && typeof value === 'object')
+      Object.values(value).forEach(visit);
+  };
+  visit(selectors);
+  return out;
+}
+
+describe('two charts on one page', () => {
+  it.each([
+    ['bar', Bar as never, { data: FOOD, keys: ['hotdog', 'burger'], indexBy: 'country' }],
+    ['line', Line as never, { data: [{ id: 'a', data: [{ x: 'p', y: 1 }, { x: 'q', y: 2 }] }] }],
+    ['scatterplot', ScatterPlot as never, { data: [{ id: 'a', data: [{ x: 1, y: 2 }, { x: 3, y: 1 }] }] }],
+    ['boxplot', BoxPlot as never, { data: [1, 2, 3, 4, 5, 6].map(value => ({ group: 'g', value })) }],
+  ] as [NivoChartType, ComponentType<Record<string, unknown>>, Record<string, unknown>][])(
+    'never match each other\'s %s marks',
+    (type, Chart, props) => {
+      const chartProps = { ...SIZE, ...props };
+      const found: MaidrData[] = [];
+
+      function Harness({ index }: { index: number }): ReactElement {
+        const ref = useRef<HTMLDivElement>(null);
+        found[index] = useNivoAdapter({ id: `chart-${index}`, type, props: chartProps }, ref);
+        return <div ref={ref} className={`chart-${index}`}><Chart {...chartProps} /></div>;
+      }
+
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const root = createRoot(host);
+      act(() => root.render(
+        <>
+          <Harness index={0} />
+          <Harness index={1} />
+        </>,
+      ));
+      unmount = () => root.unmount();
+
+      const containers = [0, 1].map(index => host.querySelector(`.chart-${index}`) as HTMLElement);
+      found.forEach((data, index) => {
+        const own = containers[index];
+        const other = containers[1 - index];
+        const selectors = data.subplots[0][0].layers.flatMap(layer => selectorStrings(layer.selectors));
+        expect(selectors.length).toBeGreaterThan(0);
+        for (const selector of selectors) {
+          const matches = Array.from(document.querySelectorAll(selector));
+          expect(matches.length).toBeGreaterThan(0);
+          expect(matches.every(el => own.contains(el))).toBe(true);
+          expect(matches.some(el => other.contains(el))).toBe(false);
+        }
+      });
+    },
+  );
+});
+
+describe('the hook\'s observer', () => {
+  /**
+   * Mounts a bar chart whose parent can re-render it, with equal or new data.
+   * @returns Controls for the parent, and the container
+   */
+  function mountRerenderable(): { rerender: (data: typeof FOOD) => void; container: HTMLElement } {
+    let setData: (data: typeof FOOD) => void = () => {};
+    function Harness(): ReactElement {
+      const ref = useRef<HTMLDivElement>(null);
+      const [data, set] = useState(FOOD);
+      setData = set;
+      // A fresh props object on every render, as an inline literal is.
+      const props = { ...SIZE, data: data.map(row => ({ ...row })), keys: ['hotdog'], indexBy: 'country' };
+      useNivoAdapter({ id: 'rerender', type: 'bar', props }, ref);
+      return <div ref={ref}><Bar {...props} /></div>;
+    }
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => root.render(<Harness />));
+    unmount = () => root.unmount();
+    return {
+      rerender: data => act(() => setData(data)),
+      container: host.firstElementChild as HTMLElement,
+    };
+  }
+
+  it('survives a parent re-render with equal props, and is rebuilt for new data', () => {
+    const observe = jest.spyOn(MutationObserver.prototype, 'observe');
+    const disconnect = jest.spyOn(MutationObserver.prototype, 'disconnect');
+    const query = jest.spyOn(Element.prototype, 'querySelectorAll');
+    const passes = (): number =>
+      query.mock.calls.filter(([selector]) => String(selector).includes('data-maidr-nivo-line')).length;
+    try {
+      const { rerender } = mountRerenderable();
+      const observed = observe.mock.calls.length;
+      const passed = passes();
+      expect(observed).toBeGreaterThan(0);
+
+      rerender(FOOD.map(row => ({ ...row })));
+      expect(observe.mock.calls.length).toBe(observed);
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(passes()).toBe(passed);
+
+      rerender([...FOOD, { country: 'AG', hotdog: 8 }]);
+      expect(disconnect).toHaveBeenCalledTimes(1);
+      expect(observe.mock.calls.length).toBe(observed + 1);
+      expect(passes()).toBeGreaterThan(passed);
+    } finally {
+      observe.mockRestore();
+      disconnect.mockRestore();
+      query.mockRestore();
+    }
+  });
+
+  it('tags a container that mounts on a later render with equal props', () => {
+    let show: () => void = () => {};
+    let data: MaidrData | null = null;
+    function Harness(): ReactElement {
+      const ref = useRef<HTMLDivElement>(null);
+      const [mounted, setMounted] = useState(false);
+      show = () => setMounted(true);
+      const props = { ...SIZE, data: FOOD, keys: ['hotdog'], indexBy: 'country' };
+      data = useNivoAdapter({ id: 'late', type: 'bar', props }, ref);
+      return mounted ? <div ref={ref}><Bar {...props} /></div> : <p>loading</p>;
+    }
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => root.render(<Harness />));
+    unmount = () => root.unmount();
+    expect(layersOf(data!)[0].selectors).toBeUndefined();
+
+    act(() => show());
+    const selectors = layersOf(data!)[0].selectors as string[];
+    expect(selectors).toHaveLength(3);
+    selectors.forEach(selector => expect(count(selector)).toBe(1));
+  });
+
+  it('is disconnected on unmount, and its pending frame cancelled', async () => {
+    const disconnect = jest.spyOn(MutationObserver.prototype, 'disconnect');
+    // A frame that never comes, so the pass is still pending at unmount.
+    const request = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 42);
+    const cancel = jest.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    try {
+      const { container } = mountRerenderable();
+      // A mark drawn after mount schedules a pass for the next frame.
+      await act(async () => {
+        container.firstElementChild?.appendChild(document.createElement('div'));
+        await Promise.resolve();
+      });
+      expect(request).toHaveBeenCalledTimes(1);
+
+      act(() => unmount?.());
+      unmount = null;
+
+      expect(disconnect).toHaveBeenCalledTimes(1);
+      expect(cancel).toHaveBeenCalledWith(42);
+    } finally {
+      disconnect.mockRestore();
+      request.mockRestore();
+      cancel.mockRestore();
+    }
+  });
+});
+
 /** The container id the last mount stamped. */
 function layerContainerId(): string {
   const scoped = document.querySelector('[id^="mn-"]');

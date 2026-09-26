@@ -93,6 +93,10 @@ describe('nivo bar', () => {
       groupMode: 'grouped',
     });
     expect(layer.type).toBe(TraceType.DODGED);
+    expect(layer.data).toEqual([
+      [{ x: 'AD', y: 10, z: 'hotdog' }, { x: 'AE', y: 5, z: 'hotdog' }, { x: 'AF', y: 3, z: 'hotdog' }],
+      [{ x: 'AD', y: 20, z: 'burger' }, { x: 'AE', y: 7, z: 'burger' }, { x: 'AF', y: 4, z: 'burger' }],
+    ]);
   });
 
   it('keeps a missing cell of a stacked chart as a gap', () => {
@@ -146,6 +150,18 @@ describe('nivo bar', () => {
       initialHiddenIds: ['burger'],
     });
     expect(layer.type).toBe(TraceType.BAR);
+    expect(layer.data).toEqual([{ x: 'AD', y: 10 }, { x: 'AE', y: 5 }, { x: 'AF', y: 3 }]);
+    expect(layer.axes).toEqual({ x: { label: 'country' }, y: { label: 'hotdog' } });
+    const [info] = extractNivoLayers('bar', {
+      data: FOOD,
+      keys: ['hotdog', 'burger'],
+      indexBy: 'country',
+      initialHiddenIds: ['burger'],
+    });
+    expect(info.marks).toEqual({
+      kind: 'bar',
+      testIds: ['bar.item.hotdog.0', 'bar.item.hotdog.1', 'bar.item.hotdog.2'],
+    });
   });
 
   it('accepts an indexBy function', () => {
@@ -269,7 +285,9 @@ describe('nivo line', () => {
   });
 
   it('keeps a smooth curve a line', () => {
-    expect(layerOf('line', { data: SERIES, curve: 'monotoneX' }).type).toBe(TraceType.LINE);
+    const layer = layerOf('line', { data: SERIES, curve: 'monotoneX' });
+    expect(layer.type).toBe(TraceType.LINE);
+    expect(layer).not.toHaveProperty('stepDirection');
   });
 
   it('keeps numeric x values numeric', () => {
@@ -429,6 +447,28 @@ describe('nivo scatterplot on a time scale', () => {
     expect(info.yAxisFormat).toMatchObject({ type: 'date' });
   });
 
+  it('reads a number under a format as its text, as d3\'s parser coerces it', () => {
+    const [info] = extractNivoLayers('scatterplot', {
+      xScale: { type: 'time', format: '%Y' },
+      data: [{ id: 'A', data: [{ x: 2020, y: 1 }, { x: 2021, y: 2 }] }],
+    });
+    expect((info.data as { points: ScatterPoint[] }).points).toEqual([
+      { x: Date.UTC(2020, 0, 1), y: 1 },
+      { x: Date.UTC(2021, 0, 1), y: 2 },
+    ]);
+  });
+
+  it('leaves a falsy number unparsed, as Nivo does, so 0 sits at the epoch', () => {
+    const [info] = extractNivoLayers('scatterplot', {
+      xScale: { type: 'time', format: '%Y' },
+      data: [{ id: 'A', data: [{ x: 0, y: 1 }, { x: 2020, y: 2 }] }],
+    });
+    expect((info.data as { points: ScatterPoint[] }).points).toEqual([
+      { x: 0, y: 1 },
+      { x: Date.UTC(2020, 0, 1), y: 2 },
+    ]);
+  });
+
   it('warns when a series has points but none can be placed', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const layers = extractNivoLayers('scatterplot', {
@@ -505,6 +545,24 @@ describe('nivo boxplot', () => {
     const layer = layerOf('boxplot', { data: OBSERVATIONS, quantiles: [0, 0.25, 0.5, 0.75, 1] });
     const [a] = layer.data as BoxPoint[];
     expect([a.min, a.max]).toEqual([0, 9]);
+  });
+
+  it('says which quantiles the whiskers end at, so they are not called a minimum and maximum', () => {
+    expect(layerOf('boxplot', { data: OBSERVATIONS }).whiskerQuantiles).toEqual([0.1, 0.9]);
+    expect(layerOf('boxplot', { data: OBSERVATIONS, quantiles: [0.05, 0.25, 0.5, 0.75, 0.95] }).whiskerQuantiles)
+      .toEqual([0.05, 0.95]);
+  });
+
+  it('omits whiskerQuantiles when the whiskers end at the extremes', () => {
+    const layer = layerOf('boxplot', { data: OBSERVATIONS, quantiles: [0, 0.25, 0.5, 0.75, 1] });
+    expect(layer).not.toHaveProperty('whiskerQuantiles');
+  });
+
+  it('takes a precomputed summary\'s whisker quantiles from its own quantiles', () => {
+    const layer = layerOf('boxplot', {
+      data: [{ group: 'x', subGroup: '', n: 3, mean: 2, extrema: [0, 5], quantiles: [0.02, 0.25, 0.5, 0.75, 0.98], values: [1, 2, 3, 4, 5] }],
+    });
+    expect(layer.whiskerQuantiles).toEqual([0.02, 0.98]);
   });
 
   it('interpolates between ranks the way Nivo does', () => {

@@ -212,8 +212,15 @@ export function timeReader(scale: TimeScaleSpec): (value: unknown) => number | u
     let time: number | undefined;
     if (value instanceof Date)
       time = value.getTime();
-    else if (typeof value === 'string' && parse)
-      time = parse(value);
+    // Under a format Nivo parses every truthy value, and d3's parser coerces
+    // with `String()`, so a number such as 2020 under `format: '%Y'` is drawn
+    // as the year it reads as text. A falsy value is left raw, and d3's time
+    // scale then places the number 0 at the epoch; anything else falsy is
+    // not read as a time here.
+    else if (parse && value)
+      time = parse(String(value));
+    else if (parse && value === 0)
+      time = 0;
     if (time === undefined || Number.isNaN(time))
       return undefined;
     const date = new Date(time);

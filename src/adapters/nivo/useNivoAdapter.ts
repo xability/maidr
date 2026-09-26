@@ -97,17 +97,37 @@ export function useNivoAdapter(
     drawn: '',
   });
 
+  // What the chart reads as, and the fingerprint the effect is keyed on. A
+  // parent re-render hands the chart a new `props` object every time; keyed on
+  // that, the observer was torn down and rebuilt on each render, dropping any
+  // mutation records it had not yet delivered. The layers carry everything the
+  // tagging depends on, so equal layers and metadata need no new pass.
+  const layers = extractNivoLayers(type, props);
+  const input = JSON.stringify([id, title, subtitle, caption, layers]);
+  const latestRef = useRef<{ config: NivoAdapterConfig; layers: NivoLayerInfo[] }>({ config, layers });
+  latestRef.current = { config: { id, title, subtitle, caption, type, props }, layers };
+
+  // The element the chart is rendered in. A ref keeps its identity when its
+  // element comes or goes, so the effect below is keyed on this instead: a
+  // container that mounts after the first commit -- behind a mounted flag, a
+  // tab or a Suspense boundary -- with unchanged data is still tagged and
+  // observed. Checked after every commit; it only re-renders on a change.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    const container = containerRef.current;
+    if (containerRef.current !== container)
+      setContainer(containerRef.current);
+  });
+
+  useLayoutEffect(() => {
     if (!container)
       return;
 
     // Scope every selector to this chart's own container, so two charts on a
     // page never cross-highlight (the model resolves selectors page-wide).
     const scope = `#${cssEscape(ensureContainerId(container, 'mn'))} `;
-    const current: NivoAdapterConfig = { id, title, subtitle, caption, type, props };
-    const layers = extractNivoLayers(type, props);
-    const input = JSON.stringify([id, title, subtitle, caption, layers]);
+    // The render that changed `input` wrote these; a later one with the same
+    // `input` read the same chart.
+    const { config: current, layers } = latestRef.current;
     let frameId = 0;
     let resolvePending = false;
     let syncPending = false;
@@ -179,7 +199,7 @@ export function useNivoAdapter(
       if (frameId)
         cancelAnimationFrame(frameId);
     };
-  }, [containerRef, id, title, subtitle, caption, type, props]);
+  }, [container, input]);
 
   return maidrData;
 }
