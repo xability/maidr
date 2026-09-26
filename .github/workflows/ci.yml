@@ -204,11 +204,11 @@ jobs:
       # browser asks for a language, so the packs have to be in dist too.
       # tableauExtension.spec.ts drives dist/tableau.js,
       # lightweightCharts.spec.ts dist/lightweight-charts.js, uplot.spec.ts
-      # dist/uplot.js, and the Superset and Metabase fixtures of
-      # biToolOutput.spec.ts dist/echarts.js -- the only adapter bundles a
-      # spec loads.
+      # dist/uplot.js, apexcharts.spec.ts dist/apexcharts.js, and the Superset
+      # and Metabase fixtures of biToolOutput.spec.ts dist/echarts.js -- the
+      # only adapter bundles a spec loads.
       - name: Build core bundle, locale packs and the adapters the specs load
-        run: node scripts/build.js core locales tableau lightweight-charts echarts uplot
+        run: node scripts/build.js core locales tableau lightweight-charts echarts uplot apexcharts
 
       # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
       # single-file bundle that is gitignored like dist/.
