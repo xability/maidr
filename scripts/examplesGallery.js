@@ -51,6 +51,19 @@ export const EXCLUDED_EXAMPLES = [
       + 'MUI X Charts group links that build.',
   },
   {
+    page: 'tableau-extension/configure.html',
+    reason:
+      'The Tableau extension\'s configuration dialog. Tableau opens it from the '
+      + 'extension\'s Configure menu; outside a dashboard it has no settings to edit.',
+  },
+  {
+    page: 'tableau-extension/index.html',
+    reason:
+      'The page maidr.trex points a Tableau dashboard at. It reads the dashboard '
+      + 'it is a zone of, so outside Tableau there is nothing for it to show; the '
+      + 'Tableau Integration Guide explains how to add it to a dashboard.',
+  },
+  {
     page: 'victory/index.html',
     reason:
       'Vite entry point, not a page. `npm run build:victory-example` bundles it '

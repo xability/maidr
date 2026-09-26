@@ -407,7 +407,9 @@ export const builds = [
     // is bundled in (mirrors chartjs/amcharts) and the UMD build (tableau.js)
     // exposes the `maidrTableau` global for classic <script> use. Tableau's
     // Embedding API is loaded by the host page and is only duck-typed off the
-    // live viz element, so there is nothing to externalize.
+    // live viz element, and `bindTableauExtension` does the same with the
+    // Extensions API the extension's page loads, so there is nothing to
+    // externalize.
     external: [],
     useReact: true,
     useDts: true,

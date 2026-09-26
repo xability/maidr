@@ -202,8 +202,10 @@ jobs:
 
       # The example pages fetch a locale pack from beside maidr.js when the
       # browser asks for a language, so the packs have to be in dist too.
-      - name: Build core bundle and locale packs
-        run: node scripts/build.js core locales
+      # tableauExtension.spec.ts drives dist/tableau.js, the only adapter
+      # bundle a spec loads.
+      - name: Build core bundle, locale packs and the Tableau adapter
+        run: node scripts/build.js core locales tableau
 
       # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
       # single-file bundle that is gitignored like dist/.
