@@ -788,3 +788,116 @@ export interface TableauAdapterOptions {
    */
   layout?: 'grid' | 'column';
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard Extensions API
+//
+// Structural mirrors of the members `bindTableauExtension` reads, taken from
+// `@tableau/extensions-api-types@1.17.0`. As on the embedding side, no
+// `@tableau/*` package is imported: the host page loads the Extensions library
+// itself, and these types describe only what is read off it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Removes the listener it was returned for.
+ *
+ * Mirrors `TableauEventUnregisterFn` in `ExternalContract/Extensions/EventInterface.d.ts`.
+ * The Extensions API hands this back from `addEventListener` rather than
+ * expecting the caller to keep the handler for a `removeEventListener`.
+ */
+export type TableauEventUnregisterFn = () => boolean;
+
+/**
+ * Anything the Extensions API lets a listener be attached to.
+ *
+ * Mirrors `EventListenerManager` in `ExternalContract/Extensions/EventInterface.d.ts`,
+ * minus `removeEventListener`, which the unregister closure makes unnecessary.
+ * The event type is widened to `string` for the reason `TableauDashboardObject.type`
+ * is: the host loads whichever library build it likes, and an older one throws
+ * for an event type it does not know, which the binder catches.
+ */
+export interface TableauEventListenerManager {
+  addEventListener: (
+    eventType: string,
+    handler: (event: unknown) => void,
+  ) => TableauEventUnregisterFn;
+}
+
+/** A worksheet as the Extensions API hands it out: a worksheet that also takes listeners. */
+export interface TableauExtensionWorksheet extends TableauWorksheet, TableauEventListenerManager {}
+
+/**
+ * A parameter. Only its change event is read.
+ *
+ * Mirrors `Parameter` in `ExternalContract/Extensions/ParameterInterfaces.d.ts`.
+ */
+export interface TableauExtensionParameter extends TableauEventListenerManager {
+  readonly name: string;
+}
+
+/**
+ * The dashboard the extension is a zone of.
+ *
+ * Mirrors `Dashboard` in `ExternalContract/Extensions/SheetInterfaces.d.ts`.
+ * `objects` is optional here for the reason it is on {@link TableauDashboard};
+ * `addEventListener` and `getParametersAsync` are optional because they are
+ * feature-detected rather than trusted, like everything a host library may
+ * predate.
+ */
+export interface TableauExtensionDashboard extends TableauDashboard {
+  readonly worksheets: readonly TableauExtensionWorksheet[];
+  readonly addEventListener?: TableauEventListenerManager['addEventListener'];
+  readonly getParametersAsync?: () => Promise<readonly TableauExtensionParameter[]>;
+}
+
+/**
+ * Settings saved with the workbook, one string per key.
+ *
+ * Mirrors `Settings` in `ExternalContract/Extensions/Namespaces/Settings.d.ts`.
+ * Settings are per extension *instance*, so two MAIDR zones on one dashboard
+ * are configured independently.
+ */
+export interface TableauExtensionSettings extends TableauEventListenerManager {
+  get: (key: string) => string | undefined;
+  set: (key: string, value: string) => void;
+  saveAsync: () => Promise<unknown>;
+}
+
+/**
+ * Size of a dialog, in pixels.
+ *
+ * Mirrors `DialogOptions` in `ExternalContract/Extensions/Namespaces/UI.d.ts`.
+ */
+export interface TableauDialogOptions {
+  readonly width?: number;
+  readonly height?: number;
+}
+
+/**
+ * The dialog half of the Extensions API.
+ *
+ * Mirrors `UI` in `ExternalContract/Extensions/Namespaces/UI.d.ts`.
+ */
+export interface TableauExtensionUI {
+  displayDialogAsync: (
+    url: string,
+    payload?: string,
+    dialogOptions?: TableauDialogOptions,
+  ) => Promise<string>;
+  closeDialog: (payload?: string) => void;
+}
+
+/**
+ * `tableau.extensions`, as far as MAIDR reads it.
+ *
+ * Mirrors `Extensions` in `ExternalContract/Extensions/Namespaces/Extensions.d.ts`.
+ * `dashboardContent` is optional there too: a viz extension has
+ * `worksheetContent` instead, and MAIDR runs only as a dashboard extension.
+ */
+export interface TableauExtensions {
+  initializeAsync: (contextMenuCallbacks?: Record<string, () => unknown>) => Promise<void>;
+  initializeDialogAsync: () => Promise<string>;
+  readonly dashboardContent?: { readonly dashboard: TableauExtensionDashboard };
+  readonly settings: TableauExtensionSettings;
+  readonly ui: TableauExtensionUI;
+}

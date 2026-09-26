@@ -1,8 +1,8 @@
 # Tableau Integration
 
-MAIDR ships a Tableau *binder* for the [Tableau Embedding API v3](https://help.tableau.com/current/api/embedding_api/en-us/index.html). One call — `bindTableau(viz)` — reads the summary data out of an embedded `<tableau-viz>` worksheet or dashboard and mounts MAIDR's accessible layer beside it, adding audio sonification, text descriptions, braille output, keyboard navigation, and a description modal to a visualization that a screen reader otherwise reaches only as a static image with a tooltip.
+MAIDR ships two Tableau *binders*. The main one is for the [Tableau Embedding API v3](https://help.tableau.com/current/api/embedding_api/en-us/index.html): one call — `bindTableau(viz)` — reads the summary data out of an embedded `<tableau-viz>` worksheet or dashboard and mounts MAIDR's accessible layer beside it, adding audio sonification, text descriptions, braille output, keyboard navigation, and a description modal to a visualization that a screen reader otherwise reaches only as a static image with a tooltip. The second, `bindTableauExtension()`, runs the same thing *inside* a dashboard as a [dashboard extension](#dashboard-extension), for dashboards whose host page you cannot change; it is experimental until its screen-reader reach is established.
 
-> **What this adapter is not.** It does **not** run inside Tableau as a dashboard extension, and it does **not** draw a highlight box. A `<tableau-viz>` is a cross-origin `<iframe>`: the host page cannot read its SVG, cannot inject ARIA into it, and cannot style anything inside it. Everything the adapter knows comes from the asynchronous data API, and the only visual feedback it can produce is Tableau's **own mark selection**, driven from the keyboard as the reader navigates. See [Limitations](#limitations) before you plan around it.
+> **What this adapter is not.** It does **not** draw a highlight box. A `<tableau-viz>` is a cross-origin `<iframe>`: the host page cannot read its SVG, cannot inject ARIA into it, and cannot style anything inside it. Everything the adapter knows comes from the asynchronous data API, and the only visual feedback it can produce is Tableau's **own mark selection**, driven from the keyboard as the reader navigates. See [Limitations](#limitations) before you plan around it.
 
 ## Quick Start
 
@@ -181,7 +181,7 @@ const binding = await bindTableau(viz, options);
 // later: binding?.dispose();
 ```
 
-No `@tableau/*` package is required or installed. The adapter's Tableau types are its own structural interfaces, which is what keeps it version-independent — and what lets the same extraction code serve a future Dashboard Extensions binder unchanged. They describe only the members it reads, with one exception: the visual specification is mirrored whole, member for member, against the declarations shipped in `@tableau/embedding-api@3.12.1`, and each of those types names the file it was read from so it can be re-verified against the package rather than against prose.
+No `@tableau/*` package is required or installed. The adapter's Tableau types are its own structural interfaces, which is what keeps it version-independent — and what lets the same extraction code serve the [Dashboard Extensions binder](#dashboard-extension) unchanged. They describe only the members it reads, with one exception: the visual specification is mirrored whole, member for member, against the declarations shipped in `@tableau/embedding-api@3.12.1`, and each of those types names the file it was read from so it can be re-verified against the package rather than against prose.
 
 ## Supported Chart Types
 
@@ -308,6 +308,71 @@ maidrTableau.bindTableau(viz, { live: true });
 
 The figure's id is captured once at bind time and reused across every refresh, so the same MAIDR instance is updated rather than replaced.
 
+## Dashboard Extension
+
+`bindTableauExtension()` runs MAIDR as a zone *of* a Tableau dashboard rather than beside an embedded one. Use it when you author the dashboard but do not control the page it is shown on — Tableau Desktop, Tableau Server and Tableau Cloud dashboards viewed in Tableau itself. Everything after discovery is the same code `bindTableau` runs: the same reads, the same chart-type decisions, the same overrides, the same mark-selection bridge.
+
+> **Experimental.** A browser keeps the extension reachable and its keys to itself, and that is tested. Whether a *Tableau dashboard* and a *screen reader* do is not — see [below](#what-is-and-is-not-known-about-reaching-it) before relying on it for readers who depend on it. The [Embedding binder](#quick-start) has no such open question.
+
+### Adding it to a dashboard
+
+1. Download [`maidr.trex`](examples/tableau-extension/maidr.trex).
+2. In a dashboard, drag an **Extension** object from the *Objects* pane, choose **Access Local Extensions**, and pick the file.
+3. Allow it **full data** when Tableau asks. The extension reads each worksheet's summary data, which the Extensions API returns only to an extension that declares it.
+4. Optionally, open the zone's **Configure** menu to set [options](#configuring-it).
+
+The manifest points at `https://maidr.ai/examples/tableau-extension/index.html`, which is rebuilt with every release, so the extension follows the latest MAIDR. It needs Extensions API 1.10 or later — the release that added the paged summary-data reader — and uses a worksheet's visual specification when the Tableau version has it (Extensions API 1.11 and Tableau 2024.1), falling back to the summary data's shape otherwise, exactly as [Supported Chart Types](#supported-chart-types) describes.
+
+**Tableau Server and Tableau Cloud** run a network-enabled extension only after a site administrator adds its URL to the site's safe list, with full data access allowed. That is a per-site decision this adapter cannot make for you.
+
+**Hosting it yourself.** Copy `examples/tableau-extension/` to your own origin, serve `dist/maidr.js` and `dist/tableau.js` beside it (the pages load them from `../../dist/`), and change the manifest's `<url>`. Tableau requires `https`, except for `http://localhost` while you develop. The pages load the Extensions API library, `tableau.extensions.1.latest.min.js`, pinned to 1.17.0 from Tableau's `extensions-api` repository through jsDelivr; vendor it instead if the site's policy wants every script on one origin.
+
+If you write your own page, do not give an element the id `maidr`. Browsers expose an element with an id as a global of that name, and MAIDR core's legacy `window.maidr` fallback will try to read that element as chart data.
+
+### Configuring it
+
+The options are the same [`TableauAdapterOptions`](#tableauadapteroptions) `bindTableau` takes, stored as JSON in the extension's workbook settings under the key `maidr` — so an author configures them once and every viewer of the workbook gets them. Settings belong to the extension *instance*, so two MAIDR zones on one dashboard are configured independently.
+
+The **Configure** menu opens a dialog with one labelled editor for that JSON. It checks what was typed with the same parser the extension uses, `parseTableauSettings`, before anything is saved: invalid JSON, an unknown option, a misspelt override field, a trace type MAIDR does not have and an orientation other than `'horz'` or `'vert'` are all refused with a message naming the option, shown beside the editor and announced. A setting that is somehow saved invalid anyway — written by another tool, say — is not guessed at either: the extension warns in the console and uses its defaults.
+
+```json
+{
+  "title": "Regional performance",
+  "worksheets": ["Sales by Region", "Trend"],
+  "overrides": {
+    "Sales by Region": { "traceType": "stacked_bar" },
+    "Scratch sheet": { "skip": true }
+  }
+}
+```
+
+Saving rebuilds the figure from the new options at once.
+
+### What differs from the Embedding binder
+
+- **Where the worksheets come from.** `tableau.extensions.dashboardContent.dashboard`: every worksheet on the dashboard, laid out by the dashboard's own geometry exactly as [Dashboard Layout](#dashboard-layout) describes. MAIDR's own zone is an `extension` object and is left out like any other furniture. A viz extension (`worksheetContent`) is refused with a warning.
+- **What triggers a re-read.** `filter-changed` and `summary-data-changed` on each worksheet, `parameter-changed` on each parameter, and `dashboard-layout-changed` on the dashboard. There is no tab switch: an extension lives on one dashboard. An Extensions library too old to know one of these events costs that one kind of re-read, with a console warning, not the figure.
+- **Tearing down.** Every listener is removed through the unregister function the Extensions API returned for it, parameters that arrive after `dispose()` included.
+- **Leaving the figure.** Focus leaving the extension's document for the dashboard is what "into the viz" means here, and the selection clear waits for a click's selection to arrive, as [Following a click](#following-a-click) describes.
+
+### What is and is not known about reaching it
+
+A dashboard holds every extension in an `<iframe>`, and a reader has to be able to get into it, use it, and get out again with the keyboard alone. `e2e_tests/specs/tableauExtension.spec.ts` drives the built extension inside an iframe placed between two focusable controls, and establishes in a real browser that:
+
+- the frame is in the page's sequential focus order, and **Tab from the content before it lands on MAIDR's entry point**;
+- the arrow keys are **handled inside the frame and never reach the page** around it;
+- MAIDR's announcements update a **live region inside the frame**;
+- the cursor is mirrored into the worksheet as a mark selection;
+- **focus is not trapped**: Tab carries on out of the frame to the content after it.
+
+What it cannot establish is Tableau's half, because the dashboard there is a stand-in. These are open, and tracked in [#934](https://github.com/xability/maidr/issues/934):
+
+- whether a Tableau dashboard puts its extension zones in its own tab order, and where in the reading order relative to the worksheets they describe;
+- whether Tableau's own key handlers see a key before the zone does;
+- whether NVDA, JAWS and VoiceOver announce a live region inside the zone while reading the dashboard;
+
+on Tableau Desktop, Server web, Cloud and Public alike. The Extensions API offers no way to request focus, so none of these can be worked around from inside the extension. Until they are answered, treat the extension as experimental and prefer the Embedding binder where you control the page.
+
 ## API Reference
 
 ### `bindTableau(viz, options?)`
@@ -341,7 +406,7 @@ The resolved handle carries three members:
 | `overrides` | `Record<string, TableauWorksheetOverride>?` | Per-worksheet configuration, keyed by worksheet name. |
 | `anchorLabel` | `string?` | Text on the keyboard entry point rendered beside the viz. Defaults to `Accessible chart view — press Enter, then use arrow keys`. Style it with the `[data-maidr-tableau-anchor]` attribute selector. |
 
-Every field is JSON-serializable by design, so the same object can be stored and parsed back by a future Dashboard Extensions binder.
+Every field is JSON-serializable by design, so the same object is what the [dashboard extension](#dashboard-extension) saves with the workbook and parses back.
 
 ### `TableauWorksheetOverride`
 
@@ -357,6 +422,35 @@ Every field is JSON-serializable by design, so the same object can be stored and
 | `stepDirection` | `StepDirection?` — `'hv'`, `'vh'` or `'mid'` | Emitted only when set, for a step reading. |
 | `axes` | `{ x?: string; y?: string; z?: string }?` | Axis labels. Default to the resolved columns' captions — swapped along with the payload on a horizontal bar layer. An explicit caption always wins, and names the axis as the layer emits it. |
 
+### `bindTableauExtension(options?)`
+
+Runs MAIDR as a dashboard extension. Call it from the extension's page, after the Extensions library has loaded; it calls `initializeAsync` itself.
+
+| Option | Type | Description |
+|---|---|---|
+| `container` | `HTMLElement?` | Where the figure is appended. Defaults to `document.body`. |
+| `configureUrl` | `string?` | The configuration dialog's URL, relative to the page. When set, the zone's **Configure** menu opens it. |
+| `settingsKey` | `string?` | The settings key the options are saved under. Defaults to `'maidr'`. |
+| `defaults` | `TableauAdapterOptions?` | Options that apply when the saved settings leave them out. The saved settings win key by key. |
+| `extensions` | `TableauExtensions?` | The Extensions API. Defaults to `window.tableau.extensions`. |
+
+**Returns `Promise<TableauExtensionBinding | null>`.** `null` when there is no Extensions API on the page, initialization failed, or the extension is not in a dashboard. Otherwise a handle with:
+
+| Member | Type | Description |
+|---|---|---|
+| `binding` | `TableauBinding \| null` | The figure currently mounted — the same handle `bindTableau` returns — or `null` when the current options leave nothing to mount. Replaced whenever the saved settings change. |
+| `options` | `TableauAdapterOptions` | The options the current figure was built from: `defaults`, then the saved settings. |
+| `configure` | `() => Promise<void>` | Open the configuration dialog. |
+| `dispose` | `() => void` | Remove every listener and the figure. |
+
+### `configureTableauExtension(options?)`
+
+Renders the configuration dialog. Call it from the page at `configureUrl`. Takes `container`, `settingsKey` and `extensions`, with the same defaults as above; the `settingsKey` must match the extension's. Resolves to `false` when there is no Extensions API or the dialog would not initialize.
+
+### `parseTableauSettings(raw)`
+
+Reads a saved setting: `{ options }` for a valid one — a missing or blank setting is `{ options: {} }` — or `{ error }` with a message naming what is wrong. Exported so a page or a build step can check a setting the way the extension and its dialog do.
+
 ### `extractTableau(snapshots, options?)`
 
 The pure half of the adapter: it takes the worksheet snapshots the reader produced and returns a `TableauExtraction` — `{ maidr, selection }`, the MAIDR schema plus a `SelectionIndex` mapping every navigable position back to the Tableau selection criteria that address it (`cells` for grid positions, `points` for point clouds, and `worksheets` for which worksheet each layer id came from). Synchronous: no DOM, no React, no `await`. The returned `maidr` carries no `onNavigate` — the binder attaches that. Exported for tooling and tests; a page that just wants an accessible chart wants `bindTableau`.
@@ -370,8 +464,13 @@ import type {
   TableauBinding,
   TableauColumn,
   TableauDataType,
+  TableauExtensionBinding,
+  TableauExtensionDialogOptions,
+  TableauExtensionOptions,
+  TableauExtensions,
   TableauExtraction,
   TableauSelectionCriteria,
+  TableauSettingsResult,
   TableauViz,
   TableauWorksheet,
   TableauWorksheetOverride,
@@ -421,7 +520,7 @@ Stated plainly, because every one of these is a place where a plausible-looking 
 - **Summary data only.** Underlying data (`getUnderlyingTableDataReaderAsync`) is gated to Explorer and Creator roles and would fail silently for Viewer-role users, so it is never requested.
 - **Nothing is written back into the workbook.** No annotations, no filters, no parameter changes; the only write is the mark selection, and that is cleared when focus leaves MAIDR's block, before every re-read, and on `dispose()` — see [How It Works](#how-it-works).
 - **Authentication is the host page's job.** Tableau Public needs none. Tableau Cloud and Tableau Server do: a connected-app JWT must be minted **by your server** — the connected-app secret must never reach the browser — and handed to the component through the `token` attribute or `viz.token` before you bind. The adapter neither mints, refreshes, nor inspects a token.
-- **Dashboard extensions are a separate surface.** Running MAIDR *inside* a Tableau dashboard requires a `.trex` manifest, a hosted origin, and per-site admin safe-listing for anything network-enabled. The extraction code here is written against structural interfaces both surfaces satisfy, so that binder is future work rather than a rewrite — but it is not in this release.
+- **The dashboard extension's screen-reader reach is not yet established.** A browser puts it in the tab order and keeps its keys to itself; whether Tableau's dashboards and NVDA, JAWS and VoiceOver do the same is untested. See [What is and is not known about reaching it](#what-is-and-is-not-known-about-reaching-it).
 
 A runnable page is at [tableau-bar.html](examples/tableau-bar.html); remember that it must be served over `http(s)` and needs a live connection to Tableau Public.
 

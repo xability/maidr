@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  A stand-in for a Tableau dashboard, holding the MAIDR extension the way
+  Tableau holds every extension zone: in an <iframe>. Only the frame is real;
+  the "worksheet" beside it is a button that stands for Tableau's own focusable
+  UI. See e2e_tests/specs/tableauExtension.spec.ts for what this can and cannot
+  establish about a real dashboard.
+-->
+  <head>
+    <meta charset="utf-8" />
+    <title>Tableau extension zone (fixture)</title>
+  </head>
+  <body>
+    <button id="before">Worksheet before the extension</button>
+    <iframe id="zone" title="MAIDR accessible charts" src="extension.html" width="600" height="400"></iframe>
+    <button id="after">Worksheet after the extension</button>
+  </body>
+</html>
