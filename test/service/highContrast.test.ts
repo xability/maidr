@@ -137,6 +137,8 @@ interface HarnessOptions {
   overlays?: Element[];
   /** A `<text>` with no fill of its own, coloured by the page. */
   unstyledText?: boolean;
+  /** Runs once the page is built, before the service captures it. */
+  beforeService?: () => void;
 }
 
 interface Harness {
@@ -220,6 +222,8 @@ function createHarness(
     id: 'chart',
     instructionContext: instructionContext as Context['instructionContext'],
   };
+
+  options.beforeService?.();
 
   const overlays = options.overlays ?? [];
   const service = new HighContrastService(
@@ -620,8 +624,13 @@ describe('highContrastService', () => {
     const title = document.createElementNS(SVG_NAMESPACE, 'text');
     title.setAttribute('fill', '#444444');
     overlay.appendChild(title);
-    document.body.appendChild(overlay);
-    rebuild([{ fill: BAR_FILL }], { overlays: [overlay] });
+    // The harness clears the page as it builds, so the overlay goes in after,
+    // attached before the service is built -- as Plotly's layer is.
+    const buildWithOverlay = (): void => {
+      document.body.appendChild(overlay);
+    };
+    harness.service.dispose();
+    harness = createHarness([{ fill: BAR_FILL }], { overlays: [overlay], beforeService: buildWithOverlay });
 
     harness.service.initializeHighContrast();
 

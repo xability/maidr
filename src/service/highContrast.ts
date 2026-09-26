@@ -871,9 +871,10 @@ export class HighContrastService implements Disposable {
       byElement.set(item.element, paints);
     }
 
+    const backgroundHex = this.parseCssColor(this.highContrastDarkColor);
     const isBackground = (item: ElementColorInfo): boolean => {
       const parts = this.splitAlpha(this.parseCssColor(item.color) ?? '');
-      return parts !== null && parts.hex === this.parseCssColor(this.highContrastDarkColor);
+      return parts !== null && parts.hex === backgroundHex;
     };
 
     // An outline only shows if it has width; Plotly sets a stroke colour on
