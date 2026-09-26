@@ -146,6 +146,22 @@ const MARK_NOUN_LEADING: Partial<Record<TraceType, MessageKey>> = {
   [TraceType.FUNNEL]: 'model.markNounLeadingStages',
 };
 
+/**
+ * The labels of the minimum and maximum rows {@link AbstractBarPlot.rangeStats}
+ * reports.
+ *
+ * Named, not written inline, so the API docs link to it: TypeDoc spells an
+ * inline `MessageKey` out as its full union, twice, on the page of every trace
+ * that inherits `rangeStats`, which took those pages past Googlebot's 2 MB
+ * cutoff.
+ */
+export interface RangeStatLabels {
+  /** The label of the minimum row. */
+  min: MessageKey;
+  /** The label of the maximum row. */
+  max: MessageKey;
+}
+
 export function isMeasured(value: number): boolean {
   return Number.isFinite(value);
 }
@@ -285,7 +301,7 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
    * @returns The min and max stats, in that order
    */
   protected rangeStats(
-    labels: { min: MessageKey; max: MessageKey } = {
+    labels: RangeStatLabels = {
       min: 'model.statMinValue',
       max: 'model.statMaxValue',
     },
