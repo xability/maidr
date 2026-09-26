@@ -2,6 +2,7 @@ import type { AppendedPointInfo } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback, NavigationTarget } from '@type/grammar';
+import { getPlotlyOverlayLayers } from '@adapters/plotly/normalizer';
 import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { AudioService } from '@service/audio';
@@ -174,6 +175,7 @@ export class Controller implements Disposable {
       this.displayService,
       this.figure,
       this.context,
+      () => getPlotlyOverlayLayers(this.displayService.plot),
     );
     this.highlightService = new HighlightService(this.settingsService);
     this.tactileService = new TactileService(
