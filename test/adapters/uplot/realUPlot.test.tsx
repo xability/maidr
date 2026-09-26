@@ -201,11 +201,41 @@ describe('the real uPlot package', () => {
     expect(document.querySelector('[data-maidr-uplot]')).toBeNull();
   });
 
+  it('binds a chart with no data yet and fills it in on the first setData', async () => {
+    const u = await make({
+      plugins: [maidrPlugin({ id: 'real-empty' })],
+      series: [{}, { label: 'Bars', paths: UPlot.paths.bars() }],
+      scales: { x: { time: false } },
+    }, [[], []]);
+
+    expect(document.querySelector('[data-maidr-uplot="real-empty"]')?.contains(u.root)).toBe(true);
+    expect(liveDataManager.getData('real-empty')?.subplots).toEqual([[{ layers: [] }]]);
+
+    await act(async () => {
+      u.setData([[1, 2], [4, 5]]);
+      await Promise.resolve();
+    });
+    expect(liveDataManager.getData('real-empty')?.subplots[0][0].layers.map(l => [l.id, l.type])).toEqual([
+      ['bar-1', TraceType.BAR],
+    ]);
+    act(() => u.destroy());
+  });
+
+  it('names unlabelled series by index rather than uPlot\'s default label', async () => {
+    const t0 = 1_700_000_000;
+    const u = await make({ series: [{}, {}, {}] }, [[t0, t0 + 60], [1, 2], [3, 4]]);
+    const layer = extractUPlotData(u, 'real').maidr.subplots[0][0].layers[0];
+    expect((layer.data as LinePoint[][]).map(row => row[0].z)).toEqual(['Series 1', 'Series 2']);
+    expect(layer.axes?.x?.label).toBe('Time');
+    expect(layer.axes?.y?.label).toBe('Value');
+    u.destroy();
+  });
+
   // A reader of a streaming bar panel who hides the series from the legend
-  // should not find it re-read as a line on the next tick: the path cache is
-  // only rebuilt for shown series, so a hidden bar series falls back to the
-  // line default, and its bar layer is replaced by a line layer.
-  it.failing('keeps a hidden bar series a bar across setData', async () => {
+  // should not find it re-read as a line on the next tick: uPlot rebuilds the
+  // path cache only for shown series, so the kind it was last seen drawing
+  // has to stand.
+  it('keeps a hidden bar series a bar across setData', async () => {
     const u = await make({
       series: [{}, { label: 'Bars', paths: UPlot.paths.bars() }, { label: 'Line' }],
       scales: { x: { time: false } },

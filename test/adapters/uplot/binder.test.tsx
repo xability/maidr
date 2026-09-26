@@ -240,6 +240,56 @@ describe('navigation drawn onto the chart', () => {
     expect(boxes(u)).toHaveLength(1);
   });
 
+  it('redraws the highlight on a draw with no data change, as after a zoom', () => {
+    const x = { min: 0, max: 10, ori: 0 };
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, null]],
+      series: [{}, { label: 'CPU', _paths: LINE_PATHS }],
+      scales: { x, y: { min: 0, max: 100, ori: 1 } },
+    });
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+    u.setCursor.mockClear();
+
+    // Zoomed in to x 0..5: x 2 is now 160px in.
+    x.max = 5;
+    act(() => fire(u, 'draw'));
+
+    expect(u.setCursor).toHaveBeenCalledWith({ left: 160, top: 100 });
+    expect(boxes(u)).toEqual([{ left: '154px', top: '94px', width: '12px', height: '12px' }]);
+    expect(mockMaidr.events).toEqual([]);
+  });
+
+  it('positions by data index on an ordinal x scale', () => {
+    // uPlot lays an ordinal (distr 2) scale out over 0..n-1, whatever the
+    // x values are.
+    const u = fakeUPlot({
+      data: [[1000, 2000, 3000], [10, 50, 30]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }],
+      scales: { x: { min: 0, max: 4, ori: 0, distr: 2 }, y: { min: 0, max: 100, ori: 1 } },
+    });
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    // Index 1 of 0..4 over 400px is 100px; neighbours 100px away, 60% wide.
+    expect(boxes(u)).toEqual([{ left: '70px', top: '100px', width: '60px', height: '100px' }]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 100, top: 100 });
+  });
+
+  it('marks a gap by its index on an ordinal x scale', () => {
+    const u = fakeUPlot({
+      data: [[1000, 2000, 3000], [10, null, 30]],
+      series: [{}, { label: 'CPU', _paths: LINE_PATHS }],
+      scales: { x: { min: 0, max: 4, ori: 0, distr: 2 }, y: { min: 0, max: 100, ori: 1 } },
+    });
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 100, top: -10 });
+  });
+
   it('uses the highlight color', () => {
     const u = lineChart();
     place(u);
@@ -251,8 +301,9 @@ describe('navigation drawn onto the chart', () => {
 });
 
 describe('clicks on the plot', () => {
-  function click(u: FakeUPlot, idx: number | null): void {
-    u.cursor.idx = idx;
+  /** Clicks with uPlot's cursor at data index `idx` and CSS pixel (left, top). */
+  function click(u: FakeUPlot, cursor: FakeUPlot['cursor']): void {
+    u.cursor = cursor;
     act(() => {
       u.over.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
     });
@@ -262,17 +313,50 @@ describe('clicks on the plot', () => {
     const u = lineChart();
     place(u);
     bind(u);
-    click(u, 1);
+    // CPU at x 2 is drawn at (80, 100); Mem at (80, 140).
+    click(u, { idx: 1, left: 81, top: 102 });
     expect(mockMaidr.targets).toEqual([{ layerId: 'line-y', row: 0, col: 1 }]);
   });
 
-  it('prefers the series uPlot has focused', () => {
+  it('chooses the series drawn nearest the click', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    click(u, { idx: 1, left: 80, top: 130 });
+    expect(mockMaidr.targets).toEqual([{ layerId: 'line-y', row: 1, col: 1 }]);
+  });
+
+  it('ignores the series uPlot has focused', () => {
     const u = lineChart();
     (u.series[2] as { _focus?: boolean })._focus = true;
     place(u);
     bind(u);
-    click(u, 2);
+    click(u, { idx: 1, left: 80, top: 100 });
+    expect(mockMaidr.targets).toEqual([{ layerId: 'line-y', row: 0, col: 1 }]);
+  });
+
+  it('skips a series with a gap at the cursor', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    // CPU is null at x 3; the click lands where it would have been drawn.
+    click(u, { idx: 2, left: 120, top: 180 });
     expect(mockMaidr.targets).toEqual([{ layerId: 'line-y', row: 1, col: 2 }]);
+  });
+
+  it('chooses between layers by distance too', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30], [20, 90, 40]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }, { label: 'Target', _paths: LINE_PATHS }],
+    });
+    place(u);
+    bind(u);
+    click(u, { idx: 1, left: 80, top: 30 });
+    click(u, { idx: 1, left: 80, top: 110 });
+    expect(mockMaidr.targets).toEqual([
+      { layerId: 'line-y', row: 0, col: 1 },
+      { layerId: 'bar-1', row: 0, col: 1 },
+    ]);
   });
 
   it('names a scatter point by its index', () => {
@@ -282,15 +366,52 @@ describe('clicks on the plot', () => {
     });
     place(u);
     bind(u);
-    click(u, 2);
+    click(u, { idx: 2, left: 120, top: 140 });
     expect(mockMaidr.targets).toEqual([{ layerId: 'scatter-1', pointIndex: 1 }]);
   });
 
-  it('ignores a click with no point under the cursor', () => {
+  it('reads each faceted series at its own index', () => {
+    const u = fakeUPlot({
+      mode: 2,
+      data: [null, [[1, 2, 3], [40, 50, 60]], [[7, 8], [9, 10]]],
+      series: [
+        {},
+        { label: 'A', facets: [{ scale: 'x' }, { scale: 'y' }] },
+        { label: 'B', facets: [{ scale: 'x' }, { scale: 'y' }] },
+      ],
+    });
+    place(u);
+    bind(u);
+    // A's index 2 is drawn at (120, 80), B's index 0 at (280, 182).
+    click(u, { idx: 0, idxs: [null, 2, 0], left: 275, top: 180 });
+    click(u, { idx: 0, idxs: [null, 2, 0], left: 118, top: 85 });
+    click(u, { idx: 0, idxs: [null, null, null], left: 118, top: 85 });
+    expect(mockMaidr.targets).toEqual([
+      { layerId: 'scatter-2', pointIndex: 0 },
+      { layerId: 'scatter-1', pointIndex: 2 },
+    ]);
+  });
+
+  it.each([
+    ['no point under the cursor', { idx: null, left: 80, top: 100 }],
+    ['the cursor off the plot', { idx: 1, left: -10, top: -10 }],
+    ['no cursor position', { idx: 1 }],
+  ])('ignores a click with %s', (_name, cursor) => {
     const u = lineChart();
     place(u);
     bind(u);
-    click(u, null);
+    click(u, cursor);
+    expect(mockMaidr.targets).toEqual([]);
+  });
+
+  it('ignores a button other than the main one', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    u.cursor = { idx: 1, left: 80, top: 100 };
+    act(() => {
+      u.over.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 2 }));
+    });
     expect(mockMaidr.targets).toEqual([]);
   });
 });
@@ -338,18 +459,24 @@ describe('following the chart through its hooks', () => {
     expect(mockMaidr.events).toHaveLength(2);
   });
 
-  it('keeps the previous reading when the update is unreadable', () => {
+  it('hands MAIDR an empty figure when the data empties', () => {
     const u = lineChart();
     place(u);
     const handle = bind(u);
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+
     u.data = [[]];
     act(() => {
       fire(u, 'setData');
       fire(u, 'draw');
     });
-    expect(mockMaidr.events).toEqual([]);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('keeping the previous reading'));
-    expect(liveDataManager.getData(handle.id)).toBeDefined();
+
+    expect(mockMaidr.events).toHaveLength(1);
+    expect(mockMaidr.events[0].appended).toBeUndefined();
+    expect(mockMaidr.events[0].maidr.subplots).toEqual([[{ layers: [] }]]);
+    expect(liveDataManager.getData(handle.id)?.subplots).toEqual([[{ layers: [] }]]);
+    expect(boxes(u)).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('unmounts on destroy without putting the root back', () => {
@@ -381,6 +508,150 @@ describe('following the chart through its hooks', () => {
   });
 });
 
+describe('following a sliding window', () => {
+  /** Replaces the chart's data the way uPlot does, and lets the draw run. */
+  function update(u: FakeUPlot, data: FakeUPlot['data']): void {
+    u.data = data;
+    act(() => {
+      fire(u, 'setData');
+      fire(u, 'draw');
+    });
+  }
+
+  it('keeps the highlight on the same datum after a sliding tick', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    // Mem at x 3 (40).
+    act(() => onNavigate()({ layerId: 'line-y', row: 1, col: 2 }));
+
+    update(u, [[2, 3, 4], [50, null, 60], [30, 40, 50]]);
+
+    expect(mockMaidr.events.map(e => e.appended?.trimmed)).toEqual([1, 1]);
+    // Still x 3 at 40: one column further left.
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 120, top: 120 });
+    expect(boxes(u)).toEqual([{ left: '114px', top: '114px', width: '12px', height: '12px' }]);
+  });
+
+  it('slides each row by its own trim', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [null, 6, 7]],
+      series: [{}, { label: 'Line', _paths: LINE_PATHS }, { label: 'Bars', _paths: BAR_PATHS }],
+    });
+    place(u);
+    bind(u);
+    // The bar at x 3, the second bar point.
+    act(() => onNavigate()({ layerId: 'bar-2', row: 0, col: 1 }));
+
+    // The line row drops x 1; the bar row never had it, and drops nothing.
+    update(u, [[2, 3, 4], [20, 30, 40], [6, 7, 8]]);
+
+    expect(mockMaidr.events.map(e => [e.appended?.layerId, e.appended?.trimmed])).toEqual([
+      ['line-y', 1],
+      ['bar-2', 0],
+    ]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 120, top: 186 });
+  });
+
+  it('forgets a position that slid off the front', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 0 }));
+    u.setCursor.mockClear();
+
+    update(u, [[2, 3, 4], [50, null, 60], [30, 40, 50]]);
+
+    expect(boxes(u)).toEqual([]);
+    expect(u.setCursor).not.toHaveBeenCalled();
+    act(() => fire(u, 'setSize'));
+    expect(u.setCursor).not.toHaveBeenCalled();
+  });
+
+  it('shifts selected scatter points, dropping those that slid off', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, null, 30]],
+      series: [{}, { label: 'Dots', _paths: POINT_PATHS }],
+    });
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'scatter-1', row: 0, col: 0, pointIndices: [0, 1] }));
+
+    update(u, [[2, 3, 4], [null, 30, 40]]);
+
+    expect(mockMaidr.events.map(e => e.appended?.trimmed)).toEqual([1]);
+    // Only the point at x 3 is left.
+    expect(boxes(u).map(b => [b.left, b.top])).toEqual([['114px', '134px']]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 120, top: 140 });
+  });
+
+  it('does not move the position on a pure append', () => {
+    const u = lineChart();
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'line-y', row: 1, col: 1 }));
+
+    update(u, [[1, 2, 3, 4], [10, 50, null, 60], [20, 30, 40, 50]]);
+
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 140 });
+  });
+});
+
+describe('focus leaving the chart', () => {
+  function focusable(parent: HTMLElement): HTMLButtonElement {
+    const button = document.createElement('button');
+    parent.appendChild(button);
+    return button;
+  }
+
+  async function settle(): Promise<void> {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+  }
+
+  it('clears the highlight without moving uPlot\'s cursor', async () => {
+    const u = lineChart();
+    const inside = focusable(u.root);
+    const outside = focusable(host);
+    place(u);
+    bind(u);
+    inside.focus();
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+    expect(boxes(u)).toHaveLength(1);
+    u.setCursor.mockClear();
+
+    outside.focus();
+    await settle();
+
+    expect(boxes(u)).toEqual([]);
+    expect(u.setCursor).not.toHaveBeenCalled();
+    // Nothing later pulls the cursor back to where the reader was.
+    act(() => fire(u, 'setSize'));
+    act(() => fire(u, 'draw'));
+    expect(u.setCursor).not.toHaveBeenCalled();
+    expect(boxes(u)).toEqual([]);
+  });
+
+  it('keeps the highlight while focus moves within the chart', async () => {
+    const u = lineChart();
+    const first = focusable(u.root);
+    const second = focusable(u.root);
+    place(u);
+    bind(u);
+    first.focus();
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+    u.setCursor.mockClear();
+
+    second.focus();
+    await settle();
+
+    expect(boxes(u)).toHaveLength(1);
+    act(() => fire(u, 'setSize'));
+    expect(u.setCursor).toHaveBeenCalledWith({ left: 80, top: 100 });
+  });
+});
+
 describe('dispose', () => {
   it('puts the root back where it stood and detaches everything', () => {
     const u = lineChart();
@@ -395,7 +666,7 @@ describe('dispose', () => {
     expect(liveDataManager.getData(handle.id)).toBeUndefined();
 
     // Disposed: hooks and clicks no longer reach MAIDR, and binding again works.
-    u.cursor.idx = 0;
+    u.cursor = { idx: 0, left: 40, top: 180 };
     u.over.dispatchEvent(new MouseEvent('click', { button: 0 }));
     expect(mockMaidr.targets).toEqual([]);
     const again = bind(u);
@@ -446,13 +717,26 @@ describe('a chart that has not drawn yet', () => {
     expect(host.querySelector('[data-maidr-uplot]')).toBeNull();
   });
 
-  it('warns instead of throwing when the ready chart is unreadable', () => {
-    const u = fakeUPlot({ data: [[1], [2]], series: [{}, { maidr: false }], status: 0 });
+  it('binds a chart with no data yet, and fills it in on the first setData', () => {
+    const u = fakeUPlot({ data: [[], []], series: [{}, { label: 'CPU', _paths: LINE_PATHS }], status: 0 });
     place(u);
-    bind(u);
+    const handle = bind(u);
+    u.status = 1;
     act(() => fire(u, 'ready'));
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipping chart'));
-    expect(host.querySelector('[data-maidr-uplot]')).toBeNull();
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(host.querySelector('[data-maidr-uplot]')?.contains(u.root)).toBe(true);
+    expect(mockMaidr.renders[0].subplots).toEqual([[{ layers: [] }]]);
+    expect(liveDataManager.getData(handle.id)).toBeDefined();
+
+    u.data = [[1, 2], [10, 50]];
+    act(() => fire(u, 'setData'));
+    act(() => fire(u, 'draw'));
+
+    expect(mockMaidr.events).toHaveLength(1);
+    expect(mockMaidr.events[0].maidr.subplots[0][0].layers.map(l => l.id)).toEqual(['line-y']);
+    act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 100 });
   });
 });
 
@@ -473,14 +757,18 @@ describe('maidrPlugin', () => {
     expect(u.hooks).toEqual({});
   });
 
-  it.each([
-    ['has nothing to read', () => fakeUPlot({ data: [[1]], series: [{}] }), true],
-    ['is not in the document', () => lineChart(), false],
-  ])('warns and skips a chart that %s', (_name, make, attach) => {
-    const u = make();
-    if (attach) {
-      place(u);
-    }
+  it('binds a chart that has nothing to read yet', () => {
+    const u = fakeUPlot({ data: [[1]], series: [{}] });
+    place(u);
+    act(() => maidrPlugin({ id: 'empty' }).hooks.ready?.(u));
+    handles.push({ dispose: () => bindUPlot(u).dispose() });
+    expect(warn).not.toHaveBeenCalled();
+    expect(host.querySelector('[data-maidr-uplot="empty"]')).not.toBeNull();
+    expect(mockMaidr.renders[0].subplots).toEqual([[{ layers: [] }]]);
+  });
+
+  it('warns and skips a chart that is not in the document', () => {
+    const u = lineChart();
     expect(() => act(() => maidrPlugin().hooks.ready?.(u))).not.toThrow();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[maidr/uplot] Skipping chart.'));
     expect(document.querySelector('[data-maidr-uplot]')).toBeNull();

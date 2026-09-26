@@ -38,28 +38,37 @@ describe('planStream', () => {
       figure(line('line-y', [[[1, 1], [2, 2], [3, 3]]])),
     );
     expect(plan).toEqual({
-      appends: [{ point: { x: 3, y: 3, z: 's0' }, layerId: 'line-y', groupIndex: 0 }],
-      maxWidth: undefined,
+      appends: [{ point: { x: 3, y: 3, z: 's0' }, layerId: 'line-y', groupIndex: 0, maxWidth: undefined }],
+      trims: new Map([['line-y', [0]]]),
     });
   });
 
   it('plans an unchanged figure as no appends', () => {
     const same = figure(line('line-y', [[[1, 1]]]));
-    expect(planStream(same, same)).toEqual({ appends: [], maxWidth: undefined });
+    expect(planStream(same, same)).toEqual({ appends: [], trims: new Map([['line-y', [0]]]) });
   });
 
-  it('reads a sliding window (trim equal to append) and sets maxWidth', () => {
+  it('reads a sliding window (trim equal to append) and gives the row its maxWidth', () => {
     const plan = planStream(
       figure(line('line-y', [[[1, 1], [2, 2], [3, 3]]])),
       figure(line('line-y', [[[2, 2], [3, 3], [4, 4]]])),
     );
-    expect(plan?.maxWidth).toBe(3);
-    expect(plan?.appends.map(a => a.point)).toEqual([{ x: 4, y: 4, z: 's0' }]);
+    expect(plan?.appends).toEqual([{ point: { x: 4, y: 4, z: 's0' }, layerId: 'line-y', groupIndex: 0, maxWidth: 3 }]);
+    expect(plan?.trims).toEqual(new Map([['line-y', [1]]]));
+  });
+
+  it('gives the row the window it ends at when it drops fewer than it gains', () => {
+    const plan = planStream(
+      figure(bar('bar-1', [[1, 1], [2, 2]])),
+      figure(bar('bar-1', [[2, 2], [3, 3], [4, 4]])),
+    );
+    expect(plan?.appends.map(a => [(a.point as { x: number }).x, a.maxWidth])).toEqual([[3, 3], [4, 3]]);
+    expect(plan?.trims).toEqual(new Map([['bar-1', [1]]]));
   });
 
   it('streams a flat bar layer too', () => {
     const plan = planStream(figure(bar('bar-1', [[1, 1]])), figure(bar('bar-1', [[1, 1], [2, 5]])));
-    expect(plan?.appends).toEqual([{ point: { x: 2, y: 5 }, layerId: 'bar-1', groupIndex: 0 }]);
+    expect(plan?.appends).toEqual([{ point: { x: 2, y: 5 }, layerId: 'bar-1', groupIndex: 0, maxWidth: undefined }]);
   });
 
   it('replaces when a value already read was revised', () => {
@@ -99,27 +108,50 @@ describe('planStream', () => {
     )).toBeNull();
   });
 
-  it('replaces when trimmed rows end at different lengths', () => {
-    expect(planStream(
+  it('streams rows trimmed to different lengths, each with its own window', () => {
+    const plan = planStream(
       figure(line('line-y', [[[1, 1], [2, 2], [3, 3]], [[1, 1], [2, 2], [3, 3]]])),
       figure(line('line-y', [[[2, 2], [3, 3], [4, 4]], [[3, 3], [4, 4], [5, 5], [6, 6]]])),
-    )).toBeNull();
+    );
+    expect(plan?.appends.map(a => [a.groupIndex, (a.point as { x: number }).x, a.maxWidth])).toEqual([
+      [0, 4, 3],
+      [1, 4, 4],
+      [1, 5, 4],
+      [1, 6, 4],
+    ]);
+    expect(plan?.trims).toEqual(new Map([['line-y', [1, 2]]]));
   });
 
-  it('replaces when an untrimmed row grows past the window', () => {
-    expect(planStream(
+  it('streams an untrimmed row that grows past a trimmed row\'s window', () => {
+    const plan = planStream(
       figure(line('line-y', [[[1, 1], [2, 2]]]), bar('bar-1', [[1, 1], [2, 2]])),
       figure(line('line-y', [[[2, 2], [3, 3]]]), bar('bar-1', [[1, 1], [2, 2], [3, 3]])),
-    )).toBeNull();
+    );
+    expect(plan?.appends.map(a => [a.layerId, a.maxWidth])).toEqual([['line-y', 2], ['bar-1', undefined]]);
+    expect(plan?.trims).toEqual(new Map([['line-y', [1]], ['bar-1', [0]]]));
   });
 
-  it('keeps one window across rows that slid by the same amount', () => {
+  it('streams a bar row that left out a null beside a line row that kept it', () => {
+    // The line row keeps the gap at x 3 and slides to 3 points; the bar row
+    // leaves it out and slides to 2.
+    const plan = planStream(
+      figure(line('line-y', [[[1, 1], [2, 2], [3, null]]]), bar('bar-2', [[1, 5], [2, 6]])),
+      figure(line('line-y', [[[2, 2], [3, null], [4, 4]]]), bar('bar-2', [[2, 6], [4, 8]])),
+    );
+    expect(plan?.appends.map(a => [a.layerId, (a.point as { x: number }).x, a.maxWidth])).toEqual([
+      ['line-y', 4, 3],
+      ['bar-2', 4, 2],
+    ]);
+    expect(plan?.trims).toEqual(new Map([['line-y', [1]], ['bar-2', [1]]]));
+  });
+
+  it('records the trim of every row when rows slide by the same amount', () => {
     const plan = planStream(
       figure(line('line-y', [[[1, 1], [2, 2]], [[1, 5], [2, 6]]])),
       figure(line('line-y', [[[2, 2], [3, 3]], [[2, 6], [3, 7]]])),
     );
-    expect(plan?.maxWidth).toBe(2);
-    expect(plan?.appends).toHaveLength(2);
+    expect(plan?.appends.map(a => a.maxWidth)).toEqual([2, 2]);
+    expect(plan?.trims).toEqual(new Map([['line-y', [1, 1]]]));
   });
 
   it('interleaves appends by arrival across rows and layers', () => {
@@ -158,7 +190,7 @@ describe('pushUpdate', () => {
 
   it('does nothing for a chart that is not registered', () => {
     const setData = jest.spyOn(liveDataManager, 'setData');
-    expect(pushUpdate(figure(bar('bar-1', [[1, 1]])))).toBe(false);
+    expect(pushUpdate(figure(bar('bar-1', [[1, 1]])))).toEqual({ streamed: false, trims: new Map() });
     expect(setData).not.toHaveBeenCalled();
     setData.mockRestore();
   });
@@ -169,7 +201,7 @@ describe('pushUpdate', () => {
     const onNavigate = jest.fn();
 
     const next = { ...figure(line('line-y', [[[1, 1], [2, 2]]])), onNavigate };
-    expect(pushUpdate(next)).toBe(true);
+    expect(pushUpdate(next)).toEqual({ streamed: true, trims: new Map([['line-y', [0]]]) });
 
     expect(events).toHaveLength(1);
     expect(events[0].appended).toMatchObject({ layerId: 'line-y', row: 0, col: 1, trimmed: 0 });
@@ -177,15 +209,64 @@ describe('pushUpdate', () => {
     setData.mockRestore();
   });
 
-  it('streams a sliding window through maxWidth', () => {
+  it('streams a sliding window through maxWidth, then clears the window', () => {
     register(figure(bar('bar-1', [[1, 1], [2, 2]])));
-    expect(pushUpdate(figure(bar('bar-1', [[2, 2], [3, 3]])))).toBe(true);
+    const setData = jest.spyOn(liveDataManager, 'setData');
+
+    expect(pushUpdate(figure(bar('bar-1', [[2, 2], [3, 3]])))).toEqual({
+      streamed: true,
+      trims: new Map([['bar-1', [1]]]),
+    });
 
     expect(events).toHaveLength(1);
     expect(events[0].appended).toMatchObject({ trimmed: 1, col: 1 });
     const stored = liveDataManager.getData('live-chart');
-    expect(stored?.maxWidth).toBe(2);
+    expect(stored?.maxWidth).toBeUndefined();
     expect(stored?.subplots[0][0].layers[0].data).toEqual([{ x: 2, y: 2 }, { x: 3, y: 3 }]);
+    // Only the window differed from the figure read; that is no replacement.
+    expect(setData).not.toHaveBeenCalled();
+    setData.mockRestore();
+  });
+
+  it('sets each row\'s own window before its append', () => {
+    register(figure(line('line-y', [[[1, 1], [2, 2], [3, null]]]), bar('bar-2', [[1, 5], [2, 6]])));
+    const original = liveDataManager.appendData.bind(liveDataManager);
+    const windows: Array<number | undefined> = [];
+    const append = jest.spyOn(liveDataManager, 'appendData').mockImplementation((point, options) => {
+      windows.push(liveDataManager.getData('live-chart')?.maxWidth);
+      return original(point, options);
+    });
+
+    pushUpdate(figure(
+      line('line-y', [[[2, 2], [3, null], [4, 4]]]),
+      bar('bar-2', [[1, 5], [2, 6], [4, 8]]),
+    ));
+
+    // The line row slid to 3 points; the bar row kept every point.
+    expect(windows).toEqual([3, undefined]);
+    expect(liveDataManager.getData('live-chart')?.maxWidth).toBeUndefined();
+    append.mockRestore();
+  });
+
+  it('streams a bar row that left out a null next to a line row that kept it', () => {
+    register(figure(line('line-y', [[[1, 1], [2, 2], [3, null]]]), bar('bar-2', [[1, 5], [2, 6]])));
+    const setData = jest.spyOn(liveDataManager, 'setData');
+    const next = figure(line('line-y', [[[2, 2], [3, null], [4, 4]]]), bar('bar-2', [[2, 6], [4, 8]]));
+
+    expect(pushUpdate(next)).toEqual({
+      streamed: true,
+      trims: new Map([['line-y', [1]], ['bar-2', [1]]]),
+    });
+
+    expect(events.map(e => [e.appended?.layerId, e.appended?.trimmed, e.appended?.col])).toEqual([
+      ['line-y', 1, 2],
+      ['bar-2', 1, 1],
+    ]);
+    const stored = liveDataManager.getData('live-chart');
+    expect(stored?.maxWidth).toBeUndefined();
+    expect(stored?.subplots[0][0].layers.map(l => l.data)).toEqual(next.subplots[0][0].layers.map(l => l.data));
+    expect(setData).not.toHaveBeenCalled();
+    setData.mockRestore();
   });
 
   it('clears a window a later pure append no longer needs', () => {
@@ -198,14 +279,14 @@ describe('pushUpdate', () => {
   it('replaces the data when the update is not an append', () => {
     register(figure(bar('bar-1', [[1, 1]])));
     const next = figure(bar('bar-1', [[1, 7]]));
-    expect(pushUpdate(next)).toBe(false);
+    expect(pushUpdate(next)).toEqual({ streamed: false, trims: new Map() });
     expect(events).toEqual([{ maidr: next }]);
   });
 
   it('replaces rather than streams when the figure is not live', () => {
     register(figure(bar('bar-1', [[1, 1]])));
     const next = { ...figure(bar('bar-1', [[1, 1], [2, 2]])), live: false };
-    expect(pushUpdate(next)).toBe(false);
+    expect(pushUpdate(next)).toEqual({ streamed: false, trims: new Map() });
     expect(events).toEqual([{ maidr: next }]);
   });
 
@@ -213,7 +294,7 @@ describe('pushUpdate', () => {
     const initial = figure(bar('bar-1', [[1, 1]]));
     register(initial);
     const next = { ...figure(bar('bar-1', [[1, 1], [2, 2]])), title: 'Renamed' };
-    expect(pushUpdate(next)).toBe(true);
+    expect(pushUpdate(next)).toEqual({ streamed: true, trims: new Map([['bar-1', [0]]]) });
     expect(events).toHaveLength(2);
     expect(events[0].appended).toBeDefined();
     expect(events[1]).toEqual({ maidr: next });
@@ -222,7 +303,14 @@ describe('pushUpdate', () => {
   it('does nothing when nothing changed', () => {
     const initial = figure(bar('bar-1', [[1, 1]]));
     register(initial);
-    expect(pushUpdate({ ...initial, onNavigate: jest.fn() })).toBe(false);
+    expect(pushUpdate({ ...initial, onNavigate: jest.fn() })).toEqual({ streamed: false, trims: new Map() });
+    expect(events).toEqual([]);
+  });
+
+  it('does not replace a figure that differs only in its stored window', () => {
+    const initial = figure(bar('bar-1', [[1, 1]]));
+    register({ ...initial, maxWidth: 4 });
+    expect(pushUpdate(initial).streamed).toBe(false);
     expect(events).toEqual([]);
   });
 });

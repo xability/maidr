@@ -321,8 +321,7 @@ function addHook(u: UPlotInstance, name: HookName, fn: (u: UPlotInstance) => voi
  * @param u - The uPlot instance
  * @param options - Adapter options
  * @returns A handle to refresh or dispose the binding
- * @throws Error when the chart has drawn but is not in the document, or has
- *   no series MAIDR can read
+ * @throws Error when the chart has drawn but is not in the document
  */
 export function bindUPlot(u: UPlotInstance, options: MaidrUPlotOptions = {}): MaidrUPlotHandle {
   const existing = bindings.get(u);

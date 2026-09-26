@@ -11,7 +11,7 @@ export type FakeUPlot = UPlotInstance & {
   data: UPlotInstance['data'];
   status: number;
   setCursor: jest.Mock;
-  cursor: { idx?: number | null; left?: number; top?: number };
+  cursor: { idx?: number | null; idxs?: Array<number | null>; left?: number; top?: number };
 };
 
 export interface FakeUPlotInit {

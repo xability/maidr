@@ -135,6 +135,36 @@ describe('series kind inference', () => {
     expect(layersOf(u)[0].type).toBe(TraceType.LINE);
   });
 
+  it('remembers what a series last drew once it is hidden or its cache is cleared', () => {
+    const series: UPlotSeries = { label: 'Sales', _paths: BAR_PATHS };
+    const u = fakeUPlot({ data: [[1], [2]], series: [{}, series] });
+    expect(inferSeriesKind(u, series)).toBe('bar');
+
+    // Hidden from the legend: uPlot keeps no cache for it.
+    series.show = false;
+    series._paths = undefined;
+    expect(inferSeriesKind(u, series)).toBe('bar');
+    expect(layersOf(u)[0].type).toBe(TraceType.BAR);
+
+    // Shown again, before the draw that rebuilds the cache.
+    series.show = true;
+    expect(inferSeriesKind(u, series)).toBe('bar');
+
+    // A later draw with other paths is what it is now.
+    series._paths = POINT_PATHS;
+    expect(inferSeriesKind(u, series)).toBe('scatter');
+    series._paths = undefined;
+    expect(inferSeriesKind(u, series)).toBe('scatter');
+  });
+
+  it('remembers each series object on its own', () => {
+    const bars: UPlotSeries = { _paths: BAR_PATHS };
+    const other: UPlotSeries = { show: false };
+    const u = fakeUPlot({ data: [[1], [2], [3]], series: [{}, bars, other] });
+    inferSeriesKind(u, bars);
+    expect(inferSeriesKind(u, other)).toBe('line');
+  });
+
   it('lets options.series override the inferred kind', () => {
     const u = fakeUPlot({
       data: [[1, 2], [3, 4]],
@@ -288,6 +318,34 @@ describe('labels', () => {
     expect(extractUPlotData(bare, 'chart').maidr.title).toBeUndefined();
   });
 
+  it('treats uPlot\'s default series labels as no label', () => {
+    // uPlot fills an unlabelled series in with 'Value', and the x series of a
+    // time scale with 'Time'.
+    const u = fakeUPlot({
+      data: [[1, 2], [3, 4], [5, 6], [7, 8]],
+      series: [{ label: 'Value' }, { label: 'Value' }, { label: 'Value', _paths: BAR_PATHS }, { label: 'Value' }],
+    });
+    const layers = layersOf(u);
+    expect((layers[0].data as LinePoint[][]).map(row => row[0].z)).toEqual(['Series 1', 'Series 3']);
+    expect(layers[1].title).toBe('Series 2');
+    expect(layers[1].axes).toEqual({ x: { label: 'X' }, y: { label: 'Value' } });
+  });
+
+  it('names the x axis of a time scale Time when nothing labels it', () => {
+    const scales = { x: { time: true, min: 0, max: 10 }, y: { min: 0, max: 10, ori: 1 } };
+    const bare = fakeUPlot({ data: [[1, 2], [3, 4]], series: [{}, {}], scales });
+    expect(layersOf(bare)[0].axes?.x?.label).toBe('Time');
+    const defaulted = fakeUPlot({ data: [[1, 2], [3, 4]], series: [{ label: 'Time' }, {}], scales });
+    expect(layersOf(defaulted)[0].axes?.x?.label).toBe('Time');
+    const authored = fakeUPlot({ data: [[1, 2], [3, 4]], series: [{ label: 'When' }, {}], scales });
+    expect(layersOf(authored)[0].axes?.x?.label).toBe('When');
+  });
+
+  it('keeps an x series labelled Time on a numeric scale', () => {
+    const u = fakeUPlot({ data: [[1], [2]], series: [{ label: 'Time' }, {}] });
+    expect(layersOf(u)[0].axes?.x).toEqual({ label: 'Time' });
+  });
+
   it('prefers the options over everything read from the chart', () => {
     const u = fakeUPlot({
       title: 'From chart',
@@ -309,17 +367,55 @@ describe('labels', () => {
   });
 });
 
-describe('unreadable charts', () => {
+describe('charts with nothing to read', () => {
+  // A dashboard that fills on its first poll is bound before it has data; it
+  // reads as a subplot with no layers, and MAIDR announces it as empty.
   it.each([
-    ['no x values', [[], []]],
-    ['no y series', [[1, 2]]],
-  ])('throws on %s', (_name, data) => {
-    const u = fakeUPlot({ data: data as number[][], series: data.map(() => ({})) });
-    expect(() => extractUPlotData(u, 'chart')).toThrow('no series with data to read');
+    ['no x values', [[], []], [{}, {}]],
+    ['no y series', [[1, 2]], [{}]],
+    ['no data at all', [], [{}, {}]],
+  ])('reads %s as a subplot with no layers', (_name, data, series) => {
+    const u = fakeUPlot({ data: data as number[][], series });
+    const { maidr, sources } = extractUPlotData(u, 'chart');
+    expect(maidr.subplots).toEqual([[{ layers: [] }]]);
+    expect(sources.size).toBe(0);
+    expect(maidr.id).toBe('chart');
   });
 
-  it('throws when every series is excluded', () => {
+  it('reads a chart whose every series is excluded as empty', () => {
     const u = fakeUPlot({ data: [[1], [2]], series: [{}, { maidr: false }] });
-    expect(() => extractUPlotData(u, 'chart')).toThrow('no series with data to read');
+    expect(extractUPlotData(u, 'chart').maidr.subplots).toEqual([[{ layers: [] }]]);
+  });
+
+  it.each([
+    ['bar', BAR_PATHS, 'bar'],
+    ['scatter', POINT_PATHS, 'scatter'],
+  ])('leaves out a %s series with no readable points', (_name, cache, kind) => {
+    const u = fakeUPlot({
+      data: [[1, 2], [null, null], [3, 4]],
+      series: [{}, { label: 'Gone', _paths: cache }, { label: 'Kept', _paths: cache }],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart');
+    expect(maidr.subplots[0][0].layers.map(l => l.id)).toEqual([`${kind}-2`]);
+    expect([...sources.keys()]).toEqual([`${kind}-2`]);
+  });
+
+  it('keeps a line row whose every value is null', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [null, null]],
+      series: [{}, { label: 'Quiet', _paths: LINE_PATHS }],
+    });
+    const layers = layersOf(u);
+    expect(layers.map(l => l.id)).toEqual(['line-y']);
+    expect(layers[0].data).toEqual([[{ x: 1, y: null, z: 'Quiet' }, { x: 2, y: null, z: 'Quiet' }]]);
+  });
+
+  it('leaves out a faceted series with no readable points', () => {
+    const u = fakeUPlot({
+      mode: 2,
+      data: [null, [[1, 2], [null, null]], [[3], [4]]],
+      series: [{}, {}, {}],
+    });
+    expect(layersOf(u).map(l => l.id)).toEqual(['scatter-2']);
   });
 });
