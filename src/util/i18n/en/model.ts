@@ -248,6 +248,9 @@ export const model = {
   'model.statLowestMinimum': 'Lowest minimum',
   'model.statMaximum': 'Maximum',
   'model.statHighestMaximum': 'Highest maximum',
+  // A whisker end drawn at a quantile, named by its percentile.
+  'model.statLowestQuantile': 'Lowest {quantile}',
+  'model.statHighestQuantile': 'Highest {quantile}',
   'model.statMedian': 'Median',
   'model.statLowestMedian': 'Lowest median',
   'model.statHighestMedian': 'Highest median',
@@ -412,7 +415,7 @@ export const model = {
   // How a censored survival time announces itself, and how the table marks one.
   'model.sectionCensored': 'censored',
   // Letter-value (boxen) plot.
-  'model.boxenPercentile': '{percent}th percentile',
+  'model.boxenPercentile': '{percent}{suffix} percentile',
   'model.boxenMedianRung': 'median',
   'model.statNumberOfDistributions': 'Number of distributions',
   'model.statDistributionNames': 'Distribution names',

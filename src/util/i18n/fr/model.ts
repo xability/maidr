@@ -247,6 +247,9 @@ export const model = {
   'model.statLowestMinimum': 'Minimum le plus bas',
   'model.statMaximum': 'Maximum',
   'model.statHighestMaximum': 'Maximum le plus haut',
+  // A whisker end drawn at a quantile, named by its percentile.
+  'model.statLowestQuantile': '{quantile} le plus bas',
+  'model.statHighestQuantile': '{quantile} le plus haut',
   'model.statMedian': 'Médiane',
   'model.statLowestMedian': 'Médiane la plus basse',
   'model.statHighestMedian': 'Médiane la plus haute',

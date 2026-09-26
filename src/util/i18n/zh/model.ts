@@ -244,6 +244,9 @@ export const model = {
   'model.statLowestMinimum': '最低的最小值',
   'model.statMaximum': '最大值',
   'model.statHighestMaximum': '最高的最大值',
+  // A whisker end drawn at a quantile, named by its percentile.
+  'model.statLowestQuantile': '最低的{quantile}',
+  'model.statHighestQuantile': '最高的{quantile}',
   'model.statMedian': '中位数',
   'model.statLowestMedian': '最低的中位数',
   'model.statHighestMedian': '最高的中位数',

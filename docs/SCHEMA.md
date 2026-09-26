@@ -437,6 +437,13 @@ The data property is defined as a list of objects where each object is a record 
             "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
   }
 
+  // Optional, on the box layer: "whiskerQuantiles": [0.1, 0.9] says the whiskers
+  // end at those quantiles (here the 10th and 90th percentiles) rather than at
+  // the data's extremes or 1.5 IQR. `min` and `max` are then announced as
+  // "10th percentile" and "90th percentile" instead of "Minimum" and "Maximum".
+  // Omit it, or give [0, 1], when the whisker ends are the minimum and maximum.
+  // Each end is read on its own: in [0.05, 1] the upper end stays "Maximum".
+
   // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
   // each with a median and a ladder of quantile pairs. A box plot is this
   // shape with exactly one rung; the point of a boxen is that a larger sample

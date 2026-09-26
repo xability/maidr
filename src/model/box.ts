@@ -13,6 +13,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
+import { percentileLabel } from './boxen';
 import { extremeStat, groupName, groupNameAt, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
@@ -94,6 +95,12 @@ export class BoxTrace extends AbstractTrace {
   private readonly max: number;
 
   /**
+   * The quantiles the whiskers end at, when the producer says they are not
+   * the data's extremes; null otherwise. See {@link MaidrLayer.whiskerQuantiles}.
+   */
+  private readonly whiskerQuantiles: readonly [number, number] | null;
+
+  /**
    * Compute box values array based on section accessors and orientation.
    * Handles the transformation from section-based to position-based layout.
    *
@@ -118,6 +125,7 @@ export class BoxTrace extends AbstractTrace {
     super(layer);
 
     this.orientation = layer.orientation ?? Orientation.VERTICAL;
+    this.whiskerQuantiles = BoxTrace.resolveWhiskerQuantiles(layer.whiskerQuantiles);
 
     // For horizontal orientation, reverse points to match visual order (lower-left start)
     if (this.orientation === Orientation.HORIZONTAL) {
@@ -156,6 +164,54 @@ export class BoxTrace extends AbstractTrace {
     // scroll.
     this.highlightCenters = null;
     this.movable = new MovableGrid<number[] | number>(this.boxValues, { row: 0 });
+  }
+
+  /**
+   * Reads the layer's whisker quantiles, keeping them only when they name two
+   * increasing quantiles that are not simply the data's extremes.
+   *
+   * @param quantiles - The layer's `whiskerQuantiles`
+   * @returns The pair, or null when the whisker ends are a minimum and a maximum
+   */
+  private static resolveWhiskerQuantiles(
+    quantiles: MaidrLayer['whiskerQuantiles'],
+  ): readonly [number, number] | null {
+    if (!Array.isArray(quantiles) || quantiles.length !== 2) {
+      return null;
+    }
+    const [lower, upper] = quantiles;
+    const valid = Number.isFinite(lower) && Number.isFinite(upper)
+      && lower >= 0 && upper <= 1 && lower < upper;
+    if (!valid || (lower === 0 && upper === 1)) {
+      return null;
+    }
+    return [lower, upper];
+  }
+
+  /**
+   * The reader's name for a section: {@link boxSectionLabel}, except that a
+   * whisker end drawn at a quantile is named as that percentile.
+   *
+   * @param section - The section's identity
+   * @returns Its label in the active language
+   */
+  private sectionLabel(section: BoxplotSectionType): string {
+    const end = section === BoxplotSection.MIN ? 0 : section === BoxplotSection.MAX ? 1 : null;
+    const quantile = end === null ? null : this.whiskerQuantile(end);
+    return quantile === null ? boxSectionLabel(section) : percentileLabel(quantile);
+  }
+
+  /**
+   * The quantile a whisker end is drawn at, when it is not the data's
+   * extreme on that side: a lower end at 0 is still the minimum, and an
+   * upper end at 1 the maximum, even when the other end is a quantile.
+   *
+   * @param end - 0 for the lower whisker, 1 for the upper
+   * @returns The quantile, or null when that end is an extreme
+   */
+  private whiskerQuantile(end: 0 | 1): number | null {
+    const quantile = this.whiskerQuantiles?.[end];
+    return quantile === undefined || quantile === end ? null : quantile;
   }
 
   /**
@@ -224,7 +280,7 @@ export class BoxTrace extends AbstractTrace {
       : this.layer.axes?.x?.label;
     const headers = [
       categorical?.trim() ? categorical.trim() : t('model.nounGroup'),
-      ...this.sections.map(boxSectionLabel),
+      ...this.sections.map(section => this.sectionLabel(section)),
     ];
 
     const rows: DescriptionState['dataTable']['rows'] = this.points.map((point, pointIdx) => {
@@ -280,11 +336,14 @@ export class BoxTrace extends AbstractTrace {
 
     const single = this.points.length === 1;
     return [
-      extremeStat(
-        this.points,
-        { single: 'model.statMinimum', grouped: 'model.statLowestMinimum' },
-        p => p.min,
-        isLower,
+      this.whiskerStat(
+        extremeStat(
+          this.points,
+          { single: 'model.statMinimum', grouped: 'model.statLowestMinimum' },
+          p => p.min,
+          isLower,
+        ),
+        0,
       ),
       // The median and the spread between the quartiles are the statistics a
       // box plot is drawn for, and they reached the description only as table
@@ -312,13 +371,40 @@ export class BoxTrace extends AbstractTrace {
               isHigher,
             ),
           ]),
-      extremeStat(
-        this.points,
-        { single: 'model.statMaximum', grouped: 'model.statHighestMaximum' },
-        p => p.max,
-        isHigher,
+      this.whiskerStat(
+        extremeStat(
+          this.points,
+          { single: 'model.statMaximum', grouped: 'model.statHighestMaximum' },
+          p => p.max,
+          isHigher,
+        ),
+        1,
       ),
     ];
+  }
+
+  /**
+   * Renames a whisker-end summary row after its percentile, when the whiskers
+   * end at quantiles rather than at the data's extremes.
+   *
+   * @param stat - The row as {@link extremeStat} built it
+   * @param end - 0 for the lower whisker, 1 for the upper
+   * @returns The row, relabelled where it needs to be
+   */
+  private whiskerStat(
+    stat: DescriptionState['stats'][number],
+    end: 0 | 1,
+  ): DescriptionState['stats'][number] {
+    const fraction = this.whiskerQuantile(end);
+    if (fraction === null) {
+      return stat;
+    }
+    const quantile = percentileLabel(fraction);
+    if (this.points.length === 1) {
+      return { ...stat, label: quantile };
+    }
+    const key = end === 0 ? 'model.statLowestQuantile' : 'model.statHighestQuantile';
+    return { ...stat, label: t(key, { quantile }) };
   }
 
   public override dispose(): void {
@@ -479,7 +565,7 @@ export class BoxTrace extends AbstractTrace {
     const point = isHorizontal ? this.points[this.row] : this.points[this.col];
 
     const mainLabel = isHorizontal ? this.yAxis : this.xAxis;
-    const section = boxSectionLabel(
+    const section = this.sectionLabel(
       isHorizontal ? this.sections[this.col] : this.sections[this.row],
     );
 
