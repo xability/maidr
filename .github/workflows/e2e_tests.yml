@@ -62,6 +62,11 @@ jobs:
       - name: Build library
         run: npm run build
 
+      # e2e_tests/specs/nivo.spec.ts drives the Nivo example app, a separate
+      # single-file Vite build of examples/nivo/.
+      - name: Build Nivo example
+        run: npm run build:nivo-example
+
       # continue-on-error so the report step below always gets the output;
       # the final step re-raises the failure. tee captures the list-reporter
       # output into the file the report step reads — outside playwright-report/,

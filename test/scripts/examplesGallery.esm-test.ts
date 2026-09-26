@@ -85,7 +85,7 @@ describe('the examples gallery', () => {
 
   it('should list the same pages before and after a build', () => {
     // `examples/react/` is written by `npm run build:react-example` and
-    // `examples/*/dist/` by the Recharts and Victory builds, so a listing that
+    // `examples/*/dist/` by the Recharts, Victory and Nivo builds, so a listing that
     // included them would give one gallery on a fresh checkout and another on
     // a built tree. The React entry those would add is the one `loadReact()`
     // already opens. Checked against a directory this test lays out, so it
@@ -187,6 +187,7 @@ describe('the gallery\'s markup', () => {
     expect(html).toContain('href="examples/react/index.html" onclick="loadReact(); return false;"');
     expect(html).toContain('href="examples/recharts/index.html" onclick="loadRecharts(); return false;"');
     expect(html).toContain('href="examples/victory/index.html" onclick="loadVictory(); return false;"');
+    expect(html).toContain('href="examples/nivo/index.html" onclick="loadNivo(); return false;"');
   });
 
   it('should be what build-site.js drops into the page', () => {

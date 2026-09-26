@@ -205,6 +205,12 @@ jobs:
       - name: Build core bundle and locale packs
         run: node scripts/build.js core locales
 
+      # e2e_tests/specs/nivo.spec.ts drives the Nivo example app, which is a
+      # separate single-file Vite build of examples/nivo/ (it bundles the
+      # adapter from src/, so it does not need the adapter's dist bundle).
+      - name: Build Nivo example
+        run: npm run build:nivo-example
+
       - name: Run e2e specs
         id: e2e
         run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium

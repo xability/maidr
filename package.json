@@ -90,6 +90,11 @@
       "import": "./dist/victory.mjs",
       "default": "./dist/victory.mjs"
     },
+    "./nivo": {
+      "types": "./dist/nivo.d.mts",
+      "import": "./dist/nivo.mjs",
+      "default": "./dist/nivo.mjs"
+    },
     "./tableau": {
       "types": "./dist/tableau.d.mts",
       "import": "./dist/tableau.mjs",
@@ -107,7 +112,7 @@
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "build:preview": "npm run build && npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js",
+    "build:preview": "npm run build && npm run build:recharts-example && npm run build:victory-example && npm run build:nivo-example && node scripts/build-site.js",
     "prepublishOnly": "npm run build",
     "prepare": "husky",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
@@ -126,7 +131,7 @@
     "test:coverage": "node scripts/test.js --coverage",
     "type-check": "tsc --noEmit && tsc -p tsconfig.ci.json",
     "build:recharts-example": "vite build --config examples/recharts/vite.config.ts",
-    "docs": "npm run build:recharts-example && npm run build:victory-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js && node scripts/check-page-sizes.js",
+    "docs": "npm run build:recharts-example && npm run build:victory-example && npm run build:nivo-example && node scripts/build-site.js && typedoc && node scripts/add-navbar-to-typedoc.js && node scripts/check-page-sizes.js",
     "docs:watch": "typedoc --watch",
     "docs:serve": "npm run docs && npx http-server _site -o",
     "e2e": "npx playwright test --config=e2e_tests/config/test-config.ts",
@@ -136,7 +141,9 @@
     "build:react-example": "vite build --config examples/react-app/vite.config.ts",
     "dev:recharts": "vite --config examples/recharts/vite.config.ts",
     "build:victory-example": "vite build --config examples/victory/vite.config.ts",
-    "dev:victory": "vite --config examples/victory/vite.config.ts"
+    "dev:victory": "vite --config examples/victory/vite.config.ts",
+    "build:nivo-example": "vite build --config examples/nivo/vite.config.ts",
+    "dev:nivo": "vite --config examples/nivo/vite.config.ts"
   },
   "peerDependencies": {
     "chart.js": "^4.0.0",
@@ -184,6 +191,13 @@
     "@commitlint/config-conventional": "^19.8.0",
     "@jest/globals": "^29.7.0",
     "@jest/types": "^29.6.3",
+    "@nivo/bar": "^0.99.0",
+    "@nivo/boxplot": "^0.99.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/heatmap": "^0.99.0",
+    "@nivo/line": "^0.99.0",
+    "@nivo/pie": "^0.99.0",
+    "@nivo/scatterplot": "^0.99.0",
     "@playwright/test": "^1.52.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",

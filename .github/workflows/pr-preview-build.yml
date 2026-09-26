@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Builds all dist bundles (core + every adapter), the recharts/victory/
+      # Builds all dist bundles (core + every adapter), the recharts/victory/nivo/
       # react single-file examples, and assembles _site/ (dist + examples +
       # gallery). Skips typedoc — the /api docs aren't needed to test examples.
       - name: Build preview site

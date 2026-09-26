@@ -48,6 +48,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
   { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
+  { slug: 'nivo', title: 'Nivo', source: 'nivo.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
