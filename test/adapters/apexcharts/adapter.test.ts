@@ -692,6 +692,16 @@ describe('pie, polar area and gauge', () => {
     expect(layersOf(radial).map(l => l.name)).toEqual(['CPU']);
   });
 
+  it('should emit no layer, and warn, when every pie or polar area slice is hidden', () => {
+    const pie = fakeChart({ type: 'pie', slices: [10, 0], labels: ['a', 'b'], globals: { collapsedSeriesIndices: [0, 1] } });
+    const polar = fakeChart({ type: 'polarArea', slices: [3, 5], labels: ['a', 'b'], globals: { collapsedSeriesIndices: [0, 1] } });
+
+    expect(layersOf(pie)).toEqual([]);
+    expect(layersOf(polar)).toEqual([]);
+    const messages = warn.mock.calls.map(call => String(call[0])).filter(m => m.includes('nothing MAIDR can read'));
+    expect(messages).toHaveLength(2);
+  });
+
   it('should read a polar area chart as one series of spokes', () => {
     const chart = fakeChart({ type: 'polarArea', slices: [3, 4], labels: ['a', 'b'] });
 
@@ -1078,6 +1088,25 @@ describe('gantt on a datetime axis', () => {
     // eslint-disable-next-line no-new-func
     const render = new Function('value', format) as (value: number) => string;
     expect(render(data.points[0][0].start)).toBe('Jan 6, 2025');
+  });
+
+  it('should keep milliseconds and an eval-free date format where the page forbids eval', () => {
+    const start = Date.UTC(2025, 0, 6);
+    const original = globalThis.Function;
+    globalThis.Function = function Blocked() {
+      throw new EvalError('unsafe-eval is not allowed');
+    } as unknown as FunctionConstructor;
+    try {
+      const layer = onlyLayer(datetimeGantt([start], [start + 11 * day]));
+      const data = layer.data as GanttData;
+
+      expect(data.unit).toBeUndefined();
+      expect(data.points[0][0]).toMatchObject({ start, end: start + 11 * day });
+      expect(layer.axes?.x?.format?.function).toBeUndefined();
+      expect(layer.axes?.x?.format?.type).toBe('date');
+    } finally {
+      globalThis.Function = original;
+    }
   });
 
   it('should fall back to hours for tasks shorter than a day', () => {

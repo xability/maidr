@@ -448,9 +448,9 @@ function buildLayers(ctx: Context): MaidrLayer[] {
   switch (chartType(chart)) {
     case 'pie':
     case 'donut':
-      return [pieLayer(ctx)];
+      return compact([pieLayer(ctx)]);
     case 'polarArea':
-      return [polarAreaLayer(ctx)];
+      return compact([polarAreaLayer(ctx)]);
     case 'radialBar':
       return gaugeLayers(ctx);
     case 'heatmap':
@@ -1234,7 +1234,11 @@ function ganttLayer(ctx: Context, indices: number[]): MaidrLayer | null {
   // 950400000 has not been announced. So the positions are restated in the
   // coarsest unit the shortest task fills, and the axis format turns them
   // back into the dates they name.
-  const scale = datetime ? ganttScale(rows.flat().map(entry => entry.point)) : undefined;
+  // The format that turns them back is a function body MAIDR evaluates; a
+  // page whose Content Security Policy forbids that would read the scaled
+  // positions as bare numbers, so there they stay in milliseconds and are
+  // read as dates with the eval-free date format.
+  const scale = datetime && canEvaluate() ? ganttScale(rows.flat().map(entry => entry.point)) : undefined;
   const points = rows.map(row => row.map(({ point }) => scale
     ? { ...point, start: point.start / scale.ms, end: point.end / scale.ms }
     : point));
@@ -1283,6 +1287,21 @@ function ganttScale(points: GanttPoint[]): { unit: string; ms: number } | undefi
   }
   const shortest = Math.min(...lengths);
   return GANTT_UNITS.find(candidate => shortest >= candidate.ms);
+}
+
+/**
+ * Whether the page lets MAIDR evaluate a format function -- a Content
+ * Security Policy without `unsafe-eval` does not.
+ *
+ * @returns True when `new Function` works
+ */
+function canEvaluate(): boolean {
+  try {
+    // eslint-disable-next-line no-new-func
+    return new Function('return true')() === true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1346,11 +1365,14 @@ function slicesSelector(ctx: Context, shown: { j: number }[]): string {
  * slice. A slice hidden through the legend is left out.
  *
  * @param ctx - The conversion context
- * @returns The layer
+ * @returns The layer, or null when every slice is hidden
  */
-function pieLayer(ctx: Context): MaidrLayer {
+function pieLayer(ctx: Context): MaidrLayer | null {
   const { chart } = ctx;
   const shown = slices(chart);
+  if (shown.length === 0) {
+    return null;
+  }
   const data: PiePoint[] = shown.map(slice => ({ x: slice.label, y: slice.value ?? 0 }));
   const start = chart.w.config.plotOptions?.pie?.startAngle;
   return {
@@ -1369,10 +1391,13 @@ function pieLayer(ctx: Context): MaidrLayer {
  * Builds a polar area layer: one series whose spokes are the slices.
  *
  * @param ctx - The conversion context
- * @returns The layer
+ * @returns The layer, or null when every slice is hidden
  */
-function polarAreaLayer(ctx: Context): MaidrLayer {
+function polarAreaLayer(ctx: Context): MaidrLayer | null {
   const shown = slices(ctx.chart);
+  if (shown.length === 0) {
+    return null;
+  }
   const row: LinePoint[] = shown.map(slice => ({ x: slice.label, y: slice.value }));
   return {
     id: nextLayerId(ctx),

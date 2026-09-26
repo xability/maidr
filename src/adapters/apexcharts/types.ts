@@ -313,7 +313,8 @@ export interface ApexChartsBinding {
    * listeners, cancels a pending rebind, puts back the container width the
    * binding was setting, and, once MAIDR has been mounted, removes the
    * `maidr-data` attribute and dispatches `maidr:unbindchart` so the mounted
-   * instance is torn down -- as the ECharts adapter's cleanup does. Call it
+   * instance is torn down -- as the ECharts adapter's cleanup does -- and
+   * removes the hidden box and candle parts it drew. Call it
    * before `chart.destroy()` when a page removes the chart.
    */
   dispose: () => void;

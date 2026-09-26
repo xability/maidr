@@ -22,6 +22,7 @@
 import type { Maidr } from '../../type/grammar';
 import type { ApexChartsAdapterOptions, ApexChartsBinding, ApexChartsInstance } from './types';
 import { apexchartsToMaidr } from './adapter';
+import { unsplit } from './split';
 
 /** How long the drawn geometry must stay still before it is read, in ms. */
 const QUIET_MS = 120;
@@ -464,6 +465,7 @@ export function bindApexCharts(
         chart.el.removeAttribute('maidr-data');
         document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: chart.el }));
       }
+      unsplit(chart.el);
     },
   };
 }

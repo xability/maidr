@@ -4,7 +4,7 @@
 
 import type { BoxSelector, CandlestickSelector } from '@type/grammar';
 import { apexchartsToMaidr } from '@adapters/apexcharts';
-import { computeBoxParts, computeCandleParts, pathVertices, splitBoxes } from '@adapters/apexcharts/split';
+import { computeBoxParts, computeCandleParts, pathVertices, splitBoxes, unsplit } from '@adapters/apexcharts/split';
 import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fakeChart, matches, svg } from './helpers';
 
@@ -132,6 +132,18 @@ describe('splitting the drawn chart', () => {
     apexchartsToMaidr(chart);
 
     expect(group().querySelectorAll('[data-maidr-part]')).toHaveLength(6);
+  });
+
+  it('should remove every part and stop following the box once unsplit', async () => {
+    const { chart, group } = boxChart();
+    apexchartsToMaidr(chart);
+
+    unsplit(chart.el);
+    group().querySelector('path.apexcharts-boxPlot-area')?.setAttribute('d', BOX_LOWER);
+    await Promise.resolve();
+
+    expect(group().querySelectorAll('[data-maidr-part]')).toHaveLength(0);
+    expect(group().querySelectorAll('path.apexcharts-boxPlot-area')).toHaveLength(2);
   });
 
   it('should drop parts left behind when ApexCharts replaced the box', () => {
