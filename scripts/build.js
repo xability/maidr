@@ -398,6 +398,22 @@ export const builds = [
     useDts: true,
     aliases: adapterAliases,
   },
+  {
+    name: 'powerbi',
+    entry: 'src/powerbi-entry.ts',
+    libName: 'maidrPowerBI',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'powerbi.mjs' : 'powerbi.js',
+    emptyOutDir: false,
+    // `bindPowerBI` mounts the MAIDR React UI inside a custom visual, which is
+    // bundled by `pbiviz` into a sandboxed iframe with no shared React, so
+    // React is bundled in (mirrors tableau). The data view is read
+    // structurally; there is no `powerbi-visuals-api` import to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
   ...LOCALE_PACKS.map(localePackBuild),
 ];
 
