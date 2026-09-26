@@ -333,7 +333,7 @@ A magnitude of exactly zero is still a reading. Plot draws it as a triangle with
 
 A vector with no `length` channel is turned away too: every arrow is then drawn the same default height, and the only number available is the mark's own styling.
 
-## Link and arrow marks
+## Link and arrow marks [experimental]
 
 A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:
 
@@ -350,7 +350,7 @@ A lane holding several intervals and a lane holding none are both kept: the inte
 
 What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
 
-## Rule marks
+## Rule marks [experimental]
 
 `Plot.ruleX` and `Plot.ruleY` are how Plot draws a high–low chart, a range plot and a gantt, and a rule carrying an interval is read as the same gantt a `link` produces:
 
