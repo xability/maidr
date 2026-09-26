@@ -266,6 +266,8 @@ ws.onmessage = (e) => {
 };
 ```
 
+A chart drawn with [TradingView Lightweight Charts](lightweight-charts.md) needs none of this wiring: its binder follows every `series.update()` and `series.setData()` itself, appending new bars and replacing the figure for revised ones (see [Live and Streaming Data](lightweight-charts.md#live-and-streaming-data)).
+
 Notes for real feeds:
 
 - **Never put per-tick values in an `aria-live` region.** A `role="status"`/`aria-live` element updated on every trade makes screen readers announce continuously, regardless of monitor mode. Keep live regions for rare connection-state transitions (connecting/connected/disconnected) and render ticking values in a plain element; new-data announcements belong to the opt-in monitor mode.

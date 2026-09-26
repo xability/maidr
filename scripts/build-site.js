@@ -85,6 +85,7 @@ const PAGE_DESCRIPTIONS = {
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
+  'lightweight-charts': 'How to make TradingView Lightweight Charts accessible with MAIDR: candlestick, OHLC bar, line, area and volume series, multi-pane charts and live streaming.',
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
   'powerbi': 'How to build an accessible Power BI custom visual with MAIDR: sonification, braille and keyboard navigation for column, bar, line, scatter and pie charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
@@ -311,6 +312,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
+    .replace(/\{\{LIGHTWEIGHT_CHARTS_ACTIVE\}\}/g, () => activePage === 'lightweight-charts' ? 'active' : '')
     .replace(/\{\{POWERBI_ACTIVE\}\}/g, () => activePage === 'powerbi' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')

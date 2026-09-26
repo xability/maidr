@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configure MAIDR</title>
+    <!-- Opened by the extension's Configure menu; see index.html. -->
+    <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/tableau.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 1rem;
+      }
+      textarea {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        font-family: ui-monospace, monospace;
+      }
+      [role='alert']:not(:empty) {
+        color: #a00000;
+        font-weight: bold;
+      }
+      button {
+        margin-inline-end: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="config"></main>
+    <script>
+      window.maidrTableau.configureTableauExtension({
+        container: document.getElementById('config'),
+      });
+    </script>
+  </body>
+</html>

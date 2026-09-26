@@ -355,6 +355,23 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'lightweight-charts',
+    entry: 'src/adapters/lightweight-charts/index.ts',
+    libName: 'maidrLightweightCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'lightweight-charts.mjs' : 'lightweight-charts.js',
+    emptyOutDir: false,
+    // `bindLightweightChart` mounts the MAIDR React UI around the chart, so
+    // React is bundled in (mirrors chartjs/amcharts) and the UMD build exposes
+    // the `maidrLightweightCharts` global for classic <script> use.
+    // Lightweight Charts itself is never imported -- the adapter duck-types
+    // the chart the host page created -- so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'victory',
     entry: 'src/victory-entry.ts',
     formats: ['es'],
@@ -392,7 +409,9 @@ export const builds = [
     // is bundled in (mirrors chartjs/amcharts) and the UMD build (tableau.js)
     // exposes the `maidrTableau` global for classic <script> use. Tableau's
     // Embedding API is loaded by the host page and is only duck-typed off the
-    // live viz element, so there is nothing to externalize.
+    // live viz element, and `bindTableauExtension` does the same with the
+    // Extensions API the extension's page loads, so there is nothing to
+    // externalize.
     external: [],
     useReact: true,
     useDts: true,

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + TradingView Lightweight Charts: Live Price Ticker</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5/dist/lightweight-charts.standalone.production.js"></script>
+    <script type="text/javascript" src="../dist/lightweight-charts.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      #controls {
+        margin-bottom: 1rem;
+      }
+      #ticker-chart {
+        width: 720px;
+        height: 420px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + Lightweight Charts: Live Price Ticker</h1>
+    <p>
+      A simulated feed streams into a Lightweight Charts candlestick chart with
+      a volume pane. Every tick revises the forming candle with
+      <code>series.update()</code>; every fifth tick opens a new one. MAIDR
+      follows the chart on its own: press <kbd>M</kbd> inside the price pane to
+      turn on <strong>monitor mode</strong>, and each new candle is sonified and
+      announced while you keep your place. <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> +
+      <kbd>Right Arrow</kbd> jumps to the newest candle.
+    </p>
+    <div id="controls">
+      <button id="start" type="button">Start feed</button>
+      <button id="stop" type="button" disabled>Stop feed</button>
+    </div>
+
+    <div id="ticker-chart"></div>
+
+    <script>
+      let seed = 11;
+      function random() {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      }
+      function round(value) {
+        return Math.round(value * 100) / 100;
+      }
+
+      // Twenty closed one-minute candles of history.
+      const start = Date.UTC(2025, 5, 2, 14, 30) / 1000;
+      const history = [];
+      const volumes = [];
+      let close = 250;
+      for (let i = 0; i < 20; i++) {
+        const open = close;
+        close = round(open + (random() - 0.5) * 2);
+        const candle = {
+          time: start + i * 60,
+          open,
+          high: round(Math.max(open, close) + random()),
+          low: round(Math.min(open, close) - random()),
+          close,
+        };
+        history.push(candle);
+        volumes.push({ time: candle.time, value: Math.round(2000 + random() * 3000) });
+      }
+
+      const chart = LightweightCharts.createChart(document.getElementById('ticker-chart'), {
+        layout: { background: { color: '#ffffff' }, textColor: '#333333' },
+        timeScale: { timeVisible: true, secondsVisible: false },
+      });
+      const candles = chart.addSeries(LightweightCharts.CandlestickSeries, { title: 'XYZ' });
+      const volume = chart.addSeries(
+        LightweightCharts.HistogramSeries,
+        { title: 'Volume', priceFormat: { type: 'volume' }, color: '#90a4ae' },
+        1,
+      );
+      candles.setData(history);
+      volume.setData(volumes);
+
+      window.maidrBinding = maidrLightweightCharts.bindLightweightChart(chart, {
+        id: 'lwc-live',
+        title: 'XYZ live, one-minute candles',
+        // Keep MAIDR's copy bounded however long the feed runs.
+        maxWidth: 120,
+      });
+
+      // The simulated feed: in a real page this is a WebSocket handler.
+      let forming = { ...history[history.length - 1] };
+      let formingVolume = volumes[volumes.length - 1].value;
+      let tick = 0;
+      function onTick() {
+        tick += 1;
+        if (tick % 5 === 0) {
+          // The minute closed: open the next candle at the last price.
+          forming = {
+            time: forming.time + 60,
+            open: forming.close,
+            high: forming.close,
+            low: forming.close,
+            close: forming.close,
+          };
+          formingVolume = 0;
+        }
+        const price = round(forming.close + (random() - 0.5) * 1.5);
+        forming = {
+          ...forming,
+          close: price,
+          high: Math.max(forming.high, price),
+          low: Math.min(forming.low, price),
+        };
+        formingVolume += Math.round(200 + random() * 600);
+        // Plain Lightweight Charts calls: MAIDR picks both up on its own.
+        candles.update(forming);
+        volume.update({ time: forming.time, value: formingVolume });
+      }
+      window.feedTick = onTick;
+
+      let timer = null;
+      const startButton = document.getElementById('start');
+      const stopButton = document.getElementById('stop');
+      startButton.addEventListener('click', () => {
+        timer = setInterval(onTick, 1000);
+        startButton.disabled = true;
+        stopButton.disabled = false;
+      });
+      stopButton.addEventListener('click', () => {
+        clearInterval(timer);
+        timer = null;
+        startButton.disabled = false;
+        stopButton.disabled = true;
+      });
+    </script>
+  </body>
+</html>

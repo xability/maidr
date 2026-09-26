@@ -44,6 +44,19 @@ export const EXCLUDED_EXAMPLES = [
       + 'Recharts group links that build.',
   },
   {
+    page: 'tableau-extension/configure.html',
+    reason:
+      'The Tableau extension\'s configuration dialog. Tableau opens it from the '
+      + 'extension\'s Configure menu; outside a dashboard it has no settings to edit.',
+  },
+  {
+    page: 'tableau-extension/index.html',
+    reason:
+      'The page maidr.trex points a Tableau dashboard at. It reads the dashboard '
+      + 'it is a zone of, so outside Tableau there is nothing for it to show; the '
+      + 'Tableau Integration Guide explains how to add it to a dashboard.',
+  },
+  {
     page: 'victory/index.html',
     reason:
       'Vite entry point, not a page. `npm run build:victory-example` bundles it '
@@ -215,6 +228,8 @@ export const TITLES = {
   'google-charts-statistical.html': 'Statistical and Relational Readings',
   'highcharts-grid.html': 'Small Multiples (2×2 Grid)',
   'highcharts-panes.html': 'Multi-Pane Chart (Price + Volume)',
+  'lightweight-charts.html': 'Candlestick, Moving Average and Volume',
+  'lightweight-charts-live.html': 'Live Price Ticker (series.update streaming)',
   'plotly-subplots.html': 'Subplots (2×2 Grid)',
   'powerbi-bar.html': 'Clustered Column Chart',
   'powerbi-line.html': 'Line Chart (companion mode)',
@@ -382,6 +397,8 @@ export const PAGE_TYPES = {
   'highcharts-bellcurve.html': ['smooth'],
   'highcharts-grid.html': ['bar'],
   'highcharts-panes.html': ['line', 'bar'],
+  'lightweight-charts.html': ['candlestick', 'line', 'bar'],
+  'lightweight-charts-live.html': ['candlestick', 'bar'],
   'highcharts-pareto.html': ['bar', 'line'],
   'highcharts-timeline.html': ['point'],
   'highcharts-variwide.html': ['mosaic'],
@@ -532,6 +549,14 @@ export const GROUPS = [
     prefixes: ['highcharts-'],
     headingPrefix: 'Highcharts',
     note: 'See the <a href="highcharts.html">Highcharts Integration Guide</a> for setup instructions and code examples for all chart types.',
+  },
+  {
+    id: 'lightweight-charts',
+    heading: 'TradingView Lightweight Charts',
+    prefixes: ['lightweight-charts-'],
+    names: ['lightweight-charts'],
+    headingPrefix: 'Lightweight Charts',
+    note: 'See the <a href="lightweight-charts.html">Lightweight Charts Integration Guide</a> for setup instructions, live streaming, and code examples.',
   },
   {
     id: 'tableau',

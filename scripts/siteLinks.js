@@ -51,6 +51,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
+  { slug: 'lightweight-charts', title: 'Lightweight Charts', source: 'lightweight-charts.md' },
   { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
 ];
 
