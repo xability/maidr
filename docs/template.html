@@ -147,12 +147,16 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
+    /* Both rows wrap, so zooming in (which narrows the viewport in CSS
+       pixels) moves links onto a new line instead of off the right edge. */
     nav .container {
       max-width: 1200px;
       margin: 0 auto;
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem 1rem;
     }
 
     nav .logo {
@@ -174,8 +178,9 @@
     nav ul {
       list-style: none;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 2rem;
+      gap: 0.5rem 2rem;
       margin: 0;
       padding: 0;
     }
@@ -265,6 +270,10 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       display: none;
       z-index: 1001;
+      /* The nav is sticky, so a menu taller than the space under it could
+         never be scrolled into view; it scrolls on its own instead. */
+      max-height: calc(100vh - 6rem);
+      overflow-y: auto;
     }
 
     .nav-dropdown-menu[data-open="true"] {
@@ -292,6 +301,41 @@
 
     .nav-dropdown-menu a.active {
       background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Zoomed in, or on a small screen (60rem is about where the links stop
+       fitting on the logo's row): a wrapped nav would take a large share
+       of the viewport if it stayed sticky, and an absolutely positioned menu
+       would run off the edge. The links stack in one column that scrolls away
+       with the page, and the menu opens in place under its button, pushing
+       the links after it down. */
+    @media (max-width: 60rem), (max-height: 30rem) {
+      nav {
+        position: static;
+        padding: 1rem;
+      }
+
+      nav ul {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+      }
+
+      nav ul > li > a {
+        display: inline-block;
+      }
+
+      .nav-dropdown {
+        flex-wrap: wrap;
+      }
+
+      .nav-dropdown-menu {
+        position: static;
+        flex-basis: 100%;
+        max-height: none;
+        overflow-y: visible;
+        box-shadow: none;
+      }
     }
 
     /* Skip link: first thing in the tab order, offscreen until focused. */
