@@ -72,7 +72,7 @@ describe('ChatService provider requests', () => {
       customInstruction: '',
       expertise: 'basic',
       apiKey: 'sk-ant-test',
-      version: 'claude-sonnet-4-6',
+      version: 'claude-opus-5-5',
     });
 
     expect(response).toEqual({ success: true, data: 'The trend is upward.' });
@@ -83,8 +83,16 @@ describe('ChatService provider requests', () => {
     expect(headers['anthropic-version']).toBe('2023-06-01');
     expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
     expect(headers.Authorization).toBeUndefined();
-    expect(body.model).toBe('claude-sonnet-4-6');
-    expect(body.max_tokens).toBeGreaterThan(0);
+    expect(body.model).toBe('claude-opus-5-5');
+    // Thinking counts against max_tokens and is on by default from Claude
+    // Opus 5, so the cap must leave room for an answer after it.
+    expect(body.max_tokens).toBeGreaterThanOrEqual(4096);
+    // Claude Opus 5 and later reject sampling parameters and budgeted or
+    // disabled thinking with a 400, so none of them may be sent.
+    expect(body).not.toHaveProperty('thinking');
+    expect(body).not.toHaveProperty('temperature');
+    expect(body).not.toHaveProperty('top_p');
+    expect(body).not.toHaveProperty('top_k');
     expect(typeof body.system).toBe('string');
     // Image data must be raw base64 without the data-URL prefix.
     expect(body.messages[0].content[0]).toEqual(
@@ -112,6 +120,10 @@ describe('ChatService provider requests', () => {
     expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer sk-openai-test');
     expect(body.model).toBe('gpt-5.4-mini');
+    // Reasoning tokens count against max_completion_tokens; GPT-5 and later
+    // reject the legacy max_tokens.
+    expect(body.max_completion_tokens).toBeGreaterThanOrEqual(4096);
+    expect(body).not.toHaveProperty('max_tokens');
 
     // Chat requests must carry a timeout so a hung provider cannot stall
     // the chat indefinitely.
@@ -170,9 +182,11 @@ describe('ChatService provider requests', () => {
 
     expect(response).toEqual({ success: true, data: 'Answer.' });
 
-    const { url, headers } = lastRequest();
+    const { url, headers, body } = lastRequest();
     expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=g-key');
     expect(headers.Authorization).toBeUndefined();
+    // Gemini 3 thinks by default and bills it against maxOutputTokens.
+    expect(body.generationConfig.maxOutputTokens).toBeGreaterThanOrEqual(4096);
   });
 
   test('Ollama: targets the configured server with no auth header', async () => {
