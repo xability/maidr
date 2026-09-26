@@ -362,6 +362,20 @@ const GUIDES: Record<string, Guide> = {
       'line chart (multi-series)': ['line'],
     },
   },
+  'lightweight-charts': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: 6,
+    examples: { after: '## Code Examples', before: '## Options', level: '###', min: 7 },
+    labels: {
+      // Named by the Lightweight Charts series type, read as the MAIDR layer.
+      'ohlc bar': ['candlestick'],
+      'area': ['line'],
+      'baseline': ['line'],
+      'histogram': ['bar'],
+      'price, moving average and volume panes': ['candlestick', 'line', 'bar'],
+    },
+  },
   'frappe': {
     heading: '## Supported Chart Types',
     column: 0,

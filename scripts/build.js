@@ -355,6 +355,23 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'lightweight-charts',
+    entry: 'src/adapters/lightweight-charts/index.ts',
+    libName: 'maidrLightweightCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'lightweight-charts.mjs' : 'lightweight-charts.js',
+    emptyOutDir: false,
+    // `bindLightweightChart` mounts the MAIDR React UI around the chart, so
+    // React is bundled in (mirrors chartjs/amcharts) and the UMD build exposes
+    // the `maidrLightweightCharts` global for classic <script> use.
+    // Lightweight Charts itself is never imported -- the adapter duck-types
+    // the chart the host page created -- so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'victory',
     entry: 'src/victory-entry.ts',
     formats: ['es'],
