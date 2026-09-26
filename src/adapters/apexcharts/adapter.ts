@@ -941,12 +941,16 @@ function scatterLayer(ctx: Context, i: number): MaidrLayer | null {
   const data: ScatterPoint[] = [];
   seriesValues(chart, i).forEach((raw, j) => {
     const y = toNumber(raw);
-    const x = xAt(chart, i, j);
     // A point ApexCharts drew no marker for is not in the chart: a null, or
-    // one of more points than a category axis has slots for.
-    if (y === null || x === '' || (drawn !== null && !drawn.has(j))) {
+    // one of more points than a category axis has slots for. Once the chart
+    // is drawn its markers say which were drawn, so a point past the named
+    // categories that still has one keeps its place, named by its slot, and
+    // the points stay paired with their markers.
+    const unnamed = xAt(chart, i, j) === '';
+    if (y === null || (drawn !== null ? !drawn.has(j) : unnamed)) {
       return;
     }
+    const x = xOrSlot(chart, i, j);
     // A category axis gives a name; the point keeps its slot as the number
     // and the name alongside it.
     data.push(typeof x === 'number' ? { x, y } : { x: j, y, xLabel: x });
@@ -1289,6 +1293,9 @@ function ganttScale(points: GanttPoint[]): { unit: string; ms: number } | undefi
   return GANTT_UNITS.find(candidate => shortest >= candidate.ms);
 }
 
+/** What {@link canEvaluate} found, once it has asked. */
+let evaluable: boolean | undefined;
+
 /**
  * Whether the page lets MAIDR evaluate a format function -- a Content
  * Security Policy without `unsafe-eval` does not.
@@ -1296,12 +1303,17 @@ function ganttScale(points: GanttPoint[]): { unit: string; ms: number } | undefi
  * @returns True when `new Function` works
  */
 function canEvaluate(): boolean {
-  try {
-    // eslint-disable-next-line no-new-func
-    return new Function('return true')() === true;
-  } catch {
-    return false;
+  // Asked once per page: under a CSP that forbids it, each attempt reports a
+  // violation, and a chart that redraws would report one every time.
+  if (evaluable === undefined) {
+    try {
+      // eslint-disable-next-line no-new-func
+      evaluable = new Function('return true')() === true;
+    } catch {
+      evaluable = false;
+    }
   }
+  return evaluable;
 }
 
 /**

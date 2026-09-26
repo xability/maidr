@@ -3,7 +3,7 @@
  */
 
 import type { BoxSelector, CandlestickSelector } from '@type/grammar';
-import { apexchartsToMaidr } from '@adapters/apexcharts';
+import { apexchartsToMaidr, bindApexCharts } from '@adapters/apexcharts';
 import { computeBoxParts, computeCandleParts, pathVertices, splitBoxes, unsplit } from '@adapters/apexcharts/split';
 import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fakeChart, matches, svg } from './helpers';
@@ -137,13 +137,31 @@ describe('splitting the drawn chart', () => {
   it('should remove every part and stop following the box once unsplit', async () => {
     const { chart, group } = boxChart();
     apexchartsToMaidr(chart);
+    const part = group().querySelector('[data-maidr-part="min"]') as Element;
+    const before = part.getAttribute('d');
 
     unsplit(chart.el);
-    group().querySelector('path.apexcharts-boxPlot-area')?.setAttribute('d', BOX_LOWER);
+    // A box redrawn taller: a part still followed would take the new shape.
+    group().querySelector('path.apexcharts-boxPlot-area')?.setAttribute('d', BOX_LOWER.replace(/244\.01504/g, '300'));
     await Promise.resolve();
 
     expect(group().querySelectorAll('[data-maidr-part]')).toHaveLength(0);
     expect(group().querySelectorAll('path.apexcharts-boxPlot-area')).toHaveLength(2);
+    expect(part.getAttribute('d')).toBe(before);
+  });
+
+  it('should remove the parts when a box plot binding is disposed', async () => {
+    const { chart, group } = boxChart();
+    const binding = bindApexCharts(chart);
+    await binding.ready;
+    expect(group().querySelectorAll('[data-maidr-part]:not([data-maidr-owned])')).toHaveLength(6);
+    const disconnect = jest.spyOn(MutationObserver.prototype, 'disconnect');
+
+    binding.dispose();
+
+    expect(group().querySelectorAll('[data-maidr-part]:not([data-maidr-owned])')).toHaveLength(0);
+    expect(disconnect).toHaveBeenCalled();
+    disconnect.mockRestore();
   });
 
   it('should drop parts left behind when ApexCharts replaced the box', () => {

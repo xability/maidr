@@ -645,6 +645,28 @@ describe('scatter', () => {
     expect((onlyLayer(chart).data as ScatterPoint[]).map(p => p.y)).toEqual([2, 3]);
   });
 
+  it('should keep a drawn point past the named categories, named by its slot', () => {
+    const drawn = fakeChart({
+      type: 'scatter',
+      series: [{ name: 'A', values: [2, 3, 4] }],
+      categoryLabels: ['a', 'b'],
+      draw: dom => drawMarkers(dom.series(0, 'apexcharts-scatter-series'), [2, 3, 4]),
+    });
+    const undrawn = fakeChart({
+      type: 'scatter',
+      series: [{ name: 'A', values: [2, 3, 4] }],
+      categoryLabels: ['a', 'b'],
+      draw: dom => drawMarkers(dom.series(0, 'apexcharts-scatter-series'), [2, 3]),
+    });
+
+    expect(onlyLayer(drawn).data).toEqual([
+      { x: 0, y: 2, xLabel: 'a' },
+      { x: 1, y: 3, xLabel: 'b' },
+      { x: 2, y: 4, xLabel: '3' },
+    ]);
+    expect((onlyLayer(undrawn).data as ScatterPoint[]).map(p => p.y)).toEqual([2, 3]);
+  });
+
   it('should read a bubble chart as scatter layers', () => {
     const chart = fakeChart({ type: 'bubble', series: [{ name: 'A', values: [2], x: [1] }], isXNumeric: true });
 
@@ -1090,20 +1112,31 @@ describe('gantt on a datetime axis', () => {
     expect(render(data.points[0][0].start)).toBe('Jan 6, 2025');
   });
 
-  it('should keep milliseconds and an eval-free date format where the page forbids eval', () => {
+  it('should keep milliseconds and an eval-free date format where the page forbids eval, asking once', () => {
     const start = Date.UTC(2025, 0, 6);
+    // A fresh copy of the adapter, which has not asked yet on this page.
+    let convert: typeof apexchartsToMaidr = apexchartsToMaidr;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line ts/no-require-imports
+      convert = (require('@adapters/apexcharts') as { apexchartsToMaidr: typeof apexchartsToMaidr }).apexchartsToMaidr;
+    });
     const original = globalThis.Function;
+    let attempts = 0;
     globalThis.Function = function Blocked() {
+      attempts += 1;
       throw new EvalError('unsafe-eval is not allowed');
     } as unknown as FunctionConstructor;
     try {
-      const layer = onlyLayer(datetimeGantt([start], [start + 11 * day]));
+      const chart = datetimeGantt([start], [start + 11 * day]);
+      const layer = convert(chart).subplots[0][0].layers[0];
+      convert(chart);
       const data = layer.data as GanttData;
 
       expect(data.unit).toBeUndefined();
       expect(data.points[0][0]).toMatchObject({ start, end: start + 11 * day });
       expect(layer.axes?.x?.format?.function).toBeUndefined();
       expect(layer.axes?.x?.format?.type).toBe('date');
+      expect(attempts).toBe(1);
     } finally {
       globalThis.Function = original;
     }
