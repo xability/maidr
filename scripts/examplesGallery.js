@@ -388,7 +388,7 @@ export const PAGE_TYPES = {
   'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
-  'powerbi-bar.html': ['dodged_bar'],
+  'powerbi-bar.html': ['dodged_bar', 'bar'],
   'tableau-bar.html': ['bar'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],

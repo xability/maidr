@@ -212,8 +212,9 @@
         return parts.join(', ');
       }
 
-      // onNavigate: the data points under MAIDR's cursor, or null when the
-      // reader leaves the chart.
+      // onNavigate: the data points under MAIDR's cursor, or null when focus
+      // leaves the visual (or its frame loses focus) after a position was
+      // reported.
       function onNavigate(points) {
         svg.querySelectorAll('rect.mark.highlighted').forEach(node => node.classList.remove('highlighted'));
         element.classList.toggle('dimmed', points !== null && points.length > 0);
@@ -265,8 +266,10 @@
       update(makeDataView(['North', 'South', 'West']));
 
       // A slicer changes the data view. One region left is a plain bar
-      // chart. If the reader is inside the chart, MAIDR picks the new data
-      // up when they next enter, unless the binding was made with live: true.
+      // chart. The binding is live by default, so the new data is applied in
+      // place even while the reader is inside the chart, keeping their
+      // position where it still exists. Pass live: false to hold it until
+      // focus leaves the visual instead.
       let filtered = false;
       document.getElementById('slicer').addEventListener('click', (event) => {
         filtered = !filtered;

@@ -59,14 +59,14 @@
       A simulated report page with two visuals bound to the same fields: a
       <em>native</em> line chart for sighted readers, and a small MAIDR custom
       visual beside it that draws nothing but a keyboard entry point. Tab to
-      "Visits and sign-ups by month", then use the arrow keys: Left and Right
-      move along a line, Up and Down switch between the two lines.
+      the MAIDR visual, then use the arrow keys: Left and Right move along a
+      line, Up and Down switch between the two lines.
     </p>
 
     <div class="note">
-      <strong>Why two visuals?</strong> Every Power BI visual runs in its own
-      sandboxed iframe, so a custom visual can never read a native visual's
-      drawing or data. The companion is bound to the same Month, Visits and
+      <strong>Why two visuals?</strong> A Power BI custom visual runs in its
+      own sandboxed iframe, apart from the report page where native visuals
+      render, so it can never read a native visual's drawing or data. The companion is bound to the same Month, Visits and
       Sign-ups fields instead, so it reads the numbers the native chart draws.
       Its <code>onNavigate</code> would call
       <code>selectionManager.select()</code>, and Power BI would cross-highlight
@@ -167,11 +167,12 @@
       labels.forEach((label, i) => native.appendChild(svgEl('text', { 'x': x(i) - 10, 'y': 245, 'font-size': 12 }, label)));
 
       // The companion visual: no `chart`, so MAIDR renders only its entry
-      // point, with `label` as its text.
+      // point, with `label` as its visible text. Screen readers hear MAIDR's
+      // own instruction instead, so the label holds nothing they need.
       const binding = maidrPowerBI.bindPowerBI(document.getElementById('companion'), {
         chartType: 'line',
         title: 'Visits and sign-ups by month',
-        label: 'Visits and sign-ups by month: accessible chart',
+        label: 'Visits and sign-ups by month (accessible chart)',
         onNavigate(points) {
           // In Power BI: selectionManager.select(ids) and let the report
           // cross-highlight. Simulated here.

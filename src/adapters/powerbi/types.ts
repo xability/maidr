@@ -209,11 +209,26 @@ export interface PowerBIAdapterOptions {
  * other visuals on the page cross-filter to it:
  *
  * ```ts
- * host.createSelectionIdBuilder()
- *   .withCategory(dataView.categorical.categories[0], ref.categoryIndex)
- *   .withSeries(dataView.categorical.values, dataView.categorical.values[ref.valueColumnIndex])
- *   .withMeasure(dataView.categorical.values[ref.valueColumnIndex].source.queryName)
- *   .createSelectionId();
+ * const builder = host.createSelectionIdBuilder();
+ * if (ref.kind === 'table') {
+ *   // `withTable` needs visuals API 2.5.0 or later.
+ *   return dataView.table ? builder.withTable(dataView.table, ref.rowIndex).createSelectionId() : null;
+ * }
+ * const categorical = dataView.categorical;
+ * if (ref.categoryIndex !== null && categorical?.categories?.[0]) {
+ *   builder.withCategory(categorical.categories[0], ref.categoryIndex);
+ * }
+ * const column = ref.valueColumnIndex !== null ? categorical?.values?.[ref.valueColumnIndex] : undefined;
+ * if (categorical?.values && column) {
+ *   if (categorical.values.source) {
+ *     // Only when a series (legend) field is bound.
+ *     builder.withSeries(categorical.values, column);
+ *   }
+ *   if (column.source.queryName) {
+ *     builder.withMeasure(column.source.queryName);
+ *   }
+ * }
+ * return builder.createSelectionId();
  * ```
  *
  * A categorical reference names the category row and the value column; a table

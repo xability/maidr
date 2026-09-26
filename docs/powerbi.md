@@ -2,7 +2,7 @@
 
 MAIDR ships a Power BI adapter for building a [Power BI custom visual](https://learn.microsoft.com/power-bi/developer/visuals/develop-power-bi-visuals). One call in the visual's constructor, `bindPowerBI(options.element, { chartType })`, mounts MAIDR's accessible layer inside the visual. After that, each `update()` passes the new `DataView` to it. A report reader gets audio sonification, text descriptions, braille output, keyboard navigation and a description modal for the data the report author dragged into the visual's field wells.
 
-> **What this adapter is not.** It does **not** make Power BI's native visuals accessible, and it does **not** read another visual's data or drawing. Every visual on a report page, native or custom, runs in its own sandboxed `<iframe>`: a custom visual cannot see another visual's DOM, cannot inject ARIA into it, and receives no data except the `DataView` for its own field wells. The adapter works inside one custom visual, from the data Power BI hands that visual. It is also not a packaged `.pbiviz`. You build the visual with Microsoft's `pbiviz` tooling and import MAIDR into it like any other npm dependency. See [Limitations](#limitations) before you plan around it.
+> **What this adapter is not.** It does **not** make Power BI's native visuals accessible, and it does **not** read another visual's data or drawing. Each custom visual runs in its own sandboxed `<iframe>`, and can see neither the report's DOM (where Power BI's native visuals render) nor another visual's data: it cannot inject ARIA into a native visual, and it receives no data except the `DataView` for its own field wells. The adapter works inside one custom visual, from the data Power BI hands that visual. It is also not a packaged `.pbiviz`. You build the visual with Microsoft's `pbiviz` tooling and import MAIDR into it like any other npm dependency. See [Limitations](#limitations) before you plan around it.
 
 ## Quick Start
 
@@ -53,7 +53,7 @@ For a scatter visual, add two more measure roles and select them alongside (or i
 "select": [{ "for": { "in": "x" } }, { "for": { "in": "y" } }]
 ```
 
-`"supportsKeyboardFocus": true` is required: without it a keyboard user cannot reach anything inside the visual. See [Keyboard Controls](#keyboard-controls) for what it changes. `privileges` is required from visuals API 4.6.0 onward. Leave it empty unless you want MAIDR's AI descriptions (see [Limitations](#limitations)).
+`"supportsKeyboardFocus": true` is recommended. It is what makes Power BI's keyboard model reach inside the visual: <kbd>Enter</kbd> on the visual's container moves focus into the visual, and <kbd>Tab</kbd> then stays inside it until the reader presses <kbd>Esc</kbd>. Microsoft's documentation notes that <kbd>Enter</kbd> does not always land on the first focusable element and recommends moving focus there programmatically; for this adapter that element is MAIDR's figure (see [Keyboard Controls](#keyboard-controls)). `privileges` is required from visuals API 4.6.0 onward. Leave it empty unless you want MAIDR's AI descriptions (see [Limitations](#limitations)).
 
 ### 2. `src/visual.ts`
 
@@ -114,16 +114,18 @@ MAIDR draws no highlight of its own here. The adapter emits no selectors, becaus
 
 ### Companion mode (no `chart`)
 
-GitHub issue [#1305](https://github.com/xability/maidr/issues/1305) asked for a second option: MAIDR sitting alongside a **native** Power BI visual, so authors keep the chart Power BI draws and add a non-visual reading next to it. We evaluated this, and a visual cannot reach into another. Each visual on the page is a separate sandboxed iframe, and Power BI gives a custom visual only the data bound to its own field wells, never another visual's data or DOM.
+GitHub issue [#1305](https://github.com/xability/maidr/issues/1305) asked for a second option: MAIDR sitting alongside a **native** Power BI visual, so authors keep the chart Power BI draws and add a non-visual reading next to it. We evaluated this, and a custom visual cannot reach into a native one. Each custom visual runs in its own sandboxed iframe, apart from the report's DOM where native visuals render, and Power BI gives it only the data bound to its own field wells, never another visual's data.
 
-What *does* work is a companion **custom** visual bound to the **same fields** as the native one. The author places a native clustered column chart and the MAIDR visual side by side and drags the same Axis, Legend and Values fields into both. Slicers and filters then reach both visuals the same way, and the companion reads the same numbers the native chart draws. In companion mode the binder renders no chart. It renders only MAIDR's keyboard entry point: a block of text set by [`label`](#powerbibindoptions). Size the companion visual small and place it next to the native chart. A reader tabs into it and hears the native chart's data.
+What *does* work is a companion **custom** visual bound to the **same fields** as the native one. The author places a native clustered column chart and the MAIDR visual side by side and drags the same Axis, Legend and Values fields into both. Slicers and filters then reach both visuals the same way, and the companion reads the same numbers the native chart draws. In companion mode the binder renders no chart. It renders only MAIDR's keyboard entry point, showing the text set by [`label`](#powerbibindoptions). Size the companion visual small and place it next to the native chart. A reader tabs into it and hears the native chart's data.
+
+`label` is **visible text only**. The entry point sits inside MAIDR's focusable plot element, which has `role="img"` and an `aria-label` holding MAIDR's own instruction, so a screen reader announces that instruction and never reads the label. Use the label to tell sighted keyboard users what the box is; do not put anything in it that a screen-reader user needs to hear, and do not repeat keyboard instructions there.
 
 ```ts
 this.maidr = bindPowerBI(options.element, {
   chartType: 'column',
   barMode: 'stacked', // match what the native visual draws
   title: 'Sales by quarter',
-  label: 'Sales by quarter: accessible chart. Press Enter, then use the arrow keys.',
+  label: 'Sales by quarter (accessible chart)', // visible text; screen readers hear MAIDR's instruction
 });
 ```
 
@@ -161,8 +163,10 @@ The adapter never imports `powerbi-visuals-api`. It reads the `DataView` structu
 1. **Pick the mapping.** `dataView.categorical` is read when present. Otherwise the adapter falls back to `dataView.table`. `single` and `matrix` mappings are not read, and a data view with neither categorical nor table data converts to nothing.
 2. **Find the fields by role.** Each metadata column carries the roles from `capabilities.json` that it is bound to. The category is the category column that has the `category` role, or the first category column. The measure is the value column with the `measure` role, or the first. The scatter axes use `x` and `y`, or else the first two measures.
 3. **Group by series.** With a Legend field bound, Power BI emits one value column for each series value and measure. Each column is tagged with its series in `source.groupName`, and `categorical.values.source` is the Legend field. The adapter regroups the columns by that tag, in the order the tags first appear (the legend's order). It does not call the SDK's `grouped()`, so a plain JSON data view groups the same way. With no Legend field, each measure in the Values well is its own series, named after the measure.
-4. **Table fallback.** For a table mapping, the category and series columns are found by role. Failing that, the category is the first column that is neither a measure nor numeric. Measure columns are those with a measure, `x` or `y` role, `isMeasure`, or a numeric type. The adapter pivots rows onto one position per distinct category (in first-appearance order) and one series per distinct series value. When a category and series pair repeats, the **first row wins**. Summing the rows would announce a total the visual never drew.
-5. **Only the first category level.** When a hierarchy has been expanded, so several category fields are bound, the adapter reads one of them and warns that it ignored the rest. Drill down in the report to read the next level.
+4. **Table fallback.** For a table mapping, the category and series columns are found by role. Failing that, the category is the first column that is neither a measure nor numeric. Measure columns are those with a measure, `x` or `y` role, `isMeasure`, or a numeric type. The adapter pivots rows onto one position per distinct category and one series per distinct series value (series in first-appearance order). When a category and series pair repeats, the **first row wins**. Summing the rows would announce a total the visual never drew.
+   - **Category order.** A category whose values are all numbers, or all dates, is put in ascending axis order, with blanks last: a table's rows follow the query's sort, which need not be the category's, and rows sorted by series first would otherwise run a line Feb, Mar, Jan. A text category keeps the order of the rows.
+   - **No category.** With no column recognisable as the category, each row would be its own mark. A bar, column or pie chart then reads one mark per series from a single row; when the table holds several rows, reading only the first would drop the rest without a word, so the conversion is `null` and a warning asks you to bind the category role or give the table a text or date column.
+5. **Only the first category level.** When several category fields are bound, the adapter reads one of them and warns that it ignored the rest. Reading a hierarchy level by level needs drill-down, which the Quick Start does not declare: add `"drilldown": { "roles": ["category"] }` to `capabilities.json`, and drilling down in the report then hands the visual the next level. See Microsoft's [drill-down documentation](https://learn.microsoft.com/power-bi/developer/visuals/drill-down-support) for how it interacts with your mapping's `conditions`.
 
 How values become what MAIDR announces:
 
@@ -173,19 +177,19 @@ How values become what MAIDR announces:
   - a scatter point missing either coordinate is dropped;
   - a pie slice that is blank, zero or negative is dropped, with a warning for the negative ones, because Power BI draws no slice for them either.
 - **Numbers stay numbers.** A numeric category keeps its order and spacing, and a measure that arrives as a numeric string is parsed.
-- **Dates** read as `YYYY-MM-DD` in the report's local time. The time (`HH:MM`) is appended only when it is not midnight.
+- **Dates** read as `YYYY-MM-DD` in the report's local time. The time is appended only when it is not midnight: `HH:MM`, with seconds (`HH:MM:SS`) when they are present and milliseconds (`HH:MM:SS.mmm`) when those are, so two readings a few seconds apart are never announced as the same minute.
 - **An empty category** reads as `(Blank)`, the label Power BI itself shows.
-- **No category field.** A bar or column chart becomes one bar per series or measure, and a pie becomes one slice per series or measure. A line needs a category to run along, so it converts to nothing and logs a warning.
+- **No category field.** A bar or column chart becomes one bar per series or measure, and a pie becomes one slice per series or measure, each reading its single value. When the data view holds several rows and no category (a table view, see above), it converts to nothing with a warning rather than reading the first row alone. A line needs a category to run along, so it converts to nothing and logs a warning.
 - **A pie reads one series.** With a Legend field and a category both bound, the first series is read and a warning names how many were ignored.
 - **A scatter needs two measures** for each series. Without them nothing is built, and a warning says why. A bound category becomes each point's label, like Power BI's Details well.
 
 **Axis labels** default to the display names of the bound fields: the category on the category axis and the measure on the value axis. The measure name is used only when every series reads the same measure. A horizontal `bar` chart swaps the two. The Legend field names the `z` axis of a segmented bar or a multi-line chart. For a pie the labels are the category and measure names, and for a scatter the two measure names. The `axes` option overrides `x` and `y` as the layer emits them: on a horizontal bar chart, `x` is the measure axis.
 
-When there is nothing to navigate (no fields bound yet, no rows, or every reading blank), the conversion is `null`. The binder then mounts no MAIDR figure at all: in chart mode your drawing stays visible, and in companion mode the visual is empty. Show your own empty state, or declare `supportsLandingPage` in `capabilities.json`.
+When there is nothing to navigate (no fields bound yet, no rows, or every reading blank), the conversion is `null`. The binder then mounts no MAIDR figure. In its place it renders a focusable empty state (`role="status"`, `tabIndex` 0, attribute `data-maidr-powerbi-empty`) whose text is [`emptyLabel`](#powerbibindoptions), default `No data to read`. In companion mode the empty state is visible; in chart mode it is visually hidden and your drawing stays on screen, so show your own empty state there, or declare `supportsLandingPage` in `capabilities.json`. If the reader was inside the figure when the data went away, for example a slicer filtered it to nothing, focus is handed to the empty state, so they hear why the chart is gone instead of being dropped onto the frame's body. When data comes back, focus moves from the empty state to MAIDR's figure the same way.
 
 ## Highlighting and Cross-Highlighting
 
-`onNavigate` is called each time the reader moves, with the data points under MAIDR's cursor, and with `null` when the reader leaves the chart. Each point is a `PowerBIDataPointRef` that names where it came from in the data view:
+`onNavigate` is called each time the reader moves, with the data points under MAIDR's cursor, and with `null` when the reader leaves the chart (see [below](#when-null-is-sent)). Each point is a `PowerBIDataPointRef` that names where it came from in the data view:
 
 ```ts
 type PowerBIDataPointRef =
@@ -207,16 +211,20 @@ import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import IVisualHost = powerbi.extensibility.visual.IVisualHost;
 
 function selectionIdFor(host: IVisualHost, dataView: DataView, ref: PowerBIDataPointRef): ISelectionId | null {
-  const categorical = dataView.categorical;
-  if (ref.kind !== 'categorical' || categorical === undefined) {
-    return null; // a table mapping carries no identities to select by
-  }
   const builder = host.createSelectionIdBuilder();
+  if (ref.kind === 'table') {
+    // A table row: select it by its row index.
+    return dataView.table ? builder.withTable(dataView.table, ref.rowIndex).createSelectionId() : null;
+  }
+  const categorical = dataView.categorical;
+  if (categorical === undefined) {
+    return null;
+  }
   if (ref.categoryIndex !== null && categorical.categories?.[0]) {
     builder.withCategory(categorical.categories[0], ref.categoryIndex);
   }
-  if (ref.valueColumnIndex !== null && categorical.values) {
-    const column = categorical.values[ref.valueColumnIndex];
+  const column = ref.valueColumnIndex !== null ? categorical.values?.[ref.valueColumnIndex] : undefined;
+  if (categorical.values && column) {
     if (categorical.values.source) {
       builder.withSeries(categorical.values, column); // only when a Legend field is bound
     }
@@ -244,10 +252,19 @@ this.maidr = bindPowerBI(options.element, {
 });
 ```
 
-(`this.dataView` is the data view you last passed to `update()`.) Two things to decide before you ship this:
+(`this.dataView` is the data view you last passed to `update()`. `withTable` was added to `ISelectionIdBuilder` in visuals API 2.5.0, so a visual targeting an older API cannot select table rows.) Two things to decide before you ship this:
 
 - **A selection on every arrow press is a query on every arrow press.** Each selection makes Power BI re-query and redraw the visuals it cross-filters. On a heavy page, you might select only when the reader pauses, or keep `onNavigate` to your own highlight and leave the rest of the report alone.
-- **`null` means the reader left.** Clearing the selection then leaves nothing highlighted behind the reader, which is how the [Tableau adapter](tableau.md) treats its mark selection too.
+- **`null` means the reader left.** Clearing the selection then leaves nothing highlighted behind the reader.
+
+### When `null` is sent
+
+MAIDR itself reports nothing when focus leaves a chart, so the binder sends the `null`. It listens for `focusout` on its wrapper and, one task later (focus moving between two elements inside the figure also fires `focusout`), sends `onNavigate(null)` when either:
+
+- focus is no longer inside the wrapper, or
+- the visual's frame has lost focus (`document.hasFocus()` is false), because the reader moved to another visual, a slicer or the report's own controls.
+
+It is sent only if a position had been reported since the last `null`, so the visual hears it once per visit, and never when the reader tabbed through without moving. It is also sent when the figure is swapped for the [empty state](#how-the-data-view-is-read), since the marks it named are gone. It is not sent by `dispose()`.
 
 ### Following a click
 
@@ -259,17 +276,25 @@ rect.addEventListener('click', () => {
 });
 ```
 
-It goes through MAIDR's [`navigateTo`](LIVE_DATA.md). If the reader is inside the chart, the cursor moves at once and is announced. Otherwise the target is kept and the reader lands on it when they next focus in. `navigateTo(null)` withdraws a kept target. The call returns `false` for a ref that no position was built from, such as a blank reading, a skipped slice or a second category level.
+It goes through MAIDR's [`navigateTo`](LIVE_DATA.md). If the reader is inside the chart, the cursor moves at once and is announced. Otherwise the target is kept and the reader lands on it when they next focus in. `navigateTo(null)` withdraws a kept target. The call returns `false` for a ref that no position was built from, such as a blank reading, a skipped slice or a second category level, and when nothing is mounted.
+
+`update()` commits synchronously: MAIDR holds the new data by the time it returns. So a visual that re-applies its current selection straight after `update()`, by calling `navigateTo` with the selected mark's ref, addresses the new data rather than the old.
 
 ## Updates
 
 Call `binding.update(dataView)` from every `update()`. Power BI calls `update()` for resizes and format-pane changes as well as for new data. The binder therefore compares what the new data view converts to with what is mounted and does nothing when they are the same, so a report author dragging the visual's corner does not disturb a reader inside the chart.
 
-**By default, new data is not applied while the reader is inside the chart.** It is held until the reader leaves and picked up when they return. A slicer changed by a colleague should not move the ground under someone reading. While the new data is held, `navigateTo` still addresses the data the reader is hearing. Pass `live: true` to apply new data in place instead, keeping the reader's position where the figure's shape allows:
+**By default the binder is live: new data is applied in place while the reader is inside the chart**, keeping their position where the figure's shape allows.
+
+This differs from the [Tableau adapter](tableau.md), which holds a refresh until the reader leaves. In Power BI, holding back does not work as a default. A custom visual's frame keeps its focused element when the reader moves to a slicer elsewhere on the page, so from inside the frame MAIDR cannot tell that they left. Data held "until they leave" would be held until they happened to tab out of the visual itself, and a reader who changed a filter and came back would hear the unfiltered chart.
+
+Pass `live: false` to hold new data until focus leaves the visual itself (MAIDR's wrapper) and pick it up when the reader returns. While new data is held, `navigateTo` still addresses the data the reader is hearing:
 
 ```ts
-bindPowerBI(options.element, { chartType: 'line', live: true });
+bindPowerBI(options.element, { chartType: 'line', live: false });
 ```
+
+Changes that swap the figure for the [empty state](#how-the-data-view-is-read), or back, are applied at once either way.
 
 The figure's id is fixed when you bind and kept across updates, so the same MAIDR instance is updated rather than replaced.
 
@@ -288,7 +313,7 @@ Returns a `PowerBIBinding`:
 
 | Member | Type | Description |
 |---|---|---|
-| `update` | `(dataView, overrides?) => PowerBIConversion \| null` | Converts `options.dataViews[0]` and shows it. `undefined` clears the figure. `overrides` is a `Partial<PowerBIAdapterOptions>` (for example a `chartType` or `title` read from the format pane) that applies to this update and all later ones. The figure `id` cannot be overridden. Returns the conversion now mounted, or `null` when the data view held nothing to navigate. |
+| `update` | `(dataView, overrides?) => PowerBIConversion \| null` | Converts `options.dataViews[0]` and shows it, synchronously. `undefined` replaces the figure with the empty state. `overrides` is a `Partial<PowerBIAdapterOptions>` (for example a `chartType` or `title` read from the format pane) that applies to this update and all later ones. The figure `id` cannot be overridden. Returns the conversion now mounted, or `null` when the data view held nothing to navigate. |
 | `navigateTo` | `(ref: PowerBIDataPointRef \| null) => boolean` | Moves MAIDR's cursor to a data point, or withdraws a pending move when passed `null`. Returns whether MAIDR accepted it. See [Following a click](#following-a-click). |
 | `conversion` | `PowerBIConversion \| null` | Getter for the conversion currently mounted. |
 | `dispose` | `() => void` | Unmounts MAIDR, removes the wrapper, and in chart mode appends your `chart` element back to `element`. Call it from `destroy()`. |
@@ -300,9 +325,10 @@ Every field of [`PowerBIAdapterOptions`](#powerbiadapteroptions), plus:
 | Option | Type | Description |
 |---|---|---|
 | `chart` | `HTMLElement \| SVGElement?` | The visual's own drawing, moved inside MAIDR's figure (chart mode). Omit it for companion mode. |
-| `onNavigate` | `(points: readonly PowerBIDataPointRef[] \| null) => void?` | Called as the reader moves, with the data points under the cursor, and with `null` when the reader leaves the chart. See [Highlighting and Cross-Highlighting](#highlighting-and-cross-highlighting). |
-| `label` | `string?` | The text of companion mode's entry point. Defaults to `title`, then to `Accessible chart`. |
-| `live` | `boolean?` | Apply new data while the reader is inside the chart. Default `false`. See [Updates](#updates). |
+| `onNavigate` | `(points: readonly PowerBIDataPointRef[] \| null) => void?` | Called as the reader moves, with the data points under the cursor, and with `null` when focus leaves the visual or the visual's frame loses focus, if a position had been reported. See [When `null` is sent](#when-null-is-sent). |
+| `label` | `string?` | The visible text of companion mode's entry point. Defaults to `title`, then to `Accessible chart`. Screen readers hear MAIDR's own instruction instead, not this text. |
+| `emptyLabel` | `string?` | The text of the focusable empty state shown when the data view holds nothing to navigate. Default `No data to read`. |
+| `live` | `boolean?` | Apply new data in place while the reader is inside the chart. Default `true`; `false` holds it until focus leaves the visual. See [Updates](#updates). |
 
 ### `PowerBIAdapterOptions`
 
@@ -376,8 +402,15 @@ These are **minimal structural types**. They describe only the parts of the Powe
 
 Reaching the visual is Power BI's keyboard model, from [its keyboard navigation documentation](https://learn.microsoft.com/power-bi/developer/visuals/supportskeyboardfocus-feature):
 
-- Move between visuals on the report page as Power BI documents. With `"supportsKeyboardFocus": true`, <kbd>Enter</kbd> on the visual's container moves focus inside the visual, and <kbd>Tab</kbd> then reaches MAIDR's figure. Power BI notes that <kbd>Enter</kbd> does not always land on the first focusable element, and that <kbd>Tab</kbd> may need pressing more than once.
-- <kbd>Esc</kbd> is how Power BI moves focus from inside a visual back to its container. MAIDR binds <kbd>Escape</kbd> to leave a chart for its figure's subplot list. A figure from this adapter has only one subplot, so nothing a reader needs is lost if Power BI takes the key first.
+- Move between visuals on the report page as Power BI documents. With `"supportsKeyboardFocus": true`, <kbd>Enter</kbd> on the visual's container moves focus inside the visual, and <kbd>Tab</kbd> then stays inside the visual and reaches MAIDR's figure. Power BI notes that <kbd>Enter</kbd> does not always land on the first focusable element, and that <kbd>Tab</kbd> may need pressing more than once. Microsoft recommends focusing the first element programmatically once focus enters. MAIDR's figure is the first focusable element in the binder's wrapper, `options.element.querySelector<HTMLElement>('[data-maidr-powerbi] [tabindex]')`; one way is to focus it from a `focus` listener on the visual's `window` when `document.activeElement` is still `document.body`. Test this in the Power BI service, since the SDK does not tell a visual that <kbd>Enter</kbd> was pressed on its container.
+- <kbd>Esc</kbd> is how Power BI moves focus from inside a visual back to its container. MAIDR also depends on <kbd>Esc</kbd>, and for some of these, braille mode among them, it is the only key:
+  - leaving braille mode;
+  - closing the chat, the chart description, the go-to-extrema dialog, the command palette and the help menu;
+  - leaving label mode;
+  - leaving a scatter's grid cell;
+  - returning from a chart to its figure's subplot list (<kbd>Backspace</kbd> also does this).
+
+  If Power BI handles <kbd>Esc</kbd> before MAIDR does, a reader in braille mode or in one of those dialogs is moved out to the visual's container instead, and has to find their way back in. We have not verified which of the two gets the key in each Power BI host. Test <kbd>Esc</kbd> in every one of these states in the Power BI service (and in Power BI Desktop, if your readers use it) before you ship the visual.
 
 Once the figure is focused, the standard MAIDR shortcuts apply:
 
@@ -397,13 +430,13 @@ Power BI Desktop and the Power BI service have keyboard shortcuts of their own. 
 
 ## Limitations
 
-- **One visual, its own data.** A custom visual is a sandboxed iframe that receives only its own field wells. The adapter cannot read or annotate a native visual, and companion mode works by binding the same fields a second time. See [Chart Mode and Companion Mode](#chart-mode-and-companion-mode).
+- **One visual, its own data.** A custom visual runs in a sandboxed iframe and receives only its own field wells. The adapter cannot read or annotate a native visual, and companion mode works by binding the same fields a second time. See [Chart Mode and Companion Mode](#chart-mode-and-companion-mode).
 - **Highlighting is yours to draw.** The adapter emits no selectors, so MAIDR draws no highlight on your chart. `onNavigate` gives you the data points to draw one, and a selection id to cross-highlight the report.
 - **Cross-highlights are not read.** When another visual highlights part of this one's data, Power BI puts the highlighted portion in each value column's `highlights` array. The adapter reads `values` only, so the reader hears the full values. (With `supportsHighlight` off, which is the default, Power BI filters the data view instead, and the reader hears the filtered data.)
 - **`categorical` and `table` mappings only.** `matrix` and `single` are not read. Only the first category level is read, and only one measure per series.
 - **Power BI's data reduction applies.** The adapter reads the data view Power BI produced. When a large query is reduced (the mapping's `dataReductionAlgorithm`, or Power BI's default), MAIDR announces the reduced data, not the full model.
 - **Settings may not persist.** MAIDR saves its settings to browser `localStorage`, which a visual's sandboxed iframe may not allow. MAIDR catches the failure and uses its defaults, so settings changed in MAIDR's settings dialog may be lost when the report reloads. Power BI's `LocalStorage` privilege enables Power BI's own storage service for visuals. It does not change what `window.localStorage` allows, and MAIDR does not use that service.
-- **AI descriptions need `WebAccess`.** MAIDR's chat calls the model providers' HTTPS endpoints (for example `https://api.openai.com`, `https://api.anthropic.com`, `https://generativelanguage.googleapis.com`) and MAIDR's own service at `https://maidr-service.azurewebsites.net`. A visual must declare each of these in a `WebAccess` privilege, and the tenant admin must allow it. Without that, the chat's requests fail and everything else keeps working. A visual that accesses external services is not eligible for Power BI certification.
+- **AI descriptions need `WebAccess`.** MAIDR's chat calls the model providers' HTTPS endpoints (for example `https://api.openai.com`, `https://api.anthropic.com`, `https://generativelanguage.googleapis.com`) and MAIDR's own service at `https://maidr-service.azurewebsites.net`. A visual must declare each of these in a `WebAccess` privilege, and the tenant admin must allow it. The chat can also talk to Ollama at a base URL the reader types in; a `WebAccess` privilege is fixed when the visual is packaged, so Ollama works only at an origin you declared there ahead of time. Without that, the chat's requests fail and everything else keeps working. A visual that accesses external services is not eligible for Power BI certification.
 - **Braille and tactile hardware.** Refreshable braille through the reader's screen reader works as usual. MAIDR's direct connection to a Dot Pad over Bluetooth or USB needs browser device permissions that a sandboxed visual iframe is not expected to have.
 - **Packaging and certification are a separate step.** This adapter is the MAIDR side. Building the `.pbiviz`, publishing to AppSource and Power BI visual certification (which includes a code review of the visual's repository) belong to the visual's own project, and are future work rather than part of this release.
 
@@ -411,7 +444,7 @@ Power BI Desktop and the Power BI service have keyboard shortcuts of their own. 
 
 Two pages simulate a custom visual without Power BI. Each one hands a hand-written `DataView` to `bindPowerBI`, exactly as a visual's `update()` would:
 
-- [powerbi-bar.html](examples/powerbi-bar.html): chart mode, a clustered column chart grouped by a Legend field, with `onNavigate` highlighting the bars, a click that calls `navigateTo`, and a simulated slicer.
+- [powerbi-bar.html](examples/powerbi-bar.html): chart mode, a clustered column chart grouped by a Legend field, with `onNavigate` highlighting the bars, a click that calls `navigateTo`, and a simulated slicer that the live binding applies in place (one region left reads as a plain bar chart).
 - [powerbi-line.html](examples/powerbi-line.html): companion mode, a "native" line chart beside a MAIDR visual bound to the same fields.
 
 Both load the built bundles from `../dist/`, so run `npm run build` first.
