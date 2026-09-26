@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + uPlot Time-Series Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+    <script src="../../dist/uplot.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + uPlot Time-Series (Line)</h1>
+    <p>Click on the chart and use arrow keys to navigate. Up and down move between the two series. Press 'b' for braille, 't' for text descriptions.</p>
+
+    <div id="chart"></div>
+
+    <script>
+      // One reading every 5 minutes for 2 hours, in uPlot's default unit (seconds).
+      const start = Date.UTC(2026, 0, 12, 9, 0) / 1000;
+      const times = [];
+      const cpu = [];
+      const memory = [];
+      for (let i = 0; i < 24; i++) {
+        times.push(start + i * 300);
+        cpu.push(Math.round(35 + 25 * Math.sin(i / 3) + (i % 5)));
+        memory.push(Math.round(55 + i * 0.8));
+      }
+
+      new uPlot({
+        title: 'Web server load',
+        width: 720,
+        height: 360,
+        series: [
+          {},
+          { label: 'CPU %', stroke: '#1f77b4', width: 2 },
+          { label: 'Memory %', stroke: '#d62728', width: 2 },
+        ],
+        axes: [
+          { label: 'Time' },
+          { label: 'Utilisation (%)' },
+        ],
+        plugins: [maidrUPlot.maidrPlugin()],
+      }, [times, cpu, memory], document.getElementById('chart'));
+    </script>
+  </body>
+</html>

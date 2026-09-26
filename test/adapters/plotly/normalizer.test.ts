@@ -1,6 +1,6 @@
 import type { PlotlyFullLayout, PlotlyGraphDiv } from '@adapters/plotly/types';
 import type { Maidr } from '@type/grammar';
-import { collectUniqueBgRects, normalizePlotlySvg } from '@adapters/plotly/normalizer';
+import { collectUniqueBgRects, getPlotlyOverlayLayers, normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
@@ -218,5 +218,125 @@ describe('collectUniqueBgRects', () => {
     expect(rects).toHaveLength(3);
     expect(rects.map(r => `${r.getAttribute('x')},${r.getAttribute('y')}`))
       .toEqual(['0,0', '400,0', '0,300']);
+  });
+});
+
+describe('getPlotlyOverlayLayers', () => {
+  /**
+   * The shape maidr leaves a Plotly chart in: the first `svg.main-svg` wrapped
+   * in maidr's focusable div, and the layer carrying the titles and legend
+   * still a direct child of the `.svg-container`.
+   */
+  function buildWrappedChart(): { plot: HTMLElement; overlay: SVGSVGElement } {
+    const doc = dom.window.document;
+    const container = doc.createElement('div');
+    container.className = 'svg-container';
+    const plot = doc.createElement('div');
+    const main = doc.createElementNS(SVG_NS, 'svg');
+    main.setAttribute('class', 'main-svg');
+    plot.appendChild(main);
+    const overlay = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    overlay.setAttribute('class', 'main-svg');
+    container.append(plot, overlay);
+    doc.body.appendChild(container);
+    return { plot, overlay };
+  }
+
+  it('returns the layers drawn over the plot and not the plot itself', () => {
+    const { plot, overlay } = buildWrappedChart();
+
+    expect(getPlotlyOverlayLayers(plot)).toEqual([overlay]);
+  });
+
+  it('returns nothing for a chart that is not Plotly', () => {
+    const plot = dom.window.document.createElement('div');
+    dom.window.document.body.appendChild(plot);
+
+    expect(getPlotlyOverlayLayers(plot)).toEqual([]);
+  });
+});
+
+describe('plotly layout observer', () => {
+  /** Queues animation frames so a test can run them one at a time. */
+  function queueFrames(): () => void {
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    return () => {
+      const due = frames.splice(0);
+      for (const callback of due) {
+        callback(0);
+      }
+    };
+  }
+
+  it('pushes the text below the chart even when a frame sees the chart mid-move', () => {
+    // maidr moves the SVG into its <article> wrapper. A frame that ran while
+    // the SVG was out of the document used to stop the observer for good, so
+    // the text under the chart stayed hidden behind it.
+    const runFrame = queueFrames();
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    svg.setAttribute('height', '500');
+    const plotlyDiv = svg.parentElement as HTMLElement;
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+
+    svg.remove();
+    runFrame();
+    const doc = dom.window.document;
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    article.appendChild(svg);
+    plotlyDiv.appendChild(article);
+    runFrame();
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+
+    return Promise.resolve().then(() => {
+      expect(container.style.paddingTop).toBe('500px');
+    });
+  });
+
+  it('stops waiting once a removed chart stays out of the document', () => {
+    // A chart that is gone for good must not keep a frame loop alive.
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+    svg.parentElement?.remove();
+
+    let ran = 0;
+    while (frames.length > 0 && ran < 1000) {
+      frames.shift()?.(0);
+      ran++;
+    }
+
+    expect(frames).toHaveLength(0);
+    expect(ran).toBeLessThan(1000);
+  });
+
+  it('positions a text container that was already in place when the observer attached', () => {
+    const runFrame = queueFrames();
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    svg.setAttribute('height', '400');
+    const plotlyDiv = svg.parentElement as HTMLElement;
+    const doc = dom.window.document;
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    article.appendChild(svg);
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+    plotlyDiv.appendChild(article);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+
+    runFrame();
+
+    expect(container.style.paddingTop).toBe('400px');
   });
 });

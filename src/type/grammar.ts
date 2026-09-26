@@ -1706,6 +1706,30 @@ export interface MaidrLayer {
    * is worse than staying silent.
    */
   stepDirection?: StepDirection;
+  /**
+   * The quantiles, from 0 to 1, at which a {@link TraceType.BOX} layer's lower
+   * and upper whiskers end: `[0.1, 0.9]` for whiskers drawn to the 10th and
+   * 90th percentiles. Read by `BoxTrace` and ignored by every other type.
+   *
+   * A box's `min` and `max` are announced as "Minimum" and "Maximum", which
+   * is what they are for a Tukey or a range whisker. A library that draws its
+   * whiskers at fixed quantiles instead -- Nivo's box plot defaults to the
+   * 10th and 90th -- would have a reader told the 90th percentile was the
+   * largest value. With this set, the whisker ends are named as the
+   * percentiles they are, in the announcement, the section names and the
+   * summary.
+   *
+   * Omit it when the whiskers end at the data's extremes or at 1.5 × IQR; a
+   * value of `[0, 1]`, or one that is not two quantiles in increasing order,
+   * is treated as absent. Each end is read on its own: a lower end at 0 is
+   * still the minimum, and an upper end at 1 the maximum, so `[0.05, 1]`
+   * names only the lower end as a percentile.
+   *
+   * @example
+   * // Nivo's default quantiles, [0.1, 0.25, 0.5, 0.75, 0.9]
+   * { type: 'box', whiskerQuantiles: [0.1, 0.9], data: [...] }
+   */
+  whiskerQuantiles?: [number, number];
   data:
     | BarPoint[]
     | FlowPoint[]

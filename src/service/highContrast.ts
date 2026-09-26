@@ -31,6 +31,12 @@ const HighContrastConstants = {
 
   // Thresholds
   NEAR_WHITE_LUMINANCE_SCALE: 0.1,
+  // A light grey that is not part of the data -- a gridline, an axis, a frame
+  // -- is drawn faint on purpose, and is kept faint: the light colour at
+  // reduced opacity, so it stays visible without competing with the data.
+  LIGHT_GREY_LUMINANCE_SCALE: 0.25,
+  GREY_MAX_CHANNEL_SPREAD: 24,
+  FAINT_INK_ALPHA: 0.5,
   MIN_COMPLEX_PATH_LENGTH: 120,
   MIN_COLOR_INTERPOLATION_COUNT: 2,
   LIGHTNESS_MIDPOINT: 0.5,
@@ -53,13 +59,52 @@ const HighContrastConstants = {
   HSL_THRESHOLD_ONE_THIRD: 1 / 3,
 } as const;
 
+/**
+ * Trace types whose marks tile the plot and encode a value by their colour
+ * alone -- a heat map cell, a choropleth region. Their paints keep mapping onto
+ * the whole ramp, background colour included: a dark cell still reads against
+ * its lighter neighbours, whereas lifting every cell off the background would
+ * collapse the colour scale to a single value.
+ */
+const TILED_TRACE_TYPES: ReadonlySet<string> = new Set([
+  'heat',
+  'choropleth',
+  'contour',
+  'hexbin',
+  // A letter-value plot nests its boxes, and tells the levels apart only by
+  // shade.
+  'boxen',
+]);
+
+/** Elements that draw text rather than a shape. */
+const TEXT_TAGS: ReadonlySet<string> = new Set(['text', 'tspan', 'textPath']);
+
 interface ElementColorInfo {
   element: SVGElement;
+  /** The value as written, so it can be put back exactly. */
   color: string;
+  /**
+   * The colour the value paints, as the canvas serialises it (`#rrggbb`, or
+   * `rgba(...)` with alpha), or `null` when it paints no solid colour --
+   * `none`, a gradient or pattern `url(...)`, or a value that does not
+   * resolve. A `var(...)` or `currentColor` is resolved through the cascade,
+   * since the written value alone names no colour.
+   */
+  resolvedColor: string | null;
+  /** The resolved colour after the luminance spread, when one applied. */
+  spreadColor?: string;
   isInSelectors: boolean;
   cantBeBackground: boolean;
-  attr: string;
+  attr: 'fill' | 'stroke';
   attrType?: 'style' | 'attribute';
+}
+
+/** An inline declaration this service overrode, and what it held before. */
+interface InlineStyleSnapshot {
+  element: HTMLElement | SVGElement;
+  property: string;
+  value: string;
+  priority: string;
 }
 
 /**
@@ -78,6 +123,9 @@ export class HighContrastService implements Disposable {
   // Mutable: replaced in place on live data updates (see setFigure).
   private figure: Figure;
   private readonly context: Context;
+  // Chart layers drawn outside the plot element but over it, which are
+  // recoloured with it. See the constructor.
+  private readonly getOverlayLayers: () => Element[];
 
   // Disposable for settings change subscription
   private settingsDisposable: Disposable | null = null;
@@ -86,6 +134,17 @@ export class HighContrastService implements Disposable {
   private defaultBackgroundColor: string = '';
   private defaultForegroundColor: string = '';
   private originalColorInfo: ElementColorInfo[] | null = null;
+
+  // Inline declarations overridden while high contrast is painted: the
+  // plot's own CSS background and the fill of text the captured colours do
+  // not reach. Each is put back exactly as it was on restore.
+  private inlineStyleSnapshots: InlineStyleSnapshot[] = [];
+
+  // Taken with the original colours, so an apply never reads its own output:
+  // the chart surfaces that paint a CSS background, and for each text element
+  // without an inline fill, whether it was drawn near-white.
+  private backgroundSurfaces: (HTMLElement | SVGElement)[] = [];
+  private uncapturedTextIsPaper = new Map<SVGElement, boolean>();
 
   // Cache of all trace elements for high contrast mode
   private traceElementsCache: Set<SVGElement> | null = null;
@@ -150,12 +209,18 @@ export class HighContrastService implements Disposable {
     displayService: DisplayService,
     figure: Figure,
     context: Context,
+    getOverlayLayers: () => Element[] = () => [],
   ) {
     this.settingsService = settings;
     this.notificationService = notification;
     this.displayService = displayService;
     this.figure = figure;
     this.context = context;
+    // Some libraries draw part of the chart -- its title, axis titles, legend
+    // -- into a separate SVG layered over the plot, outside the element maidr
+    // focuses. Those layers sit on the same background, so they must change
+    // with it. Asked for on each capture, since a library may redraw them.
+    this.getOverlayLayers = getOverlayLayers;
 
     // Initialize previous state from settings to track changes
     this.previousHighContrastMode = this.highContrastMode;
@@ -245,6 +310,61 @@ export class HighContrastService implements Disposable {
 
     // Capture SVG element colors
     this.originalColorInfo = this.getOriginalColorInfo();
+    this.captureSurfacesAndText();
+  }
+
+  /**
+   * Records what the inline overrides need to know about the chart as drawn.
+   *
+   * - A CSS background on the plot or an SVG inside it sits behind every
+   *   mark. Plotly and Vega-Lite set one inline and Observable Plot from a
+   *   stylesheet, so the computed value is what is checked.
+   * - Text coloured by a stylesheet rule or by inheritance has no fill of its
+   *   own to capture; its computed fill decides which end it takes.
+   */
+  private captureSurfacesAndText(): void {
+    this.backgroundSurfaces = [];
+    this.uncapturedTextIsPaper = new Map();
+
+    const roots = this.getColorRoots();
+    const surfaces = roots.flatMap(root => [
+      root as HTMLElement | SVGElement,
+      ...Array.from(root.querySelectorAll('svg')),
+    ]);
+    for (const surface of surfaces) {
+      const background = this.parseCssColor(window.getComputedStyle(surface).backgroundColor);
+      const parts = background === null ? null : this.splitAlpha(background);
+      if (parts !== null && parts.alpha > 0) {
+        this.backgroundSurfaces.push(surface);
+      }
+    }
+
+    const textElements = roots.flatMap(root =>
+      Array.from(root.querySelectorAll<SVGElement>('text, tspan, textPath')));
+    for (const text of textElements) {
+      if (text.style.getPropertyValue('fill') !== '' || text.hasAttribute('fill')) {
+        // Captured with the other colours.
+        continue;
+      }
+      const computedFill = window.getComputedStyle(text).getPropertyValue('fill');
+      const parent = text.parentElement;
+      if (
+        text.tagName !== 'text'
+        && parent !== null
+        && window.getComputedStyle(parent).getPropertyValue('fill') === computedFill
+      ) {
+        // A span that takes its colour from its <text> follows it there.
+        continue;
+      }
+      const fill = this.resolvePaint(text, 'fill', computedFill);
+      const parts = fill === null ? null : this.splitAlpha(fill);
+      this.uncapturedTextIsPaper.set(
+        text,
+        parts !== null
+        && !this.isTiledChart()
+        && this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE),
+      );
+    }
   }
 
   /**
@@ -369,15 +489,43 @@ export class HighContrastService implements Disposable {
       }
     }
 
-    // Add text shadow filter
-    this.addGlowShadowFilter(this.displayService.plot);
+    this.overrideInlineStyles();
 
-    // Apply shadow to text elements
-    this.originalColorInfo?.forEach((item) => {
-      if (this.isTextDescendant(item.element, textDescendants)) {
-        item.element.setAttribute('filter', 'url(#glow-shadow)');
+    // Add text shadow filter
+    const hasGlowFilter = this.addGlowShadowFilter();
+
+    // Apply shadow to text elements. An element that already carries a filter
+    // of its own keeps it: restore removes only the glow, so overwriting the
+    // page's filter here would lose it for good.
+    //
+    // The glow is for glyphs drawn as paths (matplotlib's text), which have no
+    // outline of their own to lift them off a light mark. A <text> element is
+    // left alone -- libraries that need it draw their own halo, and a glow over
+    // that smears the label -- except on a tiled chart, where a label may land
+    // on a cell of either shade and has only the glow to stand out.
+    if (hasGlowFilter) {
+      const tiled = this.isTiledChart();
+      const glow = (element: SVGElement): void => {
+        if (!element.hasAttribute('filter')) {
+          element.setAttribute('filter', 'url(#glow-shadow)');
+        }
+      };
+      for (const item of highContrastElInfo) {
+        if (
+          item.attr === 'fill'
+          && item.color === this.highContrastLightColor
+          && (tiled || !TEXT_TAGS.has(item.element.tagName))
+          && this.isTextDescendant(item.element, textDescendants)
+        ) {
+          glow(item.element);
+        }
       }
-    });
+      if (tiled) {
+        for (const text of this.uncapturedTextIsPaper.keys()) {
+          glow(text);
+        }
+      }
+    }
 
     // Handle line chart exception. Step charts render as the same kind of
     // stroked polyline, so they need the same treatment.
@@ -394,7 +542,8 @@ export class HighContrastService implements Disposable {
     // styles on the plot element (e.g. React's `width: fit-content`) are preserved.
     this.displayService.plot.style.setProperty('fill', this.highContrastLightColor);
 
-    // Handle stacked/dodged bar and pie exceptions: apply patterns.
+    // Handle stacked/dodged/normalized bar, mosaic and pie exceptions: apply
+    // patterns.
     //
     // These are the chart types whose marks touch each other, so the boundary
     // between two of them is carried by their fill alone. High contrast then
@@ -407,6 +556,8 @@ export class HighContrastService implements Disposable {
         this.context.instructionContext.type === 'stacked_bar'
         || this.context.instructionContext.type === 'dodged_bar'
         || this.context.instructionContext.type === 'pie'
+        || this.context.instructionContext.type === 'stacked_normalized_bar'
+        || this.context.instructionContext.type === 'mosaic'
       ) {
         this.applyPatternsToElements(highContrastElInfo);
       }
@@ -427,6 +578,8 @@ export class HighContrastService implements Disposable {
     this.restoreBodyStyle('background-color', this.defaultBackgroundColor);
     this.restoreBodyStyle('color', this.defaultForegroundColor);
 
+    this.restoreInlineStyles();
+
     // Restore SVG element colors
     this.originalColorInfo.forEach((item) => {
       if (item.element && item.attrType === 'style') {
@@ -439,12 +592,14 @@ export class HighContrastService implements Disposable {
       } else if (item.element && item.attrType === 'attribute') {
         item.element.setAttribute(item.attr, item.color);
       }
-
-      // Remove text shadow filter
-      if (item.element.getAttribute('filter') === 'url(#glow-shadow)') {
-        item.element.removeAttribute('filter');
-      }
     });
+
+    // Remove the text shadow filter from everything it was given to.
+    for (const root of this.getColorRoots()) {
+      for (const element of root.querySelectorAll('[filter="url(#glow-shadow)"]')) {
+        element.removeAttribute('filter');
+      }
+    }
 
     // Handle line chart exception. Mirrors the add path above, including step.
     if ('type' in this.context.instructionContext) {
@@ -462,6 +617,9 @@ export class HighContrastService implements Disposable {
     // Restore plot fill style by removing only the `fill` property we set,
     // leaving all other inline styles on the plot element intact.
     this.displayService.plot.style.removeProperty('fill');
+
+    // The glow filter was added for the text; nothing refers to it any more.
+    this.getPlotSvg()?.querySelector('#glow-shadow')?.remove();
 
     // Clean up pattern service
     if (this.patternService) {
@@ -485,6 +643,68 @@ export class HighContrastService implements Disposable {
     } else {
       document.body.style.setProperty(property, value);
     }
+  }
+
+  /**
+   * The `<svg>` the chart draws into. The plot element is usually that SVG,
+   * but can be an HTML wrapper around it, and definitions a fill or filter
+   * refers to must live inside the SVG: a `<pattern>` or `<filter>` placed in
+   * the wrapper renders nothing, so every mark using it disappears.
+   */
+  private getPlotSvg(): SVGSVGElement | null {
+    const plot = this.displayService.plot;
+    if (plot instanceof SVGSVGElement) {
+      return plot;
+    }
+    return plot.querySelector('svg');
+  }
+
+  /**
+   * Overrides the inline declarations the captured fills and strokes cannot
+   * reach, recording each so restore can put it back: the chart's CSS
+   * background, and the fill of text coloured by a stylesheet rule -- which
+   * outranks both a fill attribute and the colour set on the plot, where an
+   * inline declaration outranks it.
+   */
+  private overrideInlineStyles(): void {
+    this.restoreInlineStyles();
+
+    for (const surface of this.backgroundSurfaces) {
+      this.overrideInlineStyle(surface, 'background-color', this.highContrastDarkColor);
+    }
+
+    for (const [text, isPaper] of this.uncapturedTextIsPaper) {
+      this.overrideInlineStyle(
+        text,
+        'fill',
+        isPaper ? this.highContrastDarkColor : this.highContrastLightColor,
+      );
+    }
+  }
+
+  private overrideInlineStyle(
+    element: HTMLElement | SVGElement,
+    property: string,
+    value: string,
+  ): void {
+    this.inlineStyleSnapshots.push({
+      element,
+      property,
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property),
+    });
+    element.style.setProperty(property, value);
+  }
+
+  private restoreInlineStyles(): void {
+    for (const snapshot of this.inlineStyleSnapshots) {
+      if (snapshot.value === '') {
+        snapshot.element.style.removeProperty(snapshot.property);
+      } else {
+        snapshot.element.style.setProperty(snapshot.property, snapshot.value, snapshot.priority);
+      }
+    }
+    this.inlineStyleSnapshots = [];
   }
 
   /**
@@ -521,11 +741,19 @@ export class HighContrastService implements Disposable {
     return traceElements.has(element as SVGElement);
   }
 
+  /**
+   * The plot element and any overlay layers drawn over it, each of which is
+   * recoloured as a whole.
+   */
+  private getColorRoots(): Element[] {
+    return [this.displayService.plot, ...this.getOverlayLayers()];
+  }
+
   private getOriginalColorInfo(): ElementColorInfo[] | null {
-    const svg = this.displayService.plot;
-    if (!svg)
+    if (!this.displayService.plot)
       return null;
-    const svgElements = svg.querySelectorAll('*');
+    const svgElements = this.getColorRoots().flatMap(root =>
+      Array.from(root.querySelectorAll('*')));
 
     const traceElements = this.getAllTraceElements();
     const originalColorInfo: ElementColorInfo[] = [];
@@ -551,48 +779,37 @@ export class HighContrastService implements Disposable {
       }
       const cantBeBackground = isComplexPath;
 
-      if (styleFillMatch) {
+      const capture = (
+        value: string,
+        attr: 'fill' | 'stroke',
+        attrType: 'style' | 'attribute',
+      ): void => {
+        const color = value.trim();
         originalColorInfo.push({
           element: el as SVGElement,
-          color: styleFillMatch[1].trim(),
+          color,
+          resolvedColor: this.resolvePaint(el, attr, color),
           isInSelectors,
           cantBeBackground,
-          attr: 'fill',
-          attrType: 'style',
+          attr,
+          attrType,
         });
+      };
+
+      if (styleFillMatch) {
+        capture(styleFillMatch[1], 'fill', 'style');
       }
       if (styleStrokeMatch) {
-        originalColorInfo.push({
-          element: el as SVGElement,
-          color: styleStrokeMatch[1].trim(),
-          isInSelectors,
-          cantBeBackground,
-          attr: 'stroke',
-          attrType: 'style',
-        });
+        capture(styleStrokeMatch[1], 'stroke', 'style');
       }
 
       const attrFill = el.getAttribute('fill');
       if (attrFill) {
-        originalColorInfo.push({
-          element: el as SVGElement,
-          color: attrFill.trim(),
-          isInSelectors,
-          cantBeBackground,
-          attr: 'fill',
-          attrType: 'attribute',
-        });
+        capture(attrFill, 'fill', 'attribute');
       }
       const attrStroke = el.getAttribute('stroke');
       if (attrStroke) {
-        originalColorInfo.push({
-          element: el as SVGElement,
-          color: attrStroke.trim(),
-          isInSelectors,
-          cantBeBackground,
-          attr: 'stroke',
-          attrType: 'attribute',
-        });
+        capture(attrStroke, 'stroke', 'attribute');
       }
     }
 
@@ -619,7 +836,118 @@ export class HighContrastService implements Disposable {
       color: this.toColorStep(item, colorEquivalents, textDescendants),
     }));
 
+    this.keepShapesVisible(highContrastElInfo, textDescendants);
+
     return highContrastElInfo;
+  }
+
+  /**
+   * Makes sure no shape the chart drew in ink is left entirely in the
+   * background colour.
+   *
+   * Mapping each paint on its own is right for a shape with an outline: a
+   * light fill going dark behind an outline going light reads as the same
+   * shape, hollow, and keeps what is drawn inside it -- a box plot's median
+   * -- visible. A shape with no light paint left, though, vanishes into the
+   * page. That shape gets its fill lifted to the light colour; when the fill
+   * was the paper showing through (a hollow marker), its outline instead.
+   * A tiled chart is exempt, since a dark cell reads against its neighbours.
+   */
+  private keepShapesVisible(
+    items: ElementColorInfo[],
+    textDescendants: Map<Element, boolean>,
+  ): void {
+    if (this.isTiledChart()) {
+      return;
+    }
+
+    const byElement = new Map<SVGElement, ElementColorInfo[]>();
+    for (const item of items) {
+      if (item.resolvedColor === null || this.isTextDescendant(item.element, textDescendants)) {
+        continue;
+      }
+      const paints = byElement.get(item.element) ?? [];
+      paints.push(item);
+      byElement.set(item.element, paints);
+    }
+
+    const backgroundHex = this.parseCssColor(this.highContrastDarkColor);
+    const isBackground = (item: ElementColorInfo): boolean => {
+      const parts = this.splitAlpha(this.parseCssColor(item.color) ?? '');
+      return parts !== null && parts.hex === backgroundHex;
+    };
+
+    // An outline only shows if it has width; Plotly sets a stroke colour on
+    // every bar and draws it at zero width. A width that cannot be read is
+    // taken as the default of one.
+    const isVisible = (item: ElementColorInfo): boolean => {
+      if (item.attr === 'fill') {
+        return true;
+      }
+      const width = Number.parseFloat(window.getComputedStyle(item.element).strokeWidth);
+      return Number.isNaN(width) || width > 0;
+    };
+
+    for (const [element, paints] of byElement) {
+      const ink = paints.filter(item => !this.isPaperPaint(item));
+      if (ink.length === 0 || paints.some(item => !isBackground(item) && isVisible(item))) {
+        continue;
+      }
+      if (element.getAttribute('visibility') === 'hidden') {
+        continue;
+      }
+
+      const fill = paints.find(item => item.attr === 'fill');
+      const stroke = paints.find(item => item.attr === 'stroke');
+      const lift = fill !== undefined && !this.isPaperPaint(fill)
+        ? fill
+        : stroke ?? fill;
+      if (!lift) {
+        continue;
+      }
+      const alpha = this.splitAlpha(lift.resolvedColor ?? '')?.alpha ?? 1;
+      lift.color = this.applyAlpha(this.highContrastLightColor, alpha);
+    }
+  }
+
+  /**
+   * Whether a paint is paper rather than ink: the near-white of the page
+   * showing through, or a faint grey area outside the data -- a panel or plot
+   * background. The same test toColorStep sends to the background colour.
+   */
+  private isPaperPaint(item: ElementColorInfo): boolean {
+    const parts = this.splitAlpha(item.resolvedColor ?? '');
+    if (parts === null) {
+      return false;
+    }
+    return this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE)
+      || (!item.isInSelectors && item.attr === 'fill' && this.isLightGrey(parts.hex));
+  }
+
+  /**
+   * A paint of the colour field on a tiled chart: a mark the trace selects,
+   * or any other area filled in colour -- a contour band is drawn as an area
+   * but only its outline is selected.
+   */
+  private isTiledMark(item: ElementColorInfo): boolean {
+    if (!this.isTiledChart()) {
+      return false;
+    }
+    if (item.isInSelectors) {
+      return true;
+    }
+    if (item.attr !== 'fill') {
+      return false;
+    }
+    const parts = this.splitAlpha(item.resolvedColor ?? '');
+    return parts !== null
+      && !this.isNearWhite(parts.hex, HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE)
+      && !this.isLightGrey(parts.hex);
+  }
+
+  private isTiledChart(): boolean {
+    return 'type' in this.context.instructionContext
+      && TILED_TRACE_TYPES.has(String(this.context.instructionContext.type));
   }
 
   /**
@@ -636,16 +964,17 @@ export class HighContrastService implements Disposable {
       return cached;
     }
 
-    const isText = this.hasParentWithStringInID(element, 'text');
+    const isText = TEXT_TAGS.has(element.tagName) || this.hasTextAncestor(element);
     textDescendants.set(element, isText);
     return isText;
   }
 
-  private hasParentWithStringInID(
-    el: Element,
-    searchString: string = '',
-    notString: string = '',
-  ): boolean {
+  /**
+   * Whether an element is drawn as part of a piece of text: inside a
+   * `<text>`, or inside a group whose id starts with `text` -- how matplotlib
+   * groups the glyph paths it draws text with.
+   */
+  private hasTextAncestor(el: Element): boolean {
     let current = el.parentElement;
 
     while (current) {
@@ -653,16 +982,8 @@ export class HighContrastService implements Disposable {
         break;
       }
 
-      if (notString.length > 0) {
-        if (current.id.startsWith(notString)) {
-          return false;
-        }
-      }
-
-      if (searchString.length > 0) {
-        if (current.id.startsWith(searchString)) {
-          return true;
-        }
+      if (TEXT_TAGS.has(current.tagName) || current.id.startsWith('text')) {
+        return true;
       }
 
       current = current.parentElement;
@@ -671,11 +992,18 @@ export class HighContrastService implements Disposable {
     return false;
   }
 
-  private addGlowShadowFilter(svgHtml: HTMLElement): void {
-    const svg = svgHtml as unknown as SVGSVGElement;
+  /**
+   * Adds the glow filter the text is given, and reports whether the chart
+   * has one to refer to.
+   */
+  private addGlowShadowFilter(): boolean {
+    const svg = this.getPlotSvg();
+    if (!svg) {
+      return false;
+    }
 
     if (svg.querySelector('#glow-shadow')) {
-      return;
+      return true;
     }
 
     let defs = svg.querySelector('defs');
@@ -726,6 +1054,7 @@ export class HighContrastService implements Disposable {
 
     filter.innerHTML = filterHTML;
     defs.appendChild(filter);
+    return true;
   }
 
   private toColorStep(
@@ -734,67 +1063,229 @@ export class HighContrastService implements Disposable {
     textDescendants: Map<Element, boolean>,
   ): string {
     const value = colorInfo.color;
-    if (value === 'none' || value === 'transparent') {
+    if (colorInfo.resolvedColor === null) {
+      // Nothing solid to map: `none`, a gradient or pattern, or a value that
+      // does not resolve. Leave it as the chart drew it.
       return value;
     }
+
+    const original = this.splitAlpha(colorInfo.resolvedColor);
+    if (original === null) {
+      return value;
+    }
+    // The mapping is decided on the colour itself and the result keeps the
+    // original opacity: a translucent band stays translucent, and a hit area
+    // drawn at near-zero opacity stays invisible rather than turning solid.
+    const withAlpha = (hex: string): string => this.applyAlpha(hex, original.alpha);
+
+    const nearWhiteScale = HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE;
+    const isPaper = this.isNearWhite(original.hex, nearWhiteScale);
 
     if (this.isTextDescendant(colorInfo.element, textDescendants)) {
-      return this.highContrastLightColor;
+      // Text sits on the page, and reads light on the dark background --
+      // unless it was drawn near-white, which a label only is when it sits on
+      // a coloured mark. That mark turns light, so the label turns dark. A
+      // halo drawn around text follows the same rule, and so stays opposite
+      // to the glyphs it separates.
+      //
+      // On a tiled chart a cell may map to either end, so a label cannot know
+      // what it will sit on; it stays light, and the glow lifts it off a light
+      // cell.
+      return withAlpha(isPaper && !this.isTiledChart()
+        ? this.highContrastDarkColor
+        : this.highContrastLightColor);
     }
 
-    const ctx = this.getSharedCanvasContext();
-    if (!ctx)
-      return value;
-    ctx.fillStyle = '#000';
-    ctx.fillStyle = value.trim();
-    let hex = ctx.fillStyle;
+    const hex = colorInfo.spreadColor ?? original.hex;
 
-    if (/^#[0-9a-f]{8}$/i.test(hex)) {
-      const r = Number.parseInt(hex.slice(1, 3), 16);
-      const g = Number.parseInt(hex.slice(3, 5), 16);
-      const b = Number.parseInt(hex.slice(5, 7), 16);
-      const a
-        = Number.parseInt(hex.slice(7, 9), 16)
-          / HighContrastConstants.RGB_MAX_VALUE;
+    const traceType: string | undefined = 'type' in this.context.instructionContext
+      ? String(this.context.instructionContext.type)
+      : undefined;
+    const isBarLike = traceType === 'bar' || traceType === 'hist';
+    const useNearWhite = isBarLike && colorInfo.isInSelectors;
 
-      const blendedR = Math.round(
-        r * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
-      );
-      const blendedG = Math.round(
-        g * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
-      );
-      const blendedB = Math.round(
-        b * a + HighContrastConstants.RGB_MAX_VALUE * (1 - a),
-      );
+    if (!this.isTiledMark(colorInfo)) {
+      // A near-white paint is the paper showing through -- the chart's
+      // background, the hollow of a box or marker, the gap drawn between
+      // touching bars and wedges -- and becomes the background, so the shapes
+      // around it stay apart. A bar's own near-white fill is still a bar.
+      if (isPaper) {
+        return withAlpha(useNearWhite && colorInfo.attr === 'fill'
+          ? this.highContrastLightColor
+          : this.highContrastDarkColor);
+      }
 
-      hex = `#${blendedR.toString(16).padStart(2, '0')}${blendedG.toString(16).padStart(2, '0')}${blendedB.toString(16).padStart(2, '0')}`;
-    } else if (!/^#[0-9a-f]{6}$/i.test(hex)) {
-      return value;
-    }
-
-    let useNearWhite = false;
-    const nearWhiteScale = HighContrastConstants.NEAR_WHITE_LUMINANCE_SCALE;
-
-    if ('type' in this.context.instructionContext) {
-      if (
-        this.context.instructionContext.type === 'bar'
-        || this.context.instructionContext.type === 'histogram'
-      ) {
-        if (colorInfo.isInSelectors) {
-          useNearWhite = true;
-        }
+      if (!colorInfo.isInSelectors && this.isLightGrey(original.hex)) {
+        // A faint grey line -- a gridline, an axis, a frame -- stays, faint. A
+        // faint grey area is a panel or plot background, and is paper.
+        return colorInfo.attr === 'stroke'
+          ? this.applyAlpha(this.highContrastLightColor, original.alpha * HighContrastConstants.FAINT_INK_ALPHA)
+          : withAlpha(this.highContrastDarkColor);
       }
     }
 
-    const outputColorHex = this.findClosestColor(
-      value,
+    // Any other paint maps across the ramp; keepShapesVisible then lifts any
+    // shape this leaves wholly in the background colour.
+    return withAlpha(this.findClosestColor(
+      hex,
       colorEquivalents,
       useNearWhite,
       nearWhiteScale,
-      colorInfo.cantBeBackground,
-    );
+      // A long path must not vanish as a line, but a tiled area is read
+      // against its neighbours whichever end it takes.
+      colorInfo.cantBeBackground && !(this.isTiledMark(colorInfo) && colorInfo.attr === 'fill'),
+    ));
+  }
 
-    return outputColorHex;
+  /**
+   * Resolves the colour a fill or stroke paints. The written value is used
+   * when it is a colour; a `var(...)`, `currentColor` or `inherit` names none
+   * by itself, so the element's computed value is read instead.
+   *
+   * @returns The canvas-serialised colour, or `null` when the paint is not a
+   *   solid colour.
+   */
+  private resolvePaint(
+    element: Element,
+    attr: 'fill' | 'stroke',
+    value: string,
+  ): string | null {
+    if (value === 'none' || value === 'transparent') {
+      return null;
+    }
+
+    const parsed = this.parseCssColor(value);
+    if (parsed !== null) {
+      return parsed;
+    }
+
+    if (value.startsWith('url(')) {
+      return null;
+    }
+
+    const computed = window.getComputedStyle(element).getPropertyValue(attr).trim();
+    return computed === '' ? null : this.parseCssColor(computed);
+  }
+
+  /**
+   * Serialises a CSS colour through the shared canvas.
+   *
+   * Assigning a value the canvas cannot parse leaves `fillStyle` untouched, so
+   * the value is assigned over two different colours: when both reads agree
+   * it parsed, and when they differ it did not.
+   *
+   * @returns `#rrggbb`, `rgba(...)` for a colour with alpha, or `null`.
+   */
+  private parseCssColor(value: string): string | null {
+    const ctx = this.getSharedCanvasContext();
+    if (!ctx) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    const srgb = this.fromSrgbFunction(trimmed);
+    if (srgb !== null) {
+      return srgb;
+    }
+
+    ctx.fillStyle = '#000000';
+    ctx.fillStyle = trimmed;
+    const overBlack = String(ctx.fillStyle);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = trimmed;
+    const overWhite = String(ctx.fillStyle);
+
+    if (overBlack !== overWhite) {
+      return null;
+    }
+    return this.fromSrgbFunction(overBlack) ?? overBlack;
+  }
+
+  /**
+   * Converts a `color(srgb r g b [/ a])` value to `#rrggbb` or `rgba(...)`.
+   * A computed style reports a colour in that form when the page wrote it with
+   * relative colour syntax (Highcharts does), and the canvas passes it through
+   * unchanged rather than serialising it.
+   *
+   * @returns The converted colour, or `null` when the value is in another form.
+   */
+  private fromSrgbFunction(value: string): string | null {
+    const match = value.match(
+      /^color\(srgb\s+([\d.e+-]+)\s+([\d.e+-]+)\s+([\d.e+-]+)(?:\s*\/\s*([\d.e+-]+))?\s*\)$/i,
+    );
+    if (!match) {
+      return null;
+    }
+    const channel = (component: string): number => Math.round(
+      Math.max(0, Math.min(1, Number.parseFloat(component))) * HighContrastConstants.RGB_MAX_VALUE,
+    );
+    const hex = this.rgbToHex({ r: channel(match[1]), g: channel(match[2]), b: channel(match[3]) });
+    const alpha = match[4] === undefined ? 1 : Number.parseFloat(match[4]);
+    return this.applyAlpha(hex, alpha);
+  }
+
+  /**
+   * Splits a canvas-serialised colour into its opaque `#rrggbb` and its alpha.
+   *
+   * @returns The parts, or `null` for a format the canvas does not produce.
+   */
+  private splitAlpha(color: string): { hex: string; alpha: number } | null {
+    if (/^#[0-9a-f]{6}$/i.test(color)) {
+      return { hex: color.toLowerCase(), alpha: 1 };
+    }
+
+    const rgba = color.match(/^rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)$/i);
+    if (!rgba) {
+      return null;
+    }
+
+    return {
+      hex: this.rgbToHex({
+        r: Number.parseInt(rgba[1], 10),
+        g: Number.parseInt(rgba[2], 10),
+        b: Number.parseInt(rgba[3], 10),
+      }),
+      alpha: Number.parseFloat(rgba[4]),
+    };
+  }
+
+  /**
+   * Gives a ramp colour the opacity of the paint it replaces.
+   */
+  private applyAlpha(color: string, alpha: number): string {
+    if (alpha >= 1) {
+      return color;
+    }
+    const rgb = this.parseColorToRgb(color);
+    if (!rgb) {
+      return color;
+    }
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+  }
+
+  /**
+   * A light, colourless paint: the faint grey of a gridline or frame.
+   */
+  private isLightGrey(hex: string): boolean {
+    const rgb = this.parseColorToRgb(hex);
+    if (!rgb) {
+      return false;
+    }
+    const spread = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    return spread <= HighContrastConstants.GREY_MAX_CHANNEL_SPREAD
+      && this.isNearWhite(hex, HighContrastConstants.LIGHT_GREY_LUMINANCE_SCALE);
+  }
+
+  private isNearWhite(hex: string, nearWhiteScale: number): boolean {
+    const rgb = this.parseColorToRgb(hex);
+    if (!rgb) {
+      return false;
+    }
+    const luminance
+      = HighContrastConstants.LUMINANCE_RED_COEFF * rgb.r
+        + HighContrastConstants.LUMINANCE_GREEN_COEFF * rgb.g
+        + HighContrastConstants.LUMINANCE_BLUE_COEFF * rgb.b;
+    return luminance >= HighContrastConstants.RGB_MAX_VALUE * (1 - nearWhiteScale);
   }
 
   private findClosestColor(
@@ -1069,11 +1560,12 @@ export class HighContrastService implements Disposable {
 
     for (let i = 0; i < colorInfos.length; i++) {
       const item = colorInfos[i];
-      if (item.color === 'none' || item.color === 'transparent') {
+      if (item.resolvedColor === null) {
         continue;
       }
       if (item.isInSelectors) {
-        const rgb = this.parseColorToRgb(item.color);
+        const parts = this.splitAlpha(item.resolvedColor);
+        const rgb = parts === null ? null : this.parseColorToRgb(parts.hex);
         if (rgb) {
           const hsl = rgbToHsl(rgb);
           selectorItems.push({
@@ -1114,7 +1606,7 @@ export class HighContrastService implements Disposable {
       const newRgb = hslToRgb(newHsl);
       const newColor = this.rgbToHex(newRgb);
 
-      result[selectorItem.index].color = newColor;
+      result[selectorItem.index].spreadColor = newColor;
     }
 
     return result;
@@ -1126,15 +1618,18 @@ export class HighContrastService implements Disposable {
     if (!this.originalColorInfo)
       return;
 
+    const svg = this.getPlotSvg();
+    if (!svg)
+      return;
+
     if (!this.patternService) {
       this.patternService = new PatternService();
-      const svg = this.displayService.plot as unknown as SVGSVGElement;
       this.patternService.initialize(svg);
     }
 
     const elementToHighContrastColor = new Map<SVGElement, string>();
     for (const item of highContrastElInfo) {
-      if (item.isInSelectors && item.attr === 'fill') {
+      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
         elementToHighContrastColor.set(item.element, item.color);
       }
     }
@@ -1142,8 +1637,8 @@ export class HighContrastService implements Disposable {
     const colorGroups = new Map<string, ElementColorInfo[]>();
 
     for (const item of this.originalColorInfo) {
-      if (item.isInSelectors && item.attr === 'fill') {
-        const normalizedColor = this.normalizeColor(item.color);
+      if (item.isInSelectors && item.attr === 'fill' && item.resolvedColor !== null) {
+        const normalizedColor = this.normalizeColor(item.resolvedColor ?? item.color);
         if (!colorGroups.has(normalizedColor)) {
           colorGroups.set(normalizedColor, []);
         }

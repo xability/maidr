@@ -44,11 +44,38 @@ export const EXCLUDED_EXAMPLES = [
       + 'Recharts group links that build.',
   },
   {
+    page: 'mui-x-charts/index.html',
+    reason:
+      'Vite entry point, not a page. `npm run build:mui-x-charts-example` bundles it '
+      + 'into a single file that build-site.js copies over this path in _site; the '
+      + 'MUI X Charts group links that build.',
+  },
+  {
+    page: 'tableau-extension/configure.html',
+    reason:
+      'The Tableau extension\'s configuration dialog. Tableau opens it from the '
+      + 'extension\'s Configure menu; outside a dashboard it has no settings to edit.',
+  },
+  {
+    page: 'tableau-extension/index.html',
+    reason:
+      'The page maidr.trex points a Tableau dashboard at. It reads the dashboard '
+      + 'it is a zone of, so outside Tableau there is nothing for it to show; the '
+      + 'Tableau Integration Guide explains how to add it to a dashboard.',
+  },
+  {
     page: 'victory/index.html',
     reason:
       'Vite entry point, not a page. `npm run build:victory-example` bundles it '
       + 'into a single file that build-site.js copies over this path in _site; the '
       + 'Victory group links that build.',
+  },
+  {
+    page: 'nivo/index.html',
+    reason:
+      'Vite entry point, not a page. `npm run build:nivo-example` bundles it '
+      + 'into a single file that build-site.js copies over this path in _site; the '
+      + 'Nivo group links that build.',
   },
 ];
 
@@ -217,13 +244,19 @@ export const TITLES = {
   'chartjs/line-stacked-panels.html': 'Stacked Axis Panels',
   'frappe-mixed.html': 'Mixed Axis (Bar + Line)',
   'frappe-pie.html': 'Pie / Donut',
+  'uplot/line.html': 'Multi-Line Time Series',
+  'uplot/live.html': 'Live Streaming Line',
   'google-charts-gauge-map.html': 'Gauges and Maps',
   'google-charts-marks.html': 'Dot, Lollipop, Funnel, Diverging and Waterfall',
   'google-charts-relational.html': 'Flows, Hierarchies and Schedules',
   'google-charts-statistical.html': 'Statistical and Relational Readings',
   'highcharts-grid.html': 'Small Multiples (2×2 Grid)',
   'highcharts-panes.html': 'Multi-Pane Chart (Price + Volume)',
+  'lightweight-charts.html': 'Candlestick, Moving Average and Volume',
+  'lightweight-charts-live.html': 'Live Price Ticker (series.update streaming)',
   'plotly-subplots.html': 'Subplots (2×2 Grid)',
+  'powerbi-bar.html': 'Clustered Column Chart',
+  'powerbi-line.html': 'Line Chart (companion mode)',
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
   'vegalite-hconcat-box.html': 'Box Plots side by side (hconcat)',
 };
@@ -395,13 +428,17 @@ export const PAGE_TYPES = {
   'highcharts-bellcurve.html': ['smooth'],
   'highcharts-grid.html': ['bar'],
   'highcharts-panes.html': ['line', 'bar'],
+  'lightweight-charts.html': ['candlestick', 'line', 'bar'],
+  'lightweight-charts-live.html': ['candlestick', 'bar'],
   'highcharts-pareto.html': ['bar', 'line'],
   'highcharts-timeline.html': ['point'],
   'highcharts-variwide.html': ['mosaic'],
   'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
+  'powerbi-bar.html': ['dodged_bar', 'bar'],
   'tableau-bar.html': ['bar'],
+  'uplot/live.html': ['line'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
 };
@@ -499,6 +536,13 @@ export const GROUPS = [
     note: 'See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.',
   },
   {
+    id: 'uplot',
+    heading: 'uPlot',
+    dir: 'uplot',
+    headingPrefix: 'uPlot',
+    note: 'See the <a href="uplot.html">uPlot Integration Guide</a> for setup instructions, series mapping, time axes and live streaming.',
+  },
+  {
     id: 'd3',
     heading: 'D3.js',
     // No hyphen after the prefix: the pages are named `d3-bindbar.html`, and
@@ -531,6 +575,18 @@ export const GROUPS = [
     note: 'See the <a href="victory.html">Victory Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {
+    id: 'mui-x-charts',
+    heading: 'MUI X Charts',
+    statics: [{ href: 'examples/mui-x-charts/index.html', onclick: 'loadMuiXCharts()', label: 'MUI X Charts Examples (Bar, Grouped, Stacked, Horizontal, Line, Area, Scatter, Pie)' }],
+    note: 'See the <a href="mui-x-charts.html">MUI X Charts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
+  },
+  {
+    id: 'nivo',
+    heading: 'Nivo',
+    statics: [{ href: 'examples/nivo/index.html', onclick: 'loadNivo()', label: 'Nivo Examples (Bar, Grouped, Stacked, Horizontal, Line, Scatter, Pie, Donut, Heatmap, Box)' }],
+    note: 'See the <a href="nivo.html">Nivo Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
+  },
+  {
     id: 'anychart',
     heading: 'AnyChart',
     prefixes: ['anychart-'],
@@ -553,11 +609,26 @@ export const GROUPS = [
     note: 'See the <a href="apexcharts.html">ApexCharts Integration Guide</a> for setup instructions and code examples for all chart types.',
   },
   {
+    id: 'lightweight-charts',
+    heading: 'TradingView Lightweight Charts',
+    prefixes: ['lightweight-charts-'],
+    names: ['lightweight-charts'],
+    headingPrefix: 'Lightweight Charts',
+    note: 'See the <a href="lightweight-charts.html">Lightweight Charts Integration Guide</a> for setup instructions, live streaming, and code examples.',
+  },
+  {
     id: 'tableau',
     heading: 'Tableau',
     prefixes: ['tableau-'],
     headingPrefix: 'Tableau',
     note: 'See the <a href="tableau.html">Tableau Integration Guide</a> for setup instructions and configuration options.',
+  },
+  {
+    id: 'powerbi',
+    heading: 'Power BI',
+    prefixes: ['powerbi-'],
+    headingPrefix: 'Power BI',
+    note: 'See the <a href="powerbi.html">Power BI Integration Guide</a> for the custom visual setup, chart and companion modes, and cross-highlighting.',
   },
 ];
 

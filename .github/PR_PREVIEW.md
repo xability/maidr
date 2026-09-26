@@ -27,7 +27,7 @@ is passed between them via an artifact (the `workflow_run` event doesn't carry i
 for fork PRs) and validated as strictly numeric before use.
 
 `npm run build:preview` produces `_site/` — all `dist` bundles (core + every
-adapter), the recharts/victory/react single-file examples, and the example
+adapter), the recharts/victory/nivo/react single-file examples, and the example
 gallery. It is the same pipeline as the published docs site minus TypeDoc, so
 the `/api` link in the preview's navbar is the only intentionally dead link.
 

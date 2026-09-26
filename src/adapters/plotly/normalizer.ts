@@ -15,6 +15,25 @@ export function isPlotlyPlot(plot: Element): boolean {
 }
 
 /**
+ * Returns the SVG layers Plotly draws over a chart outside the plot element.
+ *
+ * Plotly renders the chart title, axis titles and legend into a second
+ * `svg.main-svg` stacked above the first. Once maidr wraps the first, the
+ * others are siblings of that wrapper, so anything that restyles the chart as
+ * a whole -- high contrast mode -- has to reach them separately.
+ *
+ * @param plot - The element maidr treats as the plot.
+ * @returns The overlay layers, or an empty list for a non-Plotly chart.
+ */
+export function getPlotlyOverlayLayers(plot: Element): SVGSVGElement[] {
+  const container = plot.closest('.svg-container');
+  if (!container)
+    return [];
+  return Array.from(container.querySelectorAll<SVGSVGElement>(':scope > svg.main-svg'))
+    .filter(svg => svg !== plot && !plot.contains(svg));
+}
+
+/**
  * Normalize a Plotly-rendered SVG so that maidr's core logic can treat it
  * the same as a matplotlib SVG.
  *
@@ -350,6 +369,13 @@ function injectPlotlyStyles(): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * How many consecutive frames the chart SVG may be out of the document before
+ * the layout observer stops waiting for it: about a second at 60 Hz, well past
+ * the single frame maidr's wrapping takes.
+ */
+const MAX_DETACHED_FRAMES = 60;
+
+/**
  * After maidr wraps the SVG, it remains `position:absolute` (Plotly
  * default) so the react-container renders at y=0, hidden behind the
  * chart.  Watch for the react-container to appear and push it below
@@ -391,13 +417,27 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
     }
   }
 
+  // Frames the chart SVG has been out of the document in a row.
+  let detachedFrames = 0;
+
   function observe(): void {
-    // Bail if the chart SVG has left the document — otherwise the rAF loop would
-    // spin forever (retaining svg/plotlyDiv via closure) when the article that
-    // it polls for never appears.
+    // Bail once the chart SVG has left the document for good — otherwise the
+    // rAF loop would spin forever (retaining svg/plotlyDiv via closure) when
+    // the article that it polls for never appears. Not on the first frame it
+    // is out, though: maidr moves the SVG into its <article> wrapper, and a
+    // frame that lands mid-move sees it detached. Bailing there left this
+    // observer never installed, so the text below the chart stayed hidden
+    // behind it.
     if (!svg.isConnected) {
+      detachedFrames++;
+      if (detachedFrames > MAX_DETACHED_FRAMES) {
+        return;
+      }
+      requestAnimationFrame(observe);
       return;
     }
+    detachedFrames = 0;
+
     const article = scope.querySelector(
       'article[id^="maidr-article"]',
     );
@@ -413,6 +453,10 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
 
     // Store reference for disposal.
     storeMutationObserver(article, observer);
+
+    // The container may already be in the article by the time this runs, in
+    // which case no mutation will arrive to position it.
+    fix();
   }
 
   // Defer until maidr has created its article wrapper.

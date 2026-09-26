@@ -351,7 +351,7 @@ reports the chart drawn, not when its first `<svg>` appears.
 | `point`, `sunflower`, `volcano`, `manhattan` | string | Paired by the position each mark is drawn at, not by document order. |
 | `pie` | string | Exactly one element per slice, in drawn order; reversed when `direction` is `'counterclockwise'`. |
 | `heat` | string; grid `[row][column]` | A string names one element per cell: `<rect>` cells are read column by column (`domMapping.order: 'row'` reads them row by row), `<path>` cells row by row from the top, and a single `<image>` gets an overlay. A grid's rows run bottom first, the reverse of `data.points`. |
-| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
+| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. A single element whose subpaths skip the missing values, with one vertex per reading, has its vertices paired with the readings in order. A `step` layer's staircase may run on to a flat vertex before its first sample and after its last, as MUI X Charts draws one on a category axis. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
 | `box`, `violin_box` | `BoxSelector[]`, one per box | See the box and violin plot types below. |
 | `violin_kde` | string; list with one entry per violin | Markers are drawn at each point's `svg_x`/`svg_y`; the list names the curve each violin belongs to. |
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
@@ -436,6 +436,13 @@ The data property is defined as a list of objects where each object is a record 
 
             "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
   }
+
+  // Optional, on the box layer: "whiskerQuantiles": [0.1, 0.9] says the whiskers
+  // end at those quantiles (here the 10th and 90th percentiles) rather than at
+  // the data's extremes or 1.5 IQR. `min` and `max` are then announced as
+  // "10th percentile" and "90th percentile" instead of "Minimum" and "Maximum".
+  // Omit it, or give [0, 1], when the whisker ends are the minimum and maximum.
+  // Each end is read on its own: in [0.05, 1] the upper end stays "Maximum".
 
   // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
   // each with a median and a ladder of quantile pairs. A box plot is this

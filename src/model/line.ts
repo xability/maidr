@@ -1010,7 +1010,9 @@ export class LineTrace extends AbstractTrace {
 
   /**
    * Finds a line with the same X value but Y value in the desired direction
-   * Uses strict equality (===) for X value matching
+   * Uses strict equality (===) for X value matching. A line with the same Y
+   * value counts as above when it comes later in series order and below
+   * when it comes earlier.
    * @param direction The direction to search (UPWARD for higher Y values, DOWNWARD for lower Y values)
    * @returns The row index of the target line, or null if no suitable line is found
    */
@@ -1053,17 +1055,27 @@ export class LineTrace extends AbstractTrace {
         continue;
       }
 
-      // Check if this line's y value is in the desired direction
-      const isValidDirection
-        = direction === 'UPWARD' ? lineY > cursorY : lineY < cursorY;
+      // A series level with the cursor is stacked by series order, the
+      // later series above, as the column's top and bottom already read a
+      // tie -- the last of the joint highest, the first of the joint lowest.
+      // Refusing a tie made a point two series share a dead end for Up and
+      // Down, although another series sits at that very cell.
+      const isValidDirection = direction === 'UPWARD'
+        ? lineY > cursorY || (lineY === cursorY && row > this.row)
+        : lineY < cursorY || (lineY === cursorY && row < this.row);
       const distance = Math.abs(lineY - cursorY);
 
       if (!isValidDirection) {
         continue;
       }
 
-      // Update best candidate if this is closer
-      if (distance < bestDistance) {
+      // Update best candidate if this is closer. Among series equally far --
+      // themselves tied -- the one nearest the cursor in that order: the
+      // earliest going up, the latest going down, so a tie is entered at its
+      // near end and walked one series at a time instead of skipped.
+      const closer = distance < bestDistance
+        || (distance === bestDistance && direction === 'DOWNWARD');
+      if (closer) {
         bestDistance = distance;
         bestRow = row;
       }
@@ -1375,6 +1387,24 @@ export class LineTrace extends AbstractTrace {
       this.lineElements.push(lineElement as SVGElement);
 
       const coordinates = this.readVertices(lineElement);
+
+      // A series with gaps drawn as ONE path whose subpaths skip them -- MUI
+      // X Charts draws `[5, null, 10]` as `M65,255Z M380,20Z` -- has a vertex
+      // per reading, not per point. Placing every point by its x along those
+      // vertices put the markers after a gap one sample off, and on a
+      // category axis, where x is not a number, all at the first vertex.
+      // When the counts say so, the vertices are the readings in order, which
+      // is how a series drawn in several pieces is already read.
+      const measured = this.points[r].filter(point => isMeasured(toBarValue(point.y))).length;
+      if (measured < this.points[r].length && coordinates.length === measured) {
+        const markers = this.markersAlongPieces([lineElement as SVGElement], r);
+        if (markers.length > 0) {
+          allFailed = false;
+        }
+        svgElements.push(markers);
+        continue;
+      }
+
       this.reconcilePathCoordinates(coordinates, r);
 
       // Where every marker of this series goes, worked out before any of

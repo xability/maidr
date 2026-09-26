@@ -47,11 +47,16 @@ export const INTEGRATION_PAGES = [
   { slug: 'observable', title: 'Observable Plot', source: 'observable.md' },
   { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
   { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
+  { slug: 'uplot', title: 'uPlot', source: 'uplot.md' },
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
+  { slug: 'nivo', title: 'Nivo', source: 'nivo.md' },
+  { slug: 'mui-x-charts', title: 'MUI X Charts', source: 'mui-x-charts.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
   { slug: 'apexcharts', title: 'ApexCharts', source: 'apexcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
+  { slug: 'lightweight-charts', title: 'Lightweight Charts', source: 'lightweight-charts.md' },
+  { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
 ];
 
 const SLUG_BY_SOURCE = new Map(INTEGRATION_PAGES.map(({ slug, source }) => [source, slug]));
