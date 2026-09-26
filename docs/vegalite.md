@@ -94,27 +94,27 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `bar` | `color`/`fill` field, default stack | Stacked bar | [vegalite-bindstacked.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindstacked.html) |
 | `bar` | `color`/`fill`, `stack: null` or `false` | Dodged (grouped) bar | [vegalite-binddodged.html](https://github.com/xability/maidr/blob/main/examples/vegalite-binddodged.html) |
 | `bar` | `color`/`fill`, `stack: 'normalize'` | Normalized stacked bar | [vegalite-bindnormalized.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) |
-| `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
+| `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) [experimental] | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
 | `line`, `trail`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `line`, `trail`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
-| `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
-| `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
+| `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump [experimental] | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
+| `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates [experimental] | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
 | `line`, `trail` | a `regression` or `loess` transform | Smooth | — |
-| `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
-| `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
-| `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) | — |
+| `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline [experimental] | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
+| `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) [experimental] | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
+| `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) [experimental] | — |
 | `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
-| `point`, `circle`, `square`, `tick` | one positional channel nominal/ordinal | Dot plot (vertical & horizontal) | — |
+| `point`, `circle`, `square`, `tick` | one positional channel nominal/ordinal | Dot plot (vertical & horizontal) [experimental] | — |
 | `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
 | `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
-| `errorbar`, `errorband` | — | Error bar | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
+| `errorbar`, `errorband` | — | Error bar [experimental] | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
 | `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
-| `arc` | `radius` bound to a field | Polar area (coxcomb, rose) | — |
-| `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
-| `rule` + `point` layers | shared category and value channels | Lollipop | — |
+| `arc` | `radius` bound to a field | Polar area (coxcomb, rose) [experimental] | — |
+| `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map [experimental] | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
+| `rule` + `point` layers | shared category and value channels | Lollipop [experimental] | — |
 | `text` | `text` channel, both positional channels continuous | Scatter, each point carrying its name | — |
 | `text` | in a `layer:`, `x`/`y` fields matching a sibling layer's | absorbed — the names go to the layer it labels | — |
-| `rule` + `point` layers, or `line` + `point` where the `line` has a `detail` naming the category | two values per category, told apart by `color` | Dumbbell | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
+| `rule` + `point` layers, or `line` + `point` where the `line` has a `detail` naming the category | two values per category, told apart by `color` | Dumbbell [experimental] | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
 
 A `trail` is read as the line it is: Vega-Lite describes it as a line whose
 width can vary, and the two compile to the same one-path-per-series geometry
@@ -449,7 +449,7 @@ An `arc` has no `x` or `y` to name its axes after, so the slice labels come from
 
 See [`examples/vegalite-pie.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) for a runnable version.
 
-### Choropleth map
+### Choropleth map [experimental]
 
 ```js
 const states = [
@@ -640,7 +640,7 @@ Once a chart is focused, use standard MAIDR keyboard shortcuts:
 | Auto-play | Ctrl + Shift + Arrow | Cmd + Shift + Arrow |
 | Stop Auto-play | Ctrl | Cmd |
 
-For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## API Documentation
 

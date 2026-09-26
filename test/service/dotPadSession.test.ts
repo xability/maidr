@@ -457,6 +457,8 @@ const channelDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'Broadcast
 // The failure paths log on purpose; a file-scope spy keeps the expected noise
 // out of every run without being reinstalled per test.
 const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+// Paths the reader did not start warn instead, for the same reason.
+const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
 describe('dotPadSession', () => {
   beforeEach(() => {
@@ -464,6 +466,7 @@ describe('dotPadSession', () => {
     FakeChannel.hub = new Set();
     pageScope().BroadcastChannel = FakeChannel;
     consoleError.mockClear();
+    consoleWarn.mockClear();
   });
 
   afterEach(() => {
@@ -479,6 +482,7 @@ describe('dotPadSession', () => {
 
   afterAll(() => {
     consoleError.mockRestore();
+    consoleWarn.mockRestore();
     if (channelDescriptor === undefined) {
       delete pageScope().BroadcastChannel;
     } else {
@@ -767,6 +771,9 @@ describe('dotPadSession', () => {
 
       expect(adopted).toBe(true);
       expect(attempted).toBe(2);
+      // The busy radio is ordinary here and nobody asked: a warning, not an error.
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(consoleWarn).toHaveBeenCalledWith('DotPad could not be reconnected:', 'already open in another frame');
     });
 
     it('should report no support rather than throwing where the lookups do not exist', async () => {
@@ -777,6 +784,94 @@ describe('dotPadSession', () => {
       const session = await loadSession();
 
       expect(await session.adopt()).toBe(false);
+    });
+  });
+
+  describe('when there is nothing to adopt', () => {
+    // Turning braille on asks to adopt a display every time. Most readers
+    // have no DotPad, and many are in browsers that cannot reach one, so this
+    // path must not fetch a third-party SDK or put an error in the console:
+    // an exported chart may be meant to work offline, and a CSP or an offline
+    // page would otherwise log a failure for a device nobody plugged in.
+
+    /** Module name a probe SDK is served under, so an import can be seen. */
+    const PROBE_URL = 'maidr-dotpad-sdk-probe';
+
+    let imports = 0;
+
+    beforeEach(() => {
+      imports = 0;
+      pageScope().MAIDR_DOTPAD_SDK_URL = PROBE_URL;
+      jest.doMock(PROBE_URL, () => {
+        imports += 1;
+        throw new Error('the SDK was fetched');
+      }, { virtual: true });
+    });
+
+    afterEach(() => {
+      delete pageScope().MAIDR_DOTPAD_SDK_URL;
+      jest.dontMock(PROBE_URL);
+    });
+
+    it('should not import the SDK where neither transport is supported', async () => {
+      setNavigator({ userAgent: 'test' });
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+      expect(imports).toBe(0);
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it('should not import the SDK when the page was granted nothing', async () => {
+      setGrantedNavigator({ devices: [], ports: [] });
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+      expect(imports).toBe(0);
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it('should not import the SDK when the only granted port is some other device', async () => {
+      setGrantedNavigator({ ports: [grantedPort(9999, 1)] });
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+      expect(imports).toBe(0);
+    });
+
+    it('should not import the SDK when looking up granted devices is refused', async () => {
+      setNavigator({
+        bluetooth: { getDevices: async () => Promise.reject(new Error('SecurityError')) },
+        serial: { getPorts: async () => Promise.reject(new Error('SecurityError')) },
+      });
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+      expect(imports).toBe(0);
+      expect(consoleError).not.toHaveBeenCalled();
+    });
+
+    it('should warn rather than error when a granted display cannot fetch the SDK', async () => {
+      // Something was granted, so the SDK is worth asking for -- but the
+      // reader did not ask, so a failure is a warning, not an error.
+      setGrantedNavigator({ ports: [grantedPort(1027, 24592)] });
+      const session = await loadSession();
+
+      expect(await session.adopt()).toBe(false);
+      expect(imports).toBe(1);
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(consoleWarn).toHaveBeenCalledWith('DotPad SDK could not be loaded:', 'the SDK was fetched');
+    });
+
+    it('should still report an SDK failure as an error when the reader connects', async () => {
+      setNavigator({ bluetooth: {} });
+      const session = await loadSession();
+
+      const state = await session.connect('bluetooth');
+
+      expect(state.status).toBe('unavailable');
+      expect(imports).toBe(1);
+      expect(consoleError).toHaveBeenCalledWith('DotPad SDK could not be loaded:', 'the SDK was fetched');
     });
   });
 

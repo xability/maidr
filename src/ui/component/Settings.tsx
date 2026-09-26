@@ -597,6 +597,10 @@ const Settings: React.FC = () => {
     () => viewModel.tactileDisplayState,
   );
   const [tactileAttempt, setTactileAttempt] = useState(0);
+  // Read once per open: whether the browser has WebMCP does not change while
+  // the page is loaded, and a toggle it could not act on would only mislead.
+  const [agentToolsSupported] = useState(() => viewModel.supportsAgentTools);
+  const agentToolsHintId = `${id}-agent-tools-hint`;
   const titleId = `${id}-title`;
   const copyStatusId = `${id}-copy-status`;
   const tactileLabelId = `${id}-tactile-label`;
@@ -903,7 +907,15 @@ const Settings: React.FC = () => {
       if (!altOnly) {
         return;
       }
-      const key = e.key.toLowerCase();
+      // On macOS, Option composes a character — Option+S arrives as `ß` and
+      // Option+C as `ç` — so `key` never names the letter there. Fall back to
+      // the physical key only then: trusting `code` first would move the
+      // shortcut on a layout such as Dvorak, where the letter S is not on
+      // the key a QWERTY keyboard labels S.
+      const typed = e.key.toLowerCase();
+      const key = /^[a-z]$/.test(typed)
+        ? typed
+        : /^Key([A-Z])$/.exec(e.code)?.[1].toLowerCase() ?? typed;
       if (key === SAVE_SHORTCUT_KEY) {
         e.preventDefault();
         handleSaveRequest();
@@ -1164,6 +1176,44 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+          {agentToolsSupported && (
+            <Grid size={12}>
+              <SettingRow
+                label={t('settings.agentTools')}
+                input={(
+                  <FormControl>
+                    <FormControlLabel
+                      control={(
+                        <Checkbox
+                          checked={generalSettings.agentTools}
+                          onChange={e =>
+                            handleGeneralChange('agentTools', e.target.checked)}
+                          size="small"
+                          slotProps={{
+                            input: { 'aria-describedby': agentToolsHintId },
+                          }}
+                        />
+                      )}
+                      label={t(generalSettings.agentTools ? 'settings.on' : 'settings.off')}
+                      slotProps={{
+                        typography: {
+                          variant: 'body2',
+                        },
+                      }}
+                      aria-label={t('settings.agentTools')}
+                    />
+                    <Typography
+                      id={agentToolsHintId}
+                      variant="caption"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {t('settings.agentToolsHint')}
+                    </Typography>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+          )}
         </SettingsTabPanel>
 
         <SettingsTabPanel

@@ -68,7 +68,7 @@ window.maidrLive.appendData(
 | `groupIndex` | number | `0` | Series index for nested data (e.g. which line of a multiline chart). Passing the current group count starts a new series; appending into an empty layer (`data: []`) creates the first series automatically. |
 | `subplotRow` / `subplotCol` | number | `0` / `0` | Target subplot in multi-panel figures. |
 
-The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
+The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.md)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
 
 **Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), step, scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
 
@@ -149,7 +149,9 @@ window.maidrLive.navigateTo(null, { id: 'scatter-chart' });
 | --- | --- | --- | --- |
 | `id` | string | the only registered chart | Which chart to move. Required when multiple charts are on the page. |
 
-Returns `true` when a registered chart accepted the target. A chart the reader is inside moves at once. A chart the reader is not focused on **keeps the target** and lands on it when they next focus in — so a colleague can point at a mark before the reader arrives — and `null` withdraws a kept target. A kept target is also discarded when the chart's data changes, since it addressed the figure that data described. The call answers `false`, and moves nothing, for a layer the figure does not have, a cell off its grid, or a point index the layer does not carry; a rotor mode (grid, point, intersection) is left first, since the target is spelled in the trace's data coordinates.
+Returns `true` when a registered chart accepted the target. A chart the reader is inside moves at once. A chart the reader is not focused on — or one on a page that has lost the browser's focus, since the reader would not hear the move — **keeps the target** and lands on it when they next focus in — so a colleague can point at a mark before the reader arrives — and `null` withdraws a kept target. A kept target is also discarded when the chart's data changes, since it addressed the figure that data described. The call answers `false`, and moves nothing, for a layer the figure does not have, a cell off its grid, or a point index the layer does not carry; a rotor mode (grid, point, intersection) is left first, since the target is spelled in the trace's data coordinates.
+
+In-browser AI agents reach the same method. Where the browser offers the experimental [WebMCP tools](WEBMCP.html), the `maidr_navigate` tool calls `navigateTo` on the reader's behalf, so an agent's move is announced, kept for the next focus-in, or refused exactly as described here, and never moves keyboard focus.
 
 ### Complete streaming example
 
@@ -305,7 +307,7 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 
 ## Keyboard Controls
 
-See the full [Keyboard Controls](CONTROLS.html) reference. Keys most relevant to live charts:
+See the full [Keyboard Controls](CONTROLS.md) reference. Keys most relevant to live charts:
 
 | Function | Key |
 | --- | --- |

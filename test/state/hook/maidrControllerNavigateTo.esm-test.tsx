@@ -19,7 +19,7 @@
 
 import type { Maidr as MaidrData } from '@type/grammar';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { navigateMaidr } from '@service/liveData';
+import { liveDataManager, navigateMaidr } from '@service/liveData';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TraceType } from '@type/grammar';
 import { Maidr } from '../../../src/maidr-component';
@@ -54,11 +54,18 @@ function renderChart(): HTMLElement {
 }
 
 /**
- * Focuses the figure and lets the controller come up behind its timer.
+ * Focuses the plot inside the figure, as a Tab or a click does, and lets the
+ * controller come up behind its timer. Focus really moves: "inside the
+ * figure" is read off `document.activeElement`, not off the event.
  * @param figure - The figure element.
  */
 function focusIn(figure: HTMLElement): void {
   act(() => {
+    const plot = screen.getByRole('img');
+    plot.focus();
+    if (!figure.contains(document.activeElement)) {
+      throw new Error('the plot did not take focus');
+    }
     fireEvent.focus(figure);
     jest.runOnlyPendingTimers();
   });
@@ -196,6 +203,37 @@ describe('a target sent from outside', () => {
     // The instruction, not a mark: the reader starts where they always do.
     expect(announcedText()).toContain('Use Arrows to navigate');
     expect(announcedText()).not.toContain('Value');
+  });
+
+  it('should keep the target while the page has lost focus, and announce it when the reader comes back', () => {
+    const figure = renderChart();
+    focusIn(figure);
+    const before = announcedText();
+    // The reader switched to the browser's agent panel: the window lost
+    // focus, and `document.activeElement` stayed on the plot.
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      expect(liveDataManager.inspect('navigate-bar')).toEqual({ inChart: false, position: null, blocked: false });
+
+      let accepted = false;
+      act(() => {
+        accepted = navigateMaidr({ layerId: 'bar-layer', row: 0, col: 2 }, { id: 'navigate-bar' });
+      });
+
+      expect(accepted).toBe(true);
+      expect(announcedText()).toBe(before);
+    } finally {
+      hasFocus.mockRestore();
+    }
+
+    // Back in the page, the browser fires focus-in on the plot again.
+    act(() => {
+      fireEvent.focus(figure);
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(announcedText()).toContain('Category is C');
+    expect(liveDataManager.inspect('navigate-bar')?.inChart).toBe(true);
   });
 
   it('should refuse a position the figure does not have', () => {

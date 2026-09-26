@@ -5,9 +5,14 @@ import process from 'node:process';
 import { describe, expect, it } from '@jest/globals';
 import {
   buildGallery,
+  CHART_TITLES,
+  CHART_TYPES,
   EXCLUDED_EXAMPLES,
+  EXPERIMENTAL_MARK,
   listExamplePages,
+  PAGE_TYPES,
   renderGallery,
+  STABLE_TYPES,
   TITLES,
 } from '../../scripts/examplesGallery';
 
@@ -191,5 +196,95 @@ describe('the gallery\'s markup', () => {
     // be written out here; if it goes, the gallery is hand-listed again.
     expect(script).toContain(`\${gallery}`);
     expect(script).toContain('renderGallery(sections)');
+  });
+});
+
+/**
+ * The types listed under one `###` heading of `docs/SCHEMA.md`'s stability
+ * section. Read here rather than through `schemaTypes.ts`, which imports the
+ * enum through a path alias this ESM project does not map;
+ * `schemaStability.test.ts` already holds the two lists to the enum.
+ */
+function schemaListed(heading: string): string[] {
+  const schema = readFileSync(join(ROOT, 'docs', 'SCHEMA.md'), 'utf8');
+  const start = schema.indexOf(`### ${heading}\n`);
+  const rest = schema.slice(start + heading.length + 5);
+  const end = rest.indexOf('\n#');
+  return [...(end === -1 ? rest : rest.slice(0, end)).matchAll(/`([a-z_0-9]+)`/g)].map(match => match[1]);
+}
+
+describe('the gallery\'s experimental marks', () => {
+  const stable = schemaListed('Stable');
+  const experimental = schemaListed('Experimental');
+  const items = sections.flatMap(section => section.items.map(item => ({ section: section.id, ...item })));
+
+  it('should take the stable set from docs/SCHEMA.md', () => {
+    expect([...STABLE_TYPES].sort()).toEqual([...stable].sort());
+  });
+
+  it('should name only declarable trace types', () => {
+    const known = new Set([...stable, ...experimental]);
+    const unknown = [...Object.values(CHART_TYPES), ...Object.values(PAGE_TYPES)]
+      .flat()
+      .filter(type => !known.has(type));
+
+    expect(unknown).toEqual([]);
+  });
+
+  it('should decide the types of every chart the shared vocabulary names', () => {
+    // A title without types would put a new chart in the gallery unmarked
+    // whatever its stability, which is the drift the mark exists to prevent.
+    expect(Object.keys(CHART_TYPES).sort()).toEqual(Object.keys(CHART_TITLES).sort());
+  });
+
+  it('should decide, for every page, whether its charts are experimental', () => {
+    const undecided = items
+      .filter(item => item.page !== undefined && item.experimental === undefined)
+      .map(item => item.page);
+
+    expect(undecided).toEqual([]);
+  });
+
+  it('should not list types for a page that is gone', () => {
+    const stale = Object.keys(PAGE_TYPES).filter(page => !existsSync(join(EXAMPLES, page)));
+
+    expect(stale).toEqual([]);
+  });
+
+  it('should mark a hand-authored page by the types its MAIDR JSON declares', () => {
+    // These pages carry their schema inline, so what they declare is the
+    // ground truth the maps above are checked against. Integration pages are
+    // not: their `type` keys are the charting library's, not MAIDR's.
+    const declarable = new Set([...stable, ...experimental]);
+    const wrong = items
+      .filter(item => item.section === 'html' && item.page !== undefined)
+      .flatMap((item) => {
+        const source = readFileSync(join(EXAMPLES, item.page!), 'utf8').replace(/&quot;/g, '"');
+        const declared = [...source.matchAll(/"type"\s*:\s*"([a-z_]+)"/g)]
+          .map(match => match[1])
+          .filter(type => declarable.has(type));
+        if (declared.length === 0) {
+          return [];
+        }
+        const expected = declared.every(type => experimental.includes(type));
+        return item.experimental === expected ? [] : [`${item.page}: ${declared.join(', ')}`];
+      });
+
+    expect(wrong).toEqual([]);
+  });
+
+  it('should put the mark after the link text and the heading, and nowhere on a stable entry', () => {
+    const html = renderGallery(sections);
+
+    expect(html).toContain(
+      `<li><a href="examples/roc.html" onclick="loadHTML('roc.html', 'ROC Curve ${EXPERIMENTAL_MARK}'); return false;">ROC Curve ${EXPERIMENTAL_MARK}</a></li>`,
+    );
+    const misplaced = items
+      .filter(item => item.label.includes(EXPERIMENTAL_MARK) !== (item.experimental === true)
+        || item.heading.includes(EXPERIMENTAL_MARK) !== (item.experimental === true)
+        || (item.experimental === true && !item.label.endsWith(EXPERIMENTAL_MARK)))
+      .map(item => item.page ?? item.label);
+
+    expect(misplaced).toEqual([]);
   });
 });

@@ -27,7 +27,7 @@ import { Orientation, TraceType } from '@type/grammar';
  * (`LiveDataPoint[][]`) rather than a flat point array. Used so appending
  * works even when the outer array starts empty (no shape to inspect).
  */
-const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
+export const NESTED_DATA_TYPES: ReadonlySet<TraceType> = new Set([
   TraceType.LINE,
   TraceType.SMOOTH,
   TraceType.STACKED,
@@ -128,6 +128,35 @@ type LiveDataListener = (event: LiveDataEvent) => void;
  * target -- moved to it now, or kept it for when the reader arrives.
  */
 export type LiveNavigator = (target: NavigationTarget | null) => boolean;
+
+/**
+ * Where the reader is in a mounted chart, as {@link LiveReaderProbe} reports it.
+ */
+export interface LiveReaderState {
+  /** The chart has the reader's focus, and the page has the browser's. */
+  inChart: boolean;
+  /** What their screen reader last spoke for their position, or `null`. */
+  position: string | null;
+  /**
+   * A MAIDR dialog or text field (chat, settings, help, braille, review, ...)
+   * holds their focus, so a move now would not be one they could make from
+   * the keyboard. Absent reads as `false`.
+   */
+  blocked?: boolean;
+}
+
+/**
+ * Reports, without changing anything, whether the reader is inside a mounted
+ * chart and what their screen reader last spoke for their position.
+ *
+ * Registered by the chart alongside its navigator, and read at call time, so
+ * it answers for the moment it is asked rather than for when the chart
+ * mounted. `position` is `null` when the reader is outside the chart, or
+ * inside it but not yet on a data point.
+ */
+export interface LiveReaderProbe {
+  (): LiveReaderState;
+}
 
 /**
  * Result of merging an appended point into a Maidr config.
@@ -352,6 +381,7 @@ interface LiveDataInstance {
   data: Maidr;
   listener: LiveDataListener;
   navigator: LiveNavigator | null;
+  probe: LiveReaderProbe | null;
 }
 
 /**
@@ -414,15 +444,18 @@ export class LiveDataManager {
    * @param listener - Invoked whenever the chart's data changes
    * @param navigator - Moves the chart's cursor for {@link navigateTo}; a chart
    *   that registers none cannot be navigated from outside
+   * @param probe - Reports where the reader is for {@link inspect}; a chart
+   *   that registers none reads as one the reader is not inside
    * @returns A disposable that unregisters the instance
    */
   public register(
     initial: Maidr,
     listener: LiveDataListener,
     navigator: LiveNavigator | null = null,
+    probe: LiveReaderProbe | null = null,
   ): Disposable {
     const id = initial.id;
-    this.instances.set(id, { data: initial, listener, navigator });
+    this.instances.set(id, { data: initial, listener, navigator, probe });
     return {
       dispose: () => {
         // Guard against a newer registration for the same id.
@@ -557,6 +590,49 @@ export class LiveDataManager {
    */
   public getData(id: string): Maidr | undefined {
     return this.instances.get(id)?.data;
+  }
+
+  /**
+   * Lists the ids of every registered chart, in registration order.
+   *
+   * @returns A fresh array; changing it does not affect the registry
+   */
+  public getIds(): string[] {
+    return [...this.instances.keys()];
+  }
+
+  /**
+   * Reports where the reader is in a registered chart, without moving or
+   * announcing anything.
+   *
+   * A probe that throws is treated as a chart the reader is not inside: the
+   * question is advisory, and a caller asking it should never be the reason
+   * a page errors.
+   *
+   * @param id - The chart id
+   * @returns Whether the reader is inside the chart, the text last spoken
+   *   for their position, and whether a MAIDR dialog holds their focus;
+   *   `{ inChart: false, position: null, blocked: false }` for a chart
+   *   that registered no probe, and `null` for an id that is not registered
+   */
+  public inspect(id: string): Required<LiveReaderState> | null {
+    const instance = this.instances.get(id);
+    if (!instance) {
+      return null;
+    }
+    if (instance.probe === null) {
+      return { inChart: false, position: null, blocked: false };
+    }
+    try {
+      const { inChart, position, blocked } = instance.probe();
+      return {
+        inChart: inChart === true,
+        position: typeof position === 'string' ? position : null,
+        blocked: blocked === true,
+      };
+    } catch {
+      return { inChart: false, position: null, blocked: false };
+    }
   }
 
   /**

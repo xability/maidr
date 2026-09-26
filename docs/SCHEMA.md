@@ -179,7 +179,7 @@ applies across all subplots:
 
 ### Top-Level Properties for Live Charts
 
-The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.html) guide):
+The top-level `maidr` object accepts two optional properties for realtime/streaming scenarios (see the [Live & Streaming Data](LIVE_DATA.md) guide):
 
 - `live` (boolean): enables live mode — in-place data updates via `window.maidrLive.setData()` / `appendData()` and the **M** monitor-mode key.
 - `maxWidth` (number): sliding window size; appending a point beyond this width drops the oldest point(s), keeping at most `maxWidth` points per series.
@@ -201,6 +201,13 @@ from the list above.
 Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
 were added by it, most of them inside about two weeks, and `rug` (#1132) and
 `roc` after it. **None of the thirty-nine has been through a user study**.
+
+Elsewhere in these docs — the braille guide, the integration guides'
+supported-type tables and the examples gallery — an experimental type is marked
+**[experimental]** after its name; a type with no mark is stable. py-maidr
+([Plot Type Stability](https://py.maidr.ai/stability.html)) and maidr for R
+([Supported plot types](https://r.maidr.ai/#supported-plot-types)) mark their
+own docs the same way.
 
 ### Stable
 
@@ -344,7 +351,7 @@ reports the chart drawn, not when its first `<svg>` appears.
 | `point`, `sunflower`, `volcano`, `manhattan` | string | Paired by the position each mark is drawn at, not by document order. |
 | `pie` | string | Exactly one element per slice, in drawn order; reversed when `direction` is `'counterclockwise'`. |
 | `heat` | string; grid `[row][column]` | A string names one element per cell: `<rect>` cells are read column by column (`domMapping.order: 'row'` reads them row by row), `<path>` cells row by row from the top, and a single `<image>` gets an overlay. A grid's rows run bottom first, the reverse of `data.points`. |
-| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of its first `<path>`, `<polyline>` or `<polygon>` are the points. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
+| `line`, `step`, `survival`, `smooth`, `area`, `stacked_area`, `stacked_normalized_area`, `bump`, `radar`, `polar_area`, `parallel_coordinates`, `roc`, `contour` | list with one entry per series (a string is one series) | A selector matching one element per point pairs them in document order; otherwise the vertices of the `<path>`, `<polyline>` or `<polygon>` it matches are the points. When a series matches several drawn elements -- a line broken by missing values, which gridSVG writes as sibling polylines -- their vertices are joined in document order and each reading is placed by its x; a missing reading gets no marker. Elements inside `<defs>`, `<clipPath>`, `<marker>`, `<symbol>`, `<pattern>` or `<mask>` (matplotlib's marker templates) are not pieces of the series. `domMapping.pointOrder: 'reverse'` says the chart draws them the other way round. |
 | `box`, `violin_box` | `BoxSelector[]`, one per box | See the box and violin plot types below. |
 | `violin_kde` | string; list with one entry per violin | Markers are drawn at each point's `svg_x`/`svg_y`; the list names the curve each violin belongs to. |
 | `candlestick` | string; `CandlestickSelector` | A string pairs one element per candle in document order. |
@@ -430,7 +437,7 @@ The data property is defined as a list of objects where each object is a record 
             "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
   }
 
-  // boxen (letter-value) maidr.data structure: one object per distribution,
+  // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
   // each with a median and a ladder of quantile pairs. A box plot is this
   // shape with exactly one rung; the point of a boxen is that a larger sample
   // earns more of them, so the depth varies per distribution and between them.
@@ -712,7 +719,7 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
-   // roc: a receiver operating characteristic curve, one array of operating
+   // roc [experimental]: a receiver operating characteristic curve, one array of operating
    // points per classifier. `x` is the false positive rate and `y` the true
    // positive rate, both fractions of one; `threshold` is the decision
    // threshold the point was scored at, and `z` names the curve as it names
@@ -744,7 +751,7 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
-   // rug: observations marked as ticks along one axis. One position per
+   // rug [experimental]: observations marked as ticks along one axis. One position per
    // observation and nothing else -- the chart is drawn to show where the
    // observations fall and where they bunch up. `x` for a vertical rug (the
    // ticks stand on the x axis, the default), `y` for a horizontal one

@@ -6,6 +6,7 @@ import type { Settings, SettingsSection } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { dotPadSession } from '@service/dotPadSession';
+import { isWebMcpSupported } from '@service/webMcp';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { AbstractViewModel } from './viewModel';
 
@@ -149,6 +150,15 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    */
   public supportsTactileTransport(transport: DotPadTransport): boolean {
     return dotPadSession.supports(transport);
+  }
+
+  /**
+   * Reports whether this browser offers WebMCP, so the dialog shows the
+   * agent-tools setting only where it can do something.
+   * @returns True when the browser can take MAIDR's WebMCP tools
+   */
+  public get supportsAgentTools(): boolean {
+    return isWebMcpSupported();
   }
 
   /**

@@ -26,6 +26,13 @@ export interface GalleryItem {
   label: string;
   /** The heading the loaded example is announced under. */
   heading: string;
+  /**
+   * Whether every trace type the page shows is experimental, in which case
+   * the label and heading end in {@link EXPERIMENTAL_MARK}; `undefined` when
+   * no entry in `CHART_TYPES` or `PAGE_TYPES` says which types it shows.
+   * Absent on a hand-written entry.
+   */
+  experimental?: boolean;
 }
 
 /** One integration's section of the gallery. */
@@ -62,6 +69,18 @@ export interface GalleryGroup {
 export declare const EXCLUDED_EXAMPLES: ExcludedExample[];
 
 export declare const CHART_TITLES: Record<string, string>;
+
+/** The trace types `docs/SCHEMA.md` lists as stable. */
+export declare const STABLE_TYPES: string[];
+
+/** Appended to an experimental entry's label and heading. */
+export declare const EXPERIMENTAL_MARK: string;
+
+/** The trace types each `CHART_TITLES` stem is read as. */
+export declare const CHART_TYPES: Record<string, string[]>;
+
+/** The trace types a page shows, where its stem does not say. */
+export declare const PAGE_TYPES: Record<string, string[]>;
 
 export declare const TITLES: Record<string, string | { label: string; heading: string }>;
 

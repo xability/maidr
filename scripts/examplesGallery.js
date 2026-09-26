@@ -165,6 +165,7 @@ export const TITLES = {
   'live-coinbase.html': 'Live Coinbase feed',
   'live-line.html': 'Live line feed',
   'multiline_plot_intersection.html': 'Multi line plot with intersecting lines',
+  'webmcp.html': 'WebMCP: a bar chart for browser AI agents',
 
   // `examples/` holds seven charts twice, under a hyphenated and an
   // underscored filename, and the old gallery listed only one of each pair.
@@ -218,6 +219,189 @@ export const TITLES = {
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
   'vegalite-hconcat-box.html': 'Box Plots side by side (hconcat)',
 };
+
+/**
+ * The trace types `docs/SCHEMA.md` lists under "Stable". Every other type is
+ * experimental, and a gallery entry whose chart reads only as experimental
+ * types carries an `[experimental]` mark after its label -- the same mark the
+ * braille guide and the integration guides put after an experimental type's
+ * name. `test/scripts/examplesGallery.esm-test.ts` fails if this drifts from
+ * the list in `docs/SCHEMA.md`.
+ */
+export const STABLE_TYPES = [
+  'bar',
+  'box',
+  'candlestick',
+  'dodged_bar',
+  'heat',
+  'hist',
+  'line',
+  'pie',
+  'point',
+  'smooth',
+  'stacked_bar',
+  'stacked_normalized_bar',
+  'step',
+  'violin_box',
+  'violin_kde',
+];
+
+/** The mark appended to an experimental entry's link text and heading. */
+export const EXPERIMENTAL_MARK = '[experimental]';
+
+/**
+ * The trace types each {@link CHART_TITLES} stem is read as.
+ *
+ * Kept beside the titles, keyed the same way, so a new chart name cannot be
+ * added without deciding which types it shows; the test fails if the two maps
+ * disagree about their keys. Where an integration reads a variant of the
+ * chart (a plain area here, a stacked one there) the variants share a
+ * stability, which is all the mark depends on.
+ */
+export const CHART_TYPES = {
+  'area': ['area'],
+  'bar': ['bar'],
+  'bar-diverging': ['diverging_bar'],
+  'bar-dodged': ['dodged_bar'],
+  'bar-stacked': ['stacked_bar'],
+  'box': ['box'],
+  'boxen': ['boxen'],
+  'boxplot': ['box'],
+  'bump': ['bump'],
+  'candlestick': ['candlestick'],
+  'chord': ['chord'],
+  'choropleth': ['choropleth'],
+  'contour': ['contour'],
+  'diverging': ['diverging_bar'],
+  'dodged': ['dodged_bar'],
+  'dot': ['dot'],
+  'dotplot': ['dot'],
+  'dumbbell': ['dumbbell'],
+  'errorbar': ['error_bar'],
+  'errorbar-grouped': ['error_bar'],
+  'facet-bar': ['bar'],
+  'facets': ['bar'],
+  'forest': ['forest'],
+  'funnel': ['funnel'],
+  'gantt': ['gantt'],
+  'gauge': ['gauge'],
+  'grouped-bar': ['dodged_bar'],
+  'heatmap': ['heat'],
+  'hexbin': ['hexbin'],
+  'histogram': ['hist'],
+  'icicle': ['icicle'],
+  'line': ['line'],
+  'lollipop': ['lollipop'],
+  'manhattan': ['manhattan'],
+  'mosaic': ['mosaic'],
+  'multiline': ['line'],
+  'multipanel': ['bar', 'line'],
+  'network': ['network'],
+  'normalized': ['stacked_normalized_bar'],
+  'parallel': ['parallel_coordinates'],
+  'pie': ['pie'],
+  'pyramid': ['diverging_bar'],
+  'radar': ['radar'],
+  'ridgeline': ['ridgeline'],
+  'roc': ['roc'],
+  'rug': ['rug'],
+  'sankey': ['sankey'],
+  'scatter': ['point'],
+  'smooth': ['smooth'],
+  'stacked': ['stacked_bar'],
+  'stacked-bar': ['stacked_bar'],
+  'step': ['step'],
+  'subplots': ['bar', 'line'],
+  'sunburst': ['sunburst'],
+  'survival': ['survival'],
+  'treemap': ['treemap'],
+  'violin': ['violin_kde', 'violin_box'],
+  'volcano': ['volcano'],
+  'waterfall': ['waterfall'],
+  'wordcloud': ['word_cloud'],
+};
+
+/**
+ * Per-page trace types, for the pages whose stem is not a
+ * {@link CHART_TYPES} key or names the wrong chart. A page holding several
+ * charts lists every type it shows, and is marked only when all of them are
+ * experimental.
+ */
+export const PAGE_TYPES = {
+  // Hand-authored MAIDR JSON pages.
+  'alluvial.html': ['alluvial'],
+  'area.html': ['stacked_area'],
+  'area-overlapping.html': ['area'],
+  'barplot.html': ['bar'],
+  'boxplot-horizontal.html': ['box'],
+  'boxplot-vertical.html': ['box'],
+  'candlestick_multilayer.html': ['candlestick', 'bar', 'line'],
+  'dodged-barplot.html': ['dodged_bar'],
+  'dodged_barplot.html': ['dodged_bar'],
+  'facet_barplot.html': ['bar'],
+  'horizontal-boxplot.html': ['box'],
+  'live-candlestick.html': ['candlestick', 'bar', 'line'],
+  'live-coinbase.html': ['candlestick', 'bar'],
+  'live-line.html': ['line'],
+  'lineplot.html': ['line'],
+  'multi-lineplot.html': ['line'],
+  'multi-panel.html': ['bar', 'line'],
+  'multilayer_plot.html': ['bar', 'line'],
+  'multiline_plot.html': ['line'],
+  'multiline_plot_intersection.html': ['line'],
+  'normalized-area.html': ['stacked_normalized_area'],
+  'normalized-barplot.html': ['stacked_normalized_bar'],
+  'polar-area.html': ['polar_area'],
+  'scatter_plot.html': ['point'],
+  'smooth_plot.html': ['smooth'],
+  'smoothplot.html': ['smooth'],
+  'stacked-barplot.html': ['stacked_bar'],
+  'stepplot.html': ['step'],
+  'vertical-boxplot.html': ['box'],
+  'vertical-candlestick.html': ['candlestick'],
+  'webmcp.html': ['bar'],
+
+  // Integration pages.
+  'amcharts.html': ['bar', 'dodged_bar', 'stacked_bar', 'stacked_normalized_bar', 'line', 'hist', 'heat'],
+  'amcharts-declared.html': ['survival', 'error_bar', 'forest', 'volcano', 'manhattan'],
+  'amcharts-floating-columns.html': ['waterfall', 'gantt', 'dumbbell'],
+  'amcharts-flow.html': ['sankey', 'chord', 'network', 'alluvial'],
+  'amcharts-marks.html': ['diverging_bar', 'dot', 'lollipop'],
+  'anychart-bindable.html': ['bar'],
+  'chartjs/boxplot-horizontal.html': ['box'],
+  'chartjs/line-stacked-panels.html': ['line'],
+  'd3-bindarea.html': ['stacked_area'],
+  'frappe-mixed.html': ['bar', 'line'],
+  'google-charts.html': ['bar', 'line', 'point', 'stacked_bar', 'dodged_bar', 'candlestick'],
+  'google-charts-gauge-map.html': ['gauge', 'choropleth'],
+  'google-charts-marks.html': ['dot', 'lollipop', 'funnel', 'diverging_bar', 'waterfall'],
+  'google-charts-relational.html': ['sankey', 'treemap', 'gantt'],
+  'google-charts-statistical.html': ['volcano', 'manhattan', 'survival', 'dumbbell', 'bump', 'tree'],
+  'highcharts-bellcurve.html': ['smooth'],
+  'highcharts-grid.html': ['bar'],
+  'highcharts-panes.html': ['line', 'bar'],
+  'highcharts-pareto.html': ['bar', 'line'],
+  'highcharts-timeline.html': ['point'],
+  'highcharts-variwide.html': ['mosaic'],
+  'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
+  'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
+  'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
+  'tableau-bar.html': ['bar'],
+  'vegalite-bindbox-horizontal.html': ['box'],
+  'vegalite-hconcat-box.html': ['box'],
+};
+
+/**
+ * Whether a page's charts are all experimental, or `undefined` when nothing
+ * says which types it shows.
+ */
+function isExperimentalPage(page, group) {
+  const types = PAGE_TYPES[page] ?? CHART_TYPES[chartStem(page, group)];
+  if (!types) {
+    return undefined;
+  }
+  return types.every(type => !STABLE_TYPES.includes(type));
+}
 
 /** Words the de-slugified fallback should not simply capitalise. */
 const WORDS = {
@@ -494,6 +678,21 @@ function disambiguate(items) {
 }
 
 /**
+ * Append the experimental mark to an entry's link text and to the heading it
+ * is announced under, after {@link disambiguate} so the mark stays last.
+ */
+function markExperimental(item) {
+  if (!item.experimental) {
+    return item;
+  }
+  return {
+    ...item,
+    label: `${item.label} ${EXPERIMENTAL_MARK}`,
+    heading: `${item.heading} ${EXPERIMENTAL_MARK}`,
+  };
+}
+
+/**
  * Sort the gallery's sections and their entries.
  *
  * Alphabetical by link text within a section. The hand-written list was ordered
@@ -528,7 +727,7 @@ export function buildGallery(pages) {
       unclaimed.push(page);
       continue;
     }
-    items.get(group.id).push({ page, ...titleFor(page, group) });
+    items.get(group.id).push({ page, ...titleFor(page, group), experimental: isExperimentalPage(page, group) });
   }
 
   const sections = GROUPS.map(group => ({
@@ -538,7 +737,7 @@ export function buildGallery(pages) {
     note: group.note,
     items: [
       ...(group.statics ?? []).map(item => ({ ...item, heading: item.label })),
-      ...disambiguate(items.get(group.id)).sort(byLabel),
+      ...disambiguate(items.get(group.id)).map(markExperimental).sort(byLabel),
     ],
   }));
 

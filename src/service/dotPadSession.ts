@@ -374,7 +374,7 @@ class DotPadSession {
     if (this.vendor !== null || !this.isSupported) {
       return;
     }
-    await this.loadVendor();
+    await this.loadVendor(true);
   }
 
   /**
@@ -430,8 +430,14 @@ class DotPadSession {
 
   /**
    * Loads the vendor module from a global or a configured URL.
+   *
+   * A failure is not cached, so the next attempt fetches again.
+   *
+   * @param unprompted - True when the reader did not ask for this, so a
+   *   failure is logged as a warning: nothing they did went wrong, and
+   *   {@link connect} reports it properly if they do ask
    */
-  private async loadVendor(): Promise<DotPadVendorModule | null> {
+  private async loadVendor(unprompted = false): Promise<DotPadVendorModule | null> {
     if (this.vendor !== null) {
       return this.vendor;
     }
@@ -450,7 +456,8 @@ class DotPadSession {
         return imported;
       }
     } catch (error) {
-      console.error('DotPad SDK could not be loaded:', error instanceof Error ? error.message : error);
+      const log = unprompted ? console.warn : console.error;
+      log('DotPad SDK could not be loaded:', error instanceof Error ? error.message : error);
     }
     return null;
   }
@@ -584,7 +591,14 @@ class DotPadSession {
    * The body of {@link adopt}, run at most once at a time.
    */
   private async adoptGranted(): Promise<boolean> {
-    const vendor = await this.loadVendor();
+    // This runs every time braille is turned on, and most readers have no
+    // display. Asking the browser what was granted needs no SDK, so the SDK is
+    // fetched only once there is something it could open.
+    if (!this.isSupported || !await this.hasGrantedCandidate()) {
+      return false;
+    }
+
+    const vendor = await this.loadVendor(true);
     if (vendor === null) {
       return false;
     }
@@ -627,7 +641,45 @@ class DotPadSession {
       } catch (error) {
         // An ordinary outcome here, not a fault to report: opening a device a
         // second time throws, and this runs unprompted.
-        console.error('DotPad could not be reconnected:', error instanceof Error ? error.message : error);
+        console.warn('DotPad could not be reconnected:', error instanceof Error ? error.message : error);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Reports whether this origin holds a permission {@link grantedDevice} might
+   * turn into a display, without loading the SDK.
+   *
+   * A serial port is matched against the DotPad USB identifiers here. Any
+   * granted Bluetooth device counts: the name prefix it is checked against is
+   * the SDK's own, so that check waits for {@link grantedDevice}.
+   *
+   * A lookup the browser refuses counts as nothing granted, per transport.
+   */
+  private async hasGrantedCandidate(): Promise<boolean> {
+    const nav = navigator as unknown as {
+      bluetooth?: { getDevices?: () => Promise<unknown[]> };
+      serial?: { getPorts?: () => Promise<SerialPortLike[]> };
+    };
+    if (this.supports('serial') && nav.serial?.getPorts !== undefined) {
+      try {
+        const ports = await nav.serial.getPorts();
+        if (ports.some(port => DotPadSession.isDotPadPort(port))) {
+          return true;
+        }
+      } catch {
+        // Refused, e.g. by Permissions Policy: nothing to adopt over serial.
+      }
+    }
+    if (this.supports('bluetooth') && nav.bluetooth?.getDevices !== undefined) {
+      try {
+        const devices = await nav.bluetooth.getDevices();
+        if (devices.length > 0) {
+          return true;
+        }
+      } catch {
+        // Refused: nothing to adopt over Bluetooth.
       }
     }
     return false;

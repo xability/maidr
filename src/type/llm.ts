@@ -24,17 +24,17 @@ export const ANTHROPIC_API_VERSION = '2023-06-01';
  * list fetched from the provider's models API, so saved versions may be any
  * model the user's key can access.
  */
-export type GptVersion = 'gpt-5.5' | 'gpt-5.5-pro' | 'gpt-5.4' | 'gpt-5.4-mini' | 'gpt-5.4-nano' | 'gpt-4o';
+export type GptVersion = 'gpt-6-astra' | 'gpt-6-sol' | 'gpt-6-luna' | 'gpt-5.6-sol' | 'gpt-5.5' | 'gpt-4o';
 
 /**
  * Curated Anthropic Claude model versions.
  */
-export type ClaudeVersion = 'claude-fable-5' | 'claude-opus-4-8' | 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
+export type ClaudeVersion = 'claude-fable-5-1' | 'claude-opus-5-5' | 'claude-opus-5' | 'claude-sonnet-5' | 'claude-haiku-4-5';
 
 /**
  * Curated Google Gemini model versions.
  */
-export type GeminiVersion = 'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite' | 'gemini-2.5-pro' | 'gemini-2.5-flash';
+export type GeminiVersion = 'gemini-3.8-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.5-flash' | 'gemini-3.5-flash-lite';
 
 /**
  * Available Ollama model versions. Ollama models are installed locally by the
