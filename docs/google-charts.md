@@ -538,7 +538,7 @@ Once a chart is focused, use standard MAIDR keyboard shortcuts:
 | Auto-play | Ctrl + Shift + Arrow | Cmd + Shift + Arrow |
 | Stop Auto-play | Ctrl | Cmd |
 
-For the full list, see the [Keyboard Controls](docs/CONTROLS.html) reference.
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## API Documentation
 

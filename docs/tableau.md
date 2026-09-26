@@ -115,7 +115,7 @@ Three honest consequences:
 
 ### Following a click
 
-Selection runs the other way too. When someone clicks a mark in the viz — a sighted colleague pointing at a bar — Tableau fires `markselectionchanged`, the adapter reads the marks the selection now covers with `getMarksAsync()`, and matches their dimension values against the values every navigable position was read from. When exactly one position matches, MAIDR's cursor is sent there through `window.maidrLive.navigateTo` (see [Live & Streaming Data](LIVE_DATA.html)):
+Selection runs the other way too. When someone clicks a mark in the viz — a sighted colleague pointing at a bar — Tableau fires `markselectionchanged`, the adapter reads the marks the selection now covers with `getMarksAsync()`, and matches their dimension values against the values every navigable position was read from. When exactly one position matches, MAIDR's cursor is sent there through `window.maidrLive.navigateTo` (see [Live & Streaming Data](LIVE_DATA.md)):
 
 - **while the reader is inside the figure**, the cursor moves at once and the mark is announced, with audio, braille and text catching up together;
 - **otherwise** — which is the usual case, because the click that selected the mark also took the keyboard focus, and MAIDR's controller is disposed when focus leaves — the position is kept and the reader lands on it the next time they focus in. A later click on empty space withdraws it, and a data change discards it, since it addressed the figure that data described.
@@ -402,7 +402,7 @@ Two notes specific to this adapter:
 - **Which arrows move between worksheets depends on the dashboard.** In the geometry-aware grid, Up and Down move between the dashboard's rows and Left and Right move along one — in the direction the dashboard is laid out, since its bottom row is the figure's row 0. In the column fallback there is one worksheet per row, so Left and Right are always out of bounds. See [Dashboard Layout](#dashboard-layout).
 - **<kbd>Page Up</kbd> and <kbd>Page Down</kbd> do nothing here.** Those keys switch between *layers* of one subplot, and a Tableau worksheet always produces exactly one layer. There is nothing for them to switch to.
 
-For the full list, see the [Keyboard Controls](CONTROLS.html) reference.
+For the full list, see the [Keyboard Controls](CONTROLS.md) reference.
 
 ## Limitations
 

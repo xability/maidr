@@ -68,7 +68,7 @@ window.maidrLive.appendData(
 | `groupIndex` | number | `0` | Series index for nested data (e.g. which line of a multiline chart). Passing the current group count starts a new series; appending into an empty layer (`data: []`) creates the first series automatically. |
 | `subplotRow` / `subplotCol` | number | `0` / `0` | Target subplot in multi-panel figures. |
 
-The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.html)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
+The shape of `point` matches the layer's data format (see the [Data Schema](SCHEMA.md)): `{ x, y }` for bar/line/scatter points, a full OHLC object for candlestick, and so on.
 
 **Supported layer types:** any layer whose `data` is an array — bar, line (and multiline), step, scatter, histogram, candlestick, box, smooth, and segmented bar charts. Heatmaps (object-shaped data) do not support appending; use `setData` instead. Violin KDE layers accept appends structurally, but KDE points are pre-computed density samples — appending raw observations does not recompute the distribution, so prefer `setData` with freshly computed densities for violins.
 
@@ -305,7 +305,7 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 
 ## Keyboard Controls
 
-See the full [Keyboard Controls](CONTROLS.html) reference. Keys most relevant to live charts:
+See the full [Keyboard Controls](CONTROLS.md) reference. Keys most relevant to live charts:
 
 | Function | Key |
 | --- | --- |
