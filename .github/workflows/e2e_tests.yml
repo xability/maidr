@@ -62,6 +62,10 @@ jobs:
       - name: Build library
         run: npm run build
 
+      # e2e_tests/specs/nivo.spec.ts drives the Nivo example app, a separate
+      # single-file Vite build of examples/nivo/.
+      - name: Build Nivo example
+        run: npm run build:nivo-example
       # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
       # single-file bundle that is gitignored like dist/.
       - name: Build MUI X Charts example

@@ -34,10 +34,27 @@ interface Rung {
  * @param fraction - A quantile, from 0 to 1
  * @returns Its percentile, as text
  */
-function percentileLabel(fraction: number): string {
-  const percent = fraction * 100;
-  const text = Number(percent.toPrecision(3)).toString();
-  return t('model.boxenPercentile', { percent: text });
+export function percentileLabel(fraction: number): string {
+  const percent = Number((fraction * 100).toPrecision(3));
+  return t('model.boxenPercentile', { percent: percent.toString(), suffix: englishOrdinalSuffix(percent) });
+}
+
+const ENGLISH_ORDINAL = new Intl.PluralRules('en', { type: 'ordinal' });
+const ENGLISH_SUFFIX: Partial<Record<Intl.LDMLPluralRule, string>> = { one: 'st', two: 'nd', few: 'rd' };
+
+/**
+ * The English ordinal suffix for a percentile, which only the English template
+ * fills: "2nd", "23rd", "11th" for a whole number, and "th" for a fraction,
+ * which reads as "12.5th".
+ *
+ * @param percent - The percentile
+ * @returns Its suffix
+ */
+function englishOrdinalSuffix(percent: number): string {
+  if (!Number.isInteger(percent)) {
+    return 'th';
+  }
+  return ENGLISH_SUFFIX[ENGLISH_ORDINAL.select(percent)] ?? 'th';
 }
 
 /**

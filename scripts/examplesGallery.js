@@ -70,6 +70,13 @@ export const EXCLUDED_EXAMPLES = [
       + 'into a single file that build-site.js copies over this path in _site; the '
       + 'Victory group links that build.',
   },
+  {
+    page: 'nivo/index.html',
+    reason:
+      'Vite entry point, not a page. `npm run build:nivo-example` bundles it '
+      + 'into a single file that build-site.js copies over this path in _site; the '
+      + 'Nivo group links that build.',
+  },
 ];
 
 /**
@@ -557,6 +564,12 @@ export const GROUPS = [
     heading: 'MUI X Charts',
     statics: [{ href: 'examples/mui-x-charts/index.html', onclick: 'loadMuiXCharts()', label: 'MUI X Charts Examples (Bar, Grouped, Stacked, Horizontal, Line, Area, Scatter, Pie)' }],
     note: 'See the <a href="mui-x-charts.html">MUI X Charts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
+  },
+  {
+    id: 'nivo',
+    heading: 'Nivo',
+    statics: [{ href: 'examples/nivo/index.html', onclick: 'loadNivo()', label: 'Nivo Examples (Bar, Grouped, Stacked, Horizontal, Line, Scatter, Pie, Donut, Heatmap, Box)' }],
+    note: 'See the <a href="nivo.html">Nivo Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {
     id: 'anychart',

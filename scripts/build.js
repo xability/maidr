@@ -415,6 +415,19 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'nivo',
+    entry: 'src/nivo-entry.ts',
+    formats: ['es'],
+    fileName: () => 'nivo.mjs',
+    emptyOutDir: false,
+    // The adapter reads the chart's props and never imports a @nivo package;
+    // they are listed so an accidental import can never be bundled.
+    external: ['react', 'react-dom', 'react/jsx-runtime', /^@nivo\//],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'anychart',
     entry: 'src/anychart-entry.ts',
     libName: 'maidrAnyChart',

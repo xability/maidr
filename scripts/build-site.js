@@ -85,6 +85,7 @@ const PAGE_DESCRIPTIONS = {
   'uplot': 'How to make uPlot and Grafana-style time-series charts accessible with MAIDR: line, bar and scatter series, time axes, and live streaming.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, area, scatter, pie and doughnut charts.',
+  'nivo': 'How to make Nivo React charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, scatter, pie, donut, heatmap and box plots.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
   'lightweight-charts': 'How to make TradingView Lightweight Charts accessible with MAIDR: candlestick, OHLC bar, line, area and volume series, multi-pane charts and live streaming.',
@@ -313,6 +314,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{MUI_X_CHARTS_ACTIVE\}\}/g, () => activePage === 'mui-x-charts' ? 'active' : '')
+    .replace(/\{\{NIVO_ACTIVE\}\}/g, () => activePage === 'nivo' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
@@ -518,6 +520,31 @@ ${gallery}
     setTimeout(function() { heading.focus(); }, 100);
   }
 
+  function loadNivo() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'Nivo Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/nivo/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'Nivo Examples';
+    iframe.setAttribute('aria-label', 'Nivo example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
   function loadHTML(filename, headingText) {
     try {
       var heading = document.createElement('h2');
@@ -617,6 +644,19 @@ if (fs.existsSync(muiXChartsBuilt)) {
   fs.copyFileSync(muiXChartsBuilt, path.join(muiXChartsSiteDest, 'index.html'));
 } else {
   console.warn('Warning: Built MUI X Charts example not found. Run "npm run build:mui-x-charts-example" first.');
+}
+
+// Copy built Nivo example (single-file HTML) to _site/examples/nivo/
+console.log('Copying built Nivo example...');
+const nivoBuilt = path.join(ROOT, 'examples', 'nivo', 'dist', 'index.html');
+const nivoSiteDest = path.join(SITE_DIR, 'examples', 'nivo');
+if (fs.existsSync(nivoBuilt)) {
+  if (!fs.existsSync(nivoSiteDest)) {
+    fs.mkdirSync(nivoSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(nivoBuilt, path.join(nivoSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built Nivo example not found. Run "npm run build:nivo-example" first.');
 }
 
 /**
