@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAIDR accessible charts</title>
+    <!--
+      The page a Tableau dashboard loads for maidr.trex. It only does anything
+      inside Tableau: opened on its own, there is no dashboard to read, and the
+      status line says so.
+    -->
+    <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.min.js"></script>
+    <script src="../../dist/maidr.js"></script>
+    <script src="../../dist/tableau.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="maidr-extension" aria-labelledby="maidr-heading">
+      <h1 id="maidr-heading">Accessible charts for this dashboard</h1>
+      <p id="status" role="status">Loading…</p>
+    </main>
+
+    <script>
+      const status = document.getElementById('status');
+
+      window.maidrTableau
+        .bindTableauExtension({
+          container: document.getElementById('maidr-extension'),
+          configureUrl: './configure.html',
+        })
+        .then((handle) => {
+          if (handle === null) {
+            status.textContent = 'MAIDR could not start here: it runs inside a '
+              + 'Tableau dashboard, as an extension. See the browser console for details.';
+          } else if (handle.binding === null) {
+            status.textContent = 'No worksheet on this dashboard has a chart MAIDR '
+              + 'can read. An author can choose worksheets from the extension’s '
+              + 'Configure menu.';
+          } else {
+            status.textContent = '';
+          }
+        });
+    </script>
+  </body>
+</html>
