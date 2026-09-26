@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexCharts Candlestick Chart - MAIDR Example</title>
+    <!-- ApexCharts v7.6.0, pinned with a subresource-integrity hash. The adapter
+         reads the SVG ApexCharts draws, so its selectors are specific to this
+         version: if upgrading, check the class names still match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/apexcharts@7.6.0/dist/apexcharts.min.js"
+      integrity="sha384-Ls3fJ2jLsgACMhjCwK+p72wydwr/C7GumKDeCkHRsLO0pOz2ThKSSVmS3qsY4v52"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + ApexCharts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/apexcharts.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>ApexCharts Candlestick Chart with MAIDR</h1>
+      <p>
+        Ten trading days of a stock's open, high, low and close
+        prices.
+      </p>
+      <p id="error" hidden>
+        Failed to load ApexCharts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart" style="max-width: 760px"></div>
+    </main>
+
+    <script>
+      // Surface an error if ApexCharts failed to load from CDN; otherwise draw
+      // the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof ApexCharts === 'undefined') {
+        errorEl.hidden = false;
+      } else {
+        // ApexCharts' own keyboard navigation (chart.accessibility) would fight
+        // MAIDR for the arrow keys, so it is switched off; MAIDR provides the
+        // keyboard access instead. The toolbar is hidden too: its buttons would
+        // be Tab stops inside MAIDR's chart, and zooming or panning leaves
+        // points undrawn, which MAIDR can then read but not highlight.
+        const options = {
+          chart: { type: 'candlestick', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
+          title: { text: 'ACME Corp. Daily Prices' },
+          series: [
+            {
+              name: 'ACME',
+              data: [
+                { x: 'Mar 3', y: [51.2, 53.4, 50.8, 52.9] },
+                { x: 'Mar 4', y: [52.9, 54.1, 52.2, 53.6] },
+                { x: 'Mar 5', y: [53.6, 53.9, 51.7, 52.0] },
+                { x: 'Mar 6', y: [52.0, 52.6, 50.4, 50.9] },
+                { x: 'Mar 7', y: [50.9, 52.8, 50.6, 52.5] },
+                { x: 'Mar 10', y: [52.5, 55.0, 52.3, 54.7] },
+                { x: 'Mar 11', y: [54.7, 55.8, 54.0, 55.2] },
+                { x: 'Mar 12', y: [55.2, 55.6, 53.1, 53.5] },
+                { x: 'Mar 13', y: [53.5, 54.4, 52.9, 54.1] },
+                { x: 'Mar 14', y: [54.1, 56.3, 53.8, 56.0] },
+              ],
+            },
+          ],
+          xaxis: { type: 'category', title: { text: 'Trading day' } },
+          yaxis: { title: { text: 'Price ($)' } },
+        };
+
+        const chart = new ApexCharts(document.querySelector('#chart'), options);
+        chart.render();
+
+        // bindApexCharts waits for ApexCharts to finish drawing, converts the
+        // chart and hands it to MAIDR -- and does so again whenever ApexCharts
+        // redraws it (a resize, updateSeries, a legend toggle).
+        maidrApexCharts.bindApexCharts(chart, { id: 'apexcharts-candlestick' });
+      }
+    </script>
+  </body>
+</html>

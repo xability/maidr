@@ -228,6 +228,27 @@ const GUIDES: Record<string, Guide> = {
       'normalized (percent-stacked) bar': ['stacked_normalized_bar'],
     },
   },
+  'apexcharts': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: 22,
+    examples: { after: '## Code Examples', before: '## Limitations', level: '###', min: 23 },
+    labels: {
+      '100% stacked bar': ['stacked_normalized_bar'],
+      'bubble': ['point'],
+      // A combo chart: the column series become a bar layer, the lines a line layer.
+      'mixed (column + line)': ['bar', 'line'],
+      'pie / donut': ['pie'],
+      'range bar (gantt)': ['gantt'],
+      'radial bar (gauge)': ['gauge'],
+      // Example headings
+      '100% stacked bar chart': ['stacked_normalized_bar'],
+      'bubble chart': ['point'],
+      'polar area chart': ['polar_area'],
+      'pie / donut chart': ['pie'],
+      'mixed chart (column + line)': ['bar', 'line'],
+    },
+  },
   'echarts': {
     heading: '## Supported series types',
     column: 1,

@@ -84,6 +84,7 @@ const PAGE_DESCRIPTIONS = {
   'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
+  'apexcharts': 'How to make ApexCharts accessible with MAIDR: line, area, bar, stacked, scatter, pie, heatmap, candlestick, box plot, radar, treemap and range bar charts.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
@@ -309,6 +310,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
+    .replace(/\{\{APEXCHARTS_ACTIVE\}\}/g, () => activePage === 'apexcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')

@@ -50,6 +50,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
+  { slug: 'apexcharts', title: 'ApexCharts', source: 'apexcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
 ];
 
