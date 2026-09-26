@@ -205,6 +205,11 @@ jobs:
       - name: Build core bundle and locale packs
         run: node scripts/build.js core locales
 
+      # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
+      # single-file bundle that is gitignored like dist/.
+      - name: Build MUI X Charts example
+        run: npm run build:mui-x-charts-example
+
       - name: Run e2e specs
         id: e2e
         run: npx playwright test --config=e2e_tests/config/test-config.ts --project=chromium

@@ -378,6 +378,13 @@ const GUIDES: Record<string, Guide> = {
       'mixed axis chart (bar + line)': ['bar', 'line'],
     },
   },
+  'mui-x-charts': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: 11,
+    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 8 },
+    labels: {},
+  },
   'recharts': {
     heading: '## Supported Chart Types',
     column: 0,
