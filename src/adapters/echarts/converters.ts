@@ -9,6 +9,7 @@ import type {
   TreemapPoint,
 } from '@type/grammar';
 import type { AxisCategories } from './grid';
+import type { ChartBox } from './selectors';
 import type {
   EChartsComponentModel,
   EChartsInstance,
@@ -45,7 +46,7 @@ import {
 } from './multiAxis';
 import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
-import { markPerDatum, markPerSeries } from './selectors';
+import { markLegends, markPerDatum, markPerSeries } from './selectors';
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
 
 /**
@@ -176,6 +177,10 @@ export function createMaidrFromEChart(
   // model into an overlay first; see `canvas.ts`. An SVG chart is untouched.
   drawCanvasMarks(container, readable);
 
+  // Set aside before anything is counted: a legend's icons are painted like
+  // the marks they stand for (#1315).
+  markLegends(container, legendBoxes(chart, model));
+
   const owning = readable.filter(seriesModel => OWNS_CHART.has(seriesModel.subType));
   const layers = owning.length > 0
     // A pie, a funnel, a gauge, a hierarchy and a graph each own the whole
@@ -193,6 +198,58 @@ export function createMaidrFromEChart(
     ...(title ? { title } : {}),
     subplots: [[subplot]],
   };
+}
+
+/**
+ * Where each legend on the chart was drawn, in the chart's pixels.
+ *
+ * Read from the legend's view, since its model keeps no layout: the view's
+ * group holds everything the legend drew -- icons, labels, the pager of a
+ * scrolling legend -- and its bounding rect, carried through the group's
+ * transform, is the box they sit in. A legend that is hidden draws nothing and
+ * has no box; an instance without the view accessor yields none at all, and
+ * the chart is counted as it was before.
+ *
+ * @param chart - The rendered instance
+ * @param model - Its model
+ * @returns One box per drawn legend
+ */
+function legendBoxes(chart: EChartsInstance, model: EChartsModel): ChartBox[] {
+  if (typeof chart.getViewOfComponentModel !== 'function') {
+    return [];
+  }
+
+  const boxes: ChartBox[] = [];
+  model.eachComponent({ mainType: 'legend' }, (legend) => {
+    const group = chart.getViewOfComponentModel?.(legend)?.group;
+    if (!group) {
+      return;
+    }
+    const rect = group.getBoundingRect();
+    if (!(rect.width > 0 && rect.height > 0)) {
+      return;
+    }
+
+    const [a, b, c, d, e, f] = group.getComputedTransform?.()
+      ?? [1, 0, 0, 1, group.x ?? 0, group.y ?? 0];
+    const corners = [
+      [rect.x, rect.y],
+      [rect.x + rect.width, rect.y],
+      [rect.x, rect.y + rect.height],
+      [rect.x + rect.width, rect.y + rect.height],
+    ].map(([x, y]) => [a * x + c * y + e, b * x + d * y + f]);
+    const xs = corners.map(([x]) => x);
+    const ys = corners.map(([, y]) => y);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    boxes.push({
+      x: left,
+      y: top,
+      width: Math.max(...xs) - left,
+      height: Math.max(...ys) - top,
+    });
+  });
+  return boxes;
 }
 
 /**
