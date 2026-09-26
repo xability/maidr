@@ -14,11 +14,14 @@ import { Svg } from '@util/svg';
 import { MODEL_VERSIONS } from './modelVersions';
 import { formatSystemPrompt, formatUserPrompt } from './prompts';
 
-// Token limits for different LLM providers
-const GPT_MAX_TOKENS = 1000;
-// Aligned with the other providers' ~1000-token response budget.
-const CLAUDE_MAX_TOKENS = 1024;
-const GEMINI_MAX_TOKENS = 1000;
+// Token limits for different LLM providers. The cloud limits cover reasoning
+// as well as the answer: GPT-5/6, Claude Opus 5 and later, and Gemini 3 think
+// by default and bill that thinking against these same caps, so a ~1000-token
+// cap left them with nothing for the answer. Answer length is set by the
+// prompt, not by these caps.
+const GPT_MAX_TOKENS = 8192;
+const CLAUDE_MAX_TOKENS = 8192;
+const GEMINI_MAX_TOKENS = 8192;
 // Maps to Ollama's num_predict, which caps generated tokens only (it is not
 // the context window).
 const OLLAMA_MAX_TOKENS = 1000;
@@ -643,8 +646,9 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
   /**
    * Formats the Claude response into a standard LlmResponse. The first text
-   * block is used: models with always-on thinking (e.g. Claude Fable 5) emit
-   * thinking blocks before the text block, so position 0 cannot be assumed.
+   * block is used: models that think by default (e.g. Claude Opus 5, Claude
+   * Fable 5.1) emit thinking blocks before the text block, so position 0
+   * cannot be assumed.
    * @param {ClaudeResponse} response - The raw response from Claude API
    * @returns {LlmResponse} The formatted response
    */

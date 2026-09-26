@@ -319,19 +319,19 @@ export const DEFAULT_SETTINGS: Settings = {
         enabled: false,
         apiKey: '',
         name: 'OpenAI',
-        version: 'gpt-5.5',
+        version: 'gpt-6-sol',
       },
       ANTHROPIC_CLAUDE: {
         enabled: false,
         apiKey: '',
         name: 'Anthropic Claude',
-        version: 'claude-opus-4-8',
+        version: 'claude-opus-5',
       },
       GOOGLE_GEMINI: {
         enabled: false,
         apiKey: '',
         name: 'Google Gemini',
-        version: 'gemini-3.5-flash',
+        version: 'gemini-3.8-flash',
       },
       // Ollama runs locally and needs no API key; the apiKey field holds the
       // server base URL instead, so the shared "enabled + non-empty key"
