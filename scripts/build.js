@@ -338,6 +338,23 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'uplot',
+    entry: 'src/adapters/uplot/index.ts',
+    libName: 'maidrUPlot',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'uplot.mjs' : 'uplot.js',
+    emptyOutDir: false,
+    // `bindUPlot` mounts the MAIDR React UI around the chart, so React is
+    // bundled in (mirrors chartjs/amcharts) and the UMD build (uplot.js)
+    // exposes the `maidrUPlot` global for classic <script> use. uPlot itself
+    // is never imported -- the adapter reads the live instance it is handed --
+    // so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'amcharts',
     entry: 'src/adapters/amcharts/index.ts',
     libName: 'maidrAmCharts',

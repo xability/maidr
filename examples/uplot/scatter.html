@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + uPlot Scatter Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+    <script src="../../dist/uplot.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + uPlot Scatter (Points Only)</h1>
+    <p>Click on the chart and use arrow keys to navigate the points. Press 't' for text descriptions.</p>
+
+    <div id="chart"></div>
+
+    <script>
+      // Response time against request size; a series whose `paths` draws
+      // nothing and whose points are shown is uPlot's points-only series.
+      const sizes = [2, 4, 5, 8, 11, 13, 16, 20, 24, 29, 33, 40];
+      const latency = [12, 15, 14, 21, 26, 25, 33, 38, 41, 52, 55, 70];
+
+      new uPlot({
+        title: 'Latency by payload size',
+        width: 720,
+        height: 360,
+        scales: { x: { time: false } },
+        series: [
+          { label: 'Payload (KB)' },
+          {
+            label: 'Latency (ms)',
+            stroke: '#2ca02c',
+            paths: () => null,
+            points: { show: true, size: 8, fill: '#2ca02c' },
+          },
+        ],
+        axes: [{ label: 'Payload (KB)' }, { label: 'Latency (ms)' }],
+        plugins: [maidrUPlot.maidrPlugin()],
+      }, [sizes, latency], document.getElementById('chart'));
+    </script>
+  </body>
+</html>

@@ -94,6 +94,11 @@
       "types": "./dist/tableau.d.mts",
       "import": "./dist/tableau.mjs",
       "default": "./dist/tableau.js"
+    },
+    "./uplot": {
+      "types": "./dist/uplot.d.mts",
+      "import": "./dist/uplot.mjs",
+      "default": "./dist/uplot.js"
     }
   },
   "main": "dist/maidr.js",
@@ -225,6 +230,7 @@
     "typedoc-theme-hierarchy": "^6.0.0",
     "typescript": "^5.8.3",
     "unified": "^11.0.5",
+    "uplot": "^1.6.32",
     "victory": "^37.0.0",
     "vite": "^8.2.0",
     "vite-plugin-dts": "^4.5.4",
