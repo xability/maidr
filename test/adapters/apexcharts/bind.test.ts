@@ -266,6 +266,44 @@ describe('bindApexCharts', () => {
     expect(chart.handlers.get('mounted')).toEqual([]);
   });
 
+  it('should take MAIDR off the container once disposed', async () => {
+    const unbinds: unknown[] = [];
+    const onUnbind = (event: Event): void => {
+      unbinds.push((event as CustomEvent).detail);
+    };
+    document.addEventListener('maidr:unbindchart', onUnbind);
+    try {
+      const chart = barChart();
+      const binding = bindApexCharts(chart);
+      await binding.ready;
+
+      binding.dispose();
+      binding.dispose();
+
+      expect(chart.el.hasAttribute('maidr-data')).toBe(false);
+      expect(unbinds).toEqual([chart.el]);
+    } finally {
+      document.removeEventListener('maidr:unbindchart', onUnbind);
+    }
+  });
+
+  it('should not dispatch maidr:unbindchart when disposed before MAIDR was mounted', async () => {
+    const unbinds: unknown[] = [];
+    const onUnbind = (event: Event): void => {
+      unbinds.push((event as CustomEvent).detail);
+    };
+    document.addEventListener('maidr:unbindchart', onUnbind);
+    try {
+      const binding = bindApexCharts(barChart(false));
+      binding.dispose();
+      await expect(binding.ready).rejects.toBeInstanceOf(Error);
+
+      expect(unbinds).toEqual([]);
+    } finally {
+      document.removeEventListener('maidr:unbindchart', onUnbind);
+    }
+  });
+
   it('should reject ready and log when the chart cannot be converted', async () => {
     const error = jest.spyOn(console, 'error').mockImplementation(() => {});
     const chart = barChart();

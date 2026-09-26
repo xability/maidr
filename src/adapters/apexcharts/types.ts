@@ -309,11 +309,12 @@ export interface ApexChartsBinding {
    */
   ready: Promise<Maidr>;
   /**
-   * Stops following the chart: removes the event listeners, cancels a
-   * pending rebind and puts back the container width the binding was
-   * setting. The MAIDR instance already mounted stays in place; dispatch
-   * `maidr:unbindchart` on `document`, with the container as its `detail`,
-   * to tear it down as well.
+   * Stops following the chart and takes MAIDR off it: removes the event
+   * listeners, cancels a pending rebind, puts back the container width the
+   * binding was setting, and, once MAIDR has been mounted, removes the
+   * `maidr-data` attribute and dispatches `maidr:unbindchart` so the mounted
+   * instance is torn down -- as the ECharts adapter's cleanup does. Call it
+   * before `chart.destroy()` when a page removes the chart.
    */
   dispose: () => void;
 }

@@ -347,24 +347,6 @@ function yLabelOf(ctx: Context, indices: number[]): string | undefined {
 }
 
 /**
- * Whether the chart drew an element for a selector.
- *
- * Asked of the chart's own container, so a chart not attached to the
- * document yet is still answered. Without a drawn chart the answer is yes:
- * there is nothing to check against.
- *
- * @param ctx      - The conversion context
- * @param selector - The selector
- * @returns True when an element matches
- */
-function isDrawn(ctx: Context, selector: string): boolean {
-  if (!ctx.wrap) {
-    return true;
-  }
-  return ctx.chart.el.querySelector(selector) !== null;
-}
-
-/**
  * The data indices (`j`) of the elements a selector matches in the drawn
  * chart — which points ApexCharts drew a marker for.
  *
@@ -736,10 +718,11 @@ function segmentedBarLayer(ctx: Context, indices: number[], name?: string): Maid
 
   // One selector per cell, `null` where ApexCharts drew no bar at all — a
   // series shorter than the others. A null or zero value still has a path.
-  const selectors = indices.map(i => range(count).map((j) => {
-    const selector = barSelector(ctx.root, i, j);
-    return isDrawn(ctx, selector) ? selector : null;
-  }));
+  // One query per series rather than one per cell: this runs on every redraw.
+  const selectors = indices.map((i) => {
+    const drawn = drawnIndices(ctx, `${seriesGroupSelector(ctx.root, i)} path.apexcharts-bar-area[j]`);
+    return range(count).map(j => (drawn === null || drawn.has(j) ? barSelector(ctx.root, i, j) : null));
+  });
 
   return {
     id: nextLayerId(ctx),
@@ -995,8 +978,10 @@ function candlestickLayer(ctx: Context, i: number): MaidrLayer | null {
   const { chart } = ctx;
   const g = chart.w.globals;
   const group = groupOf(ctx, i);
+  // Horizontal candles are never split, so there are no parts to point at.
+  const horizontal = isHorizontal(chart);
   if (group) {
-    if (isHorizontal(chart)) {
+    if (horizontal) {
       warnOnce(chart, 'candle-horizontal', 'Horizontal candlesticks cannot be highlighted.');
     } else if (splitCandles(group).length > 0) {
       warnOnce(chart, 'candle-split', 'Some candles could not be split into body and wicks; they are not highlighted.');
@@ -1037,7 +1022,7 @@ function candlestickLayer(ctx: Context, i: number): MaidrLayer | null {
     type: TraceType.CANDLESTICK,
     name: seriesName(chart, i),
     axes: { x: axis(ctx.labels.x), y: axis(yLabelOf(ctx, [i])) },
-    selectors: { body, wickHigh, wickLow },
+    ...(horizontal ? {} : { selectors: { body, wickHigh, wickLow } }),
     data,
   };
 }
@@ -1455,10 +1440,11 @@ function heatmapLayer(ctx: Context): MaidrLayer | null {
       return range(count).map(j => toNumber(values[j]));
     }),
   };
-  const selectors = [...topFirst].reverse().map(i => range(count).map((j) => {
-    const selector = heatCellSelector(ctx.root, i, j);
-    return isDrawn(ctx, selector) ? selector : null;
-  }));
+  // One query per row rather than one per cell: this runs on every redraw.
+  const selectors = [...topFirst].reverse().map((i) => {
+    const drawn = drawnIndices(ctx, `${ctx.root} rect.apexcharts-heatmap-rect[i="${i}"][j]`);
+    return range(count).map(j => (drawn === null || drawn.has(j) ? heatCellSelector(ctx.root, i, j) : null));
+  });
 
   return {
     id: nextLayerId(ctx),

@@ -232,9 +232,8 @@ binding.ready.then(maidrData => console.log(maidrData));
 // Later: new data -- MAIDR is updated in place, and a reader in the chart stays there.
 chart.updateSeries([{ name: 'Cups sold', data: [430, 390, 520, 600, 710, 840] }]);
 
-// When the chart goes away: stop listening, and take MAIDR off the container.
+// When the chart goes away: stop listening and take MAIDR off the container.
 binding.dispose();
-document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: chart.el }));
 chart.destroy();
 ```
 
@@ -258,7 +257,7 @@ Returns an `ApexChartsBinding`:
 | Member | Type | Description |
 |--------|------|-------------|
 | `ready` | `Promise<MaidrData>` | Resolves with the MAIDR data for the first finished draw; rejects if the chart cannot be converted (the error is also logged) or if `dispose()` is called first. On a chart that is never rendered it stays pending, with a console warning once the chart has had time to draw, and resolves if the chart is rendered later |
-| `dispose()` | `() => void` | Removes the binding's listeners and puts back the container width it was setting; call it before `chart.destroy()`. It does not take MAIDR off the container: dispatch `maidr:unbindchart` for that (see [Updates](#updates-resizing-and-legend-toggles)) |
+| `dispose()` | `() => void` | Removes the binding's listeners, puts back the container width it was setting and takes MAIDR off the container (removes `maidr-data` and dispatches `maidr:unbindchart`); call it before `chart.destroy()` |
 
 ### `apexchartsToMaidr(chart, options?)`
 
@@ -766,7 +765,7 @@ maidrApexCharts.bindApexCharts(chart);
 - **A chart that streams is read up to one animation budget behind.** See [Updates, Resizing and Legend Toggles](#updates-resizing-and-legend-toggles).
 - **Up and Down on a horizontal gantt move down and up the drawn chart.** MAIDR's gantt lanes run in the order the chart lists them, which ApexCharts draws from the top; see the range bar note under [Supported Chart Types](#supported-chart-types).
 - **The chart's container is given a pixel width while MAIDR is mounted.** See [Width](#width). Styles that set the container's `width` from outside, after the chart is bound, are overridden until `dispose()`.
-- **`dispose()` leaves MAIDR mounted.** It stops the binding; dispatch `maidr:unbindchart` to take MAIDR off the container too.
+- **Range bar dates are formatted by a small generated function.** A datetime range bar's positions are restated in days, hours, minutes or seconds, and turned back into dates by a `format.function` MAIDR evaluates with `new Function`. On a page whose Content Security Policy forbids `unsafe-eval`, those dates are read as plain numbers instead.
 - **Several y axes are named per layer.** A layer mixing series on differently titled y axes is given no y title; pass `axes: { y: '...' }` to name it yourself.
 - **Mixed point formats in one chart are dropped by ApexCharts.** A chart whose series mix the array and object point forms has one of them left out by ApexCharts itself; MAIDR reads what was drawn.
 - **Unsupported types** — `rangeArea` and anything else not in the [table](#supported-chart-types) — are skipped with a console warning.

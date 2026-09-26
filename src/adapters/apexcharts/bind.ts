@@ -313,7 +313,7 @@ function followFigureWidth(element: HTMLElement, figure: Element, resized: () =>
  * @param chart   - An ApexCharts instance, rendered or about to be
  * @param options - Overrides for the id, titles and axis labels
  * @returns The binding: `ready` resolves with the first MAIDR data bound,
- *   and `dispose()` stops following the chart
+ *   and `dispose()` stops following the chart and takes MAIDR off it
  *
  * @example
  * ```ts
@@ -336,6 +336,9 @@ export function bindApexCharts(
   // waiting; see `schedule`.
   let pendingSince: number | null = null;
   let settled = false;
+  // Whether MAIDR has been mounted on the container, so `dispose()` knows to
+  // take it down.
+  let mounted = false;
   let warnedUndrawn = false;
   let stopFollowing: (() => void) | null = null;
   let resolveReady: (maidr: Maidr) => void = () => {};
@@ -378,6 +381,7 @@ export function bindApexCharts(
         stopFollowing = null;
         chart.el.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
       }
+      mounted = true;
       const first = !settled;
       settled = true;
       void whenConnected(chart.el).then(() => {
@@ -455,6 +459,11 @@ export function bindApexCharts(
       chart.removeEventListener?.('updated', onRedraw);
       stopFollowing?.();
       stopFollowing = null;
+      if (mounted) {
+        mounted = false;
+        chart.el.removeAttribute('maidr-data');
+        document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: chart.el }));
+      }
     },
   };
 }
