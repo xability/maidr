@@ -1,6 +1,6 @@
 import type { PlotlyFullLayout, PlotlyGraphDiv } from '@adapters/plotly/types';
 import type { Maidr } from '@type/grammar';
-import { collectUniqueBgRects, normalizePlotlySvg } from '@adapters/plotly/normalizer';
+import { collectUniqueBgRects, getPlotlyOverlayLayers, normalizePlotlySvg } from '@adapters/plotly/normalizer';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { JSDOM } from 'jsdom';
@@ -218,5 +218,40 @@ describe('collectUniqueBgRects', () => {
     expect(rects).toHaveLength(3);
     expect(rects.map(r => `${r.getAttribute('x')},${r.getAttribute('y')}`))
       .toEqual(['0,0', '400,0', '0,300']);
+  });
+});
+
+describe('getPlotlyOverlayLayers', () => {
+  /**
+   * The shape maidr leaves a Plotly chart in: the first `svg.main-svg` wrapped
+   * in maidr's focusable div, and the layer carrying the titles and legend
+   * still a direct child of the `.svg-container`.
+   */
+  function buildWrappedChart(): { plot: HTMLElement; overlay: SVGSVGElement } {
+    const doc = dom.window.document;
+    const container = doc.createElement('div');
+    container.className = 'svg-container';
+    const plot = doc.createElement('div');
+    const main = doc.createElementNS(SVG_NS, 'svg');
+    main.setAttribute('class', 'main-svg');
+    plot.appendChild(main);
+    const overlay = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+    overlay.setAttribute('class', 'main-svg');
+    container.append(plot, overlay);
+    doc.body.appendChild(container);
+    return { plot, overlay };
+  }
+
+  it('returns the layers drawn over the plot and not the plot itself', () => {
+    const { plot, overlay } = buildWrappedChart();
+
+    expect(getPlotlyOverlayLayers(plot)).toEqual([overlay]);
+  });
+
+  it('returns nothing for a chart that is not Plotly', () => {
+    const plot = dom.window.document.createElement('div');
+    dom.window.document.body.appendChild(plot);
+
+    expect(getPlotlyOverlayLayers(plot)).toEqual([]);
   });
 });

@@ -15,6 +15,25 @@ export function isPlotlyPlot(plot: Element): boolean {
 }
 
 /**
+ * Returns the SVG layers Plotly draws over a chart outside the plot element.
+ *
+ * Plotly renders the chart title, axis titles and legend into a second
+ * `svg.main-svg` stacked above the first. Once maidr wraps the first, the
+ * others are siblings of that wrapper, so anything that restyles the chart as
+ * a whole -- high contrast mode -- has to reach them separately.
+ *
+ * @param plot - The element maidr treats as the plot.
+ * @returns The overlay layers, or an empty list for a non-Plotly chart.
+ */
+export function getPlotlyOverlayLayers(plot: Element): SVGSVGElement[] {
+  const container = plot.closest('.svg-container');
+  if (!container)
+    return [];
+  return Array.from(container.querySelectorAll<SVGSVGElement>(':scope > svg.main-svg'))
+    .filter(svg => svg !== plot && !plot.contains(svg));
+}
+
+/**
  * Normalize a Plotly-rendered SVG so that maidr's core logic can treat it
  * the same as a matplotlib SVG.
  *

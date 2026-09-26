@@ -7,4 +7,4 @@
 
 export { claimPlotlyExamination } from './examination';
 export { extractPlotlyData } from './extractor';
-export { disconnectPlotlyObservers, isPlotlyPlot, normalizePlotlySvg } from './normalizer';
+export { disconnectPlotlyObservers, getPlotlyOverlayLayers, isPlotlyPlot, normalizePlotlySvg } from './normalizer';
