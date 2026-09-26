@@ -71,8 +71,13 @@ export interface PowerBIConversion {
   /**
    * Layer id → `[row][col]` → the data point at that MAIDR position, for the
    * grid-shaped layers (bar, segmented bar, line, pie). `null` marks a
-   * position no mark was drawn for — a gap padded to keep a segmented grid
-   * rectangular.
+   * position no mark was drawn for — a blank line sample, or a gap padded to
+   * keep a segmented grid rectangular.
+   *
+   * A segmented (`stacked_bar` / `dodged_bar`) layer's rows are its series.
+   * MAIDR appends one more row after them, the per-category sum, which has no
+   * entry here: {@link resolvePowerBIDataPoints} reads it as every segment of
+   * that category.
    */
   readonly cells: ReadonlyMap<string, readonly (readonly (PowerBIDataPointRef | null)[])[]>;
   /** Layer id → per-point data point, for scatter layers. */
@@ -544,12 +549,16 @@ function buildLine(frame: Frame, lines: readonly Line[], options: PowerBIAdapter
     const points: LinePoint[] = [];
     const refs: (PowerBIDataPointRef | null)[] = [];
     for (let i = 0; i < frame.length; i++) {
-      const point: LinePoint = { x: frame.keys[i], y: toFiniteNumber(line.column.values[i]) };
+      const y = toFiniteNumber(line.column.values[i]);
+      const point: LinePoint = { x: frame.keys[i], y };
       if (named) {
         point.z = line.name ?? line.column.source.displayName;
       }
       points.push(point);
-      refs.push(line.column.refs[i]);
+      // A gap stays in the line — `LineTrace` announces it as missing at its
+      // own position — but no marker is drawn there, so it names no data
+      // point, the same as a padded cell of a segmented bar.
+      refs.push(y === null ? null : line.column.refs[i]);
     }
     data.push(points);
     cells.push(refs);
@@ -798,7 +807,8 @@ export function convertPowerBIDataView(
  * @param info - The position, as `onNavigate` reports it.
  * @returns The data points under the cursor: one for a bar, a slice or a line
  * sample, any number for a scatter (points that share a position are read
- * together), and none for a padded gap or an unknown layer.
+ * together) or for a segmented bar's summary row (every segment of the
+ * category), and none for a gap or an unknown layer.
  */
 export function resolvePowerBIDataPoints(
   conversion: PowerBIConversion,
@@ -810,6 +820,27 @@ export function resolvePowerBIDataPoints(
       .map(index => points[index])
       .filter((ref): ref is PowerBIDataPointRef => ref !== null && ref !== undefined);
   }
-  const ref = conversion.cells.get(info.layerId)?.[info.row]?.[info.col];
+  const rows = conversion.cells.get(info.layerId);
+  if (rows === undefined) {
+    return [];
+  }
+  // `SegmentedTrace` appends a summary row after the series, and a reader who
+  // moves onto it hears the category's total: every segment of that category
+  // is what the position stands for.
+  if (info.row === rows.length && isSegmentedLayer(conversion.maidr, info.layerId)) {
+    return rows
+      .map(row => row[info.col])
+      .filter((ref): ref is PowerBIDataPointRef => ref !== null && ref !== undefined);
+  }
+  const ref = rows[info.row]?.[info.col];
   return ref === null || ref === undefined ? [] : [ref];
+}
+
+/**
+ * Whether a layer is one `SegmentedTrace` navigates, and so has a summary row.
+ */
+function isSegmentedLayer(maidr: Maidr, layerId: string): boolean {
+  return maidr.subplots.some(row => row.some(subplot => subplot.layers.some(layer =>
+    layer.id === layerId
+    && (layer.type === TraceType.STACKED || layer.type === TraceType.DODGED))));
 }

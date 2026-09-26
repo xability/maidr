@@ -200,8 +200,27 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
   const root: ReactRoot = createRoot(wrapper, { identifierPrefix: figureId });
 
   let conversion: PowerBIConversion | null = null;
+  // The conversion MAIDR's running controller navigates, which `navigateTo`
+  // must address. Without `live`, `useMaidrController` keeps navigating the
+  // previous data until the reader leaves and comes back, so a newer
+  // conversion is staged in `pending` until then — otherwise a click on a
+  // mark would move MAIDR to that mark's position in data it is not showing.
+  let navigated: PowerBIConversion | null = null;
+  let pending: PowerBIConversion | null = null;
   let mounted = '';
   let disposed = false;
+
+  // Deferred by a task and re-checked, as `useMaidrController` does: focus
+  // moving between two elements inside the figure also fires `focusout`.
+  const handleFocusOut = (): void => {
+    setTimeout(() => {
+      if (!disposed && pending !== null && !wrapper.contains(document.activeElement)) {
+        navigated = pending;
+        pending = null;
+      }
+    }, 0);
+  };
+  wrapper.addEventListener('focusout', handleFocusOut);
 
   const render = (): void => {
     const chart = current.chart;
@@ -247,17 +266,23 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
       }
       conversion = next;
       mounted = key;
+      if (current.live === true || next === null || !wrapper.contains(document.activeElement)) {
+        navigated = next;
+        pending = null;
+      } else {
+        pending = next;
+      }
       render();
       return conversion;
     },
     navigateTo(ref) {
-      if (disposed || conversion === null) {
+      if (disposed || navigated === null) {
         return false;
       }
       if (ref === null) {
         return liveDataManager.navigateTo(null, { id: figureId });
       }
-      const target = positionOf(conversion, ref);
+      const target = positionOf(navigated, ref);
       return target !== null && liveDataManager.navigateTo(target, { id: figureId });
     },
     get conversion() {
@@ -268,6 +293,9 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
         return;
       }
       disposed = true;
+      navigated = null;
+      pending = null;
+      wrapper.removeEventListener('focusout', handleFocusOut);
       root.unmount();
       wrapper.remove();
       // Hand the drawing back where the visual can still reach it.
