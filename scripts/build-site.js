@@ -90,6 +90,7 @@ const DOC_TITLES = {
   LOCALIZATION: 'Languages',
   TACTILE_DISPLAY: 'Tactile Graphics Display',
   VIOLIN_PLOT_SPEC: 'Violin Plot Specification',
+  WEBMCP: 'Browser AI Agents (WebMCP)',
 };
 
 // Per-page SEO descriptions.
@@ -121,6 +122,7 @@ const PAGE_DESCRIPTIONS = {
   'Languages': 'How to choose the language MAIDR speaks, English or Korean, how the Korean particle placeholders work, and how to add a new language dictionary.',
   'Live & Streaming Data': 'How to update MAIDR charts in realtime: setData, appendData streaming, sliding windows, and monitor mode for auto-sonifying live data.',
   'Tactile Graphics Display': 'How MAIDR renders charts on the Dot Pad X tactile graphics display over Bluetooth or USB, with the keyboard controls and setup steps the tactile mode needs.',
+  'Browser AI Agents (WebMCP)': 'How in-browser AI agents can read MAIDR chart data and move the reader\'s cursor through experimental WebMCP tools, and how a page opts in.',
   'Violin Plot Specification': 'Technical specification for MAIDR violin plots: the KDE and box layer data structures, how each layer is navigated and sonified, and a backend checklist.',
 };
 

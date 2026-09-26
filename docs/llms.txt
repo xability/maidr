@@ -9,6 +9,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Data Schema](https://maidr.ai/docs/SCHEMA.html): The MAIDR JSON schema for figures, subplots, layers, axes and data points
 - [Keyboard Controls](https://maidr.ai/docs/CONTROLS.html): Keyboard shortcuts for navigating data and switching between braille, text and sonification
 - [Live & Streaming Data](https://maidr.ai/docs/LIVE_DATA.html): Realtime updates with setData and appendData, sliding windows, and monitor mode
+- [Browser AI Agents (WebMCP)](https://maidr.ai/docs/WEBMCP.html): Experimental WebMCP tools that let in-browser AI agents read chart data and move the reader's cursor
 - [Braille Generation](https://maidr.ai/docs/BRAILLE.html): How each plot type is encoded for refreshable braille displays
 - [Tactile Graphics Display](https://maidr.ai/docs/TACTILE_DISPLAY.html): Rendering charts on the Dot Pad X tactile graphics display over Bluetooth or USB
 - [Violin Plot Specification](https://maidr.ai/docs/VIOLIN_PLOT_SPEC.html): Data structures and navigation for violin plots (KDE and box layers)
