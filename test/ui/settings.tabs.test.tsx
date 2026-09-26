@@ -371,6 +371,26 @@ describe('settings tabs', () => {
     );
   });
 
+  it('should save on Option+S on a Mac, where the key arrives as ß', () => {
+    const saveAndClose = renderSettings();
+
+    // macOS composes a character under Option, so the letter is only in
+    // `code`. Matching `key` alone left the shortcut the Save button
+    // advertises, and `docs/BRAILLE.md` tells readers to use, dead on a Mac.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ß', code: 'KeyS', altKey: true });
+
+    expect(saveAndClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('should follow the letter typed, not the key position, when the key names one', () => {
+    const saveAndClose = renderSettings();
+
+    // Dvorak puts O where QWERTY has S. Alt+O there is not a save.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'o', code: 'KeyS', altKey: true });
+
+    expect(saveAndClose).not.toHaveBeenCalled();
+  });
+
   it('should open the tab holding the reason when a blocked Alt+S is pressed', () => {
     renderSettings({
       ...DEFAULT_SETTINGS,

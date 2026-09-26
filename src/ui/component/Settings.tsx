@@ -907,7 +907,15 @@ const Settings: React.FC = () => {
       if (!altOnly) {
         return;
       }
-      const key = e.key.toLowerCase();
+      // On macOS, Option composes a character — Option+S arrives as `ß` and
+      // Option+C as `ç` — so `key` never names the letter there. Fall back to
+      // the physical key only then: trusting `code` first would move the
+      // shortcut on a layout such as Dvorak, where the letter S is not on
+      // the key a QWERTY keyboard labels S.
+      const typed = e.key.toLowerCase();
+      const key = /^[a-z]$/.test(typed)
+        ? typed
+        : /^Key([A-Z])$/.exec(e.code)?.[1].toLowerCase() ?? typed;
       if (key === SAVE_SHORTCUT_KEY) {
         e.preventDefault();
         handleSaveRequest();
