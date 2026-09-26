@@ -94,7 +94,9 @@ const INSTANCE_ATTRIBUTE = '_echarts_instance_';
  * The reading taken now is always taken again at the chart's next
  * `finished`: a large series is drawn progressively, a few hundred points a
  * frame, and until it has finished only those points have a place to be
- * outlined at. A chart that can no longer be read -- its series replaced by
+ * outlined at. It is mounted again only if it came out different, so a
+ * reader who reached the chart during its entrance animation stays where
+ * they are. A chart that can no longer be read -- its series replaced by
  * a type the adapter does not read -- is unbound rather than left announcing
  * data that is no longer drawn.
  *
@@ -112,6 +114,14 @@ export function bindEChart(
   const chart = handle as EChartsBindable;
   let drawnFrom: string | undefined;
   let target: HTMLElement | undefined;
+  // The reading last mounted, without its generated ids, so a reading taken
+  // again that says the same thing leaves the mounted one -- and a reader
+  // already on it -- where it is.
+  let mounted: string | undefined;
+  // The marks it named. A resize redraws a canvas chart's overlay with new
+  // elements and the same reading, and a mounted instance holds the elements
+  // it resolved -- so the same reading over new marks is mounted again.
+  let marks: Element[] = [];
   // What the last failed reading was taken from, so an option the adapter
   // cannot read is warned about once rather than on every hover.
   let failedOn: string | undefined;
@@ -121,6 +131,7 @@ export function bindEChart(
       unbindElement(target);
       target = undefined;
     }
+    mounted = undefined;
   };
 
   const read = (settled: boolean): void => {
@@ -146,12 +157,21 @@ export function bindEChart(
       return;
     }
 
+    failedOn = undefined;
+    drawnFrom = settled ? signature : undefined;
+    const reading = withoutIds(maidr);
+    const named = stampedMarks(next);
+    const same = named.length === marks.length && named.every((mark, index) => mark === marks[index]);
+    if (target === next && reading === mounted && same) {
+      return;
+    }
+
     if (target !== next) {
       unbindTarget();
     }
     target = next;
-    failedOn = undefined;
-    drawnFrom = settled ? signature : undefined;
+    mounted = reading;
+    marks = named;
     next.setAttribute('maidr-data', JSON.stringify(maidr));
     next.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
   };
@@ -264,6 +284,28 @@ function signatureOf(chart: EChartsBindable): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The chart's elements a reading names, in document order.
+ *
+ * @param root - The element ECharts drew into
+ * @returns The stamped marks, MAIDR's own copies of them left out
+ */
+function stampedMarks(root: HTMLElement): Element[] {
+  return Array.from(root.querySelectorAll(
+    '[data-maidr-echart-mark], [data-maidr-echart-line], [data-maidr-echart-group]',
+  )).filter(element => !element.hasAttribute('data-maidr-owned'));
+}
+
+/**
+ * A reading as one string, without the ids generated for it afresh each time.
+ *
+ * @param maidr - The reading
+ * @returns What it says
+ */
+function withoutIds(maidr: Maidr): string {
+  return JSON.stringify(maidr, (key, value: unknown) => (key === 'id' ? undefined : value));
 }
 
 /**

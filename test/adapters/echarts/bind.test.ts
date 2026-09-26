@@ -122,9 +122,9 @@ describe('bindEChart', () => {
     ]);
   });
 
-  it('reads the chart again once it has finished, then not for a render that changed nothing', () => {
-    // A large series is drawn a few hundred points a frame, so the reading
-    // taken at bind time may have found only some of its marks.
+  it('does not mount the chart again for renders that changed nothing', () => {
+    // Every hover ends in a `finished`, and so does an entrance animation a
+    // reader may already have tabbed into.
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
 
@@ -132,10 +132,29 @@ describe('bindEChart', () => {
     chart.finish();
     chart.finish();
 
-    expect(bound).toHaveLength(2);
+    expect(bound).toHaveLength(1);
   });
 
-  it('reads the chart again when its data changes', () => {
+  it('mounts the reading taken once the chart has finished, when it differs', () => {
+    // A large series is drawn a few hundred points a frame, so the reading
+    // taken at bind time may have found only some of its marks.
+    const chart = fakeChart(tile(), [1, 2]);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    tile().querySelector('path')?.remove();
+    bindEChart(chart);
+    warn.mockRestore();
+    expect(JSON.parse(bound[0].getAttribute('maidr-data') ?? '{}').subplots[0][0].layers[0].selectors)
+      .toBeUndefined();
+
+    tile().querySelector('svg')?.insertAdjacentHTML('afterbegin', '<path fill="#5070dd"></path>');
+    chart.finish();
+
+    expect(bound).toHaveLength(2);
+    expect(JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}').subplots[0][0].layers[0].selectors)
+      .toHaveLength(2);
+  });
+
+  it('mounts the chart again when its data changes', () => {
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
     chart.finish();
@@ -143,20 +162,23 @@ describe('bindEChart', () => {
     chart.setOption([1, 2, 3]);
     chart.finish();
 
-    expect(bound).toHaveLength(3);
-    const maidr = JSON.parse(bound[2].getAttribute('maidr-data') ?? '{}');
+    expect(bound).toHaveLength(2);
+    const maidr = JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}');
     expect(maidr.subplots[0][0].layers[0].data).toHaveLength(3);
   });
 
-  it('reads the chart again when it is resized', () => {
+  it('mounts the chart again when a resize redraws its marks', () => {
+    // A canvas chart's overlay is drawn anew at the new size, and a mounted
+    // instance holds the elements it resolved.
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
     chart.finish();
 
     chart.width = 300;
+    chart.setOption([1, 2]);
     chart.finish();
 
-    expect(bound).toHaveLength(3);
+    expect(bound).toHaveLength(2);
   });
 
   it('unbinds a chart that can no longer be read, and warns about it once', () => {
@@ -204,9 +226,10 @@ describe('bindEChart', () => {
 
     chart.finish();
 
+    // Counted, the clone would have cost the reading its selectors, and the
+    // reading without them would have been mounted in place of this one.
     expect(warn).not.toHaveBeenCalled();
-    const maidr = JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}');
-    expect(maidr.subplots[0][0].layers[0].selectors).toHaveLength(2);
+    expect(bound).toHaveLength(1);
     warn.mockRestore();
   });
 
