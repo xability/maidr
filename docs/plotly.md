@@ -72,28 +72,28 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Pie | `type: 'pie'` | [Pie chart](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
-| Area | `type: 'scatter'`, `fill: 'tozeroy' \| 'tozerox' \| 'toself'` | [Area chart](examples.html) |
-| Stacked Area | `type: 'scatter'` + `stackgroup` | [Stacked area](examples.html) |
-| 100% Stacked Area | `stackgroup` + `groupnorm: 'percent' \| 'fraction'` | [Normalized area](examples.html) |
-| Funnel | `type: 'funnel'` | [Funnel chart](examples.html) |
-| Waterfall | `type: 'waterfall'` | [Waterfall chart](examples.html) |
-| Error Bars | `error_y` or `error_x` on a scatter or bar trace | [Error bars](examples.html) |
-| Sunburst | `type: 'sunburst'` | [Sunburst](examples.html) |
-| Icicle | `type: 'icicle'` | [Icicle](examples.html) |
-| Treemap | `type: 'treemap'` | [Treemap](examples.html) |
-| Sankey | `type: 'sankey'` | [Sankey](examples.html) |
-| Gauge / Bullet | `type: 'indicator'` with `gauge` in `mode` | [Gauge](examples.html) |
-| Radar | `type: 'scatterpolar'` | [Radar](examples.html) |
-| Polar Area / Rose | `type: 'barpolar'` | [Polar area](examples.html) |
-| Parallel Coordinates | `type: 'parcoords'` | [Parallel coordinates](examples.html) |
-| Ridgeline | `type: 'violin'` with `side: 'positive'` | [Ridgeline](examples.html) |
-| Gantt / Timeline | horizontal `bar` traces with a `base` array on a date axis | [Gantt chart](examples.html) |
-| Diverging Bar / Pyramid | `barmode: 'relative'` + bar traces with opposed signs | [Population pyramid](examples.html) |
-| Dot Plot | `type: 'scatter'`, `mode: 'markers'`, one marker per category | [Dot plot](examples.html) |
-| Word Cloud | `type: 'scatter'`, `mode: 'text'`, array `textfont.size` | [Word cloud](examples.html) |
-| Choropleth | `type: 'choropleth'` | [Choropleth map](examples.html) |
-| Contour | `type: 'contour'` or `type: 'histogram2dcontour'` | [Contour plot](examples.html) |
-| Mosaic / Marimekko | stacked `bar` traces declaring `meta: { maidr: { type: 'mosaic' } }` | [Mosaic plot](examples.html) |
+| Area [experimental] | `type: 'scatter'`, `fill: 'tozeroy' \| 'tozerox' \| 'toself'` | [Area chart](examples.html) |
+| Stacked Area [experimental] | `type: 'scatter'` + `stackgroup` | [Stacked area](examples.html) |
+| 100% Stacked Area [experimental] | `stackgroup` + `groupnorm: 'percent' \| 'fraction'` | [Normalized area](examples.html) |
+| Funnel [experimental] | `type: 'funnel'` | [Funnel chart](examples.html) |
+| Waterfall [experimental] | `type: 'waterfall'` | [Waterfall chart](examples.html) |
+| Error Bars [experimental] | `error_y` or `error_x` on a scatter or bar trace | [Error bars](examples.html) |
+| Sunburst [experimental] | `type: 'sunburst'` | [Sunburst](examples.html) |
+| Icicle [experimental] | `type: 'icicle'` | [Icicle](examples.html) |
+| Treemap [experimental] | `type: 'treemap'` | [Treemap](examples.html) |
+| Sankey [experimental] | `type: 'sankey'` | [Sankey](examples.html) |
+| Gauge / Bullet [experimental] | `type: 'indicator'` with `gauge` in `mode` | [Gauge](examples.html) |
+| Radar [experimental] | `type: 'scatterpolar'` | [Radar](examples.html) |
+| Polar Area / Rose [experimental] | `type: 'barpolar'` | [Polar area](examples.html) |
+| Parallel Coordinates [experimental] | `type: 'parcoords'` | [Parallel coordinates](examples.html) |
+| Ridgeline [experimental] | `type: 'violin'` with `side: 'positive'` | [Ridgeline](examples.html) |
+| Gantt / Timeline [experimental] | horizontal `bar` traces with a `base` array on a date axis | [Gantt chart](examples.html) |
+| Diverging Bar / Pyramid [experimental] | `barmode: 'relative'` + bar traces with opposed signs | [Population pyramid](examples.html) |
+| Dot Plot [experimental] | `type: 'scatter'`, `mode: 'markers'`, one marker per category | [Dot plot](examples.html) |
+| Word Cloud [experimental] | `type: 'scatter'`, `mode: 'text'`, array `textfont.size` | [Word cloud](examples.html) |
+| Choropleth [experimental] | `type: 'choropleth'` | [Choropleth map](examples.html) |
+| Contour [experimental] | `type: 'contour'` or `type: 'histogram2dcontour'` | [Contour plot](examples.html) |
+| Mosaic / Marimekko [experimental] | stacked `bar` traces declaring `meta: { maidr: { type: 'mosaic' } }` | [Mosaic plot](examples.html) |
 | Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
 **Notes on chart-type detection:**
@@ -423,7 +423,7 @@ the ones drawn with a mean line highlight it.
 </script>
 ```
 
-### Contour Plot
+### Contour Plot [experimental]
 
 ```html
 <div id="contour-chart" style="width: 700px; height: 500px"></div>
@@ -446,7 +446,7 @@ the ones drawn with a mean line highlight it.
 `contours` may be left out entirely — Plotly picks the ladder itself and MAIDR
 reads whichever one it resolved.
 
-### Mosaic (Marimekko)
+### Mosaic (Marimekko) [experimental]
 
 ```html
 <div id="mosaic-chart" style="width: 700px; height: 500px"></div>

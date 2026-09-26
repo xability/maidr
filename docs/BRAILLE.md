@@ -111,7 +111,7 @@ Multiline braille displays represent grouped boxplots, such as horizontal boxplo
 
 Single-line braille displays represent grouped boxplots by allowing users to navigate vertically between groups using the up and down arrow keys. As the user navigates, the braille representation updates to show the boxplot for the current group, enabling users to explore each group's distribution one at a time.
 
-## Hexbin
+## Hexbin [experimental]
 
 One row per lattice row, one cell per bin, using the heatmap encoding above —
 because read as a lattice of cells each carrying a count, that is what a
@@ -133,7 +133,7 @@ once and never has to make that choice.
 Hexbin plots use one line per lattice row on a multiline display, so the shape
 of the cloud can be felt at once rather than row by row.
 
-## Letter-value plot (boxen)
+## Letter-value plot (boxen) [experimental]
 
 One row per distribution, one cell per rung of its quantile ladder, every row
 scaled against the **chart's** range rather than its own.
@@ -188,7 +188,7 @@ In multiline braille displays, all cells are represented simultaneously. Horizon
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between rows of the grid, and the braille representation updates to show the number of points in each cell of the current row.
 
-## ROC curve
+## ROC curve [experimental]
 
 A ROC curve is a multi-line layer -- one curve per classifier, one point per decision threshold -- and its braille is a line plot's: each Braille character is the true positive rate at that operating point, encoded by its magnitude within the curve. The false positive rate is not on the display; it is what the pitch's stereo position and the text carry.
 
@@ -196,7 +196,7 @@ A ROC curve is a multi-line layer -- one curve per classifier, one point per dec
 
 As for a line plot: each line of a multiline display is one classifier's curve, and a single-line display switches curves with the up and down arrow keys.
 
-## Rug plot
+## Rug plot [experimental]
 
 A rug marks each observation as a tick on one axis, so the chart has one quantity per observation: its position. The braille is a density strip along that axis. The axis is cut into bins, and each Braille character is the number of observations in its bin, encoded as a bar plot's magnitudes are:
 
@@ -264,7 +264,7 @@ In multiline braille displays, all data series are represented simultaneously. H
 
 In single-line braille displays, the user can navigate vertically with the up and down arrow keys to move between lines, and the braille representation updates to show the values for the current line.
 
-## Area plot
+## Area plot [experimental]
 
 An area plot's braille is the line plot encoding above, unchanged: each series
 becomes a height profile, and the fill under the curve is not encoded because
@@ -283,7 +283,7 @@ would read as the same shape with different numbers behind it.
 As for a line plot: each line of the display is one series, and the user moves
 between series with the up and down arrow keys on a single-line display.
 
-## Error bar plot
+## Error bar plot [experimental]
 
 An error bar layer becomes one braille row per magnitude it draws — the lower
 bounds, the estimates, the upper bounds — each scaled against its own row's
@@ -375,7 +375,7 @@ space the same way a zero slice does.
 Pie charts use a single-line representation. On multiline braille displays the
 pie appears on the first line and the remaining lines are unused.
 
-## Waterfall chart
+## Waterfall chart [experimental]
 
 A waterfall's braille is a single row of **contributions** — one cell per step,
 scaled against the signed range of the deltas, exactly as a bar chart's row is.
@@ -402,7 +402,7 @@ read as one shape with different numbers behind it.
 Waterfall charts use a single-line representation. On multiline braille
 displays the steps appear on the first line and the remaining lines are unused.
 
-## Word cloud
+## Word cloud [experimental]
 
 A word cloud's braille is a single row of **weights**, one cell per term,
 scaled against the row's own range -- the bar encoding above, unchanged.
@@ -422,7 +422,7 @@ announces, and a display of five cells cannot carry five words.
 Word clouds use a single-line representation. On multiline braille displays
 the terms appear on the first line and the remaining lines are unused.
 
-## Gauge and bullet chart
+## Gauge and bullet chart [experimental]
 
 A gauge's braille is a **single cell**, scaled against the dial's own ends
 rather than against the value -- so the cell's dot height is where along the
@@ -440,7 +440,7 @@ quantities; they are announced in text instead, which is where a reader asking
 Gauges use a single-line representation. On multiline braille displays the
 measure appears on the first line and the remaining lines are unused.
 
-## Dumbbell
+## Dumbbell [experimental]
 
 A dumbbell's braille is **two rows** — the starting values and the finishing
 ones — one cell per category, with each row scaled against **its own** range.
@@ -467,7 +467,7 @@ Dumbbell charts use both lines on a multiline display: the starting values on
 the first and the finishing ones on the second, so the two profiles can be
 compared with one sweep rather than by toggling between rows.
 
-## Radar and polar area
+## Radar and polar area [experimental]
 
 A radar's braille is the multi-line encoding unchanged: **one row per series**,
 one cell per spoke, each row scaled against its own range.
@@ -487,7 +487,7 @@ Encoding a rotation into cell heights would answer neither.
 Radar charts use one line per series on a multiline display, so several models'
 profiles can be compared with one sweep rather than by toggling between rows.
 
-## Funnel
+## Funnel [experimental]
 
 A single row of stage counts, scaled against that row's own range -- the bar
 encoding unchanged.
@@ -514,7 +514,7 @@ narrow -- a funnel that reads as a rectangle.
 Funnel charts use a single-line representation. On multiline braille displays
 the funnel appears on the first line and the remaining lines are unused.
 
-## Gantt, timeline and swimlane
+## Gantt, timeline and swimlane [experimental]
 
 A gantt's braille is the multi-line encoding: **one row per lane**, one cell
 per interval, each row scaled against its own range. A cell's height is the
@@ -549,7 +549,7 @@ same half of it.
 
 Gantt charts use one line per lane on a multiline display, so several lanes'
 workloads can be compared with one sweep rather than by toggling between rows.
-## Parallel coordinates
+## Parallel coordinates [experimental]
 
 One row per observation, one cell per axis, each row scaled from 0 to 1.
 
@@ -585,7 +585,7 @@ rank the data does not support.
 Parallel coordinates use one line per observation on a multiline display, so
 several observations' profiles can be compared with one sweep rather than by
 toggling between rows.
-## Bump chart
+## Bump chart [experimental]
 
 One row per competitor, one cell per period, each row scaled against its own
 range — the line encoding unchanged.
@@ -613,7 +613,7 @@ positions, which is legible by touch whichever way the dots run.
 Bump charts use one line per competitor on a multiline display, so a whole
 table's season can be felt at once rather than by toggling between rows.
 
-## Diverging bar and population pyramid
+## Diverging bar and population pyramid [experimental]
 
 One row per side plus the balance row, one cell per category -- the bar
 encoding unchanged.
@@ -638,7 +638,7 @@ row while falling on the other.
 Diverging charts use one line per side on a multiline display, plus the
 balance, so the two sides can be compared with one sweep.
 
-## Ridgeline (joy plot)
+## Ridgeline (joy plot) [experimental]
 
 One row per group, one cell per sample of its density curve — the line
 encoding, which is what a density curve is.
@@ -678,7 +678,7 @@ Ridgelines use one line per group on a multiline display, so a reader can sweep
 across the groups at a fixed position and feel the modes march along the axis,
 or fail to — which is the finding the chart is drawn for.
 
-## Forest plot
+## Forest plot [experimental]
 
 Three rows — lower bound, estimate, upper bound — one cell per study, the
 error bar encoding unchanged, because a forest plot's magnitudes *are* an
@@ -716,7 +716,7 @@ they can be told; it is announced alongside the estimate instead.
 Forest plots use one line per section on a multiline display, so all three
 rows of the comparison are under the hand at once.
 
-## Kaplan-Meier survival curve
+## Kaplan-Meier survival curve [experimental]
 
 One row per arm, one cell per time, the line encoding — which is what a step
 chart's braille already is, and a survival curve is a step chart.
@@ -751,7 +751,7 @@ Survival curves use one line per arm on a multiline display, so the moment two
 arms separate can be found by running two fingers along together until they
 part.
 
-## Mosaic and marimekko
+## Mosaic and marimekko [experimental]
 
 One row per series plus the total row, one cell per category — the stacked bar
 encoding, which is what a mosaic's segments are.
@@ -784,7 +784,7 @@ from the dots, and why it is worth saying out loud.
 Mosaics use one line per series on a multiline display, so the conditional
 proportions can be swept across the categories in one pass.
 
-## Choropleth
+## Choropleth [experimental]
 
 One row per **latitude band**, one cell per region within it, ordered west to
 east. Every row is scaled against the whole map rather than against itself,
@@ -825,7 +825,7 @@ whole map at once and the gradient from one band to the next is felt directly
 -- which is the closest this modality comes to the shading a sighted reader
 sees at a glance.
 
-## Contour and filled contour
+## Contour and filled contour [experimental]
 
 One row per level, one cell per point along its curve — the line encoding,
 because a contour *is* one line per level.
@@ -859,7 +859,7 @@ Contours use one line per level on a multiline display, which is the case where
 braille gives back what the announcement carries: two fingers on adjacent rows
 feel exactly where the curves crowd together and where they open out.
 
-## Sankey, alluvial and chord
+## Sankey, alluvial and chord [experimental]
 
 One row per **stage** -- one column of the drawing -- with one cell per node in
 it, each row scaled against its own stage. Flow is conserved along a sankey, so
@@ -898,7 +898,7 @@ One line per stage, so a hand across the display holds the whole chart and the
 narrowing from source to sink is felt directly -- the one thing here braille
 conveys better than it conveys the ribbons.
 
-## Network
+## Network [experimental]
 
 One row per **connected group**, one cell per node in it, ordered most
 connected first and scaled against the whole chart rather than per group. That
@@ -928,7 +928,7 @@ One line per group, so the split into groups -- the structure a reader
 following links can never discover, because links do not cross between them --
 is felt directly as separate rows of different lengths.
 
-## Treemap
+## Treemap [experimental]
 
 One row per **level** of the tree, one cell per node at that level, each row
 scaled against its own level.
@@ -957,7 +957,7 @@ Level   Cells
 1       ⣶⣿⠒⠂⠂⠂⠒⠂⠂⠂
 ```
 
-### Sunburst and icicle
+### Sunburst and icicle [experimental]
 
 The same encoding, because they are the same tree. A sunburst's rings and an
 icicle's bands are both levels, so both give one row per level and both hit
@@ -976,7 +976,7 @@ and the level below it, which is where the parent-child relation is at least
 felt as a magnitude split into parts -- though still without the boundary that
 says which parts belong to which whole.
 
-## Volcano and Manhattan
+## Volcano and Manhattan [experimental]
 
 The scatter encoding, unchanged — these are scatters, and their points carry
 nothing a scatter's cells cannot.

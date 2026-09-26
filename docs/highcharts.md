@@ -106,41 +106,41 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Bar | `bar`, `column`, `columnpyramid` (requires `highcharts-more.js`), `pictorial` (requires `modules/pictorial.js`) | [highcharts-bar.html](examples/highcharts-bar.html) |
 | Line | `line`, `spline` | [highcharts-line.html](examples/highcharts-line.html) |
 | Step | `line`, `spline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](examples/highcharts-line.html) |
-| Area | `area`, `areaspline` | [highcharts-area.html](examples/highcharts-area.html) |
-| Stacked Area | `area`/`areaspline` + `stacking: 'normal'`, `streamgraph` (requires `modules/streamgraph.js`) | [highcharts-area.html](examples/highcharts-area.html) |
-| Normalized Area | `area`/`areaspline` + `stacking: 'percent'` | [highcharts-area.html](examples/highcharts-area.html) |
+| Area [experimental] | `area`, `areaspline` | [highcharts-area.html](examples/highcharts-area.html) |
+| Stacked Area [experimental] | `area`/`areaspline` + `stacking: 'normal'`, `streamgraph` (requires `modules/streamgraph.js`) | [highcharts-area.html](examples/highcharts-area.html) |
+| Normalized Area [experimental] | `area`/`areaspline` + `stacking: 'percent'` | [highcharts-area.html](examples/highcharts-area.html) |
 | Scatter | `scatter` on numeric axes, `bubble` (requires `highcharts-more.js`) on any axis | [highcharts-scatter.html](examples/highcharts-scatter.html) |
-| Dot Plot | `scatter` on a category x axis | [highcharts-dot.html](examples/highcharts-dot.html) |
-| Lollipop | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](examples/highcharts-lollipop.html) |
-| Funnel | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](examples/highcharts-funnel.html) |
-| Word Cloud | `wordcloud` (requires `modules/wordcloud.js`) | [highcharts-wordcloud.html](examples/highcharts-wordcloud.html) |
-| Sankey | `sankey` (requires `modules/sankey.js`), `arcdiagram` (requires `modules/sankey.js` and `modules/arc-diagram.js`) | [highcharts-sankey.html](examples/highcharts-sankey.html) |
-| Chord | `dependencywheel` (requires `modules/sankey.js` and `modules/dependency-wheel.js`) | [highcharts-chord.html](examples/highcharts-chord.html) |
-| Network | `networkgraph` (requires `modules/networkgraph.js`) | [highcharts-network.html](examples/highcharts-network.html) |
-| Treemap | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](examples/highcharts-treemap.html) |
-| Sunburst | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](examples/highcharts-sunburst.html) |
-| Tree | `organization` (requires `modules/sankey.js` and `modules/organization.js`), read as a hierarchy with no magnitude | — |
-| Tree | `treegraph` (requires `modules/treegraph.js`, which ships treemap) | — |
-| Pack | `packedbubble` (requires `highcharts-more.js`) | — |
-| Gauge | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](examples/highcharts-gauge.html) |
-| Waterfall | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](examples/highcharts-waterfall.html) |
-| Error Bar | `errorbar` (requires `highcharts-more.js`), reading its estimates from the series it is `linkedTo`; `arearange`, `areasplinerange`, `columnrange` (require `highcharts-more.js`), each read as the band of intervals it draws | [highcharts-errorbar.html](examples/highcharts-errorbar.html) |
-| Dumbbell | `dumbbell` (requires `highcharts-more.js` and `modules/dumbbell.js`) | [highcharts-dumbbell.html](examples/highcharts-dumbbell.html) |
-| Gantt | `gantt` (requires `modules/gantt.js`), `xrange` (requires `modules/xrange.js`) | [highcharts-gantt.html](examples/highcharts-gantt.html) |
-| Radar | `chart.polar: true` with `line`/`spline`/`area`/`areaspline` series (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
-| Polar Area | `chart.polar: true` with `column`/`bar` series — a wind rose or coxcomb (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
-| Parallel Coordinates | `chart.parallelCoordinates: true` (requires `modules/parallel-coordinates.js`) | [highcharts-parallel.html](examples/highcharts-parallel.html) |
-| Diverging Bar | two `column`/`bar` series with `stacking: 'normal'`, one growing each way | [highcharts-diverging.html](examples/highcharts-diverging.html) |
-| Bump | `line`/`spline` series carrying ranks on a `reversed` y axis | [highcharts-bump.html](examples/highcharts-bump.html) |
-| Hexbin | `tilemap` with a tessellating `tileShape` — `hexagon` (the default), `diamond` or `circle` (requires `modules/heatmap.js` and `modules/tilemap.js`) | [highcharts-hexbin.html](examples/highcharts-hexbin.html) |
-| Volcano | `scatter` declared with `significancePlot: { type: 'volcano' }` | [highcharts-volcano.html](examples/highcharts-volcano.html) |
-| Manhattan | `scatter` series, one per chromosome, declared with `significancePlot: { type: 'manhattan' }` | [highcharts-manhattan.html](examples/highcharts-manhattan.html) |
-| Survival | `line`/`spline` declared with `custom.maidr: { type: 'survival' }`, absorbing a linked `scatter` and `arearange` | [highcharts-survival.html](examples/highcharts-survival.html) |
-| Forest | the estimate series declared with `custom.maidr: { type: 'forest', … }`, taking its interval from the `errorbar` linked over it | [highcharts-forest.html](examples/highcharts-forest.html) |
+| Dot Plot [experimental] | `scatter` on a category x axis | [highcharts-dot.html](examples/highcharts-dot.html) |
+| Lollipop [experimental] | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](examples/highcharts-lollipop.html) |
+| Funnel [experimental] | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](examples/highcharts-funnel.html) |
+| Word Cloud [experimental] | `wordcloud` (requires `modules/wordcloud.js`) | [highcharts-wordcloud.html](examples/highcharts-wordcloud.html) |
+| Sankey [experimental] | `sankey` (requires `modules/sankey.js`), `arcdiagram` (requires `modules/sankey.js` and `modules/arc-diagram.js`) | [highcharts-sankey.html](examples/highcharts-sankey.html) |
+| Chord [experimental] | `dependencywheel` (requires `modules/sankey.js` and `modules/dependency-wheel.js`) | [highcharts-chord.html](examples/highcharts-chord.html) |
+| Network [experimental] | `networkgraph` (requires `modules/networkgraph.js`) | [highcharts-network.html](examples/highcharts-network.html) |
+| Treemap [experimental] | `treemap` (requires `modules/treemap.js`) | [highcharts-treemap.html](examples/highcharts-treemap.html) |
+| Sunburst [experimental] | `sunburst` (requires `modules/sunburst.js`, which ships treemap) | [highcharts-sunburst.html](examples/highcharts-sunburst.html) |
+| Tree [experimental] | `organization` (requires `modules/sankey.js` and `modules/organization.js`), read as a hierarchy with no magnitude | — |
+| Tree [experimental] | `treegraph` (requires `modules/treegraph.js`, which ships treemap) | — |
+| Pack [experimental] | `packedbubble` (requires `highcharts-more.js`) | — |
+| Gauge [experimental] | `gauge`, `solidgauge` (require `highcharts-more.js`; solid gauge also `modules/solid-gauge.js`), `bullet` (requires `modules/bullet.js`) | [highcharts-gauge.html](examples/highcharts-gauge.html) |
+| Waterfall [experimental] | `waterfall` (requires `highcharts-more.js`) | [highcharts-waterfall.html](examples/highcharts-waterfall.html) |
+| Error Bar [experimental] | `errorbar` (requires `highcharts-more.js`), reading its estimates from the series it is `linkedTo`; `arearange`, `areasplinerange`, `columnrange` (require `highcharts-more.js`), each read as the band of intervals it draws | [highcharts-errorbar.html](examples/highcharts-errorbar.html) |
+| Dumbbell [experimental] | `dumbbell` (requires `highcharts-more.js` and `modules/dumbbell.js`) | [highcharts-dumbbell.html](examples/highcharts-dumbbell.html) |
+| Gantt [experimental] | `gantt` (requires `modules/gantt.js`), `xrange` (requires `modules/xrange.js`) | [highcharts-gantt.html](examples/highcharts-gantt.html) |
+| Radar [experimental] | `chart.polar: true` with `line`/`spline`/`area`/`areaspline` series (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
+| Polar Area [experimental] | `chart.polar: true` with `column`/`bar` series — a wind rose or coxcomb (requires `highcharts-more.js`) | [highcharts-radar.html](examples/highcharts-radar.html) |
+| Parallel Coordinates [experimental] | `chart.parallelCoordinates: true` (requires `modules/parallel-coordinates.js`) | [highcharts-parallel.html](examples/highcharts-parallel.html) |
+| Diverging Bar [experimental] | two `column`/`bar` series with `stacking: 'normal'`, one growing each way | [highcharts-diverging.html](examples/highcharts-diverging.html) |
+| Bump [experimental] | `line`/`spline` series carrying ranks on a `reversed` y axis | [highcharts-bump.html](examples/highcharts-bump.html) |
+| Hexbin [experimental] | `tilemap` with a tessellating `tileShape` — `hexagon` (the default), `diamond` or `circle` (requires `modules/heatmap.js` and `modules/tilemap.js`) | [highcharts-hexbin.html](examples/highcharts-hexbin.html) |
+| Volcano [experimental] | `scatter` declared with `significancePlot: { type: 'volcano' }` | [highcharts-volcano.html](examples/highcharts-volcano.html) |
+| Manhattan [experimental] | `scatter` series, one per chromosome, declared with `significancePlot: { type: 'manhattan' }` | [highcharts-manhattan.html](examples/highcharts-manhattan.html) |
+| Survival [experimental] | `line`/`spline` declared with `custom.maidr: { type: 'survival' }`, absorbing a linked `scatter` and `arearange` | [highcharts-survival.html](examples/highcharts-survival.html) |
+| Forest [experimental] | the estimate series declared with `custom.maidr: { type: 'forest', … }`, taking its interval from the `errorbar` linked over it | [highcharts-forest.html](examples/highcharts-forest.html) |
 | Box Plot | `boxplot` | [highcharts-box.html](examples/highcharts-box.html) |
 | Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](examples/highcharts-heatmap.html) |
-| Choropleth | `map` (Highmaps — requires `maps/highmaps.js` and a map topology) | [highcharts-choropleth.html](examples/highcharts-choropleth.html) |
-| Choropleth | `mapbubble` (Highmaps — requires `maps/highmaps.js`), sized by `z` | — |
+| Choropleth [experimental] | `map` (Highmaps — requires `maps/highmaps.js` and a map topology) | [highcharts-choropleth.html](examples/highcharts-choropleth.html) |
+| Choropleth [experimental] | `mapbubble` (Highmaps — requires `maps/highmaps.js`), sized by `z` | — |
 | Scatter | `mappoint` (Highmaps — requires `maps/highmaps.js`), placed by `lat`/`lon` | — |
 | Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](examples/highcharts-histogram.html) |
 | Candlestick | `candlestick`, `ohlc`, `hlc` (Highstock) | [highcharts-candlestick.html](examples/highcharts-candlestick.html) |
@@ -148,7 +148,7 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](examples/highcharts-dodged.html) |
 | Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](examples/highcharts-normalized.html) |
 | Pie | `pie` (a doughnut is a `pie` with an `innerSize`), `item` (requires `modules/item-series.js`) | [highcharts-pie.html](examples/highcharts-pie.html) |
-| Mosaic | `variwide` (requires `modules/variwide.js`) | [highcharts-variwide.html](examples/highcharts-variwide.html) |
+| Mosaic [experimental] | `variwide` (requires `modules/variwide.js`) | [highcharts-variwide.html](examples/highcharts-variwide.html) |
 | Smooth | `bellcurve` (requires `modules/histogram-bellcurve.js`) | [highcharts-bellcurve.html](examples/highcharts-bellcurve.html) |
 | Line (Pareto) | `pareto` (requires `modules/pareto.js`) — the cumulative curve over a bar chart | [highcharts-pareto.html](examples/highcharts-pareto.html) |
 | Labelled scatter | `timeline` (requires `modules/timeline.js`) — a row of named events | [highcharts-timeline.html](examples/highcharts-timeline.html) |

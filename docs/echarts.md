@@ -48,7 +48,7 @@ Two things this example does on purpose:
 | `bar` ×N sharing a `stack` | `stacked_bar` | Each point carries its series name |
 | `bar` ×N without a `stack` | `dodged_bar` | |
 | `line` | `line` | |
-| `line` + `areaStyle` | `area` | The fill is what makes it an area |
+| `line` + `areaStyle` | `area` [experimental] | The fill is what makes it an area |
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 | `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
@@ -80,8 +80,8 @@ so the reading is that pair.
 | ECharts | read as | highlighted |
 |---|---|---|
 | `pie` | `pie` | yes — one selector naming every slice |
-| `funnel` | `funnel` | yes — one selector per stage. `orient` is read; see below |
-| `gauge` | `gauge` | **no** — see below |
+| `funnel` [experimental] | `funnel` | yes — one selector per stage. `orient` is read; see below |
+| `gauge` [experimental] | `gauge` | **no** — see below |
 
 **A funnel's `orient` and MAIDR's `orientation` name opposite directions, on
 purpose.** ECharts names the direction its stages progress; MAIDR names the
@@ -166,18 +166,18 @@ scatter it is, and keeps its own highlighting: the boxplot is deliberately
 excluded from the per-datum mark pool, so it cannot spend a slot and shift
 the scatter's selectors onto the wrong elements.
 
-## Hierarchies and graphs
+## Hierarchies and graphs [experimental]
 
 Five more series types own the whole chart rather than sitting on a grid, and
 each maps onto a MAIDR trace that already exists.
 
 | ECharts | read as | payload | highlighted |
 |---|---|---|---|
-| `treemap` | `treemap` | `TreemapPoint[]` | **no** — see below |
-| `sunburst` | `sunburst` | `TreemapPoint[]` | yes — one selector per node |
-| `tree` | `tree` | `TreemapPoint[]` | **no** — see below |
-| `sankey` | `sankey` | `FlowPoint[]` | no |
-| `graph` | `network` | `NetworkPoint[]` | no |
+| `treemap` [experimental] | `treemap` | `TreemapPoint[]` | **no** — see below |
+| `sunburst` [experimental] | `sunburst` | `TreemapPoint[]` | yes — one selector per node |
+| `tree` [experimental] | `tree` | `TreemapPoint[]` | **no** — see below |
+| `sankey` [experimental] | `sankey` | `FlowPoint[]` | no |
+| `graph` | `network` [experimental] | `NetworkPoint[]` | no |
 
 **The synthetic root is dropped.** Measured: `data.tree.root` is a node
 ECharts adds above whatever the author wrote — its name is the empty string
@@ -216,16 +216,16 @@ fills in document order — reading the default palette had suggested otherwise:
   There is no per-link element to name, so the cursor and the marks would be
   addressing different things.
 
-## Theme rivers, parallel coordinates and radars
+## Theme rivers, parallel coordinates and radars [experimental]
 
 Three more series types own the chart without sitting on the x/y grid, and
 none of them carries a hierarchy or a graph.
 
 | ECharts | read as | payload | highlighted |
 |---|---|---|---|
-| `themeRiver` | `stacked_area` | `SegmentedPoint[][]` | yes — one selector per band |
-| `parallel` | `parallel_coordinates` | `LinePoint[][]` | **no** — see below |
-| `radar` | `radar` | `LinePoint[][]` | yes — one selector per series |
+| `themeRiver` | `stacked_area` [experimental] | `SegmentedPoint[][]` | yes — one selector per band |
+| `parallel` | `parallel_coordinates` [experimental] | `LinePoint[][]` | **no** — see below |
+| `radar` [experimental] | `radar` | `LinePoint[][]` | yes — one selector per series |
 
 **A theme river's rows are flat.** Measured, the series carries
 `['time', 'value', 'name']` with one row *per band per instant* — six rows
