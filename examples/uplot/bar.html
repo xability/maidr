@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + uPlot Bar Chart Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+    <script src="../../dist/uplot.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + uPlot Bar Chart</h1>
+    <p>Click on the chart and use left and right arrow keys to move between the bars. Press 't' for text descriptions.</p>
+
+    <div id="chart"></div>
+
+    <script>
+      // Daily request counts for one week (x in seconds, uPlot's default).
+      const days = [];
+      const start = Date.UTC(2026, 2, 2) / 1000;
+      for (let i = 0; i < 7; i++) days.push(start + i * 86400);
+      const requests = [1820, 2140, 1995, 2410, 2675, 1210, 980];
+
+      new uPlot({
+        title: 'Requests per day',
+        width: 720,
+        height: 360,
+        series: [
+          {},
+          {
+            label: 'Requests',
+            fill: 'rgba(31, 119, 180, 0.6)',
+            stroke: '#1f77b4',
+            paths: uPlot.paths.bars({ size: [0.6, 100] }),
+            points: { show: false },
+          },
+        ],
+        axes: [{ label: 'Day' }, { label: 'Requests' }],
+        // Half a day either side, so the first and last bars are drawn whole.
+        scales: { x: { time: true, range: (u, min, max) => [min - 43200, max + 43200] } },
+        plugins: [maidrUPlot.maidrPlugin()],
+      }, [days, requests], document.getElementById('chart'));
+    </script>
+  </body>
+</html>

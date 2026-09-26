@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + uPlot Streaming Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+    <script src="../../dist/uplot.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + uPlot Streaming Metric</h1>
+    <p>
+      A new reading arrives every two seconds and the oldest one scrolls off, as on a monitoring
+      dashboard. Click on the chart, then press 'm' to hear each new reading as it arrives.
+      Ctrl (Cmd) + Right Arrow jumps to the newest reading.
+    </p>
+    <button type="button" id="toggle">Pause stream</button>
+
+    <div id="chart"></div>
+
+    <script>
+      const WINDOW = 30;
+      const now = Math.floor(Date.now() / 1000);
+      const times = [];
+      const values = [];
+      let level = 50;
+      function nextValue() {
+        level = Math.max(0, Math.min(100, level + (Math.random() - 0.5) * 12));
+        return Math.round(level * 10) / 10;
+      }
+      for (let i = WINDOW - 1; i >= 0; i--) {
+        times.push(now - i * 2);
+        values.push(nextValue());
+      }
+
+      const u = new uPlot({
+        title: 'Queue depth (live)',
+        width: 720,
+        height: 320,
+        series: [{}, { label: 'Queue depth', stroke: '#9467bd', width: 2 }],
+        axes: [{ label: 'Time' }, { label: 'Messages' }],
+        plugins: [maidrUPlot.maidrPlugin({ id: 'uplot-live' })],
+      }, [times, values], document.getElementById('chart'));
+
+      let timer = null;
+      function tick() {
+        times.push(times[times.length - 1] + 2);
+        values.push(nextValue());
+        times.shift();
+        values.shift();
+        // uPlot's one way to change data: replace it. MAIDR streams the new
+        // reading from the difference.
+        u.setData([times.slice(), values.slice()]);
+      }
+      function start() {
+        timer = setInterval(tick, 2000);
+        document.getElementById('toggle').textContent = 'Pause stream';
+      }
+      function stop() {
+        clearInterval(timer);
+        timer = null;
+        document.getElementById('toggle').textContent = 'Resume stream';
+      }
+      document.getElementById('toggle').addEventListener('click', () => (timer ? stop() : start()));
+      start();
+    </script>
+  </body>
+</html>

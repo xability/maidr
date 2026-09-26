@@ -47,6 +47,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'observable', title: 'Observable Plot', source: 'observable.md' },
   { slug: 'echarts', title: 'Apache ECharts', source: 'echarts.md' },
   { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
+  { slug: 'uplot', title: 'uPlot', source: 'uplot.md' },
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
   { slug: 'mui-x-charts', title: 'MUI X Charts', source: 'mui-x-charts.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
