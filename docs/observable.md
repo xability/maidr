@@ -234,28 +234,28 @@ That is why the adapter needs no configuration and works on charts written befor
 | `rectY` / `rectX` with `binX` and a `fill` | Stacked bar | A stacked histogram, read over its bins |
 | `rectY` / `rectX` on a categorical axis | Bar | |
 | `dot` on two continuous axes | Scatter | |
-| `dot` on a categorical axis | Dot plot | Navigated as a bar chart |
-| `tickX` / `tickY` on a categorical axis | Strip plot | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
+| `dot` on a categorical axis | Dot plot [experimental] | Navigated as a bar chart |
+| `tickX` / `tickY` on a categorical axis | Strip plot [experimental] | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
 | `line` | Line | One series per drawn path |
-| `area` / `areaY` | Area | |
-| `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area | Announced as percentages |
+| `area` / `areaY` | Area [experimental] | |
+| `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area [experimental] | Announced as percentages |
 | `line` under `curveStep` / `curveStepAfter` / `curveStepBefore` | Step | Which side the value is held on is announced; see below |
 | `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
-| `dot` under `hexbin` | Hexbin | Only when declared — see below |
+| `dot` under `hexbin` | Hexbin [experimental] | Only when declared — see below |
 | `spike`, and `vector` with a `length` | Scatter carrying `z` | The magnitude is said and heard; a vector that points somewhere is refused — see below |
-| `link` / `arrow` whose ends share a coordinate | Gantt | An interval in a lane; see below |
-| `ruleX` / `ruleY` carrying an interval | Gantt | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
+| `link` / `arrow` whose ends share a coordinate | Gantt [experimental] | An interval in a lane; see below |
+| `ruleX` / `ruleY` carrying an interval | Gantt [experimental] | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
 | `waffleY` / `waffleX` | Bar | Counted from the cells rather than inverted from a colour; see below |
 | `waffleY` / `waffleX` with `fill` | Stacked bar | One path per segment in a band |
 | `text` on two continuous axes | Scatter carrying each point's name | A labelled scatter; see below |
 | `text` sitting on another mark | — | Read as that mark's names rather than as a series; see below |
 | `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
-| `tree` / `cluster` | Tree | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
+| `tree` / `cluster` | Tree [experimental] | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
 
-## Hexbins
+## Hexbins [experimental]
 
 `Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` is read as a lattice of bins — but **only when you say so**:
 
@@ -333,7 +333,7 @@ A magnitude of exactly zero is still a reading. Plot draws it as a triangle with
 
 A vector with no `length` channel is turned away too: every arrow is then drawn the same default height, and the only number available is the mark's own styling.
 
-## Link and arrow marks
+## Link and arrow marks [experimental]
 
 A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:
 
@@ -350,7 +350,7 @@ A lane holding several intervals and a lane holding none are both kept: the inte
 
 What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
 
-## Rule marks
+## Rule marks [experimental]
 
 `Plot.ruleX` and `Plot.ruleY` are how Plot draws a high–low chart, a range plot and a gantt, and a rule carrying an interval is read as the same gantt a `link` produces:
 
@@ -498,7 +498,7 @@ Two details worth knowing:
   datum *index* to an outlier rather than the observation, and the adapter never
   sees your source data.
 
-## Trees
+## Trees [experimental]
 
 `Plot.tree` and `Plot.cluster` are not marks but three of them — a `link` for the edges, a `dot` for the nodes, and a `text` for their names, which Plot draws as **two** text marks because leaf labels and internal-node labels sit on opposite sides of their dot. Read individually the hierarchy disappears: the dots become a scatter whose coordinates are where d3's layout put each node, on scales Plot itself renders with `axis: null` because they mean nothing to a reader, and the links — the only place the structure lives — produce no layer at all (#1168).
 

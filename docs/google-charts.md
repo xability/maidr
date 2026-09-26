@@ -89,30 +89,30 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
 | Pie / Doughnut | `PieChart` (a doughnut is the same class with `pieHole`) | `'PieChart'` |
-| Area | `AreaChart` | `'AreaChart'` |
-| Stacked Area | `AreaChart` + `isStacked: true` | `'StackedAreaChart'` |
-| 100% Stacked Area | `AreaChart` + `isStacked: 'percent'` | `'NormalizedAreaChart'` |
-| Stepped Area | `SteppedAreaChart` | `'SteppedAreaChart'` |
-| Stacked Stepped Area | `SteppedAreaChart` + `isStacked: true` | `'StackedSteppedAreaChart'` |
-| 100% Stacked Stepped Area | `SteppedAreaChart` + `isStacked: 'percent'` | `'NormalizedSteppedAreaChart'` |
-| Error bars / intervals | `LineChart`, `ScatterChart`, `ColumnChart` or `BarChart` with `role: 'interval'` columns | detected automatically — keep the chart's own `chartType` |
-| Sankey | `Sankey` (`sankey` package) | `'Sankey'` |
-| TreeMap | `TreeMap` (`treemap` package) | `'TreeMap'` |
-| Gantt | `google.charts.Gantt` (`gantt` package) | `'Gantt'` |
-| Timeline | `Timeline` (`timeline` package) | `'Timeline'` |
-| Dot plot | `LineChart` + `lineWidth: 0, pointSize: N` | `'DotChart'` |
-| Lollipop | `ComboChart` — a thin bar series plus a big-point line series | `'LollipopChart'` |
-| Funnel | An ordered `BarChart` of stage counts | `'FunnelChart'` |
-| Diverging / population pyramid | `BarChart` or `ColumnChart` + `isStacked: true`, one series negated | `'DivergingBarChart'` / `'DivergingColumnChart'` |
-| Waterfall | `CandlestickChart` used as floating bars (low = open = start, high = close = end) | `'WaterfallChart'` |
-| Gauge | `Gauge` (`gauge` package) | `'Gauge'` |
-| Choropleth / map | `GeoChart` (`geochart` package), regions or markers | `'GeoChart'` |
-| Bump | `LineChart` of ranks + `vAxis: {direction: -1}` | `'BumpChart'` |
-| Dumbbell | `LineChart` + `lineWidth: 0` with two `role: 'interval'` columns drawn as sticks, or a plain `[category, start, end]` table | `'DumbbellChart'` |
-| Survival (Kaplan-Meier) | `SteppedAreaChart` + `areaOpacity: 0` | `'SurvivalChart'` |
-| Volcano | `ScatterChart` of effect size against significance | `'VolcanoChart'` |
-| Manhattan | `ScatterChart` with one series per chromosome | `'ManhattanChart'` |
-| Tree | `OrgChart` (`orgchart` package) — people joined by manager pointers | `'OrgChart'` |
+| Area [experimental] | `AreaChart` | `'AreaChart'` |
+| Stacked Area [experimental] | `AreaChart` + `isStacked: true` | `'StackedAreaChart'` |
+| 100% Stacked Area [experimental] | `AreaChart` + `isStacked: 'percent'` | `'NormalizedAreaChart'` |
+| Stepped Area [experimental] | `SteppedAreaChart` | `'SteppedAreaChart'` |
+| Stacked Stepped Area [experimental] | `SteppedAreaChart` + `isStacked: true` | `'StackedSteppedAreaChart'` |
+| 100% Stacked Stepped Area [experimental] | `SteppedAreaChart` + `isStacked: 'percent'` | `'NormalizedSteppedAreaChart'` |
+| Error bars / intervals [experimental] | `LineChart`, `ScatterChart`, `ColumnChart` or `BarChart` with `role: 'interval'` columns | detected automatically — keep the chart's own `chartType` |
+| Sankey [experimental] | `Sankey` (`sankey` package) | `'Sankey'` |
+| TreeMap [experimental] | `TreeMap` (`treemap` package) | `'TreeMap'` |
+| Gantt [experimental] | `google.charts.Gantt` (`gantt` package) | `'Gantt'` |
+| Timeline [experimental] | `Timeline` (`timeline` package) | `'Timeline'` |
+| Dot plot [experimental] | `LineChart` + `lineWidth: 0, pointSize: N` | `'DotChart'` |
+| Lollipop [experimental] | `ComboChart` — a thin bar series plus a big-point line series | `'LollipopChart'` |
+| Funnel [experimental] | An ordered `BarChart` of stage counts | `'FunnelChart'` |
+| Diverging / population pyramid [experimental] | `BarChart` or `ColumnChart` + `isStacked: true`, one series negated | `'DivergingBarChart'` / `'DivergingColumnChart'` |
+| Waterfall [experimental] | `CandlestickChart` used as floating bars (low = open = start, high = close = end) | `'WaterfallChart'` |
+| Gauge [experimental] | `Gauge` (`gauge` package) | `'Gauge'` |
+| Choropleth / map [experimental] | `GeoChart` (`geochart` package), regions or markers | `'GeoChart'` |
+| Bump [experimental] | `LineChart` of ranks + `vAxis: {direction: -1}` | `'BumpChart'` |
+| Dumbbell [experimental] | `LineChart` + `lineWidth: 0` with two `role: 'interval'` columns drawn as sticks, or a plain `[category, start, end]` table | `'DumbbellChart'` |
+| Survival (Kaplan-Meier) [experimental] | `SteppedAreaChart` + `areaOpacity: 0` | `'SurvivalChart'` |
+| Volcano [experimental] | `ScatterChart` of effect size against significance | `'VolcanoChart'` |
+| Manhattan [experimental] | `ScatterChart` with one series per chromosome | `'ManhattanChart'` |
+| Tree [experimental] | `OrgChart` (`orgchart` package) — people joined by manager pointers | `'OrgChart'` |
 | Calendar | `Calendar` (`calendar` package) — a year of days shaded by a value | `'Calendar'` |
 
 **Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).

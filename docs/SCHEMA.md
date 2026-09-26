@@ -202,6 +202,13 @@ Fifteen of them predate the chart-type coverage roadmap (#814). Thirty-seven
 were added by it, most of them inside about two weeks, and `rug` (#1132) and
 `roc` after it. **None of the thirty-nine has been through a user study**.
 
+Elsewhere in these docs — the braille guide, the integration guides'
+supported-type tables and the examples gallery — an experimental type is marked
+**[experimental]** after its name; a type with no mark is stable. py-maidr
+([Plot Type Stability](https://py.maidr.ai/stability.html)) and maidr for R
+([Supported plot types](https://r.maidr.ai/#supported-plot-types)) mark their
+own docs the same way.
+
 ### Stable
 
 `bar`, `box`, `candlestick`, `dodged_bar`, `heat`, `hist`, `line`, `pie`,
@@ -430,7 +437,7 @@ The data property is defined as a list of objects where each object is a record 
             "orientation": "vert" //vert for vertical box plots, horz for horizontal bar plots
   }
 
-  // boxen (letter-value) maidr.data structure: one object per distribution,
+  // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
   // each with a median and a ladder of quantile pairs. A box plot is this
   // shape with exactly one rung; the point of a boxen is that a larger sample
   // earns more of them, so the depth varies per distribution and between them.
@@ -712,7 +719,7 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
-   // roc: a receiver operating characteristic curve, one array of operating
+   // roc [experimental]: a receiver operating characteristic curve, one array of operating
    // points per classifier. `x` is the false positive rate and `y` the true
    // positive rate, both fractions of one; `threshold` is the decision
    // threshold the point was scored at, and `z` names the curve as it names
@@ -744,7 +751,7 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
-   // rug: observations marked as ticks along one axis. One position per
+   // rug [experimental]: observations marked as ticks along one axis. One position per
    // observation and nothing else -- the chart is drawn to show where the
    // observations fall and where they bunch up. `x` for a vertical rug (the
    // ticks stand on the x axis, the default), `y` for a horizontal one

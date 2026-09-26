@@ -98,11 +98,11 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 | Bar | `'bar'` | `'bar'` |
 | Line | `'line'` | `'line'` |
 | Multi-line | `'line'` (multiple datasets) | `'line'` |
-| Area | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
-| Bump (rank over time) | `'line'` (one dataset per competitor) | `'bump'` |
+| Area [experimental] | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
+| Bump (rank over time) [experimental] | `'line'` (one dataset per competitor) | `'bump'` |
 | Scatter | `'line'` + `lineOptions: { hideLine: 1 }` | `'scatter'` |
-| Dot plot | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
-| Diverging bar | `'bar'` (two signed datasets) | `'diverging'` |
+| Dot plot [experimental] | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
+| Diverging bar [experimental] | `'bar'` (two signed datasets) | `'diverging'` |
 | Mixed axis (bar + line) | `'axis-mixed'` | `'axis-mixed'` |
 | Pie | `'pie'` | `'pie'` |
 | Donut | `'donut'` | `'donut'` |
@@ -200,7 +200,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Area Chart
+### Area Chart [experimental]
 
 ```html
 <div id="area-chart"></div>
@@ -227,7 +227,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Bump Chart (Rank Over Time)
+### Bump Chart (Rank Over Time) [experimental]
 
 ```html
 <div id="bump-chart"></div>
@@ -258,7 +258,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Dot Plot
+### Dot Plot [experimental]
 
 ```html
 <div id="dot-chart"></div>
@@ -285,7 +285,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Diverging Bar Chart
+### Diverging Bar Chart [experimental]
 
 ```html
 <div id="diverging-chart"></div>

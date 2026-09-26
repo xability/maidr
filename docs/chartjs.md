@@ -72,37 +72,37 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Bar | `'bar'` (one dataset) | — | [Bar chart](examples.html) |
 | Stacked Bar | `'bar'` with `scales.x.stacked` / `scales.y.stacked` | — | [Stacked bar](examples.html) |
 | Dodged Bar | `'bar'` with multiple datasets (no stacking) | — | [Dodged bar](examples.html) |
-| Diverging Bar | stacked `'bar'` with one series negated | — | [Diverging bar](examples.html) |
-| Gantt / Range Bar | `'bar'` with `[start, end]` data | — | [Gantt chart](examples.html) |
-| Waterfall | `'bar'` with chained `[start, end]` data | — | [Waterfall](examples.html) |
-| Dumbbell | horizontal `'bar'` with `[start, end]` data and `plugins.maidr.traceType` | — | [Dumbbell](examples.html) |
+| Diverging Bar [experimental] | stacked `'bar'` with one series negated | — | [Diverging bar](examples.html) |
+| Gantt / Range Bar [experimental] | `'bar'` with `[start, end]` data | — | [Gantt chart](examples.html) |
+| Waterfall [experimental] | `'bar'` with chained `[start, end]` data | — | [Waterfall](examples.html) |
+| Dumbbell [experimental] | horizontal `'bar'` with `[start, end]` data and `plugins.maidr.traceType` | — | [Dumbbell](examples.html) |
 | Line | `'line'` | — | [Line chart](examples.html) |
 | Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
-| Area | `'line'` with `fill` | — | [Line chart](examples.html) |
-| Stacked Area | `'line'` with `fill` and a stacked value scale | — | [Line chart](examples.html) |
-| Normalized Area | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
-| Bump | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
-| Dot Plot | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
-| Survival | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
+| Area [experimental] | `'line'` with `fill` | — | [Line chart](examples.html) |
+| Stacked Area [experimental] | `'line'` with `fill` and a stacked value scale | — | [Line chart](examples.html) |
+| Normalized Area [experimental] | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
+| Bump [experimental] | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
+| Dot Plot [experimental] | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
+| Survival [experimental] | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
 | Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
-| Volcano | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
-| Manhattan | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
-| Radar | `'radar'` | — | [Radar chart](examples.html) |
-| Polar Area | `'polarArea'` | — | [Radar chart](examples.html) |
+| Volcano [experimental] | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
+| Manhattan [experimental] | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
+| Radar [experimental] | `'radar'` | — | [Radar chart](examples.html) |
+| Polar Area [experimental] | `'polarArea'` | — | [Radar chart](examples.html) |
 | Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
-| Error Bar | `'barWithErrorBars'`, `'lineWithErrorBars'`, `'scatterWithErrorBars'` | `chartjs-chart-error-bars` | [Error bar](examples.html) |
+| Error Bar [experimental] | `'barWithErrorBars'`, `'lineWithErrorBars'`, `'scatterWithErrorBars'` | `chartjs-chart-error-bars` | [Error bar](examples.html) |
 | Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
 | Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
-| Treemap | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
-| Sankey | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
-| Word Cloud | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
-| Funnel | `'funnel'` | `chartjs-chart-funnel` | [Funnel](examples.html) |
-| Choropleth | `'choropleth'`, `'bubbleMap'` | `chartjs-chart-geo` | [Choropleth](examples.html) |
-| Tree | `'tree'`, `'dendrogram'` | `chartjs-chart-graph` | [Tree](examples.html) |
-| Network | `'forceDirectedGraph'` | `chartjs-chart-graph` | [Network](examples.html) |
-| Parallel Coordinates | `'pcp'`, `'logarithmicPcp'` | `chartjs-chart-pcp` | [Parallel coordinates](examples.html) |
+| Treemap [experimental] | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
+| Sankey [experimental] | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
+| Word Cloud [experimental] | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
+| Funnel [experimental] | `'funnel'` | `chartjs-chart-funnel` | [Funnel](examples.html) |
+| Choropleth [experimental] | `'choropleth'`, `'bubbleMap'` | `chartjs-chart-geo` | [Choropleth](examples.html) |
+| Tree [experimental] | `'tree'`, `'dendrogram'` | `chartjs-chart-graph` | [Tree](examples.html) |
+| Network [experimental] | `'forceDirectedGraph'` | `chartjs-chart-graph` | [Network](examples.html) |
+| Parallel Coordinates [experimental] | `'pcp'`, `'logarithmicPcp'` | `chartjs-chart-pcp` | [Parallel coordinates](examples.html) |
 | Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
-| Gauge | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
+| Gauge [experimental] | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
 
@@ -289,7 +289,7 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 </script>
 ```
 
-### Volcano Plot
+### Volcano Plot [experimental]
 
 ```html
 <div style="width: 700px; height: 400px">
@@ -323,7 +323,7 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 </script>
 ```
 
-### Manhattan Plot
+### Manhattan Plot [experimental]
 
 One dataset per chromosome is how the alternating colours are drawn. `merge` — on by default for a Manhattan — folds them into a single navigable cloud, so only the first dataset carries a block.
 
@@ -523,7 +523,7 @@ Requires [`chartjs-chart-financial`](https://github.com/chartjs/chartjs-chart-fi
 
 The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from `high - low`. Chart.js's financial plugin does not carry volume data, so the MAIDR payload records volume as `0`.
 
-### Treemap
+### Treemap [experimental]
 
 Requires [`chartjs-chart-treemap`](https://github.com/kurkle/chartjs-chart-treemap). Declare `groups` and `key` and the hierarchy is read as it is drawn: each rectangle's group name becomes the node's name, its value becomes the magnitude, and the grouping fields give the ancestry. Arrow keys walk siblings; Up and Down move between levels.
 
@@ -563,7 +563,7 @@ A treemap has no Chart.js scales, so the axes are named after the dataset instea
 
 A **flat** `tree` of numbers draws rectangles the plugin gives no names to, and `data.labels` is not read by the controller. Those nodes are announced by their position — 1, 2, 3 — so declare `groups` whenever the nodes have names worth hearing.
 
-### Sankey
+### Sankey [experimental]
 
 Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey). The plugin's `{from, to, flow}` rows are read as they are written — the nodes are derived from the edges, so nothing has to be declared twice. Left and right follow the largest ribbon; up and down walk the other nodes in the same column.
 
@@ -600,7 +600,7 @@ Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey
 
 > **Sankey note:** a sankey is the one supported Chart.js type MAIDR does **not** outline. A flow diagram is navigated by *node* while the chart's elements are *flows*, and nothing in the navigation event names the node — so the adapter declines rather than outlining a ribbon chosen by position. Audio, text and braille are unaffected.
 
-### Word Cloud
+### Word Cloud [experimental]
 
 Requires [`chartjs-chart-wordcloud`](https://github.com/sgratzl/chartjs-chart-wordcloud). The terms go in `data.labels` and their weights in the dataset, which is the ordinary Chart.js split — and it is the reading, so a word's weight is announced as the number the author gave rather than recovered from how large it was drawn.
 

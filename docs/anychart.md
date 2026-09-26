@@ -69,29 +69,29 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
 | Horizontal bar | any of the above inside `anychart.bar()` — see below | [Bar chart](examples.html) |
 | Line | `line`, `spline` | [Line chart](examples.html) |
-| Area | `area`, `spline-area` | [Area chart](examples.html) |
-| Stacked / Normalized Area | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
+| Area [experimental] | `area`, `spline-area` | [Area chart](examples.html) |
+| Stacked / Normalized Area [experimental] | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
 | Step | `step-line`, `step-area` | [Step plot](examples.html) |
 | Scatter | `scatter`, `marker`, `bubble` | [Scatter plot](examples.html) |
-| Dot Plot | `marker`, on a chart whose x scale is ordinal | [Dot plot](examples.html) |
-| Lollipop | `stick` | [Lollipop chart](examples.html) |
-| Dumbbell | `range-column`, `range-bar` | [Dumbbell chart](examples.html) |
-| Diverging Bar | two or more `bar` / `column` series, with `diverging: true` | [Diverging bars](examples.html) |
+| Dot Plot [experimental] | `marker`, on a chart whose x scale is ordinal | [Dot plot](examples.html) |
+| Lollipop [experimental] | `stick` | [Lollipop chart](examples.html) |
+| Dumbbell [experimental] | `range-column`, `range-bar` | [Dumbbell chart](examples.html) |
+| Diverging Bar [experimental] | two or more `bar` / `column` series, with `diverging: true` | [Diverging bars](examples.html) |
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
 | Pie | `pie` (a doughnut is a pie with `innerRadius()`) | [Pie chart](examples.html) |
-| Funnel | `anychart.funnel()`, `anychart.pyramid()` | [Funnel chart](examples.html) |
-| Word Cloud | `anychart.tagCloud()` | [Tag cloud](examples.html) |
-| Sankey | `anychart.sankey()` | [Sankey diagram](examples.html) |
-| Waterfall | `anychart.waterfall()` | [Waterfall chart](examples.html) |
-| Radar | `anychart.radar()`, and a polar `line` / `marker` series | [Radar chart](examples.html) |
-| Polar Area | `anychart.polar()` with a `column` / `area` series | [Radar chart](examples.html) |
-| Mosaic | `anychart.mekko()`, `anychart.mosaic()`, `anychart.barmekko()` | [Marimekko chart](examples.html) |
-| Choropleth | a `choropleth` series on `anychart.map()` | [Choropleth map](examples.html) |
-| Gantt | `anychart.ganttProject()`, `anychart.ganttResource()` | [Gantt chart](examples.html) |
-| Sunburst | `anychart.sunburst()` | [Sunburst chart](examples.html) |
-| Pack | `anychart.circlePacking()` | [Circle packing](examples.html) |
+| Funnel [experimental] | `anychart.funnel()`, `anychart.pyramid()` | [Funnel chart](examples.html) |
+| Word Cloud [experimental] | `anychart.tagCloud()` | [Tag cloud](examples.html) |
+| Sankey [experimental] | `anychart.sankey()` | [Sankey diagram](examples.html) |
+| Waterfall [experimental] | `anychart.waterfall()` | [Waterfall chart](examples.html) |
+| Radar [experimental] | `anychart.radar()`, and a polar `line` / `marker` series | [Radar chart](examples.html) |
+| Polar Area [experimental] | `anychart.polar()` with a `column` / `area` series | [Radar chart](examples.html) |
+| Mosaic [experimental] | `anychart.mekko()`, `anychart.mosaic()`, `anychart.barmekko()` | [Marimekko chart](examples.html) |
+| Choropleth [experimental] | a `choropleth` series on `anychart.map()` | [Choropleth map](examples.html) |
+| Gantt [experimental] | `anychart.ganttProject()`, `anychart.ganttResource()` | [Gantt chart](examples.html) |
+| Sunburst [experimental] | `anychart.sunburst()` | [Sunburst chart](examples.html) |
+| Pack [experimental] | `anychart.circlePacking()` | [Circle packing](examples.html) |
 
 `step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
