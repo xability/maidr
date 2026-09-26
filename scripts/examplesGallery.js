@@ -216,6 +216,8 @@ export const TITLES = {
   'highcharts-grid.html': 'Small Multiples (2×2 Grid)',
   'highcharts-panes.html': 'Multi-Pane Chart (Price + Volume)',
   'plotly-subplots.html': 'Subplots (2×2 Grid)',
+  'powerbi-bar.html': 'Clustered Column Chart',
+  'powerbi-line.html': 'Line Chart (companion mode)',
   'vegalite-bindbox-horizontal.html': 'Box Plot (horizontal)',
   'vegalite-hconcat-box.html': 'Box Plots side by side (hconcat)',
 };
@@ -386,6 +388,7 @@ export const PAGE_TYPES = {
   'observable-plain.html': ['bar', 'point', 'stacked_bar', 'line'],
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
+  'powerbi-bar.html': ['dodged_bar'],
   'tableau-bar.html': ['bar'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
@@ -536,6 +539,13 @@ export const GROUPS = [
     prefixes: ['tableau-'],
     headingPrefix: 'Tableau',
     note: 'See the <a href="tableau.html">Tableau Integration Guide</a> for setup instructions and configuration options.',
+  },
+  {
+    id: 'powerbi',
+    heading: 'Power BI',
+    prefixes: ['powerbi-'],
+    headingPrefix: 'Power BI',
+    note: 'See the <a href="powerbi.html">Power BI Integration Guide</a> for the custom visual setup, chart and companion modes, and cross-highlighting.',
   },
 ];
 

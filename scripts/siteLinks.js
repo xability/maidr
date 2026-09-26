@@ -51,6 +51,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
+  { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
 ];
 
 const SLUG_BY_SOURCE = new Map(INTEGRATION_PAGES.map(({ slug, source }) => [source, slug]));

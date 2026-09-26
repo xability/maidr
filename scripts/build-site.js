@@ -86,6 +86,7 @@ const PAGE_DESCRIPTIONS = {
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
+  'powerbi': 'How to build an accessible Power BI custom visual with MAIDR: sonification, braille and keyboard navigation for column, bar, line, scatter and pie charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
   'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
@@ -310,6 +311,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
+    .replace(/\{\{POWERBI_ACTIVE\}\}/g, () => activePage === 'powerbi' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
