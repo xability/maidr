@@ -53,6 +53,9 @@ const GROUP_ATTRIBUTE = 'data-maidr-echart-group';
 /** What MAIDR writes on the elements it inserts; see `Svg.markOwned`. */
 const OWNED_ATTRIBUTE = 'data-maidr-owned';
 
+/** What {@link markLegends} writes on the elements a legend drew. */
+const LEGEND_ATTRIBUTE = 'data-maidr-echart-legend';
+
 /**
  * Paints that are chart furniture rather than data.
  *
@@ -194,7 +197,68 @@ function candidates(container: HTMLElement, kind: 'filled' | 'stroked'): Element
   // again while they are there (a Superset or Metabase refresh, a filter)
   // counted them and lost its highlighting (#1304).
   return Array.from(svg.querySelectorAll('path,rect,circle'))
-    .filter(element => !element.hasAttribute(OWNED_ATTRIBUTE) && test(element));
+    .filter(element => !element.hasAttribute(OWNED_ATTRIBUTE)
+      && !element.hasAttribute(LEGEND_ATTRIBUTE)
+      && test(element));
+}
+
+/**
+ * A rectangle in the chart's own pixels.
+ */
+export interface ChartBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Stamps what a legend drew, so the count of marks leaves it out.
+ *
+ * A legend icon is painted exactly as the series it stands for -- a bar's
+ * swatch in the bar colour, a line's in the line colour at the line's weight
+ * -- and is drawn after the series, so paint and order both take it for a
+ * mark: a five-bar chart with its legend showing counted six, and the
+ * mismatch dropped its highlighting (#1315). What does tell them apart is
+ * where they are, so everything whose centre lies inside a legend's box is
+ * set aside.
+ *
+ * A mark drawn under a legend placed over the plot is set aside with it. The
+ * count then disagrees and the chart reads without an outline, which is the
+ * conservative failure the count check exists to produce.
+ *
+ * @param container - The element the chart was rendered into
+ * @param boxes     - Where each legend was drawn, in the chart's pixels
+ */
+export function markLegends(container: HTMLElement, boxes: ChartBox[]): void {
+  unstamp(container, LEGEND_ATTRIBUTE);
+
+  const svg = container.querySelector('svg');
+  if (!svg || boxes.length === 0) {
+    return;
+  }
+
+  // The chart's pixels are the SVG's user units; the view box, when there is
+  // one, says how they are scaled onto the page.
+  const frame = svg.getBoundingClientRect();
+  const view = svg.viewBox?.baseVal;
+  const scaled = view !== undefined && view !== null && view.width > 0 && view.height > 0;
+  const scaleX = scaled ? frame.width / view.width : 1;
+  const scaleY = scaled ? frame.height / view.height : 1;
+  const originX = scaled ? view.x : 0;
+  const originY = scaled ? view.y : 0;
+
+  for (const element of svg.querySelectorAll('path,rect,circle')) {
+    const box = element.getBoundingClientRect();
+    const x = (box.left + box.width / 2 - frame.left) / scaleX + originX;
+    const y = (box.top + box.height / 2 - frame.top) / scaleY + originY;
+    const inLegend = boxes.some(legend =>
+      x >= legend.x && x <= legend.x + legend.width
+      && y >= legend.y && y <= legend.y + legend.height);
+    if (inLegend) {
+      element.setAttribute(LEGEND_ATTRIBUTE, '');
+    }
+  }
 }
 
 /**

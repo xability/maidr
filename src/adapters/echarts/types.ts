@@ -218,13 +218,32 @@ export interface EChartsModel {
 }
 
 /**
+ * Where a component's view drew itself, in the chart's own pixels.
+ *
+ * A zrender group: its bounding rect is in the group's local coordinates, and
+ * the transform, `[a, b, c, d, e, f]`, carries them into the chart's.
+ */
+export interface EChartsComponentGroup {
+  getBoundingRect: () => { x: number; y: number; width: number; height: number };
+  getComputedTransform?: () => number[] | null | undefined;
+  x?: number;
+  y?: number;
+}
+
+/**
  * A rendered ECharts instance.
  *
- * Only `getModel` is read. `getZr()` and `dispatchAction()` are deliberately
- * not declared: the first exposes no element-to-DOM-node mapping in the
- * production build, and the second is ECharts' own highlighting, which
- * `MaidrLayer.selectors` has no way to call (#1195).
+ * `getModel` is read, and `getViewOfComponentModel` for where the legend was
+ * drawn (#1315). ECharts' typings declare both private, which is why they are
+ * named structurally here, and the second is optional so that an instance
+ * without it reads as it did before. `getZr()` and `dispatchAction()` are
+ * deliberately not declared: the first exposes no element-to-DOM-node
+ * mapping in the production build, and the second is ECharts' own
+ * highlighting, which `MaidrLayer.selectors` has no way to call (#1195).
  */
 export interface EChartsInstance {
   getModel: () => EChartsModel;
+  getViewOfComponentModel?: (
+    component: EChartsComponentModel,
+  ) => { group?: EChartsComponentGroup } | undefined;
 }
