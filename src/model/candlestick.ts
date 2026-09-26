@@ -479,6 +479,25 @@ export class Candlestick extends AbstractTrace {
   }
 
   /**
+   * Takes the cursor from `row`/`col` after a live data update restored them
+   * onto this rebuilt trace, which starts at the first candle's close.
+   *
+   * `col` is the candle; `row` is the segment's value-sorted position in
+   * that candle (see {@link updateVisualSegmentPosition}), so a redraw of
+   * the same data keeps the reader on the same segment, and new values keep
+   * them on the segment of the same rank.
+   */
+  public restoreCursor(): void {
+    if (this.candles.length === 0) {
+      return;
+    }
+    this.currentPointIndex = Math.max(0, Math.min(this.col, this.candles.length - 1));
+    const navOrder = this.sortedSegmentsByPoint[this.currentPointIndex];
+    this.currentSegmentType = navOrder[this.row] ?? 'close';
+    this.updateVisualPointPosition();
+  }
+
+  /**
    * Handles initial entry into the candlestick chart, setting default position
    */
   protected handleInitialEntry(): void {
