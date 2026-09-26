@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexCharts Line Chart - MAIDR Example</title>
+    <!-- ApexCharts v7.6.0, pinned with a subresource-integrity hash. The adapter
+         reads the SVG ApexCharts draws, so its selectors are specific to this
+         version: if upgrading, check the class names still match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/apexcharts@7.6.0/dist/apexcharts.min.js"
+      integrity="sha384-Ls3fJ2jLsgACMhjCwK+p72wydwr/C7GumKDeCkHRsLO0pOz2ThKSSVmS3qsY4v52"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + ApexCharts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/apexcharts.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>ApexCharts Line Chart with MAIDR</h1>
+      <p>
+        Average monthly temperature in Chicago. The markers give MAIDR
+        one element to highlight per month.
+      </p>
+      <p id="error" hidden>
+        Failed to load ApexCharts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart" style="max-width: 760px"></div>
+    </main>
+
+    <script>
+      // Surface an error if ApexCharts failed to load from CDN; otherwise draw
+      // the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof ApexCharts === 'undefined') {
+        errorEl.hidden = false;
+      } else {
+        // ApexCharts' own keyboard navigation (chart.accessibility) would fight
+        // MAIDR for the arrow keys, so it is switched off; MAIDR provides the
+        // keyboard access instead. The toolbar is hidden too: its buttons would
+        // be Tab stops inside MAIDR's chart, and zooming or panning leaves
+        // points undrawn, which MAIDR can then read but not highlight.
+        const options = {
+          chart: { type: 'line', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
+          title: { text: 'Average Temperature in Chicago' },
+          series: [
+            {
+              name: 'Temperature',
+              data: [-4.6, -2.4, 3.2, 9.4, 15.1, 20.8, 23.7, 22.8, 18.8, 12.1, 5.2, -1.6],
+            },
+          ],
+          markers: { size: 4 },
+          xaxis: {
+            categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            title: { text: 'Month' },
+          },
+          yaxis: { title: { text: 'Temperature (°C)' } },
+        };
+
+        const chart = new ApexCharts(document.querySelector('#chart'), options);
+        chart.render();
+
+        // bindApexCharts waits for ApexCharts to finish drawing, converts the
+        // chart and hands it to MAIDR -- and does so again whenever ApexCharts
+        // redraws it (a resize, updateSeries, a legend toggle).
+        maidrApexCharts.bindApexCharts(chart, { id: 'apexcharts-line' });
+      }
+    </script>
+  </body>
+</html>

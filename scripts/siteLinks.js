@@ -53,6 +53,7 @@ export const INTEGRATION_PAGES = [
   { slug: 'mui-x-charts', title: 'MUI X Charts', source: 'mui-x-charts.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
+  { slug: 'apexcharts', title: 'ApexCharts', source: 'apexcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
   { slug: 'lightweight-charts', title: 'Lightweight Charts', source: 'lightweight-charts.md' },
   { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },

@@ -311,6 +311,24 @@ export const builds = [
     },
   },
   {
+    name: 'apexcharts',
+    entry: 'src/apexcharts-entry.ts',
+    libName: 'maidrApexCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'apexcharts.mjs' : 'apexcharts.js',
+    emptyOutDir: false,
+    // ApexCharts itself is never imported -- the adapter reads the live chart
+    // instance the host page already created -- so there is nothing to
+    // externalise.
+    external: [],
+    useReact: false,
+    useDts: true,
+    aliases: {
+      '@adapters': path.resolve(rootDir, 'src/adapters'),
+      '@type': path.resolve(rootDir, 'src/type'),
+    },
+  },
+  {
     name: 'vegalite',
     entry: 'src/vegalite-entry.ts',
     libName: 'maidrVegaLite',

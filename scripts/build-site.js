@@ -87,6 +87,7 @@ const PAGE_DESCRIPTIONS = {
   'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, area, scatter, pie and doughnut charts.',
   'nivo': 'How to make Nivo React charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, scatter, pie, donut, heatmap and box plots.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
+  'apexcharts': 'How to make ApexCharts accessible with MAIDR: line, area, bar, stacked, scatter, pie, heatmap, candlestick, box plot, radar, treemap and range bar charts.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
   'lightweight-charts': 'How to make TradingView Lightweight Charts accessible with MAIDR: candlestick, OHLC bar, line, area and volume series, multi-pane charts and live streaming.',
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
@@ -317,6 +318,7 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{NIVO_ACTIVE\}\}/g, () => activePage === 'nivo' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
+    .replace(/\{\{APEXCHARTS_ACTIVE\}\}/g, () => activePage === 'apexcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
     .replace(/\{\{LIGHTWEIGHT_CHARTS_ACTIVE\}\}/g, () => activePage === 'lightweight-charts' ? 'active' : '')
     .replace(/\{\{POWERBI_ACTIVE\}\}/g, () => activePage === 'powerbi' ? 'active' : '')

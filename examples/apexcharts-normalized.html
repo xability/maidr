@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ApexCharts 100% Stacked Bar Chart - MAIDR Example</title>
+    <!-- ApexCharts v7.6.0, pinned with a subresource-integrity hash. The adapter
+         reads the SVG ApexCharts draws, so its selectors are specific to this
+         version: if upgrading, check the class names still match. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/apexcharts@7.6.0/dist/apexcharts.min.js"
+      integrity="sha384-Ls3fJ2jLsgACMhjCwK+p72wydwr/C7GumKDeCkHRsLO0pOz2ThKSSVmS3qsY4v52"
+      crossorigin="anonymous"
+    ></script>
+    <!-- MAIDR core + ApexCharts adapter -->
+    <script src="../dist/maidr.js"></script>
+    <script src="../dist/apexcharts.js"></script>
+  </head>
+
+  <body>
+    <main>
+      <h1>ApexCharts 100% Stacked Bar Chart with MAIDR</h1>
+      <p>
+        Survey answers by age group, counted in respondents and drawn
+        with <code>stackType: '100%'</code>. MAIDR announces each
+        answer's share of its group.
+      </p>
+      <p id="error" hidden>
+        Failed to load ApexCharts from CDN. Please check your internet
+        connection.
+      </p>
+      <div id="chart" style="max-width: 760px"></div>
+    </main>
+
+    <script>
+      // Surface an error if ApexCharts failed to load from CDN; otherwise draw
+      // the chart and hand it to the MAIDR adapter.
+      const errorEl = document.getElementById('error');
+      if (typeof ApexCharts === 'undefined') {
+        errorEl.hidden = false;
+      } else {
+        // ApexCharts' own keyboard navigation (chart.accessibility) would fight
+        // MAIDR for the arrow keys, so it is switched off; MAIDR provides the
+        // keyboard access instead. The toolbar is hidden too: its buttons would
+        // be Tab stops inside MAIDR's chart, and zooming or panning leaves
+        // points undrawn, which MAIDR can then read but not highlight.
+        const options = {
+          chart: { type: 'bar', height: 400, stacked: true, stackType: '100%', accessibility: { enabled: false }, toolbar: { show: false } },
+          title: { text: 'Support for a Four-Day Week by Age Group' },
+          series: [
+            { name: 'Agree', data: [412, 305, 260, 118] },
+            { name: 'Undecided', data: [96, 131, 140, 84] },
+            { name: 'Disagree', data: [52, 88, 125, 150] },
+          ],
+          xaxis: {
+            categories: ['18-29', '30-44', '45-59', '60+'],
+            title: { text: 'Age group' },
+          },
+          yaxis: { title: { text: 'Share of respondents' } },
+        };
+
+        const chart = new ApexCharts(document.querySelector('#chart'), options);
+        chart.render();
+
+        // bindApexCharts waits for ApexCharts to finish drawing, converts the
+        // chart and hands it to MAIDR -- and does so again whenever ApexCharts
+        // redraws it (a resize, updateSeries, a legend toggle).
+        maidrApexCharts.bindApexCharts(chart, { id: 'apexcharts-normalized' });
+      }
+    </script>
+  </body>
+</html>
