@@ -39,7 +39,7 @@ export interface ModelVersions {
  *    in CI) compares these entries against the live provider APIs and flags
  *    stale ones.
  *
- * Catalog snapshot last verified: 2026-06-12.
+ * Catalog snapshot last verified: 2026-09-26.
  *
  * Formatting note: scripts/check-model-catalog.mjs extracts each provider's
  * `default` and `options` from this file's source text. Keep them as
@@ -48,37 +48,36 @@ export interface ModelVersions {
  */
 export const MODEL_VERSIONS: ModelVersions = {
   OPENAI: {
-    default: 'gpt-5.5',
-    options: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-4o'] as const,
+    default: 'gpt-6-sol',
+    options: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-4o'] as const,
     labels: {
+      'gpt-6-astra': 'GPT-6 Astra',
+      'gpt-6-sol': 'GPT-6 Sol',
+      'gpt-6-luna': 'GPT-6 Luna',
+      'gpt-5.6-sol': 'GPT-5.6 Sol',
       'gpt-5.5': 'GPT-5.5',
-      'gpt-5.5-pro': 'GPT-5.5 Pro',
-      'gpt-5.4': 'GPT-5.4',
-      'gpt-5.4-mini': 'GPT-5.4 Mini',
-      'gpt-5.4-nano': 'GPT-5.4 Nano',
       'gpt-4o': 'GPT-4o (legacy)',
     },
   },
   ANTHROPIC_CLAUDE: {
-    default: 'claude-opus-4-8',
-    options: ['claude-fable-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'] as const,
+    default: 'claude-opus-5',
+    options: ['claude-fable-5-1', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'] as const,
     labels: {
-      'claude-fable-5': 'Claude Fable 5',
-      'claude-opus-4-8': 'Claude Opus 4.8',
-      'claude-opus-4-7': 'Claude Opus 4.7',
-      'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+      'claude-fable-5-1': 'Claude Fable 5.1',
+      'claude-opus-5-5': 'Claude Opus 5.5',
+      'claude-opus-5': 'Claude Opus 5',
+      'claude-sonnet-5': 'Claude Sonnet 5',
       'claude-haiku-4-5': 'Claude Haiku 4.5',
     },
   },
   GOOGLE_GEMINI: {
-    default: 'gemini-3.5-flash',
-    options: ['gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash'] as const,
+    default: 'gemini-3.8-flash',
+    options: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'] as const,
     labels: {
-      'gemini-3.5-flash': 'Gemini 3.5 Flash',
+      'gemini-3.8-flash': 'Gemini 3.8 Flash',
       'gemini-3.1-pro-preview': 'Gemini 3.1 Pro Preview',
-      'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
-      'gemini-2.5-pro': 'Gemini 2.5 Pro',
-      'gemini-2.5-flash': 'Gemini 2.5 Flash',
+      'gemini-3.5-flash': 'Gemini 3.5 Flash',
+      'gemini-3.5-flash-lite': 'Gemini 3.5 Flash-Lite',
     },
   },
   // Curated suggestions only; the actual list of installed models is probed

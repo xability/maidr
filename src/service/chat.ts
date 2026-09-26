@@ -643,8 +643,9 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
   /**
    * Formats the Claude response into a standard LlmResponse. The first text
-   * block is used: models with always-on thinking (e.g. Claude Fable 5) emit
-   * thinking blocks before the text block, so position 0 cannot be assumed.
+   * block is used: models that think by default (e.g. Claude Opus 5, Claude
+   * Fable 5.1) emit thinking blocks before the text block, so position 0
+   * cannot be assumed.
    * @param {ClaudeResponse} response - The raw response from Claude API
    * @returns {LlmResponse} The formatted response
    */
