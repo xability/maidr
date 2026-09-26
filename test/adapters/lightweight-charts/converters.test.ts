@@ -116,14 +116,14 @@ describe('readLightweightChart', () => {
     ]);
   });
 
-  it('keeps a line\'s whitespace as a gap and passes over it elsewhere', () => {
+  it('reads across whitespace, which the chart leaves out of its data', () => {
     const rows = [{ time: day(2), value: 1 }, { time: day(3) }, { time: day(6), value: 3 }];
     const chart = fakeChart([{ series: [fakeSeries('Line', rows), fakeSeries('Histogram', rows)] }]);
 
     const { maidr, series } = readLightweightChart(chart);
     const [line, bars] = maidr.subplots[0][0].layers;
 
-    expect((line.data as LinePoint[][])[0].map(point => point.y)).toEqual([1, null, 3]);
+    expect((line.data as LinePoint[][])[0]).toEqual([{ x: '2025-01-02', y: 1 }, { x: '2025-01-06', y: 3 }]);
     expect(bars.data).toEqual([{ x: '2025-01-02', y: 1 }, { x: '2025-01-06', y: 3 }]);
     expect(series[1].items.map(item => item.time)).toEqual([day(2), day(6)]);
   });
@@ -160,9 +160,11 @@ describe('readLightweightChart', () => {
 
     const layers = readLightweightChart(chart).maidr.subplots[0][0].layers;
 
+    // A volume is shown to its precision without trailing zeros, which no
+    // fixed decimal count matches; rounding it to whole numbers read 0.4 as 0.
     expect(layers.map(layer => layer.axes?.y?.format)).toEqual([
       { type: 'number', decimals: 3 },
-      { type: 'number', decimals: 0 },
+      undefined,
       undefined,
     ]);
   });

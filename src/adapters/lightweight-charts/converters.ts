@@ -194,10 +194,11 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 /**
- * The series' points, each with the row it came from. A row carrying only a
- * time is whitespace -- a gap the chart leaves blank. A line keeps it as a
- * `null` reading, which MAIDR announces as a gap rather than a zero; the
- * other kinds have no gap to announce and pass over it.
+ * The series' points, each with the row it came from. A row without the
+ * values its kind needs is passed over. Whitespace -- a time with no value,
+ * which the chart leaves blank -- never reaches here: `series.data()` holds
+ * only the rows the chart plots, so a line reads from the bar before a gap
+ * straight to the bar after it, whose time says how far it jumped.
  */
 function readPoints(
   kind: SeriesKind,
@@ -223,8 +224,6 @@ function readPoints(
         point.trend = item.close > item.open ? 'Bull' : item.close < item.open ? 'Bear' : 'Neutral';
       }
       points.push(point);
-    } else if (kind === 'line') {
-      points.push({ x: label(item.time), y: isFiniteNumber(item.value) ? item.value : null });
     } else {
       if (!isFiniteNumber(item.value)) {
         continue;
@@ -238,14 +237,14 @@ function readPoints(
 
 /**
  * The value format a series' `priceFormat` asks for, where MAIDR has the same
- * one. A percentage series is left alone: its values are already percentages,
- * and MAIDR's percent format would scale them by a hundred.
+ * one. The others are left alone and read as their values are. A percentage
+ * series's values are already percentages, which MAIDR's percent format would
+ * scale by a hundred. A volume series is shown rounded to its precision with
+ * trailing zeros dropped, which no fixed decimal count matches: whole numbers
+ * would announce a volume of 0.4 as 0.
  */
 function formatOf(options: LwcSeriesOptions): AxisFormat | undefined {
   const format = options.priceFormat;
-  if (format?.type === 'volume') {
-    return { type: 'number', decimals: 0 };
-  }
   if ((format?.type === undefined || format.type === 'price') && isFiniteNumber(format?.precision)) {
     return { type: 'number', decimals: format.precision };
   }

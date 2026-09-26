@@ -60,13 +60,21 @@ describe('highlightRect', () => {
     expect(highlightRect(chart, series, series.items[0])).toEqual({ left: 93, top: 143, width: 14, height: 14 });
   });
 
-  it('gives no box for a line gap or a bar scrolled out of view', () => {
-    const line = fakeSeries('Line', [{ time: 100 }, { time: 200, value: 1 }]);
+  it('gives no box for a bar scrolled out of view', () => {
+    const line = fakeSeries('Line', [{ time: 200, value: 1 }]);
     const chart = fakeChart([{ series: [line] }], { visible: time => time !== 200 });
     const series = reading(chart, 'pane0-series0');
 
     expect(highlightRect(chart, series, series.items[0])).toBeNull();
-    expect(highlightRect(chart, series, series.items[1])).toBeNull();
+  });
+
+  it('places the box by the pane size, which stays when the time axis is hidden', () => {
+    const line = fakeSeries('Line', [{ time: 100, value: 150 }]);
+    const chart = fakeChart([{ series: [line] }]);
+    chart.timeScale = () => ({ ...fakeChart([]).timeScale(), width: () => 0 });
+    const series = reading(chart, 'pane0-series0');
+
+    expect(highlightRect(chart, series, series.items[0])).toEqual({ left: 93, top: 143, width: 14, height: 14 });
   });
 
   it('gives no box for a bar past the edge of the plot', () => {

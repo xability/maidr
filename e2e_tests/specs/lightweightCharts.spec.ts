@@ -138,8 +138,55 @@ test.describe('Lightweight Charts adapter', () => {
     });
     expect(counts).toEqual([21, 21]);
 
-    // The reader stayed on 14:30 and can jump to the newest candle.
+    // The reader stayed on 14:30: replaying the point reads it again.
+    await page.keyboard.press('Space');
+    await waitForText(page, 'Time is 2025-06-02 14:30');
+    expect(await text(page)).not.toContain('14:50');
+
+    // And can jump to the newest candle.
     await page.keyboard.press(`${await modifierKey(page)}+ArrowRight`);
     await waitForText(page, 'Time is 2025-06-02 14:50');
+  });
+
+  test('clears the highlight when focus leaves, and keeps it cleared as bars stream in', async ({ page }) => {
+    await open(page, 'lightweight-charts-live.html');
+    await enterPricePane(page, '#ticker-chart', 'XYZ');
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Time is 2025-06-02 14:30');
+    expect(await highlight(page)).not.toBeNull();
+
+    await page.click('#start');
+    await page.click('#stop');
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => (window as unknown as { feedTick: () => void }).feedTick());
+    }
+    await page.waitForTimeout(300); // settle: an absent box cannot be polled
+
+    expect(await highlight(page)).toBeNull();
+  });
+
+  test('keeps a bar added in the same task as the binding', async ({ page }) => {
+    await open(page, 'lightweight-charts-live.html');
+
+    // Bind again and stream a new candle before MAIDR has mounted the figure.
+    await page.evaluate(() => {
+      const scope = window as unknown as {
+        maidrBinding: { dispose: () => void };
+        maidrLightweightCharts: { bindLightweightChart: (chart: unknown, options: unknown) => unknown };
+      };
+      scope.maidrBinding.dispose();
+      // Top-level bindings of the example page.
+      // eslint-disable-next-line no-eval
+      const [lwcChart, lwcCandles] = eval('[chart, candles]') as [unknown, { update: (bar: unknown) => void }];
+      scope.maidrBinding = scope.maidrLightweightCharts.bindLightweightChart(lwcChart, { id: 'lwc-live', title: 'XYZ live' }) as { dispose: () => void };
+      lwcCandles.update({ time: Date.UTC(2025, 5, 2, 14, 50) / 1000, open: 251, high: 252, low: 250, close: 251.5 });
+    });
+    await enterPricePane(page, '#ticker-chart', 'XYZ');
+    await page.keyboard.press('ArrowRight');
+    await waitForText(page, 'Time is 2025-06-02 14:30');
+
+    await page.keyboard.press(`${await modifierKey(page)}+ArrowRight`);
+
+    await waitForText(page, 'Time is 2025-06-02 14:50, close XYZ is 251.50');
   });
 });

@@ -20,9 +20,11 @@ import type { Maidr as MaidrData, NavigateCallback } from '@type/grammar';
 import type { JSX } from 'react';
 import type { Root as ReactRoot } from 'react-dom/client';
 import type { LightweightChartsOptions, LightweightChartsReading, SeriesReading } from './converters';
-import type { LwcChart, LwcDataItem, LwcSeries } from './types';
+import type { AppendPlan } from './sync';
+import type { LwcChart, LwcDataItem, LwcPane, LwcPanePrimitive, LwcSeries } from './types';
 import { getHighlightColor } from '@adapters/shared/highlightColor';
-import { appendMaidrData, setMaidrData } from '@service/liveData';
+import { appendMaidrData, liveDataManager, setMaidrData } from '@service/liveData';
+import { OVERLAY_ATTRIBUTES } from '@util/overlayRegions';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
@@ -251,16 +253,18 @@ export function bindLightweightChart(
     }
   };
 
+  /** The bar at a column of a layer in the current reading, as MAIDR's cursor names it. */
+  const pointAt = (layerId: string, col: number): ActivePoint | null => {
+    const series = reading.series.find(candidate => candidate.layerId === layerId);
+    const point = series?.points[col];
+    return point === undefined ? null : { layerId, col, label: labelOf(point) };
+  };
+
   const onNavigate: NavigateCallback = (event) => {
     try {
-      if (event === null) {
-        active = null;
-      } else {
-        const series = reading.series.find(candidate => candidate.layerId === event.layerId);
-        const point = series?.points[event.col];
-        active = point === undefined ? null : { layerId: event.layerId, col: event.col, label: labelOf(point) };
-      }
+      active = event === null ? null : pointAt(event.layerId, event.col);
       draw();
+      overlay?.captureClean(() => chart.takeScreenshot());
     } catch (error) {
       console.warn('[MAIDR Lightweight Charts] highlight failed', error);
     }
@@ -274,31 +278,117 @@ export function bindLightweightChart(
     throw new Error('MAIDR Lightweight Charts binder: the chart container must be in the DOM');
   }
 
+  /**
+   * Marks the library's logo, the one SVG on a chart otherwise drawn on
+   * canvases, so the tactile display does not read it as the chart.
+   */
+  const markDecorations = (): void => {
+    for (const logo of chartElement.querySelectorAll('#tv-attr-logo')) {
+      logo.setAttribute(OVERLAY_ATTRIBUTES.decoration, '');
+    }
+  };
+  markDecorations();
+
   let disposed = false;
   let frame: number | null = null;
-  /** Redraws on the chart's next frame, once it has laid out the change. */
-  const redraw = (): void => {
+  let recapture = false;
+  /**
+   * Redraws on the chart's next frame, once it has laid out the change.
+   *
+   * `capture` also retakes the tactile display's copy of the chart; only a
+   * data change asks for it. The copy is a screenshot, which re-renders the
+   * chart, and a render is itself one of the things that calls this -- so a
+   * redraw for any other reason must not take one, or the two would call
+   * each other on every frame.
+   */
+  const redraw = (capture = false): void => {
+    recapture ||= capture;
     if (disposed || frame !== null) {
       return;
     }
     frame = requestAnimationFrame(() => {
       frame = null;
-      if (!disposed) {
-        draw();
+      if (disposed) {
+        return;
+      }
+      markDecorations();
+      draw();
+      if (recapture) {
+        recapture = false;
+        overlay?.captureClean(() => chart.takeScreenshot());
       }
     });
   };
+  const redrawView = (): void => redraw();
 
   const overlayPromise = highlightEnabled
     ? rendered.hostPromise.then((host) => {
         if (!host || disposed) {
           return null;
         }
-        overlay = new HighlightOverlay(host, chartElement, () => options.highlightColor ?? getHighlightColor());
+        overlay = new HighlightOverlay(
+          host,
+          chartElement,
+          () => options.highlightColor ?? getHighlightColor(),
+          () => overlay?.captureClean(() => chart.takeScreenshot()),
+        );
         draw();
         return overlay;
       })
     : Promise.resolve(null);
+
+  /** Whether MAIDR has registered the figure, so updates reach it. */
+  const registered = (): boolean => liveDataManager.getData(id) !== undefined;
+
+  /**
+   * Hands MAIDR the appends a plan names, after its silent base.
+   * @returns False when the plan cannot be applied as appends and the figure
+   * is to be replaced instead
+   */
+  const applyPlan = (plan: AppendPlan | null): boolean => {
+    if (plan === null) {
+      return false;
+    }
+    if (plan.base !== null && !setMaidrData(withCallback(plan.base))) {
+      return false;
+    }
+    return plan.appends.every(({ reading: series, point }) =>
+      appendMaidrData(point, { id, subplotRow: series.subplotRow, subplotCol: 0, layerId: series.layerId }));
+  };
+
+  /** The frames to wait for MAIDR to register the figure before giving up. */
+  const CATCH_UP_FRAMES = 600;
+  let catchingUp = false;
+  /**
+   * Replaces MAIDR's figure with the latest reading once MAIDR has registered
+   * it; until then, changes are only read.
+   */
+  const catchUp = (): void => {
+    if (catchingUp) {
+      return;
+    }
+    catchingUp = true;
+    let frames = 0;
+    const attempt = (): void => {
+      if (disposed) {
+        return;
+      }
+      if (registered()) {
+        catchingUp = false;
+        setMaidrData(withCallback(reading.maidr));
+        redraw(true);
+        return;
+      }
+      frames += 1;
+      if (frames < CATCH_UP_FRAMES) {
+        requestAnimationFrame(attempt);
+      } else {
+        // Never mounted; the next data change tries again.
+        catchingUp = false;
+      }
+    };
+    requestAnimationFrame(attempt);
+  };
 
   /** Reads the chart and hands MAIDR what changed. */
   const sync = (): void => {
@@ -310,16 +400,22 @@ export function bindLightweightChart(
       console.warn('[MAIDR Lightweight Charts] data change not applied', error);
       return;
     }
-    const appends = planAppends(reading, next);
+    const plan = planAppends(reading, next);
     reading = next;
-    // An append MAIDR refuses -- the figure not mounted yet -- falls back to
-    // replacing the figure, so MAIDR never lags the chart.
-    const appended = appends !== null && appends.every(({ reading: series, point }) =>
-      appendMaidrData(point, { id, subplotRow: series.subplotRow, subplotCol: 0, layerId: series.layerId }));
-    if (!appended) {
+    if (!registered()) {
+      // MAIDR registers the figure once React has committed it, which can be
+      // after the chart's first changes; it catches up then.
+      catchUp();
+    } else if (!applyPlan(plan)) {
       setMaidrData(withCallback(next.maidr));
+      // A replaced figure keeps the reader's column, clamped into the new
+      // data, rather than the bar they were on; the highlight follows it.
+      if (active !== null) {
+        const series = next.series.find(candidate => candidate.layerId === active?.layerId);
+        active = series ? pointAt(active.layerId, Math.min(active.col, series.points.length - 1)) : null;
+      }
     }
-    redraw();
+    redraw(true);
   };
 
   let pending = false;
@@ -337,32 +433,57 @@ export function bindLightweightChart(
   };
 
   let subscribed: LwcSeries[] = [];
-  const subscribe = (): void => {
+  let watchedPanes: LwcPane[] = [];
+  // Hears every render of a pane -- a pane separator dragged, a price scale
+  // stretched -- which move the bars without any event of their own.
+  const renderWatcher: LwcPanePrimitive = { updateAllViews: redrawView };
+  const unsubscribe = (): void => {
     for (const series of subscribed) {
       series.unsubscribeDataChanged(onDataChanged);
     }
+    for (const pane of watchedPanes) {
+      pane.detachPrimitive(renderWatcher);
+    }
+    subscribed = [];
+    watchedPanes = [];
+  };
+  const subscribe = (): void => {
+    unsubscribe();
+    watchedPanes = chart.panes();
     // Every series, not only those read: one with no data yet joins the
     // figure when its first bars arrive.
-    subscribed = chart.panes().flatMap(pane => pane.getSeries());
+    subscribed = watchedPanes.flatMap(pane => pane.getSeries());
     for (const series of subscribed) {
       series.subscribeDataChanged(onDataChanged);
+    }
+    if (highlightEnabled) {
+      for (const pane of watchedPanes) {
+        pane.attachPrimitive(renderWatcher);
+      }
     }
   };
   subscribe();
 
   const timeScale = chart.timeScale();
-  timeScale.subscribeVisibleLogicalRangeChange(redraw);
-  const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(redraw);
+  timeScale.subscribeVisibleLogicalRangeChange(redrawView);
+  const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(redrawView);
   resizeObserver?.observe(chartElement);
 
   // Clear the highlight when focus leaves the chart, as the SVG adapters'
-  // highlight does when MAIDR's controller is disposed.
+  // highlight does when MAIDR's controller is disposed. The reader's bar is
+  // forgotten too, or the next tick, scroll or resize would draw it again;
+  // MAIDR reports it afresh on the first move after focus returns.
   const handleFocusOut = (event: FocusEvent): void => {
     const next = event.relatedTarget as Node | null;
     if (next && rendered.container.contains(next)) {
       return;
     }
-    void overlayPromise.then(ov => ov?.clear());
+    active = null;
+    if (frame !== null) {
+      cancelAnimationFrame(frame);
+      frame = null;
+    }
+    draw();
   };
   rendered.container.addEventListener('focusout', handleFocusOut);
 
@@ -382,11 +503,8 @@ export function bindLightweightChart(
         return;
       }
       disposed = true;
-      for (const series of subscribed) {
-        series.unsubscribeDataChanged(onDataChanged);
-      }
-      subscribed = [];
-      timeScale.unsubscribeVisibleLogicalRangeChange(redraw);
+      unsubscribe();
+      timeScale.unsubscribeVisibleLogicalRangeChange(redrawView);
       resizeObserver?.disconnect();
       if (frame !== null) {
         cancelAnimationFrame(frame);

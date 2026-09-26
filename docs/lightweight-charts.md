@@ -62,13 +62,13 @@ Everything is read off the chart's public API — `chart.panes()`, `pane.getSeri
 - **Series become layers.** A candlestick series with a moving average drawn over it is one subplot with two layers; **Page Up / Page Down** switch between them, keeping the reader on the same date.
 - **Times become labels.** A business day or a `yyyy-mm-dd` string is announced as written. A timestamp is announced as its UTC date — with the time of day as well once any bar on the chart falls other than at midnight, so every layer spells the same bar the same way. Pass `formatTime` to announce times your own way.
 - **Series titles become names.** A series' `title` option names its layer and labels its value axis ("close ACME is 98.08"). A series without one falls back to the `axes.y` option, then to `Price` (candlestick and OHLC bars) or `Value`.
-- **Price formats carry over.** A series' `priceFormat` of type `price` announces values with its `precision`; type `volume` announces whole numbers.
+- **Price formats carry over.** A series' `priceFormat` of type `price` announces values with its `precision`. Volume and percentage values are announced as they are.
 
 Hidden series (`visible: false`), custom series, and series with no data yet are left out; a pane with none of the others left is left out too.
 
 ### Visual Highlighting
 
-Lightweight Charts draws onto canvases, so there is no element per bar for MAIDR's usual SVG highlight. The binder draws a box over the chart at the reader's bar instead, placed with the chart's own coordinate API (`timeScale().timeToCoordinate()` and `series.priceToCoordinate()`): around the full high–low range of a candle, from a histogram bar's value to its base, and around a line's point. It follows the chart as it is scrolled, zoomed or resized, and as new bars push the reader's bar along; a bar scrolled out of view has no box. It uses MAIDR's highlight color setting unless `highlightColor` is given, and `highlight: false` turns it off.
+Lightweight Charts draws onto canvases, so there is no element per bar for MAIDR's usual SVG highlight. The binder draws a box over the chart at the reader's bar instead, placed with the chart's own coordinate API (`timeScale().timeToCoordinate()` and `series.priceToCoordinate()`): around the full high–low range of a candle, from a histogram bar's value to its base, and around a line's point. It follows the chart as it is scrolled, zoomed or resized, as panes are resized or a price scale is stretched, and as new bars push the reader's bar along; a bar scrolled out of view has no box, and the box goes when focus leaves the chart. It uses MAIDR's highlight color setting unless `highlightColor` is given, and `highlight: false` turns it off.
 
 ## Supported Chart Types
 
@@ -81,7 +81,7 @@ Lightweight Charts draws onto canvases, so there is no element per bar for MAIDR
 | Baseline | `BaselineSeries` | `line` |
 | Histogram | `HistogramSeries` | `bar` |
 
-A candle is read section by section, as every MAIDR candlestick is: Up and Down move through its open, high, low and close, and its trend, body shape and patterns with its neighbours are announced along the way. A line's whitespace items (a `time` with no `value`) are read as gaps rather than zeros; the other types pass over them.
+A candle is read section by section, as every MAIDR candlestick is: Up and Down move through its open, high, low and close, and its trend, body shape and patterns with its neighbours are announced along the way. Whitespace items (a `time` with no `value`), which the chart leaves blank, are not in the series' data, so the reader moves from the bar before a gap to the bar after it; the time announced says how far it jumped.
 
 ## Live and Streaming Data
 
@@ -103,7 +103,7 @@ How each change reaches MAIDR:
 | `update()` with the **last bar's time** — the forming bar revised | Replaces the figure silently, keeping the reader's place. |
 | `setData()` — a history load or reload | Replaces the figure silently, keeping the reader's place where the figure's shape allows. |
 
-Changes made together — a candle and its volume bar from one socket message — are read once, at the end of the task that made them. Only the focused layer's new bar is announced, so on a price-and-volume chart the reader monitors whichever pane they are in. **Ctrl/Cmd + Right Arrow** jumps to the newest bar.
+Changes made together — a candle and its volume bar from one socket message — are read once, at the end of the task that made them. A message that closes the last bar and opens the next one still has the new bar announced: the closing values are applied silently first. Changes made before MAIDR has finished mounting — in the same task as the binding, say — are applied once it has. Only the focused layer's new bar is announced, so on a price-and-volume chart the reader monitors whichever pane they are in. **Ctrl/Cmd + Right Arrow** jumps to the newest bar.
 
 `bindLightweightChart` marks the figure `live`, which is what enables monitor mode; pass `live: false` to turn it off. For a long-running feed, set `maxWidth` to keep MAIDR's copy to the newest bars of each series (the chart itself keeps whatever you give it):
 

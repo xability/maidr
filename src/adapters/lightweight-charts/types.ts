@@ -23,7 +23,8 @@ export type LwcTime = LwcTimestamp | LwcBusinessDay | string;
 
 /**
  * One item of `series.data()`. Which value fields are present depends on the
- * series type; an item carrying only `time` is whitespace (a gap).
+ * series type. `series.data()` holds only the rows the chart plots, never
+ * whitespace (an item carrying only `time`).
  */
 export interface LwcDataItem {
   time: LwcTime;
@@ -66,12 +67,22 @@ export interface LwcSeries {
   unsubscribeDataChanged: (handler: (scope: 'full' | 'update') => void) => void;
 }
 
+/**
+ * A pane primitive; the adapter attaches one only to hear `updateAllViews`,
+ * which the chart calls on every render.
+ */
+export interface LwcPanePrimitive {
+  updateAllViews?: () => void;
+}
+
 /** A pane: one horizontal band of the chart with its own price scales. */
 export interface LwcPane {
   paneIndex: () => number;
   getSeries: () => LwcSeries[];
   getHeight: () => number;
   getHTMLElement: () => HTMLElement | null;
+  attachPrimitive: (primitive: LwcPanePrimitive) => void;
+  detachPrimitive: (primitive: LwcPanePrimitive) => void;
 }
 
 /** The chart's shared horizontal (time) scale. */
@@ -93,5 +104,9 @@ export interface LwcChart {
   panes: () => LwcPane[];
   timeScale: () => LwcTimeScale;
   priceScale: (priceScaleId: string, paneIndex?: number) => LwcPriceScale;
+  /** The size of a pane's plot area, whether or not the time axis is shown. */
+  paneSize: (paneIndex?: number) => { width: number; height: number };
+  /** The whole chart drawn onto one canvas. */
+  takeScreenshot: () => HTMLCanvasElement;
   chartElement: () => HTMLDivElement;
 }

@@ -35,7 +35,7 @@ const MIN_BAR_WIDTH = 6;
 
 /**
  * Where a pane's plot area is, in chart-element pixels: right of the left
- * price scale, as wide as the time scale, and as tall as the pane.
+ * price scale, below the panes above, and the size the chart reports for it.
  * @param chart - The chart
  * @param paneIndex - Which pane
  * @returns The plot area, or null when the pane is not laid out
@@ -56,8 +56,9 @@ export function panePlotArea(chart: LwcChart, paneIndex: number): PixelRect | nu
   }
   const left = rowBox.left - chartBox.left + leftScale;
   const top = rowBox.top - chartBox.top;
-  const width = chart.timeScale().width();
-  const height = pane.getHeight();
+  // Not `timeScale().width()`, which is the time axis's width and zero while
+  // the axis is hidden.
+  const { width, height } = chart.paneSize(paneIndex);
   if (!(width > 0) || !(height > 0)) {
     return null;
   }
@@ -162,12 +163,20 @@ export class HighlightOverlay {
   private readonly target: HTMLElement;
   private readonly getColor: () => string;
 
+  /** The chart drawn onto one canvas, for readers of the pixels; see {@link captureClean}. */
+  private clean: HTMLCanvasElement | null = null;
+
+  /** Watches for a reader of the pixels arriving; see {@link captureClean}. */
+  private readonly readerObserver: MutationObserver | null = null;
+
   /**
    * @param host - The positioned wrapper holding the chart
    * @param target - The chart element the overlay covers
    * @param getColor - Returns the highlight color, read at every draw
+   * @param onReader - Called when a reader of the pixels arrives, so the copy
+   * it needs is taken then rather than at the next move
    */
-  public constructor(host: HTMLElement, target: HTMLElement, getColor: () => string) {
+  public constructor(host: HTMLElement, target: HTMLElement, getColor: () => string, onReader?: () => void) {
     this.host = host;
     this.target = target;
     this.getColor = getColor;
@@ -183,6 +192,52 @@ export class HighlightOverlay {
     this.container.style.zIndex = '3';
     this.syncToTarget();
     host.appendChild(this.container);
+
+    if (onReader !== undefined && typeof MutationObserver !== 'undefined') {
+      this.readerObserver = new MutationObserver(() => {
+        if (this.clean === null && this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+          onReader();
+        }
+      });
+      this.readerObserver.observe(this.container, { attributes: true, attributeFilter: [OVERLAY_ATTRIBUTES.pixelReader] });
+    }
+  }
+
+  /**
+   * Keeps a copy of the whole chart on one canvas for readers of the pixels
+   * -- the tactile display; see `@util/overlayRegions`.
+   *
+   * Lightweight Charts gives every pane and every axis a canvas of its own, so
+   * on a chart of two panes no single canvas covers enough of it to be read
+   * as the chart. The copy is the chart as one picture, without the crosshair.
+   * It is taken only while something reads the pixels, so a chart nobody
+   * reads that way does not pay for a screenshot per move.
+   *
+   * @param screenshot - Draws the chart onto a new canvas
+   */
+  public captureClean(screenshot: () => HTMLCanvasElement): void {
+    if (!this.container.hasAttribute(OVERLAY_ATTRIBUTES.pixelReader)) {
+      this.clean?.remove();
+      this.clean = null;
+      return;
+    }
+    let source: HTMLCanvasElement;
+    try {
+      source = screenshot();
+    } catch (error) {
+      console.warn('[MAIDR Lightweight Charts] chart could not be copied for the tactile display', error);
+      return;
+    }
+    if (source.width <= 0 || source.height <= 0) {
+      return;
+    }
+    source.setAttribute(OVERLAY_ATTRIBUTES.cleanCanvas, '');
+    source.setAttribute('aria-hidden', 'true');
+    source.style.display = 'none';
+    this.clean?.remove();
+    this.clean = source;
+    // `clear` empties the container, so the copy goes first and is skipped.
+    this.container.prepend(source);
   }
 
   /**
@@ -223,13 +278,16 @@ export class HighlightOverlay {
 
   /** Removes every box. */
   public clear(): void {
-    while (this.container.firstChild) {
-      this.container.removeChild(this.container.firstChild);
+    for (const node of Array.from(this.container.children)) {
+      if (node !== this.clean) {
+        node.remove();
+      }
     }
   }
 
   /** Detaches the overlay. */
   public dispose(): void {
+    this.readerObserver?.disconnect();
     this.container.remove();
   }
 

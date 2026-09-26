@@ -27,7 +27,10 @@ function boxed(box: Box): { getBoundingClientRect: () => DOMRect } {
   };
 }
 
-/** A series whose data can be replaced, and whose data-changed handlers can be fired. */
+/**
+ * A series whose data can be replaced, and whose data-changed handlers can be
+ * fired. Like the real `series.data()`, it leaves out whitespace rows.
+ */
 export interface FakeSeries extends LwcSeries {
   setRows: (rows: LwcDataItem[]) => void;
   fire: (scope: 'full' | 'update') => void;
@@ -48,7 +51,7 @@ export function fakeSeries(
   const handlers = new Set<(scope: 'full' | 'update') => void>();
   return {
     seriesType: () => type,
-    data: () => data,
+    data: () => data.filter(row => Object.keys(row).some(key => key !== 'time')),
     options: () => options,
     priceToCoordinate: price => priceOrigin - price * priceScale,
     subscribeDataChanged: handler => handlers.add(handler),
@@ -97,6 +100,8 @@ export function fakeChart(
       getSeries: () => spec.series,
       getHeight: () => box.height,
       getHTMLElement: () => boxed(box) as unknown as HTMLElement,
+      attachPrimitive: () => {},
+      detachPrimitive: () => {},
     };
   });
   return {
@@ -109,6 +114,10 @@ export function fakeChart(
       unsubscribeVisibleLogicalRangeChange: () => {},
     }),
     priceScale: (id: string) => ({ width: () => (id === 'left' ? leftScaleWidth : 50) }),
+    paneSize: (index = 0) => ({ width: plotWidth, height: lwcPanes[index]?.getHeight() ?? 0 }),
+    takeScreenshot: () => {
+      throw new Error('not drawn');
+    },
     chartElement: () => chartElement as unknown as HTMLDivElement,
   };
 }
