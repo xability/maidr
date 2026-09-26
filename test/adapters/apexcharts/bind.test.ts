@@ -109,6 +109,39 @@ describe('bindApexCharts', () => {
     }
   });
 
+  it('should hold a redraw that lands while MAIDR is mounting until the container is back', async () => {
+    const binds = collectBinds();
+    const chart = barChart();
+    const setData = jest.fn((_maidr: Maidr) => true);
+    const global = globalThis as { maidrLive?: unknown };
+    global.maidrLive = { setData };
+    try {
+      const binding = bindApexCharts(chart);
+      const first = await binding.ready;
+      // maidr.js takes the container out of the page while it mounts.
+      const parent = chart.el.parentElement as HTMLElement;
+      chart.el.remove();
+
+      chart.fire('updated');
+      await sleep(400);
+      // An event dispatched from the detached container would be lost.
+      expect(binds).toHaveLength(1);
+      expect(setData).not.toHaveBeenCalled();
+
+      const figure = document.createElement('figure');
+      figure.id = `maidr-figure-${first.id}`;
+      parent.appendChild(figure);
+      figure.appendChild(chart.el);
+      await sleep(50);
+
+      expect(binds).toHaveLength(1);
+      expect(setData).toHaveBeenCalledTimes(1);
+      binding.dispose();
+    } finally {
+      delete global.maidrLive;
+    }
+  });
+
   it('should mount again when the in-place update is refused', async () => {
     const binds = collectBinds();
     const chart = barChart();

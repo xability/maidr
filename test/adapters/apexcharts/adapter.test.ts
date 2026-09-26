@@ -209,6 +209,23 @@ describe('figure', () => {
     expect(messages).toHaveLength(1);
   });
 
+  it('should warn when another chart on the page has the same id', () => {
+    const drawn = (name: string): FakeChart => fakeChart({
+      type: 'bar',
+      chartID: 'sales',
+      series: [{ name, values: [1] }],
+      labels: ['a'],
+      draw: dom => drawBars(dom.series(0), [1], 0),
+    });
+    const first = drawn('A');
+    drawn('B');
+
+    layersOf(first);
+
+    const messages = warn.mock.calls.map(call => String(call[0])).filter(m => m.includes('"apexchartssales"'));
+    expect(messages).toHaveLength(1);
+  });
+
   it('should warn once and skip a series type it cannot read', () => {
     const chart = fakeChart({ type: 'rangeArea', series: [{ name: 'R', values: [3] }], labels: ['a'] });
 

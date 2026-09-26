@@ -372,16 +372,38 @@ export function bindApexCharts(
     }
   };
 
+  // The data most recently handed over, so a delivery that had to wait for
+  // the container does not overwrite a newer one.
+  let latest: Maidr | null = null;
+
+  // Hands the data to MAIDR: in place when it is mounted on the container,
+  // by mounting it otherwise. While MAIDR is mounting, the container is out
+  // of the page for a moment, and an event dispatched from it would reach no
+  // one, so a redraw landing then waits for the container to come back.
+  const deliver = (maidr: Maidr): void => {
+    if (updateInPlace(chart.el, maidr)) {
+      return;
+    }
+    if (mounted && !chart.el.isConnected) {
+      void whenConnected(chart.el).then(() => {
+        if (!disposed && latest === maidr && chart.el.isConnected) {
+          deliver(maidr);
+        }
+      });
+      return;
+    }
+    // Mounting builds a new figure, so the width follows that one.
+    stopFollowing?.();
+    stopFollowing = null;
+    chart.el.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
+  };
+
   const bind = (): void => {
     try {
       const maidr: Maidr = { ...apexchartsToMaidr(chart, options), live: true };
       chart.el.setAttribute('maidr-data', JSON.stringify(maidr));
-      if (!updateInPlace(chart.el, maidr)) {
-        // Mounting builds a new figure, so the width follows that one.
-        stopFollowing?.();
-        stopFollowing = null;
-        chart.el.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true, detail: maidr }));
-      }
+      latest = maidr;
+      deliver(maidr);
       mounted = true;
       const first = !settled;
       settled = true;

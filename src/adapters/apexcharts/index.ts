@@ -36,6 +36,7 @@
 
 export { apexchartsToMaidr } from './adapter';
 export { bindApexCharts } from './bind';
+export { unsplit as removeSplitParts } from './split';
 export type {
   ApexChartsAdapterOptions,
   ApexChartsBinding,

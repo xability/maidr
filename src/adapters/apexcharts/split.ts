@@ -383,7 +383,9 @@ export function splitCandles(group: Element): string[] {
  * Undoes every split under an element: stops following the originals' `d`
  * and removes the parts made for them. The binding calls it when it is
  * disposed, so a chart left on the page afterwards carries nothing of
- * MAIDR's. MAIDR's own hidden copies of the parts are its to remove.
+ * MAIDR's; it is exported as `removeSplitParts` for pages that call
+ * `apexchartsToMaidr` themselves. MAIDR's own hidden copies of the parts are
+ * its to remove.
  *
  * @param root - The chart's container
  */

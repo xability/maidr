@@ -7,7 +7,7 @@
  *
  * @packageDocumentation
  */
-import { apexchartsToMaidr, bindApexCharts } from './adapters/apexcharts';
+import { apexchartsToMaidr, bindApexCharts, removeSplitParts } from './adapters/apexcharts';
 
 export {
   type ApexChartsAdapterOptions,
@@ -15,6 +15,7 @@ export {
   type ApexChartsInstance,
   apexchartsToMaidr,
   bindApexCharts,
+  removeSplitParts,
 } from './adapters/apexcharts';
 
 // Expose the ApexCharts adapter globally for script-tag usage. The UMD build
@@ -25,6 +26,7 @@ declare global {
     maidrApexCharts?: {
       apexchartsToMaidr: typeof apexchartsToMaidr;
       bindApexCharts: typeof bindApexCharts;
+      removeSplitParts: typeof removeSplitParts;
     };
   }
 }
@@ -33,6 +35,7 @@ if (typeof window !== 'undefined') {
   window.maidrApexCharts = {
     apexchartsToMaidr,
     bindApexCharts,
+    removeSplitParts,
   };
 }
 

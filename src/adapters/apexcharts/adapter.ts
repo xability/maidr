@@ -167,6 +167,12 @@ function warnOnce(chart: ApexChartsInstance, key: string, message: string): void
  * are skipped with a console warning, as are series hidden through the
  * legend.
  *
+ * On a box plot or candlestick chart the conversion changes the chart's DOM:
+ * it adds a hidden path per part next to each box or candle, and keeps them
+ * in step with the originals. {@link bindApexCharts} removes them when it is
+ * disposed; a page that converts a chart itself calls `removeSplitParts`
+ * with the chart's container once it no longer needs the data.
+ *
  * @param chart   - A rendered ApexCharts instance
  * @param options - Overrides for the id, titles and axis labels
  * @returns The MAIDR data for the chart
@@ -187,6 +193,16 @@ export function apexchartsToMaidr(
     );
   }
   warnKeyboardNavigation(chart);
+  if (wrap && wrap.ownerDocument.querySelectorAll(rootSelector(wrapperId)).length > 1) {
+    // Two charts given the same `chart.id` draw two wrappers with one id, and
+    // every selector then reaches into both charts.
+    warnOnce(
+      chart,
+      'duplicate-id',
+      `Another element on the page has the id "${wrapperId}", so this chart's highlights may land on the other one. `
+      + 'Give each chart its own chart.id.',
+    );
+  }
 
   const ctx: Context = {
     chart,

@@ -283,6 +283,12 @@ A chart bound this way does not follow the window's width: once MAIDR has mounte
 
 Doing that again re-mounts MAIDR, which takes the keyboard focus off the chart; to update a mounted chart, pass data with `live: true` to `window.maidrLive.setData()` instead, as `bindApexCharts()` does. The selectors in the data point at the marks ApexCharts drew, so convert the chart again after every redraw.
 
+On a box plot or candlestick chart, converting adds a hidden path for each part of each box or candle next to the ones ApexCharts drew, since MAIDR highlights those parts separately. `bindApexCharts()` removes them when it is disposed; converting by hand, remove them yourself once you are done with the data:
+
+```js
+maidrApexCharts.removeSplitParts(chart.el);
+```
+
 ### Options
 
 `ApexChartsAdapterOptions` overrides what the chart configuration says:
