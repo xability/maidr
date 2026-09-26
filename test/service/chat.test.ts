@@ -111,7 +111,7 @@ describe('ChatService provider requests', () => {
       customInstruction: '',
       expertise: 'basic',
       apiKey: 'sk-openai-test',
-      version: 'gpt-5.4-mini',
+      version: 'gpt-6-luna',
     });
 
     expect(response).toEqual({ success: true, data: 'Answer.' });
@@ -119,7 +119,7 @@ describe('ChatService provider requests', () => {
     const { url, headers, body } = lastRequest();
     expect(url).toBe('https://api.openai.com/v1/chat/completions');
     expect(headers.Authorization).toBe('Bearer sk-openai-test');
-    expect(body.model).toBe('gpt-5.4-mini');
+    expect(body.model).toBe('gpt-6-luna');
     // Reasoning tokens count against max_completion_tokens; GPT-5 and later
     // reject the legacy max_tokens.
     expect(body.max_completion_tokens).toBeGreaterThanOrEqual(4096);
