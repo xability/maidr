@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MAIDR as a Tableau dashboard extension.
+
+  Drag an Extension object onto a dashboard, choose "Access Local Extensions",
+  and pick this file. It loads the page maidr.ai hosts for every release; to
+  host your own copy, change <url> to where you serve index.html from. Tableau
+  requires https, except for http://localhost during development.
+
+  "full data" is required: the extension reads each worksheet's summary data,
+  which the Extensions API only returns to an extension that declares it.
+
+  Tableau Server and Tableau Cloud run a network-enabled extension only once a
+  site admin has added its URL to the site's safe list. See docs/tableau.md.
+-->
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="ai.maidr.tableau" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Audio sonification, text descriptions, braille and keyboard navigation for the worksheets on this dashboard, for blind and low-vision readers.</description>
+    <author name="xability" email="jseo1005@illinois.edu" organization="xability" website="https://maidr.ai"/>
+    <min-api-version>1.10</min-api-version>
+    <source-location>
+      <url>https://maidr.ai/examples/tableau-extension/index.html</url>
+    </source-location>
+    <icon>iVBORw0KGgoAAAANSUhEUgAAAEYAAABGCAIAAAD+THXTAAAAcklEQVR42u3auw0AIAgFQDdxD5dx/yl0AyOF8XfklSRwNaRc6mNJSEhISEhISEhIx6/YhoWEhISEhIR0Nyk6HgkJCQkJCQlpdvyKTiQkJCSkP0h7F0VCQkJCQkJCQkJCQkJCuvf87B8PCQkJCQkJCSmYDuEH7uWosbpmAAAAAElFTkSuQmCC</icon>
+    <context-menu>
+      <configure-context-menu-item/>
+    </context-menu>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+  </dashboard-extension>
+  <resources>
+    <resource id="name">
+      <text locale="en_US">MAIDR accessible charts</text>
+    </resource>
+  </resources>
+</manifest>
