@@ -151,7 +151,7 @@ window.maidrLive.navigateTo(null, { id: 'scatter-chart' });
 
 Returns `true` when a registered chart accepted the target. A chart the reader is inside moves at once. A chart the reader is not focused on — or one on a page that has lost the browser's focus, since the reader would not hear the move — **keeps the target** and lands on it when they next focus in — so a colleague can point at a mark before the reader arrives — and `null` withdraws a kept target. A kept target is also discarded when the chart's data changes, since it addressed the figure that data described. The call answers `false`, and moves nothing, for a layer the figure does not have, a cell off its grid, or a point index the layer does not carry; a rotor mode (grid, point, intersection) is left first, since the target is spelled in the trace's data coordinates.
 
-In-browser AI agents reach the same method. When a page opts in to the experimental [WebMCP tools](WEBMCP.html), the `maidr_navigate` tool calls `navigateTo` on the reader's behalf, so an agent's move is announced, kept for the next focus-in, or refused exactly as described here, and never moves keyboard focus.
+In-browser AI agents reach the same method. Where the browser offers the experimental [WebMCP tools](WEBMCP.html), the `maidr_navigate` tool calls `navigateTo` on the reader's behalf, so an agent's move is announced, kept for the next focus-in, or refused exactly as described here, and never moves keyboard focus.
 
 ### Complete streaming example
 

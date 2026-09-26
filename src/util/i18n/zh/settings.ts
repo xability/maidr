@@ -24,6 +24,8 @@ export const settings = {
   'settings.hoverMode': '悬停模式',
   'settings.hoverOnHover': '悬停',
   'settings.hoverOnClick': '点击',
+  'settings.agentTools': '浏览器 AI 助手访问',
+  'settings.agentToolsHint': '允许浏览器内置的 AI 助手读取本页图表的数据，并在您要求时移动您在图表中的位置。',
 
   // Audio tab.
   'settings.volume': '音量',

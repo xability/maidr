@@ -165,6 +165,7 @@ export const TITLES = {
   'live-coinbase.html': 'Live Coinbase feed',
   'live-line.html': 'Live line feed',
   'multiline_plot_intersection.html': 'Multi line plot with intersecting lines',
+  'webmcp.html': 'WebMCP: a bar chart for browser AI agents',
 
   // `examples/` holds seven charts twice, under a hyphenated and an
   // underscored filename, and the old gallery listed only one of each pair.

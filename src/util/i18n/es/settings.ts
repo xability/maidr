@@ -26,6 +26,8 @@ export const settings = {
   'settings.hoverMode': 'Modo de activación con el puntero',
   'settings.hoverOnHover': 'Al pasar el puntero',
   'settings.hoverOnClick': 'Al hacer clic',
+  'settings.agentTools': 'Acceso de agentes de IA del navegador',
+  'settings.agentToolsHint': 'Permite que un asistente de IA integrado en su navegador lea los datos de los gráficos de esta página y, cuando usted se lo pida, mueva su posición en ellos.',
 
   // Audio tab.
   'settings.volume': 'Volumen',

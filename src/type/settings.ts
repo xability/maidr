@@ -277,6 +277,13 @@ export interface GeneralSettings {
    * means every shortcut is the default.
    */
   keybindings: Record<string, string>;
+  /**
+   * Whether an AI agent built into the reader's browser may use MAIDR's
+   * WebMCP tools: read the page's charts, and move the reader's position in
+   * them when asked. Has no effect in a browser without WebMCP, or on a page
+   * whose author switched the tools off (see `docs/WEBMCP.md`).
+   */
+  agentTools: boolean;
 }
 
 /**
@@ -310,6 +317,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ariaMode: 'assertive',
     hoverMode: 'pointermove',
     keybindings: {},
+    agentTools: true,
   },
   llm: {
     expertiseLevel: 'basic',

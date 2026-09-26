@@ -6,7 +6,7 @@
 
 WebMCP lets a web page offer an AI agent running in the browser — Gemini in Chrome, the MCP-B extension, and similar assistants — a small set of typed tools. The page registers each tool with `document.modelContext.registerTool()`, giving it a name, a description, a JSON Schema for its input and an `execute` function; the agent reads the descriptions and calls the tools instead of scraping the page.
 
-When a page opts in, MAIDR registers three tools. Together they let a blind or low-vision reader ask their browser assistant questions such as "which day had the most tips?" and have it answer from the chart's real data, or ask "take me to the highest bar" and land there with their screen reader, braille display and sonification announcing the point.
+Where the browser supports it, MAIDR registers three tools. Together they let a blind or low-vision reader ask their browser assistant questions such as "which day had the most tips?" and have it answer from the chart's real data, or ask "take me to the highest bar" and land there with their screen reader, braille display and sonification announcing the point.
 
 ## Requirements
 
@@ -18,19 +18,21 @@ When a page opts in, MAIDR registers three tools. Together they let a blind or l
 - **An origin-keyed agent cluster**, as the draft requires.
 - **The `tools` Permissions-Policy feature** must be allowed. A page served with `Permissions-Policy: tools=()`, or an `<iframe>` whose `allow` attribute does not grant it, cannot register tools. Notebook and publishing embeds such as Jupyter and Quarto often render output in such an iframe and may block it.
 
-Without a secure context, a browser with WebMCP, or the opt-in tag below, MAIDR does nothing at all: no tools, no errors, no console output. When those are in place but the browser refuses the registration — the agent-cluster and Permissions-Policy requirements are checked there — no tools are registered and MAIDR logs one warning for the page, however often its charts mount.
+Without a secure context or a browser with WebMCP, or with the tools switched off (below), MAIDR does nothing at all: no tools, no errors, no console output. When those are in place but the browser refuses the registration — the agent-cluster and Permissions-Policy requirements are checked there — no tools are registered and MAIDR logs one warning for the page, however often its charts mount.
 
-## Enabling it
+## Turning it on and off
 
-WebMCP support is **off by default**. A page turns it on with a meta tag anywhere in the document:
+WebMCP support is **on by default**: in a browser that has WebMCP, every page with a MAIDR chart offers the tools, with no change to the page, the schema or any producer — hand-written pages, py-maidr, maidr for R and the chart-library adapters alike.
+
+**The reader decides.** In a browser with WebMCP, **Settings > General** has a **Browser AI Agent Access** checkbox, on by default. Unchecking it and saving removes the tools at once, from every chart on the page, without a reload; checking it again registers them again. The choice is kept in the browser with the reader's other MAIDR settings, so it applies on every page that uses MAIDR. The row is not shown in a browser without WebMCP, where it could do nothing.
+
+**A page author can switch the tools off** for the whole page with a meta tag, which wins over the reader's setting:
 
 ```html
-<meta name="maidr-webmcp" content="on">
+<meta name="maidr-webmcp" content="off">
 ```
 
-Leave the tag out, or set `content="off"`, to keep it off. The tag is read each time a chart mounts while the tools are not registered, never when the script loads, so it needs no schema change and works for charts from every producer — hand-written pages, py-maidr, maidr for R and the chart-library adapters alike.
-
-A React application can insert the tag before its first `<Maidr>` mounts:
+`content="on"`, which earlier versions required to turn the tools on, is no longer needed and changes nothing. The tag is read each time a chart mounts while the tools are not registered, never when the script loads. A React application that wants the tools off inserts the tag before its first `<Maidr>` mounts:
 
 ```tsx
 import { Maidr } from 'maidr/react';
@@ -38,13 +40,17 @@ import { createRoot } from 'react-dom/client';
 
 const meta = document.createElement('meta');
 meta.name = 'maidr-webmcp';
-meta.content = 'on';
+meta.content = 'off';
 document.head.append(meta);
 
 createRoot(document.getElementById('root')!).render(<Maidr data={chart}>{svg}</Maidr>);
 ```
 
 The tools are registered once for the whole page, however many charts it holds, and removed shortly after the last chart unmounts.
+
+### Trying it out
+
+The [WebMCP example](../examples/webmcp.html) is a single bar chart with the steps: enable `chrome://flags/#enable-webmcp-testing` in Chrome and relaunch, install the [Model Context Tool Inspector](https://github.com/beaufortfrancois/model-context-tool-inspector) extension, open the page, and the inspector lists the three tools and can call them.
 
 ## The tools
 
@@ -159,7 +165,7 @@ Moves the reader's cursor to one data point.
 - **An open MAIDR dialog is never navigated under.** While one has the reader's focus the move is refused, and a waiting move is kept until it closes.
 - **At most one move per chart every 500 ms**, so a runaway agent cannot flood the reader's speech and audio.
 - **Reading is silent.** Listing charts and reading data change nothing the reader can perceive.
-- **Nothing new to learn.** No keys, menu entries or UI are added.
+- **Nothing new to learn.** No keys or menu entries are added; the one new control is the **Browser AI Agent Access** checkbox in Settings, which turns the tools off.
 
 ## What is not exposed, and why
 

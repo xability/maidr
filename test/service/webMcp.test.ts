@@ -17,7 +17,15 @@ import type { LiveReaderProbe } from '@service/liveData';
 import type { BarPoint, HeatmapData, LinePoint, Maidr } from '@type/grammar';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { LiveDataManager } from '@service/liveData';
-import { acquireWebMcpTools, buildWebMcpTools, resetWebMcpForTests, TOOL_NAMES } from '@service/webMcp';
+import { SETTINGS_KEY } from '@service/settings';
+import {
+  acquireWebMcpTools,
+  buildWebMcpTools,
+  isWebMcpSupported,
+  resetWebMcpForTests,
+  setWebMcpEnabled,
+  TOOL_NAMES,
+} from '@service/webMcp';
 import { TraceType } from '@type/grammar';
 
 const OWNER_KEY = Symbol.for('maidr.webmcp.owner');
@@ -148,8 +156,8 @@ let fake: FakeModelContext;
 let warn: jest.SpiedFunction<typeof console.warn>;
 let error: jest.SpiedFunction<typeof console.error>;
 
-/** Puts the opt-in tag in the document. */
-function optIn(content = 'on'): void {
+/** Puts the page author's `maidr-webmcp` tag in the document. */
+function pageTag(content: string): void {
   const meta = document.createElement('meta');
   meta.name = 'maidr-webmcp';
   meta.content = content;
@@ -184,6 +192,7 @@ afterEach(() => {
   delete (navigator as unknown as Record<string, unknown>).modelContext;
   delete (globalThis as unknown as Record<symbol, unknown>)[OWNER_KEY];
   document.head.innerHTML = '';
+  localStorage.clear();
   warn.mockRestore();
   error.mockRestore();
 });
@@ -205,45 +214,123 @@ describe('registration', () => {
     expect(reads).toBe(0);
     expect((globalThis as unknown as Record<symbol, unknown>)[OWNER_KEY]).toBeUndefined();
 
-    optIn();
+    const getItem = jest.spyOn(Storage.prototype, 'getItem');
     const handle = acquireWebMcpTools(new LiveDataManager());
     expect(() => handle.dispose()).not.toThrow();
     jest.runAllTimers();
+    expect(getItem).not.toHaveBeenCalled();
+    getItem.mockRestore();
     expect(warn).not.toHaveBeenCalled();
     expect(error).not.toHaveBeenCalled();
   });
 
-  it('should register only when the page opts in, in a secure context', () => {
+  it('should register by default, in a secure context only', () => {
     installContext('document', fake);
     const manager = new LiveDataManager();
 
+    setSecure(false);
     let handle = acquireWebMcpTools(manager);
     expect(fake.calls).toHaveLength(0);
-    handle.dispose();
-    jest.runAllTimers();
-
-    optIn('off');
-    handle = acquireWebMcpTools(manager);
-    expect(fake.calls).toHaveLength(0);
-    handle.dispose();
-    jest.runAllTimers();
-
-    document.head.innerHTML = '';
-    optIn(' ON ');
-    setSecure(false);
-    handle = acquireWebMcpTools(manager);
-    expect(fake.calls).toHaveLength(0);
+    expect(isWebMcpSupported()).toBe(false);
     handle.dispose();
     jest.runAllTimers();
 
     setSecure(true);
     handle = acquireWebMcpTools(manager);
     expect(fake.tools.size).toBe(3);
+    expect(isWebMcpSupported()).toBe(true);
     handle.dispose();
   });
 
+  it('should register nothing on a page whose author switched the tools off', () => {
+    installContext('document', fake);
+    pageTag(' OFF ');
+
+    const handle = acquireWebMcpTools(new LiveDataManager());
+    setWebMcpEnabled(true);
+
+    expect(fake.calls).toHaveLength(0);
+    expect(warn).not.toHaveBeenCalled();
+    handle.dispose();
+  });
+
+  it('should treat the page\'s old "on" tag as the default', () => {
+    installContext('document', fake);
+    pageTag('on');
+
+    acquireWebMcpTools(new LiveDataManager());
+
+    expect(fake.tools.size).toBe(3);
+  });
+
+  it.each<[string, unknown, number]>([
+    ['off in the saved settings', false, 0],
+    ['on in the saved settings', true, 3],
+    ['missing from older saved settings', undefined, 3],
+    ['not a boolean in the saved settings', 'no', 3],
+  ])('should follow the reader\'s setting when it is %s', (_label, agentTools, expected) => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { volume: 10, agentTools } }));
+    installContext('document', fake);
+
+    acquireWebMcpTools(new LiveDataManager());
+
+    expect(fake.tools.size).toBe(expected);
+  });
+
+  it('should register and unregister at once when the reader changes the setting', () => {
+    fake.unregisterTool = jest.fn<(name: string) => void>();
+    installContext('document', fake);
+    const first = acquireWebMcpTools(new LiveDataManager());
+    const second = acquireWebMcpTools(new LiveDataManager());
+    expect(fake.tools.size).toBe(3);
+    const signal = fake.calls[0].options?.signal;
+
+    setWebMcpEnabled(false);
+
+    expect(signal?.aborted).toBe(true);
+    expect(fake.tools.size).toBe(0);
+    expect(fake.unregisterTool.mock.calls.map(([name]) => name)).toEqual(Object.values(TOOL_NAMES));
+    // A later mount honours the choice too.
+    const third = acquireWebMcpTools(new LiveDataManager());
+    expect(fake.calls).toHaveLength(3);
+
+    setWebMcpEnabled(true);
+
+    expect(fake.tools.size).toBe(3);
+    expect(fake.calls).toHaveLength(6);
+    expect(fake.calls[3].options?.signal?.aborted).toBe(false);
+    setWebMcpEnabled(true);
+    expect(fake.calls).toHaveLength(6);
+
+    first.dispose();
+    second.dispose();
+    third.dispose();
+    jest.runAllTimers();
+    expect(fake.tools.size).toBe(0);
+  });
+
+  it('should register nothing when the setting is turned on with no chart mounted', () => {
+    installContext('document', fake);
+    acquireWebMcpTools(new LiveDataManager()).dispose();
+    jest.runAllTimers();
+    setWebMcpEnabled(false);
+
+    setWebMcpEnabled(true);
+
+    expect(fake.tools.size).toBe(0);
+  });
+
+  it('should prefer the reader\'s latest choice on the page over what storage says', () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { agentTools: true } }));
+    installContext('document', fake);
+    setWebMcpEnabled(false);
+
+    acquireWebMcpTools(new LiveDataManager());
+
+    expect(fake.calls).toHaveLength(0);
+  });
+
   it('should prefer document.modelContext and fall back to navigator.modelContext', () => {
-    optIn();
     const legacy = new FakeModelContext();
     installContext('navigator', legacy);
     installContext('document', fake);
@@ -260,7 +347,6 @@ describe('registration', () => {
   });
 
   it('should register three well-formed tools sharing one live signal', () => {
-    optIn();
     installContext('document', fake);
     acquireWebMcpTools(new LiveDataManager());
 
@@ -283,7 +369,6 @@ describe('registration', () => {
   });
 
   it('should register once for every chart, and unregister a tick after the last goes', () => {
-    optIn();
     fake.unregisterTool = jest.fn<(name: string) => void>(() => {
       throw new Error('already gone');
     });
@@ -331,7 +416,6 @@ describe('registration', () => {
     const unhandled = jest.fn();
     process.on('unhandledRejection', unhandled);
     try {
-      optIn();
       fake.mode = mode;
       fake.failing = TOOL_NAMES.GET_LAYER_DATA;
       installContext('document', fake);
@@ -352,7 +436,6 @@ describe('registration', () => {
   });
 
   it('should warn once for all failures of one install', async () => {
-    optIn();
     fake.mode = 'notAllowed';
     installContext('document', fake);
     acquireWebMcpTools(new LiveDataManager());
@@ -361,7 +444,6 @@ describe('registration', () => {
   });
 
   it('should warn once for the page, however often the charts remount', async () => {
-    optIn();
     fake.mode = 'notAllowed';
     installContext('document', fake);
     const manager = new LiveDataManager();
@@ -376,13 +458,14 @@ describe('registration', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('should retry on a later mount when the opt-in tag arrives after the first chart', () => {
+  it('should retry on a later mount when the page\'s off tag is gone', () => {
     installContext('document', fake);
+    pageTag('off');
     const manager = new LiveDataManager();
     const first = acquireWebMcpTools(manager);
     expect(fake.calls).toHaveLength(0);
 
-    optIn();
+    document.head.innerHTML = '';
     const second = acquireWebMcpTools(manager);
 
     expect(fake.tools.size).toBe(3);
@@ -391,7 +474,6 @@ describe('registration', () => {
   });
 
   it('should take the tools over when the copy that provided them lets go', () => {
-    optIn();
     installContext('document', fake);
     (globalThis as unknown as Record<symbol, unknown>)[OWNER_KEY] = true;
     const handle = acquireWebMcpTools(new LiveDataManager());
@@ -409,7 +491,6 @@ describe('registration', () => {
   });
 
   it('should not take the tools over once its own charts are gone', () => {
-    optIn();
     installContext('document', fake);
     (globalThis as unknown as Record<symbol, unknown>)[OWNER_KEY] = true;
     acquireWebMcpTools(new LiveDataManager()).dispose();
@@ -422,7 +503,6 @@ describe('registration', () => {
   });
 
   it('should hand the tools on when it lets them go', () => {
-    optIn();
     installContext('document', fake);
     const released = jest.fn();
     window.addEventListener('maidr:webmcp-released', released);
@@ -437,7 +517,6 @@ describe('registration', () => {
   });
 
   it('should accept a registerTool that returns nothing', async () => {
-    optIn();
     fake.mode = 'undefined';
     installContext('document', fake);
     acquireWebMcpTools(new LiveDataManager());
@@ -447,7 +526,6 @@ describe('registration', () => {
   });
 
   it('should leave the tools to another copy of maidr that registered first', () => {
-    optIn();
     installContext('document', fake);
     (globalThis as unknown as Record<symbol, unknown>)[OWNER_KEY] = true;
 

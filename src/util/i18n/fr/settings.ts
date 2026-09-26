@@ -22,6 +22,8 @@ export const settings = {
   'settings.hoverMode': 'Mode de survol',
   'settings.hoverOnHover': 'Survol',
   'settings.hoverOnClick': 'Clic',
+  'settings.agentTools': 'Accès des agents IA du navigateur',
+  'settings.agentToolsHint': 'Permet à un assistant IA intégré à votre navigateur de lire les données des graphiques de cette page et, à votre demande, d\'y déplacer votre position.',
 
   'settings.volume': 'Volume',
   'settings.minFrequencyRow': 'Fréquence minimale (Hz)',
