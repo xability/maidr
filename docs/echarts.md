@@ -101,10 +101,13 @@ What the adapter does for them:
   column". Before this, a Metabase bar was announced with the first metric's
   values whatever it was drawn from, and an encoded pie produced no layer.
 - **A time axis is announced as dates.** `2024-01-01` rather than
-  `1704067200000`. A scatter point keeps its numeric `x` and carries the date
-  as its `xLabel`.
-- **A bar with its time on the y axis is horizontal.** This is how Superset
-  turns a time-series bar on its side.
+  `1704067200000`, in the chart's own time zone: UTC when it sets
+  `useUTC: true`, as both tools do, and local time otherwise, which is
+  ECharts' default. A scatter point keeps its numeric `x` and carries the
+  date as its `xLabel`.
+- **A bar chart with its time on the y axis is horizontal.** This is how
+  Superset turns a time-series bar on its side. A line drawn down a time axis
+  is read as it was.
 - **A series with no name is named by its `id`.** Without this, the Metabase
   segments of one stacked bar were all announced as "Series 1", "Series 2", …
   An id ECharts invented for itself begins with a NUL character and is never
@@ -131,6 +134,10 @@ import { bindAllECharts } from 'maidr/echarts';
 
 bindAllECharts(echarts);
 ```
+
+`bindEChart` and `bindAllECharts` take an instance typed only by its public
+members. ECharts' own typings declare `getModel` private, so an interface
+naming it would refuse an `ECharts` instance.
 
 - **Superset** — run this once from the frontend's setup, alongside the plugin
   registration in `superset-frontend/src/setup/setupPlugins.ts`. It binds every
@@ -464,7 +471,15 @@ knows where every mark is. Measured on 6.1.0:
 
 All of these are in the chart's CSS pixels. A datum with no value comes back
 with a `null` coordinate rather than being left out, so "has a finite layout"
-is exactly "was drawn".
+is exactly "was drawn". A bar on a polar grid is laid out as a sector and
+drawn as one.
+
+What the overlay does not cover: every other series type, a funnel included;
+a series drawn with `large: true`; and the shape of a smooth or stepped line,
+whose outline is drawn straight from point to point. A series drawn
+progressively — ECharts draws a few hundred points a frame past its
+`progressiveThreshold` — is outlined once it has finished, which is why
+`bindEChart` always reads a chart again at its next `finished`.
 
 So the marks are drawn from the model into an `<svg>` laid over the canvas.
 They are painted the way the SVG renderer paints them, at zero opacity, and

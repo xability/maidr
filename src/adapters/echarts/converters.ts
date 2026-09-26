@@ -184,7 +184,7 @@ export function createMaidrFromEChart(
     // never meet. A chart that declares both families anyway is read as the
     // owning half and says so, rather than dropping the other in silence.
     ? readOwning(owning, readable, container, model)
-    : buildLayers(readable, axisNames(model), categories(model), container);
+    : buildLayers(readable, axisNames(model, readable), categories(model), container);
   const title = options.title ?? componentText(model, 'title', 'text');
   const subplot: MaidrSubplot = { layers };
 
@@ -320,9 +320,16 @@ interface Axes {
    * {@link positionOf}.
    */
   dated: boolean;
+  /**
+   * Whether a time is announced in UTC, which ECharts' `useUTC` decides for
+   * the whole chart -- see {@link instant}.
+   */
+  utc: boolean;
+  /** Whether the x axis names categories rather than measuring anything. */
+  categoricalX: boolean;
 }
 
-function axisNames(model: EChartsModel): Axes {
+function axisNames(model: EChartsModel, series: EChartsSeriesModel[]): Axes {
   const x = firstComponent(model, 'xAxis');
   const y = firstComponent(model, 'yAxis');
 
@@ -332,15 +339,24 @@ function axisNames(model: EChartsModel): Axes {
   // its side by exchanging its axes, which leaves `yAxis: {type: 'time'}`
   // against `xAxis: {type: 'value'}` -- measured on Superset 6.1.0, where the
   // bars were read upright with their dates as the magnitude's partner and
-  // announced as "1704067200000" (#1304).
-  const horizontal = yType === 'category'
-    || (yType === 'time' && xType !== 'time' && xType !== 'category');
+  // announced as "1704067200000" (#1304). Only for bars: a line drawn down a
+  // time axis on y was read correctly as it was, x against its own name, and
+  // turning it would pair each axis's name with the other axis's values.
+  const sidewaysTime = yType === 'time'
+    && xType !== 'time'
+    && xType !== 'category'
+    && series.every(seriesModel => BAR.has(seriesModel.subType));
+  const horizontal = yType === 'category' || sidewaysTime;
 
   return {
     x: text(x?.get('name')),
     y: text(y?.get('name')),
     horizontal,
     dated: (horizontal ? yType : xType) === 'time',
+    // ECharts' own default is local time; a model that cannot say is read in
+    // UTC, which is what both Superset and Metabase ask for.
+    utc: model.get ? model.get('useUTC') === true : true,
+    categoricalX: xType === 'category',
   };
 }
 
@@ -650,7 +666,7 @@ function positionOf(
   // is "1577836800000". Superset draws every time series on one, and so does
   // Metabase for a date column (#1304) -- the reading a theme river's time
   // axis already gets.
-  return axes.dated ? instant(value, true) : value;
+  return axes.dated ? instant(value, true, axes.utc) : value;
 }
 
 /**
@@ -867,14 +883,16 @@ function xLabelOf(data: EChartsList, index: number, axes: Axes): string | undefi
   if (axes.horizontal) {
     return undefined;
   }
-  const name = data.getName(index);
-  if (name) {
-    return name;
+  // Only a category axis's name: on a value axis `getName` is the point's
+  // own name (`{ name: 'Japan', value: [1, 2] }`), which is not what its x
+  // is called, and an x label there would take the x value out of the reading.
+  if (axes.categoricalX) {
+    return data.getName(index) || undefined;
   }
   if (!axes.dated) {
     return undefined;
   }
-  const at = instant(data.get(dimensionOf(data, 'x', 0), index), true);
+  const at = instant(data.get(dimensionOf(data, 'x', 0), index), true, axes.utc);
   return typeof at === 'string' ? at : undefined;
 }
 

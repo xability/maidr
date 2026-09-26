@@ -201,6 +201,11 @@ export interface EChartsComponentModel {
  * A rendered chart's resolved model.
  */
 export interface EChartsModel {
+  /**
+   * Read one of the chart's global options, such as `useUTC`. Optional
+   * because a hand-written model may lack it.
+   */
+  get?: (key: string) => unknown;
   /** Visit every series, in declaration order. */
   eachSeries: (
     callback: (series: EChartsSeriesModel, index: number) => void,

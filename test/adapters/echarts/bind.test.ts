@@ -23,6 +23,8 @@ interface FakeChart extends EChartsBindable {
   /** What `getOption()` answers. */
   option: { values: number[] };
   width: number;
+  /** The series type the model reports. */
+  subType: string;
   /** Draws the chart again from new values, as ECharts' own does. */
   setOption: (next: number[]) => void;
 }
@@ -39,6 +41,7 @@ function fakeChart(host: HTMLElement, values: number[]): FakeChart {
   const chart: FakeChart = {
     option: { values },
     width: 600,
+    subType: 'bar',
     finish: () => handlers.forEach(handler => handler()),
     on: (_, handler) => handlers.add(handler),
     off: (_, handler) => handlers.delete(handler),
@@ -55,7 +58,7 @@ function fakeChart(host: HTMLElement, values: number[]): FakeChart {
     getModel: () => ({
       eachSeries: (callback) => {
         callback({
-          subType: 'bar',
+          subType: chart.subType,
           name: 'series\u00000',
           get: () => undefined,
           getData: () => ({
@@ -119,36 +122,60 @@ describe('bindEChart', () => {
     ]);
   });
 
-  it('does not read the chart again for a render that changed nothing', () => {
+  it('reads the chart again once it has finished, then not for a render that changed nothing', () => {
+    // A large series is drawn a few hundred points a frame, so the reading
+    // taken at bind time may have found only some of its marks.
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
 
     chart.finish();
     chart.finish();
+    chart.finish();
 
-    expect(bound).toHaveLength(1);
+    expect(bound).toHaveLength(2);
   });
 
   it('reads the chart again when its data changes', () => {
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
+    chart.finish();
 
     chart.setOption([1, 2, 3]);
     chart.finish();
 
-    expect(bound).toHaveLength(2);
-    const maidr = JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}');
+    expect(bound).toHaveLength(3);
+    const maidr = JSON.parse(bound[2].getAttribute('maidr-data') ?? '{}');
     expect(maidr.subplots[0][0].layers[0].data).toHaveLength(3);
   });
 
   it('reads the chart again when it is resized', () => {
     const chart = fakeChart(tile(), [1, 2]);
     bindEChart(chart);
+    chart.finish();
 
     chart.width = 300;
     chart.finish();
 
-    expect(bound).toHaveLength(2);
+    expect(bound).toHaveLength(3);
+  });
+
+  it('unbinds a chart that can no longer be read, and warns about it once', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = fakeChart(tile(), [1, 2]);
+    bindEChart(chart);
+    chart.finish();
+    const target = bound[0];
+
+    // A series the adapter does not read, as a `custom` series would be.
+    chart.subType = 'custom';
+    chart.setOption([3]);
+    chart.finish();
+    chart.finish();
+
+    expect(unbound).toEqual([target]);
+    expect(target.hasAttribute('maidr-data')).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('waits for a chart that has not drawn yet', () => {
@@ -161,6 +188,26 @@ describe('bindEChart', () => {
     chart.setOption([1]);
     chart.finish();
     expect(bound).toHaveLength(1);
+  });
+
+  it('does not count MAIDR\'s own elements among the marks when read again', () => {
+    // A reader focused on the chart leaves highlight clones in the drawing,
+    // copied with the stamp; a refresh read then while they were there
+    // counted them and lost the chart its highlighting.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = fakeChart(tile(), [1, 2]);
+    bindEChart(chart);
+    const svg = tile().querySelector('svg') as SVGSVGElement;
+    const clone = svg.firstElementChild?.cloneNode(true) as Element;
+    clone.setAttribute('data-maidr-owned', 'true');
+    svg.appendChild(clone);
+
+    chart.finish();
+
+    expect(warn).not.toHaveBeenCalled();
+    const maidr = JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}');
+    expect(maidr.subplots[0][0].layers[0].selectors).toHaveLength(2);
+    warn.mockRestore();
   });
 
   it('stops listening and tears MAIDR down when unbound', () => {
@@ -214,6 +261,26 @@ describe('bindAllECharts', () => {
     await frame();
 
     expect(unbound).toEqual([target]);
+    stop();
+  });
+
+  it('binds a chart created again on the same element', async () => {
+    // echarts-for-react disposes and re-creates a chart on a theme change,
+    // and React's StrictMode does it on every mount in development.
+    const charts = new Map<HTMLElement, EChartsBindable>();
+    tile().setAttribute('_echarts_instance_', 'ec_1');
+    charts.set(tile(), fakeChart(tile(), [1]));
+    const stop = bindAllECharts(library(charts));
+    const first = bound[0];
+
+    charts.set(tile(), fakeChart(tile(), [1, 2]));
+    tile().setAttribute('_echarts_instance_', 'ec_2');
+    await frame();
+
+    expect(unbound).toEqual([first]);
+    expect(bound).toHaveLength(2);
+    const maidr = JSON.parse(bound[1].getAttribute('maidr-data') ?? '{}');
+    expect(maidr.subplots[0][0].layers[0].data).toHaveLength(2);
     stop();
   });
 

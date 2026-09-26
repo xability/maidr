@@ -136,6 +136,17 @@ describe('a chart drawn to a canvas', () => {
     expect(line?.getAttribute('stroke-width')).toBe('2');
   });
 
+  it('draws a bar on a polar grid as the sector it is laid out as', () => {
+    const root = canvasChart();
+    const sector = { cx: 100, cy: 100, r0: 0, r: 50, startAngle: 0, endAngle: 1 };
+    const chart = fakeInstance([{ type: 'bar', values: [1, 2], layouts: [sector, { ...sector, r: 80 }] }]);
+
+    const [layer] = createMaidrFromEChart(chart, root).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(document.querySelector((layer.selectors as string[])[1])?.tagName).toBe('path');
+  });
+
   it('draws a pie slice as a wedge', () => {
     const root = canvasChart();
     const slice = { cx: 100, cy: 100, r0: 0, r: 50, startAngle: 0, endAngle: Math.PI / 2 };

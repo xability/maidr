@@ -12,7 +12,7 @@
  *
  * | series | `data.getItemLayout(i)` |
  * |---|---|
- * | `bar`, `pictorialBar` | `{ x, y, width, height }`, `height` signed |
+ * | `bar`, `pictorialBar` | `{ x, y, width, height }`, `height` signed; a sector on a polar grid |
  * | `scatter` | `[x, y]` |
  * | `pie` | `{ cx, cy, r0, r, startAngle, endAngle, clockwise }` |
  * | `sunburst` | the same, per tree node, from `node.getLayout()` |
@@ -117,9 +117,13 @@ function drawSeries(overlay: SVGSVGElement, seriesModel: EChartsSeriesModel): vo
     case 'bar':
     case 'pictorialBar':
       eachLayout(data, (layout, index) => {
+        // A bar on a polar grid is laid out as a sector, not a rectangle.
         const rect = rectOf(layout);
+        const d = rect ? undefined : wedgeOf(layout);
         if (rect) {
           overlay.appendChild(filled(overlay, 'rect', rect, paintOf(data, index)));
+        } else if (d) {
+          overlay.appendChild(filled(overlay, 'path', { d }, paintOf(data, index)));
         }
       });
       return;
@@ -198,10 +202,10 @@ function drawLine(
 
   if (seriesModel.get('areaStyle')) {
     // One filled mark for the whole band, which is what the reading counts
-    // for an area. Closed down to the series it is stacked on when it is
-    // stacked, and on itself otherwise -- it is never outlined, only counted.
-    const below = pairs(data.getLayout?.('stackedOnPoints')).reverse();
-    const edge = [...points, ...below].filter(isPlaced);
+    // for an area. It is never outlined, only counted, so its shape is the
+    // curve closed on itself: measured on 6.1.0, `getLayout` has no
+    // `stackedOnPoints` to close it down to, stacked or not.
+    const edge = points.filter(isPlaced);
     if (edge.length > 0) {
       overlay.appendChild(filled(overlay, 'path', { d: `${polyline(edge)} Z` }, paint));
     }

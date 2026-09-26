@@ -50,6 +50,9 @@ const SERIES_ATTRIBUTE = 'data-maidr-echart-line';
  */
 const GROUP_ATTRIBUTE = 'data-maidr-echart-group';
 
+/** What MAIDR writes on the elements it inserts; see `Svg.markOwned`. */
+const OWNED_ATTRIBUTE = 'data-maidr-owned';
+
 /**
  * Paints that are chart furniture rather than data.
  *
@@ -185,7 +188,13 @@ function candidates(container: HTMLElement, kind: 'filled' | 'stroked'): Element
 
   const test = kind === 'filled' ? isFilledMark : isStrokedLine;
 
-  return Array.from(svg.querySelectorAll('path,rect,circle')).filter(test);
+  // MAIDR's own elements are not the chart's. Once a reader has focused the
+  // chart, its highlight clones -- copied with the stamp -- and a line's
+  // hidden markers in the series colour sit among the marks, and a chart read
+  // again while they are there (a Superset or Metabase refresh, a filter)
+  // counted them and lost its highlighting (#1304).
+  return Array.from(svg.querySelectorAll('path,rect,circle'))
+    .filter(element => !element.hasAttribute(OWNED_ATTRIBUTE) && test(element));
 }
 
 /**

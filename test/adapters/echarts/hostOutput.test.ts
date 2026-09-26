@@ -65,6 +65,7 @@ function fakeSeries(series: FakeSeries, index: number): EChartsSeriesModel {
 function fakeInstance(
   series: FakeSeries[],
   axes: { x?: Record<string, unknown>; y?: Record<string, unknown> } = {},
+  global?: Record<string, unknown>,
 ): EChartsInstance {
   const components: Record<string, Record<string, unknown>[]> = {
     xAxis: [axes.x ?? { type: 'category' }],
@@ -73,6 +74,7 @@ function fakeInstance(
   };
   return {
     getModel: () => ({
+      ...(global ? { get: (key: string) => global[key] } : {}),
       eachSeries: (callback) => {
         series.forEach((one, index) => callback(fakeSeries(one, index), index));
       },
@@ -282,6 +284,71 @@ describe('a time axis', () => {
     expect(layer.data as ScatterPoint[]).toEqual([
       { x: 1704067200000, y: 989.44, xLabel: '2024-01-01' },
     ]);
+  });
+
+  it('leaves a line drawn down a time axis upright, each axis with its own name', () => {
+    const chart = fakeInstance(
+      [{
+        type: 'line',
+        columns: { x: [1, 2], y: [1704067200000, 1706745600000] },
+        encode: { x: 'x', y: 'y' },
+      }],
+      { x: { type: 'value', name: 'Depth' }, y: { type: 'time', name: 'When' } },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(0, 1)).subplots[0][0].layers;
+
+    expect((layer.data as LinePoint[][])[0][0]).toEqual({ x: 1, y: 1704067200000 });
+    expect(layer.axes?.x?.label).toBe('Depth');
+  });
+
+  it('announces a date in local time when the chart draws in local time', () => {
+    // ECharts' own default: `useUTC: false`. A local midnight read in UTC was
+    // the day before east of Greenwich.
+    const midnight = new Date(2024, 0, 1).getTime();
+    const chart = fakeInstance(
+      [{
+        type: 'line',
+        columns: { x: [midnight, midnight + 90 * 60 * 1000], y: [5, 7] },
+        encode: { x: 'x', y: 'y' },
+      }],
+      { x: { type: 'time' } },
+      { useUTC: false },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(0, 1)).subplots[0][0].layers;
+
+    expect((layer.data as LinePoint[][])[0].map(point => point.x)).toEqual([
+      '2024-01-01',
+      '2024-01-01 01:30:00',
+    ]);
+  });
+
+  it('labels a scatter point on a category axis with its category, not a named point on a value axis', () => {
+    const categorical = fakeInstance(
+      [{
+        type: 'scatter',
+        names: ['a'],
+        columns: { x: [0], y: [2] },
+        encode: { x: 'x', y: 'y' },
+      }],
+      { x: { type: 'category' } },
+    );
+    const named = fakeInstance(
+      [{
+        type: 'scatter',
+        names: ['Japan'],
+        columns: { x: [1], y: [2] },
+        encode: { x: 'x', y: 'y' },
+      }],
+      { x: { type: 'value' } },
+    );
+
+    const [labelled] = createMaidrFromEChart(categorical, drawnChart(1, 0)).subplots[0][0].layers;
+    const [plain] = createMaidrFromEChart(named, drawnChart(1, 0)).subplots[0][0].layers;
+
+    expect(labelled.data as ScatterPoint[]).toEqual([{ x: 0, y: 2, xLabel: 'a' }]);
+    expect(plain.data as ScatterPoint[]).toEqual([{ x: 1, y: 2 }]);
   });
 
   it('leaves a value axis as the numbers it carries', () => {

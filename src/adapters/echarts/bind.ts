@@ -50,6 +50,24 @@ export interface EChartsBindable extends EChartsInstance {
 }
 
 /**
+ * What the binding functions accept for an instance.
+ *
+ * Looser than {@link EChartsBindable}, which is what is actually read,
+ * because ECharts' own typings declare `getModel` private: an instance typed
+ * `ECharts` is not assignable to an interface that names it, so a TypeScript
+ * caller could not pass `echarts.init(...)` at all. Every member named here is
+ * public, and the rest are there at runtime on every instance.
+ */
+export interface EChartsHandle {
+  /** The element passed to `echarts.init`. */
+  getDom: () => HTMLElement;
+  /** The chart's width in CSS pixels. */
+  getWidth: () => number;
+  /** The chart's height in CSS pixels. */
+  getHeight: () => number;
+}
+
+/**
  * The part of the `echarts` module {@link bindAllECharts} needs.
  *
  * `echarts.getInstanceByDom` looks the instance up in a registry private to
@@ -58,7 +76,7 @@ export interface EChartsBindable extends EChartsInstance {
  */
 export interface EChartsLibrary {
   /** The instance drawn into an element, if there is one. */
-  getInstanceByDom: (dom: HTMLElement) => EChartsBindable | undefined;
+  getInstanceByDom: (dom: HTMLElement) => EChartsHandle | undefined;
 }
 
 /** What ECharts writes on every element it was initialised on. */
@@ -73,24 +91,47 @@ const INSTANCE_ATTRIBUTE = '_echarts_instance_';
  * neither, so a reader is not moved back to the start of the chart because
  * someone else's mouse crossed it.
  *
+ * The reading taken now is always taken again at the chart's next
+ * `finished`: a large series is drawn progressively, a few hundred points a
+ * frame, and until it has finished only those points have a place to be
+ * outlined at. A chart that can no longer be read -- its series replaced by
+ * a type the adapter does not read -- is unbound rather than left announcing
+ * data that is no longer drawn.
+ *
  * Call the returned function before disposing the chart, or when it should
  * no longer be read; it unsubscribes and tears the MAIDR instance down.
  *
- * @param chart   - The instance returned by `echarts.init`
+ * @param handle  - The instance returned by `echarts.init`
  * @param options - Overrides for the figure's id and title
  * @returns A function that unbinds the chart
  */
 export function bindEChart(
-  chart: EChartsBindable,
+  handle: EChartsHandle,
   options: EChartsAdapterOptions = {},
 ): () => void {
+  const chart = handle as EChartsBindable;
   let drawnFrom: string | undefined;
   let target: HTMLElement | undefined;
+  // What the last failed reading was taken from, so an option the adapter
+  // cannot read is warned about once rather than on every hover.
+  let failedOn: string | undefined;
 
-  const read = (): void => {
+  const unbindTarget = (): void => {
+    if (target) {
+      unbindElement(target);
+      target = undefined;
+    }
+  };
+
+  const read = (settled: boolean): void => {
     const next = drawingRoot(chart);
     const signature = signatureOf(chart);
-    if (!next || (next === target && signature !== undefined && signature === drawnFrom)) {
+    if (!next) {
+      return;
+    }
+    const unchanged = signature !== undefined
+      && (signature === failedOn || (next === target && signature === drawnFrom));
+    if (unchanged) {
       return;
     }
 
@@ -99,27 +140,29 @@ export function bindEChart(
       maidr = createMaidrFromEChart(chart, next, options);
     } catch (error) {
       console.warn('[MAIDR] ECharts chart could not be read:', error);
+      unbindTarget();
+      drawnFrom = undefined;
+      failedOn = signature;
       return;
     }
 
-    if (target && target !== next) {
-      unbindElement(target);
+    if (target !== next) {
+      unbindTarget();
     }
     target = next;
-    drawnFrom = signature;
+    failedOn = undefined;
+    drawnFrom = settled ? signature : undefined;
     next.setAttribute('maidr-data', JSON.stringify(maidr));
     next.dispatchEvent(new CustomEvent('maidr:bindchart', { bubbles: true }));
   };
 
-  chart.on('finished', read);
-  read();
+  const onFinished = (): void => read(true);
+  chart.on('finished', onFinished);
+  read(false);
 
   return () => {
-    chart.off('finished', read);
-    if (target) {
-      unbindElement(target);
-      target = undefined;
-    }
+    chart.off('finished', onFinished);
+    unbindTarget();
   };
 }
 
@@ -141,11 +184,16 @@ export function bindAllECharts(
   echarts: EChartsLibrary,
   root: ParentNode = document,
 ): () => void {
-  const bound = new Map<HTMLElement, () => void>();
+  // Keyed by element, and holding the instance it was bound to: a chart
+  // disposed and created again on the same element within one frame --
+  // which echarts-for-react does on a theme change, and React's StrictMode
+  // on every mount in development -- is a new instance there, and has to be
+  // bound again.
+  const bound = new Map<HTMLElement, { chart: EChartsHandle; unbind: () => void }>();
 
   const scan = (): void => {
-    for (const [dom, unbind] of bound) {
-      if (!dom.isConnected || !echarts.getInstanceByDom(dom)) {
+    for (const [dom, { chart, unbind }] of bound) {
+      if (!dom.isConnected || echarts.getInstanceByDom(dom) !== chart) {
         unbind();
         bound.delete(dom);
       }
@@ -153,20 +201,23 @@ export function bindAllECharts(
     root.querySelectorAll<HTMLElement>(`[${INSTANCE_ATTRIBUTE}]`).forEach((dom) => {
       const chart = bound.has(dom) ? undefined : echarts.getInstanceByDom(dom);
       if (chart) {
-        bound.set(dom, bindEChart(chart));
+        bound.set(dom, { chart, unbind: bindEChart(chart) });
       }
     });
   };
 
   // A dashboard adds and removes charts, and ECharts' SVG renderer rewrites
   // its own elements on every hover; one scan per frame is enough for both.
+  const nextFrame = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (callback: () => void) => setTimeout(callback, 16);
   let pending = false;
   const observer = new MutationObserver(() => {
     if (pending) {
       return;
     }
     pending = true;
-    requestAnimationFrame(() => {
+    nextFrame(() => {
       pending = false;
       scan();
     });
@@ -181,7 +232,7 @@ export function bindAllECharts(
 
   return () => {
     observer.disconnect();
-    bound.forEach(unbind => unbind());
+    bound.forEach(({ unbind }) => unbind());
     bound.clear();
   };
 }

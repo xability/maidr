@@ -52,6 +52,7 @@ export {
   bindAllECharts,
   bindEChart,
   type EChartsBindable,
+  type EChartsHandle,
   type EChartsLibrary,
 } from './bind';
 
