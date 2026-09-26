@@ -44,6 +44,13 @@ export const EXCLUDED_EXAMPLES = [
       + 'Recharts group links that build.',
   },
   {
+    page: 'mui-x-charts/index.html',
+    reason:
+      'Vite entry point, not a page. `npm run build:mui-x-charts-example` bundles it '
+      + 'into a single file that build-site.js copies over this path in _site; the '
+      + 'MUI X Charts group links that build.',
+  },
+  {
     page: 'tableau-extension/configure.html',
     reason:
       'The Tableau extension\'s configuration dialog. Tableau opens it from the '
@@ -534,6 +541,12 @@ export const GROUPS = [
     heading: 'Victory',
     statics: [{ href: 'examples/victory/index.html', onclick: 'loadVictory()', label: 'Victory Examples (Bar, Line, Scatter, Stacked, Histogram, Box, Candlestick)' }],
     note: 'See the <a href="victory.html">Victory Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
+  },
+  {
+    id: 'mui-x-charts',
+    heading: 'MUI X Charts',
+    statics: [{ href: 'examples/mui-x-charts/index.html', onclick: 'loadMuiXCharts()', label: 'MUI X Charts Examples (Bar, Grouped, Stacked, Horizontal, Line, Area, Scatter, Pie)' }],
+    note: 'See the <a href="mui-x-charts.html">MUI X Charts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {
     id: 'anychart',

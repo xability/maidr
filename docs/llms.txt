@@ -29,6 +29,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Apache ECharts](https://maidr.ai/echarts.html): Bar, stacked bar, dodged bar, line, area, step and scatter series
 - [Frappe Charts](https://maidr.ai/frappe.html): Bar, line, multi-line, scatter, mixed axis, pie and donut charts
 - [Victory](https://maidr.ai/victory.html): Bar, line, scatter, stacked, histogram, box plot, candlestick and pie charts for React
+- [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, grouped, stacked and horizontal bar, line, area, scatter and pie charts from @mui/x-charts
 - [AnyChart](https://maidr.ai/anychart.html): Bar, line, step, scatter, box, heatmap, candlestick and pie charts via a one-line binder
 - [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
 - [TradingView Lightweight Charts](https://maidr.ai/lightweight-charts.html): Candlestick, OHLC bar, line, area, baseline and histogram series across panes, with live streaming

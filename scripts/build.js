@@ -383,6 +383,21 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'mui-x-charts',
+    entry: 'src/mui-x-charts-entry.ts',
+    formats: ['es'],
+    fileName: () => 'mui-x-charts.mjs',
+    emptyOutDir: false,
+    // Like Victory: a React-only integration used from a bundler, so React
+    // stays external. `@mui/x-charts` is never imported -- the adapter reads
+    // the chart element's props and the classes MUI stamps on its SVG -- so
+    // there is nothing of it to externalize.
+    external: ['react', 'react-dom', 'react/jsx-runtime'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'anychart',
     entry: 'src/anychart-entry.ts',
     libName: 'maidrAnyChart',

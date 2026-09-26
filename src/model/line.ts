@@ -1387,6 +1387,24 @@ export class LineTrace extends AbstractTrace {
       this.lineElements.push(lineElement as SVGElement);
 
       const coordinates = this.readVertices(lineElement);
+
+      // A series with gaps drawn as ONE path whose subpaths skip them -- MUI
+      // X Charts draws `[5, null, 10]` as `M65,255Z M380,20Z` -- has a vertex
+      // per reading, not per point. Placing every point by its x along those
+      // vertices put the markers after a gap one sample off, and on a
+      // category axis, where x is not a number, all at the first vertex.
+      // When the counts say so, the vertices are the readings in order, which
+      // is how a series drawn in several pieces is already read.
+      const measured = this.points[r].filter(point => isMeasured(toBarValue(point.y))).length;
+      if (measured < this.points[r].length && coordinates.length === measured) {
+        const markers = this.markersAlongPieces([lineElement as SVGElement], r);
+        if (markers.length > 0) {
+          allFailed = false;
+        }
+        svgElements.push(markers);
+        continue;
+      }
+
       this.reconcilePathCoordinates(coordinates, r);
 
       // Where every marker of this series goes, worked out before any of
