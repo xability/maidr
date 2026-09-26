@@ -85,6 +85,11 @@
       "import": "./dist/frappe.mjs",
       "default": "./dist/frappe.js"
     },
+    "./lightweight-charts": {
+      "types": "./dist/lightweight-charts.d.mts",
+      "import": "./dist/lightweight-charts.mjs",
+      "default": "./dist/lightweight-charts.js"
+    },
     "./victory": {
       "types": "./dist/victory.d.mts",
       "import": "./dist/victory.mjs",
@@ -211,6 +216,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.2.0",
     "jsdom": "^26.1.0",
+    "lightweight-charts": "^5.2.1",
     "marked": "^15.0.12",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -202,10 +202,11 @@ jobs:
 
       # The example pages fetch a locale pack from beside maidr.js when the
       # browser asks for a language, so the packs have to be in dist too.
-      # tableauExtension.spec.ts drives dist/tableau.js, the only adapter
-      # bundle a spec loads.
-      - name: Build core bundle, locale packs and the Tableau adapter
-        run: node scripts/build.js core locales tableau
+      # tableauExtension.spec.ts drives dist/tableau.js and
+      # lightweightCharts.spec.ts dist/lightweight-charts.js, the only adapter
+      # bundles a spec loads.
+      - name: Build core bundle, locale packs and the adapters the specs load
+        run: node scripts/build.js core locales tableau lightweight-charts
 
       - name: Run e2e specs
         id: e2e

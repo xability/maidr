@@ -929,9 +929,13 @@ export class TactileService implements Observer<TactileStateUnion>, Disposable {
   private findSvg(): SVGSVGElement | null {
     // Not the highlight a canvas adapter lays over its chart: a pie slice is
     // highlighted with an SVG, and taking that for the chart drew the one
-    // slice and nothing else.
+    // slice and nothing else. Nor a logo the adapter marks as decoration:
+    // Lightweight Charts draws its chart on canvases and puts an SVG logo in
+    // the corner, which would otherwise be the only picture read.
     const svgs = Array.from(this.display.plot.querySelectorAll('svg'));
-    return svgs.find(svg => svg.closest(`[${OVERLAY_ATTRIBUTES.layer}], [${OVERLAY_ATTRIBUTES.highlight}]`) === null) ?? null;
+    return svgs.find(svg => svg.closest(
+      `[${OVERLAY_ATTRIBUTES.layer}], [${OVERLAY_ATTRIBUTES.highlight}], [${OVERLAY_ATTRIBUTES.decoration}]`,
+    ) === null) ?? null;
   }
 
   /**
