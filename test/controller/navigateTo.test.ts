@@ -223,4 +223,15 @@ describe('Controller.navigateTo', () => {
     expect(setScope).toHaveBeenCalledWith(Scope.TRACE);
     expect(announced()).toContain('2026-01-03');
   });
+
+  it('should report the landing point as the position the reader last heard', () => {
+    const { controller } = onDeltaLayer();
+    const textService = (controller as unknown as { textService: { getCoordinateText: () => string | null } }).textService;
+
+    controller.navigateTo({ layerId: 'candle-layer', row: 0, col: 2 });
+
+    const position = controller.getPositionText();
+    expect(position).toBe(textService.getCoordinateText());
+    expect(position).toContain('2026-01-03');
+  });
 });

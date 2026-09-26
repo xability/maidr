@@ -886,6 +886,60 @@ describe('liveDataManager.navigateTo', () => {
   });
 });
 
+describe('liveDataManager.getIds and inspect', () => {
+  let manager: LiveDataManager;
+
+  beforeEach(() => {
+    manager = new LiveDataManager();
+  });
+
+  test('lists the registered charts in registration order, and forgets a disposed one', () => {
+    const first = manager.register(createBarMaidr('one'), jest.fn());
+    manager.register(createLineMaidr('two'), jest.fn());
+
+    expect(manager.getIds()).toEqual(['one', 'two']);
+    first.dispose();
+    expect(manager.getIds()).toEqual(['two']);
+  });
+
+  test('reports what the chart\'s probe answers', () => {
+    const probe = jest.fn(() => ({ inChart: true, position: 'X is A, Y is 1' }));
+    manager.register(createBarMaidr('chart'), jest.fn(), null, probe);
+
+    expect(manager.inspect('chart')).toEqual({ inChart: true, position: 'X is A, Y is 1', blocked: false });
+    expect(probe).toHaveBeenCalledTimes(1);
+  });
+
+  test('reports a MAIDR dialog holding the reader\'s focus', () => {
+    manager.register(createBarMaidr('chart'), jest.fn(), null, () => ({ inChart: true, position: null, blocked: true }));
+
+    expect(manager.inspect('chart')).toEqual({ inChart: true, position: null, blocked: true });
+  });
+
+  test('reads a chart with no probe as one the reader is not inside, and an unknown id as null', () => {
+    manager.register(createBarMaidr('chart'), jest.fn(), jest.fn((_target: unknown) => true));
+
+    expect(manager.inspect('chart')).toEqual({ inChart: false, position: null, blocked: false });
+    expect(manager.inspect('missing')).toBeNull();
+  });
+
+  test('reads a probe that throws as one the reader is not inside', () => {
+    manager.register(createBarMaidr('chart'), jest.fn(), null, () => {
+      throw new Error('probe failed');
+    });
+
+    expect(manager.inspect('chart')).toEqual({ inChart: false, position: null, blocked: false });
+  });
+
+  test('still registers with three arguments', () => {
+    const navigator = jest.fn((_target: unknown) => true);
+    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+
+    expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 }, { id: 'chart' })).toBe(true);
+    expect(navigator).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('isAppendedPointFocused', () => {
   test('append to the focused layer is focused', () => {
     const figure = createMultiLayerFigure();

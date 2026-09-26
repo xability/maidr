@@ -42,9 +42,18 @@ import { ReviewViewModel } from '@state/viewModel/reviewViewModel';
 import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewModel';
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
+import { Scope } from '@type/event';
 import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
+
+/** The scopes from which a keyboard move to another data point is possible. */
+const NAVIGABLE_SCOPES: ReadonlySet<Scope> = new Set<Scope>([
+  Scope.SUBPLOT,
+  Scope.TRACE,
+  Scope.GRID_CELL,
+  Scope.CANDLESTICK_DELTA,
+]);
 
 /**
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
@@ -403,6 +412,36 @@ export class Controller implements Disposable {
     this.context.exitGridCell();
     this.rotorNavigationService.resetToDataMode();
     return this.context.navigateTo(target);
+  }
+
+  /**
+   * Whether the reader is somewhere a keyboard move to another point is not
+   * available -- a MAIDR dialog (chat, settings, help, the command palette,
+   * go-to-extreme), the braille or review field, or a label chord.
+   *
+   * {@link navigateTo} leaves only the modes that re-route the arrow keys
+   * (grid cell, candlestick delta, rotor); it does not close a dialog, and a
+   * move made under one switches the keyboard scope out from beneath it. A
+   * caller acting on its own schedule, such as an in-browser agent, asks this
+   * first.
+   *
+   * @returns True while such a scope is active
+   */
+  public isNavigationBlocked(): boolean {
+    return !NAVIGABLE_SCOPES.has(this.context.scope);
+  }
+
+  /**
+   * The text the reader's screen reader last spoke for their position -- the
+   * point, its axis labels and values -- as the text mode renders it.
+   *
+   * Read-only: asking changes nothing and announces nothing.
+   *
+   * @returns The position text, or `null` before the reader has landed on a
+   *   data point
+   */
+  public getPositionText(): string | null {
+    return this.textService.getCoordinateText();
   }
 
   /**

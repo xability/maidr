@@ -5,6 +5,7 @@ import type { RefObject } from 'react';
 import { cloneMaidrData, liveDataManager } from '@service/liveData';
 import { applyStoredLanguage } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
+import { acquireWebMcpTools } from '@service/webMcp';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller } from '../../controller';
 
@@ -137,10 +138,14 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       // After the instruction, not instead of it: the instruction is shown
       // without an announcement, and the move that follows is the first
       // navigation, which is what turns announcements on.
+      // Not under an open MAIDR dialog: a move there would switch the
+      // keyboard scope beneath it. The target is kept for the focus-in that
+      // follows the dialog closing and handing focus back to the plot.
       const pending = pendingTargetRef.current;
-      if (pending !== null) {
+      const controller = controllerRef.current;
+      if (pending !== null && controller !== null && !controller.isNavigationBlocked()) {
         pendingTargetRef.current = null;
-        controllerRef.current?.navigateTo(pending);
+        controller.navigateTo(pending);
       }
     }, 0);
   }, []);
@@ -189,12 +194,26 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // place, preserving the user's navigation position.
   useEffect(() => {
     latestDataRef.current = data;
+    // The controller outlives a window blur -- the reader switching to the
+    // browser's agent panel leaves `document.activeElement` where it was --
+    // so its presence alone does not mean they would hear a move. They are
+    // here when the page has the browser's focus and the figure has the
+    // page's; otherwise a move waits, and is announced when they come back
+    // (focus-in fires again on the element when the window regains focus).
+    const readerController = (): Controller | null => {
+      const controller = controllerRef.current;
+      const figure = figureRef.current;
+      if (controller === null || figure === null || !document.hasFocus()) {
+        return null;
+      }
+      return figure.contains(document.activeElement) ? controller : null;
+    };
     const navigate = (target: NavigationTarget | null): boolean => {
       if (target === null) {
         pendingTargetRef.current = null;
         return true;
       }
-      const controller = controllerRef.current;
+      const controller = readerController();
       if (controller !== null) {
         pendingTargetRef.current = null;
         return controller.navigateTo(target);
@@ -217,8 +236,25 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
           disposeController();
         }
       }
-    }, navigate);
-    return () => disposable.dispose();
+    }, navigate, () => {
+      // Read at call time, by the same test the navigator moves on, so
+      // "inChart" and a move made at once always agree.
+      // "blocked" is read off any live controller: a dialog left open while
+      // the reader is in the agent panel still blocks a move.
+      const controller = readerController();
+      return {
+        inChart: controller !== null,
+        position: controller?.getPositionText() ?? null,
+        blocked: controllerRef.current?.isNavigationBlocked() ?? false,
+      };
+    });
+    // Experimental, off unless the page opts in; a no-op where the browser
+    // has no WebMCP. Shared by every chart on the page (see webMcp.ts).
+    const webMcp = acquireWebMcpTools(liveDataManager);
+    return () => {
+      webMcp.dispose();
+      disposable.dispose();
+    };
     // Re-register only when the chart identity changes; data *content*
     // changes flow through the effect below.
   }, [data.id, disposeController]);
