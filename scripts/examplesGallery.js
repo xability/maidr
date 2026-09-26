@@ -209,6 +209,8 @@ export const TITLES = {
   'chartjs/line-stacked-panels.html': 'Stacked Axis Panels',
   'frappe-mixed.html': 'Mixed Axis (Bar + Line)',
   'frappe-pie.html': 'Pie / Donut',
+  'uplot/line.html': 'Multi-Line Time Series',
+  'uplot/live.html': 'Live Streaming Line',
   'google-charts-gauge-map.html': 'Gauges and Maps',
   'google-charts-marks.html': 'Dot, Lollipop, Funnel, Diverging and Waterfall',
   'google-charts-relational.html': 'Flows, Hierarchies and Schedules',
@@ -387,6 +389,7 @@ export const PAGE_TYPES = {
   'observable-quarto.html': ['bar', 'point', 'line', 'hist', 'stacked_bar'],
   'plotly-subplots.html': ['bar', 'point', 'line', 'hist'],
   'tableau-bar.html': ['bar'],
+  'uplot/live.html': ['line'],
   'vegalite-bindbox-horizontal.html': ['box'],
   'vegalite-hconcat-box.html': ['box'],
 };
@@ -482,6 +485,13 @@ export const GROUPS = [
     prefixes: ['frappe-'],
     headingPrefix: 'Frappe',
     note: 'See the <a href="frappe.html">Frappe Charts Integration Guide</a> for setup instructions and code examples for all chart types.',
+  },
+  {
+    id: 'uplot',
+    heading: 'uPlot',
+    dir: 'uplot',
+    headingPrefix: 'uPlot',
+    note: 'See the <a href="uplot.html">uPlot Integration Guide</a> for setup instructions, series mapping, time axes and live streaming.',
   },
   {
     id: 'd3',

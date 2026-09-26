@@ -11,7 +11,7 @@ import { declarableTypes, SCHEMA, typesInBackticks } from './schemaTypes';
  * stable one carries nothing. Someone choosing an adapter reads that table, not
  * the stability lists, so the table is where the promise has to be visible.
  *
- * Twelve guides repeat the mark by hand, row by row, so the day a type moves
+ * Thirteen guides repeat the mark by hand, row by row, so the day a type moves
  * between SCHEMA's lists every one of them is wrong at once and nothing says
  * so. This test re-derives each mark from SCHEMA instead.
  *
@@ -376,6 +376,18 @@ const GUIDES: Record<string, Guide> = {
       'diverging bar chart': ['diverging_bar'],
       'percentage chart': ['stacked_normalized_bar'],
       'mixed axis chart (bar + line)': ['bar', 'line'],
+    },
+  },
+  'uplot': {
+    heading: '## Supported Series',
+    column: 0,
+    minRows: 6,
+    examples: { after: '## Code Examples', before: '## Labels', level: '###', min: 3 },
+    labels: {
+      // Stepped and spline builders are read as plain `line` rows.
+      'stepped or spline line': ['line'],
+      // Every series of a `mode: 2` chart is a scatter layer.
+      'faceted scatter': ['point'],
     },
   },
   'recharts': {
