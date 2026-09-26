@@ -11,7 +11,7 @@ import { declarableTypes, SCHEMA, typesInBackticks } from './schemaTypes';
  * stable one carries nothing. Someone choosing an adapter reads that table, not
  * the stability lists, so the table is where the promise has to be visible.
  *
- * Thirteen guides repeat the mark by hand, row by row, so the day a type moves
+ * Fifteen guides repeat the mark by hand, row by row, so the day a type moves
  * between SCHEMA's lists every one of them is wrong at once and nothing says
  * so. This test re-derives each mark from SCHEMA instead.
  *
@@ -362,6 +362,20 @@ const GUIDES: Record<string, Guide> = {
       'line chart (multi-series)': ['line'],
     },
   },
+  'lightweight-charts': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: 6,
+    examples: { after: '## Code Examples', before: '## Options', level: '###', min: 7 },
+    labels: {
+      // Named by the Lightweight Charts series type, read as the MAIDR layer.
+      'ohlc bar': ['candlestick'],
+      'area': ['line'],
+      'baseline': ['line'],
+      'histogram': ['bar'],
+      'price, moving average and volume panes': ['candlestick', 'line', 'bar'],
+    },
+  },
   'frappe': {
     heading: '## Supported Chart Types',
     column: 0,
@@ -389,6 +403,13 @@ const GUIDES: Record<string, Guide> = {
       // Every series of a `mode: 2` chart is a scatter layer.
       'faceted scatter': ['point'],
     },
+  },
+  'mui-x-charts': {
+    heading: '## Supported Chart Types',
+    column: 0,
+    minRows: 12,
+    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 9 },
+    labels: {},
   },
   'recharts': {
     heading: '## Supported Chart Types',

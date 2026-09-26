@@ -84,9 +84,12 @@ const PAGE_DESCRIPTIONS = {
   'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
   'uplot': 'How to make uPlot and Grafana-style time-series charts accessible with MAIDR: line, bar and scatter series, time axes, and live streaming.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
+  'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, area, scatter, pie and doughnut charts.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'highcharts': 'How to make Highcharts accessible with MAIDR: support for bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts.',
+  'lightweight-charts': 'How to make TradingView Lightweight Charts accessible with MAIDR: candlestick, OHLC bar, line, area and volume series, multi-pane charts and live streaming.',
   'tableau': 'How to make embedded Tableau dashboards accessible with MAIDR: sonification, braille and screen-reader navigation for bar, line, scatter and pie worksheets.',
+  'powerbi': 'How to build an accessible Power BI custom visual with MAIDR: sonification, braille and keyboard navigation for column, bar, line, scatter and pie charts.',
   'examples': 'Interactive examples of accessible bar plots, line charts, heatmaps, scatter plots, box plots, and more using MAIDR.',
   'Data Schema': 'The MAIDR JSON data schema: how to describe figures, subplots, layers, axes and data points for bar, box, heatmap, scatter, line and other chart types.',
   'Braille Generation': 'How MAIDR encodes bar, box, heatmap, line, scatter and other plots as braille characters for refreshable braille displays, with the rules for each plot type.',
@@ -309,9 +312,12 @@ function generatePage({ title, content, activePage, basePath = '', slug = '', og
     .replace(/\{\{UPLOT_ACTIVE\}\}/g, () => activePage === 'uplot' ? 'active' : '')
     .replace(/\{\{OBSERVABLE_ACTIVE\}\}/g, () => activePage === 'observable' ? 'active' : '')
     .replace(/\{\{VICTORY_ACTIVE\}\}/g, () => activePage === 'victory' ? 'active' : '')
+    .replace(/\{\{MUI_X_CHARTS_ACTIVE\}\}/g, () => activePage === 'mui-x-charts' ? 'active' : '')
     .replace(/\{\{ANYCHART_ACTIVE\}\}/g, () => activePage === 'anychart' ? 'active' : '')
     .replace(/\{\{HIGHCHARTS_ACTIVE\}\}/g, () => activePage === 'highcharts' ? 'active' : '')
     .replace(/\{\{TABLEAU_ACTIVE\}\}/g, () => activePage === 'tableau' ? 'active' : '')
+    .replace(/\{\{LIGHTWEIGHT_CHARTS_ACTIVE\}\}/g, () => activePage === 'lightweight-charts' ? 'active' : '')
+    .replace(/\{\{POWERBI_ACTIVE\}\}/g, () => activePage === 'powerbi' ? 'active' : '')
     .replace(/\{\{EXAMPLES_ACTIVE\}\}/g, () => activePage === 'examples' ? 'active' : '')
     .replace(/\{\{API_ACTIVE\}\}/g, () => activePage === 'api' ? 'active' : '')
     .replace(/\{\{BASE_PATH\}\}/g, () => basePath);
@@ -487,6 +493,31 @@ ${gallery}
     setTimeout(function() { heading.focus(); }, 100);
   }
 
+  function loadMuiXCharts() {
+    var heading = document.createElement('h2');
+    heading.id = 'example-heading';
+    heading.textContent = 'MUI X Charts Examples';
+    heading.tabIndex = -1;
+    heading.style.marginTop = '0';
+
+    var iframe = document.createElement('iframe');
+    iframe.src = 'examples/mui-x-charts/index.html';
+    iframe.style.width = '100%';
+    iframe.style.height = '800px';
+    iframe.style.border = 'none';
+    iframe.tabIndex = 0;
+    iframe.title = 'MUI X Charts Examples';
+    iframe.setAttribute('aria-label', 'MUI X Charts example demonstration');
+
+    var contentDiv = document.getElementById('content');
+    contentDiv.innerHTML = '';
+    contentDiv.appendChild(heading);
+    contentDiv.appendChild(iframe);
+    contentDiv.hidden = false;
+
+    setTimeout(function() { heading.focus(); }, 100);
+  }
+
   function loadHTML(filename, headingText) {
     try {
       var heading = document.createElement('h2');
@@ -573,6 +604,19 @@ if (fs.existsSync(victoryBuilt)) {
   fs.copyFileSync(victoryBuilt, path.join(victorySiteDest, 'index.html'));
 } else {
   console.warn('Warning: Built Victory example not found. Run "npm run build:victory-example" first.');
+}
+
+// Copy built MUI X Charts example (single-file HTML) to _site/examples/mui-x-charts/
+console.log('Copying built MUI X Charts example...');
+const muiXChartsBuilt = path.join(ROOT, 'examples', 'mui-x-charts', 'dist', 'index.html');
+const muiXChartsSiteDest = path.join(SITE_DIR, 'examples', 'mui-x-charts');
+if (fs.existsSync(muiXChartsBuilt)) {
+  if (!fs.existsSync(muiXChartsSiteDest)) {
+    fs.mkdirSync(muiXChartsSiteDest, { recursive: true });
+  }
+  fs.copyFileSync(muiXChartsBuilt, path.join(muiXChartsSiteDest, 'index.html'));
+} else {
+  console.warn('Warning: Built MUI X Charts example not found. Run "npm run build:mui-x-charts-example" first.');
 }
 
 /**

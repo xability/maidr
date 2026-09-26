@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  The extension page, with `tableau.extensions` stubbed: one dashboard holding
+  one bar worksheet of three rows. Everything below the stub is the real
+  built bundle doing what examples/tableau-extension/index.html does.
+-->
+  <head>
+    <meta charset="utf-8" />
+    <title>MAIDR extension (fixture)</title>
+    <link rel="stylesheet" href="../../../dist/maidr.css" />
+    <script>
+      (function () {
+        const columns = [
+          { fieldName: 'Region', fieldId: '[Region]', dataType: 'string', index: 0 },
+          { fieldName: 'SUM(Sales)', fieldId: '[SUM(Sales)]', dataType: 'float', index: 1 },
+        ];
+        const rows = [
+          ['East', 10],
+          ['North', 30],
+          ['West', 20],
+        ];
+        const cell = (value) => ({ value, nativeValue: value, formattedValue: String(value) });
+        const noListeners = { addEventListener: () => () => true };
+        window.selections = [];
+        const worksheet = {
+          name: 'Sales by Region',
+          sheetType: 'worksheet',
+          ...noListeners,
+          getSummaryColumnsInfoAsync: async () => columns,
+          getSummaryDataReaderAsync: async () => ({
+            pageCount: 1,
+            totalRowCount: rows.length,
+            getPageAsync: async () => ({
+              name: 'Summary Data Table',
+              columns: [...columns]
+                .sort((a, b) => a.fieldName.localeCompare(b.fieldName))
+                .map((column, index) => ({ ...column, index })),
+              // Alphabetical column order, as the reader serves it.
+              data: rows.map(([region, sales]) => [cell(region), cell(sales)]),
+              totalRowCount: rows.length,
+              isTotalRowCountLimited: false,
+              isSummaryData: true,
+            }),
+            releaseAsync: async () => {},
+          }),
+          selectMarksByValueAsync: async (criteria) => {
+            window.selections.push(criteria);
+          },
+          clearSelectedMarksAsync: async () => {},
+        };
+        window.tableau = {
+          extensions: {
+            initializeAsync: async () => {},
+            initializeDialogAsync: async () => '',
+            dashboardContent: {
+              dashboard: {
+                name: 'Dashboard 1',
+                sheetType: 'dashboard',
+                worksheets: [worksheet],
+                ...noListeners,
+                getParametersAsync: async () => [],
+              },
+            },
+            settings: {
+              ...noListeners,
+              get: () => JSON.stringify({ title: 'Sales by region' }),
+              set: () => {},
+              saveAsync: async () => ({}),
+            },
+            ui: { displayDialogAsync: async () => '', closeDialog: () => {} },
+          },
+        };
+      })();
+    </script>
+    <script src="../../../dist/maidr.js"></script>
+    <script src="../../../dist/tableau.js"></script>
+  </head>
+  <body>
+    <main id="maidr-extension"></main>
+    <script>
+      window.maidrTableau
+        .bindTableauExtension({ container: document.getElementById('maidr-extension') })
+        .then((handle) => {
+          document.body.dataset.bound = handle !== null && handle.binding !== null ? 'yes' : 'no';
+        });
+    </script>
+  </body>
+</html>

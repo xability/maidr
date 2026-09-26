@@ -15,6 +15,7 @@ AI-generated descriptions.
 npm install            # install dependencies
 npm run dev:recharts   # dev server against the Recharts example
 npm run dev:victory    # dev server against the Victory example
+npm run dev:mui-x-charts # dev server against the MUI X Charts example
 npm run build          # production build
 npm run type-check     # tsc --noEmit
 npm run lint:fix       # eslint --fix

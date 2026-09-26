@@ -372,12 +372,44 @@ export const builds = [
     aliases: adapterAliases,
   },
   {
+    name: 'lightweight-charts',
+    entry: 'src/adapters/lightweight-charts/index.ts',
+    libName: 'maidrLightweightCharts',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'lightweight-charts.mjs' : 'lightweight-charts.js',
+    emptyOutDir: false,
+    // `bindLightweightChart` mounts the MAIDR React UI around the chart, so
+    // React is bundled in (mirrors chartjs/amcharts) and the UMD build exposes
+    // the `maidrLightweightCharts` global for classic <script> use.
+    // Lightweight Charts itself is never imported -- the adapter duck-types
+    // the chart the host page created -- so there is nothing to externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
     name: 'victory',
     entry: 'src/victory-entry.ts',
     formats: ['es'],
     fileName: () => 'victory.mjs',
     emptyOutDir: false,
     external: ['react', 'react-dom', 'react/jsx-runtime', 'victory'],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'mui-x-charts',
+    entry: 'src/mui-x-charts-entry.ts',
+    formats: ['es'],
+    fileName: () => 'mui-x-charts.mjs',
+    emptyOutDir: false,
+    // Like Victory: a React-only integration used from a bundler, so React
+    // stays external. `@mui/x-charts` is never imported -- the adapter reads
+    // the chart element's props and the classes MUI stamps on its SVG -- so
+    // there is nothing of it to externalize.
+    external: ['react', 'react-dom', 'react/jsx-runtime'],
     useReact: true,
     useDts: true,
     aliases: adapterAliases,
@@ -409,7 +441,25 @@ export const builds = [
     // is bundled in (mirrors chartjs/amcharts) and the UMD build (tableau.js)
     // exposes the `maidrTableau` global for classic <script> use. Tableau's
     // Embedding API is loaded by the host page and is only duck-typed off the
-    // live viz element, so there is nothing to externalize.
+    // live viz element, and `bindTableauExtension` does the same with the
+    // Extensions API the extension's page loads, so there is nothing to
+    // externalize.
+    external: [],
+    useReact: true,
+    useDts: true,
+    aliases: adapterAliases,
+  },
+  {
+    name: 'powerbi',
+    entry: 'src/powerbi-entry.ts',
+    libName: 'maidrPowerBI',
+    formats: ['es', 'umd'],
+    fileName: format => format === 'es' ? 'powerbi.mjs' : 'powerbi.js',
+    emptyOutDir: false,
+    // `bindPowerBI` mounts the MAIDR React UI inside a custom visual, which is
+    // bundled by `pbiviz` into a sandboxed iframe with no shared React, so
+    // React is bundled in (mirrors tableau). The data view is read
+    // structurally; there is no `powerbi-visuals-api` import to externalize.
     external: [],
     useReact: true,
     useDts: true,

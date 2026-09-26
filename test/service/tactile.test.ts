@@ -2512,6 +2512,34 @@ describe('tactileService', () => {
       canvasService.dispose();
     });
 
+    it('should read the pixels past a logo the adapter marks as decoration', async () => {
+      // Lightweight Charts draws its chart on canvases and puts an SVG logo in
+      // the corner; taken for the chart's SVG, the logo was all the display
+      // showed.
+      const { service: canvasService, highlight } = canvasChart();
+      const plot = highlight.closest('[data-maidr-overlay]')?.parentElement as HTMLElement;
+      const logo = document.createElement('a');
+      logo.setAttribute('data-maidr-decoration', '');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
+      stubRect(svg, { left: 90, top: 90, width: 10, height: 10 });
+      logo.appendChild(svg);
+      plot.appendChild(logo);
+      session.isConnected = true;
+      turnOn();
+
+      canvasService.update({ ...traceState(chart, 0), highlight: { empty: true } } as unknown as NonEmptyTraceState);
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      const calls = session.writeGraphic.mock.calls;
+      const pins = pinsOf(calls[calls.length - 1][0]);
+      const box = highlight.getBoundingClientRect();
+      const x = Math.round(((box.left + box.width / 2) / 100) * (GEOMETRY.dotWidth - 3) + 1);
+      const y = Math.round(((box.top + box.height / 2) / 100) * (GEOMETRY.dotHeight - 3) + 1);
+      expect(pins.has(`${x},${y}`)).toBe(true);
+      canvasService.dispose();
+    });
+
     it('should leave down the pins beside the plot area, over the title', async () => {
       // The pins around the picture stand over the canvas just outside the
       // plot area. Read there, the chart's title came up as a band along the

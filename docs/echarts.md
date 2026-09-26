@@ -36,9 +36,144 @@ Two things this example does on purpose:
 
 - **`renderer: 'svg'`.** ECharts defaults to canvas, which draws no elements to
   point at. A canvas chart still reads — audio, text and braille all come from
-  the chart's model — but it highlights nothing.
-- **Calling after `finished`.** The adapter locates marks in the drawn SVG, so
-  it has to run after ECharts has drawn.
+  the chart's model — and its bars, points, lines, areas, pie slices and
+  sunburst slices are outlined through an overlay drawn from the model (see
+  [On a canvas](#on-a-canvas)). Every other series type is outlined only when
+  it is drawn as SVG.
+- **Calling after `finished`.** The adapter locates marks in the drawn chart,
+  so it has to run after ECharts has drawn.
+
+### Keeping a chart bound
+
+`createMaidrFromEChart` reads a chart once. A chart whose data changes, or that
+is resized, needs reading again. `bindEChart` does that, and takes the place of
+the `finished` handler above:
+
+```js
+const chart = echarts.init(container, null, { renderer: 'svg' });
+chart.setOption(option);
+const unbind = maidrECharts.bindEChart(chart);
+
+// Before the chart is disposed:
+unbind();
+chart.dispose();
+```
+
+It reads the chart again after any render that changed the chart's option or
+its size — a new `setOption`, a filter, a resize. A render that changed neither
+is not read again. That matters because ECharts fires `finished` after every
+render, including the ones a mouse moving across the chart causes, and a
+reading taken again sends the reader back to the start of the chart.
+
+MAIDR is mounted on the element ECharts draws into, inside the container
+passed to `echarts.init`. That container is often a React component's own
+`<div>`, and MAIDR moves the element it mounts on into a wrapper.
+
+`bindAllECharts(echarts)` binds every chart on the page, including those drawn
+later. It unbinds any chart that is disposed or removed. It needs **the page's
+own** `echarts` module: `echarts.getInstanceByDom` looks a chart up in a
+registry private to the copy of ECharts that created it, so a second copy
+loaded beside it finds nothing.
+
+## Apache Superset and Metabase
+
+[Apache Superset](https://superset.apache.org/) and
+[Metabase](https://www.metabase.com/) draw most of their charts with ECharts
+([#1304](https://github.com/xability/maidr/issues/1304)). Both were run and
+their charts captured from the browser. The captures are the fixtures under
+`e2e_tests/fixtures/bi-tools/`, and `e2e_tests/specs/biToolOutput.spec.ts`
+drives each one with the keyboard.
+
+| | Metabase 0.63.18.2 | Superset 6.1.0 |
+|---|---|---|
+| renderer | SVG | canvas; the only renderer it registers |
+| data | a `dataset`, read by each series through `encode` | inline `[x, y]` pairs |
+| series names | none; each series has an `id` such as `43:CNT:Widget` | the metric or the group |
+| time series | a `time` x axis | a `time` x axis, or a `time` y axis for a horizontal bar |
+| "pie" | a one-level `sunburst` | `pie` |
+| instance | only through `echarts/core`, bundled | only through `echarts/core`, bundled |
+
+What the adapter does for them:
+
+- **A series fed from a `dataset` is read through `encode`.** Its data list
+  holds every column of the dataset, so the adapter asks
+  `data.mapDimension('y')` which column a coordinate reads, not "the second
+  column". Before this, a Metabase bar was announced with the first metric's
+  values whatever it was drawn from, and an encoded pie produced no layer.
+- **A time axis is announced as dates.** `2024-01-01` rather than
+  `1704067200000`, in the chart's own time zone: UTC when it sets
+  `useUTC: true`, as both tools do, and local time otherwise, which is
+  ECharts' default. A scatter point keeps its numeric `x` and carries the
+  date as its `xLabel`.
+- **A bar chart with its time on the y axis is horizontal.** This is how
+  Superset turns a time-series bar on its side. A line drawn down a time axis
+  is read as it was.
+- **A series with no name is named by its `id`.** Without this, the Metabase
+  segments of one stacked bar were all announced as "Series 1", "Series 2", …
+  An id ECharts invented for itself begins with a NUL character and is never
+  used.
+- **White is recognised in any spelling.** Metabase paints its hollow line
+  symbols `hsla(0, 0%, 100%, 1.00)`, which was counted as a mark and cost a
+  Metabase area its outline.
+- **A canvas is outlined through an overlay.** See
+  [On a canvas](#on-a-canvas).
+
+### Mounting MAIDR on them
+
+Neither tool exposes its ECharts instances. Both import `echarts/core` into
+their own bundle, and nothing on a chart's element refers back to the
+instance: ECharts writes only an id, `_echarts_instance_="ec_…"`, which
+resolves through the private registry of the copy that wrote it. So MAIDR has
+to be mounted **from inside the tool's own frontend**, where that copy is
+importable:
+
+```js
+import 'maidr';
+import * as echarts from 'echarts/core';
+import { bindAllECharts } from 'maidr/echarts';
+
+bindAllECharts(echarts);
+```
+
+`bindEChart` and `bindAllECharts` take an instance typed only by its public
+members. ECharts' own typings declare `getModel` private, so an interface
+naming it would refuse an `ECharts` instance.
+
+- **Superset** — run this once from the frontend's setup, alongside the plugin
+  registration in `superset-frontend/src/setup/setupPlugins.ts`. It binds every
+  chart on explore pages and dashboards alike. Each dashboard tile has its own
+  `[_echarts_instance_]` element.
+- **Metabase** — the same, or per chart in `EChartsRenderer`: call
+  `bindEChart(chart)` from its `onInit`, and the function it returns from
+  `useUnmount` before `chart.dispose()`.
+
+Three other routes were weighed and not taken:
+
+- **A browser extension or userscript** would reach any ECharts page, but it
+  runs outside the bundle, so it cannot call the bundle's
+  `getInstanceByDom`. It would have to intercept instances as ECharts
+  constructs them, before the page's own scripts run. That is how the fixtures
+  were captured (see their README), but it depends on ECharts' private field
+  names, so MAIDR does not ship it.
+- **A Superset chart plugin** makes a new chart type accessible, not the
+  existing ones. Every chart already in use would have to be rebuilt as the
+  plugin's type.
+- **Metabase's embedding SDK** renders the same components inside the
+  embedder's page. Whether the embedder can import the SDK's copy of ECharts
+  depends on how the SDK is packaged, which was not measured. If it can,
+  `bindAllECharts` works there as it does anywhere else.
+
+Not covered:
+
+- **Metabase's row chart** is drawn with visx, not ECharts.
+- **Helper series** — Metabase's data-label totals, trend lines and goal line,
+  and Superset's annotation and forecast layers — are not in the fixtures.
+  Each appears only when a chart setting turns it on.
+- **A Metabase series is named by its id** (`43:CNT:Widget`), which carries its
+  metric and its breakout value. The label its legend shows is only in the
+  tool's own HTML.
+- **Superset leaves axis titles empty by default**, so a reading says
+  "X is … , Y is …" unless the chart's author names the axes.
 
 ## Supported series types
 
@@ -319,6 +454,41 @@ One consequence worth knowing: **a series painted pure black loses its
 highlighting.** Its marks are indistinguishable from the furniture, so they are
 excluded, the count check fails, and the chart reads without an outline. That
 is the conservative failure, not a silent wrong one.
+
+### On a canvas
+
+A chart drawn to a canvas has no elements to point at, and ECharts' default
+renderer is a canvas — Superset registers no other. The chart's model still
+knows where every mark is. Measured on 6.1.0:
+
+| series | where its marks are |
+|---|---|
+| `bar`, `pictorialBar` | `data.getItemLayout(i)` — `{ x, y, width, height }`, `height` signed |
+| `scatter` | `data.getItemLayout(i)` — `[x, y]` |
+| `pie` | `data.getItemLayout(i)` — `{ cx, cy, r0, r, startAngle, endAngle }` |
+| `sunburst` | the same, per tree node, from `node.getLayout()` |
+| `line` | `data.getLayout('points')` — one flat `[x0, y0, x1, y1, …]` per series |
+
+All of these are in the chart's CSS pixels. A datum with no value comes back
+with a `null` coordinate rather than being left out, so "has a finite layout"
+is exactly "was drawn". A bar on a polar grid is laid out as a sector and
+drawn as one.
+
+What the overlay does not cover: every other series type, a funnel included;
+a series drawn with `large: true`; and the shape of a smooth or stepped line,
+whose outline is drawn straight from point to point. A series drawn
+progressively — ECharts draws a few hundred points a frame past its
+`progressiveThreshold` — is outlined once it has finished, which is why
+`bindEChart` always reads a chart again at its next `finished`.
+
+So the marks are drawn from the model into an `<svg>` laid over the canvas.
+They are painted the way the SVG renderer paints them, at zero opacity, and
+the pass that stamps an SVG chart's marks finds them there unchanged: the same
+count check, the same stamps, the same selector shapes. A series type not in
+the table draws nothing into the overlay, so the count check fails and the
+chart reads without an outline, as it did before there was an overlay. The
+overlay is replaced when the chart is drawn again somewhere else, and left
+alone when it would come out the same.
 
 ### Which shape each layer's selectors take
 

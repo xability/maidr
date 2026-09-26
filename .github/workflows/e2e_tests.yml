@@ -62,6 +62,11 @@ jobs:
       - name: Build library
         run: npm run build
 
+      # muiXCharts.spec.ts drives the built MUI X Charts example, a Vite
+      # single-file bundle that is gitignored like dist/.
+      - name: Build MUI X Charts example
+        run: npm run build:mui-x-charts-example
+
       # continue-on-error so the report step below always gets the output;
       # the final step re-raises the failure. tee captures the list-reporter
       # output into the file the report step reads — outside playwright-report/,

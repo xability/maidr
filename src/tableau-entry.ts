@@ -3,7 +3,8 @@
  *
  * Re-exports the adapter's API and exposes it as `window.maidrTableau` for
  * script-tag usage. For what the adapter does and how a page wires it up, see
- * {@link bindTableau}.
+ * {@link bindTableau}; to run it inside a dashboard as an extension instead,
+ * see {@link bindTableauExtension}.
  *
  * @remarks
  * The Tableau Embedding API v3 library is loaded by the host page — this bundle
@@ -30,17 +31,34 @@
  * @packageDocumentation
  */
 
-import { bindTableau, extractTableau } from './adapters/tableau';
+import {
+  bindTableau,
+  bindTableauExtension,
+  configureTableauExtension,
+  extractTableau,
+  parseTableauSettings,
+} from './adapters/tableau';
 
-export { bindTableau, extractTableau } from './adapters/tableau';
+export {
+  bindTableau,
+  bindTableauExtension,
+  configureTableauExtension,
+  extractTableau,
+  parseTableauSettings,
+} from './adapters/tableau';
 export type {
   SelectionIndex,
   TableauAdapterOptions,
   TableauBinding,
   TableauColumn,
   TableauDataType,
+  TableauExtensionBinding,
+  TableauExtensionDialogOptions,
+  TableauExtensionOptions,
+  TableauExtensions,
   TableauExtraction,
   TableauSelectionCriteria,
+  TableauSettingsResult,
   TableauViz,
   TableauWorksheet,
   TableauWorksheetOverride,
@@ -60,7 +78,10 @@ declare global {
   interface Window {
     maidrTableau?: {
       bindTableau: typeof bindTableau;
+      bindTableauExtension: typeof bindTableauExtension;
+      configureTableauExtension: typeof configureTableauExtension;
       extractTableau: typeof extractTableau;
+      parseTableauSettings: typeof parseTableauSettings;
     };
   }
 }
@@ -71,6 +92,9 @@ if (typeof window !== 'undefined') {
   // script-tag consumer needs to read a layer's `type`, among them.
   window.maidrTableau = Object.assign(window.maidrTableau ?? {}, {
     bindTableau,
+    bindTableauExtension,
+    configureTableauExtension,
     extractTableau,
+    parseTableauSettings,
   });
 }

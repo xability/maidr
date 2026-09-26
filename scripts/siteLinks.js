@@ -49,9 +49,12 @@ export const INTEGRATION_PAGES = [
   { slug: 'frappe', title: 'Frappe Charts', source: 'frappe.md' },
   { slug: 'uplot', title: 'uPlot', source: 'uplot.md' },
   { slug: 'victory', title: 'Victory', source: 'victory.md' },
+  { slug: 'mui-x-charts', title: 'MUI X Charts', source: 'mui-x-charts.md' },
   { slug: 'anychart', title: 'AnyChart', source: 'anychart.md' },
   { slug: 'highcharts', title: 'Highcharts', source: 'highcharts.md' },
   { slug: 'tableau', title: 'Tableau', source: 'tableau.md' },
+  { slug: 'lightweight-charts', title: 'Lightweight Charts', source: 'lightweight-charts.md' },
+  { slug: 'powerbi', title: 'Power BI', source: 'powerbi.md' },
 ];
 
 const SLUG_BY_SOURCE = new Map(INTEGRATION_PAGES.map(({ slug, source }) => [source, slug]));

@@ -26,6 +26,10 @@ npm run e2e:debug
 npm run e2e:install
 ```
 
+The specs load the example pages against the built bundles, so run
+`npm run build` first. `muiXCharts.spec.ts` drives the bundled MUI X Charts
+example as well, which `npm run build:mui-x-charts-example` produces.
+
 ## Test Structure
 
 ### Directory Structure
