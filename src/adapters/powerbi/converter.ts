@@ -171,7 +171,8 @@ function pad(value: number): string {
  *
  * A date reads as `YYYY-MM-DD` in the report's local time — Power BI hands
  * dates over as local `Date`s — with the time appended only when it is not
- * midnight. Numbers stay numbers, so a numeric axis keeps its order and a line
+ * midnight, and to the precision it carries: two readings a few seconds
+ * apart must not be announced as the same minute. Numbers stay numbers, so a numeric axis keeps its order and a line
  * over it keeps its spacing.
  *
  * @param value - The cell value.
@@ -183,8 +184,21 @@ export function toCategoryKey(value: PowerBIPrimitiveValue): CategoryKey {
       return BLANK_LABEL;
     }
     const date = `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
-    const hasTime = value.getHours() !== 0 || value.getMinutes() !== 0 || value.getSeconds() !== 0;
-    return hasTime ? `${date} ${pad(value.getHours())}:${pad(value.getMinutes())}` : date;
+    const hours = value.getHours();
+    const minutes = value.getMinutes();
+    const seconds = value.getSeconds();
+    const millis = value.getMilliseconds();
+    if (hours === 0 && minutes === 0 && seconds === 0 && millis === 0) {
+      return date;
+    }
+    let time = `${pad(hours)}:${pad(minutes)}`;
+    if (seconds !== 0 || millis !== 0) {
+      time += `:${pad(seconds)}`;
+    }
+    if (millis !== 0) {
+      time += `.${String(millis).padStart(3, '0')}`;
+    }
+    return `${date} ${time}`;
   }
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : String(value);
@@ -224,7 +238,7 @@ function frameFromCategorical(categorical: PowerBICategorical, roles: Required<P
     warn(
       `${categoryColumns.length} category fields are bound; reading `
       + `"${categoryColumn?.source.displayName}" and ignoring the rest. `
-      + `Drill down in the report to read the next level.`,
+      + `A visual that declares drilldown on the category role can drill down to read the next level.`,
     );
   }
 
@@ -277,12 +291,38 @@ function frameFromCategorical(categorical: PowerBICategorical, roles: Required<P
 }
 
 /**
+ * The order to lay distinct category values out in.
+ *
+ * Ascending for an axis that is all numbers or all dates, blanks last; the
+ * order given otherwise.
+ *
+ * @param raws - The distinct raw values, in first-appearance order.
+ * @returns Indices into `raws`, in the order to lay them out.
+ */
+function axisOrder(raws: readonly PowerBIPrimitiveValue[]): number[] {
+  const indices = raws.map((_, i) => i);
+  const present = raws.filter(raw => raw !== null && raw !== undefined && raw !== '');
+  const numeric = present.every(raw => typeof raw === 'number' && Number.isFinite(raw));
+  const dated = present.every(raw => raw instanceof Date && !Number.isNaN(raw.getTime()));
+  if (present.length === 0 || (!numeric && !dated)) {
+    return indices;
+  }
+  const valueOf = (raw: PowerBIPrimitiveValue): number =>
+    raw instanceof Date ? raw.getTime() : typeof raw === 'number' ? raw : Number.POSITIVE_INFINITY;
+  return indices.sort((a, b) => valueOf(raws[a]) - valueOf(raws[b]) || a - b);
+}
+
+/**
  * Read a table data view into a frame.
  *
  * The category and series fields are found by role, and failing that the
  * category is the first non-measure column. Rows are pivoted onto one position
- * per distinct category (first appearance order) and one series per distinct
- * series value. When a (category, series) pair repeats, the first row wins:
+ * per distinct category and one series per distinct series value (first
+ * appearance order). A numeric or date category is put in axis order, since a
+ * table's rows follow the query's sort, which need not be the category's —
+ * rows sorted by series first would otherwise run a line Feb, Mar, Jan. A text
+ * category keeps the order of the rows, which is the order the visual sorts
+ * by. When a (category, series) pair repeats, the first row wins:
  * summing would report a total the visual never drew.
  */
 function frameFromTable(table: PowerBITable, roles: Required<PowerBIRoleNames>): Frame | null {
@@ -311,22 +351,29 @@ function frameFromTable(table: PowerBITable, roles: Required<PowerBIRoleNames>):
   }
 
   // Positions: one per distinct category, or one per row when there is none.
+  // Keyed by the raw value rather than its label, so formatting can never
+  // merge two categories into one.
   const positionOf = new Map<string, number>();
-  const keys: CategoryKey[] = [];
-  const rowPosition = rows.map((row, rowIndex) => {
+  const raws: PowerBIPrimitiveValue[] = [];
+  const firstPosition = rows.map((row, rowIndex) => {
     if (categoryColumn === null) {
       return rowIndex;
     }
-    const key = toCategoryKey(row[categoryColumn.index]);
-    const id = `${typeof key}:${key}`;
+    const raw = row[categoryColumn.index];
+    const id = raw instanceof Date ? `date:${raw.getTime()}` : `${typeof raw}:${String(raw)}`;
     let position = positionOf.get(id);
     if (position === undefined) {
-      position = keys.length;
+      position = raws.length;
       positionOf.set(id, position);
-      keys.push(key);
+      raws.push(raw);
     }
     return position;
   });
+  const order = axisOrder(raws);
+  const rank = new Map(order.map((position, sorted) => [position, sorted]));
+  const rowPosition = firstPosition.map(position =>
+    categoryColumn === null ? position : rank.get(position) ?? position);
+  const keys = order.map(position => toCategoryKey(raws[position]));
   const length = categoryColumn === null ? rows.length : keys.length;
 
   const seriesNames: (string | null)[] = [];
@@ -437,6 +484,25 @@ function sharedMeasureName(lines: readonly Line[]): string | undefined {
   return names.size === 1 ? [...names][0] : undefined;
 }
 
+/**
+ * Whether a chart with no category field has more rows than it can show.
+ *
+ * With no category, one mark stands for a whole series and reads its single
+ * value. A table view with several rows and no column recognisable as the
+ * category (only numeric columns, none bound to a role) is not that chart:
+ * reading the first row alone would drop the rest without a word.
+ */
+function tooManyRowsWithoutCategory(frame: Frame): boolean {
+  if (frame.category !== null || frame.length <= 1) {
+    return false;
+  }
+  warn(
+    `${frame.length} rows but no category field to lay them out along; `
+    + `bind the category role, or give the table a text or date column.`,
+  );
+  return true;
+}
+
 function buildBar(frame: Frame, lines: readonly Line[], options: PowerBIAdapterOptions): BuiltLayer | null {
   const horizontal = options.chartType === 'bar';
   const orientation = horizontal ? Orientation.HORIZONTAL : Orientation.VERTICAL;
@@ -447,6 +513,9 @@ function buildBar(frame: Frame, lines: readonly Line[], options: PowerBIAdapterO
   // No category field: Power BI draws one bar per series (or per measure),
   // which is a plain bar chart whose categories are the series.
   if (frame.category === null) {
+    if (tooManyRowsWithoutCategory(frame)) {
+      return null;
+    }
     const data: BarPoint[] = [];
     const refs: (PowerBIDataPointRef | null)[] = [];
     for (const line of lines) {
@@ -592,6 +661,9 @@ function buildPie(frame: Frame, lines: readonly Line[], options: PowerBIAdapterO
     }
   } else {
     // No category: each series (or, ungrouped, each measure) is a slice.
+    if (tooManyRowsWithoutCategory(frame)) {
+      return null;
+    }
     labelName = frame.seriesField?.displayName;
     for (const line of lines) {
       slices.push({

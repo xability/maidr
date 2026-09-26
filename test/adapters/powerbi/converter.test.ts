@@ -211,6 +211,8 @@ describe('value readers', () => {
   it('labels categories the way Power BI shows them', () => {
     expect(toCategoryKey(new Date(2024, 0, 5))).toBe('2024-01-05');
     expect(toCategoryKey(new Date(2024, 11, 31, 9, 30))).toBe('2024-12-31 09:30');
+    expect(toCategoryKey(new Date(2024, 11, 31, 9, 30, 5))).toBe('2024-12-31 09:30:05');
+    expect(toCategoryKey(new Date(2024, 11, 31, 9, 30, 5, 7))).toBe('2024-12-31 09:30:05.007');
     expect(toCategoryKey(new Date(Number.NaN))).toBe(BLANK_LABEL);
     expect(toCategoryKey(null)).toBe(BLANK_LABEL);
     expect(toCategoryKey(undefined)).toBe(BLANK_LABEL);
@@ -457,6 +459,85 @@ describe('convertPowerBIDataView', () => {
         [row(4), row(5), null, row(6)],
         [row(7), row(8), row(9), row(10)],
       ]);
+    });
+
+    it('puts a date category in axis order when the rows are sorted by series first', () => {
+      const month = (m: number): Date => new Date(2020, m - 1, 1);
+      const MONTH: PowerBIMetadataColumn = { displayName: 'Month', roles: { category: true }, type: { dateTime: true } };
+      const conversion = convert(
+        {
+          table: {
+            columns: [YEAR, MONTH, sales()],
+            rows: [['A', month(2), 1], ['A', month(3), 2], ['B', month(1), 3], ['B', month(2), 4], ['B', month(3), 5]],
+          },
+        },
+        { chartType: 'line' },
+      );
+      const data = onlyLayer(conversion).data as LinePoint[][];
+      expect(data.map(line => line.map(p => p.x))).toEqual([
+        ['2020-01-01', '2020-02-01', '2020-03-01'],
+        ['2020-01-01', '2020-02-01', '2020-03-01'],
+      ]);
+      expect(data.map(line => line.map(p => p.y))).toEqual([[null, 1, 2], [3, 4, 5]]);
+      expect(conversion.cells.get('0')).toEqual([[null, row(0), row(1)], [row(2), row(3), row(4)]]);
+    });
+
+    it('puts a numeric category in axis order, blanks last', () => {
+      const conversion = convert(
+        {
+          table: {
+            columns: [{ displayName: 'Size', roles: { category: true }, type: { numeric: true } }, sales()],
+            rows: [[3, 30], [null, 5], [1, 10], [2, 20]],
+          },
+        },
+        { chartType: 'column' },
+      );
+      expect(onlyLayer(conversion).data).toEqual([
+        { x: 1, y: 10 },
+        { x: 2, y: 20 },
+        { x: 3, y: 30 },
+        { x: BLANK_LABEL, y: 5 },
+      ]);
+      expect(conversion.cells.get('0')).toEqual([[row(2), row(3), row(0), row(1)]]);
+    });
+
+    it('keeps a text category in the order of the rows', () => {
+      const conversion = convert(
+        { table: { columns: [REGION, sales()], rows: [['West', 1], ['East', 2]] } },
+        { chartType: 'column' },
+      );
+      expect((onlyLayer(conversion).data as BarPoint[]).map(p => p.x)).toEqual(['West', 'East']);
+    });
+
+    it('keeps timestamps seconds apart as two positions with two labels', () => {
+      const TIME: PowerBIMetadataColumn = { displayName: 'Time', roles: { category: true }, type: { dateTime: true } };
+      const conversion = convert(
+        {
+          table: {
+            columns: [TIME, sales()],
+            rows: [[new Date(2024, 0, 1, 10, 0, 5), 1], [new Date(2024, 0, 1, 10, 0, 30), 2]],
+          },
+        },
+        { chartType: 'line' },
+      );
+      expect(onlyLayer(conversion).data).toEqual([[
+        { x: '2024-01-01 10:00:05', y: 1 },
+        { x: '2024-01-01 10:00:30', y: 2 },
+      ]]);
+    });
+
+    it('declines a column or pie with several rows and no category, rather than reading the first', () => {
+      const view: PowerBIDataView = {
+        table: {
+          columns: [{ displayName: 'Year', type: { numeric: true } }, sales()],
+          rows: [[2020, 5], [2021, 6], [2022, 7]],
+        },
+      };
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(convertPowerBIDataView(view, { chartType: 'column' })).toBeNull();
+      expect(convertPowerBIDataView(view, { chartType: 'pie' })).toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('no category field'));
+      warn.mockRestore();
     });
 
     it('keeps the first row when a (category, series) pair repeats', () => {
