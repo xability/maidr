@@ -88,7 +88,7 @@ export function extremeStat(
  * @param point - The group whose name is being printed.
  * @returns The trimmed name, or null when the group is unnamed or blank.
  */
-function groupName(point: BoxPoint): string | null {
+export function groupName(point: BoxPoint): string | null {
   const name = (point.z ?? point.fill) as string | undefined;
   if (typeof name !== 'string') {
     return null;

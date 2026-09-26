@@ -720,10 +720,24 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * @param fromXValue - `from`'s x value, read before the move
    */
   private static carryPosition(from: Trace, to: Trace, fromXValue: XValue | null): void {
-    // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
     let positioned = false;
+
+    // Two sectioned traces (the sub-groups of a box plot): keep the mark and
+    // the part of it the reader is on.
     if (
-      typeof from.getCurrentYValue === 'function'
+      typeof from.getCurrentSection === 'function'
+      && typeof to.moveToXValueAndSection === 'function'
+    ) {
+      const section = from.getCurrentSection();
+      if (section !== null && fromXValue !== null) {
+        positioned = to.moveToXValueAndSection(fromXValue, section);
+      }
+    }
+
+    // Attempt Y-preservation: if both traces support Y values, preserve both X and Y
+    if (
+      !positioned
+      && typeof from.getCurrentYValue === 'function'
       && typeof to.moveToXAndYValue === 'function'
     ) {
       const fromYValue = from.getCurrentYValue();
@@ -971,6 +985,23 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns true if the move was successful, false otherwise
    */
   moveToXAndYValue?: (xValue: any, yValue: number) => boolean;
+
+  /**
+   * The section of a sectioned mark the cursor stands on -- a box plot's
+   * "25%" or "Maximum". Optional; implemented by traces whose position is a
+   * mark and a part of it, so a layer switch between two of them keeps both.
+   * @returns The section, or null when there is none
+   */
+  getCurrentSection?: () => string | null;
+
+  /**
+   * Moves to the mark a layer switch carried over, standing on the given
+   * section of it. Optional; see {@link Trace.getCurrentSection}.
+   * @param xValue The X value to move to
+   * @param section The section to stand on
+   * @returns true if the move was successful, false otherwise
+   */
+  moveToXValueAndSection?: (xValue: any, section: string) => boolean;
 
   /**
    * Notify observers that the trace is out of bounds

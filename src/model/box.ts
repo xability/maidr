@@ -1,6 +1,7 @@
 import type { BoxplotSectionType } from '@type/boxplotSection';
 import type { BoxPoint, BoxSelector, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, AxisType, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { Edge, LineRequest, WhiskerRequest } from '@util/svg';
 import type { Dimension, NearestPoint } from './abstract';
@@ -12,7 +13,7 @@ import { MathUtil } from '@util/math';
 import { Svg } from '@util/svg';
 import { watchViewport } from '@util/viewport';
 import { AbstractTrace } from './abstract';
-import { extremeStat, groupNameAt, isHigher, isLower } from './boxExtremes';
+import { extremeStat, groupName, groupNameAt, isHigher, isLower } from './boxExtremes';
 import { MovableGrid } from './movable';
 
 /**
@@ -330,6 +331,102 @@ export class BoxTrace extends AbstractTrace {
 
   public override moveToIndex(row: number, col: number): boolean {
     return super.moveToIndex(row, col);
+  }
+
+  // ── Layer switching ─────────────────────────────────────────────────
+
+  /** The box the cursor is on, whichever way round the grid is laid out. */
+  private get boxIndex(): number {
+    return this.orientation === Orientation.HORIZONTAL ? this.row : this.col;
+  }
+
+  /** The section the cursor is on, whichever way round the grid is laid out. */
+  private get sectionIndex(): number {
+    return this.orientation === Orientation.HORIZONTAL ? this.col : this.row;
+  }
+
+  /**
+   * The box the reader is on, as a layer switch carries it: the group's name
+   * where it has one, and its position among the boxes otherwise.
+   *
+   * The generic fallback read the grid of section values, so what went out as
+   * the reader's X was a quartile, and the layer switched to searched its own
+   * quartiles for it -- landing on whichever cell held the nearest number, or
+   * on the first group's lower outliers, which announce nothing.
+   *
+   * @returns The group name or index, or null off the grid
+   */
+  public override getCurrentXValue(): XValue | null {
+    const point = this.points[this.boxIndex];
+    if (point === undefined) {
+      return null;
+    }
+    return groupName(point) ?? this.boxIndex;
+  }
+
+  /**
+   * Moves to the box a layer switch carried over, keeping this trace's own
+   * section -- or, when the reader has not been on this layer yet, starting at
+   * the lower whisker, which always has a value.
+   *
+   * @param xValue - A group name, or a box position
+   * @returns True when there is such a box
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    return this.moveToBox(xValue, null);
+  }
+
+  /**
+   * The section the cursor is on, which a layer switch between two box
+   * layers carries over along with the box.
+   *
+   * @returns The section, or null off the grid
+   */
+  public getCurrentSection(): string | null {
+    return this.sections[this.sectionIndex] ?? null;
+  }
+
+  /**
+   * Moves to the given box and section: where a layer switch between two box
+   * layers -- the sub-groups of a grouped box plot -- puts the reader, so
+   * that "group B, 25%" on one layer is "group B, 25%" on the next.
+   *
+   * @param xValue - A group name, or a box position
+   * @param section - The section to stand on
+   * @returns True when there is such a box
+   */
+  public moveToXValueAndSection(xValue: XValue, section: string): boolean {
+    return this.moveToBox(xValue, section);
+  }
+
+  /**
+   * Finds the box a carried X names: by group name when it is a string, and
+   * by position when it is a whole number in range.
+   *
+   * @param xValue - The carried X
+   * @returns The box's index, or -1
+   */
+  private findBox(xValue: XValue): number {
+    if (typeof xValue === 'string') {
+      const name = xValue.trim();
+      return this.points.findIndex(point => groupName(point) === name);
+    }
+    return Number.isInteger(xValue) && xValue >= 0 && xValue < this.points.length ? xValue : -1;
+  }
+
+  private moveToBox(xValue: XValue, section: string | null): boolean {
+    const box = this.findBox(xValue);
+    if (box < 0) {
+      return false;
+    }
+    const carried = section === null ? -1 : this.sections.indexOf(section as BoxplotSectionType);
+    const kept = this.isInitialEntry ? -1 : this.sectionIndex;
+    const sectionIndex = carried >= 0
+      ? carried
+      : kept >= 0 ? kept : this.sections.indexOf(BoxplotSection.MIN);
+    return this.orientation === Orientation.HORIZONTAL
+      ? this.moveToIndex(box, sectionIndex)
+      : this.moveToIndex(sectionIndex, box);
   }
 
   protected get values(): (number[] | number)[][] {
