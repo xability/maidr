@@ -88,8 +88,6 @@ export interface MuiSeriesConfig {
   area?: boolean;
   /** Line: the d3 curve the line is drawn with; `step*` draws a staircase. */
   curve?: string;
-  /** Line: keep a staircase on a category axis from running past its ends. */
-  strictStepCurve?: boolean;
   /** Scatter: which dataset columns hold x, y and the point id. */
   datasetKeys?: { x?: string; y?: string; id?: string };
   /** Pie: angles in degrees clockwise from 12 o'clock. */
