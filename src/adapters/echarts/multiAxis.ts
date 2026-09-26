@@ -229,20 +229,30 @@ function parallelAxisNames(model: EChartsModel): string[] {
 }
 
 /**
- * One instant of a themeRiver's axis, in terms a reader can hear.
+ * One instant of a time axis, in terms a reader can hear.
  *
  * ECharts hands over epoch milliseconds. A date is announced as the day it
- * is when the instant lands exactly on a UTC midnight -- which is what daily
+ * is when the instant lands exactly on a midnight -- which is what daily
  * data does -- and as the full timestamp otherwise, so nothing is rounded
  * away from a chart that carries a time of day.
+ *
+ * Whose midnight is the chart's `useUTC`. ECharts draws in local time unless
+ * told otherwise, and a local midnight read in UTC is announced as the day
+ * before east of Greenwich and as eight in the morning in California -- not
+ * the date on the axis. Superset and Metabase both set `useUTC: true`.
  *
  * A non-time axis is left as the number it is.
  *
  * @param value - The raw value of the `time` column
  * @param dated - Whether the axis was declared `type: 'time'`
+ * @param utc   - Whether the chart draws its times in UTC
  * @returns The value to announce
  */
-function instant(value: number | null | undefined, dated: boolean): string | number {
+export function instant(
+  value: number | null | undefined,
+  dated: boolean,
+  utc = true,
+): string | number {
   if (!measured(value)) {
     return 0;
   }
@@ -253,8 +263,14 @@ function instant(value: number | null | undefined, dated: boolean): string | num
   if (Number.isNaN(when.getTime())) {
     return value;
   }
-  const iso = when.toISOString();
-  return iso.endsWith('T00:00:00.000Z') ? iso.slice(0, 10) : iso;
+  if (utc) {
+    const iso = when.toISOString();
+    return iso.endsWith('T00:00:00.000Z') ? iso.slice(0, 10) : iso;
+  }
+  const two = (part: number): string => `${part}`.padStart(2, '0');
+  const day = `${when.getFullYear()}-${two(when.getMonth() + 1)}-${two(when.getDate())}`;
+  const time = `${two(when.getHours())}:${two(when.getMinutes())}:${two(when.getSeconds())}`;
+  return time === '00:00:00' && when.getMilliseconds() === 0 ? day : `${day} ${time}`;
 }
 
 function axisType(model: EChartsModel, mainType: string): string {

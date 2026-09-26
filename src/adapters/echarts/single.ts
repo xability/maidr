@@ -19,6 +19,7 @@ import type { EChartsSeriesModel } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { clockFromCounterclockwiseOf3, pieGeometry } from '../shared/pieGeometry';
 import { nextId } from '../shared/selectorUtil';
+import { dimensionOf } from './dimension';
 
 /** One datum: what it is called, and what it measures. */
 interface Reading {
@@ -41,7 +42,7 @@ export const SINGLE_VALUE: ReadonlySet<string> = new Set([
  */
 function readValues(seriesModel: EChartsSeriesModel): Reading[] {
   const data = seriesModel.getData();
-  const dimension = data.dimensions[0] ?? 'value';
+  const dimension = dimensionOf(data, 'value', 0) ?? 'value';
   const read: Reading[] = [];
 
   for (let index = 0; index < data.count(); index++) {

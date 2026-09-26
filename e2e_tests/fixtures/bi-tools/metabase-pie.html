@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Metabase pie</title>
+  </head>
+  <body>
+    <!--
+  Metabase v0.63.18.2, display "pie". The option is the chart's own
+  getOption() captured from a running Metabase; see README.md.
+-->
+    <div data-testid="visualization-root">
+      <div data-testid="chart-container"></div>
+    </div>
+    <script src="../../../node_modules/echarts/dist/echarts.min.js"></script>
+    <script src="../../../dist/maidr.js"></script>
+    <script src="../../../dist/echarts.js"></script>
+    <script>
+      const option = {
+        animation: false,
+        textStyle: { fontFamily: '"Lato", Arial, sans-serif', fontSize: 12, fontStyle: 'normal', fontWeight: 'normal' },
+        darkMode: 'auto',
+        colorBy: 'series',
+        color: ['#5070dd', '#b6d634', '#505372', '#ff994d', '#0ca8df', '#ffd10a', '#fb628b', '#785db0', '#3fbe95'],
+        gradientColor: ['rgba(212,220,247,1)', '#5070dd'],
+        aria: {
+          decal: {
+            decals: [
+              {
+                color: 'rgba(0, 0, 0, 0.2)',
+                dashArrayX: [1, 0],
+                dashArrayY: [2, 5],
+                symbolSize: 1,
+                rotation: 0.5235987755982988,
+              },
+              {
+                color: 'rgba(0, 0, 0, 0.2)',
+                symbol: 'circle',
+                dashArrayX: [
+                  [8, 8],
+                  [0, 8, 8, 0],
+                ],
+                dashArrayY: [6, 0],
+                symbolSize: 0.8,
+              },
+              { color: 'rgba(0, 0, 0, 0.2)', dashArrayX: [1, 0], dashArrayY: [4, 3], rotation: -0.7853981633974483 },
+              {
+                color: 'rgba(0, 0, 0, 0.2)',
+                dashArrayX: [
+                  [6, 6],
+                  [0, 6, 6, 0],
+                ],
+                dashArrayY: [6, 0],
+              },
+              {
+                color: 'rgba(0, 0, 0, 0.2)',
+                dashArrayX: [
+                  [1, 0],
+                  [1, 6],
+                ],
+                dashArrayY: [1, 0, 6, 0],
+                rotation: 0.7853981633974483,
+              },
+              {
+                color: 'rgba(0, 0, 0, 0.2)',
+                symbol: 'triangle',
+                dashArrayX: [
+                  [9, 9],
+                  [0, 9, 9, 0],
+                ],
+                dashArrayY: [7, 2],
+                symbolSize: 0.75,
+              },
+            ],
+          },
+        },
+        stateAnimation: { duration: 300, easing: 'cubicOut' },
+        animationDuration: 1000,
+        animationDurationUpdate: 500,
+        animationEasing: 'cubicInOut',
+        animationEasingUpdate: 'cubicInOut',
+        animationThreshold: 2000,
+        progressiveThreshold: 3000,
+        progressive: 400,
+        hoverLayerThreshold: 3000,
+        useUTC: false,
+        axisPointer: [
+          {
+            show: 'auto',
+            z: 50,
+            type: 'line',
+            snap: false,
+            triggerTooltip: true,
+            triggerEmphasis: true,
+            value: null,
+            status: null,
+            link: [],
+            animation: null,
+            animationDurationUpdate: 200,
+            lineStyle: { color: '#b7b9be', width: 1, type: 'dashed' },
+            shadowStyle: { color: 'rgba(129,130,136,0.2)' },
+            label: {
+              show: true,
+              formatter: null,
+              precision: 'auto',
+              margin: 3,
+              color: '#fff',
+              padding: [5, 7, 5, 7],
+              backgroundColor: '#536298',
+              borderColor: null,
+              borderWidth: 0,
+              borderRadius: 3,
+            },
+            handle: {
+              show: false,
+              icon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4h1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7v-1.2h6.6z M13.3,22H6.7v-1.2h6.6z M13.3,19.6H6.7v-1.2h6.6z',
+              size: 45,
+              margin: 50,
+              color: '#8292cc',
+              throttle: 40,
+            },
+          },
+        ],
+        tooltip: [
+          {
+            enterable: true,
+            className: 'didcL',
+            trigger: 'item',
+            z: 60,
+            show: true,
+            showContent: true,
+            triggerOn: 'mousemove|click|mousewheel',
+            alwaysShowContent: false,
+            renderMode: 'auto',
+            confine: null,
+            showDelay: 0,
+            hideDelay: 100,
+            transitionDuration: 0.4,
+            displayTransition: true,
+            backgroundColor: '#fff',
+            shadowBlur: 10,
+            shadowColor: 'rgba(0, 0, 0, .2)',
+            shadowOffsetX: 1,
+            shadowOffsetY: 2,
+            borderRadius: 4,
+            borderWidth: 1,
+            defaultBorderColor: '#b7b9be',
+            padding: null,
+            extraCssText: '',
+            axisPointer: {
+              type: 'line',
+              axis: 'auto',
+              animation: 'auto',
+              animationDurationUpdate: 200,
+              animationEasingUpdate: 'exponentialOut',
+              crossStyle: { color: '#9ea0a5', width: 1, type: 'dashed', textStyle: {} },
+            },
+            textStyle: { color: '#6d6e73', fontSize: 14 },
+          },
+        ],
+        graphic: [
+          {
+            elements: [
+              {
+                type: 'group',
+                top: 'center',
+                left: 'center',
+                id: '\u0000series\u00000\u00000',
+                parentOption: null,
+                hv: [true, true],
+                width: 0,
+                height: 0,
+              },
+              {
+                type: 'text',
+                cursor: 'text',
+                top: 0,
+                style: {
+                  fontSize: '22px',
+                  fontWeight: '700',
+                  textAlign: 'center',
+                  fontFamily: '"Lato", Arial, sans-serif',
+                  fill: 'hsla(204, 66%, 8%, 0.84)',
+                  text: '200',
+                  align: 'center',
+                  verticalAlign: null,
+                  textBaseline: null,
+                  textVerticalAlign: null,
+                },
+                parentOption: null,
+                id: '\u0000series\u00001\u00000',
+                parentId: '\u0000series\u00000\u00000',
+                hv: [null, true],
+              },
+              {
+                type: 'text',
+                cursor: 'text',
+                top: 26,
+                style: {
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  textAlign: 'center',
+                  fontFamily: '"Lato", Arial, sans-serif',
+                  fill: 'hsla(204, 66%, 8%, 0.62)',
+                  text: 'Total',
+                  align: 'center',
+                  verticalAlign: null,
+                  textBaseline: null,
+                  textVerticalAlign: null,
+                },
+                parentOption: null,
+                id: '\u0000series\u00002\u00000',
+                parentId: '\u0000series\u00000\u00000',
+                hv: [null, true],
+              },
+            ],
+          },
+        ],
+        series: [
+          {
+            type: 'sunburst',
+            nodeClick: false,
+            radius: [165, 275],
+            itemStyle: {
+              borderColor: 'var(--mb-color-background_page-primary)',
+              borderWidth: 1,
+              borderType: 'solid',
+              shadowBlur: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.2)',
+              shadowOffsetX: 0,
+              shadowOffsetY: 0,
+              opacity: 1,
+            },
+            label: {
+              overflow: 'none',
+              fontSize: 20,
+              fontWeight: 700,
+              rotate: 'radial',
+              show: true,
+              opacity: 1,
+              align: 'center',
+              position: 'inside',
+              distance: 5,
+              silent: true,
+            },
+            labelLayout: { hideOverlap: true },
+            emphasis: { focus: 'ancestor', label: { show: true } },
+            data: [
+              {
+                children: [],
+                value: 54,
+                name: 'Widget',
+                itemStyle: { color: '#F2A86F', borderWidth: 4.799655442984406 },
+                label: { color: 'hsla(204, 66%, 8%, 0.84)', rotate: 0, verticalAlign: 'middle' },
+                emphasis: {
+                  itemStyle: { color: '#F2A86F', borderColor: 'var(--mb-color-background_page-primary)' },
+                  label: {},
+                },
+                blur: {
+                  itemStyle: { color: 'rgba(242, 168, 111, 0.30000000000000004)', opacity: 1 },
+                  label: { opacity: 0.3 },
+                },
+              },
+              {
+                children: [],
+                value: 53,
+                name: 'Gadget',
+                itemStyle: { color: '#F9D45C', borderWidth: 4.799655442984406 },
+                label: { color: 'hsla(204, 66%, 8%, 0.84)', rotate: 0, verticalAlign: 'middle' },
+                emphasis: {
+                  itemStyle: { color: '#F9D45C', borderColor: 'var(--mb-color-background_page-primary)' },
+                  label: {},
+                },
+                blur: {
+                  itemStyle: { color: 'rgba(249, 212, 92, 0.30000000000000004)', opacity: 1 },
+                  label: { opacity: 0.3 },
+                },
+              },
+              {
+                children: [],
+                value: 51,
+                name: 'Gizmo',
+                itemStyle: { color: '#A989C5', borderWidth: 4.799655442984406 },
+                label: { color: 'hsla(0, 0%, 100%, 0.95)', rotate: 0, verticalAlign: 'middle' },
+                emphasis: {
+                  itemStyle: { color: '#A989C5', borderColor: 'var(--mb-color-background_page-primary)' },
+                  label: {},
+                },
+                blur: {
+                  itemStyle: { color: 'rgba(169, 137, 197, 0.30000000000000004)', opacity: 1 },
+                  label: { opacity: 1 },
+                },
+              },
+              {
+                children: [],
+                value: 42,
+                name: 'Doohickey',
+                itemStyle: { color: '#88BF4D', borderWidth: 4.799655442984406 },
+                label: { color: 'hsla(204, 66%, 8%, 0.84)', rotate: 0, verticalAlign: 'middle' },
+                emphasis: {
+                  itemStyle: { color: '#88BF4D', borderColor: 'var(--mb-color-background_page-primary)' },
+                  label: {},
+                },
+                blur: {
+                  itemStyle: { color: 'rgba(136, 191, 77, 0.30000000000000004)', opacity: 1 },
+                  label: { opacity: 0.3 },
+                },
+              },
+            ],
+            z: 2,
+            center: ['50%', '50%'],
+            clockwise: true,
+            startAngle: 90,
+            minAngle: 0,
+            stillShowZeroSum: true,
+            renderLabelForZeroData: false,
+            blur: { itemStyle: { opacity: 0.2 }, label: { opacity: 0.1 } },
+            animationType: 'expansion',
+            animationDuration: 1000,
+            animationDurationUpdate: 500,
+          },
+        ],
+        brush: [],
+        dataZoom: [],
+        markLine: [],
+      };
+      // As Metabase's EChartsRenderer does it: SVG, sized at init, notMerge.
+      const chart = echarts.init(document.querySelector('[data-testid="chart-container"]'), null, {
+        width: 500,
+        height: 500,
+        renderer: 'svg',
+      });
+      chart.setOption(option, true);
+      maidrECharts.bindAllECharts(echarts);
+    </script>
+  </body>
+</html>

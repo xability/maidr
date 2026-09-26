@@ -70,6 +70,12 @@ export interface EChartsTreeNode {
   children?: EChartsTreeNode[];
   /** Its magnitude, rolled up from the children where it has them. */
   getValue: () => number | null | undefined;
+  /**
+   * Where the node was drawn -- on a sunburst, the slice's
+   * `{ cx, cy, r0, r, startAngle, endAngle }`. Read only for a chart drawn to
+   * a canvas; see `canvas.ts`.
+   */
+  getLayout?: () => unknown;
 }
 
 /**
@@ -136,6 +142,27 @@ export interface EChartsList {
    * name comes from {@link getName}.
    */
   get: (dimension: EChartsDimension, index: number) => number | null | undefined;
+  /**
+   * The column one coordinate of the series reads -- `'x'` to `'x'` for data
+   * written inline, and the column `encode` names for data fed from a
+   * `dataset`, which carries every column of the dataset rather than only
+   * the ones the series is drawn from. `undefined` for a coordinate the
+   * series has none of. Optional because a hand-written list may lack it;
+   * `dimension.ts` falls back to the column's position.
+   */
+  mapDimension?: (coordinate: string) => EChartsDimension | undefined;
+  /**
+   * Where one datum was drawn, in the chart's CSS pixels. Its shape depends on
+   * the series type, and a datum with no value comes back with a `null`
+   * coordinate; `canvas.ts` records what was measured for each.
+   */
+  getItemLayout?: (index: number) => unknown;
+  /** A layout of the whole series -- a line's `'points'`, flat `[x0, y0, …]`. */
+  getLayout?: (key: string) => unknown;
+  /** One resolved visual of one datum -- its `'style'`, its `'symbolSize'`. */
+  getItemVisual?: (index: number, key: string) => unknown;
+  /** One resolved visual of the whole series. */
+  getVisual?: (key: string) => unknown;
   /** The hierarchy, on a `treemap`, `sunburst` or `tree` series. */
   tree?: EChartsTree;
   /** The graph, on a `sankey` or `graph` series. */
@@ -174,6 +201,11 @@ export interface EChartsComponentModel {
  * A rendered chart's resolved model.
  */
 export interface EChartsModel {
+  /**
+   * Read one of the chart's global options, such as `useUTC`. Optional
+   * because a hand-written model may lack it.
+   */
+  get?: (key: string) => unknown;
   /** Visit every series, in declaration order. */
   eachSeries: (
     callback: (series: EChartsSeriesModel, index: number) => void,
