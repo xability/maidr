@@ -41,8 +41,9 @@ jest.mock('../../../src/maidr-component', () => ({
  *
  * 1. **One wrapper, appended.** Power BI owns the element it hands the visual;
  *    the binder adds a single wrapper to it and takes it out again on dispose.
- * 2. **Nothing is mounted when there is nothing to navigate.** `Figure` cannot
- *    be built from an empty subplot; the visual's own drawing stays visible.
+ * 2. **MAIDR is not mounted when there is nothing to navigate.** `Figure`
+ *    cannot be built from an empty subplot; a focusable empty state stands in
+ *    for it, and the visual's own drawing stays visible.
  * 3. **An update that changes nothing re-renders nothing.** Power BI calls
  *    `update()` on every resize and format-pane change; re-rendering then
  *    would disturb a reader inside the chart.
@@ -190,7 +191,7 @@ describe('powerbi binder', () => {
       expect(wrapper().getAttribute('data-maidr-powerbi')).toBe('sales');
     });
 
-    it('should mount nothing for an undefined or empty data view', () => {
+    it('should mount a focusable empty state, not MAIDR, for an undefined or empty data view', () => {
       const binding = bind({ chartType: 'column' });
 
       expect(update(binding, undefined)).toBeNull();
@@ -198,7 +199,18 @@ describe('powerbi binder', () => {
 
       expect(binding.conversion).toBeNull();
       expect(mockRenders).toHaveLength(0);
-      expect(wrapper().childNodes).toHaveLength(0);
+      const empty = wrapper().querySelector<HTMLElement>('[data-maidr-powerbi-empty]');
+      expect(empty?.textContent).toBe('No data to read');
+      expect(empty?.tabIndex).toBe(0);
+      expect(empty?.getAttribute('role')).toBe('status');
+    });
+
+    it('should say what emptyLabel says in the empty state', () => {
+      const binding = bind({ chartType: 'column', emptyLabel: 'Pick a region' });
+
+      update(binding, undefined);
+
+      expect(wrapper().querySelector('[data-maidr-powerbi-empty]')?.textContent).toBe('Pick a region');
     });
 
     it('should still host the chart in chart mode while there is nothing to navigate', () => {
@@ -210,6 +222,10 @@ describe('powerbi binder', () => {
 
       expect(mockRenders).toHaveLength(0);
       expect(wrapper().contains(chart)).toBe(true);
+      // The drawing shows its own empty state; the status is for a screen
+      // reader only.
+      const empty = wrapper().querySelector<HTMLElement>('[data-maidr-powerbi-empty]');
+      expect(empty?.style.position).toBe('absolute');
     });
 
     it('should unmount MAIDR again when the data goes away', () => {
@@ -219,7 +235,35 @@ describe('powerbi binder', () => {
 
       expect(update(binding, undefined)).toBeNull();
 
-      expect(wrapper().childNodes).toHaveLength(0);
+      expect(wrapper().querySelector('[data-maidr-powerbi-anchor]')).toBeNull();
+      expect(wrapper().querySelector('[data-maidr-powerbi-empty]')).not.toBeNull();
+    });
+
+    it('should hand focus to the empty state when the figure the reader was in goes away', () => {
+      const binding = bind({ chartType: 'column' });
+      update(binding, salesView());
+      const anchor = wrapper().querySelector<HTMLElement>('[data-maidr-powerbi-anchor]');
+      if (anchor === null) {
+        throw new Error('expected the anchor');
+      }
+      anchor.tabIndex = 0;
+      anchor.focus();
+
+      update(binding, undefined);
+
+      expect(document.activeElement?.hasAttribute('data-maidr-powerbi-empty')).toBe(true);
+    });
+
+    it('should leave focus alone when the reader is elsewhere', () => {
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      const binding = bind({ chartType: 'column' });
+      update(binding, salesView());
+
+      update(binding, undefined);
+
+      expect(document.activeElement).toBe(outside);
     });
   });
 
@@ -341,15 +385,15 @@ describe('powerbi binder', () => {
       expect(binding.conversion?.maidr.id).toBe('my-visual');
     });
 
-    it('should set live only when asked', () => {
-      const off = bind({ chartType: 'column' });
+    it('should be live unless told otherwise', () => {
+      const byDefault = bind({ chartType: 'column' });
+      update(byDefault, salesView());
+      expect(lastData().live).toBe(true);
+      dispose(byDefault);
+
+      const off = bind({ chartType: 'column', live: false });
       update(off, salesView());
       expect(lastData().live).toBeUndefined();
-      dispose(off);
-
-      const on = bind({ chartType: 'column', live: true });
-      update(on, salesView());
-      expect(lastData().live).toBe(true);
     });
 
     it('should return null and do nothing after dispose', () => {
@@ -404,6 +448,64 @@ describe('powerbi binder', () => {
         [[categorical(1, 0)]],
         [[categorical(0, 0)]],
       ]);
+    });
+
+    it('should report null once when focus leaves after a position was reported', async () => {
+      const onNavigate = jest.fn();
+      const binding = bind({ chartType: 'column', onNavigate });
+      update(binding, salesView());
+      const figure = wrapper();
+      figure.tabIndex = -1;
+      figure.focus();
+      lastData().onNavigate?.({ layerId: '0', row: 0, col: 1 });
+
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      figure.focus();
+      outside.focus();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(onNavigate.mock.calls).toEqual([
+        [[categorical(1, 0)]],
+        [null],
+      ]);
+    });
+
+    it('should report null when the visual\'s frame loses focus with the reader inside', async () => {
+      const onNavigate = jest.fn();
+      const binding = bind({ chartType: 'column', onNavigate });
+      update(binding, salesView());
+      const figure = wrapper();
+      figure.tabIndex = -1;
+      figure.focus();
+      lastData().onNavigate?.({ layerId: '0', row: 0, col: 1 });
+
+      // The reader moved to a slicer: the frame's focused element stays put,
+      // and only `focusout` and `document.hasFocus()` say they went.
+      const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+      figure.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
+      hasFocus.mockRestore();
+
+      expect(onNavigate).toHaveBeenLastCalledWith(null);
+    });
+
+    it('should not report null on leaving when nothing was reported', async () => {
+      const onNavigate = jest.fn();
+      const binding = bind({ chartType: 'column', onNavigate });
+      update(binding, salesView());
+      const figure = wrapper();
+      figure.tabIndex = -1;
+      figure.focus();
+
+      const outside = document.createElement('button');
+      document.body.append(outside);
+      outside.focus();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(onNavigate).not.toHaveBeenCalled();
     });
 
     it('should tolerate no onNavigate option', () => {
@@ -483,7 +585,7 @@ describe('powerbi binder', () => {
     });
   });
 
-  describe('navigateTo while the reader is inside', () => {
+  describe('navigateTo while the reader is inside, with live off', () => {
     /** Put the reader's focus inside the figure. */
     function enter(): void {
       const figure = wrapper();
@@ -505,7 +607,7 @@ describe('powerbi binder', () => {
 
     it('should address the data MAIDR is navigating until the reader leaves', async () => {
       const navigate = spyNavigate();
-      const binding = bind({ chartType: 'column', id: 'staged' });
+      const binding = bind({ chartType: 'column', id: 'staged', live: false });
       update(binding, salesView());
       enter();
 
@@ -522,7 +624,7 @@ describe('powerbi binder', () => {
 
     it('should keep the staged data while focus moves within the figure', async () => {
       const navigate = spyNavigate();
-      const binding = bind({ chartType: 'column', id: 'staged' });
+      const binding = bind({ chartType: 'column', id: 'staged', live: false });
       update(binding, salesView());
       enter();
       update(binding, salesView(Number.NaN, 20));
@@ -539,9 +641,9 @@ describe('powerbi binder', () => {
       expect(navigate).toHaveBeenCalledWith({ layerId: '0', row: 0, col: 1 }, { id: 'staged' });
     });
 
-    it('should address the new data at once when live', () => {
+    it('should address the new data at once when live, the default', () => {
       const navigate = spyNavigate();
-      const binding = bind({ chartType: 'column', id: 'live', live: true });
+      const binding = bind({ chartType: 'column', id: 'live' });
       update(binding, salesView());
       enter();
 

@@ -48,6 +48,7 @@ import type { Maidr as MaidrData, NavigateCallback, NavigationTarget } from '../
 import type { PowerBIConversion } from './converter';
 import type { PowerBIAdapterOptions, PowerBIDataPointRef, PowerBIDataView } from './types';
 import { useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { liveDataManager } from '../../service/liveData';
@@ -64,19 +65,32 @@ export interface PowerBIBindOptions extends PowerBIAdapterOptions {
   readonly chart?: HTMLElement | SVGElement;
   /**
    * Called as the reader moves, with the data points under MAIDR's cursor,
-   * and with `null` when the reader leaves the chart. Highlight the marks, or
-   * build selection ids from the refs and call `selectionManager.select()`.
+   * and with `null` when the reader leaves the chart — focus moves out of the
+   * visual, or the visual's frame loses focus to another part of the report.
+   * Highlight the marks, or build selection ids from the refs and call
+   * `selectionManager.select()`; clear them on `null`.
    */
   readonly onNavigate?: (points: readonly PowerBIDataPointRef[] | null) => void;
   /**
-   * The text of companion mode's entry point. Default: the title, or
-   * "Accessible chart".
+   * The visible text of companion mode's entry point. Default: the title, or
+   * "Accessible chart". Screen readers hear MAIDR's own instruction instead:
+   * the entry point is an image to them, named by MAIDR.
    */
   readonly label?: string;
   /**
-   * Adopt new data while the reader is inside the chart. Off by default: a
-   * slicer changed by a colleague should not move the ground under someone
-   * reading, so MAIDR picks the new data up when the reader next enters.
+   * What the focusable empty state says when the data view holds nothing to
+   * navigate — no fields bound, or a filter that leaves no rows. Default
+   * "No data to read".
+   */
+  readonly emptyLabel?: string;
+  /**
+   * Apply new data in place while the reader is inside the chart, keeping
+   * their position. **On by default**, unlike the Tableau binder: a visual's
+   * frame keeps its focused element when the reader moves to a slicer, so
+   * MAIDR cannot tell that they left, and data held back "until they leave"
+   * would be held until they happened to tab out of the visual — the reader
+   * would come back from changing a filter to the unfiltered chart. Pass
+   * `false` to hold new data until focus leaves the visual itself.
    */
   readonly live?: boolean;
 }
@@ -126,6 +140,19 @@ function ChartHost({ node }: ChartHostProps): JSX.Element {
   }, [node]);
   return <div ref={ref} data-maidr-powerbi-chart="" style={{ width: '100%', height: '100%' }} />;
 }
+
+/**
+ * Kept visible for a screen reader only, where the visual's own drawing
+ * already shows its empty state.
+ */
+const VISUALLY_HIDDEN = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;
 
 function sameRef(a: PowerBIDataPointRef | null, b: PowerBIDataPointRef): boolean {
   if (a === null || a.kind !== b.kind) {
@@ -201,46 +228,84 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
 
   let conversion: PowerBIConversion | null = null;
   // The conversion MAIDR's running controller navigates, which `navigateTo`
-  // must address. Without `live`, `useMaidrController` keeps navigating the
-  // previous data until the reader leaves and comes back, so a newer
-  // conversion is staged in `pending` until then — otherwise a click on a
-  // mark would move MAIDR to that mark's position in data it is not showing.
+  // must address. Only differs from `conversion` with `live: false`: then
+  // `useMaidrController` keeps navigating the previous data until focus
+  // leaves the figure, so a newer conversion is staged in `pending` until
+  // then — otherwise a click on a mark would move MAIDR to that mark's
+  // position in data it is not showing.
   let navigated: PowerBIConversion | null = null;
   let pending: PowerBIConversion | null = null;
   let mounted = '';
   let disposed = false;
+  // Whether the visual was last told about a position, so leaving reports the
+  // `null` that clears it exactly once.
+  let reported = false;
+
+  const report = (points: readonly PowerBIDataPointRef[] | null): void => {
+    reported = points !== null;
+    current.onNavigate?.(points);
+  };
 
   // Deferred by a task and re-checked, as `useMaidrController` does: focus
   // moving between two elements inside the figure also fires `focusout`.
+  // MAIDR itself reports nothing when focus leaves — its controller is simply
+  // disposed — so the selection it drove is cleared here, as the Tableau
+  // binder does. The frame losing focus counts as leaving: the reader went
+  // to another visual or a slicer, and a cross-highlight should not outlive
+  // the cursor that put it there.
   const handleFocusOut = (): void => {
     setTimeout(() => {
-      if (!disposed && pending !== null && !wrapper.contains(document.activeElement)) {
+      if (disposed) {
+        return;
+      }
+      const inside = wrapper.contains(document.activeElement);
+      if (!inside && pending !== null) {
         navigated = pending;
         pending = null;
+      }
+      if (reported && (!inside || !document.hasFocus())) {
+        report(null);
       }
     }, 0);
   };
   wrapper.addEventListener('focusout', handleFocusOut);
 
+  const isLive = (): boolean => current.live !== false;
+
   const render = (): void => {
     const chart = current.chart;
     if (conversion === null) {
       // Nothing to navigate: `Figure` cannot be built from an empty subplot,
-      // so MAIDR is not mounted at all. The visual's drawing stays visible.
-      root.render(chart ? <ChartHost node={chart} /> : null);
+      // so MAIDR is not mounted. A focusable empty state takes its place, so a
+      // reader whose chart was just filtered to nothing is told so rather
+      // than dropped onto the frame's body with nothing to reach.
+      const empty = current.emptyLabel ?? 'No data to read';
+      root.render(
+        <>
+          {chart ? <ChartHost node={chart} /> : null}
+          <div
+            data-maidr-powerbi-empty=""
+            role="status"
+            tabIndex={0}
+            style={chart ? VISUALLY_HIDDEN : undefined}
+          >
+            {empty}
+          </div>
+        </>,
+      );
       return;
     }
 
     // One closure per conversion. The controller keeps the `onNavigate` of the
-    // data it was built from until the reader re-enters, so a position is
-    // always resolved against the figure the reader is actually navigating.
+    // data it was built from until it is rebuilt, so a position is always
+    // resolved against the figure the reader is actually navigating.
     const shown = conversion;
     const onNavigate: NavigateCallback = (info) => {
-      current.onNavigate?.(info === null ? null : resolvePowerBIDataPoints(shown, info));
+      report(info === null ? null : resolvePowerBIDataPoints(shown, info));
     };
     const data: MaidrData = {
       ...shown.maidr,
-      ...(current.live === true ? { live: true } : {}),
+      ...(isLive() ? { live: true } : {}),
       onNavigate,
     };
     const label = current.label ?? current.title ?? 'Accessible chart';
@@ -264,15 +329,27 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
       if (key === mounted) {
         return conversion;
       }
+      const hadFocus = wrapper.contains(document.activeElement);
+      const wasEmpty = conversion === null;
       conversion = next;
       mounted = key;
-      if (current.live === true || next === null || !wrapper.contains(document.activeElement)) {
+      if (isLive() || next === null || wasEmpty || !hadFocus) {
         navigated = next;
         pending = null;
       } else {
         pending = next;
       }
-      render();
+      // Committed synchronously, effects included, so MAIDR holds the new
+      // data by the time `update()` returns: a `navigateTo` the visual makes
+      // straight afterwards — re-applying its current selection — is resolved
+      // and delivered against the figure it names, rather than being dropped
+      // when the data effect lands a tick later.
+      flushSync(render);
+      // Swapping the figure for the empty state (or back) unmounts the element
+      // that had focus; hand it to whatever took its place.
+      if (hadFocus && !wrapper.contains(document.activeElement)) {
+        wrapper.querySelector<HTMLElement>('[tabindex]')?.focus();
+      }
       return conversion;
     },
     navigateTo(ref) {
