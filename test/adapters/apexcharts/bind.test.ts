@@ -142,6 +142,22 @@ describe('bindApexCharts', () => {
     }
   });
 
+  it('should warn when the container does not come back after MAIDR started mounting', async () => {
+    const binds = collectBinds();
+    const chart = barChart();
+    const binding = bindApexCharts(chart);
+    await binding.ready;
+    chart.el.remove();
+
+    chart.fire('updated');
+    await sleep(2800);
+
+    expect(binds).toHaveLength(1);
+    const messages = warn.mock.calls.map(call => String(call[0])).filter(m => m.includes('did not come back'));
+    expect(messages).toHaveLength(1);
+    binding.dispose();
+  });
+
   it('should mount again when the in-place update is refused', async () => {
     const binds = collectBinds();
     const chart = barChart();

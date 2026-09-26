@@ -52,6 +52,8 @@ interface Vertex {
 interface SplitRecord {
   parts: Map<string, SVGElement>;
   observer: MutationObserver | null;
+  /** The originals the observer follows. */
+  watched: Element[];
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -239,7 +241,7 @@ function applyParts(
 
   let record = records.get(anchor);
   if (!record) {
-    record = { parts: new Map(), observer: null };
+    record = { parts: new Map(), observer: null, watched: [] };
     records.set(anchor, record);
   }
 
@@ -257,8 +259,18 @@ function applyParts(
     previous = path;
   }
 
+  // An observer set up for originals ApexCharts has since replaced -- one
+  // half of a box, say, while the other was kept -- would follow nodes no
+  // longer drawn, so it is set up again for the ones there now.
+  const stale = record.watched.length !== watched.length
+    || record.watched.some((element, k) => element !== watched[k]);
+  if (record.observer && stale) {
+    record.observer.disconnect();
+    record.observer = null;
+  }
   if (!record.observer && typeof MutationObserver !== 'undefined') {
     const current = record;
+    current.watched = [...watched];
     // ApexCharts animates `d` in place on some updates; the parts follow.
     current.observer = new MutationObserver(() => {
       const next = compute();

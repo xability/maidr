@@ -178,6 +178,23 @@ describe('splitting the drawn chart', () => {
       .toBe('apexcharts-boxPlot-area');
   });
 
+  it('should follow a half ApexCharts replaced while it kept the other', async () => {
+    const { chart, group } = boxChart();
+    apexchartsToMaidr(chart);
+    const [oldLower, upper] = [...group().querySelectorAll('path.apexcharts-boxPlot-area')];
+    const lower = svg('path', { class: 'apexcharts-boxPlot-area', j: 0, d: BOX_LOWER });
+    oldLower.replaceWith(lower);
+    splitBoxes(group(), false);
+    const min = group().querySelector('[data-maidr-part="min"]') as Element;
+    const before = min.getAttribute('d');
+
+    lower.setAttribute('d', BOX_LOWER.replace(/244\.01504/g, '300'));
+    await Promise.resolve();
+
+    expect(upper.isConnected).toBe(true);
+    expect(min.getAttribute('d')).not.toBe(before);
+  });
+
   it('should follow a change to the original outline', async () => {
     const { chart, group } = boxChart();
     apexchartsToMaidr(chart);

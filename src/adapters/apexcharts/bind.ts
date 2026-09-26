@@ -386,9 +386,15 @@ export function bindApexCharts(
     }
     if (mounted && !chart.el.isConnected) {
       void whenConnected(chart.el).then(() => {
-        if (!disposed && latest === maidr && chart.el.isConnected) {
-          deliver(maidr);
+        if (disposed || latest !== maidr) {
+          return;
         }
+        if (chart.el.isConnected) {
+          deliver(maidr);
+          return;
+        }
+        console.warn('[maidr/apexcharts] The chart\'s container did not come back into the page after MAIDR '
+          + 'started mounting on it, so a redraw was not passed on; the next redraw will be.');
       });
       return;
     }
@@ -485,7 +491,7 @@ export function bindApexCharts(
       if (mounted) {
         mounted = false;
         chart.el.removeAttribute('maidr-data');
-        document.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: chart.el }));
+        chart.el.ownerDocument.dispatchEvent(new CustomEvent('maidr:unbindchart', { detail: chart.el }));
       }
       unsplit(chart.el);
     },
