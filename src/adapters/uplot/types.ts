@@ -166,7 +166,10 @@ export interface MaidrUPlotOptions {
    * whose data never changes.
    */
   live?: boolean;
-  /** Outline color for the visual highlight drawn over the canvas. */
+  /**
+   * Color of the visual highlight drawn over the canvas. Defaults to the
+   * reader's highlight color from MAIDR's settings.
+   */
   highlightColor?: string;
   /** Skip binding entirely (for a plugin registered on many charts). */
   enabled?: boolean;

@@ -34,6 +34,7 @@ import type { Maidr as MaidrData, MaidrLayer, NavigateCallback, NavigationTarget
 import type { UPlotLayerSource } from './extractor';
 import type { OverlayBox } from './overlay';
 import type { MaidrUPlotHandle, MaidrUPlotOptions, UPlotInstance, UPlotPlugin } from './types';
+import { getHighlightColor } from '@adapters/shared/highlightColor';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
@@ -384,9 +385,9 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
     try {
       const { boxes, cursor } = resolveHighlight(u, extraction.sources, lastActive);
       overlay.show(boxes);
-      if (cursor && u.setCursor) {
-        u.setCursor(cursor);
-      }
+      // Nothing to point at -- an empty selection -- releases uPlot's cursor
+      // rather than leaving it on the last mark.
+      u.setCursor?.(cursor ?? { left: -10, top: -10 });
     } catch (error) {
       console.warn('[maidr/uplot] Could not draw the highlight:', error);
     }
@@ -419,7 +420,9 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
 
   const handleMount = (): void => {
     if (overlay === null && !disposed) {
-      overlay = new UPlotHighlightOverlay(u.over, options.highlightColor);
+      // The page's color, else the reader's own from MAIDR's settings, as the
+      // other canvas adapters do.
+      overlay = new UPlotHighlightOverlay(u.over, () => options.highlightColor ?? getHighlightColor());
     }
     // uPlot caches the plot's page rectangle to place its cursor; the root
     // has just moved.

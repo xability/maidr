@@ -8,7 +8,9 @@ import type { ReactNode } from 'react';
 import type { FakeUPlot } from './helpers';
 import { bindUPlot, maidrPlugin } from '@adapters/uplot/binder';
 import { liveDataManager } from '@service/liveData';
+import { SETTINGS_KEY } from '@service/settings';
 import { act } from '@testing-library/react';
+import { DEFAULT_SETTINGS } from '@type/settings';
 import { BAR_PATHS, fakeUPlot, fire, LINE_PATHS, POINT_PATHS } from './helpers';
 
 /**
@@ -210,6 +212,19 @@ describe('navigation drawn onto the chart', () => {
     expect(u.setCursor).toHaveBeenLastCalledWith({ left: 40, top: 180 });
   });
 
+  it('releases uPlot\'s cursor when a scatter selection is empty', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, null, 30]],
+      series: [{}, { label: 'Dots', _paths: POINT_PATHS }],
+    });
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'scatter-1', row: 0, col: 0, pointIndices: [0] }));
+    act(() => onNavigate()({ layerId: 'scatter-1', row: -1, col: -1, pointIndices: [] }));
+    expect(boxes(u)).toEqual([]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: -10, top: -10 });
+  });
+
   it('clears the box and hides the cursor when the reader leaves', () => {
     const u = lineChart();
     place(u);
@@ -297,6 +312,34 @@ describe('navigation drawn onto the chart', () => {
     act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
     const box = u.over.querySelector<HTMLElement>('[data-maidr-uplot-highlight]');
     expect(box?.style.outline).toBe('2px solid red');
+  });
+
+  describe('without a page color', () => {
+    afterEach(() => localStorage.removeItem(SETTINGS_KEY));
+
+    function outline(u: FakeUPlot): string | undefined {
+      return u.over.querySelector<HTMLElement>('[data-maidr-uplot-highlight]')?.style.outline;
+    }
+
+    it('uses the reader\'s highlight color from MAIDR\'s settings', () => {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { highlightColor: 'blue' } }));
+      const u = lineChart();
+      place(u);
+      bind(u);
+      act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+      expect(outline(u)).toBe('2px solid blue');
+    });
+
+    it('picks up a settings change on the next move', () => {
+      const u = lineChart();
+      place(u);
+      bind(u);
+      act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
+      expect(outline(u)).toBe(`2px solid ${DEFAULT_SETTINGS.general.highlightColor}`);
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ general: { highlightColor: 'purple' } }));
+      act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 0 }));
+      expect(outline(u)).toBe('2px solid purple');
+    });
   });
 });
 

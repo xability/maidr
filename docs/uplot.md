@@ -288,7 +288,7 @@ uPlot draws into a single `<canvas>`, so there is no element per mark for MAIDR 
 - a box around the focused bar, or around the focused line vertex or scatter point;
 - uPlot's own cursor is moved to the same point, so the legend — and anything else that follows the cursor — shows the values being read. At a gap in a line only the cursor moves.
 
-The default highlight is an orange box with a translucent fill; `highlightColor` sets the outline color and drops the fill. The bar box assumes uPlot's default bar width (60% of the space between two x values), so a bar drawn much wider or narrower is outlined at that default width. The highlight is redrawn whenever the chart redraws — a resize, a zoom, a new tick — and is taken down when focus leaves the chart, so uPlot's cursor is left to the mouse while the reader is elsewhere.
+The highlight is a box in the reader's own highlight color from MAIDR's settings (read on every draw, so a change in the settings shows on the next move), with a translucent fill of the same color; `highlightColor` sets a color for the page instead. The bar box assumes uPlot's default bar width (60% of the space between two x values), so a bar drawn much wider or narrower is outlined at that default width. The highlight is redrawn whenever the chart redraws — a resize, a zoom, a new tick — and is taken down when focus leaves the chart, so uPlot's cursor is left to the mouse while the reader is elsewhere.
 
 The overlay also tells a [tactile graphics display](TACTILE_DISPLAY.md) where the plotting area is, so the chart can be felt by pin.
 
@@ -309,7 +309,7 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 | `msPerUnit` | `number` | inferred | Milliseconds per x unit on a time scale: `1000` for seconds, `1` for milliseconds |
 | `series` | `Record<number, { kind?, exclude? }>` | — | Per-series overrides keyed by `u.series` index (see [Telling MAIDR what a series is](#telling-maidr-what-a-series-is)) |
 | `live` | `boolean` | `true` | Keep MAIDR in step with `u.setData`, streaming appended points (see [Live Streaming](#live-streaming)) |
-| `highlightColor` | `string` | orange | Outline color of the highlight box |
+| `highlightColor` | `string` | the reader's highlight color setting | Color of the highlight box |
 | `enabled` | `boolean` | `true` | `false` makes `maidrPlugin` skip binding, for a plugin registered on many charts |
 
 ## Limitations

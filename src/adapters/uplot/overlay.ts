@@ -23,24 +23,20 @@ export interface OverlayBox {
   height: number;
 }
 
-const DEFAULT_OUTLINE = 'rgba(255, 140, 0, 0.9)';
-const DEFAULT_FILL = 'rgba(255, 165, 0, 0.25)';
-
 /**
  * Draws MAIDR's highlight boxes over a uPlot chart's plotting area.
  */
 export class UPlotHighlightOverlay {
   private readonly layer: HTMLDivElement;
-  private readonly outline: string;
-  private readonly fill: string;
+  private readonly getColor: () => string;
 
   /**
    * @param over - The instance's `u.over` element
-   * @param highlightColor - Optional outline color override
+   * @param getColor - Returns the highlight color, read on every draw so a
+   *   change in MAIDR's settings shows on the next move
    */
-  constructor(over: HTMLElement, highlightColor?: string) {
-    this.outline = highlightColor ?? DEFAULT_OUTLINE;
-    this.fill = highlightColor ? 'transparent' : DEFAULT_FILL;
+  constructor(over: HTMLElement, getColor: () => string) {
+    this.getColor = getColor;
 
     this.layer = document.createElement('div');
     this.layer.setAttribute('data-maidr-uplot-overlay', '');
@@ -70,8 +66,9 @@ export class UPlotHighlightOverlay {
   show(boxes: readonly OverlayBox[]): void {
     this.clear();
     this.syncRegions();
+    const color = this.getColor();
     for (const box of boxes) {
-      this.layer.appendChild(this.createBox(box));
+      this.layer.appendChild(this.createBox(box, color));
     }
   }
 
@@ -96,7 +93,7 @@ export class UPlotHighlightOverlay {
     this.layer.remove();
   }
 
-  private createBox(box: OverlayBox): HTMLDivElement {
+  private createBox(box: OverlayBox, color: string): HTMLDivElement {
     const node = document.createElement('div');
     node.setAttribute('data-maidr-uplot-highlight', '');
     node.setAttribute(OVERLAY_ATTRIBUTES.highlight, '');
@@ -106,8 +103,8 @@ export class UPlotHighlightOverlay {
       top: `${box.top}px`,
       width: `${Math.max(box.width, 1)}px`,
       height: `${Math.max(box.height, 1)}px`,
-      background: this.fill,
-      outline: `2px solid ${this.outline}`,
+      background: `color-mix(in srgb, ${color} 22%, transparent)`,
+      outline: `2px solid ${color}`,
       boxSizing: 'border-box',
       pointerEvents: 'none',
     });
