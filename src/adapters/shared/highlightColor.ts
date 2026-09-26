@@ -1,6 +1,7 @@
 /**
- * Reads MAIDR's configured highlight color so the amCharts overlay matches the
- * other adapters. The overlay lives outside the MAIDR Controller (and its
+ * Reads MAIDR's configured highlight color so a canvas adapter's overlay (the
+ * amCharts and Lightweight Charts binders draw one) matches the other
+ * adapters. The overlay lives outside the MAIDR Controller (and its
  * Redux store), so we read the persisted setting directly from localStorage —
  * the same key/shape `SettingsService` writes — falling back to the default.
  *

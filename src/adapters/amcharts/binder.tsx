@@ -30,12 +30,12 @@ import type {
   AmChartsBinderOptions,
   AmRoot,
 } from './types';
+import { getHighlightColor } from '@adapters/shared/highlightColor';
 import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { convertCharts, findCharts } from './adapter';
 import { readLegendBounds, readPlotBounds, readSliceBounds } from './geometry';
-import { getHighlightColor } from './highlightColor';
 import { buildNavigationMap, groupSeries } from './navmap';
 import { dataItemToOverlayRect, HighlightOverlay } from './overlay';
 
