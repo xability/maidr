@@ -1014,6 +1014,14 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   resetToInitialEntry: () => void;
 
   /**
+   * Re-derives the navigation state a trace keeps beside `row`/`col` from
+   * them. `Context` calls it after restoring `row`/`col` onto a trace that a
+   * live data update rebuilt; a trace that navigates by `row`/`col` alone
+   * does not implement it.
+   */
+  restoreCursor?: () => void;
+
+  /**
    * Computes the trace state at an arbitrary position without moving the
    * cursor or notifying observers (used by monitor mode).
    * @param row - The row of the position to compute state for

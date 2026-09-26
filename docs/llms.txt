@@ -34,6 +34,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, grouped, stacked and horizontal bar, line, area, scatter and pie charts from @mui/x-charts
 - [AnyChart](https://maidr.ai/anychart.html): Bar, line, step, scatter, box, heatmap, candlestick and pie charts via a one-line binder
 - [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
+- [ApexCharts](https://maidr.ai/apexcharts.html): Line, step, area, bar/column, stacked, dodged, normalized, scatter, bubble, pie/donut, polar area, heatmap, candlestick, box plot, radar, range bar (Gantt), treemap, radial bar (gauge), funnel and mixed (combo) charts
 - [TradingView Lightweight Charts](https://maidr.ai/lightweight-charts.html): Candlestick, OHLC bar, line, area, baseline and histogram series across panes, with live streaming
 - [Tableau](https://maidr.ai/tableau.html): Sonification, braille and screen-reader navigation for embedded Tableau dashboards, or from inside one as a dashboard extension
 - [Power BI](https://maidr.ai/powerbi.html): Sonification, braille and keyboard navigation inside a Power BI custom visual

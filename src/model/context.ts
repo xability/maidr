@@ -333,6 +333,7 @@ export class Context implements Disposable {
       col -= 1;
     }
     trace.col = col;
+    trace.restoreCursor?.();
   }
 
   /**

@@ -14,7 +14,7 @@
 
 # MAIDR: Multimodal Access and Interactive Data Representation
 
-MAIDR (Multimodal Access and Interactive Data Representation, pronounced "mader") is an open-source JavaScript/TypeScript library that makes statistical charts accessible to blind and low-vision people. It adds keyboard navigation, sonification, text descriptions, braille output and AI-generated descriptions to charts drawn with React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts and other libraries, or described directly with its JSON data schema. MAIDR is developed by the [(x)Ability Design Lab](https://xabilitylab.ischool.illinois.edu/) at the University of Illinois Urbana-Champaign and is the engine behind [py-maidr](https://py.maidr.ai/) for Python and [maidr for R](https://r.maidr.ai/).
+MAIDR (Multimodal Access and Interactive Data Representation, pronounced "mader") is an open-source JavaScript/TypeScript library that makes statistical charts accessible to blind and low-vision people. It adds keyboard navigation, sonification, text descriptions, braille output and AI-generated descriptions to charts drawn with React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts, ApexCharts and other libraries, or described directly with its JSON data schema. MAIDR is developed by the [(x)Ability Design Lab](https://xabilitylab.ischool.illinois.edu/) at the University of Illinois Urbana-Champaign and is the engine behind [py-maidr](https://py.maidr.ai/) for Python and [maidr for R](https://r.maidr.ai/).
 
 - **Note:** The `maidr` package has been completely rewritten in TypeScript for better architecture and performance. The previous version is now archived at [xability/maidr-legacy](https://github.com/xability/maidr-legacy).
 
@@ -163,7 +163,7 @@ For more information, refer to the example HTML files provided in the directory 
 
 MAIDR is one of three sibling projects from the (x)Ability Design Lab. This repository is the JavaScript core; the two language bindings render their plots with it.
 
-- [MAIDR JavaScript core](https://maidr.ai/): this library, published on npm as [`maidr`](https://www.npmjs.com/package/maidr), with adapters for React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts and other charting libraries. Source: [xability/maidr](https://github.com/xability/maidr).
+- [MAIDR JavaScript core](https://maidr.ai/): this library, published on npm as [`maidr`](https://www.npmjs.com/package/maidr), with adapters for React, Recharts, Plotly, Vega-Lite, D3, Chart.js, Apache ECharts, Highcharts, ApexCharts and other charting libraries. Source: [xability/maidr](https://github.com/xability/maidr).
 
 - [py-maidr for Python](https://py.maidr.ai/): makes matplotlib, seaborn, Plotly and Altair charts accessible after `import maidr`; published on PyPI as `maidr`. Source: [xability/py-maidr](https://github.com/xability/py-maidr).
 
