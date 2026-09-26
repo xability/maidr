@@ -246,4 +246,32 @@ describe('splitting the drawn chart', () => {
     expect(matches((selectors.wickHigh as string[])[0])).toHaveLength(1);
     expect(matches((selectors.wickLow as string[])[0])).toHaveLength(1);
   });
+
+  it('should not highlight the candles when ApexCharts left one of them undrawn', () => {
+    const chart = fakeChart({
+      type: 'candlestick',
+      series: [{ name: 'C', values: [30, 32, 31] }],
+      labels: [1, 2, 3],
+      categoryLabels: ['d1', 'd2', 'd3'],
+      isXNumeric: true,
+      globals: {
+        seriesCandleO: [[20, 30, 32]],
+        seriesCandleH: [[40, 41, 42]],
+        seriesCandleL: [[10, 11, 12]],
+        seriesCandleC: [[30, 32, 31]],
+      },
+      // A zoomed chart: ApexCharts culls the first candle and draws the rest.
+      draw: (dom) => {
+        const group = dom.series(0, 'apexcharts-candlestick-series');
+        svg('path', { class: 'apexcharts-candlestick-area', j: 1, d: CANDLE }, group);
+        svg('path', { class: 'apexcharts-candlestick-area', j: 2, d: CANDLE }, group);
+      },
+    });
+
+    const layer = apexchartsToMaidr(chart).subplots[0][0].layers[0];
+
+    expect(layer.data).toHaveLength(3);
+    expect(layer.selectors).toBeUndefined();
+    expect(warn.mock.calls.map(call => String(call[0])).some(m => m.includes('Some candles are not drawn'))).toBe(true);
+  });
 });

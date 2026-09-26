@@ -68,6 +68,8 @@ import {
   linePathSelector,
   markerAtSelector,
   markerSelector,
+  PART_ATTRIBUTE,
+  PART_INDEX_ATTRIBUTE,
   partSelector,
   pieSelector,
   radarMarkerSelector,
@@ -1014,6 +1016,7 @@ function candlestickLayer(ctx: Context, i: number): MaidrLayer | null {
   const body: string[] = [];
   const wickHigh: string[] = [];
   const wickLow: string[] = [];
+  const readIndices: number[] = [];
   close.forEach((rawClose, j) => {
     const open = toNumber(g.seriesCandleO?.[i]?.[j]);
     const high = toNumber(g.seriesCandleH?.[i]?.[j]);
@@ -1030,6 +1033,7 @@ function candlestickLayer(ctx: Context, i: number): MaidrLayer | null {
       close: closeValue,
       volatility: high - low,
     });
+    readIndices.push(j);
     body.push(partSelector(ctx.root, i, j, 'body'));
     wickHigh.push(partSelector(ctx.root, i, j, 'wick-high'));
     wickLow.push(partSelector(ctx.root, i, j, 'wick-low'));
@@ -1037,14 +1041,42 @@ function candlestickLayer(ctx: Context, i: number): MaidrLayer | null {
   if (data.length === 0) {
     return null;
   }
+  // MAIDR pairs candles with the parts these selectors match by position, so
+  // a candle without parts -- culled by ApexCharts on a zoomed or panned
+  // chart, or one that could not be split -- would move every later candle's
+  // highlight onto its neighbour. No highlight is better than a wrong one.
+  const highlightable = !horizontal && (!group || candlesSplit(group, readIndices));
+  if (!highlightable && !horizontal) {
+    warnOnce(
+      chart,
+      'candle-undrawn',
+      'Some candles are not drawn (a zoomed or panned chart leaves them out) or could not be split, '
+      + 'so the candlesticks are read without being highlighted.',
+    );
+  }
   return {
     id: nextLayerId(ctx),
     type: TraceType.CANDLESTICK,
     name: seriesName(chart, i),
     axes: { x: axis(ctx.labels.x), y: axis(yLabelOf(ctx, [i])) },
-    ...(horizontal ? {} : { selectors: { body, wickHigh, wickLow } }),
+    ...(highlightable ? { selectors: { body, wickHigh, wickLow } } : {}),
     data,
   };
+}
+
+/**
+ * Whether every candle in the data has its split parts drawn.
+ *
+ * @param group   - The series' group
+ * @param indices - The data indices of the candles the layer reads
+ * @returns True when each of them has a body part
+ */
+function candlesSplit(group: Element, indices: number[]): boolean {
+  const split = new Set<string>();
+  group.querySelectorAll(`path[${PART_ATTRIBUTE}="body"]:not([data-maidr-owned])`).forEach((part) => {
+    split.add(part.getAttribute(PART_INDEX_ATTRIBUTE) ?? '');
+  });
+  return indices.every(j => split.has(String(j)));
 }
 
 /**
