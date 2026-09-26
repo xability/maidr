@@ -41,6 +41,8 @@ interface NavigationSnapshot {
   traceRow: number;
   traceCol: number;
   traceEntry: boolean;
+  /** What the active trace's `cursorKey` returned, if it has one. */
+  traceCursorKey: string | null;
   /** Per-row subplot counts plus the active subplot's layer count. */
   shape: string;
 }
@@ -228,6 +230,7 @@ export class Context implements Disposable {
         traceRow: trace?.row ?? 0,
         traceCol: trace?.col ?? 0,
         traceEntry: trace?.isInitialEntry ?? true,
+        traceCursorKey: trace?.cursorKey?.() ?? null,
         shape: this.describeShape(figure),
       };
     } catch {
@@ -333,7 +336,7 @@ export class Context implements Disposable {
       col -= 1;
     }
     trace.col = col;
-    trace.restoreCursor?.();
+    trace.restoreCursor?.(snapshot.traceCursorKey);
   }
 
   /**

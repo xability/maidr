@@ -84,4 +84,23 @@ describe('candlestick position across a live data update', () => {
 
     expect(position(context.active.state)).toEqual({ candle: 'Mar 4', section: 'close' });
   });
+
+  test('keeps the reader on their segment when new values reorder the candle', () => {
+    const context = new Context(new Figure(candlestickMaidr(CANDLES)));
+    for (let i = 0; i < 3; i++) {
+      context.moveOnce('FORWARD');
+    }
+    context.moveOnce('UPWARD');
+    const before = position(context.active.state);
+
+    // Mar 5 turns from bearish to bullish: its open and close swap places,
+    // so the segment of the reader's rank is now the other one.
+    const flipped = CANDLES.map(candle => candle.value === 'Mar 5'
+      ? { ...candle, open: candle.close, close: candle.open ?? candle.close, trend: 'Bull' as const }
+      : candle);
+    context.replaceFigure(() => new Figure(candlestickMaidr(flipped)));
+
+    expect(before).toEqual({ candle: 'Mar 5', section: 'open' });
+    expect(position(context.active.state)).toEqual(before);
+  });
 });

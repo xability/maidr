@@ -1014,12 +1014,22 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
   resetToInitialEntry: () => void;
 
   /**
+   * The part of the cursor a trace keeps beside `row`/`col` that should
+   * survive a live data update -- a candlestick's segment. `Context`
+   * captures it before the update and hands it to {@link restoreCursor}.
+   * Optional; pairs with `restoreCursor`.
+   * @returns The key, or null when there is none
+   */
+  cursorKey?: () => string | null;
+
+  /**
    * Re-derives the navigation state a trace keeps beside `row`/`col` from
    * them. `Context` calls it after restoring `row`/`col` onto a trace that a
    * live data update rebuilt; a trace that navigates by `row`/`col` alone
    * does not implement it.
+   * @param key - What {@link cursorKey} returned on the trace before the update
    */
-  restoreCursor?: () => void;
+  restoreCursor?: (key?: string | null) => void;
 
   /**
    * Computes the trace state at an arbitrary position without moving the
