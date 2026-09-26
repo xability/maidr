@@ -10,9 +10,14 @@
  * marks in the SVG -- register it on the chart's `finished` event, or call it
  * from a `setTimeout` after `setOption`.
  *
- * Use the **SVG renderer**. ECharts defaults to canvas, which draws no
- * elements to point at, so a canvas chart reads correctly and highlights
- * nothing.
+ * Prefer the **SVG renderer**. ECharts defaults to canvas, which draws no
+ * elements to point at: a canvas chart reads correctly, and its bars, points,
+ * lines, areas, pie and sunburst slices are outlined through an overlay drawn
+ * from the model, but any other series type is outlined only on SVG.
+ *
+ * `bindEChart` keeps a chart read as its data and size change, and
+ * `bindAllECharts` does that for every chart on a page -- the way into Apache
+ * Superset and Metabase, which create their own charts (#1304).
  *
  * The readings target **echarts 6.1.0**, measured in Chromium; the mark
  * detection in `selectors.ts` depends on how that version paints, so verify it
@@ -42,6 +47,13 @@
  *
  * @packageDocumentation
  */
+
+export {
+  bindAllECharts,
+  bindEChart,
+  type EChartsBindable,
+  type EChartsLibrary,
+} from './bind';
 
 export {
   createMaidrFromEChart,

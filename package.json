@@ -225,6 +225,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "baseline-browser-mapping": "^2.10.16",
     "d3": "^7.9.0",
+    "echarts": "6.1.0",
     "esbuild": "^0.28.0",
     "eslint": "^9.25.1",
     "eslint-plugin-format": "^1.0.1",

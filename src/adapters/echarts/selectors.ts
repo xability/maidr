@@ -85,12 +85,40 @@ function normalise(paint: string): string {
     return `#${rgb.slice(1, 4).map(part => Number(part).toString(16).padStart(2, '0')).join('')}`;
   }
 
+  // Metabase paints in `hsla(…)`, the hollow symbols of a line in
+  // `hsla(0, 0%, 100%, 1.00)` -- measured in its SVG, where a white spelled
+  // that way was counted as a mark and a Metabase area lost its outline to
+  // the mismatch: 49 symbols and one band found where one band was expected
+  // (#1304).
+  const hsl = /^hsla?\(\s*([\d.]+)(?:deg)?\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/.exec(trimmed);
+  if (hsl) {
+    return hexOfHsl(Number(hsl[1]), Number(hsl[2]) / 100, Number(hsl[3]) / 100);
+  }
+
   const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(trimmed);
   if (short) {
     return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
   }
 
   return trimmed;
+}
+
+/**
+ * An HSL colour as `#rrggbb`, by the conversion CSS Color 4 gives.
+ *
+ * @param hue        - In degrees
+ * @param saturation - From 0 to 1
+ * @param lightness  - From 0 to 1
+ * @returns The same colour in hex
+ */
+function hexOfHsl(hue: number, saturation: number, lightness: number): string {
+  const channel = (n: number): string => {
+    const k = (n + hue / 30) % 12;
+    const a = saturation * Math.min(lightness, 1 - lightness);
+    const value = lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(value * 255).toString(16).padStart(2, '0');
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
 }
 
 /**

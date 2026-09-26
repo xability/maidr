@@ -18,6 +18,8 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
+import { drawCanvasMarks } from './canvas';
+import { dimensionOf } from './dimension';
 import {
   boxplotLayer,
   candlestickLayer,
@@ -35,6 +37,7 @@ import {
 } from './hierarchy';
 import {
   drawnBandCount,
+  instant,
   PARALLEL,
   parallelLayer,
   THEME_RIVER,
@@ -168,6 +171,10 @@ export function createMaidrFromEChart(
       + `Supported types: ${[...READ].join(', ')}.`,
     );
   }
+
+  // A canvas has no elements to point at, so its marks are drawn from the
+  // model into an overlay first; see `canvas.ts`. An SVG chart is untouched.
+  drawCanvasMarks(container, readable);
 
   const owning = readable.filter(seriesModel => OWNS_CHART.has(seriesModel.subType));
   const layers = owning.length > 0
@@ -307,16 +314,33 @@ interface Axes {
   x: string;
   y: string;
   horizontal: boolean;
+  /**
+   * Whether the axis the points are positioned along is `type: 'time'`,
+   * whose positions ECharts hands over as epoch milliseconds -- see
+   * {@link positionOf}.
+   */
+  dated: boolean;
 }
 
 function axisNames(model: EChartsModel): Axes {
   const x = firstComponent(model, 'xAxis');
   const y = firstComponent(model, 'yAxis');
 
+  const xType = text(x?.get('type'));
+  const yType = text(y?.get('type'));
+  // A time axis is a position axis too. Superset turns a time-series bar on
+  // its side by exchanging its axes, which leaves `yAxis: {type: 'time'}`
+  // against `xAxis: {type: 'value'}` -- measured on Superset 6.1.0, where the
+  // bars were read upright with their dates as the magnitude's partner and
+  // announced as "1704067200000" (#1304).
+  const horizontal = yType === 'category'
+    || (yType === 'time' && xType !== 'time' && xType !== 'category');
+
   return {
     x: text(x?.get('name')),
     y: text(y?.get('name')),
-    horizontal: text(y?.get('type')) === 'category',
+    horizontal,
+    dated: (horizontal ? yType : xType) === 'time',
   };
 }
 
@@ -563,8 +587,8 @@ function placed(
   data: EChartsList,
   index: number,
 ): { x: number; y: number } | undefined {
-  const x = data.get(data.dimensions[0], index);
-  const y = data.get(data.dimensions[1], index);
+  const x = data.get(dimensionOf(data, 'x', 0), index);
+  const y = data.get(dimensionOf(data, 'y', 1), index);
   if (typeof x !== 'number' || typeof y !== 'number') {
     return undefined;
   }
@@ -581,7 +605,9 @@ function magnitudeOf(
   index: number,
   horizontal: boolean,
 ): number | null {
-  const dimension = data.dimensions[horizontal ? 0 : 1];
+  const dimension = horizontal
+    ? dimensionOf(data, 'x', 0)
+    : dimensionOf(data, 'y', 1);
   const value = data.get(dimension, index);
 
   return typeof value === 'number' ? value : null;
@@ -594,21 +620,37 @@ function magnitudeOf(
  * value axis, so an empty name is "this axis carries numbers" rather than
  * "this point is unnamed" -- and the position is then the coordinate itself.
  *
- * Which coordinate needs no deciding; see the comment at the fallback.
+ * @param data  - The series' data list
+ * @param index - Which datum
+ * @param axes  - The chart's axes, for which coordinate is the position and
+ *                whether it is a time
+ * @returns The category, the date, or the coordinate
  */
-function positionOf(data: EChartsList, index: number): string | number {
+function positionOf(
+  data: EChartsList,
+  index: number,
+  axes: Axes,
+): string | number {
   const name = data.getName(index);
   if (name) {
     return name;
   }
 
-  // Always x. Reaching here means the point carries no category name, which
-  // means neither axis is categorical -- and a chart is only "horizontal"
-  // because its **y** axis is the categorical one. So the two cannot both be
-  // true, and asking which axis to read would be a branch nothing can take.
-  const value = data.get(data.dimensions[0], index);
+  // No category name, so the position is a coordinate: x on an upright
+  // chart, and y on one turned sideways, which without a category axis only
+  // a time axis on y does -- see `axisNames`.
+  const value = axes.horizontal
+    ? data.get(dimensionOf(data, 'y', 1), index)
+    : data.get(dimensionOf(data, 'x', 0), index);
+  if (typeof value !== 'number') {
+    return index;
+  }
 
-  return typeof value === 'number' ? value : index;
+  // A time axis positions a point at epoch milliseconds, which announced raw
+  // is "1577836800000". Superset draws every time series on one, and so does
+  // Metabase for a date column (#1304) -- the reading a theme river's time
+  // axis already gets.
+  return axes.dated ? instant(value, true) : value;
 }
 
 /**
@@ -619,9 +661,23 @@ function positionOf(data: EChartsList, index: number): string | number {
  * internal counter. The **option** is the thing that says whether an author
  * wrote anything: measured, `get('name')` is `undefined` on the same series
  * whose `.name` had already become an invented string.
+ *
+ * A series with no name but an `id` the author gave it is named by that.
+ * Metabase names none of its series -- its legend is its own HTML -- and
+ * identifies each by an id that carries what the legend says, such as
+ * `43:CNT:Widget` for the Widget segment of a stacked bar; without it every
+ * segment was announced as "Series 1", "Series 2", … and a reader could not
+ * tell which was which (#1304). The id ECharts invents for a series given
+ * none begins with a NUL character (`'\0series\0…'`), so it is never taken
+ * for the author's.
  */
 function authoredName(seriesModel: EChartsSeriesModel): string {
-  return text(seriesModel.get('name'));
+  const name = text(seriesModel.get('name'));
+  if (name) {
+    return name;
+  }
+  const id = text(seriesModel.get('id'));
+  return id.includes('\0') ? '' : id;
 }
 
 function axisConfig(axes: Axes): MaidrLayer['axes'] {
@@ -652,7 +708,7 @@ function barLayer(
       if (!measured(value)) {
         continue;
       }
-      const position = positionOf(data, index);
+      const position = positionOf(data, index, axes);
       points.push(
         axes.horizontal ? { x: value, y: position } : { x: position, y: value },
       );
@@ -693,7 +749,7 @@ function barLayer(
     for (let index = 0; index < list.count(); index++) {
       const value = magnitudeOf(list, index, axes.horizontal);
       const magnitude = measured(value) ? value : Number.NaN;
-      const position = positionOf(list, index);
+      const position = positionOf(list, index, axes);
       points.push(
         axes.horizontal
           ? { x: magnitude, y: position, z: fill }
@@ -766,7 +822,7 @@ function lineLayer(
   for (let index = 0; index < data.count(); index++) {
     const value = magnitudeOf(data, index, axes.horizontal);
     points.push({
-      x: positionOf(data, index),
+      x: positionOf(data, index, axes),
       // Positioned but not measured, which `LinePoint` can say and
       // `BarPoint` cannot: the gap keeps the samples either side of it in
       // their places instead of closing over it, and it is not a zero (#925).
@@ -793,6 +849,36 @@ function lineLayer(
 }
 
 /**
+ * What a scatter point's x is called, when the axis says more than a number.
+ *
+ * `ScatterPoint.x` stays numeric, because the trace does arithmetic on it,
+ * and a category axis hands over the category's **index** while a time axis
+ * hands over epoch milliseconds. Neither is what a reader should hear --
+ * Superset's time-series scatter was announced as "X is 1704067200000"
+ * (#1304) -- so the name or the date is carried as the label beside it.
+ *
+ * @param data  - The series' data list
+ * @param index - Which datum
+ * @param axes  - The chart's axes
+ * @returns The category or the date, or `undefined` on a value axis
+ */
+function xLabelOf(data: EChartsList, index: number, axes: Axes): string | undefined {
+  // Sideways, the category or the time is on y, and a name is y's.
+  if (axes.horizontal) {
+    return undefined;
+  }
+  const name = data.getName(index);
+  if (name) {
+    return name;
+  }
+  if (!axes.dated) {
+    return undefined;
+  }
+  const at = instant(data.get(dimensionOf(data, 'x', 0), index), true);
+  return typeof at === 'string' ? at : undefined;
+}
+
+/**
  * ECharts' step spelling, in the grammar's own terms.
  *
  * `'start'` jumps at the sample and holds to the next, which is a vertical
@@ -813,7 +899,13 @@ function scatterLayer(
   // A `symbolSize` reading a third column shows up as an extra dimension,
   // measured -- `['x', 'y', 'value']`. That is the point's magnitude, which
   // `ScatterPoint.z` carries and `zIntensityFor()` makes audible (#826).
-  const sized = data.dimensions.length > 2 ? data.dimensions[2] : undefined;
+  // Only when it is the **one** column the coordinates leave over: a series
+  // fed from a dataset carries every column of it (see `dimension.ts`), and
+  // with two left over there is nothing to say which one sized the symbols.
+  const x = dimensionOf(data, 'x', 0);
+  const y = dimensionOf(data, 'y', 1);
+  const spare = data.dimensions.filter(dimension => dimension !== x && dimension !== y);
+  const sized = spare.length === 1 ? spare[0] : undefined;
 
   const points: ScatterPoint[] = [];
   for (let index = 0; index < data.count(); index++) {
@@ -822,9 +914,11 @@ function scatterLayer(
       continue;
     }
     const size = sized === undefined ? undefined : data.get(sized, index);
+    const label = xLabelOf(data, index, axes);
     points.push({
       ...at,
       ...(typeof size === 'number' && Number.isFinite(size) ? { z: size } : {}),
+      ...(label ? { xLabel: label } : {}),
     });
   }
 

@@ -26,7 +26,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Chart.js](https://maidr.ai/chartjs.html): Bar, line, scatter, stacked, dodged, box plot, candlestick, heatmap (matrix) and pie or doughnut charts
 - [amCharts 5](https://maidr.ai/amcharts.html): Bar, dodged, stacked, normalized, line, histogram, heatmap and pie charts
 - [Observable Plot & Quarto](https://maidr.ai/observable.html): Bar, histogram, scatter, line, area and faceted plots, including Quarto OJS cells
-- [Apache ECharts](https://maidr.ai/echarts.html): Bar, stacked bar, dodged bar, line, area, step and scatter series
+- [Apache ECharts](https://maidr.ai/echarts.html): Bar, stacked bar, dodged bar, line, area, step and scatter series, including the charts Apache Superset and Metabase draw with it
 - [Frappe Charts](https://maidr.ai/frappe.html): Bar, line, multi-line, scatter, mixed axis, pie and donut charts
 - [Victory](https://maidr.ai/victory.html): Bar, line, scatter, stacked, histogram, box plot, candlestick and pie charts for React
 - [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, grouped, stacked and horizontal bar, line, area, scatter and pie charts from @mui/x-charts

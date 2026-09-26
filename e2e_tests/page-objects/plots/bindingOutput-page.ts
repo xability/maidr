@@ -18,24 +18,29 @@ export interface Reading {
 }
 
 /**
- * Page object for the pages r-maidr and py-maidr produce.
+ * Page object for pages another producer wrote.
  *
  * Each fixture under `e2e_tests/fixtures/bindings/` is a binding's real output
  * with its bundled `maidr.js` swapped for this build, so a spec can ask what a
- * reader of that page gets from the code about to be released.
+ * reader of that page gets from the code about to be released. Those under
+ * `e2e_tests/fixtures/bi-tools/` are the same question asked of the charts
+ * Apache Superset and Metabase draw with ECharts.
  */
 export class BindingOutputPage extends BasePage {
   /**
-   * The chart. Every binding renders one `<svg>` per figure; MAIDR is
-   * attached to it.
-   */
-  private readonly svgSelector = 'svg';
-
-  /**
    * Creates a new BindingOutputPage instance
    * @param page - The Playwright page object
+   * @param directory - The folder under `e2e_tests/fixtures/` the fixtures
+   * are in
+   * @param svgSelector - The chart. Every binding renders one `<svg>` per
+   * figure and MAIDR is attached to it; an ECharts chart is the element
+   * ECharts drew into, which MAIDR is bound to.
    */
-  constructor(page: Page) {
+  constructor(
+    page: Page,
+    private readonly directory = 'bindings',
+    private readonly svgSelector = 'svg',
+  ) {
     super(page);
   }
 
@@ -46,7 +51,7 @@ export class BindingOutputPage extends BasePage {
    */
   public async open(fixture: string): Promise<void> {
     try {
-      await super.navigateTo(`e2e_tests/fixtures/bindings/${fixture}.html`);
+      await super.navigateTo(`e2e_tests/fixtures/${this.directory}/${fixture}.html`);
       await super.verifyPlotLoaded(this.svgSelector);
     } catch (error) {
       throw new BindingOutputError(`Failed to open ${fixture}`, { cause: error });

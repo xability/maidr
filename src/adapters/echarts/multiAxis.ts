@@ -229,7 +229,7 @@ function parallelAxisNames(model: EChartsModel): string[] {
 }
 
 /**
- * One instant of a themeRiver's axis, in terms a reader can hear.
+ * One instant of a time axis, in terms a reader can hear.
  *
  * ECharts hands over epoch milliseconds. A date is announced as the day it
  * is when the instant lands exactly on a UTC midnight -- which is what daily
@@ -242,7 +242,7 @@ function parallelAxisNames(model: EChartsModel): string[] {
  * @param dated - Whether the axis was declared `type: 'time'`
  * @returns The value to announce
  */
-function instant(value: number | null | undefined, dated: boolean): string | number {
+export function instant(value: number | null | undefined, dated: boolean): string | number {
   if (!measured(value)) {
     return 0;
   }
