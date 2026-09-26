@@ -836,7 +836,7 @@ describe('candlestick and box plot', () => {
       { value: 'd1', open: 20, high: 40, low: 10, close: 30, volatility: 30 },
       { value: 'd2', open: 30, high: 35, low: 15, close: 20, volatility: 20 },
     ]);
-    expect(selectors.body).toEqual([0, 1].map(j => `${GROUP(chart, 0)} path[data-maidr-index="${j}"][data-maidr-part="body"]`));
+    expect(selectors.body).toEqual([0, 1].map(j => `${GROUP(chart, 0)} path[data-maidr-index="${j}"][data-maidr-part="body"]:not([data-maidr-owned])`));
     expect(selectors.wickHigh).toHaveLength(2);
     expect(selectors.wickLow).toHaveLength(2);
   });
@@ -874,7 +874,7 @@ describe('candlestick and box plot', () => {
     });
 
     const layer = onlyLayer(chart);
-    const part = (j: number, name: string): string => `${GROUP(chart, 0)} path[data-maidr-index="${j}"][data-maidr-part="${name}"]`;
+    const part = (j: number, name: string): string => `${GROUP(chart, 0)} path[data-maidr-index="${j}"][data-maidr-part="${name}"]:not([data-maidr-owned])`;
 
     expect(layer.type).toBe(TraceType.BOX);
     expect((layer.data as BoxPoint[])[0]).toEqual({

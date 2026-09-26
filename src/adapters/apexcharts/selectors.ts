@@ -240,5 +240,5 @@ export function gaugeSelector(root: string, j: number): string {
  * @returns A selector matching that one synthetic path
  */
 export function partSelector(root: string, realIndex: number, j: number, part: string): string {
-  return `${seriesGroupSelector(root, realIndex)} path[${PART_INDEX_ATTRIBUTE}="${j}"][${PART_ATTRIBUTE}="${part}"]`;
+  return `${seriesGroupSelector(root, realIndex)} path[${PART_INDEX_ATTRIBUTE}="${j}"][${PART_ATTRIBUTE}="${part}"]${NOT_OWNED}`;
 }

@@ -775,6 +775,7 @@ maidrApexCharts.bindApexCharts(chart);
 - **Several y axes are named per layer.** A layer mixing series on differently titled y axes is given no y title; pass `axes: { y: '...' }` to name it yourself.
 - **Mixed point formats in one chart are dropped by ApexCharts.** A chart whose series mix the array and object point forms has one of them left out by ApexCharts itself; MAIDR reads what was drawn.
 - **Unsupported types** — `rangeArea` and anything else not in the [table](#supported-chart-types) — are skipped with a console warning.
+- **Charts drawn on a canvas are read but not highlighted.** ApexCharts' optional canvas renderer (`chart.renderer: 'canvas'`, or `'auto'` above its threshold) draws no SVG element per point, so there is nothing for MAIDR to outline.
 - **A bubble's size is not announced.** A bubble chart is read as a scatter plot of its x and y values.
 
 ## Keyboard Controls
