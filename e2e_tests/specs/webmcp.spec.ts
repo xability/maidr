@@ -203,4 +203,54 @@ test.describe('WebMCP tools', () => {
     await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
     expect(await toolNames(page)).toEqual(['maidr_get_layer_data', 'maidr_list_charts', 'maidr_navigate']);
   });
+  /**
+   * Puts a second bar chart (id "bar2") beside the first, before MAIDR mounts,
+   * so each has its own settings dialog. Both are declared through the
+   * `maidr` attribute, since the page's `var maidr` fallback serves one chart.
+   * @param page - The Playwright page
+   * @param blockStorage - Whether saving settings fails, as in a private window
+   */
+  async function openTwoCharts(page: Page, blockStorage: boolean): Promise<void> {
+    await page.addInitScript((block) => {
+      if (block) {
+        Storage.prototype.setItem = () => {
+          throw new DOMException('blocked', 'SecurityError');
+        };
+      }
+      document.addEventListener('DOMContentLoaded', () => {
+        const first = document.querySelector('svg#bar')!;
+        const data = (window as any).maidr;
+        const second = first.cloneNode(true) as SVGSVGElement;
+        second.id = 'bar2';
+        first.setAttribute('maidr', JSON.stringify(data));
+        second.setAttribute('maidr', JSON.stringify({ ...data, id: 'bar2' }));
+        first.after(second);
+      });
+    }, blockStorage);
+    await page.goto('examples/barplot.html');
+    await page.waitForSelector('svg#bar2');
+    await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
+  }
+
+  for (const blockStorage of [false, true]) {
+    test(`another chart's Settings shows a choice made in the first${blockStorage ? ' when storage is blocked' : ''}`, async ({ page }) => {
+      await setUp(page, null);
+      await openTwoCharts(page, blockStorage);
+      const barPlotPage = new BarPlotPage(page);
+      const checkbox = page.getByRole('checkbox', { name: 'Browser AI Agent Access' });
+      const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+
+      await page.click('svg#bar');
+      await barPlotPage.openSettingsMenu();
+      await expect(checkbox).toBeChecked();
+      await checkbox.click();
+      await page.getByRole('button', { name: 'Save & Close Settings' }).click();
+      await expect(dialog).toBeHidden();
+      await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 0);
+
+      await page.click('svg#bar2');
+      await barPlotPage.openSettingsMenu();
+      await expect(checkbox).not.toBeChecked();
+    });
+  }
 });

@@ -24,7 +24,7 @@ Without a secure context or a browser with WebMCP, or with the tools switched of
 
 WebMCP support is **on by default**: in a browser that has WebMCP, every page with a MAIDR chart offers the tools, with no change to the page, the schema or any producer — hand-written pages, py-maidr, maidr for R and the chart-library adapters alike.
 
-**The reader decides.** In a browser with WebMCP, **Settings > General** has a **Browser AI Agent Access** checkbox, on by default. Unchecking it and saving removes the tools at once, from every chart on the page, without a reload; checking it again registers them again. The choice is kept in the browser with the reader's other MAIDR settings, so it applies on every page that uses MAIDR. The row is not shown in a browser without WebMCP, where it could do nothing.
+**The reader decides.** In a browser with WebMCP, **Settings > General** has a **Browser AI Agent Access** checkbox, on by default. Unchecking it and saving removes the tools at once, from every chart on the page, without a reload; checking it again registers them again. The choice is kept in the browser with the reader's other MAIDR settings, so it applies on every page that uses MAIDR. Where the browser cannot save it -- a private window, or an embed whose storage is blocked -- it still holds for every chart on the page until the page is closed. The row is not shown in a browser without WebMCP, where it could do nothing.
 
 **A page author can switch the tools off** for the whole page with a meta tag, which wins over the reader's setting:
 
