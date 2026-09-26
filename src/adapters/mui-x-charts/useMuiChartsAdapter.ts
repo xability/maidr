@@ -41,7 +41,7 @@ import type { RefObject } from 'react';
 import type { MuiChartKind, MuiChartsAdapterConfig } from './types';
 import { cssEscape, ensureContainerId } from '@adapters/shared/selectorUtil';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { convertMuiChartsToMaidr, findMuiChartElement } from './converters';
+import { convertMuiChartsToMaidr, findMuiChartElement, warnOnce } from './converters';
 import { KIND_ROOT_CLASSES } from './selectors';
 
 /**
@@ -89,6 +89,15 @@ export function useMuiChartsAdapter(
       return;
     const scope = `#${cssEscape(ensureContainerId(container, 'mui'))} `;
     const chart = findMuiChartElement(children);
+    // MAIDR's plot is as wide as its content, and a chart with no `width`
+    // takes the width of its container: the two size each other down to a
+    // sliver. A fixed width breaks the circle.
+    if (chart && typeof chart.props.width !== 'number') {
+      warnOnce(
+        'give the chart a `width` prop. Without one it sizes itself to its container, which '
+        + 'inside MAIDR\'s plot is only as wide as the chart, and it collapses.',
+      );
+    }
 
     const apply = (): boolean => {
       const kind = chartType ?? chart?.kind ?? detectMuiChartKind(container);

@@ -1,7 +1,8 @@
 import type { JSX } from 'react';
 import type { MaidrMuiChartsProps } from './types';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Maidr } from '../../maidr-component';
+import { withMuiKeyboardNavigationDisabled } from './converters';
 import { useMuiChartsAdapter } from './useMuiChartsAdapter';
 
 /**
@@ -17,6 +18,10 @@ import { useMuiChartsAdapter } from './useMuiChartsAdapter';
  * - `<ScatterChart>` → scatter plot, one layer per series
  * - `<PieChart>` → pie chart (a doughnut is the same component with an
  *   `innerRadius`)
+ *
+ * MUI X's own keyboard navigation is turned off on the chart (it would be a
+ * second tab stop answering the same arrow keys) unless the chart sets
+ * `disableKeyboardNavigation` itself.
  *
  * @example
  * ```tsx
@@ -48,11 +53,12 @@ export function MaidrMuiCharts({
 }: MaidrMuiChartsProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const maidrData = useMuiChartsAdapter({ id, title, subtitle, caption, children, chartType }, containerRef);
+  const chart = useMemo(() => withMuiKeyboardNavigationDisabled(children), [children]);
 
   return (
     <Maidr data={maidrData}>
       <div ref={containerRef}>
-        {children}
+        {chart}
       </div>
     </Maidr>
   );

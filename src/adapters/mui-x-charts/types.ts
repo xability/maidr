@@ -59,6 +59,9 @@ export interface MuiAxisConfig {
   dataKey?: string;
   label?: string;
   scaleType?: string;
+  /** Explicit domain bounds; marks entirely outside them are not drawn. */
+  min?: number | Date;
+  max?: number | Date;
   valueFormatter?: (value: never, context: never) => string;
 }
 
@@ -72,17 +75,28 @@ export interface MuiSeriesConfig {
   label?: string | ((location: 'tooltip' | 'legend') => string);
   data?: readonly unknown[];
   dataKey?: string;
+  /**
+   * Reads the series' value (bar, line) or `{ x, y }` point (scatter) off one
+   * `dataset` row.
+   */
+  valueGetter?: (row: never) => unknown;
   /** Bar and line: series sharing a `stack` id are drawn on top of each other. */
   stack?: string;
   /** Bar and line: `'expand'` normalises each stack to a share of one. */
   stackOffset?: string;
   /** Line: fill the region under the line. */
   area?: boolean;
+  /** Line: the d3 curve the line is drawn with; `step*` draws a staircase. */
+  curve?: string;
+  /** Line: keep a staircase on a category axis from running past its ends. */
+  strictStepCurve?: boolean;
   /** Scatter: which dataset columns hold x, y and the point id. */
   datasetKeys?: { x?: string; y?: string; id?: string };
   /** Pie: angles in degrees clockwise from 12 o'clock. */
   startAngle?: number;
   endAngle?: number;
+  /** Pie: draw the slices sorted by value rather than in data order. */
+  sortingValues?: 'none' | 'asc' | 'desc' | ((a: number, b: number) => number);
   /** Bar: the orientation MUI stamps on a series from the chart's `layout`. */
   layout?: 'vertical' | 'horizontal';
 }
@@ -97,4 +111,9 @@ export interface MuiChartProps {
   dataset?: readonly Record<string, unknown>[];
   /** Bar: `'horizontal'` lays the bars along the y axis. */
   layout?: 'vertical' | 'horizontal';
+  /** Bar and scatter: `'svg-batch'` / `'svg-progressive'` draw no per-mark element. */
+  renderer?: string;
+  /** Without it the chart sizes itself to its container. */
+  width?: number;
+  disableKeyboardNavigation?: boolean;
 }

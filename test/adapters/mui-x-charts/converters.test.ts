@@ -9,10 +9,27 @@
 
 import type { MuiChartProps } from '@adapters/mui-x-charts/types';
 import type { LinePoint, SegmentedPoint } from '@type/grammar';
-import { convertMuiChart, convertMuiChartsToMaidr, findMuiChartElement, muiSeriesId } from '@adapters/mui-x-charts/converters';
-import { describe, expect, it } from '@jest/globals';
+import type { ReactElement } from 'react';
+import {
+  convertMuiChart,
+  convertMuiChartsToMaidr,
+  findMuiChartElement,
+  muiSeriesId,
+  withMuiKeyboardNavigationDisabled,
+} from '@adapters/mui-x-charts/converters';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { TraceType } from '@type/grammar';
 import { createElement, forwardRef } from 'react';
+
+// The adapter warns about charts it cannot read faithfully; keep those out of
+// the test output, and let a test assert on them.
+let warn: ReturnType<typeof jest.spyOn>;
+beforeEach(() => {
+  warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterEach(() => {
+  warn.mockRestore();
+});
 
 const SCOPE = '#c ';
 
@@ -125,6 +142,86 @@ describe('bar charts', () => {
     ]);
   });
 
+  it('numbers categories from 0 when the band axis has no data, as MUI does', () => {
+    const [layer] = convertMuiChart('bar', { series: [{ data: [3, 5] }] }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 0, y: 3 }, { x: 1, y: 5 }]);
+  });
+
+  it('reads a dataKey cell as MUI does: a number, or nothing', () => {
+    const [layer] = convertMuiChart('bar', {
+      dataset: [{ q: 'Q1', v: '4' }, { q: 'Q2', v: 6 }],
+      xAxis: [{ dataKey: 'q' }],
+      series: [{ dataKey: 'v' }],
+    }, SCOPE).layers;
+
+    // MUI draws no bar for the string '4'.
+    expect(layer.data).toEqual([{ x: 'Q2', y: 6 }]);
+  });
+
+  it('reads values through a valueGetter before a dataKey', () => {
+    const [layer] = convertMuiChart('bar', {
+      dataset: [{ q: 'Q1', v: 4 }, { q: 'Q2', v: 6 }],
+      xAxis: [{ dataKey: 'q' }],
+      series: [{ dataKey: 'nope', valueGetter: ((row: { v: number }) => row.v * 10) as never }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 'Q1', y: 40 }, { x: 'Q2', y: 60 }]);
+  });
+
+  it('keeps an explicit vertical layout over a series that says horizontal', () => {
+    const [layer] = convertMuiChart('bar', {
+      layout: 'vertical',
+      xAxis: [{ data: ['A'] }],
+      series: [{ data: [3], layout: 'horizontal' }],
+    }, SCOPE).layers;
+
+    expect(layer.orientation).toBeUndefined();
+    expect(layer.data).toEqual([{ x: 'A', y: 3 }]);
+  });
+
+  it('announces an undrawn bar of a grid as a gap, not a zero', () => {
+    const [layer] = convertMuiChart('bar', {
+      xAxis: [{ data: ['A', 'B'] }],
+      series: [{ data: [1, null] }, { data: [2, 3] }],
+    }, SCOPE).layers;
+
+    expect((layer.data as SegmentedPoint[][])[0][1].y).toBeNaN();
+    expect((layer.selectors as (string | null)[][])[0][1]).toBeNull();
+  });
+
+  it('skips the bars MUI culls outside an explicit value-axis range', () => {
+    const { layers } = convertMuiChart('bar', {
+      xAxis: [{ data: ['A', 'B', 'C'] }],
+      yAxis: [{ min: 10 }],
+      series: [{ data: [5, 20, 30] }, { data: [15, 2, 40] }],
+    }, SCOPE);
+
+    const grid = layers[0].selectors as (string | null)[][];
+    // Series 0: the 5 bar lies wholly below 10, so the 20 bar is its first rect.
+    expect(grid[0][0]).toBeNull();
+    expect(grid[0][1]).toContain(':nth-child(1)');
+    expect(grid[1][1]).toBeNull();
+    expect(grid[1][2]).toContain(':nth-child(2)');
+  });
+
+  it('keeps a stacked bar that the running total lifts into range', () => {
+    const [layer] = convertMuiChart('bar', {
+      xAxis: [{ data: ['A'] }],
+      yAxis: [{ min: 10 }],
+      series: [{ data: [8], stack: 's' }, { data: [5], stack: 's' }],
+    }, SCOPE).layers;
+
+    // 0-8 is culled; 8-13 reaches past 10 and is drawn.
+    expect(layer.selectors).toEqual([[null], [expect.stringContaining(':nth-child(1)')]]);
+  });
+
+  it('warns that a batch renderer leaves nothing to outline', () => {
+    convertMuiChart('bar', { renderer: 'svg-batch', xAxis: [{ data: ['A'] }], series: [{ data: [1] }] }, SCOPE);
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('renderer="svg-batch"'));
+  });
+
   it('announces a category through the axis valueFormatter', () => {
     const [layer] = convertMuiChart('bar', {
       xAxis: [{ data: [2020, 2021], valueFormatter: (v: never) => `FY${v}` }],
@@ -176,6 +273,33 @@ describe('line charts', () => {
     expect((layers[2].data as LinePoint[][])[1][0].y).toBe(0);
   });
 
+  it('reads a step curve as a step layer in its direction', () => {
+    const { layers } = convertMuiChart('line', {
+      xAxis: [{ data: [1, 2] }],
+      series: [
+        { data: [1, 2], curve: 'stepAfter' },
+        { data: [3, 4], curve: 'stepBefore' },
+        { data: [5, 6] },
+      ],
+    }, SCOPE);
+
+    expect(layers.map(layer => [layer.type, layer.stepDirection])).toEqual([
+      [TraceType.STEP, 'hv'],
+      [TraceType.STEP, 'vh'],
+      [TraceType.LINE, undefined],
+    ]);
+  });
+
+  it('reads a line through its own data before a valueGetter', () => {
+    const [layer] = convertMuiChart('line', {
+      dataset: [{ v: 1 }],
+      xAxis: [{ data: [0] }],
+      series: [{ data: [7], valueGetter: ((row: { v: number }) => row.v) as never }],
+    }, SCOPE).layers;
+
+    expect((layer.data as LinePoint[][])[0][0].y).toBe(7);
+  });
+
   it('types an expanded stack as normalized', () => {
     const [layer] = convertMuiChart('line', {
       xAxis: [{ data: [1] }],
@@ -187,6 +311,24 @@ describe('line charts', () => {
 });
 
 describe('scatter charts', () => {
+  it('reads nothing from a dataset without datasetKeys, as MUI draws nothing', () => {
+    const [layer] = convertMuiChart('scatter', {
+      dataset: [{ x: 1, y: 2 }],
+      series: [{ label: 'A' }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([]);
+  });
+
+  it('leaves out points MUI does not draw outside an explicit axis range', () => {
+    const [layer] = convertMuiChart('scatter', {
+      xAxis: [{ min: 0, max: 10 }],
+      series: [{ data: [{ x: 5, y: 1 }, { x: 20, y: 2 }, { x: -1, y: 3 }] }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 5, y: 1 }]);
+  });
+
   it('reads points from a dataset through datasetKeys, dropping incomplete ones', () => {
     const [layer] = convertMuiChart('scatter', {
       dataset: [{ h: 170, w: 65 }, { h: 180, w: null }, { h: 160, w: 55 }],
@@ -212,6 +354,27 @@ describe('pie charts', () => {
     expect(layer.data).toEqual([{ x: 'a', y: 1 }]);
   });
 
+  it('takes MUI\'s end angle default of 360, not a full turn from the start', () => {
+    // Drawn from 400 back to 360: counterclockwise.
+    const [layer] = convertMuiChart('pie', {
+      series: [{ startAngle: 400, data: [{ value: 1, label: 'x' }] }],
+    }, SCOPE).layers;
+
+    expect(layer.direction).toBe('counterclockwise');
+  });
+
+  it('reads a sorted pie in the order its slices are drawn, without selectors', () => {
+    const [layer] = convertMuiChart('pie', {
+      series: [{
+        sortingValues: 'desc',
+        data: [{ value: 1, label: 'A' }, { value: 5, label: 'B' }, { value: 3, label: 'C' }],
+      }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 'B', y: 5 }, { x: 'C', y: 3 }, { x: 'A', y: 1 }]);
+    expect(layer.selectors).toBeUndefined();
+  });
+
   it('declares a pie drawn counterclockwise', () => {
     const [layer] = convertMuiChart('pie', {
       series: [{ startAngle: 360, endAngle: 0, data: [{ value: 1, label: 'x' }] }],
@@ -229,6 +392,48 @@ describe('pie charts', () => {
     }, SCOPE);
 
     expect(layers.map(layer => layer.title)).toEqual(['Inner', 'Outer']);
+  });
+});
+
+describe('mixed series types', () => {
+  it('leaves a composition chart unread rather than reading a line as bars', () => {
+    const { layers } = convertMuiChart('bar', {
+      xAxis: [{ data: ['A'] }],
+      series: [{ type: 'bar', data: [1] }, { type: 'line', data: [2] }],
+    }, SCOPE);
+
+    expect(layers).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('mix types'));
+  });
+
+  it('reads a chart whose series all declare the chart\'s own type', () => {
+    const { layers } = convertMuiChart('bar', {
+      xAxis: [{ data: ['A'] }],
+      series: [{ type: 'bar', data: [1] }],
+    }, SCOPE);
+
+    expect(layers).toHaveLength(1);
+  });
+});
+
+describe('withMuiKeyboardNavigationDisabled', () => {
+  function BarChart(): null {
+    return null;
+  }
+
+  it('turns MUI\'s own keyboard navigation off on the chart, through wrappers', () => {
+    const tree = createElement('div', null, createElement(BarChart, { series: [] } as object));
+    const out = withMuiKeyboardNavigationDisabled(tree) as ReactElement<{ children: ReactElement<{ disableKeyboardNavigation?: boolean }>[] }>;
+
+    const chart = ([] as ReactElement<{ disableKeyboardNavigation?: boolean }>[]).concat(out.props.children)[0];
+    expect(chart.props.disableKeyboardNavigation).toBe(true);
+  });
+
+  it('leaves a consumer\'s own choice alone', () => {
+    const chart = createElement(BarChart, { series: [], disableKeyboardNavigation: false } as object);
+    const out = withMuiKeyboardNavigationDisabled(chart) as ReactElement<{ disableKeyboardNavigation?: boolean }>;
+
+    expect(out.props.disableKeyboardNavigation).toBe(false);
   });
 });
 

@@ -35,6 +35,7 @@ const CASES: Case[] = [
   { button: 'Stacked Bar', id: 'mui-stacked', first: /Year is 2021, TWh is 120.*Solar/, second: /2022, TWh is 135.*Solar/ },
   { button: 'Horizontal Bar', id: 'mui-horizontal', first: /Fruit is Apple, Votes is 34/, second: /Banana, Votes is 21/ },
   { button: 'Line Chart', id: 'mui-line', first: /Month is Jan, Temperature \(°C\) is 5.*Seattle/, second: /Feb, Temperature \(°C\) is 7/ },
+  { button: 'Step Line', id: 'mui-step', first: /Year is 2020, Price \(\$\) is 8/, second: /Year is 2021, Price \(\$\) is 8/ },
   { button: 'Area Chart', id: 'mui-area', first: /Day is 1, Visitors is 320/, second: /Day is 2, Visitors is 410/ },
   { button: 'Stacked Area', id: 'mui-stacked-area', first: /Week is 1, Sessions is 100.*Search/, second: /Week is 2, Sessions is 120/ },
   { button: 'Scatter Chart', id: 'mui-scatter', first: /Height \(cm\) is 152, Weight \(kg\) is 48/, second: /Height \(cm\) is 160, Weight \(kg\) is 55/ },
@@ -75,8 +76,24 @@ test.describe('MUI X Charts adapter', () => {
       await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
 
       expect(warnings.filter(text => text.includes('[MAIDR]'))).toEqual([]);
+      // MUI X's own keyboard navigation is off, so MAIDR's plot is the
+      // chart's only tab stop.
+      await expect(page.locator(`#maidr-figure-${example.id} [tabindex="0"]`)).toHaveCount(1);
     });
   }
+
+  test('Step Line: outlines each sample, not a corner of the staircase', async ({ page }) => {
+    await open(page, CASES.find(example => example.id === 'mui-step')!);
+    const xs: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('ArrowRight');
+      await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
+      xs.push(Number(await page.locator(HIGHLIGHT).getAttribute('cx')));
+    }
+    // Evenly spaced samples on a point axis: equal steps between outlines.
+    expect(xs[1] - xs[0]).toBeGreaterThan(0);
+    expect(Math.abs((xs[2] - xs[1]) - (xs[1] - xs[0]))).toBeLessThan(1);
+  });
 
   test('Scatter Chart: the outline follows the marker being read', async ({ page }) => {
     // MUI draws each marker at the origin and translates it into place. Read

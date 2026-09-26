@@ -37,6 +37,8 @@ function AccessibleBarChart() {
 }
 ```
 
+Give the chart a `width`. Without one, an MUI X chart sizes itself to its container, and MAIDR's plot is only as wide as the chart inside it, so the two shrink each other to a sliver. The adapter says so in the console when a chart has no `width`.
+
 Axis labels come from each axis' `label`, series names from each series' `label`, and category names from the band axis' `data` (or its `dataKey` column of the `dataset`), formatted with the axis' `valueFormatter` when it has one.
 
 ## Props Reference
@@ -54,6 +56,8 @@ Axis labels come from each axis' `label`, series names from each series' `label`
 
 The kind of chart is read from the component's name (`BarChart`, `LineChart`, `ScatterChart`, `PieChart` and their `Pro`/`Premium` variants). A production build that minifies the name away still works: the adapter then reads the kind from the class names MUI puts on the rendered plot.
 
+`<MaidrMuiCharts>` turns off MUI X's own keyboard navigation on the chart (`disableKeyboardNavigation`), which would otherwise add a second tab stop answering the same arrow keys. Set the prop on the chart yourself to decide otherwise. With the hook, set it on the chart you render.
+
 ## Supported Chart Types
 
 | Chart | MUI X component | Highlight | Notes |
@@ -64,13 +68,21 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 | Normalized bar | `BarChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
 | Horizontal bar | `BarChart` | ✅ | `layout="horizontal"`; the categories are read from the y axis. |
 | Line chart | `LineChart` | ✅ | Every series is one line of a multi-line layer. A `null` value is a gap. |
+| Step chart | `LineChart` | ✅ | Series with `curve: 'stepAfter'`, `'stepBefore'` or `'step'`. |
 | Area chart [experimental] | `LineChart` | ✅ | Series with `area: true` and no `stack`. |
 | Stacked area [experimental] | `LineChart` | ✅ | Series sharing a `stack` id, filled or not: MUI draws each at the running total. |
 | 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
-| Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. |
-| Pie / doughnut | `PieChart` | ✅ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. `startAngle` and `endAngle` are honoured. |
+| Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. A point outside an explicit axis `min`/`max` is not drawn, and is left out. |
+| Pie / doughnut | `PieChart` | ⚠️ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. See the notes below for sorted and partial pies. |
 
-A bar chart mixing stacked and unstacked series, or holding two stacks, becomes one layer per stack group. Charts built with the composition API (`<ChartsContainer>` and plot components), and `Heatmap`, `Gauge`, `SparkLineChart` and the Pro/Premium-only chart types are not read yet.
+Notes:
+
+- A bar chart mixing stacked and unstacked series, or holding two stacks, becomes one layer per stack group.
+- A bar with no value is not drawn, and is announced as a gap in a grouped or stacked chart. A bar lying wholly outside an explicit value-axis `min`/`max` is culled by MUI, and is not outlined.
+- A pie with `sortingValues` is read in the order its slices are drawn round the dial, but not outlined: its arcs stay in data order in the page.
+- A pie that does not go all the way round (`endAngle - startAngle` below 360) is read as if it did, so the clock position of each slice is approximate.
+- `renderer="svg-batch"` (and, for a scatter, `"svg-progressive"`) draws no element per mark, so nothing is outlined. Audio, text and braille are unaffected. The adapter warns in the console.
+- Charts built with the composition API (`<ChartsContainer>` with series of several types) are left unread, with a console warning. `Heatmap`, `Gauge`, `SparkLineChart` and the Pro/Premium-only chart types are not read yet.
 
 ## Data Examples by Chart Type
 
@@ -162,6 +174,19 @@ const dataset = [
 
 A `Date` on the x axis is announced in ISO form (`2024-01-31`) unless the axis has a `valueFormatter`.
 
+### Step Chart
+
+```tsx
+<MaidrMuiCharts id="step-example" title="Subscription Price">
+  <LineChart
+    width={600}
+    height={360}
+    xAxis={[{ scaleType: 'point', data: ['2020', '2021', '2022', '2023'], label: 'Year' }]}
+    series={[{ data: [8, 8, 10, 12], label: 'Price', curve: 'stepAfter' }]}
+  />
+</MaidrMuiCharts>
+```
+
 ### Stacked Area [experimental]
 
 ```tsx
@@ -192,7 +217,7 @@ A `Date` on the x axis is announced in ISO form (`2024-01-31`) unless the axis h
 </MaidrMuiCharts>
 ```
 
-With a `dataset`, name the columns through the series' `datasetKeys: { x: 'height', y: 'weight' }`.
+With a `dataset`, name the columns through the series' `datasetKeys: { x: 'height', y: 'weight' }`, or read each row with a `valueGetter`, as MUI does. Bar and line series read a `dataset` through `dataKey` or `valueGetter` in the same way.
 
 ### Pie / Doughnut
 
@@ -229,6 +254,7 @@ function AccessibleLineChart() {
     <LineChart
       width={600}
       height={360}
+      disableKeyboardNavigation
       xAxis={[{ data: [1, 2, 3], label: 'Day' }]}
       series={[{ data: [10, 20, 15], label: 'Visitors' }]}
     />

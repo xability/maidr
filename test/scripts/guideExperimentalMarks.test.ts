@@ -381,8 +381,8 @@ const GUIDES: Record<string, Guide> = {
   'mui-x-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 11,
-    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 8 },
+    minRows: 12,
+    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 9 },
     labels: {},
   },
   'recharts': {

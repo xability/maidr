@@ -10,6 +10,7 @@ import { PieChartExample } from './examples/PieChartExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
 import { StackedAreaExample } from './examples/StackedAreaExample';
 import { StackedBarExample } from './examples/StackedBarExample';
+import { StepLineExample } from './examples/StepLineExample';
 
 const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Bar Chart', component: BarChartExample },
@@ -17,6 +18,7 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Stacked Bar', component: StackedBarExample },
   { name: 'Horizontal Bar', component: HorizontalBarExample },
   { name: 'Line Chart', component: LineChartExample },
+  { name: 'Step Line', component: StepLineExample },
   { name: 'Area Chart', component: AreaChartExample },
   { name: 'Stacked Area', component: StackedAreaExample },
   { name: 'Scatter Chart', component: ScatterChartExample },

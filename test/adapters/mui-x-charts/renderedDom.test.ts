@@ -15,6 +15,7 @@ import type { ReactElement } from 'react';
 import { convertMuiChartsToMaidr, findMuiChartElement } from '@adapters/mui-x-charts/converters';
 import { detectMuiChartKind } from '@adapters/mui-x-charts/useMuiChartsAdapter';
 import { describe, expect, it } from '@jest/globals';
+import { stepDataVertices } from '@model/step';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { PieChart } from '@mui/x-charts/PieChart';
@@ -182,6 +183,43 @@ describe('mui line chart', () => {
     const firstY = (el: Element): number => Svg.pathVertices(el.getAttribute('d')!)[0].y;
     // The upper band's edge is drawn higher up the chart: a smaller y.
     expect(firstY(wind)).toBeLessThan(firstY(solar));
+  });
+});
+
+describe('mui step lines', () => {
+  it.each([
+    ['a numeric axis', { data: [1, 2, 3, 4] }],
+    ['a category axis, where the staircase runs on past both ends', { scaleType: 'point' as const, data: ['a', 'b', 'c', 'd'] }],
+  ])('finds one vertex per sample on %s', (_, axis) => {
+    const values = [2, 5, 3, 8];
+    const { doc, layers } = render(createElement(LineChart, {
+      ...common,
+      xAxis: [axis],
+      series: [{ data: values, curve: 'stepAfter' }],
+    }));
+
+    expect(layers[0].type).toBe(TraceType.STEP);
+    const path = doc.querySelector((layers[0].selectors as string[])[0])!;
+    const samples = stepDataVertices(Svg.pathVertices(path.getAttribute('d')!), values.length);
+    expect(samples).toHaveLength(values.length);
+    // Higher values sit higher up the chart: smaller y.
+    const ys = samples!.map(v => Number(v.y));
+    expect(ys[3]).toBeLessThan(ys[1]);
+    expect(ys[1]).toBeLessThan(ys[2]);
+    expect(ys[2]).toBeLessThan(ys[0]);
+  });
+});
+
+describe('mui line gaps', () => {
+  it('draws a vertex per reading, which the line trace pairs in order', () => {
+    const { doc, layers } = render(createElement(LineChart, {
+      ...common,
+      xAxis: [{ scaleType: 'point', data: ['Jan', 'Feb', 'Mar', 'Apr'] }],
+      series: [{ data: [5, null, 10, 12] }],
+    }));
+
+    const path = doc.querySelector((layers[0].selectors as string[])[0])!;
+    expect(Svg.pathVertices(path.getAttribute('d')!)).toHaveLength(3);
   });
 });
 
