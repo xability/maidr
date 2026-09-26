@@ -65,6 +65,43 @@ export function loadStoredGeneralSettings(
 }
 
 /**
+ * The reader's latest `general.agentTools` choice on this page, or `null`
+ * before they have made one here.
+ *
+ * Kept in memory because saving can fail -- a private window, an iframe
+ * whose storage is blocked -- and each chart builds its own
+ * `SettingsService` from storage when it gains focus: without this, the next
+ * chart's dialog would read the default back and show the tools as on while
+ * they are off.
+ */
+let agentToolsOnThisPage: boolean | null = null;
+
+/**
+ * Records the reader's `general.agentTools` choice for the rest of the page's
+ * life, whatever storage manages to keep.
+ *
+ * @param enabled - The choice, or `null` to forget it (tests only)
+ */
+export function rememberAgentToolsChoice(enabled: boolean | null): void {
+  agentToolsOnThisPage = enabled;
+}
+
+/**
+ * Whether the reader allows the WebMCP tools: their latest choice on this
+ * page, else what their saved settings say, else the default.
+ *
+ * @param storage - Where settings are persisted
+ * @returns The `general.agentTools` setting
+ */
+export function readAgentToolsChoice(storage: StorageService): boolean {
+  if (agentToolsOnThisPage !== null) {
+    return agentToolsOnThisPage;
+  }
+  const stored = loadStoredGeneralSettings(storage).agentTools;
+  return typeof stored === 'boolean' ? stored : DEFAULT_SETTINGS.general.agentTools;
+}
+
+/**
  * Speaks the stored language before any controller exists.
  *
  * A `SettingsService` is built on the chart's first focus, but the reader
@@ -119,6 +156,11 @@ export class SettingsService implements Disposable {
     // (BrailleService, UI) reads the settings, so they see a coherent state
     // from page load — not just after the settings dialog opens.
     this.currentSettings = { ...merged, general: normalizeBrailleDisplay(merged.general) };
+    // A choice made in another chart's dialog on this page outranks storage,
+    // which may not have kept it.
+    if (agentToolsOnThisPage !== null) {
+      this.currentSettings.general = { ...this.currentSettings.general, agentTools: agentToolsOnThisPage };
+    }
     // A saved language that is no longer offered falls back to following the
     // browser rather than to whatever string was stored.
     if (!isLanguageSetting(this.currentSettings.general.language)) {

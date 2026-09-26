@@ -32,10 +32,9 @@ import type { LiveDataManager } from '@service/liveData';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrLayer, NavigationTarget } from '@type/grammar';
 import { NESTED_DATA_TYPES } from '@service/liveData';
-import { loadStoredGeneralSettings } from '@service/settings';
+import { readAgentToolsChoice, rememberAgentToolsChoice } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TraceType } from '@type/grammar';
-import { DEFAULT_SETTINGS } from '@type/settings';
 
 /** The part of the browser's `ModelContext` MAIDR uses. */
 interface ModelContextLike {
@@ -980,23 +979,6 @@ function isSwitchedOffByPage(): boolean {
   }
 }
 
-/** The reader's choice, once a settings change on this page has reported it. */
-let readerChoice: boolean | null = null;
-
-/**
- * Whether the reader allows the tools: their latest choice on this page, or
- * else what their saved settings say, or else the default.
- *
- * @returns The `general.agentTools` setting
- */
-function isAllowedByReader(): boolean {
-  if (readerChoice !== null) {
-    return readerChoice;
-  }
-  const stored = loadStoredGeneralSettings(new LocalStorageService()).agentTools;
-  return typeof stored === 'boolean' ? stored : DEFAULT_SETTINGS.general.agentTools;
-}
-
 /**
  * Whether the tools may be registered: the reader allows them and the page
  * has not switched them off.
@@ -1004,7 +986,7 @@ function isAllowedByReader(): boolean {
  * @returns True when enabled
  */
 function isEnabled(): boolean {
-  return !isSwitchedOffByPage() && isAllowedByReader();
+  return !isSwitchedOffByPage() && readAgentToolsChoice(new LocalStorageService());
 }
 
 let refCount = 0;
@@ -1208,7 +1190,7 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
  * @param enabled - The new setting
  */
 export function setWebMcpEnabled(enabled: boolean): void {
-  readerChoice = enabled;
+  rememberAgentToolsChoice(enabled);
   if (!enabled) {
     uninstall();
     return;
@@ -1236,6 +1218,6 @@ export function resetWebMcpForTests(): void {
   warnedSecondCopy = false;
   warnedRegistration = false;
   latestManager = null;
-  readerChoice = null;
+  rememberAgentToolsChoice(null);
   listenForRelease(false);
 }
