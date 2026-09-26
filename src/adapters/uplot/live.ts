@@ -10,9 +10,10 @@
  * So each update is compared with the last one. When every series is the old
  * one with points added at the end -- and perhaps the same number dropped from
  * the front, the sliding window a streaming chart keeps -- the new points are
- * appended through the live data manager, with `maxWidth` set so its sliding
- * window drops exactly what uPlot dropped. Anything else (a revised value, a
- * new series, a window that shrank) is a silent in-place replacement.
+ * appended through the live data manager, with `maxWidth` set before each
+ * append so its sliding window drops exactly what uPlot dropped from that
+ * row. Anything else (a revised value, a new series, a window that shrank) is
+ * a silent in-place replacement.
  */
 
 import type { LiveDataPoint } from '../../service/liveData';
@@ -24,13 +25,20 @@ export interface PlannedAppend {
   point: LiveDataPoint;
   layerId: string;
   groupIndex: number;
+  /**
+   * The sliding window that reproduces uPlot's trim of this row, or
+   * `undefined` when the row keeps every point. Rows differ: a bar or scatter
+   * row leaves out the gaps a line row keeps, so one window for the figure
+   * would not fit them all.
+   */
+  maxWidth: number | undefined;
 }
 
 /** How to turn the previous figure into the next by appending. */
 export interface StreamPlan {
   appends: PlannedAppend[];
-  /** The sliding window that reproduces uPlot's trim; `undefined` for none. */
-  maxWidth: number | undefined;
+  /** Points dropped from the front of each row, by layer id then row. */
+  trims: Map<string, number[]>;
 }
 
 /** A layer's data as rows of points, whatever its trace type nests. */
@@ -105,6 +113,7 @@ export function planStream(previous: Maidr, next: Maidr): StreamPlan | null {
 
   interface RowPlan { layerId: string; groupIndex: number; added: unknown[]; trimmed: number; length: number }
   const rows: RowPlan[] = [];
+  const trims = new Map<string, number[]>();
 
   for (let l = 0; l < after.length; l++) {
     const was = before[l];
@@ -135,23 +144,8 @@ export function planStream(previous: Maidr, next: Maidr): StreamPlan | null {
         return null;
       }
       rows.push({ layerId: now.id, groupIndex: r, added, trimmed, length: newRows[r].length });
+      trims.set(now.id, [...(trims.get(now.id) ?? []), trimmed]);
     }
-  }
-
-  // One window for the figure: every trimmed row must end at the same length,
-  // and no untrimmed row may pass it.
-  let maxWidth: number | undefined;
-  for (const row of rows) {
-    if (row.trimmed === 0) {
-      continue;
-    }
-    if (maxWidth !== undefined && maxWidth !== row.length) {
-      return null;
-    }
-    maxWidth = row.length;
-  }
-  if (maxWidth !== undefined && rows.some(row => row.trimmed === 0 && row.length > maxWidth)) {
-    return null;
   }
 
   // Interleave by arrival, so each tick's points land together across series.
@@ -161,11 +155,16 @@ export function planStream(previous: Maidr, next: Maidr): StreamPlan | null {
     for (const row of rows) {
       const point = row.added[step];
       if (point !== undefined) {
-        appends.push({ point: point as LiveDataPoint, layerId: row.layerId, groupIndex: row.groupIndex });
+        appends.push({
+          point: point as LiveDataPoint,
+          layerId: row.layerId,
+          groupIndex: row.groupIndex,
+          maxWidth: row.trimmed > 0 ? row.length : undefined,
+        });
       }
     }
   }
-  return { appends, maxWidth };
+  return { appends, trims };
 }
 
 /** The figure without its callback, for comparing two figures. */
@@ -174,35 +173,62 @@ function serialized(maidr: Maidr): string {
   return JSON.stringify(rest);
 }
 
+/** Sets or clears the sliding window on a figure, without notifying it. */
+function withWindow(maidr: Maidr, maxWidth: number | undefined): Maidr {
+  const { maxWidth: _previous, ...rest } = maidr;
+  return maxWidth === undefined ? rest : { ...rest, maxWidth };
+}
+
+/** What {@link pushUpdate} did. */
+export interface PushResult {
+  /** Whether any point was streamed. */
+  streamed: boolean;
+  /**
+   * Points dropped from the front of each row by a streamed update, by layer
+   * id then row -- how far the reader's column moved to stay on their point.
+   * Empty when nothing was streamed.
+   */
+  trims: Map<string, number[]>;
+}
+
 /**
  * Hands the figure just read from the chart to MAIDR: appended points are
  * streamed when the update is an append, and anything left over replaces the
  * data in place.
  *
  * @param next - The new figure, carrying the chart's `onNavigate`
- * @returns Whether any point was streamed
+ * @returns What was streamed, and how far each row slid
  */
-export function pushUpdate(next: Maidr): boolean {
+export function pushUpdate(next: Maidr): PushResult {
   const stored = liveDataManager.getData(next.id);
   if (stored === undefined) {
-    return false;
+    return { streamed: false, trims: new Map() };
   }
   const plan = next.live === true ? planStream(stored, next) : null;
   let streamed = false;
   if (plan !== null && plan.appends.length > 0) {
-    const { maxWidth: _previousWidth, ...rest } = stored;
-    liveDataManager.updateStoredData(plan.maxWidth === undefined ? rest : { ...rest, maxWidth: plan.maxWidth });
     for (const append of plan.appends) {
+      const current = liveDataManager.getData(next.id);
+      if (current === undefined) {
+        break;
+      }
+      liveDataManager.updateStoredData(withWindow(current, append.maxWidth));
       streamed = liveDataManager.appendData(append.point, {
         id: next.id,
         layerId: append.layerId,
         groupIndex: append.groupIndex,
       }) || streamed;
     }
+    const current = liveDataManager.getData(next.id);
+    if (current !== undefined) {
+      liveDataManager.updateStoredData(withWindow(current, undefined));
+    }
   }
   const current = liveDataManager.getData(next.id);
   if (current === undefined || serialized(current) !== serialized(next)) {
     liveDataManager.setData(next);
   }
-  return streamed;
+  // A replacement after the appends restores the position the appends left,
+  // so the rows slid either way.
+  return { streamed, trims: streamed && plan !== null ? plan.trims : new Map() };
 }

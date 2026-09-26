@@ -144,7 +144,7 @@ maidrUPlot.maidrPlugin({ series: { 1: { kind: 'bar' }, 2: { exclude: true } } })
 | `kind` | `'line' \| 'bar' \| 'scatter'` | Read the series as this, whatever it draws. Ignored on a faceted chart, where every series is a scatter. |
 | `exclude` | `boolean` | Leave the series out of MAIDR entirely. |
 
-A series that has not been drawn — hidden from the legend when the chart was read — has no path to read and is taken as a line, uPlot's default; give it a `kind` if it is something else. Hidden series are still read; exclude one that MAIDR should not announce.
+A series keeps the kind it was last seen drawing, so hiding one from the legend does not change what it is read as. A series that has never been drawn — hidden from the legend from the start — has no path to read and is taken as a line, uPlot's default; give it a `kind` if it is something else. Hidden series are still read; exclude one that MAIDR should not announce.
 
 ## Code Examples
 
@@ -225,9 +225,11 @@ new uPlot({
 | What | Where it comes from, first match wins |
 |------|----------------------------------------|
 | Chart title | the `title` option, then uPlot's `title` |
-| X axis label | the `xLabel` option, then the label of the axis drawn against the x scale, then the x series' `label`, then `X` |
+| X axis label | the `xLabel` option, then the label of the axis drawn against the x scale, then the x series' `label`, then `Time` on a time scale or `X` |
 | Y axis label | the `yLabel` option, then the label of the axis drawn against the series' y scale, then the series' `label` (for a layer holding one series), then `Value` |
 | Series name | the series' `label`, then `Series <n>` |
+
+uPlot fills in `Value` (and `Time` for a time scale's x series) as the label of every series you leave unlabelled. The adapter treats those as unlabelled, so two unnamed lines are announced as `Series 1` and `Series 2` rather than both as `Value`.
 
 In a multi-line layer the series name is announced as the group ("Group is CPU %").
 
@@ -245,13 +247,15 @@ Timestamps are converted to milliseconds and announced as dates, as finely as th
 
 Dates are written in US English, in the reader's time zone. A faceted chart's x values are always read as plain numbers.
 
-Missing values (`null`) are gaps: a line keeps the gap in its row, and bars and scatter points with no value are left out.
+Missing values (`null`) are gaps: a line keeps the gap in its row, and bars and scatter points with no value are left out. A bar or scatter series with no values at all has no layer until values arrive.
+
+A chart with no data yet — a dashboard that fills on its first poll — is bound all the same, as an empty chart, and is read as soon as `u.setData` gives it data. An update that empties the chart empties MAIDR's reading too.
 
 ## Live Streaming
 
 uPlot has one way to change data: `u.setData(newData)`, which replaces all of it. A streaming dashboard calls it on every tick, usually with the window slid along by a point. The adapter compares each update with the one before:
 
-- When every series is the previous one with points **added at the end** — and optionally the same number of points **dropped from the front**, the sliding window a streaming chart keeps — the new points are streamed to MAIDR one by one through `appendData`, with MAIDR's `maxWidth` window set so it drops exactly what uPlot dropped. Monitor mode (**M**) sonifies and announces each point as it arrives on the focused layer.
+- When every series is the previous one with points **added at the end** — and optionally the same number of points **dropped from the front**, the sliding window a streaming chart keeps — the new points are streamed to MAIDR one by one through `appendData`, with MAIDR's `maxWidth` window set for each series so it drops exactly what uPlot dropped. The highlight stays on the reader's point as the window slides. Monitor mode (**M**) sonifies and announces each point as it arrives on the focused layer.
 - Anything else — a revised value, a series added or removed, a window that shrank — silently replaces the data in place.
 
 Either way the reader's position, modes and focus are kept. Nothing extra is needed on the page:
@@ -275,7 +279,7 @@ setInterval(() => {
 }, 2000);
 ```
 
-Charts are live by default. Pass `live: false` for a chart whose data never changes: the figure is then not marked live, so monitor mode is unavailable and a later `u.setData` is only picked up the next time the chart is focused. See [Live & Streaming Data](LIVE_DATA.md) for monitor mode, the sliding window and how updates behave, and `window.maidrLive` (keyed by the `id` option) for driving the chart from script.
+Charts are live by default. Pass `live: false` for a chart whose data never changes: the figure is then not marked live, so monitor mode is unavailable and a later `u.setData` is only picked up the next time the chart is focused. See [Live & Streaming Data](LIVE_DATA.md) for monitor mode, the sliding window and how updates behave. There is nothing else to call: `u.setData` is the one way uPlot changes data, and the adapter follows it.
 
 ## Highlighting and Click-to-Navigate
 
@@ -284,11 +288,11 @@ uPlot draws into a single `<canvas>`, so there is no element per mark for MAIDR 
 - a box around the focused bar, or around the focused line vertex or scatter point;
 - uPlot's own cursor is moved to the same point, so the legend — and anything else that follows the cursor — shows the values being read. At a gap in a line only the cursor moves.
 
-The default highlight is an orange box with a translucent fill; `highlightColor` sets the outline color and drops the fill. The bar box assumes uPlot's default bar width (60% of the space between two x values), so a bar drawn much wider or narrower is outlined at that default width. The highlight is redrawn when the chart is resized.
+The default highlight is an orange box with a translucent fill; `highlightColor` sets the outline color and drops the fill. The bar box assumes uPlot's default bar width (60% of the space between two x values), so a bar drawn much wider or narrower is outlined at that default width. The highlight is redrawn whenever the chart redraws — a resize, a zoom, a new tick — and is taken down when focus leaves the chart, so uPlot's cursor is left to the mouse while the reader is elsewhere.
 
 The overlay also tells a [tactile graphics display](TACTILE_DISPLAY.md) where the plotting area is, so the chart can be felt by pin.
 
-A left click on the plot moves MAIDR to the data point under uPlot's cursor, so a sighted colleague can point at a mark for a screen-reader user. When uPlot's series focus is on, the focused series is chosen; otherwise the first layer that has a point at that index.
+A left click on the plot moves MAIDR to the data point under uPlot's cursor, so a sighted colleague can point at a mark for a screen-reader user. Of the points at the cursor's position, one per series, the one drawn nearest the click is chosen. On a faceted chart the cursor's nearest point in each series is used.
 
 ## Configuration Options
 
@@ -296,7 +300,7 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `id` | `string` | `maidr-uplot-<root id>`, or a generated id | MAIDR chart id, used for DOM ids and `window.maidrLive`. Leave unset on a plugin shared by several charts. |
+| `id` | `string` | `maidr-uplot-<root id>`, or a generated id | MAIDR chart id, used for DOM ids. Leave unset on a plugin shared by several charts. |
 | `title` | `string` | uPlot's `title` | Chart title for announcements |
 | `subtitle` | `string` | — | Chart subtitle |
 | `caption` | `string` | — | Chart caption |

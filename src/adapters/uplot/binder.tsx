@@ -92,20 +92,33 @@ function finite(value: number | null | undefined): value is number {
 }
 
 /**
- * The value at data index `k` of series `i`, as `[x, y]`, in the chart's own
- * units (not MAIDR's, which convert timestamps).
+ * The x value uPlot positions data index `k` of an aligned chart at. An
+ * ordinal x scale (`distr: 2`) lays the points out by index -- uPlot swaps
+ * its internal x column for `0..n-1` and ranges the scale over that -- so
+ * there the index is the position, whatever the x values are.
  */
-function rawPoint(u: UPlotInstance, seriesIdx: number, k: number): [number, number] | null {
+function xPosition(u: UPlotInstance, xScale: string, k: number): number | null {
+  if (u.scales[xScale]?.distr === 2) {
+    return k;
+  }
+  const x = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[0]?.[k];
+  return finite(x) ? x : null;
+}
+
+/**
+ * Where data index `k` of series `i` is drawn, as `[x, y]` in the values the
+ * chart positions by (not MAIDR's, which convert timestamps).
+ */
+function rawPoint(u: UPlotInstance, source: UPlotLayerSource, seriesIdx: number, k: number): [number, number] | null {
   if ((u.mode ?? 1) === 2) {
     const columns = (u.data as ReadonlyArray<ReadonlyArray<ArrayLike<number | null | undefined>> | null>)[seriesIdx];
     const x = columns?.[0]?.[k];
     const y = columns?.[1]?.[k];
     return finite(x) && finite(y) ? [x, y] : null;
   }
-  const data = u.data as ReadonlyArray<ArrayLike<number | null | undefined>>;
-  const x = data[0]?.[k];
-  const y = data[seriesIdx]?.[k];
-  return finite(x) && finite(y) ? [x, y] : null;
+  const x = xPosition(u, source.xScale, k);
+  const y = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[seriesIdx]?.[k];
+  return x !== null && finite(y) ? [x, y] : null;
 }
 
 /** CSS-pixel position of a data value inside the plotting area. */
@@ -117,16 +130,15 @@ function toPlot(u: UPlotInstance, source: UPlotLayerSource, x: number, y: number
 
 /** The gap between data index `k` and its nearest neighbour, in pixels. */
 function columnWidth(u: UPlotInstance, source: UPlotLayerSource, k: number): number {
-  const xs = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[0];
-  const here = xs?.[k];
-  if (!xs || !finite(here)) {
+  const here = xPosition(u, source.xScale, k);
+  if (here === null) {
     return POINT_HALF_BOX * 2;
   }
   const at = u.valToPos(here, source.xScale);
   let gap = Number.POSITIVE_INFINITY;
   for (const n of [k - 1, k + 1]) {
-    const v = xs[n];
-    if (finite(v)) {
+    const v = n >= 0 ? xPosition(u, source.xScale, n) : null;
+    if (v !== null) {
       gap = Math.min(gap, Math.abs(u.valToPos(v, source.xScale) - at));
     }
   }
@@ -195,7 +207,7 @@ function resolveHighlight(
     let cursor: { left: number; top: number } | null = null;
     for (const index of indices) {
       const k = source.sourceIdxs[0]?.[index];
-      const point = k === undefined ? null : rawPoint(u, seriesIdx, k);
+      const point = k === undefined ? null : rawPoint(u, source, seriesIdx, k);
       if (point === null) {
         continue;
       }
@@ -211,11 +223,11 @@ function resolveHighlight(
   if (seriesIdx === undefined || k === undefined) {
     return { boxes: [], cursor: null };
   }
-  const point = rawPoint(u, seriesIdx, k);
+  const point = rawPoint(u, source, seriesIdx, k);
   if (point === null) {
     // A gap in a line: nothing is drawn there, but the cursor still marks x.
-    const x = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[0]?.[k];
-    if (!finite(x)) {
+    const x = xPosition(u, source.xScale, k);
+    if (x === null) {
       return { boxes: [], cursor: null };
     }
     const at = toPlot(u, source, x, 0);
@@ -229,31 +241,45 @@ function resolveHighlight(
 }
 
 /**
- * The MAIDR position of data index `k` of series `seriesIdx`, for a click on
- * the chart, or `null` when no layer reads that mark.
+ * The mark under uPlot's cursor, as a MAIDR position, for a click on the
+ * chart: of the points at the cursor's data index -- one per series -- the
+ * one drawn nearest the click. uPlot only says which series is nearest when
+ * its cursor focus is switched on, which it is not by default.
+ *
+ * @returns The target, or `null` when no layer reads a mark there
  */
-function targetOf(
-  sources: ReadonlyMap<string, UPlotLayerSource>,
-  seriesIdx: number | null,
-  k: number,
-): NavigationTarget | null {
-  let fallback: NavigationTarget | null = null;
+function targetAtCursor(u: UPlotInstance, sources: ReadonlyMap<string, UPlotLayerSource>): NavigationTarget | null {
+  const cursor = u.cursor;
+  const left = cursor?.left;
+  const top = cursor?.top;
+  if (!cursor || !finite(left) || !finite(top) || left < 0 || top < 0) {
+    return null;
+  }
+  const faceted = (u.mode ?? 1) === 2;
+  let best: { target: NavigationTarget; distance: number } | null = null;
   for (const [layerId, source] of sources) {
     for (let row = 0; row < source.seriesIdxs.length; row++) {
-      const col = source.sourceIdxs[row]?.indexOf(k) ?? -1;
-      if (col < 0) {
+      const seriesIdx = source.seriesIdxs[row];
+      const k = faceted ? cursor.idxs?.[seriesIdx] : cursor.idx;
+      if (typeof k !== 'number') {
         continue;
       }
-      const target: NavigationTarget = source.kind === 'scatter'
-        ? { layerId, pointIndex: col }
-        : { layerId, row, col };
-      if (seriesIdx === null || source.seriesIdxs[row] === seriesIdx) {
-        return target;
+      const col = source.sourceIdxs[row]?.indexOf(k) ?? -1;
+      const point = col < 0 ? null : rawPoint(u, source, seriesIdx, k);
+      if (point === null) {
+        continue;
       }
-      fallback ??= target;
+      const at = toPlot(u, source, point[0], point[1]);
+      const distance = Math.hypot(at.left - left, at.top - top);
+      if (best === null || distance < best.distance) {
+        best = {
+          target: source.kind === 'scatter' ? { layerId, pointIndex: col } : { layerId, row, col },
+          distance,
+        };
+      }
     }
   }
-  return fallback;
+  return best?.target ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +434,28 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
     </MaidrComponent>,
   );
 
+  /**
+   * Moves the remembered position along with a sliding window: the model
+   * keeps the reader on the same datum, one column further left for every
+   * point dropped from the front of their row, but reports nothing, so the
+   * highlight would otherwise land on whichever point took the old column.
+   */
+  const slide = (trims: ReadonlyMap<string, readonly number[]>): void => {
+    const active = lastActive;
+    const trim = active === null ? undefined : trims.get(active.layerId);
+    if (active === null || trim === undefined) {
+      return;
+    }
+    if (active.pointIndices !== undefined) {
+      const shift = trim[0] ?? 0;
+      const kept = active.pointIndices.map(index => index - shift).filter(index => index >= 0);
+      lastActive = kept.length > 0 ? { ...active, pointIndices: kept } : null;
+      return;
+    }
+    const col = active.col - (trim[active.row] ?? 0);
+    lastActive = col >= 0 ? { ...active, col } : null;
+  };
+
   const refresh = (): void => {
     if (disposed) {
       return;
@@ -430,7 +478,7 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
         </MaidrComponent>,
       );
     } else {
-      pushUpdate(figure);
+      slide(pushUpdate(figure).trims);
     }
     highlight();
   };
@@ -440,26 +488,48 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
   // figure is re-read on the draw, not on `setData` itself.
   let dataChanged = false;
   const onClick = (event: MouseEvent): void => {
-    const k = u.cursor?.idx;
-    if (typeof k !== 'number' || event.button !== 0) {
+    if (event.button !== 0) {
       return;
     }
-    const focused = u.series.findIndex((series, i) => i > 0 && (series as { _focus?: boolean })._focus === true);
-    const target = targetOf(extraction.sources, focused > 0 ? focused : null, k);
+    const target = targetAtCursor(u, extraction.sources);
     if (target !== null) {
       liveDataManager.navigateTo(target, { id });
     }
   };
   u.over.addEventListener('click', onClick);
 
+  // The highlight and uPlot's cursor follow the reader only while they are in
+  // the chart. MAIDR reports nothing when focus leaves, so without this every
+  // later tick and resize would pull a sighted user's hover cursor back to
+  // the point the reader left.
+  let focusTimer: ReturnType<typeof setTimeout> | null = null;
+  const onFocusOut = (): void => {
+    if (focusTimer !== null) {
+      clearTimeout(focusTimer);
+    }
+    // Deferred: focus moving within the figure passes through the body.
+    focusTimer = setTimeout(() => {
+      focusTimer = null;
+      if (!container.contains(document.activeElement)) {
+        lastActive = null;
+        overlay?.clear();
+      }
+    }, 0);
+  };
+  container.addEventListener('focusout', onFocusOut);
+
   const removers = [
     addHook(u, 'setData', () => {
       dataChanged = true;
     }),
+    // Every draw, not just a data change: a zoom or any other scale change
+    // moves every mark, and the highlight with it.
     addHook(u, 'draw', () => {
       if (dataChanged) {
         dataChanged = false;
         refresh();
+      } else {
+        highlight();
       }
     }),
     addHook(u, 'setSize', () => {
@@ -479,6 +549,10 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
     disposed = true;
     removers.forEach(remove => remove());
     u.over.removeEventListener('click', onClick);
+    container.removeEventListener('focusout', onFocusOut);
+    if (focusTimer !== null) {
+      clearTimeout(focusTimer);
+    }
     overlay?.dispose();
     overlay = null;
     // Unmount first: the host's ref cleanup takes uPlot's root out of the

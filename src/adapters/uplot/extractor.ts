@@ -79,8 +79,9 @@ const MINUTE_MS = 60_000;
  * @param u - The uPlot instance, after it has drawn (`ready`)
  * @param id - The MAIDR chart id
  * @param options - Adapter options
- * @returns The figure and each layer's source series
- * @throws Error when the chart has no series MAIDR can read
+ * @returns The figure and each layer's source series. A chart with no data
+ *   yet -- a dashboard that fills on its first poll -- reads as a subplot with
+ *   no layers, which MAIDR announces as empty until data arrives.
  */
 export function extractUPlotData(
   u: UPlotInstance,
@@ -89,9 +90,6 @@ export function extractUPlotData(
 ): UPlotExtraction {
   const faceted = (u.mode ?? 1) === 2;
   const built = faceted ? readFaceted(u, options) : readAligned(u, options);
-  if (built.layers.length === 0) {
-    throw new Error('the uPlot chart has no series with data to read');
-  }
 
   const title = options.title ?? readTitle(u);
   const maidr: Maidr = {
@@ -193,6 +191,11 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
       }
       idxs.push(k);
     }
+    // A series with no readings in the window -- a host that stopped
+    // reporting -- has nothing to navigate; its layer returns with its data.
+    if (points.length === 0) {
+      continue;
+    }
     const layerId = `${kind}-${i}`;
     const axes = layerAxes(u, toX.axis, yScale, series, options);
     layers.push({
@@ -244,6 +247,9 @@ function readFaceted(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
       }
       points.push({ x, y });
       idxs.push(k);
+    }
+    if (points.length === 0) {
+      continue;
     }
     const layerId = `scatter-${i}`;
     layers.push({
@@ -299,6 +305,14 @@ function resolveKind(u: UPlotInstance, i: number, options: MaidrUPlotOptions): U
 }
 
 /**
+ * The kind each series was last seen drawing. uPlot clears every path cache
+ * in `setData` and rebuilds it only for the series it shows, so without this
+ * a bar series hidden from the legend would be re-read as a line on the next
+ * update, and its layer would change type under the reader.
+ */
+const seenKinds = new WeakMap<UPlotSeries, UPlotSeriesKind>();
+
+/**
  * Infers what a series draws from the path cache uPlot left on it.
  *
  * uPlot's builders each return a path object whose `flags` say how a band
@@ -319,18 +333,18 @@ export function inferSeriesKind(u: UPlotInstance, series: UPlotSeries): UPlotSer
   const drawn = u.status === 1 && series.show !== false;
   const cache = series._paths;
   if (!drawn || cache === undefined) {
-    return 'line';
+    // Hidden from the legend, or not drawn since the last `setData` cleared
+    // the cache: what it was last seen drawing still stands.
+    return seenKinds.get(series) ?? 'line';
   }
-  if (cache === null) {
-    return 'scatter';
+  let kind: UPlotSeriesKind = 'line';
+  if (cache === null || cache.flags === POINTS_FLAGS) {
+    kind = 'scatter';
+  } else if (cache.flags === BARS_FLAGS) {
+    kind = 'bar';
   }
-  if (cache.flags === BARS_FLAGS) {
-    return 'bar';
-  }
-  if (cache.flags === POINTS_FLAGS) {
-    return 'scatter';
-  }
-  return 'line';
+  seenKinds.set(series, kind);
+  return kind;
 }
 
 // ---------------------------------------------------------------------------
@@ -354,8 +368,8 @@ function xReader(
   xs: readonly (number | null)[],
   options: MaidrUPlotOptions,
 ): XReader {
-  const label = options.xLabel ?? axisLabel(u, xScale) ?? stringLabel(u.series[0]?.label) ?? 'X';
   const time = u.scales[xScale]?.time === true && (u.mode ?? 1) !== 2;
+  const label = options.xLabel ?? axisLabel(u, xScale) ?? authoredLabel(u.series[0]?.label, time) ?? (time ? 'Time' : 'X');
   if (!time) {
     return { value: k => xs[k] ?? null, axis: { label } };
   }
@@ -423,7 +437,7 @@ function layerAxes(
   const xAxis = xScale === undefined ? x : { ...x, label: options.xLabel ?? axisLabel(u, xScale) ?? x.label };
   const yLabel = options.yLabel
     ?? axisLabel(u, yScale)
-    ?? (series ? stringLabel(series.label) : undefined)
+    ?? (series ? authoredLabel(series.label, false) : undefined)
     ?? 'Value';
   return { x: xAxis, y: { label: yLabel } };
 }
@@ -442,7 +456,18 @@ function axisLabel(u: UPlotInstance, scale: string): string | undefined {
 }
 
 function seriesName(series: UPlotSeries, i: number): string {
-  return stringLabel(series.label) ?? `Series ${i}`;
+  return authoredLabel(series.label, false) ?? `Series ${i}`;
+}
+
+/**
+ * A series label the author wrote. uPlot fills an unlabelled series in with
+ * 'Value' ('Time' for the x series of a time scale), so taken at face value
+ * every unlabelled series and axis would be announced by the same word and a
+ * reader moving between two lines could not tell them apart.
+ */
+function authoredLabel(label: unknown, time: boolean): string | undefined {
+  const text = stringLabel(label);
+  return text === 'Value' || (time && text === 'Time') ? undefined : text;
 }
 
 function stringLabel(label: unknown): string | undefined {

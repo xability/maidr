@@ -97,7 +97,17 @@ export interface UPlotInstance {
   /** Plot area in *device* pixels, relative to the canvas. */
   readonly bbox?: { left: number; top: number; width: number; height: number };
   readonly ctx?: CanvasRenderingContext2D;
-  readonly cursor?: { idx?: number | null; left?: number; top?: number };
+  /**
+   * Where uPlot's cursor is: `idx` is the nearest data index in aligned mode,
+   * `idxs` the nearest index per series (the only one set in faceted mode),
+   * `left`/`top` its CSS-pixel position in the plotting area.
+   */
+  readonly cursor?: {
+    idx?: number | null;
+    idxs?: ReadonlyArray<number | null>;
+    left?: number;
+    top?: number;
+  };
   /** 1 once uPlot has drawn for the first time (`ready` has fired). */
   readonly status?: number;
   /**
@@ -130,7 +140,7 @@ export interface UPlotSeriesMaidrOptions {
  * Options accepted by `bindUPlot` and `maidrPlugin`.
  */
 export interface MaidrUPlotOptions {
-  /** Chart id used for DOM ids and `window.maidrLive`; generated when omitted. */
+  /** Chart id used for DOM ids; generated when omitted. */
   id?: string;
   /** Chart title; defaults to uPlot's own `title` option. */
   title?: string;
