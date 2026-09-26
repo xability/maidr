@@ -492,6 +492,21 @@ describe('powerbi binder', () => {
       expect(onNavigate).toHaveBeenLastCalledWith(null);
     });
 
+    it('should report null when the figure the reader was on gives way to the empty state', () => {
+      const onNavigate = jest.fn();
+      const binding = bind({ chartType: 'column', onNavigate });
+      update(binding, salesView());
+      lastData().onNavigate?.({ layerId: '0', row: 0, col: 1 });
+
+      update(binding, undefined);
+      update(binding, { categorical: { categories: [], values: [] } });
+
+      expect(onNavigate.mock.calls).toEqual([
+        [[categorical(1, 0)]],
+        [null],
+      ]);
+    });
+
     it('should not report null on leaving when nothing was reported', async () => {
       const onNavigate = jest.fn();
       const binding = bind({ chartType: 'column', onNavigate });

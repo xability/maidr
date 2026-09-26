@@ -345,6 +345,11 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
       // and delivered against the figure it names, rather than being dropped
       // when the data effect lands a tick later.
       flushSync(render);
+      // The marks the visual was told about are gone with the figure; MAIDR
+      // reports nothing as it unmounts, so clear them here.
+      if (next === null && reported) {
+        report(null);
+      }
       // Swapping the figure for the empty state (or back) unmounts the element
       // that had focus; hand it to whatever took its place.
       if (hadFocus && !wrapper.contains(document.activeElement)) {
