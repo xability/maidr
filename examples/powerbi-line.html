@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + Power BI Line Chart (companion mode)</title>
+
+    <!-- MAIDR core, then the MAIDR Power BI adapter (UMD, exposing the
+         `maidrPowerBI` global). -->
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <script type="text/javascript" src="../dist/powerbi.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 { margin-bottom: 4px; }
+      h2 { margin-top: 32px; }
+      .note {
+        border-left: 4px solid #4682b4;
+        background: #f4f8fb;
+        padding: 12px 16px;
+        margin: 16px 0;
+      }
+      .report {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+      }
+      .tile {
+        border: 1px dashed #999;
+        padding: 8px;
+      }
+      .tile-caption {
+        font-size: 12px;
+        color: #555;
+        margin: 0 0 4px;
+      }
+      #companion { width: 220px; }
+      [data-maidr-powerbi-anchor] {
+        padding: 8px 12px;
+        border: 2px solid #4682b4;
+        border-radius: 4px;
+      }
+      #native circle.highlighted {
+        stroke: #000;
+        stroke-width: 3;
+        r: 7;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>MAIDR + Power BI Line Chart (companion mode)</h1>
+    <p>
+      A simulated report page with two visuals bound to the same fields: a
+      <em>native</em> line chart for sighted readers, and a small MAIDR custom
+      visual beside it that draws nothing but a keyboard entry point. Tab to
+      the MAIDR visual, then use the arrow keys: Left and Right move along a
+      line, Up and Down switch between the two lines.
+    </p>
+
+    <div class="note">
+      <strong>Why two visuals?</strong> A Power BI custom visual runs in its
+      own sandboxed iframe, apart from the report page where native visuals
+      render, so it can never read a native visual's drawing or data. The companion is bound to the same Month, Visits and
+      Sign-ups fields instead, so it reads the numbers the native chart draws.
+      Its <code>onNavigate</code> would call
+      <code>selectionManager.select()</code>, and Power BI would cross-highlight
+      the native chart. This page fakes that step by highlighting the "native"
+      chart's point directly, which a real visual cannot do. Build the bundles
+      first with <code>npm run build</code>.
+    </div>
+
+    <h2>The report page</h2>
+    <div class="report">
+      <div class="tile">
+        <p class="tile-caption">Native line chart (not MAIDR)</p>
+        <div id="native"></div>
+      </div>
+      <div class="tile">
+        <p class="tile-caption">MAIDR custom visual (companion mode)</p>
+        <!-- Stands in for the element Power BI hands a visual's constructor. -->
+        <div id="companion"></div>
+      </div>
+    </div>
+
+    <script>
+      // Two measures in the Values well and no legend field: Power BI emits
+      // one value column per measure, and MAIDR reads one line per measure,
+      // named after it. Date categories arrive as Date objects.
+      const months = [0, 1, 2, 3, 4, 5].map(month => new Date(2025, month, 1));
+      const visits = [1200, 1350, 1280, null, 1620, 1710]; // April is blank
+      const signups = [80, 95, 90, 110, 130, 150];
+      const dataView = {
+        categorical: {
+          categories: [{
+            source: { displayName: 'Month', queryName: 'Web.Month', roles: { category: true }, type: { dateTime: true } },
+            values: months,
+          }],
+          values: [
+            {
+              source: { displayName: 'Visits', queryName: 'Sum(Web.Visits)', roles: { measure: true }, isMeasure: true, type: { numeric: true } },
+              values: visits,
+            },
+            {
+              source: { displayName: 'Sign-ups', queryName: 'Sum(Web.Signups)', roles: { measure: true }, isMeasure: true, type: { numeric: true } },
+              values: signups,
+            },
+          ],
+        },
+      };
+
+      // The "native" visual: drawn by the page, known to MAIDR only through
+      // the shared data view.
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const COLORS = ['#1f77b4', '#d62728'];
+      const native = document.createElementNS(SVG_NS, 'svg');
+      native.setAttribute('width', '480');
+      native.setAttribute('height', '260');
+      native.setAttribute('role', 'img');
+      native.setAttribute('aria-label', 'Native line chart of visits and sign-ups by month');
+      document.getElementById('native').appendChild(native);
+
+      function svgEl(name, attrs, text) {
+        const node = document.createElementNS(SVG_NS, name);
+        for (const [key, value] of Object.entries(attrs)) {
+          node.setAttribute(key, String(value));
+        }
+        if (text !== undefined) {
+          node.textContent = text;
+        }
+        return node;
+      }
+
+      const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const x = i => 40 + i * 80;
+      dataView.categorical.values.forEach((column, valueColumnIndex) => {
+        const max = Math.max(...column.values.filter(v => v !== null));
+        const y = v => 220 - (v / max) * 180;
+        let path = '';
+        column.values.forEach((value, i) => {
+          if (value === null) {
+            return;
+          }
+          const move = i === 0 || column.values[i - 1] === null ? 'M' : 'L';
+          path += `${move}${x(i)},${y(value)} `;
+        });
+        native.appendChild(svgEl('path', { d: path, fill: 'none', stroke: COLORS[valueColumnIndex], 'stroke-width': 2 }));
+        column.values.forEach((value, i) => {
+          if (value !== null) {
+            native.appendChild(svgEl('circle', {
+              'cx': x(i),
+              'cy': y(value),
+              'r': 4,
+              'fill': COLORS[valueColumnIndex],
+              'data-category-index': i,
+              'data-value-column-index': valueColumnIndex,
+            }));
+          }
+        });
+        native.appendChild(svgEl('text', { 'x': 40 + valueColumnIndex * 100, 'y': 14, 'font-size': 12, 'fill': COLORS[valueColumnIndex] }, column.source.displayName));
+      });
+      labels.forEach((label, i) => native.appendChild(svgEl('text', { 'x': x(i) - 10, 'y': 245, 'font-size': 12 }, label)));
+
+      // The companion visual: no `chart`, so MAIDR renders only its entry
+      // point, with `label` as its visible text. Screen readers hear MAIDR's
+      // own instruction instead, so the label holds nothing they need.
+      const binding = maidrPowerBI.bindPowerBI(document.getElementById('companion'), {
+        chartType: 'line',
+        title: 'Visits and sign-ups by month',
+        label: 'Visits and sign-ups by month (accessible chart)',
+        onNavigate(points) {
+          // In Power BI: selectionManager.select(ids) and let the report
+          // cross-highlight. Simulated here.
+          native.querySelectorAll('circle.highlighted').forEach(node => node.classList.remove('highlighted'));
+          for (const ref of points ?? []) {
+            native
+              .querySelector(`circle[data-category-index="${ref.categoryIndex}"][data-value-column-index="${ref.valueColumnIndex}"]`)
+              ?.classList.add('highlighted');
+          }
+        },
+      });
+      binding.update(dataView);
+    </script>
+  </body>
+</html>

@@ -33,6 +33,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
 - [TradingView Lightweight Charts](https://maidr.ai/lightweight-charts.html): Candlestick, OHLC bar, line, area, baseline and histogram series across panes, with live streaming
 - [Tableau](https://maidr.ai/tableau.html): Sonification, braille and screen-reader navigation for embedded Tableau dashboards, or from inside one as a dashboard extension
+- [Power BI](https://maidr.ai/powerbi.html): Sonification, braille and keyboard navigation inside a Power BI custom visual
 
 ## Optional
 - [npm](https://www.npmjs.com/package/maidr): Install with `npm install maidr`

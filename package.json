@@ -99,6 +99,11 @@
       "types": "./dist/tableau.d.mts",
       "import": "./dist/tableau.mjs",
       "default": "./dist/tableau.js"
+    },
+    "./powerbi": {
+      "types": "./dist/powerbi.d.mts",
+      "import": "./dist/powerbi.mjs",
+      "default": "./dist/powerbi.js"
     }
   },
   "main": "dist/maidr.js",
