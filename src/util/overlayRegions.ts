@@ -42,6 +42,12 @@ export const OVERLAY_ATTRIBUTES = {
    * boxes separated by `;`.
    */
   exclude: 'data-maidr-exclude',
+  /**
+   * Set by an adapter on an SVG the library draws that is not the chart -- a
+   * logo in the corner of a canvas chart -- so a reader looking for the
+   * chart's SVG does not take it for the chart.
+   */
+  decoration: 'data-maidr-decoration',
 } as const;
 
 /**
