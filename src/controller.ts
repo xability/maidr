@@ -29,6 +29,7 @@ import { SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TactileService } from '@service/tactile';
 import { TextService } from '@service/text';
+import { setWebMcpEnabled } from '@service/webMcp';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
 import { ChatViewModel } from '@state/viewModel/chatViewModel';
@@ -103,6 +104,7 @@ export class Controller implements Disposable {
   private readonly mousebinding: Mousebindingservice;
   /** Carries `Context`'s scope changes to the service that owns the hotkeys scope. */
   private readonly scopeSubscription: Disposable;
+  private readonly agentToolsSubscription: Disposable;
   private readonly commandExecutor: CommandExecutor;
   private readonly viewModelRegistry: ViewModelRegistry;
 
@@ -127,6 +129,15 @@ export class Controller implements Disposable {
       new LocalStorageService(),
       this.displayService,
     );
+    // The WebMCP tools are shared by every chart on the page and outlive this
+    // controller, so the setting is handed to them rather than observed: one
+    // call registers or removes them at once, whichever chart it came from.
+    this.agentToolsSubscription = this.settingsService.onChange((event) => {
+      const enabled = event.newSettings.general.agentTools;
+      if (enabled !== event.oldSettings.general.agentTools) {
+        setWebMcpEnabled(enabled);
+      }
+    });
     this.audioService = new AudioService(this.notificationService, this.settingsService, this.context.state);
     this.monitorService = new MonitorService(
       maidr.live === true,
@@ -588,6 +599,7 @@ export class Controller implements Disposable {
    */
   public dispose(): void {
     this.scopeSubscription.dispose();
+    this.agentToolsSubscription.dispose();
     this.settingsService.removeObserver(this.keybinding);
     this.keybinding.unregister();
     this.mousebinding.dispose();

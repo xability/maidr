@@ -3,7 +3,7 @@ import type { StorageService } from '@service/storage';
 import type { Disposable } from '@type/disposable';
 import type { Event } from '@type/event';
 import type { Observer } from '@type/observable';
-import type { Settings } from '@type/settings';
+import type { GeneralSettings, Settings } from '@type/settings';
 import type { Locale } from '@util/i18n';
 import { Emitter, Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
@@ -49,6 +49,22 @@ class SettingsChangedEvent {
 }
 
 /**
+ * Reads the general settings the reader saved, for code that runs before, or
+ * without, a `SettingsService`.
+ *
+ * Nothing is merged or validated: a key the reader never saved is absent, and
+ * every value is `unknown` until the caller checks it.
+ * @param storage - Where settings are persisted
+ * @returns The saved general settings, or an empty object when none are saved
+ */
+export function loadStoredGeneralSettings(
+  storage: StorageService,
+): Partial<Record<keyof GeneralSettings, unknown>> {
+  const general = storage.load<{ general?: unknown }>(SETTINGS_KEY)?.general;
+  return typeof general === 'object' && general !== null ? general : {};
+}
+
+/**
  * Speaks the stored language before any controller exists.
  *
  * A `SettingsService` is built on the chart's first focus, but the reader
@@ -58,8 +74,7 @@ class SettingsChangedEvent {
  * @param storage - Where settings are persisted
  */
 export function applyStoredLanguage(storage: StorageService): void {
-  const saved = storage.load<{ general?: { language?: unknown } }>(SETTINGS_KEY);
-  const language = saved?.general?.language;
+  const language = loadStoredGeneralSettings(storage).language;
   speak(resolveLocale(
     isLanguageSetting(language) ? language : DEFAULT_SETTINGS.general.language,
   ));

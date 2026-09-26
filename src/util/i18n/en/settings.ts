@@ -24,6 +24,8 @@ export const settings = {
   'settings.hoverMode': 'Hover Mode',
   'settings.hoverOnHover': 'Hover',
   'settings.hoverOnClick': 'Click',
+  'settings.agentTools': 'Browser AI Agent Access',
+  'settings.agentToolsHint': 'Lets an AI assistant built into your browser read the data of the charts on this page and, when you ask, move your position in them.',
 
   // Audio tab.
   'settings.volume': 'Volume',

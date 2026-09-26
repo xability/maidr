@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>maidr WebMCP Example</title>
+    <script type="text/javascript" src="../dist/maidr.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+        max-width: 48rem;
+      }
+      svg {
+        border: 1px solid #ccc;
+        background: #fff;
+      }
+    </style>
+    <script>
+      // A plain bar chart. Nothing on this page asks for WebMCP: the tools are
+      // on by default wherever the browser supports them, and the reader can
+      // turn them off in Settings > General.
+      var maidr = {
+        id: 'webmcp-bar',
+        title: 'The Number of Tips by Day',
+        subplots: [
+          [
+            {
+              layers: [
+                {
+                  id: 'tips',
+                  type: 'bar',
+                  selectors: '#webmcp-bars > rect',
+                  axes: {
+                    x: { label: 'Day' },
+                    y: { label: 'Count' },
+                  },
+                  data: [
+                    { x: 'Sat', y: 87 },
+                    { x: 'Sun', y: 76 },
+                    { x: 'Thur', y: 62 },
+                    { x: 'Fri', y: 19 },
+                  ],
+                },
+              ],
+            },
+          ],
+        ],
+      };
+    </script>
+  </head>
+  <body>
+    <h1>maidr and browser AI agents (WebMCP)</h1>
+    <p>
+      In a browser with WebMCP, this chart is offered to the browser's AI
+      agent as three tools: <code>maidr_list_charts</code>,
+      <code>maidr_get_layer_data</code> and <code>maidr_navigate</code>. The
+      agent can then answer questions such as "which day had the most tips?"
+      from the chart's data, or move your position to a bar when you ask.
+    </p>
+    <h2>How to test</h2>
+    <ol>
+      <li>
+        In Chrome, open <code>chrome://flags/#enable-webmcp-testing</code>, set
+        it to <strong>Enabled</strong>, and relaunch.
+      </li>
+      <li>
+        Install the
+        <a href="https://github.com/beaufortfrancois/model-context-tool-inspector">Model Context Tool Inspector</a>
+        extension and open it on this page. It lists the three tools and can
+        call them: start with <code>maidr_list_charts</code> and
+        <code>{}</code>.
+      </li>
+      <li>
+        Call <code>maidr_navigate</code> with
+        <code>{"layerId": "tips", "row": 0, "col": 2}</code> while you are in
+        the chart (click it or Tab to it): your screen reader announces
+        Thursday, exactly as an arrow key would.
+      </li>
+      <li>
+        Open Settings (<kbd>Ctrl</kbd> + <kbd>,</kbd>, or <kbd>Cmd</kbd> +
+        <kbd>,</kbd> on a Mac), uncheck <strong>Browser AI Agent Access</strong>
+        on the General tab and save: the tools disappear from the inspector
+        without a reload. Check it again to bring them back.
+      </li>
+    </ol>
+    <p>
+      The page must be served over <code>https</code> or from
+      <code>localhost</code>. See
+      <a href="../docs/WEBMCP.html">Browser AI Agents (WebMCP)</a> for the
+      tools, what they return, and how a page author can switch them off.
+    </p>
+
+    <svg id="webmcp-bar" width="480" height="300" viewBox="0 0 480 300">
+      <g id="webmcp-axes" stroke="#333">
+        <line x1="50" y1="260" x2="460" y2="260" />
+        <line x1="50" y1="20" x2="50" y2="260" />
+      </g>
+      <g id="webmcp-bars" fill="steelblue">
+        <rect x="70" y="52" width="70" height="208" />
+        <rect x="170" y="78" width="70" height="182" />
+        <rect x="270" y="112" width="70" height="148" />
+        <rect x="370" y="215" width="70" height="45" />
+      </g>
+      <g font-size="14" text-anchor="middle" fill="#333">
+        <text x="105" y="280">Sat</text>
+        <text x="205" y="280">Sun</text>
+        <text x="305" y="280">Thur</text>
+        <text x="405" y="280">Fri</text>
+        <text x="255" y="298">Day</text>
+      </g>
+    </svg>
+  </body>
+</html>

@@ -8,8 +8,10 @@
  * and unregistration from `unregisterTool(name)` to an `AbortSignal`. Both
  * variants are detected here, and only here.
  *
- * Off unless the page carries `<meta name="maidr-webmcp" content="on">`, and a
- * strict no-op wherever the browser has no WebMCP. Nothing runs at import.
+ * On by default, and a strict no-op wherever the browser has no WebMCP. The
+ * reader turns it off with the `general.agentTools` setting, and a page author
+ * with `<meta name="maidr-webmcp" content="off">`, which wins over the
+ * setting. Nothing runs at import.
  * Three tools are exposed -- two silent reads and one cursor move that travels
  * the same path as `window.maidrLive.navigateTo` -- and nothing that writes
  * data, runs commands or changes settings.
@@ -18,8 +20,10 @@
  * every string that came from the chart producer sits under `content`, since
  * a chart's title and labels are text an agent must not take as instructions.
  *
- * The feature is contained in this file and its one call site in
- * `useMaidrController`; deleting both removes it.
+ * The feature is contained in this file, its call site in
+ * `useMaidrController`, the settings listener in `Controller`, the setting in
+ * `GeneralSettings` and its row in the settings dialog; deleting those
+ * removes it.
  *
  * @packageDocumentation
  */
@@ -28,7 +32,10 @@ import type { LiveDataManager } from '@service/liveData';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, MaidrLayer, NavigationTarget } from '@type/grammar';
 import { NESTED_DATA_TYPES } from '@service/liveData';
+import { loadStoredGeneralSettings } from '@service/settings';
+import { LocalStorageService } from '@service/storage';
 import { TraceType } from '@type/grammar';
+import { DEFAULT_SETTINGS } from '@type/settings';
 
 /** The part of the browser's `ModelContext` MAIDR uses. */
 interface ModelContextLike {
@@ -83,7 +90,9 @@ const OWNER_KEY = Symbol.for('maidr.webmcp.owner');
 // so a string can read differently from how it is stored: controls (Cc), the
 // format characters (Cf -- bidi marks, embeddings, overrides and isolates,
 // zero-width characters, the byte-order mark, and the tag block that smuggles
-// invisible ASCII), and the line and paragraph separators.
+// invisible ASCII), and the line and paragraph separators. Cc takes the
+// ordinary whitespace controls with it -- line feed, tab, carriage return --
+// so a multi-line caption reaches the agent as one line.
 const UNSAFE_CHARACTERS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 
 /**
@@ -941,18 +950,61 @@ function getModelContext(): ModelContextLike | null {
 }
 
 /**
- * Whether the page opted in with `<meta name="maidr-webmcp" content="on">`.
+ * Whether the browser offers WebMCP to this page: a secure context with
+ * `document.modelContext` (or the deprecated `navigator.modelContext`).
  *
- * @returns True when the tag is present and says `on`
+ * Says nothing about the setting or the page's kill switch; it is what the
+ * settings dialog asks before offering the reader a toggle that could do
+ * nothing.
+ *
+ * @returns True when the tools could be registered here
  */
-function isEnabled(): boolean {
+export function isWebMcpSupported(): boolean {
+  return getModelContext() !== null;
+}
+
+/**
+ * Whether the page author switched the tools off with
+ * `<meta name="maidr-webmcp" content="off">`. Any other value, `on` included,
+ * leaves them to the reader's setting.
+ *
+ * @returns True when the tag is present and says `off`
+ */
+function isSwitchedOffByPage(): boolean {
   try {
     const content = document.querySelector('meta[name="maidr-webmcp"]')?.getAttribute('content');
-    return content?.trim().toLowerCase() === 'on';
+    return content?.trim().toLowerCase() === 'off';
   } catch {
-    // No document to read means no opt-in.
+    // No document to read means no tag.
     return false;
   }
+}
+
+/** The reader's choice, once a settings change on this page has reported it. */
+let readerChoice: boolean | null = null;
+
+/**
+ * Whether the reader allows the tools: their latest choice on this page, or
+ * else what their saved settings say, or else the default.
+ *
+ * @returns The `general.agentTools` setting
+ */
+function isAllowedByReader(): boolean {
+  if (readerChoice !== null) {
+    return readerChoice;
+  }
+  const stored = loadStoredGeneralSettings(new LocalStorageService()).agentTools;
+  return typeof stored === 'boolean' ? stored : DEFAULT_SETTINGS.general.agentTools;
+}
+
+/**
+ * Whether the tools may be registered: the reader allows them and the page
+ * has not switched them off.
+ *
+ * @returns True when enabled
+ */
+function isEnabled(): boolean {
+  return !isSwitchedOffByPage() && isAllowedByReader();
 }
 
 let refCount = 0;
@@ -1001,7 +1053,7 @@ function listenForRelease(listen: boolean): void {
 }
 
 /**
- * Registers the tools with the browser, when the page opted in and the
+ * Registers the tools with the browser, when they are enabled and the
  * browser supports it.
  *
  * Safe to call again while installed or skipped: it registers only when this
@@ -1010,11 +1062,12 @@ function listenForRelease(listen: boolean): void {
  * @param manager - The chart registry the tools serve
  */
 function install(manager: LiveDataManager): void {
-  if (controller !== null || !isEnabled()) {
+  if (controller !== null) {
     return;
   }
+  // The browser first: where it has no WebMCP, the settings are not read.
   const mc = getModelContext();
-  if (mc === null) {
+  if (mc === null || !isEnabled()) {
     return;
   }
   if (ownerSlot()[OWNER_KEY]) {
@@ -1062,6 +1115,14 @@ function teardown(): void {
   if (refCount !== 0) {
     return;
   }
+  uninstall();
+}
+
+/**
+ * Unregisters the tools this copy holds, stops waiting to take them over,
+ * and hands them to another copy of MAIDR if this one owned them.
+ */
+function uninstall(): void {
   listenForRelease(false);
   if (controller === null) {
     return;
@@ -1096,14 +1157,15 @@ function teardown(): void {
  * long as the returned handle is held.
  *
  * Every mounted chart holds one; the tools are registered once, by the first
- * mount that finds the page opted in and no other copy of MAIDR providing
- * them, and serve every chart in the registry. They are removed
+ * mount that finds them enabled and no other copy of MAIDR providing them,
+ * and serve every chart in the registry. They are removed
  * a tick after the last handle is disposed, so a remount in the same tick --
  * React StrictMode, an adapter re-initialising -- does not churn them.
  *
- * Experimental, and a strict no-op unless the page carries
- * `<meta name="maidr-webmcp" content="on">`, is a secure context, and runs in
- * a browser that has `document.modelContext` (or the deprecated
+ * Experimental, and a strict no-op unless the reader's `general.agentTools`
+ * setting allows it (the default), the page does not carry
+ * `<meta name="maidr-webmcp" content="off">`, it is a secure context, and it
+ * runs in a browser that has `document.modelContext` (or the deprecated
  * `navigator.modelContext`). See `docs/WEBMCP.md`.
  *
  * @param manager - The chart registry the tools read and navigate
@@ -1118,7 +1180,7 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
   }
   latestManager = manager;
   // Tried on every mount, not only the first: an install skipped because the
-  // opt-in tag was not there yet, or another copy owned the tools, is retried.
+  // page's off tag was there then, or another copy owned the tools, is retried.
   install(manager);
   let disposed = false;
   return {
@@ -1133,6 +1195,27 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
       }
     },
   };
+}
+
+/**
+ * Applies the reader's `general.agentTools` setting at once: registers the
+ * tools while charts are mounted, or unregisters them, without a reload and
+ * without touching the charts.
+ *
+ * One call covers every chart on the page, since the tools are shared; the
+ * page's `content="off"` tag still wins over `true`.
+ *
+ * @param enabled - The new setting
+ */
+export function setWebMcpEnabled(enabled: boolean): void {
+  readerChoice = enabled;
+  if (!enabled) {
+    uninstall();
+    return;
+  }
+  if (refCount > 0 && latestManager !== null) {
+    install(latestManager);
+  }
 }
 
 /**
@@ -1153,5 +1236,6 @@ export function resetWebMcpForTests(): void {
   warnedSecondCopy = false;
   warnedRegistration = false;
   latestManager = null;
+  readerChoice = null;
   listenForRelease(false);
 }

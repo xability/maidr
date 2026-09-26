@@ -1,13 +1,15 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
+import { BarPlotPage } from '../page-objects/plots/barplot-page';
 
 /**
  * E2E coverage for the experimental WebMCP tools (docs/WEBMCP.md).
  *
  * No browser ships WebMCP by default, so an init script stands in for
  * `document.modelContext`: it keeps each registered tool on `window.__tools`
- * and drops it when its signal aborts, as the draft specifies. A second init
- * script adds the opt-in meta tag before MAIDR mounts on DOMContentLoaded.
+ * and drops it when its signal aborts, as the draft specifies. The tools are on
+ * by default; a second init script adds the page's `maidr-webmcp` meta tag,
+ * when a test wants one, before MAIDR mounts on DOMContentLoaded.
  * The tools are then called the way an agent would, and the reader's side is
  * checked the way liveData.spec.ts checks it: through the aria text region
  * and `document.activeElement`.
@@ -59,8 +61,12 @@ async function callTool(page: Page, name: string, input: unknown): Promise<ToolR
   );
 }
 
-/** Installs the stand-in model context, and the opt-in tag when asked. */
-async function setUp(page: Page, optIn: boolean): Promise<void> {
+/**
+ * Installs the stand-in model context, and the page's meta tag when asked.
+ * @param page - The Playwright page
+ * @param meta - The tag's `content`, or null for no tag
+ */
+async function setUp(page: Page, meta: 'on' | 'off' | null): Promise<void> {
   await page.addInitScript(() => {
     Object.defineProperty(document, 'modelContext', {
       configurable: true,
@@ -74,15 +80,15 @@ async function setUp(page: Page, optIn: boolean): Promise<void> {
       },
     });
   });
-  if (optIn) {
-    await page.addInitScript(() => {
+  if (meta !== null) {
+    await page.addInitScript((content) => {
       document.addEventListener('DOMContentLoaded', () => {
-        const meta = document.createElement('meta');
-        meta.name = 'maidr-webmcp';
-        meta.content = 'on';
-        document.head.append(meta);
+        const tag = document.createElement('meta');
+        tag.name = 'maidr-webmcp';
+        tag.content = content;
+        document.head.append(tag);
       });
-    });
+    }, meta);
   }
 }
 
@@ -94,8 +100,8 @@ async function openChart(page: Page): Promise<void> {
 }
 
 test.describe('WebMCP tools', () => {
-  test('registers three tools and lists the chart under content', async ({ page }) => {
-    await setUp(page, true);
+  test('registers three tools by default and lists the chart under content', async ({ page }) => {
+    await setUp(page, null);
     await openChart(page);
 
     expect(await toolNames(page)).toEqual(['maidr_get_layer_data', 'maidr_list_charts', 'maidr_navigate']);
@@ -110,7 +116,7 @@ test.describe('WebMCP tools', () => {
   });
 
   test('waits for the reader when they are not in the chart, and never moves focus', async ({ page }) => {
-    await setUp(page, true);
+    await setUp(page, 'on');
     await openChart(page);
     const focusBefore = await activeElement(page);
     const textBefore = await ariaText(page);
@@ -129,7 +135,7 @@ test.describe('WebMCP tools', () => {
   });
 
   test('moves and announces at once when the reader is in the chart', async ({ page }) => {
-    await setUp(page, true);
+    await setUp(page, 'on');
     await openChart(page);
     await page.click('#bar');
     await waitForAriaText(page, 'maidr plot'); // focus-in shows the instruction
@@ -155,7 +161,7 @@ test.describe('WebMCP tools', () => {
     expect(await activeElement(page)).toBe(focusBefore);
   });
 
-  test('registers nothing and logs no errors without the meta tag', async ({ page }) => {
+  test('registers nothing and logs no errors when the page switches them off', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') {
@@ -163,7 +169,7 @@ test.describe('WebMCP tools', () => {
       }
     });
     page.on('pageerror', error => errors.push(error.message));
-    await setUp(page, false);
+    await setUp(page, 'off');
 
     await page.goto('examples/barplot.html');
     await page.waitForSelector('svg#bar');
@@ -172,5 +178,29 @@ test.describe('WebMCP tools', () => {
 
     expect(await toolNames(page)).toEqual([]);
     expect(errors).toEqual([]);
+  });
+
+  test('the reader turns the tools off and on in Settings without a reload', async ({ page }) => {
+    await setUp(page, null);
+    await openChart(page);
+    const barPlotPage = new BarPlotPage(page);
+    await barPlotPage.activateMaidr();
+
+    const toggle = async (): Promise<void> => {
+      await barPlotPage.openSettingsMenu();
+      const checkbox = page.getByRole('checkbox', { name: 'Browser AI Agent Access' });
+      await expect(checkbox).toHaveAccessibleDescription(/AI assistant built into your browser/);
+      await checkbox.click();
+      await page.getByRole('button', { name: 'Save & Close Settings' }).click();
+      await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeHidden();
+    };
+
+    await toggle();
+    await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 0);
+    await expect(page.locator('svg#bar')).toBeVisible();
+
+    await toggle();
+    await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
+    expect(await toolNames(page)).toEqual(['maidr_get_layer_data', 'maidr_list_charts', 'maidr_navigate']);
   });
 });

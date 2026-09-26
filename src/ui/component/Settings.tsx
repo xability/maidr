@@ -597,6 +597,10 @@ const Settings: React.FC = () => {
     () => viewModel.tactileDisplayState,
   );
   const [tactileAttempt, setTactileAttempt] = useState(0);
+  // Read once per open: whether the browser has WebMCP does not change while
+  // the page is loaded, and a toggle it could not act on would only mislead.
+  const [agentToolsSupported] = useState(() => viewModel.supportsAgentTools);
+  const agentToolsHintId = `${id}-agent-tools-hint`;
   const titleId = `${id}-title`;
   const copyStatusId = `${id}-copy-status`;
   const tactileLabelId = `${id}-tactile-label`;
@@ -1164,6 +1168,44 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+          {agentToolsSupported && (
+            <Grid size={12}>
+              <SettingRow
+                label={t('settings.agentTools')}
+                input={(
+                  <FormControl>
+                    <FormControlLabel
+                      control={(
+                        <Checkbox
+                          checked={generalSettings.agentTools}
+                          onChange={e =>
+                            handleGeneralChange('agentTools', e.target.checked)}
+                          size="small"
+                          slotProps={{
+                            input: { 'aria-describedby': agentToolsHintId },
+                          }}
+                        />
+                      )}
+                      label={t(generalSettings.agentTools ? 'settings.on' : 'settings.off')}
+                      slotProps={{
+                        typography: {
+                          variant: 'body2',
+                        },
+                      }}
+                      aria-label={t('settings.agentTools')}
+                    />
+                    <Typography
+                      id={agentToolsHintId}
+                      variant="caption"
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      {t('settings.agentToolsHint')}
+                    </Typography>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+          )}
         </SettingsTabPanel>
 
         <SettingsTabPanel
