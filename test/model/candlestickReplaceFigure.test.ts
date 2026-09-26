@@ -58,10 +58,10 @@ describe('candlestick position across a live data update', () => {
     }
     context.moveOnce('UPWARD');
     const before = position(context.active.state);
+    expect(before).toEqual({ candle: 'Mar 5', section: 'open' });
 
     context.replaceFigure(() => new Figure(candlestickMaidr(CANDLES)));
 
-    expect(before).toEqual({ candle: 'Mar 5', section: 'open' });
     expect(position(context.active.state)).toEqual(before);
     // The next key moves on from there, not from the first candle.
     context.moveOnce('FORWARD');
@@ -92,6 +92,7 @@ describe('candlestick position across a live data update', () => {
     }
     context.moveOnce('UPWARD');
     const before = position(context.active.state);
+    expect(before).toEqual({ candle: 'Mar 5', section: 'open' });
 
     // Mar 5 turns from bearish to bullish: its open and close swap places,
     // so the segment of the reader's rank is now the other one.
@@ -100,7 +101,6 @@ describe('candlestick position across a live data update', () => {
       : candle);
     context.replaceFigure(() => new Figure(candlestickMaidr(flipped)));
 
-    expect(before).toEqual({ candle: 'Mar 5', section: 'open' });
     expect(position(context.active.state)).toEqual(before);
   });
 });

@@ -1017,7 +1017,8 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * The part of the cursor a trace keeps beside `row`/`col` that should
    * survive a live data update -- a candlestick's segment. `Context`
    * captures it before the update and hands it to {@link restoreCursor}.
-   * Optional; pairs with `restoreCursor`.
+   * The key is opaque: it means something only to the same kind of trace
+   * that returned it. Optional; pairs with `restoreCursor`.
    * @returns The key, or null when there is none
    */
   cursorKey?: () => string | null;
