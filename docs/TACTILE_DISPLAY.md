@@ -30,12 +30,16 @@ them. The *permission* is not frame-bound, though: it belongs to the page. So
 you pick your device once, and from then on every other chart takes it up
 silently as you open its braille panel, with no picker and nothing to press.
 
-A chart hands the device back when you close its braille panel, which is what
-lets the next one take it. A connection you made yourself with the Connect
-buttons stays where you made it — only a silently adopted one is handed on.
+The connection follows you from chart to chart until you disconnect it. When a
+chart in another frame opens its braille panel, the frame holding the device
+lets it go and the new chart takes it up, whether you connected in the first
+chart yourself or it took the device up silently. Charts in the same frame
+simply share it. It ends only when you press **Disconnect** in Settings.
 
-Two charts both holding their braille panels open is the one case this does not
-cover: the first keeps the device. Close its panel and the other takes it.
+Taking the device up again needs the browser to hand back a device the page was
+granted. Chrome does that for USB. Over Bluetooth it needs Chrome's persistent
+Bluetooth permissions, still behind a flag in some versions; without them each
+frame asks for the picker again.
 
 ### Bluetooth or USB
 

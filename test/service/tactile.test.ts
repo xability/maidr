@@ -106,7 +106,6 @@ jest.mock('@service/dotPadSession', () => {
       connect: jest.fn(),
       disconnect: jest.fn(),
       adopt: jest.fn(async (): Promise<boolean> => false),
-      releaseIfAdopted: jest.fn(),
       canTranslate: false,
       translate: jest.fn(async (_text: string): Promise<string | null> => null),
       fireKey: (key: DotPadKey): void => {
@@ -164,7 +163,6 @@ interface FakeSession {
   vibrate: jest.Mock<(onFailure?: () => void) => boolean>;
   disconnect: jest.Mock<() => void>;
   adopt: jest.Mock<() => Promise<boolean>>;
-  releaseIfAdopted: jest.Mock<() => void>;
   fireKey: (key: DotPadKey) => void;
   fireState: (state: DotPadState) => void;
   fireWriteFailure: () => void;
@@ -460,7 +458,6 @@ describe('tactileService', () => {
     session.vibrate.mockReset();
     session.vibrate.mockImplementation((_onFailure?: () => void): boolean => true);
     session.disconnect.mockClear();
-    session.releaseIfAdopted.mockClear();
     session.adopt.mockReset();
     session.adopt.mockImplementation(async (): Promise<boolean> => false);
     ringsOf.mockReset();
@@ -1167,69 +1164,31 @@ describe('tactileService', () => {
       expect(session.writeGraphic).toHaveBeenCalled();
     });
 
-    it('should hand back a display that arrived after the panel had closed', async () => {
+    it('should not draw a display that arrived after the panel had closed', async () => {
       // Taking one up is asynchronous, and a double press of `b` is enough to
-      // outrun it. The release on the way out finds nothing to release,
-      // because the adoption has not happened yet — so without a second look
-      // the display stays checked out to a chart whose panel is shut, and the
-      // next chart to want it finds the device open and gives up quietly.
+      // outrun it. The pins stay down, and the connection stays: it is the
+      // reader's until they end it in Settings.
       session.isConnected = false;
       let settle: (adopted: boolean) => void = () => {};
       session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
         settle = resolve;
       }));
+      service.update(traceState(chart, 1));
 
       brailleStub.isEnabled = true;
       toggle.fire({ enabled: true, state: traceState(chart, 1) });
       brailleStub.isEnabled = false;
       toggle.fire({ enabled: false, state: traceState(chart, 1) });
-      session.releaseIfAdopted.mockClear();
+      session.isConnected = true;
+      session.writeGraphic.mockClear();
+      session.writeGraphicRow.mockClear();
 
       settle(true);
       await flushMicrotasks();
 
-      expect(session.releaseIfAdopted).toHaveBeenCalledTimes(1);
-    });
-
-    it('should keep a display that arrived while the panel was still open', async () => {
-      session.isConnected = false;
-      let settle: (adopted: boolean) => void = () => {};
-      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
-        settle = resolve;
-      }));
-
-      brailleStub.isEnabled = true;
-      toggle.fire({ enabled: true, state: traceState(chart, 1) });
-      session.releaseIfAdopted.mockClear();
-
-      settle(true);
-      await flushMicrotasks();
-
-      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
-    });
-
-    it('should not take the display from a newer chart after being disposed', async () => {
-      // Focus-out disposes the controller on a 0ms timer while taking up a
-      // display is a round trip, so a reader who presses `b` and tabs away can
-      // have a newer controller running in this frame before the old adoption
-      // resolves. Both share the one session: handing the device back here
-      // would take it from the chart that now has it.
-      session.isConnected = false;
-      let settle: (adopted: boolean) => void = () => {};
-      session.adopt.mockImplementation(async () => new Promise<boolean>((resolve) => {
-        settle = resolve;
-      }));
-
-      brailleStub.isEnabled = true;
-      toggle.fire({ enabled: true, state: traceState(chart, 1) });
-      service.dispose();
-      brailleStub.isEnabled = false;
-      session.releaseIfAdopted.mockClear();
-
-      settle(true);
-      await flushMicrotasks();
-
-      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
+      expect(session.writeGraphic).not.toHaveBeenCalled();
+      expect(session.writeGraphicRow).not.toHaveBeenCalled();
+      expect(session.disconnect).not.toHaveBeenCalled();
     });
 
     it('should not draw onto a newer chart display after being disposed', () => {
@@ -1259,13 +1218,16 @@ describe('tactileService', () => {
       });
     });
 
-    it('should hand the display back when this chart stops using it', () => {
+    it('should keep the display connected when this chart stops using it', () => {
+      // Closing the braille panel lowers the pins. The connection is the
+      // reader's until they end it in Settings; dropping it here had them
+      // connecting again chart after chart.
       activate();
 
       brailleStub.isEnabled = false;
       toggle.fire({ enabled: false, state: traceState(chart, 1) });
 
-      expect(session.releaseIfAdopted).toHaveBeenCalledTimes(1);
+      expect(session.disconnect).not.toHaveBeenCalled();
     });
   });
 
@@ -2735,15 +2697,14 @@ describe('tactileService', () => {
       expect(session.writeText).toHaveBeenCalledWith('00'.repeat(GEOMETRY.textCells));
     });
 
-    it('should hand back a display it took up on its own', () => {
-      // Adoption checks the device out to this frame, and only this frame can
-      // hand it back. Keeping it past focus-out is what makes the next chart's
-      // `b` open on a device another frame still holds.
+    it('should keep the display connected when focus leaves the chart', () => {
+      // Tabbing to the next chart is not asking to disconnect. A chart in
+      // another frame asks for the display itself when it wants it.
       activate();
 
       service.dispose();
 
-      expect(session.releaseIfAdopted).toHaveBeenCalled();
+      expect(session.disconnect).not.toHaveBeenCalled();
     });
 
     it('should leave the pins alone when the chart never raised them', () => {
@@ -2758,7 +2719,6 @@ describe('tactileService', () => {
 
       expect(session.writeGraphic).not.toHaveBeenCalled();
       expect(session.writeText).not.toHaveBeenCalled();
-      expect(session.releaseIfAdopted).not.toHaveBeenCalled();
     });
   });
 
