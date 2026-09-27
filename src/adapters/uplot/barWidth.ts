@@ -30,6 +30,21 @@ function sameColor(a: readonly number[], b: readonly number[]): boolean {
   return a.every((channel, c) => Math.abs(channel - b[c]) <= COLOR_TOLERANCE);
 }
 
+/** Limits on a run; see {@link colorRunAround}. */
+export interface RunLimits {
+  /**
+   * How far the run may reach either side of the centre, in pixels: half the
+   * bar's column, so touching bars of one color -- a histogram -- are not
+   * read as one.
+   */
+  reach?: number;
+  /**
+   * Opaque pixels of any color the run takes in past its ends: the bar's
+   * outline, which is drawn in the stroke color around the fill.
+   */
+  outline?: number;
+}
+
 /**
  * The span of the run of one color through `center` in a row of RGBA pixels.
  *
@@ -41,14 +56,17 @@ function sameColor(a: readonly number[], b: readonly number[]): boolean {
  * @param row - RGBA bytes, four per pixel
  * @param width - Pixels in the row
  * @param center - The pixel at the bar's centre
- * @returns The first and last pixel of the run, or `null` when the centre is
- *   transparent (nothing is drawn there)
+ * @param limits - How far the run may reach, and the outline it takes in
+ * @returns The first and last pixel of the run, and whether it reached its
+ *   limit on both sides (the bar fills its column), or `null` when the centre
+ *   is transparent (nothing is drawn there)
  */
 export function colorRunAround(
   row: ArrayLike<number>,
   width: number,
   center: number,
-): { start: number; end: number } | null {
+  limits: RunLimits = {},
+): { start: number; end: number; filled: boolean } | null {
   if (center < 0 || center >= width) {
     return null;
   }
@@ -69,10 +87,16 @@ export function colorRunAround(
     return null;
   }
 
-  const extend = (step: 1 | -1): number => {
+  const reach = limits.reach ?? Number.POSITIVE_INFINITY;
+  const outline = limits.outline ?? 0;
+  const inReach = (i: number): boolean => i >= 0 && i < width && Math.abs(i - center) <= reach;
+  const extend = (step: 1 | -1): { edge: number; limited: boolean } => {
     let edge = center;
     let missed = 0;
-    for (let i = center + step; i >= 0 && i < width; i += step) {
+    for (let i = center + step; ; i += step) {
+      if (!inReach(i)) {
+        return { edge, limited: true };
+      }
       if (sameColor(pixelAt(row, i), color)) {
         edge = i;
         missed = 0;
@@ -80,51 +104,87 @@ export function colorRunAround(
         break;
       }
     }
-    return edge;
+    // The outline: opaque pixels right after the fill.
+    for (let taken = 0, i = edge + step; taken < outline && inReach(i) && pixelAt(row, i)[3] > 0; taken++, i += step) {
+      edge = i;
+    }
+    return { edge, limited: false };
   };
-  return { start: extend(-1), end: extend(1) };
+  const left = extend(-1);
+  const right = extend(1);
+  return { start: left.edge, end: right.edge, filled: left.limited && right.limited };
+}
+
+/** Where and how to measure one bar; CSS pixels in the plotting area. */
+export interface BarToMeasure {
+  /** Position of the bar's centre across its width. */
+  center: number;
+  /** Positions of the bar's two ends along its length. */
+  from: number;
+  to: number;
+  /** The bar's column: the most it can be wide. */
+  column: number;
+  /** The series' stroke width, drawn around the fill. */
+  outline: number;
+  /** Whether the bars lie along the x axis (`ori: 1`). */
+  horizontal: boolean;
 }
 
 /**
- * How wide a bar is drawn across its middle, in CSS pixels, or `null` when
- * the canvas cannot be read.
+ * Charts whose canvas cannot be read back. A canvas tainted by a cross-origin
+ * image stays tainted, so it is tried -- and reported -- once.
+ */
+const unreadable = new WeakSet<UPlotInstance>();
+
+/**
+ * How wide a bar is drawn, in CSS pixels, or `null` when it cannot be read
+ * off the canvas.
  *
  * @param u - The instance
- * @param center - CSS pixel position of the bar's centre, in the plotting area
- * @param across - CSS pixel position along the bar's length at which to measure
- * @param horizontal - Whether the bars lie along the x axis (`ori: 1`)
+ * @param bar - The bar
  * @returns The width, or `null`
  */
-export function measuredBarWidth(
-  u: UPlotInstance,
-  center: number,
-  across: number,
-  horizontal: boolean,
-): number | null {
+export function measuredBarWidth(u: UPlotInstance, bar: BarToMeasure): number | null {
   const ctx = u.ctx;
   const bbox = u.bbox;
   const plotWidth = u.over.clientWidth;
   const plotHeight = u.over.clientHeight;
-  if (!ctx || !bbox || plotWidth <= 0 || plotHeight <= 0 || typeof ctx.getImageData !== 'function') {
+  if (
+    unreadable.has(u) || !ctx || !bbox || plotWidth <= 0 || plotHeight <= 0
+    || typeof ctx.getImageData !== 'function'
+  ) {
     return null;
   }
+  // Measure across the part of the bar that is on screen: a bar zoomed past
+  // the edge of the plot has its middle off the canvas.
+  const extent = bar.horizontal ? plotWidth : plotHeight;
+  const low = Math.max(0, Math.min(bar.from, bar.to));
+  const high = Math.min(extent, Math.max(bar.from, bar.to));
+  if (low > high) {
+    return null;
+  }
+  const across = (low + high) / 2;
   // bbox is in device pixels; the plotting area in CSS pixels.
-  const ratio = horizontal ? bbox.height / plotHeight : bbox.width / plotWidth;
+  const ratio = bar.horizontal ? bbox.height / plotHeight : bbox.width / plotWidth;
+  const limits: RunLimits = {
+    reach: (bar.column * ratio) / 2,
+    outline: Math.round(bar.outline * ratio),
+  };
   try {
-    if (horizontal) {
-      const x = Math.round(bbox.left + across * (bbox.width / plotWidth));
-      const image = ctx.getImageData(x, Math.round(bbox.top), 1, Math.round(bbox.height));
-      const run = colorRunAround(image.data, image.height, Math.round(center * ratio));
-      return run === null ? null : (run.end - run.start + 1) / ratio;
+    const image = bar.horizontal
+      ? ctx.getImageData(Math.round(bbox.left + across * (bbox.width / plotWidth)), Math.round(bbox.top), 1, Math.round(bbox.height))
+      : ctx.getImageData(Math.round(bbox.left), Math.round(bbox.top + across * (bbox.height / plotHeight)), Math.round(bbox.width), 1);
+    const length = bar.horizontal ? image.height : image.width;
+    const run = colorRunAround(image.data, length, Math.round(bar.center * ratio), limits);
+    if (run === null) {
+      return null;
     }
-    const y = Math.round(bbox.top + across * (bbox.height / plotHeight));
-    const image = ctx.getImageData(Math.round(bbox.left), y, Math.round(bbox.width), 1);
-    const run = colorRunAround(image.data, image.width, Math.round(center * ratio));
-    return run === null ? null : (run.end - run.start + 1) / ratio;
+    // A bar that fills its column -- touching its neighbours -- is as wide
+    // as the column.
+    return run.filled ? bar.column : (run.end - run.start + 1) / ratio;
   } catch (error) {
-    // A canvas that cannot be read back (tainted by a cross-origin image)
-    // keeps uPlot's default width.
-    console.warn('[maidr/uplot] Could not measure the bar from the canvas:', error);
+    unreadable.add(u);
+    console.warn('[maidr/uplot] Could not read the bar width off the canvas; using uPlot\'s default width:', error);
     return null;
   }
 }

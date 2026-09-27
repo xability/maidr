@@ -144,7 +144,13 @@ function columnWidth(u: UPlotInstance, source: UPlotLayerSource, k: number): num
       gap = Math.min(gap, Math.abs(u.valToPos(v, source.xScale) - at));
     }
   }
-  return Number.isFinite(gap) ? gap : POINT_HALF_BOX * 4;
+  if (Number.isFinite(gap)) {
+    return gap;
+  }
+  // A lone bar: uPlot gives it the whole plot as its column.
+  const horizontal = u.scales[source.xScale]?.ori === 1;
+  const plot = horizontal ? u.over.clientHeight : u.over.clientWidth;
+  return plot > 0 ? plot : POINT_HALF_BOX * 4;
 }
 
 function boxAround(left: number, top: number): OverlayBox {
@@ -168,6 +174,16 @@ function barBase(u: UPlotInstance, source: UPlotLayerSource): number {
 }
 
 /**
+ * Where row `row`'s bar starts at data index `k`: on the series beneath it in
+ * a stack, else at the bar base.
+ */
+function barFoot(u: UPlotInstance, source: UPlotLayerSource, row: number, k: number): number {
+  const base = source.bases?.[row] ?? null;
+  const under = base === null ? null : rawPoint(u, source, base, k);
+  return under?.[1] ?? barBase(u, source);
+}
+
+/**
  * The box of a bar -- or of one segment of a stack -- drawn at data index `k`
  * from `from` up to `to`, in the chart's own values.
  *
@@ -179,11 +195,16 @@ function barBox(u: UPlotInstance, source: UPlotLayerSource, k: number, x: number
   const tip = toPlot(u, source, x, to);
   const base = toPlot(u, source, x, from);
   const horizontal = u.scales[source.xScale]?.ori === 1;
-  const measured = horizontal
-    ? measuredBarWidth(u, tip.top, (tip.left + base.left) / 2, true)
-    : measuredBarWidth(u, tip.left, (tip.top + base.top) / 2, false);
   const column = columnWidth(u, source, k);
-  // A run wider than the gap to the next bar ran into something else.
+  const stroke = u.series[source.seriesIdxs[0] ?? 0] as { width?: number } | undefined;
+  const measured = measuredBarWidth(u, {
+    center: horizontal ? tip.top : tip.left,
+    from: horizontal ? base.left : base.top,
+    to: horizontal ? tip.left : tip.top,
+    column,
+    outline: typeof stroke?.width === 'number' ? stroke.width : 0,
+    horizontal,
+  });
   const width = measured !== null && measured >= 2 && measured <= column * 1.05
     ? measured
     : column * BAR_WIDTH_SHARE;
@@ -257,14 +278,8 @@ function resolveHighlight(
     return { boxes: [], cursor: u.scales[source.xScale]?.ori === 1 ? { left: -10, top: at.top } : { left: at.left, top: -10 } };
   }
   const at = toPlot(u, source, point[0], point[1]);
-  if (source.kind === 'stacked') {
-    const base = source.bases?.[event.row] ?? null;
-    const under = base === null ? null : rawPoint(u, source, base, k);
-    const from = under?.[1] ?? barBase(u, source);
-    return { boxes: [barBox(u, source, k, point[0], from, point[1])], cursor: at };
-  }
-  const box = source.kind === 'bar'
-    ? barBox(u, source, k, point[0], barBase(u, source), point[1])
+  const box = source.kind === 'stacked' || source.kind === 'bar'
+    ? barBox(u, source, k, point[0], barFoot(u, source, event.row, k), point[1])
     : boxAround(at.left, at.top);
   return { boxes: [box], cursor: at };
 }
@@ -330,7 +345,15 @@ function targetAtCursor(u: UPlotInstance, sources: ReadonlyMap<string, UPlotLaye
         continue;
       }
       const at = toPlot(u, source, point[0], point[1]);
-      const distance = Math.hypot(at.left - left, at.top - top);
+      // A click inside a bar or a stack's segment is on it, however far from
+      // its top; elsewhere the nearest mark wins.
+      const box = source.kind === 'stacked' || source.kind === 'bar'
+        ? barBox(u, source, k, point[0], barFoot(u, source, row, k), point[1])
+        : null;
+      const inside = box !== null
+        && left >= box.left && left <= box.left + box.width
+        && top >= box.top && top <= box.top + box.height;
+      const distance = inside ? 0 : Math.hypot(at.left - left, at.top - top);
       if (best === null || distance < best.distance) {
         best = {
           target: source.kind === 'scatter' ? { layerId, pointIndex: col } : { layerId, row, col },

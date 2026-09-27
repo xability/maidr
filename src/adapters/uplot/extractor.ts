@@ -270,7 +270,37 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     sources.set(layerId, { kind, seriesIdxs: [i], sourceIdxs: [idxs], xScale, yScale });
   }
 
+  for (const group of groups.values()) {
+    if (group.source.kind === 'stacked') {
+      orderStack(group.layer, group.source, bases);
+    }
+  }
   return { layers, sources };
+}
+
+/**
+ * Puts a stack's rows bottom first, as MAIDR walks a stack -- Up moves to the
+ * segment above. Series order is not stacking order: a chart may list its
+ * series top first and band each onto the one after it.
+ */
+function orderStack(layer: MaidrLayer, source: UPlotLayerSource, bases: ReadonlyMap<number, number>): void {
+  const depth = (i: number): number => {
+    let d = 0;
+    for (let at = bases.get(i); at !== undefined && d <= bases.size; at = bases.get(at)) {
+      d++;
+    }
+    return d;
+  };
+  const order = source.seriesIdxs
+    .map((seriesIdx, row) => ({ row, depth: depth(seriesIdx), seriesIdx }))
+    .sort((a, b) => a.depth - b.depth || a.seriesIdx - b.seriesIdx)
+    .map(entry => entry.row);
+  const rows = layer.data as SegmentedPoint[][];
+  layer.data = order.map(row => rows[row]);
+  source.seriesIdxs = order.map(row => source.seriesIdxs[row]);
+  source.sourceIdxs = order.map(row => source.sourceIdxs[row]);
+  const bottoms = source.bases ?? [];
+  source.bases = order.map(row => bottoms[row] ?? null);
 }
 
 // ---------------------------------------------------------------------------
