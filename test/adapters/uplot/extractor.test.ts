@@ -454,6 +454,40 @@ describe('stacked charts', () => {
     });
   }
 
+  it('reads each stack on one scale as a layer of its own, with its own total', () => {
+    const u = fakeUPlot({
+      // Two stacks: A on B, and C on D.
+      data: [[1, 2], [1, 2], [4, 6], [10, 20], [15, 30]],
+      bands: [{ series: [2, 1] }, { series: [4, 3] }],
+      series: [
+        {},
+        { label: 'A', _paths: BAR_PATHS },
+        { label: 'B', _paths: BAR_PATHS },
+        { label: 'C', _paths: BAR_PATHS },
+        { label: 'D', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers.map(l => l.id)).toEqual(['stacked-y', 'stacked-y-3']);
+    expect(layers.map(l => (l.data as SegmentedPoint[][]).map(r => r.map(p => p.y)))).toEqual([
+      [[1, 2], [3, 4]],
+      [[10, 20], [5, 10]],
+    ]);
+    expect(sources.get('stacked-y-3')?.seriesIdxs).toEqual([3, 4]);
+  });
+
+  it('measures a share from the nearest series beneath it that has a reading', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [10, 20], [30, null], [40, 60]],
+      bands: [{ series: [3, 2] }, { series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: LINE_PATHS }, { label: 'Warnings', _paths: LINE_PATHS }, { label: 'Info', _paths: LINE_PATHS }],
+    });
+    const rows = layersOf(u, { stacked: true })[0].data as LinePoint[][];
+    // Info at x 2 stands on Errors' 20, not on nothing.
+    expect(rows[2].map(p => p.y)).toEqual([10, 40]);
+  });
+
   it('reads banded series at face value -- the running totals -- without stacked', () => {
     const rows = layersOf(stackedLines())[0].data as LinePoint[][];
     expect(rows.map(r => r.map(p => p.y))).toEqual([[10, 20], [15, 35], [16, 37]]);

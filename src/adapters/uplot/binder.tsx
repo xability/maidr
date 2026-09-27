@@ -178,9 +178,48 @@ function barBase(u: UPlotInstance, source: UPlotLayerSource): number {
  * a stack, else at the bar base.
  */
 function barFoot(u: UPlotInstance, source: UPlotLayerSource, row: number, k: number): number {
-  const base = source.bases?.[row] ?? null;
-  const under = base === null ? null : rawPoint(u, source, base, k);
-  return under?.[1] ?? barBase(u, source);
+  // Down the stack to the nearest series with a reading here, as uPlot fills
+  // a band to it.
+  let base = source.bases?.[row] ?? null;
+  for (let steps = 0; base !== null && steps < source.seriesIdxs.length; steps++) {
+    const under = rawPoint(u, source, base, k);
+    if (under !== null) {
+      return under[1];
+    }
+    const below = source.seriesIdxs.indexOf(base);
+    base = below < 0 ? null : source.bases?.[below] ?? null;
+  }
+  return barBase(u, source);
+}
+
+/**
+ * Bar widths already read off each chart's canvas, by series and column. A
+ * series' bars are all drawn one width for a given column, so a streaming
+ * chart reads its canvas once rather than on every tick. Cleared when the
+ * chart is resized or its spacing changes.
+ */
+const barWidths = new WeakMap<UPlotInstance, Map<string, number>>();
+
+/** The smallest gap between neighbouring x values, or 0 without two. */
+function smallestStep(u: UPlotInstance): number {
+  if ((u.mode ?? 1) === 2) {
+    return 0;
+  }
+  const xs = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[0];
+  let step = 0;
+  for (let k = 1; k < (xs?.length ?? 0); k++) {
+    const a = xs?.[k - 1];
+    const b = xs?.[k];
+    if (finite(a) && finite(b) && a !== b && (step === 0 || Math.abs(b - a) < step)) {
+      step = Math.abs(b - a);
+    }
+  }
+  return step;
+}
+
+/** Forgets the bar widths read off a chart's canvas. */
+function forgetBarWidths(u: UPlotInstance): void {
+  barWidths.delete(u);
 }
 
 /**
@@ -196,15 +235,30 @@ function barBox(u: UPlotInstance, source: UPlotLayerSource, row: number, k: numb
   const base = toPlot(u, source, x, from);
   const horizontal = u.scales[source.xScale]?.ori === 1;
   const column = columnWidth(u, source, k);
-  const stroke = u.series[source.seriesIdxs[row] ?? source.seriesIdxs[0] ?? 0] as { width?: number } | undefined;
-  const measured = measuredBarWidth(u, {
-    center: horizontal ? tip.top : tip.left,
-    from: horizontal ? base.left : base.top,
-    to: horizontal ? tip.left : tip.top,
-    column,
-    outline: typeof stroke?.width === 'number' ? stroke.width : 0,
-    horizontal,
-  });
+  const seriesIdx = source.seriesIdxs[row] ?? source.seriesIdxs[0] ?? 0;
+  const stroke = u.series[seriesIdx] as { width?: number } | undefined;
+  const center = horizontal ? tip.top : tip.left;
+  const key = `${seriesIdx}:${Math.round(column * 100)}`;
+  let cache = barWidths.get(u);
+  let measured = cache?.get(key) ?? null;
+  if (measured === null) {
+    measured = measuredBarWidth(u, {
+      center,
+      from: horizontal ? base.left : base.top,
+      to: horizontal ? tip.left : tip.top,
+      column,
+      outline: typeof stroke?.width === 'number' ? stroke.width : 0,
+      horizontal,
+    });
+    // A bar at the plot's edge may be cut off, so its width stands for none
+    // of the others.
+    const extent = horizontal ? u.over.clientHeight : u.over.clientWidth;
+    if (measured !== null && center - column / 2 >= 0 && center + column / 2 <= extent) {
+      cache ??= new Map();
+      cache.set(key, measured);
+      barWidths.set(u, cache);
+    }
+  }
   const width = measured !== null && measured >= 2 && measured <= column * 1.05
     ? measured
     : column * BAR_WIDTH_SHARE;
@@ -454,6 +508,7 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
   let extraction = extractUPlotData(u, id, options);
   let layers: MaidrLayer[] = extraction.maidr.subplots.flat().flatMap(subplot => subplot.layers);
   let lastActive: NavEvent | null = null;
+  let lastSpacing = smallestStep(u);
   let overlay: UPlotHighlightOverlay | null = null;
   let disposed = false;
 
@@ -554,6 +609,13 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
       return;
     }
     extraction = next;
+    // uPlot sizes every bar of a series from the smallest gap between x
+    // values, so new spacing can change how wide it draws them all.
+    const spacing = smallestStep(u);
+    if (spacing !== lastSpacing) {
+      lastSpacing = spacing;
+      forgetBarWidths(u);
+    }
     layers = next.maidr.subplots.flat().flatMap(subplot => subplot.layers);
     const figure = withCallback(next.maidr);
     if (liveDataManager.getData(id) === undefined) {
@@ -618,9 +680,11 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
         highlight();
       }
     }),
+    // The highlight is redrawn on the draw that follows, once uPlot has
+    // repainted at the new size.
     addHook(u, 'setSize', () => {
       overlay?.syncRegions();
-      highlight();
+      forgetBarWidths(u);
     }),
     // uPlot has already taken its root out of the page by now.
     addHook(u, 'destroy', () => {

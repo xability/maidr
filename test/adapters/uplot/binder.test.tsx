@@ -282,13 +282,15 @@ describe('navigation drawn onto the chart', () => {
     expect(boxes(u)).toEqual([]);
   });
 
-  it('redraws the highlight after a resize', () => {
+  it('redraws the highlight on the draw after a resize, not before uPlot repaints', () => {
     const u = lineChart();
     place(u);
     bind(u);
     act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
     u.setCursor.mockClear();
     act(() => fire(u, 'setSize'));
+    expect(u.setCursor).not.toHaveBeenCalled();
+    act(() => fire(u, 'draw'));
     expect(u.setCursor).toHaveBeenCalledWith({ left: 80, top: 100 });
     expect(boxes(u)).toHaveLength(1);
   });
@@ -798,6 +800,25 @@ describe('stacked bars', () => {
     expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 100 });
   });
 
+  it('boxes a segment from the nearest series beneath it that has a reading', () => {
+    // Info on Warnings on Errors; Warnings has a gap at x 2, Errors 20 there.
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [30, null, 70], [40, 60, 80]],
+      bands: [{ series: [3, 2] }, { series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Errors', _paths: BAR_PATHS },
+        { label: 'Warnings', _paths: BAR_PATHS },
+        { label: 'Info', _paths: BAR_PATHS },
+      ],
+    });
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 2, col: 1 }));
+    // From Errors' 20 (160px) up to 60 (80px).
+    expect(boxes(u)).toEqual([{ left: '68px', top: '80px', width: '24px', height: '80px' }]);
+  });
+
   it('boxes an upper segment from the base when the one beneath has a gap', () => {
     const u = fakeUPlot({
       data: [[1, 2, 3], [10, null, 30], [30, 50, 70]],
@@ -968,6 +989,24 @@ describe('bar width measured off the canvas', () => {
     expect(read).toHaveBeenLastCalledWith(0, 200, 800, 1);
   });
 
+  it('reads the canvas once per series and column, and again after a resize', () => {
+    const u = barChart();
+    withCanvas(u, [[140, 179]]);
+    const read = jest.spyOn(u.ctx as { getImageData: (...args: number[]) => unknown }, 'getImageData');
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    act(() => fire(u, 'draw'));
+    act(() => fire(u, 'draw'));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(boxes(u)[0].width).toBe('20px');
+    act(() => {
+      fire(u, 'setSize');
+      fire(u, 'draw');
+    });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
   it('falls back to uPlot\'s default share when nothing is drawn at the centre', () => {
     const u = barChart();
     withCanvas(u, []);
@@ -1041,7 +1080,7 @@ describe('focus leaving the chart', () => {
     await settle();
 
     expect(boxes(u)).toHaveLength(1);
-    act(() => fire(u, 'setSize'));
+    act(() => fire(u, 'draw'));
     expect(u.setCursor).toHaveBeenCalledWith({ left: 80, top: 100 });
   });
 });

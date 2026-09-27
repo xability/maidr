@@ -193,10 +193,10 @@ describe('measuredBarWidth', () => {
     expect(ctx.getImageData).not.toHaveBeenCalled();
   });
 
-  it('warns once and stops reading a canvas that throws', () => {
+  it('warns once and stops reading a canvas tainted by a cross-origin image', () => {
     const ctx = {
       getImageData: jest.fn(() => {
-        throw new Error('tainted');
+        throw Object.assign(new Error('tainted'), { name: 'SecurityError' });
       }),
     };
     const u = instance(ctx);
@@ -212,6 +212,18 @@ describe('measuredBarWidth', () => {
     expect(measuredBarWidth(u, bar({ horizontal: true, center: 60, from: 100, to: 200 }))).toBeNull();
     expect(ctx.getImageData).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('tries again after a failure that is not a tainted canvas', () => {
+    const ctx = {
+      getImageData: jest.fn(() => {
+        throw new Error('mid-resize');
+      }),
+    };
+    const u = instance(ctx);
+    expect(measuredBarWidth(u, bar())).toBeNull();
+    expect(measuredBarWidth(u, bar())).toBeNull();
+    expect(ctx.getImageData).toHaveBeenCalledTimes(2);
   });
 
   it('keeps reading another chart after one canvas throws', () => {

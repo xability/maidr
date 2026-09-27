@@ -116,7 +116,7 @@ uPlot draws every series through a `paths` function and does not record what kin
 | Multi-line | several line series on one y scale | the same `line` layer; Up/Down move between the series |
 | Stepped or spline line | `uPlot.paths.stepped(...)` or `uPlot.paths.spline(...)` | a row of that scale's `line` layer |
 | Bar | `uPlot.paths.bars(...)` | a `bar` layer per series |
-| Stacked bar | bar series joined by `bands`, read with `stacked: true` (see [Stacked Charts](#stacked-charts)) | one `stacked_bar` layer per y scale, one row per series, and a total per category |
+| Stacked bar | bar series joined by `bands`, read with `stacked: true` (see [Stacked Charts](#stacked-charts)) | one `stacked_bar` layer per stack, one row per series, and a total per category |
 | Scatter | points only: `paths: () => null` with `points: { show: true }`, or `uPlot.paths.points(...)` | a `point` (scatter) layer per series |
 | Faceted scatter | every series of a faceted chart (`mode: 2`) | a `point` (scatter) layer per series |
 
@@ -187,7 +187,7 @@ new uPlot({
 }, [days, errors, warningsTop, infoTop], document.getElementById('chart'));
 ```
 
-- **Stacked bars.** Bar series that take part in any band — the lowest one included — become one `stacked_bar` layer per y scale, one row per series in series order. Left and Right move between categories and Up and Down through the stack; above the top segment MAIDR adds a `Sum` row holding each category's total, highlighted as a box around the whole stack. A segment is boxed from the top of the series beneath it to its own top. A stack is read as a grid, so a missing reading in one series counts as 0 there. Horizontal stacks (an x scale with `ori: 1`) are read too.
+- **Stacked bars.** Bar series that take part in any band — the lowest one included — become one `stacked_bar` layer per stack — two stacks side by side on one scale are two layers, each with its own total — one row per series, bottom first. Left and Right move between categories and Up and Down through the stack; above the top segment MAIDR adds a `Sum` row holding each category's total, highlighted as a box around the whole stack. A segment is read, and boxed, from the nearest series beneath it that has a reading there. A stack is read as a grid, so a missing reading in one series counts as 0 there. Horizontal stacks (an x scale with `ori: 1`) are read too.
 - **Stacked lines and areas.** Line and area series joined by bands are read as their own shares, but stay `line` (or `area`) layers: MAIDR is not told they are stacked, and does not announce a total.
 - **Bar series outside any band** are read as ordinary `bar` layers, as without the option.
 
@@ -355,7 +355,7 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 | `yLabel` | `string` | each y scale's axis label | Y axis label, used for every layer |
 | `msPerUnit` | `number` | inferred | Milliseconds per x unit on a time scale: `1000` for seconds, `1` for milliseconds |
 | `series` | `Record<number, { kind?, exclude? }>` | — | Per-series overrides keyed by `u.series` index (see [Telling MAIDR what a series is](#telling-maidr-what-a-series-is)) |
-| `stacked` | `boolean` | `false` | Read series joined by `bands` as a stack, each as its own share, with stacked bars as one `stacked_bar` layer (see [Stacked Charts](#stacked-charts)) |
+| `stacked` | `boolean` | `false` | Read series joined by `bands` as a stack, each as its own share, with each stack of bars as a `stacked_bar` layer (see [Stacked Charts](#stacked-charts)) |
 | `areas` | `boolean` | `false` | Read line series drawn with a `fill` as `area` series, an experimental MAIDR type (see [Supported Series](#supported-series)) |
 | `live` | `boolean` | `true` | Keep MAIDR in step with `u.setData`, streaming appended points (see [Live Streaming](#live-streaming)) |
 | `highlightColor` | `string` | the reader's highlight color setting | Color of the highlight box |

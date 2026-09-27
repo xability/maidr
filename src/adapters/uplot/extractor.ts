@@ -137,14 +137,52 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
   const bases = options.stacked === true ? stackBases(u) : new Map<number, number>();
   const stacked = new Set<number>([...bases.keys(), ...bases.values()]);
 
-  /** Series `i`'s reading at `k`: its own share when it is stacked. */
+  /**
+   * Series `i`'s reading at `k`: its own share when it is stacked, measured
+   * from the nearest series beneath it that has a reading there -- a gap one
+   * level down leaves the segment standing on the one below that.
+   */
   const valueAt = (i: number, k: number): number | null => {
     const y = toFinite(data[i]?.[k]);
-    const base = bases.get(i);
-    if (y === null || base === undefined) {
+    if (y === null) {
       return y;
     }
-    return y - (toFinite(data[base]?.[k]) ?? 0);
+    let steps = 0;
+    for (let base = bases.get(i); base !== undefined && steps <= bases.size; base = bases.get(base), steps++) {
+      const under = toFinite(data[base]?.[k]);
+      if (under !== null) {
+        return y - under;
+      }
+    }
+    return y;
+  };
+
+  /**
+   * The bottom of the stack series `i` belongs to. Bands that loop back on
+   * themselves have no bottom; their lowest-numbered series stands for it, so
+   * every series of the loop lands in the one layer.
+   */
+  const rootOf = (i: number): number => {
+    const seen = [i];
+    for (let base = bases.get(i); base !== undefined; base = bases.get(base)) {
+      if (seen.includes(base)) {
+        return Math.min(...seen);
+      }
+      seen.push(base);
+    }
+    return seen[seen.length - 1];
+  };
+  /** The first stack on each y scale keeps the plain id; later ones name their bottom series. */
+  const stackIds = new Map<number, string>();
+  const stackIdOf = (i: number, yScale: string): string => {
+    const root = rootOf(i);
+    let id = stackIds.get(root);
+    if (id === undefined) {
+      const taken = [...stackIds.values()].includes(`stacked-${yScale}`);
+      id = taken ? `stacked-${yScale}-${root}` : `stacked-${yScale}`;
+      stackIds.set(root, id);
+    }
+    return id;
   };
 
   // Line and area series, and stacked bars, are gathered per y scale and
@@ -199,7 +237,9 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     }
 
     if (kind === 'bar' && stacked.has(i)) {
-      const layerId = `stacked-${yScale}`;
+      // One layer per stack: two stacks on one scale each have their own
+      // segments and their own total.
+      const layerId = stackIdOf(i, yScale);
       let group = groups.get(layerId);
       if (!group) {
         const axes = layerAxes(u, toX.axis, yScale, null, options);

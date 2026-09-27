@@ -186,7 +186,11 @@ export function measuredBarWidth(u: UPlotInstance, bar: BarToMeasure): number | 
     // as the column.
     return run.filled ? bar.column : (run.end - run.start + 1) / ratio;
   } catch (error) {
-    unreadable.add(u);
+    // Only a canvas tainted by a cross-origin image stays unreadable; any
+    // other failure is tried again on the next draw.
+    if ((error as { name?: unknown } | null)?.name === 'SecurityError') {
+      unreadable.add(u);
+    }
     console.warn('[maidr/uplot] Could not read the bar width off the canvas; using uPlot\'s default width:', error);
     return null;
   }
