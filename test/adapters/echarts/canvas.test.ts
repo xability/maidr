@@ -30,7 +30,7 @@ interface FakeSeries {
 
 function fakeList(series: FakeSeries): EChartsList {
   return {
-    dimensions: series.type === 'pie' ? ['value'] : ['x', 'y'],
+    dimensions: series.type === 'pie' || series.type === 'funnel' ? ['value'] : ['x', 'y'],
     count: () => series.values.length,
     getName: index => `c${index}`,
     get: (dimension, index) =>
@@ -186,6 +186,100 @@ describe('a chart drawn to a canvas', () => {
       `${20 * Math.cos(0.5)} ${20 * Math.sin(0.5)}`,
       `${20 * Math.cos(2)} ${20 * Math.sin(2)}`,
     ]);
+  });
+
+  it('draws a funnel stage from its corners', () => {
+    const root = canvasChart();
+    const stage = { points: [[80, 60], [520, 60], [432, 197.5], [168, 197.5]] };
+    const chart = fakeInstance([{ type: 'funnel', values: [100, 60], layouts: [stage, stage] }]);
+
+    const [layer] = createMaidrFromEChart(chart, root).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(document.querySelector((layer.selectors as string[])[0])?.getAttribute('d'))
+      .toBe('M 80 60 L 520 60 L 432 197.5 L 168 197.5 Z');
+  });
+
+  it('draws a candle\'s body from its brush rectangle', () => {
+    const root = canvasChart();
+    const candle = { sign: 1, brushRect: { x: 146, y: 269, width: 112, height: -204 } };
+    const chart = fakeInstance([{ type: 'candlestick', values: [1], layouts: [candle] }]);
+    const prices: Record<string, number> = { open: 10, close: 20, lowest: 5, highest: 25 };
+    const list = chart.getModel();
+    const withPrices: EChartsInstance = {
+      getModel: () => ({
+        ...list,
+        eachSeries: (callback) => {
+          list.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            callback({
+              ...seriesModel,
+              getData: () => ({ ...data, dimensions: ['base', 'open', 'close', 'lowest', 'highest'], get: dimension => prices[dimension] ?? 0 }),
+            }, index);
+          });
+        },
+      }),
+    };
+
+    const [layer] = createMaidrFromEChart(withPrices, root).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    const body = document.querySelector(((layer.selectors as { body: string[] }).body)[0]);
+    expect([body?.getAttribute('y'), body?.getAttribute('height')]).toEqual(['65', '204']);
+  });
+
+  it('strokes a radar datum\'s polygon, one per datum', () => {
+    const root = canvasChart();
+    const polygon = [[300, 190], [282, 210], [326, 215], [300, 190]];
+    const chart = fakeInstance([{ type: 'radar', values: [1, 2], layouts: [polygon, polygon] }]);
+
+    const [layer] = createMaidrFromEChart(chart, root).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    const outline = document.querySelector((layer.selectors as string[])[1]);
+    expect(outline?.getAttribute('stroke-width')).toBe('2');
+    expect(outline?.getAttribute('d')).toMatch(/^M 300 190 L .* Z$/);
+  });
+
+  it('places a heatmap cell through its grid, a heatmap keeping no layout', () => {
+    const root = canvasChart();
+    const cells = [[0, 0, 1], [1, 0, 5], [0, 1, 2], [1, 1, null]];
+    const chart: EChartsInstance = {
+      getModel: () => ({
+        eachSeries: (callback) => {
+          callback({
+            subType: 'heatmap',
+            name: 'series0',
+            get: () => undefined,
+            coordinateSystem: {
+              dataToPoint: ([column, row]) => [100 + column * 50, 300 - row * 40],
+              getAxis: dimension => ({ getBandWidth: () => (dimension === 'x' ? 50 : 40) }),
+            },
+            getData: () => ({
+              dimensions: ['x', 'y', 'value'],
+              count: () => cells.length,
+              getName: () => '',
+              get: (dimension, index) => cells[index][['x', 'y', 'value'].indexOf(dimension)],
+              getItemLayout: () => undefined,
+            }),
+          } as EChartsSeriesModel, 0);
+        },
+        eachComponent: (query, callback) => {
+          const data: Record<string, string[]> = { xAxis: ['a', 'b'], yAxis: ['p', 'q'] };
+          if (data[query.mainType]) {
+            callback({ get: key => (key === 'data' ? data[query.mainType] : 'category') }, 0);
+          }
+        },
+      }),
+    };
+
+    createMaidrFromEChart(chart, root);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    // Three cells with a value, each centred on its category pair.
+    const drawn = Array.from(root.querySelectorAll('svg[data-maidr-echart-overlay] rect'))
+      .map(rect => `${rect.getAttribute('x')},${rect.getAttribute('y')}`);
+    expect(drawn).toEqual(['75,280', '125,280', '75,240']);
   });
 
   it('keeps the same overlay when a later reading would draw the same marks', () => {

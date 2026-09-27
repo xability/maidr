@@ -162,7 +162,7 @@ export function drawnGridCount(
 }
 
 /** One cell that was drawn, at the axis indices ECharts placed it by. */
-interface PlacedCell {
+export interface PlacedCell {
   row: number;
   column: number;
   value: number;
@@ -186,7 +186,7 @@ interface PlacedCell {
  * @param axes        - The category names of both axes
  * @returns One entry per drawn cell, in the order the data declared them
  */
-function placedCells(
+export function placedCells(
   seriesModel: EChartsSeriesModel,
   axes: AxisCategories,
 ): PlacedCell[] {
@@ -369,9 +369,10 @@ export function boxplotLayer(
 ): MaidrLayer {
   const data = seriesModel.getData();
   const points: BoxPoint[] = [];
+  const columns = summaryColumns(data, horizontal);
 
   for (let index = 0; index < data.count(); index++) {
-    const summary = summaryOf(data, index);
+    const summary = summaryOf(data, index, columns);
     if (!summary) {
       continue;
     }
@@ -414,12 +415,9 @@ export function boxplotLayer(
 function summaryOf(
   data: EChartsList,
   index: number,
+  columns: readonly string[],
 ): { min: number; q1: number; q2: number; q3: number; max: number } | undefined {
-  const min = data.get('min', index);
-  const q1 = data.get('Q1', index);
-  const q2 = data.get('median', index);
-  const q3 = data.get('Q3', index);
-  const max = data.get('max', index);
+  const [min, q1, q2, q3, max] = columns.map(column => data.get(column, index));
   if (
     !measured(min) || !measured(q1) || !measured(q2)
     || !measured(q3) || !measured(max)
@@ -427,6 +425,45 @@ function summaryOf(
     return undefined;
   }
   return { min, q1, q2, q3, max };
+}
+
+/**
+ * How many boxes a box plot drew: one for each datum with all five numbers.
+ *
+ * @param seriesModel - The box plot
+ * @param horizontal  - Whether the value axis is x
+ * @returns The number of boxes
+ */
+export function drawnBoxCount(seriesModel: EChartsSeriesModel, horizontal: boolean): number {
+  const data = seriesModel.getData();
+  const columns = summaryColumns(data, horizontal);
+  let drawn = 0;
+  for (let index = 0; index < data.count(); index++) {
+    if (summaryOf(data, index, columns)) {
+      drawn += 1;
+    }
+  }
+  return drawn;
+}
+
+/**
+ * The five columns a box plot's summary is read from, lowest first.
+ *
+ * Written inline, a box plot's data list names them -- `min`, `Q1`,
+ * `median`, `Q3`, `max`. Fed from a dataset it carries the dataset's own
+ * column names instead, and `encode` maps all five onto the value axis:
+ * measured on Metabase 0.63, `'50:TOTAL\0min'` through `'50:TOTAL\0max'`, and
+ * reading the inline names there found nothing, so the box plot read no
+ * boxes at all (#1304). ECharts' `mapDimensionsAll` answers both, in the
+ * order they were encoded.
+ *
+ * @param data       - The series' data list
+ * @param horizontal - Whether the value axis is x
+ * @returns The five column names
+ */
+function summaryColumns(data: EChartsList, horizontal: boolean): readonly string[] {
+  const encoded = data.mapDimensionsAll?.(horizontal ? 'x' : 'y') ?? [];
+  return encoded.length === 5 ? encoded : ['min', 'Q1', 'median', 'Q3', 'max'];
 }
 
 /*

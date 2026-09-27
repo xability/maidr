@@ -46,7 +46,8 @@ export type EChartsSeriesType
     | 'themeRiver'
     | 'parallel'
     | 'radar'
-    | 'boxplot';
+    | 'boxplot'
+    | 'custom';
 
 /**
  * One column of a series' internal data list.
@@ -152,6 +153,11 @@ export interface EChartsList {
    */
   mapDimension?: (coordinate: string) => EChartsDimension | undefined;
   /**
+   * Every column one coordinate of the series reads, in the order `encode`
+   * lists them -- a box plot maps five onto its value axis.
+   */
+  mapDimensionsAll?: (coordinate: string) => EChartsDimension[];
+  /**
    * Where one datum was drawn, in the chart's CSS pixels. Its shape depends on
    * the series type, and a datum with no value comes back with a `null`
    * coordinate; `canvas.ts` records what was measured for each.
@@ -187,6 +193,20 @@ export interface EChartsSeriesModel {
   getData: () => EChartsList;
   /** Read one of the series' resolved options. */
   get: (key: string) => unknown;
+  /**
+   * The coordinate system the series was drawn on. Read only to place a
+   * heatmap's cells over a canvas, which is the one series whose data list
+   * keeps no layout of them; see `canvas.ts`.
+   */
+  coordinateSystem?: EChartsCoordinateSystem;
+}
+
+/** A cartesian grid, as far as placing a heatmap cell on it needs. */
+export interface EChartsCoordinateSystem {
+  /** Where a pair of axis values -- category indices on a category axis -- is drawn. */
+  dataToPoint?: (value: number[]) => number[];
+  /** One of the grid's axes. */
+  getAxis?: (dimension: string) => { getBandWidth?: () => number } | undefined;
 }
 
 /**

@@ -18,8 +18,12 @@ import { BindingOutputPage } from '../page-objects/plots/bindingOutput-page';
  * that was announced.
  */
 
-/** How strictly a fixture's highlight is checked. */
-type Check = 'ranks' | 'ranks-wide' | 'moves' | 'outlined';
+/**
+ * How strictly a fixture's highlight is checked. `announces` checks the
+ * reading alone, for a chart with nothing to outline -- a box plot draws box
+ * and whiskers as one path -- or whose drawing the fixture cannot reproduce.
+ */
+type Check = 'ranks' | 'ranks-wide' | 'moves' | 'outlined' | 'announces';
 
 interface Fixture {
   name: string;
@@ -43,6 +47,13 @@ const FIXTURES: ReadonlyArray<Fixture> = [
   { name: 'metabase-multi-series', check: 'ranks', first: /Doohickey, SUM_TOTAL is 297270\.99, Level is 44:SUM_TOTAL/, value: /SUM_TOTAL is ([\d.]+)/ },
   { name: 'metabase-scatter', check: 'moves', first: /PRICE is 15\.69, RATING is 4\b/ },
   { name: 'metabase-pie', check: 'outlined', first: /Widget, Value is 54\b/ },
+  { name: 'metabase-combo', check: 'ranks', first: /Doohickey, SUM_TOTAL is 297270\.99/, value: /SUM_TOTAL is ([\d.]+)/ },
+  { name: 'metabase-stack-totals', check: 'ranks', first: /2025, CNT is 210, Level is 58:CNT:Widget/, value: /CNT is ([\d.]+)/ },
+  { name: 'metabase-trend-line', check: 'moves', first: /2025-04-01, Count is 1\b/ },
+  // Its steps are a custom series whose `renderItem` a captured option cannot
+  // carry, so the fixture draws no bars to outline; see the README.
+  { name: 'metabase-waterfall', check: 'announces', first: /Jan, increase DELTA is 120, Running total is 120/ },
+  { name: 'metabase-boxplot', check: 'announces', first: /Widget/ },
   // Superset: a canvas, inline pairs, a time axis.
   { name: 'superset-line', check: 'moves', first: /2024-01-01.*989\.44/ },
   { name: 'superset-line-multi', check: 'moves', first: /2024-01-01.*478\.93/ },
@@ -53,6 +64,16 @@ const FIXTURES: ReadonlyArray<Fixture> = [
   { name: 'superset-bar-categorical', check: 'ranks', first: /Books.*1573\.68/ },
   { name: 'superset-scatter', check: 'moves', first: /2024-01-01.*989\.44/ },
   { name: 'superset-pie', check: 'outlined', first: /Toys.*2197\.79/ },
+  { name: 'superset-funnel', check: 'outlined', first: /Toys, Count is 2197\.79/ },
+  { name: 'superset-heatmap', check: 'outlined', first: /Books, Y is North, Level is 1046\.54/ },
+  { name: 'superset-radar', check: 'moves', first: /SUM\(amount\), Y is 1\b/ },
+  { name: 'superset-sunburst', check: 'outlined', first: /Toys, Value is 2197\.79/ },
+  { name: 'superset-waterfall', check: 'outlined', first: /2024-01-01, increase Y is 989\.44, Running total is 989\.44/ },
+  { name: 'superset-forecast', check: 'moves', first: /2023-12-31, SUM\(amount\)__yhat_upper is 287\.87/ },
+  { name: 'superset-stream', check: 'moves', first: /2024-01-01, Toys is 399\.44/ },
+  { name: 'superset-mixed', check: 'ranks', first: /2024-01-01, SUM\(amount\) is 989\.44/ },
+  { name: 'superset-histogram', check: 'ranks', first: /121\.34 - 155\.13, count is 3/ },
+  { name: 'superset-boxplot', check: 'announces', first: /Books/ },
 ];
 
 /**
@@ -109,7 +130,9 @@ test.describe('Superset and Metabase charts', () => {
 
       expect(errors).toEqual([]);
       expect(readings[0].text, `${name}: the first datum was not announced`).toMatch(first);
-      expect(readings[0].outlined, `${name}: nothing outlined after ArrowRight`).toBeGreaterThan(0);
+      if (check !== 'announces') {
+        expect(readings[0].outlined, `${name}: nothing outlined after ArrowRight`).toBeGreaterThan(0);
+      }
       if (check === 'ranks' || check === 'ranks-wide') {
         const extent = check === 'ranks' ? 'height' : 'width';
         expect(misranked(readings, extent, value), `${name}: the outlined bar is not the announced one`)

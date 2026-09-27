@@ -17,6 +17,10 @@
  * | `pie` | `{ cx, cy, r0, r, startAngle, endAngle, clockwise }` |
  * | `sunburst` | the same, per tree node, from `node.getLayout()` |
  * | `line` | `null` -- the whole polyline is `data.getLayout('points')`, flat `[x0, y0, x1, y1, …]` |
+ * | `funnel` | `{ points: [[x, y], …] }`, the stage's four corners |
+ * | `candlestick` | `{ brushRect: { x, y, width, height }, … }`, the body |
+ * | `radar` | `[[x, y], …]`, the datum's polygon, closed |
+ * | `heatmap` | `undefined` -- placed through the grid instead |
  *
  * all in the chart's CSS pixels from its top-left corner, and a datum with no
  * value comes back with a `null` coordinate rather than being left out --
@@ -38,7 +42,9 @@
  * before there was an overlay.
  */
 
+import type { AxisCategories } from './grid';
 import type { EChartsList, EChartsSeriesModel, EChartsTreeNode } from './types';
+import { placedCells } from './grid';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -62,10 +68,13 @@ const FALLBACK_PAINT = '#808080';
  *
  * @param container - The element the chart was rendered into
  * @param series    - Every series the adapter reads, in declaration order
+ * @param grid      - The category names of both axes, which say which of a
+ *                    heatmap's cells were drawn
  */
 export function drawCanvasMarks(
   container: HTMLElement,
   series: EChartsSeriesModel[],
+  grid: AxisCategories,
 ): void {
   const canvas = container.querySelector('canvas');
   const drawnAsSvg = Array.from(container.querySelectorAll('svg'))
@@ -87,8 +96,8 @@ export function drawCanvasMarks(
     'position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;',
   );
 
-  for (const seriesModel of series) {
-    drawSeries(overlay, seriesModel);
+  for (const seriesModel of inPaintOrder(series)) {
+    drawSeries(overlay, seriesModel, grid);
   }
 
   // Compared by what was drawn rather than by the markup in the document,
@@ -105,12 +114,44 @@ export function drawCanvasMarks(
 }
 
 /**
+ * Series in the order ECharts paints them.
+ *
+ * Not the order they were declared in: ECharts sorts what it draws by
+ * `zlevel`, then `z`, and only then by declaration. Measured on Metabase's
+ * waterfall, whose label-carrying scatter is declared before its total bar
+ * with `z: 8` against the bar's default `2`, the bar's mark comes first in
+ * the SVG -- so marks handed out in declaration order named the total bar by
+ * a label's symbol (#1304). The stamping pass and the overlay both follow
+ * this order, so a canvas chart's marks line up the way an SVG chart's do.
+ *
+ * @param series - The series, in declaration order
+ * @returns The same series, in the order their marks are painted
+ */
+export function inPaintOrder<T extends EChartsSeriesModel>(series: T[]): T[] {
+  const depth = (seriesModel: EChartsSeriesModel, key: string, fallback: number): number => {
+    const value = seriesModel.get(key);
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  };
+  return series
+    .map((seriesModel, order) => ({ seriesModel, order }))
+    .sort((a, b) => depth(a.seriesModel, 'zlevel', 0) - depth(b.seriesModel, 'zlevel', 0)
+      || depth(a.seriesModel, 'z', 2) - depth(b.seriesModel, 'z', 2)
+      || a.order - b.order)
+    .map(({ seriesModel }) => seriesModel);
+}
+
+/**
  * Draws one series' marks into the overlay.
  *
  * @param overlay     - The overlay being built
  * @param seriesModel - The series to draw
+ * @param grid        - The category names of both axes
  */
-function drawSeries(overlay: SVGSVGElement, seriesModel: EChartsSeriesModel): void {
+function drawSeries(
+  overlay: SVGSVGElement,
+  seriesModel: EChartsSeriesModel,
+  grid: AxisCategories,
+): void {
   const data = seriesModel.getData();
 
   switch (seriesModel.subType) {
@@ -147,8 +188,72 @@ function drawSeries(overlay: SVGSVGElement, seriesModel: EChartsSeriesModel): vo
     case 'sunburst':
       drawSunburst(overlay, data);
       return;
+    case 'funnel':
+      eachLayout(data, (layout, index) => {
+        const d = polygonOf(layout);
+        if (d) {
+          overlay.appendChild(filled(overlay, 'path', { d }, paintOf(data, index)));
+        }
+      });
+      return;
+    case 'candlestick':
+      eachLayout(data, (layout, index) => {
+        // The body. ECharts draws body and wick as one path, and the reading
+        // names only the body; see `grid.ts`.
+        const rect = isRecord(layout) ? rectOf(layout.brushRect) : undefined;
+        if (rect) {
+          overlay.appendChild(filled(overlay, 'rect', rect, paintOf(data, index)));
+        }
+      });
+      return;
+    case 'heatmap':
+      drawHeatmap(overlay, seriesModel, grid);
+      return;
+    case 'radar':
+      eachLayout(data, (layout, index) => {
+        const points = Array.isArray(layout) ? layout.map(pointOf) : [];
+        if (points.length > 0 && points.every(isPlaced)) {
+          overlay.appendChild(stroked(overlay, `${polyline(points)} Z`, paintOf(data, index)));
+        }
+      });
+      return;
     case 'line':
       drawLine(overlay, seriesModel, data);
+  }
+}
+
+/**
+ * Draws a heatmap's cells, one per cell the reading counts.
+ *
+ * A heatmap is the one series whose data list keeps no layout -- measured,
+ * `getItemLayout(i)` is `undefined` for every cell -- so each cell is placed
+ * through the grid it sits on: its centre is the category pair's point, and
+ * its size the two axes' band widths. Which cells there are is decided by
+ * the same walk `grid.ts` counts and names them by, so the overlay and the
+ * reading cannot disagree about which cell is which. Superset draws its
+ * heatmap to a canvas (#1304).
+ *
+ * @param overlay     - The overlay being built
+ * @param seriesModel - The heatmap
+ * @param grid        - The category names of both axes
+ */
+function drawHeatmap(
+  overlay: SVGSVGElement,
+  seriesModel: EChartsSeriesModel,
+  grid: AxisCategories,
+): void {
+  const system = seriesModel.coordinateSystem;
+  const width = system?.getAxis?.('x')?.getBandWidth?.();
+  const height = system?.getAxis?.('y')?.getBandWidth?.();
+  if (!system?.dataToPoint || !finite(width) || !finite(height)) {
+    return;
+  }
+  for (const cell of placedCells(seriesModel, grid)) {
+    const [x, y] = system.dataToPoint([cell.column, cell.row]);
+    if (finite(x) && finite(y)) {
+      const rect = { x: x - width / 2, y: y - height / 2, width, height };
+      overlay.appendChild(filled(overlay, 'rect', rect, FALLBACK_PAINT));
+    }
   }
 }
 
@@ -211,13 +316,40 @@ function drawLine(
     }
   }
 
+  overlay.appendChild(stroked(overlay, polyline(points), paint));
+}
+
+/**
+ * A stroked outline, painted invisibly and weighted as a series' line is --
+ * which is what `selectors.ts` tells a line from a gridline by.
+ *
+ * @param overlay - The overlay it is drawn for
+ * @param d       - Its path
+ * @param paint   - Its series colour
+ * @returns The element
+ */
+function stroked(overlay: SVGSVGElement, d: string, paint: string): SVGElement {
   const stroke = overlay.ownerDocument.createElementNS(SVG_NS, 'path');
-  stroke.setAttribute('d', polyline(points));
+  stroke.setAttribute('d', d);
   stroke.setAttribute('fill', 'none');
   stroke.setAttribute('stroke', paint);
   stroke.setAttribute('stroke-width', '2');
   stroke.setAttribute('stroke-opacity', '0');
-  overlay.appendChild(stroke);
+  return stroke;
+}
+
+/**
+ * A funnel stage's outline, from the corners ECharts laid it out at.
+ *
+ * @param layout - The datum's layout, `{ points: [[x, y], …] }`
+ * @returns The path's `d`, or `undefined` when the datum drew nothing
+ */
+function polygonOf(layout: unknown): string | undefined {
+  if (!isRecord(layout) || !Array.isArray(layout.points)) {
+    return undefined;
+  }
+  const points = layout.points.map(pointOf);
+  return points.length > 0 && points.every(isPlaced) ? `${polyline(points)} Z` : undefined;
 }
 
 /**
@@ -413,8 +545,8 @@ function polyline(points: ([number, number] | null)[]): string {
   return commands.join(' ');
 }
 
-function isPlaced(point: [number, number] | null): point is [number, number] {
-  return point !== null;
+function isPlaced(point: [number, number] | null | undefined): point is [number, number] {
+  return point !== null && point !== undefined;
 }
 
 function isList(value: unknown): value is ArrayLike<unknown> {

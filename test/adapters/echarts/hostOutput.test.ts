@@ -371,8 +371,8 @@ describe('a series with no name', () => {
   const segments = (ids: unknown[]): FakeSeries[] => ids.map(id => ({
     type: 'bar',
     names: ['2025', '2026'],
-    columns: { [X]: [0, 1], cnt: [1, 2] },
-    encode: { x: X, y: 'cnt' },
+    columns: { [X]: [0, 1], y: [1, 2] },
+    encode: { x: X, y: 'y' },
     options: { id, stack: 'bar' },
   }));
 
@@ -388,6 +388,19 @@ describe('a series with no name', () => {
     ]);
   });
 
+  it('is named by the column it draws when it has no id either, as a Metabase trend line', () => {
+    const chart = fakeInstance(
+      [
+        { type: 'line', columns: { [X]: [0, 1], y: [1, 2] }, encode: { x: X, y: 'y' }, options: { id: '57:count' } },
+        { type: 'line', columns: { [X]: [0, 1], '57:count_trend': [1.5, 1.6] }, encode: { x: X, y: '57:count_trend' } },
+      ],
+    );
+
+    const layers = createMaidrFromEChart(chart, drawnChart(0, 2)).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.name)).toEqual(['57:count', '57:count_trend']);
+  });
+
   it('is not named by an id ECharts invented', () => {
     const chart = fakeInstance(segments(['\0series\u00000\u00000', undefined]));
 
@@ -397,6 +410,286 @@ describe('a series with no name', () => {
       'Series 1',
       'Series 2',
     ]);
+  });
+});
+
+describe('a series that only carries labels', () => {
+  it('is counted among the marks but not read, as Metabase\'s stack totals', () => {
+    // A bar stacked on the real ones, holding the smallest positive number
+    // there is, silent and with no symbol: the stack's total label.
+    const segments: FakeSeries[] = ['58:CNT:Widget', '58:CNT:Gizmo'].map(id => ({
+      type: 'bar',
+      names: ['2025', '2026'],
+      columns: { [X]: [0, 1], y: [2, 3] },
+      encode: { x: X, y: 'y' },
+      options: { id, stack: 'bar' },
+    }));
+    const total: FakeSeries = {
+      type: 'bar',
+      names: ['2025', '2026'],
+      columns: { [X]: [0, 1], y: [5e-324, 5e-324] },
+      encode: { x: X, y: 'y' },
+      options: { id: 'bar_\0_positiveStackTotal', stack: 'bar', silent: true, symbolSize: 0 },
+    };
+
+    const [layer] = createMaidrFromEChart(fakeInstance([...segments, total]), drawnChart(6, 0))
+      .subplots[0][0]
+      .layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect((layer.data as SegmentedPoint[][]).map(row => row[0].z)).toEqual(['58:CNT:Widget', '58:CNT:Gizmo']);
+    expect(layer.selectors).toHaveLength(2);
+  });
+});
+
+describe('a box plot fed from a dataset', () => {
+  it('reads its five numbers from the columns its encode names', () => {
+    const summary = ['min', 'q1', 'median', 'q3', 'max'].map(part => `50:TOTAL\0${part}`);
+    const columns: Column = { [X]: [0] };
+    summary.forEach((column, index) => {
+      columns[column] = [10 * (index + 1)];
+    });
+    const list = fakeInstance(
+      [{ type: 'boxplot', names: ['Widget'], columns, encode: { x: X } }],
+    );
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            callback({ ...seriesModel, getData: () => ({ ...data, mapDimensionsAll: () => summary }) }, index);
+          }),
+        };
+      },
+    };
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(0, 0)).subplots[0][0].layers;
+
+    expect(layer.data).toEqual([
+      expect.objectContaining({ z: 'Widget', min: 10, q1: 20, q2: 30, q3: 40, max: 50 }),
+    ]);
+  });
+});
+
+describe('marks painted out of declaration order', () => {
+  it('are handed out in the order ECharts paints them, by z', () => {
+    // Metabase's waterfall declares a label scatter (z 8) before its total
+    // bar (z 2), and the bar's mark comes first in the drawing.
+    const doc = new JSDOM('<!doctype html><body><div id="chart"></div></body>').window.document;
+    const container = doc.getElementById('chart') as HTMLElement;
+    container.innerHTML = '<svg><path id="bar" fill="#303D46"></path><path id="dot" fill="#b6d634"></path></svg>';
+    const chart = fakeInstance(
+      [
+        { type: 'scatter', columns: { x: [0], y: [5] }, encode: { x: 'x', y: 'y' }, options: { id: 'labels', z: 8 } },
+        { type: 'bar', names: ['Total'], columns: { x: [0], y: [150] }, encode: { x: 'x', y: 'y' }, options: { id: 'total' } },
+      ],
+    );
+
+    const [bar] = createMaidrFromEChart(chart, container).subplots[0][0].layers;
+
+    expect(container.querySelector((bar.selectors as string[])[0])?.id).toBe('bar');
+  });
+});
+
+describe('a waterfall drawn with a custom series', () => {
+  it('is read as the steps it ranges over, as Metabase draws one', () => {
+    const steps: FakeSeries = {
+      type: 'custom',
+      names: ['Jan', 'Feb', 'Total'],
+      columns: { [X]: [0, 1, 2], start: [0, 120, 0], end: [120, 80, 80] },
+      encode: { x: X },
+      options: { id: '49:DELTA' },
+    };
+    const list = fakeInstance([steps]);
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            callback({ ...seriesModel, getData: () => ({ ...data, mapDimensionsAll: () => ['start', 'end'] }) }, index);
+          }),
+        };
+      },
+    };
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(3, 0)).subplots[0][0].layers;
+
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data).toEqual([
+      { x: 'Jan', start: 0, end: 120, delta: 120, kind: 'increase' },
+      { x: 'Feb', start: 120, end: 80, delta: -40, kind: 'decrease' },
+      { x: 'Total', start: 0, end: 80, delta: 80, kind: 'total' },
+    ]);
+    expect(layer.selectors).toHaveLength(3);
+  });
+
+  it('takes in the bar that only restates its total, as Metabase draws one', () => {
+    const steps: FakeSeries = {
+      type: 'custom',
+      names: ['Jan', 'Total'],
+      columns: { [X]: [0, 1], start: [0, 0], end: [120, 120] },
+      encode: { x: X },
+      options: { id: '49:DELTA' },
+    };
+    const total: FakeSeries = {
+      type: 'bar',
+      names: ['Jan', 'Total'],
+      columns: { [X]: [0, 1], y: [Number.NaN, 120] },
+      encode: { x: X, y: 'y' },
+      options: { id: 'total' },
+    };
+    const list = fakeInstance([steps, total]);
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            callback({ ...seriesModel, getData: () => ({ ...data, mapDimensionsAll: () => (seriesModel.subType === 'custom' ? ['start', 'end'] : ['y']) }) }, index);
+          }),
+        };
+      },
+    };
+
+    const layers = createMaidrFromEChart(chart, drawnChart(3, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.WATERFALL]);
+  });
+
+  it('is not read when it draws anything but a range', () => {
+    const chart = fakeInstance([
+      { type: 'custom', columns: { x: [0], y: [400] }, encode: { x: 'x', y: 'y' }, options: { id: '\0_goal_line' } },
+    ]);
+
+    expect(() => createMaidrFromEChart(chart, drawnChart(0, 0))).toThrow(/Unsupported/);
+  });
+});
+
+describe('Superset\'s helper series and names', () => {
+  const T0 = 1704067200000;
+  const MONTH = 2678400000;
+
+  it('leaves an invisible line unread: a forecast\'s lower bound, a stream\'s baseline', () => {
+    const line = (id: string, options: Record<string, unknown>): FakeSeries => ({
+      type: 'line',
+      columns: { x: [T0, T0 + MONTH], y: [1, 2] },
+      encode: { x: 'x', y: 'y' },
+      options: { id, name: 'SUM(amount)', ...options },
+    });
+    const chart = fakeInstance(
+      [
+        line('SUM(amount)__yhat_lower', { lineStyle: { opacity: 0 } }),
+        line('SUM(amount)__yhat_upper', { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0.2 } }),
+        line('baseline', { name: 'baseline', silent: true, lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } }),
+        line('SUM(amount)__yhat', {}),
+      ],
+      { x: { type: 'time' } },
+    );
+
+    const layers = createMaidrFromEChart(chart, drawnChart(2, 4)).subplots[0][0].layers;
+
+    // The band keeps its line hidden but its fill shown, as every Superset
+    // area does, so it is read.
+    expect(layers.map(layer => layer.name)).toEqual(['SUM(amount)__yhat_upper', 'SUM(amount)__yhat']);
+  });
+
+  it('names series that share a name by the ids that tell them apart', () => {
+    const chart = fakeInstance(
+      ['SUM(amount)__yhat', 'SUM(amount)'].map(id => ({
+        type: 'line',
+        columns: { x: [T0], y: [1] },
+        encode: { x: 'x', y: 'y' },
+        options: { id, name: 'SUM(amount)' },
+      })),
+      { x: { type: 'time' } },
+    );
+
+    const layers = createMaidrFromEChart(chart, drawnChart(0, 2)).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.name)).toEqual(['SUM(amount)__yhat', 'SUM(amount)']);
+  });
+
+  it('titles an untitled value axis with what the layer\'s one series measures', () => {
+    const chart = fakeInstance(
+      [{ type: 'line', columns: { x: [T0], y: [989.44] }, encode: { x: 'x', y: 'y' }, options: { name: 'SUM(amount)' } }],
+      { x: { type: 'time' }, y: { type: 'value', name: '' } },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(0, 1)).subplots[0][0].layers;
+
+    expect(layer.axes?.y?.label).toBe('SUM(amount)');
+    expect(layer.axes?.x?.label).toBeUndefined();
+  });
+
+  it('does not read a scatter datum stored as NaN, which ECharts makes of null', () => {
+    const chart = fakeInstance(
+      [{ type: 'scatter', columns: { x: [T0, T0 + MONTH], y: [5, Number.NaN] }, encode: { x: 'x', y: 'y' } }],
+      { x: { type: 'time' } },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(1, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layer.data).toHaveLength(1);
+  });
+
+  it('reads a stack lifted by a transparent placeholder as a waterfall', () => {
+    // Superset's waterfall: Assist, painted clear wherever it lifts, under
+    // Increase, Decrease and Total, each holding a value only where it draws.
+    const gap = Number.NaN;
+    const names = [Date.UTC(2024, 0, 1), Date.UTC(2024, 1, 1), Date.UTC(2024, 2, 1)].map(String).concat('Total');
+    const bar = (name: string, values: number[], clear = false): FakeSeries => ({
+      type: 'bar',
+      names,
+      columns: { x: [0, 1, 2, 3], y: values },
+      encode: { x: 'x', y: 'y' },
+      options: { name, stack: 'stack', clear },
+    });
+    const series = [
+      bar('Assist', [0, 60, 60, 0], true),
+      bar('Increase', [100, gap, 30, gap]),
+      bar('Decrease', [gap, 40, gap, gap]),
+      bar('Total', [gap, gap, gap, 90]),
+    ];
+    const list = fakeInstance(series, {}, { useUTC: true });
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            const clear = seriesModel.get('clear') === true;
+            callback({
+              ...seriesModel,
+              getData: () => ({
+                ...data,
+                getItemVisual: (item: number) => ({ fill: clear && item > 0 ? 'transparent' : '#5ac189' }),
+              }),
+            }, index);
+          }),
+        };
+      },
+    };
+
+    // Four visible bars and the placeholder's one zero-height bar at the start.
+    const [layer] = createMaidrFromEChart(chart, drawnChart(5, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data).toEqual([
+      { x: '2024-01-01', start: 0, end: 100, delta: 100, kind: 'increase' },
+      { x: '2024-02-01', start: 100, end: 60, delta: -40, kind: 'decrease' },
+      { x: '2024-03-01', start: 60, end: 90, delta: 30, kind: 'increase' },
+      { x: 'Total', start: 0, end: 90, delta: 90, kind: 'total' },
+    ]);
+    expect(layer.selectors).toHaveLength(4);
   });
 });
 

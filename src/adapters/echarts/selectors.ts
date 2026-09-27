@@ -128,6 +128,21 @@ function hexOfHsl(hue: number, saturation: number, lightness: number): string {
 }
 
 /**
+ * Whether a paint is one the mark filter counts -- a series colour rather
+ * than furniture or a gradient.
+ *
+ * @param fill - A fill as written in the SVG or resolved by ECharts
+ * @returns True when a mark painted with it is counted
+ */
+export function isMarkPaint(fill: string): boolean {
+  if (!fill) {
+    return false;
+  }
+  const paint = normalise(fill);
+  return !paint.startsWith('url(') && !FURNITURE_FILLS.has(paint);
+}
+
+/**
  * Whether an element is painted as a solid mark -- a bar, a scatter symbol or
  * an area's fill.
  *

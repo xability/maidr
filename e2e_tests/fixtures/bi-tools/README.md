@@ -38,6 +38,27 @@ The data, the series and the axes are unchanged.
 | `superset-bar-categorical` | Superset 6.1.0     | the same, with a category x axis                                             |
 | `superset-scatter`         | Superset 6.1.0     | `echarts_timeseries_scatter`                                                 |
 | `superset-pie`             | Superset 6.1.0     | `pie`, `SUM(amount)` by category                                             |
+| `metabase-combo`           | Metabase 0.63.18.2 | `display: combo`, a bar and a line on two y axes                             |
+| `metabase-stack-totals`    | Metabase 0.63.18.2 | a stacked bar with `graph.show_stack_values: total`, its totals as series    |
+| `metabase-trend-line`      | Metabase 0.63.18.2 | a line with `graph.show_trendline`, the trend an unnamed series              |
+| `metabase-waterfall`       | Metabase 0.63.18.2 | `display: waterfall`: a custom series over `start`/`end`, and a total bar    |
+| `metabase-boxplot`         | Metabase 0.63.18.2 | `display: boxplot`, with a mean-marker scatter                               |
+| `superset-funnel`          | Superset 6.1.0     | `funnel`                                                                     |
+| `superset-heatmap`         | Superset 6.1.0     | `heatmap_v2`, category by region                                             |
+| `superset-radar`           | Superset 6.1.0     | `radar`, one series per region                                               |
+| `superset-sunburst`        | Superset 6.1.0     | `sunburst_v2`, category then region                                          |
+| `superset-waterfall`       | Superset 6.1.0     | `waterfall`: a transparent `Assist` stacked under Increase/Decrease/Total    |
+| `superset-forecast`        | Superset 6.1.0     | a timeseries line with a Prophet forecast: bounds, trend and observations    |
+| `superset-stream`          | Superset 6.1.0     | `echarts_area` with `stack: Stream`, over an invisible `baseline` series     |
+| `superset-mixed`           | Superset 6.1.0     | `mixed_timeseries`, a bar and a line on two y axes                           |
+| `superset-histogram`       | Superset 6.1.0     | `histogram_v2`                                                               |
+| `superset-boxplot`         | Superset 6.1.0     | `box_plot`, with its (empty) outlier series                                  |
+
+`metabase-waterfall` is checked for what it announces and not for its
+outline. Metabase draws its steps with a `custom` series, whose `renderItem`
+is a function that `getOption()` cannot carry, so the fixture draws the
+steps' data without their bars. On Metabase itself the bars are drawn, and
+their count matches what the adapter reads (13 marks, measured in its SVG).
 
 The Metabase charts query its built-in Sample Database. The Superset charts
 query a 27-row SQLite table of sales from January to June 2024.

@@ -504,6 +504,7 @@ describe('what the adapter says it reads', () => {
     'parallel',
     'radar',
     'boxplot',
+    'custom',
   ] as const;
 
   type Declared = typeof DECLARED[number];
