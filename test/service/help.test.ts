@@ -4,6 +4,7 @@ import type { HelpMenuItem } from '@type/help';
 import { HelpService } from '@service/help';
 import { getKeymapForScope } from '@service/keybinding';
 import { Scope } from '@type/event';
+import { HELP_SECTIONS } from '@type/help';
 import { setLocale, tIn } from '@util/i18n';
 // The Korean dictionary is a locale pack, not part of the core, so load it.
 import '../../src/locale/ko';
@@ -120,8 +121,8 @@ describe('help menu generation', () => {
   });
 
   it('shows the label chord under the scope it is reached from', () => {
-    expect(menuFor(Scope.TRACE)).toContainEqual({ key: 'l t', description: 'Announce Plot Title' });
-    expect(menuFor(Scope.SUBPLOT)).toContainEqual({ key: 'l c', description: 'Announce Caption' });
+    expect(menuFor(Scope.TRACE)).toContainEqual({ key: 'l t', description: 'Announce Plot Title', section: 'hear' });
+    expect(menuFor(Scope.SUBPLOT)).toContainEqual({ key: 'l c', description: 'Announce Caption', section: 'hear' });
   });
 
   it('reuses the parent menu while a transient label scope is active', () => {
@@ -152,6 +153,37 @@ describe('help menu generation', () => {
     }
 
     expect(help.getMenuItems()).toEqual(english);
+  });
+
+  it.each(HELP_SCOPES)('$scope places every row in a named group', ({ scope }) => {
+    // `other` is the fallback for a command the section table has not heard
+    // of: a new binding lands there until someone decides where it belongs.
+    const unplaced = menuFor(scope)
+      .filter(item => item.section === 'other')
+      .map(item => `${item.key} (${item.description})`);
+
+    expect(unplaced).toEqual([]);
+  });
+
+  it.each(HELP_SCOPES)('$scope lists each group once, in the order of HELP_SECTIONS', ({ scope }) => {
+    const order = menuFor(scope)
+      .map(item => item.section)
+      .filter((section, index, all) => index === 0 || all[index - 1] !== section);
+
+    expect(new Set(order).size).toBe(order.length);
+    expect(order).toEqual([...order].sort((a, b) => HELP_SECTIONS.indexOf(a) - HELP_SECTIONS.indexOf(b)));
+  });
+
+  it('starts with moving around and hearing the current point', () => {
+    const trace = menuFor(Scope.TRACE);
+
+    expect(trace.slice(0, 4).map(item => item.key)).toEqual(['left', 'right', 'up', 'down']);
+    expect(trace.find(item => item.section === 'hear')?.key).toBe('space');
+    expect(trace.map(item => item.section)).toEqual(expect.arrayContaining(['navigate', 'hear', 'modes', 'autoplay', 'jump', 'tools', 'candlestick', 'tactile']));
+
+    // The lobby's Enter, which is how a reader gets into a subplot at all,
+    // comes straight after the arrows rather than at the end of the group.
+    expect(menuFor(Scope.SUBPLOT)[4].key).toBe(getKeymapForScope(Scope.SUBPLOT).MOVE_TO_TRACE_CONTEXT.helpKey);
   });
 
   it('returns an empty menu for scopes that cannot open help', () => {

@@ -3,10 +3,11 @@ import type { DisplayService } from '@service/display';
 import type { KeybindingOverrides } from '@service/keybinding';
 import type { SettingsService } from '@service/settings';
 import type { KeybindingEntry } from '@type/event';
-import type { HelpMenuItem, RebindResult } from '@type/help';
+import type { HelpMenuItem, HelpSectionId, RebindResult } from '@type/help';
 import type { Locale } from '@util/i18n';
 import { findBindingConflict, getKeymapForScope, isRebindable, resolveOverrides } from '@service/keybinding';
 import { Scope } from '@type/event';
+import { HELP_SECTIONS } from '@type/help';
 import { getLocale, t } from '@util/i18n';
 import { formatCombo, normalizeCombo } from '@util/keyCombo';
 
@@ -34,6 +35,119 @@ const NESTED_SCOPE_CONFIG: Partial<Record<Scope, NestedScopeConfig[]>> = {
 };
 
 /**
+ * Which group each command is listed under, and in what order within it.
+ *
+ * Within a group the rows run from the one a reader presses most to the one
+ * they press least: left and right before up and down, since most charts run
+ * along x; the current point before the labels behind `l`; forward autoplay
+ * before the reverse and vertical ones. The group order is `HELP_SECTIONS`.
+ *
+ * Keyed by the keymap's command name, which a scope's own rows and the rows
+ * behind the `l` chord both have, so a command lands in the same place in
+ * every scope that binds it. A command missing here is still listed, under
+ * "More", rather than dropped -- and the help tests fail on it, so the gap
+ * is noticed before a reader sees it.
+ */
+const SECTION_ORDER: Readonly<Record<Exclude<HelpSectionId, 'other'>, readonly string[]>> = {
+  navigate: [
+    'MOVE_LEFT',
+    'MOVE_RIGHT',
+    'MOVE_UP',
+    'MOVE_DOWN',
+    'MOVE_TO_TRACE_CONTEXT',
+    'MOVE_TO_LEFT_EXTREME',
+    'MOVE_TO_RIGHT_EXTREME',
+    'MOVE_TO_TOP_EXTREME',
+    'MOVE_TO_BOTTOM_EXTREME',
+    'MOVE_TO_NEXT_TRACE',
+    'MOVE_TO_PREV_TRACE',
+  ],
+  hear: [
+    'ANNOUNCE_POINT',
+    'ANNOUNCE_POSITION',
+    'TOGGLE_DESCRIPTION',
+    'ANNOUNCE_TITLE',
+    'ANNOUNCE_X',
+    'ANNOUNCE_Y',
+    'ANNOUNCE_Z',
+    'ANNOUNCE_SUBTITLE',
+    'ANNOUNCE_CAPTION',
+  ],
+  modes: [
+    'TOGGLE_TEXT',
+    'TOGGLE_AUDIO',
+    'TOGGLE_BRAILLE',
+    'TOGGLE_REVIEW',
+    'TOGGLE_HIGH_CONTRAST',
+    'TOGGLE_MONITOR',
+  ],
+  autoplay: [
+    'AUTOPLAY_FORWARD',
+    'AUTOPLAY_BACKWARD',
+    'AUTOPLAY_UPWARD',
+    'AUTOPLAY_DOWNWARD',
+    'STOP_AUTOPLAY',
+    'SPEED_UP_AUTOPLAY',
+    'SPEED_DOWN_AUTOPLAY',
+    'RESET_AUTOPLAY_SPEED',
+  ],
+  jump: [
+    'GO_TO_EXTREMA_TOGGLE',
+    'GO_TO_MIN_VALUE',
+    'GO_TO_MAX_VALUE',
+    'ROTOR_NEXT_NAV',
+    'ROTOR_PREV_NAV',
+  ],
+  tools: [
+    'TOGGLE_HELP',
+    'TOGGLE_CHAT',
+    'TOGGLE_COMMAND_PALETTE',
+    'TOGGLE_SETTINGS',
+  ],
+  candlestick: [
+    'TOGGLE_CANDLESTICK_DELTA_LAYER',
+    'SELECT_CANDLESTICK_DELTA_REFERENCE',
+    'EXIT_CANDLESTICK_DELTA',
+  ],
+  tactile: [
+    'TACTILE_ZOOM_IN',
+    'TACTILE_ZOOM_OUT',
+    'TACTILE_RESET_ZOOM',
+  ],
+};
+
+/** Each listed command's group and its place in the whole menu. */
+const COMMAND_PLACEMENT: ReadonlyMap<string, { section: HelpSectionId; rank: number }> = new Map(
+  HELP_SECTIONS
+    .flatMap(section => section === 'other' ? [] : SECTION_ORDER[section].map(commandKey => ({ commandKey, section })))
+    .map(({ commandKey, section }, rank) => [commandKey, { section, rank }]),
+);
+
+/**
+ * The group a command is listed under.
+ * @param commandKey - The keymap's name for the command
+ * @returns Its group, or `other` for a command the table does not place
+ */
+function sectionOf(commandKey: string): HelpSectionId {
+  return COMMAND_PLACEMENT.get(commandKey)?.section ?? 'other';
+}
+
+/**
+ * Orders help rows by group, most-used first, keeping the keymap's order
+ * among rows the table does not place.
+ * @param rows - Each row with the command it runs
+ * @returns The rows, sorted
+ */
+function sortBySection(rows: { commandKey: string; item: HelpMenuItem }[]): HelpMenuItem[] {
+  const unplaced = COMMAND_PLACEMENT.size;
+  const rankOf = (commandKey: string): number => COMMAND_PLACEMENT.get(commandKey)?.rank ?? unplaced;
+  return rows
+    .map((row, index) => ({ ...row, index }))
+    .sort((a, b) => rankOf(a.commandKey) - rankOf(b.commandKey) || a.index - b.index)
+    .map(row => row.item);
+}
+
+/**
  * Generates help menu items from a keymap configuration.
  * Each command gets its own entry (no grouping).
  *
@@ -42,13 +156,13 @@ const NESTED_SCOPE_CONFIG: Partial<Record<Scope, NestedScopeConfig[]>> = {
  * so the dialog can say what "restore" would restore.
  * @param keymap - The keymap configuration object, overrides applied
  * @param defaults - The same keymap without them
- * @returns Array of help menu items
+ * @returns Each help menu item with the command it runs
  */
 function generateHelpMenuFromKeymap(
   keymap: Record<string, KeybindingEntry>,
   defaults: Record<string, KeybindingEntry>,
-): HelpMenuItem[] {
-  const items: HelpMenuItem[] = [];
+): { commandKey: string; item: HelpMenuItem }[] {
+  const items: { commandKey: string; item: HelpMenuItem }[] = [];
 
   for (const [commandKey, entry] of Object.entries(keymap)) {
     // Skip entries explicitly marked as hidden
@@ -59,6 +173,7 @@ function generateHelpMenuFromKeymap(
     const item: HelpMenuItem = {
       description: t(entry.description),
       key: entry.helpKey ?? entry.hotkey,
+      section: sectionOf(commandKey),
     };
     if (isRebindable(commandKey)) {
       item.commandKey = commandKey;
@@ -69,7 +184,7 @@ function generateHelpMenuFromKeymap(
         item.defaultKey = fallback.helpKey ?? fallback.hotkey;
       }
     }
-    items.push(item);
+    items.push({ commandKey, item });
   }
 
   return items;
@@ -81,14 +196,14 @@ function generateHelpMenuFromKeymap(
  * @param nestedKeymap - The nested scope keymap configuration
  * @param entryKey - The key used to enter the nested scope (e.g., 'l')
  * @param parentKeymap - The parent scope keymap to check for duplicates
- * @returns Array of help menu items with prefixed keys
+ * @returns Each help menu item, key prefixed, with the command it runs
  */
 function generateNestedScopeHelp(
   nestedKeymap: Record<string, KeybindingEntry>,
   entryKey: string,
   parentKeymap: Record<string, KeybindingEntry>,
-): HelpMenuItem[] {
-  const items: HelpMenuItem[] = [];
+): { commandKey: string; item: HelpMenuItem }[] {
+  const items: { commandKey: string; item: HelpMenuItem }[] = [];
   const parentCommandKeys = new Set(Object.keys(parentKeymap));
 
   for (const [commandKey, entry] of Object.entries(nestedKeymap)) {
@@ -109,8 +224,12 @@ function generateNestedScopeHelp(
     }
 
     items.push({
-      description: t(entry.description),
-      key: `${entryKey} ${hotkey}`,
+      commandKey,
+      item: {
+        description: t(entry.description),
+        key: `${entryKey} ${hotkey}`,
+        section: sectionOf(commandKey),
+      },
     });
   }
 
@@ -118,14 +237,15 @@ function generateNestedScopeHelp(
 }
 
 /**
- * Generates a complete help menu for a scope including nested scope entries.
+ * Generates a complete help menu for a scope including nested scope entries,
+ * grouped and ordered as `SECTION_ORDER` lays out.
  * @param scope - The parent scope
  * @param overrides - Shortcuts the reader has changed
  * @returns Array of help menu items
  */
 function generateCompleteHelpMenu(scope: Scope, overrides: KeybindingOverrides): HelpMenuItem[] {
   const keymap = getKeymapForScope(scope, overrides);
-  const items = generateHelpMenuFromKeymap(keymap, getKeymapForScope(scope));
+  const rows = generateHelpMenuFromKeymap(keymap, getKeymapForScope(scope));
 
   // Add nested scope entries (only commands unique to nested scope)
   const nestedConfigs = NESTED_SCOPE_CONFIG[scope];
@@ -133,11 +253,11 @@ function generateCompleteHelpMenu(scope: Scope, overrides: KeybindingOverrides):
     for (const config of nestedConfigs) {
       const nestedKeymap = getKeymapForScope(config.scope, overrides);
       const nestedItems = generateNestedScopeHelp(nestedKeymap, config.entryKey, keymap);
-      items.push(...nestedItems);
+      rows.push(...nestedItems);
     }
   }
 
-  return items;
+  return sortBySection(rows);
 }
 
 /**

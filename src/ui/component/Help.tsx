@@ -1,4 +1,4 @@
-import type { HelpMenuItem } from '@type/help';
+import type { HelpMenuItem, HelpSectionId } from '@type/help';
 import {
   Button,
   Dialog,
@@ -12,6 +12,7 @@ import {
 import { useLocale } from '@state/hook/useLocale';
 import { useModalContainer } from '@state/hook/useModalContainer';
 import { useViewModel, useViewModelState } from '@state/hook/useViewModel';
+import { HELP_SECTION_TITLES } from '@type/help';
 import { comboFromKeyboardEvent } from '@util/keyCombo';
 import React, { useCallback, useId, useState } from 'react';
 
@@ -89,6 +90,25 @@ const HelpRow: React.FC<HelpRowProps> = ({ item, recording, onChange, onReset })
     </Grid>
   );
 };
+
+/**
+ * Splits the rows into their groups, keeping the order they arrive in: the
+ * service has already sorted them most-used first.
+ * @param items - The rows, sorted by group
+ * @returns Each group with its rows
+ */
+function groupBySection(items: HelpMenuItem[]): { section: HelpSectionId; items: HelpMenuItem[] }[] {
+  const groups: { section: HelpSectionId; items: HelpMenuItem[] }[] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (last?.section === item.section) {
+      last.items.push(item);
+    } else {
+      groups.push({ section: item.section, items: [item] });
+    }
+  }
+  return groups;
+}
 
 const Help: React.FC = () => {
   const id = useId();
@@ -214,25 +234,42 @@ const Help: React.FC = () => {
           </Button>
         )}
 
-        <Grid container spacing={1}>
-          {items.map((item, index) => (
-            <React.Fragment key={item.commandKey ?? `${index}-${item.key}`}>
-              <Grid size={12}>
-                <HelpRow
-                  item={item}
-                  recording={recording?.commandKey !== undefined && recording.commandKey === item.commandKey}
-                  onChange={startRecording}
-                  onReset={resetOne}
-                />
-              </Grid>
-              {index !== items.length - 1 && (
-                <Grid size={12}>
-                  <Divider />
-                </Grid>
-              )}
-            </React.Fragment>
-          ))}
-        </Grid>
+        {/* One heading per group, so a screen reader user can move between
+            groups with their heading key instead of reading every row. A
+            named group rather than a <section>: a labelled section is a
+            landmark, and eight landmarks inside one dialog is noise. The
+            group name is still said when Tab lands on a Change button. */}
+        {groupBySection(items).map(group => (
+          <div key={group.section} role="group" aria-labelledby={`${id}-${group.section}`}>
+            <Typography
+              id={`${id}-${group.section}`}
+              component="h3"
+              variant="subtitle1"
+              sx={{ fontWeight: 'bold', mt: 2 }}
+            >
+              {t(HELP_SECTION_TITLES[group.section])}
+            </Typography>
+            <Grid container spacing={1}>
+              {group.items.map((item, index) => (
+                <React.Fragment key={item.commandKey ?? `${index}-${item.key}`}>
+                  <Grid size={12}>
+                    <HelpRow
+                      item={item}
+                      recording={recording?.commandKey !== undefined && recording.commandKey === item.commandKey}
+                      onChange={startRecording}
+                      onReset={resetOne}
+                    />
+                  </Grid>
+                  {index !== group.items.length - 1 && (
+                    <Grid size={12}>
+                      <Divider />
+                    </Grid>
+                  )}
+                </React.Fragment>
+              ))}
+            </Grid>
+          </div>
+        ))}
       </DialogContent>
 
       {/* Footer Actions */}

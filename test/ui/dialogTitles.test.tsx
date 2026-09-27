@@ -52,8 +52,8 @@ const CHAT_NAME = 'Chart Assistant';
 const CLOSE_BUTTON_NAME = 'Close chat dialog';
 
 const HELP_ITEMS: HelpMenuItem[] = [
-  { description: 'Move to the next data point', key: 'Right Arrow' },
-  { description: 'Toggle braille mode', key: 'B' },
+  { description: 'Move to the next data point', key: 'Right Arrow', section: 'navigate' },
+  { description: 'Toggle braille mode', key: 'B', section: 'modes' },
 ];
 
 const DESCRIPTION_DATA: DescriptionState = {
@@ -223,7 +223,8 @@ describe('dialog titles', () => {
 
       const structure = dialogStructure();
 
-      expect(structure.headings).toEqual(['H2:Keyboard Shortcuts']);
+      // The title, then one level-3 heading per group of shortcuts.
+      expect(structure.headings).toEqual(['H2:Keyboard Shortcuts', 'H3:Navigate', 'H3:Modes']);
       expect(structure.nestedHeadings).toEqual([]);
       expect(structure.idCarriers).toBe(1);
     });
