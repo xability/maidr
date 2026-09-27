@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MAIDR + uPlot Stacked Bar Example</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+    <script src="../../dist/uplot.js"></script>
+  </head>
+  <body>
+    <h1>MAIDR + uPlot Stacked Bars</h1>
+    <p>
+      Click on the chart and use left and right arrow keys to move between days, and up and down
+      to move through the stack and on to each day's total. Press 't' for text descriptions.
+    </p>
+
+    <div id="chart"></div>
+
+    <script>
+      // uPlot has no stacking of its own: a stacked chart draws running totals
+      // and joins each series to the one beneath it with a band. MAIDR's
+      // `stacked` option reads each series back as its own share.
+      const days = [];
+      const start = Date.UTC(2026, 2, 2) / 1000;
+      for (let i = 0; i < 5; i++) days.push(start + i * 86400);
+      const errors = [12, 18, 9, 22, 15];
+      const warnings = [40, 35, 52, 30, 44];
+      const info = [120, 140, 110, 160, 130];
+
+      // Running totals, bottom (errors) to top (info).
+      const warningsTop = warnings.map((v, i) => v + errors[i]);
+      const infoTop = info.map((v, i) => v + warningsTop[i]);
+
+      const bars = () => uPlot.paths.bars({ size: [0.5, 80] });
+      new uPlot({
+        title: 'Log lines per day by level',
+        width: 720,
+        height: 360,
+        series: [
+          {},
+          { label: 'Errors', fill: '#d62728', stroke: '#d62728', paths: bars(), points: { show: false } },
+          { label: 'Warnings', fill: '#ff7f0e', stroke: '#ff7f0e', paths: bars(), points: { show: false } },
+          { label: 'Info', fill: '#1f77b4', stroke: '#1f77b4', paths: bars(), points: { show: false } },
+        ],
+        // Each series is filled down to the one beneath it.
+        bands: [{ series: [3, 2] }, { series: [2, 1] }],
+        axes: [{ label: 'Day' }, { label: 'Log lines' }],
+        scales: { x: { time: true, range: (u, min, max) => [min - 43200, max + 43200] } },
+        plugins: [maidrUPlot.maidrPlugin({ stacked: true })],
+      }, [days, errors, warningsTop, infoTop], document.getElementById('chart'));
+    </script>
+  </body>
+</html>
