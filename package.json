@@ -223,6 +223,7 @@
     "@jest/globals": "^29.7.0",
     "@jest/types": "^29.6.3",
     "@mui/x-charts": "^9.14.0",
+    "@mui/x-charts-pro": "^9.14.0",
     "@nivo/bar": "^0.99.0",
     "@nivo/boxplot": "^0.99.0",
     "@nivo/core": "^0.99.0",

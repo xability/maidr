@@ -19,6 +19,10 @@ export type {
   MuiChartKind,
   MuiChartProps,
   MuiChartsAdapterConfig,
+  MuiRadarMetric,
+  MuiSankeyLink,
+  MuiSankeyNode,
+  MuiSankeySeries,
   MuiSeriesConfig,
 } from './types';
 export { detectMuiChartKind, useMuiChartsAdapter } from './useMuiChartsAdapter';

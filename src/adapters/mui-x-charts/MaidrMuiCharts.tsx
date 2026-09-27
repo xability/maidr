@@ -18,6 +18,9 @@ import { useMuiChartsAdapter } from './useMuiChartsAdapter';
  * - `<ScatterChart>` → scatter plot, one layer per series
  * - `<PieChart>` → pie chart (a doughnut is the same component with an
  *   `innerRadius`)
+ * - `<SparkLineChart>` → line or bar; `<Gauge>` → gauge; `<RadarChart>` →
+ *   radar; the Pro `<Heatmap>`, `<FunnelChart>` and `<SankeyChart>` →
+ *   heatmap, funnel and sankey
  *
  * MUI X's own keyboard navigation is turned off on the chart (it would be a
  * second tab stop answering the same arrow keys) unless the chart sets

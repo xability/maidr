@@ -7,7 +7,8 @@
  * navigation.
  *
  * @remarks
- * Requires React 18 or 19 and `@mui/x-charts` v9 as peer dependencies. The
+ * Requires React 18 or 19 and `@mui/x-charts` v9 as peer dependencies
+ * (`@mui/x-charts-pro` v9 for the Pro charts). The
  * adapter reads the chart's own `series`, `xAxis`, `yAxis`, `dataset` and
  * `layout` props, and targets the rendered marks through the `data-series`
  * attributes and class names MUI X stamps on them — the chart's SVG is never
@@ -18,6 +19,10 @@
  * - `LineChart` → line, area, stacked area (and normalized)
  * - `ScatterChart` → scatter plot (one layer per series)
  * - `PieChart` → pie / doughnut (one layer per ring)
+ * - `SparkLineChart` → line or bar
+ * - `Gauge` → gauge
+ * - `RadarChart` → radar
+ * - Pro: `Heatmap` → heatmap, `FunnelChart` → funnel, `SankeyChart` → sankey
  *
  * @example Using the wrapper component
  * ```tsx
@@ -86,6 +91,10 @@ export type {
   MuiChartProps,
   MuiChartsAdapterConfig,
   MuiConvertedChart,
+  MuiRadarMetric,
+  MuiSankeyLink,
+  MuiSankeyNode,
+  MuiSankeySeries,
   MuiSeriesConfig,
 } from './adapters/mui-x-charts';
 

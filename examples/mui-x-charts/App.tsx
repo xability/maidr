@@ -3,11 +3,17 @@ import { useState } from 'react';
 import { AreaChartExample } from './examples/AreaChartExample';
 import { BarChartExample } from './examples/BarChartExample';
 import { DoughnutChartExample } from './examples/DoughnutChartExample';
+import { FunnelChartExample } from './examples/FunnelChartExample';
+import { GaugeExample } from './examples/GaugeExample';
 import { GroupedBarExample } from './examples/GroupedBarExample';
+import { HeatmapExample } from './examples/HeatmapExample';
 import { HorizontalBarExample } from './examples/HorizontalBarExample';
 import { LineChartExample } from './examples/LineChartExample';
 import { PieChartExample } from './examples/PieChartExample';
+import { RadarChartExample } from './examples/RadarChartExample';
+import { SankeyChartExample } from './examples/SankeyChartExample';
 import { ScatterChartExample } from './examples/ScatterChartExample';
+import { SparklineExample } from './examples/SparklineExample';
 import { StackedAreaExample } from './examples/StackedAreaExample';
 import { StackedBarExample } from './examples/StackedBarExample';
 import { StepLineExample } from './examples/StepLineExample';
@@ -24,6 +30,12 @@ const examples: { name: string; component: () => JSX.Element }[] = [
   { name: 'Scatter Chart', component: ScatterChartExample },
   { name: 'Pie Chart', component: PieChartExample },
   { name: 'Doughnut Chart', component: DoughnutChartExample },
+  { name: 'Sparkline', component: SparklineExample },
+  { name: 'Gauge', component: GaugeExample },
+  { name: 'Radar Chart', component: RadarChartExample },
+  { name: 'Heatmap (Pro)', component: HeatmapExample },
+  { name: 'Funnel (Pro)', component: FunnelChartExample },
+  { name: 'Sankey (Pro)', component: SankeyChartExample },
 ];
 
 export function App(): JSX.Element {

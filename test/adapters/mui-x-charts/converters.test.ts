@@ -437,6 +437,133 @@ describe('withMuiKeyboardNavigationDisabled', () => {
   });
 });
 
+describe('second-pass kinds', () => {
+  it('reads a minified sparkline, recognised by its drawing, from its data array', () => {
+    // The kind came off the rendered bar plot; the props are a sparkline's.
+    const [layer] = convertMuiChart('bar', { data: [3, 1] }, SCOPE).layers;
+
+    expect(layer.type).toBe(TraceType.BAR);
+    expect(layer.data).toEqual([{ x: 0, y: 3 }, { x: 1, y: 1 }]);
+    expect(layer.selectors).toBe('#c g[data-series="auto-generated-id-0"] rect');
+  });
+
+  it('reads a sparkline area and step curve as a line chart would', () => {
+    const [area] = convertMuiChart('sparkline', { data: [1, 2], area: true }, SCOPE).layers;
+    const [step] = convertMuiChart('sparkline', { data: [1, 2], curve: 'stepAfter' }, SCOPE).layers;
+
+    expect(area.type).toBe(TraceType.AREA);
+    expect(step.type).toBe(TraceType.STEP);
+  });
+
+  it('reads nothing from a gauge with no value', () => {
+    expect(convertMuiChart('gauge', { value: null }, SCOPE).layers).toEqual([]);
+  });
+
+  it('turns a heatmap round for a reversed axis, keeping the grid top-first', () => {
+    const [layer] = convertMuiChart('heatmap', {
+      xAxis: [{ data: ['a', 'b'], reverse: true }],
+      yAxis: [{ data: ['r', 's'] }],
+      series: [{ data: [[0, 0, 1], [1, 0, 2], [0, 1, 3]] }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual({ x: ['b', 'a'], y: ['r', 's'], points: [[2, 1], [null, 3]] });
+  });
+
+  it('reads a horizontal funnel with the stage on x', () => {
+    const [layer] = convertMuiChart('funnel', {
+      series: [{ layout: 'horizontal', data: [{ value: 5, label: 'A' }] }],
+    }, SCOPE).layers;
+
+    expect(layer.orientation).toBeUndefined();
+    expect(layer.data).toEqual([{ x: 'A', y: 5 }]);
+  });
+
+  it('reads sankey node ids as names when the chart names no nodes', () => {
+    const [layer] = convertMuiChart('sankey', {
+      series: { data: { links: [{ source: 'x', target: 'y', value: 2 }, { source: 'y', target: 'z', value: Number.NaN }] } },
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ source: 'x', target: 'y', value: 2 }]);
+    expect(layer.selectors).toEqual(['#c path.MuiSankeyChart-link[data-link-source="x"][data-link-target="y"]']);
+  });
+
+  it('names funnel stages by a function label, else the category axis', () => {
+    const [layer] = convertMuiChart('funnel', {
+      categoryAxis: { categories: ['Visit', 'Cart'] },
+      series: [{ data: [{ value: 5, label: () => 'Landing' }, { value: 2 }] }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 5, y: 'Landing' }, { x: 2, y: 'Cart' }]);
+  });
+
+  it('tells apart two sankey nodes that share a label', () => {
+    const [layer] = convertMuiChart('sankey', {
+      series: {
+        data: {
+          nodes: [{ id: 'o1', label: 'Other' }, { id: 'o2', label: 'Other' }, { id: 'x', label: 'X' }],
+          links: [{ source: 'o1', target: 'x', value: 1 }, { source: 'x', target: 'o2', value: 1 }],
+        },
+      },
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([
+      { source: 'Other (o1)', target: 'X', value: 1 },
+      { source: 'X', target: 'Other (o2)', value: 1 },
+    ]);
+  });
+
+  it('reads repeated sankey links without selectors that would each match both ribbons', () => {
+    const [layer] = convertMuiChart('sankey', {
+      series: { data: { links: [{ source: 'a', target: 'b', value: 1 }, { source: 'a', target: 'b', value: 2 }] } },
+    }, SCOPE, 'energy').layers;
+
+    expect(layer.data).toHaveLength(2);
+    expect(layer.selectors).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('chart "energy"'));
+  });
+
+  it('names the chart in its warnings', () => {
+    convertMuiChart('bar', { renderer: 'svg-batch', xAxis: [{ data: ['A'] }], series: [{ data: [1] }] }, SCOPE, 'revenue');
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('chart "revenue"'));
+  });
+});
+
+describe('findMuiChartElement with sparkline- and gauge-shaped props', () => {
+  function e(): null {
+    return null;
+  }
+
+  it('prefers a chart with series over a data-shaped element found first', () => {
+    const tree = createElement('div', null, createElement(e, { data: [1] } as object), createElement(e, { series: [{ data: [2] }] } as object));
+
+    expect(findMuiChartElement(tree)?.props.series).toEqual([{ data: [2] }]);
+  });
+
+  it('falls back to a minified sparkline or gauge when nothing surer is there', () => {
+    expect(findMuiChartElement(createElement(e, { data: [1, 2] } as object))?.props.data).toEqual([1, 2]);
+    expect(findMuiChartElement(createElement(e, { value: 40 } as object))?.props.value).toBe(40);
+  });
+
+  it('leaves a sparkline without MUI\'s keyboard prop, which it does not pass on', () => {
+    function SparkLineChart(): null {
+      return null;
+    }
+    const out = withMuiKeyboardNavigationDisabled(createElement(SparkLineChart, { data: [1] } as object)) as ReactElement<{ disableKeyboardNavigation?: boolean }>;
+
+    expect(out.props.disableKeyboardNavigation).toBeUndefined();
+  });
+
+  it('leaves a gauge without MUI\'s keyboard prop, which it does not take', () => {
+    function Gauge(): null {
+      return null;
+    }
+    const out = withMuiKeyboardNavigationDisabled(createElement(Gauge, { value: 40 } as object)) as ReactElement<{ disableKeyboardNavigation?: boolean }>;
+
+    expect(out.props.disableKeyboardNavigation).toBeUndefined();
+  });
+});
+
 describe('convertMuiChartsToMaidr', () => {
   it('keeps the metadata and emits an empty subplot when the kind is unknown', () => {
     expect(convertMuiChartsToMaidr({ id: 'x', title: 'T' }, undefined, { series: [] }, SCOPE)).toEqual({

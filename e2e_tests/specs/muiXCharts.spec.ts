@@ -27,6 +27,11 @@ interface Case {
   /** What the first and second Right arrow announce. */
   first: RegExp;
   second: RegExp;
+  /**
+   * Whether MUI's own keyboard focus target stays on. `SparkLineChart`
+   * accepts `disableKeyboardNavigation` but does not pass it on (v9.14).
+   */
+  keepsMuiTabStop?: boolean;
 }
 
 const CASES: Case[] = [
@@ -40,6 +45,12 @@ const CASES: Case[] = [
   { button: 'Stacked Area', id: 'mui-stacked-area', first: /Week is 1, Sessions is 100.*Search/, second: /Week is 2, Sessions is 120/ },
   { button: 'Scatter Chart', id: 'mui-scatter', first: /Height \(cm\) is 152, Weight \(kg\) is 48/, second: /Height \(cm\) is 160, Weight \(kg\) is 55/ },
   { button: 'Pie Chart', id: 'mui-pie', first: /Category is Chrome, Value is 64/, second: /Category is Safari, Value is 19/ },
+  { button: 'Sparkline', id: 'mui-sparkline', first: /X is 0, Y is 3/, second: /X is 1, Y is 7/, keepsMuiTabStop: true },
+  { button: 'Gauge', id: 'mui-gauge', first: /Y is 72, Range is 0 to 100/, second: /No more data/ },
+  { button: 'Radar Chart', id: 'mui-radar', first: /X is Speed, Y is 80.*Alex/, second: /X is Power, Y is 65.*Alex/ },
+  { button: 'Heatmap (Pro)', id: 'mui-heatmap', first: /Day is Mon, Time of day is Evening, Level is 15/, second: /Day is Tue, Time of day is Evening, Level is 16/ },
+  { button: 'Funnel (Pro)', id: 'mui-funnel', first: /Stage is Visit, Value is 2000/, second: /Stage is Cart, Value is 800/ },
+  { button: 'Sankey (Pro)', id: 'mui-sankey', first: /Node is Coal, Value is 50/, second: /Coal to Power, 50/ },
   { button: 'Doughnut Chart', id: 'mui-doughnut', first: /Category is Sleep, Value is 8/, second: /Category is Work, Value is 9/ },
 ];
 
@@ -78,7 +89,8 @@ test.describe('MUI X Charts adapter', () => {
       expect(warnings.filter(text => text.includes('[MAIDR]'))).toEqual([]);
       // MUI X's own keyboard navigation is off, so MAIDR's plot is the
       // chart's only tab stop.
-      await expect(page.locator(`#maidr-figure-${example.id} [tabindex="0"]`)).toHaveCount(1);
+      await expect(page.locator(`#maidr-figure-${example.id} [tabindex="0"]`))
+        .toHaveCount(example.keepsMuiTabStop ? 2 : 1);
     });
   }
 
@@ -93,6 +105,26 @@ test.describe('MUI X Charts adapter', () => {
     // Evenly spaced samples on a point axis: equal steps between outlines.
     expect(xs[1] - xs[0]).toBeGreaterThan(0);
     expect(Math.abs((xs[2] - xs[1]) - (xs[1] - xs[0]))).toBeLessThan(1);
+  });
+
+  test('Heatmap: the outline sits on the cell being read', async ({ page }) => {
+    await open(page, CASES.find(example => example.id === 'mui-heatmap')!);
+    const cells = page.locator('#maidr-figure-mui-heatmap rect.MuiHeatmap-cell:not([data-maidr-owned])');
+    const xs = await cells.evaluateAll(els => els.map(el => Number(el.getAttribute('x'))));
+    const ys = await cells.evaluateAll(els => els.map(el => Number(el.getAttribute('y'))));
+
+    // "Mon, Evening" is the left column's bottom cell.
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(HIGHLIGHT)).toHaveCount(1);
+    expect(Number(await page.locator(HIGHLIGHT).getAttribute('x'))).toBe(Math.min(...xs));
+    expect(Number(await page.locator(HIGHLIGHT).getAttribute('y'))).toBe(Math.max(...ys));
+
+    // Up to "Tue, Afternoon" after one step right.
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(() => announcement(page)).toMatch(/Day is Tue, Time of day is Afternoon, Level is 21/);
+    const middleY = [...new Set(ys)].sort((a, b) => a - b)[1];
+    expect(Number(await page.locator(HIGHLIGHT).getAttribute('y'))).toBe(middleY);
   });
 
   test('Scatter Chart: the outline follows the marker being read', async ({ page }) => {

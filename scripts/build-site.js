@@ -84,7 +84,7 @@ const PAGE_DESCRIPTIONS = {
   'frappe': 'How to make Frappe Charts accessible with MAIDR: support for bar, line, multi-line, scatter, mixed axis (bar + line), pie, and donut chart types.',
   'uplot': 'How to make uPlot and Grafana-style time-series charts accessible with MAIDR: line, bar and scatter series, time axes, and live streaming.',
   'victory': 'How to make Victory charts accessible with MAIDR: support for bar, line, scatter, stacked, histogram, box plot, candlestick, and pie chart types.',
-  'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, area, scatter, pie and doughnut charts.',
+  'mui-x-charts': 'How to make MUI X Charts accessible with MAIDR: bar, line, scatter, pie, sparkline, gauge, radar, and the Pro heatmap, funnel and sankey charts.',
   'nivo': 'How to make Nivo React charts accessible with MAIDR: support for bar, grouped, stacked and horizontal bar, line, scatter, pie, donut, heatmap and box plots.',
   'anychart': 'How to make AnyChart charts accessible with MAIDR: support for bar, line, step, scatter, box, heatmap, candlestick, and pie chart types via a one-line binder.',
   'apexcharts': 'How to make ApexCharts accessible with MAIDR: line, area, bar, stacked, scatter, pie, heatmap, candlestick, box plot, radar, treemap and range bar charts.',
