@@ -1,0 +1,68 @@
+{
+  "dataRoles": [
+    { "name": "category", "displayName": "Axis", "kind": "Grouping" },
+    { "name": "series", "displayName": "Legend", "kind": "Grouping" },
+    { "name": "measure", "displayName": "Values", "kind": "Measure" },
+    { "name": "x", "displayName": "X Axis (scatter)", "kind": "Measure" },
+    { "name": "y", "displayName": "Y Axis (scatter)", "kind": "Measure" }
+  ],
+  "dataViewMappings": [
+    {
+      "conditions": [
+        { "category": { "max": 1 }, "series": { "max": 1 }, "x": { "max": 1 }, "y": { "max": 1 } }
+      ],
+      "categorical": {
+        "categories": {
+          "for": { "in": "category" },
+          "dataReductionAlgorithm": { "top": { "count": 1000 } }
+        },
+        "values": {
+          "group": {
+            "by": "series",
+            "select": [
+              { "for": { "in": "measure" } },
+              { "for": { "in": "x" } },
+              { "for": { "in": "y" } }
+            ],
+            "dataReductionAlgorithm": { "top": { "count": 60 } }
+          }
+        }
+      }
+    }
+  ],
+  "objects": {
+    "chart": {
+      "displayName": "Accessible chart",
+      "properties": {
+        "chartType": {
+          "displayName": "Chart type",
+          "type": {
+            "enumeration": [
+              { "value": "column", "displayName": "Column" },
+              { "value": "bar", "displayName": "Bar" },
+              { "value": "line", "displayName": "Line" },
+              { "value": "scatter", "displayName": "Scatter" },
+              { "value": "pie", "displayName": "Pie" },
+              { "value": "donut", "displayName": "Donut" }
+            ]
+          }
+        },
+        "barMode": {
+          "displayName": "Bar mode",
+          "type": {
+            "enumeration": [
+              { "value": "grouped", "displayName": "Grouped (clustered)" },
+              { "value": "stacked", "displayName": "Stacked" }
+            ]
+          }
+        },
+        "title": {
+          "displayName": "Title",
+          "type": { "text": true }
+        }
+      }
+    }
+  },
+  "supportsKeyboardFocus": true,
+  "privileges": []
+}

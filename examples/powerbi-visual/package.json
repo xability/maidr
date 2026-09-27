@@ -1,0 +1,29 @@
+{
+  "name": "maidr-powerbi-visual",
+  "description": "Starter Power BI custom visual that reads a chart's data with MAIDR: sonification, text, braille and keyboard navigation.",
+  "version": "1.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xability/maidr.git",
+    "directory": "examples/powerbi-visual"
+  },
+  "scripts": {
+    "pbiviz": "pbiviz",
+    "start": "pbiviz start --no-stats",
+    "package": "pbiviz package --no-stats",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "maidr": "^4.11.0",
+    "powerbi-visuals-api": "5.11.1",
+    "powerbi-visuals-utils-formattingmodel": "7.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0",
+    "eslint-plugin-powerbi-visuals": "^1.1.1",
+    "powerbi-visuals-tools": "7.2.1",
+    "typescript": "^5.9.3"
+  }
+}

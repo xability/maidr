@@ -1,0 +1,25 @@
+{
+  "visual": {
+    "name": "maidrAccessibleChart",
+    "displayName": "MAIDR Accessible Chart",
+    "guid": "maidrAccessibleChartAE2812A6BA3E4541ABFCC2E157424941",
+    "visualClassName": "Visual",
+    "version": "1.0.0.0",
+    "description": "Reads the chart's data non-visually: audio sonification, text descriptions, braille output and keyboard navigation, powered by MAIDR. Bind it to the same fields as a native chart to give that chart an accessible companion.",
+    "supportUrl": "https://github.com/xability/maidr/issues",
+    "gitHubUrl": "https://github.com/xability/maidr"
+  },
+  "apiVersion": "5.11.1",
+  "author": {
+    "name": "xability",
+    "email": "jseo1005@illinois.edu"
+  },
+  "assets": {
+    "icon": "assets/icon.png"
+  },
+  "externalJS": null,
+  "style": "style/visual.less",
+  "capabilities": "capabilities.json",
+  "dependencies": null,
+  "stringResources": []
+}
