@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.tmp/
+*.pbiviz
+webpack.statistics.*.html
+# Written by a local install, which until maidr/powerbi is on npm points at a
+# locally packed tarball.
+package-lock.json

@@ -606,7 +606,14 @@ console.log('Copying examples folder...');
 const examplesSource = path.join(ROOT, 'examples');
 const examplesDest = path.join(SITE_DIR, 'examples');
 if (fs.existsSync(examplesSource)) {
-  fs.cpSync(examplesSource, examplesDest, { recursive: true });
+  // A local build of the starter Power BI visual leaves its dependencies and
+  // package output beside it; none of that belongs on the site.
+  const skipped = new Set(['node_modules', 'dist', '.tmp']);
+  fs.cpSync(examplesSource, examplesDest, {
+    recursive: true,
+    filter: source => !source.startsWith(path.join(examplesSource, 'powerbi-visual') + path.sep)
+      || !skipped.has(path.basename(source)),
+  });
 }
 
 // Copy built Recharts example (single-file HTML) to _site/examples/recharts/
