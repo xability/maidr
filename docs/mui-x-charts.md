@@ -8,7 +8,7 @@ MAIDR provides a dedicated adapter for [MUI X Charts](https://mui.com/x/react-ch
 npm install maidr@latest @mui/x-charts
 ```
 
-MUI X Charts v9 is supported. MAIDR requires React 18 or 19 as a peer dependency, and MUI X Charts needs `@mui/material` and Emotion:
+MUI X Charts v9 is supported. The Pro charts (`Heatmap`, `FunnelChart`, `SankeyChart`) come from `@mui/x-charts-pro` v9, under MUI's own license. MAIDR requires React 18 or 19 as a peer dependency, and MUI X Charts needs `@mui/material` and Emotion:
 
 ```bash
 npm install react react-dom @mui/material @emotion/react @emotion/styled
@@ -48,13 +48,13 @@ Axis labels come from each axis' `label`, series names from each series' `label`
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
 | `id` | `string` | Yes | Unique identifier for the chart (used for DOM IDs). |
-| `children` | `ReactNode` | Yes | One MUI X chart element (`<BarChart>`, `<LineChart>`, `<ScatterChart>` or `<PieChart>`), optionally inside plain wrapper elements. |
+| `children` | `ReactNode` | Yes | One MUI X chart element (any component in the tables below), optionally inside plain wrapper elements. |
 | `title` | `string` | No | Chart title displayed in text descriptions. MUI X charts have no title of their own. |
 | `subtitle` | `string` | No | Chart subtitle. |
 | `caption` | `string` | No | Chart caption. |
-| `chartType` | `'bar' \| 'line' \| 'scatter' \| 'pie'` | No | Which chart `children` is. Only needed when neither the component's name nor the rendered SVG says so. |
+| `chartType` | `'bar' \| 'line' \| 'scatter' \| 'pie' \| 'sparkline' \| 'gauge' \| 'radar' \| 'heatmap' \| 'funnel' \| 'sankey'` | No | Which chart `children` is. Only needed when neither the component's name nor the rendered SVG says so. |
 
-The kind of chart is read from the component's name (`BarChart`, `LineChart`, `ScatterChart`, `PieChart` and their `Pro`/`Premium` variants). A production build that minifies the name away still works: the adapter then reads the kind from the class names MUI puts on the rendered plot.
+The kind of chart is read from the component's name (`BarChart`, `LineChart`, `ScatterChart`, `PieChart`, `SparkLineChart`, `Gauge`, `RadarChart`, `Heatmap`, `FunnelChart`, `SankeyChart`, and their `Pro`/`Premium` variants). A production build that minifies the name away still works: the adapter then reads the kind from the class names MUI puts on the rendered plot.
 
 `<MaidrMuiCharts>` turns off MUI X's own keyboard navigation on the chart (`disableKeyboardNavigation`), which would otherwise add a second tab stop answering the same arrow keys. Set the prop on the chart yourself to decide otherwise. With the hook, set it on the chart you render.
 
@@ -73,6 +73,8 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 | Step chart | `LineChart` | ✅ | Series with `curve: 'stepAfter'`, `'stepBefore'` or `'step'`. |
 | Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. A point outside an explicit axis `min`/`max` is not drawn, and is left out. |
 | Pie / doughnut | `PieChart` | ⚠️ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. See the notes below for sorted and partial pies. |
+| Sparkline | `SparkLineChart` | ✅ | Read as the line (or, with `plotType="bar"`, the bar chart) it draws; `area` and `curve` as a `LineChart`'s. |
+| Heatmap | `Heatmap` (Pro) | ✅ | The first series, as MUI draws it; the first y category is the top row. A cell the data leaves out, or leaves without a value, is announced as a gap. |
 
 ### Experimental chart types
 
@@ -83,6 +85,10 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | Area chart [experimental] | `LineChart` | ✅ | Series with `area: true` and no `stack`. |
 | Stacked area [experimental] | `LineChart` | ✅ | Series sharing a `stack` id, filled or not: MUI draws each at the running total. |
 | 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
+| Gauge [experimental] | `Gauge` | ✅ | `value` on a dial from `valueMin` (0) to `valueMax` (100); the filled arc is outlined. |
+| Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. |
+| Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order. The default vertical funnel draws each value as a width. |
+| Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids). |
 
 ### Notes on these chart types
 
@@ -91,7 +97,9 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 - A pie with `sortingValues` is read in the order its slices are drawn round the dial, but not outlined: its arcs stay in data order in the page.
 - A pie that does not go all the way round (`endAngle - startAngle` below 360) is read as if it did, so the clock position of each slice is approximate.
 - `renderer="svg-batch"` (and, for a scatter, `"svg-progressive"`) draws no element per mark, so nothing is outlined. Audio, text and braille are unaffected. The adapter warns in the console.
-- Charts built with the composition API (`<ChartsContainer>` with series of several types) are left unread, with a console warning. `Heatmap`, `Gauge`, `SparkLineChart` and the Pro/Premium-only chart types are not read yet.
+- Charts built with the composition API (`<ChartsContainer>` with series of several types) are left unread, with a console warning.
+- Console warnings name the chart by its `id`, once per chart.
+- `SparkLineChart` accepts `disableKeyboardNavigation` but, as of MUI X 9.14, does not pass it on, so a sparkline keeps MUI's own tab stop beside MAIDR's.
 
 ## Data Examples by Chart Type
 
@@ -233,6 +241,32 @@ With a `dataset`, name the columns through the series' `datasetKeys: { x: 'heigh
 </MaidrMuiCharts>
 ```
 
+#### Sparkline
+
+```tsx
+<MaidrMuiCharts id="sparkline-example" title="Weekly Sign-ups">
+  <SparkLineChart width={300} height={80} data={[3, 7, 4, 9, 6, 11, 8]} />
+</MaidrMuiCharts>
+```
+
+#### Heatmap
+
+```tsx
+import { Heatmap } from '@mui/x-charts-pro/Heatmap';
+
+<MaidrMuiCharts id="heatmap-example" title="Temperature by Hour">
+  <Heatmap
+    width={500}
+    height={300}
+    xAxis={[{ data: ['Mon', 'Tue', 'Wed'], label: 'Day' }]}
+    yAxis={[{ data: ['Morning', 'Evening'], label: 'Time' }]}
+    series={[{ data: [[0, 0, 12], [1, 0, 14], [2, 0, 11], [0, 1, 18], [1, 1, 19], [2, 1, 17]] }]}
+  />
+</MaidrMuiCharts>
+```
+
+Each entry is `[xIndex, yIndex, value]`.
+
 ### Experimental chart types
 
 These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
@@ -249,6 +283,60 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
       { data: [100, 120, 140], label: 'Search', stack: 'total', area: true },
       { data: [60, 70, 65], label: 'Social', stack: 'total', area: true },
     ]}
+  />
+</MaidrMuiCharts>
+```
+
+#### Gauge [experimental]
+
+```tsx
+<MaidrMuiCharts id="gauge-example" title="Storage Used">
+  <Gauge width={250} height={200} value={72} valueMin={0} valueMax={100} />
+</MaidrMuiCharts>
+```
+
+#### Radar Chart [experimental]
+
+```tsx
+<MaidrMuiCharts id="radar-example" title="Player Skills">
+  <RadarChart
+    width={450}
+    height={350}
+    series={[{ data: [80, 65, 90, 70], label: 'Alex' }, { data: [60, 85, 70, 90], label: 'Sam' }]}
+    radar={{ max: 100, metrics: ['Speed', 'Power', 'Accuracy', 'Stamina'] }}
+  />
+</MaidrMuiCharts>
+```
+
+#### Funnel Chart [experimental]
+
+```tsx
+import { FunnelChart } from '@mui/x-charts-pro/FunnelChart';
+
+<MaidrMuiCharts id="funnel-example" title="Checkout Funnel">
+  <FunnelChart
+    width={450}
+    height={320}
+    series={[{ data: [{ value: 2000, label: 'Visit' }, { value: 800, label: 'Cart' }, { value: 300, label: 'Purchase' }] }]}
+  />
+</MaidrMuiCharts>
+```
+
+#### Sankey [experimental]
+
+```tsx
+import { SankeyChart } from '@mui/x-charts-pro/SankeyChart';
+
+<MaidrMuiCharts id="sankey-example" title="Energy Flow">
+  <SankeyChart
+    width={500}
+    height={320}
+    series={{
+      data: {
+        nodes: [{ id: 'coal', label: 'Coal' }, { id: 'power', label: 'Power' }, { id: 'heat', label: 'Heat' }],
+        links: [{ source: 'coal', target: 'power', value: 50 }, { source: 'coal', target: 'heat', value: 20 }],
+      },
+    }}
   />
 </MaidrMuiCharts>
 ```

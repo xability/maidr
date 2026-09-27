@@ -94,6 +94,7 @@ export function useMuiChartsAdapter(
     // sliver. A fixed width breaks the circle.
     if (chart && typeof chart.props.width !== 'number') {
       warnOnce(
+        id,
         'give the chart a `width` prop. Without one it sizes itself to its container, which '
         + 'inside MAIDR\'s plot is only as wide as the chart, and it collapses.',
       );

@@ -577,7 +577,7 @@ export const GROUPS = [
   {
     id: 'mui-x-charts',
     heading: 'MUI X Charts',
-    statics: [{ href: 'examples/mui-x-charts/index.html', onclick: 'loadMuiXCharts()', label: 'MUI X Charts Examples (Bar, Grouped, Stacked, Horizontal, Line, Area, Scatter, Pie)' }],
+    statics: [{ href: 'examples/mui-x-charts/index.html', onclick: 'loadMuiXCharts()', label: 'MUI X Charts Examples (Bar, Line, Scatter, Pie, Sparkline, Gauge, Radar, Heatmap, Funnel, Sankey)' }],
     note: 'See the <a href="mui-x-charts.html">MUI X Charts Integration Guide</a> for setup instructions, TypeScript types, and code examples for all chart types.',
   },
   {

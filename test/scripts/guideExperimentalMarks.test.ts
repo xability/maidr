@@ -446,9 +446,12 @@ const GUIDES: Record<string, Guide> = {
   'mui-x-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: { stable: 9, experimental: 3 },
-    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 9 },
-    labels: {},
+    minRows: { stable: 11, experimental: 7 },
+    examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 15 },
+    labels: {
+      // A sparkline is read as the line or bar chart it draws.
+      sparkline: ['line', 'bar'],
+    },
   },
   'recharts': {
     heading: '## Supported Chart Types',

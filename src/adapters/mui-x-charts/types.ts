@@ -3,11 +3,30 @@ import type { ReactNode } from 'react';
 /**
  * The MUI X Charts components this adapter can read.
  *
- * Each is one of the single-component charts `@mui/x-charts` exports --
- * `<BarChart>`, `<LineChart>`, `<ScatterChart>` and `<PieChart>` -- and the
- * kind decides which props are read and which marks the selectors name.
+ * Each is one of the single-component charts `@mui/x-charts` and
+ * `@mui/x-charts-pro` export, and the kind decides which props are read and
+ * which marks the selectors name:
+ *
+ * - `bar`, `line`, `scatter`, `pie` -- `<BarChart>`, `<LineChart>`,
+ *   `<ScatterChart>`, `<PieChart>` (and their Pro variants)
+ * - `sparkline` -- `<SparkLineChart>`, a bar or line chart configured by one
+ *   `data` array
+ * - `gauge` -- `<Gauge>` / `<GaugeContainer>`
+ * - `radar` -- `<RadarChart>`
+ * - `heatmap`, `funnel`, `sankey` -- the Pro `<Heatmap>`, `<FunnelChart>` and
+ *   `<SankeyChart>`
  */
-export type MuiChartKind = 'bar' | 'line' | 'scatter' | 'pie';
+export type MuiChartKind
+  = | 'bar'
+    | 'line'
+    | 'scatter'
+    | 'pie'
+    | 'sparkline'
+    | 'gauge'
+    | 'radar'
+    | 'heatmap'
+    | 'funnel'
+    | 'sankey';
 
 /**
  * Configuration accepted by both the {@link MaidrMuiCharts} wrapper component
@@ -23,10 +42,11 @@ export interface MuiChartsAdapterConfig {
   /** Chart caption. */
   caption?: string;
   /**
-   * The MUI X chart to make accessible: one `<BarChart>`, `<LineChart>`,
-   * `<ScatterChart>` or `<PieChart>` element, optionally wrapped in plain
-   * elements such as a `<Box>`. Its `series`, `xAxis`, `yAxis`, `dataset` and
-   * `layout` props are what the adapter reads.
+   * The MUI X chart to make accessible: one chart element of a kind listed
+   * under {@link MuiChartKind}, optionally wrapped in plain elements such as a
+   * `<Box>`. Its own props -- `series`, `xAxis`, `yAxis`, `dataset`,
+   * `layout`, a sparkline's `data`, a gauge's `value` -- are what the adapter
+   * reads.
    */
   children: ReactNode;
   /**
@@ -59,6 +79,8 @@ export interface MuiAxisConfig {
   dataKey?: string;
   label?: string;
   scaleType?: string;
+  /** Draw the axis the other way round. */
+  reverse?: boolean;
   /** Explicit domain bounds; marks entirely outside them are not drawn. */
   min?: number | Date;
   max?: number | Date;
@@ -95,15 +117,42 @@ export interface MuiSeriesConfig {
   endAngle?: number;
   /** Pie: draw the slices sorted by value rather than in data order. */
   sortingValues?: 'none' | 'asc' | 'desc' | ((a: number, b: number) => number);
-  /** Bar: the orientation MUI stamps on a series from the chart's `layout`. */
+  /** Bar and funnel: the orientation of the series. */
   layout?: 'vertical' | 'horizontal';
+}
+
+/** One node of a sankey, when the chart names its nodes. */
+export interface MuiSankeyNode {
+  id: string | number;
+  label?: string;
+}
+
+/** One link of a sankey. */
+export interface MuiSankeyLink {
+  source: string | number;
+  target: string | number;
+  value: number;
+}
+
+/** A `<SankeyChart>`'s single series: an object, not an array. */
+export interface MuiSankeySeries {
+  label?: string;
+  data?: { nodes?: readonly MuiSankeyNode[]; links?: readonly MuiSankeyLink[] };
+}
+
+/** One radar spoke, when named with its own bounds. */
+export interface MuiRadarMetric {
+  name: string;
+  min?: number;
+  max?: number;
 }
 
 /**
  * The props of an MUI X chart element that the adapter reads.
  */
 export interface MuiChartProps {
-  series?: readonly MuiSeriesConfig[];
+  /** An array for every chart but `<SankeyChart>`, whose one series is an object. */
+  series?: readonly MuiSeriesConfig[] | MuiSankeySeries;
   xAxis?: readonly MuiAxisConfig[];
   yAxis?: readonly MuiAxisConfig[];
   dataset?: readonly Record<string, unknown>[];
@@ -114,4 +163,18 @@ export interface MuiChartProps {
   /** Without it the chart sizes itself to its container. */
   width?: number;
   disableKeyboardNavigation?: boolean;
+  /** Sparkline: its values, in place of a `series`. */
+  data?: readonly unknown[];
+  /** Sparkline: `'bar'` draws bars, anything else a line. */
+  plotType?: 'line' | 'bar';
+  /** Sparkline: fill under the line. */
+  area?: boolean;
+  /** Sparkline: the d3 curve of the line. */
+  curve?: string;
+  /** Gauge: the measure, and the range of its dial. */
+  value?: number | null;
+  valueMin?: number;
+  valueMax?: number;
+  /** Radar: the spokes. */
+  radar?: { metrics?: readonly (string | MuiRadarMetric)[]; max?: number };
 }

@@ -30,6 +30,27 @@
  *   g.MuiPieChart-series[data-series] path.MuiPieChart-arc  -- one per slice,
  *                                                             in data order
  *
+ * SparkLineChart:
+ *   the same marks as a LineChart or (with `plotType="bar"`) a BarChart
+ *
+ * Gauge:
+ *   path.MuiGauge-referenceArc   -- the whole dial
+ *   path.MuiGauge-valueArc       -- the part the measure fills
+ *
+ * RadarChart:
+ *   path.MuiRadarChart-seriesArea[data-series]   -- one polygon per series,
+ *                                                   a vertex per spoke
+ *
+ * Heatmap (Pro):
+ *   g.MuiHeatmap-root > rect.MuiHeatmap-cell     -- one per data entry that
+ *                                                   has a value, in data order
+ *
+ * FunnelChart (Pro):
+ *   g[data-series] > path.MuiFunnelChart-section -- one per stage, in data order
+ *
+ * SankeyChart (Pro):
+ *   path.MuiSankeyChart-link[data-link-source][data-link-target] -- one per link
+ *
  * The legend items also carry `data-series`, on `<li>` elements, which is why
  * every selector here names the SVG element type as well as the attribute.
  */
@@ -107,10 +128,70 @@ export function pieSeriesSelector(scope: string, seriesId: string): string {
 }
 
 /**
+ * The arc a gauge's measure fills.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ */
+export function gaugeValueSelector(scope: string): string {
+  return `${scope}path.MuiGauge-valueArc`;
+}
+
+/**
+ * The polygon of one radar series, whose vertices are its spokes' values.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ * @param seriesId - The series id MUI stamped on the path
+ */
+export function radarSeriesSelector(scope: string, seriesId: string): string {
+  return `${scope}path.MuiRadarChart-seriesArea[data-series=${attrValue(seriesId)}]`;
+}
+
+/**
+ * The n-th drawn cell of a heatmap.
+ *
+ * By type rather than by child: a server render interleaves Emotion's
+ * `<style>` elements with the cells.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ * @param drawnIndex - Zero-based position of the cell among the drawn cells
+ */
+export function heatmapCellSelector(scope: string, drawnIndex: number): string {
+  return `${scope}g.MuiHeatmap-root > rect:nth-of-type(${drawnIndex + 1})`;
+}
+
+/**
+ * Every stage of one funnel series, in data order.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ * @param seriesId - The series id MUI stamped on the group
+ */
+export function funnelSeriesSelector(scope: string, seriesId: string): string {
+  return `${seriesGroup(scope, seriesId)} path.MuiFunnelChart-section`;
+}
+
+/**
+ * The ribbon of one sankey link.
+ *
+ * @param scope - Container scope, e.g. `"#chart "`
+ * @param source - The link's source node id
+ * @param target - The link's target node id
+ */
+export function sankeyLinkSelector(scope: string, source: string, target: string): string {
+  return `${scope}path.MuiSankeyChart-link[data-link-source=${attrValue(source)}][data-link-target=${attrValue(target)}]`;
+}
+
+/**
  * Class names MUI stamps on the root of each chart kind's plot, in the order
- * they are tried when the kind has to be read off the rendered SVG.
+ * they are tried when the kind has to be read off the rendered SVG. The
+ * kinds with a class of their own come first; a sparkline draws a line or bar
+ * plot and is told apart by its props instead.
  */
 export const KIND_ROOT_CLASSES = [
+  ['heatmap', 'MuiHeatmap-root'],
+  ['funnel', 'MuiFunnelChart-root'],
+  ['sankey', 'MuiSankeyChart-root'],
+  ['radar', 'MuiRadarChart-seriesArea'],
+  ['gauge', 'MuiGauge-root'],
   ['bar', 'MuiBarChart-root'],
   ['line', 'MuiLineChart-linePlot'],
   ['scatter', 'MuiScatterChart-root'],

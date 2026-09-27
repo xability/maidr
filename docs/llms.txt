@@ -31,7 +31,7 @@ MAIDR converts data visualizations into interactive, multimodal formats navigabl
 - [uPlot](https://maidr.ai/uplot.html): Line, multi-line, bar and scatter series from uPlot (the engine behind Grafana's time-series panels), with time axes and live streaming via setData
 - [Victory](https://maidr.ai/victory.html): Bar, line, scatter, stacked, histogram, box plot, candlestick and pie charts for React
 - [Nivo](https://maidr.ai/nivo.html): Bar, stacked, dodged, line, step, scatter, pie, heatmap and box plot charts from Nivo's React SVG components
-- [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, grouped, stacked and horizontal bar, line, area, scatter and pie charts from @mui/x-charts
+- [MUI X Charts](https://maidr.ai/mui-x-charts.html): Bar, line, scatter, pie, sparkline, gauge and radar charts from @mui/x-charts, and heatmap, funnel and sankey from @mui/x-charts-pro
 - [AnyChart](https://maidr.ai/anychart.html): Bar, line, step, scatter, box, heatmap, candlestick and pie charts via a one-line binder
 - [Highcharts](https://maidr.ai/highcharts.html): Bar, line, scatter, box, heatmap, histogram, candlestick, stacked, dodged, normalized and pie charts
 - [ApexCharts](https://maidr.ai/apexcharts.html): Line, step, area, bar/column, stacked, dodged, normalized, scatter, bubble, pie/donut, polar area, heatmap, candlestick, box plot, radar, range bar (Gantt), treemap, radial bar (gauge), funnel and mixed (combo) charts

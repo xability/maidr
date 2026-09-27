@@ -1,5 +1,8 @@
 import type {
   BarPoint,
+  FlowPoint,
+  GaugePoint,
+  HeatmapData,
   LinePoint,
   Maidr as MaidrData,
   MaidrLayer,
@@ -10,15 +13,27 @@ import type {
   StepDirection,
 } from '@type/grammar';
 import type { ReactElement, ReactNode } from 'react';
-import type { MuiAxisConfig, MuiChartKind, MuiChartProps, MuiSeriesConfig } from './types';
+import type {
+  MuiAxisConfig,
+  MuiChartKind,
+  MuiChartProps,
+  MuiRadarMetric,
+  MuiSankeySeries,
+  MuiSeriesConfig,
+} from './types';
 import { isAngle, pieGeometry } from '@adapters/shared/pieGeometry';
 import { Orientation, TraceType } from '@type/grammar';
 import { Children, cloneElement, isValidElement } from 'react';
 import {
   barCellSelector,
   barSeriesSelector,
+  funnelSeriesSelector,
+  gaugeValueSelector,
+  heatmapCellSelector,
   lineSeriesSelector,
   pieSeriesSelector,
+  radarSeriesSelector,
+  sankeyLinkSelector,
   scatterSeriesSelector,
 } from './selectors';
 
@@ -41,21 +56,33 @@ const KIND_BY_NAME: Record<string, MuiChartKind> = {
   LineChart: 'line',
   ScatterChart: 'scatter',
   PieChart: 'pie',
+  SparkLineChart: 'sparkline',
+  Gauge: 'gauge',
+  GaugeContainer: 'gauge',
+  RadarChart: 'radar',
+  Heatmap: 'heatmap',
+  FunnelChart: 'funnel',
+  SankeyChart: 'sankey',
 };
 
 /** Messages already written to the console, so a re-render does not repeat them. */
 const warned = new Set<string>();
 
 /**
- * Warns once per page about something the adapter cannot read faithfully.
+ * Warns once per chart about something the adapter cannot read faithfully.
  *
+ * The chart's MAIDR id leads the message, so a page with several MUI charts
+ * says which one needs attention, and a re-render repeats nothing.
+ *
+ * @param chartId - The MAIDR id of the chart the warning is about
  * @param message - What is lost and what to do about it
  */
-export function warnOnce(message: string): void {
-  if (warned.has(message))
+export function warnOnce(chartId: string, message: string): void {
+  const text = `[MAIDR] MUI X Charts, chart "${chartId}": ${message}`;
+  if (warned.has(text))
     return;
-  warned.add(message);
-  console.warn(`[MAIDR] MUI X Charts: ${message}`);
+  warned.add(text);
+  console.warn(text);
 }
 
 /**
@@ -82,27 +109,57 @@ function kindFromType(type: unknown): MuiChartKind | undefined {
 }
 
 /**
- * Finds the MUI X chart element in `children`: the first element, searched
- * depth-first through plain wrapper elements, that was given a `series` array.
+ * Whether an element's props are an MUI X chart's, and how sure that is.
+ *
+ * - `2`: a chart by its props alone -- a `series` array, or a sankey's
+ *   `series` object with `links` -- or by its component's name
+ * - `1`: a sparkline's `data` array or a gauge's `value`, which a minified
+ *   component could still be; taken only when nothing surer is in the tree
+ * - `0`: not a chart
+ */
+function chartConfidence(props: Record<string, unknown>, kind: MuiChartKind | undefined): 0 | 1 | 2 {
+  if (kind !== undefined || Array.isArray(props.series))
+    return 2;
+  const series = props.series as MuiSankeySeries | undefined;
+  if (series && typeof series === 'object' && Array.isArray(series.data?.links))
+    return 2;
+  const childless = props.children === undefined;
+  if (childless && (Array.isArray(props.data) || typeof props.value === 'number' || props.value === null))
+    return 1;
+  return 0;
+}
+
+/**
+ * Finds the MUI X chart element in `children`, searched depth-first through
+ * plain wrapper elements. A chart recognised by its `series` or its name wins
+ * over a sparkline- or gauge-shaped element found earlier in the tree.
  *
  * @param children - The wrapper component's children
  * @returns The chart's props and, when its name says, its kind
  */
 export function findMuiChartElement(children: ReactNode): MuiChartElement | undefined {
-  for (const child of Children.toArray(children)) {
-    if (!isValidElement(child))
-      continue;
-    const element = child as ReactElement<Record<string, unknown>>;
-    const props = element.props ?? {};
-    if (Array.isArray(props.series))
-      return { props: props as MuiChartProps, kind: kindFromType(element.type) };
-    if (props.children !== undefined) {
-      const nested = findMuiChartElement(props.children as ReactNode);
-      if (nested)
-        return nested;
+  let fallback: MuiChartElement | undefined;
+  const visit = (nodes: ReactNode): MuiChartElement | undefined => {
+    for (const child of Children.toArray(nodes)) {
+      if (!isValidElement(child))
+        continue;
+      const element = child as ReactElement<Record<string, unknown>>;
+      const props = element.props ?? {};
+      const kind = kindFromType(element.type);
+      const confidence = chartConfidence(props, kind);
+      if (confidence === 2)
+        return { props: props as MuiChartProps, kind };
+      if (confidence === 1 && fallback === undefined)
+        fallback = { props: props as MuiChartProps, kind };
+      if (props.children !== undefined) {
+        const nested = visit(props.children as ReactNode);
+        if (nested)
+          return nested;
+      }
     }
-  }
-  return undefined;
+    return undefined;
+  };
+  return visit(children) ?? fallback;
 }
 
 /**
@@ -118,15 +175,20 @@ export function findMuiChartElement(children: ReactNode): MuiChartElement | unde
  * @returns The same tree, with the chart element cloned where needed
  */
 export function withMuiKeyboardNavigationDisabled(children: ReactNode): ReactNode {
+  const chart = findMuiChartElement(children);
   let done = false;
   const visit = (nodes: ReactNode): ReactNode => Children.map(nodes, (child) => {
     if (done || !isValidElement(child))
       return child;
     const element = child as ReactElement<Record<string, unknown>>;
     const props = element.props ?? {};
-    if (Array.isArray(props.series)) {
+    if (chart !== undefined && props === chart.props) {
       done = true;
-      return props.disableKeyboardNavigation === undefined
+      // A gauge has no keyboard navigation of its own, and no such prop: it
+      // would reach the DOM as an unknown attribute.
+      const gauge = chart.kind === 'gauge'
+        || (chart.kind === undefined && props.series === undefined && props.data === undefined);
+      return props.disableKeyboardNavigation === undefined && !gauge
         ? cloneElement(element, { disableKeyboardNavigation: true })
         : element;
     }
@@ -148,6 +210,13 @@ export function withMuiKeyboardNavigationDisabled(children: ReactNode): ReactNod
  */
 export function muiSeriesId(series: MuiSeriesConfig, index: number): string {
   return series.id !== undefined && series.id !== null ? String(series.id) : `auto-generated-id-${index}`;
+}
+
+/**
+ * A chart's series as an array: every chart but a sankey keeps them in one.
+ */
+function seriesList(props: MuiChartProps): readonly MuiSeriesConfig[] {
+  return Array.isArray(props.series) ? props.series : [];
 }
 
 /**
@@ -303,10 +372,11 @@ function layerAxes(props: MuiChartProps): MaidrLayer['axes'] {
  * series as batched `<path>`s with no element per bar or marker, so there is
  * nothing to outline. Audio, text and braille are unaffected.
  */
-function warnOnBatchRenderer(kind: MuiChartKind, props: MuiChartProps): void {
+function warnOnBatchRenderer(kind: MuiChartKind, props: MuiChartProps, chartId: string): void {
   if (props.renderer === undefined || props.renderer === 'svg-single')
     return;
   warnOnce(
+    chartId,
     `a ${kind} chart with renderer="${props.renderer}" draws no element per mark, so MAIDR `
     + 'cannot outline the one being read. Audio, text and braille are unaffected; '
     + 'use the default renderer="svg-single" for highlighting.',
@@ -412,12 +482,12 @@ function convertBar(props: MuiChartProps, scope: string): MuiConvertedChart {
   // MUI's own rule: the chart's `layout` decides, and only when it is left
   // unset does a series' `layout` turn the chart on its side.
   const horizontal = props.layout === 'horizontal'
-    || (props.layout === undefined && (props.series ?? []).some(series => series.layout === 'horizontal'));
+    || (props.layout === undefined && seriesList(props).some(series => series.layout === 'horizontal'));
   const xAxis = props.xAxis?.[0];
   const yAxis = props.yAxis?.[0];
   const bandAxis = horizontal ? yAxis : xAxis;
   const valueAxis = horizontal ? xAxis : yAxis;
-  const entries: SeriesEntry[] = (props.series ?? []).map((series, index) => ({
+  const entries: SeriesEntry[] = seriesList(props).map((series, index) => ({
     series,
     id: muiSeriesId(series, index),
     label: seriesLabel(series, index),
@@ -545,7 +615,7 @@ function stepDirection(curve: string | undefined): StepDirection | undefined {
  */
 function convertLine(props: MuiChartProps, scope: string): MuiConvertedChart {
   const xAxis = props.xAxis?.[0];
-  const entries: SeriesEntry[] = (props.series ?? []).map((series, index) => ({
+  const entries: SeriesEntry[] = seriesList(props).map((series, index) => ({
     series,
     id: muiSeriesId(series, index),
     label: seriesLabel(series, index),
@@ -650,7 +720,7 @@ function convertScatter(props: MuiChartProps, scope: string): MuiConvertedChart 
   const yMax = axisBound(props.yAxis?.[0]?.max);
   const inside = (value: number, min?: number, max?: number): boolean =>
     (min === undefined || value >= min) && (max === undefined || value <= max);
-  const all = props.series ?? [];
+  const all = seriesList(props);
   const titled = all.length > 1;
 
   const layers = all.map((series, index): MaidrLayer => {
@@ -703,8 +773,8 @@ function pieComparator(sorting: MuiSeriesConfig['sortingValues']): ((a: number, 
  * follow, and it carries no selectors: the one string a pie layer reads pairs
  * arcs in document order, which is no longer the payload's.
  */
-function convertPie(props: MuiChartProps, scope: string): MuiConvertedChart {
-  const all = props.series ?? [];
+function convertPie(props: MuiChartProps, scope: string, chartId: string): MuiConvertedChart {
+  const all = seriesList(props);
   const titled = all.length > 1;
 
   const layers = all.map((series, index): MaidrLayer => {
@@ -733,6 +803,7 @@ function convertPie(props: MuiChartProps, scope: string): MuiConvertedChart {
         .sort((a, b) => comparator(a.slice.y, b.slice.y) || a.i - b.i)
         .map(({ slice }) => slice);
       warnOnce(
+        chartId,
         'a pie with sortingValues draws its slices in a different order from its arcs in the '
         + 'document, so MAIDR reads it in the drawn order without outlining the slice.',
       );
@@ -756,6 +827,228 @@ function convertPie(props: MuiChartProps, scope: string): MuiConvertedChart {
 }
 
 /**
+ * A `<SparkLineChart>` as the bar or line chart it draws: its one `data`
+ * array is one series -- MUI gives it the id `auto-generated-id-0` -- and its
+ * `xAxis`/`yAxis` are single axis objects rather than arrays.
+ *
+ * @param props - The sparkline's props
+ * @param plotType - `'bar'` or `'line'`, when the drawing already said which
+ * @returns The kind and props of the equivalent chart
+ */
+function sparklineAsChart(
+  props: MuiChartProps,
+  plotType?: 'bar' | 'line',
+): { kind: 'bar' | 'line'; props: MuiChartProps } {
+  const kind = plotType ?? (props.plotType === 'bar' ? 'bar' : 'line');
+  const axis = (value: unknown): readonly MuiAxisConfig[] | undefined => {
+    if (value === undefined || value === null)
+      return undefined;
+    return (Array.isArray(value) ? value : [value]) as MuiAxisConfig[];
+  };
+  const series: MuiSeriesConfig = {
+    data: Array.isArray(props.data) ? props.data : [],
+    ...(props.area ? { area: true } : {}),
+    ...(typeof props.curve === 'string' ? { curve: props.curve } : {}),
+  };
+  return {
+    kind,
+    props: {
+      series: [series],
+      xAxis: axis(props.xAxis),
+      yAxis: axis(props.yAxis),
+      ...(props.renderer ? { renderer: props.renderer } : {}),
+    },
+  };
+}
+
+/**
+ * Converts a `<Gauge>`: one measure on a dial from `valueMin` (0) to
+ * `valueMax` (100), outlined by the arc it fills. A gauge with no value
+ * reads nothing.
+ */
+function convertGauge(props: MuiChartProps, scope: string): MuiConvertedChart {
+  const value = toValue(props.value);
+  if (value === null)
+    return { layers: [] };
+  const point: GaugePoint = {
+    value,
+    min: toValue(props.valueMin) ?? 0,
+    max: toValue(props.valueMax) ?? 100,
+  };
+  return {
+    layers: [{
+      id: '0',
+      type: TraceType.GAUGE,
+      selectors: gaugeValueSelector(scope),
+      data: point,
+    }],
+  };
+}
+
+/**
+ * Converts a `<RadarChart>`: one `radar` layer whose rows are the series and
+ * whose columns are the spokes, named after `radar.metrics`. Each series is
+ * outlined by its polygon, one vertex per spoke.
+ */
+function convertRadar(props: MuiChartProps, scope: string): MuiConvertedChart {
+  const metrics = (props.radar?.metrics ?? []).map((metric, i) =>
+    typeof metric === 'string'
+      ? metric
+      : (metric as MuiRadarMetric | undefined)?.name ?? `Metric ${i + 1}`);
+  const all = seriesList(props);
+  const rows: LinePoint[][] = all.map((series, index) => {
+    const label = seriesLabel(series, index);
+    const values = Array.isArray(series.data) ? series.data : [];
+    return metrics.map((name, i) => ({ x: name, y: toValue(values[i]), z: label }));
+  });
+  if (rows.length === 0 || metrics.length === 0)
+    return { layers: [] };
+  return {
+    layers: [{
+      id: '0',
+      type: TraceType.RADAR,
+      selectors: all.map((series, index) => radarSeriesSelector(scope, muiSeriesId(series, index))),
+      data: rows,
+    }],
+    legend: all.length > 1 ? all.map(seriesLabel) : undefined,
+  };
+}
+
+/** An axis' values, turned round when the axis is drawn reversed. */
+function drawnOrder<T>(values: readonly T[], axis: MuiAxisConfig | undefined): T[] {
+  return axis?.reverse ? [...values].reverse() : [...values];
+}
+
+/**
+ * Converts a Pro `<Heatmap>`.
+ *
+ * MUI draws only the first series, one cell per `[xIndex, yIndex, value]`
+ * entry that has a value, in data order, with the first y category at the
+ * top. The payload is the grammar's top-first grid; a cell the data leaves
+ * out, or leaves without a value, is a gap and has no selector.
+ */
+function convertHeatmap(props: MuiChartProps, scope: string): MuiConvertedChart {
+  const xAxis = props.xAxis?.[0];
+  const yAxis = props.yAxis?.[0];
+  const xRaw = axisValues(xAxis, props.dataset) ?? [];
+  const yRaw = axisValues(yAxis, props.dataset) ?? [];
+  const entries = Array.isArray(seriesList(props)[0]?.data) ? seriesList(props)[0].data as unknown[] : [];
+  if (xRaw.length === 0 || yRaw.length === 0)
+    return { layers: [] };
+
+  // Positions of each category on screen: left to right, top to bottom.
+  const columns = drawnOrder(xRaw.map((_, i) => i), xAxis);
+  const rows = drawnOrder(yRaw.map((_, i) => i), yAxis);
+  const columnAt = new Map(columns.map((dataIndex, position) => [dataIndex, position]));
+  const rowAt = new Map(rows.map((dataIndex, position) => [dataIndex, position]));
+
+  const points: (number | null)[][] = rows.map(() => columns.map(() => null));
+  const cells: (string | null)[][] = rows.map(() => columns.map(() => null));
+  let drawn = 0;
+  for (const entry of entries) {
+    if (!Array.isArray(entry))
+      continue;
+    const [xi, yi, raw] = entry as unknown[];
+    const column = columnAt.get(Number(xi));
+    const row = rowAt.get(Number(yi));
+    const value = toValue(raw);
+    if (column === undefined || row === undefined || value === null)
+      continue;
+    points[row][column] = value;
+    cells[row][column] = heatmapCellSelector(scope, drawn);
+    drawn += 1;
+  }
+
+  const data: HeatmapData = {
+    x: columns.map(i => String(formatAxisValue(xRaw[i], xAxis))),
+    y: rows.map(i => String(formatAxisValue(yRaw[i], yAxis))),
+    points,
+  };
+  return {
+    layers: [{
+      id: '0',
+      type: TraceType.HEATMAP,
+      axes: layerAxes(props),
+      // The grammar's selector grid runs bottom row first.
+      selectors: [...cells].reverse(),
+      data,
+    }],
+  };
+}
+
+/**
+ * Converts a Pro `<FunnelChart>`: one `funnel` layer per series, its stages
+ * in data order.
+ *
+ * MUI's default funnel stacks its stages down the page and draws each value
+ * as a width, so the magnitude runs horizontally and the layer is `horz`
+ * (the value in `x`). A `layout: 'horizontal'` series is the transpose.
+ */
+function convertFunnel(props: MuiChartProps, scope: string): MuiConvertedChart {
+  const all = seriesList(props);
+  const across = all.some(series => series.layout === 'horizontal');
+  const titled = all.length > 1;
+  const layers = all.map((series, index): MaidrLayer => {
+    const items = Array.isArray(series.data) ? (series.data as unknown[]) : [];
+    const data: BarPoint[] = items.map((item, i) => {
+      const datum = (item ?? {}) as Record<string, unknown>;
+      const stage = typeof datum.label === 'string' && datum.label !== ''
+        ? datum.label
+        : String(datum.id ?? `Stage ${i + 1}`);
+      const value = toValue(datum.value) ?? 0;
+      return across ? { x: stage, y: value } : { x: value, y: stage };
+    });
+    return {
+      id: String(index),
+      type: TraceType.FUNNEL,
+      ...(titled ? { title: seriesLabel(series, index) } : {}),
+      ...(across ? {} : { orientation: Orientation.HORIZONTAL }),
+      axes: across
+        ? { x: { label: 'Stage' }, y: { label: 'Value' } }
+        : { x: { label: 'Value' }, y: { label: 'Stage' } },
+      selectors: funnelSeriesSelector(scope, muiSeriesId(series, index)),
+      data,
+    };
+  });
+  return { layers };
+}
+
+/**
+ * Converts a Pro `<SankeyChart>`, whose one series is an object: a `sankey`
+ * layer of its links, each announced by its nodes' labels and outlined by
+ * its own ribbon. A link without a finite value draws nothing to read.
+ */
+function convertSankey(props: MuiChartProps, scope: string): MuiConvertedChart {
+  const series = (Array.isArray(props.series) ? undefined : props.series) as MuiSankeySeries | undefined;
+  const nodes = series?.data?.nodes ?? [];
+  const links = series?.data?.links ?? [];
+  const labels = new Map(nodes.map(node => [String(node.id), node.label ?? String(node.id)]));
+  const name = (id: string | number): string => labels.get(String(id)) ?? String(id);
+
+  const flows: FlowPoint[] = [];
+  const selectors: string[] = [];
+  for (const link of links) {
+    const value = toValue(link?.value);
+    if (!link || value === null)
+      continue;
+    flows.push({ source: name(link.source), target: name(link.target), value });
+    selectors.push(sankeyLinkSelector(scope, String(link.source), String(link.target)));
+  }
+  if (flows.length === 0)
+    return { layers: [] };
+  return {
+    layers: [{
+      id: '0',
+      type: TraceType.SANKEY,
+      ...(series?.label ? { title: series.label } : {}),
+      axes: {},
+      selectors,
+      data: flows,
+    }],
+  };
+}
+
+/**
  * Converts the props of one MUI X chart into MAIDR layers.
  *
  * A chart whose series declare a `type` other than `kind` -- the composition
@@ -769,16 +1062,31 @@ function convertPie(props: MuiChartProps, scope: string): MuiConvertedChart {
  *                `"#chart "` (trailing space included), or `""` for none
  * @returns The layers and, for multi-series charts, the legend
  */
-export function convertMuiChart(kind: MuiChartKind, props: MuiChartProps, scope: string): MuiConvertedChart {
-  const mixed = (props.series ?? []).some(series => series.type !== undefined && series.type !== kind);
+export function convertMuiChart(
+  kind: MuiChartKind,
+  props: MuiChartProps,
+  scope: string,
+  chartId = 'chart',
+): MuiConvertedChart {
+  // A sparkline draws a line or bar plot but is configured by one `data`
+  // array; read off its drawing, its kind says `line` or `bar` instead.
+  const sparkline = kind === 'sparkline'
+    || ((kind === 'bar' || kind === 'line') && !Array.isArray(props.series) && Array.isArray(props.data));
+  if (sparkline) {
+    const chart = sparklineAsChart(props, kind === 'sparkline' ? undefined : kind);
+    return convertMuiChart(chart.kind, chart.props, scope, chartId);
+  }
+
+  const mixed = seriesList(props).some(series => series.type !== undefined && series.type !== kind);
   if (mixed) {
     warnOnce(
+      chartId,
       'a chart whose series mix types (the ChartsContainer composition API) is not supported yet; '
       + 'it is left unread.',
     );
     return { layers: [] };
   }
-  warnOnBatchRenderer(kind, props);
+  warnOnBatchRenderer(kind, props, chartId);
   switch (kind) {
     case 'bar':
       return convertBar(props, scope);
@@ -787,7 +1095,17 @@ export function convertMuiChart(kind: MuiChartKind, props: MuiChartProps, scope:
     case 'scatter':
       return convertScatter(props, scope);
     case 'pie':
-      return convertPie(props, scope);
+      return convertPie(props, scope, chartId);
+    case 'gauge':
+      return convertGauge(props, scope);
+    case 'radar':
+      return convertRadar(props, scope);
+    case 'heatmap':
+      return convertHeatmap(props, scope);
+    case 'funnel':
+      return convertFunnel(props, scope);
+    case 'sankey':
+      return convertSankey(props, scope);
   }
 }
 
@@ -807,7 +1125,7 @@ export function convertMuiChartsToMaidr(
   scope: string,
 ): MaidrData {
   const { id, title, subtitle, caption } = meta;
-  const converted = kind && props ? convertMuiChart(kind, props, scope) : { layers: [] };
+  const converted = kind && props ? convertMuiChart(kind, props, scope, id) : { layers: [] };
   const subplot: MaidrSubplot = { layers: converted.layers };
   if (converted.legend)
     subplot.legend = converted.legend;
