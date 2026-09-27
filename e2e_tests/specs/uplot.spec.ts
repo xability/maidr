@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { modifierKey } from '../utils/platform';
 
 /**
  * E2E coverage for the uPlot adapter (`maidr/uplot`, #1303).
@@ -141,12 +142,15 @@ test.describe('uPlot adapter', () => {
     // Freeze the stream so the newest point is stable, move to the oldest
     // point, and jump back to the newest with Ctrl+ArrowRight. (Monitor mode
     // announces a new reading without moving the navigation position.)
+    // The modifier comes from the browser: Playwright's WebKit reports a Mac
+    // and MAIDR binds Command there.
     await page.evaluate('stop()');
+    const mod = await modifierKey(page);
     const newest = await page.evaluate('values[values.length - 1]') as number;
     const oldest = await page.evaluate('values[0]') as number;
-    await page.keyboard.press('Control+ArrowLeft');
+    await page.keyboard.press(`${mod}+ArrowLeft`);
     await expect.poll(() => announcement(page)).toContain(`Messages is ${oldest}`);
-    await page.keyboard.press('Control+ArrowRight');
+    await page.keyboard.press(`${mod}+ArrowRight`);
     await expect.poll(() => announcement(page)).toContain(`Messages is ${newest}`);
   });
 });
