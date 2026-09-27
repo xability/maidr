@@ -100,5 +100,9 @@ export declare function buildGallery(pages: string[]): {
   unclaimed: string[];
 };
 
-/** The gallery's markup. */
+/**
+ * The gallery's markup. Within a group that has experimental entries, the
+ * stable ones come first under `<h4>Stable charts</h4>` and the experimental
+ * ones after under `<h4>Experimental charts</h4>`.
+ */
 export declare function renderGallery(sections: GallerySection[]): string;

@@ -225,6 +225,8 @@ That is why the adapter needs no configuration and works on charts written befor
 
 ## What it reads
 
+### Stable chart types
+
 | Plot mark | MAIDR trace | Notes |
 |-----------|-------------|-------|
 | `barY` / `barX` | Bar | Orientation comes from which axis is categorical |
@@ -234,49 +236,39 @@ That is why the adapter needs no configuration and works on charts written befor
 | `rectY` / `rectX` with `binX` and a `fill` | Stacked bar | A stacked histogram, read over its bins |
 | `rectY` / `rectX` on a categorical axis | Bar | |
 | `dot` on two continuous axes | Scatter | |
-| `dot` on a categorical axis | Dot plot [experimental] | Navigated as a bar chart |
-| `tickX` / `tickY` on a categorical axis | Strip plot [experimental] | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
 | `line` | Line | One series per drawn path |
-| `area` / `areaY` | Area [experimental] | |
-| `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area [experimental] | Announced as percentages |
 | `line` under `curveStep` / `curveStepAfter` / `curveStepBefore` | Step | Which side the value is held on is announced; see below |
 | `linearRegressionY` / `linearRegressionX` | Smooth | The fitted line; see below |
-| `dot` under `hexbin` | Hexbin [experimental] | Only when declared — see below |
 | `spike`, and `vector` with a `length` | Scatter carrying `z` | The magnitude is said and heard; a vector that points somewhere is refused — see below |
-| `link` / `arrow` whose ends share a coordinate | Gantt [experimental] | An interval in a lane; see below |
-| `ruleX` / `ruleY` carrying an interval | Gantt [experimental] | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
 | `waffleY` / `waffleX` | Bar | Counted from the cells rather than inverted from a colour; see below |
 | `waffleY` / `waffleX` with `fill` | Stacked bar | One path per segment in a band |
 | `text` on two continuous axes | Scatter carrying each point's name | A labelled scatter; see below |
 | `text` sitting on another mark | — | Read as that mark's names rather than as a series; see below |
 | `boxY` / `boxX` | Box | Four marks read as one distribution; see below |
-| `tree` / `cluster` | Tree [experimental] | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
 | any of the above with `fx` / `fy` | Subplots | One MAIDR panel per facet, named after it |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Plot mark | MAIDR trace | Notes |
+|-----------|-------------|-------|
+| `dot` on a categorical axis | Dot plot [experimental] | Navigated as a bar chart |
+| `tickX` / `tickY` on a categorical axis | Strip plot [experimental] | Read as a dot plot: one point per observation, so a category with several ticks keeps all of them |
+| `area` / `areaY` | Area [experimental] | |
+| `areaY` under `stackY({offset: 'normalize'})` | 100% stacked area [experimental] | Announced as percentages |
+| `dot` under `hexbin` | Hexbin [experimental] | Only when declared — see below |
+| `link` / `arrow` whose ends share a coordinate | Gantt [experimental] | An interval in a lane; see below |
+| `ruleX` / `ruleY` carrying an interval | Gantt [experimental] | The same reading off a `<line>`; a rule that agrees with itself is refused — see below |
+| `tree` / `cluster` | Tree [experimental] | Three marks read as one hierarchy, from the path in each node's `<title>`; see below |
+
+### Notes on these chart types
 
 Titles, subtitles, captions, and axis labels are taken from what Plot rendered. The directional arrows Plot draws into an axis label (`↑ Count`) are stripped.
 
-## Hexbins [experimental]
+## Stable chart types
 
-`Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` is read as a lattice of bins — but **only when you say so**:
-
-```js
-observablePlotToMaidr(chart, { markTypes: { dot: 'hexbin' } });
-```
-
-The declaration is not a convenience, it is the only thing that can distinguish the chart. A hexbin's cells arrive in a group labelled `dot`, exactly like a scatter's, and Plot's own `symbol: 'hexagon'` draws the identical path shape at a different radius — the two are the same markup. `markTypes` is the option that already exists for this, and since a hexbin is a single mark, one label maps to one type.
-
-What the declaration does *not* do is override the geometry. The cells still have to be hexagons: six vertices, at the positions a regular hexagon of that width puts them. A declaration pointing at diamonds, or at a bubble chart, is declined rather than read as a lattice of invented tallies.
-
-Both halves of a bin then invert exactly, and neither goes through a colour — which is what separates this from `cell`, `contour` and `density` below:
-
-- the **centre** is the cell's `transform`, through the x and y scales;
-- the **tally** is the hexagon's radius through the `r` scale — a square root by default, so a bin holding five of nine points is drawn at `10·√(5/9) = 7.454`.
-
-The tally is rounded to a whole number **when the drawing is unambiguous about it**. `HexbinPoint.count` is documented as "how many points fell in it", and the radius reaches the `d` attribute rounded to three decimals, so a bin of five inverts to 5.00059 — within the geometry's own error of an integer. A hexbin sized by something that is not a count, such as `r: 'mean'` over a weight, has a genuinely fractional tally and is left alone.
-
-Rows are grouped on the cells' **y pixel**, which a hex lattice's rows share exactly, and are ordered from the bottom up — the direction the trace steps through them.
-
-## Regression lines
+### Regression lines
 
 `Plot.linearRegressionY` and `Plot.linearRegressionX` are read as smooth curves. This is the one mark Plot names after what it *means* rather than after what it draws — its group is `aria-label="linear-regression"`, which nothing else produces — so it needs neither a heuristic nor an option, unlike the box marks below.
 
@@ -286,7 +278,7 @@ The fitted line has exactly two vertices, its ends, and both are read along with
 
 **The confidence band is not read.** `SmoothPoint` carries `x`, `y`, `svg_x` and `svg_y` and no bounds, and the smooth trace announces none, so an interval has nowhere to go on a smooth layer. Giving it one would serve r-maidr's `geom_smooth(se = TRUE)` and py-maidr's plotly trendline as much as this mark, and is a decision about the grammar rather than about Plot.
 
-## 100% stacked charts
+### 100% stacked charts
 
 `Plot.stackY({ offset: 'normalize' })` divides before it draws, so a chart drawn with it is read as `stacked_normalized_bar` — or `stacked_normalized_area` for an area — rather than as an ordinary stack. Its values are announced as **percentages**, which is what every 100% chart MAIDR reads announces, and the reader is told the columns are parts of a whole.
 
@@ -294,7 +286,7 @@ What decides it is that **every column adds up to one**, not the shape of the y 
 
 The same test does not separate Plot's own normalization from an author who divided their numbers before drawing, and there is nothing there to separate: both are charts of shares. Values already written as `0.3` and `0.7` are announced as 30 and 70, the same as Plot's own.
 
-## Step curves
+### Step curves
 
 A line drawn with `curve: 'step-after'`, `'step-before'` or `'step'` is a **step chart**: navigated by transition rather than by sample, described in runs, and announced as a step plot. Which convention drew it is read off the path rather than declared:
 
@@ -314,7 +306,7 @@ This is the one reading in the adapter that is *detected* rather than declared, 
 
 A **date axis** works: values travel as epoch milliseconds — every trace's point type is numeric, because the value has to drive sonification and the min/max range — and the layer declares `format: { type: 'date' }`, which is what turns them back into dates in the announcement.
 
-## Spike and vector marks
+### Spike and vector marks
 
 `Plot.spike` stands a magnitude at a place, and both halves are in the markup — the place is the mark's `transform`, and the magnitude is how far the spike reaches, put back through the `length` scale that sized it:
 
@@ -333,49 +325,7 @@ A magnitude of exactly zero is still a reading. Plot draws it as a triangle with
 
 A vector with no `length` channel is turned away too: every arrow is then drawn the same default height, and the only number available is the mark's own styling.
 
-## Link and arrow marks [experimental]
-
-A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:
-
-```js
-const chart = Plot.plot({ marks: [Plot.link(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
-observablePlotToMaidr(chart);
-```
-
-A gantt rather than a dumbbell, deliberately. The dumbbell shape says the two ends are a comparison — before and after, two groups, two years — and only the dots that usually sit at each end suggest that. Those are a separate mark with their own label, so pairing them would mean inferring a composite out of two independently labelled groups, and Plot leaves nothing behind that says they belong together. `GanttPoint` claims only a lane and two positions, which is exactly what a link draws; the dots keep being read as the scatter they are.
-
-Both orientations work, and so does a `curve`: Plot joins a link's two endpoints with a single command whatever the curve, so the connector's shape never becomes a position. `Plot.arrow` is read the same way — its head goes into the same `d` as a second subpath, and those vertices are dropped rather than taken for an end.
-
-A lane holding several intervals and a lane holding none are both kept: the intervals nest under their lane, and an empty lane stays as an empty row, named from the scale's domain. That is a real statement about a schedule and the one a flat list cannot make.
-
-What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
-
-## Rule marks [experimental]
-
-`Plot.ruleX` and `Plot.ruleY` are how Plot draws a high–low chart, a range plot and a gantt, and a rule carrying an interval is read as the same gantt a `link` produces:
-
-```js
-const chart = Plot.plot({ marks: [Plot.ruleY(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
-observablePlotToMaidr(chart);
-```
-
-A rule is exact. A `<line>` carries both of its ends as attributes, so there is no path to tokenise and nothing rounded to undo — unlike a link, whose `d` is written at three decimals and has to be cleaned back to the value it came from.
-
-Both orientations work, and a lane holding several intervals keeps them nested under that lane, as a link's do.
-
-**A rule that agrees with itself is not a measurement.** Three other things wear the same label, and each gives itself away by ending where every other line ends:
-
-- a reference line, `Plot.ruleY([5])`, drawn from the x range's minimum to its maximum because Plot handed it the frame — and drawn *across* the lanes of the chart it annotates rather than along one, which is the shape that turns it away;
-- a positional rule, `Plot.ruleX(data, {x})`, drawn the full height of the frame at every position, with no value in it at all;
-- a lollipop's stems, `Plot.ruleX(data, {x, y})`, which all start at the baseline — announced as intervals they would say “0 to 8” where the chart means “8”, and the `dot` at each tip is already read as the value.
-
-Both ends are asked the same question, because which one Plot writes a constant into is the caller's spelling: `y1: 'v', y2: 0` and `y1: 0, y2: 'v'` are the same lollipop.
-
-A candlestick's wicks are read this way too. `Plot.boxY`'s own whiskers are not, because a box plot is claimed as one composite and read as a box; but a chart that only *looks* like a box plot — a bullet chart, a candlestick with a marker in its body — is declined as a box and its marks go back to the readings they belong to. A bullet's rule stands on the baseline and is declined again here; a candlestick's wick floats at both ends, which is what a high and a low are, so it comes back as the range it draws.
-
-The cost is a rule mark holding one line, and a gantt whose rows genuinely all begin — or all end — together. Those are drawn exactly as the cases above and the markup cannot separate them. The trade goes the other way from the constant floor above, because there refusing would cost a chart its only reading, while here what is being refused is either not data at all or already announced by the mark beside it.
-
-## Waffle charts
+### Waffle charts
 
 `Plot.waffleY` and `Plot.waffleX` are read as bar charts of their tallies:
 
@@ -392,7 +342,7 @@ The lattice's width is taken across the whole mark, not off one path. A category
 
 `waffleX` needs no separate arithmetic: it lays its cells along the band rather than up it, so each outline is a plain rectangle and the same area gives the same count. A `fill` channel puts one path per segment in the same band and is read as a stacked bar; the series colour is on the pattern's swatch rather than on the path, which carries only `url(#…)`. A category holding nothing is still drawn — every vertex on the origin — and is announced as the zero it is rather than dropped. A fractional tally stays fractional.
 
-## Text marks
+### Text marks
 
 `Plot.text` draws a name at a position, and both halves are exact in the
 markup — the position is the element's `transform`, the same place `dot`,
@@ -439,7 +389,7 @@ and the bar mark already carries the value — reading it here would announce
 every count twice, once as a bar and once as a point standing at the same
 place.
 
-## Box plots
+### Box plots
 
 `Plot.boxY` and `Plot.boxX` are read as a MAIDR box trace, with no option to set:
 
@@ -498,7 +448,74 @@ Two details worth knowing:
   datum *index* to an outlier rather than the observation, and the adapter never
   sees your source data.
 
-## Trees [experimental]
+## Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+### Hexbins [experimental]
+
+`Plot.dot(data, Plot.hexbin({ r: 'count' }, { x, y }))` is read as a lattice of bins — but **only when you say so**:
+
+```js
+observablePlotToMaidr(chart, { markTypes: { dot: 'hexbin' } });
+```
+
+The declaration is not a convenience, it is the only thing that can distinguish the chart. A hexbin's cells arrive in a group labelled `dot`, exactly like a scatter's, and Plot's own `symbol: 'hexagon'` draws the identical path shape at a different radius — the two are the same markup. `markTypes` is the option that already exists for this, and since a hexbin is a single mark, one label maps to one type.
+
+What the declaration does *not* do is override the geometry. The cells still have to be hexagons: six vertices, at the positions a regular hexagon of that width puts them. A declaration pointing at diamonds, or at a bubble chart, is declined rather than read as a lattice of invented tallies.
+
+Both halves of a bin then invert exactly, and neither goes through a colour — which is what separates this from `cell`, `contour` and `density` below:
+
+- the **centre** is the cell's `transform`, through the x and y scales;
+- the **tally** is the hexagon's radius through the `r` scale — a square root by default, so a bin holding five of nine points is drawn at `10·√(5/9) = 7.454`.
+
+The tally is rounded to a whole number **when the drawing is unambiguous about it**. `HexbinPoint.count` is documented as "how many points fell in it", and the radius reaches the `d` attribute rounded to three decimals, so a bin of five inverts to 5.00059 — within the geometry's own error of an integer. A hexbin sized by something that is not a count, such as `r: 'mean'` over a weight, has a genuinely fractional tally and is left alone.
+
+Rows are grouped on the cells' **y pixel**, which a hex lattice's rows share exactly, and are ordered from the bottom up — the direction the trace steps through them.
+
+### Link and arrow marks [experimental]
+
+A `Plot.link` whose two ends share a coordinate is a **span** along the other axis, at one position on this one — an interval in a lane — and is read as a gantt:
+
+```js
+const chart = Plot.plot({ marks: [Plot.link(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
+observablePlotToMaidr(chart);
+```
+
+A gantt rather than a dumbbell, deliberately. The dumbbell shape says the two ends are a comparison — before and after, two groups, two years — and only the dots that usually sit at each end suggest that. Those are a separate mark with their own label, so pairing them would mean inferring a composite out of two independently labelled groups, and Plot leaves nothing behind that says they belong together. `GanttPoint` claims only a lane and two positions, which is exactly what a link draws; the dots keep being read as the scatter they are.
+
+Both orientations work, and so does a `curve`: Plot joins a link's two endpoints with a single command whatever the curve, so the connector's shape never becomes a position. `Plot.arrow` is read the same way — its head goes into the same `d` as a second subpath, and those vertices are dropped rather than taken for an end.
+
+A lane holding several intervals and a lane holding none are both kept: the intervals nest under their lane, and an empty lane stays as an empty row, named from the scale's domain. That is a real statement about a schedule and the one a flat list cannot make.
+
+What is **not** read is a link whose ends share nothing — an edge in a node-link diagram, which has no lane to sit in and no interval to announce. The question is asked of the whole mark rather than of each path: one `link` can hold spans and edges together, and reading three spans out of four paths would announce a gantt quietly missing a quarter of its chart.
+
+### Rule marks [experimental]
+
+`Plot.ruleX` and `Plot.ruleY` are how Plot draws a high–low chart, a range plot and a gantt, and a rule carrying an interval is read as the same gantt a `link` produces:
+
+```js
+const chart = Plot.plot({ marks: [Plot.ruleY(tasks, { y: 'task', x1: 'start', x2: 'end' })] });
+observablePlotToMaidr(chart);
+```
+
+A rule is exact. A `<line>` carries both of its ends as attributes, so there is no path to tokenise and nothing rounded to undo — unlike a link, whose `d` is written at three decimals and has to be cleaned back to the value it came from.
+
+Both orientations work, and a lane holding several intervals keeps them nested under that lane, as a link's do.
+
+**A rule that agrees with itself is not a measurement.** Three other things wear the same label, and each gives itself away by ending where every other line ends:
+
+- a reference line, `Plot.ruleY([5])`, drawn from the x range's minimum to its maximum because Plot handed it the frame — and drawn *across* the lanes of the chart it annotates rather than along one, which is the shape that turns it away;
+- a positional rule, `Plot.ruleX(data, {x})`, drawn the full height of the frame at every position, with no value in it at all;
+- a lollipop's stems, `Plot.ruleX(data, {x, y})`, which all start at the baseline — announced as intervals they would say “0 to 8” where the chart means “8”, and the `dot` at each tip is already read as the value.
+
+Both ends are asked the same question, because which one Plot writes a constant into is the caller's spelling: `y1: 'v', y2: 0` and `y1: 0, y2: 'v'` are the same lollipop.
+
+A candlestick's wicks are read this way too. `Plot.boxY`'s own whiskers are not, because a box plot is claimed as one composite and read as a box; but a chart that only *looks* like a box plot — a bullet chart, a candlestick with a marker in its body — is declined as a box and its marks go back to the readings they belong to. A bullet's rule stands on the baseline and is declined again here; a candlestick's wick floats at both ends, which is what a high and a low are, so it comes back as the range it draws.
+
+The cost is a rule mark holding one line, and a gantt whose rows genuinely all begin — or all end — together. Those are drawn exactly as the cases above and the markup cannot separate them. The trade goes the other way from the constant floor above, because there refusing would cost a chart its only reading, while here what is being refused is either not data at all or already announced by the mark beside it.
+
+### Trees [experimental]
 
 `Plot.tree` and `Plot.cluster` are not marks but three of them — a `link` for the edges, a `dot` for the nodes, and a `text` for their names, which Plot draws as **two** text marks because leaf labels and internal-node labels sit on opposite sides of their dot. Read individually the hierarchy disappears: the dots become a scatter whose coordinates are where d3's layout put each node, on scales Plot itself renders with `axis: null` because they mean nothing to a reader, and the links — the only place the structure lives — produce no layer at all (#1168).
 

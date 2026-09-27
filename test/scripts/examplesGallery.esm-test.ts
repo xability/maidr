@@ -289,3 +289,90 @@ describe('the gallery\'s experimental marks', () => {
     expect(misplaced).toEqual([]);
   });
 });
+
+describe('the gallery\'s stable and experimental lists', () => {
+  const html = renderGallery(sections);
+  const rendered = sections.filter(section => section.items.length > 0);
+
+  /** The markup of one section: from its `<h3>` to the next one. */
+  function sectionHtml(index: number): string {
+    const blocks = html.split('\n\n');
+    return blocks[index];
+  }
+
+  /** The position of an entry's link in a section's markup. */
+  function linkAt(markup: string, item: { label: string }): number {
+    return markup.indexOf(`>${item.label}</a></li>`);
+  }
+
+  it('should render one block per non-empty group', () => {
+    expect(html.split('\n\n')).toHaveLength(rendered.length);
+  });
+
+  it('should list every stable entry of a group before any experimental one', () => {
+    const wrong = rendered.flatMap((section, index) => {
+      const markup = sectionHtml(index);
+      const stable = section.items.filter(item => item.experimental !== true).map(item => linkAt(markup, item));
+      const experimental = section.items.filter(item => item.experimental === true).map(item => linkAt(markup, item));
+      if ([...stable, ...experimental].includes(-1)) {
+        return [`${section.id}: an entry's link is missing`];
+      }
+      return experimental.length > 0 && Math.max(...stable, -1) > Math.min(...experimental)
+        ? [section.id]
+        : [];
+    });
+
+    expect(wrong).toEqual([]);
+  });
+
+  it('should head the two lists only in a group that has experimental entries', () => {
+    const wrong = rendered.flatMap((section, index) => {
+      const markup = sectionHtml(index);
+      const hasExperimental = section.items.some(item => item.experimental === true);
+      const hasStable = section.items.some(item => item.experimental !== true);
+      const stableAt = markup.indexOf('<h4>Stable charts</h4>');
+      const experimentalAt = markup.indexOf('<h4>Experimental charts</h4>');
+      const expected = hasExperimental
+        ? experimentalAt > -1 && (hasStable ? stableAt > -1 && stableAt < experimentalAt : stableAt === -1)
+        : stableAt === -1 && experimentalAt === -1;
+      return expected ? [] : [section.id];
+    });
+
+    expect(wrong).toEqual([]);
+  });
+
+  it('should put every experimental entry under the experimental heading', () => {
+    const wrong = rendered.flatMap((section, index) => {
+      const markup = sectionHtml(index);
+      const experimentalAt = markup.indexOf('<h4>Experimental charts</h4>');
+      return section.items
+        .filter(item => (item.experimental === true) !== (experimentalAt > -1 && linkAt(markup, item) > experimentalAt))
+        .map(item => `${section.id}: ${item.label}`);
+    });
+
+    expect(wrong).toEqual([]);
+  });
+
+  it('should split a group with both kinds into two lists', () => {
+    const [markup] = renderGallery([{
+      id: 'demo',
+      heading: 'Demo',
+      items: [
+        { page: 'b.html', label: 'B', heading: 'B', experimental: false },
+        { page: 'r.html', label: `R ${EXPERIMENTAL_MARK}`, heading: `R ${EXPERIMENTAL_MARK}`, experimental: true },
+      ],
+    }]).split('\n\n');
+
+    expect(markup).toBe([
+      '  <h3>Demo</h3>',
+      '  <h4>Stable charts</h4>',
+      '  <ul>',
+      '    <li><a href="examples/b.html" onclick="loadHTML(\'b.html\', \'B\'); return false;">B</a></li>',
+      '  </ul>',
+      '  <h4>Experimental charts</h4>',
+      '  <ul>',
+      `    <li><a href="examples/r.html" onclick="loadHTML('r.html', 'R ${EXPERIMENTAL_MARK}'); return false;">R ${EXPERIMENTAL_MARK}</a></li>`,
+      '  </ul>',
+    ].join('\n'));
+  });
+});

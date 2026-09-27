@@ -79,6 +79,8 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | Google Charts Class | Adapter `chartType` |
 |------------|--------------------|--------------------|
 | Column | `ColumnChart` | `'ColumnChart'` |
@@ -89,6 +91,14 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Stacked Column | `ColumnChart` + `isStacked: true` | `'StackedColumnChart'` |
 | Dodged/Grouped Column | `ColumnChart` (multi-series) | `'DodgedColumnChart'` |
 | Pie / Doughnut | `PieChart` (a doughnut is the same class with `pieHole`) | `'PieChart'` |
+| Calendar | `Calendar` (`calendar` package) — a year of days shaded by a value | `'Calendar'` |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | Google Charts Class | Adapter `chartType` |
+|------------|--------------------|--------------------|
 | Area [experimental] | `AreaChart` | `'AreaChart'` |
 | Stacked Area [experimental] | `AreaChart` + `isStacked: true` | `'StackedAreaChart'` |
 | 100% Stacked Area [experimental] | `AreaChart` + `isStacked: 'percent'` | `'NormalizedAreaChart'` |
@@ -113,7 +123,8 @@ The adapter must be called inside the chart's `ready` event to ensure the SVG is
 | Volcano [experimental] | `ScatterChart` of effect size against significance | `'VolcanoChart'` |
 | Manhattan [experimental] | `ScatterChart` with one series per chromosome | `'ManhattanChart'` |
 | Tree [experimental] | `OrgChart` (`orgchart` package) — people joined by manager pointers | `'OrgChart'` |
-| Calendar | `Calendar` (`calendar` package) — a year of days shaded by a value | `'Calendar'` |
+
+### Notes on these chart types
 
 **Not supported:** Histogram (Google Charts API doesn't expose bin boundaries), Heatmap (not a native Google Charts type).
 

@@ -93,20 +93,31 @@ The `activateMaidrWhenSettled` helper in the Quick Start handles this: it waits 
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | Frappe `type` | Adapter `chartType` |
 |------------|---------------|---------------------|
 | Bar | `'bar'` | `'bar'` |
 | Line | `'line'` | `'line'` |
 | Multi-line | `'line'` (multiple datasets) | `'line'` |
-| Area [experimental] | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
-| Bump (rank over time) [experimental] | `'line'` (one dataset per competitor) | `'bump'` |
 | Scatter | `'line'` + `lineOptions: { hideLine: 1 }` | `'scatter'` |
-| Dot plot [experimental] | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
-| Diverging bar [experimental] | `'bar'` (two signed datasets) | `'diverging'` |
 | Mixed axis (bar + line) | `'axis-mixed'` | `'axis-mixed'` |
 | Pie | `'pie'` | `'pie'` |
 | Donut | `'donut'` | `'donut'` |
 | Percentage | `'percentage'` | `'percentage'` |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | Frappe `type` | Adapter `chartType` |
+|------------|---------------|---------------------|
+| Area [experimental] | `'line'` + `lineOptions: { regionFill: 1 }` | `'area'` (also inferred) |
+| Bump (rank over time) [experimental] | `'line'` (one dataset per competitor) | `'bump'` |
+| Dot plot [experimental] | `'line'` + `lineOptions: { hideLine: 1 }` | `'dot'` |
+| Diverging bar [experimental] | `'bar'` (two signed datasets) | `'diverging'` |
+
+### Notes on these chart types
 
 The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws several distinct statistical charts with the same `type: 'line'` or `type: 'bar'`, differing only in their options or in what the numbers mean — nothing a chart instance records — so naming the chart is how you tell MAIDR which one to announce.
 
@@ -128,7 +139,9 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 
 > The snippets below reuse the `activateMaidrWhenSettled` helper from the [Quick Start](#quick-start) — it waits for Frappe's entrance animation to settle before activating MAIDR. Line-based charts set `lineOptions.dotSize > 0` so MAIDR can highlight the per-point dots.
 
-### Bar Chart
+### Stable chart types
+
+#### Bar Chart
 
 ```html
 <div id="bar-chart"></div>
@@ -147,7 +160,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Line Chart
+#### Line Chart
 
 ```html
 <div id="line-chart"></div>
@@ -172,7 +185,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Multi-Line Chart
+#### Multi-Line Chart
 
 ```html
 <div id="multiline-chart"></div>
@@ -200,7 +213,93 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Area Chart [experimental]
+#### Scatter Plot
+
+```html
+<div id="scatter-chart"></div>
+<script>
+  const data = {
+    labels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    datasets: [{ name: 'Temperature', values: [22, 25, 28, 24, 31, 35, 33, 37, 40, 42] }],
+  };
+  // Frappe v1.6.2 has no native 'scatter' type; a line chart with the line
+  // hidden renders only the dots, which the adapter treats as scatter points.
+  const chart = new frappe.Chart('#scatter-chart', {
+    data,
+    type: 'line',
+    height: 400,
+    lineOptions: { hideLine: 1, dotSize: 6 },
+  });
+
+  activateMaidrWhenSettled(document.querySelector('#scatter-chart'), {
+    chartType: 'scatter',
+    title: 'Temperature vs Altitude',
+    axes: { x: 'Altitude (m)', y: 'Temperature (C)' },
+  });
+</script>
+```
+
+#### Percentage Chart
+
+```html
+<div id="percentage-chart"></div>
+<script>
+  const data = {
+    labels: ['Direct', 'Search', 'Social', 'Referral'],
+    datasets: [{ name: 'Sessions', values: [400, 300, 200, 100] }],
+  };
+  const chart = new frappe.Chart('#percentage-chart', {
+    data,
+    type: 'percentage',
+    height: 200,
+  });
+
+  // Read as a 100% stacked bar of one column: Up/Down walks the four bands
+  // and then their 100% total, and each is announced as its SHARE (40, 30,
+  // 20, 10) rather than as the session counts above. `axes.z` names what the
+  // bands are; `axes.x` names the share and `axes.y` the whole bar.
+  activateMaidrWhenSettled(document.querySelector('#percentage-chart'), {
+    chartType: 'percentage',
+    title: 'Share of Traffic by Channel',
+    axes: { x: 'Share of sessions (%)', y: 'All traffic', z: 'Channel' },
+  });
+</script>
+```
+
+#### Mixed Axis Chart (Bar + Line)
+
+```html
+<div id="mixed-chart"></div>
+<script>
+  const data = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      { name: 'Sales', chartType: 'bar', values: [50, 70, 85, 60, 95, 110] },
+      { name: 'Trend', chartType: 'line', values: [55, 65, 75, 70, 80, 100] },
+    ],
+  };
+  // dotSize > 0 renders the per-point dots MAIDR highlights on the line layer.
+  const chart = new frappe.Chart('#mixed-chart', {
+    data,
+    type: 'axis-mixed',
+    height: 400,
+    lineOptions: { dotSize: 5 },
+  });
+
+  // Emits one layer per dataset; use PageUp / PageDown to switch layers.
+  activateMaidrWhenSettled(document.querySelector('#mixed-chart'), {
+    chartType: 'axis-mixed',
+    title: 'Monthly Sales with Trend Line',
+    axes: { x: 'Month', y: 'Value (units)' },
+  });
+</script>
+```
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Area Chart [experimental]
 
 ```html
 <div id="area-chart"></div>
@@ -227,7 +326,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Bump Chart (Rank Over Time) [experimental]
+#### Bump Chart (Rank Over Time) [experimental]
 
 ```html
 <div id="bump-chart"></div>
@@ -258,7 +357,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Dot Plot [experimental]
+#### Dot Plot [experimental]
 
 ```html
 <div id="dot-chart"></div>
@@ -285,7 +384,7 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
 </script>
 ```
 
-### Diverging Bar Chart [experimental]
+#### Diverging Bar Chart [experimental]
 
 ```html
 <div id="diverging-chart"></div>
@@ -313,88 +412,6 @@ The `chartType` names above are the **adapter's**, not Frappe's. Frappe draws se
     chartType: 'diverging',
     title: 'Population by Age Band',
     axes: { x: 'Age band', y: 'People, thousands', z: 'Sex' },
-  });
-</script>
-```
-
-### Scatter Plot
-
-```html
-<div id="scatter-chart"></div>
-<script>
-  const data = {
-    labels: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-    datasets: [{ name: 'Temperature', values: [22, 25, 28, 24, 31, 35, 33, 37, 40, 42] }],
-  };
-  // Frappe v1.6.2 has no native 'scatter' type; a line chart with the line
-  // hidden renders only the dots, which the adapter treats as scatter points.
-  const chart = new frappe.Chart('#scatter-chart', {
-    data,
-    type: 'line',
-    height: 400,
-    lineOptions: { hideLine: 1, dotSize: 6 },
-  });
-
-  activateMaidrWhenSettled(document.querySelector('#scatter-chart'), {
-    chartType: 'scatter',
-    title: 'Temperature vs Altitude',
-    axes: { x: 'Altitude (m)', y: 'Temperature (C)' },
-  });
-</script>
-```
-
-### Percentage Chart
-
-```html
-<div id="percentage-chart"></div>
-<script>
-  const data = {
-    labels: ['Direct', 'Search', 'Social', 'Referral'],
-    datasets: [{ name: 'Sessions', values: [400, 300, 200, 100] }],
-  };
-  const chart = new frappe.Chart('#percentage-chart', {
-    data,
-    type: 'percentage',
-    height: 200,
-  });
-
-  // Read as a 100% stacked bar of one column: Up/Down walks the four bands
-  // and then their 100% total, and each is announced as its SHARE (40, 30,
-  // 20, 10) rather than as the session counts above. `axes.z` names what the
-  // bands are; `axes.x` names the share and `axes.y` the whole bar.
-  activateMaidrWhenSettled(document.querySelector('#percentage-chart'), {
-    chartType: 'percentage',
-    title: 'Share of Traffic by Channel',
-    axes: { x: 'Share of sessions (%)', y: 'All traffic', z: 'Channel' },
-  });
-</script>
-```
-
-### Mixed Axis Chart (Bar + Line)
-
-```html
-<div id="mixed-chart"></div>
-<script>
-  const data = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      { name: 'Sales', chartType: 'bar', values: [50, 70, 85, 60, 95, 110] },
-      { name: 'Trend', chartType: 'line', values: [55, 65, 75, 70, 80, 100] },
-    ],
-  };
-  // dotSize > 0 renders the per-point dots MAIDR highlights on the line layer.
-  const chart = new frappe.Chart('#mixed-chart', {
-    data,
-    type: 'axis-mixed',
-    height: 400,
-    lineOptions: { dotSize: 5 },
-  });
-
-  // Emits one layer per dataset; use PageUp / PageDown to switch layers.
-  activateMaidrWhenSettled(document.querySelector('#mixed-chart'), {
-    chartType: 'axis-mixed',
-    title: 'Monthly Sales with Trend Line',
-    axes: { x: 'Month', y: 'Value (units)' },
   });
 </script>
 ```

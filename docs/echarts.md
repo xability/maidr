@@ -177,16 +177,27 @@ Not covered:
 
 ## Supported series types
 
+### Stable chart types
+
 | ECharts `series.type` | Read as | Notes |
 |---|---|---|
 | `bar` | `bar` | One series. `yAxis: {type: 'category'}` makes it horizontal |
 | `bar` ×N sharing a `stack` | `stacked_bar` | Each point carries its series name |
 | `bar` ×N without a `stack` | `dodged_bar` | |
 | `line` | `line` | |
-| `line` + `areaStyle` | `area` [experimental] | The fill is what makes it an area |
 | `line` + `step` | `line` + `stepDirection` | `'start'` → `vh`, `'end'`/`'middle'` → `hv` |
 | `scatter` | `point` | A `symbolSize` reading a third column becomes `ScatterPoint.z`, which is audible |
 | `pictorialBar` | `bar` | A bar drawn with a symbol instead of a rectangle; read as the bar it is |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| ECharts `series.type` | Read as | Notes |
+|---|---|---|
+| `line` + `areaStyle` | `area` [experimental] | The fill is what makes it an area |
+
+### Notes on these chart types
 
 **Every series type the adapter has measured now has a reading.** A type
 outside that set is still refused *by name* rather than mapped onto whichever
@@ -206,7 +217,9 @@ and core gains types between releases. See
 > samples either side stay in their places rather than the series closing over
 > the hole.
 
-## Single-value charts
+## Stable chart types
+
+### Single-value charts
 
 A pie, a funnel and a gauge sit on no grid and own the whole chart, and all
 three report `data.dimensions` as `['value']` with the label on `getName(i)` —
@@ -238,7 +251,7 @@ gauge is read without an outline.
 `getModel()` resolves ECharts' own `0` and `100` when the author wrote
 neither, so the dial the reader is told about is the dial that was drawn.
 
-## Grid-value charts
+### Grid-value charts
 
 A heat grid and a price chart sit on the same cartesian axes the bar family
 uses, and differ from it in the same way: a datum is not one magnitude but a
@@ -301,7 +314,11 @@ scatter it is, and keeps its own highlighting: the boxplot is deliberately
 excluded from the per-datum mark pool, so it cannot spend a slot and shift
 the scatter's selectors onto the wrong elements.
 
-## Hierarchies and graphs [experimental]
+## Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+### Hierarchies and graphs [experimental]
 
 Five more series types own the whole chart rather than sitting on a grid, and
 each maps onto a MAIDR trace that already exists.
@@ -334,7 +351,7 @@ name their two ends, so neither reading emits a node list — a separate one
 would be a second source of truth for something the links already say. Node
 names come from `data.getName(node.dataIndex)`; there is no `node.name`.
 
-### Why only a sunburst is outlined
+#### Why only a sunburst is outlined
 
 Established by giving every node an explicit `itemStyle.color` and reading the
 fills in document order — reading the default palette had suggested otherwise:
@@ -351,7 +368,7 @@ fills in document order — reading the default palette had suggested otherwise:
   There is no per-link element to name, so the cursor and the marks would be
   addressing different things.
 
-## Theme rivers, parallel coordinates and radars [experimental]
+### Theme rivers, parallel coordinates and radars [experimental]
 
 Three more series types own the chart without sitting on the x/y grid, and
 none of them carries a hierarchy or a graph.

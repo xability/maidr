@@ -101,15 +101,36 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | MAIDR Type | Highcharts series type(s) | Example |
 |------------|---------------------------|---------|
 | Bar | `bar`, `column`, `columnpyramid` (requires `highcharts-more.js`), `pictorial` (requires `modules/pictorial.js`) | [highcharts-bar.html](examples/highcharts-bar.html) |
 | Line | `line`, `spline` | [highcharts-line.html](examples/highcharts-line.html) |
 | Step | `line`, `spline` + `step: 'left' \| 'center' \| 'right'` | [highcharts-line.html](examples/highcharts-line.html) |
+| Scatter | `scatter` on numeric axes, `bubble` (requires `highcharts-more.js`) on any axis | [highcharts-scatter.html](examples/highcharts-scatter.html) |
+| Box Plot | `boxplot` | [highcharts-box.html](examples/highcharts-box.html) |
+| Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](examples/highcharts-heatmap.html) |
+| Scatter | `mappoint` (Highmaps — requires `maps/highmaps.js`), placed by `lat`/`lon` | — |
+| Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](examples/highcharts-histogram.html) |
+| Candlestick | `candlestick`, `ohlc`, `hlc` (Highstock) | [highcharts-candlestick.html](examples/highcharts-candlestick.html) |
+| Stacked Bar | `column`/`bar` + `plotOptions.column.stacking: 'normal'` | [highcharts-stacked.html](examples/highcharts-stacked.html) |
+| Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](examples/highcharts-dodged.html) |
+| Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](examples/highcharts-normalized.html) |
+| Pie | `pie` (a doughnut is a `pie` with an `innerSize`), `item` (requires `modules/item-series.js`) | [highcharts-pie.html](examples/highcharts-pie.html) |
+| Smooth | `bellcurve` (requires `modules/histogram-bellcurve.js`) | [highcharts-bellcurve.html](examples/highcharts-bellcurve.html) |
+| Line (Pareto) | `pareto` (requires `modules/pareto.js`) — the cumulative curve over a bar chart | [highcharts-pareto.html](examples/highcharts-pareto.html) |
+| Labelled scatter | `timeline` (requires `modules/timeline.js`) — a row of named events | [highcharts-timeline.html](examples/highcharts-timeline.html) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| MAIDR Type | Highcharts series type(s) | Example |
+|------------|---------------------------|---------|
 | Area [experimental] | `area`, `areaspline` | [highcharts-area.html](examples/highcharts-area.html) |
 | Stacked Area [experimental] | `area`/`areaspline` + `stacking: 'normal'`, `streamgraph` (requires `modules/streamgraph.js`) | [highcharts-area.html](examples/highcharts-area.html) |
 | Normalized Area [experimental] | `area`/`areaspline` + `stacking: 'percent'` | [highcharts-area.html](examples/highcharts-area.html) |
-| Scatter | `scatter` on numeric axes, `bubble` (requires `highcharts-more.js`) on any axis | [highcharts-scatter.html](examples/highcharts-scatter.html) |
 | Dot Plot [experimental] | `scatter` on a category x axis | [highcharts-dot.html](examples/highcharts-dot.html) |
 | Lollipop [experimental] | `lollipop` (requires `highcharts-more.js`, `modules/dumbbell.js` and `modules/lollipop.js`) | [highcharts-lollipop.html](examples/highcharts-lollipop.html) |
 | Funnel [experimental] | `funnel`, `pyramid` (requires `modules/funnel.js`) | [highcharts-funnel.html](examples/highcharts-funnel.html) |
@@ -137,21 +158,11 @@ import { createHighchartsSync, highchartsToMaidr } from 'maidr/highcharts';
 | Manhattan [experimental] | `scatter` series, one per chromosome, declared with `significancePlot: { type: 'manhattan' }` | [highcharts-manhattan.html](examples/highcharts-manhattan.html) |
 | Survival [experimental] | `line`/`spline` declared with `custom.maidr: { type: 'survival' }`, absorbing a linked `scatter` and `arearange` | [highcharts-survival.html](examples/highcharts-survival.html) |
 | Forest [experimental] | the estimate series declared with `custom.maidr: { type: 'forest', … }`, taking its interval from the `errorbar` linked over it | [highcharts-forest.html](examples/highcharts-forest.html) |
-| Box Plot | `boxplot` | [highcharts-box.html](examples/highcharts-box.html) |
-| Heatmap | `heatmap` (requires `modules/heatmap.js`) | [highcharts-heatmap.html](examples/highcharts-heatmap.html) |
 | Choropleth [experimental] | `map` (Highmaps — requires `maps/highmaps.js` and a map topology) | [highcharts-choropleth.html](examples/highcharts-choropleth.html) |
 | Choropleth [experimental] | `mapbubble` (Highmaps — requires `maps/highmaps.js`), sized by `z` | — |
-| Scatter | `mappoint` (Highmaps — requires `maps/highmaps.js`), placed by `lat`/`lon` | — |
-| Histogram | `histogram` (requires `modules/histogram-bellcurve.js`) | [highcharts-histogram.html](examples/highcharts-histogram.html) |
-| Candlestick | `candlestick`, `ohlc`, `hlc` (Highstock) | [highcharts-candlestick.html](examples/highcharts-candlestick.html) |
-| Stacked Bar | `column`/`bar` + `plotOptions.column.stacking: 'normal'` | [highcharts-stacked.html](examples/highcharts-stacked.html) |
-| Dodged (Grouped) Bar | `column`/`bar` (default, no stacking) with multiple series | [highcharts-dodged.html](examples/highcharts-dodged.html) |
-| Normalized Bar | `column`/`bar` + `plotOptions.column.stacking: 'percent'` | [highcharts-normalized.html](examples/highcharts-normalized.html) |
-| Pie | `pie` (a doughnut is a `pie` with an `innerSize`), `item` (requires `modules/item-series.js`) | [highcharts-pie.html](examples/highcharts-pie.html) |
 | Mosaic [experimental] | `variwide` (requires `modules/variwide.js`) | [highcharts-variwide.html](examples/highcharts-variwide.html) |
-| Smooth | `bellcurve` (requires `modules/histogram-bellcurve.js`) | [highcharts-bellcurve.html](examples/highcharts-bellcurve.html) |
-| Line (Pareto) | `pareto` (requires `modules/pareto.js`) — the cumulative curve over a bar chart | [highcharts-pareto.html](examples/highcharts-pareto.html) |
-| Labelled scatter | `timeline` (requires `modules/timeline.js`) — a row of named events | [highcharts-timeline.html](examples/highcharts-timeline.html) |
+
+### Notes on these chart types
 
 > **Pie note:** a pie series is bound to no axis, so `axes.x` and `axes.y` are named `Label` and `Value` rather than read from an axis title. Highcharts renders the wedges in `series.data` order, so slice *k* is wedge *k* and highlighting is index-aligned without any extra configuration. The same holds for funnel and word cloud layers, whose dimensions are named `Stage`/`Count` and `Term`/`Weight`.
 

@@ -204,7 +204,11 @@ were added by it, most of them inside about two weeks, and `rug` (#1132) and
 
 Elsewhere in these docs — the braille guide, the integration guides'
 supported-type tables and the examples gallery — an experimental type is marked
-**[experimental]** after its name; a type with no mark is stable. py-maidr
+**[experimental]** after its name; a type with no mark is stable. Wherever
+they enumerate chart types, the two are also kept apart rather than
+interleaved: the stable part comes first, under its own heading or in its own
+table or list, and the experimental part follows it — the same order as the
+two lists below. py-maidr
 ([Plot Type Stability](https://py.maidr.ai/stability.html)) and maidr for R
 ([Supported plot types](https://r.maidr.ai/#supported-plot-types)) mark their
 own docs the same way.
@@ -443,49 +447,6 @@ The data property is defined as a list of objects where each object is a record 
   // "10th percentile" and "90th percentile" instead of "Minimum" and "Maximum".
   // Omit it, or give [0, 1], when the whisker ends are the minimum and maximum.
   // Each end is read on its own: in [0.05, 1] the upper end stays "Maximum".
-
-  // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
-  // each with a median and a ladder of quantile pairs. A box plot is this
-  // shape with exactly one rung; the point of a boxen is that a larger sample
-  // earns more of them, so the depth varies per distribution and between them.
-  maidr = {
-    "type": "boxen",
-    "data": [
-              {
-                "z": "Group 1",
-                "median": 99.64912548800726,
-                // Ordered outward from the median. `p` is the *tail*
-                // probability, which is how letter-value plots are defined
-                // and how the libraries drawing them report it: p = 0.25 is
-                // the rung spanning the middle half, p = 0.125 the middle
-                // three quarters, and so on. `lo` is the p quantile and `hi`
-                // is the 1 - p quantile.
-                //
-                // Getting this backwards is the easy mistake -- a producer
-                // that sends the *coverage* (0.5, 0.75, 0.875) rather than
-                // the tail will have every rung announced as the wrong
-                // percentile while the values stay right. The trace sorts by
-                // p rather than trusting the order sent, so a ladder built
-                // inward-first still reads correctly.
-                //
-                // 0.5 is out of range rather than a way of naming the median:
-                // it would put two positions labelled "50th percentile"
-                // either side of the one already called "median". Rungs
-                // outside (0, 0.5) are dropped.
-                "levels": [
-                  { "p": 0.0625, "lo": 71.35, "hi": 118.19 },
-                  { "p": 0.125,  "lo": 80.11, "hi": 112.44 },
-                  { "p": 0.25,   "lo": 92.62, "hi": 107.67 }
-                ],
-                // Whatever fell beyond the deepest rung. Optional; a ladder
-                // drawn to full depth has none.
-                "lowerOutliers": [40.0, 50.0],
-                "upperOutliers": [150.0, 160.0]
-              }
-            ],
-
-            "orientation": "vert" // horz when the distributions run across the page
-  }
 
   //candlestick
   maidr = {
@@ -726,64 +687,6 @@ The data property is defined as a list of objects where each object is a record 
      ],
    };
 
-   // roc [experimental]: a receiver operating characteristic curve, one array of operating
-   // points per classifier. `x` is the false positive rate and `y` the true
-   // positive rate, both fractions of one; `threshold` is the decision
-   // threshold the point was scored at, and `z` names the curve as it names
-   // a line. `auc` is the area the producer computed, read from the first
-   // point of the curve that carries one; when no point does, the area is the
-   // trapezoid rule over the curve's own points, which is what
-   // `sklearn.metrics.auc` and `pROC::auc` compute. The points may be listed
-   // in either order.
-   //
-   // The pitch is the true positive rate on the unit interval for every
-   // curve, so two classifiers are comparable by ear; the pan follows the
-   // false positive rate. Each point announces its threshold and how far it
-   // sits above (or below) the chance diagonal, and the description gives
-   // the area under each curve and the best operating point.
-   maidr = {
-     type: 'roc',
-     axes: { x: { label: 'False positive rate' }, y: { label: 'True positive rate' } },
-     data: [
-       [
-         { "x": 0, "y": 0, "threshold": 1, "z": "Logistic", "auc": 0.896 },
-         { "x": 0.1, "y": 0.75, "threshold": 0.6, "z": "Logistic" },
-         { "x": 1, "y": 1, "threshold": 0, "z": "Logistic" }
-       ],
-       [
-         { "x": 0, "y": 0, "threshold": 1, "z": "Random forest" },
-         { "x": 0.25, "y": 0.6, "threshold": 0.5, "z": "Random forest" },
-         { "x": 1, "y": 1, "threshold": 0, "z": "Random forest" }
-       ]
-     ],
-   };
-
-   // rug [experimental]: observations marked as ticks along one axis. One position per
-   // observation and nothing else -- the chart is drawn to show where the
-   // observations fall and where they bunch up. `x` for a vertical rug (the
-   // ticks stand on the x axis, the default), `y` for a horizontal one
-   // (`orientation: 'horz'`); the trace reads the field the orientation
-   // names and ignores the other, so a producer that already emits a rug as
-   // a `point` layer with a constant on the other axis switches by changing
-   // `type`. Listed in any order: the observations are walked from the
-   // lowest position up, and a flat selector pairs elements in this order.
-   //
-   // The pitch and the stereo pan follow the position on the axis, read
-   // against `axes.x.min` / `max` when they cover the data and the data's
-   // own span otherwise. The braille is the observation count per bin along
-   // the axis: `tickStep` sets the bin width when declared, so the strip
-   // lines up with the ticks the chart draws, and the axis is cut into
-   // `ceil(sqrt(n))` equal bins when it is not.
-   maidr = {
-     type: 'rug',
-     axes: { x: { label: 'Seconds', min: 0, max: 10, tickStep: 2.5 } },
-     data: [
-       { "x": 2.2 },
-       { "x": 1.5 },
-       { "x": 9.4 }
-     ],
-   };
-
    // smooth line maidr.data: an object containing x and y properties, each with an array of float values
    // note that data is an array here as scatterplots are often combine with line plots
    maidr = {
@@ -846,6 +749,109 @@ The data property is defined as a list of objects where each object is a record 
               ]
             ]
    }
+
+   // --- Experimental types ---
+
+  // boxen (letter-value) [experimental] maidr.data structure: one object per distribution,
+  // each with a median and a ladder of quantile pairs. A box plot is this
+  // shape with exactly one rung; the point of a boxen is that a larger sample
+  // earns more of them, so the depth varies per distribution and between them.
+  maidr = {
+    "type": "boxen",
+    "data": [
+              {
+                "z": "Group 1",
+                "median": 99.64912548800726,
+                // Ordered outward from the median. `p` is the *tail*
+                // probability, which is how letter-value plots are defined
+                // and how the libraries drawing them report it: p = 0.25 is
+                // the rung spanning the middle half, p = 0.125 the middle
+                // three quarters, and so on. `lo` is the p quantile and `hi`
+                // is the 1 - p quantile.
+                //
+                // Getting this backwards is the easy mistake -- a producer
+                // that sends the *coverage* (0.5, 0.75, 0.875) rather than
+                // the tail will have every rung announced as the wrong
+                // percentile while the values stay right. The trace sorts by
+                // p rather than trusting the order sent, so a ladder built
+                // inward-first still reads correctly.
+                //
+                // 0.5 is out of range rather than a way of naming the median:
+                // it would put two positions labelled "50th percentile"
+                // either side of the one already called "median". Rungs
+                // outside (0, 0.5) are dropped.
+                "levels": [
+                  { "p": 0.0625, "lo": 71.35, "hi": 118.19 },
+                  { "p": 0.125,  "lo": 80.11, "hi": 112.44 },
+                  { "p": 0.25,   "lo": 92.62, "hi": 107.67 }
+                ],
+                // Whatever fell beyond the deepest rung. Optional; a ladder
+                // drawn to full depth has none.
+                "lowerOutliers": [40.0, 50.0],
+                "upperOutliers": [150.0, 160.0]
+              }
+            ],
+
+            "orientation": "vert" // horz when the distributions run across the page
+  }
+
+   // roc [experimental]: a receiver operating characteristic curve, one array of operating
+   // points per classifier. `x` is the false positive rate and `y` the true
+   // positive rate, both fractions of one; `threshold` is the decision
+   // threshold the point was scored at, and `z` names the curve as it names
+   // a line. `auc` is the area the producer computed, read from the first
+   // point of the curve that carries one; when no point does, the area is the
+   // trapezoid rule over the curve's own points, which is what
+   // `sklearn.metrics.auc` and `pROC::auc` compute. The points may be listed
+   // in either order.
+   //
+   // The pitch is the true positive rate on the unit interval for every
+   // curve, so two classifiers are comparable by ear; the pan follows the
+   // false positive rate. Each point announces its threshold and how far it
+   // sits above (or below) the chance diagonal, and the description gives
+   // the area under each curve and the best operating point.
+   maidr = {
+     type: 'roc',
+     axes: { x: { label: 'False positive rate' }, y: { label: 'True positive rate' } },
+     data: [
+       [
+         { "x": 0, "y": 0, "threshold": 1, "z": "Logistic", "auc": 0.896 },
+         { "x": 0.1, "y": 0.75, "threshold": 0.6, "z": "Logistic" },
+         { "x": 1, "y": 1, "threshold": 0, "z": "Logistic" }
+       ],
+       [
+         { "x": 0, "y": 0, "threshold": 1, "z": "Random forest" },
+         { "x": 0.25, "y": 0.6, "threshold": 0.5, "z": "Random forest" },
+         { "x": 1, "y": 1, "threshold": 0, "z": "Random forest" }
+       ]
+     ],
+   };
+
+   // rug [experimental]: observations marked as ticks along one axis. One position per
+   // observation and nothing else -- the chart is drawn to show where the
+   // observations fall and where they bunch up. `x` for a vertical rug (the
+   // ticks stand on the x axis, the default), `y` for a horizontal one
+   // (`orientation: 'horz'`); the trace reads the field the orientation
+   // names and ignores the other, so a producer that already emits a rug as
+   // a `point` layer with a constant on the other axis switches by changing
+   // `type`. Listed in any order: the observations are walked from the
+   // lowest position up, and a flat selector pairs elements in this order.
+   //
+   // The pitch and the stereo pan follow the position on the axis, read
+   // against `axes.x.min` / `max` when they cover the data and the data's
+   // own span otherwise. The braille is the observation count per bin along
+   // the axis: `tickStep` sets the bin width when declared, so the strip
+   // lines up with the ticks the chart draws, and the axis is cut into
+   // `ceil(sqrt(n))` equal bins when it is not.
+   maidr = {
+     type: 'rug',
+     axes: { x: { label: 'Seconds', min: 0, max: 10, tickStep: 2.5 } },
+     data: [
+       { "x": 2.2 },
+       { "x": 1.5 },
+       { "x": 9.4 }
+     ],
+   };
 
 ```
 

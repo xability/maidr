@@ -64,23 +64,32 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | MAIDR Type | AnyChart Series / Chart | Example |
 |-----------|----------------|---------|
 | Bar | `bar`, `column` | [Bar chart](examples.html) |
 | Horizontal bar | any of the above inside `anychart.bar()` — see below | [Bar chart](examples.html) |
 | Line | `line`, `spline` | [Line chart](examples.html) |
-| Area [experimental] | `area`, `spline-area` | [Area chart](examples.html) |
-| Stacked / Normalized Area [experimental] | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
 | Step | `step-line`, `step-area` | [Step plot](examples.html) |
 | Scatter | `scatter`, `marker`, `bubble` | [Scatter plot](examples.html) |
-| Dot Plot [experimental] | `marker`, on a chart whose x scale is ordinal | [Dot plot](examples.html) |
-| Lollipop [experimental] | `stick` | [Lollipop chart](examples.html) |
-| Dumbbell [experimental] | `range-column`, `range-bar` | [Dumbbell chart](examples.html) |
-| Diverging Bar [experimental] | two or more `bar` / `column` series, with `diverging: true` | [Diverging bars](examples.html) |
 | Box Plot | `box` | [Box plot](examples.html) |
 | Heatmap | `heatmap`, `heat` | [Heatmap](examples.html) |
 | Candlestick | `candlestick`, `ohlc` | [Candlestick](examples.html) |
 | Pie | `pie` (a doughnut is a pie with `innerRadius()`) | [Pie chart](examples.html) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| MAIDR Type | AnyChart Series / Chart | Example |
+|-----------|----------------|---------|
+| Area [experimental] | `area`, `spline-area` | [Area chart](examples.html) |
+| Stacked / Normalized Area [experimental] | the same, with `yScale().stackMode('value' \| 'percent')` | [Area chart](examples.html) |
+| Dot Plot [experimental] | `marker`, on a chart whose x scale is ordinal | [Dot plot](examples.html) |
+| Lollipop [experimental] | `stick` | [Lollipop chart](examples.html) |
+| Dumbbell [experimental] | `range-column`, `range-bar` | [Dumbbell chart](examples.html) |
+| Diverging Bar [experimental] | two or more `bar` / `column` series, with `diverging: true` | [Diverging bars](examples.html) |
 | Funnel [experimental] | `anychart.funnel()`, `anychart.pyramid()` | [Funnel chart](examples.html) |
 | Word Cloud [experimental] | `anychart.tagCloud()` | [Tag cloud](examples.html) |
 | Sankey [experimental] | `anychart.sankey()` | [Sankey diagram](examples.html) |
@@ -93,9 +102,9 @@ AnyChart must be loaded separately — the adapter does not bundle the AnyChart 
 | Sunburst [experimental] | `anychart.sunburst()` | [Sunburst chart](examples.html) |
 | Pack [experimental] | `anychart.circlePacking()` | [Circle packing](examples.html) |
 
-`step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
+### Notes on chart-type detection
 
-**Notes on chart-type detection:**
+`step-area` is the one series that still loses its fill: MAIDR has no stepped area trace, so it keeps its staircase and maps to a step trace. A console warning is emitted when that downgrade occurs.
 
 - **Step** series (`step-line`, `step-area`) are piecewise constant — the value is held and then jumps — so they map to MAIDR's step trace rather than to a line, and are announced and navigated as step plots. AnyChart does not expose which step convention a series was drawn with, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 

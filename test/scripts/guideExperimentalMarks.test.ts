@@ -22,6 +22,17 @@ import { declarableTypes, SCHEMA, typesInBackticks } from './schemaTypes';
  * heading the maps do not know fails, so a new one is classified on purpose
  * rather than left unmarked by omission. A row that covers no single type
  * (subplots, a mark absorbed into another) maps to `[]` and carries no mark.
+ *
+ * The two tiers are also kept apart rather than interleaved. The table is
+ * split into a `Stable chart types` table followed by an `Experimental chart
+ * types` one, each under its own heading one level below the table's; and where
+ * the example sections include an experimental type, they are grouped the same
+ * way under two headings at their own level, the stable group first. A marked
+ * row or heading in the stable part, or an unmarked one in the experimental
+ * part, fails; so does a typed example section left outside the two groups. A
+ * guide that marks nothing may keep one table and one ungrouped run of
+ * examples, and a mark appearing there fails too, so the split cannot be
+ * skipped by omission.
  */
 
 const MARK = ' [experimental]';
@@ -132,9 +143,16 @@ interface Guide {
   heading: string;
   /** The table column naming the chart, and carrying the mark. */
   column: number;
-  /** The fewest body rows the table has, so a truncated one cannot pass. */
-  minRows: number;
-  /** Where the example headings are, and at which level. */
+  /**
+   * The fewest body rows each table has, so a truncated one cannot pass. A
+   * guide listing no experimental type has one table and `experimental: 0`.
+   */
+  minRows: { stable: number; experimental: number };
+  /**
+   * Where the example headings are, and the level of the two grouping
+   * headings; the grouped examples sit one level below. A guide with no
+   * experimental example keeps them ungrouped at this level.
+   */
   examples: { after: string; before: string; level: '##' | '###'; min: number };
   /** Labels this guide means differently, or alone uses. */
   labels: Record<string, string[]>;
@@ -144,7 +162,7 @@ const GUIDES: Record<string, Guide> = {
   'plotly': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 35,
+    minRows: { stable: 13, experimental: 22 },
     examples: { after: '## Code Examples', before: '## Dynamic Charts', level: '###', min: 15 },
     labels: {
       'gauge / bullet': ['gauge'],
@@ -162,7 +180,7 @@ const GUIDES: Record<string, Guide> = {
   'd3': {
     heading: '## Supported Chart Types',
     column: 1,
-    minRows: 43,
+    minRows: { stable: 11, experimental: 32 },
     examples: { after: '## Data Examples by Chart Type', before: '## TypeScript Types', level: '###', min: 35 },
     labels: {
       'cleveland dot plot': ['dot'],
@@ -206,7 +224,7 @@ const GUIDES: Record<string, Guide> = {
   'chartjs': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 34,
+    minRows: { stable: 10, experimental: 24 },
     examples: { after: '## Code Examples', before: '## Multi-Panel Charts (Axis Stacking)', level: '###', min: 14 },
     labels: {
       'gantt / range bar': ['gantt'],
@@ -218,7 +236,7 @@ const GUIDES: Record<string, Guide> = {
   'highcharts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 49,
+    minRows: { stable: 16, experimental: 33 },
     examples: { after: '## Code Examples', before: '## Advanced Usage', level: '###', min: 11 },
     labels: {
       // `pareto` is the cumulative line over a bar chart.
@@ -231,7 +249,7 @@ const GUIDES: Record<string, Guide> = {
   'apexcharts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 22,
+    minRows: { stable: 14, experimental: 8 },
     examples: { after: '## Code Examples', before: '## Limitations', level: '###', min: 23 },
     labels: {
       '100% stacked bar': ['stacked_normalized_bar'],
@@ -252,7 +270,7 @@ const GUIDES: Record<string, Guide> = {
   'echarts': {
     heading: '## Supported series types',
     column: 1,
-    minRows: 8,
+    minRows: { stable: 7, experimental: 1 },
     examples: { after: '## Supported series types', before: '## Highlighting', level: '##', min: 4 },
     labels: {
       'point': ['point'],
@@ -269,7 +287,7 @@ const GUIDES: Record<string, Guide> = {
   'vegalite': {
     heading: '## Supported Chart Types',
     column: 2,
-    minRows: 26,
+    minRows: { stable: 14, experimental: 12 },
     examples: {
       after: '## Code Examples',
       before: '## Multi-panel charts (facet, repeat, concat)',
@@ -295,7 +313,7 @@ const GUIDES: Record<string, Guide> = {
   'observable': {
     heading: '## What it reads',
     column: 1,
-    minRows: 25,
+    minRows: { stable: 17, experimental: 8 },
     examples: { after: '## What it reads', before: '## What it does not read', level: '##', min: 11 },
     labels: {
       '100% stacked bar': ['stacked_normalized_bar'],
@@ -323,7 +341,7 @@ const GUIDES: Record<string, Guide> = {
   'amcharts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 41,
+    minRows: { stable: 10, experimental: 31 },
     examples: { after: '## Code Examples', before: '## Keyboard Controls', level: '###', min: 20 },
     labels: {
       'funnel / pyramid': ['funnel'],
@@ -352,7 +370,7 @@ const GUIDES: Record<string, Guide> = {
   'anychart': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 26,
+    minRows: { stable: 9, experimental: 17 },
     examples: { after: '## Code Examples', before: '## Binder Options', level: '###', min: 7 },
     labels: {
       'stacked / normalized area': ['stacked_area', 'stacked_normalized_area'],
@@ -361,7 +379,7 @@ const GUIDES: Record<string, Guide> = {
   'google-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 33,
+    minRows: { stable: 9, experimental: 24 },
     examples: {
       after: '## Code Examples',
       before: '## Multi-Panel (Faceted) Figures',
@@ -386,7 +404,7 @@ const GUIDES: Record<string, Guide> = {
   'lightweight-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 6,
+    minRows: { stable: 6, experimental: 0 },
     examples: { after: '## Code Examples', before: '## Options', level: '###', min: 7 },
     labels: {
       // Named by the Lightweight Charts series type, read as the MAIDR layer.
@@ -400,7 +418,7 @@ const GUIDES: Record<string, Guide> = {
   'frappe': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 12,
+    minRows: { stable: 8, experimental: 4 },
     examples: { after: '## Code Examples', before: '## Multi-Panel Figures', level: '###', min: 10 },
     labels: {
       'bump (rank over time)': ['bump'],
@@ -416,7 +434,7 @@ const GUIDES: Record<string, Guide> = {
   'uplot': {
     heading: '## Supported Series',
     column: 0,
-    minRows: 6,
+    minRows: { stable: 6, experimental: 0 },
     examples: { after: '## Code Examples', before: '## Labels', level: '###', min: 3 },
     labels: {
       // Stepped and spline builders are read as plain `line` rows.
@@ -428,14 +446,14 @@ const GUIDES: Record<string, Guide> = {
   'mui-x-charts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 12,
+    minRows: { stable: 9, experimental: 3 },
     examples: { after: '## Data Examples by Chart Type', before: '## Using the Hook', level: '###', min: 9 },
     labels: {},
   },
   'recharts': {
     heading: '## Supported Chart Types',
     column: 0,
-    minRows: 37,
+    minRows: { stable: 9, experimental: 28 },
     examples: {
       after: '## Data Examples by Chart Type',
       before: '## Multi-Panel (Faceted) Charts',
@@ -471,13 +489,24 @@ const GUIDES: Record<string, Guide> = {
   },
 };
 
+/**
+ * Which part of a list an entry sits in: one of the two tiers, the single
+ * table or ungrouped run of a guide that has not split them, or (for example
+ * sections) after the two groups, where only sections covering no type belong.
+ */
+type Tier = 'stable' | 'experimental' | 'unsplit' | 'outside';
+
 /** One labelled thing in a guide that may carry the mark. */
 interface Entry {
   guide: string;
   where: 'table' | 'heading';
   /** The text as written, mark included. */
   text: string;
+  tier: Tier;
 }
+
+const STABLE = 'Stable chart types';
+const EXPERIMENTAL = 'Experimental chart types';
 
 function read(guide: string): string {
   return readFileSync(resolve(__dirname, `../../docs/${guide}.md`), 'utf8');
@@ -488,15 +517,10 @@ function cells(row: string): string[] {
   return row.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map(cell => cell.trim());
 }
 
-/** The label cell of each body row of the first table under the guide's heading. */
-function tableLabels(guide: string): string[] {
-  const { heading, column } = GUIDES[guide];
-  const lines = read(guide).split('\n');
-  const start = lines.indexOf(heading);
-  if (start < 0)
-    return [];
-  const first = lines.findIndex((line, i) => i > start && line.startsWith('|'));
-  if (first < 0)
+/** The label cell of each body row of the first table between `from` and `until`. */
+function tableAt(lines: string[], from: number, column: number, until = lines.length): string[] {
+  const first = lines.findIndex((line, i) => i > from && line.startsWith('|'));
+  if (first < 0 || first >= until)
     return [];
   const rows: string[] = [];
   for (let i = first + 2; i < lines.length && lines[i].startsWith('|'); i++)
@@ -504,24 +528,73 @@ function tableLabels(guide: string): string[] {
   return rows;
 }
 
-/** The example headings, without their `#`s. */
-function exampleHeadings(guide: string): string[] {
+/**
+ * The supported-types table's rows, by tier, or `undefined` when the guide's
+ * heading is missing or its two tier headings are not both there in order.
+ */
+function tableEntries(guide: string): { text: string; tier: Tier }[] | undefined {
+  const { heading, column } = GUIDES[guide];
+  const lines = read(guide).split('\n');
+  const start = lines.indexOf(heading);
+  if (start < 0)
+    return undefined;
+  const level = heading.split(' ')[0];
+  const end = lines.findIndex((line, i) => i > start && new RegExp(`^#{1,${level.length}} `).test(line));
+  const section = end < 0 ? lines.length : end;
+  const find = (title: string): number => lines.findIndex((line, i) => i > start && i < section && line === `${level}# ${title}`);
+  const stable = find(STABLE);
+  const experimental = find(EXPERIMENTAL);
+  if (stable < 0 && experimental < 0)
+    return tableAt(lines, start, column).map(text => ({ text, tier: 'unsplit' }));
+  if (stable < 0 || experimental < stable)
+    return undefined;
+  return [
+    ...tableAt(lines, stable, column, experimental).map(text => ({ text, tier: 'stable' as const })),
+    ...tableAt(lines, experimental, column, section).map(text => ({ text, tier: 'experimental' as const })),
+  ];
+}
+
+/**
+ * The example headings, without their `#`s, by tier, or `undefined` when the
+ * section is missing or its two grouping headings are not both there in order.
+ */
+function exampleEntries(guide: string): { text: string; tier: Tier }[] | undefined {
   const { after, before, level } = GUIDES[guide].examples;
   const lines = read(guide).split('\n');
   const start = lines.indexOf(after);
   const end = lines.indexOf(before);
   if (start < 0 || end < start)
+    return undefined;
+  const region = lines.slice(start + 1, end);
+  const stable = region.indexOf(`${level} ${STABLE}`);
+  const experimental = region.indexOf(`${level} ${EXPERIMENTAL}`);
+  if (stable < 0 && experimental < 0) {
+    return region
+      .filter(line => line.startsWith(`${level} `))
+      .map(line => ({ text: line.slice(level.length + 1), tier: 'unsplit' }));
+  }
+  if (stable < 0 || experimental < stable)
+    return undefined;
+  const inner = `${level}# `;
+  // The experimental group runs to the next heading at the grouping level.
+  // Any other heading at that level is outside both groups, wherever it is.
+  const close = region.findIndex((line, i) => i > experimental && line.startsWith(`${level} `));
+  const groupEnd = close < 0 ? region.length : close;
+  return region.flatMap((line, i): { text: string; tier: Tier }[] => {
+    if (i > stable && i < experimental && line.startsWith(inner))
+      return [{ text: line.slice(inner.length), tier: 'stable' }];
+    if (i > experimental && i < groupEnd && line.startsWith(inner))
+      return [{ text: line.slice(inner.length), tier: 'experimental' }];
+    if (i !== stable && i !== experimental && line.startsWith(`${level} `))
+      return [{ text: line.slice(level.length + 1), tier: 'outside' }];
     return [];
-  return lines
-    .slice(start + 1, end)
-    .filter(line => line.startsWith(`${level} `))
-    .map(line => line.slice(level.length + 1));
+  });
 }
 
 function entries(): Entry[] {
   return Object.keys(GUIDES).flatMap(guide => [
-    ...tableLabels(guide).map(text => ({ guide, where: 'table' as const, text })),
-    ...exampleHeadings(guide).map(text => ({ guide, where: 'heading' as const, text })),
+    ...(tableEntries(guide) ?? []).map(entry => ({ guide, where: 'table' as const, ...entry })),
+    ...(exampleEntries(guide) ?? []).map(entry => ({ guide, where: 'heading' as const, ...entry })),
   ]);
 }
 
@@ -549,15 +622,43 @@ function experimentalTypes(): Set<string> {
 
 describe('integration guides\' experimental marks', () => {
   test.each(Object.keys(GUIDES))('finds the whole supported-types table in docs/%s.md', (guide) => {
-    const rows = tableLabels(guide);
+    const rows = tableEntries(guide);
+    const { stable, experimental } = GUIDES[guide].minRows;
 
-    expect(rows.length).toBeGreaterThanOrEqual(GUIDES[guide].minRows);
+    expect(rows).toBeDefined();
+    const count = (tier: Tier): number => (rows ?? []).filter(row => row.tier === tier).length;
+    if (experimental === 0) {
+      expect(count('unsplit')).toBeGreaterThanOrEqual(stable);
+    } else {
+      expect(count('stable')).toBeGreaterThanOrEqual(stable);
+      expect(count('experimental')).toBeGreaterThanOrEqual(experimental);
+    }
   });
 
   test.each(Object.keys(GUIDES))('finds the example headings in docs/%s.md', (guide) => {
-    const headings = exampleHeadings(guide);
+    const headings = exampleEntries(guide);
 
-    expect(headings.length).toBeGreaterThanOrEqual(GUIDES[guide].examples.min);
+    expect(headings).toBeDefined();
+    expect((headings ?? []).length).toBeGreaterThanOrEqual(GUIDES[guide].examples.min);
+  });
+
+  test('lists stable types first and experimental ones after, each in its own part', () => {
+    // An experimental entry anywhere but the experimental part -- or a stable
+    // one inside it -- is the interleaving the split exists to prevent. An
+    // unsplit list may hold only stable entries.
+    const misplaced = entries()
+      .filter(entry => entry.text.endsWith(MARK) !== (entry.tier === 'experimental'))
+      .map(entry => `${describeEntry(entry)} (${entry.tier})`);
+
+    expect(misplaced).toEqual([]);
+  });
+
+  test('leaves only sections that cover no type outside the two example groups', () => {
+    const stray = entries()
+      .filter(entry => entry.tier === 'outside' && (typesOf(entry) ?? []).length > 0)
+      .map(describeEntry);
+
+    expect(stray).toEqual([]);
   });
 
   test('knows which types every row and example heading covers', () => {
