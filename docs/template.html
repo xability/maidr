@@ -686,6 +686,9 @@
         if (index < 0) index = menuItems.length - 1;
         if (index >= menuItems.length) index = 0;
         menuItems[index].focus();
+        // Focus alone is not enough: Firefox leaves an item that is already
+        // partly in view where it is, cut off at the edge of the menu.
+        menuItems[index].scrollIntoView({ block: 'nearest' });
       }
 
       // Toggle on click
@@ -695,7 +698,7 @@
           closeMenu(true);
         } else {
           openMenu();
-          menuItems[0].focus();
+          focusMenuItem(0);
         }
       });
 
@@ -707,12 +710,12 @@
           case 'ArrowDown':
             e.preventDefault();
             openMenu();
-            menuItems[0].focus();
+            focusMenuItem(0);
             break;
           case 'ArrowUp':
             e.preventDefault();
             openMenu();
-            menuItems[menuItems.length - 1].focus();
+            focusMenuItem(menuItems.length - 1);
             break;
           case 'Escape':
             if (isOpen) {
