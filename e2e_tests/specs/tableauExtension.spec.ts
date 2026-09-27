@@ -1,4 +1,4 @@
-import type { FrameLocator, Page } from '@playwright/test';
+import type { FrameLocator, Locator, Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -39,16 +39,46 @@ async function openDashboard(page: Page): Promise<void> {
   await expect(zone(page).locator('body')).toHaveAttribute('data-bound', 'yes');
 }
 
+/** Whatever inside the zone's frame is MAIDR's and holds the focus. */
+function focusedInFigure(page: Page): Locator {
+  return zone(page).locator('[data-maidr-tableau] :focus, [data-maidr-tableau]:focus');
+}
+
 /**
- * Tab from the content before the zone into MAIDR, and wait for the focus-in
- * instruction: an arrow pressed before it lands is pressed before the
- * controller exists.
+ * Tab from the content before the zone until focus is on MAIDR's entry point,
+ * failing if anything else in the frame takes it first.
+ *
+ * Firefox gives the frame itself a tab stop before its first element, so a
+ * reader there presses Tab twice; Chromium and WebKit go straight in. That
+ * stop is the browser's, and the extension's page cannot remove it, so it is
+ * allowed here -- once, and only while no element in the frame has focus.
+ *
+ * @param page - The page.
+ */
+async function tabToEntryPoint(page: Page): Promise<void> {
+  await page.focus('#before');
+  for (let press = 0; press < 2; press++) {
+    await page.keyboard.press('Tab');
+    const inFigure = await expect(focusedInFigure(page)).toHaveCount(1, { timeout: 1000 }).then(() => true, () => false);
+    if (inFigure) {
+      return;
+    }
+    const onFrameItself = await page.frame({ url: /extension\.html$/ })?.evaluate(
+      () => document.activeElement === null || document.activeElement === document.body,
+    );
+    expect(onFrameItself, 'focus went to something in the zone before MAIDR').toBe(true);
+  }
+  await expect(focusedInFigure(page)).toHaveCount(1);
+}
+
+/**
+ * Tab into MAIDR and wait for the focus-in instruction: an arrow pressed
+ * before it lands is pressed before the controller exists.
  *
  * @param page - The page.
  */
 async function tabIntoFigure(page: Page): Promise<void> {
-  await page.focus('#before');
-  await page.keyboard.press('Tab');
+  await tabToEntryPoint(page);
   await expect(zone(page).locator('[data-maidr-tableau]')).toContainText('maidr plot');
 }
 
@@ -75,12 +105,8 @@ test.describe('Tableau dashboard extension in its zone', () => {
 
   test('Tab from the content before the zone lands on MAIDR\'s entry point', async ({ page }) => {
     await openDashboard(page);
-    await page.focus('#before');
 
-    await page.keyboard.press('Tab');
-
-    const focused = zone(page).locator('[data-maidr-tableau] :focus, [data-maidr-tableau]:focus');
-    await expect(focused).toHaveCount(1);
+    await tabToEntryPoint(page);
   });
 
   test('arrow keys are handled inside the zone, and never reach the dashboard', async ({ page }) => {
