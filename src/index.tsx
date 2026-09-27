@@ -131,11 +131,39 @@ function parseAndInit(
   }
 }
 
+/**
+ * The chart data a page assigned to `window.maidr`, or `null` when there is none.
+ *
+ * `window.maidr` is not only written by pages: browsers expose any element with
+ * `id="maidr"` (or a named form, image or iframe) as a global of that name, so
+ * an ordinary `<main id="maidr">` puts a DOM element there. Reading that as
+ * chart data used to throw during start-up and take every chart on the page
+ * down with it. Only an object with a `subplots` array is treated as data; an
+ * element or a collection of them is skipped quietly, since the page did
+ * nothing wrong, and anything else is skipped with a warning.
+ *
+ * @returns The data, or `null`.
+ */
+function legacyMaidrData(): Maidr | null {
+  const value: unknown = window.maidr;
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === 'object' && Array.isArray((value as { subplots?: unknown }).subplots)) {
+    return value as Maidr;
+  }
+  if (!(value instanceof Element) && !(value instanceof HTMLCollection)) {
+    console.warn('[maidr] window.maidr is set but is not MAIDR chart data (it has no subplots array); ignoring it.');
+  }
+  return null;
+}
+
 function main(): void {
   const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
     Constant.MAIDR_JSON_SELECTOR,
   );
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
+  const legacy = legacyMaidrData();
 
   if (plotsWithMaidr.length > 0) {
     plotsWithMaidr.forEach((plot) => {
@@ -151,16 +179,15 @@ function main(): void {
         parseAndInit(plot, maidrData, 'maidr-data');
       }
     });
-  } else if (window.maidr) {
+  } else if (legacy !== null) {
     // Fall back to window.maidr if no attribute found.
     // TODO: Need to be removed along with `window.d.ts`,
     //  once attribute method is migrated.
-    const maidr = window.maidr;
-    const plot = document.getElementById(maidr.id);
+    const plot = document.getElementById(legacy.id);
     if (plot) {
-      initMaidrOnElement(maidr, plot);
+      initMaidrOnElement(legacy, plot);
     } else {
-      console.error('Plot not found for maidr:', maidr.id);
+      console.error('Plot not found for maidr:', legacy.id);
     }
   } else {
     // Auto-detect plotly.js charts without any maidr attributes.
