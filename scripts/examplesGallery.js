@@ -864,6 +864,37 @@ function renderItem(item) {
   return `    <li><a href="${attr(href)}" onclick="${attr(onclick)}; return false;">${item.label}</a></li>`;
 }
 
+/** One `<ul>` of entries. */
+function renderList(items) {
+  return ['  <ul>', items.map(renderItem).join('\n'), '  </ul>'].join('\n');
+}
+
+/**
+ * A group's entries: stable charts first, then experimental ones, each under
+ * its own `<h4>` -- the same Stable-then-Experimental split the docs use
+ * wherever they enumerate chart types (see "Trace type stability" in
+ * `docs/SCHEMA.md`).
+ *
+ * The sub-headings appear only in a group that has at least one experimental
+ * entry. A group with none keeps a single unheaded list, because a lone
+ * "Stable charts" heading over every entry says nothing the missing marks do
+ * not. A sub-heading whose list would be empty is skipped. Hand-written
+ * entries that are not pages (the bundled React example and the like) carry
+ * no `experimental` flag and count as stable.
+ */
+function renderEntries(items) {
+  const stable = items.filter(item => item.experimental !== true);
+  const experimental = items.filter(item => item.experimental === true);
+  if (experimental.length === 0) {
+    return renderList(stable);
+  }
+  return [
+    ...(stable.length > 0 ? ['  <h4>Stable charts</h4>', renderList(stable)] : []),
+    '  <h4>Experimental charts</h4>',
+    renderList(experimental),
+  ].join('\n');
+}
+
 /** The gallery's markup, for `scripts/build-site.js` to drop into the page. */
 export function renderGallery(sections) {
   return sections
@@ -873,9 +904,7 @@ export function renderGallery(sections) {
       const note = section.note ? `\n  <p>${section.note}</p>` : '';
       return [
         `  <h3${id}>${section.heading}</h3>`,
-        '  <ul>',
-        section.items.map(renderItem).join('\n'),
-        '  </ul>',
+        renderEntries(section.items),
       ].join('\n') + note;
     })
     .join('\n\n');

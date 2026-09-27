@@ -102,6 +102,8 @@ A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time 
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | amCharts 5 series | Detection signal |
 |-----------|-------------------|------------------|
 | Bar / Column | `ColumnSeries` (single) | category axis + value axis |
@@ -109,13 +111,21 @@ A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time 
 | Stacked Bar | multiple `ColumnSeries` | `stacked: true` |
 | 100% Stacked (Normalized) | multiple `ColumnSeries` | `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Line (single & multi-series) | `LineSeries` | line series class, no visible fill |
-| Area [experimental] | `LineSeries` | visible `fills` template |
-| Stacked Area [experimental] | multiple `LineSeries` | visible fills + `stacked: true` |
-| 100% Stacked Area [experimental] | multiple `LineSeries` | visible fills + `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Step (single & multi-series) | `StepLineSeries` | step-line series class |
 | Histogram | `ColumnSeries` | value X axis + `openValueXField` bin edges |
 | Heatmap | `ColumnSeries` | category X **and** category Y axes + `value` field |
 | Pie / Doughnut | `am5percent.PieSeries` | series class (requires `percent.js`) |
+| Scatter | the same | **declared** — `{ type: "point" }` |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | amCharts 5 series | Detection signal |
+|-----------|-------------------|------------------|
+| Area [experimental] | `LineSeries` | visible `fills` template |
+| Stacked Area [experimental] | multiple `LineSeries` | visible fills + `stacked: true` |
+| 100% Stacked Area [experimental] | multiple `LineSeries` | visible fills + `stacked: true` + `valueYShow: "valueYTotalPercent"` |
 | Funnel / Pyramid [experimental] | `am5percent.FunnelSeries`, `PyramidSeries`, `PictorialStackedSeries` | series class (requires `percent.js`) |
 | Radar / Spider [experimental] | `am5radar.RadarLineSeries` | series class (requires `radar.js`) |
 | Polar Area / Coxcomb [experimental] | `am5radar.RadarColumnSeries` | series class (requires `radar.js`) |
@@ -142,9 +152,10 @@ A sankey, alluvial, chord or network layer is outlined one **ribbon** at a time 
 | Forest (meta-analysis) [experimental] | horizontal `openValueXField` columns plus estimate marks | **declared** — `{ type: "forest" }` |
 | Volcano [experimental] | hidden-stroke `LineSeries` with bullets, two value axes | **declared** — `{ type: "volcano" }` |
 | Manhattan [experimental] | the same, one series per chromosome | **declared** — `{ type: "manhattan" }` |
-| Scatter | the same | **declared** — `{ type: "point" }` |
 | Alluvial [experimental] | `am5flow.Sankey` | **declared** — `{ type: "alluvial" }` |
 | Choropleth (renamed fields) [experimental] | `am5map.MapPolygonSeries` | **declared** — `{ type: "choropleth", value: "…" }` |
+
+### Notes on these chart types
 
 A `StepLineSeries` is piecewise constant — the value is held and then jumps — so it maps to MAIDR's step trace rather than to a line, and is announced and navigated as a step plot. amCharts positions the staircase from the axis cell rather than reporting a step convention, so the adapter emits no `stepDirection` and MAIDR's description does not name one.
 
@@ -268,7 +279,9 @@ Details:
 
 A complete, runnable page covering every supported type lives at [`examples/amcharts.html`](https://github.com/xability/maidr/blob/main/examples/amcharts.html). The snippets below show the per-type series configuration; the surrounding root/chart/axis boilerplate and the `fromAmCharts` conversion are identical to the Quick Start.
 
-### Dodged / Grouped Bar
+### Stable chart types
+
+#### Dodged / Grouped Bar
 
 Multiple column series with **no** `stacked` flag render side-by-side and map to the `DODGED` trace type.
 
@@ -283,7 +296,7 @@ addSeries("2020", "y2020");
 addSeries("2025", "y2025");
 ```
 
-### Stacked Bar
+#### Stacked Bar
 
 Add `stacked: true` to each column series; the binder maps these to the `STACKED` trace type.
 
@@ -294,7 +307,7 @@ chart.series.push(am5xy.ColumnSeries.new(root, {
 }));
 ```
 
-### 100% Stacked (Normalized) Bar
+#### 100% Stacked (Normalized) Bar
 
 `stacked: true` plus `valueYShow: "valueYTotalPercent"` produces a normalized chart (`STACKED_NORMALIZED_BAR`). Set `calculateTotals: true` on the value axis so amCharts can compute the percentages.
 
@@ -308,7 +321,7 @@ chart.series.push(am5xy.ColumnSeries.new(root, {
 }));
 ```
 
-### Multi-series Line
+#### Multi-series Line
 
 Each `LineSeries` becomes one line; the binder merges them into a single multi-line layer using the series names as group labels.
 
@@ -321,7 +334,7 @@ chart.series.push(am5xy.LineSeries.new(root, {
 }));
 ```
 
-### Histogram
+#### Histogram
 
 amCharts 5 has no native histogram series. Use a `ColumnSeries` on a **value** X axis with `openValueXField` (bin start) and `valueXField` (bin end); the count goes in `valueYField`.
 
@@ -337,7 +350,7 @@ series.data.setAll([
 ]);
 ```
 
-### Heatmap
+#### Heatmap
 
 A `ColumnSeries` with **both** a category X axis and a category Y axis forms a 2D grid; the binder reads the heat value from the `value` data field.
 
@@ -350,7 +363,7 @@ var series = chart.series.push(am5xy.ColumnSeries.new(root, {
 }));
 ```
 
-### Pie / Doughnut
+#### Pie / Doughnut
 
 A `PieChart` is not an `XYChart`, so it needs `percent.js` alongside `xy.js` and takes no axes. Give the binder `axisLabels` to name the two dimensions; without them the layer reads "Label is Apples, Value is 30". A runnable page is at [`examples/amcharts-pie.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-pie.html).
 
@@ -372,7 +385,11 @@ maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Fruit", y: "Units sold" } }
 
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units sold is 30, Percentage is 26.1%".
 
-### Area / Stacked Area [experimental]
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Area / Stacked Area [experimental]
 
 An area chart is a `LineSeries` whose `fills` template has been made visible — amCharts has no area series — so that fill is what the adapter reads. A line with no visible fill stays a line. Add `stacked: true` for a stacked area, and `valueYShow: "valueYTotalPercent"` (with `calculateTotals: true` on the value axis) for a 100% stack. A runnable page is at [`examples/amcharts-area.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-area.html).
 
@@ -387,7 +404,7 @@ series.fills.template.setAll({ visible: true, fillOpacity: 0.4 });
 
 Every area series of one chart merges into a **single** layer, and the stacking is read across the whole group: amCharts commonly sets `stacked` on the bands that sit *on* another one and leaves it off the bottom band, so splitting the group by that flag would strand the bottom band in a layer of its own. A stacked area announces two magnitudes per sample — the band's own value and the running total its top edge sits at — where a line reading collapses them to one.
 
-### Radar / Polar Area [experimental]
+#### Radar / Polar Area [experimental]
 
 A `RadarChart` extends `XYChart`, so it is found like any other chart; its series classes are what identify it. `RadarLineSeries` becomes a radar layer (each spoke a column, each series a row), and `RadarColumnSeries` a polar area — the same values drawn as wedges. A spoke's stereo position follows its angle rather than its index, so sweeping the spokes goes out and comes back. A runnable page is at [`examples/amcharts-radar.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-radar.html).
 
@@ -405,7 +422,7 @@ chart.series.push(am5radar.RadarLineSeries.new(root, {
 }));
 ```
 
-### Funnel / Pyramid [experimental]
+#### Funnel / Pyramid [experimental]
 
 A funnel lives in an `am5percent.SlicedChart`, not a `PieChart`, and takes no axes. The stages stay in data order, which is what the reading depends on: MAIDR pitches each stage against the **retention** from the one before it — the ratio a listener cannot compute from two heights heard one at a time — and announces the counts alongside. A runnable page is at [`examples/amcharts-funnel.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-funnel.html).
 
@@ -422,7 +439,7 @@ series.data.setAll([
 maidrAmCharts.bindAmCharts(root, { axisLabels: { x: "Stage", y: "People" } });
 ```
 
-### Waterfall / Dumbbell [experimental]
+#### Waterfall / Dumbbell [experimental]
 
 amCharts draws both with the same construct — a `ColumnSeries` whose bars float between `openValueY` and `valueY` — so the data decides which chart it is. A waterfall **chains**: each bar opens where the one before it closed, because the bars trace a single running total, and the bars that sit on the baseline are the opening, closing and subtotal steps. A dumbbell's pairs are independent, so the chain breaks at the second row of any real one. Both are runnable at [`examples/amcharts-floating-columns.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-floating-columns.html).
 
@@ -447,7 +464,7 @@ A dumbbell's finding is the change between the two ends, so it travels with both
 maidrAmCharts.bindAmCharts(root, { dumbbellLabels: { start: "1990", end: "2020" } });
 ```
 
-### Gantt / Timeline [experimental]
+#### Gantt / Timeline [experimental]
 
 A schedule is floating columns on a category Y axis of lanes and a `DateAxis` of time. Pitch carries each interval's **length** and stereo position carries its **start**, mapped along the whole axis rather than by column index, so two lanes whose work overlaps sound like they overlap.
 
@@ -471,7 +488,7 @@ The lanes come from the **category axis**, not from the bars, so a lane with not
 
 A `DateAxis` stores positions as epoch milliseconds, which no reader can hear a length in, so the adapter rescales them to the axis' own `baseInterval` time unit, measured from the earliest interval: a schedule reads as "day 0 to day 30, length 30 days". The absolute dates are dropped by that, and everything a schedule is drawn to answer — what overlaps what, what hands over to what, where the slack is — survives it. A plain `ValueAxis` is passed through untouched and named with no unit.
 
-### Treemap / Icicle / Sunburst / Tree / Pack [experimental]
+#### Treemap / Icicle / Sunburst / Tree / Pack [experimental]
 
 An `am5hierarchy` layout is **not** a chart: it is a series pushed straight into a container, with no series list and no axes, so the adapter recognises the series itself and treats it as one panel. A treemap, an icicle (amCharts calls it a `Partition`) and a sunburst draw the same tree with different marks and are read identically — as a tree, not a grid: Left and Right move between siblings, Down steps into a node's children, Up returns to its parent. A runnable page covering all three is at [`examples/amcharts-treemap.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-treemap.html).
 
@@ -492,7 +509,7 @@ The single root object amCharts requires is dropped: it is a container for the c
 
 A `Sunburst` extends `Partition` but carries its own class name, so it is recognised in its own right rather than inherited — which is also what keeps it from being announced as an icicle. `Tree`, `LinkedHierarchy` and `Pack` are recognised the same way and read through the same converter, and each is named after the painting on the page rather than after the treemap they share their data shape with: a node-link diagram and a circle-packing diagram are both **tree**-shaped to navigate, but neither is a treemap to look at. `Tree` and `LinkedHierarchy` share the name **tree** because `Tree` is drawn by extending `LinkedHierarchy`, so the two are one mark rather than two. The one thing the mark does change is the highlight: a treemap block and an icicle bar are rectangles, and a sunburst node is a `Slice`, which reports a degenerate box at its own centre and is therefore measured from its radius and sweep instead (the same reading a pie wedge gets).
 
-### Gauge [experimental]
+#### Gauge [experimental]
 
 A gauge is the one chart in this adapter whose reading is not in a series at all. amCharts draws the needle as an `AxisBullet` on an **axis** data item, so a `ClockHand` gauge commonly carries zero series and there is nothing for the per-series conversion to find. The adapter therefore asks the chart directly — but only after the series loop produced no layer, which is what keeps an ordinary radar or polar-area chart, drawn in the very same `RadarChart`, from ever reaching this path. A runnable page is at [`examples/amcharts-gauge.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-gauge.html).
 
@@ -516,7 +533,7 @@ Bands are read from the axis' ranges: any range with a finite `endValue` becomes
 
 Two things are **not** read. A bullet chart's `target` marker is omitted: amCharts has no unambiguous construct for one, and a guessed target is a number the chart never stated. And the highlight outlines the `ClockHand` sprite itself — if that sprite reports no measurable box, the overlay **clears** rather than falling back to the chart, because a box drawn around the whole dial says nothing about where the needle is.
 
-### Diverging Bar / Population Pyramid [experimental]
+#### Diverging Bar / Population Pyramid [experimental]
 
 A runnable page covering all three of the marks below is at [`examples/amcharts-marks.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-marks.html).
 
@@ -538,7 +555,7 @@ var data = [{ band: "0-14", men: -1200, women: 1140 }, { band: "15-29", men: -11
 
 The values reach MAIDR **signed**, exactly as the chart drew them. The trace pitches the magnitude and announces the side, so the biggest bar on the left is the loudest note on the left rather than the lowest note on the chart, and the summary row is the balance between the two sides rather than a "sum" that came out negative. A group carrying a `stacked` flag is taken at its word and stays a stacked bar chart — a pyramid's sides sit either side of the baseline rather than on top of one another.
 
-### Dot Plot / Lollipop [experimental]
+#### Dot Plot / Lollipop [experimental]
 
 amCharts has no dot or lollipop series either. A Cleveland dot plot is a `LineSeries` with its stroke switched off and bullets pushed on; a lollipop is a `ColumnSeries` narrowed to a hairline with a bullet on the end. Both carry one category and one value per mark and are navigated exactly as a bar chart is — the type names the chart the author drew.
 
@@ -566,7 +583,7 @@ Both probes require the bullets, because either half alone is something else: a 
 
 The dot-plot probe also requires a **category** axis, and that is what keeps it apart from a scatter: the same drawing on two value axes is a scatter, a volcano or a Manhattan, and nothing about the configuration says which. So it stays a line chart unless the author declares one — see [Declaring What a Chart Means](#declaring-what-a-chart-means).
 
-### Word Cloud [experimental]
+#### Word Cloud [experimental]
 
 An `am5wc.WordCloud` is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it, so the adapter recognises the series itself and treats it as one panel. It needs `wc.js` on top of `index.js`. A runnable page is at [`examples/amcharts-wordcloud.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-wordcloud.html).
 
@@ -581,7 +598,7 @@ series.data.setAll([
 
 A cloud's arrangement is chosen to pack glyphs and encodes nothing, so MAIDR walks the terms **heaviest first** rather than in layout order, and each term announces the weight the chart prints nowhere. The layer declares the terms in data order; the reading order is derived from the weights themselves, so it cannot disagree with them. The highlight box is drawn around the active term's glyph, rotated words included.
 
-### Sankey / Alluvial / Chord / Network [experimental]
+#### Sankey / Alluvial / Chord / Network [experimental]
 
 An `am5flow` diagram is a standalone series like an `am5hierarchy` layout: pushed straight into a container, with no chart around it. It needs `flow.js` on top of `index.js`; a force-directed network needs `hierarchy.js` instead. A runnable page covering all four is at [`examples/amcharts-flow.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-flow.html).
 
@@ -619,7 +636,7 @@ var series = root.container.children.push(am5hierarchy.ForceDirected.new(root, {
 
 The container root is dropped, as it is for a treemap. A `linkWith` entry naming something the walk never saw is skipped rather than turned into a node: amCharts draws no link for it either, and inventing the node would announce a participant the chart does not have. A pair that names itself from both ends yields one link, because a link is undirected. **Nothing about the layout is read** — where the force solver dropped a node is a fact about its seed rather than about the data, and MAIDR's network point has nowhere to put a position for exactly that reason.
 
-#### Flow and network highlighting
+##### Flow and network highlighting
 
 A sankey, alluvial, chord or network layer **is** outlined, and what it outlines is one ribbon: the band amCharts drew for a flow link, or the line it drew between two nodes. Not a box around the node the cursor is on — amCharts paints its nodes into the same canvas as everything else, and a node's own extent is not what the reading is about.
 
@@ -631,7 +648,7 @@ The published set is exactly **one** mark, the same one an SVG renderer outlines
 
 The outline is the ribbon's axis-aligned box — coarse for a long curved band, but it hugs the mark and says which way navigation moved. A link drawn perfectly straight reports a box with no thickness and is padded to a hairline rather than dropped. A build that hands back no geometry at all, or a pair no drawn line joins, clears the overlay instead of outlining something nearby.
 
-### Choropleth [experimental]
+#### Choropleth [experimental]
 
 A choropleth is an `am5map.MapPolygonSeries` shaded by a value, inside a `MapChart`. It needs `map.js` and a geodata file on top of `index.js`. A runnable page is at [`examples/amcharts-choropleth.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-choropleth.html).
 
@@ -670,7 +687,7 @@ A pair that resolves to neither is **omitted**, never converted. A projected or 
 
 **Highlighting** outlines the drawn polygon's axis-aligned box. That is coarse for a long thin country, but it hugs the shape and says which way navigation moved, which is what the overlay is for — the same call the word cloud's rotated glyphs make. A polygon that reports no box with area clears the overlay rather than drawing a hairline somewhere plausible.
 
-### Bump (Rank Over Time) [experimental]
+#### Bump (Rank Over Time) [experimental]
 
 amCharts has no bump series: a rank table is ordinary `LineSeries` on a `ValueAxis` whose renderer is `inversed`, so that first place is drawn at the top. A runnable page is at [`examples/amcharts-bump.html`](https://github.com/xability/maidr/blob/main/examples/amcharts-bump.html).
 

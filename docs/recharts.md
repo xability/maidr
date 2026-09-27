@@ -137,12 +137,26 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | `chartType` value | Recharts Component | Description |
 |---|---|---|
 | `'bar'` | `<Bar>` | Simple bar chart |
 | `'stacked_bar'` | `<Bar stackId="...">` | Stacked bar chart (multiple `yKeys`) |
 | `'dodged_bar'` | Multiple `<Bar>` | Grouped/side-by-side bar chart (multiple `yKeys`) |
 | `'normalized_bar'` | `<Bar stackId="...">` | 100% stacked bar chart (multiple `yKeys`) |
+| `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
+| `'line'` | `<Line>` | Line chart |
+| `'step'` | `<Line type="stepAfter">` | Step chart: the value is held across an interval and then jumps |
+| `'scatter'` | `<Scatter>` | Scatter/point plot |
+| `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| `chartType` value | Recharts Component | Description |
+|---|---|---|
 | `'diverging_bar'` [experimental] | `<BarChart stackOffset="sign">` | Population pyramid / Likert: two sides of a shared baseline (exactly two `yKeys`) |
 | `'waterfall'` [experimental] | `<Bar>` with a `[start, end]` `dataKey` | A total carried through signed contributions (`waterfallConfig`) |
 | `'dumbbell'` [experimental] | `<Bar>` with a `[start, end]` `dataKey` | Two values compared per category (exactly two `yKeys`) |
@@ -151,9 +165,6 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'dot'` [experimental] | `<Scatter>` | Cleveland dot plot: one point per category |
 | `'lollipop'` [experimental] | `<Bar barSize={2}>` + `<Scatter>` | Lollipop chart: a stem and a head |
 | `'funnel'` [experimental] | `<FunnelChart>` + `<Funnel>` | Funnel chart: a population shrinking across ordered stages |
-| `'histogram'` | `<Bar>` | Histogram with bin ranges (requires `binConfig`) |
-| `'line'` | `<Line>` | Line chart |
-| `'step'` | `<Line type="stepAfter">` | Step chart: the value is held across an interval and then jumps |
 | `'area'` [experimental] | `<Area>` | Area chart |
 | `'stacked_area'` [experimental] | `<Area stackId="...">` | Stacked area chart (multiple `yKeys`) |
 | `'normalized_area'` [experimental] | `<AreaChart stackOffset="expand">` | 100% stacked area chart (multiple `yKeys`) |
@@ -161,12 +172,10 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 | `'polar_area'` [experimental] | `<Pie>` with equal angles and a per-datum `outerRadius` | Coxcomb/rose chart: a radar drawn as wedges |
 | `'bump'` [experimental] | `<LineChart>` + `<YAxis reversed>` | Bump chart: rank over time |
 | `'survival'` [experimental] | `<Line type="stepAfter">` | Kaplan-Meier curve (optional `survivalConfig`) |
-| `'scatter'` | `<Scatter>` | Scatter/point plot |
 | `'volcano'` [experimental] | `<ScatterChart>` + `<Scatter>` | Volcano plot: effect size against significance (`volcanoConfig`) |
 | `'manhattan'` [experimental] | `<ScatterChart>` + `<Scatter>` | Manhattan plot: genomic position against significance (`volcanoConfig`) |
 | `'error_bar'` [experimental] | `<ErrorBar>` inside `<Bar>`/`<Line>`/`<Scatter>` | An estimate with its interval (`errorConfig`) |
 | `'forest'` [experimental] | `<ScatterChart layout="vertical">` + `<ErrorBar direction="x">` | Forest plot (`errorConfig` + `forestConfig`) |
-| `'pie'` | `<Pie>` | Pie chart (a doughnut is a `<Pie>` with an `innerRadius`) |
 | `'alluvial'` [experimental] | `<Sankey>` | Weighted flow between nodes (`flowConfig`) |
 | `'sankey'` [experimental] | `<Sankey>` | The same flow drawn as a left-to-right budget (`flowConfig`) |
 | `'treemap'` [experimental] | `<Treemap>` | A hierarchy laid out as nested area (nested `data`) |
@@ -179,7 +188,9 @@ Use `subplots` when your figure is a grid of small multiples (faceted charts). S
 
 ## Data Examples by Chart Type
 
-### Bar Chart
+### Stable chart types
+
+#### Bar Chart
 
 ```tsx
 const data = [
@@ -207,7 +218,7 @@ const data = [
 </MaidrRecharts>
 ```
 
-### Stacked Bar Chart
+#### Stacked Bar Chart
 
 Multiple `yKeys` with `chartType="stacked_bar"`. Use `fillKeys` for display names:
 
@@ -239,7 +250,7 @@ const data = [
 </MaidrRecharts>
 ```
 
-### Dodged (Grouped) Bar Chart
+#### Dodged (Grouped) Bar Chart
 
 ```tsx
 <MaidrRecharts
@@ -264,96 +275,7 @@ const data = [
 </MaidrRecharts>
 ```
 
-### Dot Plot and Lollipop Chart [experimental]
-
-Both read exactly as a bar chart does — one category, one magnitude — and take the same config. What differs is the mark, and therefore what MAIDR highlights.
-
-A Cleveland dot plot is a `<Scatter>` against a category axis:
-
-```tsx
-const data = [
-  { role: 'Nurse', pay: 62 },
-  { role: 'Teacher', pay: 54 },
-  { role: 'Engineer', pay: 88 },
-];
-
-<MaidrRecharts
-  id="dot-example"
-  title="Median Pay by Role"
-  data={data}
-  chartType="dot"
-  xKey="role"
-  yKeys={['pay']}
-  xLabel="Role"
-  yLabel="Median pay ($k)"
->
-  <ScatterChart width={600} height={350}>
-    <XAxis dataKey="role" type="category" allowDuplicatedCategory={false} />
-    <YAxis dataKey="pay" type="number" />
-    <Scatter data={data} fill="#8884d8" />
-  </ScatterChart>
-</MaidrRecharts>
-```
-
-A lollipop has no Recharts primitive; compose a thin `<Bar>` stem with a `<Scatter>` head:
-
-```tsx
-<MaidrRecharts
-  id="lollipop-example"
-  title="Market Share by Country"
-  data={data}
-  chartType="lollipop"
-  xKey="country"
-  yKeys={['share']}
-  xLabel="Country"
-  yLabel="Share (%)"
->
-  <ComposedChart width={600} height={350} data={data}>
-    <XAxis dataKey="country" />
-    <YAxis />
-    <Bar dataKey="share" barSize={2} fill="#8884d8" />
-    <Scatter dataKey="share" fill="#8884d8" />
-  </ComposedChart>
-</MaidrRecharts>
-```
-
-Highlighting targets the head (`.recharts-scatter-symbol .recharts-symbols`), not the stem, because the head is where the value is read off. If you draw the lollipop with a custom `<Bar>` shape that renders its own dot, pass a `selectorOverride` pointing at that element instead.
-
-### Funnel Chart [experimental]
-
-`xKey` is the stage label and the single `yKeys` entry its count, in the order the stages are drawn:
-
-```tsx
-const data = [
-  { stage: 'Visited', users: 10000 },
-  { stage: 'Signed up', users: 2400 },
-  { stage: 'Activated', users: 2300 },
-  { stage: 'Paid', users: 100 },
-];
-
-<MaidrRecharts
-  id="funnel-example"
-  title="Signup Funnel"
-  data={data}
-  chartType="funnel"
-  xKey="stage"
-  yKeys={['users']}
-  xLabel="Stage"
-  yLabel="Users"
->
-  <FunnelChart width={600} height={350}>
-    <Funnel dataKey="users" nameKey="stage" data={data} fill="#8884d8">
-      <LabelList position="right" dataKey="stage" />
-    </Funnel>
-  </FunnelChart>
-</MaidrRecharts>
-```
-
-Pass the counts, never a pre-computed ratio. MAIDR sonifies the **retention** — what fraction of the previous stage survived — because that is the number a funnel is read for and the one a listener cannot take by ear from two heights heard one at a time: 2,300 to 100 keeps 4% while 10,000 to 2,400 keeps 24%, and on a raw scale the second sounds like the bigger fall.
-
-A funnel is never given an `orientation`. `FunnelTrace` is a bar trace, and a horizontal bar reads its category off `y`, so a leaked `orientation` would have every stage announced by its count.
-
-### Histogram
+#### Histogram
 
 Requires `binConfig` to specify which data keys contain the bin edges:
 
@@ -384,7 +306,7 @@ const data = [
 </MaidrRecharts>
 ```
 
-### Line Chart
+#### Line Chart
 
 ```tsx
 const data = [
@@ -414,7 +336,7 @@ const data = [
 
 > **Tip:** Always include `dot` on the `<Line>` component. MAIDR uses the rendered dot elements for visual highlighting during keyboard navigation.
 
-### Step Chart
+#### Step Chart
 
 A `<Line>` or `<Area>` drawn with `type="stepAfter"`, `"stepBefore"` or
 `"step"`. Declare it as `chartType="step"` rather than `"line"`: a step chart is
@@ -470,7 +392,195 @@ An area drawn as a staircase keeps `chartType="area"` (or `"stacked_area"` /
 direction is what tells MAIDR the extra vertices in the rendered path are
 risers rather than samples.
 
-### Area Chart [experimental]
+#### Scatter Chart
+
+```tsx
+const data = [
+  { height: 65, weight: 150 },
+  { height: 70, weight: 175 },
+  { height: 62, weight: 130 },
+  { height: 68, weight: 165 },
+];
+
+<MaidrRecharts
+  id="scatter-example"
+  title="Height vs Weight"
+  data={data}
+  chartType="scatter"
+  xKey="height"
+  yKeys={['weight']}
+  xLabel="Height (in)"
+  yLabel="Weight (lbs)"
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="height" type="number" />
+    <YAxis dataKey="weight" type="number" />
+    <Scatter data={data} fill="#8884d8" />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+#### Pie Chart
+
+`xKey` is the `<Pie nameKey>` (the slice label) and the single entry in `yKeys` is its `dataKey` (the magnitude):
+
+```tsx
+const data = [
+  { fruit: 'Apples', units: 30 },
+  { fruit: 'Bananas', units: 50 },
+  { fruit: 'Cherries', units: 20 },
+];
+
+<MaidrRecharts
+  id="pie-example"
+  title="Units Sold by Fruit"
+  data={data}
+  chartType="pie"
+  xKey="fruit"
+  yKeys={['units']}
+  xLabel="Fruit"
+  yLabel="Units"
+>
+  <PieChart width={500} height={400}>
+    <Pie data={data} dataKey="units" nameKey="fruit" outerRadius={150} />
+  </PieChart>
+</MaidrRecharts>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 30.0%". Adding an `innerRadius` makes it a doughnut, which reads identically.
+
+> Recharts draws no sector at all for a slice whose value is `0` (its start and end angles are both zero). MAIDR then sees fewer elements than slices and turns highlighting off for the layer rather than index-aligning the wrong wedges; audio, text, and braille still cover every slice.
+
+#### Composed Chart (Bar + Line)
+
+Use `layers` mode to mix different chart types in a single chart:
+
+```tsx
+const data = [
+  { month: 'Jan', revenue: 4200, trend: 4000 },
+  { month: 'Feb', revenue: 5800, trend: 4800 },
+  { month: 'Mar', revenue: 3900, trend: 5200 },
+  { month: 'Apr', revenue: 7100, trend: 5800 },
+];
+
+<MaidrRecharts
+  id="composed-example"
+  title="Revenue and Trend"
+  data={data}
+  xKey="month"
+  layers={[
+    { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
+    { yKey: 'trend', chartType: 'line', name: 'Trend' },
+  ]}
+  xLabel="Month"
+  yLabel="Amount ($)"
+>
+  <ComposedChart width={600} height={350} data={data}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="month" />
+    <YAxis />
+    <Tooltip />
+    <Legend />
+    <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
+    <Line type="monotone" dataKey="trend" stroke="#ff7300" name="Trend" dot />
+  </ComposedChart>
+</MaidrRecharts>
+```
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Dot Plot and Lollipop Chart [experimental]
+
+Both read exactly as a bar chart does — one category, one magnitude — and take the same config. What differs is the mark, and therefore what MAIDR highlights.
+
+A Cleveland dot plot is a `<Scatter>` against a category axis:
+
+```tsx
+const data = [
+  { role: 'Nurse', pay: 62 },
+  { role: 'Teacher', pay: 54 },
+  { role: 'Engineer', pay: 88 },
+];
+
+<MaidrRecharts
+  id="dot-example"
+  title="Median Pay by Role"
+  data={data}
+  chartType="dot"
+  xKey="role"
+  yKeys={['pay']}
+  xLabel="Role"
+  yLabel="Median pay ($k)"
+>
+  <ScatterChart width={600} height={350}>
+    <XAxis dataKey="role" type="category" allowDuplicatedCategory={false} />
+    <YAxis dataKey="pay" type="number" />
+    <Scatter data={data} fill="#8884d8" />
+  </ScatterChart>
+</MaidrRecharts>
+```
+
+A lollipop has no Recharts primitive; compose a thin `<Bar>` stem with a `<Scatter>` head:
+
+```tsx
+<MaidrRecharts
+  id="lollipop-example"
+  title="Market Share by Country"
+  data={data}
+  chartType="lollipop"
+  xKey="country"
+  yKeys={['share']}
+  xLabel="Country"
+  yLabel="Share (%)"
+>
+  <ComposedChart width={600} height={350} data={data}>
+    <XAxis dataKey="country" />
+    <YAxis />
+    <Bar dataKey="share" barSize={2} fill="#8884d8" />
+    <Scatter dataKey="share" fill="#8884d8" />
+  </ComposedChart>
+</MaidrRecharts>
+```
+
+Highlighting targets the head (`.recharts-scatter-symbol .recharts-symbols`), not the stem, because the head is where the value is read off. If you draw the lollipop with a custom `<Bar>` shape that renders its own dot, pass a `selectorOverride` pointing at that element instead.
+
+#### Funnel Chart [experimental]
+
+`xKey` is the stage label and the single `yKeys` entry its count, in the order the stages are drawn:
+
+```tsx
+const data = [
+  { stage: 'Visited', users: 10000 },
+  { stage: 'Signed up', users: 2400 },
+  { stage: 'Activated', users: 2300 },
+  { stage: 'Paid', users: 100 },
+];
+
+<MaidrRecharts
+  id="funnel-example"
+  title="Signup Funnel"
+  data={data}
+  chartType="funnel"
+  xKey="stage"
+  yKeys={['users']}
+  xLabel="Stage"
+  yLabel="Users"
+>
+  <FunnelChart width={600} height={350}>
+    <Funnel dataKey="users" nameKey="stage" data={data} fill="#8884d8">
+      <LabelList position="right" dataKey="stage" />
+    </Funnel>
+  </FunnelChart>
+</MaidrRecharts>
+```
+
+Pass the counts, never a pre-computed ratio. MAIDR sonifies the **retention** — what fraction of the previous stage survived — because that is the number a funnel is read for and the one a listener cannot take by ear from two heights heard one at a time: 2,300 to 100 keeps 4% while 10,000 to 2,400 keeps 24%, and on a raw scale the second sounds like the bigger fall.
+
+A funnel is never given an `orientation`. `FunnelTrace` is a bar trace, and a horizontal bar reads its category off `y`, so a leaked `orientation` would have every stage announced by its count.
+
+#### Area Chart [experimental]
 
 ```tsx
 const data = [
@@ -499,7 +609,7 @@ const data = [
 
 > **Tip:** As with `<Line>`, include `dot` on the `<Area>`. The filled band is a single path with nothing per sample to highlight, so the dots are the only marks MAIDR can align to the data.
 
-### Stacked and 100% Stacked Area [experimental]
+#### Stacked and 100% Stacked Area [experimental]
 
 Use `stacked_area` for `<Area stackId="...">` and `normalized_area` when the chart also sets `stackOffset="expand"`. Pass each band's **own** value — not the accumulated top edge, and not the expanded fraction. MAIDR sums the series itself to announce the running total and each point's share of it:
 
@@ -530,7 +640,7 @@ const data = [
 
 A stacked area declared over a single `yKey` falls back to `'area'`: one band is not stacked against anything, and announcing a total equal to the point's own value on every sample is noise rather than information.
 
-### Radar Chart [experimental]
+#### Radar Chart [experimental]
 
 `xKey` is the `<PolarAngleAxis dataKey>` (the spoke) and each entry in `yKeys` is one `<Radar>`:
 
@@ -562,7 +672,7 @@ const data = [
 
 MAIDR pans each spoke to its position around the circle — 12 o'clock centre, 3 o'clock hard right, 6 o'clock centre again — so a radar sounds like a circle rather than a row of bars.
 
-### Polar Area (Coxcomb) Chart [experimental]
+#### Polar Area (Coxcomb) Chart [experimental]
 
 A coxcomb, rose or Nightingale chart is a radar drawn as **wedges**: the same categories around the same circle, with the value as the radius rather than as a point on an outline. Recharts draws it as a `<Pie>` whose slices are all the same angle and whose `outerRadius` is a function of the datum:
 
@@ -601,7 +711,7 @@ MAIDR reads this exactly as it reads a radar — the two differ in the mark, not
 
 A `<RadialBarChart>` is **not** this chart. It puts the categories on concentric rings and encodes the value as the sweep angle, which is a different figure with a different reading.
 
-### Bump Chart [experimental]
+#### Bump Chart [experimental]
 
 A bump chart is rank over time: a `<LineChart>` with `<YAxis reversed>` so rank 1 sits at the top. Each `yKey` holds the competitor's **rank** in that period, never the underlying value:
 
@@ -633,7 +743,7 @@ const data = [
 
 > **Warning:** MAIDR inverts the pitch for a bump chart so rank 1 is the highest note, and announces the places gained or lost since the previous period. Declaring a chart of *values* as `'bump'` therefore sonifies it upside down — every rise heard as a fall. The adapter cannot tell the two apart, so this one is on you.
 
-### Survival Curve [experimental]
+#### Survival Curve [experimental]
 
 A Kaplan-Meier curve is a `<Line type="stepAfter">`. One `yKeys` entry per arm, and the per-arm keys in `survivalConfig` line up with it the way `fillKeys` does:
 
@@ -671,35 +781,7 @@ The layer declares `stepDirection: 'hv'`, which is what `type="stepAfter"` draws
 
 Add a confidence band with `yMinKeys`/`yMaxKeys`; the bounds are absolute positions on the value axis, not offsets.
 
-### Scatter Chart
-
-```tsx
-const data = [
-  { height: 65, weight: 150 },
-  { height: 70, weight: 175 },
-  { height: 62, weight: 130 },
-  { height: 68, weight: 165 },
-];
-
-<MaidrRecharts
-  id="scatter-example"
-  title="Height vs Weight"
-  data={data}
-  chartType="scatter"
-  xKey="height"
-  yKeys={['weight']}
-  xLabel="Height (in)"
-  yLabel="Weight (lbs)"
->
-  <ScatterChart width={600} height={350}>
-    <XAxis dataKey="height" type="number" />
-    <YAxis dataKey="weight" type="number" />
-    <Scatter data={data} fill="#8884d8" />
-  </ScatterChart>
-</MaidrRecharts>
-```
-
-### Volcano and Manhattan Plots [experimental]
+#### Volcano and Manhattan Plots [experimental]
 
 Both are scatters read almost entirely through a threshold, and both need two things a Recharts `<Scatter>` does not hold: what each point *is*, and where the cutoffs are.
 
@@ -752,7 +834,7 @@ A Manhattan plot uses `chartType="manhattan"` with the same config, plus `groupK
 
 A chart drawn as one `<Scatter>` per chromosome still emits a single MAIDR layer, so list the points in the order the `<Scatter>` elements are declared — highlighting pairs marks to points by index.
 
-### Error Bars [experimental]
+#### Error Bars [experimental]
 
 MAIDR fixes the interval as **absolute positions on the value axis**, while Recharts' `<ErrorBar dataKey>` points at an **offset** from the estimate. Declare whichever your data holds:
 
@@ -790,7 +872,7 @@ The bounds are independently optional: a one-sided interval is a real chart, and
 
 Highlighting targets the whiskers, because the estimate's own mark may be a bar, a line dot or a scatter symbol depending on what you nested the `<ErrorBar>` in — pass the host's selector as `selectorOverride` to highlight that instead. Note that Recharts draws **no whisker at all** for a sample whose error value is zero or missing; MAIDR then sees fewer marks than samples and turns highlighting off for the layer rather than mis-aligning it.
 
-### Forest Plot [experimental]
+#### Forest Plot [experimental]
 
 A forest plot is an error bar chart on a categorical row axis, plus the two things that make it a meta-analysis:
 
@@ -831,38 +913,7 @@ const studies = [
 
 Row order is the drawn order, with the pooled row wherever the chart puts it. Keep the `orientation` horizontal: the rows are studies and the values run across.
 
-### Pie Chart
-
-`xKey` is the `<Pie nameKey>` (the slice label) and the single entry in `yKeys` is its `dataKey` (the magnitude):
-
-```tsx
-const data = [
-  { fruit: 'Apples', units: 30 },
-  { fruit: 'Bananas', units: 50 },
-  { fruit: 'Cherries', units: 20 },
-];
-
-<MaidrRecharts
-  id="pie-example"
-  title="Units Sold by Fruit"
-  data={data}
-  chartType="pie"
-  xKey="fruit"
-  yKeys={['units']}
-  xLabel="Fruit"
-  yLabel="Units"
->
-  <PieChart width={500} height={400}>
-    <Pie data={data} dataKey="units" nameKey="fruit" outerRadius={150} />
-  </PieChart>
-</MaidrRecharts>
-```
-
-Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 30.0%". Adding an `innerRadius` makes it a doughnut, which reads identically.
-
-> Recharts draws no sector at all for a slice whose value is `0` (its start and end angles are both zero). MAIDR then sees fewer elements than slices and turns highlighting off for the layer rather than index-aligning the wrong wedges; audio, text, and braille still cover every slice.
-
-### Alluvial and Sankey Diagrams [experimental]
+#### Alluvial and Sankey Diagrams [experimental]
 
 An alluvial is a `<Sankey>` whose node set repeats at each stage; a Sankey proper is one left-to-right budget of ribbons that split and rejoin. Both are the same weighted graph and take the same config — pass the `links` half of the Sankey data as `data`, and the `nodes` half through `flowConfig`:
 
@@ -895,7 +946,7 @@ Set `chartType="sankey"` for the budget reading. Nothing else changes: the paylo
 
 MAIDR reads both as a graph rather than a grid: following a ribbon is the primary move, and arrow keys step between a node and the flows that leave or arrive at it. Highlighting pairs each flow with the `<path class="recharts-sankey-link">` at the same position, so the `links` array order is the order the ribbons are announced in.
 
-### Diverging Bar Chart (Population Pyramid) [experimental]
+#### Diverging Bar Chart (Population Pyramid) [experimental]
 
 Two series drawn back to back across a shared category axis. Declare **exactly two `yKeys`, the left-hand side first**, and give the left side **negative** values — the same numbers `<BarChart stackOffset="sign">` needs:
 
@@ -930,7 +981,7 @@ The sign is read as the **side**, not the magnitude: MAIDR pitches the size of t
 
 Order matters twice. The sides are read in **declaration order**, so the `yKeys` must run left then right, and the `<Bar>` elements must be declared in that same order for highlighting to land on the right one. Declared with a single `yKey` the layer falls back to a plain bar chart, since a pyramid with one side is not one.
 
-### Waterfall Chart [experimental]
+#### Waterfall Chart [experimental]
 
 The single `yKeys` entry names each step's **contribution**; the adapter accumulates the running totals, because a waterfall bar floats between the total before the step and the total after it and neither number is in the data.
 
@@ -979,7 +1030,7 @@ The other recipe — a transparent offset `<Bar>` stacked under a visible one �
 // selectorOverride: '.wf-delta .recharts-bar-rectangle .recharts-rectangle'
 ```
 
-### Dumbbell Chart [experimental]
+#### Dumbbell Chart [experimental]
 
 Two values compared at each category, joined by a segment. Two `yKeys`, the starting end first, and `fillKeys` names them:
 
@@ -1012,7 +1063,7 @@ The two names are the content of the comparison. Announced as "start" and "end",
 
 Highlighting pairs one element with each **row**, not with each dot: a chart draws one connector per row, so both ends highlight the same element. A dumbbell drawn as a `<ScatterChart>` with two `<Scatter>`s draws two symbols per row instead and needs a `selectorOverride` naming the connector shape.
 
-### Gantt Chart [experimental]
+#### Gantt Chart [experimental]
 
 One data row is one interval: `xKey` names its lane and the two `yKeys` its start and end, both as positions on the same numeric axis.
 
@@ -1050,7 +1101,7 @@ MAIDR puts the interval's length on pitch and its start on stereo position, so t
 
 Highlighting needs the rows **grouped by lane, in the lane order** — Recharts draws one rectangle per row in row order, while the payload is walked lane by lane. The adapter checks this and turns highlighting off for the layer when the rows interleave lanes, rather than highlighting somebody else's task.
 
-### Gauge Chart [experimental]
+#### Gauge Chart [experimental]
 
 One measure read against a range. The data holds a single row; everything else the reading needs is author knowledge and arrives through `gaugeConfig`, which is therefore required:
 
@@ -1087,7 +1138,7 @@ const data = [{ measure: 'NPS', score: 73 }];
 
 Bands are **ascending and bounded above only**: a band starts where the previous one ended, and the first starts at `min`. A value above every band belongs to none rather than to the last one. There is deliberately no default range — a guessed maximum misreports the one number the chart draws.
 
-### Treemap, Sunburst and Icicle [experimental]
+#### Treemap, Sunburst and Icicle [experimental]
 
 All three draw the same hierarchy, and all three take the **nested** `{ name, children }` data Recharts itself is given rather than the adapter's usual flat rows. `xKey` is the `<Treemap nameKey>` and the single `yKeys` entry its `dataKey`:
 
@@ -1147,7 +1198,7 @@ const bands = [
 
 Built the other obvious way — one stacked `<Bar>` per depth level — the rectangles come out series-major rather than depth-first, which is not the order the nodes are in. Such a chart needs `selectorOverride`.
 
-### Parallel Coordinates [experimental]
+#### Parallel Coordinates [experimental]
 
 An observation per row, an axis per variable. Recharts has no parallel coordinates chart and cannot quite have one: a `<Line>` binds to a single `yAxisId`, so a polyline crossing axes measured in different units has to be drawn from values **min-max normalised** onto one shared scale, over rows keyed by axis with one `<Line>` per observation.
 
@@ -1197,7 +1248,7 @@ A bare `dimensions` string names both the axis and the field; the object form se
 
 Highlighting resolves one `<Line>` path per observation and marks each vertex on it. It is withheld in one case: a chart with exactly as many observations as axes, where MAIDR's element-based resolution cannot tell the two counts apart and would light the wrong polyline.
 
-### Ridgeline (Joy) Plot [experimental]
+#### Ridgeline (Joy) Plot [experimental]
 
 One density curve per group along a shared value axis, the curves offset down the page so their shapes can be compared. There is no primitive for it: the chart is overlapping `<Area>`s with a per-group offset **baked into the plotted values**.
 
@@ -1242,7 +1293,7 @@ Groups are announced in the order they first appear in `data`. Highlighting ligh
 
 Arrowing up and down moves between groups **holding the value**, which is the comparison a ridgeline exists for and the one a listener cannot make by holding a dozen numbers in their head.
 
-### Hexbin [experimental]
+#### Hexbin [experimental]
 
 The standard answer to an overplotted scatter: bin the points into hexagons and encode the count. Recharts places the marks and nothing else — `<Scatter>` accepts a custom `shape`, which is documented API — so the binning happens before the chart is drawn and `data` is one row per **occupied** bin, its centre in **data units**:
 
@@ -1279,7 +1330,7 @@ Screen coordinates must not be passed through: a bin computed with `d3-hexbin` c
 
 Highlighting is emitted only when the rows already arrive in lattice order, since a `<Scatter>` draws its symbols in row order and any other order would light a bin half a field away.
 
-### Boxen (Letter-Value) Plot [experimental]
+#### Boxen (Letter-Value) Plot [experimental]
 
 A box plot's five-number summary generalised to a variable-depth ladder: a large sample gets *more* rungs, so its tails stay legible instead of collapsing into a whisker and a scatter of dots. Recharts has no box primitive at all, so the rungs are drawn as stacked `<Bar>`s over a transparent base — and neither the ladder nor the median is anything that construction holds. Both are computed from the raw sample and arrive through `data`, one row per distribution:
 
@@ -1324,42 +1375,6 @@ const distributions = [
 A rung whose three numbers are not all finite is dropped rather than announced as a quantile the data never contained, and a row with no median is dropped entirely: the median is the ladder's centre and a navigable position in its own right.
 
 No highlight selector is generated. A rung is a rectangle and a distribution is not, and no class name says which rung is which — so a chart that wants highlighting puts a `className` on the single `<Bar>` that can stand for the whole distribution and passes it as `selectorOverride`, as above.
-
-### Composed Chart (Bar + Line)
-
-Use `layers` mode to mix different chart types in a single chart:
-
-```tsx
-const data = [
-  { month: 'Jan', revenue: 4200, trend: 4000 },
-  { month: 'Feb', revenue: 5800, trend: 4800 },
-  { month: 'Mar', revenue: 3900, trend: 5200 },
-  { month: 'Apr', revenue: 7100, trend: 5800 },
-];
-
-<MaidrRecharts
-  id="composed-example"
-  title="Revenue and Trend"
-  data={data}
-  xKey="month"
-  layers={[
-    { yKey: 'revenue', chartType: 'bar', name: 'Revenue' },
-    { yKey: 'trend', chartType: 'line', name: 'Trend' },
-  ]}
-  xLabel="Month"
-  yLabel="Amount ($)"
->
-  <ComposedChart width={600} height={350} data={data}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="month" />
-    <YAxis />
-    <Tooltip />
-    <Legend />
-    <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
-    <Line type="monotone" dataKey="trend" stroke="#ff7300" name="Trend" dot />
-  </ComposedChart>
-</MaidrRecharts>
-```
 
 ## Multi-Panel (Faceted) Charts
 

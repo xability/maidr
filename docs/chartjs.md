@@ -67,32 +67,42 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | Chart.js `type` | Extra Plugin Required | Example |
 |-----------|----------------|----------------------|---------|
 | Bar | `'bar'` (one dataset) | — | [Bar chart](examples.html) |
 | Stacked Bar | `'bar'` with `scales.x.stacked` / `scales.y.stacked` | — | [Stacked bar](examples.html) |
 | Dodged Bar | `'bar'` with multiple datasets (no stacking) | — | [Dodged bar](examples.html) |
+| Line | `'line'` | — | [Line chart](examples.html) |
+| Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
+| Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
+| Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
+| Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
+| Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
+| Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | Chart.js `type` | Extra Plugin Required | Example |
+|-----------|----------------|----------------------|---------|
 | Diverging Bar [experimental] | stacked `'bar'` with one series negated | — | [Diverging bar](examples.html) |
 | Gantt / Range Bar [experimental] | `'bar'` with `[start, end]` data | — | [Gantt chart](examples.html) |
 | Waterfall [experimental] | `'bar'` with chained `[start, end]` data | — | [Waterfall](examples.html) |
 | Dumbbell [experimental] | horizontal `'bar'` with `[start, end]` data and `plugins.maidr.traceType` | — | [Dumbbell](examples.html) |
-| Line | `'line'` | — | [Line chart](examples.html) |
-| Step | `'line'` with `stepped` on the dataset (or `elements.line`) | — | [Line chart](examples.html) |
 | Area [experimental] | `'line'` with `fill` | — | [Line chart](examples.html) |
 | Stacked Area [experimental] | `'line'` with `fill` and a stacked value scale | — | [Line chart](examples.html) |
 | Normalized Area [experimental] | stacked area whose categories all total 100 (or 1) | — | [Line chart](examples.html) |
 | Bump [experimental] | `'line'` with `scales.y.reverse` and ranked values | — | [Bump chart](examples.html) |
 | Dot Plot [experimental] | `'line'` with `showLine: false` on a category axis | — | [Dot plot](examples.html) |
 | Survival [experimental] | `'line'` with `stepped` and a `maidr` declaration | — | [Survival curve](examples.html) |
-| Scatter | `'scatter'` | — | [Scatter plot](examples.html) |
 | Volcano [experimental] | `'scatter'` with a `maidr` declaration | — | [Volcano plot](examples.html) |
 | Manhattan [experimental] | `'scatter'` with a `maidr` declaration | — | [Manhattan plot](examples.html) |
 | Radar [experimental] | `'radar'` | — | [Radar chart](examples.html) |
 | Polar Area [experimental] | `'polarArea'` | — | [Radar chart](examples.html) |
-| Box Plot | `'boxplot'` | `@sgratzl/chartjs-chart-boxplot` | [Box plot](examples.html) |
 | Error Bar [experimental] | `'barWithErrorBars'`, `'lineWithErrorBars'`, `'scatterWithErrorBars'` | `chartjs-chart-error-bars` | [Error bar](examples.html) |
-| Candlestick | `'candlestick'` | `chartjs-chart-financial` + a date adapter | [Candlestick](examples.html) |
-| Heatmap | `'matrix'` | `chartjs-chart-matrix` | [Heatmap](examples.html) |
 | Treemap [experimental] | `'treemap'` | `chartjs-chart-treemap` | [Treemap](examples.html) |
 | Sankey [experimental] | `'sankey'` | `chartjs-chart-sankey` | [Sankey](examples.html) |
 | Word Cloud [experimental] | `'wordCloud'` | `chartjs-chart-wordcloud` | [Word cloud](examples.html) |
@@ -101,8 +111,9 @@ MAIDR's Chart.js adapter is a standard Chart.js plugin:
 | Tree [experimental] | `'tree'`, `'dendrogram'` | `chartjs-chart-graph` | [Tree](examples.html) |
 | Network [experimental] | `'forceDirectedGraph'` | `chartjs-chart-graph` | [Network](examples.html) |
 | Parallel Coordinates [experimental] | `'pcp'`, `'logarithmicPcp'` | `chartjs-chart-pcp` | [Parallel coordinates](examples.html) |
-| Pie / Doughnut | `'pie'`, `'doughnut'` | — | [Pie chart](examples.html) |
 | Gauge [experimental] | `'doughnut'` with `circumference` under 360 and two values | — | [Gauge](examples.html) |
+
+### Notes on these chart types
 
 > **Pie note:** a pie has no Chart.js scales, so there is no axis title to read. `axes.x` and `axes.y` default to `Category` and `Value`; set `plugins.maidr.axes` to name what the slice labels and their values actually mean. Multiple datasets are concentric rings, not slices of one circle — each becomes its own MAIDR layer with its own total and percentages, and Page Up / Page Down move between them.
 
@@ -197,7 +208,9 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 
 ## Code Examples
 
-### Bar Chart
+### Stable chart types
+
+#### Bar Chart
 
 ```html
 <div style="width: 700px; height: 400px">
@@ -227,7 +240,7 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 </script>
 ```
 
-### Line Chart
+#### Line Chart
 
 ```html
 <div style="width: 700px; height: 400px">
@@ -256,7 +269,7 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 </script>
 ```
 
-### Scatter Plot
+#### Scatter Plot
 
 ```html
 <div style="width: 700px; height: 400px">
@@ -289,89 +302,7 @@ The readings that take the whole chart at once — a survival curve, a dumbbell,
 </script>
 ```
 
-### Volcano Plot [experimental]
-
-```html
-<div style="width: 700px; height: 400px">
-  <canvas id="volcano-chart"></canvas>
-</div>
-<script>
-  Chart.register(maidrChartjs.maidrPlugin);
-
-  new Chart(document.getElementById('volcano-chart'), {
-    type: 'scatter',
-    data: {
-      datasets: [{
-        label: 'Differential expression',
-        data: [
-          { x: -3.1, y: 6.8, gene: 'TP53' }, { x: -2.4, y: 4.1, gene: 'BRCA1' },
-          { x: -0.9, y: 1.1, gene: 'ACTB' }, { x: 0.4, y: 0.8, gene: 'RPL13A' },
-          { x: 1.9, y: 3.4, gene: 'VEGFA' }, { x: 3.4, y: 7.2, gene: 'CDKN1A' },
-        ],
-        // A volcano is a plain scatter until the dataset says otherwise.
-        maidr: { type: 'volcano', label: 'gene', significance: 1.3, effect: 1 },
-      }],
-    },
-    options: {
-      plugins: { title: { display: true, text: 'Treated vs. control' } },
-      scales: {
-        x: { title: { display: true, text: 'log2 fold change' } },
-        y: { title: { display: true, text: '-log10(p)' } },
-      },
-    },
-  });
-</script>
-```
-
-### Manhattan Plot [experimental]
-
-One dataset per chromosome is how the alternating colours are drawn. `merge` — on by default for a Manhattan — folds them into a single navigable cloud, so only the first dataset carries a block.
-
-```html
-<div style="width: 700px; height: 400px">
-  <canvas id="manhattan-chart"></canvas>
-</div>
-<script>
-  Chart.register(maidrChartjs.maidrPlugin);
-
-  new Chart(document.getElementById('manhattan-chart'), {
-    type: 'scatter',
-    data: {
-      datasets: [
-        {
-          label: 'chr1',
-          data: [
-            { x: 5, y: 1.2, snp: 'rs1001', chr: 1 },
-            { x: 44, y: 8.6, snp: 'rs1004', chr: 1 },
-          ],
-          pointBackgroundColor: '#1f77b4',
-          maidr: { type: 'manhattan', label: 'snp', group: 'chr', significance: 7.3 },
-        },
-        {
-          label: 'chr2',
-          data: [
-            { x: 106, y: 2.2, snp: 'rs2001', chr: 2 },
-            { x: 133, y: 4.9, snp: 'rs2003', chr: 2 },
-          ],
-          pointBackgroundColor: '#ff7f0e',
-        },
-      ],
-    },
-    options: {
-      plugins: {
-        title: { display: true, text: 'Genome-wide association study' },
-        legend: { display: false },
-      },
-      scales: {
-        x: { title: { display: true, text: 'Genomic position (kb)' } },
-        y: { title: { display: true, text: '-log10(p)' } },
-      },
-    },
-  });
-</script>
-```
-
-### Stacked Bar Chart
+#### Stacked Bar Chart
 
 Both axes marked `stacked: true` produces a stacked bar chart. The MAIDR extractor maps multi-dataset stacked bars to its `STACKED` trace type.
 
@@ -403,7 +334,7 @@ Both axes marked `stacked: true` produces a stacked bar chart. The MAIDR extract
 </script>
 ```
 
-### Dodged (Grouped) Bar Chart
+#### Dodged (Grouped) Bar Chart
 
 Multi-dataset bars without `stacked` flags render side-by-side and map to the `DODGED` trace type.
 
@@ -435,7 +366,7 @@ Multi-dataset bars without `stacked` flags render side-by-side and map to the `D
 </script>
 ```
 
-### Box Plot
+#### Box Plot
 
 Requires the [`@sgratzl/chartjs-chart-boxplot`](https://github.com/sgratzl/chartjs-chart-boxplot) plugin. Its v4 UMD bundle auto-registers the boxplot controller and elements.
 
@@ -477,7 +408,7 @@ Requires the [`@sgratzl/chartjs-chart-boxplot`](https://github.com/sgratzl/chart
 </script>
 ```
 
-### Candlestick
+#### Candlestick
 
 Requires [`chartjs-chart-financial`](https://github.com/chartjs/chartjs-chart-financial) and a date adapter (this example uses Luxon). Load order matters: date library → date adapter → financial plugin.
 
@@ -523,113 +454,7 @@ Requires [`chartjs-chart-financial`](https://github.com/chartjs/chartjs-chart-fi
 
 The MAIDR extractor derives `trend` from `close` vs `open` and `volatility` from `high - low`. Chart.js's financial plugin does not carry volume data, so the MAIDR payload records volume as `0`.
 
-### Treemap [experimental]
-
-Requires [`chartjs-chart-treemap`](https://github.com/kurkle/chartjs-chart-treemap). Declare `groups` and `key` and the hierarchy is read as it is drawn: each rectangle's group name becomes the node's name, its value becomes the magnitude, and the grouping fields give the ancestry. Arrow keys walk siblings; Up and Down move between levels.
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
-
-<div style="width: 700px; height: 400px">
-  <canvas id="treemap-chart"></canvas>
-</div>
-<script>
-  Chart.register(maidrChartjs.maidrPlugin);
-
-  new Chart(document.getElementById('treemap-chart'), {
-    type: 'treemap',
-    data: {
-      datasets: [{
-        label: 'Population',
-        tree: [
-          { continent: 'Asia', country: 'Japan', pop: 125 },
-          { continent: 'Asia', country: 'Korea', pop: 52 },
-          { continent: 'Europe', country: 'France', pop: 67 },
-          { continent: 'Europe', country: 'Spain', pop: 47 },
-        ],
-        groups: ['continent', 'country'],
-        key: 'pop',
-      }],
-    },
-  });
-</script>
-```
-
-A node's value is announced only where it is its own: a group whose value is exactly its children's total is left for the trace to sum, and a group whose declared value differs is announced as declared rather than corrected.
-
-A treemap has no Chart.js scales, so the axes are named after the dataset instead — `groups` joined for `axes.x` and `key` for `axes.y`. Set `plugins.maidr.axes` to override either.
-
-A **flat** `tree` of numbers draws rectangles the plugin gives no names to, and `data.labels` is not read by the controller. Those nodes are announced by their position — 1, 2, 3 — so declare `groups` whenever the nodes have names worth hearing.
-
-### Sankey [experimental]
-
-Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey). The plugin's `{from, to, flow}` rows are read as they are written — the nodes are derived from the edges, so nothing has to be declared twice. Left and right follow the largest ribbon; up and down walk the other nodes in the same column.
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.15"></script>
-<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
-
-<div style="width: 700px; height: 400px">
-  <canvas id="sankey-chart"></canvas>
-</div>
-<script>
-  Chart.register(maidrChartjs.maidrPlugin);
-
-  new Chart(document.getElementById('sankey-chart'), {
-    type: 'sankey',
-    data: {
-      datasets: [{
-        label: 'Energy',
-        data: [
-          { from: 'Coal', to: 'Electricity', flow: 34 },
-          { from: 'Gas', to: 'Electricity', flow: 20 },
-          { from: 'Electricity', to: 'Homes', flow: 30 },
-          { from: 'Electricity', to: 'Industry', flow: 24 },
-        ],
-        labels: { Homes: 'Residential' },
-      }],
-    },
-  });
-</script>
-```
-
-`labels` maps a node key to the name the chart displays, and MAIDR announces the label rather than the key.
-
-> **Sankey note:** a sankey is the one supported Chart.js type MAIDR does **not** outline. A flow diagram is navigated by *node* while the chart's elements are *flows*, and nothing in the navigation event names the node — so the adapter declines rather than outlining a ribbon chosen by position. Audio, text and braille are unaffected.
-
-### Word Cloud [experimental]
-
-Requires [`chartjs-chart-wordcloud`](https://github.com/sgratzl/chartjs-chart-wordcloud). The terms go in `data.labels` and their weights in the dataset, which is the ordinary Chart.js split — and it is the reading, so a word's weight is announced as the number the author gave rather than recovered from how large it was drawn.
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
-
-<div style="width: 700px; height: 400px">
-  <canvas id="wordcloud-chart"></canvas>
-</div>
-<script>
-  Chart.register(maidrChartjs.maidrPlugin);
-
-  new Chart(document.getElementById('wordcloud-chart'), {
-    type: 'wordCloud',
-    data: {
-      labels: ['accessible', 'chart', 'audio', 'braille'],
-      datasets: [{ label: 'Terms', data: [40, 25, 12, 8] }],
-    },
-  });
-</script>
-```
-
-Terms are read in the order they were declared, not in the order the layout happened to place them — the largest word is drawn first on screen, but a reader sweeping left and right gets the author's order.
-
-A term whose weight is `null` is skipped rather than announced as zero: a weight is what terms are compared by, and a zero would make the term look like the least common one rather than one the chart has no count for.
-
-### Heatmap (Matrix)
+#### Heatmap (Matrix)
 
 Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix). Matrix datasets use flat `{x, y, v}` entries — the MAIDR extractor collects unique X and Y labels in first-seen order and produces a `points[y][x]` grid.
 
@@ -687,7 +512,7 @@ Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix
 </script>
 ```
 
-### Pie / Doughnut Chart
+#### Pie / Doughnut Chart
 
 ```html
 <div style="width: 500px; height: 500px">
@@ -719,6 +544,198 @@ Requires [`chartjs-chart-matrix`](https://github.com/kurkle/chartjs-chart-matrix
 ```
 
 Left and Right move between slices; Up and Down are out of bounds, since a pie is a single row. Each slice announces its label, its value, and its share of the whole — "Fruit is Apples, Units is 30, Percentage is 24.0%". Slices whose value is `null` or `NaN` are dropped rather than counted as zero, so a gap in the data neither takes a share of the total nor pins the bottom of the range the other slices are pitched against.
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Volcano Plot [experimental]
+
+```html
+<div style="width: 700px; height: 400px">
+  <canvas id="volcano-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('volcano-chart'), {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Differential expression',
+        data: [
+          { x: -3.1, y: 6.8, gene: 'TP53' }, { x: -2.4, y: 4.1, gene: 'BRCA1' },
+          { x: -0.9, y: 1.1, gene: 'ACTB' }, { x: 0.4, y: 0.8, gene: 'RPL13A' },
+          { x: 1.9, y: 3.4, gene: 'VEGFA' }, { x: 3.4, y: 7.2, gene: 'CDKN1A' },
+        ],
+        // A volcano is a plain scatter until the dataset says otherwise.
+        maidr: { type: 'volcano', label: 'gene', significance: 1.3, effect: 1 },
+      }],
+    },
+    options: {
+      plugins: { title: { display: true, text: 'Treated vs. control' } },
+      scales: {
+        x: { title: { display: true, text: 'log2 fold change' } },
+        y: { title: { display: true, text: '-log10(p)' } },
+      },
+    },
+  });
+</script>
+```
+
+#### Manhattan Plot [experimental]
+
+One dataset per chromosome is how the alternating colours are drawn. `merge` — on by default for a Manhattan — folds them into a single navigable cloud, so only the first dataset carries a block.
+
+```html
+<div style="width: 700px; height: 400px">
+  <canvas id="manhattan-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('manhattan-chart'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'chr1',
+          data: [
+            { x: 5, y: 1.2, snp: 'rs1001', chr: 1 },
+            { x: 44, y: 8.6, snp: 'rs1004', chr: 1 },
+          ],
+          pointBackgroundColor: '#1f77b4',
+          maidr: { type: 'manhattan', label: 'snp', group: 'chr', significance: 7.3 },
+        },
+        {
+          label: 'chr2',
+          data: [
+            { x: 106, y: 2.2, snp: 'rs2001', chr: 2 },
+            { x: 133, y: 4.9, snp: 'rs2003', chr: 2 },
+          ],
+          pointBackgroundColor: '#ff7f0e',
+        },
+      ],
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: 'Genome-wide association study' },
+        legend: { display: false },
+      },
+      scales: {
+        x: { title: { display: true, text: 'Genomic position (kb)' } },
+        y: { title: { display: true, text: '-log10(p)' } },
+      },
+    },
+  });
+</script>
+```
+
+#### Treemap [experimental]
+
+Requires [`chartjs-chart-treemap`](https://github.com/kurkle/chartjs-chart-treemap). Declare `groups` and `key` and the hierarchy is read as it is drawn: each rectangle's group name becomes the node's name, its value becomes the magnitude, and the grouping fields give the ancestry. Arrow keys walk siblings; Up and Down move between levels.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="treemap-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('treemap-chart'), {
+    type: 'treemap',
+    data: {
+      datasets: [{
+        label: 'Population',
+        tree: [
+          { continent: 'Asia', country: 'Japan', pop: 125 },
+          { continent: 'Asia', country: 'Korea', pop: 52 },
+          { continent: 'Europe', country: 'France', pop: 67 },
+          { continent: 'Europe', country: 'Spain', pop: 47 },
+        ],
+        groups: ['continent', 'country'],
+        key: 'pop',
+      }],
+    },
+  });
+</script>
+```
+
+A node's value is announced only where it is its own: a group whose value is exactly its children's total is left for the trace to sum, and a group whose declared value differs is announced as declared rather than corrected.
+
+A treemap has no Chart.js scales, so the axes are named after the dataset instead — `groups` joined for `axes.x` and `key` for `axes.y`. Set `plugins.maidr.axes` to override either.
+
+A **flat** `tree` of numbers draws rectangles the plugin gives no names to, and `data.labels` is not read by the controller. Those nodes are announced by their position — 1, 2, 3 — so declare `groups` whenever the nodes have names worth hearing.
+
+#### Sankey [experimental]
+
+Requires [`chartjs-chart-sankey`](https://github.com/kurkle/chartjs-chart-sankey). The plugin's `{from, to, flow}` rows are read as they are written — the nodes are derived from the edges, so nothing has to be declared twice. Left and right follow the largest ribbon; up and down walk the other nodes in the same column.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@0.15"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="sankey-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('sankey-chart'), {
+    type: 'sankey',
+    data: {
+      datasets: [{
+        label: 'Energy',
+        data: [
+          { from: 'Coal', to: 'Electricity', flow: 34 },
+          { from: 'Gas', to: 'Electricity', flow: 20 },
+          { from: 'Electricity', to: 'Homes', flow: 30 },
+          { from: 'Electricity', to: 'Industry', flow: 24 },
+        ],
+        labels: { Homes: 'Residential' },
+      }],
+    },
+  });
+</script>
+```
+
+`labels` maps a node key to the name the chart displays, and MAIDR announces the label rather than the key.
+
+> **Sankey note:** a sankey is the one supported Chart.js type MAIDR does **not** outline. A flow diagram is navigated by *node* while the chart's elements are *flows*, and nothing in the navigation event names the node — so the adapter declines rather than outlining a ribbon chosen by position. Audio, text and braille are unaffected.
+
+#### Word Cloud [experimental]
+
+Requires [`chartjs-chart-wordcloud`](https://github.com/sgratzl/chartjs-chart-wordcloud). The terms go in `data.labels` and their weights in the dataset, which is the ordinary Chart.js split — and it is the reading, so a word's weight is announced as the number the author gave rather than recovered from how large it was drawn.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/maidr/dist/chartjs.js"></script>
+
+<div style="width: 700px; height: 400px">
+  <canvas id="wordcloud-chart"></canvas>
+</div>
+<script>
+  Chart.register(maidrChartjs.maidrPlugin);
+
+  new Chart(document.getElementById('wordcloud-chart'), {
+    type: 'wordCloud',
+    data: {
+      labels: ['accessible', 'chart', 'audio', 'braille'],
+      datasets: [{ label: 'Terms', data: [40, 25, 12, 8] }],
+    },
+  });
+</script>
+```
+
+Terms are read in the order they were declared, not in the order the layout happened to place them — the largest word is drawn first on screen, but a reader sweeping left and right gets the author's order.
+
+A term whose weight is `null` is skipped rather than announced as zero: a weight is what terms are compared by, and a zero would make the term look like the least common one rather than one the chart has no count for.
 
 ## Multi-Panel Charts (Axis Stacking)
 

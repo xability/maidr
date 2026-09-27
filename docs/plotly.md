@@ -58,6 +58,8 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | Plotly Trace | Example |
 |-----------|-------------|---------|
 | Bar | `type: 'bar'` | [Bar chart](examples.html) |
@@ -72,6 +74,14 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Pie | `type: 'pie'` | [Pie chart](examples.html) |
 | Grouped Bar | `barmode: 'group'` + multiple bar traces | [Grouped bar](examples.html) |
 | Stacked Bar | `barmode: 'stack'` + multiple bar traces | [Stacked bar](examples.html) |
+| Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | Plotly Trace | Example |
+|-----------|-------------|---------|
 | Area [experimental] | `type: 'scatter'`, `fill: 'tozeroy' \| 'tozerox' \| 'toself'` | [Area chart](examples.html) |
 | Stacked Area [experimental] | `type: 'scatter'` + `stackgroup` | [Stacked area](examples.html) |
 | 100% Stacked Area [experimental] | `stackgroup` + `groupnorm: 'percent' \| 'fraction'` | [Normalized area](examples.html) |
@@ -94,9 +104,8 @@ For dynamically-created charts (SPAs, notebooks), a `MutationObserver` watches f
 | Choropleth [experimental] | `type: 'choropleth'` | [Choropleth map](examples.html) |
 | Contour [experimental] | `type: 'contour'` or `type: 'histogram2dcontour'` | [Contour plot](examples.html) |
 | Mosaic / Marimekko [experimental] | stacked `bar` traces declaring `meta: { maidr: { type: 'mosaic' } }` | [Mosaic plot](examples.html) |
-| Subplots / Facets | multiple `xaxis`/`yaxis` pairs, `layout.grid`, or Plotly Express facets | [Subplots](examples.html) |
 
-**Notes on chart-type detection:**
+### Notes on chart-type detection
 
 - A line trace whose `line.shape` is one of the step-wise shapes is piecewise
   constant — the value is held and then jumps — so it maps to MAIDR's step
@@ -287,7 +296,9 @@ it is.
 
 ## Code Examples
 
-### Bar Chart
+### Stable chart types
+
+#### Bar Chart
 
 ```html
 <div id="bar-chart" style="width: 700px; height: 500px"></div>
@@ -305,7 +316,7 @@ it is.
 </script>
 ```
 
-### Scatter Plot
+#### Scatter Plot
 
 ```html
 <div id="scatter-chart" style="width: 700px; height: 500px"></div>
@@ -325,7 +336,7 @@ it is.
 </script>
 ```
 
-### Multi-Line Chart
+#### Multi-Line Chart
 
 ```html
 <div id="line-chart" style="width: 700px; height: 500px"></div>
@@ -354,7 +365,7 @@ it is.
 </script>
 ```
 
-### Box Plot
+#### Box Plot
 
 ```html
 <div id="box-chart" style="width: 700px; height: 500px"></div>
@@ -375,7 +386,7 @@ Give the samples on `x` instead and plotly draws the boxes on their side;
 MAIDR announces a horizontal box plot and reads the group off the y axis, which
 is where it is drawn. The five numbers themselves do not move.
 
-### Violin Plot
+#### Violin Plot
 
 A violin becomes two layers in one subplot: the quartile summary (`violin_box`)
 you land on, and the density curve (`violin_kde`) behind it. `PageUp` and
@@ -406,7 +417,7 @@ one list for the whole plot. So when only some traces draw a mean line, every
 violin still has a mean to read — it is a statistic of each of them — and only
 the ones drawn with a mean line highlight it.
 
-### Heatmap
+#### Heatmap
 
 ```html
 <div id="heatmap-chart" style="width: 700px; height: 500px"></div>
@@ -423,7 +434,115 @@ the ones drawn with a mean line highlight it.
 </script>
 ```
 
-### Contour Plot [experimental]
+#### Histogram
+
+```html
+<div id="histogram-chart" style="width: 700px; height: 500px"></div>
+<script>
+  // Generate random data
+  var x = [];
+  for (var i = 0; i < 500; i++) {
+    x.push(Math.random() + Math.random() + Math.random() - 1.5);
+  }
+
+  Plotly.newPlot('histogram-chart', [{
+    x: x,
+    type: 'histogram',
+    xbins: { size: 0.5 }
+  }], {
+    title: { text: 'Distribution of Values' },
+    xaxis: { title: { text: 'Value' } },
+    yaxis: { title: { text: 'Count' } }
+  });
+</script>
+```
+
+Give the samples on `y` instead of `x` and plotly bins up the y axis, drawing
+the counts across the page. MAIDR reads that as a horizontal histogram — the
+bin range is announced against the axis the bins run along, and the count
+against the other — with no extra configuration.
+
+#### Candlestick
+
+```html
+<div id="candlestick-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('candlestick-chart', [{
+    x: ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'],
+    open:  [150.0, 152.5, 151.0, 153.0],
+    high:  [153.0, 154.0, 154.5, 155.0],
+    low:   [149.0, 151.0, 150.0, 152.0],
+    close: [152.5, 151.0, 153.0, 154.5],
+    type: 'candlestick'
+  }], {
+    title: { text: 'Stock Price' },
+    xaxis: { title: { text: 'Date' } },
+    yaxis: { title: { text: 'Price ($)' } }
+  });
+</script>
+```
+
+#### Grouped Bar Chart
+
+```html
+<div id="grouped-bar" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('grouped-bar', [
+    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [20, 14, 23, 25], name: 'Product A', type: 'bar' },
+    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [15, 18, 20, 22], name: 'Product B', type: 'bar' },
+    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [12, 16, 18, 20], name: 'Product C', type: 'bar' }
+  ], {
+    barmode: 'group',
+    title: { text: 'Quarterly Sales by Product' },
+    xaxis: { title: { text: 'Quarter' } },
+    yaxis: { title: { text: 'Revenue ($M)' } }
+  });
+</script>
+```
+
+#### Stacked Bar Chart
+
+```html
+<div id="stacked-bar" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('stacked-bar', [
+    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [20, 14, 23, 25], name: 'Product A', type: 'bar' },
+    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [15, 18, 20, 22], name: 'Product B', type: 'bar' }
+  ], {
+    barmode: 'stack',
+    title: { text: 'Quarterly Revenue Breakdown' },
+    xaxis: { title: { text: 'Quarter' } },
+    yaxis: { title: { text: 'Revenue ($M)' } }
+  });
+</script>
+```
+
+#### Pie Chart
+
+```html
+<div id="pie-chart" style="width: 700px; height: 500px"></div>
+<script>
+  Plotly.newPlot('pie-chart', [{
+    labels: ['Apples', 'Bananas', 'Cherries', 'Dates'],
+    values: [30, 50, 20, 15],
+    type: 'pie',
+    sort: false
+  }], {
+    title: { text: 'Units Sold by Fruit' }
+  });
+</script>
+```
+
+Left and Right move between slices; Up and Down are out of bounds, since a pie
+is a single row. Each slice announces its label, its value, and its share of the
+whole — "Apples, 30, 26.1%". The share is derived from the values themselves, so
+there is nothing to author for it.
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Contour Plot [experimental]
 
 ```html
 <div id="contour-chart" style="width: 700px; height: 500px"></div>
@@ -446,7 +565,7 @@ the ones drawn with a mean line highlight it.
 `contours` may be left out entirely — Plotly picks the ladder itself and MAIDR
 reads whichever one it resolved.
 
-### Mosaic (Marimekko) [experimental]
+#### Mosaic (Marimekko) [experimental]
 
 ```html
 <div id="mosaic-chart" style="width: 700px; height: 500px"></div>
@@ -480,110 +599,6 @@ reads whichever one it resolved.
   });
 </script>
 ```
-
-### Histogram
-
-```html
-<div id="histogram-chart" style="width: 700px; height: 500px"></div>
-<script>
-  // Generate random data
-  var x = [];
-  for (var i = 0; i < 500; i++) {
-    x.push(Math.random() + Math.random() + Math.random() - 1.5);
-  }
-
-  Plotly.newPlot('histogram-chart', [{
-    x: x,
-    type: 'histogram',
-    xbins: { size: 0.5 }
-  }], {
-    title: { text: 'Distribution of Values' },
-    xaxis: { title: { text: 'Value' } },
-    yaxis: { title: { text: 'Count' } }
-  });
-</script>
-```
-
-Give the samples on `y` instead of `x` and plotly bins up the y axis, drawing
-the counts across the page. MAIDR reads that as a horizontal histogram — the
-bin range is announced against the axis the bins run along, and the count
-against the other — with no extra configuration.
-
-### Candlestick
-
-```html
-<div id="candlestick-chart" style="width: 700px; height: 500px"></div>
-<script>
-  Plotly.newPlot('candlestick-chart', [{
-    x: ['2024-01-02', '2024-01-03', '2024-01-04', '2024-01-05'],
-    open:  [150.0, 152.5, 151.0, 153.0],
-    high:  [153.0, 154.0, 154.5, 155.0],
-    low:   [149.0, 151.0, 150.0, 152.0],
-    close: [152.5, 151.0, 153.0, 154.5],
-    type: 'candlestick'
-  }], {
-    title: { text: 'Stock Price' },
-    xaxis: { title: { text: 'Date' } },
-    yaxis: { title: { text: 'Price ($)' } }
-  });
-</script>
-```
-
-### Grouped Bar Chart
-
-```html
-<div id="grouped-bar" style="width: 700px; height: 500px"></div>
-<script>
-  Plotly.newPlot('grouped-bar', [
-    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [20, 14, 23, 25], name: 'Product A', type: 'bar' },
-    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [15, 18, 20, 22], name: 'Product B', type: 'bar' },
-    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [12, 16, 18, 20], name: 'Product C', type: 'bar' }
-  ], {
-    barmode: 'group',
-    title: { text: 'Quarterly Sales by Product' },
-    xaxis: { title: { text: 'Quarter' } },
-    yaxis: { title: { text: 'Revenue ($M)' } }
-  });
-</script>
-```
-
-### Stacked Bar Chart
-
-```html
-<div id="stacked-bar" style="width: 700px; height: 500px"></div>
-<script>
-  Plotly.newPlot('stacked-bar', [
-    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [20, 14, 23, 25], name: 'Product A', type: 'bar' },
-    { x: ['Q1', 'Q2', 'Q3', 'Q4'], y: [15, 18, 20, 22], name: 'Product B', type: 'bar' }
-  ], {
-    barmode: 'stack',
-    title: { text: 'Quarterly Revenue Breakdown' },
-    xaxis: { title: { text: 'Quarter' } },
-    yaxis: { title: { text: 'Revenue ($M)' } }
-  });
-</script>
-```
-
-### Pie Chart
-
-```html
-<div id="pie-chart" style="width: 700px; height: 500px"></div>
-<script>
-  Plotly.newPlot('pie-chart', [{
-    labels: ['Apples', 'Bananas', 'Cherries', 'Dates'],
-    values: [30, 50, 20, 15],
-    type: 'pie',
-    sort: false
-  }], {
-    title: { text: 'Units Sold by Fruit' }
-  });
-</script>
-```
-
-Left and Right move between slices; Up and Down are out of bounds, since a pie
-is a single row. Each slice announces its label, its value, and its share of the
-whole — "Apples, 30, 26.1%". The share is derived from the values themselves, so
-there is nothing to author for it.
 
 ### Subplots (2x2 Grid)
 

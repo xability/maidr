@@ -123,12 +123,12 @@ const binding = bindApexCharts(chart, { title: 'Monthly Coffee Sales' });
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart Type | ApexCharts configuration | MAIDR type | Example |
 |------------|--------------------------|------------|---------|
 | Line | `type: 'line'` (straight or `stroke.curve: 'smooth'`), one or more series | `line` | [apexcharts-line.html](examples/apexcharts-line.html), [apexcharts-multiline.html](examples/apexcharts-multiline.html) |
 | Step | `type: 'line'` + `stroke.curve: 'stepline'` or `'linestep'` | `step` | [apexcharts-step.html](examples/apexcharts-step.html) |
-| Area [experimental] | `type: 'area'` | `area` | [apexcharts-area.html](examples/apexcharts-area.html) |
-| Stacked Area [experimental] | `type: 'area'` + `chart.stacked: true` | `stacked_area` | [apexcharts-stacked-area.html](examples/apexcharts-stacked-area.html) |
 | Bar / Column | `type: 'bar'`, one series | `bar` | [apexcharts-bar.html](examples/apexcharts-bar.html) |
 | Horizontal Bar | `type: 'bar'` + `plotOptions.bar.horizontal: true` | `bar`, `orientation: 'horz'` | [apexcharts-bar-horizontal.html](examples/apexcharts-bar-horizontal.html) |
 | Grouped Bar | `type: 'bar'`, several series | `dodged_bar` | [apexcharts-grouped-bar.html](examples/apexcharts-grouped-bar.html) |
@@ -141,12 +141,23 @@ const binding = bindApexCharts(chart, { title: 'Monthly Coffee Sales' });
 | Heatmap | `type: 'heatmap'` | `heat` | [apexcharts-heatmap.html](examples/apexcharts-heatmap.html) |
 | Candlestick | `type: 'candlestick'` | `candlestick` | [apexcharts-candlestick.html](examples/apexcharts-candlestick.html) |
 | Box Plot | `type: 'boxPlot'`, vertical or with `plotOptions.bar.horizontal: true` | `box` | [apexcharts-box.html](examples/apexcharts-box.html), [apexcharts-box-horizontal.html](examples/apexcharts-box-horizontal.html) |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart Type | ApexCharts configuration | MAIDR type | Example |
+|------------|--------------------------|------------|---------|
+| Area [experimental] | `type: 'area'` | `area` | [apexcharts-area.html](examples/apexcharts-area.html) |
+| Stacked Area [experimental] | `type: 'area'` + `chart.stacked: true` | `stacked_area` | [apexcharts-stacked-area.html](examples/apexcharts-stacked-area.html) |
 | Polar Area [experimental] | `type: 'polarArea'` | `polar_area` | [apexcharts-polar-area.html](examples/apexcharts-polar-area.html) |
 | Radar [experimental] | `type: 'radar'` | `radar` | [apexcharts-radar.html](examples/apexcharts-radar.html) |
 | Range Bar (Gantt) [experimental] | `type: 'rangeBar'` | `gantt` | [apexcharts-gantt.html](examples/apexcharts-gantt.html) |
 | Treemap [experimental] | `type: 'treemap'` | `treemap` | [apexcharts-treemap.html](examples/apexcharts-treemap.html) |
 | Radial Bar (Gauge) [experimental] | `type: 'radialBar'` | `gauge`, one layer per ring | [apexcharts-gauge.html](examples/apexcharts-gauge.html) |
 | Funnel [experimental] | `type: 'bar'` + `plotOptions.bar.isFunnel: true` | `funnel` | [apexcharts-funnel.html](examples/apexcharts-funnel.html) |
+
+### Notes on these chart types
 
 > **Stacked and 100% note:** a stacked series is announced by its **own** value, not by the height of the stack it reaches; MAIDR sums the stack itself and offers the total on a Sum row. For `stackType: '100%'` the adapter announces each series' **share** of its category, the number ApexCharts draws, rather than the raw value you wrote. When the series name more than one `group`, ApexCharts draws one stack per group side by side, and each group becomes a stacked layer of its own, named after the group, so each Sum row is the total of a stack that is drawn. Page Up / Page Down moves between the groups.
 >
@@ -329,7 +340,9 @@ import type {
 
 > Every example assumes the scripts from the [Quick Start](#quick-start) and a `<div id="chart">`, switches ApexCharts' keyboard navigation off and hides its toolbar. Each links a runnable page under `examples/`.
 
-### Bar / Column Chart
+### Stable chart types
+
+#### Bar / Column Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -343,7 +356,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Horizontal Bar
+#### Horizontal Bar
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -361,7 +374,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Grouped Bar Chart
+#### Grouped Bar Chart
 
 Several bar series without `stacked` are drawn side by side, and read as a dodged bar chart: Left/Right moves between categories, Up/Down between the series in one category.
 
@@ -381,7 +394,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Stacked Bar Chart
+#### Stacked Bar Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -399,7 +412,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### 100% Stacked Bar Chart
+#### 100% Stacked Bar Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -424,7 +437,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Line Chart
+#### Line Chart
 
 Give a line chart markers (`markers.size > 0`) whenever its data can hold gaps — see [Limitations](#limitations).
 
@@ -447,7 +460,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Multi-Line Chart
+#### Multi-Line Chart
 
 Every line series of a chart becomes one multi-line layer; Up/Down moves to the line above or below.
 
@@ -469,7 +482,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Step Chart
+#### Step Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -488,41 +501,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Area Chart [experimental]
-
-```js
-const chart = new ApexCharts(document.querySelector('#chart'), {
-  chart: { type: 'area', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
-  title: { text: 'Daily Website Sessions' },
-  dataLabels: { enabled: false },
-  series: [{ name: 'Sessions', data: [310, 402, 385, 420, 460, 210, 190] }],
-  xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], title: { text: 'Day' } },
-  yaxis: { title: { text: 'Sessions' } },
-});
-chart.render();
-maidrApexCharts.bindApexCharts(chart);
-```
-
-### Stacked Area [experimental]
-
-```js
-const chart = new ApexCharts(document.querySelector('#chart'), {
-  chart: { type: 'area', height: 400, stacked: true, accessibility: { enabled: false }, toolbar: { show: false } },
-  title: { text: 'Website Visits by Traffic Source' },
-  dataLabels: { enabled: false },
-  series: [
-    { name: 'Organic', data: [4200, 4500, 4800, 5100, 5600, 5900] },
-    { name: 'Direct', data: [2100, 2200, 2150, 2300, 2400, 2500] },
-    { name: 'Referral', data: [800, 950, 1100, 1000, 1200, 1350] },
-  ],
-  xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], title: { text: 'Month' } },
-  yaxis: { title: { text: 'Visits' } },
-});
-chart.render();
-maidrApexCharts.bindApexCharts(chart);
-```
-
-### Scatter Plot
+#### Scatter Plot
 
 Each scatter series becomes its own point layer; Page Up / Page Down moves between them.
 
@@ -541,7 +520,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Bubble Chart
+#### Bubble Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -558,7 +537,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Pie / Donut Chart
+#### Pie / Donut Chart
 
 A donut (`type: 'donut'`) is read exactly as a pie. `plotOptions.pie.startAngle` is carried over, so MAIDR's dial starts where the first slice does.
 
@@ -574,7 +553,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart, { axes: { x: 'Expense', y: 'Amount ($)' } });
 ```
 
-### Heatmap
+#### Heatmap
 
 ```js
 const hours = ['7am', '9am', '11am', '1pm', '3pm'];
@@ -595,7 +574,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Candlestick Chart
+#### Candlestick Chart
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -616,7 +595,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Box Plot
+#### Box Plot
 
 Add `plotOptions: { bar: { horizontal: true } }` for horizontal boxes ([apexcharts-box-horizontal.html](examples/apexcharts-box-horizontal.html)).
 
@@ -639,7 +618,64 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Polar Area Chart [experimental]
+#### Mixed Chart (Column + Line)
+
+```js
+const chart = new ApexCharts(document.querySelector('#chart'), {
+  chart: { type: 'line', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
+  title: { text: 'Revenue Against Target' },
+  stroke: { width: [0, 3] },
+  markers: { size: [0, 4] },
+  series: [
+    { name: 'Revenue', type: 'column', data: [42, 47, 51, 49, 58, 63] },
+    { name: 'Target', type: 'line', data: [45, 46, 48, 50, 55, 60] },
+  ],
+  xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], title: { text: 'Month' } },
+  yaxis: { title: { text: 'Revenue ($ thousands)' } },
+});
+chart.render();
+maidrApexCharts.bindApexCharts(chart);
+```
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Area Chart [experimental]
+
+```js
+const chart = new ApexCharts(document.querySelector('#chart'), {
+  chart: { type: 'area', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
+  title: { text: 'Daily Website Sessions' },
+  dataLabels: { enabled: false },
+  series: [{ name: 'Sessions', data: [310, 402, 385, 420, 460, 210, 190] }],
+  xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], title: { text: 'Day' } },
+  yaxis: { title: { text: 'Sessions' } },
+});
+chart.render();
+maidrApexCharts.bindApexCharts(chart);
+```
+
+#### Stacked Area [experimental]
+
+```js
+const chart = new ApexCharts(document.querySelector('#chart'), {
+  chart: { type: 'area', height: 400, stacked: true, accessibility: { enabled: false }, toolbar: { show: false } },
+  title: { text: 'Website Visits by Traffic Source' },
+  dataLabels: { enabled: false },
+  series: [
+    { name: 'Organic', data: [4200, 4500, 4800, 5100, 5600, 5900] },
+    { name: 'Direct', data: [2100, 2200, 2150, 2300, 2400, 2500] },
+    { name: 'Referral', data: [800, 950, 1100, 1000, 1200, 1350] },
+  ],
+  xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], title: { text: 'Month' } },
+  yaxis: { title: { text: 'Visits' } },
+});
+chart.render();
+maidrApexCharts.bindApexCharts(chart);
+```
+
+#### Polar Area Chart [experimental]
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -653,7 +689,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart, { axes: { x: 'Season' } });
 ```
 
-### Radar Chart [experimental]
+#### Radar Chart [experimental]
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -670,7 +706,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart, { axes: { x: 'Skill', y: 'Rating' } });
 ```
 
-### Range Bar (Gantt) [experimental]
+#### Range Bar (Gantt) [experimental]
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -692,7 +728,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart);
 ```
 
-### Treemap [experimental]
+#### Treemap [experimental]
 
 With several series, each series becomes a parent node of its rectangles.
 
@@ -714,7 +750,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart, { axes: { x: 'City', y: 'Population (millions)' } });
 ```
 
-### Radial Bar (Gauge) [experimental]
+#### Radial Bar (Gauge) [experimental]
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -728,7 +764,7 @@ chart.render();
 maidrApexCharts.bindApexCharts(chart, { axes: { y: 'Charge (%)' } });
 ```
 
-### Funnel Chart [experimental]
+#### Funnel Chart [experimental]
 
 ```js
 const chart = new ApexCharts(document.querySelector('#chart'), {
@@ -737,25 +773,6 @@ const chart = new ApexCharts(document.querySelector('#chart'), {
   plotOptions: { bar: { horizontal: true, isFunnel: true, barHeight: '80%' } },
   series: [{ name: 'Candidates', data: [1380, 890, 450, 210, 64] }],
   xaxis: { categories: ['Applied', 'Screened', 'Interviewed', 'Offered', 'Hired'] },
-});
-chart.render();
-maidrApexCharts.bindApexCharts(chart);
-```
-
-### Mixed Chart (Column + Line)
-
-```js
-const chart = new ApexCharts(document.querySelector('#chart'), {
-  chart: { type: 'line', height: 400, accessibility: { enabled: false }, toolbar: { show: false } },
-  title: { text: 'Revenue Against Target' },
-  stroke: { width: [0, 3] },
-  markers: { size: [0, 4] },
-  series: [
-    { name: 'Revenue', type: 'column', data: [42, 47, 51, 49, 58, 63] },
-    { name: 'Target', type: 'line', data: [45, 46, 48, 50, 55, 60] },
-  ],
-  xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], title: { text: 'Month' } },
-  yaxis: { title: { text: 'Revenue ($ thousands)' } },
 });
 chart.render();
 maidrApexCharts.bindApexCharts(chart);

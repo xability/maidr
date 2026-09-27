@@ -87,6 +87,8 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Vega-Lite mark | Encoding hint | MAIDR trace type | Example |
 |---|---|---|---|
 | `bar` | (default) | Bar | [vegalite-bindbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbar.html) |
@@ -94,27 +96,36 @@ Because Vega-Lite renders **asynchronously** through `vegaEmbed()`, the adapter 
 | `bar` | `color`/`fill` field, default stack | Stacked bar | [vegalite-bindstacked.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindstacked.html) |
 | `bar` | `color`/`fill`, `stack: null` or `false` | Dodged (grouped) bar | [vegalite-binddodged.html](https://github.com/xability/maidr/blob/main/examples/vegalite-binddodged.html) |
 | `bar` | `color`/`fill`, `stack: 'normalize'` | Normalized stacked bar | [vegalite-bindnormalized.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) |
-| `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) [experimental] | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
 | `line`, `trail`, `area` | — | Line | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
 | `line`, `trail`, `area` | `interpolate: 'step'`, `'step-before'`, `'step-after'` | Step | [vegalite-bindline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) |
+| `line`, `trail` | a `regression` or `loess` transform | Smooth | — |
+| `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
+| `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
+| `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
+| `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
+| `text` | `text` channel, both positional channels continuous | Scatter, each point carrying its name | — |
+| `text` | in a `layer:`, `x`/`y` fields matching a sibling layer's | absorbed — the names go to the layer it labels | — |
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Vega-Lite mark | Encoding hint | MAIDR trace type | Example |
+|---|---|---|---|
+| `bar` | stacked, with each series wholly one side of the baseline | Diverging bar (pyramid, Likert) [experimental] | [vegalite-diverging.html](https://github.com/xability/maidr/blob/main/examples/vegalite-diverging.html) |
 | `line`, `trail` | a `window` `rank`/`dense_rank` whose output column is on `y` | Bump [experimental] | [vegalite-bump.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bump.html) |
 | `line`, `trail` | a `fold` transform with `detail` splitting the polylines | Parallel coordinates [experimental] | [vegalite-parallel.html](https://github.com/xability/maidr/blob/main/examples/vegalite-parallel.html) |
-| `line`, `trail` | a `regression` or `loess` transform | Smooth | — |
 | `area` | a `row` facet over a `density` transform grouped by the facet field | Ridgeline [experimental] | [vegalite-ridgeline.html](https://github.com/xability/maidr/blob/main/examples/vegalite-ridgeline.html) |
 | `bar` | `x` + `x2` (or `y` + `y2`) fields, other axis nominal/ordinal | Gantt (ranged bar) [experimental] | [vegalite-gantt.html](https://github.com/xability/maidr/blob/main/examples/vegalite-gantt.html) |
 | `bar` | the same, plus a `window` sum building a running total | Waterfall (either orientation) [experimental] | — |
-| `point`, `circle`, `square`, `tick` | — | Scatter | [vegalite-bindscatter.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) |
 | `point`, `circle`, `square`, `tick` | one positional channel nominal/ordinal | Dot plot (vertical & horizontal) [experimental] | — |
-| `rect` | — | Heatmap | [vegalite-bindheatmap.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) |
-| `boxplot` | — | Box plot (vertical & horizontal) | [vegalite-bindbox.html](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) |
 | `errorbar`, `errorband` | — | Error bar [experimental] | [vegalite-errorbar.html](https://github.com/xability/maidr/blob/main/examples/vegalite-errorbar.html) |
-| `arc` | `theta` encoding | Pie (`mark.innerRadius` makes it a doughnut) | [vegalite-pie.html](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) |
 | `arc` | `radius` bound to a field | Polar area (coxcomb, rose) [experimental] | — |
 | `geoshape` | a `color` or `fill` field, or a declared `value` | Choropleth map [experimental] | [vegalite-choropleth.html](https://github.com/xability/maidr/blob/main/examples/vegalite-choropleth.html) |
 | `rule` + `point` layers | shared category and value channels | Lollipop [experimental] | — |
-| `text` | `text` channel, both positional channels continuous | Scatter, each point carrying its name | — |
-| `text` | in a `layer:`, `x`/`y` fields matching a sibling layer's | absorbed — the names go to the layer it labels | — |
 | `rule` + `point` layers, or `line` + `point` where the `line` has a `detail` naming the category | two values per category, told apart by `color` | Dumbbell [experimental] | [vegalite-dumbbell.html](https://github.com/xability/maidr/blob/main/examples/vegalite-dumbbell.html) |
+
+### Notes on these chart types
 
 A `trail` is read as the line it is: Vega-Lite describes it as a line whose
 width can vary, and the two compile to the same one-path-per-series geometry
@@ -139,7 +150,9 @@ Highlighting is withheld, rather than pointed at the wrong element, in two cases
 
 ## Code Examples
 
-### Bar chart
+### Stable chart types
+
+#### Bar chart
 
 ```js
 const spec = {
@@ -167,7 +180,7 @@ maidrVegaLite.embed('#chart', spec, { id: 'tips-bar' });
 
 See [`examples/vegalite-bindbar.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbar.html) for a runnable version.
 
-### Stacked bar chart
+#### Stacked bar chart
 
 ```js
 const spec = {
@@ -196,7 +209,7 @@ const spec = {
 
 See [`examples/vegalite-bindstacked.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindstacked.html) for a runnable version.
 
-### Dodged (grouped) bar chart
+#### Dodged (grouped) bar chart
 
 Set `stack: null` (or `false`) on the quantitative axis to switch from stacked to dodged.
 
@@ -227,7 +240,7 @@ const spec = {
 
 See [`examples/vegalite-binddodged.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-binddodged.html) for a runnable version.
 
-### Normalized (100%) stacked bar chart
+#### Normalized (100%) stacked bar chart
 
 ```js
 const spec = {
@@ -256,7 +269,7 @@ const spec = {
 
 See [`examples/vegalite-bindnormalized.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindnormalized.html) for a runnable version.
 
-### Histogram
+#### Histogram
 
 ```js
 const spec = {
@@ -283,7 +296,7 @@ against the axis the bins run along.
 
 See [`examples/vegalite-bindhistogram.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindhistogram.html) for a runnable version.
 
-### Line chart
+#### Line chart
 
 ```js
 const spec = {
@@ -311,7 +324,7 @@ const spec = {
 
 See [`examples/vegalite-bindline.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindline.html) for a runnable version.
 
-### Scatter plot
+#### Scatter plot
 
 ```js
 const spec = {
@@ -338,7 +351,7 @@ const spec = {
 
 See [`examples/vegalite-bindscatter.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindscatter.html) for a runnable version.
 
-### Heatmap
+#### Heatmap
 
 ```js
 const spec = {
@@ -370,7 +383,7 @@ const spec = {
 
 See [`examples/vegalite-bindheatmap.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindheatmap.html) for a runnable version.
 
-### Box plot
+#### Box plot
 
 Vega-Lite's `boxplot` is a compound mark — it computes the five-number summary (min, Q1, median, Q3, max) plus outliers internally from raw rows. MAIDR reads that summary back from the rendered SVG so you can navigate each box and its outliers with arrow keys.
 
@@ -419,7 +432,7 @@ const spec = {
 
 Both **vertical** (categorical x, quantitative y) and **horizontal** (categorical y, quantitative x) box plots are supported. See [`examples/vegalite-bindbox.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-bindbox.html) for a runnable version.
 
-### Pie chart
+#### Pie chart
 
 ```js
 const spec = {
@@ -449,7 +462,11 @@ An `arc` has no `x` or `y` to name its axes after, so the slice labels come from
 
 See [`examples/vegalite-pie.html`](https://github.com/xability/maidr/blob/main/examples/vegalite-pie.html) for a runnable version.
 
-### Choropleth map [experimental]
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Choropleth map [experimental]
 
 ```js
 const states = [
@@ -492,7 +509,7 @@ A map has no `x` or `y` channel, so MAIDR names its two axes after the two thing
 
 Geometry the join left unmatched carries no value. Those regions are **dropped** rather than shaded zero — a region announced as 0 is a claim the map does not make, and on a rate it is the lowest value on the scale. Once regions are dropped they no longer line up one-to-one with the drawn shapes, so the layer loses its highlighting; a `filter` on the joined column, as above, keeps the two aligned.
 
-#### Declaring what a map means
+##### Declaring what a map means
 
 `usermeta` is Vega-Lite's own slot for third-party metadata, and `usermeta.maidr` is where a spec says what MAIDR cannot read off the drawing. On a choropleth it carries four optional fields, each named exactly like the value it fills:
 

@@ -60,6 +60,8 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 
 ## Supported Chart Types
 
+### Stable chart types
+
 | Chart | MUI X component | Highlight | Notes |
 |---|---|---|---|
 | Bar chart | `BarChart` | ✅ | One series. A `null` value draws no bar and is left out. |
@@ -69,13 +71,20 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 | Horizontal bar | `BarChart` | ✅ | `layout="horizontal"`; the categories are read from the y axis. |
 | Line chart | `LineChart` | ✅ | Every series is one line of a multi-line layer. A `null` value is a gap. |
 | Step chart | `LineChart` | ✅ | Series with `curve: 'stepAfter'`, `'stepBefore'` or `'step'`. |
-| Area chart [experimental] | `LineChart` | ✅ | Series with `area: true` and no `stack`. |
-| Stacked area [experimental] | `LineChart` | ✅ | Series sharing a `stack` id, filled or not: MUI draws each at the running total. |
-| 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
 | Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. A point outside an explicit axis `min`/`max` is not drawn, and is left out. |
 | Pie / doughnut | `PieChart` | ⚠️ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. See the notes below for sorted and partial pies. |
 
-Notes:
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Chart | MUI X component | Highlight | Notes |
+|---|---|---|---|
+| Area chart [experimental] | `LineChart` | ✅ | Series with `area: true` and no `stack`. |
+| Stacked area [experimental] | `LineChart` | ✅ | Series sharing a `stack` id, filled or not: MUI draws each at the running total. |
+| 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
+
+### Notes on these chart types
 
 - A bar chart mixing stacked and unstacked series, or holding two stacks, becomes one layer per stack group.
 - A bar with no value is not drawn, and is announced as a gap in a grouped or stacked chart. A bar lying wholly outside an explicit value-axis `min`/`max` is culled by MUI, and is not outlined.
@@ -86,7 +95,9 @@ Notes:
 
 ## Data Examples by Chart Type
 
-### Bar Chart
+### Stable chart types
+
+#### Bar Chart
 
 ```tsx
 <MaidrMuiCharts id="bar-example" title="Quarterly Revenue">
@@ -100,7 +111,7 @@ Notes:
 </MaidrMuiCharts>
 ```
 
-### Grouped Bar Chart
+#### Grouped Bar Chart
 
 Series can read from a shared `dataset` through `dataKey`:
 
@@ -124,7 +135,7 @@ const dataset = [
 </MaidrMuiCharts>
 ```
 
-### Stacked Bar Chart
+#### Stacked Bar Chart
 
 ```tsx
 <MaidrMuiCharts id="stacked-example" title="Electricity Generation by Source">
@@ -140,7 +151,7 @@ const dataset = [
 </MaidrMuiCharts>
 ```
 
-### Horizontal Bar
+#### Horizontal Bar
 
 ```tsx
 <MaidrMuiCharts id="horizontal-example" title="Favorite Fruit">
@@ -155,7 +166,7 @@ const dataset = [
 </MaidrMuiCharts>
 ```
 
-### Line Chart
+#### Line Chart
 
 ```tsx
 <MaidrMuiCharts id="line-example" title="Average Temperature">
@@ -174,7 +185,7 @@ const dataset = [
 
 A `Date` on the x axis is announced in ISO form (`2024-01-31`) unless the axis has a `valueFormatter`.
 
-### Step Chart
+#### Step Chart
 
 ```tsx
 <MaidrMuiCharts id="step-example" title="Subscription Price">
@@ -187,23 +198,7 @@ A `Date` on the x axis is announced in ISO form (`2024-01-31`) unless the axis h
 </MaidrMuiCharts>
 ```
 
-### Stacked Area [experimental]
-
-```tsx
-<MaidrMuiCharts id="stacked-area-example" title="Traffic by Source">
-  <LineChart
-    width={600}
-    height={360}
-    xAxis={[{ data: [1, 2, 3], label: 'Week' }]}
-    series={[
-      { data: [100, 120, 140], label: 'Search', stack: 'total', area: true },
-      { data: [60, 70, 65], label: 'Social', stack: 'total', area: true },
-    ]}
-  />
-</MaidrMuiCharts>
-```
-
-### Scatter Plot
+#### Scatter Plot
 
 ```tsx
 <MaidrMuiCharts id="scatter-example" title="Height vs Weight">
@@ -219,7 +214,7 @@ A `Date` on the x axis is announced in ISO form (`2024-01-31`) unless the axis h
 
 With a `dataset`, name the columns through the series' `datasetKeys: { x: 'height', y: 'weight' }`, or read each row with a `valueGetter`, as MUI does. Bar and line series read a `dataset` through `dataKey` or `valueGetter` in the same way.
 
-### Pie / Doughnut
+#### Pie / Doughnut
 
 ```tsx
 <MaidrMuiCharts id="pie-example" title="Browser Market Share">
@@ -234,6 +229,26 @@ With a `dataset`, name the columns through the series' `datasetKeys: { x: 'heigh
         { id: 2, value: 17, label: 'Other' },
       ],
     }]}
+  />
+</MaidrMuiCharts>
+```
+
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+#### Stacked Area [experimental]
+
+```tsx
+<MaidrMuiCharts id="stacked-area-example" title="Traffic by Source">
+  <LineChart
+    width={600}
+    height={360}
+    xAxis={[{ data: [1, 2, 3], label: 'Week' }]}
+    series={[
+      { data: [100, 120, 140], label: 'Search', stack: 'total', area: true },
+      { data: [60, 70, 65], label: 'Social', stack: 'total', area: true },
+    ]}
   />
 </MaidrMuiCharts>
 ```
