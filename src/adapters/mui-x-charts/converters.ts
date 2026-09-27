@@ -17,6 +17,7 @@ import type {
   MuiAxisConfig,
   MuiChartKind,
   MuiChartProps,
+  MuiColorMap,
   MuiRadarMetric,
   MuiSankeySeries,
   MuiSeriesConfig,
@@ -124,7 +125,12 @@ function chartConfidence(props: Record<string, unknown>, kind: MuiChartKind | un
   if (series && typeof series === 'object' && Array.isArray(series.data?.links))
     return 2;
   const childless = props.children === undefined;
-  if (childless && (Array.isArray(props.data) || typeof props.value === 'number' || props.value === null))
+  if (childless && Array.isArray(props.data))
+    return 1;
+  // A `<GaugeContainer>` composes its dial from children, so a gauge's
+  // `value` counts with children too when the dial's range is written out.
+  const gaugeShaped = typeof props.value === 'number' || props.value === null;
+  if (gaugeShaped && (childless || 'valueMin' in props || 'valueMax' in props))
     return 1;
   return 0;
 }
@@ -184,11 +190,13 @@ export function withMuiKeyboardNavigationDisabled(children: ReactNode): ReactNod
     const props = element.props ?? {};
     if (chart !== undefined && props === chart.props) {
       done = true;
-      // A gauge has no keyboard navigation of its own, and no such prop: it
-      // would reach the DOM as an unknown attribute.
-      const gauge = chart.kind === 'gauge'
-        || (chart.kind === undefined && props.series === undefined && props.data === undefined);
-      return props.disableKeyboardNavigation === undefined && !gauge
+      // A gauge has no keyboard navigation and no such prop, and a sparkline
+      // (MUI X 9.14) takes the prop without passing it on: either way it
+      // would reach the DOM as an unknown attribute and change nothing.
+      const takesProp = chart.kind === undefined
+        ? props.series !== undefined
+        : chart.kind !== 'gauge' && chart.kind !== 'sparkline';
+      return props.disableKeyboardNavigation === undefined && takesProp
         ? cloneElement(element, { disableKeyboardNavigation: true })
         : element;
     }
@@ -920,21 +928,64 @@ function drawnOrder<T>(values: readonly T[], axis: MuiAxisConfig | undefined): T
 }
 
 /**
+ * Whether MUI draws a heatmap cell holding `value`: it draws a cell exactly
+ * when the colour axis gives the value a colour.
+ *
+ * Every MUI colour scale answers `unknownColor ?? null` for a value it does
+ * not cover: a missing or non-numeric value on a continuous or piecewise
+ * map, and a value outside an ordinal map's `values` (its colour indices,
+ * without them). A `zAxis` with no colour map gives nothing a colour.
+ *
+ * @param value - The cell's value as written
+ * @param colorMap - The first `zAxis`' colour map, or `null` when the chart
+ *                   gave a `zAxis` without one
+ * @returns True when MUI draws the cell
+ */
+function heatmapCellDrawn(value: unknown, colorMap: MuiColorMap | null): boolean {
+  if (colorMap === null)
+    return false;
+  const hasUnknown = typeof colorMap.unknownColor === 'string' && colorMap.unknownColor !== '';
+  if (colorMap.type === 'ordinal') {
+    const domain = colorMap.values ?? (colorMap.colors ?? []).map((_, index) => index);
+    return domain.includes(value) || hasUnknown;
+  }
+  return toValue(value) !== null || hasUnknown;
+}
+
+/**
+ * A heatmap axis' categories: its own `data`, or -- as MUI fills in an axis
+ * without it -- the indices up to the largest one the entries use.
+ */
+function heatmapAxisValues(axis: MuiAxisConfig | undefined, entries: unknown[][], position: 0 | 1): readonly unknown[] {
+  if (Array.isArray(axis?.data))
+    return axis.data;
+  const largest = Math.max(-1, ...entries.map(entry => Number(entry[position])).filter(Number.isFinite));
+  return Array.from({ length: largest + 1 }, (_, index) => index);
+}
+
+/**
  * Converts a Pro `<Heatmap>`.
  *
  * MUI draws only the first series, one cell per `[xIndex, yIndex, value]`
- * entry that has a value, in data order, with the first y category at the
- * top. The payload is the grammar's top-first grid; a cell the data leaves
- * out, or leaves without a value, is a gap and has no selector.
+ * entry that its colour axis gives a colour (see `heatmapCellDrawn`), in
+ * data order, with the first y category at the top. The payload is the
+ * grammar's top-first grid. A cell the data leaves out, or leaves without a
+ * value, is a gap; a drawn cell is outlined, whatever its value.
  */
 function convertHeatmap(props: MuiChartProps, scope: string): MuiConvertedChart {
   const xAxis = props.xAxis?.[0];
   const yAxis = props.yAxis?.[0];
-  const xRaw = axisValues(xAxis, props.dataset) ?? [];
-  const yRaw = axisValues(yAxis, props.dataset) ?? [];
-  const entries = Array.isArray(seriesList(props)[0]?.data) ? seriesList(props)[0].data as unknown[] : [];
+  const first = seriesList(props)[0];
+  const entries = (Array.isArray(first?.data) ? first.data : [])
+    .filter((entry): entry is unknown[] => Array.isArray(entry));
+  const xRaw = heatmapAxisValues(xAxis, entries, 0);
+  const yRaw = heatmapAxisValues(yAxis, entries, 1);
   if (xRaw.length === 0 || yRaw.length === 0)
     return { layers: [] };
+  // MUI's default colour axis is a continuous map when the chart gives none.
+  const colorMap: MuiColorMap | null = props.zAxis === undefined
+    ? { type: 'continuous' }
+    : props.zAxis[0]?.colorMap ?? null;
 
   // Positions of each category on screen: left to right, top to bottom.
   const columns = drawnOrder(xRaw.map((_, i) => i), xAxis);
@@ -945,18 +996,16 @@ function convertHeatmap(props: MuiChartProps, scope: string): MuiConvertedChart 
   const points: (number | null)[][] = rows.map(() => columns.map(() => null));
   const cells: (string | null)[][] = rows.map(() => columns.map(() => null));
   let drawn = 0;
-  for (const entry of entries) {
-    if (!Array.isArray(entry))
-      continue;
-    const [xi, yi, raw] = entry as unknown[];
+  for (const [xi, yi, raw] of entries) {
     const column = columnAt.get(Number(xi));
     const row = rowAt.get(Number(yi));
-    const value = toValue(raw);
-    if (column === undefined || row === undefined || value === null)
+    if (column === undefined || row === undefined)
       continue;
-    points[row][column] = value;
-    cells[row][column] = heatmapCellSelector(scope, drawn);
-    drawn += 1;
+    points[row][column] = toValue(raw);
+    if (heatmapCellDrawn(raw, colorMap)) {
+      cells[row][column] = heatmapCellSelector(scope, drawn);
+      drawn += 1;
+    }
   }
 
   const data: HeatmapData = {
@@ -990,11 +1039,28 @@ function convertFunnel(props: MuiChartProps, scope: string): MuiConvertedChart {
   const titled = all.length > 1;
   const layers = all.map((series, index): MaidrLayer => {
     const items = Array.isArray(series.data) ? (series.data as unknown[]) : [];
+    const categories = props.categoryAxis?.categories;
     const data: BarPoint[] = items.map((item, i) => {
       const datum = (item ?? {}) as Record<string, unknown>;
-      const stage = typeof datum.label === 'string' && datum.label !== ''
-        ? datum.label
-        : String(datum.id ?? `Stage ${i + 1}`);
+      let label: unknown = datum.label;
+      if (typeof label === 'function') {
+        try {
+          label = (label as (location: string) => unknown)('legend');
+        } catch {
+          label = undefined;
+        }
+      }
+      // The stage's own label, else the category axis' name for it -- which
+      // is what MUI prints beside the section -- else its id.
+      let stage = `Stage ${i + 1}`;
+      if (typeof label === 'string' && label !== '')
+        stage = label;
+      else if (categories?.[i] !== undefined && categories[i] !== null)
+        stage = String(categories[i]);
+      else if (datum.id !== undefined && datum.id !== null)
+        stage = String(datum.id);
+      // MUI draws a stage with no value as a section of no width; it is read
+      // as the zero it is drawn as.
       const value = toValue(datum.value) ?? 0;
       return across ? { x: stage, y: value } : { x: value, y: stage };
     });
@@ -1018,31 +1084,58 @@ function convertFunnel(props: MuiChartProps, scope: string): MuiConvertedChart {
  * layer of its links, each announced by its nodes' labels and outlined by
  * its own ribbon. A link without a finite value draws nothing to read.
  */
-function convertSankey(props: MuiChartProps, scope: string): MuiConvertedChart {
+function convertSankey(props: MuiChartProps, scope: string, chartId: string): MuiConvertedChart {
   const series = (Array.isArray(props.series) ? undefined : props.series) as MuiSankeySeries | undefined;
   const nodes = series?.data?.nodes ?? [];
   const links = series?.data?.links ?? [];
-  const labels = new Map(nodes.map(node => [String(node.id), node.label ?? String(node.id)]));
-  const name = (id: string | number): string => labels.get(String(id)) ?? String(id);
+  // The flow payload names nodes rather than identifying them, and MUI keys
+  // them by id: two nodes sharing a label would merge into one node of the
+  // reading. A shared label is told apart by its id.
+  const labelCount = new Map<string, number>();
+  for (const node of nodes) {
+    if (node?.label)
+      labelCount.set(node.label, (labelCount.get(node.label) ?? 0) + 1);
+  }
+  const names = new Map(nodes.filter(Boolean).map((node) => {
+    const id = String(node.id);
+    const label = node.label ?? id;
+    return [id, (labelCount.get(label) ?? 0) > 1 ? `${label} (${id})` : label];
+  }));
+  const name = (id: string | number): string => names.get(String(id)) ?? String(id);
 
   const flows: FlowPoint[] = [];
   const selectors: string[] = [];
+  const pairs = new Set<string>();
+  let repeated = false;
   for (const link of links) {
     const value = toValue(link?.value);
     if (!link || value === null)
       continue;
+    const pair = JSON.stringify([String(link.source), String(link.target)]);
+    repeated = repeated || pairs.has(pair);
+    pairs.add(pair);
     flows.push({ source: name(link.source), target: name(link.target), value });
     selectors.push(sankeyLinkSelector(scope, String(link.source), String(link.target)));
   }
   if (flows.length === 0)
     return { layers: [] };
+  if (repeated) {
+    warnOnce(
+      chartId,
+      'a sankey with two links between the same pair of nodes draws two ribbons that no selector '
+      + 'can tell apart, so MAIDR reads every flow without outlining them.',
+    );
+  }
   return {
     layers: [{
       id: '0',
       type: TraceType.SANKEY,
       ...(series?.label ? { title: series.label } : {}),
       axes: {},
-      selectors,
+      // One selector per flow, each naming exactly one ribbon; with a
+      // repeated pair a selector names two and the trace would decline the
+      // whole list, so none is given.
+      ...(repeated ? {} : { selectors }),
       data: flows,
     }],
   };
@@ -1105,7 +1198,7 @@ export function convertMuiChart(
     case 'funnel':
       return convertFunnel(props, scope);
     case 'sankey':
-      return convertSankey(props, scope);
+      return convertSankey(props, scope, chartId);
   }
 }
 

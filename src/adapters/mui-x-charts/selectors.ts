@@ -192,6 +192,9 @@ export const KIND_ROOT_CLASSES = [
   ['sankey', 'MuiSankeyChart-root'],
   ['radar', 'MuiRadarChart-seriesArea'],
   ['gauge', 'MuiGauge-root'],
+  // A `<GaugeContainer>` stamps no root class, only its arcs' own.
+  ['gauge', 'MuiGauge-valueArc'],
+  ['gauge', 'MuiGauge-referenceArc'],
   ['bar', 'MuiBarChart-root'],
   ['line', 'MuiLineChart-linePlot'],
   ['scatter', 'MuiScatterChart-root'],

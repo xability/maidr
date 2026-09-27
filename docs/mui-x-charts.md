@@ -73,8 +73,8 @@ The kind of chart is read from the component's name (`BarChart`, `LineChart`, `S
 | Step chart | `LineChart` | ✅ | Series with `curve: 'stepAfter'`, `'stepBefore'` or `'step'`. |
 | Scatter plot | `ScatterChart` | ✅ | One layer per series; switch layers with Page Up / Page Down. A point outside an explicit axis `min`/`max` is not drawn, and is left out. |
 | Pie / doughnut | `PieChart` | ⚠️ | A doughnut is the same component with an `innerRadius`. Several series (nested rings) become one layer per ring. See the notes below for sorted and partial pies. |
-| Sparkline | `SparkLineChart` | ✅ | Read as the line (or, with `plotType="bar"`, the bar chart) it draws; `area` and `curve` as a `LineChart`'s. |
-| Heatmap | `Heatmap` (Pro) | ✅ | The first series, as MUI draws it; the first y category is the top row. A cell the data leaves out, or leaves without a value, is announced as a gap. |
+| Sparkline | `SparkLineChart` | ✅ | Read as the line (or, with `plotType="bar"`, the bar chart) it draws; `curve` as a `LineChart`'s. With `area`, it is the experimental area chart below. |
+| Heatmap | `Heatmap` (Pro) | ✅ | The first series, as MUI draws it; the first y category is the top row, and an axis without `data` is numbered from 0. A cell the data leaves out, or leaves without a value, is announced as a gap; every cell MUI draws (its `zAxis` colour map gives it a colour) is outlined. |
 
 ### Experimental chart types
 
@@ -87,8 +87,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | 100% stacked area [experimental] | `LineChart` | ✅ | A stack whose `stackOffset` is `'expand'`. |
 | Gauge [experimental] | `Gauge` | ✅ | `value` on a dial from `valueMin` (0) to `valueMax` (100); the filled arc is outlined. |
 | Radar chart [experimental] | `RadarChart` | ✅ | One row per series, one column per `radar.metrics` spoke. |
-| Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order. The default vertical funnel draws each value as a width. |
-| Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids). |
+| Funnel chart [experimental] | `FunnelChart` (Pro) | ✅ | One layer per series, stages in data order, named by each item's `label` or else `categoryAxis.categories`. The default vertical funnel draws each value as a width. |
+| Sankey [experimental] | `SankeyChart` (Pro) | ✅ | One flow per link, named by its nodes' `label`s (or ids; a label two nodes share is followed by the id). Two links between the same pair of nodes are both read, but not outlined. |
 
 ### Notes on these chart types
 

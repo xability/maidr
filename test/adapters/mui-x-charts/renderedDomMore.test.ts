@@ -146,6 +146,87 @@ describe('mui heatmap (pro)', () => {
   });
 });
 
+describe('mui heatmap cells MUI draws by its colour map', () => {
+  /** Every heatmap selector resolves to one rect whose x is its column's. */
+  function expectCellsAligned(doc: Document, layer: MaidrLayer): void {
+    const data = layer.data as HeatmapData;
+    const grid = layer.selectors as (string | null)[][];
+    const columnX = data.x.map((_, c) => {
+      const drawn = grid.map(row => row[c]).find(cell => cell !== null);
+      return drawn ? Number((doc.querySelector(drawn) as Element).getAttribute('x')) : Number.NaN;
+    });
+    grid.forEach(row => row.forEach((cell, c) => {
+      if (cell === null)
+        return;
+      const matches = doc.querySelectorAll(cell);
+      expect(matches).toHaveLength(1);
+      expect(Number(matches[0].getAttribute('x'))).toBe(columnX[c]);
+    }));
+    expect(columnX.filter(Number.isFinite).length).toBeGreaterThan(0);
+  }
+
+  it('outlines a null cell drawn in the unknown colour, and pairs the rest after it', () => {
+    const { doc, layers } = render(createElement(Heatmap, {
+      ...common,
+      xAxis: [{ data: ['a', 'b'] }],
+      yAxis: [{ data: ['r'] }],
+      zAxis: [{ colorMap: { type: 'continuous', min: 0, max: 10, color: ['#fff', '#000'], unknownColor: '#ccc' } }],
+      // MUI's types forbid a null value, which is what a sparse data set carries.
+      series: [{ data: [[0, 0, null], [1, 0, 5]] as unknown as [number, number, number][] }],
+    }));
+
+    expect(doc.querySelectorAll('rect.MuiHeatmap-cell')).toHaveLength(2);
+    expect((layers[0].data as HeatmapData).points).toEqual([[null, 5]]);
+    const [row] = layers[0].selectors as (string | null)[][];
+    expect(row).toEqual([expect.any(String), expect.any(String)]);
+    expectCellsAligned(doc, layers[0]);
+  });
+
+  it('skips a value an ordinal map gives no colour, which MUI leaves undrawn', () => {
+    const { doc, layers } = render(createElement(Heatmap, {
+      ...common,
+      xAxis: [{ data: ['a', 'b', 'c'] }],
+      yAxis: [{ data: ['r'] }],
+      zAxis: [{ colorMap: { type: 'ordinal', values: [1, 3], colors: ['#f00', '#00f'] } }],
+      series: [{ data: [[0, 0, 1], [1, 0, 2], [2, 0, 3]] }],
+    }));
+
+    expect(doc.querySelectorAll('rect.MuiHeatmap-cell')).toHaveLength(2);
+    const [row] = layers[0].selectors as (string | null)[][];
+    expect(row[1]).toBeNull();
+    expectCellsAligned(doc, layers[0]);
+  });
+
+  it('numbers the categories of an axis without data, as MUI does', () => {
+    const { doc, layers } = render(createElement(Heatmap, {
+      ...common,
+      xAxis: [{ label: 'Hour' }],
+      yAxis: [{ label: 'Day' }],
+      series: [{ data: [[0, 0, 1], [1, 0, 5]] }],
+    }));
+
+    expect(layers[0].data).toEqual({ x: ['0', '1'], y: ['0'], points: [[1, 5]] });
+    expectCellsAligned(doc, layers[0]);
+  });
+
+  it('turns a reversed y axis round, keeping the grid top-first', () => {
+    const { doc, layers } = render(createElement(Heatmap, {
+      ...common,
+      xAxis: [{ data: ['a'] }],
+      yAxis: [{ data: ['r', 's'], reverse: true }],
+      series: [{ data: [[0, 0, 1], [0, 1, 2]] }],
+    }));
+    const data = layers[0].data as HeatmapData;
+    const grid = layers[0].selectors as (string | null)[][];
+    const y = (selector: string | null): number => Number((doc.querySelector(selector as string) as Element).getAttribute('y'));
+
+    expect(data.y).toEqual(['s', 'r']);
+    expect(data.points).toEqual([[2], [1]]);
+    // Selector rows run bottom first: grid[1] is the top row.
+    expect(y(grid[1][0])).toBeLessThan(y(grid[0][0]));
+  });
+});
+
 describe('mui funnel chart (pro)', () => {
   it('reads each stage in data order, the value as the width', () => {
     const { doc, layers, kind, domKind } = render(createElement(FunnelChart, {
@@ -160,6 +241,19 @@ describe('mui funnel chart (pro)', () => {
     expect(layers[0].data).toEqual([{ x: 200, y: 'Visit' }, { x: 100, y: 'Cart' }, { x: 40, y: 'Buy' }]);
     const sections = Array.from(doc.querySelectorAll(layers[0].selectors as string));
     expect(sections).toHaveLength(3);
+  });
+});
+
+describe('mui gauge container', () => {
+  it('is found by its value even with the dial composed from children', async () => {
+    const { GaugeContainer, GaugeValueArc, GaugeReferenceArc } = await import('@mui/x-charts/Gauge');
+    function Minified(props: object): ReactElement {
+      return createElement(GaugeContainer, props);
+    }
+    const { layers, domKind } = render(createElement(Minified, { ...common, value: 30, valueMax: 50 } as object, createElement(GaugeReferenceArc), createElement(GaugeValueArc)));
+
+    expect(domKind).toBe('gauge');
+    expect(layers[0].data).toEqual({ value: 30, min: 0, max: 50 });
   });
 });
 

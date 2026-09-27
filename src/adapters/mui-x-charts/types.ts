@@ -177,4 +177,22 @@ export interface MuiChartProps {
   valueMax?: number;
   /** Radar: the spokes. */
   radar?: { metrics?: readonly (string | MuiRadarMetric)[]; max?: number };
+  /** Heatmap: the colour axis, whose scale decides which cells are drawn. */
+  zAxis?: readonly { colorMap?: MuiColorMap }[];
+  /** Funnel: the stage names, when the data items carry none. */
+  categoryAxis?: { categories?: readonly unknown[] };
+}
+
+/**
+ * The part of an MUI X colour map that decides whether a value gets a colour
+ * -- and so, on a heatmap, whether its cell is drawn at all.
+ */
+export interface MuiColorMap {
+  type?: 'continuous' | 'piecewise' | 'ordinal';
+  /** Ordinal: the values that have a colour. */
+  values?: readonly unknown[];
+  /** Ordinal: one colour per value (or per index, without `values`). */
+  colors?: readonly unknown[];
+  /** The colour of a value the map does not cover; without it, none. */
+  unknownColor?: string;
 }

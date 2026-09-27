@@ -487,6 +487,41 @@ describe('second-pass kinds', () => {
     expect(layer.selectors).toEqual(['#c path.MuiSankeyChart-link[data-link-source="x"][data-link-target="y"]']);
   });
 
+  it('names funnel stages by a function label, else the category axis', () => {
+    const [layer] = convertMuiChart('funnel', {
+      categoryAxis: { categories: ['Visit', 'Cart'] },
+      series: [{ data: [{ value: 5, label: () => 'Landing' }, { value: 2 }] }],
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([{ x: 5, y: 'Landing' }, { x: 2, y: 'Cart' }]);
+  });
+
+  it('tells apart two sankey nodes that share a label', () => {
+    const [layer] = convertMuiChart('sankey', {
+      series: {
+        data: {
+          nodes: [{ id: 'o1', label: 'Other' }, { id: 'o2', label: 'Other' }, { id: 'x', label: 'X' }],
+          links: [{ source: 'o1', target: 'x', value: 1 }, { source: 'x', target: 'o2', value: 1 }],
+        },
+      },
+    }, SCOPE).layers;
+
+    expect(layer.data).toEqual([
+      { source: 'Other (o1)', target: 'X', value: 1 },
+      { source: 'X', target: 'Other (o2)', value: 1 },
+    ]);
+  });
+
+  it('reads repeated sankey links without selectors that would each match both ribbons', () => {
+    const [layer] = convertMuiChart('sankey', {
+      series: { data: { links: [{ source: 'a', target: 'b', value: 1 }, { source: 'a', target: 'b', value: 2 }] } },
+    }, SCOPE, 'energy').layers;
+
+    expect(layer.data).toHaveLength(2);
+    expect(layer.selectors).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('chart "energy"'));
+  });
+
   it('names the chart in its warnings', () => {
     convertMuiChart('bar', { renderer: 'svg-batch', xAxis: [{ data: ['A'] }], series: [{ data: [1] }] }, SCOPE, 'revenue');
 
@@ -508,6 +543,15 @@ describe('findMuiChartElement with sparkline- and gauge-shaped props', () => {
   it('falls back to a minified sparkline or gauge when nothing surer is there', () => {
     expect(findMuiChartElement(createElement(e, { data: [1, 2] } as object))?.props.data).toEqual([1, 2]);
     expect(findMuiChartElement(createElement(e, { value: 40 } as object))?.props.value).toBe(40);
+  });
+
+  it('leaves a sparkline without MUI\'s keyboard prop, which it does not pass on', () => {
+    function SparkLineChart(): null {
+      return null;
+    }
+    const out = withMuiKeyboardNavigationDisabled(createElement(SparkLineChart, { data: [1] } as object)) as ReactElement<{ disableKeyboardNavigation?: boolean }>;
+
+    expect(out.props.disableKeyboardNavigation).toBeUndefined();
   });
 
   it('leaves a gauge without MUI\'s keyboard prop, which it does not take', () => {
