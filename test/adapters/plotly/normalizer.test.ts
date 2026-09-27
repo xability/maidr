@@ -316,8 +316,9 @@ describe('plotly layout observer', () => {
       ran++;
     }
 
+    // One frame per sighting of the detached chart, the last of which stops.
     expect(frames).toHaveLength(0);
-    expect(ran).toBeLessThan(1000);
+    expect(ran).toBe(60);
   });
 
   it('positions a text container that was already in place when the observer attached', () => {

@@ -261,6 +261,7 @@
     "jsdom": "^26.1.0",
     "lightweight-charts": "^5.2.1",
     "marked": "^15.0.12",
+    "plotly.js-dist-min": "2.35.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "recharts": "^3.8.1",
