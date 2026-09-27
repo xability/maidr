@@ -327,8 +327,6 @@ The manifest points at `https://maidr.ai/examples/tableau-extension/index.html`,
 
 **Hosting it yourself.** Copy `examples/tableau-extension/` to your own origin, serve `dist/maidr.js` and `dist/tableau.js` beside it (the pages load them from `../../dist/`), and change the manifest's `<url>`. Tableau requires `https`, except for `http://localhost` while you develop. The pages load the Extensions API library, `tableau.extensions.1.latest.min.js`, pinned to 1.17.0 from Tableau's `extensions-api` repository through jsDelivr; vendor it instead if the site's policy wants every script on one origin.
 
-If you write your own page, do not give an element the id `maidr`. Browsers expose an element with an id as a global of that name, and MAIDR core's legacy `window.maidr` fallback will try to read that element as chart data.
-
 ### Configuring it
 
 The options are the same [`TableauAdapterOptions`](#tableauadapteroptions) `bindTableau` takes, stored as JSON in the extension's workbook settings under the key `maidr` — so an author configures them once and every viewer of the workbook gets them. Settings belong to the extension *instance*, so two MAIDR zones on one dashboard are configured independently.

@@ -131,6 +131,33 @@ function parseAndInit(
   }
 }
 
+/**
+ * The chart data a page assigned to `window.maidr`, or `null` when there is none.
+ *
+ * `window.maidr` is not only written by pages: browsers expose any element with
+ * `id="maidr"` (or a named form, image or iframe) as a global of that name, so
+ * an ordinary `<main id="maidr">` puts a DOM element there. Reading that as
+ * chart data used to throw during start-up and take every chart on the page
+ * down with it. Only an object with a `subplots` array is treated as data; an
+ * element or a collection of them is skipped quietly, since the page did
+ * nothing wrong, and anything else is skipped with a warning.
+ *
+ * @returns The data, or `null`.
+ */
+function legacyMaidrData(): Maidr | null {
+  const value: unknown = window.maidr;
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === 'object' && Array.isArray((value as { subplots?: unknown }).subplots)) {
+    return value as Maidr;
+  }
+  if (!(value instanceof Element) && !(value instanceof HTMLCollection)) {
+    console.warn('[maidr] window.maidr is set but is not MAIDR chart data (it has no subplots array); ignoring it.');
+  }
+  return null;
+}
+
 function main(): void {
   const plotsWithMaidr = document.querySelectorAll<HTMLElement>(
     Constant.MAIDR_JSON_SELECTOR,
@@ -151,22 +178,27 @@ function main(): void {
         parseAndInit(plot, maidrData, 'maidr-data');
       }
     });
-  } else if (window.maidr) {
-    // Fall back to window.maidr if no attribute found.
-    // TODO: Need to be removed along with `window.d.ts`,
-    //  once attribute method is migrated.
-    const maidr = window.maidr;
-    const plot = document.getElementById(maidr.id);
-    if (plot) {
-      initMaidrOnElement(maidr, plot);
-    } else {
-      console.error('Plot not found for maidr:', maidr.id);
-    }
   } else {
-    // Auto-detect plotly.js charts without any maidr attributes.
-    // Kept in the nothing-found fallback so a chart already bound via a
-    // [maidr]/[maidr-data] attribute is never auto-initialised a second time.
-    autoInitPlotlyCharts();
+    // Read only here, where the fallback is actually taken: a page whose
+    // charts are bound by attribute never consults `window.maidr`, and must
+    // not be warned about whatever an unrelated script left there.
+    const legacy = legacyMaidrData();
+    if (legacy !== null) {
+      // Fall back to window.maidr if no attribute found.
+      // TODO: Need to be removed along with `window.d.ts`,
+      //  once attribute method is migrated.
+      const plot = document.getElementById(legacy.id);
+      if (plot) {
+        initMaidrOnElement(legacy, plot);
+      } else {
+        console.error('Plot not found for maidr:', legacy.id);
+      }
+    } else {
+      // Auto-detect plotly.js charts without any maidr attributes.
+      // Kept in the nothing-found fallback so a chart already bound via a
+      // [maidr]/[maidr-data] attribute is never auto-initialised a second time.
+      autoInitPlotlyCharts();
+    }
   }
 
   // Always watch for dynamically-added [maidr] attributes (e.g., Google
