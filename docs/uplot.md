@@ -365,6 +365,8 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 
 - **One subplot per chart.** Every series of a chart is a layer of one subplot. Several uPlot charts on a page are separate MAIDR figures; synced charts (`cursor.sync`) are not joined into one.
 - **Bands are read only with `stacked: true`.** Without it each series is read as the values it holds — on a stacked chart, the running totals. With it, every band is taken as a stack, so a chart that fills a range with a band as well as stacking cannot be read both ways (see [Stacked Charts](#stacked-charts)).
+- **Stacks are read upward from zero.** A stack whose segments straddle zero — a diverging stacked bar — is read segment by segment, but its total's highlight runs from the axis to the series furthest from zero rather than around every segment.
+- **The total is reached by keyboard.** A click on a stack selects the segment under it; the total MAIDR adds above the segments is reached with the arrow keys, not by clicking.
 - **Stacked lines are read as lines.** Stacked line and area series are read as their own shares, but as `line` or `area` layers, not `stacked_area`, and with no total.
 - **Filled lines are lines unless `areas: true`.** Area is an experimental MAIDR type, so it is opt-in.
 - **Bar width is measured from the canvas.** Where the canvas cannot be read back, the bar highlight falls back to uPlot's default width and may not match a bar drawn wider or narrower.

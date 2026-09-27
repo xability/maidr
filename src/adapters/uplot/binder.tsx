@@ -191,12 +191,12 @@ function barFoot(u: UPlotInstance, source: UPlotLayerSource, row: number, k: num
  * no record of how wide it drew the bars; otherwise it is uPlot's default
  * share of the gap to the neighbouring bar.
  */
-function barBox(u: UPlotInstance, source: UPlotLayerSource, k: number, x: number, from: number, to: number): OverlayBox {
+function barBox(u: UPlotInstance, source: UPlotLayerSource, row: number, k: number, x: number, from: number, to: number): OverlayBox {
   const tip = toPlot(u, source, x, to);
   const base = toPlot(u, source, x, from);
   const horizontal = u.scales[source.xScale]?.ori === 1;
   const column = columnWidth(u, source, k);
-  const stroke = u.series[source.seriesIdxs[0] ?? 0] as { width?: number } | undefined;
+  const stroke = u.series[source.seriesIdxs[row] ?? source.seriesIdxs[0] ?? 0] as { width?: number } | undefined;
   const measured = measuredBarWidth(u, {
     center: horizontal ? tip.top : tip.left,
     from: horizontal ? base.left : base.top,
@@ -279,7 +279,7 @@ function resolveHighlight(
   }
   const at = toPlot(u, source, point[0], point[1]);
   const box = source.kind === 'stacked' || source.kind === 'bar'
-    ? barBox(u, source, k, point[0], barFoot(u, source, event.row, k), point[1])
+    ? barBox(u, source, event.row, k, point[0], barFoot(u, source, event.row, k), point[1])
     : boxAround(at.left, at.top);
   return { boxes: [box], cursor: at };
 }
@@ -310,7 +310,7 @@ function stackBox(
     return { boxes: [], cursor: null };
   }
   return {
-    boxes: [barBox(u, source, k, x, barBase(u, source), top)],
+    boxes: [barBox(u, source, source.seriesIdxs.length - 1, k, x, barBase(u, source), top)],
     cursor: toPlot(u, source, x, top),
   };
 }
@@ -349,7 +349,7 @@ function targetAtCursor(u: UPlotInstance, sources: ReadonlyMap<string, UPlotLaye
       // its top -- unless a point is drawn right there, over the bar;
       // elsewhere the nearest mark wins.
       const box = source.kind === 'stacked' || source.kind === 'bar'
-        ? barBox(u, source, k, point[0], barFoot(u, source, row, k), point[1])
+        ? barBox(u, source, row, k, point[0], barFoot(u, source, row, k), point[1])
         : null;
       const inside = box !== null
         && left >= box.left && left <= box.left + box.width
