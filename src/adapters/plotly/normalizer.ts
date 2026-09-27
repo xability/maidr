@@ -369,9 +369,9 @@ function injectPlotlyStyles(): void {
 // ---------------------------------------------------------------------------
 
 /**
- * How many consecutive frames the chart SVG may be out of the document before
- * the layout observer stops waiting for it: about a second at 60 Hz, well past
- * the single frame maidr's wrapping takes.
+ * The layout observer stops waiting for the chart SVG on the frame that finds
+ * it out of the document this many times in a row: about a second at 60 Hz,
+ * well past the single frame maidr's wrapping takes.
  */
 const MAX_DETACHED_FRAMES = 60;
 
@@ -430,7 +430,7 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
     // behind it.
     if (!svg.isConnected) {
       detachedFrames++;
-      if (detachedFrames > MAX_DETACHED_FRAMES) {
+      if (detachedFrames >= MAX_DETACHED_FRAMES) {
         return;
       }
       requestAnimationFrame(observe);
