@@ -163,7 +163,6 @@ function main(): void {
     Constant.MAIDR_JSON_SELECTOR,
   );
   const plots = document.querySelectorAll<HTMLElement>(`[${Constant.MAIDR_DATA}]`);
-  const legacy = legacyMaidrData();
 
   if (plotsWithMaidr.length > 0) {
     plotsWithMaidr.forEach((plot) => {
@@ -179,21 +178,27 @@ function main(): void {
         parseAndInit(plot, maidrData, 'maidr-data');
       }
     });
-  } else if (legacy !== null) {
-    // Fall back to window.maidr if no attribute found.
-    // TODO: Need to be removed along with `window.d.ts`,
-    //  once attribute method is migrated.
-    const plot = document.getElementById(legacy.id);
-    if (plot) {
-      initMaidrOnElement(legacy, plot);
-    } else {
-      console.error('Plot not found for maidr:', legacy.id);
-    }
   } else {
-    // Auto-detect plotly.js charts without any maidr attributes.
-    // Kept in the nothing-found fallback so a chart already bound via a
-    // [maidr]/[maidr-data] attribute is never auto-initialised a second time.
-    autoInitPlotlyCharts();
+    // Read only here, where the fallback is actually taken: a page whose
+    // charts are bound by attribute never consults `window.maidr`, and must
+    // not be warned about whatever an unrelated script left there.
+    const legacy = legacyMaidrData();
+    if (legacy !== null) {
+      // Fall back to window.maidr if no attribute found.
+      // TODO: Need to be removed along with `window.d.ts`,
+      //  once attribute method is migrated.
+      const plot = document.getElementById(legacy.id);
+      if (plot) {
+        initMaidrOnElement(legacy, plot);
+      } else {
+        console.error('Plot not found for maidr:', legacy.id);
+      }
+    } else {
+      // Auto-detect plotly.js charts without any maidr attributes.
+      // Kept in the nothing-found fallback so a chart already bound via a
+      // [maidr]/[maidr-data] attribute is never auto-initialised a second time.
+      autoInitPlotlyCharts();
+    }
   }
 
   // Always watch for dynamically-added [maidr] attributes (e.g., Google

@@ -99,6 +99,17 @@ describe('the legacy window.maidr fallback', () => {
     expect(mockInitMaidrOnElement.mock.calls[0][0]).toBe(SPEC);
   });
 
+  it('should not consult window.maidr at all when a chart is bound by attribute', async () => {
+    // Another script's namespace object, say: not chart data, but not this
+    // page's problem either, since the legacy fallback is never taken.
+    await loadPage(`<svg id="chart" maidr-data='${JSON.stringify(SPEC)}'></svg>`, (window) => {
+      window.maidr = { version: '1.0' } as never;
+    });
+
+    expect(mockInitMaidrOnElement).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('should warn about, and skip, a window.maidr that is neither data nor an element', async () => {
     await loadPage('<svg id="chart"></svg>', (window) => {
       window.maidr = { id: 'chart' } as never;
