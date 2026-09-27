@@ -82,6 +82,44 @@ function steps(seriesModel: EChartsSeriesModel): WaterfallPoint[] {
 }
 
 /**
+ * Whether a bar series only restates a range waterfall's totals.
+ *
+ * Metabase draws a waterfall's closing total twice: as the last step of its
+ * custom series, and again as a bar series of its own, `total`, holding a
+ * value only there -- measured on 0.63, `150` at "Total" and nothing
+ * elsewhere. Read, the chart opened on a one-bar layer repeating a number
+ * the waterfall already says, ahead of the waterfall itself (#1304).
+ *
+ * @param bar        - The bar series
+ * @param waterfalls - The chart's range waterfalls
+ * @param horizontal - Whether the bars run along x
+ * @returns True when every value it draws is one of their totals, at its step
+ */
+export function restatesTotals(
+  bar: EChartsSeriesModel,
+  waterfalls: EChartsSeriesModel[],
+  horizontal: boolean,
+): boolean {
+  const totals = waterfalls
+    .flatMap(steps)
+    .filter(step => step.kind === 'total');
+  const data = bar.getData();
+  let drawn = 0;
+  for (let index = 0; index < data.count(); index++) {
+    const value = valueAt(bar, index, horizontal);
+    if (value === undefined) {
+      continue;
+    }
+    const name = data.getName(index);
+    if (!totals.some(step => step.x === name && near(step.end, value))) {
+      return false;
+    }
+    drawn += 1;
+  }
+  return drawn > 0;
+}
+
+/**
  * How many bars a range waterfall drew.
  *
  * @param seriesModel - The waterfall

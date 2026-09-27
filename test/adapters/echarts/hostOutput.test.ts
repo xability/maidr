@@ -527,6 +527,41 @@ describe('a waterfall drawn with a custom series', () => {
     expect(layer.selectors).toHaveLength(3);
   });
 
+  it('takes in the bar that only restates its total, as Metabase draws one', () => {
+    const steps: FakeSeries = {
+      type: 'custom',
+      names: ['Jan', 'Total'],
+      columns: { [X]: [0, 1], start: [0, 0], end: [120, 120] },
+      encode: { x: X },
+      options: { id: '49:DELTA' },
+    };
+    const total: FakeSeries = {
+      type: 'bar',
+      names: ['Jan', 'Total'],
+      columns: { [X]: [0, 1], y: [Number.NaN, 120] },
+      encode: { x: X, y: 'y' },
+      options: { id: 'total' },
+    };
+    const list = fakeInstance([steps, total]);
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            callback({ ...seriesModel, getData: () => ({ ...data, mapDimensionsAll: () => (seriesModel.subType === 'custom' ? ['start', 'end'] : ['y']) }) }, index);
+          }),
+        };
+      },
+    };
+
+    const layers = createMaidrFromEChart(chart, drawnChart(3, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layers.map(layer => layer.type)).toEqual([TraceType.WATERFALL]);
+  });
+
   it('is not read when it draws anything but a range', () => {
     const chart = fakeInstance([
       { type: 'custom', columns: { x: [0], y: [400] }, encode: { x: 'x', y: 'y' }, options: { id: '\0_goal_line' } },

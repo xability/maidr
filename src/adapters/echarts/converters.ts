@@ -49,7 +49,7 @@ import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { isMarkPaint, markLegends, markPerDatum, markPerSeries } from './selectors';
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
-import { drawnStepCount, isRangeWaterfall, paintedClear, placeholderWaterfall, waterfallLayer } from './waterfall';
+import { drawnStepCount, isRangeWaterfall, paintedClear, placeholderWaterfall, restatesTotals, waterfallLayer } from './waterfall';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -100,6 +100,9 @@ const SHARED_NAMES = new WeakMap<EChartsSeriesModel, string>();
 function distinguishSharedNames(series: EChartsSeriesModel[]): void {
   const byName = new Map<string, EChartsSeriesModel[]>();
   for (const seriesModel of series) {
+    // Decided afresh on every reading: a chart merged with a new option keeps
+    // its series objects, and names that were shared may no longer be.
+    SHARED_NAMES.delete(seriesModel);
     const name = text(seriesModel.get('name'));
     if (name) {
       byName.set(name, [...(byName.get(name) ?? []), seriesModel]);
@@ -503,7 +506,10 @@ function buildLayers(
   // faint -- but not read; see `drawsNothingVisible`.
   const read = series.filter(seriesModel => !drawsNothingVisible(seriesModel));
   distinguishSharedNames(read);
-  const bars = read.filter(seriesModel => BAR.has(seriesModel.subType));
+  // A bar that only restates a waterfall's totals is part of the waterfall.
+  const waterfalls = read.filter(isRangeWaterfall);
+  const bars = read.filter(seriesModel => BAR.has(seriesModel.subType)
+    && !restatesTotals(seriesModel, waterfalls, axes.horizontal));
   const others = read.filter(seriesModel => !BAR.has(seriesModel.subType));
 
   // Every per-datum mark of the chart is painted alike and only its position

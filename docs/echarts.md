@@ -116,6 +116,32 @@ What the adapter does for them:
   Metabase area its outline.
 - **A canvas is outlined through an overlay.** See
   [On a canvas](#on-a-canvas).
+- **An untitled value axis takes the series' name.** Superset titles no axis
+  by default, so a time series read "X is 2024-01-01, Y is 989.44"; a layer
+  that is one series now reads "SUM(amount) is 989.44". The position axis is
+  left untitled: every series shares it, and no one name describes it.
+- **A series that draws nothing visible is counted but not read.** Metabase
+  carries a stacked bar's totals and a waterfall's labels in series declared
+  `silent` with `symbolSize: 0`; Superset draws a forecast's lower bound and a
+  stream graph's baseline as lines with no stroke and no band. Each still
+  paints a mark, so it is counted; none is announced.
+- **Series sharing one name are told apart by their ids.** Superset names
+  all four series of a forecast `SUM(amount)`, and distinguishes them only as
+  `SUM(amount)__yhat_upper`, `…__yhat` and so on.
+- **Two waterfalls.** Superset follows ECharts' own recipe, a stack lifted by
+  a transparent placeholder bar; it is read as a waterfall, each step's
+  direction taken from the running total rather than from series names.
+  Metabase draws one with a `custom` series encoding two columns, `start` and
+  `end`, onto the value axis; a custom series of exactly that shape is read
+  as a waterfall, and any other custom series is left unread. A bar that only
+  restates a waterfall's total is folded into it.
+- **A box plot fed from a dataset** is read through the five columns its
+  `encode` maps onto the value axis, and its boxes are counted when they are
+  painted in a colour rather than ECharts' default white.
+- **Marks are handed out in paint order** — `zlevel`, then `z`, then
+  declaration — which is the order ECharts draws them in. A Metabase
+  waterfall declares its labels (`z: 8`) before its total bar, and the bar's
+  mark comes first.
 
 ### Mounting MAIDR on them
 
@@ -165,14 +191,20 @@ Three other routes were weighed and not taken:
 Not covered:
 
 - **Metabase's row chart** is drawn with visx, not ECharts.
-- **Helper series** — Metabase's data-label totals, trend lines and goal line,
-  and Superset's annotation and forecast layers — are not in the fixtures.
-  Each appears only when a chart setting turns it on.
+- **Metabase's funnel, gauge and progress bar** are React markup, not
+  ECharts.
+- **A goal line** is a `custom` series drawing a line, which has no reading;
+  the goal is not announced.
+- **A forecast's band** is read as the upper series it is stacked from —
+  Superset stacks it on the lower bound, so the value announced is the band's
+  width, not its top.
+- **Superset's radar is normalized** before ECharts sees it: each series is
+  divided by its own largest value, and the raw values are nowhere in the
+  chart.
 - **A Metabase series is named by its id** (`43:CNT:Widget`), which carries its
   metric and its breakout value. The label its legend shows is only in the
-  tool's own HTML.
-- **Superset leaves axis titles empty by default**, so a reading says
-  "X is … , Y is …" unless the chart's author names the axes.
+  tool's own HTML. A trend line, which has neither name nor id, is named by
+  its column (`57:count_trend`).
 
 ## Supported series types
 
@@ -195,6 +227,8 @@ These may change without a deprecation period; see [Trace type stability](SCHEMA
 | ECharts `series.type` | Read as | Notes |
 |---|---|---|
 | `line` + `areaStyle` | `area` [experimental] | The fill is what makes it an area |
+| `bar` ×N in one stack over a transparent placeholder | `waterfall` [experimental] | ECharts' waterfall recipe, and Superset's; each step's direction comes from the running total |
+| `custom` encoding two columns onto the value axis | `waterfall` [experimental] | Metabase's waterfall. Any other `custom` series is not read |
 
 ### Notes on these chart types
 
