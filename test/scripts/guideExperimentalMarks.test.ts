@@ -434,7 +434,7 @@ const GUIDES: Record<string, Guide> = {
   'uplot': {
     heading: '## Supported Series',
     column: 0,
-    minRows: { stable: 6, experimental: 0 },
+    minRows: { stable: 7, experimental: 1 },
     examples: { after: '## Code Examples', before: '## Labels', level: '###', min: 3 },
     labels: {
       // Stepped and spline builders are read as plain `line` rows.
