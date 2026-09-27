@@ -49,7 +49,7 @@ import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
 import { isMarkPaint, markLegends, markPerDatum, markPerSeries } from './selectors';
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
-import { drawnStepCount, isRangeWaterfall, waterfallLayer } from './waterfall';
+import { drawnStepCount, isRangeWaterfall, paintedClear, placeholderWaterfall, waterfallLayer } from './waterfall';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -78,6 +78,42 @@ const CARTESIAN: ReadonlySet<string> = new Set([
   // `waterfall.ts`. Any other shape is left unread.
   'custom',
 ]);
+
+/**
+ * Series that share a name, named instead by the id their author gave each.
+ *
+ * Superset names a forecast's four series -- the lower and upper bounds, the
+ * trend and the observations -- all `SUM(amount)`, and tells them apart only
+ * by id: `SUM(amount)__yhat_lower`, `SUM(amount)__yhat_upper`,
+ * `SUM(amount)__yhat` and `SUM(amount)` (#1304). Announced by name, a reader
+ * moving between them heard the same series four times. Filled by
+ * {@link distinguishSharedNames} for the chart being read.
+ */
+const SHARED_NAMES = new WeakMap<EChartsSeriesModel, string>();
+
+/**
+ * Names each series that shares its name with another by its id, when every
+ * one of them has an id of its author's and no two ids are the same.
+ *
+ * @param series - Every series the chart reads
+ */
+function distinguishSharedNames(series: EChartsSeriesModel[]): void {
+  const byName = new Map<string, EChartsSeriesModel[]>();
+  for (const seriesModel of series) {
+    const name = text(seriesModel.get('name'));
+    if (name) {
+      byName.set(name, [...(byName.get(name) ?? []), seriesModel]);
+    }
+  }
+  for (const group of byName.values()) {
+    const ids = group.map(seriesModel => text(seriesModel.get('id')));
+    const distinct = new Set(ids).size === ids.length
+      && ids.every(id => id && !id.includes('\0'));
+    if (group.length > 1 && distinct) {
+      group.forEach((seriesModel, index) => SHARED_NAMES.set(seriesModel, ids[index]));
+    }
+  }
+}
 
 /** The column names ECharts gives a series written inline. */
 const ECHARTS_COLUMNS: ReadonlySet<string> = new Set(['', 'x', 'y', 'value']);
@@ -463,9 +499,10 @@ function buildLayers(
   grid: AxisCategories,
   container: HTMLElement,
 ): MaidrLayer[] {
-  // A series that only carries labels is counted -- it draws a mark, however
-  // small -- but not read; see `carriesLabelsOnly`.
-  const read = series.filter(seriesModel => !carriesLabelsOnly(seriesModel));
+  // A series that draws nothing visible is counted -- it draws a mark, however
+  // faint -- but not read; see `drawsNothingVisible`.
+  const read = series.filter(seriesModel => !drawsNothingVisible(seriesModel));
+  distinguishSharedNames(read);
   const bars = read.filter(seriesModel => BAR.has(seriesModel.subType));
   const others = read.filter(seriesModel => !BAR.has(seriesModel.subType));
 
@@ -501,7 +538,17 @@ function buildLayers(
     perDatum?.series[marked.indexOf(seriesModel)];
 
   const layers: MaidrLayer[] = [];
-  if (bars.length > 0) {
+  // A stack lifted by a transparent placeholder is a waterfall, drawn the way
+  // ECharts documents one and Superset draws one; see `waterfall.ts`.
+  const stepped = bars.length > 1 && oneStack(bars)
+    ? placeholderWaterfall(bars, axes.horizontal, axes.utc, eachMarkOf)
+    : undefined;
+  const waterfall = stepped
+    ? waterfallLayer(stepped.points, '', axes, stepped.selectors)
+    : undefined;
+  if (waterfall) {
+    layers.push(waterfall);
+  } else if (bars.length > 0) {
     layers.push(barLayer(bars, axes, eachMarkOf));
   }
 
@@ -619,31 +666,48 @@ function drawnMarks(
 }
 
 /**
- * Whether a line series fills the band under its curve.
+ * Whether a series draws nothing a reader could see.
  *
- * `areaStyle` is what fills it, so it is what makes the chart an area chart
- * rather than a line one -- read off the resolved option so an author cannot
- * mislabel one as the other. The band is also a filled mark, which is why
- * the count asks the same question the reading does.
+ * Both tools add series that are not data of their own, measured:
  *
- * @param seriesModel - The series to read
- * @returns True when the series paints a band
- */
-/**
- * Whether a series is there only to carry labels.
+ * - Metabase draws a stacked bar's totals and a waterfall's labels as series
+ *   declared `silent: true` with `symbolSize: 0` -- a bar holding `5e-324`
+ *   stacked on the real ones, and a scatter;
+ * - Superset draws a forecast's lower bound as a line with
+ *   `lineStyle.opacity: 0` and no band, and a stream graph's `baseline` as a
+ *   line whose band is `opacity: 0` too.
  *
- * Metabase draws a stacked bar's totals and a waterfall's labels as series of
- * their own, measured on 0.63: a bar stacked on the real ones holding
- * `5e-324`, and a scatter, each declared `silent: true` with `symbolSize: 0`
- * -- nothing to hover and nothing to see. Read, they were announced as
- * segments of the stack and points of the chart (#1304). They still draw a
- * mark each, so they are counted with the others and only left unread.
+ * Read, they were announced as segments of a stack, points of a chart, and
+ * the first series a reader landed on -- an invisible one (#1304). They still
+ * draw a mark each, so they are counted with the others and only left
+ * unread. A Superset area hides its line too, but keeps its band.
  *
  * @param seriesModel - The series to test
- * @returns True when it neither answers the mouse nor draws a symbol
+ * @returns True when it neither answers the mouse nor shows anything
  */
-function carriesLabelsOnly(seriesModel: EChartsSeriesModel): boolean {
-  return seriesModel.get('silent') === true && seriesModel.get('symbolSize') === 0;
+function drawsNothingVisible(seriesModel: EChartsSeriesModel): boolean {
+  if (seriesModel.get('silent') === true && seriesModel.get('symbolSize') === 0) {
+    return true;
+  }
+  if (seriesModel.subType !== 'line') {
+    return false;
+  }
+  const area = seriesModel.get('areaStyle');
+  return opacityOf(seriesModel.get('lineStyle')) === 0
+    && (!area || opacityOf(area) === 0);
+}
+
+/**
+ * The opacity a style option sets, when it sets one.
+ *
+ * @param style - A `lineStyle`, `areaStyle` or `itemStyle` option
+ * @returns The opacity, or `undefined`
+ */
+function opacityOf(style: unknown): number | undefined {
+  const opacity = typeof style === 'object' && style !== null
+    ? (style as { opacity?: unknown }).opacity
+    : undefined;
+  return typeof opacity === 'number' ? opacity : undefined;
 }
 
 /**
@@ -658,6 +722,17 @@ function seriesStyle(seriesModel: EChartsSeriesModel): string {
   return typeof fill === 'string' ? fill : '';
 }
 
+/**
+ * Whether a line series fills the band under its curve.
+ *
+ * `areaStyle` is what fills it, so it is what makes the chart an area chart
+ * rather than a line one -- read off the resolved option so an author cannot
+ * mislabel one as the other. The band is also a filled mark, which is why
+ * the count asks the same question the reading does.
+ *
+ * @param seriesModel - The series to read
+ * @returns True when the series paints a band
+ */
 function fillsBand(seriesModel: EChartsSeriesModel): boolean {
   return Boolean(seriesModel.get('areaStyle'));
 }
@@ -705,7 +780,9 @@ function drewMark(
   if (subType === 'scatter') {
     return placed(data, index) !== undefined;
   }
-  return measured(magnitudeOf(data, index, horizontal));
+  // A bar painted clear -- a waterfall's placeholder lifting the next one --
+  // draws nothing the mark filter counts.
+  return measured(magnitudeOf(data, index, horizontal)) && !paintedClear(data, index);
 }
 
 /**
@@ -721,7 +798,11 @@ function placed(
 ): { x: number; y: number } | undefined {
   const x = data.get(dimensionOf(data, 'x', 0), index);
   const y = data.get(dimensionOf(data, 'y', 1), index);
-  if (typeof x !== 'number' || typeof y !== 'number') {
+  // Finite, not merely numbers: ECharts stores a datum written `null` as
+  // `NaN`, and Superset writes a forecast's observations that way for every
+  // period still to come -- six points drawn nowhere were read as points and
+  // counted as marks, and the chart lost its highlighting (#1304).
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
     return undefined;
   }
   return { x, y };
@@ -804,6 +885,10 @@ function positionOf(
  * for the author's.
  */
 function authoredName(seriesModel: EChartsSeriesModel): string {
+  const shared = SHARED_NAMES.get(seriesModel);
+  if (shared) {
+    return shared;
+  }
   const name = text(seriesModel.get('name'));
   if (name) {
     return name;
@@ -821,10 +906,26 @@ function authoredName(seriesModel: EChartsSeriesModel): string {
   return column.includes('\0') || ECHARTS_COLUMNS.has(column) ? '' : column;
 }
 
-function axisConfig(axes: Axes): MaidrLayer['axes'] {
+/**
+ * The axis titles a layer is announced with.
+ *
+ * An axis the chart gave no title is announced as "X" or "Y", and Superset
+ * gives none by default: every time series read "X is 2024-01-01, Y is
+ * 989.44" (#1304). A layer that is one series measures one thing, and its
+ * name says what -- `SUM(amount)` -- so an untitled value axis takes it.
+ * Only the value axis: the position axis is the same for every series on the
+ * chart, and a name would describe none of its positions.
+ *
+ * @param axes     - The chart's axes
+ * @param measures - What the layer's one series measures, when it is one
+ * @returns The layer's axis titles
+ */
+function axisConfig(axes: Axes, measures = ''): MaidrLayer['axes'] {
+  const x = axes.x || (axes.horizontal ? measures : '');
+  const y = axes.y || (axes.horizontal ? '' : measures);
   return {
-    x: { label: axes.x || undefined },
-    y: { label: axes.y || undefined },
+    x: { label: x || undefined },
+    y: { label: y || undefined },
   };
 }
 
@@ -865,7 +966,7 @@ function barLayer(
       // One row, flattened: `AbstractBarPlot`'s array branch takes a list of
       // marks and declines a nested one outright.
       ...(named ? { selectors: named[0] } : {}),
-      axes: axisConfig(axes),
+      axes: axisConfig(axes, name),
       data: points,
     };
   }
@@ -984,7 +1085,7 @@ function lineLayer(
     // the trace reads from `stepDirection` -- ECharts spells the same choices
     // `'start'`, `'middle'` and `'end'`.
     ...(typeof step === 'string' ? { stepDirection: stepDirectionOf(step) } : {}),
-    axes: axisConfig(axes),
+    axes: axisConfig(axes, name),
     data: [points],
   };
 }
@@ -1072,7 +1173,7 @@ function scatterLayer(
     type: TraceType.SCATTER,
     ...(name ? { name } : {}),
     ...(selectors ? { selectors } : {}),
-    axes: axisConfig(axes),
+    axes: axisConfig(axes, name),
     data: points,
   };
 }

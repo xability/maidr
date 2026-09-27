@@ -536,6 +536,128 @@ describe('a waterfall drawn with a custom series', () => {
   });
 });
 
+describe('Superset\'s helper series and names', () => {
+  const T0 = 1704067200000;
+  const MONTH = 2678400000;
+
+  it('leaves an invisible line unread: a forecast\'s lower bound, a stream\'s baseline', () => {
+    const line = (id: string, options: Record<string, unknown>): FakeSeries => ({
+      type: 'line',
+      columns: { x: [T0, T0 + MONTH], y: [1, 2] },
+      encode: { x: 'x', y: 'y' },
+      options: { id, name: 'SUM(amount)', ...options },
+    });
+    const chart = fakeInstance(
+      [
+        line('SUM(amount)__yhat_lower', { lineStyle: { opacity: 0 } }),
+        line('SUM(amount)__yhat_upper', { lineStyle: { opacity: 0 }, areaStyle: { opacity: 0.2 } }),
+        line('baseline', { name: 'baseline', silent: true, lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 } }),
+        line('SUM(amount)__yhat', {}),
+      ],
+      { x: { type: 'time' } },
+    );
+
+    const layers = createMaidrFromEChart(chart, drawnChart(2, 4)).subplots[0][0].layers;
+
+    // The band keeps its line hidden but its fill shown, as every Superset
+    // area does, so it is read.
+    expect(layers.map(layer => layer.name)).toEqual(['SUM(amount)__yhat_upper', 'SUM(amount)__yhat']);
+  });
+
+  it('names series that share a name by the ids that tell them apart', () => {
+    const chart = fakeInstance(
+      ['SUM(amount)__yhat', 'SUM(amount)'].map(id => ({
+        type: 'line',
+        columns: { x: [T0], y: [1] },
+        encode: { x: 'x', y: 'y' },
+        options: { id, name: 'SUM(amount)' },
+      })),
+      { x: { type: 'time' } },
+    );
+
+    const layers = createMaidrFromEChart(chart, drawnChart(0, 2)).subplots[0][0].layers;
+
+    expect(layers.map(layer => layer.name)).toEqual(['SUM(amount)__yhat', 'SUM(amount)']);
+  });
+
+  it('titles an untitled value axis with what the layer\'s one series measures', () => {
+    const chart = fakeInstance(
+      [{ type: 'line', columns: { x: [T0], y: [989.44] }, encode: { x: 'x', y: 'y' }, options: { name: 'SUM(amount)' } }],
+      { x: { type: 'time' }, y: { type: 'value', name: '' } },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(0, 1)).subplots[0][0].layers;
+
+    expect(layer.axes?.y?.label).toBe('SUM(amount)');
+    expect(layer.axes?.x?.label).toBeUndefined();
+  });
+
+  it('does not read a scatter datum stored as NaN, which ECharts makes of null', () => {
+    const chart = fakeInstance(
+      [{ type: 'scatter', columns: { x: [T0, T0 + MONTH], y: [5, Number.NaN] }, encode: { x: 'x', y: 'y' } }],
+      { x: { type: 'time' } },
+    );
+
+    const [layer] = createMaidrFromEChart(chart, drawnChart(1, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layer.data).toHaveLength(1);
+  });
+
+  it('reads a stack lifted by a transparent placeholder as a waterfall', () => {
+    // Superset's waterfall: Assist, painted clear wherever it lifts, under
+    // Increase, Decrease and Total, each holding a value only where it draws.
+    const gap = Number.NaN;
+    const names = [Date.UTC(2024, 0, 1), Date.UTC(2024, 1, 1), Date.UTC(2024, 2, 1)].map(String).concat('Total');
+    const bar = (name: string, values: number[], clear = false): FakeSeries => ({
+      type: 'bar',
+      names,
+      columns: { x: [0, 1, 2, 3], y: values },
+      encode: { x: 'x', y: 'y' },
+      options: { name, stack: 'stack', clear },
+    });
+    const series = [
+      bar('Assist', [0, 60, 60, 0], true),
+      bar('Increase', [100, gap, 30, gap]),
+      bar('Decrease', [gap, 40, gap, gap]),
+      bar('Total', [gap, gap, gap, 90]),
+    ];
+    const list = fakeInstance(series, {}, { useUTC: true });
+    const chart: EChartsInstance = {
+      getModel: () => {
+        const model = list.getModel();
+        return {
+          ...model,
+          eachSeries: callback => model.eachSeries((seriesModel, index) => {
+            const data = seriesModel.getData();
+            const clear = seriesModel.get('clear') === true;
+            callback({
+              ...seriesModel,
+              getData: () => ({
+                ...data,
+                getItemVisual: (item: number) => ({ fill: clear && item > 0 ? 'transparent' : '#5ac189' }),
+              }),
+            }, index);
+          }),
+        };
+      },
+    };
+
+    // Four visible bars and the placeholder's one zero-height bar at the start.
+    const [layer] = createMaidrFromEChart(chart, drawnChart(5, 0)).subplots[0][0].layers;
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(layer.type).toBe(TraceType.WATERFALL);
+    expect(layer.data).toEqual([
+      { x: '2024-01-01', start: 0, end: 100, delta: 100, kind: 'increase' },
+      { x: '2024-02-01', start: 100, end: 60, delta: -40, kind: 'decrease' },
+      { x: '2024-03-01', start: 60, end: 90, delta: 30, kind: 'increase' },
+      { x: 'Total', start: 0, end: 90, delta: 90, kind: 'total' },
+    ]);
+    expect(layer.selectors).toHaveLength(4);
+  });
+});
+
 describe('a mark painted in hsla()', () => {
   it('is furniture when it is white, so an area keeps its outline', () => {
     // A Metabase area: one band, one stroke, and a hollow symbol per point
