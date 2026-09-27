@@ -301,6 +301,9 @@ function toLayer(
 
 let generatedIds = 0;
 
+/** Series already reported as unreadable, so a live chart warns about each once. */
+const reportedSeries = new WeakSet<LwcSeries>();
+
 /**
  * The figure id: the one asked for, else the chart container's, else a new one.
  */
@@ -341,7 +344,11 @@ export function readLightweightChart(
     const kind = kindOf(seriesType);
     const seriesOptions = series.options();
     if (kind === null) {
-      console.warn(`MAIDR Lightweight Charts adapter: skipping "${seriesType}" series, which MAIDR has no reading of.`);
+      // Once per series: a live chart is read again on every change.
+      if (!reportedSeries.has(series)) {
+        reportedSeries.add(series);
+        console.warn(`MAIDR Lightweight Charts adapter: skipping "${seriesType}" series, which MAIDR has no reading of.`);
+      }
       return [];
     }
     if (seriesOptions.visible === false) {

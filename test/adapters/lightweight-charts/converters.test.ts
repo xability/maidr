@@ -183,6 +183,17 @@ describe('readLightweightChart', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"Custom"'));
   });
 
+  it('warns about a series it cannot read once, however often the chart is read', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const chart = fakeChart([{ series: [fakeSeries('Candlestick', ohlc), fakeSeries('Custom', [{ time: day(2), value: 1 }])] }]);
+
+    readLightweightChart(chart);
+    readLightweightChart(chart);
+    readLightweightChart(chart);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('throws when there is nothing to read', () => {
     const chart = fakeChart([{ series: [fakeSeries('Candlestick', [])] }]);
 

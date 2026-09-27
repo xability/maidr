@@ -48,12 +48,9 @@ export function panePlotArea(chart: LwcChart, paneIndex: number): PixelRect | nu
   }
   const chartBox = chart.chartElement().getBoundingClientRect();
   const rowBox = row.getBoundingClientRect();
-  let leftScale = 0;
-  try {
-    leftScale = chart.priceScale('left', paneIndex).width();
-  } catch {
-    // A pane without a left scale: its plot starts at the row's edge.
-  }
+  // Zero when the left scale is hidden or holds no series, which is where the
+  // plot then starts.
+  const leftScale = chart.priceScale('left', paneIndex).width();
   const left = rowBox.left - chartBox.left + leftScale;
   const top = rowBox.top - chartBox.top;
   // Not `timeScale().width()`, which is the time axis's width and zero while
