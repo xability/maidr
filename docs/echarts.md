@@ -36,10 +36,9 @@ Two things this example does on purpose:
 
 - **`renderer: 'svg'`.** ECharts defaults to canvas, which draws no elements to
   point at. A canvas chart still reads — audio, text and braille all come from
-  the chart's model — and its bars, points, lines, areas, pie slices and
-  sunburst slices are outlined through an overlay drawn from the model (see
-  [On a canvas](#on-a-canvas)). Every other series type is outlined only when
-  it is drawn as SVG.
+  the chart's model — and every mark the SVG renderer would outline is
+  outlined through an overlay drawn from the model instead (see
+  [On a canvas](#on-a-canvas)), a theme river's bands aside.
 - **Calling after `finished`.** The adapter locates marks in the drawn chart,
   so it has to run after ECharts has drawn.
 
@@ -485,14 +484,19 @@ knows where every mark is. Measured on 6.1.0:
 | `pie` | `data.getItemLayout(i)` — `{ cx, cy, r0, r, startAngle, endAngle }` |
 | `sunburst` | the same, per tree node, from `node.getLayout()` |
 | `line` | `data.getLayout('points')` — one flat `[x0, y0, x1, y1, …]` per series |
+| `funnel` | `data.getItemLayout(i)` — `{ points: [[x, y], …] }`, the stage's corners |
+| `candlestick` | `data.getItemLayout(i).brushRect` — the body |
+| `radar` | `data.getItemLayout(i)` — `[[x, y], …]`, the datum's closed polygon, stroked |
+| `heatmap` | nothing: `getItemLayout(i)` is `undefined`, so each cell is placed through the grid, centred on its category pair and sized by the axes' band widths |
 
 All of these are in the chart's CSS pixels. A datum with no value comes back
 with a `null` coordinate rather than being left out, so "has a finite layout"
 is exactly "was drawn". A bar on a polar grid is laid out as a sector and
 drawn as one.
 
-What the overlay does not cover: every other series type, a funnel included;
-a series drawn with `large: true`; and the shape of a smooth or stepped line,
+What the overlay does not cover: a theme river, whose band layouts are
+offsets from its axis rather than positions; a series drawn with
+`large: true`; and the shape of a smooth or stepped line,
 whose outline is drawn straight from point to point. A series drawn
 progressively — ECharts draws a few hundred points a frame past its
 `progressiveThreshold` — is outlined once it has finished, which is why

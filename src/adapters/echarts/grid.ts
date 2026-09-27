@@ -162,7 +162,7 @@ export function drawnGridCount(
 }
 
 /** One cell that was drawn, at the axis indices ECharts placed it by. */
-interface PlacedCell {
+export interface PlacedCell {
   row: number;
   column: number;
   value: number;
@@ -186,7 +186,7 @@ interface PlacedCell {
  * @param axes        - The category names of both axes
  * @returns One entry per drawn cell, in the order the data declared them
  */
-function placedCells(
+export function placedCells(
   seriesModel: EChartsSeriesModel,
   axes: AxisCategories,
 ): PlacedCell[] {

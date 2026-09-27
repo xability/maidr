@@ -175,7 +175,7 @@ export function createMaidrFromEChart(
 
   // A canvas has no elements to point at, so its marks are drawn from the
   // model into an overlay first; see `canvas.ts`. An SVG chart is untouched.
-  drawCanvasMarks(container, readable);
+  drawCanvasMarks(container, readable, categories(model));
 
   // Set aside before anything is counted: a legend's icons are painted like
   // the marks they stand for (#1315).

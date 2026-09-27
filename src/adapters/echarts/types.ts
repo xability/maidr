@@ -187,6 +187,20 @@ export interface EChartsSeriesModel {
   getData: () => EChartsList;
   /** Read one of the series' resolved options. */
   get: (key: string) => unknown;
+  /**
+   * The coordinate system the series was drawn on. Read only to place a
+   * heatmap's cells over a canvas, which is the one series whose data list
+   * keeps no layout of them; see `canvas.ts`.
+   */
+  coordinateSystem?: EChartsCoordinateSystem;
+}
+
+/** A cartesian grid, as far as placing a heatmap cell on it needs. */
+export interface EChartsCoordinateSystem {
+  /** Where a pair of axis values -- category indices on a category axis -- is drawn. */
+  dataToPoint?: (value: number[]) => number[];
+  /** One of the grid's axes. */
+  getAxis?: (dimension: string) => { getBandWidth?: () => number } | undefined;
 }
 
 /**
