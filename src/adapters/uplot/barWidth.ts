@@ -95,7 +95,10 @@ export function colorRunAround(
     let missed = 0;
     for (let i = center + step; ; i += step) {
       if (!inReach(i)) {
-        return { edge, limited: true };
+        // The run filled its column only when it was still going at the
+        // column's edge -- not when it had already stopped short of it, and
+        // not when the plot's edge cut it off.
+        return { edge, limited: missed === 0 && i >= 0 && i < width };
       }
       if (sameColor(pixelAt(row, i), color)) {
         edge = i;

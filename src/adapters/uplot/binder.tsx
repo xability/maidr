@@ -346,14 +346,15 @@ function targetAtCursor(u: UPlotInstance, sources: ReadonlyMap<string, UPlotLaye
       }
       const at = toPlot(u, source, point[0], point[1]);
       // A click inside a bar or a stack's segment is on it, however far from
-      // its top; elsewhere the nearest mark wins.
+      // its top -- unless a point is drawn right there, over the bar;
+      // elsewhere the nearest mark wins.
       const box = source.kind === 'stacked' || source.kind === 'bar'
         ? barBox(u, source, k, point[0], barFoot(u, source, row, k), point[1])
         : null;
       const inside = box !== null
         && left >= box.left && left <= box.left + box.width
         && top >= box.top && top <= box.top + box.height;
-      const distance = inside ? 0 : Math.hypot(at.left - left, at.top - top);
+      const distance = inside ? POINT_HALF_BOX : Math.hypot(at.left - left, at.top - top);
       if (best === null || distance < best.distance) {
         best = {
           target: source.kind === 'scatter' ? { layerId, pointIndex: col } : { layerId, row, col },
