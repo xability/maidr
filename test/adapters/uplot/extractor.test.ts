@@ -501,6 +501,98 @@ describe('stacked charts', () => {
     });
   });
 
+  it('puts the rows bottom first when the series are listed top first', () => {
+    // Series 1 is stacked on series 2: series 2 is the bottom.
+    const u = fakeUPlot({
+      data: [[1, 2], [15, 35], [10, 20]],
+      bands: [{ series: [1, 2] }],
+      series: [{}, { label: 'Warnings', _paths: BAR_PATHS }, { label: 'Errors', _paths: BAR_PATHS }],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(maidr.subplots[0][0].layers[0].data as SegmentedPoint[][]).toEqual([
+      [{ x: 1, y: 10, z: 'Errors' }, { x: 2, y: 20, z: 'Errors' }],
+      [{ x: 1, y: 5, z: 'Warnings' }, { x: 2, y: 15, z: 'Warnings' }],
+    ]);
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [2, 1], bases: [null, 2] });
+  });
+
+  it('orders a three-series stack listed top first by its band chain', () => {
+    // Info (1) on Warnings (2) on Errors (3).
+    const u = fakeUPlot({
+      data: [[1, 2], [16, 37], [15, 35], [10, 20]],
+      bands: [{ series: [1, 2] }, { series: [2, 3] }],
+      series: [
+        {},
+        { label: 'Info', _paths: BAR_PATHS },
+        { label: 'Warnings', _paths: BAR_PATHS },
+        { label: 'Errors', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const rows = maidr.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    expect(rows.map(r => [r[0].z, r[0].y, r[1].y])).toEqual([
+      ['Errors', 10, 20],
+      ['Warnings', 5, 15],
+      ['Info', 1, 2],
+    ]);
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [3, 2, 1], bases: [null, 3, 2] });
+  });
+
+  it('orders a stack banded out of series order, moving each row\'s indices with it', () => {
+    // Middle (1) on Bottom (3), Top (2) on Middle (1).
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [12, 14, 16], [20, 25, 30], [10, 12, 14]],
+      bands: [{ series: [1, 3] }, { series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Middle', _paths: BAR_PATHS },
+        { label: 'Top', _paths: BAR_PATHS },
+        { label: 'Bottom', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const rows = maidr.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    expect(rows.map(r => [r[0].z, ...r.map(p => p.y)])).toEqual([
+      ['Bottom', 10, 12, 14],
+      ['Middle', 2, 2, 2],
+      ['Top', 8, 11, 14],
+    ]);
+    expect(sources.get('stacked-y')).toEqual({
+      kind: 'stacked',
+      seriesIdxs: [3, 1, 2],
+      sourceIdxs: [[0, 1, 2], [0, 1, 2], [0, 1, 2]],
+      bases: [null, 3, 1],
+      xScale: 'x',
+      yScale: 'y',
+    });
+  });
+
+  it('breaks a tie in depth by series order', () => {
+    // Two series stacked on the same bottom: both one deep.
+    const u = fakeUPlot({
+      data: [[1], [15], [18], [10]],
+      bands: [{ series: [2, 3] }, { series: [1, 3] }],
+      series: [
+        {},
+        { label: 'A', _paths: BAR_PATHS },
+        { label: 'B', _paths: BAR_PATHS },
+        { label: 'Base', _paths: BAR_PATHS },
+      ],
+    });
+    const { sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [3, 1, 2], bases: [null, 3, 3] });
+  });
+
+  it('orders a stack whose bands form a cycle without hanging', () => {
+    const u = fakeUPlot({
+      data: [[1], [10], [15]],
+      bands: [{ series: [1, 2] }, { series: [2, 1] }],
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }],
+    });
+    const { sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(sources.get('stacked-y')?.seriesIdxs).toEqual([1, 2]);
+  });
+
   it('keeps every stacked row rectangular, reading a missing value as 0', () => {
     const u = fakeUPlot({
       data: [[1, 2, 3], [10, null, 30], [15, 25, null]],
