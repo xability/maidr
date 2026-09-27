@@ -25,6 +25,7 @@ import type {
   Maidr,
   MaidrLayer,
   ScatterPoint,
+  SegmentedPoint,
 } from '../../type/grammar';
 import type {
   MaidrUPlotOptions,
@@ -40,9 +41,18 @@ import { Orientation, TraceType } from '../../type/grammar';
  * turned back into a uPlot series and data index.
  */
 export interface UPlotLayerSource {
-  kind: UPlotSeriesKind;
-  /** `u.series` index of each MAIDR row (one row except for a line layer). */
+  /** What the layer draws; `stacked` is a stack of bar series. */
+  kind: UPlotSeriesKind | 'stacked';
+  /**
+   * `u.series` index of each MAIDR row: one row, except for a line or area
+   * layer (a row per series) and a stack (a row per series, bottom first).
+   */
   seriesIdxs: number[];
+  /**
+   * A stack only: for each row, the series it is stacked on (the lower series
+   * of its band), or `null` for the bottom of the stack.
+   */
+  bases?: (number | null)[];
   /**
    * `sourceIdxs[row][col]` is the index into the series' data columns that
    * the MAIDR point at `(row, col)` was read from. For a scatter layer there
@@ -124,10 +134,60 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
   const xScale = u.series[0]?.scale ?? 'x';
   const toX = xReader(u, xScale, Array.from(xs, v => toFinite(v)), options);
   const horizontal = u.scales[xScale]?.ori === 1;
+  const bases = options.stacked === true ? stackBases(u) : new Map<number, number>();
+  const stacked = new Set<number>([...bases.keys(), ...bases.values()]);
 
-  // Line series are gathered per y scale and emitted where the first of them
-  // sat, so layer order follows series order.
-  const lineGroups = new Map<string, { layer: MaidrLayer; source: UPlotLayerSource }>();
+  /**
+   * Series `i`'s reading at `k`: its own share when it is stacked, measured
+   * from the nearest series beneath it that has a reading there -- a gap one
+   * level down leaves the segment standing on the one below that.
+   */
+  const valueAt = (i: number, k: number): number | null => {
+    const y = toFinite(data[i]?.[k]);
+    if (y === null) {
+      return y;
+    }
+    let steps = 0;
+    for (let base = bases.get(i); base !== undefined && steps <= bases.size; base = bases.get(base), steps++) {
+      const under = toFinite(data[base]?.[k]);
+      if (under !== null) {
+        return y - under;
+      }
+    }
+    return y;
+  };
+
+  /**
+   * The bottom of the stack series `i` belongs to. Bands that loop back on
+   * themselves have no bottom; their lowest-numbered series stands for it, so
+   * every series of the loop lands in the one layer.
+   */
+  const rootOf = (i: number): number => {
+    const seen = [i];
+    for (let base = bases.get(i); base !== undefined; base = bases.get(base)) {
+      if (seen.includes(base)) {
+        return Math.min(...seen);
+      }
+      seen.push(base);
+    }
+    return seen[seen.length - 1];
+  };
+  /** The first stack on each y scale keeps the plain id; later ones name their bottom series. */
+  const stackIds = new Map<number, string>();
+  const stackIdOf = (i: number, yScale: string): string => {
+    const root = rootOf(i);
+    let id = stackIds.get(root);
+    if (id === undefined) {
+      const taken = [...stackIds.values()].includes(`stacked-${yScale}`);
+      id = taken ? `stacked-${yScale}-${root}` : `stacked-${yScale}`;
+      stackIds.set(root, id);
+    }
+    return id;
+  };
+
+  // Line and area series, and stacked bars, are gathered per y scale and
+  // emitted where the first of them sat, so layer order follows series order.
+  const groups = new Map<string, { layer: MaidrLayer; source: UPlotLayerSource }>();
 
   for (let i = 1; i < u.series.length; i++) {
     const series = u.series[i];
@@ -139,20 +199,20 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     const yScale = series.scale ?? 'y';
     const name = seriesName(series, i);
 
-    if (kind === 'line') {
-      let group = lineGroups.get(yScale);
+    if (kind === 'line' || kind === 'area') {
+      const layerId = `${kind}-${yScale}`;
+      let group = groups.get(layerId);
       if (!group) {
-        const layerId = `line-${yScale}`;
         group = {
           layer: {
             id: layerId,
-            type: TraceType.LINE,
+            type: kind === 'area' ? TraceType.AREA : TraceType.LINE,
             axes: layerAxes(u, toX.axis, yScale, series, options),
             data: [] as LinePoint[][],
           },
           source: { kind, seriesIdxs: [], sourceIdxs: [], xScale, yScale },
         };
-        lineGroups.set(yScale, group);
+        groups.set(layerId, group);
         layers.push(group.layer);
         sources.set(layerId, group.source);
       } else {
@@ -167,7 +227,7 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
         if (x === null) {
           continue;
         }
-        row.push({ x, y: toFinite(ys[k]), z: name });
+        row.push({ x, y: valueAt(i, k), z: name });
         idxs.push(k);
       }
       (group.layer.data as LinePoint[][]).push(row);
@@ -176,11 +236,52 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
       continue;
     }
 
+    if (kind === 'bar' && stacked.has(i)) {
+      // One layer per stack: two stacks on one scale each have their own
+      // segments and their own total.
+      const layerId = stackIdOf(i, yScale);
+      let group = groups.get(layerId);
+      if (!group) {
+        const axes = layerAxes(u, toX.axis, yScale, null, options);
+        group = {
+          layer: {
+            id: layerId,
+            type: TraceType.STACKED,
+            ...(horizontal ? { orientation: Orientation.HORIZONTAL } : {}),
+            axes: horizontal ? { x: axes.y, y: axes.x } : axes,
+            data: [] as SegmentedPoint[][],
+          },
+          source: { kind: 'stacked', seriesIdxs: [], sourceIdxs: [], bases: [], xScale, yScale },
+        };
+        groups.set(layerId, group);
+        layers.push(group.layer);
+        sources.set(layerId, group.source);
+      }
+      // A stack is a grid: every segment row has every category, a missing
+      // reading counting as nothing, so the rows and the total line up.
+      const row: SegmentedPoint[] = [];
+      const idxs: number[] = [];
+      for (let k = 0; k < xs.length; k++) {
+        const x = toX.value(k);
+        if (x === null) {
+          continue;
+        }
+        const y = valueAt(i, k) ?? 0;
+        row.push(horizontal ? { x: y, y: x, z: name } : { x, y, z: name });
+        idxs.push(k);
+      }
+      (group.layer.data as SegmentedPoint[][]).push(row);
+      group.source.seriesIdxs.push(i);
+      group.source.sourceIdxs.push(idxs);
+      group.source.bases?.push(bases.get(i) ?? null);
+      continue;
+    }
+
     const points: (BarPoint | ScatterPoint)[] = [];
     const idxs: number[] = [];
     for (let k = 0; k < xs.length; k++) {
       const x = toX.value(k);
-      const y = toFinite(ys[k]);
+      const y = valueAt(i, k);
       if (x === null || y === null) {
         continue;
       }
@@ -209,7 +310,37 @@ function readAligned(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
     sources.set(layerId, { kind, seriesIdxs: [i], sourceIdxs: [idxs], xScale, yScale });
   }
 
+  for (const group of groups.values()) {
+    if (group.source.kind === 'stacked') {
+      orderStack(group.layer, group.source, bases);
+    }
+  }
   return { layers, sources };
+}
+
+/**
+ * Puts a stack's rows bottom first, as MAIDR walks a stack -- Up moves to the
+ * segment above. Series order is not stacking order: a chart may list its
+ * series top first and band each onto the one after it.
+ */
+function orderStack(layer: MaidrLayer, source: UPlotLayerSource, bases: ReadonlyMap<number, number>): void {
+  const depth = (i: number): number => {
+    let d = 0;
+    for (let at = bases.get(i); at !== undefined && d <= bases.size; at = bases.get(at)) {
+      d++;
+    }
+    return d;
+  };
+  const order = source.seriesIdxs
+    .map((seriesIdx, row) => ({ row, depth: depth(seriesIdx), seriesIdx }))
+    .sort((a, b) => a.depth - b.depth || a.seriesIdx - b.seriesIdx)
+    .map(entry => entry.row);
+  const rows = layer.data as SegmentedPoint[][];
+  layer.data = order.map(row => rows[row]);
+  source.seriesIdxs = order.map(row => source.seriesIdxs[row]);
+  source.sourceIdxs = order.map(row => source.sourceIdxs[row]);
+  const bottoms = source.bases ?? [];
+  source.bases = order.map(row => bottoms[row] ?? null);
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +397,31 @@ function readFaceted(u: UPlotInstance, options: MaidrUPlotOptions): BuiltLayers 
 }
 
 // ---------------------------------------------------------------------------
+// Stacking
+// ---------------------------------------------------------------------------
+
+/**
+ * The series each stacked series sits on: upper -> lower, from the chart's
+ * bands. A series with no band beneath it is the bottom of its stack (or not
+ * stacked at all) and has no entry.
+ */
+function stackBases(u: UPlotInstance): Map<number, number> {
+  const bases = new Map<number, number>();
+  for (const band of u.bands ?? []) {
+    const [upper, lower] = band.series ?? [];
+    if (
+      Number.isInteger(upper) && Number.isInteger(lower)
+      && upper > 0 && lower > 0 && upper !== lower
+      && upper < u.series.length && lower < u.series.length
+      && !bases.has(upper)
+    ) {
+      bases.set(upper, lower);
+    }
+  }
+  return bases;
+}
+
+// ---------------------------------------------------------------------------
 // Series kind
 // ---------------------------------------------------------------------------
 
@@ -301,7 +457,24 @@ function resolveKind(u: UPlotInstance, i: number, options: MaidrUPlotOptions): U
   if (own === false || own.exclude === true) {
     return null;
   }
-  return own.kind ?? inferSeriesKind(u, series);
+  const kind = own.kind ?? inferSeriesKind(u, series);
+  if (kind === 'line' && own.kind === undefined && options.areas === true && isFilled(u, series, i)) {
+    return 'area';
+  }
+  return kind;
+}
+
+/** Whether a series is drawn with a fill below it. */
+function isFilled(u: UPlotInstance, series: UPlotSeries, i: number): boolean {
+  if (typeof series.fill !== 'function') {
+    return series.fill !== null && series.fill !== undefined;
+  }
+  try {
+    return (series.fill as (u: UPlotInstance, seriesIdx: number) => unknown)(u, i) != null;
+  } catch {
+    // A fill that needs a drawing context uPlot has not handed us still fills.
+    return true;
+  }
 }
 
 /**

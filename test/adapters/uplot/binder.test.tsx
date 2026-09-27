@@ -199,6 +199,44 @@ describe('navigation drawn onto the chart', () => {
     expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
   });
 
+  describe('a lone bar', () => {
+    /** One bar at x 1 (40px), up to 50 (100px). */
+    function loneBar(scales?: Parameters<typeof fakeUPlot>[0]['scales']): FakeUPlot {
+      return fakeUPlot({ data: [[1], [50]], series: [{}, { label: 'Sales', _paths: BAR_PATHS }], scales });
+    }
+
+    it('takes the plot\'s width as its column, as uPlot does', () => {
+      const u = loneBar();
+      Object.defineProperty(u.over, 'clientWidth', { value: 400, configurable: true });
+      place(u);
+      bind(u);
+      act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 0 }));
+      // 60% of the 400px plot, centred on 40px.
+      expect(boxes(u)).toEqual([{ left: '-80px', top: '100px', width: '240px', height: '100px' }]);
+    });
+
+    it('takes the plot\'s height as its column when the bars lie along x', () => {
+      const u = loneBar({ x: { min: 0, max: 2, ori: 1 }, y: { min: 0, max: 100, ori: 0 } });
+      Object.defineProperty(u.over, 'clientWidth', { value: 400, configurable: true });
+      Object.defineProperty(u.over, 'clientHeight', { value: 200, configurable: true });
+      place(u);
+      bind(u);
+      act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 0 }));
+      // x 1 of 0..2 is 100px down; 60% of the 200px plot tall, out to 50 (200px).
+      expect(boxes(u)).toEqual([{ left: '0px', top: '40px', width: '200px', height: '120px' }]);
+    });
+
+    it('falls back to a 24px column before the plot has a size', () => {
+      const u = loneBar();
+      place(u);
+      bind(u);
+      act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 0 }));
+      const [box] = boxes(u);
+      expect(Number.parseFloat(box.width)).toBeCloseTo(14.4);
+      expect(Number.parseFloat(box.left)).toBeCloseTo(32.8);
+    });
+  });
+
   it('boxes every selected point of a scatter layer', () => {
     const u = fakeUPlot({
       data: [[1, 2, 3], [10, null, 30]],
@@ -244,13 +282,15 @@ describe('navigation drawn onto the chart', () => {
     expect(boxes(u)).toEqual([]);
   });
 
-  it('redraws the highlight after a resize', () => {
+  it('redraws the highlight on the draw after a resize, not before uPlot repaints', () => {
     const u = lineChart();
     place(u);
     bind(u);
     act(() => onNavigate()({ layerId: 'line-y', row: 0, col: 1 }));
     u.setCursor.mockClear();
     act(() => fire(u, 'setSize'));
+    expect(u.setCursor).not.toHaveBeenCalled();
+    act(() => fire(u, 'draw'));
     expect(u.setCursor).toHaveBeenCalledWith({ left: 80, top: 100 });
     expect(boxes(u)).toHaveLength(1);
   });
@@ -400,6 +440,85 @@ describe('clicks on the plot', () => {
       { layerId: 'line-y', row: 0, col: 1 },
       { layerId: 'bar-1', row: 0, col: 1 },
     ]);
+  });
+
+  describe('on a stack', () => {
+    /**
+     * Errors 10/20/30 with Warnings stacked on them, drawn as running totals
+     * 30/50/70: at x 2 (80px), Errors from 200px up to 160px, Warnings from
+     * there up to 100px, both 24px wide (68px to 92px).
+     */
+    function stackChart(): FakeUPlot {
+      return fakeUPlot({
+        data: [[1, 2, 3], [10, 20, 30], [30, 50, 70]],
+        bands: [{ series: [2, 1] }],
+        series: [{}, { label: 'Errors', _paths: BAR_PATHS }, { label: 'Warnings', _paths: BAR_PATHS }],
+      });
+    }
+
+    it('chooses the segment clicked inside, though the top of the one beneath is nearer', () => {
+      const u = stackChart();
+      place(u);
+      bind(u, { stacked: true });
+      // 10px above the Errors top, 50px below the Warnings top.
+      click(u, { idx: 1, left: 80, top: 150 });
+      click(u, { idx: 1, left: 70, top: 195 });
+      expect(mockMaidr.targets).toEqual([
+        { layerId: 'stacked-y', row: 1, col: 1 },
+        { layerId: 'stacked-y', row: 0, col: 1 },
+      ]);
+    });
+
+    it('chooses the nearest segment top for a click beside the stack', () => {
+      const u = stackChart();
+      place(u);
+      bind(u, { stacked: true });
+      // Right of the bar, level with the lower part of Warnings.
+      click(u, { idx: 1, left: 95, top: 150 });
+      expect(mockMaidr.targets).toEqual([{ layerId: 'stacked-y', row: 0, col: 1 }]);
+    });
+
+    it('finds the segment in a stack whose series are listed top first', () => {
+      // Series 1 (the totals) is banded onto series 2: the bottom is series 2.
+      const u = fakeUPlot({
+        data: [[1, 2, 3], [30, 50, 70], [10, 20, 30]],
+        bands: [{ series: [1, 2] }],
+        series: [{}, { label: 'Warnings', _paths: BAR_PATHS }, { label: 'Errors', _paths: BAR_PATHS }],
+      });
+      place(u);
+      bind(u, { stacked: true });
+      click(u, { idx: 1, left: 80, top: 150 });
+      click(u, { idx: 1, left: 80, top: 190 });
+      expect(mockMaidr.targets).toEqual([
+        { layerId: 'stacked-y', row: 1, col: 1 },
+        { layerId: 'stacked-y', row: 0, col: 1 },
+      ]);
+    });
+  });
+
+  it('chooses a bar clicked inside over a line point nearer the click than its top', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30], [20, 15, 40]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }, { label: 'Target', _paths: LINE_PATHS }],
+    });
+    place(u);
+    bind(u);
+    // The bar at x 2 spans 100px to 200px; the line point is at (80, 170),
+    // 10px from the click, the bar's top 80px.
+    click(u, { idx: 1, left: 80, top: 180 });
+    expect(mockMaidr.targets).toEqual([{ layerId: 'bar-1', row: 0, col: 1 }]);
+  });
+
+  it('chooses a line point drawn over a bar when the click is right on it', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30], [20, 15, 40]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }, { label: 'Target', _paths: LINE_PATHS }],
+    });
+    place(u);
+    bind(u);
+    // The line point at (80, 170) sits inside the bar; a click 2px from it.
+    click(u, { idx: 1, left: 81, top: 171 });
+    expect(mockMaidr.targets).toEqual([{ layerId: 'line-y', row: 0, col: 1 }]);
   });
 
   it('names a scatter point by its index', () => {
@@ -640,6 +759,277 @@ describe('following a sliding window', () => {
   });
 });
 
+describe('stacked bars', () => {
+  /**
+   * Errors 10/20/30 with Warnings stacked on them, drawn as running totals
+   * 30/50/70, on x 0..10 (400px) and y 0..100 (200px).
+   */
+  function stackChart(): FakeUPlot {
+    return fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [30, 50, 70]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: BAR_PATHS }, { label: 'Warnings', _paths: BAR_PATHS }],
+    });
+  }
+
+  function update(u: FakeUPlot, data: FakeUPlot['data']): void {
+    u.data = data;
+    act(() => {
+      fire(u, 'setData');
+      fire(u, 'draw');
+    });
+  }
+
+  it('boxes the bottom segment from the base up to its top', () => {
+    const u = stackChart();
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 0, col: 1 }));
+    // From 0 (200px) up to 20 (160px), 60% of the 40px column wide.
+    expect(boxes(u)).toEqual([{ left: '68px', top: '160px', width: '24px', height: '40px' }]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 160 });
+  });
+
+  it('boxes an upper segment from the top of the one beneath to its own top', () => {
+    const u = stackChart();
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 1, col: 1 }));
+    // From the Errors top at 20 (160px) up to the drawn total 50 (100px).
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '60px' }]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 100 });
+  });
+
+  it('boxes a segment from the nearest series beneath it that has a reading', () => {
+    // Info on Warnings on Errors; Warnings has a gap at x 2, Errors 20 there.
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [30, null, 70], [40, 60, 80]],
+      bands: [{ series: [3, 2] }, { series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Errors', _paths: BAR_PATHS },
+        { label: 'Warnings', _paths: BAR_PATHS },
+        { label: 'Info', _paths: BAR_PATHS },
+      ],
+    });
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 2, col: 1 }));
+    // From Errors' 20 (160px) up to 60 (80px).
+    expect(boxes(u)).toEqual([{ left: '68px', top: '80px', width: '24px', height: '80px' }]);
+  });
+
+  it('boxes an upper segment from the base when the one beneath has a gap', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, null, 30], [30, 50, 70]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: BAR_PATHS }, { label: 'Warnings', _paths: BAR_PATHS }],
+    });
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 1, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
+  });
+
+  it('boxes the whole stack for the total row MAIDR adds beneath the segments', () => {
+    const u = stackChart();
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 2, col: 1 }));
+    // From 0 (200px) to the top of the stack at 50 (100px).
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 80, top: 100 });
+  });
+
+  it('boxes the segments of a stack whose series are listed top first', () => {
+    // Series 1, the running totals, is banded onto series 2: rows bottom first.
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [30, 50, 70], [10, 20, 30]],
+      bands: [{ series: [1, 2] }],
+      series: [{}, { label: 'Warnings', _paths: BAR_PATHS }, { label: 'Errors', _paths: BAR_PATHS }],
+    });
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '160px', width: '24px', height: '40px' }]);
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 1, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '60px' }]);
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 2, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
+  });
+
+  it('draws nothing past the total row', () => {
+    const u = stackChart();
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 3, col: 1 }));
+    expect(boxes(u)).toEqual([]);
+  });
+
+  it('keeps the total row on the same stack after a sliding tick', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [30, 50, 75]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: BAR_PATHS }, { label: 'Warnings', _paths: BAR_PATHS }],
+    });
+    place(u);
+    bind(u, { stacked: true });
+    // The total at x 3: 75.
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 2, col: 2 }));
+    u.setCursor.mockClear();
+
+    update(u, [[2, 3, 4], [20, 30, 40], [50, 75, 90]]);
+
+    expect(mockMaidr.events.map(e => e.appended?.trimmed)).toEqual([1, 1]);
+    // Still x 3 at 75 (50px), one column further left -- not x 4.
+    expect(u.setCursor).toHaveBeenLastCalledWith({ left: 120, top: 50 });
+    expect(boxes(u)).toEqual([{ left: '108px', top: '50px', width: '24px', height: '150px' }]);
+  });
+});
+
+describe('bar width measured off the canvas', () => {
+  const BAR = [214, 39, 40, 255];
+
+  /**
+   * Gives the chart a canvas at twice the CSS size whose every row reads as
+   * `paint` -- device-pixel spans of the bar color -- over transparency.
+   */
+  function withCanvas(u: FakeUPlot, paint: Array<[number, number, number[]?]>): void {
+    Object.defineProperty(u.over, 'clientWidth', { value: 400, configurable: true });
+    Object.defineProperty(u.over, 'clientHeight', { value: 200, configurable: true });
+    const getImageData = (_x: number, _y: number, w: number, h: number): { data: Uint8ClampedArray; width: number; height: number } => {
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (const [from, to, color = BAR] of paint) {
+        for (let i = from; i <= to; i++) {
+          data.set(color, i * 4);
+        }
+      }
+      return { data, width: w, height: h };
+    };
+    Object.assign(u, {
+      bbox: { left: 0, top: 0, width: 800, height: 400 },
+      ctx: { getImageData },
+    });
+  }
+
+  function barChart(): FakeUPlot {
+    return fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }],
+    });
+  }
+
+  it('uses the width the bar was drawn at', () => {
+    const u = barChart();
+    // The bar at x 2 (80px, 160 device px) drawn 40 device px wide.
+    withCanvas(u, [[140, 179]]);
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '70px', top: '100px', width: '20px', height: '100px' }]);
+  });
+
+  it('boxes a bar that fills its column -- touching its neighbours -- the column wide', () => {
+    const u = barChart();
+    // Histogram bars of one color, touching: one run across the whole plot.
+    withCanvas(u, [[0, 799]]);
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '60px', top: '100px', width: '40px', height: '100px' }]);
+  });
+
+  it('falls back to uPlot\'s default share when the run is under two pixels', () => {
+    const u = barChart();
+    withCanvas(u, [[159, 161]]);
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
+  });
+
+  it('takes in the series\' stroke drawn around the fill', () => {
+    const STROKE = [0, 0, 0, 255];
+    const paint: Array<[number, number, number[]?]> = [[136, 139, STROKE], [140, 179], [180, 183, STROKE]];
+    const stroked = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS, width: 1 } as FakeUPlot['series'][number]],
+    });
+    // Fill 40 device px, a 1 CSS px stroke taking in up to 2 device px of
+    // the 4 opaque ones either side.
+    withCanvas(stroked, paint);
+    place(stroked);
+    bind(stroked);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(stroked)).toEqual([{ left: '69px', top: '100px', width: '22px', height: '100px' }]);
+
+    // Without a stroke width, the stroke is not the bar's.
+    const plain = barChart();
+    withCanvas(plain, paint);
+    place(plain);
+    bind(plain);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(plain)).toEqual([{ left: '70px', top: '100px', width: '20px', height: '100px' }]);
+  });
+
+  it('measures a bar reaching past the plot across its visible part', () => {
+    // y 0..40: the bar at x 2 (50) runs off the top; its base is at 200px.
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 50, 30]],
+      series: [{}, { label: 'Sales', _paths: BAR_PATHS }],
+      scales: { x: { min: 0, max: 10, ori: 0 }, y: { min: 0, max: 40, ori: 1 } },
+    });
+    withCanvas(u, [[140, 179]]);
+    const read = jest.spyOn(u.ctx as { getImageData: (...args: number[]) => unknown }, 'getImageData');
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(u)[0].width).toBe('20px');
+    // Visible from 0 to 200 CSS px: measured at 100 (200 device px).
+    expect(read).toHaveBeenLastCalledWith(0, 200, 800, 1);
+  });
+
+  it('reads the canvas once per series and column, and again after a resize', () => {
+    const u = barChart();
+    withCanvas(u, [[140, 179]]);
+    const read = jest.spyOn(u.ctx as { getImageData: (...args: number[]) => unknown }, 'getImageData');
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    act(() => fire(u, 'draw'));
+    act(() => fire(u, 'draw'));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(boxes(u)[0].width).toBe('20px');
+    act(() => {
+      fire(u, 'setSize');
+      fire(u, 'draw');
+    });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to uPlot\'s default share when nothing is drawn at the centre', () => {
+    const u = barChart();
+    withCanvas(u, []);
+    place(u);
+    bind(u);
+    act(() => onNavigate()({ layerId: 'bar-1', row: 0, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '68px', top: '100px', width: '24px', height: '100px' }]);
+  });
+
+  it('measures a stacked segment the same way', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, 20, 30], [30, 50, 70]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: BAR_PATHS }, { label: 'Warnings', _paths: BAR_PATHS }],
+    });
+    withCanvas(u, [[150, 169]]);
+    place(u);
+    bind(u, { stacked: true });
+    act(() => onNavigate()({ layerId: 'stacked-y', row: 1, col: 1 }));
+    expect(boxes(u)).toEqual([{ left: '75px', top: '100px', width: '10px', height: '60px' }]);
+  });
+});
+
 describe('focus leaving the chart', () => {
   function focusable(parent: HTMLElement): HTMLButtonElement {
     const button = document.createElement('button');
@@ -690,7 +1080,7 @@ describe('focus leaving the chart', () => {
     await settle();
 
     expect(boxes(u)).toHaveLength(1);
-    act(() => fire(u, 'setSize'));
+    act(() => fire(u, 'draw'));
     expect(u.setCursor).toHaveBeenCalledWith({ left: 80, top: 100 });
   });
 });

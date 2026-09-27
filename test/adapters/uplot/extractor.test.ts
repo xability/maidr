@@ -3,7 +3,7 @@
  */
 
 import type { UPlotSeries } from '@adapters/uplot/types';
-import type { BarPoint, LinePoint, ScatterPoint } from '@type/grammar';
+import type { BarPoint, LinePoint, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import { extractUPlotData, inferSeriesKind } from '@adapters/uplot/extractor';
 import { Orientation, TraceType } from '@type/grammar';
 import { BAR_PATHS, fakeUPlot, LINE_PATHS, POINT_PATHS } from './helpers';
@@ -417,5 +417,399 @@ describe('charts with nothing to read', () => {
       series: [{}, {}, {}],
     });
     expect(layersOf(u).map(l => l.id)).toEqual(['scatter-2']);
+  });
+});
+
+describe('stacked charts', () => {
+  // uPlot draws a stack from running totals: Errors 10/20, Warnings 5/15 on
+  // top of them, Info 1/2 on top of those.
+  const totals = [[1, 2], [10, 20], [15, 35], [16, 37]];
+  const bands = [{ series: [3, 2] }, { series: [2, 1] }];
+
+  function stackedLines() {
+    return fakeUPlot({
+      data: totals,
+      bands,
+      series: [
+        {},
+        { label: 'Errors', _paths: LINE_PATHS },
+        { label: 'Warnings', _paths: LINE_PATHS },
+        { label: 'Info', _paths: LINE_PATHS },
+      ],
+    });
+  }
+
+  function stackedBars(scales?: Parameters<typeof fakeUPlot>[0]['scales']) {
+    return fakeUPlot({
+      data: totals,
+      bands,
+      scales,
+      series: [
+        {},
+        { label: 'Errors', _paths: BAR_PATHS },
+        { label: 'Warnings', _paths: BAR_PATHS },
+        { label: 'Info', _paths: BAR_PATHS },
+      ],
+      axes: [{ scale: 'x', label: 'Day' }, { scale: 'y', label: 'Lines' }],
+    });
+  }
+
+  it('reads each stack on one scale as a layer of its own, with its own total', () => {
+    const u = fakeUPlot({
+      // Two stacks: A on B, and C on D.
+      data: [[1, 2], [1, 2], [4, 6], [10, 20], [15, 30]],
+      bands: [{ series: [2, 1] }, { series: [4, 3] }],
+      series: [
+        {},
+        { label: 'A', _paths: BAR_PATHS },
+        { label: 'B', _paths: BAR_PATHS },
+        { label: 'C', _paths: BAR_PATHS },
+        { label: 'D', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers.map(l => l.id)).toEqual(['stacked-y', 'stacked-y-3']);
+    expect(layers.map(l => (l.data as SegmentedPoint[][]).map(r => r.map(p => p.y)))).toEqual([
+      [[1, 2], [3, 4]],
+      [[10, 20], [5, 10]],
+    ]);
+    expect(sources.get('stacked-y-3')?.seriesIdxs).toEqual([3, 4]);
+  });
+
+  it('measures a share from the nearest series beneath it that has a reading', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [10, 20], [30, null], [40, 60]],
+      bands: [{ series: [3, 2] }, { series: [2, 1] }],
+      series: [{}, { label: 'Errors', _paths: LINE_PATHS }, { label: 'Warnings', _paths: LINE_PATHS }, { label: 'Info', _paths: LINE_PATHS }],
+    });
+    const rows = layersOf(u, { stacked: true })[0].data as LinePoint[][];
+    // Info at x 2 stands on Errors' 20, not on nothing.
+    expect(rows[2].map(p => p.y)).toEqual([10, 40]);
+  });
+
+  it('reads banded series at face value -- the running totals -- without stacked', () => {
+    const rows = layersOf(stackedLines())[0].data as LinePoint[][];
+    expect(rows.map(r => r.map(p => p.y))).toEqual([[10, 20], [15, 35], [16, 37]]);
+    const layers = layersOf(stackedBars());
+    expect(layers.map(l => l.type)).toEqual([TraceType.BAR, TraceType.BAR, TraceType.BAR]);
+    expect(layers.map(l => (l.data as BarPoint[]).map(p => p.y))).toEqual([[10, 20], [15, 35], [16, 37]]);
+  });
+
+  it('un-stacks line series into each one\'s own share', () => {
+    const layers = layersOf(stackedLines(), { stacked: true });
+    expect(layers.map(l => [l.id, l.type])).toEqual([['line-y', TraceType.LINE]]);
+    expect((layers[0].data as LinePoint[][]).map(r => r.map(p => p.y))).toEqual([[10, 20], [5, 15], [1, 2]]);
+  });
+
+  it('keeps a gap in a stacked line a gap, and reads a gap beneath as nothing', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [null, 20], [15, null]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'Low', _paths: LINE_PATHS }, { label: 'High', _paths: LINE_PATHS }],
+    });
+    const rows = layersOf(u, { stacked: true })[0].data as LinePoint[][];
+    expect(rows.map(r => r.map(p => p.y))).toEqual([[null, 20], [15, null]]);
+  });
+
+  it('reads stacked bars as one stacked_bar layer with a row per series, bottom first', () => {
+    const { maidr, sources } = extractUPlotData(stackedBars(), 'chart', { stacked: true });
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers).toHaveLength(1);
+    expect(layers[0].id).toBe('stacked-y');
+    expect(layers[0].type).toBe(TraceType.STACKED);
+    expect(layers[0].orientation).toBeUndefined();
+    expect(layers[0].axes).toEqual({ x: { label: 'Day' }, y: { label: 'Lines' } });
+    expect(layers[0].data as SegmentedPoint[][]).toEqual([
+      [{ x: 1, y: 10, z: 'Errors' }, { x: 2, y: 20, z: 'Errors' }],
+      [{ x: 1, y: 5, z: 'Warnings' }, { x: 2, y: 15, z: 'Warnings' }],
+      [{ x: 1, y: 1, z: 'Info' }, { x: 2, y: 2, z: 'Info' }],
+    ]);
+    expect(sources.get('stacked-y')).toEqual({
+      kind: 'stacked',
+      seriesIdxs: [1, 2, 3],
+      sourceIdxs: [[0, 1], [0, 1], [0, 1]],
+      bases: [null, 1, 2],
+      xScale: 'x',
+      yScale: 'y',
+    });
+  });
+
+  it('puts the rows bottom first when the series are listed top first', () => {
+    // Series 1 is stacked on series 2: series 2 is the bottom.
+    const u = fakeUPlot({
+      data: [[1, 2], [15, 35], [10, 20]],
+      bands: [{ series: [1, 2] }],
+      series: [{}, { label: 'Warnings', _paths: BAR_PATHS }, { label: 'Errors', _paths: BAR_PATHS }],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(maidr.subplots[0][0].layers[0].data as SegmentedPoint[][]).toEqual([
+      [{ x: 1, y: 10, z: 'Errors' }, { x: 2, y: 20, z: 'Errors' }],
+      [{ x: 1, y: 5, z: 'Warnings' }, { x: 2, y: 15, z: 'Warnings' }],
+    ]);
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [2, 1], bases: [null, 2] });
+  });
+
+  it('orders a three-series stack listed top first by its band chain', () => {
+    // Info (1) on Warnings (2) on Errors (3).
+    const u = fakeUPlot({
+      data: [[1, 2], [16, 37], [15, 35], [10, 20]],
+      bands: [{ series: [1, 2] }, { series: [2, 3] }],
+      series: [
+        {},
+        { label: 'Info', _paths: BAR_PATHS },
+        { label: 'Warnings', _paths: BAR_PATHS },
+        { label: 'Errors', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const rows = maidr.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    expect(rows.map(r => [r[0].z, r[0].y, r[1].y])).toEqual([
+      ['Errors', 10, 20],
+      ['Warnings', 5, 15],
+      ['Info', 1, 2],
+    ]);
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [3, 2, 1], bases: [null, 3, 2] });
+  });
+
+  it('orders a stack banded out of series order, moving each row\'s indices with it', () => {
+    // Middle (1) on Bottom (3), Top (2) on Middle (1).
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [12, 14, 16], [20, 25, 30], [10, 12, 14]],
+      bands: [{ series: [1, 3] }, { series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Middle', _paths: BAR_PATHS },
+        { label: 'Top', _paths: BAR_PATHS },
+        { label: 'Bottom', _paths: BAR_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const rows = maidr.subplots[0][0].layers[0].data as SegmentedPoint[][];
+    expect(rows.map(r => [r[0].z, ...r.map(p => p.y)])).toEqual([
+      ['Bottom', 10, 12, 14],
+      ['Middle', 2, 2, 2],
+      ['Top', 8, 11, 14],
+    ]);
+    expect(sources.get('stacked-y')).toEqual({
+      kind: 'stacked',
+      seriesIdxs: [3, 1, 2],
+      sourceIdxs: [[0, 1, 2], [0, 1, 2], [0, 1, 2]],
+      bases: [null, 3, 1],
+      xScale: 'x',
+      yScale: 'y',
+    });
+  });
+
+  it('breaks a tie in depth by series order', () => {
+    // Two series stacked on the same bottom: both one deep.
+    const u = fakeUPlot({
+      data: [[1], [15], [18], [10]],
+      bands: [{ series: [2, 3] }, { series: [1, 3] }],
+      series: [
+        {},
+        { label: 'A', _paths: BAR_PATHS },
+        { label: 'B', _paths: BAR_PATHS },
+        { label: 'Base', _paths: BAR_PATHS },
+      ],
+    });
+    const { sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(sources.get('stacked-y')).toMatchObject({ seriesIdxs: [3, 1, 2], bases: [null, 3, 3] });
+  });
+
+  it('orders a stack whose bands form a cycle without hanging', () => {
+    const u = fakeUPlot({
+      data: [[1], [10], [15]],
+      bands: [{ series: [1, 2] }, { series: [2, 1] }],
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }],
+    });
+    const { sources } = extractUPlotData(u, 'chart', { stacked: true });
+    expect(sources.get('stacked-y')?.seriesIdxs).toEqual([1, 2]);
+  });
+
+  it('keeps every stacked row rectangular, reading a missing value as 0', () => {
+    const u = fakeUPlot({
+      data: [[1, 2, 3], [10, null, 30], [15, 25, null]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }],
+    });
+    const rows = layersOf(u, { stacked: true })[0].data as SegmentedPoint[][];
+    expect(rows.map(r => r.length)).toEqual([3, 3]);
+    // B at x 2 sits on a missing A: its whole height is its own.
+    expect(rows.map(r => r.map(p => p.y))).toEqual([[10, 0, 30], [5, 25, 0]]);
+  });
+
+  it('reads horizontal stacked bars with value and category swapped', () => {
+    const u = stackedBars({ x: { min: 0, max: 3, ori: 1 }, y: { min: 0, max: 40, ori: 0 } });
+    const layer = layersOf(u, { stacked: true })[0];
+    expect(layer.type).toBe(TraceType.STACKED);
+    expect(layer.orientation).toBe(Orientation.HORIZONTAL);
+    expect(layer.axes).toEqual({ x: { label: 'Lines' }, y: { label: 'Day' } });
+    expect((layer.data as SegmentedPoint[][])[1]).toEqual([
+      { x: 5, y: 1, z: 'Warnings' },
+      { x: 15, y: 2, z: 'Warnings' },
+    ]);
+  });
+
+  it.each([
+    ['the x series', [{ series: [2, 0] }]],
+    ['an index past the last series', [{ series: [2, 9] }]],
+    ['a series banded to itself', [{ series: [2, 2] }]],
+    ['a fractional index', [{ series: [2, 1.5] }]],
+    ['a band without series', [{}]],
+    ['a band with one series', [{ series: [2] }]],
+  ])('ignores a band naming %s', (_name, badBands) => {
+    const u = fakeUPlot({
+      data: [[1], [10], [15]],
+      bands: badBands,
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }],
+    });
+    const layers = layersOf(u, { stacked: true });
+    expect(layers.map(l => l.id)).toEqual(['bar-1', 'bar-2']);
+    expect((layers[1].data as BarPoint[])[0].y).toBe(15);
+  });
+
+  it('keeps the first band for a series banded twice', () => {
+    const u = fakeUPlot({
+      data: [[1], [10], [15], [18]],
+      bands: [{ series: [3, 2] }, { series: [3, 1] }],
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }, { label: 'C', _paths: BAR_PATHS }],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { stacked: true });
+    const layers = maidr.subplots[0][0].layers;
+    // The second band is ignored, so A is in no stack at all.
+    expect(layers.map(l => l.id)).toEqual(['bar-1', 'stacked-y']);
+    // C less B, not C less A.
+    expect((layers[1].data as SegmentedPoint[][]).map(r => r[0].y)).toEqual([15, 3]);
+    expect(sources.get('stacked-y')?.bases).toEqual([null, 2]);
+  });
+
+  it('leaves bars outside every band as bars of their own', () => {
+    const u = fakeUPlot({
+      data: [[1], [10], [15], [7]],
+      bands: [{ series: [2, 1] }],
+      series: [{}, { label: 'A', _paths: BAR_PATHS }, { label: 'B', _paths: BAR_PATHS }, { label: 'Solo', _paths: BAR_PATHS }],
+    });
+    expect(layersOf(u, { stacked: true }).map(l => [l.id, l.type])).toEqual([
+      ['stacked-y', TraceType.STACKED],
+      ['bar-3', TraceType.BAR],
+    ]);
+  });
+
+  it('reads band members drawn as lines as lines, un-stacked', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [1, 2], [3, 5], [10, 20]],
+      bands: [{ series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Low', _paths: LINE_PATHS },
+        { label: 'High', _paths: LINE_PATHS },
+        { label: 'Bars', _paths: BAR_PATHS },
+      ],
+    });
+    const layers = layersOf(u, { stacked: true });
+    expect(layers.map(l => [l.id, l.type])).toEqual([
+      ['line-y', TraceType.LINE],
+      ['bar-3', TraceType.BAR],
+    ]);
+    expect((layers[0].data as LinePoint[][]).map(r => r.map(p => p.y))).toEqual([[1, 2], [2, 3]]);
+  });
+});
+
+describe('filled areas', () => {
+  function filled(fill: unknown, extra: Partial<UPlotSeries> = {}) {
+    return fakeUPlot({
+      data: [[1, 2], [3, 4]],
+      series: [{}, { label: 'Load', _paths: LINE_PATHS, fill, ...extra }],
+    });
+  }
+
+  it('reads a filled line as a line without areas', () => {
+    expect(layersOf(filled(() => 'red'))[0].type).toBe(TraceType.LINE);
+  });
+
+  it.each([
+    ['a fill function returning a color', () => 'rgba(0,0,255,0.3)'],
+    ['a fill function that throws without a drawing context', () => {
+      throw new Error('no ctx');
+    }],
+    ['a fill left as a plain value', '#f00'],
+  ])('reads %s as an area with areas: true', (_name, fill) => {
+    const { maidr, sources } = extractUPlotData(filled(fill), 'chart', { areas: true });
+    const layer = maidr.subplots[0][0].layers[0];
+    expect(layer.id).toBe('area-y');
+    expect(layer.type).toBe(TraceType.AREA);
+    expect(layer.data).toEqual([[{ x: 1, y: 3, z: 'Load' }, { x: 2, y: 4, z: 'Load' }]]);
+    expect(sources.get('area-y')?.kind).toBe('area');
+  });
+
+  it.each([
+    ['a fill function returning null', () => null],
+    ['a fill function returning undefined', () => undefined],
+    ['no fill', undefined],
+  ])('reads %s as a line even with areas: true', (_name, fill) => {
+    expect(layersOf(filled(fill), { areas: true })[0].type).toBe(TraceType.LINE);
+  });
+
+  it('passes the instance and series index to the fill function', () => {
+    const fill = jest.fn(() => 'red');
+    const u = filled(fill);
+    layersOf(u, { areas: true });
+    expect(fill).toHaveBeenCalledWith(u, 1);
+  });
+
+  it('does not read filled bars or points as areas', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [3, 4], [5, 6]],
+      series: [{}, { _paths: BAR_PATHS, fill: () => 'red' }, { _paths: POINT_PATHS, fill: () => 'red' }],
+    });
+    expect(layersOf(u, { areas: true }).map(l => l.type)).toEqual([TraceType.BAR, TraceType.SCATTER]);
+  });
+
+  it('reads kind: \'area\' as an area without areas or a fill', () => {
+    const u = fakeUPlot({ data: [[1, 2], [3, 4]], series: [{}, { _paths: LINE_PATHS }] });
+    expect(layersOf(u, { series: { 1: { kind: 'area' } } })[0].type).toBe(TraceType.AREA);
+    const own = fakeUPlot({ data: [[1, 2], [3, 4]], series: [{}, { maidr: { kind: 'area' } }] });
+    expect(layersOf(own)[0].type).toBe(TraceType.AREA);
+  });
+
+  it('lets kind: \'line\' keep a filled series a line under areas: true', () => {
+    const u = filled(() => 'red', { maidr: { kind: 'line' } });
+    expect(layersOf(u, { areas: true })[0].type).toBe(TraceType.LINE);
+  });
+
+  it('reads an area and a line on one scale as two layers, in series order', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [3, 4], [5, 6], [7, 8]],
+      series: [
+        {},
+        { label: 'Plain', _paths: LINE_PATHS },
+        { label: 'Filled', _paths: LINE_PATHS, fill: () => 'red' },
+        { label: 'Plain 2', _paths: LINE_PATHS },
+      ],
+    });
+    const { maidr, sources } = extractUPlotData(u, 'chart', { areas: true });
+    const layers = maidr.subplots[0][0].layers;
+    expect(layers.map(l => [l.id, l.type])).toEqual([
+      ['line-y', TraceType.LINE],
+      ['area-y', TraceType.AREA],
+    ]);
+    expect(sources.get('line-y')?.seriesIdxs).toEqual([1, 3]);
+    expect(sources.get('area-y')?.seriesIdxs).toEqual([2]);
+  });
+
+  it('un-stacks stacked areas', () => {
+    const u = fakeUPlot({
+      data: [[1, 2], [1, 2], [3, 5]],
+      bands: [{ series: [2, 1] }],
+      series: [
+        {},
+        { label: 'Low', _paths: LINE_PATHS, fill: () => 'red' },
+        { label: 'High', _paths: LINE_PATHS, fill: () => 'blue' },
+      ],
+    });
+    const layer = layersOf(u, { areas: true, stacked: true })[0];
+    expect(layer.type).toBe(TraceType.AREA);
+    expect((layer.data as LinePoint[][]).map(r => r.map(p => p.y))).toEqual([[1, 2], [2, 3]]);
   });
 });

@@ -108,16 +108,29 @@ The adapter:
 
 uPlot draws every series through a `paths` function and does not record what kind of mark it drew. The adapter reads the kind off the path uPlot last built for the series, and maps the kinds to MAIDR layers like this:
 
+### Stable chart types
+
 | Series | How uPlot draws it | MAIDR reads it as |
 |--------|--------------------|-------------------|
 | Line | the default `paths` (linear), with or without a `fill` | one `line` layer per y scale, one row per series |
 | Multi-line | several line series on one y scale | the same `line` layer; Up/Down move between the series |
 | Stepped or spline line | `uPlot.paths.stepped(...)` or `uPlot.paths.spline(...)` | a row of that scale's `line` layer |
 | Bar | `uPlot.paths.bars(...)` | a `bar` layer per series |
+| Stacked bar | bar series joined by `bands`, read with `stacked: true` (see [Stacked Charts](#stacked-charts)) | one `stacked_bar` layer per stack, one row per series, and a total per category |
 | Scatter | points only: `paths: () => null` with `points: { show: true }`, or `uPlot.paths.points(...)` | a `point` (scatter) layer per series |
 | Faceted scatter | every series of a faceted chart (`mode: 2`) | a `point` (scatter) layer per series |
 
-Layers follow series order and all share one subplot, so a chart that mixes kinds — bars under a line, say — is navigated with Page Up / Page Down between its layers. Line series on different y scales (a second axis on the right) become separate `line` layers.
+### Experimental chart types
+
+These may change without a deprecation period; see [Trace type stability](SCHEMA.md#trace-type-stability).
+
+| Series | How uPlot draws it | MAIDR reads it as |
+|--------|--------------------|-------------------|
+| Area [experimental] | a line series with a `fill`, read with `areas: true`, or any series given `kind: 'area'` | one `area` layer per y scale, one row per series |
+
+A filled line is read as a `line` unless you ask for areas: it navigates exactly as a line does, and `area` is an experimental MAIDR type. With `areas: true` every line series whose `fill` gives a color is read as an area; a series whose own `kind` is set keeps that kind.
+
+Layers follow series order and all share one subplot, so a chart that mixes kinds — bars under a line, say — is navigated with Page Up / Page Down between its layers. Line series on different y scales (a second axis on the right) become separate `line` layers, and the same goes for area series and stacked bars.
 
 A stepped or spline series is read as a plain `line`: the values announced are the data values, but MAIDR is not told the line is stepped.
 
@@ -141,10 +154,44 @@ maidrUPlot.maidrPlugin({ series: { 1: { kind: 'bar' }, 2: { exclude: true } } })
 
 | Key | Values | Meaning |
 |-----|--------|---------|
-| `kind` | `'line' \| 'bar' \| 'scatter'` | Read the series as this, whatever it draws. Ignored on a faceted chart, where every series is a scatter. |
+| `kind` | `'line' \| 'area' \| 'bar' \| 'scatter'` | Read the series as this, whatever it draws. `'area'` reads as MAIDR's experimental `area` type. Ignored on a faceted chart, where every series is a scatter. |
 | `exclude` | `boolean` | Leave the series out of MAIDR entirely. |
 
 A series keeps the kind it was last seen drawing, so hiding one from the legend does not change what it is read as. A series that has never been drawn — hidden from the legend from the start — has no path to read and is taken as a line, uPlot's default; give it a `kind` if it is something else. Hidden series are still read; exclude one that MAIDR should not announce.
+
+## Stacked Charts
+
+uPlot has no stacking of its own. A stacked chart is drawn from running totals — each series holds its own values plus everything beneath it — and each series is joined to the one beneath it by a band, `bands: [{ series: [upper, lower] }]`, so the fill runs down to that series rather than to zero. Taken at face value, every series but the lowest then reads as the total so far.
+
+Pass `stacked: true` and each series with a band beneath it is read as its own share: its value less the value of the series the band joins it to.
+
+```js
+const bars = () => uPlot.paths.bars({ size: [0.5, 80] });
+const warningsTop = warnings.map((v, i) => v + errors[i]);
+const infoTop = info.map((v, i) => v + warningsTop[i]);
+
+new uPlot({
+  title: 'Log lines per day by level',
+  width: 720,
+  height: 360,
+  series: [
+    {},
+    { label: 'Errors', fill: '#d62728', paths: bars(), points: { show: false } },
+    { label: 'Warnings', fill: '#ff7f0e', paths: bars(), points: { show: false } },
+    { label: 'Info', fill: '#1f77b4', paths: bars(), points: { show: false } },
+  ],
+  bands: [{ series: [3, 2] }, { series: [2, 1] }],
+  axes: [{ label: 'Day' }, { label: 'Log lines' }],
+  scales: { x: { time: true, range: (u, min, max) => [min - 43200, max + 43200] } },
+  plugins: [maidrUPlot.maidrPlugin({ stacked: true })],
+}, [days, errors, warningsTop, infoTop], document.getElementById('chart'));
+```
+
+- **Stacked bars.** Bar series that take part in any band — the lowest one included — become one `stacked_bar` layer per stack — two stacks side by side on one scale are two layers, each with its own total — one row per series, bottom first. Left and Right move between categories and Up and Down through the stack; above the top segment MAIDR adds a `Sum` row holding each category's total, highlighted as a box around the whole stack. A segment is read, and boxed, from the nearest series beneath it that has a reading there. A stack is read as a grid, so a missing reading in one series counts as 0 there. Horizontal stacks (an x scale with `ori: 1`) are read too.
+- **Stacked lines and areas.** Line and area series joined by bands are read as their own shares, but stay `line` (or `area`) layers: MAIDR is not told they are stacked, and does not announce a total.
+- **Bar series outside any band** are read as ordinary `bar` layers, as without the option.
+
+`stacked` is off by default because a band is also how uPlot fills a range — a min/max envelope, a confidence interval — and there the upper series is a value in its own right, not a share on top of the lower one. Turn it on only for charts whose bands are a stack; without it, bands are ignored and each series is read as the values it holds.
 
 ## Code Examples
 
@@ -285,10 +332,10 @@ Charts are live by default. Pass `live: false` for a chart whose data never chan
 
 uPlot draws into a single `<canvas>`, so there is no element per mark for MAIDR to outline. Instead the adapter draws the highlight in a layer inside uPlot's plotting-area overlay (`u.over`):
 
-- a box around the focused bar, or around the focused line vertex or scatter point;
+- a box around the focused bar or stack segment (or the whole stack, on a stack's total), or around the focused line or area vertex or scatter point;
 - uPlot's own cursor is moved to the same point, so the legend — and anything else that follows the cursor — shows the values being read. At a gap in a line only the cursor moves.
 
-The highlight is a box in the reader's own highlight color from MAIDR's settings (read on every draw, so a change in the settings shows on the next move), with a translucent fill of the same color; `highlightColor` sets a color for the page instead. The bar box assumes uPlot's default bar width (60% of the space between two x values), so a bar drawn much wider or narrower is outlined at that default width. The highlight is redrawn whenever the chart redraws — a resize, a zoom, a new tick — and is taken down when focus leaves the chart, so uPlot's cursor is left to the mouse while the reader is elsewhere.
+The highlight is a box in the reader's own highlight color from MAIDR's settings (read on every draw, so a change in the settings shows on the next move), with a translucent fill of the same color; `highlightColor` sets a color for the page instead. uPlot keeps no record of how wide it drew a bar — the width is set inside the `paths` function — so the adapter measures it off the canvas, following the bar's color across its middle. Where the canvas cannot be read back (one tainted by a cross-origin image, say), or the measurement does not look like a bar, the box falls back to 60% of the space between two x values, uPlot's default bar width. The highlight is redrawn whenever the chart redraws — a resize, a zoom, a new tick — and is taken down when focus leaves the chart, so uPlot's cursor is left to the mouse while the reader is elsewhere.
 
 The overlay also tells a [tactile graphics display](TACTILE_DISPLAY.md) where the plotting area is, so the chart can be felt by pin.
 
@@ -308,6 +355,8 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 | `yLabel` | `string` | each y scale's axis label | Y axis label, used for every layer |
 | `msPerUnit` | `number` | inferred | Milliseconds per x unit on a time scale: `1000` for seconds, `1` for milliseconds |
 | `series` | `Record<number, { kind?, exclude? }>` | — | Per-series overrides keyed by `u.series` index (see [Telling MAIDR what a series is](#telling-maidr-what-a-series-is)) |
+| `stacked` | `boolean` | `false` | Read series joined by `bands` as a stack, each as its own share, with each stack of bars as a `stacked_bar` layer (see [Stacked Charts](#stacked-charts)) |
+| `areas` | `boolean` | `false` | Read line series drawn with a `fill` as `area` series, an experimental MAIDR type (see [Supported Series](#supported-series)) |
 | `live` | `boolean` | `true` | Keep MAIDR in step with `u.setData`, streaming appended points (see [Live Streaming](#live-streaming)) |
 | `highlightColor` | `string` | the reader's highlight color setting | Color of the highlight box |
 | `enabled` | `boolean` | `true` | `false` makes `maidrPlugin` skip binding, for a plugin registered on many charts |
@@ -315,8 +364,12 @@ A left click on the plot moves MAIDR to the data point under uPlot's cursor, so 
 ## Limitations
 
 - **One subplot per chart.** Every series of a chart is a layer of one subplot. Several uPlot charts on a page are separate MAIDR figures; synced charts (`cursor.sync`) are not joined into one.
-- **Bands and stacking.** uPlot has no stacked series; stacked charts are drawn by pre-summing the data and adding `bands`. MAIDR reads each series as the values it holds — the running totals — and does not read `bands`.
-- **Area charts read as lines.** A line series with a `fill` is read as a `line`, not an area.
+- **Bands are read only with `stacked: true`.** Without it each series is read as the values it holds — on a stacked chart, the running totals. With it, every band is taken as a stack, so a chart that fills a range with a band as well as stacking cannot be read both ways (see [Stacked Charts](#stacked-charts)).
+- **Stacks are read upward from zero.** A stack whose segments straddle zero — a diverging stacked bar — is read segment by segment, but its total's highlight runs from the axis to the series furthest from zero rather than around every segment.
+- **The total is reached by keyboard.** A click on a stack selects the segment under it; the total MAIDR adds above the segments is reached with the arrow keys, not by clicking.
+- **Stacked lines are read as lines.** Stacked line and area series are read as their own shares, but as `line` or `area` layers, not `stacked_area`, and with no total.
+- **Filled lines are lines unless `areas: true`.** Area is an experimental MAIDR type, so it is opt-in.
+- **Bar width is measured from the canvas.** Where the canvas cannot be read back, the bar highlight falls back to uPlot's default width and may not match a bar drawn wider or narrower.
 - **Stepped and spline lines** are read as plain lines (see [Supported Series](#supported-series)).
 - **Grafana.** This adapter works on uPlot charts you create on a page. A Grafana panel plugin that binds Grafana's own time-series panels is separate follow-up work to [#1303](https://github.com/xability/maidr/issues/1303).
 
@@ -326,6 +379,7 @@ Complete runnable pages, also in the [examples gallery](examples.html):
 
 - [`examples/uplot/line.html`](https://github.com/xability/maidr/blob/main/examples/uplot/line.html) — two time series on one scale
 - [`examples/uplot/bar.html`](https://github.com/xability/maidr/blob/main/examples/uplot/bar.html) — daily bars on a time axis
+- [`examples/uplot/stacked.html`](https://github.com/xability/maidr/blob/main/examples/uplot/stacked.html) — stacked bars read with `stacked: true`; Up and Down walk the stack to each day's total
 - [`examples/uplot/scatter.html`](https://github.com/xability/maidr/blob/main/examples/uplot/scatter.html) — a points-only series
 - [`examples/uplot/live.html`](https://github.com/xability/maidr/blob/main/examples/uplot/live.html) — a streaming sliding window; press **M** to hear each new reading
 
@@ -337,6 +391,7 @@ Once a chart is focused, use standard MAIDR keyboard shortcuts:
 |----------|--------------|-----------|
 | Move between data points | Arrow keys | Arrow keys |
 | Switch series (multi-line) | Up / Down Arrow | Up / Down Arrow |
+| Move through a stack to its total | Up / Down Arrow | Up / Down Arrow |
 | Switch layers (mixed chart) | Page Up / Page Down | Page Up / Page Down |
 | Go to extremes | Ctrl + Arrow | Cmd + Arrow |
 | Toggle Monitor Mode (live charts) | M | M |

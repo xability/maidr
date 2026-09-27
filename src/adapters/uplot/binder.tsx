@@ -39,6 +39,7 @@ import { useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Maidr as MaidrComponent } from '../../maidr-component';
 import { liveDataManager } from '../../service/liveData';
+import { measuredBarWidth } from './barWidth';
 import { extractUPlotData } from './extractor';
 import { pushUpdate } from './live';
 import { UPlotHighlightOverlay } from './overlay';
@@ -143,7 +144,13 @@ function columnWidth(u: UPlotInstance, source: UPlotLayerSource, k: number): num
       gap = Math.min(gap, Math.abs(u.valToPos(v, source.xScale) - at));
     }
   }
-  return Number.isFinite(gap) ? gap : POINT_HALF_BOX * 4;
+  if (Number.isFinite(gap)) {
+    return gap;
+  }
+  // A lone bar: uPlot gives it the whole plot as its column.
+  const horizontal = u.scales[source.xScale]?.ori === 1;
+  const plot = horizontal ? u.over.clientHeight : u.over.clientWidth;
+  return plot > 0 ? plot : POINT_HALF_BOX * 4;
 }
 
 function boxAround(left: number, top: number): OverlayBox {
@@ -166,11 +173,96 @@ function barBase(u: UPlotInstance, source: UPlotLayerSource): number {
   return Math.min(Math.max(0, min), max);
 }
 
-function barBox(u: UPlotInstance, source: UPlotLayerSource, k: number, x: number, y: number): OverlayBox {
-  const tip = toPlot(u, source, x, y);
-  const base = toPlot(u, source, x, barBase(u, source));
-  const width = columnWidth(u, source, k) * BAR_WIDTH_SHARE;
-  if (u.scales[source.xScale]?.ori === 1) {
+/**
+ * Where row `row`'s bar starts at data index `k`: on the series beneath it in
+ * a stack, else at the bar base.
+ */
+function barFoot(u: UPlotInstance, source: UPlotLayerSource, row: number, k: number): number {
+  // Down the stack to the nearest series with a reading here, as uPlot fills
+  // a band to it.
+  let base = source.bases?.[row] ?? null;
+  for (let steps = 0; base !== null && steps < source.seriesIdxs.length; steps++) {
+    const under = rawPoint(u, source, base, k);
+    if (under !== null) {
+      return under[1];
+    }
+    const below = source.seriesIdxs.indexOf(base);
+    base = below < 0 ? null : source.bases?.[below] ?? null;
+  }
+  return barBase(u, source);
+}
+
+/**
+ * Bar widths already read off each chart's canvas, by series and column. A
+ * series' bars are all drawn one width for a given column, so a streaming
+ * chart reads its canvas once rather than on every tick. Cleared when the
+ * chart is resized or its spacing changes.
+ */
+const barWidths = new WeakMap<UPlotInstance, Map<string, number>>();
+
+/** The smallest gap between neighbouring x values, or 0 without two. */
+function smallestStep(u: UPlotInstance): number {
+  if ((u.mode ?? 1) === 2) {
+    return 0;
+  }
+  const xs = (u.data as ReadonlyArray<ArrayLike<number | null | undefined>>)[0];
+  let step = 0;
+  for (let k = 1; k < (xs?.length ?? 0); k++) {
+    const a = xs?.[k - 1];
+    const b = xs?.[k];
+    if (finite(a) && finite(b) && a !== b && (step === 0 || Math.abs(b - a) < step)) {
+      step = Math.abs(b - a);
+    }
+  }
+  return step;
+}
+
+/** Forgets the bar widths read off a chart's canvas. */
+function forgetBarWidths(u: UPlotInstance): void {
+  barWidths.delete(u);
+}
+
+/**
+ * The box of a bar -- or of one segment of a stack -- drawn at data index `k`
+ * from `from` up to `to`, in the chart's own values.
+ *
+ * The width is measured off the canvas where it can be read, since uPlot keeps
+ * no record of how wide it drew the bars; otherwise it is uPlot's default
+ * share of the gap to the neighbouring bar.
+ */
+function barBox(u: UPlotInstance, source: UPlotLayerSource, row: number, k: number, x: number, from: number, to: number): OverlayBox {
+  const tip = toPlot(u, source, x, to);
+  const base = toPlot(u, source, x, from);
+  const horizontal = u.scales[source.xScale]?.ori === 1;
+  const column = columnWidth(u, source, k);
+  const seriesIdx = source.seriesIdxs[row] ?? source.seriesIdxs[0] ?? 0;
+  const stroke = u.series[seriesIdx] as { width?: number } | undefined;
+  const center = horizontal ? tip.top : tip.left;
+  const key = `${seriesIdx}:${Math.round(column * 100)}`;
+  let cache = barWidths.get(u);
+  let measured = cache?.get(key) ?? null;
+  if (measured === null) {
+    measured = measuredBarWidth(u, {
+      center,
+      from: horizontal ? base.left : base.top,
+      to: horizontal ? tip.left : tip.top,
+      column,
+      outline: typeof stroke?.width === 'number' ? stroke.width : 0,
+      horizontal,
+    });
+    // A bar at the plot's edge may be cut off, so its width stands for none
+    // of the others.
+    const extent = horizontal ? u.over.clientHeight : u.over.clientWidth;
+    if (measured !== null && center - column / 2 >= 0 && center + column / 2 <= extent) {
+      cache ??= new Map();
+      cache.set(key, measured);
+      barWidths.set(u, cache);
+    }
+  }
+  const width = measured !== null && measured >= 2 && measured <= column * 1.05
+    ? measured
+    : column * BAR_WIDTH_SHARE;
+  if (horizontal) {
     return {
       left: Math.min(tip.left, base.left),
       top: tip.top - width / 2,
@@ -219,6 +311,11 @@ function resolveHighlight(
     return { boxes, cursor };
   }
 
+  // The total MAIDR adds beneath a stack's segments is a row of its own.
+  if (source.kind === 'stacked' && event.row === source.seriesIdxs.length) {
+    return stackBox(u, source, event.col);
+  }
+
   const seriesIdx = source.seriesIdxs[event.row];
   const k = source.sourceIdxs[event.row]?.[event.col];
   if (seriesIdx === undefined || k === undefined) {
@@ -235,10 +332,41 @@ function resolveHighlight(
     return { boxes: [], cursor: u.scales[source.xScale]?.ori === 1 ? { left: -10, top: at.top } : { left: at.left, top: -10 } };
   }
   const at = toPlot(u, source, point[0], point[1]);
-  const box = source.kind === 'bar'
-    ? barBox(u, source, k, point[0], point[1])
+  const box = source.kind === 'stacked' || source.kind === 'bar'
+    ? barBox(u, source, event.row, k, point[0], barFoot(u, source, event.row, k), point[1])
     : boxAround(at.left, at.top);
   return { boxes: [box], cursor: at };
+}
+
+/**
+ * The whole stack at column `col`, for the total row MAIDR adds under a
+ * stacked bar layer: from the foot of the bottom segment to the top of the
+ * highest one.
+ */
+function stackBox(
+  u: UPlotInstance,
+  source: UPlotLayerSource,
+  col: number,
+): { boxes: OverlayBox[]; cursor: { left: number; top: number } | null } {
+  const k = source.sourceIdxs[0]?.[col];
+  const x = k === undefined ? null : xPosition(u, source.xScale, k);
+  if (k === undefined || x === null) {
+    return { boxes: [], cursor: null };
+  }
+  let top: number | null = null;
+  for (const seriesIdx of source.seriesIdxs) {
+    const point = rawPoint(u, source, seriesIdx, k);
+    if (point !== null && (top === null || Math.abs(point[1]) > Math.abs(top))) {
+      top = point[1];
+    }
+  }
+  if (top === null) {
+    return { boxes: [], cursor: null };
+  }
+  return {
+    boxes: [barBox(u, source, source.seriesIdxs.length - 1, k, x, barBase(u, source), top)],
+    cursor: toPlot(u, source, x, top),
+  };
 }
 
 /**
@@ -271,7 +399,16 @@ function targetAtCursor(u: UPlotInstance, sources: ReadonlyMap<string, UPlotLaye
         continue;
       }
       const at = toPlot(u, source, point[0], point[1]);
-      const distance = Math.hypot(at.left - left, at.top - top);
+      // A click inside a bar or a stack's segment is on it, however far from
+      // its top -- unless a point is drawn right there, over the bar;
+      // elsewhere the nearest mark wins.
+      const box = source.kind === 'stacked' || source.kind === 'bar'
+        ? barBox(u, source, row, k, point[0], barFoot(u, source, row, k), point[1])
+        : null;
+      const inside = box !== null
+        && left >= box.left && left <= box.left + box.width
+        && top >= box.top && top <= box.top + box.height;
+      const distance = inside ? POINT_HALF_BOX : Math.hypot(at.left - left, at.top - top);
       if (best === null || distance < best.distance) {
         best = {
           target: source.kind === 'scatter' ? { layerId, pointIndex: col } : { layerId, row, col },
@@ -371,6 +508,7 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
   let extraction = extractUPlotData(u, id, options);
   let layers: MaidrLayer[] = extraction.maidr.subplots.flat().flatMap(subplot => subplot.layers);
   let lastActive: NavEvent | null = null;
+  let lastSpacing = smallestStep(u);
   let overlay: UPlotHighlightOverlay | null = null;
   let disposed = false;
 
@@ -454,7 +592,8 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
       lastActive = kept.length > 0 ? { ...active, pointIndices: kept } : null;
       return;
     }
-    const col = active.col - (trim[active.row] ?? 0);
+    // A stack's total row is not in the data; it slides with the stack.
+    const col = active.col - (trim[active.row] ?? trim[0] ?? 0);
     lastActive = col >= 0 ? { ...active, col } : null;
   };
 
@@ -470,6 +609,13 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
       return;
     }
     extraction = next;
+    // uPlot sizes every bar of a series from the smallest gap between x
+    // values, so new spacing can change how wide it draws them all.
+    const spacing = smallestStep(u);
+    if (spacing !== lastSpacing) {
+      lastSpacing = spacing;
+      forgetBarWidths(u);
+    }
     layers = next.maidr.subplots.flat().flatMap(subplot => subplot.layers);
     const figure = withCallback(next.maidr);
     if (liveDataManager.getData(id) === undefined) {
@@ -534,9 +680,11 @@ function bindNow(u: UPlotInstance, id: string, options: MaidrUPlotOptions): Maid
         highlight();
       }
     }),
+    // The highlight is redrawn on the draw that follows, once uPlot has
+    // repainted at the new size.
     addHook(u, 'setSize', () => {
       overlay?.syncRegions();
-      highlight();
+      forgetBarWidths(u);
     }),
     // uPlot has already taken its root out of the page by now.
     addHook(u, 'destroy', () => {

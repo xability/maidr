@@ -4,7 +4,7 @@
 
 import type { UPlotInstance } from '@adapters/uplot/types';
 import type { LiveDataEvent } from '@service/liveData';
-import type { BarPoint, LinePoint, Maidr, ScatterPoint } from '@type/grammar';
+import type { BarPoint, LinePoint, Maidr, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import type { ReactNode } from 'react';
 import { bindUPlot, maidrPlugin } from '@adapters/uplot/binder';
 import { extractUPlotData } from '@adapters/uplot/extractor';
@@ -250,5 +250,43 @@ describe('the real uPlot package', () => {
     const types = extractUPlotData(u, 'real').maidr.subplots[0][0].layers.map(l => l.type);
     expect(types).toEqual([TraceType.BAR, TraceType.LINE]);
     u.destroy();
+  });
+
+  // uPlot has no stacking of its own: a stacked chart hands it running totals
+  // and a band from each series down to the one beneath. The plugin's
+  // stacked option reads each series back as its own share.
+  it('reads a stacked bar chart drawn from running totals and bands', async () => {
+    const errors = [12, 18, 9];
+    const warnings = [40, 35, 52];
+    const warningsTop = warnings.map((v, i) => v + errors[i]);
+    const u = await make({
+      plugins: [maidrPlugin({ id: 'real-stacked', stacked: true })],
+      series: [
+        {},
+        { label: 'Errors', fill: 'red', paths: UPlot.paths.bars({ size: [0.5, 80] }) },
+        { label: 'Warnings', fill: 'orange', paths: UPlot.paths.bars({ size: [0.5, 80] }) },
+      ],
+      bands: [{ series: [2, 1] }],
+      scales: { x: { time: false } },
+    }, [[1, 2, 3], errors, warningsTop]);
+
+    const layers = liveDataManager.getData('real-stacked')?.subplots[0][0].layers ?? [];
+    expect(layers.map(l => [l.id, l.type])).toEqual([['stacked-y', TraceType.STACKED]]);
+    expect((layers[0].data as SegmentedPoint[][]).map(row => row.map(p => [p.z, p.y]))).toEqual([
+      [['Errors', 12], ['Errors', 18], ['Errors', 9]],
+      [['Warnings', 40], ['Warnings', 35], ['Warnings', 52]],
+    ]);
+
+    // A new day slides the window along; each segment stays its own share.
+    await act(async () => {
+      u.setData([[2, 3, 4], [18, 9, 20], [53, 61, 50]]);
+      await Promise.resolve();
+    });
+    const updated = liveDataManager.getData('real-stacked')?.subplots[0][0].layers[0];
+    expect((updated?.data as SegmentedPoint[][]).map(row => row.map(p => p.y))).toEqual([
+      [18, 9, 20],
+      [35, 52, 30],
+    ]);
+    act(() => u.destroy());
   });
 });

@@ -44,6 +44,11 @@ export interface UPlotSeries {
   points?: { show?: unknown };
   /** Set by uPlot on every draw of the series; see {@link UPlotPathCache}. */
   _paths?: UPlotPathCache | null;
+  /**
+   * Returns the series' fill, or `null` when it has none. uPlot turns the
+   * `fill` option into this function on every initialised series.
+   */
+  fill?: unknown;
   /** Faceted mode only: which scale each data column is drawn against. */
   facets?: ReadonlyArray<{ scale?: string }>;
   /**
@@ -91,6 +96,12 @@ export interface UPlotInstance {
   readonly series: ReadonlyArray<UPlotSeries>;
   readonly axes: ReadonlyArray<UPlotAxis>;
   readonly scales: Readonly<Record<string, UPlotScale | undefined>>;
+  /**
+   * Fills between pairs of series, `series: [upper, lower]` by index. uPlot has
+   * no stacking of its own: a stacked chart is drawn from running totals, with
+   * a band from each series down to the one beneath it.
+   */
+  readonly bands?: ReadonlyArray<{ series?: ReadonlyArray<number> }>;
   readonly mode?: number;
   readonly width?: number;
   readonly height?: number;
@@ -119,7 +130,7 @@ export interface UPlotInstance {
 }
 
 /** What a series should be read as. */
-export type UPlotSeriesKind = 'line' | 'bar' | 'scatter';
+export type UPlotSeriesKind = 'line' | 'area' | 'bar' | 'scatter';
 
 /**
  * Per-series options, set on the series itself as `maidr: { ... }` or passed
@@ -130,6 +141,8 @@ export interface UPlotSeriesMaidrOptions {
    * What the series is read as. uPlot draws every kind through an opaque
    * `paths` function, so MAIDR infers the kind from the path uPlot last built
    * for it; set this when a custom path builder defeats that inference.
+   * `area` is never inferred unless {@link MaidrUPlotOptions.areas} is set; it
+   * reads as MAIDR's experimental `area` trace type.
    */
   kind?: UPlotSeriesKind;
   /** Leave this series out of MAIDR entirely. */
@@ -166,6 +179,25 @@ export interface MaidrUPlotOptions {
    * whose data never changes.
    */
   live?: boolean;
+  /**
+   * Read the chart as stacked: uPlot draws a stack from running totals, with a
+   * band (`bands: [{ series: [upper, lower] }]`) from each series down to the
+   * one beneath it, so taken at face value every series but the lowest reads
+   * as the total so far. With this set, each series joined to a lower one by
+   * a band is read as its own share (its value less the one beneath), and
+   * stacked bars become one stacked-bar layer with a total per category.
+   *
+   * Off by default, because a band is also how a range -- a min/max envelope,
+   * a confidence interval -- is filled, and there the upper series is a value
+   * in its own right.
+   */
+  stacked?: boolean;
+  /**
+   * Read line series drawn with a fill as area series. Off by default: area is
+   * an experimental MAIDR trace type, and a filled line navigates exactly as a
+   * line does.
+   */
+  areas?: boolean;
   /**
    * Color of the visual highlight drawn over the canvas. Defaults to the
    * reader's highlight color from MAIDR's settings.

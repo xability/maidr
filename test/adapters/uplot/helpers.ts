@@ -19,6 +19,7 @@ export interface FakeUPlotInit {
   series: UPlotSeries[];
   axes?: UPlotAxis[];
   scales?: Record<string, UPlotScale>;
+  bands?: UPlotInstance['bands'];
   mode?: number;
   status?: number;
   title?: string;
@@ -70,6 +71,7 @@ export function fakeUPlot(init: FakeUPlotInit): FakeUPlot {
     series: init.series,
     axes: init.axes ?? [{ scale: 'x' }, { scale: 'y' }],
     scales,
+    bands: init.bands,
     mode: init.mode,
     status: init.status ?? 1,
     valToPos,

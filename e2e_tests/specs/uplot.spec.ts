@@ -72,6 +72,23 @@ async function highlightGeometry(page: Page): Promise<{
   return { box, plot };
 }
 
+/**
+ * Asserts the highlight box is drawn, has a size, and lies inside the plot
+ * area; returns its rectangle.
+ */
+async function expectHighlightInsidePlot(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
+  await expect(page.locator(HIGHLIGHT).first()).toBeVisible();
+  const { box, plot } = await highlightGeometry(page);
+  expect(box.height).toBeGreaterThan(0);
+  expect(box.width).toBeGreaterThan(0);
+  // One pixel of slack for subpixel rounding of the box edges.
+  expect(box.x).toBeGreaterThanOrEqual(plot.x - 1);
+  expect(box.y).toBeGreaterThanOrEqual(plot.y - 1);
+  expect(box.x + box.width).toBeLessThanOrEqual(plot.x + plot.width + 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(plot.y + plot.height + 1);
+  return box;
+}
+
 test.describe('uPlot adapter', () => {
   test('line: announces a date-formatted time, switches series, highlights the point', async ({ page }) => {
     await openExample(page, 'line');
@@ -97,15 +114,39 @@ test.describe('uPlot adapter', () => {
     const second = await pressAndWait(page, 'ArrowRight');
     expect(second).toContain('2140');
 
-    await expect(page.locator(HIGHLIGHT).first()).toBeVisible();
-    const { box, plot } = await highlightGeometry(page);
-    expect(box.height).toBeGreaterThan(0);
-    expect(box.width).toBeGreaterThan(0);
-    // One pixel of slack for subpixel rounding of the box edges.
-    expect(box.x).toBeGreaterThanOrEqual(plot.x - 1);
-    expect(box.y).toBeGreaterThanOrEqual(plot.y - 1);
-    expect(box.x + box.width).toBeLessThanOrEqual(plot.x + plot.width + 1);
-    expect(box.y + box.height).toBeLessThanOrEqual(plot.y + plot.height + 1);
+    await expectHighlightInsidePlot(page);
+  });
+
+  test('stacked: reads each band as its own share, then the total, boxed inside the plot area', async ({ page }) => {
+    await openExample(page, 'stacked');
+
+    // The series hold running totals (12, 52, 172 on the first day); with
+    // `stacked: true` each segment is read as its own share, and MAIDR adds
+    // the total as a last row above the segments.
+    const errors = await pressAndWait(page, 'ArrowRight');
+    expect(errors).toContain('Day is Mar 2, 2026');
+    expect(errors).toContain('Log lines is 12');
+    expect(errors).toContain('Errors');
+    await expectHighlightInsidePlot(page);
+
+    const warnings = await pressAndWait(page, 'ArrowUp');
+    expect(warnings).toContain('Log lines is 40');
+    expect(warnings).toContain('Warnings');
+    await expectHighlightInsidePlot(page);
+
+    const info = await pressAndWait(page, 'ArrowUp');
+    expect(info).toContain('Log lines is 120');
+    expect(info).toContain('Info');
+    const segment = await expectHighlightInsidePlot(page);
+
+    const sum = await pressAndWait(page, 'ArrowUp');
+    expect(sum).toContain('Log lines is 172');
+    expect(sum).toContain('Sum');
+    expect(sum).toContain('Day is Mar 2, 2026');
+    // The total's box spans the whole stack, so it is taller than the Info
+    // segment's alone.
+    await expect.poll(async () => (await highlightGeometry(page)).box.height).toBeGreaterThan(segment.height);
+    await expectHighlightInsidePlot(page);
   });
 
   test('scatter: navigates the points', async ({ page }) => {
