@@ -28,10 +28,10 @@ import '@testing-library/jest-dom/jest-globals';
 type HelpStub = Pick<HelpViewModel, 'toggle' | 'rebind' | 'resetBinding' | 'resetAllBindings' | 'announce'>;
 
 const ITEMS: HelpMenuItem[] = [
-  { description: 'Toggle Braille Mode', key: 'b', commandKey: 'TOGGLE_BRAILLE' },
-  { description: 'Toggle Text Mode', key: 'shift + t', commandKey: 'TOGGLE_TEXT', isCustom: true, defaultKey: 't' },
-  { description: 'Open/Close Help', key: 'ctrl + /' },
-  { description: 'Announce X Label', key: 'l x' },
+  { description: 'Toggle Braille Mode', key: 'b', commandKey: 'TOGGLE_BRAILLE', section: 'modes' },
+  { description: 'Toggle Text Mode', key: 'shift + t', commandKey: 'TOGGLE_TEXT', isCustom: true, defaultKey: 't', section: 'modes' },
+  { description: 'Open/Close Help', key: 'ctrl + /', section: 'tools' },
+  { description: 'Announce X Label', key: 'l x', section: 'hear' },
 ];
 
 function renderHelp(items: HelpMenuItem[] = ITEMS, status = ''): HelpStub {

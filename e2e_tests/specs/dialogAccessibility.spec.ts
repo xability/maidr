@@ -142,7 +142,12 @@ test.describe('dialog accessibility tree', () => {
     const structure = await dialogStructure(page);
     expect(structure.nestedHeadings).toEqual([]);
     expect(structure.idCarriers).toBe(1);
-    expect(structure.headings).toEqual(['H2:Keyboard Shortcuts']);
+    // The title once, then a level-3 heading per group of shortcuts, the
+    // most-used group first.
+    expect(structure.headings[0]).toBe('H2:Keyboard Shortcuts');
+    expect(structure.headings[1]).toBe('H3:Navigate');
+    expect(structure.headings.filter(h => h.endsWith(':Keyboard Shortcuts'))).toHaveLength(1);
+    expect(structure.headings.slice(1).every(h => h.startsWith('H3:'))).toBe(true);
   });
 
   test('settings dialog and its controls resolve by role', async ({ page }) => {
