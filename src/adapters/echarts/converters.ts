@@ -19,12 +19,13 @@ import type {
 } from './types';
 import { Orientation, TraceType } from '@type/grammar';
 import { nextId } from '../shared/selectorUtil';
-import { drawCanvasMarks } from './canvas';
+import { drawCanvasMarks, inPaintOrder } from './canvas';
 import { dimensionOf } from './dimension';
 import {
   boxplotLayer,
   candlestickLayer,
   categoriesOf,
+  drawnBoxCount,
   drawnCandleCount,
   drawnGridCount,
   GRID_VALUE,
@@ -46,8 +47,9 @@ import {
 } from './multiAxis';
 import { NETWORK, networkLayer } from './network';
 import { drawnOutlineCount, RADAR, radarLayer } from './radar';
-import { markLegends, markPerDatum, markPerSeries } from './selectors';
+import { isMarkPaint, markLegends, markPerDatum, markPerSeries } from './selectors';
 import { drawnValueCount, SINGLE_VALUE, singleValueLayers } from './single';
+import { drawnStepCount, isRangeWaterfall, waterfallLayer } from './waterfall';
 
 /**
  * Options accepted by {@link createMaidrFromEChart}.
@@ -72,7 +74,13 @@ const CARTESIAN: ReadonlySet<string> = new Set([
   'line',
   'scatter',
   'pictorialBar',
+  // Read only when it draws a range on the value axis -- a waterfall; see
+  // `waterfall.ts`. Any other shape is left unread.
+  'custom',
 ]);
+
+/** The column names ECharts gives a series written inline. */
+const ECHARTS_COLUMNS: ReadonlySet<string> = new Set(['', 'x', 'y', 'value']);
 
 /**
  * The series types read as a bar.
@@ -164,7 +172,10 @@ export function createMaidrFromEChart(
   const series: EChartsSeriesModel[] = [];
   model.eachSeries(seriesModel => series.push(seriesModel));
 
-  const readable = series.filter(seriesModel => READ.has(seriesModel.subType));
+  // A custom series draws whatever its author's code draws, and only one
+  // shape of it has a reading; any other is as unread as an unknown type.
+  const readable = series.filter(seriesModel => READ.has(seriesModel.subType)
+    && (seriesModel.subType !== 'custom' || isRangeWaterfall(seriesModel)));
   if (readable.length === 0) {
     const seen = series.map(seriesModel => seriesModel.subType).join(', ') || 'none';
     throw new Error(
@@ -452,8 +463,11 @@ function buildLayers(
   grid: AxisCategories,
   container: HTMLElement,
 ): MaidrLayer[] {
-  const bars = series.filter(seriesModel => BAR.has(seriesModel.subType));
-  const others = series.filter(seriesModel => !BAR.has(seriesModel.subType));
+  // A series that only carries labels is counted -- it draws a mark, however
+  // small -- but not read; see `carriesLabelsOnly`.
+  const read = series.filter(seriesModel => !carriesLabelsOnly(seriesModel));
+  const bars = read.filter(seriesModel => BAR.has(seriesModel.subType));
+  const others = read.filter(seriesModel => !BAR.has(seriesModel.subType));
 
   // Every per-datum mark of the chart is painted alike and only its position
   // tells it apart, so they are located once for all of them, in the order
@@ -468,9 +482,10 @@ function buildLayers(
   // test `isFilledMark` applies. Excluded, the band is found among the
   // candidates with nothing to account for it, and the mismatch drops the
   // highlighting of every other series on the chart along with its own.
-  const marked = series.filter(seriesModel =>
-    seriesModel.subType !== 'boxplot'
-    && (seriesModel.subType !== 'line' || fillsBand(seriesModel)));
+  // In the order their marks are painted, which is what hands each series
+  // its own; see `inPaintOrder`.
+  const marked = inPaintOrder(series.filter(seriesModel =>
+    seriesModel.subType !== 'line' || fillsBand(seriesModel)));
   const perDatum = markPerDatum(
     container,
     marked.map(seriesModel => drawnMarks(seriesModel, axes, grid)),
@@ -490,7 +505,7 @@ function buildLayers(
     layers.push(barLayer(bars, axes, eachMarkOf));
   }
 
-  const lines = others.filter(seriesModel => seriesModel.subType === 'line');
+  const lines = inPaintOrder(series.filter(seriesModel => seriesModel.subType === 'line'));
   const polylines = markPerSeries(container, lines.length);
   for (const seriesModel of others) {
     const layer = otherLayer(
@@ -542,6 +557,10 @@ function otherLayer(
       // the bar family, and a distribution turned that way is read the same
       // way round a bar is.
       return boxplotLayer(seriesModel, axes, axes.horizontal);
+    case 'custom':
+      return isRangeWaterfall(seriesModel)
+        ? waterfallLayer(seriesModel, authoredName(seriesModel), axes, eachMark)
+        : undefined;
     default:
       return scatterLayer(seriesModel, axes, wholeSeries);
   }
@@ -574,6 +593,17 @@ function drawnMarks(
   grid: AxisCategories,
 ): number {
   switch (seriesModel.subType) {
+    case 'custom':
+      // A custom series draws whatever its author's code draws, so only a
+      // waterfall's bars -- one per step -- are known to be there.
+      return isRangeWaterfall(seriesModel) ? drawnStepCount(seriesModel) : 0;
+    case 'boxplot':
+      // One path per box, whiskers and all -- which no selector shape wants,
+      // so it is counted and never named. ECharts paints it white by default,
+      // which the mark filter sets aside as furniture; Metabase paints it in
+      // the series colour, and uncounted, its boxes put a chart's other marks
+      // one place off each (#1304).
+      return isMarkPaint(seriesStyle(seriesModel)) ? drawnBoxCount(seriesModel, axes.horizontal) : 0;
     case 'heatmap':
       return drawnGridCount(seriesModel, grid);
     case 'candlestick':
@@ -599,6 +629,35 @@ function drawnMarks(
  * @param seriesModel - The series to read
  * @returns True when the series paints a band
  */
+/**
+ * Whether a series is there only to carry labels.
+ *
+ * Metabase draws a stacked bar's totals and a waterfall's labels as series of
+ * their own, measured on 0.63: a bar stacked on the real ones holding
+ * `5e-324`, and a scatter, each declared `silent: true` with `symbolSize: 0`
+ * -- nothing to hover and nothing to see. Read, they were announced as
+ * segments of the stack and points of the chart (#1304). They still draw a
+ * mark each, so they are counted with the others and only left unread.
+ *
+ * @param seriesModel - The series to test
+ * @returns True when it neither answers the mouse nor draws a symbol
+ */
+function carriesLabelsOnly(seriesModel: EChartsSeriesModel): boolean {
+  return seriesModel.get('silent') === true && seriesModel.get('symbolSize') === 0;
+}
+
+/**
+ * The fill ECharts resolved for a whole series, or the empty string.
+ *
+ * @param seriesModel - The series
+ * @returns Its fill
+ */
+function seriesStyle(seriesModel: EChartsSeriesModel): string {
+  const style = seriesModel.getData().getVisual?.('style');
+  const fill = typeof style === 'object' && style !== null ? (style as { fill?: unknown }).fill : undefined;
+  return typeof fill === 'string' ? fill : '';
+}
+
 function fillsBand(seriesModel: EChartsSeriesModel): boolean {
   return Boolean(seriesModel.get('areaStyle'));
 }
@@ -750,7 +809,16 @@ function authoredName(seriesModel: EChartsSeriesModel): string {
     return name;
   }
   const id = text(seriesModel.get('id'));
-  return id.includes('\0') ? '' : id;
+  if (id && !id.includes('\0')) {
+    return id;
+  }
+  // Neither: a series fed from a dataset is still named by the column it
+  // draws. Metabase adds a trend line as exactly that -- no name, no id, and
+  // its values in a column called `57:count_trend` -- and unnamed, it was read
+  // as a second, anonymous series of data. A column ECharts named itself
+  // (`y`, `value`, or one with a NUL in it) names nothing.
+  const column = seriesModel.getData().mapDimension?.('y') ?? '';
+  return column.includes('\0') || ECHARTS_COLUMNS.has(column) ? '' : column;
 }
 
 function axisConfig(axes: Axes): MaidrLayer['axes'] {

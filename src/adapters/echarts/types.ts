@@ -46,7 +46,8 @@ export type EChartsSeriesType
     | 'themeRiver'
     | 'parallel'
     | 'radar'
-    | 'boxplot';
+    | 'boxplot'
+    | 'custom';
 
 /**
  * One column of a series' internal data list.
@@ -151,6 +152,11 @@ export interface EChartsList {
    * `dimension.ts` falls back to the column's position.
    */
   mapDimension?: (coordinate: string) => EChartsDimension | undefined;
+  /**
+   * Every column one coordinate of the series reads, in the order `encode`
+   * lists them -- a box plot maps five onto its value axis.
+   */
+  mapDimensionsAll?: (coordinate: string) => EChartsDimension[];
   /**
    * Where one datum was drawn, in the chart's CSS pixels. Its shape depends on
    * the series type, and a datum with no value comes back with a `null`

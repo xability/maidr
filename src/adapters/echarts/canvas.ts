@@ -96,7 +96,7 @@ export function drawCanvasMarks(
     'position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none;',
   );
 
-  for (const seriesModel of series) {
+  for (const seriesModel of inPaintOrder(series)) {
     drawSeries(overlay, seriesModel, grid);
   }
 
@@ -111,6 +111,33 @@ export function drawCanvasMarks(
   }
   previous?.remove();
   host.appendChild(overlay);
+}
+
+/**
+ * Series in the order ECharts paints them.
+ *
+ * Not the order they were declared in: ECharts sorts what it draws by
+ * `zlevel`, then `z`, and only then by declaration. Measured on Metabase's
+ * waterfall, whose label-carrying scatter is declared before its total bar
+ * with `z: 8` against the bar's default `2`, the bar's mark comes first in
+ * the SVG -- so marks handed out in declaration order named the total bar by
+ * a label's symbol (#1304). The stamping pass and the overlay both follow
+ * this order, so a canvas chart's marks line up the way an SVG chart's do.
+ *
+ * @param series - The series, in declaration order
+ * @returns The same series, in the order their marks are painted
+ */
+export function inPaintOrder<T extends EChartsSeriesModel>(series: T[]): T[] {
+  const depth = (seriesModel: EChartsSeriesModel, key: string, fallback: number): number => {
+    const value = seriesModel.get(key);
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  };
+  return series
+    .map((seriesModel, order) => ({ seriesModel, order }))
+    .sort((a, b) => depth(a.seriesModel, 'zlevel', 0) - depth(b.seriesModel, 'zlevel', 0)
+      || depth(a.seriesModel, 'z', 2) - depth(b.seriesModel, 'z', 2)
+      || a.order - b.order)
+    .map(({ seriesModel }) => seriesModel);
 }
 
 /**
