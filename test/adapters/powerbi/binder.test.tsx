@@ -7,6 +7,7 @@ import type { PowerBIDataPointRef, PowerBIDataView } from '@adapters/powerbi/typ
 import type { Maidr } from '@type/grammar';
 import type { ReactNode } from 'react';
 import { bindPowerBI } from '@adapters/powerbi/binder';
+import * as converter from '@adapters/powerbi/converter';
 import { liveDataManager } from '@service/liveData';
 import { act } from 'react';
 
@@ -396,6 +397,93 @@ describe('powerbi binder', () => {
       expect(lastData().live).toBeUndefined();
     });
 
+    describe('when Power BI hands back the same data view', () => {
+      let convert: jest.SpiedFunction<typeof converter.convertPowerBIDataView>;
+
+      beforeEach(() => {
+        convert = jest.spyOn(converter, 'convertPowerBIDataView');
+      });
+
+      afterEach(() => {
+        convert.mockRestore();
+      });
+
+      it('should not convert it again for a resize', () => {
+        const binding = bind({ chartType: 'column' });
+        const view = salesView();
+        const first = update(binding, view);
+
+        expect(update(binding, view)).toBe(first);
+        expect(update(binding, view, { chartType: 'column' })).toBe(first);
+
+        expect(convert).toHaveBeenCalledTimes(1);
+        expect(mockRenders).toHaveLength(1);
+      });
+
+      it('should compare object-valued overrides by value', () => {
+        const binding = bind({ chartType: 'column' });
+        const view = salesView();
+        update(binding, view, { axes: { x: 'Region' } });
+
+        // A visual rebuilds these from its format pane on every update.
+        update(binding, view, { axes: { x: 'Region' } });
+        update(binding, view, { axes: { x: 'Region' } });
+        expect(convert).toHaveBeenCalledTimes(1);
+
+        update(binding, view, { axes: { x: 'Area' } });
+        expect(convert).toHaveBeenCalledTimes(2);
+      });
+
+      it('should reconvert it when an override changes', () => {
+        const binding = bind({ chartType: 'column' });
+        const view = salesView();
+        update(binding, view);
+
+        const next = update(binding, view, { chartType: 'bar' });
+
+        expect(convert).toHaveBeenCalledTimes(2);
+        expect(mockRenders).toHaveLength(2);
+        expect(binding.conversion).toBe(next);
+        expect(lastData().subplots[0][0].layers[0].orientation).toBe('horz');
+      });
+
+      it('should still convert a new object with the same content, and not re-render', () => {
+        const binding = bind({ chartType: 'column' });
+        const first = update(binding, salesView());
+
+        expect(update(binding, salesView())).toBe(first);
+
+        expect(convert).toHaveBeenCalledTimes(2);
+        expect(mockRenders).toHaveLength(1);
+      });
+
+      it('should show the empty state for a first update without a data view', () => {
+        const binding = bind({ chartType: 'column' });
+
+        expect(update(binding, undefined)).toBeNull();
+
+        expect(convert).toHaveBeenCalledTimes(1);
+        expect(wrapper().querySelector('[data-maidr-powerbi-empty]')).not.toBeNull();
+      });
+
+      it('should go back to a view it showed before', () => {
+        const binding = bind({ chartType: 'column' });
+        const a = salesView();
+        const b = salesView(1, 2);
+        update(binding, a);
+        update(binding, b);
+
+        update(binding, a);
+
+        expect(convert).toHaveBeenCalledTimes(3);
+        expect(mockRenders).toHaveLength(3);
+        expect(lastData().subplots[0][0].layers[0].data).toEqual([
+          { x: 'East', y: 10 },
+          { x: 'West', y: 20 },
+        ]);
+      });
+    });
+
     it('should return null and do nothing after dispose', () => {
       const binding = bind({ chartType: 'column' });
       dispose(binding);
@@ -586,6 +674,35 @@ describe('powerbi binder', () => {
 
       expect(binding.navigateTo(categorical(0, 0))).toBe(false);
       expect(binding.navigateTo(null)).toBe(false);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('should resolve repeated clicks against each conversion\'s own positions', () => {
+      const navigate = spyNavigate();
+      const binding = bind({ chartType: 'column', id: 'grid' });
+      update(binding, salesView());
+      binding.navigateTo(categorical(1, 0));
+      binding.navigateTo(categorical(1, 0));
+
+      // The blank East drops out, so West moves to position 0.
+      update(binding, salesView(Number.NaN, 20));
+      binding.navigateTo(categorical(1, 0));
+      expect(binding.navigateTo(categorical(0, 0))).toBe(false);
+
+      expect(navigate.mock.calls).toEqual([
+        [{ layerId: '0', row: 0, col: 1 }, { id: 'grid' }],
+        [{ layerId: '0', row: 0, col: 1 }, { id: 'grid' }],
+        [{ layerId: '0', row: 0, col: 0 }, { id: 'grid' }],
+      ]);
+    });
+
+    it('should tell table refs from categorical ones', () => {
+      const navigate = spyNavigate();
+      const binding = bind({ chartType: 'column', id: 'grid' });
+      update(binding, salesView());
+
+      expect(binding.navigateTo({ kind: 'table', rowIndex: 1 })).toBe(false);
+      expect(binding.navigateTo(categorical(1, null))).toBe(false);
       expect(navigate).not.toHaveBeenCalled();
     });
 

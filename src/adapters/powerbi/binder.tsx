@@ -154,37 +154,55 @@ const VISUALLY_HIDDEN = {
   whiteSpace: 'nowrap',
 } as const;
 
-function sameRef(a: PowerBIDataPointRef | null, b: PowerBIDataPointRef): boolean {
-  if (a === null || a.kind !== b.kind) {
-    return false;
+/**
+ * A string that two refs share exactly when they name the same data point.
+ */
+function refKey(ref: PowerBIDataPointRef): string {
+  return ref.kind === 'table'
+    ? `t:${ref.rowIndex}`
+    : `c:${ref.categoryIndex}:${ref.valueColumnIndex}`;
+}
+
+/**
+ * Each conversion's reverse index, ref key → MAIDR position, built on the
+ * first `navigateTo` against it. A visual calls `navigateTo` on every click,
+ * so a lookup should not scan every cell of the figure each time.
+ */
+const positionIndexes = new WeakMap<PowerBIConversion, ReadonlyMap<string, NavigationTarget>>();
+
+function positionIndex(conversion: PowerBIConversion): ReadonlyMap<string, NavigationTarget> {
+  const cached = positionIndexes.get(conversion);
+  if (cached !== undefined) {
+    return cached;
   }
-  if (a.kind === 'table' && b.kind === 'table') {
-    return a.rowIndex === b.rowIndex;
+  // Scatter points are indexed before grid cells, and the first position a
+  // ref appears at wins, as the scan this replaces did.
+  const index = new Map<string, NavigationTarget>();
+  for (const [layerId, points] of conversion.points) {
+    points.forEach((point, pointIndex) => {
+      if (point !== null && !index.has(refKey(point))) {
+        index.set(refKey(point), { layerId, pointIndex });
+      }
+    });
   }
-  return a.kind === 'categorical' && b.kind === 'categorical'
-    && a.categoryIndex === b.categoryIndex
-    && a.valueColumnIndex === b.valueColumnIndex;
+  for (const [layerId, rows] of conversion.cells) {
+    rows.forEach((cells, row) => {
+      cells.forEach((cell, col) => {
+        if (cell !== null && !index.has(refKey(cell))) {
+          index.set(refKey(cell), { layerId, row, col });
+        }
+      });
+    });
+  }
+  positionIndexes.set(conversion, index);
+  return index;
 }
 
 /**
  * Find the MAIDR position a data point was converted to.
  */
 function positionOf(conversion: PowerBIConversion, ref: PowerBIDataPointRef): NavigationTarget | null {
-  for (const [layerId, points] of conversion.points) {
-    const pointIndex = points.findIndex(point => sameRef(point, ref));
-    if (pointIndex !== -1) {
-      return { layerId, pointIndex };
-    }
-  }
-  for (const [layerId, rows] of conversion.cells) {
-    for (let row = 0; row < rows.length; row++) {
-      const col = rows[row].findIndex(cell => sameRef(cell, ref));
-      if (col !== -1) {
-        return { layerId, row, col };
-      }
-    }
-  }
-  return null;
+  return positionIndex(conversion).get(refKey(ref)) ?? null;
 }
 
 /**
@@ -202,6 +220,17 @@ function fingerprint(conversion: PowerBIConversion | null): string {
     [...conversion.cells],
     [...conversion.points],
   ]);
+}
+
+/**
+ * Whether applying `overrides` would change any of `options`. The figure id
+ * is never overridden, so it is not compared.
+ */
+function changes(options: PowerBIBindOptions, overrides: Partial<PowerBIAdapterOptions>): boolean {
+  // By value: `axes` and `roles` are objects a visual rebuilds from its format
+  // pane on every update, and a reference test would count each as a change.
+  return (Object.keys(overrides) as (keyof PowerBIAdapterOptions)[])
+    .some(key => key !== 'id' && JSON.stringify(overrides[key]) !== JSON.stringify(options[key]));
 }
 
 /**
@@ -236,6 +265,11 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
   let navigated: PowerBIConversion | null = null;
   let pending: PowerBIConversion | null = null;
   let mounted = '';
+  // The data view `mounted` was computed from. Power BI hands the same object
+  // back when only the viewport or the format pane changed, and converting
+  // and fingerprinting it again on every resize would find nothing new.
+  let lastDataView: PowerBIDataView | undefined;
+  let handledOnce = false;
   let disposed = false;
   // Whether the visual was last told about a position, so leaving reports the
   // `null` that clears it exactly once.
@@ -321,11 +355,17 @@ export function bindPowerBI(element: HTMLElement, options: PowerBIBindOptions): 
       if (disposed) {
         return null;
       }
-      if (overrides !== undefined) {
+      const changesOptions = overrides !== undefined && changes(current, overrides);
+      if (handledOnce && dataView === lastDataView && !changesOptions) {
+        return conversion;
+      }
+      if (changesOptions) {
         current = { ...current, ...overrides, id: figureId };
       }
       const next = convertPowerBIDataView(dataView, current);
       const key = fingerprint(next);
+      lastDataView = dataView;
+      handledOnce = true;
       if (key === mounted) {
         return conversion;
       }
