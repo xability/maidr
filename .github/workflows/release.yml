@@ -78,7 +78,12 @@ jobs:
       #
       # Deliberately after the publish step and gated on it: the receivers
       # fetch the tarball straight from the registry, so announcing before
-      # the package is actually there would just make them fail.
+      # the package is actually there would just make them fail. The publish
+      # step returning no longer means that, though. npm now serves a release
+      # minutes after accepting it -- 4.9.0 about ten minutes after that step
+      # ended, 4.11.0 eighteen -- and on 4.11.0 r-maidr and py-maidr, which
+      # retry for fifteen minutes, both gave up before it appeared. So the
+      # step first waits until the registry serves the version.
       #
       # What each does with the news is its own call, not this step's.
       # r-maidr commits the refreshed bundle to `main`, and `main` is what it
@@ -106,6 +111,14 @@ jobs:
             echo "The bindings will pick v${VERSION} up on their own schedules."
             exit 0
           fi
+
+          # Wait for the registry to serve the release (see above): every 30 s
+          # for up to an hour, over three times the longest lag seen. Past
+          # that, something upstream is wrong, so notify no one rather than
+          # send every receiver after a version that is not there; each picks
+          # it up later on its own refresh path. The loop is a module so that
+          # test/scripts/waitForNpmVersion.test.ts can reach it (#694).
+          node scripts/ci/waitForNpmVersion.cjs maidr "${VERSION}" || exit 1
 
           # jq builds the body so the version reaches JSON as data rather
           # than as text spliced into a quoted string.
