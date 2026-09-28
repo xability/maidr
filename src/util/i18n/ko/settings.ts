@@ -7,6 +7,7 @@ export const settings = {
   'settings.tabAudio': '오디오',
   'settings.tabVisual': '시각',
   'settings.tabBraille': '점자 및 촉각',
+  'settings.tabShortcuts': '키보드 단축키',
   'settings.tabAi': 'AI',
   'settings.tabAbout': '정보',
   'settings.needsAttention': ' 확인 필요',

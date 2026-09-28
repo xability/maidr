@@ -78,6 +78,7 @@ export const keybinding = {
   'keybinding.zoomOutTactileDisplay': 'Riduci sul display tattile',
 
   'keybinding.helpTitle': 'Scorciatoie da tastiera',
+  'keybinding.helpChangeInSettings': 'Per cambiare una scorciatoia, apri le impostazioni e scegli la scheda Scorciatoie da tastiera.',
   'keybinding.helpCloseButton': 'Chiudi',
   'keybinding.helpChangeButton': 'Modifica',
   'keybinding.helpChangeShortcutFor': 'Modifica la scorciatoia di {action}',

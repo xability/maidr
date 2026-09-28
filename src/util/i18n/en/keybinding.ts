@@ -78,6 +78,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': 'Keyboard Shortcuts',
+  'keybinding.helpChangeInSettings': 'To change a shortcut, open Settings and choose the Keyboard Shortcuts tab.',
   'keybinding.helpCloseButton': 'Close',
   'keybinding.helpChangeButton': 'Change',
   'keybinding.helpChangeShortcutFor': 'Change shortcut for {action}',

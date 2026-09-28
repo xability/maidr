@@ -8,6 +8,7 @@ export const settings = {
   'settings.tabAudio': '音频',
   'settings.tabVisual': '视觉',
   'settings.tabBraille': '盲文与触觉',
+  'settings.tabShortcuts': '键盘快捷键',
   'settings.tabAi': 'AI',
   'settings.tabAbout': '关于',
   // Extends a tab's name rather than replacing it, so it leads with a space.

@@ -80,6 +80,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': 'Atajos de teclado',
+  'keybinding.helpChangeInSettings': 'Para cambiar un atajo, abre la configuración y elige la pestaña Atajos de teclado.',
   'keybinding.helpCloseButton': 'Cerrar',
   'keybinding.helpChangeButton': 'Cambiar',
   'keybinding.helpChangeShortcutFor': 'Cambiar el atajo de {action}',

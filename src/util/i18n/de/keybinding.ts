@@ -79,6 +79,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': 'Tastaturkürzel',
+  'keybinding.helpChangeInSettings': 'Um ein Tastaturkürzel zu ändern, öffnen Sie die Einstellungen und wählen Sie den Tab „Tastaturkürzel“.',
   'keybinding.helpCloseButton': 'Schließen',
   'keybinding.helpChangeButton': 'Ändern',
   'keybinding.helpChangeShortcutFor': 'Tastenkürzel für {action} ändern',

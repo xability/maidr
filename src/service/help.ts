@@ -35,6 +35,13 @@ const NESTED_SCOPE_CONFIG: Partial<Record<Scope, NestedScopeConfig[]>> = {
 };
 
 /**
+ * The scopes that can open help, in the order the settings dialog takes a
+ * command's description from. TRACE first, so a command bound on a plot
+ * and in the lobby is named the way it is on the plot.
+ */
+const REBINDABLE_SCOPES: readonly Scope[] = [Scope.TRACE, Scope.SUBPLOT, Scope.BRAILLE, Scope.CANDLESTICK_DELTA];
+
+/**
  * Which group each command is listed under, and in what order within it.
  *
  * Within a group the rows run from the one a reader presses most to the one
@@ -263,10 +270,12 @@ function generateCompleteHelpMenu(scope: Scope, overrides: KeybindingOverrides):
 /**
  * Service for managing context-sensitive help menus across different application scopes.
  *
- * Also where a reader changes a shortcut (#189): the help menu is the list of
- * shortcuts, so it is where a reader looking for one finds the way to change
- * it. The change is saved through the settings, which is what the keybinding
- * service observes to take it up, and what survives a reload.
+ * Also works out what changing a shortcut comes to (#189) -- the conflict
+ * that refuses it, the message to announce, the overrides after it -- for
+ * the settings dialog, which is where a reader changes one. The help menu
+ * itself only lists the keys. Nothing is saved here: the dialog saves the
+ * overrides with its other settings, which is what the keybinding service
+ * observes to take them up, and what survives a reload.
  */
 export class HelpService {
   private readonly context: Context;
@@ -281,7 +290,7 @@ export class HelpService {
    * Creates a new HelpService instance.
    * @param context - The application context for determining current scope
    * @param display - The display service for toggling help UI
-   * @param settings - Where a changed shortcut is kept; without it the menu is read-only
+   * @param settings - Where the reader's changed shortcuts are read from
    */
   public constructor(context: Context, display: DisplayService, settings?: SettingsService) {
     this.context = context;
@@ -350,39 +359,70 @@ export class HelpService {
   }
 
   /**
+   * Every shortcut the reader may change, once each, grouped and ordered as
+   * the help menu orders them.
+   *
+   * For the settings dialog, which is where a shortcut is changed. It is not
+   * tied to a scope the way the help menu is -- the dialog is open over the
+   * chart, not in it -- so it gathers the rows of every scope that can open
+   * help, the first scope to bind a command naming it.
+   * @param overrides - The shortcuts as the dialog's unsaved edits have them
+   * @returns The rebindable rows, with their effective keys
+   */
+  public getRebindableItems(overrides: KeybindingOverrides): HelpMenuItem[] {
+    const effective = resolveOverrides(overrides);
+    const seen = new Set<string>();
+    const rows: { commandKey: string; item: HelpMenuItem }[] = [];
+    for (const scope of REBINDABLE_SCOPES) {
+      const keymap = getKeymapForScope(scope, effective);
+      for (const row of generateHelpMenuFromKeymap(keymap, getKeymapForScope(scope))) {
+        if (row.item.commandKey !== undefined && !seen.has(row.commandKey)) {
+          seen.add(row.commandKey);
+          rows.push(row);
+        }
+      }
+    }
+    return sortBySection(rows);
+  }
+
+  /**
    * Gives a command the shortcut the reader just pressed.
    *
    * Refused, with the reason spoken, when the shortcut already runs another
    * command anywhere this one is bound: two commands on one key would make
    * whichever hotkeys-js ran first the winner, silently, and the reader
    * would have lost a shortcut they did not mean to give up.
+   *
+   * Nothing is saved here. The settings dialog keeps the result with its
+   * other unsaved edits, so Cancel takes a changed shortcut back like any
+   * other setting.
    * @param commandKey - The command to rebind
    * @param combo - The new shortcut, as hotkeys-js would bind it
-   * @returns Whether anything changed, and what to say
+   * @param overrides - The shortcuts as the dialog's unsaved edits have them
+   * @returns Whether anything changed, what to say, and the overrides now
    */
-  public rebind(commandKey: string, combo: string): RebindResult {
+  public rebind(commandKey: string, combo: string, overrides: KeybindingOverrides): RebindResult {
     const description = this.describe(commandKey);
-    if (this.settings === null || !isRebindable(commandKey) || description === null) {
-      return { changed: false, message: t('keybinding.helpUnsupportedKey') };
+    if (!isRebindable(commandKey) || description === null) {
+      return { changed: false, overrides, message: t('keybinding.helpUnsupportedKey') };
     }
     const wanted = normalizeCombo(combo);
     if (wanted.length === 0) {
-      return { changed: false, message: t('keybinding.helpUnsupportedKey') };
+      return { changed: false, overrides, message: t('keybinding.helpUnsupportedKey') };
     }
 
-    const overrides = this.overrides;
     const conflict = findBindingConflict(commandKey, wanted, overrides);
     if (conflict !== null) {
       return {
         changed: false,
+        overrides,
         message: t('keybinding.helpConflict', { key: formatCombo(wanted), other: t(conflict.description) }),
       };
     }
 
-    const next = { ...overrides, [commandKey]: wanted };
-    this.saveOverrides(next);
     return {
       changed: true,
+      overrides: { ...overrides, [commandKey]: wanted },
       message: t('keybinding.helpRebound', { action: description, key: formatCombo(wanted) }),
     };
   }
@@ -390,55 +430,40 @@ export class HelpService {
   /**
    * Puts a command's default shortcut back.
    * @param commandKey - The command to restore
-   * @returns Whether anything changed, and what to say
+   * @param overrides - The shortcuts as the dialog's unsaved edits have them
+   * @returns Whether anything changed, what to say, and the overrides now
    */
-  public resetBinding(commandKey: string): RebindResult {
+  public resetBinding(commandKey: string, overrides: KeybindingOverrides): RebindResult {
     const description = this.describe(commandKey);
-    const overrides = this.overrides;
-    if (this.settings === null || description === null) {
-      return { changed: false, message: t('keybinding.helpUnsupportedKey') };
+    if (description === null) {
+      return { changed: false, overrides, message: t('keybinding.helpUnsupportedKey') };
     }
     // A row still at its default has nothing to restore. The recording
     // prompt offers Backspace on every row, so this is an ordinary way to
     // arrive here, and the honest answer is that nothing moved -- not that
     // Backspace is a key no shortcut may take.
     if (overrides[commandKey] === undefined) {
-      return { changed: false, message: t('keybinding.helpRecordingCancelled') };
+      return { changed: false, overrides, message: t('keybinding.helpRecordingCancelled') };
     }
     const { [commandKey]: _dropped, ...rest } = overrides;
-    this.saveOverrides(rest);
     return {
       changed: true,
+      overrides: rest,
       message: t('keybinding.helpResetOne', { action: description, key: this.defaultKeyOf(commandKey) }),
     };
   }
 
   /**
    * Puts every default shortcut back.
-   * @returns Whether anything changed, and what to say
+   * @param overrides - The shortcuts as the dialog's unsaved edits have them
+   * @returns Whether anything changed, what to say, and the overrides now
    */
-  public resetAllBindings(): RebindResult {
-    if (this.settings === null || Object.keys(this.overrides).length === 0) {
-      return { changed: false, message: t('keybinding.helpResetAllDone') };
-    }
-    this.saveOverrides({});
-    return { changed: true, message: t('keybinding.helpResetAllDone') };
-  }
-
-  /**
-   * Writes the overrides into the settings, which is what the keybinding
-   * service observes and what the next page load reads.
-   * @param overrides - The full set to keep
-   */
-  private saveOverrides(overrides: KeybindingOverrides): void {
-    if (this.settings === null) {
-      return;
-    }
-    const current = this.settings.loadSettings();
-    this.settings.saveSettings({
-      ...current,
-      general: { ...current.general, keybindings: { ...overrides } },
-    });
+  public resetAllBindings(overrides: KeybindingOverrides): RebindResult {
+    return {
+      changed: Object.keys(overrides).length > 0,
+      overrides: {},
+      message: t('keybinding.helpResetAllDone'),
+    };
   }
 
   /**

@@ -79,6 +79,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': '键盘快捷键',
+  'keybinding.helpChangeInSettings': '要更改快捷键，请打开设置并选择“键盘快捷键”选项卡。',
   'keybinding.helpCloseButton': '关闭',
   'keybinding.helpChangeButton': '更改',
   'keybinding.helpChangeShortcutFor': '更改{action}的快捷键',

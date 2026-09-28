@@ -7,6 +7,7 @@ export const settings = {
   'settings.tabAudio': 'Audio',
   'settings.tabVisual': 'Visualizzazione',
   'settings.tabBraille': 'Braille e tattile',
+  'settings.tabShortcuts': 'Scorciatoie da tastiera',
   'settings.tabAi': 'IA',
   'settings.tabAbout': 'Informazioni',
   'settings.needsAttention': ' richiede attenzione',

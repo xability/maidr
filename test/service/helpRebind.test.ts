@@ -2,59 +2,42 @@ import type { Context } from '@model/context';
 import type { DisplayService } from '@service/display';
 import type { SettingsService } from '@service/settings';
 import type { Settings } from '@type/settings';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import { HelpService } from '@service/help';
 import { Scope } from '@type/event';
 import { DEFAULT_SETTINGS } from '@type/settings';
 
 /**
- * The help menu is where a reader changes a shortcut (#189): the row says
- * whether it can be changed, the change is written to the settings, a taken
- * key is refused with the other command named, and a default can be put
- * back one at a time or all at once.
+ * A reader changes a shortcut in the settings dialog (#189). The help
+ * service works out what a change comes to -- the new overrides, or the
+ * command that already has the key -- and saves nothing: the dialog keeps
+ * the result with its other unsaved edits. The help menu itself only lists
+ * the keys, with a changed one beside its default.
  */
 
-interface Harness {
-  service: HelpService;
-  saveSettings: jest.Mock<(settings: Settings) => void>;
-  settings: () => Settings;
-}
-
-function createService(scope: Scope = Scope.TRACE): Harness {
-  let current: Settings = structuredClone(DEFAULT_SETTINGS);
-  const saveSettings = jest.fn<(settings: Settings) => void>((settings) => {
-    current = settings;
-  });
-  const settingsService = {
-    loadSettings: () => current,
-    saveSettings,
-  } as unknown as SettingsService;
+function createService(settings: Settings = structuredClone(DEFAULT_SETTINGS), scope: Scope = Scope.TRACE): HelpService {
+  const settingsService = { loadSettings: () => settings } as unknown as SettingsService;
   const context = { scope } as unknown as Context;
   const display = { toggleFocus: (): void => {} } as unknown as DisplayService;
-  return {
-    service: new HelpService(context, display, settingsService),
-    saveSettings,
-    settings: () => current,
-  };
+  return new HelpService(context, display, settingsService);
 }
 
-describe('help menu rows that can be changed', () => {
-  let harness: Harness;
+function settingsWith(keybindings: Record<string, string>): Settings {
+  const settings = structuredClone(DEFAULT_SETTINGS);
+  settings.general.keybindings = keybindings;
+  return settings;
+}
 
-  beforeEach(() => {
-    harness = createService();
-  });
-
+describe('the help menu', () => {
   it('carries the command on every row a reader may rebind', () => {
-    const items = harness.service.getMenuItems();
-    const braille = items.find(item => item.description === 'Toggle Braille Mode');
+    const braille = createService().getMenuItems().find(item => item.description === 'Toggle Braille Mode');
 
     expect(braille).toMatchObject({ key: 'b', commandKey: 'TOGGLE_BRAILLE' });
     expect(braille?.isCustom).toBeUndefined();
   });
 
   it('leaves the help chord and the chorded label rows unchangeable', () => {
-    const items = harness.service.getMenuItems();
+    const items = createService().getMenuItems();
     const help = items.find(item => item.description === 'Open/Close Help');
     const label = items.find(item => item.key.startsWith('l '));
 
@@ -62,110 +45,145 @@ describe('help menu rows that can be changed', () => {
     expect(label).toBeDefined();
     expect(label?.commandKey).toBeUndefined();
   });
-});
 
-describe('changing a shortcut', () => {
-  let harness: Harness;
+  it('lists a saved shortcut with the default it replaced', () => {
+    const service = createService(settingsWith({ TOGGLE_BRAILLE: 'shift+b' }));
+    const braille = service.getMenuItems().find(item => item.commandKey === 'TOGGLE_BRAILLE');
 
-  beforeEach(() => {
-    harness = createService();
-  });
-
-  it('saves the new shortcut and lists it, with the default it replaced', () => {
-    const result = harness.service.rebind('TOGGLE_BRAILLE', 'shift+b');
-
-    expect(result).toEqual({ changed: true, message: 'Toggle Braille Mode is now shift + b.' });
-    expect(harness.saveSettings).toHaveBeenCalledTimes(1);
-    expect(harness.settings().general.keybindings).toEqual({ TOGGLE_BRAILLE: 'shift+b' });
-
-    const braille = harness.service.getMenuItems().find(item => item.commandKey === 'TOGGLE_BRAILLE');
     expect(braille).toMatchObject({ key: 'shift + b', isCustom: true, defaultKey: 'b' });
   });
 
-  it('keeps the rest of the settings as they were', () => {
-    harness.service.rebind('TOGGLE_BRAILLE', 'shift+b');
+  it('shows a saved shortcut in every scope the command is bound in', () => {
+    const settings = settingsWith({ MOVE_UP: 'shift+up' });
+    const up = createService(settings, Scope.BRAILLE).getMenuItems().find(item => item.commandKey === 'MOVE_UP');
 
-    expect(harness.settings().general.volume).toBe(DEFAULT_SETTINGS.general.volume);
-    expect(harness.settings().llm).toEqual(DEFAULT_SETTINGS.llm);
-  });
-
-  it('refuses a shortcut another command already runs, and names it', () => {
-    const result = harness.service.rebind('TOGGLE_TEXT', 'b');
-
-    expect(result.changed).toBe(false);
-    expect(result.message).toBe('b is already used by Toggle Braille Mode.');
-    expect(harness.saveSettings).not.toHaveBeenCalled();
-  });
-
-  it('refuses the help chord and a command it does not know', () => {
-    expect(harness.service.rebind('TOGGLE_HELP', 'x').changed).toBe(false);
-    expect(harness.service.rebind('NO_SUCH_COMMAND', 'x').changed).toBe(false);
-    expect(harness.service.rebind('TOGGLE_TEXT', '   ').changed).toBe(false);
-    expect(harness.saveSettings).not.toHaveBeenCalled();
-  });
-
-  it('applies to every scope the command is bound in', () => {
-    harness.service.rebind('MOVE_UP', 'shift+up');
-
-    const inBraille = createService(Scope.BRAILLE);
-    inBraille.saveSettings.mockImplementation(() => {});
-    // Same settings object shape: build a braille-scope service over the
-    // settings the trace-scope one saved.
-    const braille = new HelpService(
-      { scope: Scope.BRAILLE } as unknown as Context,
-      { toggleFocus: (): void => {} } as unknown as DisplayService,
-      { loadSettings: () => harness.settings(), saveSettings: jest.fn() } as unknown as SettingsService,
-    );
-    const up = braille.getMenuItems().find(item => item.commandKey === 'MOVE_UP');
     expect(up?.key).toBe('shift + up');
   });
 });
 
-describe('restoring defaults', () => {
-  let harness: Harness;
+describe('the shortcuts the settings dialog lists', () => {
+  it('lists each rebindable command once, and only those', () => {
+    const items = createService().getRebindableItems({});
+    const commands = items.map(item => item.commandKey);
+
+    expect(commands.every(command => command !== undefined)).toBe(true);
+    expect(new Set(commands).size).toBe(commands.length);
+    expect(commands).not.toContain('TOGGLE_HELP');
+    expect(items.some(item => item.key.startsWith('l '))).toBe(false);
+  });
+
+  it('gathers commands from every scope that can open help', () => {
+    const commands = createService().getRebindableItems({}).map(item => item.commandKey);
+
+    // Trace, lobby and comparison-layer commands, whichever scope is active.
+    expect(commands).toEqual(expect.arrayContaining([
+      'MOVE_LEFT',
+      'MOVE_TO_TRACE_CONTEXT',
+      'EXIT_CANDLESTICK_DELTA',
+      'TOGGLE_COMMAND_PALETTE',
+    ]));
+  });
+
+  it('shows the keys the unsaved edits give, not the saved ones', () => {
+    const service = createService(settingsWith({ TOGGLE_BRAILLE: 'shift+b' }));
+    const braille = service.getRebindableItems({ TOGGLE_BRAILLE: 'x' }).find(item => item.commandKey === 'TOGGLE_BRAILLE');
+
+    expect(braille).toMatchObject({ key: 'x', isCustom: true, defaultKey: 'b' });
+  });
+
+  it('starts with the arrows, as the help menu does', () => {
+    const keys = createService().getRebindableItems({}).slice(0, 4).map(item => item.key);
+
+    expect(keys).toEqual(['left', 'right', 'up', 'down']);
+  });
+});
+
+describe('changing a shortcut', () => {
+  let service: HelpService;
 
   beforeEach(() => {
-    harness = createService();
-    harness.service.rebind('TOGGLE_BRAILLE', 'shift+b');
-    harness.service.rebind('TOGGLE_TEXT', 'shift+t');
-    harness.saveSettings.mockClear();
+    service = createService();
+  });
+
+  it('returns the new overrides and what to say, and saves nothing', () => {
+    const settings = structuredClone(DEFAULT_SETTINGS);
+    service = createService(settings);
+
+    const result = service.rebind('TOGGLE_BRAILLE', 'shift+b', { TOGGLE_TEXT: 'shift+t' });
+
+    expect(result).toEqual({
+      changed: true,
+      message: 'Toggle Braille Mode is now shift + b.',
+      overrides: { TOGGLE_TEXT: 'shift+t', TOGGLE_BRAILLE: 'shift+b' },
+    });
+    expect(settings.general.keybindings).toEqual({});
+  });
+
+  it('refuses a shortcut another command already runs, and names it', () => {
+    const result = service.rebind('TOGGLE_TEXT', 'b', {});
+
+    expect(result).toEqual({ changed: false, message: 'b is already used by Toggle Braille Mode.', overrides: {} });
+  });
+
+  it('checks a conflict against the unsaved edits', () => {
+    // `x` is free by default, but taken once the edits give it to braille.
+    const result = service.rebind('TOGGLE_TEXT', 'x', { TOGGLE_BRAILLE: 'x' });
+
+    expect(result.changed).toBe(false);
+    expect(result.message).toBe('x is already used by Toggle Braille Mode.');
+  });
+
+  it('refuses the help chord, a command it does not know, and a blank shortcut', () => {
+    expect(service.rebind('TOGGLE_HELP', 'x', {}).changed).toBe(false);
+    expect(service.rebind('NO_SUCH_COMMAND', 'x', {}).changed).toBe(false);
+    expect(service.rebind('TOGGLE_TEXT', '   ', {}).changed).toBe(false);
+  });
+});
+
+describe('restoring defaults', () => {
+  const edits = { TOGGLE_BRAILLE: 'shift+b', TOGGLE_TEXT: 'shift+t' };
+  let service: HelpService;
+
+  beforeEach(() => {
+    service = createService();
   });
 
   it('puts one default back and says which', () => {
-    const result = harness.service.resetBinding('TOGGLE_BRAILLE');
-
-    expect(result).toEqual({ changed: true, message: 'Toggle Braille Mode restored to b.' });
-    expect(harness.settings().general.keybindings).toEqual({ TOGGLE_TEXT: 'shift+t' });
-    expect(harness.service.getMenuItems().find(item => item.commandKey === 'TOGGLE_BRAILLE')?.isCustom).toBeUndefined();
+    expect(service.resetBinding('TOGGLE_BRAILLE', edits)).toEqual({
+      changed: true,
+      message: 'Toggle Braille Mode restored to b.',
+      overrides: { TOGGLE_TEXT: 'shift+t' },
+    });
   });
 
   it('says nothing moved for a command already at its default', () => {
     // Backspace during a recording lands here on any row, so the answer
     // must be that the shortcut is unchanged, not that Backspace is invalid.
-    expect(harness.service.resetBinding('MOVE_UP')).toEqual({
+    expect(service.resetBinding('MOVE_UP', edits)).toEqual({
       changed: false,
       message: 'Shortcut unchanged.',
+      overrides: edits,
     });
-    expect(harness.saveSettings).not.toHaveBeenCalled();
   });
 
   it('puts every default back at once', () => {
-    const result = harness.service.resetAllBindings();
-
-    expect(result.changed).toBe(true);
-    expect(harness.settings().general.keybindings).toEqual({});
-    expect(harness.service.getMenuItems().some(item => item.isCustom)).toBe(false);
+    expect(service.resetAllBindings(edits)).toEqual({
+      changed: true,
+      message: 'All shortcuts restored to their defaults.',
+      overrides: {},
+    });
+    expect(service.resetAllBindings({}).changed).toBe(false);
   });
 });
 
 describe('a help service built without settings', () => {
-  it('lists the defaults and refuses to change them', () => {
+  it('lists the defaults', () => {
     const service = new HelpService(
       { scope: Scope.TRACE } as unknown as Context,
       { toggleFocus: (): void => {} } as unknown as DisplayService,
     );
 
     expect(service.getMenuItems().length).toBeGreaterThan(0);
-    expect(service.rebind('TOGGLE_BRAILLE', 'x').changed).toBe(false);
+    expect(service.getMenuItems().some(item => item.isCustom)).toBe(false);
   });
 });

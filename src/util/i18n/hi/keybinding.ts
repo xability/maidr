@@ -79,6 +79,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': 'कीबोर्ड शॉर्टकट',
+  'keybinding.helpChangeInSettings': 'शॉर्टकट बदलने के लिए, सेटिंग्स खोलें और कीबोर्ड शॉर्टकट टैब चुनें।',
   'keybinding.helpCloseButton': 'बंद करें',
   'keybinding.helpChangeButton': 'बदलें',
   'keybinding.helpChangeShortcutFor': '{action} का शॉर्टकट बदलें',

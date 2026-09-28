@@ -193,21 +193,25 @@ alone.
 
 ## Customizing Shortcuts
 
-Every shortcut in the help menu except the help chord itself can be changed.
-Open the help menu with **Control + /** (**Command + /** on a Mac), move to the
-**Change** button of the shortcut you want -- each one is named after its
-action, so a screen reader reads "Change shortcut for Toggle Braille Mode" --
-and press it. The dialog asks you to press the new shortcut. Press the key or
-key combination you want, and the dialog announces the result: the new
-shortcut, or the action that already uses that key if it is taken. Escape keeps
-the old shortcut, and Backspace puts the default back.
+Shortcuts are changed in the settings, not in the help menu, which only lists
+them. Open the settings with **Control + ,** (**Command + ,** on a Mac) and
+choose the **Keyboard Shortcuts** tab. It lists every shortcut that can be
+changed -- all but the help chord itself and the `l` label keys -- in the same
+groups as the help menu. Move to the **Change** button of the shortcut you want
+-- each one is named after its action, so a screen reader reads "Change
+shortcut for Toggle Braille Mode" -- and press it. The tab asks you to press the
+new shortcut. Press the key or key combination you want, and it announces the
+result: the new shortcut, or the action that already uses that key if it is
+taken. Escape keeps the old shortcut, and Backspace puts the default back.
 
-A changed shortcut applies everywhere its action is bound -- the arrow keys
-move in braille mode as well as while reading a chart -- and is kept in your
-browser with the other settings, so it is there the next time you open a chart.
-A changed row shows its default beside the new key and gains a **Restore
-default** button; **Restore all default shortcuts** at the top of the list
-puts everything back at once.
+A change is saved with the other settings: **Save & Close** keeps it, and
+**Close** or Escape leaves the shortcuts as they were. A saved shortcut applies
+everywhere its action is bound -- the arrow keys move in braille mode as well as
+while reading a chart -- and is kept in your browser, so it is there the next
+time you open a chart. A changed row shows its default beside the new key, in
+the settings and in the help menu, and gains a **Restore default** button;
+**Restore all default shortcuts** at the top of the tab puts everything back
+at once.
 
 Tab, the function keys and the lock keys cannot be used: Tab is how a keyboard
 user leaves the chart, and the others belong to the browser and the screen

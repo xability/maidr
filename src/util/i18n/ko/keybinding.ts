@@ -79,6 +79,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': '키보드 단축키',
+  'keybinding.helpChangeInSettings': '단축키를 바꾸려면 설정을 열고 키보드 단축키 탭을 선택하세요.',
   'keybinding.helpCloseButton': '닫기',
   'keybinding.helpChangeButton': '변경',
   'keybinding.helpChangeShortcutFor': '{action} 단축키 변경',

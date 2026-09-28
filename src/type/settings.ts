@@ -173,6 +173,7 @@ export const SETTINGS_SECTIONS = [
   'audio',
   'visual',
   'braille',
+  'shortcuts',
   'ai',
   'about',
 ] as const;

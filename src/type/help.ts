@@ -46,7 +46,7 @@ export interface HelpMenuItem {
   key: string;
   /**
    * The command this row runs, when the reader may give it a shortcut of
-   * their own. Absent on a row that cannot be changed: the help chord
+   * their own in the settings dialog. Absent on a row that cannot be changed: the help chord
    * itself, and a row reached through a chord such as `l x`, whose first
    * key belongs to another command.
    */
@@ -58,11 +58,33 @@ export interface HelpMenuItem {
 }
 
 /**
- * What a rebinding in the help menu came to, for the dialog to announce.
+ * What a rebinding in the settings dialog came to, for the dialog to
+ * announce and keep with its unsaved edits.
  */
 export interface RebindResult {
   /** Whether the shortcuts changed. */
   changed: boolean;
   /** What to tell the reader, in their language. */
   message: string;
+  /** The reader's overrides after the change, or as they were when refused. */
+  overrides: Readonly<Record<string, string>>;
+}
+
+/**
+ * Splits the rows into their groups, keeping the order they arrive in: the
+ * service has already sorted them most-used first.
+ * @param items - The rows, sorted by group
+ * @returns Each group with its rows
+ */
+export function groupBySection(items: HelpMenuItem[]): { section: HelpSectionId; items: HelpMenuItem[] }[] {
+  const groups: { section: HelpSectionId; items: HelpMenuItem[] }[] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (last?.section === item.section) {
+      last.items.push(item);
+    } else {
+      groups.push({ section: item.section, items: [item] });
+    }
+  }
+  return groups;
 }

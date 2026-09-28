@@ -1,7 +1,9 @@
 import type { PayloadAction } from '@reduxjs/toolkit';
+import type { HelpService } from '@service/help';
 import type { SettingsService } from '@service/settings';
 import type { Disposable } from '@type/disposable';
 import type { DotPadState, DotPadTransport } from '@type/dotPad';
+import type { HelpMenuItem, RebindResult } from '@type/help';
 import type { Settings, SettingsSection } from '@type/settings';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
@@ -36,6 +38,7 @@ const { update, reset } = settingsSlice.actions;
  */
 export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   private readonly settingsService: SettingsService;
+  private readonly helpService: HelpService;
 
   /** Set by the caller that opens the dialog; cleared on the next toggle. */
   private openOnSection: SettingsSection | null = null;
@@ -44,10 +47,12 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
    * Creates a new SettingsViewModel instance and loads initial settings.
    * @param store - The Redux store for state management
    * @param settingsService - Service for handling settings persistence and logic
+   * @param helpService - Works out what changing a keyboard shortcut comes to
    */
-  public constructor(store: AppStore, settingsService: SettingsService) {
+  public constructor(store: AppStore, settingsService: SettingsService, helpService: HelpService) {
     super(store);
     this.settingsService = settingsService;
+    this.helpService = helpService;
     this.load();
   }
 
@@ -108,6 +113,54 @@ export class SettingsViewModel extends AbstractViewModel<SettingsState> {
   public toggle(section?: SettingsSection): void {
     this.openOnSection = section ?? null;
     this.settingsService.toggle();
+  }
+
+  /**
+   * The shortcuts the Keyboard Shortcuts tab lists, with the keys the
+   * dialog's unsaved edits give them.
+   *
+   * These return rather than dispatch, like the tactile state below: the
+   * dialog holds its edits in its own state until Save, and a changed
+   * shortcut is one of those edits.
+   * @param overrides - The shortcuts as the dialog's edits have them
+   * @returns Every shortcut the reader may change, grouped
+   */
+  public shortcuts(overrides: Readonly<Record<string, string>>): HelpMenuItem[] {
+    return this.helpService.getRebindableItems(overrides);
+  }
+
+  /**
+   * Gives a command the shortcut the reader pressed.
+   * @param commandKey - The command to rebind
+   * @param combo - The new shortcut, as hotkeys-js would bind it
+   * @param overrides - The shortcuts as the dialog's edits have them
+   * @returns What happened, what to announce, and the edits after it
+   */
+  public rebindShortcut(
+    commandKey: string,
+    combo: string,
+    overrides: Readonly<Record<string, string>>,
+  ): RebindResult {
+    return this.helpService.rebind(commandKey, combo, overrides);
+  }
+
+  /**
+   * Puts one command's default shortcut back.
+   * @param commandKey - The command to restore
+   * @param overrides - The shortcuts as the dialog's edits have them
+   * @returns What happened, what to announce, and the edits after it
+   */
+  public resetShortcut(commandKey: string, overrides: Readonly<Record<string, string>>): RebindResult {
+    return this.helpService.resetBinding(commandKey, overrides);
+  }
+
+  /**
+   * Puts every default shortcut back.
+   * @param overrides - The shortcuts as the dialog's edits have them
+   * @returns What happened, what to announce, and the edits after it
+   */
+  public resetAllShortcuts(overrides: Readonly<Record<string, string>>): RebindResult {
+    return this.helpService.resetAllBindings(overrides);
   }
 
   /**
