@@ -1,3 +1,42 @@
+# [4.11.0](https://github.com/xability/maidr/compare/v4.10.0...v4.11.0) (2026-09-28)
+
+
+### Bug Fixes
+
+* **echarts:** leave legend icons out of the mark count ([#1316](https://github.com/xability/maidr/issues/1316)) ([99b4944](https://github.com/xability/maidr/commit/99b4944a575e8912c3f2d5bd6d96224f6562a8b2)), closes [#1315](https://github.com/xability/maidr/issues/1315)
+* **entry:** ignore an element named maidr in the window.maidr fallback ([#1326](https://github.com/xability/maidr/issues/1326)) ([c3d13c0](https://github.com/xability/maidr/commit/c3d13c04dcfc00b787e2e8f1d44e69f836fa1097))
+* **high-contrast:** keep every chart readable when high contrast is on ([#1313](https://github.com/xability/maidr/issues/1313)) ([54150c0](https://github.com/xability/maidr/commit/54150c0d14d66127432781f7926e8360cd8efdd7)), closes [hi#contrast](https://github.com/hi/issues/contrast) [hi#contrast](https://github.com/hi/issues/contrast) [hi#contrast](https://github.com/hi/issues/contrast)
+* **lightweight-charts:** warn once per unreadable series and drop a dead catch ([#1323](https://github.com/xability/maidr/issues/1323)) ([e4f0e0d](https://github.com/xability/maidr/commit/e4f0e0d43f3527f0e949d0db137366aeaa8a990a))
+* **model:** move up and down between line series that tie at the cursor ([#1306](https://github.com/xability/maidr/issues/1306)) ([dcb2266](https://github.com/xability/maidr/commit/dcb2266253d77adbb0217b973cb69cc9e586e6db)), closes [#1270](https://github.com/xability/maidr/issues/1270)
+* **plotly:** keep the text below a Plotly chart instead of behind it ([#1317](https://github.com/xability/maidr/issues/1317)) ([3e942a5](https://github.com/xability/maidr/commit/3e942a591b5e4b46c2dce1f2e162b344b486f6f3))
+* **settings:** honour Option+S and Option+C on a Mac ([#1288](https://github.com/xability/maidr/issues/1288)) ([a86a05f](https://github.com/xability/maidr/commit/a86a05f46dcf3d40863f18047794c884e92f2874))
+* **settings:** show the agent tools choice in every chart when storage is blocked ([#1297](https://github.com/xability/maidr/issues/1297)) ([ff74ab2](https://github.com/xability/maidr/commit/ff74ab2626b20781533dcd4191b83cbeabed0da3))
+* **site:** fix the Firefox and WebKit failures in the scheduled e2e run ([#1320](https://github.com/xability/maidr/issues/1320)) ([c94c472](https://github.com/xability/maidr/commit/c94c47218fed0fa6030b6a0114521d03d64bdb6d))
+* skip the DotPad SDK when no display can be adopted, and place highlights on split lines and inline scatter markers ([#1285](https://github.com/xability/maidr/issues/1285)) ([cd81eca](https://github.com/xability/maidr/commit/cd81eca98638abc35f4c52e6ccb069332f9a636f)), closes [#grob](https://github.com/xability/maidr/issues/grob)
+* **tactile:** keep the display connected from chart to chart until the reader disconnects ([#1279](https://github.com/xability/maidr/issues/1279)) ([2a0adf3](https://github.com/xability/maidr/commit/2a0adf3a6853abf4d2f1e417a27800c37627972c))
+
+
+### Features
+
+* **apexcharts:** add an ApexCharts adapter ([#1318](https://github.com/xability/maidr/issues/1318)) ([4640960](https://github.com/xability/maidr/commit/4640960efae269ffc8f618081e8b9cdcae622d13)), closes [#1299](https://github.com/xability/maidr/issues/1299)
+* **chat:** support the latest OpenAI, Anthropic and Gemini models ([#1294](https://github.com/xability/maidr/issues/1294)) ([9d14d5a](https://github.com/xability/maidr/commit/9d14d5a839c02fd2a6de34d31206e4cb094fd0a9))
+* **description:** explain each chart type in a collapsible guide ([#1276](https://github.com/xability/maidr/issues/1276)) ([8b110af](https://github.com/xability/maidr/commit/8b110af9e224f2fbd19232d10954748531143c80))
+* **echarts:** make Apache Superset and Metabase charts accessible ([#1310](https://github.com/xability/maidr/issues/1310)) ([ae8799a](https://github.com/xability/maidr/commit/ae8799a4659eb8a80f93621f7e8fd4144b641986)), closes [#1304](https://github.com/xability/maidr/issues/1304)
+* **echarts:** read more of Superset's and Metabase's charts ([#1328](https://github.com/xability/maidr/issues/1328)) ([3c65054](https://github.com/xability/maidr/commit/3c6505475cbee9a168e1a3594fa686ca7d7b4470))
+* **help:** group keyboard shortcuts into sections ordered by use ([#1321](https://github.com/xability/maidr/issues/1321)) ([9bea30a](https://github.com/xability/maidr/commit/9bea30a16878ac485210f43e5a78da60b6fe341f))
+* **lightweight-charts:** add an adapter for TradingView Lightweight Charts ([#1309](https://github.com/xability/maidr/issues/1309)) ([374fcaa](https://github.com/xability/maidr/commit/374fcaa3957f2a4d46c3e08a7a46be3b805949b2)), closes [#1300](https://github.com/xability/maidr/issues/1300)
+* **mui-x-charts:** add an MUI X Charts adapter ([#1308](https://github.com/xability/maidr/issues/1308)) ([1d3fedc](https://github.com/xability/maidr/commit/1d3fedcad2ef466033c34cee6113c3e9f3683afe)), closes [#1301](https://github.com/xability/maidr/issues/1301)
+* **mui-x-charts:** read sparklines, gauges, radars and the Pro heatmap, funnel and sankey ([#1325](https://github.com/xability/maidr/issues/1325)) ([b0af85f](https://github.com/xability/maidr/commit/b0af85fbbcae85321a80774b3dd87deca2e7f30a)), closes [#1301](https://github.com/xability/maidr/issues/1301)
+* **nivo:** add maidr/nivo adapter for Nivo React charts ([#1312](https://github.com/xability/maidr/issues/1312)) ([55c4870](https://github.com/xability/maidr/commit/55c4870a4af8827cec5cd514d7a052be6632b097)), closes [#1302](https://github.com/xability/maidr/issues/1302)
+* **powerbi:** add a power bi custom visual adapter ([#1311](https://github.com/xability/maidr/issues/1311)) ([048d55c](https://github.com/xability/maidr/commit/048d55cec9debf3aeb3af51cf004e44591463a30)), closes [#1305](https://github.com/xability/maidr/issues/1305)
+* **powerbi:** add a starter custom visual, e2e coverage and a same-data fast path ([#1329](https://github.com/xability/maidr/issues/1329)) ([7129589](https://github.com/xability/maidr/commit/712958924a7f043962f4c661e93de5f25fa1a82d)), closes [#1305](https://github.com/xability/maidr/issues/1305)
+* **tableau:** run MAIDR inside a dashboard as a Dashboard Extension ([#1307](https://github.com/xability/maidr/issues/1307)) ([629c0e2](https://github.com/xability/maidr/commit/629c0e21d369902bdefcf93b6b629b870ae9f2ec)), closes [#933](https://github.com/xability/maidr/issues/933) [#937](https://github.com/xability/maidr/issues/937)
+* **tactile:** keep chart shapes intact when zooming, draw canvas charts, and buzz at the braille line ends ([#1278](https://github.com/xability/maidr/issues/1278)) ([3349dc4](https://github.com/xability/maidr/commit/3349dc4f5808c459298d9ee02326f85eee77afa9))
+* **uplot:** add uPlot adapter for accessible time-series charts ([#1314](https://github.com/xability/maidr/issues/1314)) ([db9eecf](https://github.com/xability/maidr/commit/db9eecfa04da03f08348221f868b8ac378430a1e)), closes [#1303](https://github.com/xability/maidr/issues/1303)
+* **uplot:** read stacked charts, filled areas and the drawn bar width ([#1327](https://github.com/xability/maidr/issues/1327)) ([2c2660f](https://github.com/xability/maidr/commit/2c2660fb45ce699650b1caca4bf44d95e8caa27a)), closes [#1314](https://github.com/xability/maidr/issues/1314) [#1303](https://github.com/xability/maidr/issues/1303)
+* **webmcp:** expose charts to in-browser agents as experimental WebMCP tools ([#1295](https://github.com/xability/maidr/issues/1295)) ([ee6c57f](https://github.com/xability/maidr/commit/ee6c57f31b8dd9309470014ed3964ececebf110a))
+* **webmcp:** turn agent tools on by default with a reader toggle in settings ([#1296](https://github.com/xability/maidr/issues/1296)) ([8e89591](https://github.com/xability/maidr/commit/8e895919428f32c253d03c2edff6eb6d527bc970))
+
 # [4.10.0](https://github.com/xability/maidr/compare/v4.9.0...v4.10.0) (2026-09-23)
 
 
