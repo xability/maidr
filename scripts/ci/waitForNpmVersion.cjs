@@ -35,8 +35,11 @@ const process = require('node:process');
  * @property {number} [attempts] Checks before giving up; 120 by default.
  * @property {number} [intervalMs] Pause between checks; 30 s by default, so
  *   an hour in all, over three times the longest lag seen.
- * @property {(url: string) => Promise<RegistryAnswer>} [fetch] The global
- *   `fetch` unless a test stands in for the registry.
+ * @property {number} [timeoutMs] How long one check may take; 10 s by
+ *   default. Without it a request that hangs holds its check open for as long
+ *   as `fetch` allows (five minutes in Node), and the hour stops being one.
+ * @property {(url: string, init: { signal: AbortSignal }) => Promise<RegistryAnswer>} [fetch]
+ *   The global `fetch` unless a test stands in for the registry.
  * @property {(ms: number) => Promise<void>} [sleep] Stubbed by the tests so
  *   the hour passes at once.
  * @property {(message: string) => void} [log] Where each miss is reported.
@@ -45,10 +48,10 @@ const process = require('node:process');
 /**
  * Checks `registry.npmjs.org/<name>/<version>` until it answers 2xx.
  *
- * Any other answer, and a request that fails outright, counts as "not yet"
- * rather than as an error: in the window after a publish the registry has
- * also answered with a 5xx from a replica that had not caught up (see the
- * wait in r-maidr's `.github/scripts/fetch-maidr-bundle.sh`).
+ * Any other answer, a request that fails outright, and one that outlasts
+ * `timeoutMs` count as "not yet" rather than as an error: in the window after
+ * a publish the registry has also answered with a 5xx from a replica that had
+ * not caught up (see the wait in r-maidr's `.github/scripts/fetch-maidr-bundle.sh`).
  *
  * @param {WaitOptions} options
  * @returns {Promise<number>} The check on which the version was first served,
@@ -59,6 +62,7 @@ async function waitForNpmVersion({
   version,
   attempts = 120,
   intervalMs = 30_000,
+  timeoutMs = 10_000,
   fetch = globalThis.fetch,
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
   log = message => console.log(message),
@@ -67,7 +71,7 @@ async function waitForNpmVersion({
   for (let check = 1; check <= attempts; check++) {
     let answer;
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
       if (response.ok)
         return check;
       answer = `answered ${response.status}`;

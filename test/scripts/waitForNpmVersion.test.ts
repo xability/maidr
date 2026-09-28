@@ -32,7 +32,10 @@ interface WaitOptions {
   version: string;
   attempts?: number;
   intervalMs?: number;
-  fetch?: (url: string) => Promise<RegistryAnswer>;
+  timeoutMs?: number;
+  // `init` optional here, though the module always passes it, so that a
+  // module which stopped passing it reaches the stub rather than a TypeError.
+  fetch?: (url: string, init?: { signal?: AbortSignal }) => Promise<RegistryAnswer>;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
 }
@@ -47,9 +50,10 @@ const { waitForNpmVersion } = require(MODULE) as {
 
 /**
  * A registry that does not serve the version for its first `misses` checks.
- * `miss` is what it does instead: answer with a status, or fail the request.
+ * `miss` is what it does instead: answer with a status, fail the request, or
+ * `'hang'` -- never answer, so only the check's own abort signal ends it.
  */
-function registry(misses: number, miss: number | Error = 404): {
+function registry(misses: number, miss: number | Error | 'hang' = 404): {
   stubs: Pick<WaitOptions, 'fetch' | 'sleep' | 'log'>;
   urls: string[];
   sleeps: number[];
@@ -63,10 +67,17 @@ function registry(misses: number, miss: number | Error = 404): {
     sleeps,
     logs,
     stubs: {
-      fetch: async (url) => {
+      fetch: async (url, init) => {
         urls.push(url);
         if (urls.length > misses)
           return { ok: true, status: 200 };
+        if (miss === 'hang') {
+          // Settles only through the signal, as a hung request would.
+          const signal = init?.signal;
+          return new Promise((_, reject) => {
+            signal?.addEventListener('abort', () => reject(signal.reason));
+          });
+        }
         if (miss instanceof Error)
           throw miss;
         return { ok: false, status: miss };
@@ -118,6 +129,17 @@ describe('waitForNpmVersion', () => {
 
     await expect(waitForNpmVersion({ name: 'maidr', version: '4.11.0', ...r.stubs })).resolves.toBe(2);
     expect(r.logs[0]).toContain('failed: getaddrinfo EAI_AGAIN');
+  });
+
+  // The hour is only an hour if each check ends on its own. Without the
+  // signal this registry never answers, the first check never returns, and
+  // the case times out instead of passing.
+  it('should give up on a check the registry never answers', async () => {
+    const r = registry(Infinity, 'hang');
+
+    await expect(waitForNpmVersion({ name: 'maidr', version: '4.11.0', attempts: 2, timeoutMs: 20, ...r.stubs })).resolves.toBe(0);
+    expect(r.urls).toHaveLength(2);
+    expect(r.logs[0]).toContain('failed: ');
   });
 
   it('should honour a shorter budget', async () => {
