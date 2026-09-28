@@ -72,77 +72,127 @@ jobs:
         run: npm publish --access public --provenance
 
       # Both language bindings ship a copy of this package's built bundle and
-      # refresh it from npm. Left to themselves they discover a release on
-      # their own cadence, so a fix can sit unread for a day or longer.
-      # Telling them directly closes that gap to minutes.
+      # refresh it from npm, and so does maidr-skill (the agent skill). Left
+      # to themselves they discover a release on their own cadence, so a fix
+      # can sit unread for a day or longer. Telling them directly closes that
+      # gap to minutes.
       #
-      # Deliberately after the publish step and gated on it: the receivers
-      # fetch the tarball straight from the registry, so announcing before
-      # the package is actually there would just make them fail. The publish
-      # step returning no longer means that, though. npm now serves a release
-      # minutes after accepting it -- 4.9.0 about ten minutes after that step
-      # ended, 4.11.0 eighteen -- and on 4.11.0 r-maidr and py-maidr, which
-      # retry for fifteen minutes, both gave up before it appeared. So the
-      # step first waits until the registry serves the version.
-      #
-      # What each does with the news is its own call, not this step's.
+      # What each does with the news is its own call, not this workflow's.
       # r-maidr commits the refreshed bundle to `main`, and `main` is what it
       # ships, because CRAN submissions are manual. py-maidr also commits to
       # `main`, but as a `chore:`, which by design does not cut a PyPI
       # release: its release workflow re-resolves upstream when a release is
       # actually cut, so the news reaches its users then rather than now.
-      # maidr-skill (the agent skill) commits the refreshed bundle and its
-      # version pins to `main`, which is what installed copies update from.
+      # maidr-skill commits the refreshed bundle and its version pins to
+      # `main`, which is what installed copies update from.
       #
-      # continue-on-error, because the release is the thing that matters
-      # here. A missed ping costs a binding some currency -- each keeps its
-      # own refresh path as the backstop for this step failing -- whereas a
-      # red release job costs a manual re-run of a publish that already
-      # happened.
-      - name: Tell the language bindings the new version is on npm
+      # The three steps below are each continue-on-error, because the release
+      # is the thing that matters here. A missed ping costs a receiver some
+      # currency -- each keeps its own refresh path as the backstop -- whereas
+      # a red release job invites a re-run of a publish that already happened.
+      # A miss is not silent, though: the step after them files an issue.
+
+      # The receivers fetch the release from the registry, so announcing it
+      # before the registry serves it would just make them fail, and the
+      # publish step returning no longer means that. npm now serves a release
+      # minutes after accepting it -- 4.9.0 about ten minutes after that step
+      # ended, 4.11.0 eighteen -- and on 4.11.0 r-maidr and py-maidr, which
+      # retry for fifteen minutes, both gave up before it appeared. So wait
+      # until it does: every 30 s for up to an hour, over three times the
+      # longest lag seen. Past that something upstream is wrong, and no one
+      # is sent after a version that is not there. The loop is a module so
+      # that test/scripts/waitForNpmVersion.test.ts can reach it (#694).
+      - name: Wait for npm to serve the release
+        id: registry
         if: steps.semantic-release.outputs.new_release == 'true'
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.DOWNSTREAM_DISPATCH_TOKEN }}
           VERSION: ${{ steps.semantic-release.outputs.version }}
         run: |
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "DOWNSTREAM_DISPATCH_TOKEN is not configured."
-            echo "The bindings will pick v${VERSION} up on their own schedules."
-            exit 0
-          fi
+          node scripts/ci/waitForNpmVersion.cjs maidr "${VERSION}"
 
-          # Wait for the registry to serve the release (see above): every 30 s
-          # for up to an hour, over three times the longest lag seen. Past
-          # that, something upstream is wrong, so notify no one rather than
-          # send every receiver after a version that is not there; each picks
-          # it up later on its own refresh path. The loop is a module so that
-          # test/scripts/waitForNpmVersion.test.ts can reach it (#694).
-          node scripts/ci/waitForNpmVersion.cjs maidr "${VERSION}" || exit 1
+      # The token comes from the maidr-release-dispatch GitHub App, owned by
+      # xability and installed on the three receivers only, with Contents:
+      # read and write, which a repository dispatch needs. A token lives an
+      # hour, and the wait above can take one, so it is minted after the wait
+      # rather than before. The app replaced a fine-grained personal token,
+      # which the University of Illinois enterprise caps at 366 days and which
+      # did not list maidr-skill when 4.11.0 went out; an app key does not
+      # expire. Its client ID and key are the DOWNSTREAM_APP_CLIENT_ID variable
+      # and DOWNSTREAM_APP_PRIVATE_KEY secret of this job's NPM_TOKEN
+      # environment. `client-id` is the input v3.1.0 added and the action's
+      # README uses; actionlint 1.7.12's bundled metadata predates it and
+      # reports it as unknown, which is that data being stale, not this step.
+      - name: Mint a token for the downstream repositories
+        id: dispatch-token
+        if: steps.registry.outcome == 'success'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.DOWNSTREAM_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DOWNSTREAM_APP_PRIVATE_KEY }}
+          owner: xability
+          repositories: r-maidr,py-maidr,maidr-skill
 
+      - name: Tell the language bindings the new version is on npm
+        id: notify
+        if: steps.dispatch-token.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.dispatch-token.outputs.token }}
+          VERSION: ${{ steps.semantic-release.outputs.version }}
+        run: |
           # jq builds the body so the version reaches JSON as data rather
           # than as text spliced into a quoted string.
           BODY=$(jq -n --arg version "$VERSION" \
             '{event_type: "maidr-released", client_payload: {version: $version}}')
 
-          # Each binding is notified independently. Looping with the whole run
+          # Each receiver is notified independently. Looping with the whole run
           # gated on the first call would let one repository being unreachable
           # decide whether the others ever hear about the release, which is
           # exactly the coupling this step exists to avoid.
-          missed=0
+          missed=()
+          reasons=()
           for repo in xability/r-maidr xability/py-maidr xability/maidr-skill; do
-            if printf '%s' "$BODY" | gh api "repos/$repo/dispatches" --input -; then
+            if out=$(printf '%s' "$BODY" | gh api "repos/$repo/dispatches" --input - 2>&1); then
               echo "Notified $repo of v${VERSION}."
             else
-              echo "Could not notify $repo of v${VERSION}."
-              missed=1
+              echo "Could not notify $repo of v${VERSION}: $out"
+              missed+=("$repo")
+              reasons+=("$repo: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-300)")
             fi
           done
 
-          # Reported as a step failure so a silently expired or under-scoped
-          # token is visible in the run, while continue-on-error keeps it from
-          # touching a release that has already happened.
-          exit "$missed"
+          # Which repositories missed out, and GitHub's reason for each, for
+          # the issue the next step files.
+          if [ "${#missed[@]}" -gt 0 ]; then
+            echo "missed=${missed[*]}" >> "$GITHUB_OUTPUT"
+            {
+              echo 'reasons<<REASONS'
+              printf '%s\n' "${reasons[@]}"
+              echo 'REASONS'
+            } >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      # A miss must not fail the release, but it must not pass unnoticed
+      # either, as 4.11.0's did behind a green run. So when any of the three
+      # steps above failed, file an issue, or comment on the one already open
+      # for this release; scripts/ci/releaseNotifyIssue.cjs has the wording.
+      # No continue-on-error here: if even the issue cannot be filed, a red
+      # run is the one signal left.
+      - name: Open an issue when the downstream repositories were not told
+        if: steps.registry.outcome == 'failure' || steps.dispatch-token.outcome == 'failure' || steps.notify.outcome == 'failure'
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.semantic-release.outputs.version }}
+          FAILURE: ${{ steps.registry.outcome == 'failure' && 'registry' || steps.dispatch-token.outcome == 'failure' && 'token' || 'dispatch' }}
+          MISSED: ${{ steps.notify.outputs.missed }}
+          REASONS: ${{ steps.notify.outputs.reasons }}
+        with:
+          script: |
+            const { notifyIssue } = require(`${process.env.GITHUB_WORKSPACE}/scripts/ci/releaseNotifyIssue.cjs`);
+            await notifyIssue({ github, context, core });
 
       - name: Upload npm logs on failure
         if: failure()
