@@ -112,22 +112,13 @@ jobs:
             exit 0
           fi
 
-          # Wait for the registry to serve the release (see above): every 30s
+          # Wait for the registry to serve the release (see above): every 30 s
           # for up to an hour, over three times the longest lag seen. Past
           # that, something upstream is wrong, so notify no one rather than
           # send every receiver after a version that is not there; each picks
-          # it up later on its own refresh path.
-          echo "Waiting for the registry to serve maidr@${VERSION}."
-          attempt=1
-          until curl -fsS -o /dev/null "https://registry.npmjs.org/maidr/${VERSION}"; do
-            if [ "$attempt" -ge 120 ]; then
-              echo "maidr@${VERSION} is still not on the registry after ${attempt} checks; notifying no one."
-              exit 1
-            fi
-            attempt=$((attempt + 1))
-            sleep 30
-          done
-          echo "maidr@${VERSION} is on the registry (check ${attempt})."
+          # it up later on its own refresh path. The loop is a module so that
+          # test/scripts/waitForNpmVersion.test.ts can reach it (#694).
+          node scripts/ci/waitForNpmVersion.cjs maidr "${VERSION}" || exit 1
 
           # jq builds the body so the version reaches JSON as data rather
           # than as text spliced into a quoted string.
