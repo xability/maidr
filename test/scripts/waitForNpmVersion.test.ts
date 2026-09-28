@@ -14,7 +14,7 @@ import { describe, expect, it } from '@jest/globals';
  *
  * `scripts/ci/waitForNpmVersion.cjs` is the wait. The registry and the clock
  * are stubbed, so the hour it can take passes at once. The last block checks
- * the other half: that the notify step still runs the wait, and runs it
+ * the other half: that the release workflow still runs the wait, and runs it
  * before the first ping, since every case above passes against a workflow
  * that no longer calls the module at all.
  *
