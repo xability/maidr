@@ -7,6 +7,7 @@ export const settings = {
   'settings.tabAudio': 'Audio',
   'settings.tabVisual': 'Visual',
   'settings.tabBraille': 'Braille & Tactile',
+  'settings.tabShortcuts': 'Keyboard Shortcuts',
   'settings.tabAi': 'AI',
   'settings.tabAbout': 'About',
   // Extends a tab's name rather than replacing it, so it leads with a space:

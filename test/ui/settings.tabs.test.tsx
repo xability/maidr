@@ -7,7 +7,7 @@
  *
  * The dialog used to render every setting in one scroll — roughly thirty rows
  * deep — so finding one meant paging past all the others. The rows are now
- * split across six tabs, which puts three things at risk that the flat list
+ * split across seven tabs, which puts three things at risk that the flat list
  * could not get wrong:
  *
  * - **Edits have to survive a tab switch.** A panel the reader has left is
@@ -15,7 +15,7 @@
  *   edit is no longer backed by a reachable field when Save is pressed from
  *   another tab. It has to be saved anyway.
  * - **The tablist has to be operable and named.** It is the only way to reach
- *   five of the six panels, by keyboard as much as by pointer.
+ *   six of the seven panels, by keyboard as much as by pointer.
  * - **A blocked Save has to stay explainable.** Save is marked unavailable
  *   while the custom instruction is too short — `aria-disabled`, so it keeps
  *   its tab stop — and that field is on a tab the reader may not be looking
@@ -50,6 +50,7 @@ type SettingsStub = Pick<
   | 'connectTactileDisplay'
   | 'disconnectTactileDisplay'
   | 'preloadTactileDisplay'
+  | 'shortcuts'
 >;
 
 /** The `ChatViewModel` surface `Settings` actually calls. */
@@ -60,6 +61,7 @@ const TAB_LABELS = [
   'Audio',
   'Visual',
   'Braille & Tactile',
+  'Keyboard Shortcuts',
   'AI',
   'About',
 ];
@@ -105,6 +107,7 @@ function renderSettings(
     })),
     disconnectTactileDisplay: jest.fn(),
     preloadTactileDisplay: jest.fn(),
+    shortcuts: jest.fn(() => []),
   };
   const chat: ChatStub = { updateWelcomeMessage: jest.fn() };
 
@@ -155,7 +158,7 @@ describe('settings tabs', () => {
       'aria-selected',
       'true',
     );
-    // One panel, not six hidden ones: the rows of the other five must not sit
+    // One panel, not seven hidden ones: the rows of the other six must not sit
     // in the accessibility tree waiting to be tabbed into.
     expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
     expect(screen.getByLabelText('Autoplay Duration')).toBeInTheDocument();

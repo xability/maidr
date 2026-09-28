@@ -79,6 +79,7 @@ export const keybinding = {
 
   // The help menu and the command palette themselves.
   'keybinding.helpTitle': 'Raccourcis clavier',
+  'keybinding.helpChangeInSettings': 'Pour modifier un raccourci, ouvrez les paramètres et choisissez l’onglet Raccourcis clavier.',
   'keybinding.helpCloseButton': 'Fermer',
   'keybinding.helpChangeButton': 'Modifier',
   'keybinding.helpChangeShortcutFor': 'Modifier le raccourci de {action}',

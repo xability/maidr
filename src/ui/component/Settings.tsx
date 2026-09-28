@@ -54,6 +54,7 @@ import {
   MAX_FREQUENCY_HZ,
   MIN_FREQUENCY_HZ,
 } from '@type/settings';
+import ShortcutSettings from '@ui/component/ShortcutSettings';
 import { visuallyHidden } from '@ui/visuallyHidden';
 import {
   clampBrailleLines,
@@ -143,6 +144,7 @@ const SETTINGS_TABS: readonly SettingsTab[] = [
   { id: 'audio', label: 'settings.tabAudio' },
   { id: 'visual', label: 'settings.tabVisual' },
   { id: 'braille', label: 'settings.tabBraille' },
+  { id: 'shortcuts', label: 'settings.tabShortcuts' },
   { id: 'ai', label: 'settings.tabAi' },
   { id: 'about', label: 'settings.tabAbout' },
 ];
@@ -168,7 +170,7 @@ interface SettingsTabPanelProps {
  * The rows of one settings tab.
  *
  * Mounted on first visit and kept from then on, rather than either mounting
- * all six up front or unmounting on every switch. Both halves matter:
+ * all seven up front or unmounting on every switch. Both halves matter:
  *
  * - Not mounting an unvisited panel is what keeps the API-key probes in the
  *   AI panel from reaching a provider for a reader who never opens it.
@@ -617,6 +619,9 @@ const Settings: React.FC = () => {
   // Counts refused saves rather than holding a boolean, so a second refusal
   // re-runs the effect below instead of looking like the first one.
   const [refusedSaves, setRefusedSaves] = useState(0);
+  // While the Keyboard Shortcuts tab waits for a new shortcut, Escape means
+  // "keep the old one" there, not "close and discard every edit".
+  const [recordingShortcut, setRecordingShortcut] = useState(false);
   // The bundle source and the browser cannot change while the dialog is open,
   // so the DOM scan behind this runs once per mount rather than per render.
   const diagnostics = useMemo(() => collectDiagnostics(), []);
@@ -941,6 +946,7 @@ const Settings: React.FC = () => {
       aria-labelledby={titleId}
       open={true}
       onClose={handleDialogClose}
+      disableEscapeKeyDown={recordingShortcut}
       maxWidth="sm"
       fullWidth
       disablePortal
@@ -983,7 +989,7 @@ const Settings: React.FC = () => {
           },
           // Selection is otherwise text colour plus the indicator's
           // background, and a forced-colours mode overrides both — leaving
-          // six tabs that look alike. A system colour the mode is told not to
+          // seven tabs that look alike. A system colour the mode is told not to
           // override keeps the indicator visible.
           '@media (forced-colors: active)': {
             '& .MuiTabs-indicator': {
@@ -1763,6 +1769,19 @@ const Settings: React.FC = () => {
               )}
             />
           </Grid>
+        </SettingsTabPanel>
+
+        <SettingsTabPanel
+          tabId="shortcuts"
+          activeTabId={activeTab}
+          visited={visitedTabs.has('shortcuts')}
+          dialogId={id}
+        >
+          <ShortcutSettings
+            overrides={generalSettings.keybindings}
+            onOverridesChange={keybindings => handleGeneralChange('keybindings', { ...keybindings })}
+            onRecordingChange={setRecordingShortcut}
+          />
         </SettingsTabPanel>
 
         <SettingsTabPanel

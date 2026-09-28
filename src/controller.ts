@@ -224,7 +224,7 @@ export class Controller implements Disposable {
     this.descriptionViewModel = new DescriptionViewModel(store, this.descriptionService);
     this.displayViewModel = new DisplayViewModel(store, this.displayService, this.audioService);
     this.helpViewModel = new HelpViewModel(store, this.helpService);
-    this.settingsViewModel = new SettingsViewModel(store, this.settingsService);
+    this.settingsViewModel = new SettingsViewModel(store, this.settingsService, this.helpService);
 
     this.rotorNavigationViewModel = new RotorNavigationViewModel(
       store,
