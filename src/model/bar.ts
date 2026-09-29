@@ -1,13 +1,16 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation, TraceType } from '@type/grammar';
+import { isXValue } from '@type/navigation';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { moveToXValueInPoints } from '@util/navigation';
 import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -211,6 +214,72 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       layer.selectors as string | string[] | (string | null)[][] | undefined,
     );
     this.movable = new MovableGrid<T>(this.points);
+  }
+
+  /**
+   * The category the reader is on, which a layer switch may carry instead of
+   * {@link getCurrentXValue}, the magnitude; `Subplot.carriedXValue` says
+   * when.
+   *
+   * A horizontal bar's position reads two ways. Its `x` is its magnitude,
+   * which is also the `x` of points or a line drawn at the bar ends: those
+   * keep the value axis in `x`, as every layer outside the bar family does.
+   * Its `y` is its category, which is where a line through a horizontal dot
+   * plot's levels, read as its vertical transpose, keeps it, and where an
+   * error bar or a dumbbell keeps it in either orientation. The extrema
+   * targets read the category from `y` too.
+   *
+   * @returns The category of a horizontal bar, or null for a vertical one,
+   *   whose `x` already is its category, and off the grid
+   */
+  public getAlternateXValue(): XValue | null {
+    if (this.orientation === Orientation.VERTICAL) {
+      return null;
+    }
+    const category = this.points[this.row]?.[this.col]?.y;
+    return isXValue(category) ? category : null;
+  }
+
+  /**
+   * Whether a bar sits at exactly this X: its magnitude, or for a horizontal
+   * bar its category too, the two a layer switch can carry onto it.
+   *
+   * @param xValue - The X a layer switch would carry
+   * @returns True when {@link moveToXValue} would find it exactly
+   */
+  public override hasXValue(xValue: XValue): boolean {
+    return super.hasXValue(xValue) || this.hasCategory(xValue);
+  }
+
+  /**
+   * Moves to the X a layer switch carried over. On a horizontal bar that is a
+   * category when a bar has that category and none has that magnitude, which
+   * is searched on the reader's own row first; anything else is matched
+   * against the magnitude, as before, nearest value included.
+   *
+   * @param xValue - The carried X
+   * @returns True when the trace moved
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    if (!this.hasCategory(xValue) || super.hasXValue(xValue)) {
+      return super.moveToXValue(xValue);
+    }
+    // Searched as the vertical bar it is the transpose of, category in `x`.
+    const transposed: BarPoint[][] = this.points.map(row =>
+      row.map(point => ({ x: point.y, y: point.x })),
+    );
+    return moveToXValueInPoints(transposed, xValue, this.moveToIndex.bind(this), this.row);
+  }
+
+  /**
+   * Whether a horizontal bar has exactly this category.
+   *
+   * @param xValue - The X a layer switch would carry
+   * @returns True for a horizontal bar with that category
+   */
+  private hasCategory(xValue: XValue): boolean {
+    return this.orientation === Orientation.HORIZONTAL
+      && this.points.some(row => row.some(point => point.y === xValue));
   }
 
   /**
