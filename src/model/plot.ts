@@ -717,9 +717,10 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    *
    * @param from - The trace being left
    * @param to - The trace being entered
-   * @param fromXValue - `from`'s x value, read before the move
+   * @param xValue - `from`'s x value, read before the move
    */
-  private static carryPosition(from: Trace, to: Trace, fromXValue: XValue | null): void {
+  private static carryPosition(from: Trace, to: Trace, xValue: XValue | null): void {
+    const fromXValue = Subplot.carriedXValue(from, to, xValue);
     let positioned = false;
 
     // Two sectioned traces (the sub-groups of a box plot): keep the mark and
@@ -750,6 +751,34 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
     if (!positioned) {
       to.moveToXValue(fromXValue);
     }
+  }
+
+  /**
+   * The X to carry from the layer being left: its own, or the second X it
+   * offers (`getAlternateXValue`) when the layer entered holds that exactly
+   * and either reads its own position the same two ways or does not hold
+   * the first.
+   *
+   * A horizontal bar's X is its magnitude, which points or a line drawn at
+   * the bar ends hold, and its alternate its category, which a line through
+   * the levels of a horizontal dot plot or the bar's error bars hold. Either
+   * partner is common, and a switch carrying one value to the other shape
+   * found no match and put the reader on the first mark. Two horizontal bar
+   * layers are matched by category: their magnitudes measure different
+   * things, and one can equal another's by chance.
+   *
+   * @param from - The trace being left
+   * @param to - The trace being entered
+   * @param xValue - `from`'s x value, read before the move
+   * @returns The X to carry
+   */
+  private static carriedXValue(from: Trace, to: Trace, xValue: XValue | null): XValue | null {
+    const alternate = from.getAlternateXValue?.() ?? null;
+    if (alternate === null || typeof to.hasXValue !== 'function' || !to.hasXValue(alternate)) {
+      return xValue;
+    }
+    const readsTwoWays = (to.getAlternateXValue?.() ?? null) !== null;
+    return readsTwoWays || xValue === null || !to.hasXValue(xValue) ? alternate : xValue;
   }
 
   /**
@@ -969,6 +998,24 @@ export interface Trace extends Movable, Observable<TraceState>, Disposable {
    * @returns True if the position was found and set, false otherwise
    */
   moveToXValue: (xValue: any) => boolean;
+
+  /**
+   * A second X the reader's position reads as, which a layer switch may carry
+   * instead of {@link Trace.getCurrentXValue}; `Subplot.carriedXValue` says
+   * when. Optional; a horizontal bar offers its category here, its magnitude
+   * being its X.
+   * @returns The other X, or null when the position reads one way
+   */
+  getAlternateXValue?: () => XValue | null;
+
+  /**
+   * Whether a mark sits at exactly this X, as {@link Trace.moveToXValue}
+   * finds one before it falls back to the nearest. Optional; asked only to
+   * choose between the two X values of {@link Trace.getAlternateXValue}.
+   * @param xValue The X a layer switch would carry
+   * @returns True when the trace holds `xValue` exactly
+   */
+  hasXValue?: (xValue: XValue) => boolean;
 
   /**
    * Get the current Y value from the trace.

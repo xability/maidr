@@ -1,20 +1,22 @@
-import type { BarPoint, ErrorBarPoint, HistogramPoint, LinePoint, Maidr, MaidrLayer, SegmentedPoint } from '@type/grammar';
+import type { BarPoint, ErrorBarPoint, HistogramPoint, LinePoint, Maidr, MaidrLayer, ScatterPoint, SegmentedPoint } from '@type/grammar';
 import type { TextState, TraceState } from '@type/state';
 import { describe, expect, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { Orientation, TraceType } from '@type/grammar';
 
 /**
- * Switching layers from or to a horizontal bar-family layer carries the
- * category the reader is on, as it does for a vertical one.
+ * Switching layers from or to a horizontal bar-family layer keeps the reader
+ * on the mark they were on, whichever way the other layer reads that mark.
  *
- * "The reader's X" across layers is the position along the category axis: a
- * box plot carries its group, and an error bar or a dumbbell keeps the
- * category in `x` in either orientation. A bar keeps it in `x` only when it is
- * vertical. A horizontal bar holds its magnitude in `x` and its category in
- * `y`, so the generic fallback carried the magnitude. A switch from the dots
- * of a horizontal dot plot to the line through them then searched the line's
- * levels for a number, found none, and put the reader on the first level.
+ * A horizontal bar's position reads two ways: its magnitude, in `x`, and its
+ * category, in `y`. Points or a line drawn at the bar ends keep the value
+ * axis in `x`, as every layer outside the bar family does, so they hold the
+ * magnitude. A line through the levels of a horizontal dot plot, read as its
+ * vertical transpose, and the bar's own error bars hold the category. A
+ * switch carried only the magnitude, so from the dots of a horizontal dot plot
+ * it searched the line's levels for a number, found none, and put the reader
+ * on the first level; carrying only the category would do the same to the
+ * points at the bar ends. The switch carries whichever the other layer holds.
  */
 
 const LEVELS = ['a', 'b', 'c', 'd', 'e'];
@@ -60,7 +62,7 @@ function horizontalDots(type: TraceType = TraceType.DOT): MaidrLayer {
   return layer('dots', type, points, Orientation.HORIZONTAL);
 }
 
-describe('switching layers from a horizontal bar-family layer', () => {
+describe('switching between a horizontal bar-family layer and one holding its category', () => {
   test.each([TraceType.DOT, TraceType.BAR, TraceType.LOLLIPOP])(
     'keeps the level between the marks and the line through them (%s)',
     (type) => {
@@ -83,15 +85,14 @@ describe('switching layers from a horizontal bar-family layer', () => {
     },
   );
 
-  test('reports the category, not the magnitude, as the X', () => {
-    const figure = figureOf(horizontalDots());
-    const trace = figure.activeSubplot.traces[0][0];
+  test('keeps the level through the layer tabs of the chart description', () => {
+    const figure = figureOf(horizontalDots(), lineThroughLevels());
+    const subplot = figure.activeSubplot;
+    subplot.traces[0][0].moveToIndex(0, 2);
 
-    trace.moveToIndex(0, 2);
+    const line = subplot.selectLayer(1);
 
-    expect(trace.getCurrentXValue()).toBe('c');
-    expect(trace.moveToXValue('e')).toBe(true);
-    expect(textOf(trace.state)).toMatchObject({ main: { value: 'e' }, cross: { value: 30 } });
+    expect(textOf(line!.state)).toMatchObject({ main: { value: 'c' }, cross: { value: 40 } });
   });
 
   test('keeps the category between a horizontal bar and its error bars', () => {
@@ -118,30 +119,36 @@ describe('switching layers from a horizontal bar-family layer', () => {
     expect(textOf(back!.state)).toMatchObject({ main: { value: 'c' }, cross: { value: 3 } });
   });
 
-  test('keeps the category, and the series, of a horizontal stacked bar', () => {
-    const stacked: SegmentedPoint[][] = [
-      [{ x: 1, y: 'a', z: 's1' }, { x: 2, y: 'b', z: 's1' }, { x: 3, y: 'c', z: 's1' }],
-      [{ x: 4, y: 'a', z: 's2' }, { x: 5, y: 'b', z: 's2' }, { x: 6, y: 'c', z: 's2' }],
-    ];
-    const figure = figureOf(
-      layer('stacked', TraceType.STACKED, stacked, Orientation.HORIZONTAL),
-      layer('line', TraceType.LINE, [[{ x: 'a', y: 5 }, { x: 'b', y: 7 }, { x: 'c', y: 9 }]]),
-    );
-    const subplot = figure.activeSubplot;
-    const bars = subplot.traces[0][0];
-    bars.moveToIndex(1, 1);
-    expect(bars.getCurrentXValue()).toBe('b');
+  test.each([TraceType.STACKED, TraceType.DODGED, TraceType.NORMALIZED, TraceType.DIVERGING])(
+    'keeps the category, and the series, of a horizontal segmented bar (%s)',
+    (type) => {
+      const left = type === TraceType.DIVERGING ? -1 : 1;
+      const segments: SegmentedPoint[][] = [
+        [{ x: left, y: 'a', z: 's1' }, { x: 2 * left, y: 'b', z: 's1' }, { x: 3 * left, y: 'c', z: 's1' }],
+        [{ x: 4, y: 'a', z: 's2' }, { x: 5, y: 'b', z: 's2' }, { x: 6, y: 'c', z: 's2' }],
+      ];
+      const figure = figureOf(
+        layer('segments', type, segments, Orientation.HORIZONTAL),
+        layer('line', TraceType.LINE, [[{ x: 'a', y: 5 }, { x: 'b', y: 7 }, { x: 'c', y: 9 }]]),
+      );
+      const subplot = figure.activeSubplot;
+      const bars = subplot.traces[0][0];
+      bars.moveToIndex(1, 1);
+      expect(bars.getAlternateXValue?.()).toBe('b');
 
-    const line = subplot.switchLayer('UPWARD');
-    expect(textOf(line!.state)).toMatchObject({ main: { value: 'b' }, cross: { value: 7 } });
+      const line = subplot.switchLayer('UPWARD');
+      expect(textOf(line!.state)).toMatchObject({ main: { value: 'b' }, cross: { value: 7 } });
 
-    line!.moveToIndex(0, 2);
-    const back = subplot.switchLayer('DOWNWARD');
+      line!.moveToIndex(0, 2);
+      const back = subplot.switchLayer('DOWNWARD');
 
-    expect(textOf(back!.state)).toMatchObject({ main: { value: 'c' }, cross: { value: 6 } });
-  });
+      expect(back).toBe(bars);
+      expect(back!.getAlternateXValue?.()).toBe('c');
+      expect(back!.row).toBe(1);
+    },
+  );
 
-  test('keeps the bin of a horizontal histogram', () => {
+  test('keeps the bin of a horizontal histogram, both ways', () => {
     const bins: HistogramPoint[] = [
       { x: 3, y: 5, xMin: 0, xMax: 3, yMin: 0, yMax: 10 },
       { x: 8, y: 15, xMin: 0, xMax: 8, yMin: 10, yMax: 20 },
@@ -152,16 +159,104 @@ describe('switching layers from a horizontal bar-family layer', () => {
       layer('density', TraceType.LINE, [[{ x: 5, y: 0.1 }, { x: 15, y: 0.3 }, { x: 25, y: 0.2 }]]),
     );
     const subplot = figure.activeSubplot;
-    subplot.traces[0][0].moveToIndex(0, 1);
+    const histogram = subplot.traces[0][0];
+    histogram.moveToIndex(0, 1);
 
     const density = subplot.switchLayer('UPWARD');
 
     expect(density!.getCurrentXValue()).toBe(15);
+
+    density!.moveToIndex(0, 2);
+    const back = subplot.switchLayer('DOWNWARD');
+
+    expect(back).toBe(histogram);
+    expect(back!.col).toBe(2);
+  });
+
+  test('keeps the category between two horizontal bar-family layers', () => {
+    const bars: BarPoint[] = [{ x: 3, y: 'a' }, { x: 5, y: 'b' }, { x: 8, y: 'c' }];
+    const dots: BarPoint[] = [{ x: 8, y: 'a' }, { x: 2, y: 'b' }, { x: 4, y: 'c' }];
+    const figure = figureOf(
+      layer('bars', TraceType.BAR, bars, Orientation.HORIZONTAL),
+      layer('dots', TraceType.DOT, dots, Orientation.HORIZONTAL),
+    );
+    const subplot = figure.activeSubplot;
+    subplot.traces[0][0].moveToIndex(0, 2);
+
+    const other = subplot.switchLayer('UPWARD');
+
+    // Bar c's magnitude, 8, is dot a's: the category decides.
+    expect(textOf(other!.state)).toMatchObject({ main: { value: 'c' }, cross: { value: 4 } });
+
+    other!.moveToIndex(0, 1);
+    const back = subplot.switchLayer('DOWNWARD');
+
+    expect(textOf(back!.state)).toMatchObject({ main: { value: 'b' }, cross: { value: 5 } });
   });
 });
 
-describe('switching layers from a vertical bar-family layer', () => {
-  test('still carries the category it holds in x', () => {
+describe('switching between a horizontal bar-family layer and marks drawn at its ends', () => {
+  // The value axis in `x`, as ggplot2's geom_col() + geom_point() or
+  // geom_line(orientation = "y"), Base R's barplot(horiz = TRUE) + points()
+  // or lines(), and matplotlib's barh() + scatter() or plot() emit them.
+  const points: ScatterPoint[] = LEVELS.map((level, i) => ({ x: VALUES[i], y: i + 1, yLabel: level }));
+  const line: LinePoint[] = LEVELS.map((_, i) => ({ x: VALUES[i], y: i + 1 }));
+
+  test.each([
+    ['points', layer('marks', TraceType.SCATTER, points)],
+    ['a line', layer('marks', TraceType.LINE, [line])],
+  ])('keeps the bar between it and %s at the bar ends', (_name, overlay) => {
+    const figure = figureOf(layer('bars', TraceType.BAR, LEVELS.map((y, i) => ({ x: VALUES[i], y })), Orientation.HORIZONTAL), overlay);
+    const subplot = figure.activeSubplot;
+    const bars = subplot.traces[0][0];
+    bars.moveToIndex(0, 2);
+
+    const marks = subplot.switchLayer('UPWARD');
+
+    expect(marks!.getCurrentXValue()).toBe(40);
+
+    marks!.moveToXValue(20);
+    const back = subplot.switchLayer('DOWNWARD');
+
+    expect(back).toBe(bars);
+    expect(textOf(back!.state)).toMatchObject({ main: { value: 'd' }, cross: { value: 20 } });
+  });
+
+  test('keeps the dot between a dot chart and the line joining its dots', () => {
+    // Base R's dotchart(v) + lines(v, seq_along(v)), as r-maidr reads it:
+    // the line's x is the value, written as text.
+    const joined: LinePoint[] = LEVELS.map((_, i) => ({ x: String(VALUES[i]), y: i + 1 }));
+    const figure = figureOf(horizontalDots(), layer('line', TraceType.LINE, [joined]));
+    const subplot = figure.activeSubplot;
+    subplot.traces[0][0].moveToIndex(0, 2);
+
+    const line = subplot.switchLayer('UPWARD');
+
+    expect(textOf(line!.state)).toMatchObject({ cross: { value: 3 } });
+
+    line!.moveToIndex(0, 3);
+    const back = subplot.switchLayer('DOWNWARD');
+
+    expect(textOf(back!.state)).toMatchObject({ main: { value: 'd' }, cross: { value: 20 } });
+  });
+});
+
+describe('what a bar-family layer offers a layer switch', () => {
+  test('a horizontal one keeps its magnitude as its X and offers its category', () => {
+    const trace = figureOf(horizontalDots()).activeSubplot.traces[0][0];
+
+    trace.moveToIndex(0, 2);
+
+    expect(trace.getCurrentXValue()).toBe(40);
+    expect(trace.getAlternateXValue?.()).toBe('c');
+    expect(trace.hasXValue?.('c')).toBe(true);
+    expect(trace.hasXValue?.(40)).toBe(true);
+    expect(trace.hasXValue?.(41)).toBe(false);
+    expect(trace.moveToXValue('e')).toBe(true);
+    expect(textOf(trace.state)).toMatchObject({ main: { value: 'e' }, cross: { value: 30 } });
+  });
+
+  test('a vertical one offers nothing more than the category it holds in x', () => {
     const bars: BarPoint[] = LEVELS.map((x, i) => ({ x, y: VALUES[i] }));
     const figure = figureOf(layer('bars', TraceType.BAR, bars), lineThroughLevels());
     const subplot = figure.activeSubplot;
@@ -171,6 +266,7 @@ describe('switching layers from a vertical bar-family layer', () => {
     const line = subplot.switchLayer('UPWARD');
 
     expect(first.getCurrentXValue()).toBe('c');
+    expect(first.getAlternateXValue?.()).toBeNull();
     expect(textOf(line!.state)).toMatchObject({ main: { value: 'c' }, cross: { value: 40 } });
   });
 });

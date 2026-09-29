@@ -329,6 +329,17 @@ export class ErrorBarTrace extends AbstractTrace {
     return index !== -1 && this.moveToIndex(this.row, index);
   }
 
+  /**
+   * Whether the current group has exactly this category, the one
+   * {@link moveToXValue} searches.
+   *
+   * @param xValue - The X a layer switch would carry
+   * @returns True when the group has a category at `xValue`
+   */
+  public override hasXValue(xValue: XValue): boolean {
+    return (this.groups[this.groupOf(this.row)] ?? []).some(point => point.x === xValue);
+  }
+
   public override moveToNextCompareValue(
     direction: 'left' | 'right',
     type: 'lower' | 'higher',

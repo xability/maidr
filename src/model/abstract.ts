@@ -1245,6 +1245,31 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
   }
 
   /**
+   * Whether a mark of this trace sits at exactly this X, as
+   * {@link moveToXValue} finds one before it falls back to the nearest.
+   *
+   * A layer switch asks this to choose between the two X values a position
+   * can offer (see `Trace.getAlternateXValue`). Reads the `x` of each point;
+   * a trace that keeps its X some other way answers false unless it says
+   * otherwise, and the switch then carries what it always carried.
+   *
+   * @param xValue - The X a layer switch would carry
+   * @returns True when some point's `x` is exactly `xValue`
+   */
+  public hasXValue(xValue: XValue): boolean {
+    if (!this.hasPointsArray()) {
+      return false;
+    }
+    const points = this.getPointsArray();
+    if (!this.isValidPointsArray(points)) {
+      return false;
+    }
+    const isAt = (point: unknown): boolean =>
+      typeof point === 'object' && point !== null && (point as { x?: unknown }).x === xValue;
+    return points.some(row => (Array.isArray(row) ? row.some(isAt) : isAt(row)));
+  }
+
+  /**
    * Type guard to check if trace has points array.
    * @returns True if points array exists
    */
