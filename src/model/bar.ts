@@ -1,13 +1,16 @@
 import type { ExtremaTarget } from '@type/extrema';
 import type { BarPoint, MaidrLayer } from '@type/grammar';
 import type { Movable } from '@type/movable';
+import type { XValue } from '@type/navigation';
 import type { AudioState, BrailleState, DescriptionState, TextState } from '@type/state';
 import type { MessageKey } from '@util/i18n';
 import type { Dimension, NearestPoint } from './abstract';
 import { Orientation, TraceType } from '@type/grammar';
+import { isXValue } from '@type/navigation';
 import { defaultFormat } from '@util/format';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
+import { moveToXValueInPoints } from '@util/navigation';
 import { joinSelectorList, legacyListProblem, warnSelectors } from '@util/selectors';
 import { Svg } from '@util/svg';
 import { AbstractTrace } from './abstract';
@@ -211,6 +214,47 @@ export abstract class AbstractBarPlot<T extends BarPoint> extends AbstractTrace 
       layer.selectors as string | string[] | (string | null)[][] | undefined,
     );
     this.movable = new MovableGrid<T>(this.points);
+  }
+
+  /**
+   * The category the reader is on, as a layer switch carries it.
+   *
+   * What a switch carries as the reader's X is their place along the category
+   * axis: a box plot carries its group, and an error bar or a dumbbell keeps
+   * the category in `x` in either orientation. A bar keeps it in `x` only when
+   * it is vertical. A horizontal bar holds its magnitude in `x` and its
+   * category in `y`, so the generic reading carried the magnitude -- and a
+   * switch from the dots of a horizontal dot plot to the line through them
+   * searched the line's levels for a number, found none, and put the reader
+   * on the first level. The extrema targets read the category the same way.
+   *
+   * @returns The category, or null off the grid
+   */
+  public override getCurrentXValue(): XValue | null {
+    if (this.orientation === Orientation.VERTICAL) {
+      return super.getCurrentXValue();
+    }
+    const category = this.points[this.row]?.[this.col]?.y;
+    return isXValue(category) ? category : null;
+  }
+
+  /**
+   * Moves to the category a layer switch carried over, matched against the
+   * field {@link getCurrentXValue} reads it from, on the reader's own row
+   * first.
+   *
+   * @param xValue - The carried category
+   * @returns True when the trace moved
+   */
+  public override moveToXValue(xValue: XValue): boolean {
+    if (this.orientation === Orientation.VERTICAL) {
+      return super.moveToXValue(xValue);
+    }
+    // Searched as the vertical bar it is the transpose of, category in `x`.
+    const transposed: BarPoint[][] = this.points.map(row =>
+      row.map(point => ({ x: point.y, y: point.x })),
+    );
+    return moveToXValueInPoints(transposed, xValue, this.moveToIndex.bind(this), this.row);
   }
 
   /**
