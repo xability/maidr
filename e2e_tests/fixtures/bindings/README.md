@@ -18,7 +18,10 @@ py-maidr version wrote the page.
   `domMapping.order` on a segmented layer drawn as `<rect>`. Every py-maidr up
   to 1.24 still emits the list for a scatter. These pin the compatibility
   described under "Lists written for maidr.js before 4.0" in `docs/SCHEMA.md`.
-- **The rest** are what the bindings emit today.
+- **The rest** are what the bindings emit today. The r-maidr ones come from
+  the CRAN release of 0.5.0, which exports its SVG with svglite rather than
+  gridSVG but writes the same element ids; the legacy r-maidr pages are
+  gridSVG exports, so both are read here.
 
 ## Where each came from
 
@@ -30,11 +33,11 @@ py-maidr version wrote the page.
 | `r-legacy-base-stacked`          | r-maidr before xability/r-maidr#317  | `barplot(matrix)`                             |
 | `py-legacy-seaborn-scatter`      | py-maidr 1.24.0                      | `sns.scatterplot()`                           |
 | `py-legacy-matplotlib-eventplot` | py-maidr 1.24.0                      | `ax.eventplot()`                              |
-| `r-ggplot2-dodged`               | r-maidr after xability/r-maidr#317   | `geom_col(position = "dodge")`                |
-| `r-ggplot2-stacked`              | r-maidr after xability/r-maidr#317   | `geom_col(position = "stack")`                |
-| `r-base-dodged`                  | r-maidr after xability/r-maidr#317   | `barplot(matrix, beside = TRUE)`              |
-| `r-ggplot2-area`                 | r-maidr after xability/r-maidr#317   | `geom_area()`, a gridSVG `<polygon>` (#1273)  |
-| `r-ggplot2-heat`                 | r-maidr 0.5.0                        | `geom_tile()`                                 |
+| `r-ggplot2-dodged`               | r-maidr 0.5.0 (CRAN)                 | `geom_col(position = "dodge")`                |
+| `r-ggplot2-stacked`              | r-maidr 0.5.0 (CRAN)                 | `geom_col(position = "stack")`                |
+| `r-base-dodged`                  | r-maidr 0.5.0 (CRAN)                 | `barplot(matrix, beside = TRUE)`              |
+| `r-ggplot2-area`                 | r-maidr 0.5.0 (CRAN)                 | `geom_area()`, a `<polygon>` (#1273)          |
+| `r-ggplot2-heat`                 | r-maidr 0.5.0 (CRAN)                 | `geom_tile()`                                 |
 | `py-seaborn-dodged`              | py-maidr after xability/py-maidr#807 | `sns.barplot(hue=)`                           |
 | `py-matplotlib-line`             | py-maidr after xability/py-maidr#807 | `ax.plot()`                                   |
 | `py-seaborn-heat`                | py-maidr after xability/py-maidr#807 | `sns.heatmap()`                               |

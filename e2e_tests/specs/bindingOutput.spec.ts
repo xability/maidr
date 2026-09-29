@@ -6,8 +6,8 @@ import { BindingOutputPage } from '../page-objects/plots/bindingOutput-page';
  * What r-maidr and py-maidr readers get from this build.
  *
  * Most pages MAIDR reads are not written in this repository. r-maidr and
- * py-maidr each emit their own payloads against their own renderers (gridSVG,
- * matplotlib), and py-maidr loads the latest maidr.js by default -- so a
+ * py-maidr each emit their own payloads against their own renderers (svglite,
+ * formerly gridSVG, and matplotlib), and py-maidr loads the latest maidr.js by default -- so a
  * release reaches every installed copy of it the day it is published. The
  * 4.x changes to what a layer reads from `selectors` (#750, #991, #1135) were
  * each checked against every producer in this tree, and between them took the
