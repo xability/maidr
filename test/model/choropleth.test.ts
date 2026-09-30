@@ -335,6 +335,34 @@ describe('the description answers what a ranked list cannot', () => {
 
     expect(stat('Largest cluster of high regions', scattered)).toBeUndefined();
   });
+
+  test('a region without a value does not move the high cut', () => {
+    // `a - b` is NaN against the blank region, and a sort reads NaN as a
+    // tie, so the values came back only partly sorted and the top-fifth cut
+    // landed wherever the blank left it -- here on 7, pulling V7 into the
+    // run. Over the nine measured values the cut is 8.
+    //
+    // The regions are a chain in value order, so whichever values clear the
+    // cut form one run and the run's length is where the cut fell.
+    const values = [5, 9, Number.NaN, 1, 8, 2, 7, 3, 6, 4];
+    const name = (value: number): string => Number.isNaN(value) ? 'Blank' : `V${value}`;
+    const chain = [1, 2, 3, 4, 5, 6, 7, 8, 9, Number.NaN];
+    const gappy: ChoroplethPoint[] = values.map((value, i) => {
+      const at = chain.findIndex(one => Object.is(one, value));
+      return {
+        x: name(value),
+        y: value,
+        lat: i + 1,
+        lon: 1,
+        neighbors: [chain[at - 1], chain[at + 1]]
+          .filter(one => one !== undefined)
+          .map(name),
+      };
+    });
+
+    expect(String(stat('Largest cluster of high regions', gappy)))
+      .toMatch(/^2 regions, /);
+  });
 });
 
 describe('the modalities read the whole map on one scale', () => {
