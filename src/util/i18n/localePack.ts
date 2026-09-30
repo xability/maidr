@@ -43,6 +43,39 @@ export function resolveLocalePackUrl(locale: Locale): string | null {
 const inFlight = new Map<Locale, Promise<boolean>>();
 
 /**
+ * Scripts known to have fired `load` or `error` already. A script's element
+ * does not say whether it has settled, and listening to it afterwards waits
+ * for events that will not come again, so every settle is noted as it
+ * happens, in the capture phase, where non-bubbling events still pass.
+ */
+const finished = new WeakSet<EventTarget>();
+/** Scripts already on the page when this module ran, before it could listen. */
+const preexisting = new WeakSet<HTMLScriptElement>();
+if (typeof document !== 'undefined') {
+  for (const script of document.querySelectorAll<HTMLScriptElement>('script[src]')) {
+    preexisting.add(script);
+  }
+  const note = (event: Event): void => {
+    if (event.target) {
+      finished.add(event.target);
+    }
+  };
+  document.addEventListener('load', note, true);
+  document.addEventListener('error', note, true);
+}
+
+/**
+ * Whether a script has already loaded or failed. One seen settling is; one
+ * that was on the page before this module is too once the document has
+ * finished loading, since the load event waits for every such script.
+ * @param script - The script element
+ * @returns True when its `load` or `error` has already fired
+ */
+function hasSettled(script: HTMLScriptElement): boolean {
+  return finished.has(script) || (preexisting.has(script) && document.readyState === 'complete');
+}
+
+/**
  * The script for this URL already on the page, from the author or from an
  * earlier call, so it is never added twice.
  * @param url - The pack's absolute URL
@@ -70,6 +103,11 @@ function alreadyOnPage(url: string): HTMLScriptElement | null {
  */
 function settled(script: HTMLScriptElement, locale: Locale): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
+    // A tag from before this module may have settled unseen; the page's
+    // load event is the latest it can settle, so stop waiting there.
+    if (preexisting.has(script)) {
+      window.addEventListener('load', () => resolve(isLocaleLoaded(locale)), { once: true });
+    }
     script.addEventListener('load', () => resolve(isLocaleLoaded(locale)), { once: true });
     script.addEventListener('error', () => {
       console.warn(`[maidr] Could not load the locale pack at ${script.src}; announcements stay in English.`);
@@ -103,6 +141,11 @@ export function ensureLocalePack(locale: Locale): Promise<boolean> {
     return Promise.resolve(false);
   }
   let script = alreadyOnPage(url);
+  // A tag that has already settled without registering the locale (it
+  // failed, or served something else) will fire nothing more: fetch afresh.
+  if (script && hasSettled(script)) {
+    script = null;
+  }
   const added = !script;
   if (!script) {
     script = document.createElement('script');

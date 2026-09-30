@@ -108,6 +108,23 @@ describe('locale pack loading', () => {
     await expect(attempt).resolves.toBe(true);
   });
 
+  it('should fetch afresh when the author\'s pack tag already failed', async () => {
+    loadedFrom(CDN);
+    const own = document.createElement('script');
+    own.src = `${CDN}locale-ja.js`;
+    document.head.appendChild(own);
+    own.dispatchEvent(new Event('error'));
+
+    const attempt = ensureLocalePack('ja');
+    const scripts = packScripts();
+    expect(scripts).toHaveLength(2);
+    const fresh = scripts.find(script => script !== own)!;
+    registerLocale('ja', en);
+    fresh.dispatchEvent(new Event('load'));
+
+    await expect(attempt).resolves.toBe(true);
+  });
+
   it('should warn once and stay English when the bundle location is unknown', async () => {
     await expect(ensureLocalePack('it')).resolves.toBe(false);
 
