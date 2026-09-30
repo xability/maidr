@@ -232,8 +232,9 @@ export class CommandPaletteViewModel extends AbstractViewModel<CommandPaletteSta
       }
 
       // If no option is selected, start from the last option
-      const currentIndex = this.state.selectedIndex >= 0 ? this.state.selectedIndex : filtered.length - 1;
-      const newIndex = Math.max(0, currentIndex - 1);
+      const newIndex = this.state.selectedIndex >= 0
+        ? Math.max(0, this.state.selectedIndex - 1)
+        : filtered.length - 1;
       this.store.dispatch(updateSelectedIndex(newIndex));
     }
   }
