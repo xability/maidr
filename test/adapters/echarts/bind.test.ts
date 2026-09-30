@@ -317,4 +317,20 @@ describe('bindAllECharts', () => {
 
     expect(unbound).toEqual([tile().firstElementChild]);
   });
+
+  it('does not bind again in a frame queued before it was stopped', async () => {
+    const charts = new Map<HTMLElement, EChartsBindable>();
+    tile().setAttribute('_echarts_instance_', 'ec_1');
+    charts.set(tile(), fakeChart(tile(), [1]));
+    const stop = bindAllECharts(library(charts));
+
+    // A mutation queues the next frame's scan; the host stops before it runs.
+    document.body.appendChild(document.createElement('span'));
+    await Promise.resolve();
+    stop();
+    await frame();
+
+    expect(bound).toHaveLength(1);
+    expect(tile().firstElementChild?.hasAttribute('maidr-data')).toBe(false);
+  });
 });
