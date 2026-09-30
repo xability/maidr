@@ -1,4 +1,6 @@
+import type { NavigationSnapshot } from '@model/context';
 import type { AppendedPointInfo } from '@service/liveData';
+import type { TextMode } from '@service/text';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
 import type { Maidr, NavigateCallback, NavigationTarget } from '@type/grammar';
@@ -58,6 +60,20 @@ const NAVIGABLE_SCOPES: ReadonlySet<Scope> = new Set<Scope>([
 ]);
 
 /**
+ * What a reader had in a chart when they left it: where they were and the
+ * modes they had set. Captured before the controller is disposed on
+ * focus-out and handed to the one built on the next focus-in, so a reader
+ * who Tabs to another control and back picks up where they left off.
+ */
+export interface ControllerSession {
+  /** The reader's position, or null when they never moved from the start. */
+  navigation: NavigationSnapshot | null;
+  textMode: TextMode;
+  soundOn: boolean;
+  brailleOn: boolean;
+}
+
+/**
  * Main controller class that orchestrates all services, view models, and interactions for the MAIDR application.
  */
 export class Controller implements Disposable {
@@ -109,17 +125,35 @@ export class Controller implements Disposable {
   private readonly commandExecutor: CommandExecutor;
   private readonly viewModelRegistry: ViewModelRegistry;
 
+  /** The session this controller was built to resume, until {@link resume} runs. */
+  private pendingSession: ControllerSession | null;
+  /** Whether the reader's position was put back from {@link pendingSession}. */
+  private readonly positionResumed: boolean;
+
   /**
    * Initializes the controller with all necessary services, view models, and bindings.
    * @param maidr - The MAIDR configuration object containing plot data and settings
    * @param plot - The HTML element containing the plot to be made accessible
    * @param store - The Redux store instance for this plot's state management
+   * @param session - What the reader had when they last left this chart, to
+   *   put back before anything is built on the model
    */
-  public constructor(maidr: Maidr, plot: HTMLElement, store: AppStore) {
+  public constructor(
+    maidr: Maidr,
+    plot: HTMLElement,
+    store: AppStore,
+    session: ControllerSession | null = null,
+  ) {
     this.viewModelRegistry = new ViewModelRegistry();
     this.figure = new Figure(maidr);
     this.figure.applyLayout(resolveSubplotLayout(this.figure.subplots));
     this.context = new Context(this.figure);
+    // Before any service reads the position: the audio mode and the display's
+    // focus stack are both taken from the level the reader is on. A figure
+    // whose shape changed while they were away starts over.
+    this.positionResumed = session?.navigation != null
+      && this.context.resumeNavigation(session.navigation);
+    this.pendingSession = session;
 
     this.notificationService = new NotificationService();
     this.formatterService = new FormatterService(maidr);
@@ -387,6 +421,63 @@ export class Controller implements Disposable {
     );
     this.settingsService.addObserver(this.keybinding);
     this.mousebinding.registerEvents();
+
+    // The modes are the reader's choices, not the position's, so they come
+    // back even when the position could not.
+    if (session !== null) {
+      this.textViewModel.restoreMode(session.textMode);
+      this.audioService.setOn(session.soundOn);
+    }
+  }
+
+  /**
+   * Captures what the reader has in this chart, for the controller built when
+   * they come back to it.
+   *
+   * @returns The reader's position and modes
+   */
+  public captureSession(): ControllerSession {
+    const navigation = this.context.captureNavigation();
+    // A reader who never left the start has no position to resume, and so
+    // meets the initial instruction again.
+    const moved = navigation !== null
+      && !(navigation.figureEntry && navigation.subplotEntry && navigation.traceEntry);
+    return {
+      navigation: moved ? navigation : null,
+      textMode: this.textService.currentMode,
+      soundOn: this.audioService.isOn,
+      brailleOn: this.brailleService.isEnabled,
+    };
+  }
+
+  /**
+   * Picks up where the reader left off: reopens braille if it was open and
+   * announces the point they are back on, the way a move to it would.
+   *
+   * Runs once, on the focus-in that built this controller, in place of the
+   * initial instruction -- a reader coming back needs to know where they are,
+   * not how to start.
+   *
+   * @returns False when there is no position to resume, and the caller shows
+   *   the initial instruction instead
+   */
+  public resume(): boolean {
+    const session = this.pendingSession;
+    this.pendingSession = null;
+    if (session === null) {
+      return false;
+    }
+    // Braille comes back even without a position: it can be opened on the
+    // first point, before any move.
+    const state = this.context.state;
+    if (session.brailleOn && state.type === 'trace' && !this.brailleService.isEnabled) {
+      this.brailleViewModel.toggle(state);
+    }
+    if (!this.positionResumed) {
+      return false;
+    }
+    this.context.notifyStateUpdate();
+    return true;
   }
 
   /**

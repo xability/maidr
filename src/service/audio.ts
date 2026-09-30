@@ -1742,6 +1742,30 @@ export class AudioService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * Whether sound is on, in either mode.
+   * @returns False only while the reader has turned sound off
+   */
+  public get isOn(): boolean {
+    return this.mode !== AudioMode.OFF;
+  }
+
+  /**
+   * Turns sound on or off without announcing it -- carrying the reader's
+   * choice over to the controller built when they come back to the chart.
+   * Turning it on picks the mode the current layer calls for, the way
+   * {@link toggle} does, so a reader who had separate playback on a layer
+   * with several points hears it combined again, as on any other move.
+   * @param on - Whether sound should be on
+   */
+  public setOn(on: boolean): void {
+    if (!on) {
+      this.mode = AudioMode.OFF;
+    } else if (this.mode === AudioMode.OFF) {
+      this.mode = this.isCombinedAudio ? AudioMode.COMBINED : AudioMode.SEPARATE;
+    }
+  }
+
+  /**
    * Stops one or more active audio tones by their IDs.
    * Disconnects oscillators and clears associated timeouts/intervals.
    *

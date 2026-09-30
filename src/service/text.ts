@@ -13,7 +13,7 @@ import { t } from '@util/i18n';
 /**
  * Enumeration of available text output modes.
  */
-enum TextMode {
+export enum TextMode {
   OFF = 'off',
   TERSE = 'terse',
   VERBOSE = 'verbose',
@@ -1127,5 +1127,23 @@ export class TextService implements Observer<PlotState>, Disposable {
    */
   public isOff(): boolean {
     return this.mode === TextMode.OFF;
+  }
+
+  /**
+   * The current text mode, for carrying it over to the controller built when
+   * the reader comes back to the chart.
+   * @returns The current text mode
+   */
+  public get currentMode(): TextMode {
+    return this.mode;
+  }
+
+  /**
+   * Sets the text mode without announcing it: the reader chose it before they
+   * left the chart, and hearing it again on return would be noise.
+   * @param mode - The mode to put back
+   */
+  public setMode(mode: TextMode): void {
+    this.mode = mode;
   }
 }

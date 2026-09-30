@@ -6,6 +6,7 @@ import type { TextService } from '@service/text';
 import type { PlotState } from '@type/state';
 import type { AppStore } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
+import { TextMode } from '@service/text';
 import { t } from '@util/i18n';
 import { AbstractViewModel } from './viewModel';
 
@@ -164,6 +165,16 @@ export class TextViewModel extends AbstractViewModel<TextState> {
   public toggle(): void {
     const enabled = this.textService.toggle();
     this.store.dispatch(toggle(enabled));
+  }
+
+  /**
+   * Puts back the text mode the reader had before leaving the chart, without
+   * announcing it.
+   * @param mode - The mode to put back
+   */
+  public restoreMode(mode: TextMode): void {
+    this.textService.setMode(mode);
+    this.store.dispatch(toggle(mode !== TextMode.OFF));
   }
 
   /**

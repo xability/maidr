@@ -27,10 +27,11 @@ const LEVEL_NOUN: Record<PlotState['type'], MessageKey> = {
 type Plot = Figure | Subplot | Trace;
 
 /**
- * Snapshot of the navigation state captured before a live data update,
- * used to restore the user's position on the rebuilt model.
+ * Snapshot of the navigation state, captured before a live data update or
+ * before the controller is disposed on focus-out, and used to restore the
+ * reader's position on the rebuilt model.
  */
-interface NavigationSnapshot {
+export interface NavigationSnapshot {
   depth: number;
   figureRow: number;
   figureCol: number;
@@ -188,7 +189,7 @@ export class Context implements Disposable {
     createFigure: () => Figure,
     options: ReplaceFigureOptions = {},
   ): Figure {
-    const snapshot = this.captureNavigationSnapshot();
+    const snapshot = this.captureNavigation();
     this.figure.dispose();
 
     const figure = createFigure();
@@ -217,7 +218,7 @@ export class Context implements Disposable {
    *
    * @returns The snapshot, or null when the old model cannot be read
    */
-  private captureNavigationSnapshot(): NavigationSnapshot | null {
+  public captureNavigation(): NavigationSnapshot | null {
     try {
       const figure = this.figure;
       const subplot = figure.activeSubplot;
@@ -241,6 +242,31 @@ export class Context implements Disposable {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Puts a freshly built context back where a previous one was -- the reader
+   * who left the chart and came back to it.
+   *
+   * Unlike a live data update, the figure here is new and nothing has been
+   * built on top of it yet, so the keyboard scope is realigned with the level
+   * the reader lands on. Restored silently, like a data update: announcing
+   * the position is the caller's choice.
+   *
+   * @param snapshot - What {@link captureNavigation} returned on the old context
+   * @returns False, leaving the context as constructed, when the figure's
+   *   shape no longer matches the snapshot
+   */
+  public resumeNavigation(snapshot: NavigationSnapshot): boolean {
+    if (snapshot.shape !== this.describeShape(this.figure)) {
+      return false;
+    }
+    this.plotContext.clear();
+    this.restoreNavigation(this.figure, snapshot, {});
+    this.scopeContext.clear();
+    this.scopeContext.push(this.activeLevel === 'trace' ? Scope.TRACE : Scope.SUBPLOT);
+    this.scopeChanged.fire(this.scope);
+    return true;
   }
 
   /**
