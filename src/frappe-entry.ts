@@ -28,10 +28,13 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  window.maidrFrappe = {
+  // Merged, not assigned. The UMD build hands this global to the bundle and
+  // writes the remaining exports onto it; replacing it would drop them — the
+  // enums a script-tag consumer needs to read a layer's `type`, among them.
+  window.maidrFrappe = Object.assign(window.maidrFrappe ?? {}, {
     createMaidrFromFrappeChart,
     createMaidrFromFrappeCharts,
-  };
+  });
 }
 
 export type {
