@@ -255,6 +255,28 @@ describe('audio', () => {
     expect(start.raw).toBe(71.2);
     expect(end.raw).toBe(78.4);
   });
+
+  test('keeps a usable scale when the first end is unreadable', () => {
+    // `minMax` seeds from the first value and a NaN never loses, so a leading
+    // gap made the whole chart's range NaN -- and every measured end then
+    // interpolated to a NaN frequency.
+    const leadingGap = {
+      points: [
+        { x: 'Latvia', start: 'n/a', end: 69.5 },
+        { x: 'Denmark', start: 71.2, end: 78.4 },
+      ],
+    } as unknown as DumbbellData;
+    const { audio, braille } = nonEmptyState(dumbbell(0, 1, leadingGap));
+
+    expect(audio.freq.min).toBe(69.5);
+    expect(audio.freq.max).toBe(78.4);
+    expect(audio.freq.raw).toBe(71.2);
+    if (braille.empty) {
+      throw new Error('Expected a populated braille state');
+    }
+    expect(braille.min).toEqual([71.2, 69.5]);
+    expect(braille.max).toEqual([71.2, 78.4]);
+  });
 });
 
 describe('braille', () => {
