@@ -2115,17 +2115,14 @@ export class LineTrace extends AbstractTrace {
    * Get a formatted label for intersecting lines
    * Note: intersectingLines should only contain OTHER lines (not the current line)
    * since the user is already on the current line.
+   * Names come from {@link LineTrace.groupNameAt}, as every other
+   * announcement's do: the authored name, else the layer's own noun
+   * (e.g. "Line 2", "Curve 2").
    * @param intersectingLines Array of line indices that intersect (excluding current line)
    * @returns Formatted string of line names (e.g., "Line A, Line B")
    */
   private getIntersectionLabel(intersectingLines: number[]): string {
-    return intersectingLines.map((lineIndex) => {
-      // Access first point to get the line's z/name
-      // Falls back to "Line N" if z is not defined
-      const firstPoint = this.points[lineIndex][0];
-      return firstPoint?.z
-        || t('model.fallbackNumbered', { noun: defaultSeriesColumn(), index: lineIndex + 1 });
-    }).join(', ');
+    return intersectingLines.map(lineIndex => this.groupNameAt(lineIndex)).join(', ');
   }
 
   /**
