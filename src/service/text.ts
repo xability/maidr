@@ -305,11 +305,15 @@ export class TextService implements Observer<PlotState>, Disposable {
       );
     } else if (state.type === 'subplot') {
       return this.formatSubplotText(state.index, state.size, state.trace.traceType, state.trace);
-    } else if (this.mode === TextMode.VERBOSE) {
-      return this.formatVerboseTraceText(state.text);
-    } else {
-      return this.formatTerseTraceText(state.text);
     }
+
+    // Format with the layer being formatted. ANNOUNCE_POINT, goTo, review and
+    // tactile call this directly, without an update() to set it first.
+    this.currentLayerId = state.layerId;
+    if (this.mode === TextMode.VERBOSE) {
+      return this.formatVerboseTraceText(state.text);
+    }
+    return this.formatTerseTraceText(state.text);
   }
 
   /**

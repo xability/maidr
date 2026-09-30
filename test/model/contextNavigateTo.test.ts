@@ -282,6 +282,36 @@ describe('Context.navigateTo', () => {
       expect(highlighted).toEqual([0]);
     });
 
+    it('reaches the column of a point stacked above another', () => {
+      const strip: Maidr = {
+        id: 'strip',
+        subplots: [[{
+          layers: [{
+            id: 'dots',
+            type: TraceType.SCATTER,
+            data: [{ x: 1, y: 10 }, { x: 1, y: 20 }],
+          }],
+        }]],
+      };
+      const figure = laidOut(strip);
+      const context = new Context(figure);
+      const trace = traceAt(figure, 0);
+      const { observer, states } = recorder();
+      trace.addObserver(observer);
+
+      // Data index 1 is the second slot of its column, so its cell's row is
+      // 1, which the restore-cursor check in `isMovable` would refuse.
+      expect(context.canNavigateTo({ layerId: 'dots', pointIndex: 1 })).toBe(true);
+      expect(context.navigateTo({ layerId: 'dots', pointIndex: 1 })).toBe(true);
+
+      // Column mode lands on the whole x = 1 column, which holds the stacked
+      // point, just as it does for the lowest point of a column.
+      expect(states).toHaveLength(1);
+      const highlighted = (trace as unknown as { highlightedPointIndices: readonly number[] })
+        .highlightedPointIndices;
+      expect(highlighted).toEqual([0, 1]);
+    });
+
     it('refuses a data index the layer does not have', () => {
       const figure = laidOut(cloud);
       const context = new Context(figure);

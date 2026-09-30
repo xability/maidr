@@ -198,6 +198,10 @@ export class WordCloudTrace extends AbstractTrace {
     // which terms the missing glyphs belonged to, so every pairing after the
     // gap would be a guess. Report no highlight rather than a plausible one.
     if (drawn.length !== order.length) {
+      // Discard the hidden clones just inserted: dispose() only reaches
+      // elements held in highlightValues, and a later resolution would match
+      // the copies too.
+      drawn.forEach(element => element.remove());
       return null;
     }
     return [order.map(source => drawn[source])];

@@ -296,9 +296,11 @@ export class BoxenTrace extends AbstractTrace {
       { label: t('model.statNumberOfDistributions'), value: this.points.length },
     ];
 
-    const names = this.points
-      .map(point => (typeof point.z === 'string' ? point.z.trim() : ''))
-      .filter(name => name !== '');
+    // Index-aligned, so the medians below name their own distribution; the
+    // filtered list is only for the names line.
+    const nameAt = this.points
+      .map(point => (typeof point.z === 'string' ? point.z.trim() : ''));
+    const names = nameAt.filter(name => name !== '');
     if (names.length > 0) {
       stats.push({ label: t('model.statDistributionNames'), value: names.join(', ') });
     }
@@ -339,8 +341,8 @@ export class BoxenTrace extends AbstractTrace {
         label: t('model.statMedianOfEachDistribution'),
         value: medians
           .map(({ index, median }) => t('model.nameAtValue', {
-            name: names[index]
-              ?? t('model.fallbackNumbered', {
+            name: nameAt[index]
+              || t('model.fallbackNumbered', {
                 noun: t('model.nounDistribution'),
                 index: index + 1,
               }),

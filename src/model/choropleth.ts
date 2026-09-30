@@ -608,7 +608,12 @@ export class ChoroplethTrace extends AbstractTrace {
    */
   private largestHighCluster(): string[] | null {
     const every = this.regions.flat();
-    const sorted = [...every].map(region => region.value).sort((a, b) => a - b);
+    // Measured values only: `a - b` is NaN against an unvalued region, which
+    // the sort reads as a tie and leaves the cut wherever the blank fell.
+    const sorted = every
+      .map(region => region.value)
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
     if (sorted.length === 0) {
       return null;
     }

@@ -130,6 +130,17 @@ const CASES: Case[] = [
     },
   },
   {
+    type: TraceType.HEXBIN,
+    declared: 3,
+    layer: {
+      axes: { x: { label: 'X' }, y: { label: 'Y' }, z: { label: 'Count' } },
+      data: [
+        [{ x: 0, y: 0, count: 3 }, { x: 2, y: 0, count: 9 }],
+        [{ x: 1, y: 1, count: 5 }],
+      ],
+    },
+  },
+  {
     type: TraceType.GANTT,
     declared: 2,
     layer: {
@@ -140,6 +151,17 @@ const CASES: Case[] = [
           [{ x: 'Build', start: 10, end: 30 }],
         ],
       },
+    },
+  },
+  {
+    type: TraceType.RIDGELINE,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'Days' }, y: { label: 'Cohort' } },
+      data: [
+        [{ x: 'early', y: 10, density: 0.2 }, { x: 'early', y: 20, density: 0.4 }],
+        [{ x: 'late', y: 30, density: 0.1 }, { x: 'late', y: 40, density: 0.3 }],
+      ],
     },
   },
 ];
@@ -376,6 +398,36 @@ describe('a gauge keeps one drawn element and leaves no clone of the others', ()
 
     expect(ownedCount()).toBe(1);
     second.dispose();
+    expect(ownedCount()).toBe(0);
+  });
+});
+
+describe('a ridgeline resolves every positional selector before it clones', () => {
+  // A clone is inserted straight after its original, so a list of
+  // `:nth-child` selectors resolved and cloned one at a time lets the second
+  // selector count the first one's clone and answer with it (#1004).
+  const layer: Omit<MaidrLayer, 'selectors'> = {
+    id: 'test-ridgeline-positional',
+    type: TraceType.RIDGELINE,
+    axes: { x: { label: 'Days' }, y: { label: 'Cohort' } },
+    data: [
+      [{ x: 'early', y: 10, density: 0.2 }, { x: 'early', y: 20, density: 0.4 }],
+      [{ x: 'late', y: 30, density: 0.1 }, { x: 'late', y: 40, density: 0.3 }],
+    ],
+  };
+
+  test('each group copies the mark its own selector named', () => {
+    draw(2);
+
+    const trace = TraceFactory.create({
+      ...layer,
+      selectors: ['rect:nth-child(1)', 'rect:nth-child(2)'],
+    });
+
+    const copied = Array.from(document.querySelectorAll('[data-maidr-owned]'))
+      .map(element => element.id);
+    expect(copied).toEqual(['m0', 'm1']);
+    trace.dispose();
     expect(ownedCount()).toBe(0);
   });
 });

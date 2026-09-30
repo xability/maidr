@@ -519,9 +519,10 @@ export class Candlestick extends AbstractTrace {
       0,
       Math.min(this.currentPointIndex, this.candles.length - 1),
     );
-    // Always start at 'close' on initial entry
+    // Always start at 'close' on initial entry. The kept candle sets `col`
+    // too: re-entry zeroes it, and the highlight and pan read it.
     this.currentSegmentType = 'close';
-    this.updateVisualSegmentPosition();
+    this.updateVisualPointPosition();
   }
 
   /**

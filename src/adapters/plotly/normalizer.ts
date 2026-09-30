@@ -405,7 +405,13 @@ function setupLayoutObserver(svg: SVGSVGElement, plotlyDiv: HTMLElement | null):
         = svg.getAttribute('height')
           ?? String(svg.getBoundingClientRect().height);
       if (h) {
-        rc.style.paddingTop = `${Number.parseFloat(h)}px`;
+        // Highlight swaps on every keypress mutate the article too; only a
+        // real change of height is worth a window resize.
+        const padding = `${Number.parseFloat(h)}px`;
+        if (rc.style.paddingTop === padding) {
+          return;
+        }
+        rc.style.paddingTop = padding;
         requestAnimationFrame(() => {
           try {
             window.dispatchEvent(new Event('resize'));

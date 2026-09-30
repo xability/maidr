@@ -43,6 +43,9 @@ const DIGIT_HAS_BATCHIM: Record<string, boolean> = {
   9: false,
 };
 
+/** Digits whose Korean reading ends in ㄹ (일, 칠, 팔), which take 로. */
+const DIGIT_IS_RIEUL = new Set(['1', '7', '8']);
+
 /**
  * Latin letters whose usual Korean transliteration keeps a final consonant.
  * Most English endings gain a vowel in Korean ("count" → 카운트), so only
@@ -77,7 +80,7 @@ function ending(word: string): Ending | null {
     return { hasBatchim: jongseong !== 0, isRieul: jongseong === RIEUL_JONGSEONG };
   }
   if (last in DIGIT_HAS_BATCHIM) {
-    return { hasBatchim: DIGIT_HAS_BATCHIM[last], isRieul: false };
+    return { hasBatchim: DIGIT_HAS_BATCHIM[last], isRieul: DIGIT_IS_RIEUL.has(last) };
   }
   const lower = last.toLowerCase();
   if (lower >= 'a' && lower <= 'z') {

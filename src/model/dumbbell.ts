@@ -147,11 +147,13 @@ export class DumbbellTrace extends AbstractTrace {
     );
     this.changes = this.points.map(changeOf);
 
-    const { min, max } = MathUtil.minMax(this.endValues.flat());
+    // An unreadable end is NaN, which never loses a comparison: left in, one
+    // gap would turn the whole pitch range, and its row's braille range, NaN.
+    const { min, max } = MathUtil.minMax(this.endValues.flat().filter(isMeasured));
     this.min = min;
     this.max = max;
-    this.perRowMin = this.endValues.map(row => MathUtil.safeMin(row));
-    this.perRowMax = this.endValues.map(row => MathUtil.safeMax(row));
+    this.perRowMin = this.endValues.map(row => MathUtil.safeMin(row.filter(isMeasured)));
+    this.perRowMax = this.endValues.map(row => MathUtil.safeMax(row.filter(isMeasured)));
 
     this.highlightValues = this.mapToSvgElements(layer.selectors);
     this.movable = new MovableGrid<number>(this.endValues, { row: START_ROW });

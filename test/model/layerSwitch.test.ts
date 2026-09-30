@@ -1,6 +1,6 @@
 import type { Maidr } from '@type/grammar';
 import type { PlotState, SubplotState, TraceState } from '@type/state';
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 import { Figure } from '@model/plot';
 import { TraceType } from '@type/grammar';
 
@@ -78,5 +78,23 @@ describe('stepping between layers', () => {
 
     expect(result).toBe(subplot.traces[0][0]);
     expect(log).toEqual(['trace0:empty', 'subplot:empty']);
+  });
+
+  test('builds the announced layer state once', () => {
+    // The state getter rebuilds audio, braille, text and highlight -- and on
+    // some trace types scans every row -- so the layer announcement a
+    // PageUp/PageDown step and the description dialog share reads it once.
+    const figure = twoLayerFigure();
+    const subplot = figure.activeSubplot;
+    subplot.switchLayer('UPWARD');
+    const { log } = record(figure);
+    const line = subplot.traces[1][0];
+    const stateSpy = jest.spyOn(line, 'state', 'get');
+
+    subplot.announceActiveLayer();
+
+    expect(stateSpy).toHaveBeenCalledTimes(1);
+    expect(log).toEqual(['trace1:ok']);
+    stateSpy.mockRestore();
   });
 });

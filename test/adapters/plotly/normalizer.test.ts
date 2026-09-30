@@ -340,4 +340,40 @@ describe('plotly layout observer', () => {
 
     expect(container.style.paddingTop).toBe('400px');
   });
+
+  it('does not queue a resize for a mutation that leaves the chart height unchanged', () => {
+    // Every keypress swaps the highlight clone inside the article. Queuing a
+    // window resize for each one invalidated every cached hover centre and
+    // ran the page's resize handlers although nothing had moved.
+    const frames: FrameRequestCallback[] = [];
+    globals.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    const svg = createPlotlySvg([{ x: 0, y: 0 }]);
+    svg.setAttribute('height', '400');
+    const plotlyDiv = svg.parentElement as HTMLElement;
+    const doc = dom.window.document;
+    const article = doc.createElement('article');
+    article.id = 'maidr-article-chart';
+    article.appendChild(svg);
+    const container = doc.createElement('div');
+    container.id = 'react-container-chart';
+    article.appendChild(container);
+    plotlyDiv.appendChild(article);
+    normalizePlotlySvg(svg, createSchema([[undefined]]));
+
+    frames.splice(0).forEach(callback => callback(0));
+    expect(container.style.paddingTop).toBe('400px');
+    // The first positioning queues its resize.
+    expect(frames).toHaveLength(1);
+    frames.splice(0);
+
+    svg.appendChild(doc.createElementNS(SVG_NS, 'rect'));
+
+    return Promise.resolve().then(() => {
+      expect(frames).toHaveLength(0);
+      expect(container.style.paddingTop).toBe('400px');
+    });
+  });
 });

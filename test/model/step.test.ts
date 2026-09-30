@@ -260,6 +260,18 @@ describe('a layer whose first series is empty', () => {
     expect(stats.get('Longest run in Line 2')).toBe(2);
     expect(stats.has('Transitions in Line 1')).toBe(false);
   });
+
+  test('a transitions jump before any arrow key lands on the populated series', () => {
+    // The rotor's first move used to park the cursor at (-1, -1), where no
+    // arrow key had anywhere to go until the reader left the layer.
+    const trace = new StepTrace(createStepLayer(RAGGED));
+
+    expect(trace.moveToRotorFilter('transition', 'right')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.col).toBe(1);
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(trace.col).toBe(2);
+  });
 });
 
 describe('step trace transition navigation', () => {

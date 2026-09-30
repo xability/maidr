@@ -57,6 +57,7 @@ export const dialogs = {
   // What focus does not announce on its own.
   'dialogs.extremaMovedToSearch': 'Se movió a la búsqueda. Escriba para filtrar los valores de X.',
   'dialogs.extremaFirstOption': 'En la primera opción de valores extremos',
+  'dialogs.extremaLastOption': 'En la última opción de valores extremos',
   'dialogs.extremaNoResults': 'Sin resultados de búsqueda',
   'dialogs.extremaLastResult': 'En el último resultado de búsqueda',
   'dialogs.extremaSelectedResult': 'Seleccionado: {label}',

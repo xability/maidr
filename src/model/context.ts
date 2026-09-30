@@ -56,6 +56,11 @@ export interface ReplaceFigureOptions {
    * sliding-window trim, so the cursor can stay on the same data point.
    */
   activeColShift?: number;
+  /**
+   * Number of rows inserted before the active trace's cursor by an append,
+   * so the cursor can stay on the same data point.
+   */
+  activeRowShift?: number;
 }
 
 export class Context implements Disposable {
@@ -322,7 +327,7 @@ export class Context implements Disposable {
     snapshot: NavigationSnapshot,
     options: ReplaceFigureOptions,
   ): void {
-    let row = Math.max(0, snapshot.traceRow);
+    let row = Math.max(0, snapshot.traceRow + (options.activeRowShift ?? 0));
     let col = Math.max(0, snapshot.traceCol - (options.activeColShift ?? 0));
 
     // Clamp the row first (column 0 always exists for a non-empty row).
@@ -666,7 +671,11 @@ export class Context implements Disposable {
     const cell = 'pointIndex' in target
       ? (isPointCloudAddressable(trace) ? trace.positionOfDataIndex(target.pointIndex) : null)
       : { row: target.row, col: target.col };
-    if (cell === null || !trace.isMovable([cell.row, cell.col])) {
+    // `positionOfDataIndex` already answers null for a point the trace does
+    // not have. Its row is the point's slot in its column, which the
+    // restore-cursor check in `isMovable` (row 0 in column mode) would
+    // wrongly refuse, so only a row/col target goes through that check.
+    if (cell === null || (!('pointIndex' in target) && !trace.isMovable([cell.row, cell.col]))) {
       return null;
     }
     return { ...located, cell };

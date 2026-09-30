@@ -98,4 +98,30 @@ describe('trace out-of-bounds state', () => {
 
     expect(stateOf(trace).braille.empty).toBe(true);
   });
+
+  it('reads the dimension once for the boundary tone', () => {
+    // `dimension` scans every row on some trace types (Gantt, hexbin,
+    // ridgeline, boxen), and rows and cols cannot change between two reads.
+    const trace = new BarTrace(barLayer());
+    trace.addObserver({ update: jest.fn() });
+    const dimension = jest.spyOn(trace as unknown as { dimension: { rows: number; cols: number } }, 'dimension', 'get');
+
+    trace.notifyOutOfBounds();
+
+    expect(dimension).toHaveBeenCalledTimes(1);
+    dimension.mockRestore();
+  });
+
+  it('reads the dimension once for a rotor warning', () => {
+    const trace = new BarTrace(barLayer());
+    const update = jest.fn();
+    trace.addObserver({ update });
+    const dimension = jest.spyOn(trace as unknown as { dimension: { rows: number; cols: number } }, 'dimension', 'get');
+
+    trace.notifyRotorBounds();
+
+    expect(dimension).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][0]).toMatchObject({ empty: true, warning: true, audio: { rows: 1, cols: 2 } });
+    dimension.mockRestore();
+  });
 });

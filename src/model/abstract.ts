@@ -664,16 +664,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    */
   public get state(): TraceState {
     if (this.isWarning) {
+      // Read once, as `getSafeIndices` does: `dimension` scans every row on
+      // several trace types.
+      const { rows, cols } = this.dimension;
       return {
         empty: true,
         type: 'trace',
         traceType: this.type,
-        audio: {
-          y: this.row,
-          x: this.col,
-          rows: this.dimension.rows,
-          cols: this.dimension.cols,
-        },
+        audio: { y: this.row, x: this.col, rows, cols },
         warning: true,
       };
     }
@@ -731,16 +729,14 @@ export abstract class AbstractTrace extends AbstractPlot<TraceState> implements 
    * @returns The empty trace state, positioned for out-of-bounds audio panning.
    */
   protected get outOfBoundsState(): TraceEmptyState {
+    // Read once, as `getSafeIndices` does: `dimension` scans every row on
+    // several trace types.
+    const { rows, cols } = this.dimension;
     return {
       empty: true,
       type: 'trace',
       traceType: this.type,
-      audio: {
-        y: this.row,
-        x: this.col,
-        rows: this.dimension.rows,
-        cols: this.dimension.cols,
-      },
+      audio: { y: this.row, x: this.col, rows, cols },
     };
   }
 

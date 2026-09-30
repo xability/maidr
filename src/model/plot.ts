@@ -830,11 +830,13 @@ export class Subplot extends AbstractPlot<SubplotState> implements Movable, Obse
    * @param trace - The newly active trace
    */
   private notifyLayerSwitch(trace: Trace): void {
-    if (!trace.state.empty) {
+    // Read once: the getter rebuilds the whole announcement on every access.
+    const current = trace.state;
+    if (!current.empty) {
       const index = this.getRow() + 1;
       const size = this.getSize();
       const state: LayerSwitchTraceState = {
-        ...trace.state,
+        ...current,
         isLayerSwitch: true,
         index,
         size,

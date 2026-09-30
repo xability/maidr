@@ -232,6 +232,8 @@ export function bindAllECharts(
     ? requestAnimationFrame
     : (callback: () => void) => setTimeout(callback, 16);
   let pending = false;
+  // Set once stopped: a frame already queued must not bind the charts again.
+  let stopped = false;
   const observer = new MutationObserver(() => {
     if (pending) {
       return;
@@ -239,6 +241,9 @@ export function bindAllECharts(
     pending = true;
     nextFrame(() => {
       pending = false;
+      if (stopped) {
+        return;
+      }
       scan();
     });
   });
@@ -251,6 +256,7 @@ export function bindAllECharts(
   scan();
 
   return () => {
+    stopped = true;
     observer.disconnect();
     bound.forEach(({ unbind }) => unbind());
     bound.clear();

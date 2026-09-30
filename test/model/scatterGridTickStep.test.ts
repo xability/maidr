@@ -41,6 +41,10 @@ describe('a scatter grid config that does not describe a grid', () => {
     ['a grid one row past the cap', { min: 0, max: 1000, tickStep: 1 }, { min: 0, max: 101, tickStep: 1 }],
     ['an inverted range', { min: 4, max: 0, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
     ['a collapsed range', { min: 2, max: 2, tickStep: 2 }, { min: 0, max: 4, tickStep: 2 }],
+    // The bin count rounds (1 / 5) down to zero, leaving a grid with no cell
+    // to enter.
+    ['a y tick step wider than twice the range', { min: 0, max: 10, tickStep: 2 }, { min: 0, max: 1, tickStep: 5 }],
+    ['an x tick step wider than twice the range', { min: 0, max: 1, tickStep: 5 }, { min: 0, max: 10, tickStep: 2 }],
   ])('%s constructs without a grid', (_name, x, y) => {
     const trace = new ScatterTrace(scatterLayer({ label: 'X', ...x }, { label: 'Y', ...y }));
 

@@ -172,3 +172,18 @@ describe('boxTrace description data table', () => {
     ]);
   });
 });
+
+describe('boxTrace announcement', () => {
+  test('names the box from `fill` when the producer sends no `z`', () => {
+    const { z: _z, ...ideal } = group('Ideal', 5, 10, 15, 20, 25);
+    const trace = new BoxTrace(makeBoxLayer([
+      { ...ideal, fill: 'Ideal' } as BoxPoint,
+    ]));
+
+    const state = trace.state;
+    if (state.empty) {
+      throw new Error('expected a non-empty trace state');
+    }
+    expect(state.text.main).toEqual({ label: 'Group', value: 'Ideal' });
+  });
+});

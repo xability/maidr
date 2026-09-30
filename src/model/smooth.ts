@@ -88,11 +88,16 @@ export class SmoothTrace extends LineTrace {
     const curr = getY(this.col);
     const next = getY(this.col + 1);
 
+    // A gap is stored as NaN, and the glissando's value curve throws on one.
+    // On the gap itself a plain NaN lets the service play its empty tone;
+    // beside it the missing neighbour is held at the current sample.
+    const safe = (v: number): number => (Number.isFinite(v) ? v : curr);
+
     return {
       freq: {
         min: this.min[this.row],
         max: this.max[this.row],
-        raw: [prev, curr, next],
+        raw: Number.isFinite(curr) ? [safe(prev), curr, safe(next)] : curr,
       },
       panning: {
         y: this.row,

@@ -2857,6 +2857,8 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
 
   /**
    * Whether one axis's range and step can be cut into at least one bin.
+   * The bin count is rounded as `computeGridSteps` rounds it, so a step wider
+   * than twice the range, which rounds to zero bins, is not a grid axis.
    * @param min - The axis minimum
    * @param max - The axis maximum
    * @param tick - The bin width
@@ -2865,6 +2867,7 @@ export class ScatterTrace extends AbstractTrace implements GridNavigable, PointN
   private isGridAxis(min: number, max: number, tick: number): boolean {
     return Number.isFinite(min) && Number.isFinite(max) && Number.isFinite(tick)
       && tick > 0 && max > min
+      && Math.round((max - min) / tick) >= 1
       && (max - min) / tick <= ScatterTrace.MAX_GRID_BINS;
   }
 

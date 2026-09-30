@@ -32,11 +32,14 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  window.maidrApexCharts = {
+  // Merged, not assigned. The UMD build hands this global to the bundle and
+  // writes the remaining exports onto it; replacing it would drop them — the
+  // enums a script-tag consumer needs to read a layer's `type`, among them.
+  window.maidrApexCharts = Object.assign(window.maidrApexCharts ?? {}, {
     apexchartsToMaidr,
     bindApexCharts,
     removeSplitParts,
-  };
+  });
 }
 
 // Re-export core types that consumers may need alongside the adapter.

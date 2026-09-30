@@ -507,12 +507,13 @@ export class Controller implements Disposable {
     // against the OLD figure (the user's current position) before the swap,
     // while announceAppendedPoint below runs against the NEW figure.
     const activeColShift = this.resolveActiveColShift(appended);
+    const activeRowShift = this.resolveActiveRowShift(appended);
 
     this.figure = this.context.replaceFigure(() => {
       const figure = new Figure(maidr);
       figure.applyLayout(resolveSubplotLayout(figure.subplots));
       return figure;
-    }, { activeColShift });
+    }, { activeColShift, activeRowShift });
 
     this.highContrastService.setFigure(this.figure);
     this.tactileService.setFigure(this.figure);
@@ -553,6 +554,27 @@ export class Controller implements Disposable {
       return isAppendedPointFocused(this.figure, appended) ? appended.colShift : 0;
     } catch (error) {
       console.warn('[maidr] Failed to resolve sliding-window shift:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Computes how far the active trace's cursor must move down so it stays on
+   * the same data point after an append inserted rows before it. Zero when
+   * the append inserted none or the user is positioned on a different
+   * trace/group.
+   *
+   * @param appended - Append info for the incoming update, if any
+   * @returns The row shift to apply during position restoration
+   */
+  private resolveActiveRowShift(appended?: AppendedPointInfo): number {
+    if (!appended || appended.rowShift === 0) {
+      return 0;
+    }
+    try {
+      return isAppendedPointFocused(this.figure, appended) ? appended.rowShift : 0;
+    } catch (error) {
+      console.warn('[maidr] Failed to resolve appended row shift:', error);
       return 0;
     }
   }

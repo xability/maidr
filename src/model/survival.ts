@@ -148,7 +148,7 @@ export class SurvivalTrace extends StepTrace {
     }
 
     if (this.isInitialEntry) {
-      this.movable.handleInitialEntry();
+      this.enterTrace();
     }
 
     const indices = this.censoredIndices[this.row] ?? [];

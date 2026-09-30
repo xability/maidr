@@ -99,6 +99,15 @@ export interface AppendedPointInfo {
    */
   colShift: number;
   /**
+   * How many rows the append inserted before the cursor, so a reader keeps
+   * the point they were on.
+   *
+   * One for a horizontal box or violin box, whose trace reverses its points
+   * so the new box is row 0 and every other box moves down a row. Zero everywhere else, where
+   * an append only ever adds at the end.
+   */
+  rowShift: number;
+  /**
    * True when the point was merged into a nested group layer (e.g. multiline),
    * where `row` is the series index. For flat layers `row`/`col` are announce
    * coordinates whose meaning depends on the trace type (e.g. candlestick
@@ -254,6 +263,7 @@ export function appendPointToMaidr(
   let col: number;
   let trimmed: number;
   let colShift: number;
+  let rowShift = 0;
   let nested: boolean;
 
   // Nested layers are detected by trace type so that an initially empty
@@ -323,14 +333,29 @@ export function appendPointToMaidr(
       if (layer.orientation === Orientation.HORIZONTAL) {
         // Horizontal: [boxes][sections], and the trace reverses the points so
         // the newest box is the first row. The column axis is the sections
-        // here, and a trim never moves those, so it takes no shift.
+        // here, and a trim never moves those, so it takes no shift. The row
+        // axis does: every existing box moves down one to make room.
         row = 0;
         col = median;
         colShift = 0;
+        rowShift = 1;
       } else {
         // Vertical: [sections][boxes], so the column is still the new box.
         row = median;
       }
+    } else if (
+      layer.type === TraceType.VIOLIN_BOX
+      && layer.orientation === Orientation.HORIZONTAL
+    ) {
+      // A horizontal violin box reverses its points like a horizontal box
+      // (see `ViolinBoxTrace`), so the new violin is row 0 and every other
+      // one moves down a row; its columns are its sections, which a trim
+      // never moves. Its sections depend on `violinOptions`, so the new
+      // violin is announced at its minimum, the one section it always has.
+      row = 0;
+      col = 0;
+      colShift = 0;
+      rowShift = 1;
     } else if (layer.type === TraceType.SCATTER) {
       // A scatter's columns are its sorted unique x values, so a trim does
       // not shift them by the number of points it dropped — the dropped
@@ -372,6 +397,7 @@ export function appendPointToMaidr(
       col,
       trimmed,
       colShift,
+      rowShift,
       nested,
     },
   };

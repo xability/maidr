@@ -353,6 +353,9 @@ function bindCharts(
       if (next && rendered.container.contains(next)) {
         return;
       }
+      // Forget the position too, or the next resize replays it; MAIDR
+      // reports it again on the reader's first move after focus returns.
+      lastActive = null;
       void overlayPromise.then(ov => ov?.clear());
     };
     rendered.container.addEventListener('focusout', handleFocusOut);

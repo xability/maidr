@@ -48,6 +48,7 @@ export const dialogs = {
 
   'dialogs.extremaMovedToSearch': '検索に移動しました。入力してX値を絞り込んでください。',
   'dialogs.extremaFirstOption': '最初の移動先です',
+  'dialogs.extremaLastOption': '最後の移動先です',
   'dialogs.extremaNoResults': '検索結果はありません',
   'dialogs.extremaLastResult': '最後の検索結果です',
   'dialogs.extremaSelectedResult': '{label}を選択しました',

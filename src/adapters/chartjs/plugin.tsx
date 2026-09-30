@@ -136,6 +136,11 @@ function applyHighlight(
 ): void {
   if (targets.length === 0) {
     overlay?.clear();
+    // Chart.js keeps the previous point active, tooltip and all, until told
+    // otherwise; a keyboard reader never moves the mouse to reset it.
+    chart.setActiveElements([]);
+    chart.tooltip?.setActiveElements([], { x: 0, y: 0 });
+    chart.update('none');
     return;
   }
 
@@ -176,7 +181,13 @@ function applyHighlight(
     overlay.clear();
 }
 
-function createHighlightCallback(
+/**
+ * Builds the `onNavigate` callback that mirrors MAIDR's position onto the
+ * chart.
+ *
+ * @internal
+ */
+export function createHighlightCallback(
   chart: ChartJsChart,
   layers: MaidrLayer[],
   maps: TargetMaps,

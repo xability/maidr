@@ -48,6 +48,7 @@ export const dialogs = {
 
   'dialogs.extremaMovedToSearch': 'खोज पर पहुँचे। X मान फ़िल्टर करने के लिए टाइप करें।',
   'dialogs.extremaFirstOption': 'पहले चरम मान विकल्प पर',
+  'dialogs.extremaLastOption': 'अंतिम चरम मान विकल्प पर',
   'dialogs.extremaNoResults': 'कोई खोज परिणाम नहीं',
   'dialogs.extremaLastResult': 'अंतिम खोज परिणाम पर',
   'dialogs.extremaSelectedResult': 'चयनित: {label}',

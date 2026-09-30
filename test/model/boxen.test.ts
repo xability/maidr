@@ -227,6 +227,19 @@ describe('the description says how deep the sample went', () => {
     expect(dataTable?.rows).toHaveLength(15);
     expect(dataTable?.rows).toContainEqual(['light', 'upper outlier', 70]);
   });
+
+  test('pairs each median with its own distribution when an earlier one is unnamed', () => {
+    const partly: BoxenPoint[] = [
+      { z: '', median: 10, levels: [{ p: 0.25, lo: 5, hi: 15 }] },
+      { z: 'B', median: 20, levels: [{ p: 0.25, lo: 15, hi: 25 }] },
+      { z: 'C', median: 30, levels: [{ p: 0.25, lo: 25, hi: 35 }] },
+    ];
+    const stats = boxen(0, 0, partly).description.stats;
+
+    expect(stats.find(stat => stat.label === 'Median of each distribution')?.value)
+      .toBe('Distribution 1 at 10, B at 20, C at 30');
+    expect(stats.find(stat => stat.label === 'Distribution names')?.value).toBe('B, C');
+  });
 });
 
 describe('which axis is which follows the orientation', () => {

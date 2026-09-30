@@ -192,6 +192,41 @@ describe('go to dialog: what the listbox announces', () => {
     expect(liveRegion()).toHaveTextContent('At first extrema option');
   });
 
+  it('should announce the last-option boundary on a trace with no X-value search', () => {
+    // A bar or a heatmap renders no search option, so ArrowDown on the last
+    // target has nowhere to go: focus stays put and the region says so, as
+    // ArrowUp on the first target does. Observed as mutations too, because the
+    // dropdown effect would clear a false 'Moved to search' straight after.
+    const { viewModel, store } = renderDialog({ xValues: [] });
+    act(() => {
+      store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: TARGETS.length - 1 });
+    });
+    const observer = new MutationObserver(() => {});
+    observer.observe(liveRegion(), { childList: true, characterData: true, subtree: true });
+
+    fireEvent.keyDown(targetListbox(), { key: 'ArrowDown' });
+    const records = observer.takeRecords();
+    observer.disconnect();
+
+    const written = records.flatMap(record => Array.from(record.addedNodes, node => node.textContent));
+    expect(written).not.toContain('Moved to search. Type to filter X values.');
+    expect(liveRegion()).toHaveTextContent('At last extrema option');
+    expect(viewModel.moveDown).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2.00 at Q3'));
+  });
+
+  it('should still move to the search from the last target when the trace offers it', () => {
+    const { viewModel, store } = renderDialog({ xValues: [{ value: 3, label: 'Q3' }] });
+    act(() => {
+      store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: TARGETS.length - 1 });
+    });
+
+    fireEvent.keyDown(targetListbox(), { key: 'ArrowDown' });
+
+    expect(screen.getByRole('combobox')).toContainElement(document.activeElement as HTMLElement);
+    expect(viewModel.moveDown).not.toHaveBeenCalled();
+  });
+
   it('should move focus onto the selected option, which is what announces it', () => {
     const { store } = renderDialog();
 

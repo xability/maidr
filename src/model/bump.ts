@@ -1,5 +1,5 @@
 import type { RotorFilterUnit } from '@model/abstract';
-import type { MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -215,27 +215,58 @@ export class BumpTrace extends LineTrace {
       },
     );
 
-    const leaderAt = (column: number): string | null => {
+    // Looked up by x, not by column: a competitor who joined late may be
+    // written as a shorter row, whose column 0 is a later period than the
+    // table's first. Nor does any one row necessarily span the table -- A over
+    // R1..R3 and B over R2..R4 -- so the first and last period come from every
+    // row: numeric x by value, otherwise the row end no other row runs past.
+    const rows = this.points.filter(line => line.length > 0);
+    const xs = rows.flat().map(point => point.x);
+    let firstX: LinePoint['x'] | undefined;
+    let lastX: LinePoint['x'] | undefined;
+    if (xs.length > 0 && xs.every(x => typeof x === 'number')) {
+      firstX = Math.min(...(xs as number[]));
+      lastX = Math.max(...(xs as number[]));
+    } else {
+      const starts = rows.map(line => line[0].x);
+      const ends = rows.map(line => line[line.length - 1].x);
+      firstX = starts.find(x =>
+        rows.every(line => line.findIndex(point => point.x === x) <= 0),
+      ) ?? starts[0];
+      lastX = ends.findLast(x =>
+        rows.every((line) => {
+          const at = line.findIndex(point => point.x === x);
+          return at === -1 || at === line.length - 1;
+        }),
+      ) ?? ends[ends.length - 1];
+    }
+    const leaderAt = (x: LinePoint['x'] | undefined): string | null => {
+      if (x === undefined) {
+        return null;
+      }
       let best: number | null = null;
+      let bestRank = Infinity;
       for (const [row, ranks] of this.lineValues.entries()) {
-        const rank = ranks[column];
+        const column = this.points[row].findIndex(point => point.x === x);
         // `isMeasured`, not a check for `undefined`: a period the competitor
         // was not ranked in holds NaN, which passed that guard and then lost
         // every comparison below -- so a gap in row 0 made row 0 the leader
         // of a period it was not in, and nothing could displace it.
-        if (!isMeasured(rank)) {
+        if (column === -1 || !isMeasured(ranks[column])) {
           continue;
         }
-        if (best === null || rank < this.lineValues[best][column]) {
+        const rank = ranks[column];
+        if (best === null || rank < bestRank) {
           best = row;
+          bestRank = rank;
         }
       }
       return best === null ? null : this.groupNameAt(best);
     };
 
     if (this.periods > 0) {
-      const first = leaderAt(0);
-      const last = leaderAt(this.periods - 1);
+      const first = leaderAt(firstX);
+      const last = leaderAt(lastX);
       if (first !== null) {
         stats.push({ label: t('model.statLedAtTheStart'), value: first });
       }

@@ -136,3 +136,20 @@ describe('violinBoxTrace description summary', () => {
     expect(stat(trace, 'Sections')).toBe('Minimum, 25%, 50%, 75%, Maximum');
   });
 });
+
+describe('violinBoxTrace announcement', () => {
+  test('names the violin from `fill` when the producer sends no `z`', () => {
+    // The violin bindings emit the group name as `fill` with no `z`, as the
+    // shipped examples/violin.html does.
+    const { z: _z, ...ideal } = group('Ideal', 326, 900, 1800, 4600, 18800);
+    const trace = new ViolinBoxTrace(makeViolinBoxLayer([
+      { ...ideal, fill: 'Ideal' } as BoxPoint,
+    ]));
+
+    const state = trace.state;
+    if (state.empty) {
+      throw new Error('expected a non-empty trace state');
+    }
+    expect(state.text.main).toEqual({ label: 'Group', value: 'Ideal' });
+  });
+});

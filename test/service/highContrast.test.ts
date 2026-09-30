@@ -300,6 +300,34 @@ describe('highContrastService', () => {
     expect(harness.bar.getAttribute('fill')).not.toBe(BAR_FILL);
   });
 
+  it('repaints with a colour saved while high contrast is on, and still restores after', () => {
+    harness.service.initializeHighContrast();
+
+    harness.settings.saveSettings({
+      ...harness.settings.loadSettings(),
+      general: { ...harness.settings.loadSettings().general, highContrastDarkColor: '#1a1a66' },
+    });
+
+    expect(window.getComputedStyle(document.body).backgroundColor).toBe('rgb(26, 26, 102)');
+
+    turnHighContrastOff(harness.settings);
+
+    expect(window.getComputedStyle(document.body).backgroundColor).toBe(PAGE_BACKGROUND);
+    expect(harness.bar.getAttribute('fill')).toBe(BAR_FILL);
+  });
+
+  it('does not paint a colour saved while high contrast is off', () => {
+    turnHighContrastOff(harness.settings);
+
+    harness.settings.saveSettings({
+      ...harness.settings.loadSettings(),
+      general: { ...harness.settings.loadSettings().general, highContrastDarkColor: '#1a1a66' },
+    });
+
+    expect(window.getComputedStyle(document.body).backgroundColor).toBe(PAGE_BACKGROUND);
+    expect(harness.bar.getAttribute('fill')).toBe(BAR_FILL);
+  });
+
   it('reads the real colours of a chart the host re-rendered into new nodes', () => {
     // The restore before the re-capture writes to the elements captured last
     // time. A host that redraws into fresh SVG nodes leaves those detached, so

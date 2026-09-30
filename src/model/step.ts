@@ -523,7 +523,7 @@ export class StepTrace extends LineTrace {
     // and the initial-entry branch of moveOnce doesn't later swallow a
     // keypress (mirrors Candlestick.moveToRotorFilter).
     if (this.isInitialEntry) {
-      this.movable.handleInitialEntry();
+      this.enterTrace();
     }
 
     const indices = this.transitionIndices[this.row] ?? [];
