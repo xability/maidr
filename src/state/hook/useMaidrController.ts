@@ -2,6 +2,7 @@ import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
 import type { Maidr as MaidrData, NavigationTarget } from '@type/grammar';
 import type { RefObject } from 'react';
+import type { ControllerSession } from '../../controller';
 import { cloneMaidrData, liveDataManager } from '@service/liveData';
 import { applyStoredLanguage } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
@@ -30,7 +31,8 @@ interface UseMaidrControllerResult {
  *
  * Handles:
  * - Controller creation on focus-in (deferred -- no throwaway Controller on mount)
- * - Controller disposal on focus-out
+ * - Controller disposal on focus-out, keeping the reader's place and modes for
+ *   the next focus-in
  * - Timer cleanup and stale-closure prevention
  * - Unmount cleanup
  *
@@ -69,6 +71,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // figure that data described.
   const pendingTargetRef = useRef<NavigationTarget | null>(null);
 
+  // What the reader had when focus last left the figure -- their point and
+  // their text, sound and braille modes. The controller holds global hotkeys,
+  // so it cannot outlive focus-out; the next one is built from this instead,
+  // so Tabbing to a control beside the chart and back does not start over.
+  const sessionRef = useRef<ControllerSession | null>(null);
+
   const createController = useCallback((): Controller | null => {
     const plotElement = plotRef.current;
     if (!plotElement)
@@ -88,7 +96,8 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
 
     // Create a deep copy to prevent mutations on the original data object
     // (the model layer takes ownership of, and may mutate, the data arrays).
-    const ctrl = new Controller(cloneMaidrData(maidrData), plotElement, store);
+    const ctrl = new Controller(cloneMaidrData(maidrData), plotElement, store, sessionRef.current);
+    sessionRef.current = null;
     return ctrl;
   }, [store]);
 
@@ -133,7 +142,10 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       }
       if (!hasAnnouncedRef.current) {
         hasAnnouncedRef.current = true;
-        controllerRef.current?.showInitialInstructionInText();
+        // A reader coming back hears the point they are on, not how to start.
+        if (controllerRef.current?.resume() === false) {
+          controllerRef.current.showInitialInstructionInText();
+        }
       }
       // After the instruction, not instead of it: the instruction is shown
       // without an announcement, and the move that follows is the first
@@ -167,6 +179,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       const activeElement = document.activeElement as HTMLElement;
       const isInside = figureElement.contains(activeElement);
       if (!isInside) {
+        sessionRef.current = controllerRef.current?.captureSession() ?? null;
         disposeController();
       }
     }, 0);
