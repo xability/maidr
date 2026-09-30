@@ -2073,22 +2073,29 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  const api = {
-    bindVegaLite,
-    embed,
-    vegaLiteToMaidr,
-    setDebug,
-  };
-  // Expose `debug` as a property with a getter/setter so the canonical
-  // `maidrVegaLite.debug = true` toggle works.
-  Object.defineProperty(api, 'debug', {
-    get: () => debugEnabled,
-    set: (v: boolean) => {
-      debugEnabled = !!v;
+  // Merged, not assigned. The UMD build hands this global to the bundle and
+  // writes the remaining exports onto it; replacing it would drop them — the
+  // enums a script-tag consumer needs to read a layer's `type`, among them.
+  // defineProperties rather than Object.assign, so the `debug` accessor below
+  // is copied as an accessor and not read once into a plain value.
+  const api = (window.maidrVegaLite ?? {}) as Window['maidrVegaLite'];
+  Object.defineProperties(api, {
+    bindVegaLite: { value: bindVegaLite, enumerable: true, writable: true, configurable: true },
+    embed: { value: embed, enumerable: true, writable: true, configurable: true },
+    vegaLiteToMaidr: { value: vegaLiteToMaidr, enumerable: true, writable: true, configurable: true },
+    setDebug: { value: setDebug, enumerable: true, writable: true, configurable: true },
+    // Exposed as a getter/setter so the canonical `maidrVegaLite.debug = true`
+    // toggle works.
+    debug: {
+      get: () => debugEnabled,
+      set: (v: boolean) => {
+        debugEnabled = !!v;
+      },
+      enumerable: true,
+      configurable: true,
     },
-    enumerable: true,
   });
-  window.maidrVegaLite = api as Window['maidrVegaLite'];
+  window.maidrVegaLite = api;
 }
 
 // Re-export core MAIDR types that consumers may need alongside the adapter.
