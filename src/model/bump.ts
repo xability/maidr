@@ -1,5 +1,5 @@
 import type { RotorFilterUnit } from '@model/abstract';
-import type { MaidrLayer } from '@type/grammar';
+import type { LinePoint, MaidrLayer } from '@type/grammar';
 import type { AudioState, DescriptionState, TextState, TraceState } from '@type/state';
 import { t } from '@util/i18n';
 import { MathUtil } from '@util/math';
@@ -215,27 +215,38 @@ export class BumpTrace extends LineTrace {
       },
     );
 
-    const leaderAt = (column: number): string | null => {
+    // Looked up by x, not by column: a competitor who joined late may be
+    // written as a shorter row, whose column 0 is a later period than the
+    // table's first. The longest row spans the table, so it names the first
+    // and last period.
+    const longest = this.points.find(line => line.length === this.periods) ?? [];
+    const leaderAt = (x: LinePoint['x'] | undefined): string | null => {
+      if (x === undefined) {
+        return null;
+      }
       let best: number | null = null;
+      let bestRank = Infinity;
       for (const [row, ranks] of this.lineValues.entries()) {
-        const rank = ranks[column];
+        const column = this.points[row].findIndex(point => point.x === x);
         // `isMeasured`, not a check for `undefined`: a period the competitor
         // was not ranked in holds NaN, which passed that guard and then lost
         // every comparison below -- so a gap in row 0 made row 0 the leader
         // of a period it was not in, and nothing could displace it.
-        if (!isMeasured(rank)) {
+        if (column === -1 || !isMeasured(ranks[column])) {
           continue;
         }
-        if (best === null || rank < this.lineValues[best][column]) {
+        const rank = ranks[column];
+        if (best === null || rank < bestRank) {
           best = row;
+          bestRank = rank;
         }
       }
       return best === null ? null : this.groupNameAt(best);
     };
 
     if (this.periods > 0) {
-      const first = leaderAt(0);
-      const last = leaderAt(this.periods - 1);
+      const first = leaderAt(longest[0]?.x);
+      const last = leaderAt(longest[this.periods - 1]?.x);
       if (first !== null) {
         stats.push({ label: t('model.statLedAtTheStart'), value: first });
       }

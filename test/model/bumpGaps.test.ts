@@ -143,6 +143,20 @@ describe('the description across a gap', () => {
     expect(read(LATE_START, 'Led at the end')).toBe('Ash');
   });
 
+  test('a late joiner written as a shorter row is judged at the periods it ran', () => {
+    // Its row starts at R2, so its index 0 is not the table's first period and
+    // the table's last index is past the end of its row. Read by index, Cedar
+    // led a round it was not in and lost the one it won.
+    const shorterRow: LinePoint[][] = [
+      [{ x: 'R1', y: 2, z: 'Ash' }, { x: 'R2', y: 2, z: 'Ash' }, { x: 'R3', y: 2, z: 'Ash' }],
+      [{ x: 'R1', y: 3, z: 'Birch' }, { x: 'R2', y: 3, z: 'Birch' }, { x: 'R3', y: 3, z: 'Birch' }],
+      [{ x: 'R2', y: 1, z: 'Cedar' }, { x: 'R3', y: 1, z: 'Cedar' }],
+    ];
+
+    expect(read(shorterRow, 'Led at the start')).toBe('Ash');
+    expect(read(shorterRow, 'Led at the end')).toBe('Cedar');
+  });
+
   test('names no leader for a period nobody was ranked in', () => {
     // Inventing one out of a column of gaps is the failure above; the honest
     // answer is to say nothing, as the rest of the dialog does for a fact the
