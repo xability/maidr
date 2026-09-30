@@ -12,7 +12,7 @@ import { t } from '@util/i18n';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
 import { MODEL_VERSIONS } from './modelVersions';
-import { formatSystemPrompt, formatUserPrompt } from './prompts';
+import { formatDataPrompt, formatSystemPrompt, formatUserPrompt } from './prompts';
 
 // Token limits for different LLM providers. The cloud limits cover reasoning
 // as well as the answer: GPT-5/6, Claude Opus 5 and later, and Gemini 3 think
@@ -249,6 +249,9 @@ abstract class AbstractLlmModel<T> implements LlmModel {
         request.message,
         expertiseLevel,
         request.version,
+        // Only the direct Anthropic call sets a cache breakpoint; the MAIDR
+        // proxy's handling of the field is not known.
+        !request.clientToken,
       );
 
       const url = request.clientToken
@@ -382,6 +385,8 @@ abstract class AbstractLlmModel<T> implements LlmModel {
    * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
    * @param {LlmVersion} [version] - The user-selected model version, overriding the
    * construction-time default
+   * @param {boolean} [cacheData] - Whether the provider may be asked to cache the
+   * chart data block (honoured by direct Anthropic calls only)
    * @returns {string} The JSON payload
    */
   protected abstract getPayload(
@@ -392,6 +397,7 @@ abstract class AbstractLlmModel<T> implements LlmModel {
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
     version?: LlmVersion,
+    cacheData?: boolean,
   ): string;
 
   /**
@@ -473,6 +479,12 @@ class Gpt extends AbstractLlmModel<GptResponse> {
         {
           role: 'user',
           content: [
+            // Stable prefix first, so OpenAI's automatic prompt caching can
+            // reuse it across questions about the same chart.
+            {
+              type: 'text',
+              text: formatDataPrompt(context.maidrJson),
+            },
             {
               type: 'text',
               text: formatUserPrompt(context),
@@ -567,6 +579,7 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
     message: string,
     expertise: 'basic' | 'intermediate' | 'advanced',
     version?: LlmVersion,
+    cacheData: boolean = false,
   ): string {
     const context: PromptContext = {
       customInstruction,
@@ -587,6 +600,14 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
         {
           role: 'user',
           content: [
+            // The chart data is the stable front of the request. The cache
+            // breakpoint on it lets the system prompt and the data be read
+            // from cache on the next question about this chart.
+            {
+              type: 'text',
+              text: formatDataPrompt(context.maidrJson),
+              ...(cacheData ? { cache_control: { type: 'ephemeral' } } : {}),
+            },
             ...(rawBase64
               ? [{
                   type: 'image',
@@ -721,7 +742,9 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
 
     const systemPrompt = formatSystemPrompt(customInstruction, context.expertiseLevel);
     const userPrompt = formatUserPrompt(context);
-    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+    // Instructions and chart data first and unchanged between questions, so
+    // Gemini's implicit caching can reuse that prefix.
+    const combinedPrompt = `${systemPrompt}\n\n${formatDataPrompt(context.maidrJson)}\n\n${userPrompt}`;
 
     // Raw base64 without the data-URL prefix; omit the image part entirely
     // when conversion produced nothing (same handling as Claude and Ollama).
@@ -882,7 +905,7 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
         },
         {
           role: 'user',
-          content: formatUserPrompt(context),
+          content: `${formatDataPrompt(context.maidrJson)}\n\n${formatUserPrompt(context)}`,
           ...(rawBase64 ? { images: [rawBase64] } : {}),
         },
       ],
