@@ -219,7 +219,7 @@ export class FlowTrace extends AbstractTrace implements PointCloudHighlightable 
       this.stages.map(members =>
         members[index] === undefined ? null : this.nodes[members[index]]));
     this.flowValues = this.grid.map(row =>
-      row.map(node => node?.outTotal ?? node?.inTotal ?? Number.NaN));
+      row.map(node => (node === null ? Number.NaN : this.throughputOf(node))));
 
     this.stageMin = this.stages.map(members =>
       MathUtil.safeMin(members.map(node => this.throughputOf(this.nodes[node]))));

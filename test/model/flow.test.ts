@@ -491,3 +491,20 @@ describe('the flow walk can be entered in either direction', () => {
     expect(nonEmptyState(trace).text.main.value).toBe(last);
   });
 });
+
+describe('FlowTrace values', () => {
+  test('carries a sink\'s throughput, not its empty outflow, as the X value', () => {
+    // Audio, text and braille read a node's throughput; the values grid the
+    // layer switch carries across read outTotal, which is 0 for every sink.
+    const trace = flow([
+      { source: 'Coal', target: 'Electricity', value: 34 },
+      { source: 'Electricity', target: 'Homes', value: 20 },
+    ]);
+    trace.moveOnce('FORWARD');
+    trace.moveOnce('FORWARD');
+
+    const state = nonEmptyState(trace);
+    expect(state.text.main.value).toBe('Homes');
+    expect(trace.getCurrentXValue()).toBe(state.text.cross!.value);
+  });
+});
