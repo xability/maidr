@@ -56,6 +56,11 @@ export interface ReplaceFigureOptions {
    * sliding-window trim, so the cursor can stay on the same data point.
    */
   activeColShift?: number;
+  /**
+   * Number of rows inserted before the active trace's cursor by an append,
+   * so the cursor can stay on the same data point.
+   */
+  activeRowShift?: number;
 }
 
 export class Context implements Disposable {
@@ -322,7 +327,7 @@ export class Context implements Disposable {
     snapshot: NavigationSnapshot,
     options: ReplaceFigureOptions,
   ): void {
-    let row = Math.max(0, snapshot.traceRow);
+    let row = Math.max(0, snapshot.traceRow + (options.activeRowShift ?? 0));
     let col = Math.max(0, snapshot.traceCol - (options.activeColShift ?? 0));
 
     // Clamp the row first (column 0 always exists for a non-empty row).

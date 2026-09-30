@@ -2,6 +2,7 @@ import type { AppendedPointInfo, AppendResult } from '@service/liveData';
 import type { BarPoint, BoxPoint, CandlestickPoint, LinePoint, Maidr, ScatterPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { Context } from '@model/context';
 import { Figure } from '@model/plot';
 import { appendedPointPosition, appendPointToMaidr, cloneMaidrData, isAppendedPointFocused, LiveDataManager } from '@service/liveData';
 import { BoxplotSection } from '@type/boxplotSection';
@@ -334,6 +335,35 @@ describe('a streamed point is announced where its trace keeps it', () => {
     expect(result!.appended.trimmed).toBe(1);
     expect(result!.appended.colShift).toBe(0);
   });
+
+  test('a horizontal box append moves every box down one row, with or without a trim', () => {
+    // The trace reverses a horizontal box's points, so the new box is row 0.
+    const grown = appendPointToMaidr(createBoxMaidr(Orientation.HORIZONTAL, 3), createBox('C', 20));
+    const trimmed = appendPointToMaidr(
+      createBoxMaidr(Orientation.HORIZONTAL, 2, 2),
+      createBox('C', 20),
+    );
+    const vertical = appendPointToMaidr(createBoxMaidr(Orientation.VERTICAL, 3), createBox('C', 20));
+    const bar = appendPointToMaidr(createBarMaidr(), { x: 'C', y: 3 });
+
+    expect(grown!.appended.rowShift).toBe(1);
+    expect(trimmed!.appended.rowShift).toBe(1);
+    expect(vertical!.appended.rowShift).toBe(0);
+    expect(bar!.appended.rowShift).toBe(0);
+  });
+
+  test('a horizontal box append keeps the reader on the box they were on', () => {
+    const maidr = createBoxMaidr(Orientation.HORIZONTAL, 3);
+    const context = new Context(new Figure(maidr));
+    context.active.isInitialEntry = false;
+    context.active.row = 1;
+    const before = (context.state as NonEmptyTraceState).text.main.value;
+
+    const result = appendPointToMaidr(maidr, createBox('C', 100));
+    context.replaceFigure(() => new Figure(result!.maidr), { activeRowShift: result!.appended.rowShift });
+
+    expect((context.state as NonEmptyTraceState).text.main.value).toBe(before);
+  });
 });
 
 describe('appendPointToMaidr', () => {
@@ -354,6 +384,7 @@ describe('appendPointToMaidr', () => {
       col: 2,
       trimmed: 0,
       colShift: 0,
+      rowShift: 0,
       nested: false,
     });
   });
@@ -780,6 +811,7 @@ function createAppended(overrides: Partial<AppendedPointInfo> = {}): AppendedPoi
     col: 1,
     trimmed: 0,
     colShift: 0,
+    rowShift: 0,
     nested: false,
     ...overrides,
   };
