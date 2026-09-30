@@ -493,6 +493,9 @@ describe('ChatService provider requests', () => {
       expect(messages[1].content[0].text).toContain('<maidr_data>');
       expect(messages[1].content[1].text).toContain('point 1');
       expect(messages[1].content[1].text).toContain('question 1');
+      // The answering instruction is said once, with the current question.
+      expect(JSON.stringify(messages.slice(0, 5))).not.toContain('Please answer my specific question');
+      expect(JSON.stringify(messages[5])).toContain('Please answer my specific question');
       expect(messages[2].content).toBe('answer 1');
       expect(JSON.stringify(messages.slice(2))).not.toContain('<maidr_data>');
       // Images: the current question only.

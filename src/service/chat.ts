@@ -12,7 +12,7 @@ import { t } from '@util/i18n';
 import { isValidOllamaBaseUrl, normalizeOllamaBaseUrl } from '@util/llm';
 import { Svg } from '@util/svg';
 import { MODEL_VERSIONS } from './modelVersions';
-import { formatDataPrompt, formatSystemPrompt, formatUserPrompt } from './prompts';
+import { formatDataPrompt, formatHistoryQuestion, formatSystemPrompt, formatUserPrompt } from './prompts';
 
 // Token limits for different LLM providers. The cloud limits cover reasoning
 // as well as the answer: GPT-5/6, Claude Opus 5 and later, and Gemini 3 think
@@ -94,7 +94,7 @@ export class ChatService {
     try {
       const snapshot = request.snapshot ?? this.captureSnapshot();
       const history = (request.history ?? [])
-        .filter(turn => Date.parse(turn.timestamp) >= this.dataChangedAt)
+        .filter(turn => Date.parse(turn.timestamp) > this.dataChangedAt)
         .slice(-MAX_HISTORY_TURNS);
       return await this.models[model].getLlmResponse({ ...request, history }, snapshot, controller.signal);
     } finally {
@@ -263,22 +263,23 @@ interface ConversationMessage {
  * starting and ending with the user
  */
 function buildConversation(input: PayloadInput): ConversationMessage[] {
-  const question = (currentPositionText: string, message: string): string => {
-    const context: PromptContext = {
-      customInstruction: input.customInstruction,
-      maidrJson: input.maidrJson,
-      currentPositionText,
-      message,
-      expertiseLevel: input.expertise,
-    };
-    return formatUserPrompt(context);
-  };
+  const question = (
+    format: (context: PromptContext) => string,
+    currentPositionText: string,
+    message: string,
+  ): string => format({
+    customInstruction: input.customInstruction,
+    maidrJson: input.maidrJson,
+    currentPositionText,
+    message,
+    expertiseLevel: input.expertise,
+  });
 
   const messages: ConversationMessage[] = input.history.flatMap((turn): ConversationMessage[] => [
-    { role: 'user', blocks: [question(turn.positionText, turn.question)] },
+    { role: 'user', blocks: [question(formatHistoryQuestion, turn.positionText, turn.question)] },
     { role: 'assistant', blocks: [turn.answer] },
   ]);
-  messages.push({ role: 'user', blocks: [question(input.currentPositionText, input.message)] });
+  messages.push({ role: 'user', blocks: [question(formatUserPrompt, input.currentPositionText, input.message)] });
   messages[0].blocks.unshift(formatDataPrompt(input.maidrJson));
   return messages;
 }

@@ -46,11 +46,23 @@ export const DATA_PROMPT_TEMPLATE = `Here is the statistical visualization's dat
 {maidrJson}
 </maidr_data>`;
 
-export const USER_PROMPT_TEMPLATE = `Current selected point: {currentPositionText}
+/**
+ * What one question is made of: the focused point and the question itself.
+ * An earlier turn in a conversation is sent as just this.
+ */
+export const QUESTION_TEMPLATE = `Current selected point: {currentPositionText}
 
-Question: {message}
+Question: {message}`;
 
-Please answer my specific question directly. If you need to reference the visualization data, do so briefly and focus on answering what I asked.`;
+/**
+ * How to answer, said once with the question being asked now and not repeated
+ * on every earlier turn.
+ */
+export const ANSWER_INSTRUCTION = `Please answer my specific question directly. If you need to reference the visualization data, do so briefly and focus on answering what I asked.`;
+
+export const USER_PROMPT_TEMPLATE = `${QUESTION_TEMPLATE}
+
+${ANSWER_INSTRUCTION}`;
 
 /**
  * Context data required for generating prompts for LLM interactions.
@@ -148,6 +160,26 @@ export function formatDataPrompt(maidrJson: string): string {
  * @returns The formatted user prompt string
  */
 export function formatUserPrompt(context: PromptContext): string {
+  return fillQuestion(USER_PROMPT_TEMPLATE, context);
+}
+
+/**
+ * Formats an earlier question of a conversation: the point and the question,
+ * without the answering instruction the current question already carries.
+ * @param context - The prompt context of that turn
+ * @returns The formatted question
+ */
+export function formatHistoryQuestion(context: PromptContext): string {
+  return fillQuestion(QUESTION_TEMPLATE, context);
+}
+
+/**
+ * Fills a template's placeholders with a question's values.
+ * @param template - A template using `{currentPositionText}` and `{message}`
+ * @param context - The prompt context to take the values from
+ * @returns The template with its placeholders replaced
+ */
+function fillQuestion(template: string, context: PromptContext): string {
   const values: Record<string, string> = {
     currentPositionText: context.currentPositionText,
     message: context.message,
@@ -156,7 +188,7 @@ export function formatUserPrompt(context: PromptContext): string {
   // `$&`, `$'` and `` $` `` sequences in the chart data or the user message
   // corrupt the prompt, and chained .replace calls could re-substitute a
   // placeholder that literally appears in an earlier value.
-  return USER_PROMPT_TEMPLATE.replace(
+  return template.replace(
     /\{(currentPositionText|message)\}/g,
     (_, key: string) => values[key],
   );
