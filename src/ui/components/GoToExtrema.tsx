@@ -317,11 +317,16 @@ export const GoToExtrema: React.FC = () => {
       event.stopPropagation();
 
       if (state.selectedIndex === state.targets.length - 1) {
-        // If on last extrema option, move to search
-        focusSearchInput();
-        setIsDropdownOpen(true);
-        setDropdownSelectedIndex(0);
-        announceToScreenReader(t('dialogs.extremaMovedToSearch'));
+        // If on last extrema option, move to search. A trace without the
+        // X-value search (bar, heatmap, ...) renders no search option, so stay
+        // on the last target rather than announce a control that is not there;
+        // moveDown() would select the unrendered index targets.length.
+        if (availableOptions.length > 0) {
+          focusSearchInput();
+          setIsDropdownOpen(true);
+          setDropdownSelectedIndex(0);
+          announceToScreenReader(t('dialogs.extremaMovedToSearch'));
+        }
       } else {
         // The selection effect moves real DOM focus onto the new option, and
         // that focus move is the announcement ("<label>, option, N of M").
