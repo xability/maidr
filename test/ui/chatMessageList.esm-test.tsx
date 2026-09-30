@@ -44,7 +44,7 @@ const MESSAGE_COUNT = 2;
  * their state through `useViewModelState`; only the view models' own methods
  * are stubbed.
  */
-function renderChat(): void {
+function renderChat(userImage?: string): void {
   const chat: ChatStub = {
     canSend: true,
     toggle: jest.fn(),
@@ -57,6 +57,12 @@ function renderChat(): void {
     text: 'What is the highest bar?',
     timestamp: '2025-01-01T00:00:00.000Z',
   }));
+  if (userImage) {
+    store.dispatch(chatActions.attachMessageImage({
+      id: store.getState().chat.messages[0].id,
+      image: userImage,
+    }));
+  }
   store.dispatch(chatActions.addSystemMessage({
     text: 'The highest bar is Q3.',
     timestamp: '2025-01-01T00:00:01.000Z',
@@ -89,5 +95,20 @@ describe('chat transcript structure', () => {
 
     expect(items).toHaveLength(MESSAGE_COUNT);
     items.forEach(item => expect(list).toContainElement(item));
+  });
+});
+
+describe('chat transcript image', () => {
+  it('should show the plot image sent with a question, with a text alternative', () => {
+    renderChat('data:image/jpeg;base64,QUJD');
+
+    const image = screen.getByRole('img', { name: 'Plot image sent to the AI' });
+    expect(image).toHaveAttribute('src', 'data:image/jpeg;base64,QUJD');
+  });
+
+  it('should show no image for a question sent without one', () => {
+    renderChat();
+
+    expect(screen.queryByRole('img', { name: 'Plot image sent to the AI' })).toBeNull();
   });
 });

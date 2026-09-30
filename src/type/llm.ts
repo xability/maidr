@@ -72,6 +72,25 @@ export interface LlmRequest {
   clientToken?: string;
   /** Model version selected by the user, overriding the provider default. */
   version?: LlmVersion;
+  /**
+   * The plot as it stood when the question was triggered. Captured once per
+   * message and shared by every provider answering it; captured on demand
+   * when absent.
+   */
+  snapshot?: ChatSnapshot;
+}
+
+/**
+ * What the AI is grounded on for one question, frozen at the moment the user
+ * triggers it so a later navigation step cannot change the answer's context.
+ */
+export interface ChatSnapshot {
+  /** The plot, highlight included, as a base64 JPEG data URL ('' on failure). */
+  image: Promise<string>;
+  /** Verbose description of the focused point, whatever the text mode is. */
+  positionText: string;
+  /** The MAIDR JSON schema/data the plot was built from. */
+  json: string;
 }
 
 /**
@@ -114,6 +133,8 @@ export interface Message {
   status: Status;
   modelSelections?: SelectedModel[];
   isWelcomeMessage?: boolean;
+  /** Plot image sent to the AI with this question (data URL); user messages only. */
+  image?: string;
 }
 
 /**

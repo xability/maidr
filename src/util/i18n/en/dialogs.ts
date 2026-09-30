@@ -23,6 +23,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': 'Open Settings',
   'dialogs.chatOpenSettingsLabel': 'Open settings',
   'dialogs.chatSentAt': 'Sent at {time}',
+  'dialogs.chatSentImageAlt': 'Plot image sent to the AI',
   'dialogs.chatTyping': 'AI is typing',
   'dialogs.chatCodeBlock': 'Code block',
   'dialogs.chatImageAlt': 'Image in message',

@@ -1,7 +1,7 @@
 import type { DisplayService } from '@service/display';
 import type { ApiResponse } from '@type/api';
 import type { Maidr } from '@type/grammar';
-import type { ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
+import type { ChatSnapshot, ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { HttpStatus } from '@type/api';
@@ -49,10 +49,6 @@ export class ChatService {
   private data: Maidr;
   private cachedJson: string | null;
 
-  // The rasterisation one message's providers share; null when none is in
-  // flight. See getPlotImage().
-  private imagePromise: Promise<string> | null;
-
   /**
    * Creates a new ChatService instance with configured LLM models.
    * @param {DisplayService} display - The display service for managing UI focus
@@ -65,20 +61,15 @@ export class ChatService {
     this.pendingRequests = new Set();
     this.data = maidr;
     this.cachedJson = null;
-    this.imagePromise = null;
 
     // Construction-time versions are fallbacks only; the user-selected
-    // version arrives per request via LlmRequest.version. Models receive
-    // suppliers so live data updates are picked up without rebuilding them,
-    // and so the providers answering one message share a single conversion
-    // of the plot rather than each running their own.
-    const getJson = (): string => this.getDataJson();
-    const getImage = (): Promise<string> => this.getPlotImage();
+    // version arrives per request via LlmRequest.version. What the model is
+    // grounded on arrives with the request too, as a snapshot.
     this.models = {
-      OPENAI: new Gpt(getImage, getJson, textService, MODEL_VERSIONS.OPENAI.default),
-      ANTHROPIC_CLAUDE: new Claude(getImage, getJson, textService, MODEL_VERSIONS.ANTHROPIC_CLAUDE.default),
-      GOOGLE_GEMINI: new Gemini(getImage, getJson, textService, MODEL_VERSIONS.GOOGLE_GEMINI.default),
-      OLLAMA: new Ollama(getImage, getJson, textService, MODEL_VERSIONS.OLLAMA.default),
+      OPENAI: new Gpt(MODEL_VERSIONS.OPENAI.default),
+      ANTHROPIC_CLAUDE: new Claude(MODEL_VERSIONS.ANTHROPIC_CLAUDE.default),
+      GOOGLE_GEMINI: new Gemini(MODEL_VERSIONS.GOOGLE_GEMINI.default),
+      OLLAMA: new Ollama(MODEL_VERSIONS.OLLAMA.default),
     };
   }
 
@@ -92,7 +83,8 @@ export class ChatService {
     const controller = new AbortController();
     this.pendingRequests.add(controller);
     try {
-      return await this.models[model].getLlmResponse(request, controller.signal);
+      const snapshot = request.snapshot ?? this.captureSnapshot();
+      return await this.models[model].getLlmResponse(request, snapshot, controller.signal);
     } finally {
       this.pendingRequests.delete(controller);
     }
@@ -114,45 +106,34 @@ export class ChatService {
   }
 
   /**
-   * Returns the plot as a base64 JPEG, shared by every provider answering
-   * the same message.
+   * Freezes what the AI is grounded on: the plot image exactly as it looks now
+   * (highlight on the focused point included), the verbose description of that
+   * point, and the MAIDR JSON.
    *
-   * ChatViewModel sends one message to all enabled providers at once, and
-   * Svg.toBase64 serializes the plot, decodes it through an <img>, draws it
-   * to a canvas and encodes a JPEG — all on the main thread, where it
-   * blocks navigation and announcements. Running it once per provider paid
-   * that several times over for an identical image. The conversion is
-   * released as soon as it settles, so the next message is answered against
-   * the plot as it looks by then.
-   * @returns {Promise<string>} The plot image as a data URL
+   * Call it at the moment the user triggers a question and hand the result to
+   * every provider answering it, so they share one rasterisation and none of
+   * them sees a plot the user has since navigated away from. The plot is
+   * serialised synchronously inside this call; only the decode and JPEG
+   * encoding that follow are asynchronous, and they work from that copy.
+   * @returns {ChatSnapshot} The frozen context for one question
    */
-  private getPlotImage(): Promise<string> {
-    if (this.imagePromise !== null) {
-      return this.imagePromise;
-    }
-
-    const conversion = Svg.toBase64(this.display.plot).finally(() => {
-      // Only if it is still the current one: updateData may have dropped it
-      // in favour of a plot showing newer data.
-      if (this.imagePromise === conversion) {
-        this.imagePromise = null;
-      }
-    });
-    this.imagePromise = conversion;
-    return conversion;
+  public captureSnapshot(): ChatSnapshot {
+    return {
+      image: Svg.toBase64(this.display.plot),
+      positionText: this.textService.getVerboseText() ?? '',
+      json: this.getDataJson(),
+    };
   }
 
   /**
    * Refreshes the chart data shared with the LLM providers after a live
    * data update, so AI answers reflect the data currently on screen.
-   * Serialization is deferred until the next LLM request, and the shared
-   * plot image is dropped so the next message rasterises the updated plot.
+   * Serialization is deferred until the next LLM request.
    * @param {Maidr} maidr - The updated MAIDR data structure
    */
   public updateData(maidr: Maidr): void {
     this.data = maidr;
     this.cachedJson = null;
-    this.imagePromise = null;
   }
 
   /**
@@ -180,7 +161,7 @@ export class ChatService {
  * Interface for LLM model implementations.
  */
 interface LlmModel {
-  getLlmResponse: (request: LlmRequest, signal?: AbortSignal) => Promise<LlmResponse>;
+  getLlmResponse: (request: LlmRequest, snapshot: ChatSnapshot, signal?: AbortSignal) => Promise<LlmResponse>;
 }
 
 /**
@@ -236,24 +217,13 @@ interface OllamaResponse {
  * @template T - The response type specific to the LLM provider
  */
 abstract class AbstractLlmModel<T> implements LlmModel {
-  protected readonly getImage: () => Promise<string>;
-  protected readonly getJson: () => string;
-  protected readonly textService: TextService;
-
   private readonly maidrBaseUrl: string;
   private readonly codeQueryParam: string;
 
   /**
    * Creates a new AbstractLlmModel instance.
-   * @param {() => Promise<string>} getImage - Supplier of the plot as a base64 image
-   * @param {() => string} getJson - Supplier of the current chart data as JSON
-   * @param {TextService} textService - The text service for retrieving coordinate text
    */
-  protected constructor(getImage: () => Promise<string>, getJson: () => string, textService: TextService) {
-    this.getImage = getImage;
-    this.getJson = getJson;
-    this.textService = textService;
-
+  protected constructor() {
     this.maidrBaseUrl = 'https://maidr-service.azurewebsites.net/api';
     this.codeQueryParam = 'I8Aa2PlPspjQ8Hks0QzGyszP8_i2-XJ3bq7Xh8-ykEe4AzFuYn_QWA%3D%3D';
   }
@@ -261,22 +231,21 @@ abstract class AbstractLlmModel<T> implements LlmModel {
   /**
    * Sends a request to the LLM and returns the formatted response.
    * @param {LlmRequest} request - The request containing the message and configuration
+   * @param {ChatSnapshot} snapshot - The plot state frozen when the question was asked
    * @param {AbortSignal} [signal] - Aborts the in-flight request on disposal
    * @returns {Promise<LlmResponse>} The formatted response from the LLM
    */
-  public async getLlmResponse(request: LlmRequest, signal?: AbortSignal): Promise<LlmResponse> {
+  public async getLlmResponse(request: LlmRequest, snapshot: ChatSnapshot, signal?: AbortSignal): Promise<LlmResponse> {
     try {
-      const image = await this.getImage();
+      const image = await snapshot.image;
       // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
       const expertiseLevel = request.expertise === 'custom' ? 'advanced' : request.expertise;
 
-      const currentPositionText = this.textService.getCoordinateText() || '';
-
       const payload = this.getPayload(
         request.customInstruction,
-        this.getJson(),
+        snapshot.json,
         image,
-        currentPositionText,
+        snapshot.positionText,
         request.message,
         expertiseLevel,
         request.version,
@@ -441,13 +410,10 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 
   /**
    * Creates a new GPT model instance.
-   * @param {() => Promise<string>} getImage - Supplier of the plot as a base64 image
-   * @param {() => string} getJson - Supplier of the current chart data as JSON
-   * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {GptVersion} version - The GPT model version to use
    */
-  public constructor(getImage: () => Promise<string>, getJson: () => string, textService: TextService, version: GptVersion) {
-    super(getImage, getJson, textService);
+  public constructor(version: GptVersion) {
+    super();
     this.version = version;
   }
 
@@ -560,13 +526,10 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
   /**
    * Creates a new Claude model instance.
-   * @param {() => Promise<string>} getImage - Supplier of the plot as a base64 image
-   * @param {() => string} getJson - Supplier of the current chart data as JSON
-   * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {ClaudeVersion} version - The Claude model version to use
    */
-  public constructor(getImage: () => Promise<string>, getJson: () => string, textService: TextService, version: ClaudeVersion) {
-    super(getImage, getJson, textService);
+  public constructor(version: ClaudeVersion) {
+    super();
     this.version = version;
   }
 
@@ -701,13 +664,10 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
 
   /**
    * Creates a new Gemini model instance.
-   * @param {() => Promise<string>} getImage - Supplier of the plot as a base64 image
-   * @param {() => string} getJson - Supplier of the current chart data as JSON
-   * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {GeminiVersion} version - The Gemini model version to use
    */
-  public constructor(getImage: () => Promise<string>, getJson: () => string, textService: TextService, version: GeminiVersion) {
-    super(getImage, getJson, textService);
+  public constructor(version: GeminiVersion) {
+    super();
     this.version = version;
   }
 
@@ -842,13 +802,10 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
 
   /**
    * Creates a new Ollama model instance.
-   * @param {() => Promise<string>} getImage - Supplier of the plot as a base64 image
-   * @param {() => string} getJson - Supplier of the current chart data as JSON
-   * @param {TextService} textService - The text service for retrieving coordinate text
    * @param {OllamaVersion} version - The default Ollama model to use when none is selected
    */
-  public constructor(getImage: () => Promise<string>, getJson: () => string, textService: TextService, version: OllamaVersion) {
-    super(getImage, getJson, textService);
+  public constructor(version: OllamaVersion) {
+    super();
     this.version = version;
   }
 

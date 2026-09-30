@@ -168,3 +168,25 @@ describe('the other formatting paths', () => {
     );
   });
 });
+
+describe('getVerboseText', () => {
+  test('describes the focused point in full while text mode is terse', () => {
+    // The AI chat needs the whole description of the point even when the
+    // reader has asked for the short one on every arrow key.
+    const layer = scatterLayer([{ x: 1, y: 2 }]);
+    const trace = new ScatterTrace(layer);
+    const text = new TextService(createMockNotificationService());
+    text.update(trace.getStateAt(0, 0));
+    const verbose = text.getVerboseText();
+
+    text.toggle(); // VERBOSE -> TERSE
+    expect(text.isTerse()).toBe(true);
+
+    expect(text.getVerboseText()).toBe(verbose);
+    expect(verbose).toBe('X is 1, Y is 2');
+  });
+
+  test('is null before anything is focused', () => {
+    expect(new TextService(createMockNotificationService()).getVerboseText()).toBeNull();
+  });
+});

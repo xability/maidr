@@ -19,6 +19,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': '설정 열기',
   'dialogs.chatOpenSettingsLabel': '설정 열기',
   'dialogs.chatSentAt': '{time}에 보냄',
+  'dialogs.chatSentImageAlt': 'AI에게 보낸 차트 이미지',
   'dialogs.chatTyping': 'AI가 입력하고 있습니다',
   'dialogs.chatCodeBlock': '코드 블록',
   'dialogs.chatImageAlt': '메시지 속 이미지',

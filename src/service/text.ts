@@ -182,6 +182,41 @@ export class TextService implements Observer<PlotState>, Disposable {
   }
 
   /**
+   * The focused point described in full, whatever the text mode is.
+   *
+   * Terse and OFF modes shorten or silence what the reader hears, but the AI
+   * needs the whole description of the point, so this always formats the
+   * verbose way. Reads the last navigation state and leaves the mode alone.
+   * @returns The verbose description, or null when nothing is focused
+   */
+  public getVerboseText(): string | null {
+    const state = this.currentState;
+    if (!state || state.empty) {
+      return null;
+    }
+
+    let trace: TraceState | null = null;
+    if (state.type === 'subplot') {
+      trace = state.trace;
+    } else if (state.type === 'trace') {
+      trace = state;
+    }
+    if (!trace || trace.empty) {
+      return null;
+    }
+
+    // Formatting reads the layer id for value formatting; put it back so a
+    // query from the chat cannot change how the next announcement is formatted.
+    const previousLayerId = this.currentLayerId;
+    this.currentLayerId = trace.layerId;
+    try {
+      return this.formatVerboseTraceText(trace.text) || null;
+    } finally {
+      this.currentLayerId = previousLayerId;
+    }
+  }
+
+  /**
    * Formats coordinate information from trace state into readable text.
    * @param traceState - The trace state containing coordinate data
    * @returns Formatted coordinate text or null if unavailable
