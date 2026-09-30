@@ -102,8 +102,8 @@ export interface AppendedPointInfo {
    * How many rows the append inserted before the cursor, so a reader keeps
    * the point they were on.
    *
-   * One for a horizontal box, whose trace reverses its points so the new box
-   * is row 0 and every other box moves down a row. Zero everywhere else, where
+   * One for a horizontal box or violin box, whose trace reverses its points
+   * so the new box is row 0 and every other box moves down a row. Zero everywhere else, where
    * an append only ever adds at the end.
    */
   rowShift: number;
@@ -343,6 +343,19 @@ export function appendPointToMaidr(
         // Vertical: [sections][boxes], so the column is still the new box.
         row = median;
       }
+    } else if (
+      layer.type === TraceType.VIOLIN_BOX
+      && layer.orientation === Orientation.HORIZONTAL
+    ) {
+      // A horizontal violin box reverses its points like a horizontal box
+      // (see `ViolinBoxTrace`), so the new violin is row 0 and every other
+      // one moves down a row; its columns are its sections, which a trim
+      // never moves. Its sections depend on `violinOptions`, so the new
+      // violin is announced at its minimum, the one section it always has.
+      row = 0;
+      col = 0;
+      colShift = 0;
+      rowShift = 1;
     } else if (layer.type === TraceType.SCATTER) {
       // A scatter's columns are its sorted unique x values, so a trim does
       // not shift them by the number of points it dropped — the dropped
