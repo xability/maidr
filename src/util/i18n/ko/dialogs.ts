@@ -48,6 +48,7 @@ export const dialogs = {
 
   'dialogs.extremaMovedToSearch': '검색으로 이동했습니다. 입력하여 X 값을 필터링하세요.',
   'dialogs.extremaFirstOption': '첫 번째 항목입니다',
+  'dialogs.extremaLastOption': '마지막 항목입니다',
   'dialogs.extremaNoResults': '검색 결과가 없습니다',
   'dialogs.extremaLastResult': '마지막 검색 결과입니다',
   'dialogs.extremaSelectedResult': '{label|을를} 선택했습니다',

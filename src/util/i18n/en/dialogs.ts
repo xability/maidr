@@ -55,6 +55,7 @@ export const dialogs = {
   // What focus does not announce on its own.
   'dialogs.extremaMovedToSearch': 'Moved to search. Type to filter X values.',
   'dialogs.extremaFirstOption': 'At first extrema option',
+  'dialogs.extremaLastOption': 'At last extrema option',
   'dialogs.extremaNoResults': 'No search results',
   'dialogs.extremaLastResult': 'At last search result',
   'dialogs.extremaSelectedResult': 'Selected: {label}',

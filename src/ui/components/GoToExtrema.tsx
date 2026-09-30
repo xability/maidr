@@ -319,13 +319,15 @@ export const GoToExtrema: React.FC = () => {
       if (state.selectedIndex === state.targets.length - 1) {
         // If on last extrema option, move to search. A trace without the
         // X-value search (bar, heatmap, ...) renders no search option, so stay
-        // on the last target rather than announce a control that is not there;
+        // on the last target and say so, mirroring ArrowUp on the first one;
         // moveDown() would select the unrendered index targets.length.
         if (availableOptions.length > 0) {
           focusSearchInput();
           setIsDropdownOpen(true);
           setDropdownSelectedIndex(0);
           announceToScreenReader(t('dialogs.extremaMovedToSearch'));
+        } else {
+          announceToScreenReader(t('dialogs.extremaLastOption'));
         }
       } else {
         // The selection effect moves real DOM focus onto the new option, and

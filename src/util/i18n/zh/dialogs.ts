@@ -48,6 +48,7 @@ export const dialogs = {
 
   'dialogs.extremaMovedToSearch': '已移动到搜索框。输入以筛选 X 值。',
   'dialogs.extremaFirstOption': '已在第一个跳转选项',
+  'dialogs.extremaLastOption': '已在最后一个跳转选项',
   'dialogs.extremaNoResults': '没有搜索结果',
   'dialogs.extremaLastResult': '已在最后一个搜索结果',
   'dialogs.extremaSelectedResult': '已选择：{label}',

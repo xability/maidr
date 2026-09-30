@@ -48,6 +48,7 @@ export const dialogs = {
 
   'dialogs.extremaMovedToSearch': 'Passato alla ricerca. Digitare per filtrare i valori X.',
   'dialogs.extremaFirstOption': 'Prima opzione dei valori estremi',
+  'dialogs.extremaLastOption': 'Ultima opzione dei valori estremi',
   'dialogs.extremaNoResults': 'Nessun risultato di ricerca',
   'dialogs.extremaLastResult': 'Ultimo risultato di ricerca',
   'dialogs.extremaSelectedResult': 'Selezionato: {label}',

@@ -192,11 +192,11 @@ describe('go to dialog: what the listbox announces', () => {
     expect(liveRegion()).toHaveTextContent('At first extrema option');
   });
 
-  it('should not announce a move to search on a trace with no X-value search', () => {
+  it('should announce the last-option boundary on a trace with no X-value search', () => {
     // A bar or a heatmap renders no search option, so ArrowDown on the last
-    // target has nowhere to go: focus stays put and nothing claims otherwise.
-    // Observed as a mutation, because the dropdown effect clears the region
-    // again straight after, which would hide the false announcement.
+    // target has nowhere to go: focus stays put and the region says so, as
+    // ArrowUp on the first target does. Observed as mutations too, because the
+    // dropdown effect would clear a false 'Moved to search' straight after.
     const { viewModel, store } = renderDialog({ xValues: [] });
     act(() => {
       store.dispatch({ type: 'goToExtrema/updateSelectedIndex', payload: TARGETS.length - 1 });
@@ -208,7 +208,9 @@ describe('go to dialog: what the listbox announces', () => {
     const records = observer.takeRecords();
     observer.disconnect();
 
-    expect(records).toHaveLength(0);
+    const written = records.flatMap(record => Array.from(record.addedNodes, node => node.textContent));
+    expect(written).not.toContain('Moved to search. Type to filter X values.');
+    expect(liveRegion()).toHaveTextContent('At last extrema option');
     expect(viewModel.moveDown).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(screen.getByLabelText('Min Bar Value: 2.00 at Q3'));
   });

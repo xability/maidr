@@ -53,6 +53,7 @@ export const dialogs = {
   // What focus does not announce on its own.
   'dialogs.extremaMovedToSearch': 'Zur Suche gewechselt. Tippen Sie, um die X-Werte zu filtern.',
   'dialogs.extremaFirstOption': 'Bei der ersten Extremwert-Option',
+  'dialogs.extremaLastOption': 'Bei der letzten Extremwert-Option',
   'dialogs.extremaNoResults': 'Keine Suchergebnisse',
   'dialogs.extremaLastResult': 'Beim letzten Suchergebnis',
   'dialogs.extremaSelectedResult': 'Ausgewählt: {label}',
