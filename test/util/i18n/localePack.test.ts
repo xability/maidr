@@ -76,6 +76,24 @@ describe('locale pack loading', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('should fetch the pack again after an earlier attempt failed', async () => {
+    loadedFrom(CDN);
+
+    const failed = ensureLocalePack('ko');
+    const [dead] = packScripts();
+    dead.dispatchEvent(new Event('error'));
+    await expect(failed).resolves.toBe(false);
+
+    const retry = ensureLocalePack('ko');
+    const scripts = packScripts();
+    expect(scripts).toHaveLength(1);
+    expect(scripts[0]).not.toBe(dead);
+    registerLocale('ko', en);
+    scripts[0].dispatchEvent(new Event('load'));
+
+    await expect(retry).resolves.toBe(true);
+  });
+
   it('should wait for a pack the author already put on the page rather than fetch it again', async () => {
     loadedFrom(CDN);
     const own = document.createElement('script');

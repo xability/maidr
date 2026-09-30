@@ -103,13 +103,24 @@ export function ensureLocalePack(locale: Locale): Promise<boolean> {
     return Promise.resolve(false);
   }
   let script = alreadyOnPage(url);
+  const added = !script;
   if (!script) {
     script = document.createElement('script');
     script.src = url;
     script.async = true;
     document.head.appendChild(script);
   }
-  const attempt = settled(script, locale).finally(() => inFlight.delete(locale));
+  const own = script;
+  // A failed script of ours is removed, so a later call fetches afresh
+  // rather than waiting on events that have already fired.
+  const attempt = settled(own, locale)
+    .then((ok) => {
+      if (!ok && added) {
+        own.remove();
+      }
+      return ok;
+    })
+    .finally(() => inFlight.delete(locale));
   inFlight.set(locale, attempt);
   return attempt;
 }
