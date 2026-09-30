@@ -436,6 +436,9 @@ export class Controller implements Disposable {
    */
   public captureSession(): ControllerSession {
     const navigation = this.context.captureNavigation();
+    // A reader who never left the start has no position to resume, and so
+    // meets the initial instruction again; braille, which is reopened only on
+    // resume, stays closed for them.
     const moved = navigation !== null
       && !(navigation.figureEntry && navigation.subplotEntry && navigation.traceEntry);
     return {

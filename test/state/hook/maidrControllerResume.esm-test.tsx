@@ -197,6 +197,25 @@ describe('a reader who Tabs out and back in', () => {
     expect(announcedText()).toContain('Category is C');
   });
 
+  it('should keep their place through a focus that came and went before the chart woke', () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+
+    // Focus passes through the plot and leaves again in the same task, so the
+    // controller it queued is never built.
+    act(() => {
+      screen.getByRole('img').focus();
+      screen.getByRole('button', { name: 'Elsewhere' }).focus();
+      jest.runOnlyPendingTimers();
+    });
+    focusIn();
+
+    expect(announcedText()).toContain('Category is B');
+  });
+
   it('should be given the instruction again when they never moved', () => {
     renderChart();
     focusIn();

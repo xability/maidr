@@ -179,7 +179,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       const activeElement = document.activeElement as HTMLElement;
       const isInside = figureElement.contains(activeElement);
       if (!isInside) {
-        sessionRef.current = controllerRef.current?.captureSession() ?? null;
+        // Only a live controller has anything newer to hand back. A focus
+        // that came and went before one was built keeps the session it was
+        // going to resume.
+        if (controllerRef.current) {
+          sessionRef.current = controllerRef.current.captureSession();
+        }
         disposeController();
       }
     }, 0);

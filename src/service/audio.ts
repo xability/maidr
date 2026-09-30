@@ -1753,7 +1753,8 @@ export class AudioService implements Observer<PlotState>, Disposable {
    * Turns sound on or off without announcing it -- carrying the reader's
    * choice over to the controller built when they come back to the chart.
    * Turning it on picks the mode the current layer calls for, the way
-   * {@link toggle} does.
+   * {@link toggle} does, so a reader who had separate playback on a layer
+   * with several points hears it combined again, as on any other move.
    * @param on - Whether sound should be on
    */
   public setOn(on: boolean): void {
