@@ -79,3 +79,24 @@ describe.each([
     expect(trace.col).toBe(2);
   });
 });
+
+describe('rotor compare from initial entry on a line whose first series is empty', () => {
+  const RAGGED: MaidrLayer = {
+    ...LINE,
+    data: [[], [{ x: 1, y: 1 }, { x: 2, y: 5 }, { x: 3, y: 9 }]],
+  };
+
+  it('starts the search on the first populated series', () => {
+    // Left on the empty first series, the jump found nothing to compare and
+    // every arrow key after it reported out of bounds.
+    const trace = new LineTrace(RAGGED);
+    trace.resetToInitialEntry();
+
+    expect(trace.moveToNextCompareValue('right', 'higher')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(trace.col).toBe(1);
+
+    expect(trace.moveOnce('FORWARD')).toBe(true);
+    expect(trace.col).toBe(2);
+  });
+});

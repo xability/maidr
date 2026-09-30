@@ -2346,9 +2346,16 @@ export class LineTrace extends AbstractTrace {
     // highlights and a subsequent ordinary keypress isn't swallowed by the
     // initial-entry branch of moveOnce (mirrors Candlestick). The flag alone
     // is cleared: the graph's entry handler would re-seat the cursor on the
-    // first point, discarding the position the search starts from.
+    // first point, discarding the position the search starts from -- unless
+    // that position is an empty first series, which has nothing to search;
+    // then enter the way moveOnce does, on the first populated series.
     if (this.isInitialEntry) {
-      this.isInitialEntry = false;
+      if ((this.points[this.row]?.length ?? 0) === 0
+        && this.points.some(line => line.length > 0)) {
+        this.enterTrace();
+      } else {
+        this.isInitialEntry = false;
+      }
     }
 
     const currentGroup = this.row;
