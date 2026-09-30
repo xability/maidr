@@ -135,13 +135,18 @@ export class HexbinTrace extends AbstractTrace {
       return null;
     }
 
-    const flat = typeof selectors === 'string'
-      ? Svg.selectAllElements(selectors)
-      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one));
+    // Resolved live first and cloned only once the count fits (#1004). A
+    // clone is inserted beside its original the moment it is made, so
+    // declining after cloning leaked every copy, and a positional selector
+    // list resolved each later entry to a clone of an earlier bin.
+    const live = typeof selectors === 'string'
+      ? Svg.selectAllElements(selectors, false)
+      : (selectors as string[]).flatMap(one => Svg.selectAllElements(one, false));
 
-    if (flat.length !== this.bins.flat().length) {
+    if (live.length !== this.bins.flat().length) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
 
     let taken = 0;
     return this.bins.map(row => flat.slice(taken, taken += row.length));

@@ -130,6 +130,17 @@ const CASES: Case[] = [
     },
   },
   {
+    type: TraceType.HEXBIN,
+    declared: 3,
+    layer: {
+      axes: { x: { label: 'X' }, y: { label: 'Y' }, z: { label: 'Count' } },
+      data: [
+        [{ x: 0, y: 0, count: 3 }, { x: 2, y: 0, count: 9 }],
+        [{ x: 1, y: 1, count: 5 }],
+      ],
+    },
+  },
+  {
     type: TraceType.GANTT,
     declared: 2,
     layer: {
