@@ -1,7 +1,7 @@
 import type { DisplayService } from '@service/display';
 import type { ApiResponse } from '@type/api';
 import type { Maidr } from '@type/grammar';
-import type { ChatSnapshot, ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
+import type { ChatSnapshot, ChatTurn, ClaudeVersion, GeminiVersion, GptVersion, Llm, LlmRequest, LlmResponse, LlmVersion, OllamaVersion } from '@type/llm';
 import type { PromptContext } from './prompts';
 import type { TextService } from './text';
 import { HttpStatus } from '@type/api';
@@ -26,6 +26,10 @@ const GEMINI_MAX_TOKENS = 8192;
 // the context window).
 const OLLAMA_MAX_TOKENS = 1000;
 
+// Earlier exchanges sent along with a question. Each is a few lines of text, so
+// this bounds the request rather than the cost of a turn; the oldest go first.
+const MAX_HISTORY_TURNS = 10;
+
 // Generous cap for the chat request itself: large local models and
 // deep-reasoning cloud models can legitimately take a while, but a hung
 // provider must not stall the chat (and its waiting tone) forever.
@@ -49,6 +53,10 @@ export class ChatService {
   private data: Maidr;
   private cachedJson: string | null;
 
+  // When the chart data last changed. An answer given about the old data says
+  // nothing about the new, so earlier exchanges are not carried across it.
+  private dataChangedAt: number;
+
   /**
    * Creates a new ChatService instance with configured LLM models.
    * @param {DisplayService} display - The display service for managing UI focus
@@ -61,6 +69,7 @@ export class ChatService {
     this.pendingRequests = new Set();
     this.data = maidr;
     this.cachedJson = null;
+    this.dataChangedAt = 0;
 
     // Construction-time versions are fallbacks only; the user-selected
     // version arrives per request via LlmRequest.version. What the model is
@@ -84,7 +93,10 @@ export class ChatService {
     this.pendingRequests.add(controller);
     try {
       const snapshot = request.snapshot ?? this.captureSnapshot();
-      return await this.models[model].getLlmResponse(request, snapshot, controller.signal);
+      const history = (request.history ?? [])
+        .filter(turn => Date.parse(turn.timestamp) >= this.dataChangedAt)
+        .slice(-MAX_HISTORY_TURNS);
+      return await this.models[model].getLlmResponse({ ...request, history }, snapshot, controller.signal);
     } finally {
       this.pendingRequests.delete(controller);
     }
@@ -134,6 +146,7 @@ export class ChatService {
   public updateData(maidr: Maidr): void {
     this.data = maidr;
     this.cachedJson = null;
+    this.dataChangedAt = Date.now();
   }
 
   /**
@@ -213,6 +226,74 @@ interface OllamaResponse {
 }
 
 /**
+ * Everything a provider builds its request body from.
+ */
+interface PayloadInput {
+  customInstruction: string;
+  maidrJson: string;
+  /** The plot as a data URL; empty when conversion failed. */
+  image: string;
+  currentPositionText: string;
+  message: string;
+  expertise: 'basic' | 'intermediate' | 'advanced';
+  history: ChatTurn[];
+  version?: LlmVersion;
+  /** Whether the chart data block may carry a cache breakpoint. */
+  cacheData: boolean;
+}
+
+/**
+ * One message of the conversation in a provider-neutral shape. A user message
+ * is several text blocks, so a provider that can address the chart data block
+ * on its own (to cache it) still can.
+ */
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  blocks: string[];
+}
+
+/**
+ * Lays the conversation out the same way for every provider: earlier
+ * questions and answers as text, then the current question, with the chart
+ * data leading the first user message. The data is stated once and stays the
+ * front of every request however long the conversation gets; the plot image
+ * belongs to the current question only, and providers attach it themselves.
+ * @param {PayloadInput} input - What the request is built from
+ * @returns {ConversationMessage[]} Alternating user and assistant messages,
+ * starting and ending with the user
+ */
+function buildConversation(input: PayloadInput): ConversationMessage[] {
+  const question = (currentPositionText: string, message: string): string => {
+    const context: PromptContext = {
+      customInstruction: input.customInstruction,
+      maidrJson: input.maidrJson,
+      currentPositionText,
+      message,
+      expertiseLevel: input.expertise,
+    };
+    return formatUserPrompt(context);
+  };
+
+  const messages: ConversationMessage[] = input.history.flatMap((turn): ConversationMessage[] => [
+    { role: 'user', blocks: [question(turn.positionText, turn.question)] },
+    { role: 'assistant', blocks: [turn.answer] },
+  ]);
+  messages.push({ role: 'user', blocks: [question(input.currentPositionText, input.message)] });
+  messages[0].blocks.unshift(formatDataPrompt(input.maidrJson));
+  return messages;
+}
+
+/**
+ * Strips the data-URL prefix: the Anthropic, Gemini and Ollama APIs want raw
+ * base64.
+ * @param {string} image - The plot as a data URL, or empty
+ * @returns {string} The raw base64, or empty when there is no image
+ */
+function rawBase64(image: string): string {
+  return image.includes(',') ? image.split(',')[1] : image;
+}
+
+/**
  * Abstract base class for LLM model implementations providing common functionality.
  * @template T - The response type specific to the LLM provider
  */
@@ -241,18 +322,19 @@ abstract class AbstractLlmModel<T> implements LlmModel {
       // When expertise is 'custom', use 'advanced' as the base level since custom instructions will override
       const expertiseLevel = request.expertise === 'custom' ? 'advanced' : request.expertise;
 
-      const payload = this.getPayload(
-        request.customInstruction,
-        snapshot.json,
+      const payload = this.getPayload({
+        customInstruction: request.customInstruction,
+        maidrJson: snapshot.json,
         image,
-        snapshot.positionText,
-        request.message,
-        expertiseLevel,
-        request.version,
+        currentPositionText: snapshot.positionText,
+        message: request.message,
+        expertise: expertiseLevel,
+        history: request.history ?? [],
+        version: request.version,
         // Only the direct Anthropic call sets a cache breakpoint; the MAIDR
         // proxy's handling of the field is not known.
-        !request.clientToken,
-      );
+        cacheData: !request.clientToken,
+      });
 
       const url = request.clientToken
         ? this.getMaidrUrl()
@@ -377,28 +459,10 @@ abstract class AbstractLlmModel<T> implements LlmModel {
 
   /**
    * Constructs the request payload for the specific LLM provider.
-   * @param {string} customInstruction - Custom instructions from the user
-   * @param {string} maidrJson - The MAIDR data as JSON string
-   * @param {string} image - The base64-encoded plot image
-   * @param {string} currentText - The current position text
-   * @param {string} message - The user's message
-   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
-   * @param {LlmVersion} [version] - The user-selected model version, overriding the
-   * construction-time default
-   * @param {boolean} [cacheData] - Whether the provider may be asked to cache the
-   * chart data block (honoured by direct Anthropic calls only)
+   * @param {PayloadInput} input - What the request is built from
    * @returns {string} The JSON payload
    */
-  protected abstract getPayload(
-    customInstruction: string,
-    maidrJson: string,
-    image: string,
-    currentText: string,
-    message: string,
-    expertise: 'basic' | 'intermediate' | 'advanced',
-    version?: LlmVersion,
-    cacheData?: boolean,
-  ): string;
+  protected abstract getPayload(input: PayloadInput): string;
 
   /**
    * Formats the provider-specific response into a standard LlmResponse.
@@ -441,66 +505,38 @@ class Gpt extends AbstractLlmModel<GptResponse> {
 
   /**
    * Constructs the GPT-specific request payload.
-   * @param {string} customInstruction - Custom instructions from the user
-   * @param {string} maidrJson - The MAIDR data as JSON string
-   * @param {string} image - The base64-encoded plot image
-   * @param {string} currentPositionText - The current position text
-   * @param {string} message - The user's message
-   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {PayloadInput} input - What the request is built from
    * @returns {string} The JSON payload for GPT API
    */
-  protected getPayload(
-    customInstruction: string,
-    maidrJson: string,
-    image: string,
-    currentPositionText: string,
-    message: string,
-    expertise: 'basic' | 'intermediate' | 'advanced',
-    version?: LlmVersion,
-  ): string {
-    const context: PromptContext = {
-      customInstruction,
-      maidrJson,
-      currentPositionText,
-      message,
-      expertiseLevel: expertise,
-    };
+  protected getPayload(input: PayloadInput): string {
+    const conversation = buildConversation(input);
+    const last = conversation.length - 1;
 
     return JSON.stringify({
-      model: version ?? this.version,
+      model: input.version ?? this.version,
       // GPT-5-family and o-series models reject the legacy `max_tokens`;
       // `max_completion_tokens` is accepted by every current OpenAI chat model.
       max_completion_tokens: GPT_MAX_TOKENS,
       messages: [
         {
           role: 'system',
-          content: formatSystemPrompt(customInstruction, context.expertiseLevel),
+          content: formatSystemPrompt(input.customInstruction, input.expertise),
         },
-        {
-          role: 'user',
-          content: [
-            // Stable prefix first, so OpenAI's automatic prompt caching can
-            // reuse it across questions about the same chart.
-            {
-              type: 'text',
-              text: formatDataPrompt(context.maidrJson),
-            },
-            {
-              type: 'text',
-              text: formatUserPrompt(context),
-            },
-            // Omit the image when SVG conversion produced nothing; OpenAI
-            // rejects an empty image URL, unlike the other providers.
-            ...(image
-              ? [{
-                  type: 'image_url',
-                  image_url: {
-                    url: image,
-                  },
-                }]
-              : []),
-          ],
-        },
+        ...conversation.map((message, index) => message.role === 'assistant'
+          ? { role: 'assistant', content: message.blocks.join('\n\n') }
+          : {
+              role: 'user',
+              // The chart data leads, so OpenAI's automatic prompt caching can
+              // reuse it across questions about the same chart.
+              content: [
+                ...message.blocks.map(text => ({ type: 'text', text })),
+                // Omit the image when SVG conversion produced nothing; OpenAI
+                // rejects an empty image URL, unlike the other providers.
+                ...(index === last && input.image
+                  ? [{ type: 'image_url', image_url: { url: input.image } }]
+                  : []),
+              ],
+            }),
       ],
     });
   }
@@ -563,68 +599,39 @@ class Claude extends AbstractLlmModel<ClaudeResponse> {
 
   /**
    * Constructs the Claude-specific request payload.
-   * @param {string} customInstruction - Custom instructions from the user
-   * @param {string} maidrJson - The MAIDR data as JSON string
-   * @param {string} image - The base64-encoded plot image
-   * @param {string} currentPositionText - The current position text
-   * @param {string} message - The user's message
-   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {PayloadInput} input - What the request is built from
    * @returns {string} The JSON payload for Claude API
    */
-  protected getPayload(
-    customInstruction: string,
-    maidrJson: string,
-    image: string,
-    currentPositionText: string,
-    message: string,
-    expertise: 'basic' | 'intermediate' | 'advanced',
-    version?: LlmVersion,
-    cacheData: boolean = false,
-  ): string {
-    const context: PromptContext = {
-      customInstruction,
-      maidrJson,
-      currentPositionText,
-      message,
-      expertiseLevel: expertise,
-    };
-
-    // The Anthropic API expects raw base64 without the data-URL prefix.
-    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+  protected getPayload(input: PayloadInput): string {
+    const conversation = buildConversation(input);
+    const last = conversation.length - 1;
+    const raw = rawBase64(input.image);
+    const text = (value: string): { type: string; text: string } => ({ type: 'text', text: value });
 
     return JSON.stringify({
-      model: version ?? this.version,
+      model: input.version ?? this.version,
       max_tokens: CLAUDE_MAX_TOKENS,
-      system: formatSystemPrompt(customInstruction, context.expertiseLevel),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            // The chart data is the stable front of the request. The cache
-            // breakpoint on it lets the system prompt and the data be read
-            // from cache on the next question about this chart.
-            {
-              type: 'text',
-              text: formatDataPrompt(context.maidrJson),
-              ...(cacheData ? { cache_control: { type: 'ephemeral' } } : {}),
-            },
-            ...(rawBase64
-              ? [{
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: rawBase64,
-                  },
-                }]
-              : []),
-            {
-              type: 'text',
-              text: formatUserPrompt(context),
-            },
-          ],
-        },
-      ],
+      system: formatSystemPrompt(input.customInstruction, input.expertise),
+      messages: conversation.map((message, index) => {
+        if (message.role === 'assistant') {
+          return { role: 'assistant', content: message.blocks.map(text) };
+        }
+        const blocks: object[] = message.blocks.map(text);
+        // The chart data is the stable front of the conversation. The cache
+        // breakpoint on it lets the system prompt and the data be read from
+        // cache on the next question about this chart.
+        if (index === 0 && input.cacheData) {
+          blocks[0] = { ...text(message.blocks[0]), cache_control: { type: 'ephemeral' } };
+        }
+        // The image goes just ahead of the current question.
+        if (index === last && raw) {
+          blocks.splice(blocks.length - 1, 0, {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: raw },
+          });
+        }
+        return { role: 'user', content: blocks };
+      }),
     });
   }
 
@@ -716,67 +723,37 @@ class Gemini extends AbstractLlmModel<GeminiResponse> {
 
   /**
    * Constructs the Gemini-specific request payload.
-   * @param {string} customInstruction - Custom instructions from the user
-   * @param {string} maidrJson - The MAIDR data as JSON string
-   * @param {string} image - The base64-encoded plot image
-   * @param {string} currentPositionText - The current position text
-   * @param {string} message - The user's message
-   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
+   * @param {PayloadInput} input - What the request is built from
    * @returns {string} The JSON payload for Gemini API
    */
-  protected getPayload(
-    customInstruction: string,
-    maidrJson: string,
-    image: string,
-    currentPositionText: string,
-    message: string,
-    expertise: 'basic' | 'intermediate' | 'advanced',
-  ): string {
-    const context: PromptContext = {
-      customInstruction,
-      maidrJson,
-      currentPositionText,
-      message,
-      expertiseLevel: expertise,
-    };
+  protected getPayload(input: PayloadInput): string {
+    const conversation = buildConversation(input);
+    const last = conversation.length - 1;
+    const raw = rawBase64(input.image);
+    const systemPrompt = formatSystemPrompt(input.customInstruction, input.expertise);
 
-    const systemPrompt = formatSystemPrompt(customInstruction, context.expertiseLevel);
-    const userPrompt = formatUserPrompt(context);
-    // Instructions and chart data first and unchanged between questions, so
-    // Gemini's implicit caching can reuse that prefix.
-    const combinedPrompt = `${systemPrompt}\n\n${formatDataPrompt(context.maidrJson)}\n\n${userPrompt}`;
-
-    // Raw base64 without the data-URL prefix; omit the image part entirely
-    // when conversion produced nothing (same handling as Claude and Ollama).
-    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
-
-    const payload = JSON.stringify({
+    return JSON.stringify({
       generationConfig: {
         maxOutputTokens: GEMINI_MAX_TOKENS,
       },
       safetySettings: [],
-      contents: [
-        {
-          role: 'user',
+      contents: conversation.map((message, index) => {
+        // Instructions and chart data first and unchanged between questions,
+        // so Gemini's implicit caching can reuse that prefix.
+        const blocks = index === 0 ? [systemPrompt, ...message.blocks] : message.blocks;
+        return {
+          role: message.role === 'assistant' ? 'model' : 'user',
           parts: [
-            {
-              text: combinedPrompt,
-            },
-            ...(rawBase64
-              ? [{
-                  inlineData: {
-                    data: rawBase64,
-                    // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
-                    mimeType: 'image/jpeg',
-                  },
-                }]
+            { text: blocks.join('\n\n') },
+            // Omit the image part entirely when conversion produced nothing.
+            ...(index === last && raw
+              // Svg.toBase64 rasterizes the SVG to JPEG via canvas.
+              ? [{ inlineData: { data: raw, mimeType: 'image/jpeg' } }]
               : []),
           ],
-        },
-      ],
+        };
+      }),
     });
-
-    return payload;
   }
 
   /**
@@ -861,39 +838,18 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
 
   /**
    * Constructs the Ollama-specific request payload using the native chat API.
-   * @param {string} customInstruction - Custom instructions from the user
-   * @param {string} maidrJson - The MAIDR data as JSON string
-   * @param {string} image - The base64-encoded plot image
-   * @param {string} currentPositionText - The current position text
-   * @param {string} message - The user's message
-   * @param {'basic' | 'intermediate' | 'advanced'} expertise - The expertise level
-   * @param {LlmVersion} [version] - The locally installed model selected by the user
+   * @param {PayloadInput} input - What the request is built from
    * @returns {string} The JSON payload for the Ollama chat API
    */
-  protected getPayload(
-    customInstruction: string,
-    maidrJson: string,
-    image: string,
-    currentPositionText: string,
-    message: string,
-    expertise: 'basic' | 'intermediate' | 'advanced',
-    version?: LlmVersion,
-  ): string {
-    const context: PromptContext = {
-      customInstruction,
-      maidrJson,
-      currentPositionText,
-      message,
-      expertiseLevel: expertise,
-    };
-
-    // Ollama expects raw base64 without the data-URL prefix. Multimodal
-    // models (e.g. llava, llama3.2-vision) use the image; text-only models
-    // ignore it. Omit the field entirely if conversion produced nothing.
-    const rawBase64 = image.includes(',') ? image.split(',')[1] : image;
+  protected getPayload(input: PayloadInput): string {
+    const conversation = buildConversation(input);
+    const last = conversation.length - 1;
+    // Multimodal models (e.g. llava, llama3.2-vision) use the image; text-only
+    // models ignore it. Omit the field entirely if conversion produced nothing.
+    const raw = rawBase64(input.image);
 
     return JSON.stringify({
-      model: version ?? this.version,
+      model: input.version ?? this.version,
       stream: false,
       options: {
         num_predict: OLLAMA_MAX_TOKENS,
@@ -901,13 +857,13 @@ class Ollama extends AbstractLlmModel<OllamaResponse> {
       messages: [
         {
           role: 'system',
-          content: formatSystemPrompt(customInstruction, context.expertiseLevel),
+          content: formatSystemPrompt(input.customInstruction, input.expertise),
         },
-        {
-          role: 'user',
-          content: `${formatDataPrompt(context.maidrJson)}\n\n${formatUserPrompt(context)}`,
-          ...(rawBase64 ? { images: [rawBase64] } : {}),
-        },
+        ...conversation.map((message, index) => ({
+          role: message.role,
+          content: message.blocks.join('\n\n'),
+          ...(index === last && raw ? { images: [raw] } : {}),
+        })),
       ],
     });
   }

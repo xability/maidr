@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { Suggestion } from '@type/chat';
-import type { Llm, Message, SelectedModel } from '@type/llm';
+import type { ChatTurn, Llm, Message, SelectedModel } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
@@ -61,16 +61,17 @@ const chatSlice = createSlice({
     // caller — so it is generated where Redux Toolkit puts non-determinism,
     // leaving each reducer pure. The action creators' signatures are unchanged.
     addUserMessage: {
-      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string; positionText?: string }>) => {
         state.messages.push({
           id: action.payload.id,
           text: action.payload.text,
           isUser: true,
           timestamp: action.payload.timestamp,
           status: 'SUCCESS',
+          positionText: action.payload.positionText,
         });
       },
-      prepare: (message: { text: string; timestamp: string }) => ({
+      prepare: (message: { text: string; timestamp: string; positionText?: string }) => ({
         payload: { ...message, id: nextId('msg') },
       }),
     },
@@ -393,6 +394,38 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   /**
+   * The earlier exchanges with one provider, as it should be reminded of them.
+   *
+   * Each provider is given its own answers: they are what it said, and the
+   * conversation it is continuing. A question it never answered (still
+   * pending, or failed) is left out rather than shown as an unanswered turn.
+   * @param {Llm} model - The provider the history is for.
+   * @returns {ChatTurn[]} The answered exchanges, oldest first.
+   */
+  private historyFor(model: Llm): ChatTurn[] {
+    const { messages } = this.state;
+    return messages.flatMap((question): ChatTurn[] => {
+      if (!question.isUser) {
+        return [];
+      }
+      const answer = messages.find(m =>
+        !m.isUser
+        && m.model === model
+        && m.timestamp === question.timestamp
+        && m.status === 'SUCCESS',
+      );
+      return answer
+        ? [{
+            timestamp: question.timestamp,
+            positionText: question.positionText ?? '',
+            question: question.text,
+            answer: answer.text,
+          }]
+        : [];
+    });
+  }
+
+  /**
    * Sends a user message to all enabled AI models and handles responses.
    * @param {string} newMessage - The message text to send.
    * @returns {Promise<void>} Promise that resolves when all responses are received.
@@ -411,9 +444,13 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     // With no provider enabled nothing is sent, so nothing is rasterised.
     const snapshot = enabledModels.length > 0 ? this.chatService.captureSnapshot() : undefined;
 
+    // Read before the question is added, so the history is what came earlier.
+    const histories = new Map(enabledModels.map(model => [model, this.historyFor(model)]));
+
     const userMessage = addUserMessage({
       text: newMessage,
       timestamp,
+      positionText: snapshot?.positionText,
     });
     this.store.dispatch(userMessage);
     // Show the reader the image the AI is being given.
@@ -442,6 +479,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           apiKey: config.apiKey,
           version: config.version,
           snapshot,
+          history: histories.get(model),
         });
 
         this.audioService.stop(audioId);
