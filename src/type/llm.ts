@@ -78,6 +78,25 @@ export interface LlmRequest {
    * when absent.
    */
   snapshot?: ChatSnapshot;
+  /**
+   * Earlier questions to this provider and its answers, oldest first. Text
+   * only: the plot image and the chart data are sent once, with the current
+   * question.
+   */
+  history?: ChatTurn[];
+}
+
+/**
+ * One earlier exchange with a provider, kept as text so that a long
+ * conversation grows by a few lines per turn and not by an image each time.
+ */
+export interface ChatTurn {
+  /** When the question was asked (ISO), to tell whether the data has changed since. */
+  timestamp: string;
+  /** Verbose description of the point that was focused when it was asked. */
+  positionText: string;
+  question: string;
+  answer: string;
 }
 
 /**
@@ -135,6 +154,14 @@ export interface Message {
   isWelcomeMessage?: boolean;
   /** Plot image sent to the AI with this question (data URL); user messages only. */
   image?: string;
+  /** Verbose description of the focused point sent with this question; user messages only. */
+  positionText?: string;
+  /**
+   * The id of the user message this response answers; responses only. The
+   * timestamp cannot pair them: two questions sent in the same millisecond
+   * share one.
+   */
+  questionId?: string;
 }
 
 /**

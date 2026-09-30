@@ -146,11 +146,14 @@ describe('chat snapshot', () => {
    * @param image - What the snapshot's rasterisation resolves to.
    * @returns The view model, the store and the recorded calls.
    */
-  function setup(image: Promise<string>): {
+  function setup(
+    image: Promise<string>,
+    respond: (call: number) => { success: boolean; data?: string; error?: string } = () => ({ success: true, data: 'ok' }),
+  ): {
     model: ChatViewModel;
     store: ReturnType<typeof createMaidrStore>;
     calls: string[];
-    requests: { snapshot?: unknown }[];
+    requests: { snapshot?: unknown; history?: unknown }[];
   } {
     const store = createMaidrStore();
     const { llm } = store.getState().settings;
@@ -168,17 +171,17 @@ describe('chat snapshot', () => {
     });
 
     const calls: string[] = [];
-    const requests: { snapshot?: unknown }[] = [];
+    const requests: { snapshot?: unknown; history?: unknown }[] = [];
     const snapshot = { image, positionText: 'verbose point', json: '{}' };
     const service = {
       captureSnapshot: () => {
         calls.push('capture');
         return snapshot;
       },
-      sendMessage: async (_model: string, request: { snapshot?: unknown }) => {
+      sendMessage: async (_model: string, request: { snapshot?: unknown; history?: unknown }) => {
         calls.push('send');
         requests.push(request);
-        return { success: true, data: 'ok' };
+        return respond(requests.length);
       },
     } as unknown as ChatService;
     const audio = {
@@ -235,5 +238,51 @@ describe('chat snapshot', () => {
     );
 
     expect(state.messages).toEqual([]);
+  });
+
+  test('sends the answered earlier exchanges along with the next question', async () => {
+    const { model, requests } = setup(Promise.resolve(''));
+
+    await model.sendMessage('first');
+    await model.sendMessage('second');
+
+    expect(requests[0].history).toEqual([]);
+    expect(requests[1].history).toEqual([
+      expect.objectContaining({ question: 'first', answer: 'ok', positionText: 'verbose point' }),
+    ]);
+  });
+
+  test('leaves out a question the provider did not answer', async () => {
+    const { model, requests } = setup(
+      Promise.resolve(''),
+      call => (call === 1 ? { success: false, error: 'boom' } : { success: true, data: 'ok' }),
+    );
+
+    await model.sendMessage('failed one');
+    await model.sendMessage('answered one');
+    await model.sendMessage('third');
+
+    expect(requests[1].history).toEqual([]);
+    expect(requests[2].history).toEqual([
+      expect.objectContaining({ question: 'answered one', answer: 'ok' }),
+    ]);
+  });
+
+  test('pairs each answer with its own question when the clock does not advance', async () => {
+    // Frozen, so every question below is stamped with the same millisecond. A
+    // pairing that goes by timestamp gives each question the other's answer.
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
+    const { model, requests } = setup(
+      Promise.resolve(''),
+      call => (call === 1 ? { success: false, error: 'boom' } : { success: true, data: `answer ${call}` }),
+    );
+
+    await model.sendMessage('failed one');
+    await model.sendMessage('answered one');
+    await model.sendMessage('third');
+
+    expect(requests[2].history).toEqual([
+      expect.objectContaining({ question: 'answered one', answer: 'answer 2' }),
+    ]);
   });
 });

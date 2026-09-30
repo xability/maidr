@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import type { AudioService } from '@service/audio';
 import type { ChatService } from '@service/chat';
 import type { Suggestion } from '@type/chat';
-import type { Llm, Message, SelectedModel } from '@type/llm';
+import type { ChatTurn, Llm, Message, SelectedModel } from '@type/llm';
 import type { AppStore, RootState } from '../store';
 import { createSlice } from '@reduxjs/toolkit';
 import { MODEL_VERSIONS } from '@service/modelVersions';
@@ -51,6 +51,33 @@ function nextId(kind: string): string {
   return `${kind}-${Date.now()}-${sequence}`;
 }
 
+/**
+ * Whether a message is the response a provider is about to fill in.
+ *
+ * It goes by the question's id when there is one. The timestamp has only
+ * millisecond resolution, so two questions sent within one share it, and
+ * matching on it would write the second answer into the first question's
+ * response. The timestamp remains the fallback for a response added without
+ * an id.
+ * @param message - A message in the transcript.
+ * @param target - The provider, and the question or timestamp it answers.
+ * @param target.model - The provider.
+ * @param target.timestamp - When the question was asked.
+ * @param target.questionId - The id of the question, when known.
+ * @returns True if the message is that response.
+ */
+function isResponseTo(
+  message: Message,
+  target: { model: Llm; timestamp: string; questionId?: string },
+): boolean {
+  if (message.model !== target.model) {
+    return false;
+  }
+  return target.questionId !== undefined
+    ? message.questionId === target.questionId
+    : message.timestamp === target.timestamp;
+}
+
 const chatSlice = createSlice({
   name: 'chat',
   initialState,
@@ -61,16 +88,17 @@ const chatSlice = createSlice({
     // caller — so it is generated where Redux Toolkit puts non-determinism,
     // leaving each reducer pure. The action creators' signatures are unchanged.
     addUserMessage: {
-      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; text: string; timestamp: string; positionText?: string }>) => {
         state.messages.push({
           id: action.payload.id,
           text: action.payload.text,
           isUser: true,
           timestamp: action.payload.timestamp,
           status: 'SUCCESS',
+          positionText: action.payload.positionText,
         });
       },
-      prepare: (message: { text: string; timestamp: string }) => ({
+      prepare: (message: { text: string; timestamp: string; positionText?: string }) => ({
         payload: { ...message, id: nextId('msg') },
       }),
     },
@@ -91,7 +119,7 @@ const chatSlice = createSlice({
       }),
     },
     addPendingResponse: {
-      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string; text: string }>) => {
+      reducer: (state, action: PayloadAction<{ id: string; model: Llm; timestamp: string; text: string; questionId?: string }>) => {
         state.messages.push({
           id: action.payload.id,
           text: action.payload.text,
@@ -99,13 +127,14 @@ const chatSlice = createSlice({
           model: action.payload.model,
           timestamp: action.payload.timestamp,
           status: 'PENDING',
+          questionId: action.payload.questionId,
         });
       },
       // The model stays in the id, where it has always been, because it is what
       // makes a pending response identifiable in devtools. The placeholder text
       // is rendered here too: it depends on the active language, which is
       // state the reducer must not read.
-      prepare: (response: { model: Llm; timestamp: string }) => ({
+      prepare: (response: { model: Llm; timestamp: string; questionId?: string }) => ({
         payload: {
           ...response,
           id: `${nextId('resp')}-${response.model}`,
@@ -121,32 +150,27 @@ const chatSlice = createSlice({
         message.image = action.payload.image;
       }
     },
-    updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
-      const message = state.messages.find(m =>
-        m.model === action.payload.model
-        && m.timestamp === action.payload.timestamp,
-      );
+    updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string; questionId?: string }>) => {
+      const message = state.messages.find(m => isResponseTo(m, action.payload));
       if (message) {
         message.text = action.payload.data;
         message.status = 'SUCCESS';
       }
     },
     updateError: {
-      reducer: (state, action: PayloadAction<{ model: Llm; text: string; timestamp: string }>) => {
-        const message = state.messages.find(m =>
-          m.model === action.payload.model
-          && m.timestamp === action.payload.timestamp,
-        );
+      reducer: (state, action: PayloadAction<{ model: Llm; text: string; timestamp: string; questionId?: string }>) => {
+        const message = state.messages.find(m => isResponseTo(m, action.payload));
         if (message) {
           message.text = action.payload.text;
           message.status = 'FAILED';
         }
       },
       // Rendered before dispatch for the same reason as the pending text above.
-      prepare: (failure: { model: Llm; error: string; timestamp: string }) => ({
+      prepare: (failure: { model: Llm; error: string; timestamp: string; questionId?: string }) => ({
         payload: {
           model: failure.model,
           timestamp: failure.timestamp,
+          questionId: failure.questionId,
           text: t('llm.messageError', { error: failure.error }),
         },
       }),
@@ -393,6 +417,35 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
   }
 
   /**
+   * The earlier exchanges with one provider, as it should be reminded of them.
+   *
+   * Each provider is given its own answers: they are what it said, and the
+   * conversation it is continuing. A question it never answered (still
+   * pending, or failed) is left out rather than shown as an unanswered turn.
+   * @param {Llm} model - The provider the history is for.
+   * @returns {ChatTurn[]} The answered exchanges, oldest first.
+   */
+  private historyFor(model: Llm): ChatTurn[] {
+    const { messages } = this.state;
+    const answers = new Map(
+      messages
+        .filter(m => !m.isUser && m.model === model && m.status === 'SUCCESS' && m.questionId !== undefined)
+        .map(m => [m.questionId, m.text]),
+    );
+    return messages.flatMap((question): ChatTurn[] => {
+      const answer = question.isUser ? answers.get(question.id) : undefined;
+      return answer === undefined
+        ? []
+        : [{
+            timestamp: question.timestamp,
+            positionText: question.positionText ?? '',
+            question: question.text,
+            answer,
+          }];
+    });
+  }
+
+  /**
    * Sends a user message to all enabled AI models and handles responses.
    * @param {string} newMessage - The message text to send.
    * @returns {Promise<void>} Promise that resolves when all responses are received.
@@ -411,9 +464,13 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     // With no provider enabled nothing is sent, so nothing is rasterised.
     const snapshot = enabledModels.length > 0 ? this.chatService.captureSnapshot() : undefined;
 
+    // Read before the question is added, so the history is what came earlier.
+    const histories = new Map(enabledModels.map(model => [model, this.historyFor(model)]));
+
     const userMessage = addUserMessage({
       text: newMessage,
       timestamp,
+      positionText: snapshot?.positionText,
     });
     this.store.dispatch(userMessage);
     // Show the reader the image the AI is being given.
@@ -429,6 +486,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
         this.store.dispatch(addPendingResponse({
           model,
           timestamp,
+          questionId: userMessage.payload.id,
         }));
 
         const config = llmSettings.models[model];
@@ -442,6 +500,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           apiKey: config.apiKey,
           version: config.version,
           snapshot,
+          history: histories.get(model),
         });
 
         this.audioService.stop(audioId);
@@ -450,12 +509,14 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
             model,
             error: response.error,
             timestamp,
+            questionId: userMessage.payload.id,
           }));
         } else {
           this.store.dispatch(updateResponse({
             model,
             data: response.data!,
             timestamp,
+            questionId: userMessage.payload.id,
           }));
           this.audioService.playCompleteTone();
           this.updateSuggestions();
@@ -466,6 +527,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           model,
           error: error instanceof Error ? error.message : t('llm.errorProcessing'),
           timestamp,
+          questionId: userMessage.payload.id,
         }));
       }
     }));

@@ -305,7 +305,7 @@ For unbounded streams, set `maxWidth` on the top-level maidr object. When an `ap
 - **Modes:** text, braille, sonification, and review modes stay enabled across updates. Braille content refreshes on the next navigation.
 - **Visual highlight:** highlights re-bind on each update by re-querying the layer's `selectors`. The selectors must remain *stable across re-renders* — if your charting library regenerates elements with different classes or ids each frame (common with keyed D3/Vega re-renders), pin a stable class on the data elements and use that in `selectors`. When the selector matches a different number of elements than data points, highlighting is disabled for that update (everything else keeps working).
 - **Performance:** each update rebuilds the chart model from the full data, so the cost scales with total chart size — including *all* subplots and layers of a multi-panel figure, not just the one receiving the point. For streams faster than a few updates per second, set `maxWidth` — it bounds the data (and therefore the per-update cost) regardless of how long the stream runs.
-- **AI chat:** chart descriptions and the AI assistant use the latest data as of the question being asked.
+- **AI chat:** chart descriptions and the AI assistant use the latest data as of the question being asked. Earlier questions and answers are sent along with a follow-up, except those from before the last data update, which were about data that is no longer on screen.
 
 ## Keyboard Controls
 
