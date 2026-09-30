@@ -232,7 +232,15 @@ export function useVictoryAdapter(
       // Extract data from Victory component props via React children
       // introspection (pure computation, does not require the DOM).
       const victorySubplots = extractVictorySubplots(children);
-      const fp = subplotFingerprint(victorySubplots, panelLayout);
+      // The figure's metadata is part of what gets published, so a change to
+      // it alone must republish too.
+      const fp = JSON.stringify([
+        id ?? null,
+        title ?? null,
+        subtitle ?? null,
+        caption ?? null,
+        subplotFingerprint(victorySubplots, panelLayout),
+      ]);
 
       // Fast path: when the layer data is unchanged AND every previously-tagged
       // node is still connected, the existing data-maidr-victory-* attributes
