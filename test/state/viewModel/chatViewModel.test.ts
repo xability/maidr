@@ -213,4 +213,27 @@ describe('chat snapshot', () => {
 
     expect(store.getState().chat.messages.find(m => m.isUser)?.image).toBeUndefined();
   });
+
+  test('does not capture a snapshot when no provider is enabled', async () => {
+    const { model, store, calls } = setup(Promise.resolve('data:image/jpeg;base64,QUJD'));
+    const { llm } = store.getState().settings;
+    store.dispatch({
+      type: 'settings/update',
+      payload: { llm: { ...llm, models: { ...llm.models, OPENAI: { ...llm.models.OPENAI, enabled: false } } } },
+    });
+
+    await model.sendMessage('What is here?');
+
+    expect(calls).toEqual([]);
+  });
+
+  test('ignores an image that arrives for a message that no longer exists', () => {
+    const state = dispatch(
+      chatActions.addUserMessage({ text: 'first', timestamp: 'now' }),
+      chatActions.reset(),
+      chatActions.attachMessageImage({ id: 'gone', image: 'data:image/jpeg;base64,QUJD' }),
+    );
+
+    expect(state.messages).toEqual([]);
+  });
 });

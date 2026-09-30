@@ -401,11 +401,15 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
 
+    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
+      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey.trim().length > 0);
+
     // Frozen before anything else: the plot, its highlight and the focused
     // point's description are what the user was looking at when they asked,
     // and every provider answers against that, not against wherever the
     // cursor is by the time each request goes out.
-    const snapshot = this.chatService.captureSnapshot();
+    // With no provider enabled nothing is sent, so nothing is rasterised.
+    const snapshot = enabledModels.length > 0 ? this.chatService.captureSnapshot() : undefined;
 
     const userMessage = addUserMessage({
       text: newMessage,
@@ -413,14 +417,12 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     });
     this.store.dispatch(userMessage);
     // Show the reader the image the AI is being given.
-    void snapshot.image.then((image) => {
+    void snapshot?.image.then((image) => {
       if (image) {
         this.store.dispatch(attachMessageImage({ id: userMessage.payload.id, image }));
       }
     });
 
-    const enabledModels = (Object.keys(llmSettings.models) as Llm[])
-      .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey.trim().length > 0);
     await Promise.all(enabledModels.map(async (model) => {
       const audioId = this.audioService.playWaitingTone();
       try {

@@ -205,8 +205,15 @@ export class TextService implements Observer<PlotState>, Disposable {
       return null;
     }
 
+    // Formatting reads the layer id for value formatting; put it back so a
+    // query from the chat cannot change how the next announcement is formatted.
+    const previousLayerId = this.currentLayerId;
     this.currentLayerId = trace.layerId;
-    return this.formatVerboseTraceText(trace.text) || null;
+    try {
+      return this.formatVerboseTraceText(trace.text) || null;
+    } finally {
+      this.currentLayerId = previousLayerId;
+    }
   }
 
   /**
