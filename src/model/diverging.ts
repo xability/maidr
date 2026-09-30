@@ -238,7 +238,10 @@ export class DivergingTrace extends SegmentedTrace {
     if (!this.isTwoSided) {
       return t('model.nounSeriesNumbered', { index: row + 1 });
     }
-    const measured = this.barValues[row]?.find(isMeasured) ?? 0;
+    // A zero grows neither way, so it is skipped here as in `sideGrowing`.
+    const measured = this.barValues[row]?.find(
+      value => isMeasured(value) && value !== 0,
+    ) ?? 0;
     return t(measured < 0 ? 'model.divergingSideLeft' : 'model.divergingSideRight');
   }
 

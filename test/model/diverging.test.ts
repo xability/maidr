@@ -146,6 +146,18 @@ describe('the sign is a direction, not a magnitude', () => {
     expect(nonEmptyState(diverging(0, 0, unnamed)).text.z?.value).toBe('left');
     expect(nonEmptyState(diverging(1, 0, unnamed)).text.z?.value).toBe('right');
   });
+
+  test('an unnamed side whose first band is empty is still named by its growth', () => {
+    // A zero grows neither way, so reading it as the side's direction called
+    // the left side `right` too -- two sides under one name.
+    const unnamed: SegmentedPoint[][] = [
+      [{ x: 'a', y: 0, z: '' }, { x: 'b', y: -900, z: '' }, { x: 'c', y: -700, z: '' }],
+      [{ x: 'a', y: 0, z: '' }, { x: 'b', y: 950, z: '' }, { x: 'c', y: 800, z: '' }],
+    ];
+
+    expect(nonEmptyState(diverging(0, 1, unnamed)).text.z?.value).toBe('left');
+    expect(nonEmptyState(diverging(1, 1, unnamed)).text.z?.value).toBe('right');
+  });
 });
 
 describe('a chart drawn with its bands down the page', () => {
