@@ -28,6 +28,15 @@ describe('attachJosa', () => {
     expect(attachJosa('10', '이가')).toBe('10이');
   });
 
+  it('should use 로 after digits whose reading ends in ㄹ', () => {
+    expect(attachJosa('1', '으로')).toBe('1로');
+    expect(attachJosa('7', '으로')).toBe('7로');
+    expect(attachJosa('8', '으로')).toBe('8로');
+    expect(attachJosa('2021', '으로')).toBe('2021로');
+    expect(attachJosa('3', '으로')).toBe('3으로');
+    expect(attachJosa('2', '으로')).toBe('2로');
+  });
+
   it('should treat most Latin endings as vowels and l, m, n as consonants', () => {
     expect(attachJosa('Price', '은는')).toBe('Price는');
     expect(attachJosa('Team', '은는')).toBe('Team은');
