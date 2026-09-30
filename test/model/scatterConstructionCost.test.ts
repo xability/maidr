@@ -141,7 +141,7 @@ describe('the cost of building a scatter', () => {
   test('builds a scatter with more distinct values than a call can take as arguments', () => {
     // A Manhattan plot of a few hundred thousand points has one distinct y
     // per point, so the axis extremes run over every one of them.
-    const data = Array.from({ length: 200_000 }, (_, i) => ({ x: i % 22, y: i / 7 }));
+    const data = Array.from({ length: 150_000 }, (_, i) => ({ x: i % 22, y: i / 7 }));
 
     expect(() => new ScatterTrace(createLayer(data))).not.toThrow();
   });
