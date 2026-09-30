@@ -136,6 +136,18 @@ describe('a censored time is not an event', () => {
     // Nothing further along, so the next request reports the bound.
     expect(trace.moveToRotorFilter('censored', 'right')).toBe(false);
   });
+
+  test('a censored jump before any arrow key skips an empty first arm', () => {
+    // The rotor's first move used to park the cursor at (-1, -1), where no
+    // arrow key had anywhere to go until the reader left the layer.
+    const trace = TraceFactory.create(createLayer([[], ARMS[1]])) as SurvivalTrace;
+
+    expect(trace.moveToRotorFilter('censored', 'right')).toBe(true);
+    expect(trace.row).toBe(1);
+    expect(nonEmptyState(trace).text.main.value).toBe(12);
+    expect(trace.moveOnce('BACKWARD')).toBe(true);
+    expect(trace.col).toBe(3);
+  });
 });
 
 describe('the band travels with the estimate', () => {
