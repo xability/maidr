@@ -142,6 +142,17 @@ const CASES: Case[] = [
       },
     },
   },
+  {
+    type: TraceType.RIDGELINE,
+    declared: 2,
+    layer: {
+      axes: { x: { label: 'Days' }, y: { label: 'Cohort' } },
+      data: [
+        [{ x: 'early', y: 10, density: 0.2 }, { x: 'early', y: 20, density: 0.4 }],
+        [{ x: 'late', y: 30, density: 0.1 }, { x: 'late', y: 40, density: 0.3 }],
+      ],
+    },
+  },
 ];
 
 /**

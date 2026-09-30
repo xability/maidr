@@ -110,26 +110,31 @@ export class RidgelineTrace extends AbstractTrace {
   private mapToSvgElements(
     selectors?: MaidrLayer['selectors'],
   ): SVGElement[][] | null {
+    // Resolved live here and cloned by `pairWith` only once the count fits.
+    // A clone is inserted beside its original the moment it is made, so
+    // declining after cloning left every copy in the chart for `dispose()`
+    // never to reach -- and the next resolution matched the copies too.
     if (typeof selectors === 'string') {
-      return this.pairWith(Svg.selectAllElements(selectors));
+      return this.pairWith(Svg.selectAllElements(selectors, false));
     }
     if (!Array.isArray(selectors)
       || !selectors.every(one => typeof one === 'string')) {
       return null;
     }
-    return this.pairWith(selectors.flatMap(one => Svg.selectAllElements(one)));
+    return this.pairWith(selectors.flatMap(one => Svg.selectAllElements(one, false)));
   }
 
   /**
    * Pairs resolved elements with the curves, one element per group.
    *
-   * @param flat - The elements the selectors resolved to
+   * @param live - The chart's own elements the selectors resolved to
    * @returns Elements shaped groups x samples, or null on a count mismatch
    */
-  private pairWith(flat: SVGElement[]): SVGElement[][] | null {
-    if (flat.length !== this.points.length) {
+  private pairWith(live: SVGElement[]): SVGElement[][] | null {
+    if (live.length !== this.points.length) {
       return null;
     }
+    const flat = live.map(element => Svg.cloneHidden(element));
     return this.points.map((row, group) => row.map(() => flat[group]));
   }
 
