@@ -267,4 +267,22 @@ describe('chat snapshot', () => {
       expect.objectContaining({ question: 'answered one', answer: 'ok' }),
     ]);
   });
+
+  test('pairs each answer with its own question when the clock does not advance', async () => {
+    // Frozen, so every question below is stamped with the same millisecond. A
+    // pairing that goes by timestamp gives each question the other's answer.
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-02T00:00:00.000Z'));
+    const { model, requests } = setup(
+      Promise.resolve(''),
+      call => (call === 1 ? { success: false, error: 'boom' } : { success: true, data: `answer ${call}` }),
+    );
+
+    await model.sendMessage('failed one');
+    await model.sendMessage('answered one');
+    await model.sendMessage('third');
+
+    expect(requests[2].history).toEqual([
+      expect.objectContaining({ question: 'answered one', answer: 'answer 2' }),
+    ]);
+  });
 });

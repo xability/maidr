@@ -156,6 +156,12 @@ export interface Message {
   image?: string;
   /** Verbose description of the focused point sent with this question; user messages only. */
   positionText?: string;
+  /**
+   * The id of the user message this response answers; responses only. The
+   * timestamp cannot pair them: two questions sent in the same millisecond
+   * share one.
+   */
+  questionId?: string;
 }
 
 /**
