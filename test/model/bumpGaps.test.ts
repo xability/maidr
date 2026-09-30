@@ -157,6 +157,18 @@ describe('the description across a gap', () => {
     expect(read(shorterRow, 'Led at the end')).toBe('Cedar');
   });
 
+  test('finds the table\'s last period when no row spans every period', () => {
+    // Both rows are three long, but Birch alone ran R4: the table ends there,
+    // not at the end of whichever row came first.
+    const ragged: LinePoint[][] = [
+      [{ x: 'R1', y: 1, z: 'Ash' }, { x: 'R2', y: 1, z: 'Ash' }, { x: 'R3', y: 1, z: 'Ash' }],
+      [{ x: 'R2', y: 2, z: 'Birch' }, { x: 'R3', y: 2, z: 'Birch' }, { x: 'R4', y: 1, z: 'Birch' }],
+    ];
+
+    expect(read(ragged, 'Led at the start')).toBe('Ash');
+    expect(read(ragged, 'Led at the end')).toBe('Birch');
+  });
+
   test('names no leader for a period nobody was ranked in', () => {
     // Inventing one out of a column of gaps is the failure above; the honest
     // answer is to say nothing, as the rest of the dialog does for a fact the

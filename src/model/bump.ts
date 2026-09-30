@@ -217,9 +217,29 @@ export class BumpTrace extends LineTrace {
 
     // Looked up by x, not by column: a competitor who joined late may be
     // written as a shorter row, whose column 0 is a later period than the
-    // table's first. The longest row spans the table, so it names the first
-    // and last period.
-    const longest = this.points.find(line => line.length === this.periods) ?? [];
+    // table's first. Nor does any one row necessarily span the table -- A over
+    // R1..R3 and B over R2..R4 -- so the first and last period come from every
+    // row: numeric x by value, otherwise the row end no other row runs past.
+    const rows = this.points.filter(line => line.length > 0);
+    const xs = rows.flat().map(point => point.x);
+    let firstX: LinePoint['x'] | undefined;
+    let lastX: LinePoint['x'] | undefined;
+    if (xs.length > 0 && xs.every(x => typeof x === 'number')) {
+      firstX = Math.min(...(xs as number[]));
+      lastX = Math.max(...(xs as number[]));
+    } else {
+      const starts = rows.map(line => line[0].x);
+      const ends = rows.map(line => line[line.length - 1].x);
+      firstX = starts.find(x =>
+        rows.every(line => line.findIndex(point => point.x === x) <= 0),
+      ) ?? starts[0];
+      lastX = ends.findLast(x =>
+        rows.every((line) => {
+          const at = line.findIndex(point => point.x === x);
+          return at === -1 || at === line.length - 1;
+        }),
+      ) ?? ends[ends.length - 1];
+    }
     const leaderAt = (x: LinePoint['x'] | undefined): string | null => {
       if (x === undefined) {
         return null;
@@ -245,8 +265,8 @@ export class BumpTrace extends LineTrace {
     };
 
     if (this.periods > 0) {
-      const first = leaderAt(longest[0]?.x);
-      const last = leaderAt(longest[this.periods - 1]?.x);
+      const first = leaderAt(firstX);
+      const last = leaderAt(lastX);
       if (first !== null) {
         stats.push({ label: t('model.statLedAtTheStart'), value: first });
       }
