@@ -282,6 +282,30 @@ describe('Context.navigateTo', () => {
       expect(highlighted).toEqual([0]);
     });
 
+    it('reaches a point stacked above another in its column', () => {
+      const strip: Maidr = {
+        id: 'strip',
+        subplots: [[{
+          layers: [{
+            id: 'dots',
+            type: TraceType.SCATTER,
+            data: [{ x: 1, y: 10 }, { x: 1, y: 20 }],
+          }],
+        }]],
+      };
+      const figure = laidOut(strip);
+      const context = new Context(figure);
+      const { observer, states } = recorder();
+      traceAt(figure, 0).addObserver(observer);
+
+      // Data index 1 is the second slot of its column, so its cell's row is
+      // 1, which the restore-cursor check in `isMovable` would refuse.
+      expect(context.canNavigateTo({ layerId: 'dots', pointIndex: 1 })).toBe(true);
+      expect(context.navigateTo({ layerId: 'dots', pointIndex: 1 })).toBe(true);
+
+      expect(states).toHaveLength(1);
+    });
+
     it('refuses a data index the layer does not have', () => {
       const figure = laidOut(cloud);
       const context = new Context(figure);

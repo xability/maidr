@@ -666,7 +666,11 @@ export class Context implements Disposable {
     const cell = 'pointIndex' in target
       ? (isPointCloudAddressable(trace) ? trace.positionOfDataIndex(target.pointIndex) : null)
       : { row: target.row, col: target.col };
-    if (cell === null || !trace.isMovable([cell.row, cell.col])) {
+    // `positionOfDataIndex` already answers null for a point the trace does
+    // not have. Its row is the point's slot in its column, which the
+    // restore-cursor check in `isMovable` (row 0 in column mode) would
+    // wrongly refuse, so only a row/col target goes through that check.
+    if (cell === null || (!('pointIndex' in target) && !trace.isMovable([cell.row, cell.col]))) {
       return null;
     }
     return { ...located, cell };
