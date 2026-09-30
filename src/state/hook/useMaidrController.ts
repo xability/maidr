@@ -77,6 +77,15 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // so Tabbing to a control beside the chart and back does not start over.
   const sessionRef = useRef<ControllerSession | null>(null);
 
+  // New data under a reader who is away: the saved point addressed the figure
+  // the old data described, as a pending target does, so it goes with it.
+  // Their modes are their own choices and stay.
+  const forgetSessionPosition = useCallback((): void => {
+    if (sessionRef.current !== null) {
+      sessionRef.current = { ...sessionRef.current, navigation: null };
+    }
+  }, []);
+
   const createController = useCallback((): Controller | null => {
     const plotElement = plotRef.current;
     if (!plotElement)
@@ -242,6 +251,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     const disposable = liveDataManager.register(data, (event) => {
       latestDataRef.current = event.maidr;
       pendingTargetRef.current = null;
+      forgetSessionPosition();
       // In-place refresh is opt-in via `live: true`; static charts pick the
       // new data up on the next focus-in instead.
       if (event.maidr.live === true && controllerRef.current) {
@@ -275,7 +285,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     };
     // Re-register only when the chart identity changes; data *content*
     // changes flow through the effect below.
-  }, [data.id, disposeController]);
+  }, [data.id, disposeController, forgetSessionPosition]);
 
   // React-driven data updates: for live charts, a new `data` prop replaces
   // the chart data in place (equivalent to setData). Static charts keep the
@@ -292,13 +302,14 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     }
     previousDataRef.current = data;
     pendingTargetRef.current = null;
+    forgetSessionPosition();
     if (data.live) {
       liveDataManager.setData(data);
     } else {
       latestDataRef.current = data;
       liveDataManager.updateStoredData(data);
     }
-  }, [data]);
+  }, [data, forgetSessionPosition]);
 
   // Clean up pending timers and controller on unmount.
   useEffect(() => {

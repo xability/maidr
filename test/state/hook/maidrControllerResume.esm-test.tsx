@@ -17,6 +17,7 @@
 
 import type { Maidr as MaidrData } from '@type/grammar';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { liveDataManager, navigateMaidr } from '@service/liveData';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TraceType } from '@type/grammar';
 import { Maidr } from '../../../src/maidr-component';
@@ -270,5 +271,59 @@ describe('a reader who Tabs out and back in', () => {
     press('s', 'KeyS', 83);
     expect(announcedText()).toContain('Sound is');
     expect(announcedText()).not.toContain('Sound is off');
+  });
+
+  it('should find braille still open when they opened it on the first point', () => {
+    renderChart();
+    focusIn();
+    press('b', 'KeyB', 66);
+    expect(document.querySelector('textarea')).not.toBeNull();
+
+    tabOut();
+    focusIn();
+
+    expect(document.querySelector('textarea')).not.toBeNull();
+  });
+
+  it('should start over on new data, and keep their modes', () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    press('t', 'KeyT', 84);
+    tabOut();
+
+    // The same shape with other values: a filter changed while they were away.
+    act(() => {
+      liveDataManager.setData({
+        ...DATA,
+        subplots: [[{ layers: [{ ...DATA.subplots[0][0].layers[0], data: [
+          { x: 'D', y: 4 },
+          { x: 'E', y: 5 },
+          { x: 'F', y: 6 },
+        ] }] }]],
+      });
+    });
+    focusIn();
+
+    expect(announcedText()).toContain('Use Arrows to navigate');
+    press('ArrowRight', 'ArrowRight', 39);
+    // Still terse: the value alone, without its axis.
+    expect(announcedText()).not.toContain('Category is');
+  });
+
+  it('should land on a point the host chose while they were away', () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+
+    act(() => {
+      navigateMaidr({ layerId: 'bar-layer', row: 0, col: 2 }, { id: 'resume-bar' });
+    });
+    focusIn();
+
+    expect(announcedText()).toContain('Category is C');
   });
 });

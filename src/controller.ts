@@ -127,6 +127,8 @@ export class Controller implements Disposable {
 
   /** The session this controller was built to resume, until {@link resume} runs. */
   private pendingSession: ControllerSession | null;
+  /** Whether the reader's position was put back from {@link pendingSession}. */
+  private readonly positionResumed: boolean;
 
   /**
    * Initializes the controller with all necessary services, view models, and bindings.
@@ -149,9 +151,9 @@ export class Controller implements Disposable {
     // Before any service reads the position: the audio mode and the display's
     // focus stack are both taken from the level the reader is on. A figure
     // whose shape changed while they were away starts over.
-    const resumed = session?.navigation != null
+    this.positionResumed = session?.navigation != null
       && this.context.resumeNavigation(session.navigation);
-    this.pendingSession = resumed ? session : null;
+    this.pendingSession = session;
 
     this.notificationService = new NotificationService();
     this.formatterService = new FormatterService(maidr);
@@ -437,8 +439,7 @@ export class Controller implements Disposable {
   public captureSession(): ControllerSession {
     const navigation = this.context.captureNavigation();
     // A reader who never left the start has no position to resume, and so
-    // meets the initial instruction again; braille, which is reopened only on
-    // resume, stays closed for them.
+    // meets the initial instruction again.
     const moved = navigation !== null
       && !(navigation.figureEntry && navigation.subplotEntry && navigation.traceEntry);
     return {
@@ -466,9 +467,14 @@ export class Controller implements Disposable {
     if (session === null) {
       return false;
     }
+    // Braille comes back even without a position: it can be opened on the
+    // first point, before any move.
     const state = this.context.state;
     if (session.brailleOn && state.type === 'trace' && !this.brailleService.isEnabled) {
       this.brailleViewModel.toggle(state);
+    }
+    if (!this.positionResumed) {
+      return false;
     }
     this.context.notifyStateUpdate();
     return true;
