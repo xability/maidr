@@ -115,6 +115,31 @@ describe('MathUtil.pearson', () => {
   });
 });
 
+describe('MathUtil.safeMin and safeMax', () => {
+  it('answers the empty-set sentinels for an empty array', () => {
+    expect(MathUtil.safeMin([])).toBe(Infinity);
+    expect(MathUtil.safeMax([])).toBe(-Infinity);
+  });
+
+  it('finds the extremes of an array too long to spread into arguments', () => {
+    // Spreading passes every element as an argument, and V8 throws a
+    // RangeError somewhere past a hundred thousand of them.
+    const values = Array.from({ length: 300_000 }, (_, i) => i - 1000);
+
+    expect(MathUtil.safeMin(values)).toBe(-1000);
+    expect(MathUtil.safeMax(values)).toBe(298_999);
+    expect(MathUtil.minFrom2D([values, [5]])).toBe(-1000);
+    expect(MathUtil.maxFrom2D([values, [5]])).toBe(298_999);
+  });
+
+  it('keeps what Math.min and Math.max answer for NaN and signed zero', () => {
+    expect(MathUtil.safeMin([1, Number.NaN, 2])).toBeNaN();
+    expect(MathUtil.safeMax([1, Number.NaN, 2])).toBeNaN();
+    expect(Object.is(MathUtil.safeMin([0, -0]), -0)).toBe(true);
+    expect(Object.is(MathUtil.safeMax([-0, 0]), 0)).toBe(true);
+  });
+});
+
 describe('MathUtil.spannedOrMissing', () => {
   it('spans a real extent', () => {
     expect(MathUtil.spannedOrMissing(1, 9)).toBe('1 to 9');

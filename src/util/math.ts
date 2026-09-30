@@ -55,7 +55,14 @@ export abstract class MathUtil {
    * @returns The minimum value or Infinity if array is empty
    */
   static safeMin(values: number[]): number {
-    return values.length === 0 ? Infinity : Math.min(...values);
+    // Folded rather than spread: `Math.min(...values)` passes every element
+    // as an argument and throws a RangeError past about a hundred thousand.
+    // Folding through Math.min keeps its NaN, -0 and coercion answers.
+    let min = Infinity;
+    for (const value of values) {
+      min = Math.min(min, value);
+    }
+    return min;
   }
 
   /**
@@ -66,7 +73,12 @@ export abstract class MathUtil {
    * @returns The maximum value or -Infinity if array is empty
    */
   static safeMax(values: number[]): number {
-    return values.length === 0 ? -Infinity : Math.max(...values);
+    // Folded rather than spread, for the reason `safeMin` gives.
+    let max = -Infinity;
+    for (const value of values) {
+      max = Math.max(max, value);
+    }
+    return max;
   }
 
   /**
