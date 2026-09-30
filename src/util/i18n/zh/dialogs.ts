@@ -19,6 +19,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': '打开设置',
   'dialogs.chatOpenSettingsLabel': '打开设置',
   'dialogs.chatSentAt': '发送于 {time}',
+  'dialogs.chatSentImageAlt': '发送给AI的图表图像',
   'dialogs.chatTyping': 'AI 正在输入',
   'dialogs.chatCodeBlock': '代码块',
   'dialogs.chatImageAlt': '消息中的图片',

@@ -19,6 +19,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': 'सेटिंग्स खोलें',
   'dialogs.chatOpenSettingsLabel': 'सेटिंग्स खोलें',
   'dialogs.chatSentAt': '{time} पर भेजा गया',
+  'dialogs.chatSentImageAlt': 'AI को भेजी गई चार्ट छवि',
   'dialogs.chatTyping': 'AI टाइप कर रहा है',
   'dialogs.chatCodeBlock': 'कोड ब्लॉक',
   'dialogs.chatImageAlt': 'संदेश में छवि',

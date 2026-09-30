@@ -25,6 +25,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': 'Abrir configuración',
   'dialogs.chatOpenSettingsLabel': 'Abrir la configuración',
   'dialogs.chatSentAt': 'Enviado a las {time}',
+  'dialogs.chatSentImageAlt': 'Imagen del gráfico enviada a la IA',
   'dialogs.chatTyping': 'La IA está escribiendo',
   'dialogs.chatCodeBlock': 'Bloque de código',
   'dialogs.chatImageAlt': 'Imagen en el mensaje',

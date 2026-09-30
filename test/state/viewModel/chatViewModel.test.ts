@@ -138,3 +138,79 @@ describe('chat suggestion ids', () => {
     expect(new Set([...first, ...second]).size).toBe(first.length + second.length);
   });
 });
+
+describe('chat snapshot', () => {
+  /**
+   * A view model over a real store with one provider enabled, whose service
+   * records what it is handed.
+   * @param image - What the snapshot's rasterisation resolves to.
+   * @returns The view model, the store and the recorded calls.
+   */
+  function setup(image: Promise<string>): {
+    model: ChatViewModel;
+    store: ReturnType<typeof createMaidrStore>;
+    calls: string[];
+    requests: { snapshot?: unknown }[];
+  } {
+    const store = createMaidrStore();
+    const { llm } = store.getState().settings;
+    store.dispatch({
+      type: 'settings/update',
+      payload: {
+        llm: {
+          ...llm,
+          models: {
+            ...llm.models,
+            OPENAI: { ...llm.models.OPENAI, enabled: true, apiKey: 'sk-test' },
+          },
+        },
+      },
+    });
+
+    const calls: string[] = [];
+    const requests: { snapshot?: unknown }[] = [];
+    const snapshot = { image, positionText: 'verbose point', json: '{}' };
+    const service = {
+      captureSnapshot: () => {
+        calls.push('capture');
+        return snapshot;
+      },
+      sendMessage: async (_model: string, request: { snapshot?: unknown }) => {
+        calls.push('send');
+        requests.push(request);
+        return { success: true, data: 'ok' };
+      },
+    } as unknown as ChatService;
+    const audio = {
+      playWaitingTone: () => 1,
+      stop: () => {},
+      playCompleteTone: () => {},
+    } as unknown as AudioService;
+    return { model: new ChatViewModel(store, service, audio), store, calls, requests };
+  }
+
+  test('is captured once and shared with the provider', async () => {
+    const { model, calls, requests } = setup(Promise.resolve('data:image/jpeg;base64,QUJD'));
+
+    await model.sendMessage('What is here?');
+
+    expect(calls).toEqual(['capture', 'send']);
+    expect(requests[0].snapshot).toEqual(expect.objectContaining({ positionText: 'verbose point' }));
+  });
+
+  test('puts the image the AI is given on the user message in the transcript', async () => {
+    const { model, store } = setup(Promise.resolve('data:image/jpeg;base64,QUJD'));
+
+    await model.sendMessage('What is here?');
+
+    expect(store.getState().chat.messages.find(m => m.isUser)?.image).toBe('data:image/jpeg;base64,QUJD');
+  });
+
+  test('leaves the message without an image when rasterising produced nothing', async () => {
+    const { model, store } = setup(Promise.resolve(''));
+
+    await model.sendMessage('What is here?');
+
+    expect(store.getState().chat.messages.find(m => m.isUser)?.image).toBeUndefined();
+  });
+});

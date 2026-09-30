@@ -74,6 +74,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(({ message, disa
               {getModelDisplayName(message.model)}
             </Typography>
           )}
+          {message.isUser && message.image && (
+            <Box
+              component="img"
+              src={message.image}
+              alt={t('dialogs.chatSentImageAlt')}
+              sx={{
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: 240,
+                objectFit: 'contain',
+                mb: 1,
+                borderRadius: 1,
+              }}
+            />
+          )}
           <TypingEffect messageId={message.id} text={message.text} isUser={message.isUser} onTypingUpdate={onTypingUpdate} />
 
           {message.isWelcomeMessage && message.modelSelections && (

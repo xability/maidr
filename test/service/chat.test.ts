@@ -21,7 +21,7 @@ describe('ChatService provider requests', () => {
   const originalFetch = globalThis.fetch;
 
   const display = { plot: {} } as unknown as DisplayService;
-  const textService = { getCoordinateText: () => 'point 1 of 10' } as unknown as TextService;
+  const textService = { getVerboseText: () => 'point 1 of 10' } as unknown as TextService;
   const maidr = { id: 'plot' } as unknown as Maidr;
 
   beforeEach(() => {
@@ -288,7 +288,8 @@ describe('ChatService provider requests', () => {
     // Svg.toBase64 serializes the whole plot, decodes it through an <img>,
     // draws it to a canvas and encodes a JPEG, all on the main thread — so
     // running it once per provider blocks navigation and announcements for
-    // as long as it takes, several times over.
+    // as long as it takes, several times over. The snapshot is taken once
+    // and handed to each of them.
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -304,6 +305,7 @@ describe('ChatService provider requests', () => {
       customInstruction: '',
       expertise: 'basic' as const,
       apiKey: 'key',
+      snapshot: service.captureSnapshot(),
     };
 
     const responses = await Promise.all([
@@ -317,10 +319,7 @@ describe('ChatService provider requests', () => {
     expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(1);
   });
 
-  test('rasterises the plot again for the next message', async () => {
-    // Coalescing is per message, not a cache: the plot the user is looking
-    // at moves with every navigation step, so a later question must be
-    // answered against a current image.
+  test('captures a snapshot itself when the request carries none', async () => {
     mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
     jest.mocked(Svg.toBase64).mockClear();
     const service = createService();
@@ -337,32 +336,48 @@ describe('ChatService provider requests', () => {
     expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
   });
 
-  test('does not answer with an image of the chart the data replaced', async () => {
-    // A live data update lands between the two messages below, so the second
-    // must not be served the conversion the first one started.
+  test('answers against the snapshot, not the plot as it is when the request goes out', async () => {
+    // The user asks, then navigates on while the plot is still rasterising.
+    // The image, the focused point's description and the data sent must all be
+    // the ones from the moment of asking.
+    let position = 'point 1 of 10';
+    const movingText = { getVerboseText: () => position } as unknown as TextService;
+    const service = new ChatService(display, movingText, { id: 'asked' } as unknown as Maidr);
     let finishRasterising = (_image: string): void => {};
-    jest.mocked(Svg.toBase64).mockClear();
     jest.mocked(Svg.toBase64).mockReturnValueOnce(
       new Promise<string>((resolve) => {
         finishRasterising = resolve;
       }),
     );
     mockJsonResponse({ choices: [{ message: { content: 'Answer.' } }] });
-    const service = createService();
-    const request = {
+
+    const snapshot = service.captureSnapshot();
+    position = 'point 7 of 10';
+    service.updateData({ id: 'updated-plot' } as unknown as Maidr);
+    const pending = service.sendMessage('OPENAI', {
       message: 'Describe the chart.',
       customInstruction: '',
-      expertise: 'basic' as const,
+      expertise: 'basic',
       apiKey: 'sk-openai-test',
-    };
+      snapshot,
+    });
+    finishRasterising('data:image/jpeg;base64,SEVMTE8=');
+    await pending;
 
-    const first = service.sendMessage('OPENAI', request);
-    service.updateData({ id: 'updated-plot' } as unknown as Maidr);
-    const second = service.sendMessage('OPENAI', request);
-    finishRasterising('data:image/jpeg;base64,QUJD');
-    await Promise.all([first, second]);
+    const { body } = lastRequest();
+    const [text, image] = body.messages[1].content;
+    expect(text.text).toContain('point 1 of 10');
+    expect(text.text).not.toContain('point 7 of 10');
+    expect(text.text).toContain('"id":"asked"');
+    expect(image.image_url.url).toBe('data:image/jpeg;base64,SEVMTE8=');
+  });
 
-    expect(jest.mocked(Svg.toBase64)).toHaveBeenCalledTimes(2);
+  test('snapshot describes the focused point in full, empty when nothing is focused', () => {
+    const empty = { getVerboseText: () => null } as unknown as TextService;
+    const snapshot = new ChatService(display, empty, maidr).captureSnapshot();
+
+    expect(snapshot.positionText).toBe('');
+    expect(snapshot.json).toBe(JSON.stringify(maidr));
   });
 
   test('falls back to the provider default version when none is selected', async () => {

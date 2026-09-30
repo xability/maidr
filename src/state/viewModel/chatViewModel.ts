@@ -113,6 +113,14 @@ const chatSlice = createSlice({
         },
       }),
     },
+    // The image goes on after the message: rasterising the plot takes a while,
+    // and the question should appear in the transcript the moment it is sent.
+    attachMessageImage: (state, action: PayloadAction<{ id: string; image: string }>) => {
+      const message = state.messages.find(m => m.id === action.payload.id);
+      if (message) {
+        message.image = action.payload.image;
+      }
+    },
     updateResponse: (state, action: PayloadAction<{ model: Llm; data: string; timestamp: string }>) => {
       const message = state.messages.find(m =>
         m.model === action.payload.model
@@ -161,7 +169,7 @@ const chatSlice = createSlice({
     },
   },
 });
-const { addUserMessage, addSystemMessage, addPendingResponse, updateResponse, updateError, updateSuggestions, updateWelcomeMessage, reset } = chatSlice.actions;
+const { addUserMessage, addSystemMessage, addPendingResponse, attachMessageImage, updateResponse, updateError, updateSuggestions, updateWelcomeMessage, reset } = chatSlice.actions;
 
 /**
  * The slice's action creators.
@@ -393,10 +401,23 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
     const { llm: llmSettings } = this.snapshot.settings;
     const timestamp = new Date().toISOString();
 
-    this.store.dispatch(addUserMessage({
+    // Frozen before anything else: the plot, its highlight and the focused
+    // point's description are what the user was looking at when they asked,
+    // and every provider answers against that, not against wherever the
+    // cursor is by the time each request goes out.
+    const snapshot = this.chatService.captureSnapshot();
+
+    const userMessage = addUserMessage({
       text: newMessage,
       timestamp,
-    }));
+    });
+    this.store.dispatch(userMessage);
+    // Show the reader the image the AI is being given.
+    void snapshot.image.then((image) => {
+      if (image) {
+        this.store.dispatch(attachMessageImage({ id: userMessage.payload.id, image }));
+      }
+    });
 
     const enabledModels = (Object.keys(llmSettings.models) as Llm[])
       .filter(model => llmSettings.models[model].enabled && llmSettings.models[model].apiKey.trim().length > 0);
@@ -418,6 +439,7 @@ export class ChatViewModel extends AbstractViewModel<ChatState> {
           expertise,
           apiKey: config.apiKey,
           version: config.version,
+          snapshot,
         });
 
         this.audioService.stop(audioId);

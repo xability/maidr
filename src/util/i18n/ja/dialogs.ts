@@ -19,6 +19,7 @@ export const dialogs = {
   'dialogs.chatOpenSettings': '設定を開く',
   'dialogs.chatOpenSettingsLabel': '設定を開く',
   'dialogs.chatSentAt': '{time}に送信',
+  'dialogs.chatSentImageAlt': 'AIに送信したグラフ画像',
   'dialogs.chatTyping': 'AIが入力しています',
   'dialogs.chatCodeBlock': 'コードブロック',
   'dialogs.chatImageAlt': 'メッセージ内の画像',
