@@ -267,8 +267,8 @@ function initPlotlyChart(gd: HTMLElement): void {
 /**
  * Watches the DOM for `.js-plotly-plot` elements that appear after
  * DOMContentLoaded (e.g. in SPAs or dynamically-loaded notebooks).
- * Uses plotly_afterplot event as a secondary signal to ensure the
- * SVG is fully rendered before initialising.
+ * A chart is initialised once its `svg.main-svg` is present; Plotly's
+ * inserting that SVG is itself a mutation this observer sees.
  *
  * The observer runs indefinitely to support long-lived applications
  * like Jupyter notebooks where charts may be created at any time.
@@ -288,16 +288,10 @@ function observeForPlotlyDivs(): void {
       return;
 
     // Process each new chart; do NOT disconnect — more charts may appear.
+    // A chart whose SVG is not in yet is skipped by `initPlotlyChart` and
+    // offered again when Plotly inserts it, which is itself a mutation here.
     for (const gd of divs) {
-      // If SVG is ready, init now. Otherwise wait for plotly_afterplot.
-      if (gd.querySelector('svg.main-svg')) {
-        initPlotlyChart(gd);
-      } else {
-        gd.addEventListener('plotly_afterplot', function onAfterPlot() {
-          gd.removeEventListener('plotly_afterplot', onAfterPlot);
-          initPlotlyChart(gd);
-        });
-      }
+      initPlotlyChart(gd);
     }
   });
 
