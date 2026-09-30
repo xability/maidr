@@ -229,6 +229,16 @@ export class HighContrastService implements Disposable {
     this.settingsDisposable = this.settingsService.onChange((event) => {
       if (event.affectsSetting(HighContrastSettings.MODE)) {
         this.handleHighContrastModeChange(event.get<boolean>(HighContrastSettings.MODE));
+      } else if (
+        this.highContrastApplied
+        && (event.affectsSetting(HighContrastSettings.LEVELS)
+          || event.affectsSetting(HighContrastSettings.LIGHT_COLOR)
+          || event.affectsSetting(HighContrastSettings.DARK_COLOR))
+      ) {
+        // New colours or levels saved while painted: repaint from the captured
+        // originals, as a live update does, so the change shows straight away.
+        this.restoreOriginalColors();
+        this.applyHighContrast();
       }
     });
 
