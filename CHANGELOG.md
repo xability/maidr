@@ -1,3 +1,25 @@
+# [4.12.0](https://github.com/xability/maidr/compare/v4.11.0...v4.12.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* **bar:** keep the reader's category across layer switches to and from a horizontal bar ([#1335](https://github.com/xability/maidr/issues/1335)) ([b770fe9](https://github.com/xability/maidr/commit/b770fe95d3cd67260b14206e87fabcaf6389cb7b))
+* **controller:** keep the reader's place and modes across focus-out ([#1339](https://github.com/xability/maidr/issues/1339)) ([dd3bfe9](https://github.com/xability/maidr/commit/dd3bfe92b41167abbfa037d6c3a930745d6d1e5a)), closes [#1338](https://github.com/xability/maidr/issues/1338)
+* repair 30 verified bugs and 5 hot-path costs found in a codebase-wide audit ([#1337](https://github.com/xability/maidr/issues/1337)) ([b3a0944](https://github.com/xability/maidr/commit/b3a094471fd36d88af176d857885f77a812ea46e)), closes [#1004](https://github.com/xability/maidr/issues/1004) [hi#cluster](https://github.com/hi/issues/cluster) [hi#contrast](https://github.com/hi/issues/contrast)
+
+
+### Features
+
+* **chat:** carry the conversation into follow-up questions ([#1342](https://github.com/xability/maidr/issues/1342)) ([c0ace86](https://github.com/xability/maidr/commit/c0ace8661085baff26d43748e56cc813dc101eba))
+* **chat:** send the plot as it was when the question was asked and show it in the chat ([#1340](https://github.com/xability/maidr/issues/1340)) ([2e6f1b0](https://github.com/xability/maidr/commit/2e6f1b0974c996d80dde64b5e50999b292eac57d))
+* **keybinding:** change shortcuts in settings and keep the help menu text-only ([#1333](https://github.com/xability/maidr/issues/1333)) ([c47bcb8](https://github.com/xability/maidr/commit/c47bcb81013ebd2158371d3da9b65fda196baac5))
+* **webmcp:** let agents list and run the reader's command-palette commands ([#1343](https://github.com/xability/maidr/issues/1343)) ([c17f0a0](https://github.com/xability/maidr/commit/c17f0a02a664ce828cddb7dd9c8aa36950df2561))
+
+
+### Performance Improvements
+
+* **chat:** send the chart data as a stable, cacheable prefix instead of in every question ([#1341](https://github.com/xability/maidr/issues/1341)) ([e6f1a86](https://github.com/xability/maidr/commit/e6f1a86db0435fee30234d2e99159412d1307cc1))
+
 # [4.11.0](https://github.com/xability/maidr/compare/v4.10.0...v4.11.0) (2026-09-28)
 
 
