@@ -24,7 +24,7 @@ export const settings = {
   'settings.hoverOnHover': 'ホバー',
   'settings.hoverOnClick': 'クリック',
   'settings.agentTools': 'ブラウザーの AI エージェントによるアクセス',
-  'settings.agentToolsHint': 'ブラウザーに組み込まれた AI アシスタントが、このページのチャートのデータを読み取り、依頼に応じてチャート内の現在位置を移動できるようにします。',
+  'settings.agentToolsHint': 'ブラウザーに組み込まれた AI アシスタントが、このページのチャートのデータを読み取り、依頼に応じてチャート内の現在位置を移動したり、キーボードコマンドを代わりに実行したりできるようにします。',
 
   'settings.volume': '音量',
   'settings.minFrequencyRow': '最低周波数 (Hz)',

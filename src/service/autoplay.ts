@@ -212,6 +212,14 @@ export class AutoplayService implements Disposable {
   }
 
   /**
+   * Whether autoplay is moving the cursor.
+   * @returns True from a start until playback stops
+   */
+  public get isPlaying(): boolean {
+    return this.autoplayId !== null;
+  }
+
+  /**
    * Stops any active autoplay and clears the interval.
    */
   public stop(): void {

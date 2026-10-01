@@ -1,5 +1,7 @@
+import type { LiveCommandChannel, LiveReaderProbe } from '@service/liveData';
 import type { MaidrContextValue } from '@state/context';
 import type { AppStore } from '@state/store';
+import type { Keys } from '@type/event';
 import type { Maidr as MaidrData, NavigationTarget } from '@type/grammar';
 import type { RefObject } from 'react';
 import type { ControllerSession } from '../../controller';
@@ -9,6 +11,9 @@ import { LocalStorageService } from '@service/storage';
 import { acquireWebMcpTools } from '@service/webMcp';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller } from '../../controller';
+
+/** The most commands kept for a reader who is not in the chart. */
+const MAX_PENDING_COMMANDS = 8;
 
 /**
  * Return type for the useMaidrController hook.
@@ -70,6 +75,12 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // and dropped when the data changes underneath it, since it addressed the
   // figure that data described.
   const pendingTargetRef = useRef<NavigationTarget | null>(null);
+
+  // Commands asked for on the reader's behalf while they were away, in the
+  // order asked, run on the next focus-in after a pending target. Unlike a
+  // target they survive a data change: a live chart streams, and a mode
+  // toggle addresses the reader's modes rather than a point of the old data.
+  const pendingCommandsRef = useRef<Keys[]>([]);
 
   // What the reader had when focus last left the figure -- their point and
   // their text, sound and braille modes. The controller holds global hotkeys,
@@ -168,6 +179,19 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         pendingTargetRef.current = null;
         controller.navigateTo(pending);
       }
+      // Then the kept commands, in order, each as the reader's own key would
+      // run it. A dialog still open stops the run, and the rest wait for the
+      // focus-in that follows it closing; a command the reader's scope has no
+      // key for is dropped, since the key would do nothing there either.
+      const commands = pendingCommandsRef.current;
+      if (controller !== null) {
+        while (commands.length > 0) {
+          if (controller.runCommand(commands[0]) === 'blocked') {
+            break;
+          }
+          commands.shift();
+        }
+      }
     }, 0);
   }, []);
 
@@ -248,6 +272,43 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       pendingTargetRef.current = target;
       return true;
     };
+    const probe: LiveReaderProbe = () => {
+      // Read at call time, by the same test the navigator moves on, so
+      // "inChart" and a move made at once always agree.
+      // "blocked" is read off any live controller: a dialog left open while
+      // the reader is in the agent panel still blocks a move.
+      const controller = readerController();
+      return {
+        inChart: controller !== null,
+        position: controller?.getPositionText() ?? null,
+        blocked: controllerRef.current?.isNavigationBlocked() ?? false,
+      };
+    };
+    // Runs a command now by the same test the navigator moves on, or keeps it
+    // for the next focus-in. The state is read off any live controller, as
+    // "blocked" is above; with none, from the session the reader left with,
+    // or the modes a first visit starts with.
+    const commands: LiveCommandChannel = {
+      run: (command) => {
+        const controller = readerController();
+        if (controller !== null) {
+          return controller.runCommand(command);
+        }
+        if (pendingCommandsRef.current.length >= MAX_PENDING_COMMANDS) {
+          return 'full';
+        }
+        pendingCommandsRef.current.push(command);
+        return 'kept';
+      },
+      state: () => {
+        const controller = controllerRef.current;
+        return {
+          modes: controller?.getModes() ?? Controller.startingModes(sessionRef.current),
+          blocked: controller?.isCommandBlocked() ?? false,
+          pending: pendingCommandsRef.current.length,
+        };
+      },
+    };
     const disposable = liveDataManager.register(data, (event) => {
       latestDataRef.current = event.maidr;
       pendingTargetRef.current = null;
@@ -264,18 +325,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
           disposeController();
         }
       }
-    }, navigate, () => {
-      // Read at call time, by the same test the navigator moves on, so
-      // "inChart" and a move made at once always agree.
-      // "blocked" is read off any live controller: a dialog left open while
-      // the reader is in the agent panel still blocks a move.
-      const controller = readerController();
-      return {
-        inChart: controller !== null,
-        position: controller?.getPositionText() ?? null,
-        blocked: controllerRef.current?.isNavigationBlocked() ?? false,
-      };
-    });
+    }, { navigator: navigate, probe, commands });
     // Experimental, off unless the page opts in; a no-op where the browser
     // has no WebMCP. Shared by every chart on the page (see webMcp.ts).
     const webMcp = acquireWebMcpTools(liveDataManager);

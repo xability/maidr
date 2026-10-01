@@ -281,8 +281,9 @@ export interface GeneralSettings {
   /**
    * Whether an AI agent built into the reader's browser may use MAIDR's
    * WebMCP tools: read the page's charts, and move the reader's position in
-   * them when asked. Has no effect in a browser without WebMCP, or on a page
-   * whose author switched the tools off (see `docs/WEBMCP.md`).
+   * them or run their command-palette commands when asked. Has no effect in a
+   * browser without WebMCP, or on a page whose author switched the tools off
+   * (see `docs/WEBMCP.md`).
    */
   agentTools: boolean;
 }

@@ -46,9 +46,11 @@ jest.mock('../../../src/maidr-component', () => {
           (event) => {
             mockMaidr.events.push(event);
           },
-          (target) => {
-            mockMaidr.targets.push(target);
-            return true;
+          {
+            navigator: (target) => {
+              mockMaidr.targets.push(target);
+              return true;
+            },
           },
         );
         return () => registration.dispose();

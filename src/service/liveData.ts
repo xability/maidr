@@ -1,5 +1,7 @@
 import type { Figure, Trace } from '@model/plot';
+import type { TextMode } from '@service/text';
 import type { Disposable } from '@type/disposable';
+import type { Keys } from '@type/event';
 import type {
   BarPoint,
   BoxPoint,
@@ -165,6 +167,87 @@ export interface LiveReaderState {
  */
 export interface LiveReaderProbe {
   (): LiveReaderState;
+}
+
+/**
+ * The modes a reader has in a chart: what the command palette's toggles and
+ * autoplay keys change.
+ */
+export interface LiveReaderModes {
+  /** How much the text and screen-reader output says. */
+  text: TextMode;
+  /** Whether sonification is on. */
+  sound: boolean;
+  /** Whether the braille field is open. */
+  braille: boolean;
+  /** Whether high contrast colours are on (a saved setting). */
+  highContrast: boolean;
+  /** Whether newly appended points of a live chart are announced. */
+  monitor: boolean;
+  /** Whether autoplay is moving the cursor. */
+  autoplay: boolean;
+  /**
+   * The rotor mode the arrow keys move in: `data` for ordinary navigation,
+   * else `lower`, `higher`, `grid`, `point`, `intersection` or `filter:<unit>`.
+   */
+  navigationMode: string;
+}
+
+/**
+ * What became of a command a caller asked a chart to run, as
+ * {@link LiveCommandChannel.run} reports it.
+ *
+ * - `now`: run at once, through the chart's own command executor, exactly as
+ *   the reader's key or the command palette runs it.
+ * - `unavailable`: the reader is in the chart, but the scope they are in has
+ *   no key for the command -- the multi-panel lobby has no autoplay, say.
+ * - `blocked`: a MAIDR dialog, text field or label chord holds the reader's
+ *   focus. Nothing ran.
+ * - `kept`: the reader is not in the chart. The command runs the next time
+ *   they enter it.
+ * - `full`: the reader is not in the chart, and as many commands as the chart
+ *   keeps are already waiting for them.
+ */
+export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'kept' | 'full';
+
+/**
+ * The command side of a mounted chart, as {@link LiveCommandChannel.state}
+ * reports it.
+ */
+export interface LiveCommandState {
+  /** The reader's modes, or `null` when the chart cannot say. */
+  modes: LiveReaderModes | null;
+  /** A command run now would be refused as `blocked`. */
+  blocked: boolean;
+  /** Commands kept for the reader's next focus-in. */
+  pending: number;
+}
+
+/**
+ * Runs the reader's own commands on a mounted chart for a caller acting on
+ * its own schedule, such as an in-browser agent.
+ *
+ * Registered by the chart alongside its navigator and probe, and read at call
+ * time.
+ */
+export interface LiveCommandChannel {
+  /** Runs a command now, or keeps it for the reader's next focus-in. */
+  run: (command: Keys) => LiveCommandOutcome;
+  /** Reports the reader's modes and the commands waiting, changing nothing. */
+  state: () => LiveCommandState;
+}
+
+/**
+ * What a chart registers besides its data listener, each optional: a chart
+ * that leaves one out cannot be reached that way from outside.
+ */
+export interface LiveChartChannels {
+  /** Moves the chart's cursor for {@link LiveDataManager.navigateTo}. */
+  navigator?: LiveNavigator | null;
+  /** Reports where the reader is for {@link LiveDataManager.inspect}. */
+  probe?: LiveReaderProbe | null;
+  /** Runs the reader's commands for {@link LiveDataManager.runCommand}. */
+  commands?: LiveCommandChannel | null;
 }
 
 /**
@@ -408,6 +491,7 @@ interface LiveDataInstance {
   listener: LiveDataListener;
   navigator: LiveNavigator | null;
   probe: LiveReaderProbe | null;
+  commands: LiveCommandChannel | null;
 }
 
 /**
@@ -468,20 +552,19 @@ export class LiveDataManager {
    *
    * @param initial - The chart's current Maidr config (keyed by `initial.id`)
    * @param listener - Invoked whenever the chart's data changes
-   * @param navigator - Moves the chart's cursor for {@link navigateTo}; a chart
-   *   that registers none cannot be navigated from outside
-   * @param probe - Reports where the reader is for {@link inspect}; a chart
-   *   that registers none reads as one the reader is not inside
+   * @param channels - How the chart can be reached from outside. One with no
+   *   `navigator` cannot be navigated; one with no `probe` reads as a chart
+   *   the reader is not inside; one with no `commands` runs no commands
    * @returns A disposable that unregisters the instance
    */
   public register(
     initial: Maidr,
     listener: LiveDataListener,
-    navigator: LiveNavigator | null = null,
-    probe: LiveReaderProbe | null = null,
+    channels: LiveChartChannels = {},
   ): Disposable {
     const id = initial.id;
-    this.instances.set(id, { data: initial, listener, navigator, probe });
+    const { navigator = null, probe = null, commands = null } = channels;
+    this.instances.set(id, { data: initial, listener, navigator, probe, commands });
     return {
       dispose: () => {
         // Guard against a newer registration for the same id.
@@ -658,6 +741,54 @@ export class LiveDataManager {
       };
     } catch {
       return { inChart: false, position: null, blocked: false };
+    }
+  }
+
+  /**
+   * Runs one of the reader's commands on a registered chart, as the command
+   * palette runs it: now while the reader is in the chart, or on their next
+   * focus-in while they are not.
+   *
+   * @param id - The chart id
+   * @param command - The keymap's name for the command
+   * @returns What became of it, or `null` for an id that is not registered or
+   *   a chart that registered no command channel
+   */
+  public runCommand(id: string, command: Keys): LiveCommandOutcome | null {
+    return this.instances.get(id)?.commands?.run(command) ?? null;
+  }
+
+  /**
+   * Reports a registered chart's command side -- the reader's modes, whether
+   * a command would be refused as blocked, and how many are waiting --
+   * without changing or announcing anything.
+   *
+   * A channel that throws reads as one that cannot say, for the reason
+   * {@link inspect} gives.
+   *
+   * @param id - The chart id
+   * @returns The state; `{ modes: null, blocked: false, pending: 0 }` for a
+   *   chart that registered no command channel, and `null` for an id that is
+   *   not registered
+   */
+  public inspectCommands(id: string): LiveCommandState | null {
+    const instance = this.instances.get(id);
+    if (!instance) {
+      return null;
+    }
+    const unknown: LiveCommandState = { modes: null, blocked: false, pending: 0 };
+    if (instance.commands === null) {
+      return unknown;
+    }
+    try {
+      const { modes, blocked, pending } = instance.commands.state();
+      return {
+        modes: typeof modes === 'object' && modes !== null ? modes : null,
+        blocked: blocked === true,
+        pending: Number.isSafeInteger(pending) && pending > 0 ? pending : 0,
+      };
+    } catch {
+      return unknown;
     }
   }
 

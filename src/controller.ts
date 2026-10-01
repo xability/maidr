@@ -1,8 +1,8 @@
 import type { NavigationSnapshot } from '@model/context';
-import type { AppendedPointInfo } from '@service/liveData';
-import type { TextMode } from '@service/text';
+import type { AppendedPointInfo, LiveReaderModes } from '@service/liveData';
 import type { AppStore } from '@state/store';
 import type { Disposable } from '@type/disposable';
+import type { Keys } from '@type/event';
 import type { Maidr, NavigateCallback, NavigationTarget } from '@type/grammar';
 import { getPlotlyOverlayLayers } from '@adapters/plotly/normalizer';
 import { Context } from '@model/context';
@@ -28,10 +28,10 @@ import { MonitorService } from '@service/monitor';
 import { NotificationService } from '@service/notification';
 import { ReviewService } from '@service/review';
 import { RotorNavigationService } from '@service/rotor';
-import { SettingsService } from '@service/settings';
+import { loadStoredGeneralSettings, SettingsService } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
 import { TactileService } from '@service/tactile';
-import { TextService } from '@service/text';
+import { TextMode, TextService } from '@service/text';
 import { setWebMcpEnabled } from '@service/webMcp';
 import { BrailleViewModel } from '@state/viewModel/brailleViewModel';
 import { CandlestickDeltaViewModel } from '@state/viewModel/candlestickDeltaViewModel';
@@ -47,6 +47,7 @@ import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewMo
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 import { Scope } from '@type/event';
+import { DEFAULT_SETTINGS } from '@type/settings';
 import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
 import { resolveSubplotLayout } from '@util/subplotLayout';
@@ -58,6 +59,17 @@ const NAVIGABLE_SCOPES: ReadonlySet<Scope> = new Set<Scope>([
   Scope.GRID_CELL,
   Scope.CANDLESTICK_DELTA,
 ]);
+
+/**
+ * The scopes from which a command asked for on the reader's behalf runs: the
+ * navigable ones, and the braille field. A braille reader reads and moves
+ * through the chart from that field, and its keymap binds the toggles,
+ * autoplay and moves they would ask an agent for -- turning braille off among
+ * them. Every other scope is a dialog, a text field or a label chord the
+ * reader is operating, and a command run under it would switch the keyboard
+ * scope out from beneath them.
+ */
+const COMMAND_SCOPES: ReadonlySet<Scope> = new Set<Scope>([...NAVIGABLE_SCOPES, Scope.BRAILLE]);
 
 /**
  * What a reader had in a chart when they left it: where they were and the
@@ -533,6 +545,80 @@ export class Controller implements Disposable {
    */
   public isNavigationBlocked(): boolean {
     return !NAVIGABLE_SCOPES.has(this.context.scope);
+  }
+
+  /**
+   * Runs one of the reader's commands for a caller acting on its own
+   * schedule, such as an in-browser agent.
+   *
+   * Goes through the executor the command palette uses, in the scope the
+   * reader is in, so it does exactly what their key would do there -- and
+   * nothing where that key does nothing.
+   *
+   * @param command - The keymap's name for the command
+   * @returns `now` when it ran, `unavailable` when the reader's scope has no
+   *   key for it, and `blocked` while {@link isCommandBlocked}
+   */
+  public runCommand(command: Keys): 'now' | 'unavailable' | 'blocked' {
+    if (this.isCommandBlocked()) {
+      return 'blocked';
+    }
+    return this.commandExecutor.executeCommand(command) ? 'now' : 'unavailable';
+  }
+
+  /**
+   * Whether the reader is in a MAIDR dialog, a text field or a label chord,
+   * where {@link runCommand} refuses.
+   *
+   * Unlike {@link isNavigationBlocked}, the braille field does not count: it
+   * is where a braille reader reads the chart from, and its own keymap
+   * decides which commands run there.
+   *
+   * @returns True while such a scope is active
+   */
+  public isCommandBlocked(): boolean {
+    return !COMMAND_SCOPES.has(this.context.scope);
+  }
+
+  /**
+   * The reader's modes, read without changing or announcing anything.
+   *
+   * @returns What the palette's toggles and autoplay keys would change
+   */
+  public getModes(): LiveReaderModes {
+    return {
+      text: this.textService.currentMode,
+      sound: this.audioService.isOn,
+      braille: this.brailleService.isEnabled,
+      highContrast: this.settingsService.loadSettings().general.highContrastMode,
+      monitor: this.monitorService.isEnabled,
+      autoplay: this.autoplayService.isPlaying,
+      navigationMode: this.rotorNavigationService.getModeKey(),
+    };
+  }
+
+  /**
+   * The modes a controller built from a session would have once it resumed,
+   * for a caller asking while no controller is alive.
+   *
+   * Monitoring, autoplay and the rotor mode are not carried over, so a new
+   * controller always starts them off and in data mode; high contrast is a
+   * saved setting.
+   *
+   * @param session - What the reader had when they left, or `null`
+   * @returns The modes the next controller starts with
+   */
+  public static startingModes(session: ControllerSession | null): LiveReaderModes {
+    const highContrast = loadStoredGeneralSettings(new LocalStorageService()).highContrastMode;
+    return {
+      text: session?.textMode ?? TextMode.VERBOSE,
+      sound: session?.soundOn ?? true,
+      braille: session?.brailleOn ?? false,
+      highContrast: typeof highContrast === 'boolean' ? highContrast : DEFAULT_SETTINGS.general.highContrastMode,
+      monitor: false,
+      autoplay: false,
+      navigationMode: 'data',
+    };
   }
 
   /**

@@ -92,19 +92,28 @@ async function setUp(page: Page, meta: 'on' | 'off' | null): Promise<void> {
   }
 }
 
+/** Every tool MAIDR registers, by name. */
+const ALL_TOOLS = [
+  'maidr_get_layer_data',
+  'maidr_list_charts',
+  'maidr_list_commands',
+  'maidr_navigate',
+  'maidr_run_command',
+];
+
 /** Opens the bar chart and waits for its tools. */
 async function openChart(page: Page): Promise<void> {
   await page.goto('examples/barplot.html');
   await page.waitForSelector('svg#bar');
-  await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
+  await page.waitForFunction(count => Object.keys((window as any).__tools ?? {}).length === count, ALL_TOOLS.length);
 }
 
 test.describe('WebMCP tools', () => {
-  test('registers three tools by default and lists the chart under content', async ({ page }) => {
+  test('registers five tools by default and lists the chart under content', async ({ page }) => {
     await setUp(page, null);
     await openChart(page);
 
-    expect(await toolNames(page)).toEqual(['maidr_get_layer_data', 'maidr_list_charts', 'maidr_navigate']);
+    expect(await toolNames(page)).toEqual(ALL_TOOLS);
 
     const result = await callTool(page, 'maidr_list_charts', {});
     expect(result.ok).toBe(true);
@@ -161,6 +170,83 @@ test.describe('WebMCP tools', () => {
     expect(await activeElement(page)).toBe(focusBefore);
   });
 
+  test('lists the reader\'s commands with their keys and modes, without a sound', async ({ page }) => {
+    await setUp(page, null);
+    await openChart(page);
+    const textBefore = await ariaText(page);
+
+    const result = await callTool(page, 'maidr_list_commands', {});
+
+    expect(result.ok).toBe(true);
+    const commands = result.commands as Array<Record<string, unknown>>;
+    expect(commands.find(entry => entry.command === 'toggle_braille')).toEqual({
+      command: 'toggle_braille',
+      title: 'Toggle Braille Mode',
+      keys: 'b',
+      runnable: true,
+    });
+    expect(commands.find(entry => entry.command === 'open_settings')).toMatchObject({ runnable: false });
+    expect(result.modes).toEqual({
+      text: 'verbose',
+      sound: true,
+      braille: false,
+      highContrast: false,
+      monitor: false,
+      autoplay: false,
+      navigationMode: 'data',
+    });
+    expect(result.reader).toEqual({ inChart: false, blocked: false });
+    expect(result.pending).toBe(0);
+    // Nothing the page wrote: neither the chart's id nor its title.
+    expect(JSON.stringify(result)).not.toContain('"bar"');
+    expect(JSON.stringify(result)).not.toContain('Tips');
+    expect(await ariaText(page)).toBe(textBefore);
+  });
+
+  test('keeps a command for a reader who is away, and runs it when they come in', async ({ page }) => {
+    await setUp(page, null);
+    await openChart(page);
+    const focusBefore = await activeElement(page);
+    const textBefore = await ariaText(page);
+
+    const result = await callTool(page, 'maidr_run_command', { command: 'toggle_text' });
+
+    expect(result.ok).toBe(true);
+    expect(result.applied).toBe('on-next-focus');
+    await page.waitForTimeout(600); // settle: silence cannot be polled
+    expect(await activeElement(page)).toBe(focusBefore);
+    expect(await ariaText(page)).toBe(textBefore);
+    expect((await callTool(page, 'maidr_list_commands', {})).pending).toBe(1);
+
+    await page.keyboard.press('Tab');
+    await waitForAriaText(page, 'Text mode is terse');
+    const listed = await callTool(page, 'maidr_list_commands', {});
+    expect(listed.pending).toBe(0);
+    expect((listed.modes as Record<string, unknown>).text).toBe('terse');
+  });
+
+  test('runs a command at once when the reader is in the chart', async ({ page }) => {
+    await setUp(page, null);
+    await openChart(page);
+    await page.click('#bar');
+    await waitForAriaText(page, 'maidr plot');
+    await page.keyboard.press('ArrowRight');
+    await waitForAriaText(page, 'Saturday');
+    const focusBefore = await activeElement(page);
+
+    const result = await callTool(page, 'maidr_run_command', { chartId: 'bar', command: 'toggle_sound' });
+
+    expect(result.ok).toBe(true);
+    expect(result.applied).toBe('now');
+    expect((result.modes as Record<string, unknown>).sound).toBe(false);
+    await waitForAriaText(page, 'Sound is off');
+    expect(await activeElement(page)).toBe(focusBefore);
+
+    // The reader's next arrow key works as before.
+    await page.keyboard.press('ArrowRight');
+    await waitForAriaText(page, 'Sunday');
+  });
+
   test('registers nothing and logs no errors when the page switches them off', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (message) => {
@@ -200,8 +286,8 @@ test.describe('WebMCP tools', () => {
     await expect(page.locator('svg#bar')).toBeVisible();
 
     await toggle();
-    await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
-    expect(await toolNames(page)).toEqual(['maidr_get_layer_data', 'maidr_list_charts', 'maidr_navigate']);
+    await page.waitForFunction(count => Object.keys((window as any).__tools ?? {}).length === count, ALL_TOOLS.length);
+    expect(await toolNames(page)).toEqual(ALL_TOOLS);
   });
   /**
    * Puts a second bar chart (id "bar2") beside the first, before MAIDR mounts,
@@ -229,7 +315,7 @@ test.describe('WebMCP tools', () => {
     }, blockStorage);
     await page.goto('examples/barplot.html');
     await page.waitForSelector('svg#bar2');
-    await page.waitForFunction(() => Object.keys((window as any).__tools ?? {}).length === 3);
+    await page.waitForFunction(count => Object.keys((window as any).__tools ?? {}).length === count, ALL_TOOLS.length);
   }
 
   for (const blockStorage of [false, true]) {
