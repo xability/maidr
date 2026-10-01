@@ -6,7 +6,7 @@
 
 WebMCP lets a web page offer an AI agent running in the browser — Gemini in Chrome, the MCP-B extension, and similar assistants — a small set of typed tools. The page registers each tool with `document.modelContext.registerTool()`, giving it a name, a description, a JSON Schema for its input and an `execute` function; the agent reads the descriptions and calls the tools instead of scraping the page.
 
-Where the browser supports it, MAIDR registers five tools. Together they let a blind or low-vision reader ask their browser assistant questions such as "which day had the most tips?" and have it answer from the chart's real data, ask "take me to the highest bar" and land there with their screen reader, braille display and sonification announcing the point, or ask "turn braille off" or "play the chart from the start" and have the agent run that command from MAIDR's command palette for them.
+Where the browser supports it, MAIDR registers five tools. Together they let a blind or low-vision reader ask their browser assistant questions such as "which day had the most tips?" and have it answer from the chart's real data, ask "take me to the highest bar" and land there with their screen reader, braille display and sonification announcing the point, or ask "turn braille off" or "play the chart from the start" and have the agent run that command -- one of those MAIDR's command palette offers -- for them.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Without a secure context or a browser with WebMCP, or with the tools switched of
 
 WebMCP support is **on by default**: in a browser that has WebMCP, every page with a MAIDR chart offers the tools, with no change to the page, the schema or any producer — hand-written pages, py-maidr, maidr for R and the chart-library adapters alike.
 
-**The reader decides.** In a browser with WebMCP, **Settings > General** has a **Browser AI Agent Access** checkbox, on by default. Unchecking it and saving removes the tools at once, from every chart on the page, without a reload; checking it again registers them again. The choice is kept in the browser with the reader's other MAIDR settings, so it applies on every page that uses MAIDR. Where the browser cannot save it -- a private window, or an embed whose storage is blocked -- it still holds for every chart on the page until the page is closed. The row is not shown in a browser without WebMCP, where it could do nothing.
+**The reader decides.** In a browser with WebMCP, **Settings > General** has a **Browser AI Agent Access** checkbox, on by default. Unchecking it and saving removes the tools at once, from every chart on the page, without a reload, and drops any command an agent left waiting for the reader; checking it again registers them again. The choice is kept in the browser with the reader's other MAIDR settings, so it applies on every page that uses MAIDR. Where the browser cannot save it -- a private window, or an embed whose storage is blocked -- it still holds for every chart on the page until the page is closed. The row is not shown in a browser without WebMCP, where it could do nothing.
 
 **A page author can switch the tools off** for the whole page with a meta tag, which wins over the reader's setting:
 
@@ -206,16 +206,16 @@ Lists the reader's keyboard commands -- the ones MAIDR's command palette (<kbd>C
 | `modes.sound`, `braille`, `highContrast`, `monitor`, `autoplay` | Whether sonification, the braille field, high contrast, monitoring of a live chart's new points, and autoplay are on. |
 | `modes.navigationMode` | What the arrow keys move by: `data` normally, or a mode the reader (or `next_navigation_mode`) chose -- `lower`, `higher`, `grid`, `point`, `intersection`, or `filter:` and a filter's name. |
 | `reader.inChart` | The reader is inside the chart with the page focused, the same test `maidr_navigate` uses. |
-| `reader.blocked` | A MAIDR dialog, text field or label shortcut has the reader's focus, so `maidr_run_command` would answer `blocked`. Braille mode does not count here (see below). |
+| `reader.blocked` | A MAIDR dialog, text field or label shortcut is open in the chart -- even while the page itself does not have focus -- so `maidr_run_command` would answer `blocked`. Braille mode does not count here (see below). |
 | `pending` | Commands kept for the reader's next visit to the chart, at most 8. |
 
-`modes` comes from the reader's live session in the chart. While they are away it is what they left with, or, on a first visit, what the chart starts with; monitoring, autoplay and the navigation mode always start off and in `data` mode when the reader comes back. It is `null` only for a chart that cannot report its modes. Every command in the palette is listed; the ones that are not runnable are listed so the agent can tell the reader which keys to press.
+`modes` comes from the reader's live session in the chart. While they are away it is what they left with, or, on a first visit, what the chart starts with; monitoring, autoplay and the navigation mode always start off and in `data` mode when the reader comes back, and braille comes back on the point they left, or on a one-panel chart's first point, but not on the overview of a multi-panel figure. `sound` is `true` whenever sonification is on, which on a scatter plot is either of its two playback modes (see "Toggles step, they do not set" under `maidr_run_command`). It is `null` only for a chart that cannot report its modes. Every command in the palette is listed; the ones that are not runnable are listed so the agent can tell the reader which keys to press.
 
 The result carries no text from the page -- not even the `chartId` -- so it is not marked `untrustedContentHint`.
 
 ### `maidr_run_command`
 
-Runs one of the reader's commands, by its id from `maidr_list_commands`, exactly as the command palette runs it.
+Runs one of the reader's commands, by its id from `maidr_list_commands`, through the command executor the reader's keys and the command palette use, in the place the reader is in. (The palette itself always runs a command from the chart, since it closes first; an agent's command runs wherever the reader is -- the overview of a multi-panel figure, the braille field, a grid cell -- and does what the reader's key for it would do there.)
 
 **Input:**
 
@@ -228,42 +228,48 @@ Runs one of the reader's commands, by its id from `maidr_list_commands`, exactly
 { "chartId": "bar", "command": "toggle_braille" }
 ```
 
-The runnable ids are: `move_left`, `move_right`, `move_up`, `move_down`, `move_to_left_extreme`, `move_to_right_extreme`, `move_to_top_extreme`, `move_to_bottom_extreme`, `next_layer`, `previous_layer`, `return_to_subplot`, `enter_grid_cell`, `announce_point`, `announce_position`, `toggle_text`, `toggle_sound`, `toggle_braille`, `toggle_high_contrast`, `toggle_monitor`, `autoplay_forward`, `autoplay_backward`, `autoplay_upward`, `autoplay_downward`, `stop_autoplay`, `speed_up_autoplay`, `speed_down_autoplay`, `reset_autoplay_speed`, `go_to_min_value`, `go_to_max_value`, `next_navigation_mode`, `previous_navigation_mode`, `toggle_candlestick_comparison`, `tactile_zoom_in`, `tactile_zoom_out` and `tactile_reset_zoom`. The ones listed but not runnable are `open_description`, `access_labels`, `toggle_review`, `open_go_to_extrema`, `open_help`, `open_chat`, `open_command_palette`, `open_settings` and `choose_candlestick_reference`.
+The runnable ids are: `move_left`, `move_right`, `move_up`, `move_down`, `move_to_left_extreme`, `move_to_right_extreme`, `move_to_top_extreme`, `move_to_bottom_extreme`, `next_layer`, `previous_layer`, `return_to_subplot`, `enter_grid_cell`, `announce_point`, `announce_position`, `toggle_text`, `toggle_sound`, `toggle_braille`, `toggle_high_contrast`, `toggle_monitor`, `autoplay_forward`, `autoplay_backward`, `autoplay_upward`, `autoplay_downward`, `stop_autoplay`, `speed_up_autoplay`, `speed_down_autoplay`, `reset_autoplay_speed`, `go_to_min_value`, `go_to_max_value`, `next_navigation_mode`, `previous_navigation_mode`, `tactile_zoom_in`, `tactile_zoom_out` and `tactile_reset_zoom`. The ones listed but not runnable are `open_description`, `access_labels`, `toggle_review`, `open_go_to_extrema`, `open_help`, `open_chat`, `open_command_palette`, `open_settings`, `toggle_candlestick_comparison` and `choose_candlestick_reference`. `toggle_candlestick_comparison` is among them because, until the reader has chosen a reference line in this visit to the chart, its key opens the reference picker instead.
 
 **Annotations:** `readOnlyHint: false`, `consequentialHint: false`, `untrustedContentHint: false`
+
+`consequentialHint` is `false` on purpose. Every runnable command is a single key press of the reader's own, announced as it happens and undone with the same key or another call; a browser confirmation before each one would put a dialog between a screen-reader user and "turn braille off". The safeguards are elsewhere: the description tells the agent to run only what the user asked for, nothing that opens a dialog or writes data can be run, and the reader can switch the tools off.
 
 **Results:**
 
 | Result | Meaning |
 | --- | --- |
 | `{ "ok": true, "applied": "now", "modes": { … } }` | The reader is inside the chart, with the page focused, and the command ran in the place they are in. `modes` is as `maidr_list_commands` gives it, after the command. |
-| `{ "ok": true, "applied": "on-next-focus", "message": "…" }` | The reader is not inside the chart, or the page does not have focus. The command is kept, and runs -- after a waiting `maidr_navigate` move, and after any command kept before it -- the next time they enter the chart or return to the page. A toggle then flips the mode as it is at that moment, and a command with no key where the reader lands is dropped, as it would answer `unavailable`. The agent should tell them, and not claim it has happened. |
-| `{ "ok": false, "applied": "blocked", "error": "reader is in a MAIDR dialog" }` | A MAIDR dialog, text field or label shortcut (chat, settings, help, the command palette, the go-to-extreme dialog, the chart description, review mode) has the reader's focus. Nothing ran. |
-| `{ "ok": false, "applied": "unavailable", "error": "command not available where the reader is" }` | Where the reader is, the command has no key -- autoplay in the overview of a multi-panel figure, for instance -- so it did nothing, as the key would have done nothing. |
+| `{ "ok": true, "applied": "on-next-focus", "message": "…" }` | The reader is not inside the chart, or the page does not have focus. The command is kept, and runs -- after a waiting `maidr_navigate` move, and after any command kept before it -- the next time they enter the chart or return to the page. Kept commands run one at a time, half a second apart, so the reader hears where they arrived and then each command's own announcement. While a waiting move still waits -- braille reopened on their return holds it -- the commands wait with it, and run after it once it is made. A toggle steps the mode on from what it is when it runs, and a command with no key where the reader is then is dropped, as it would answer `unavailable`. The agent should tell them, and not claim it has happened. |
+| `{ "ok": false, "applied": "blocked", "error": "reader is in a MAIDR dialog" }` | A MAIDR dialog, text field or label shortcut (chat, settings, help, the command palette, the go-to-extreme dialog, the chart description, review mode) is open in the chart, whether or not the page has focus. Nothing ran and nothing was kept: the agent can ask again once the reader closes it. |
+| `{ "ok": false, "applied": "unavailable", "error": "command not available where the reader is" }` | Where the reader is, the command has no key -- autoplay in the overview of a multi-panel figure, for instance, or `move_left` and `move_right` inside a grid cell, where the arrow keys step through the cell's points under commands of their own -- or its key would silently do nothing there: `enter_grid_cell` outside grid navigation, `return_to_subplot` on a chart of one panel. Nothing ran. |
 | `{ "ok": false, "error": "too many commands waiting" }` | The reader is away and 8 commands are already waiting for them. |
-| `{ "ok": false, "error": "rate limited" }` | Another command ran on this chart less than 500 ms ago. Moves have their own limit, so a move and a command can follow each other at once. |
+| `{ "ok": false, "error": "rate limited" }` | The reader is in the chart and another command ran on it less than 500 ms ago. Moves have their own limit, so a move and a command can follow each other at once. |
 | `{ "ok": false, "error": "unknown command", "hint": "…" }` | No command has that id. |
 | `{ "ok": false, "error": "command not runnable by an agent", "hint": "…" }` | The command opens a dialog or text field, or starts a two-key shortcut, which only the reader can operate. The hint says to tell them its keys. |
+
+**Toggles step, they do not set.** A toggle does what its key does: it moves the mode on by one. `toggle_text` goes verbose, terse, off, verbose. `toggle_sound` turns sound off and on, except on a scatter plot, where sound that is on plays its points either combined or separately, and the key goes combined, separate, off, combined -- so turning sound off there can take two runs, with `modes.sound` still `true` after the first. An agent asked for a particular mode reads `modes` first, runs the toggle as many times as that takes, and checks the `modes` each run returns. Kept toggles step from whatever the mode is when they run.
+
+**Arrow moves stop autoplay.** The reader's arrow keys, bare or with <kbd>Ctrl</kbd> (<kbd>Cmd</kbd> on a Mac), stop autoplay as well as moving, so `move_left`, `move_right`, `move_up`, `move_down` and the four `move_to_*_extreme` commands stop it first too, and the point they land on is announced.
 
 **Braille mode.** The braille field is where a braille reader reads and moves through the chart from, so it does not block a command: whatever braille mode itself has a key for runs, including `toggle_braille` to turn it off, the other mode toggles, autoplay and the moves. A command braille mode has no key for, such as `return_to_subplot`, is `unavailable` there. `maidr_navigate` still waits while braille is open, as before.
 
 ## What the reader experiences
 
 - **An agent's move is announced exactly like a keyboard move.** It goes through the same path as `window.maidrLive.navigateTo`: the screen reader's live region (following the reader's text mode), the braille display, sonification, the visual highlight and any tactile display all update together, and the host's `onNavigate` callback fires.
-- **An agent's command does exactly what its keys do.** It runs through the same command executor as the reader's own keys and the command palette, in the place the reader is in, so they hear the same announcement ("Braille is off", "Text mode is terse") and get the same braille, sonification and highlight. Nothing is reimplemented for agents.
-- **Keyboard focus is never moved for an agent.** MAIDR does not focus the chart, scroll it into view, or start a session for the reader. A command moves focus only where its own keys would -- turning braille on puts the reader in the braille field, as `b` does. On a chart the reader is not inside, or while the page does not have focus, a move or a command waits, and happens when they next enter the chart or come back to the page. A data update discards a waiting move, but not a waiting command: a live chart's data changes all the time, and a command such as a mode toggle is not about a data point.
-- **An open MAIDR dialog is never navigated or commanded under.** While one has the reader's focus, moves and commands are refused; waiting ones are kept until it closes.
-- **Dialogs stay the reader's.** Commands that open a dialog or text field -- help, chat, settings, the command palette, the chart description, the go-to-extreme dialog, the candlestick reference picker, review mode -- and the label shortcut are listed but never run by an agent: one opened for the reader would take their focus without warning.
-- **At most one move and one command per chart every 500 ms**, so a runaway agent cannot flood the reader's speech and audio. Waiting commands are capped at 8.
+- **An agent's command does what its keys do.** It runs through the same command executor as the reader's own keys and the command palette, in the place the reader is in, so they hear the same announcement ("Braille is off", "Text mode is terse") and get the same braille, sonification and highlight; an arrow move stops autoplay first, as the arrow keys do. Nothing is reimplemented for agents.
+- **Keyboard focus is never moved for an agent.** MAIDR does not focus the chart, scroll it into view, or start a session for the reader. A command moves focus only where its own keys would -- turning braille on puts the reader in the braille field, as `b` does. On a chart the reader is not inside, or while the page does not have focus, a move or a command waits, and happens when they next enter the chart or come back to the page: the move first, then the commands in order, each half a second after the announcement before it, so none is lost under the next. A data update discards a waiting move, but not a waiting command: a live chart's data changes all the time, and a command such as a mode toggle is not about a data point. A chart whose id changes is another chart, and drops both.
+- **An open MAIDR dialog is never navigated or commanded under.** While one is open in the chart, even with the page unfocused, moves and commands are refused rather than kept; commands already waiting when the reader opens one wait until it closes.
+- **Dialogs stay the reader's.** Commands that open a dialog or text field -- help, chat, settings, the command palette, the chart description, the go-to-extreme dialog, the candlestick reference picker and the candlestick comparison toggle that opens it, review mode -- and the label shortcut are listed but never run by an agent: one opened for the reader would take their focus without warning.
+- **At most one move and one command per chart every 500 ms**, waiting commands included, so a runaway agent cannot flood the reader's speech and audio. Waiting commands are capped at 8.
 - **Reading is silent.** Listing charts, reading data and listing commands change nothing the reader can perceive.
-- **Nothing new to learn.** No keys or menu entries are added; the one new control is the **Browser AI Agent Access** checkbox in Settings, which turns all five tools off.
+- **Nothing new to learn.** No keys or menu entries are added; the one new control is the **Browser AI Agent Access** checkbox in Settings, which turns all five tools off and drops any command waiting for the reader.
 
 ## What is not exposed, and why
 
 The reader's commands are exposed with the boundary above: what the command palette offers, each run exactly as the reader's own keys would run it, and only those an agent can run without operating a dialog for the reader. Still not exposed:
 
 - **Data writes** (`setData`, `appendData`): an agent could otherwise change what the chart says.
-- **Dialogs and text fields**: help, chat, settings, the command palette, the chart description, the go-to-extreme dialog, the candlestick reference picker and the review field. The reader operates these; an agent is told which keys open them.
+- **Dialogs and text fields**: help, chat, settings, the command palette, the chart description, the go-to-extreme dialog, the candlestick reference picker (and the comparison toggle, which opens it until a reference is chosen) and the review field. The reader operates these; an agent is told which keys open them.
 - **Settings**, including the **chat and LLM API keys** kept in them. High contrast is the one saved setting a command changes, through its own toggle, as the reader's key does.
 
 Everything exposed is small and visible to the reader the moment it happens: a move is undone with an arrow key, and a toggle with its own key or another call.
@@ -283,7 +289,7 @@ These are safeguards, not guarantees: an agent may still be misled by chart text
 
 ## Several charts, and several copies of MAIDR
 
-With several charts on a page, `maidr_list_charts` lists them all and the other tools need a `chartId`. Each chart keeps its own waiting commands and its own rate limits.
+With several charts on a page, `maidr_list_charts` lists them all and the other tools need a `chartId`. Each chart keeps its own waiting commands and its own rate limits, and a chart whose id changes drops the commands kept under the old one.
 
 If a page loads MAIDR twice — say a script-tag bundle and a React build — only the first copy to mount a chart registers the tools, and the second logs one warning:
 

@@ -8,19 +8,23 @@
  * `maidr_run_command` reaches the mounted chart through the registry the hook
  * signs into. While the reader is inside the figure the command runs at once;
  * while they are not, it is kept -- in order, at most eight -- and run on the
- * next focus-in, after a kept `maidr_navigate` target, each through the
- * reader's own command executor. Unlike a kept target, a kept command
- * survives a change of data, and one a MAIDR dialog still blocks at focus-in
- * waits for the focus-in that follows the dialog closing.
+ * next focus-in, after a kept `maidr_navigate` target, one at a time so each
+ * is announced, through the reader's own command executor. A MAIDR dialog
+ * open in the chart refuses a command even while the page is unfocused, and
+ * one the reader opens before a kept command runs holds it until the
+ * focus-in that follows the dialog closing. Unlike a kept target, a kept
+ * command survives a change of data, but not a change of chart id, nor the
+ * reader switching agent access off.
  *
  * An `esm-test` for the same reason the visibility test is: rendering `Maidr`
  * mounts the whole app, and the chat bubbles in it are ESM-only.
  */
 
 import type { Maidr as MaidrData } from '@type/grammar';
+import type { ReactElement } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { liveDataManager } from '@service/liveData';
-import { buildWebMcpTools, TOOL_NAMES } from '@service/webMcp';
+import { buildWebMcpTools, resetWebMcpForTests, setWebMcpEnabled, TOOL_NAMES } from '@service/webMcp';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TraceType } from '@type/grammar';
 import { Maidr } from '../../../src/maidr-component';
@@ -124,6 +128,50 @@ function announcedText(): string {
   return document.querySelector('#maidr-figure-commands-bar')?.textContent ?? '';
 }
 
+let observer: MutationObserver | null = null;
+
+/**
+ * Records every announcement made from here on. A screen reader speaks a
+ * `role="alert"` element when it is inserted, so a text replaced before it
+ * was ever inserted is one the reader never hears -- which a look at the
+ * current text alone cannot tell.
+ *
+ * Call the returned function after each step: an alert inserted inside a
+ * newly mounted subtree is read from that subtree when the records are taken.
+ * @returns A function giving the announcements so far, in order.
+ */
+function watchAnnouncements(): () => string[] {
+  const heard: string[] = [];
+  const take = (records: MutationRecord[]): void => {
+    for (const record of records) {
+      record.addedNodes.forEach((node) => {
+        if (!(node instanceof HTMLElement)) {
+          return;
+        }
+        const alerts = node.matches('[role="alert"]') ? [node] : [...node.querySelectorAll('[role="alert"]')];
+        alerts.forEach(alert => heard.push(alert.textContent ?? ''));
+      });
+    }
+  };
+  observer = new MutationObserver(take);
+  observer.observe(document.body, { childList: true, subtree: true });
+  const watching = observer;
+  return () => {
+    take(watching.takeRecords());
+    return [...heard];
+  };
+}
+
+/**
+ * Lets time pass, as the reader waits, so kept commands come due.
+ * @param ms - How long.
+ */
+function wait(ms: number): void {
+  act(() => {
+    jest.advanceTimersByTime(ms);
+  });
+}
+
 // jsdom implements neither structuredClone nor the Web Audio API, both of
 // which the controller reaches for as it starts. Stubbed at that boundary, the
 // way test/service/audio.*.test.ts stubs the same API.
@@ -207,8 +255,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  observer?.disconnect();
+  observer = null;
+  resetWebMcpForTests();
   jest.useRealTimers();
   document.body.innerHTML = '';
+  localStorage.clear();
 });
 
 describe('a command an agent runs for the reader', () => {
@@ -223,7 +275,7 @@ describe('a command an agent runs for the reader', () => {
     expect(announcedText()).toContain('Text mode is terse');
   });
 
-  it('should be kept while nobody is inside, and run in order after a kept target when they arrive', async () => {
+  it('should be kept while nobody is inside, and run in order after a kept target, each announced, when they arrive', async () => {
     renderChart();
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).modes).toEqual(expect.objectContaining({ text: 'verbose', sound: true }));
 
@@ -239,17 +291,47 @@ describe('a command an agent runs for the reader', () => {
     // Nothing is announced to a reader who is not there.
     expect(announcedText()).toBe('');
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(3);
+    const heard = watchAnnouncements();
 
     focusIn();
+    // The target first, on its own.
+    expect(heard()).toEqual([expect.stringContaining('Category is C')]);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(3);
+    wait(500);
+    wait(500);
+    wait(500);
 
-    // The target (C), then the leftmost point (A), then one step right (B).
-    const charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
-    expect(charts.charts[0].reader.position).toContain('Category is B');
-    expect(announcedText()).toContain('Sound is off');
+    // Then the leftmost point (A), one step right (B) and the sound toggle,
+    // each in an announcement of its own.
+    expect(heard()).toEqual([
+      expect.stringContaining('Category is C'),
+      expect.stringContaining('Category is A'),
+      expect.stringContaining('Category is B'),
+      expect.stringContaining('Sound is off'),
+    ]);
     const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
     expect(listed.modes).toEqual(expect.objectContaining({ sound: false }));
     expect(listed.pending).toBe(0);
     expect(listed.reader).toEqual({ inChart: true, blocked: false });
+  });
+
+  it('should let a returning reader hear where they are before a kept command', async () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    const heard = watchAnnouncements();
+
+    focusIn();
+    expect(heard()).toEqual([expect.stringContaining('Category is B')]);
+    wait(500);
+
+    expect(heard()).toEqual([
+      expect.stringContaining('Category is B'),
+      expect.stringContaining('Text mode is terse'),
+    ]);
   });
 
   it('should report the modes the reader left with while they are away', async () => {
@@ -281,6 +363,7 @@ describe('a command an agent runs for the reader', () => {
       });
     });
     focusIn();
+    wait(500);
 
     expect(announcedText()).toContain('Text mode is terse');
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).modes).toEqual(expect.objectContaining({ text: 'terse' }));
@@ -289,7 +372,28 @@ describe('a command an agent runs for the reader', () => {
     expect(charts.charts[0].reader.position).toBeNull();
   });
 
-  it('should keep at most eight', async () => {
+  it('should not survive the chart becoming another one under a new id', async () => {
+    const page = (data: MaidrData): ReactElement => (
+      <>
+        <Maidr data={data}>
+          <svg />
+        </Maidr>
+        <button type="button">Elsewhere</button>
+      </>
+    );
+    const { rerender } = render(page(DATA));
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
+
+    rerender(page({ ...DATA, id: 'another-bar' }));
+    expect(await call(TOOL_NAMES.LIST_COMMANDS, { chartId: 'another-bar' })).toMatchObject({ pending: 0 });
+    focusIn();
+    wait(500);
+
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).modes).toEqual(expect.objectContaining({ text: 'verbose' }));
+  });
+
+  it('should keep at most eight, and run them all on arrival', async () => {
     renderChart();
     for (let i = 0; i < 8; i++) {
       expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'announce_point' })).applied).toBe('on-next-focus');
@@ -300,11 +404,14 @@ describe('a command an agent runs for the reader', () => {
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(8);
 
     focusIn();
+    wait(7 * 500);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
+    wait(500);
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
   });
 
-  it('should wait out a MAIDR dialog still open when the reader comes back', async () => {
-    const figure = renderChart();
+  it('should refuse a command under a MAIDR dialog, even while the reader is in the agent panel', async () => {
+    renderChart();
     focusIn();
     press('ArrowRight', 'ArrowRight', 39);
     // The go-to-extremes dialog.
@@ -313,31 +420,114 @@ describe('a command an agent runs for the reader', () => {
     expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' }))
       .toEqual({ ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' });
 
-    // The reader switched to the browser's agent panel, leaving the dialog open.
+    // The reader switched to the browser's agent panel, leaving the dialog
+    // open: refused as a move is, not kept to run once they close it.
     const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
     try {
-      expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' })).applied).toBe('on-next-focus');
+      expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).reader).toEqual({ inChart: false, blocked: true });
+      expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' }))
+        .toEqual({ ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' });
+      expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 }))
+        .toEqual({ ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' });
     } finally {
       hasFocus.mockRestore();
     }
-    // Back in the page, the browser fires focus-in again; the dialog is still open.
-    act(() => {
-      fireEvent.focus(figure);
-      jest.runOnlyPendingTimers();
-    });
-    let listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
-    expect(listed.pending).toBe(1);
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
     expect(listed.modes).toEqual(expect.objectContaining({ text: 'verbose' }));
+  });
 
-    // Closing the dialog hands focus back to the plot, and the command runs.
+  it('should hold kept commands under a dialog the reader opens on arrival, and run them once it closes', async () => {
+    const figure = renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound' });
+
+    focusIn();
+    // Before the first comes due, the go-to-extremes dialog.
+    press('g', 'KeyG', 71);
+    wait(1000);
+    let listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.reader).toEqual({ inChart: true, blocked: true });
+    expect(listed.pending).toBe(2);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'verbose', sound: true }));
+
+    // Closing the dialog hands focus back to the plot, and they run.
     press('Escape', 'Escape', 27);
     act(() => {
       fireEvent.focus(figure);
       jest.runOnlyPendingTimers();
     });
+    wait(1000);
 
     listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
     expect(listed.pending).toBe(0);
-    expect(listed.modes).toEqual(expect.objectContaining({ text: 'terse' }));
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'terse', sound: false }));
+  });
+
+  it('should wait behind a kept target that braille holds on the reader\'s return, and run after it', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    expect((await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 })).applied).toBe('on-next-focus');
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'move_left' })).applied).toBe('on-next-focus');
+
+    // Braille is back, which a move waits on, and so the command waits too.
+    focusIn();
+    wait(1000);
+    expect(document.querySelector('textarea')).not.toBeNull();
+    let listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(1);
+    let charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
+    expect(charts.charts[0].reader.position).toContain('Category is A');
+
+    // Braille off hands focus back to the plot a tick later, which is a
+    // focus-in: the target (C), then one step left from it (B).
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' })).applied).toBe('now');
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
+    expect(charts.charts[0].reader.position).toContain('Category is C');
+    wait(500);
+
+    listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
+    expect(charts.charts[0].reader.position).toContain('Category is B');
+  });
+
+  it('should drop kept commands when the reader switches agent access off', async () => {
+    const secure = window.isSecureContext;
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+    Object.defineProperty(document, 'modelContext', {
+      value: { registerTool: () => Promise.resolve() },
+      configurable: true,
+    });
+    try {
+      renderChart();
+      await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+      expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
+
+      // What the settings dialog does when the reader unchecks the box.
+      act(() => setWebMcpEnabled(false));
+      expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
+      focusIn();
+      wait(500);
+
+      expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).modes).toEqual(expect.objectContaining({ text: 'verbose' }));
+    } finally {
+      delete (document as unknown as Record<string, unknown>).modelContext;
+      Object.defineProperty(window, 'isSecureContext', { value: secure, configurable: true });
+    }
   });
 });

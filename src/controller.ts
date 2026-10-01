@@ -47,6 +47,7 @@ import { RotorNavigationViewModel } from '@state/viewModel/rotorNavigationViewMo
 import { SettingsViewModel } from '@state/viewModel/settingsViewModel';
 import { TextViewModel } from '@state/viewModel/textViewModel';
 import { Scope } from '@type/event';
+import { isGridNavigable } from '@type/navigation';
 import { DEFAULT_SETTINGS } from '@type/settings';
 import { t } from '@util/i18n';
 import { createNavigateObserver } from '@util/navigateObserver';
@@ -70,6 +71,22 @@ const NAVIGABLE_SCOPES: ReadonlySet<Scope> = new Set<Scope>([
  * scope out from beneath them.
  */
 const COMMAND_SCOPES: ReadonlySet<Scope> = new Set<Scope>([...NAVIGABLE_SCOPES, Scope.BRAILLE]);
+
+/**
+ * The moves whose keys -- the arrows, bare or with the modifier -- also stop
+ * autoplay: every keymap that binds them binds `STOP_AUTOPLAY` to the same
+ * keys, ahead of the move. One run for the reader stops it the same way.
+ */
+const MOVES_THAT_STOP_AUTOPLAY: ReadonlySet<string> = new Set<string>([
+  'MOVE_UP',
+  'MOVE_DOWN',
+  'MOVE_LEFT',
+  'MOVE_RIGHT',
+  'MOVE_TO_TOP_EXTREME',
+  'MOVE_TO_BOTTOM_EXTREME',
+  'MOVE_TO_LEFT_EXTREME',
+  'MOVE_TO_RIGHT_EXTREME',
+]);
 
 /**
  * What a reader had in a chart when they left it: where they were and the
@@ -552,18 +569,51 @@ export class Controller implements Disposable {
    * schedule, such as an in-browser agent.
    *
    * Goes through the executor the command palette uses, in the scope the
-   * reader is in, so it does exactly what their key would do there -- and
-   * nothing where that key does nothing.
+   * reader is in, so it does what their key would do there -- an arrow move
+   * stops autoplay first, as the arrow keys do -- and nothing where that key
+   * does nothing.
    *
    * @param command - The keymap's name for the command
    * @returns `now` when it ran, `unavailable` when the reader's scope has no
-   *   key for it, and `blocked` while {@link isCommandBlocked}
+   *   key for it or the key would silently do nothing there, and `blocked`
+   *   while {@link isCommandBlocked}
    */
   public runCommand(command: Keys): 'now' | 'unavailable' | 'blocked' {
     if (this.isCommandBlocked()) {
       return 'blocked';
     }
-    return this.commandExecutor.executeCommand(command) ? 'now' : 'unavailable';
+    if (!this.commandExecutor.canExecute(command) || this.doesNothingHere(command)) {
+      return 'unavailable';
+    }
+    // Before the move, as the key does: autoplay still running would carry on
+    // from where the move lands, and keep its point from being announced.
+    if (this.autoplayService.isPlaying && MOVES_THAT_STOP_AUTOPLAY.has(command)) {
+      this.commandExecutor.executeCommand('STOP_AUTOPLAY' as Keys);
+    }
+    this.commandExecutor.executeCommand(command);
+    return 'now';
+  }
+
+  /**
+   * Whether a command the reader's scope binds would do nothing at all where
+   * they are, and say nothing: Enter outside grid navigation, or Escape on a
+   * figure of one panel, which has no overview to return to. Answered as
+   * unavailable rather than run, so a caller is not told it happened.
+   *
+   * @param command - The keymap's name for the command
+   * @returns True when its key would be a silent no-op here
+   */
+  private doesNothingHere(command: string): boolean {
+    switch (command) {
+      case 'ENTER_GRID_CELL': {
+        const active = this.context.active;
+        return !isGridNavigable(active) || !active.supportsGridMode();
+      }
+      case 'MOVE_TO_SUBPLOT_CONTEXT':
+        return !this.context.isMultiPanel;
+      default:
+        return false;
+    }
   }
 
   /**
@@ -603,17 +653,22 @@ export class Controller implements Disposable {
    *
    * Monitoring, autoplay and the rotor mode are not carried over, so a new
    * controller always starts them off and in data mode; high contrast is a
-   * saved setting.
+   * saved setting. Braille comes back where {@link resume} reopens it: on
+   * the reader's point, or, with no point to return to, on the first layer a
+   * one-panel figure starts on -- not on the overview of several panels.
    *
    * @param session - What the reader had when they left, or `null`
+   * @param maidr - The data the next controller is built from
    * @returns The modes the next controller starts with
    */
-  public static startingModes(session: ControllerSession | null): LiveReaderModes {
+  public static startingModes(session: ControllerSession | null, maidr: Maidr): LiveReaderModes {
     const highContrast = loadStoredGeneralSettings(new LocalStorageService()).highContrastMode;
+    // Counted as `Figure.size` counts them: more than one opens on the overview.
+    const panels = maidr.subplots.reduce((sum, row) => sum + row.length, 0);
     return {
       text: session?.textMode ?? TextMode.VERBOSE,
       sound: session?.soundOn ?? true,
-      braille: session?.brailleOn ?? false,
+      braille: session?.brailleOn === true && (session.navigation !== null || panels <= 1),
       highContrast: typeof highContrast === 'boolean' ? highContrast : DEFAULT_SETTINGS.general.highContrastMode,
       monitor: false,
       autoplay: false,

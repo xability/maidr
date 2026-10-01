@@ -315,6 +315,22 @@ describe('registration', () => {
     expect(fake.tools.size).toBe(0);
   });
 
+  it('should drop the commands kept for the reader when they switch the tools off', () => {
+    installContext('document', fake);
+    const manager = new LiveDataManager();
+    const clear = jest.fn();
+    manager.register(barMaidr(), jest.fn(), {
+      commands: { run: () => 'kept', state: () => ({ modes: null, blocked: false, pending: 1 }), clear },
+    });
+    const handle = acquireWebMcpTools(manager);
+    expect(clear).not.toHaveBeenCalled();
+
+    setWebMcpEnabled(false);
+
+    expect(clear).toHaveBeenCalledTimes(1);
+    handle.dispose();
+  });
+
   it('should register nothing when the setting is turned on with no chart mounted', () => {
     installContext('document', fake);
     acquireWebMcpTools(new LiveDataManager()).dispose();
@@ -967,6 +983,7 @@ describe('the agent command table', () => {
       'open_go_to_extrema',
       'open_help',
       'open_settings',
+      'toggle_candlestick_comparison',
       'toggle_review',
     ]);
   });
@@ -992,7 +1009,7 @@ function chartWithCommands(manager: LiveDataManager, inChart: () => boolean, id 
   };
   manager.register(barMaidr(id), jest.fn(), {
     probe: () => ({ inChart: inChart(), position: 'Day is Sat, Count is 87', blocked: true }),
-    commands: { run: command => channel.run(command), state: () => channel.state },
+    commands: { run: command => channel.run(command), state: () => channel.state, clear: jest.fn() },
   });
   return channel;
 }
@@ -1148,7 +1165,7 @@ describe('maidr_run_command', () => {
       applied: 'on-next-focus',
       message: expect.stringContaining('do not claim it has happened'),
     });
-    expect(result.message).toContain('flips the mode as it is');
+    expect(result.message).toContain('steps the mode on from what it is');
     expect(channel.run).toHaveBeenCalledWith('TOGGLE_AUDIO');
   });
 
@@ -1171,7 +1188,7 @@ describe('maidr_run_command', () => {
     manager.register({ ...barMaidr('bar-chart') }, jest.fn(), {
       navigator: jest.fn(() => true),
       probe: () => ({ inChart, position: null }),
-      commands: { run: command => channel.run(command), state: () => channel.state },
+      commands: { run: command => channel.run(command), state: () => channel.state, clear: jest.fn() },
     });
 
     expect((await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' })).applied).toBe('now');

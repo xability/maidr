@@ -24,10 +24,11 @@
  * a chart's title and labels are text an agent must not take as instructions.
  *
  * The feature is contained in this file, its call site and command channel
- * in `useMaidrController` (with `LiveDataManager.runCommand` and
- * `inspectCommands`, which carry it), the settings listener and the command
- * methods in `Controller`, the setting in `GeneralSettings` and its row in the
- * settings dialog; deleting those removes it.
+ * in `useMaidrController` (with `LiveDataManager.runCommand`,
+ * `inspectCommands` and `dropKeptCommands`, which carry it), the settings
+ * listener and the command methods in `Controller`, the setting in
+ * `GeneralSettings` and its row in the settings dialog; deleting those
+ * removes it.
  *
  * @packageDocumentation
  */
@@ -787,7 +788,9 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   { id: 'open_chat', key: 'TOGGLE_CHAT', reason: OPENS_DIALOG },
   { id: 'open_command_palette', key: 'TOGGLE_COMMAND_PALETTE', reason: OPENS_DIALOG },
   { id: 'open_settings', key: 'TOGGLE_SETTINGS', reason: OPENS_DIALOG },
-  { id: 'toggle_candlestick_comparison', key: 'TOGGLE_CANDLESTICK_DELTA_LAYER' },
+  // Opens the reference picker on its first use in a visit, before any
+  // reference line is chosen -- and each focus-in starts with none.
+  { id: 'toggle_candlestick_comparison', key: 'TOGGLE_CANDLESTICK_DELTA_LAYER', reason: OPENS_DIALOG },
   { id: 'choose_candlestick_reference', key: 'SELECT_CANDLESTICK_DELTA_REFERENCE', reason: OPENS_DIALOG },
   { id: 'tactile_zoom_in', key: 'TACTILE_ZOOM_IN' },
   { id: 'tactile_zoom_out', key: 'TACTILE_ZOOM_OUT' },
@@ -1118,7 +1121,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
   const runCommand: WebMcpTool = {
     name: TOOL_NAMES.RUN_COMMAND,
     title: 'Run one of the reader\'s commands',
-    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- exactly as if they had pressed its keys: their screen reader, braille display and sonification report the result. Only run a command the user asked for. Toggles flip the mode the reader has, so check `modes` from maidr_list_commands first, and do not run one that would undo what they asked for. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader is not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened. If they have a MAIDR dialog open, nothing runs. Keyboard focus moves only as the command\'s own keys would move it.',
+    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened. Keyboard focus moves only as the command\'s own keys would move it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1165,11 +1168,12 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
           return {
             ok: true,
             applied: 'on-next-focus',
-            message: 'The reader is not in the chart, so the command is kept: it runs the next time they enter the chart, after any move or command kept before it, and a toggle then flips the mode as it is at that moment. Tell them so, and do not claim it has happened.',
+            message: 'The reader is not in the chart, so the command is kept: it runs the next time they enter the chart, after any move kept for them and any command kept before it, and a toggle then steps the mode on from what it is at that moment. Tell them so, and do not claim it has happened.',
           };
         case 'blocked':
-          // A dialog or text field has the reader's focus: a command now
-          // would switch the keyboard scope out from beneath it.
+          // A dialog or text field is open in the chart: a command now would
+          // switch the keyboard scope out from beneath it, and one kept would
+          // wait on the reader closing it without their knowing.
           return { ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' };
         case 'unavailable':
           return { ok: false, applied: 'unavailable', error: 'command not available where the reader is' };
@@ -1359,8 +1363,9 @@ function teardown(): void {
 }
 
 /**
- * Unregisters the tools this copy holds, stops waiting to take them over,
- * and hands them to another copy of MAIDR if this one owned them.
+ * Unregisters the tools this copy holds, drops the commands they kept for the
+ * reader, stops waiting to take them over, and hands them to another copy of
+ * MAIDR if this one owned them.
  */
 function uninstall(): void {
   listenForRelease(false);
@@ -1380,6 +1385,9 @@ function uninstall(): void {
   }
   controller = null;
   installedContext = null;
+  // Nothing an agent asked for outlives its tools: the reader switching them
+  // off would otherwise still meet those commands on their next visit.
+  latestManager?.dropKeptCommands();
   if (owner) {
     delete ownerSlot()[OWNER_KEY];
     owner = false;
@@ -1440,8 +1448,9 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
 
 /**
  * Applies the reader's `general.agentTools` setting at once: registers the
- * tools while charts are mounted, or unregisters them, without a reload and
- * without touching the charts.
+ * tools while charts are mounted, or unregisters them and drops the commands
+ * agents kept for the reader, without a reload and without touching the
+ * charts otherwise.
  *
  * One call covers every chart on the page, since the tools are shared; the
  * page's `content="off"` tag still wins over `true`.

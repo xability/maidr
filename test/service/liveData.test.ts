@@ -1049,7 +1049,7 @@ describe('liveDataManager.runCommand and inspectCommands', () => {
   test('hands the command to the chart\'s channel and answers what it answered', () => {
     const run = jest.fn((_command: Keys): LiveCommandOutcome => 'kept');
     const state: LiveCommandState = { modes: null, blocked: true, pending: 1 };
-    manager.register(createBarMaidr('chart'), jest.fn(), { commands: { run, state: () => state } });
+    manager.register(createBarMaidr('chart'), jest.fn(), { commands: { run, state: () => state, clear: jest.fn() } });
 
     expect(manager.runCommand('chart', 'TOGGLE_TEXT' as Keys)).toBe('kept');
 
@@ -1073,17 +1073,41 @@ describe('liveDataManager.runCommand and inspectCommands', () => {
         state: () => {
           throw new Error('state failed');
         },
+        clear: jest.fn(),
       },
     });
     manager.register(createLineMaidr('odd'), jest.fn(), {
       commands: {
         run: () => 'now',
         state: () => ({ modes: 'loud', blocked: 'yes', pending: -2 }) as unknown as LiveCommandState,
+        clear: jest.fn(),
       },
     });
 
     expect(manager.inspectCommands('throws')).toEqual({ modes: null, blocked: false, pending: 0 });
     expect(manager.inspectCommands('odd')).toEqual({ modes: null, blocked: false, pending: 0 });
+  });
+
+  test('drops the kept commands of every chart, past one whose channel throws', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const first = jest.fn(() => {
+      throw new Error('clear failed');
+    });
+    const second = jest.fn();
+    const channel = { run: (): LiveCommandOutcome => 'kept', state: (): LiveCommandState => ({ modes: null, blocked: false, pending: 1 }) };
+    manager.register(createBarMaidr('first'), jest.fn(), { commands: { ...channel, clear: first } });
+    manager.register(createBarMaidr('plain'), jest.fn());
+    manager.register(createLineMaidr('second'), jest.fn(), { commands: { ...channel, clear: second } });
+
+    try {
+      manager.dropKeptCommands();
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
   });
 });
 

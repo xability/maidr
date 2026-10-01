@@ -197,14 +197,17 @@ export interface LiveReaderModes {
  * What became of a command a caller asked a chart to run, as
  * {@link LiveCommandChannel.run} reports it.
  *
- * - `now`: run at once, through the chart's own command executor, exactly as
- *   the reader's key or the command palette runs it.
+ * - `now`: run at once, through the chart's own command executor, as the
+ *   reader's key for it runs there.
  * - `unavailable`: the reader is in the chart, but the scope they are in has
- *   no key for the command -- the multi-panel lobby has no autoplay, say.
- * - `blocked`: a MAIDR dialog, text field or label chord holds the reader's
- *   focus. Nothing ran.
+ *   no key for the command -- the multi-panel lobby has no autoplay, say -- or
+ *   the key would silently do nothing there.
+ * - `blocked`: a MAIDR dialog, text field or label chord is open in the
+ *   chart, whether or not the page has the browser's focus. Nothing ran, and
+ *   nothing was kept.
  * - `kept`: the reader is not in the chart. The command runs the next time
- *   they enter it.
+ *   they enter it, after any target kept for them and any command kept
+ *   before it.
  * - `full`: the reader is not in the chart, and as many commands as the chart
  *   keeps are already waiting for them.
  */
@@ -235,6 +238,8 @@ export interface LiveCommandChannel {
   run: (command: Keys) => LiveCommandOutcome;
   /** Reports the reader's modes and the commands waiting, changing nothing. */
   state: () => LiveCommandState;
+  /** Drops every command kept for the reader, running none of them. */
+  clear: () => void;
 }
 
 /**
@@ -745,9 +750,9 @@ export class LiveDataManager {
   }
 
   /**
-   * Runs one of the reader's commands on a registered chart, as the command
-   * palette runs it: now while the reader is in the chart, or on their next
-   * focus-in while they are not.
+   * Runs one of the reader's commands on a registered chart, through the
+   * executor the command palette uses: now while the reader is in the chart,
+   * or on their next focus-in while they are not.
    *
    * @param id - The chart id
    * @param command - The keymap's name for the command
@@ -789,6 +794,24 @@ export class LiveDataManager {
       };
     } catch {
       return unknown;
+    }
+  }
+
+  /**
+   * Drops every command kept on every registered chart for the reader's next
+   * focus-in, running none of them -- for when whoever asked for them is no
+   * longer allowed to, such as an agent whose tools the reader switched off.
+   *
+   * A channel that throws is reported and skipped, so one chart cannot keep
+   * the others' commands alive.
+   */
+  public dropKeptCommands(): void {
+    for (const [id, instance] of this.instances) {
+      try {
+        instance.commands?.clear();
+      } catch (error) {
+        console.error(`[maidr] Could not drop the commands kept for the chart "${id}":`, error);
+      }
     }
   }
 

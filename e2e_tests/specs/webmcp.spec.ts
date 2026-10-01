@@ -203,7 +203,7 @@ test.describe('WebMCP tools', () => {
     expect(await ariaText(page)).toBe(textBefore);
   });
 
-  test('keeps a command for a reader who is away, and runs it when they come in', async ({ page }) => {
+  test('keeps commands for a reader who is away, and announces each one when they come in', async ({ page }) => {
     await setUp(page, null);
     await openChart(page);
     const focusBefore = await activeElement(page);
@@ -213,16 +213,19 @@ test.describe('WebMCP tools', () => {
 
     expect(result.ok).toBe(true);
     expect(result.applied).toBe('on-next-focus');
+    expect((await callTool(page, 'maidr_run_command', { command: 'toggle_sound' })).applied).toBe('on-next-focus');
     await page.waitForTimeout(600); // settle: silence cannot be polled
     expect(await activeElement(page)).toBe(focusBefore);
     expect(await ariaText(page)).toBe(textBefore);
-    expect((await callTool(page, 'maidr_list_commands', {})).pending).toBe(1);
+    expect((await callTool(page, 'maidr_list_commands', {})).pending).toBe(2);
 
     await page.keyboard.press('Tab');
+    // Each on its own, the first not overwritten by the second.
     await waitForAriaText(page, 'Text mode is terse');
+    await waitForAriaText(page, 'Sound is off');
     const listed = await callTool(page, 'maidr_list_commands', {});
     expect(listed.pending).toBe(0);
-    expect((listed.modes as Record<string, unknown>).text).toBe('terse');
+    expect(listed.modes as Record<string, unknown>).toMatchObject({ text: 'terse', sound: false });
   });
 
   test('runs a command at once when the reader is in the chart', async ({ page }) => {
