@@ -32,15 +32,28 @@ export class CommandExecutor implements Disposable {
   }
 
   /**
+   * Whether the current scope binds a command, so that
+   * {@link executeCommand} would run it. Runs nothing.
+   * @param {Keys} commandKey - The key representing the command
+   * @returns {boolean} True when the current scope's keymap has the command
+   */
+  public canExecute(commandKey: Keys): boolean {
+    const scopeKeymap = SCOPED_KEYMAP[this.getCurrentScope()];
+    if (!scopeKeymap) {
+      return false;
+    }
+    return commandKey in scopeKeymap;
+  }
+
+  /**
    * Executes a command based on the provided key if it's valid for the current scope.
    * @param {Keys} commandKey - The key representing the command to execute
+   * @returns {boolean} Whether the current scope binds the command, and so
+   *   whether it was run
    */
-  public executeCommand(commandKey: Keys): void {
-    const currentScope = this.getCurrentScope();
-    // Check if command is valid for current scope
-    const scopeKeymap = SCOPED_KEYMAP[currentScope];
-    if (!scopeKeymap || !(commandKey in scopeKeymap)) {
-      return;
+  public executeCommand(commandKey: Keys): boolean {
+    if (!this.canExecute(commandKey)) {
+      return false;
     }
 
     try {
@@ -49,6 +62,7 @@ export class CommandExecutor implements Disposable {
     } catch (error) {
       console.error(`Failed to execute command ${commandKey}:`, error);
     }
+    return true;
   }
 
   /**

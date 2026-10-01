@@ -411,9 +411,11 @@ describe('bindTableauExtension', () => {
   it('follows a mark a user selects, from the event itself rather than a DOM detail', async () => {
     const targets: (NavigationTarget | null)[] = [];
     const stub: Maidr = { id: FIGURE_ID, subplots: [] };
-    const chart = liveDataManager.register(stub, () => {}, (target) => {
-      targets.push(target);
-      return true;
+    const chart = liveDataManager.register(stub, () => {}, {
+      navigator: (target) => {
+        targets.push(target);
+        return true;
+      },
     });
     const sales = salesWorksheet('Sales');
     const fake = fakeExtensions([sales]);

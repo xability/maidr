@@ -23,7 +23,7 @@ export const settings = {
   'settings.hoverOnHover': 'Passaggio del mouse',
   'settings.hoverOnClick': 'Clic',
   'settings.agentTools': 'Accesso degli agenti IA del browser',
-  'settings.agentToolsHint': 'Consente a un assistente IA integrato nel browser di leggere i dati dei grafici di questa pagina e, su richiesta, di spostare la posizione corrente al loro interno.',
+  'settings.agentToolsHint': 'Consente a un assistente IA integrato nel browser di leggere i dati dei grafici di questa pagina e, su richiesta, di spostare la posizione corrente al loro interno o di eseguirne i comandi da tastiera.',
 
   'settings.volume': 'Volume',
   'settings.minFrequencyRow': 'Frequenza minima (Hz)',

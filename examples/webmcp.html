@@ -52,10 +52,13 @@
     <h1>maidr and browser AI agents (WebMCP)</h1>
     <p>
       In a browser with WebMCP, this chart is offered to the browser's AI
-      agent as three tools: <code>maidr_list_charts</code>,
-      <code>maidr_get_layer_data</code> and <code>maidr_navigate</code>. The
+      agent as five tools: <code>maidr_list_charts</code>,
+      <code>maidr_get_layer_data</code>, <code>maidr_navigate</code>,
+      <code>maidr_list_commands</code> and <code>maidr_run_command</code>. The
       agent can then answer questions such as "which day had the most tips?"
-      from the chart's data, or move your position to a bar when you ask.
+      from the chart's data, move your position to a bar when you ask, or run
+      one of your keyboard commands for you, such as turning braille off or
+      starting autoplay.
     </p>
     <h2>How to test</h2>
     <ol>
@@ -66,7 +69,7 @@
       <li>
         Install the
         <a href="https://github.com/beaufortfrancois/model-context-tool-inspector">Model Context Tool Inspector</a>
-        extension and open it on this page. It lists the three tools and can
+        extension and open it on this page. It lists the five tools and can
         call them: start with <code>maidr_list_charts</code> and
         <code>{}</code>.
       </li>
@@ -75,6 +78,15 @@
         <code>{"layerId": "tips", "row": 0, "col": 2}</code> while you are in
         the chart (click it or Tab to it): your screen reader announces
         Thursday, exactly as an arrow key would.
+      </li>
+      <li>
+        Call <code>maidr_list_commands</code> with <code>{}</code> to see
+        your commands, their keys and your current modes, then
+        <code>maidr_run_command</code> with
+        <code>{"command": "toggle_text"}</code>. In the chart, you hear the
+        new text mode at once; outside it, the command waits and runs when you
+        next enter the chart. Commands that open a dialog, such as help or
+        settings, are listed but stay yours to open.
       </li>
       <li>
         Open Settings (<kbd>Ctrl</kbd> + <kbd>,</kbd>, or <kbd>Cmd</kbd> +

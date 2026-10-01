@@ -110,7 +110,7 @@ interface Entry {
 }
 
 /**
- * A chart with one layer, the reader inside it, and the three tools over it.
+ * A chart with one layer, the reader inside it, and the tools over it.
  * @param layer - The layer
  * @returns The controller and the tools
  */
@@ -121,12 +121,10 @@ function chartWith(layer: MaidrLayer): { ctrl: Controller; tools: ReturnType<typ
   const ctrl = new Controller(JSON.parse(JSON.stringify(maidr)) as Maidr, plot, createMaidrStore());
   controller = ctrl;
   const manager = new LiveDataManager();
-  manager.register(
-    maidr,
-    jest.fn(),
-    target => (target === null ? true : ctrl.navigateTo(target)),
-    () => ({ inChart: true, position: ctrl.getPositionText(), blocked: ctrl.isNavigationBlocked() }),
-  );
+  manager.register(maidr, jest.fn(), {
+    navigator: target => (target === null ? true : ctrl.navigateTo(target)),
+    probe: () => ({ inChart: true, position: ctrl.getPositionText(), blocked: ctrl.isNavigationBlocked() }),
+  });
   let clock = 0;
   const tools = buildWebMcpTools(manager, () => (clock += 1000));
   return { ctrl, tools };

@@ -915,9 +915,11 @@ describe('tableau binder', () => {
         dispose: () => {},
       };
       const stub: Maidr = { id: FIGURE_ID, subplots: [] };
-      const disposable = liveDataManager.register(stub, () => {}, (target) => {
-        registered.targets.push(target);
-        return registered.accept;
+      const disposable = liveDataManager.register(stub, () => {}, {
+        navigator: (target) => {
+          registered.targets.push(target);
+          return registered.accept;
+        },
       });
       registered.dispose = (): void => disposable.dispose();
       return registered;

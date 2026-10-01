@@ -1,4 +1,5 @@
-import type { AppendedPointInfo, AppendResult } from '@service/liveData';
+import type { AppendedPointInfo, AppendResult, LiveCommandOutcome, LiveCommandState } from '@service/liveData';
+import type { Keys } from '@type/event';
 import type { BarPoint, BoxPoint, CandlestickPoint, LinePoint, Maidr, ScatterPoint } from '@type/grammar';
 import type { NonEmptyTraceState } from '@type/state';
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
@@ -935,7 +936,7 @@ describe('liveDataManager.navigateTo', () => {
 
   test('hands the target to the chart\'s navigator and answers what it answered', () => {
     const navigator = jest.fn((_target: unknown) => true);
-    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator });
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart' })).toBe(true);
 
@@ -946,7 +947,7 @@ describe('liveDataManager.navigateTo', () => {
 
   test('passes a withdrawal through as null', () => {
     const navigator = jest.fn((_target: unknown) => true);
-    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator });
 
     expect(manager.navigateTo(null, { id: 'chart' })).toBe(true);
 
@@ -955,7 +956,7 @@ describe('liveDataManager.navigateTo', () => {
 
   test('finds the only registered chart when no id is given', () => {
     const navigator = jest.fn((_target: unknown) => true);
-    manager.register(createBarMaidr('only'), jest.fn(), navigator);
+    manager.register(createBarMaidr('only'), jest.fn(), { navigator });
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 })).toBe(true);
 
@@ -963,8 +964,8 @@ describe('liveDataManager.navigateTo', () => {
   });
 
   test('refuses, with a warning, when several charts are registered and none is named', () => {
-    manager.register(createBarMaidr('one'), jest.fn(), jest.fn((_target: unknown) => true));
-    manager.register(createLineMaidr('two'), jest.fn(), jest.fn((_target: unknown) => true));
+    manager.register(createBarMaidr('one'), jest.fn(), { navigator: jest.fn((_target: unknown) => true) });
+    manager.register(createLineMaidr('two'), jest.fn(), { navigator: jest.fn((_target: unknown) => true) });
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 })).toBe(false);
 
@@ -1000,39 +1001,113 @@ describe('liveDataManager.getIds and inspect', () => {
 
   test('reports what the chart\'s probe answers', () => {
     const probe = jest.fn(() => ({ inChart: true, position: 'X is A, Y is 1' }));
-    manager.register(createBarMaidr('chart'), jest.fn(), null, probe);
+    manager.register(createBarMaidr('chart'), jest.fn(), { probe });
 
     expect(manager.inspect('chart')).toEqual({ inChart: true, position: 'X is A, Y is 1', blocked: false });
     expect(probe).toHaveBeenCalledTimes(1);
   });
 
   test('reports a MAIDR dialog holding the reader\'s focus', () => {
-    manager.register(createBarMaidr('chart'), jest.fn(), null, () => ({ inChart: true, position: null, blocked: true }));
+    manager.register(createBarMaidr('chart'), jest.fn(), { probe: () => ({ inChart: true, position: null, blocked: true }) });
 
     expect(manager.inspect('chart')).toEqual({ inChart: true, position: null, blocked: true });
   });
 
   test('reads a chart with no probe as one the reader is not inside, and an unknown id as null', () => {
-    manager.register(createBarMaidr('chart'), jest.fn(), jest.fn((_target: unknown) => true));
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator: jest.fn((_target: unknown) => true) });
 
     expect(manager.inspect('chart')).toEqual({ inChart: false, position: null, blocked: false });
     expect(manager.inspect('missing')).toBeNull();
   });
 
   test('reads a probe that throws as one the reader is not inside', () => {
-    manager.register(createBarMaidr('chart'), jest.fn(), null, () => {
-      throw new Error('probe failed');
+    manager.register(createBarMaidr('chart'), jest.fn(), {
+      probe: () => {
+        throw new Error('probe failed');
+      },
     });
 
     expect(manager.inspect('chart')).toEqual({ inChart: false, position: null, blocked: false });
   });
 
-  test('still registers with three arguments', () => {
+  test('registers a navigator with no probe', () => {
     const navigator = jest.fn((_target: unknown) => true);
-    manager.register(createBarMaidr('chart'), jest.fn(), navigator);
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator });
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 0 }, { id: 'chart' })).toBe(true);
     expect(navigator).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('liveDataManager.runCommand and inspectCommands', () => {
+  let manager: LiveDataManager;
+
+  beforeEach(() => {
+    manager = new LiveDataManager();
+  });
+
+  test('hands the command to the chart\'s channel and answers what it answered', () => {
+    const run = jest.fn((_command: Keys): LiveCommandOutcome => 'kept');
+    const state: LiveCommandState = { modes: null, blocked: true, pending: 1 };
+    manager.register(createBarMaidr('chart'), jest.fn(), { commands: { run, state: () => state, clear: jest.fn() } });
+
+    expect(manager.runCommand('chart', 'TOGGLE_TEXT' as Keys)).toBe('kept');
+
+    expect(run).toHaveBeenCalledWith('TOGGLE_TEXT');
+    expect(manager.inspectCommands('chart')).toEqual(state);
+  });
+
+  test('answers null for an unknown chart and one with no command channel, and runs nothing', () => {
+    manager.register(createBarMaidr('plain'), jest.fn());
+
+    expect(manager.runCommand('missing', 'TOGGLE_TEXT' as Keys)).toBeNull();
+    expect(manager.runCommand('plain', 'TOGGLE_TEXT' as Keys)).toBeNull();
+    expect(manager.inspectCommands('missing')).toBeNull();
+    expect(manager.inspectCommands('plain')).toEqual({ modes: null, blocked: false, pending: 0 });
+  });
+
+  test('reads a channel that throws, or answers nonsense, as one that cannot say', () => {
+    manager.register(createBarMaidr('throws'), jest.fn(), {
+      commands: {
+        run: () => 'now',
+        state: () => {
+          throw new Error('state failed');
+        },
+        clear: jest.fn(),
+      },
+    });
+    manager.register(createLineMaidr('odd'), jest.fn(), {
+      commands: {
+        run: () => 'now',
+        state: () => ({ modes: 'loud', blocked: 'yes', pending: -2 }) as unknown as LiveCommandState,
+        clear: jest.fn(),
+      },
+    });
+
+    expect(manager.inspectCommands('throws')).toEqual({ modes: null, blocked: false, pending: 0 });
+    expect(manager.inspectCommands('odd')).toEqual({ modes: null, blocked: false, pending: 0 });
+  });
+
+  test('drops the kept commands of every chart, past one whose channel throws', () => {
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const first = jest.fn(() => {
+      throw new Error('clear failed');
+    });
+    const second = jest.fn();
+    const channel = { run: (): LiveCommandOutcome => 'kept', state: (): LiveCommandState => ({ modes: null, blocked: false, pending: 1 }) };
+    manager.register(createBarMaidr('first'), jest.fn(), { commands: { ...channel, clear: first } });
+    manager.register(createBarMaidr('plain'), jest.fn());
+    manager.register(createLineMaidr('second'), jest.fn(), { commands: { ...channel, clear: second } });
+
+    try {
+      manager.dropKeptCommands();
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
   });
 });
 

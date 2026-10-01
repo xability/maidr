@@ -23,7 +23,7 @@ export const settings = {
   'settings.hoverOnHover': '마우스 오버',
   'settings.hoverOnClick': '클릭',
   'settings.agentTools': '브라우저 AI 에이전트 접근',
-  'settings.agentToolsHint': '브라우저에 내장된 AI 도우미가 이 페이지 차트의 데이터를 읽고, 요청하면 차트 안에서 현재 위치를 옮길 수 있게 합니다.',
+  'settings.agentToolsHint': '브라우저에 내장된 AI 도우미가 이 페이지 차트의 데이터를 읽고, 요청하면 차트 안에서 현재 위치를 옮기거나 키보드 명령을 대신 실행할 수 있게 합니다.',
 
   'settings.volume': '음량',
   'settings.minFrequencyRow': '최저 주파수 (Hz)',

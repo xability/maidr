@@ -12,29 +12,39 @@
  * reader turns it off with the `general.agentTools` setting, and a page author
  * with `<meta name="maidr-webmcp" content="off">`, which wins over the
  * setting. Nothing runs at import.
- * Three tools are exposed -- two silent reads and one cursor move that travels
- * the same path as `window.maidrLive.navigateTo` -- and nothing that writes
- * data, runs commands or changes settings.
+ * Five tools are exposed: two silent reads of the charts, a cursor move that
+ * travels the same path as `window.maidrLive.navigateTo`, and a silent list of
+ * the reader's command-palette commands with a tool that runs one of them
+ * through the reader's own command executor. Commands that open a dialog or
+ * text field stay the reader's, and nothing writes chart data or settings
+ * beyond what a command's own key changes.
  *
  * Everything a tool returns is rebuilt from plain JSON types and capped, and
  * every string that came from the chart producer sits under `content`, since
  * a chart's title and labels are text an agent must not take as instructions.
  *
- * The feature is contained in this file, its call site in
- * `useMaidrController`, the settings listener in `Controller`, the setting in
+ * The feature is contained in this file, its call site and command channel
+ * in `useMaidrController` (with `LiveDataManager.runCommand`,
+ * `inspectCommands` and `dropKeptCommands`, which carry it), the settings
+ * listener and the command methods in `Controller`, the setting in
  * `GeneralSettings` and its row in the settings dialog; deleting those
  * removes it.
  *
  * @packageDocumentation
  */
 
-import type { LiveDataManager } from '@service/liveData';
+import type { SCOPED_KEYMAP } from '@service/keybinding';
+import type { LiveDataManager, LiveReaderModes } from '@service/liveData';
 import type { Disposable } from '@type/disposable';
+import type { Keys } from '@type/event';
 import type { Maidr, MaidrLayer, NavigationTarget } from '@type/grammar';
+import { getKeymapForScope, resolveOverrides } from '@service/keybinding';
 import { NESTED_DATA_TYPES } from '@service/liveData';
-import { readAgentToolsChoice, rememberAgentToolsChoice } from '@service/settings';
+import { loadStoredGeneralSettings, readAgentToolsChoice, rememberAgentToolsChoice } from '@service/settings';
 import { LocalStorageService } from '@service/storage';
+import { Scope } from '@type/event';
 import { TraceType } from '@type/grammar';
+import { t } from '@util/i18n';
 
 /** The part of the browser's `ModelContext` MAIDR uses. */
 interface ModelContextLike {
@@ -68,6 +78,8 @@ export const TOOL_NAMES = {
   LIST_CHARTS: 'maidr_list_charts',
   GET_LAYER_DATA: 'maidr_get_layer_data',
   NAVIGATE: 'maidr_navigate',
+  LIST_COMMANDS: 'maidr_list_commands',
+  RUN_COMMAND: 'maidr_run_command',
 } as const;
 
 /** Prefixed to every result that carries producer text. */
@@ -83,6 +95,9 @@ const MAX_ID_LENGTH = 256;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 const NAVIGATE_INTERVAL_MS = 500;
+const COMMAND_INTERVAL_MS = 500;
+/** Longest shortcut or mode name handed to an agent. */
+const MAX_NAME_LENGTH = 64;
 const OWNER_KEY = Symbol.for('maidr.webmcp.owner');
 
 // Characters that render as nothing, or reorder or break the text around them,
@@ -699,6 +714,142 @@ function describeChart(
   };
 }
 
+/** Why an agent cannot run a command that opens a dialog. */
+const OPENS_DIALOG = 'opens a dialog only the reader can operate';
+/** Why an agent cannot run a command that opens a text field. */
+const OPENS_FIELD = 'opens a text field only the reader can operate';
+/** Why an agent cannot run a command that starts a two-key shortcut. */
+const STARTS_CHORD = 'starts a two-key shortcut only the reader can finish';
+
+/** A command of the trace keymap, which is the list the command palette shows. */
+type PaletteKey = Extract<keyof (typeof SCOPED_KEYMAP)[Scope.TRACE], string>;
+
+/** One of the reader's commands, as an agent names it. */
+interface AgentCommand {
+  /** The agent's id: stable, snake_case, at most 64 characters. */
+  readonly id: string;
+  /** The keymap's name for the command. */
+  readonly key: PaletteKey;
+  /** Why an agent cannot run it; absent for a command it can. */
+  readonly reason?: string;
+}
+
+/**
+ * Every command the command palette lists, under the id an agent uses for it,
+ * in the order the help menu groups them.
+ *
+ * Written out rather than derived from the keymap, so an id does not change
+ * when the code renames a command, and a command added to the palette is
+ * neither offered to agents nor withheld from them until someone decides: a
+ * test fails until it is listed here.
+ *
+ * A command that opens a dialog or text field, or starts a chord, is listed
+ * but not runnable. The reader operates those, and one an agent opened would
+ * take their focus and leave every later command refused; listing it still
+ * lets the agent tell them which key to press.
+ */
+export const AGENT_COMMANDS: readonly AgentCommand[] = [
+  { id: 'move_left', key: 'MOVE_LEFT' },
+  { id: 'move_right', key: 'MOVE_RIGHT' },
+  { id: 'move_up', key: 'MOVE_UP' },
+  { id: 'move_down', key: 'MOVE_DOWN' },
+  { id: 'move_to_left_extreme', key: 'MOVE_TO_LEFT_EXTREME' },
+  { id: 'move_to_right_extreme', key: 'MOVE_TO_RIGHT_EXTREME' },
+  { id: 'move_to_top_extreme', key: 'MOVE_TO_TOP_EXTREME' },
+  { id: 'move_to_bottom_extreme', key: 'MOVE_TO_BOTTOM_EXTREME' },
+  { id: 'next_layer', key: 'MOVE_TO_NEXT_TRACE' },
+  { id: 'previous_layer', key: 'MOVE_TO_PREV_TRACE' },
+  { id: 'return_to_subplot', key: 'MOVE_TO_SUBPLOT_CONTEXT' },
+  { id: 'enter_grid_cell', key: 'ENTER_GRID_CELL' },
+  { id: 'announce_point', key: 'ANNOUNCE_POINT' },
+  { id: 'announce_position', key: 'ANNOUNCE_POSITION' },
+  { id: 'open_description', key: 'TOGGLE_DESCRIPTION', reason: OPENS_DIALOG },
+  { id: 'access_labels', key: 'ACTIVATE_TRACE_LABEL_SCOPE', reason: STARTS_CHORD },
+  { id: 'toggle_text', key: 'TOGGLE_TEXT' },
+  { id: 'toggle_sound', key: 'TOGGLE_AUDIO' },
+  { id: 'toggle_braille', key: 'TOGGLE_BRAILLE' },
+  { id: 'toggle_review', key: 'TOGGLE_REVIEW', reason: OPENS_FIELD },
+  { id: 'toggle_high_contrast', key: 'TOGGLE_HIGH_CONTRAST' },
+  { id: 'toggle_monitor', key: 'TOGGLE_MONITOR' },
+  { id: 'autoplay_forward', key: 'AUTOPLAY_FORWARD' },
+  { id: 'autoplay_backward', key: 'AUTOPLAY_BACKWARD' },
+  { id: 'autoplay_upward', key: 'AUTOPLAY_UPWARD' },
+  { id: 'autoplay_downward', key: 'AUTOPLAY_DOWNWARD' },
+  { id: 'stop_autoplay', key: 'STOP_AUTOPLAY' },
+  { id: 'speed_up_autoplay', key: 'SPEED_UP_AUTOPLAY' },
+  { id: 'speed_down_autoplay', key: 'SPEED_DOWN_AUTOPLAY' },
+  { id: 'reset_autoplay_speed', key: 'RESET_AUTOPLAY_SPEED' },
+  { id: 'open_go_to_extrema', key: 'GO_TO_EXTREMA_TOGGLE', reason: OPENS_DIALOG },
+  { id: 'go_to_min_value', key: 'GO_TO_MIN_VALUE' },
+  { id: 'go_to_max_value', key: 'GO_TO_MAX_VALUE' },
+  { id: 'next_navigation_mode', key: 'ROTOR_NEXT_NAV' },
+  { id: 'previous_navigation_mode', key: 'ROTOR_PREV_NAV' },
+  { id: 'open_help', key: 'TOGGLE_HELP', reason: OPENS_DIALOG },
+  { id: 'open_chat', key: 'TOGGLE_CHAT', reason: OPENS_DIALOG },
+  { id: 'open_command_palette', key: 'TOGGLE_COMMAND_PALETTE', reason: OPENS_DIALOG },
+  { id: 'open_settings', key: 'TOGGLE_SETTINGS', reason: OPENS_DIALOG },
+  // Opens the reference picker on its first use in a visit, before any
+  // reference line is chosen -- and each focus-in starts with none.
+  { id: 'toggle_candlestick_comparison', key: 'TOGGLE_CANDLESTICK_DELTA_LAYER', reason: OPENS_DIALOG },
+  { id: 'choose_candlestick_reference', key: 'SELECT_CANDLESTICK_DELTA_REFERENCE', reason: OPENS_DIALOG },
+  { id: 'tactile_zoom_in', key: 'TACTILE_ZOOM_IN' },
+  { id: 'tactile_zoom_out', key: 'TACTILE_ZOOM_OUT' },
+  { id: 'tactile_reset_zoom', key: 'TACTILE_RESET_ZOOM' },
+];
+
+/** The commands, by the id an agent names them with. */
+const COMMANDS_BY_ID: ReadonlyMap<string, AgentCommand> = new Map(
+  AGENT_COMMANDS.map(command => [command.id, command]),
+);
+
+/** The ids `maidr_run_command` takes. */
+const RUNNABLE_COMMANDS: readonly string[] = AGENT_COMMANDS
+  .filter(command => command.reason === undefined)
+  .map(command => command.id);
+
+/**
+ * Lists the reader's commands for `maidr_list_commands`: each one's title as
+ * the command palette shows it, in the reader's language, and the key the
+ * help menu shows for it -- the reader's own, where they changed it.
+ *
+ * @returns The commands, from fresh objects only
+ */
+function describeCommands(): ToolResult[] {
+  const overrides = resolveOverrides(loadStoredGeneralSettings(new LocalStorageService()).keybindings);
+  const keymap = getKeymapForScope(Scope.TRACE, overrides);
+  return AGENT_COMMANDS.map(({ id, key, reason }) => {
+    const entry = keymap[key];
+    return {
+      command: id,
+      title: clip(t(entry.description)),
+      keys: clip(entry.helpKey ?? entry.hotkey, MAX_NAME_LENGTH),
+      runnable: reason === undefined,
+      ...(reason !== undefined && { reason }),
+    };
+  });
+}
+
+/**
+ * Copies the reader's modes into plain JSON values.
+ *
+ * @param modes - What the chart reported
+ * @returns The copy, or `null` when the chart cannot say
+ */
+function copyModes(modes: LiveReaderModes | null | undefined): ToolResult | null {
+  if (modes === null || modes === undefined) {
+    return null;
+  }
+  return {
+    text: clip(String(modes.text), MAX_NAME_LENGTH),
+    sound: modes.sound === true,
+    braille: modes.braille === true,
+    highContrast: modes.highContrast === true,
+    monitor: modes.monitor === true,
+    autoplay: modes.autoplay === true,
+    navigationMode: clip(String(modes.navigationMode), MAX_NAME_LENGTH),
+  };
+}
+
 /**
  * Runs a tool body: refuses a cancelled call, and turns anything thrown into
  * a failed result, so an `execute` never rejects.
@@ -720,18 +871,26 @@ async function run(opts: { signal?: AbortSignal } | undefined, body: () => ToolR
   }
 }
 
+/** Where a failed call about a command id points the agent. */
+const COMMANDS_HINT = 'Call maidr_list_commands for the commands you can run.';
+
+/** Where a call for a command only the reader can operate points the agent. */
+const READER_ONLY_HINT = 'maidr_list_commands gives its key: tell the reader to press it.';
+
 /**
- * Builds the three WebMCP tools over a chart registry.
+ * Builds the five WebMCP tools over a chart registry.
  *
  * Pure: registers nothing. Names, descriptions and schemas are constants, so
  * no chart can change what a tool says it does.
  *
- * @param manager - The chart registry the tools read and navigate
- * @param now - The clock the navigate rate limit reads
+ * @param manager - The chart registry the tools read, navigate and run
+ *   commands on
+ * @param now - The clock the navigate and command rate limits read
  * @returns The tools, in the order they are registered
  */
 export function buildWebMcpTools(manager: LiveDataManager, now = (): number => Date.now()): WebMcpTool[] {
   const lastNavigate = new Map<string, number>();
+  const lastCommand = new Map<string, number>();
 
   const listCharts: WebMcpTool = {
     name: TOOL_NAMES.LIST_CHARTS,
@@ -923,7 +1082,110 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
     }),
   };
 
-  return [listCharts, getLayerData, navigate];
+  const listCommands: WebMcpTool = {
+    name: TOOL_NAMES.LIST_COMMANDS,
+    title: 'List the reader\'s commands',
+    description: 'Lists the screen-reader user\'s MAIDR keyboard commands for a chart -- the ones in its command palette: switching text, sound, braille, high contrast or monitoring on and off, autoplay, stepping and jumping between points and layers, and more. Each has a `command` id, a `title` in the reader\'s language, the `keys` the reader presses for it, and whether you can run it with maidr_run_command; one that opens a dialog or text field is the reader\'s to use, so tell them its keys instead. Also returns the reader\'s current `modes` (text: verbose, terse or off; sound, braille, highContrast, monitor and autoplay on or off; the navigationMode their arrow keys move in), whether they are inside the chart or in a MAIDR dialog, and how many commands are waiting for them to enter it. Read-only; nothing is announced.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chartId: { type: 'string', maxLength: MAX_ID_LENGTH, description: 'Chart id from maidr_list_charts. May be omitted when the page has exactly one chart.' },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, untrustedContentHint: false },
+    execute: (input, opts) => run(opts, () => {
+      const args = readInput(input, ['chartId']);
+      if (args === null) {
+        return { ok: false, error: 'invalid input' };
+      }
+      if (args.chartId !== undefined && !isId(args.chartId)) {
+        return { ok: false, error: 'invalid chartId' };
+      }
+      const resolved = resolveChartId(manager, args.chartId as string | undefined);
+      if (resolved.ok !== true) {
+        return resolved;
+      }
+      const id = resolved.id as string;
+      const state = manager.inspectCommands(id);
+      return {
+        ok: true,
+        commands: describeCommands(),
+        modes: copyModes(state?.modes),
+        reader: { inChart: manager.inspect(id)?.inChart === true, blocked: state?.blocked === true },
+        pending: state?.pending ?? 0,
+      };
+    }),
+  };
+
+  const runCommand: WebMcpTool = {
+    name: TOOL_NAMES.RUN_COMMAND,
+    title: 'Run one of the reader\'s commands',
+    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened. Keyboard focus moves only as the command\'s own keys would move it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chartId: { type: 'string', maxLength: MAX_ID_LENGTH, description: 'Chart id from maidr_list_charts. May be omitted when the page has exactly one chart.' },
+        command: { type: 'string', enum: RUNNABLE_COMMANDS, description: 'A command id maidr_list_commands lists as runnable.' },
+      },
+      required: ['command'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, consequentialHint: false, untrustedContentHint: false },
+    execute: (input, opts) => run(opts, () => {
+      const args = readInput(input, ['chartId', 'command']);
+      if (args === null) {
+        return { ok: false, error: 'invalid input' };
+      }
+      if (args.chartId !== undefined && !isId(args.chartId)) {
+        return { ok: false, error: 'invalid chartId' };
+      }
+      const command = typeof args.command === 'string' ? COMMANDS_BY_ID.get(args.command) : undefined;
+      if (command === undefined) {
+        return { ok: false, error: 'unknown command', hint: COMMANDS_HINT };
+      }
+      if (command.reason !== undefined) {
+        return { ok: false, error: 'command not runnable by an agent', hint: READER_ONLY_HINT };
+      }
+      const resolved = resolveChartId(manager, args.chartId as string | undefined);
+      if (resolved.ok !== true) {
+        return resolved;
+      }
+      const id = resolved.id as string;
+
+      // Only a command run now is limited: one kept for later is bounded by
+      // how many the chart keeps.
+      const time = now();
+      const last = lastCommand.get(id);
+      if (manager.inspect(id)?.inChart === true && last !== undefined && time - last < COMMAND_INTERVAL_MS) {
+        return { ok: false, error: 'rate limited' };
+      }
+      switch (manager.runCommand(id, command.key as Keys)) {
+        case 'now':
+          lastCommand.set(id, time);
+          return { ok: true, applied: 'now', modes: copyModes(manager.inspectCommands(id)?.modes) };
+        case 'kept':
+          return {
+            ok: true,
+            applied: 'on-next-focus',
+            message: 'The reader is not in the chart, so the command is kept: it runs the next time they enter the chart, after any move kept for them and any command kept before it, and a toggle then steps the mode on from what it is at that moment. Tell them so, and do not claim it has happened.',
+          };
+        case 'blocked':
+          // A dialog or text field is open in the chart: a command now would
+          // switch the keyboard scope out from beneath it, and one kept would
+          // wait on the reader closing it without their knowing.
+          return { ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' };
+        case 'unavailable':
+          return { ok: false, applied: 'unavailable', error: 'command not available where the reader is' };
+        case 'full':
+          return { ok: false, error: 'too many commands waiting' };
+        default:
+          return { ok: false, error: 'chart cannot run commands' };
+      }
+    }),
+  };
+
+  return [listCharts, getLayerData, navigate, listCommands, runCommand];
 }
 
 /**
@@ -1101,8 +1363,9 @@ function teardown(): void {
 }
 
 /**
- * Unregisters the tools this copy holds, stops waiting to take them over,
- * and hands them to another copy of MAIDR if this one owned them.
+ * Unregisters the tools this copy holds, drops the commands they kept for the
+ * reader, stops waiting to take them over, and hands them to another copy of
+ * MAIDR if this one owned them.
  */
 function uninstall(): void {
   listenForRelease(false);
@@ -1122,6 +1385,9 @@ function uninstall(): void {
   }
   controller = null;
   installedContext = null;
+  // Nothing an agent asked for outlives its tools: the reader switching them
+  // off would otherwise still meet those commands on their next visit.
+  latestManager?.dropKeptCommands();
   if (owner) {
     delete ownerSlot()[OWNER_KEY];
     owner = false;
@@ -1150,7 +1416,8 @@ function uninstall(): void {
  * runs in a browser that has `document.modelContext` (or the deprecated
  * `navigator.modelContext`). See `docs/WEBMCP.md`.
  *
- * @param manager - The chart registry the tools read and navigate
+ * @param manager - The chart registry the tools read, navigate and run
+ *   commands on
  * @returns A handle whose `dispose` releases this chart's hold; calling it
  *   more than once does nothing
  */
@@ -1181,8 +1448,9 @@ export function acquireWebMcpTools(manager: LiveDataManager): Disposable {
 
 /**
  * Applies the reader's `general.agentTools` setting at once: registers the
- * tools while charts are mounted, or unregisters them, without a reload and
- * without touching the charts.
+ * tools while charts are mounted, or unregisters them and drops the commands
+ * agents kept for the reader, without a reload and without touching the
+ * charts otherwise.
  *
  * One call covers every chart on the page, since the tools are shared; the
  * page's `content="off"` tag still wins over `true`.

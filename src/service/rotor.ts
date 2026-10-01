@@ -391,6 +391,15 @@ export class RotorNavigationService {
   }
 
   /**
+   * Gets the current rotor mode's key: a fixed identifier, unlike the name
+   * {@link getMode} returns, which is translated and may name the trace.
+   * @returns The key of the current rotor mode
+   */
+  public getModeKey(): RotorModeKey {
+    return this.activeMode().key;
+  }
+
+  /**
    * The mode the rotor index points at, with its key.
    * @returns The current rotor mode
    */
