@@ -1,3 +1,15 @@
+# [4.13.0](https://github.com/xability/maidr/compare/v4.12.0...v4.13.0) (2026-10-02)
+
+
+### Bug Fixes
+
+* **webmcp:** drop a navigate target an agent kept when the reader switches agent access off ([#1344](https://github.com/xability/maidr/issues/1344)) ([79f4bbb](https://github.com/xability/maidr/commit/79f4bbb08d3a6cb52c31e9ee44b6953071d98353))
+
+
+### Features
+
+* **webmcp:** let an agent take the reader into the chart when they ask ([#1345](https://github.com/xability/maidr/issues/1345)) ([d5b0758](https://github.com/xability/maidr/commit/d5b075809ccee59f7da0ffcdf6849da6c42609f9))
+
 # [4.12.0](https://github.com/xability/maidr/compare/v4.11.0...v4.12.0) (2026-10-01)
 
 
