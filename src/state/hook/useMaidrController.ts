@@ -16,6 +16,12 @@ import { Controller } from '../../controller';
 const MAX_PENDING_COMMANDS = 8;
 
 /**
+ * A dialog of any kind -- another chart's, or the page's own -- which keeps
+ * the reader's focus until they close it, so nothing takes it from there.
+ */
+const DIALOG_SELECTOR = 'dialog, [role="dialog"], [role="alertdialog"]';
+
+/**
  * How long each kept command waits behind the announcement before it: the
  * spacing an agent's own commands get, one per chart every 500 ms.
  */
@@ -51,6 +57,9 @@ interface UseMaidrControllerResult {
  * - Controller creation on focus-in (deferred -- no throwaway Controller on mount)
  * - Controller disposal on focus-out, keeping the reader's place and modes for
  *   the next focus-in
+ * - The chart's live-data channels: moves and commands from the host page or
+ *   an agent, made now or kept for the next focus-in, and the one keyboard
+ *   focus move made for an agent -- into the chart, when the reader asked
  * - Timer cleanup and stale-closure prevention
  * - Unmount cleanup
  *
@@ -93,7 +102,8 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   const pendingTargetRef = useRef<KeptTarget | null>(null);
 
   // Commands asked for on the reader's behalf while they were away, in the
-  // order asked, run on the next focus-in after a pending target. Unlike a
+  // order asked, run on the next focus-in after a pending target -- with any
+  // asked for while that focus-in is still running them. Unlike a
   // target they survive a data change: a live chart streams, and a mode
   // toggle addresses the reader's modes rather than a point of the old data.
   // They do not survive a change of chart id, which makes this another chart.
@@ -143,19 +153,20 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   const createControllerRef = useRef(createController);
   createControllerRef.current = createController;
 
-  // The controller of a reader who is here: the page has the browser's focus
-  // and the figure has the page's. The controller outlives a window blur --
-  // the reader switching to the browser's agent panel leaves
-  // `document.activeElement` where it was -- so its presence alone does not
-  // mean they would hear a move.
-  const readerController = useCallback((): Controller | null => {
-    const controller = controllerRef.current;
+  // Whether the reader is here: the page has the browser's focus and the
+  // figure has the page's. A controller outlives a window blur -- the reader
+  // switching to the browser's agent panel leaves `document.activeElement`
+  // where it was -- so its presence alone does not mean they would hear a move.
+  const readerIsHere = useCallback((): boolean => {
     const figure = figureRef.current;
-    if (controller === null || figure === null || !document.hasFocus()) {
-      return null;
-    }
-    return figure.contains(document.activeElement) ? controller : null;
+    return figure !== null && document.hasFocus() && figure.contains(document.activeElement);
   }, []);
+
+  // The controller of a reader who is here.
+  const readerController = useCallback(
+    (): Controller | null => (readerIsHere() ? controllerRef.current : null),
+    [readerIsHere],
+  );
 
   const stopKeptCommands = useCallback((): void => {
     if (keptCommandTimerRef.current) {
@@ -208,6 +219,48 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     hasAnnouncedRef.current = false;
   }, [stopKeptCommands]);
 
+  // What a focus-in does once the events around it have settled: builds the
+  // controller, tells the reader where they are, makes a kept move and starts
+  // the kept commands.
+  const enterFigure = useCallback((): void => {
+    focusInTimerRef.current = null;
+    if (!controllerRef.current) {
+      const ctrl = createControllerRef.current();
+      if (!ctrl) {
+        return;
+      }
+      controllerRef.current = ctrl;
+      const cv = ctrl.getContextValue();
+      setContextValue(cv);
+      ctrl.initializeHighContrast();
+    }
+    if (!hasAnnouncedRef.current) {
+      hasAnnouncedRef.current = true;
+      // A reader coming back hears the point they are on, not how to start.
+      if (controllerRef.current?.resume() === false) {
+        controllerRef.current.showInitialInstructionInText();
+      }
+    }
+    // After the instruction, not instead of it: the instruction is shown
+    // without an announcement, and the move that follows is the first
+    // navigation, which is what turns announcements on.
+    // Not under an open MAIDR dialog: a move there would switch the
+    // keyboard scope beneath it. The target is kept for the focus-in that
+    // follows the dialog closing and handing focus back to the plot.
+    const pending = pendingTargetRef.current;
+    const controller = controllerRef.current;
+    if (pending !== null && controller !== null && !controller.isNavigationBlocked()) {
+      pendingTargetRef.current = null;
+      controller.navigateTo(pending.target);
+    }
+    // Then the kept commands, in order, each as the reader's own key would
+    // run it and each heard on its own, starting once what was just
+    // announced has been.
+    if (controller !== null) {
+      runKeptCommands();
+    }
+  }, [runKeptCommands]);
+
   const onFocusIn = useCallback((): void => {
     // Cancel any pending focus-out to prevent dispose/create race.
     if (focusOutTimerRef.current) {
@@ -220,45 +273,54 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       focusInTimerRef.current = null;
     }
     // Allow React to process all events before focusing in.
-    focusInTimerRef.current = setTimeout(() => {
+    focusInTimerRef.current = setTimeout(enterFigure, 0);
+  }, [enterFigure]);
+
+  // Takes the reader into the chart, because they asked an agent to: moves
+  // keyboard focus to the plot, the element a Tab lands on, and enters at
+  // once -- the focus-in that focus starts, without waiting the tick it
+  // waits for a Tab -- so whoever asked can tell straight away whether the
+  // reader arrived, and they hear what a Tab in would have told them.
+  // `focus()` scrolls the plot into view only as far as the browser scrolls
+  // for any focus, so a sighted helper beside the reader can see where they
+  // are; nothing scrolls further. Never from a dialog, which keeps the
+  // reader's focus until they close it -- this chart's, another chart's, or
+  // the page's own -- and never away from somewhere else in the figure -- the
+  // braille field, say -- which is already their place in it.
+  //
+  // Asked for even while the page does not have the browser's focus: a chart
+  // in another page's frame, such as a chat host's, receives it that way.
+  // When the page still does not have it -- the reader is in the browser's
+  // own agent panel, which no page can take focus from -- nothing is entered
+  // where they would not hear it. The browser may have put the page's own
+  // focus on the plot, so the focus-in it fires when they come back makes
+  // the move and runs the commands then.
+  const bringReaderIn = useCallback((): void => {
+    const plot = plotRef.current;
+    const figure = figureRef.current;
+    if (plot === null || figure === null || controllerRef.current?.isCommandBlocked() === true) {
+      return;
+    }
+    const active = document.activeElement;
+    if (!figure.contains(active)) {
+      if (active?.closest(DIALOG_SELECTOR)) {
+        return;
+      }
+      plot.focus();
+      // Firefox gives a frame that did not have the browser's focus the
+      // focus, but not the element in it; asked again, the element has it.
+      if (document.hasFocus() && !figure.contains(document.activeElement)) {
+        plot.focus();
+      }
+    }
+    if (focusInTimerRef.current) {
+      clearTimeout(focusInTimerRef.current);
       focusInTimerRef.current = null;
-      if (!controllerRef.current) {
-        const ctrl = createControllerRef.current();
-        if (!ctrl) {
-          return;
-        }
-        controllerRef.current = ctrl;
-        const cv = ctrl.getContextValue();
-        setContextValue(cv);
-        ctrl.initializeHighContrast();
-      }
-      if (!hasAnnouncedRef.current) {
-        hasAnnouncedRef.current = true;
-        // A reader coming back hears the point they are on, not how to start.
-        if (controllerRef.current?.resume() === false) {
-          controllerRef.current.showInitialInstructionInText();
-        }
-      }
-      // After the instruction, not instead of it: the instruction is shown
-      // without an announcement, and the move that follows is the first
-      // navigation, which is what turns announcements on.
-      // Not under an open MAIDR dialog: a move there would switch the
-      // keyboard scope beneath it. The target is kept for the focus-in that
-      // follows the dialog closing and handing focus back to the plot.
-      const pending = pendingTargetRef.current;
-      const controller = controllerRef.current;
-      if (pending !== null && controller !== null && !controller.isNavigationBlocked()) {
-        pendingTargetRef.current = null;
-        controller.navigateTo(pending.target);
-      }
-      // Then the kept commands, in order, each as the reader's own key would
-      // run it and each heard on its own, starting once what was just
-      // announced has been.
-      if (controller !== null) {
-        runKeptCommands();
-      }
-    }, 0);
-  }, [runKeptCommands]);
+    }
+    if (readerIsHere()) {
+      enterFigure();
+    }
+  }, [enterFigure, readerIsHere]);
 
   const onFocusOut = useCallback((): void => {
     // Cancel any pending focus-in to prevent a stale focus-in from firing
@@ -315,8 +377,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     latestDataRef.current = data;
     // A move made while the reader is not here waits, and is announced when
     // they come back (focus-in fires again on the element when the window
-    // regains focus).
-    const navigate: LiveNavigator = (target, { byAgent = false } = {}) => {
+    // regains focus) -- or at once, when they asked to be taken there and
+    // their focus can be brought in.
+    const navigate: LiveNavigator = (target, { byAgent = false, focus = false } = {}) => {
       if (target === null) {
         // The host withdraws whatever waits; an agent -- or its tools being
         // switched off -- only what an agent left.
@@ -331,6 +394,10 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
         return controller.navigateTo(target);
       }
       pendingTargetRef.current = { target, byAgent };
+      // Kept first, so the entry makes the move as it makes any kept move.
+      if (focus) {
+        bringReaderIn();
+      }
       return true;
     };
     const probe: LiveReaderProbe = () => {
@@ -348,22 +415,31 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     // Runs a command now by the same test the navigator moves on, or keeps it
     // for the next focus-in. A dialog left open while the reader is in the
     // agent panel refuses it, as it refuses a move, rather than keeping it to
-    // run behind their back once they close it. The state is read off any
-    // live controller, as "blocked" is above; with none, from the session the
-    // reader left with, or the modes a first visit starts with.
+    // run behind their back once they close it. A reader who is here while
+    // their entry is still working through the kept commands gets it after
+    // those, so each is heard in the order asked rather than this one cutting
+    // in. Not while those wait on a kept target braille holds: this one may
+    // be what closes braille, and would wait behind the wait it ends. The
+    // state is read off any live controller, as "blocked" is above; with
+    // none, from the session the reader left with, or the modes a first
+    // visit starts with.
     const commands: LiveCommandChannel = {
-      run: (command) => {
+      run: (command, { focus = false } = {}) => {
         if (controllerRef.current?.isCommandBlocked() === true) {
           return 'blocked';
         }
         const controller = readerController();
-        if (controller !== null) {
+        if (controller !== null && keptCommandTimerRef.current === null) {
           return controller.runCommand(command);
         }
         if (pendingCommandsRef.current.length >= MAX_PENDING_COMMANDS) {
           return 'full';
         }
         pendingCommandsRef.current.push(command);
+        // Kept first, so the entry runs it as it runs any kept command.
+        if (focus && controller === null) {
+          bringReaderIn();
+        }
         return 'kept';
       },
       state: () => {
@@ -407,7 +483,7 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
     };
     // Re-register only when the chart identity changes; data *content*
     // changes flow through the effect below.
-  }, [data.id, disposeController, forgetSessionPosition, readerController]);
+  }, [bringReaderIn, data.id, disposeController, forgetSessionPosition, readerController]);
 
   // React-driven data updates: for live charts, a new `data` prop replaces
   // the chart data in place (equivalent to setData). Static charts keep the

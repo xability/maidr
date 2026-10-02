@@ -13,7 +13,14 @@
  * results are checked without any registration in the way.
  */
 
-import type { LiveCommandOutcome, LiveCommandState, LiveReaderModes, LiveReaderProbe } from '@service/liveData';
+import type {
+  LiveCommandOptions,
+  LiveCommandOutcome,
+  LiveCommandState,
+  LiveNavigateOptions,
+  LiveReaderModes,
+  LiveReaderProbe,
+} from '@service/liveData';
 import type { Keys } from '@type/event';
 import type { BarPoint, HeatmapData, LinePoint, Maidr } from '@type/grammar';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -817,7 +824,7 @@ describe('maidr_get_layer_data', () => {
 
 describe('maidr_navigate', () => {
   let manager: LiveDataManager;
-  let navigator: jest.Mock<(target: unknown) => boolean>;
+  let navigator: jest.Mock<(target: unknown, options?: LiveNavigateOptions) => boolean>;
   let inChart: boolean;
   let blocked: boolean;
   let clock: number;
@@ -825,7 +832,7 @@ describe('maidr_navigate', () => {
 
   beforeEach(() => {
     manager = new LiveDataManager();
-    navigator = jest.fn<(target: unknown) => boolean>(() => true);
+    navigator = jest.fn<(target: unknown, options?: LiveNavigateOptions) => boolean>(() => true);
     inChart = true;
     blocked = false;
     clock = 0;
@@ -837,14 +844,14 @@ describe('maidr_navigate', () => {
     expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 2 }))
       .toEqual({ ok: true, applied: 'now' });
     // Marked as the agent's, so switching agent access off can drop it.
-    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'bars', row: 0, col: 2 }, { byAgent: true });
+    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'bars', row: 0, col: 2 }, { byAgent: true, focus: false });
 
     const scatter = barMaidr('scatter-chart');
     scatter.subplots[0][0].layers[0] = { id: 'dots', type: TraceType.SCATTER, axes: {}, data: [{ x: 1, y: 2 }, { x: 3, y: 4 }] };
     manager.register(scatter, jest.fn(), { navigator, probe: () => ({ inChart, position: null }) });
     expect(await call(tools, TOOL_NAMES.NAVIGATE, { chartId: 'scatter-chart', layerId: 'dots', pointIndex: 1 }))
       .toEqual({ ok: true, applied: 'now' });
-    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'dots', pointIndex: 1 }, { byAgent: true });
+    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'dots', pointIndex: 1 }, { byAgent: true, focus: false });
   });
 
   it('should check the target against the layer\'s data before the chart keeps it', async () => {
@@ -897,7 +904,10 @@ describe('maidr_navigate', () => {
       { layerId: 'bars', row: 0.5, col: 0 },
       { layerId: 'bars', row: 0 },
       { layerId: 'bars', row: 0, col: 0, pointIndex: 0 },
-      { layerId: 'bars', row: 0, col: 0, focus: true },
+      { layerId: 'bars', row: 0, col: 0, focus: 'true' },
+      { layerId: 'bars', row: 0, col: 0, focus: 1 },
+      { layerId: 'bars', row: 0, col: 0, focus: null },
+      { layerId: 'bars', row: 0, col: 0, scroll: true },
       { layerId: 'unknown', row: 0, col: 0 },
       { layerId: 'x'.repeat(257), row: 0, col: 0 },
       { layerId: 'bars', pointIndex: Number.MAX_SAFE_INTEGER + 1 },
@@ -911,11 +921,13 @@ describe('maidr_navigate', () => {
 
   it('should say whether the move happened now, waits for focus, or was refused', async () => {
     inChart = false;
-    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1 })).toEqual({
+    const kept = await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1 });
+    expect(kept).toEqual({
       ok: true,
       applied: 'on-next-focus',
       message: expect.stringContaining('Best effort'),
     });
+    expect(kept.message).toContain('focus: true does that, and only when they ask');
 
     clock += 500;
     navigator.mockReturnValue(false);
@@ -937,6 +949,85 @@ describe('maidr_navigate', () => {
     navigator.mockReturnValueOnce(false);
     expect((await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1 })).applied).toBe('refused');
     expect((await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 0 })).applied).toBe('now');
+  });
+
+  it('should refuse a focus that is not a boolean, and say which input was wrong', async () => {
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 0, focus: 'yes' }))
+      .toEqual({ ok: false, error: 'invalid focus' });
+    expect(navigator).not.toHaveBeenCalled();
+  });
+
+  it('should ask the chart to take the reader in only when focus is true', async () => {
+    inChart = false;
+
+    await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 0, focus: true });
+    clock += 500;
+    await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: false });
+
+    expect(navigator.mock.calls).toEqual([
+      [{ layerId: 'bars', row: 0, col: 0 }, { byAgent: true, focus: true }],
+      [{ layerId: 'bars', row: 0, col: 1 }, { byAgent: true, focus: false }],
+    ]);
+  });
+
+  it('should answer as without focus for a reader already in the chart', async () => {
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: true, applied: 'now' });
+  });
+
+  it('should say the reader\'s focus moved when the chart took them in', async () => {
+    inChart = false;
+    navigator.mockImplementation((_target, options) => {
+      inChart = options?.focus === true;
+      return true;
+    });
+
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: true, applied: 'now', focused: true });
+  });
+
+  it('should keep the move, and say focus could not be moved and why, when the chart could not take the reader in', async () => {
+    inChart = false;
+
+    const result = await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.any(String) });
+    expect(result.message).toContain('could not be moved into the chart');
+    expect(result.message).toContain('does not have the browser\'s focus');
+    expect(result.message).toContain('the next time they enter the chart');
+    expect(result.message).toContain('switch agent access off');
+  });
+
+  it('should say the move waits when the braille field the reader left open came back with them', async () => {
+    inChart = false;
+    navigator.mockImplementation(() => {
+      inChart = true;
+      blocked = true;
+      return true;
+    });
+
+    const result = await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
+  });
+
+  it('should refuse under a MAIDR dialog without asking the chart for focus', async () => {
+    inChart = false;
+    blocked = true;
+
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' });
+    expect(navigator).not.toHaveBeenCalled();
+  });
+
+  it('should rate-limit a move that takes the reader in as any other', async () => {
+    inChart = false;
+    expect((await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 0, focus: true })).ok).toBe(true);
+    clock += 499;
+
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: false, error: 'rate limited' });
+    expect(navigator).toHaveBeenCalledTimes(1);
   });
 
   it('should do nothing for a cancelled call', async () => {
@@ -997,7 +1088,7 @@ describe('the agent command table', () => {
 
 /** A stand-in for a chart's command channel, with the state a test sets. */
 interface FakeChannel {
-  run: jest.Mock<(command: Keys) => LiveCommandOutcome>;
+  run: jest.Mock<(command: Keys, options?: LiveCommandOptions) => LiveCommandOutcome>;
   state: LiveCommandState;
 }
 
@@ -1010,12 +1101,12 @@ interface FakeChannel {
  */
 function chartWithCommands(manager: LiveDataManager, inChart: () => boolean, id = 'bar-chart'): FakeChannel {
   const channel: FakeChannel = {
-    run: jest.fn<(command: Keys) => LiveCommandOutcome>(() => (inChart() ? 'now' : 'kept')),
+    run: jest.fn<(command: Keys, options?: LiveCommandOptions) => LiveCommandOutcome>(() => (inChart() ? 'now' : 'kept')),
     state: { modes: { ...STARTING_MODES }, blocked: false, pending: 0 },
   };
   manager.register(barMaidr(id), jest.fn(), {
     probe: () => ({ inChart: inChart(), position: 'Day is Sat, Count is 87', blocked: true }),
-    commands: { run: command => channel.run(command), state: () => channel.state, clear: jest.fn() },
+    commands: { run: (command, options) => channel.run(command, options), state: () => channel.state, clear: jest.fn() },
   });
   return channel;
 }
@@ -1133,7 +1224,7 @@ describe('maidr_run_command', () => {
     const result = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' });
 
     expect(result).toEqual({ ok: true, applied: 'now', modes: { ...STARTING_MODES, braille: true } });
-    expect(channel.run).toHaveBeenCalledWith('TOGGLE_BRAILLE');
+    expect(channel.run).toHaveBeenCalledWith('TOGGLE_BRAILLE', { focus: false });
   });
 
   it('should hand each runnable id to the chart as the palette command it names', async () => {
@@ -1142,7 +1233,7 @@ describe('maidr_run_command', () => {
       const result = await call(tools, TOOL_NAMES.RUN_COMMAND, { chartId: 'bar-chart', command: id });
       if (reason === undefined) {
         expect(result.applied).toBe('now');
-        expect(channel.run).toHaveBeenLastCalledWith(key);
+        expect(channel.run).toHaveBeenLastCalledWith(key, { focus: false });
       } else {
         expect(result).toEqual({
           ok: false,
@@ -1173,7 +1264,7 @@ describe('maidr_run_command', () => {
     });
     expect(result.message).toContain('steps the mode on from what it is');
     expect(result.message).toContain('dropped if they switch agent access off');
-    expect(channel.run).toHaveBeenCalledWith('TOGGLE_AUDIO');
+    expect(channel.run).toHaveBeenCalledWith('TOGGLE_AUDIO', { focus: false });
   });
 
   it('should say when the reader is in a dialog, where the command is unavailable, and when the queue is full', async () => {
@@ -1231,6 +1322,8 @@ describe('maidr_run_command', () => {
       { command: 'toggle_braille', extra: true },
       { command: 'toggle_braille', chartId: 7 },
       { command: 'toggle_braille', chartId: 'x'.repeat(257) },
+      { command: 'toggle_braille', focus: 'yes' },
+      { command: 'toggle_braille', focus: null },
       { command: 7 },
       { command: 'TOGGLE_BRAILLE' },
       { command: '__proto__' },
@@ -1258,6 +1351,89 @@ describe('maidr_run_command', () => {
 
     expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { chartId: 'plain', command: 'toggle_text' }))
       .toEqual({ ok: false, error: 'chart cannot run commands' });
+  });
+
+  it('should refuse a focus that is not a boolean, and say which input was wrong', async () => {
+    expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: 'yes' }))
+      .toEqual({ ok: false, error: 'invalid focus' });
+    expect(channel.run).not.toHaveBeenCalled();
+  });
+
+  it('should ask the chart to take the reader in only when focus is true', async () => {
+    inChart = false;
+
+    await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+    await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound', focus: false });
+
+    expect(channel.run.mock.calls).toEqual([
+      ['TOGGLE_TEXT', { focus: true }],
+      ['TOGGLE_AUDIO', { focus: false }],
+    ]);
+  });
+
+  it('should run at once, as without focus, for a reader already in the chart', async () => {
+    expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true }))
+      .toEqual({ ok: true, applied: 'now', modes: STARTING_MODES });
+  });
+
+  it('should say the reader\'s focus moved when the chart took them in, and that the command waits its turn', async () => {
+    inChart = false;
+    channel.run.mockImplementation((_command, options) => {
+      inChart = options?.focus === true;
+      return 'kept';
+    });
+
+    const result = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+
+    // No modes: the command has not run yet, so they would be from before it.
+    expect(result).toEqual({ ok: true, applied: 'now', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(result.message).toContain('counts it in pending');
+    expect(result.message).toContain('Do not claim it has happened yet');
+  });
+
+  it('should keep the command, and say focus could not be moved and why, when the chart could not take the reader in', async () => {
+    inChart = false;
+
+    const result = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.any(String) });
+    expect(result.message).toContain('could not be moved into the chart');
+    expect(result.message).toContain('does not have the browser\'s focus');
+    expect(result.message).toContain('the next time they enter the chart');
+    expect(result.message).toContain('dropped if they switch agent access off');
+  });
+
+  it('should say a command that joined others still waiting for a reader in the chart waits its turn', async () => {
+    channel.run.mockReturnValue('kept');
+
+    for (const focus of [false, true]) {
+      clock += 500;
+      expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus }))
+        .toEqual({ ok: true, applied: 'now', message: expect.stringContaining('waits its turn') });
+    }
+  });
+
+  it('should refuse under a MAIDR dialog with focus as without it', async () => {
+    inChart = false;
+    channel.run.mockReturnValue('blocked');
+
+    expect(await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true }))
+      .toEqual({ ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' });
+  });
+
+  it('should offer focus as an optional boolean on the two acting tools only', () => {
+    const schemas = Object.fromEntries(tools.map(({ name, inputSchema }) => [name, inputSchema as {
+      properties: Record<string, { type?: string }>;
+      required?: string[];
+    }]));
+
+    for (const name of [TOOL_NAMES.NAVIGATE, TOOL_NAMES.RUN_COMMAND]) {
+      expect(schemas[name].properties.focus).toEqual({ type: 'boolean', description: expect.stringContaining('keyboard focus') });
+      expect(schemas[name].required).not.toContain('focus');
+    }
+    for (const name of [TOOL_NAMES.LIST_CHARTS, TOOL_NAMES.GET_LAYER_DATA, TOOL_NAMES.LIST_COMMANDS]) {
+      expect(schemas[name].properties.focus).toBeUndefined();
+    }
   });
 
   it('should do nothing for a cancelled call', async () => {

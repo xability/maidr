@@ -24,7 +24,7 @@ export const settings = {
   'settings.hoverOnHover': 'होवर',
   'settings.hoverOnClick': 'क्लिक',
   'settings.agentTools': 'ब्राउज़र AI एजेंट की पहुँच',
-  'settings.agentToolsHint': 'आपके ब्राउज़र में बने AI सहायक को इस पेज के चार्ट का डेटा पढ़ने और आपके कहने पर उनमें आपकी स्थिति बदलने या आपके लिए उनके कीबोर्ड कमांड चलाने देता है।',
+  'settings.agentToolsHint': 'आपके ब्राउज़र में बने AI सहायक को इस पेज के चार्ट का डेटा पढ़ने और आपके कहने पर आपको किसी चार्ट में ले जाने, उसमें आपकी स्थिति बदलने या आपके लिए उसके कीबोर्ड कमांड चलाने देता है।',
 
   'settings.volume': 'आवाज़ का स्तर',
   'settings.minFrequencyRow': 'न्यूनतम आवृत्ति (Hz)',

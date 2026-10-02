@@ -131,7 +131,8 @@ export interface LiveDataEvent {
 type LiveDataListener = (event: LiveDataEvent) => void;
 
 /**
- * Who asked a chart to move, as {@link LiveNavigator} is told it.
+ * Who asked a chart to move, and whether to take the reader there, as
+ * {@link LiveNavigator} is told it.
  */
 export interface LiveNavigateOptions {
   /**
@@ -142,6 +143,21 @@ export interface LiveNavigateOptions {
    * is withdrawn.
    */
   byAgent?: boolean;
+  /**
+   * The reader asked to be taken there: a reader who is not in the chart is
+   * moved into it. The target is kept exactly as without this, then the chart
+   * moves keyboard focus to its own focusable element and enters at once --
+   * the focus-in a Tab to it makes, run without waiting a tick -- which
+   * applies the target and announces it as it would for that Tab. So
+   * {@link LiveDataManager.inspect}, asked right after, says whether the
+   * reader arrived. Focus is never taken from a dialog -- a MAIDR dialog, in
+   * this chart or another, or one of the page's own -- nor moved from
+   * elsewhere in the chart. If the page does not have the browser's focus
+   * even once focus is asked for, nothing is entered and the target stays
+   * kept for the focus-in that follows the reader's return. Ignored with
+   * `null`, and for a reader already in the chart.
+   */
+  focus?: boolean;
 }
 
 /**
@@ -220,13 +236,30 @@ export interface LiveReaderModes {
  * - `blocked`: a MAIDR dialog, text field or label chord is open in the
  *   chart, whether or not the page has the browser's focus. Nothing ran, and
  *   nothing was kept.
- * - `kept`: the reader is not in the chart. The command runs the next time
- *   they enter it, after any target kept for them and any command kept
- *   before it.
- * - `full`: the reader is not in the chart, and as many commands as the chart
- *   keeps are already waiting for them.
+ * - `kept`: the reader is not in the chart, or is while their entry is still
+ *   running the commands kept for them. The command runs after any target
+ *   kept for them and any command kept before it: the next time they enter
+ *   the chart, or, for a reader already there, in turn, half a second after
+ *   the announcement before it.
+ * - `full`: as many commands as the chart keeps are already waiting.
  */
 export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'kept' | 'full';
+
+/**
+ * How a caller asks a chart to run a command, as {@link LiveCommandChannel.run}
+ * is told it.
+ */
+export interface LiveCommandOptions {
+  /**
+   * The reader asked for it to happen now: a reader who is not in the chart
+   * is moved into it. The command is kept exactly as without this, then the
+   * chart takes keyboard focus and enters at once, as
+   * {@link LiveNavigateOptions.focus} describes, and the entry runs it as it
+   * runs kept commands for a reader who Tabs in. As there, a page that does
+   * not have the browser's focus enters nothing, and the command stays kept.
+   */
+  focus?: boolean;
+}
 
 /**
  * The command side of a mounted chart, as {@link LiveCommandChannel.state}
@@ -249,8 +282,11 @@ export interface LiveCommandState {
  * time.
  */
 export interface LiveCommandChannel {
-  /** Runs a command now, or keeps it for the reader's next focus-in. */
-  run: (command: Keys) => LiveCommandOutcome;
+  /**
+   * Runs a command now, or keeps it for the reader's next focus-in -- or, for
+   * a reader whose entry is still running kept commands, for its turn.
+   */
+  run: (command: Keys, options?: LiveCommandOptions) => LiveCommandOutcome;
   /** Reports the reader's modes and the commands waiting, changing nothing. */
   state: () => LiveCommandState;
   /** Drops every command kept for the reader, running none of them. */
@@ -695,6 +731,9 @@ export class LiveDataManager {
    * @param options.byAgent - An in-browser agent asked, rather than the host
    *   page (see {@link LiveNavigateOptions}). `window.maidrLive.navigateTo`
    *   and {@link navigateMaidr} never set it
+   * @param options.focus - Take a reader who is not in the chart into it (see
+   *   {@link LiveNavigateOptions}); only the WebMCP tools set it, and only
+   *   when the reader asked
    * @returns True when a registered chart accepted the target
    */
   public navigateTo(
@@ -714,7 +753,7 @@ export class LiveDataManager {
       console.warn(`[maidr] navigateTo: the chart with id "${id}" cannot be navigated from outside`);
       return false;
     }
-    return instance.navigator(target, { byAgent: options.byAgent === true });
+    return instance.navigator(target, { byAgent: options.byAgent === true, focus: options.focus === true });
   }
 
   /**
@@ -777,11 +816,15 @@ export class LiveDataManager {
    *
    * @param id - The chart id
    * @param command - The keymap's name for the command
+   * @param options - How to run it
+   * @param options.focus - Take a reader who is not in the chart into it (see
+   *   {@link LiveCommandOptions}); only the WebMCP tools set it, and only
+   *   when the reader asked
    * @returns What became of it, or `null` for an id that is not registered or
    *   a chart that registered no command channel
    */
-  public runCommand(id: string, command: Keys): LiveCommandOutcome | null {
-    return this.instances.get(id)?.commands?.run(command) ?? null;
+  public runCommand(id: string, command: Keys, options: LiveCommandOptions = {}): LiveCommandOutcome | null {
+    return this.instances.get(id)?.commands?.run(command, { focus: options.focus === true }) ?? null;
   }
 
   /**

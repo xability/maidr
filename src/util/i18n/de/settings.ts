@@ -26,7 +26,7 @@ export const settings = {
   'settings.hoverOnHover': 'Zeigen',
   'settings.hoverOnClick': 'Klicken',
   'settings.agentTools': 'Zugriff für KI-Agenten im Browser',
-  'settings.agentToolsHint': 'Erlaubt einem in Ihren Browser integrierten KI-Assistenten, die Daten der Diagramme auf dieser Seite zu lesen und auf Ihre Bitte hin Ihre Position darin zu verschieben oder ihre Tastaturbefehle für Sie auszuführen.',
+  'settings.agentToolsHint': 'Erlaubt einem in Ihren Browser integrierten KI-Assistenten, die Daten der Diagramme auf dieser Seite zu lesen und auf Ihre Bitte hin Sie in ein Diagramm zu bringen, Ihre Position darin zu verschieben oder seine Tastaturbefehle für Sie auszuführen.',
 
   // Audio tab.
   'settings.volume': 'Lautstärke',
