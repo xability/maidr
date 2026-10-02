@@ -150,16 +150,21 @@ export interface LiveNavigateOptions {
    * the focus-in a Tab to it makes, run without waiting a tick -- which
    * applies the target and announces it as it would for that Tab. So
    * {@link LiveDataManager.inspect}, asked right after, says whether the
-   * reader arrived. Focus is never taken from a dialog -- a MAIDR dialog, in
-   * this chart or another, or one of the page's own -- nor moved from
-   * elsewhere in the chart. A page of its own that does not have the
-   * browser's focus is left as it is: no page can take that focus from the
-   * browser's own panels, and moving the page's focus there would only drop
-   * the reader into the chart behind their back. In a frame, focus is asked
-   * for regardless, since that is how a frame receives it. Either way, if
-   * the page does not have the browser's focus, nothing is entered and the
-   * target stays kept for the reader's next entry. Ignored with `null`, and
-   * for a reader already in the chart.
+   * reader arrived. Focus is never taken from a dialog in the chart's own
+   * document -- a MAIDR dialog, in this chart or another, or one of the
+   * page's own -- nor moved from elsewhere in the chart; a page that frames
+   * the chart keeps its dialogs in another document, which the chart cannot
+   * see, so that page must not ask while one is open. A page of its own
+   * that does not have the browser's focus is left as it is: no page can
+   * take that focus from the browser's own panels, and moving the page's
+   * focus there would only drop the reader into the chart behind their
+   * back. In a frame, focus is asked for regardless, since that is how a
+   * frame receives it -- where the browser allows: WebKit does not without
+   * the reader's own click or key -- and a frame that still does not have
+   * it puts its own focus back. Either way, if the page does not have the
+   * browser's focus, nothing is entered and the target stays kept for the
+   * reader's next entry. Ignored with `null`, and for a reader already in
+   * the chart.
    */
   focus?: boolean;
 }

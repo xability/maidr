@@ -21,6 +21,8 @@ const TOGGLE_BRAILLE = 'TOGGLE_BRAILLE' as Keys;
 /**
  * A dialog of any kind -- another chart's, or the page's own -- which keeps
  * the reader's focus until they close it, so nothing takes it from there.
+ * Only the chart's own document is seen: a page that frames the chart keeps
+ * its dialogs in another.
  */
 const DIALOG_SELECTOR = 'dialog, [role="dialog"], [role="alertdialog"]';
 
@@ -294,8 +296,9 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
   // for any focus, so a sighted helper beside the reader can see where they
   // are; nothing scrolls further. Never from a dialog, which keeps the
   // reader's focus until they close it -- this chart's, another chart's, or
-  // the page's own -- and never away from somewhere else in the figure -- the
-  // braille field, say -- which is already their place in it.
+  // the page's own; a page framing the chart is another document, whose
+  // dialogs this one cannot see -- and never away from somewhere else in the
+  // figure -- the braille field, say -- which is already their place in it.
   //
   // A chart in another page's frame, such as a chat host's, is asked for it
   // even while its page does not have the browser's focus: that is how a
@@ -326,15 +329,37 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       if (document.hasFocus() && !figure.contains(document.activeElement)) {
         plot.focus();
       }
+      // A frame the browser did not give its focus -- WebKit keeps one from
+      // taking it without the reader's own click or key, and none can take
+      // it from the browser's side panel -- puts its own focus back where it
+      // was, so the reader finds the chart as they left it.
+      if (!document.hasFocus()) {
+        if ((active instanceof HTMLElement || active instanceof SVGElement) && active !== document.body) {
+          active.focus({ preventScroll: true });
+        } else {
+          plot.blur();
+        }
+        return;
+      }
     }
     if (focusInTimerRef.current) {
       clearTimeout(focusInTimerRef.current);
       focusInTimerRef.current = null;
     }
     if (readerIsHere()) {
-      enterFigure();
+      // Entered here rather than on a timer, a failure would reach the
+      // agent's call as an internal error although focus had moved. Caught,
+      // a half-built controller goes, as after a failed live update, so the
+      // call reports that the reader is not in the chart, and their next
+      // entry builds it afresh and makes what was kept for them.
+      try {
+        enterFigure();
+      } catch (error) {
+        console.error('[maidr] Could not enter the chart after moving focus into it for an agent:', error);
+        disposeController();
+      }
     }
-  }, [enterFigure, readerIsHere]);
+  }, [disposeController, enterFigure, readerIsHere]);
 
   const onFocusOut = useCallback((): void => {
     // Cancel any pending focus-in to prevent a stale focus-in from firing

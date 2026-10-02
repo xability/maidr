@@ -994,6 +994,7 @@ describe('maidr_navigate', () => {
     expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.any(String) });
     expect(result.message).toContain('could not be moved into the chart');
     expect(result.message).toContain('does not have the browser\'s focus');
+    expect(result.message).toContain('another page\'s frame');
     expect(result.message).toContain('the next time they enter the chart');
     expect(result.message).toContain('switch agent access off');
   });

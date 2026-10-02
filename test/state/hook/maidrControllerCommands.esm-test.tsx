@@ -35,6 +35,7 @@ import { liveDataManager, navigateMaidr } from '@service/liveData';
 import { buildWebMcpTools, resetWebMcpForTests, setWebMcpEnabled, TOOL_NAMES } from '@service/webMcp';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TraceType } from '@type/grammar';
+import { Controller } from '../../../src/controller';
 import { Maidr } from '../../../src/maidr-component';
 
 const DATA: MaidrData = {
@@ -856,6 +857,30 @@ describe('an agent taking the reader into the chart when they ask', () => {
       expect.stringContaining('Category is C'),
       expect.stringContaining('Text mode is terse'),
     ]);
+  });
+
+  it('should say the reader is not in the chart when entering it fails, and enter afresh next time', async () => {
+    renderChart();
+    focusElsewhere();
+    const resume = jest.spyOn(Controller.prototype, 'resume').mockImplementationOnce(() => {
+      throw new Error('broken');
+    });
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+
+      expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be entered') });
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('[maidr] Could not enter the chart'), expect.any(Error));
+      expect(await reader()).toEqual({ inChart: false, position: null });
+    } finally {
+      resume.mockRestore();
+      error.mockRestore();
+    }
+
+    // The move was kept, and the next entry makes it.
+    tabOut();
+    focusIn();
+    expect((await reader()).position).toContain('Category is C');
   });
 
   it('should not take focus from a dialog elsewhere on the page', async () => {

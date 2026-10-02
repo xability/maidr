@@ -880,8 +880,8 @@ async function run(opts: { signal?: AbortSignal } | undefined, body: () => ToolR
 /** Where a failed call about a command id points the agent. */
 const COMMANDS_HINT = 'Call maidr_list_commands for the commands you can run.';
 
-/** Why focus may not have moved, for a call that asked for it. */
-const FOCUS_NOT_MOVED = 'The reader\'s keyboard focus could not be moved into the chart: most likely the page does not have the browser\'s focus -- for instance while they talk to you in a side panel -- or their focus is in a dialog on the page, which it is never taken from.';
+/** Why focus may not have moved, for a call that asked for it, naming no one cause. */
+const FOCUS_NOT_MOVED = 'The reader\'s keyboard focus could not be moved into the chart, or the chart could not be entered there. Most often the page does not have the browser\'s focus -- for instance while they talk to you in a side panel -- or the browser does not let a chart in another page\'s frame take focus without the reader\'s own click or key press; focus is also never taken from a dialog on the chart\'s page.';
 
 /** What happens to a move kept for the reader's next visit. */
 const MOVE_KEPT = 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes, the page moves them first, or they switch agent access off.';
