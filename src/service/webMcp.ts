@@ -102,6 +102,12 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 const NAVIGATE_INTERVAL_MS = 500;
 const COMMAND_INTERVAL_MS = 500;
+/**
+ * The least time between two moves of the reader's keyboard focus for an
+ * agent, across every chart on the page: a reader who leaves a chart is not
+ * pulled straight back into it, nor bounced from chart to chart.
+ */
+const FOCUS_INTERVAL_MS = 10_000;
 /** Longest shortcut or mode name handed to an agent. */
 const MAX_NAME_LENGTH = 64;
 const OWNER_KEY = Symbol.for('maidr.webmcp.owner');
@@ -883,6 +889,9 @@ const COMMANDS_HINT = 'Call maidr_list_commands for the commands you can run.';
 /** Why focus may not have moved, for a call that asked for it, naming no one cause. */
 const FOCUS_NOT_MOVED = 'The reader\'s keyboard focus could not be moved into the chart, or the chart could not be entered there. Most often the page does not have the browser\'s focus -- for instance while they talk to you in a side panel -- or the browser does not let a chart in another page\'s frame take focus without the reader\'s own click or key press; focus is also never taken from a dialog on the chart\'s page.';
 
+/** Why focus was not moved, for a call that asked for it too soon after the last move. */
+const FOCUS_TOO_SOON = 'The reader\'s keyboard focus was not moved: it was moved into a chart on this page for an agent less than 10 seconds ago, and is not moved again so soon, so that a reader who left a chart is not pulled back into it. Do not pass focus: true again because they left: ask them first.';
+
 /** What happens to a move kept for the reader's next visit. */
 const MOVE_KEPT = 'Best effort: the reader should land here the next time they enter the chart, but the move is dropped if the chart\'s data changes, the page moves them first, or they switch agent access off.';
 
@@ -928,6 +937,10 @@ const READER_ONLY_HINT = 'maidr_list_commands gives its key: tell the reader to 
 export function buildWebMcpTools(manager: LiveDataManager, now = (): number => Date.now()): WebMcpTool[] {
   const lastNavigate = new Map<string, number>();
   const lastCommand = new Map<string, number>();
+  // Page-wide, unlike the two above: when an agent last moved the reader's
+  // focus into any chart.
+  let lastFocus: number | undefined;
+  const mayMoveFocus = (time: number): boolean => lastFocus === undefined || time - lastFocus >= FOCUS_INTERVAL_MS;
 
   const listCharts: WebMcpTool = {
     name: TOOL_NAMES.LIST_CHARTS,
@@ -1032,7 +1045,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
   const navigate: WebMcpTool = {
     name: TOOL_NAMES.NAVIGATE,
     title: 'Move the reader\'s cursor',
-    description: 'Moves the screen-reader user\'s cursor in a chart to one data point, for example when they ask to be taken to the highest bar. Address the point with the `target` maidr_get_layer_data gave for it -- row and col, or pointIndex -- passed unchanged; a point without a `target` cannot be navigated to. If the reader is inside the chart, their screen reader, braille display, sonification and highlight announce the new point at once, exactly as a keyboard move would. If they are not, the move waits until they next enter the chart -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the point. Pass focus: true only when the user asked to be taken there now, as in "take me to the highest bar", and when the result says focused: true, tell them their focus moved. If they have a MAIDR dialog open, nothing moves, focus included. Whenever the result is not applied: now, tell them what it says, and do not claim they are already there. Only call this when the user asked to be moved.',
+    description: 'Moves the screen-reader user\'s cursor in a chart to one data point, for example when they ask to be taken to the highest bar. Address the point with the `target` maidr_get_layer_data gave for it -- row and col, or pointIndex -- passed unchanged; a point without a `target` cannot be navigated to. If the reader is inside the chart, their screen reader, braille display, sonification and highlight announce the new point at once, exactly as a keyboard move would. If they are not, the move waits until they next enter the chart -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the point. Pass focus: true only when the user asked to be taken there now, as in "take me to the highest bar" -- never just because they left the chart, which they did on purpose -- and when the result says focused: true, tell them their focus moved. If they have a MAIDR dialog open, nothing moves, focus included. Whenever the result is not applied: now, tell them what it says, and do not claim they are already there. Only call this when the user asked to be moved.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1109,10 +1122,13 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
         return { ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' };
       }
       const target: NavigationTarget = { layerId: args.layerId, ...position };
+      // Focus is only asked for a reader who is away, and not again so soon
+      // after the last time.
+      const moveFocus = focus && reader?.inChart !== true && mayMoveFocus(time);
       // Marked as the agent's: kept for the reader, it is dropped if they
       // switch agent access off before they arrive, where the host's stays.
       // With focus, the chart then takes a reader who is away into it.
-      const accepted = manager.navigateTo(target, { id, byAgent: true, focus });
+      const accepted = manager.navigateTo(target, { id, byAgent: true, focus: moveFocus });
       if (!accepted) {
         return { ok: false, applied: 'refused' };
       }
@@ -1127,6 +1143,14 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
           message: `${MOVE_KEPT} Tell them so. Do not move their focus yourself: focus: true does that, and only when they ask to be taken there.`,
         };
       }
+      if (!moveFocus) {
+        return {
+          ok: true,
+          applied: 'on-next-focus',
+          focused: false,
+          message: `${FOCUS_TOO_SOON} The move is kept. ${MOVE_KEPT} Tell them so, and do not claim they are there.`,
+        };
+      }
       // The chart entered at once if it could take the reader's focus, so
       // where they are now says whether they arrived.
       const after = manager.inspect(id);
@@ -1138,6 +1162,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
           message: `${FOCUS_NOT_MOVED} The move is kept. ${MOVE_KEPT} Tell them so, and do not claim they are there.`,
         };
       }
+      lastFocus = time;
       if (after.blocked) {
         // Their braille field, open when they left, came back with them, and
         // holds a move as it does for a reader who Tabs in.
@@ -1191,7 +1216,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
   const runCommand: WebMcpTool = {
     name: TOOL_NAMES.RUN_COMMAND,
     title: 'Run one of the reader\'s commands',
-    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the command runs. Pass focus: true only when the user asked for it to happen now, as in "play it now", and when the result says focused: true, tell them their focus moved. A result of applied: queued has not run yet either: it waits its turn behind what is waiting for the reader, and has no modes. Apart from that, keyboard focus moves only as the command\'s own keys would move it.',
+    description: 'Runs one of the screen-reader user\'s own MAIDR commands on a chart, by its id from maidr_list_commands -- for example turning braille or sound off, or starting autoplay -- as if they had pressed its keys where they are: their screen reader, braille display and sonification report the result. Only run a command the user asked for. A toggle steps a mode on rather than setting it: toggle_text goes verbose, terse, off, verbose; toggle_sound turns sound off or on, except on a scatter plot, where sound that is on is combined or separate and goes combined, separate, off, combined. So check `modes` from maidr_list_commands first, run a toggle only as often as reaching what the user asked for takes, and check the `modes` each run returns. Commands that open a dialog or text field are the reader\'s to use and cannot be run. If the reader has a MAIDR dialog open, nothing runs. Otherwise, if they are not inside the chart, the command waits and runs when they next enter it: tell them so, and do not claim it has happened -- unless you pass focus: true, which moves their keyboard focus into the chart, where their screen reader announces the chart and then the command runs. Pass focus: true only when the user asked for it to happen now, as in "play it now" -- never just because they left the chart, which they did on purpose -- and when the result says focused: true, tell them their focus moved. A result of applied: queued has not run yet either: it waits its turn behind what is waiting for the reader, and has no modes. Apart from that, keyboard focus moves only as the command\'s own keys would move it.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1237,8 +1262,10 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
         return { ok: false, error: 'rate limited' };
       }
       // With focus, the chart takes a reader who is away into it once the
-      // command is kept.
-      switch (manager.runCommand(id, command.key as Keys, { focus })) {
+      // command is kept -- unless it did so too short a while ago.
+      const triedFocus = focus && !wasInChart;
+      const moveFocus = triedFocus && mayMoveFocus(time);
+      switch (manager.runCommand(id, command.key as Keys, { focus: moveFocus })) {
         case 'now':
           lastCommand.set(id, time);
           return { ok: true, applied: 'now', modes: copyModes(manager.inspectCommands(id)?.modes) };
@@ -1246,16 +1273,20 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
           // The reader is in the chart -- brought in just now, when focus was
           // asked of a reader who was away, or there all along and still
           // hearing the commands their entry runs -- and this one joined them.
+          if (triedFocus) {
+            lastFocus = time;
+          }
           return {
             ok: true,
             applied: 'queued',
-            ...(focus && !wasInChart && { focused: true }),
+            ...(triedFocus && { focused: true }),
             message: 'The reader is in the chart, and the command waits its turn: it runs half a second after what they last heard, after any move kept for them and any command before it, and a toggle then steps the mode on from what it is at that moment. Until it has run, maidr_list_commands counts it in pending and gives the modes from before it. Do not claim it has happened yet.',
           };
         case 'held':
           // In the chart, but behind a kept move their braille field holds, as
           // a reader who Tabs in with braille on finds it.
-          if (focus && !wasInChart) {
+          if (triedFocus) {
+            lastFocus = time;
             return {
               ok: true,
               applied: 'on-next-focus',
@@ -1268,16 +1299,15 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
             applied: 'on-next-focus',
             message: `The reader is in the chart, but their braille field holds a move kept for them, and ${COMMAND_HELD} Tell them so, and do not claim it has happened.`,
           };
-        case 'kept': {
-          // Focus was asked of a reader who was away, and the chart could not
-          // take them in.
-          const triedFocus = focus && !wasInChart;
+        case 'kept':
+          // Focus was asked of a reader who was away, and was not moved: too
+          // soon after the last time, or the chart could not take them in.
           if (triedFocus) {
             return {
               ok: true,
               applied: 'on-next-focus',
               focused: false,
-              message: `${FOCUS_NOT_MOVED} The command is kept: ${COMMAND_KEPT} Tell them so, and do not claim it has happened.`,
+              message: `${moveFocus ? FOCUS_NOT_MOVED : FOCUS_TOO_SOON} The command is kept: ${COMMAND_KEPT} Tell them so, and do not claim it has happened.`,
             };
           }
           return {
@@ -1285,7 +1315,6 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
             applied: 'on-next-focus',
             message: `The reader is not in the chart, so the command is kept: ${COMMAND_KEPT} Tell them so, and do not claim it has happened.`,
           };
-        }
         case 'blocked':
           // A dialog or text field is open in the chart: a command now would
           // switch the keyboard scope out from beneath it, and one kept would

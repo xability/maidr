@@ -883,6 +883,23 @@ describe('an agent taking the reader into the chart when they ask', () => {
     expect((await reader()).position).toContain('Category is C');
   });
 
+  it('should not pull a reader who left back in straight away, and keep the move for them', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    const button = focusElsewhere();
+    expect((await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true })).focused).toBe(true);
+    expect(document.activeElement).toBe(plot);
+
+    // They leave, on purpose, and the agent asks at once to take them back.
+    tabOut();
+    const again = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 0, focus: true });
+
+    expect(again).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('less than 10 seconds ago') });
+    expect(document.activeElement).toBe(button);
+    focusIn();
+    expect((await reader()).position).toContain('Category is A');
+  });
+
   it('should not take focus from a dialog elsewhere on the page', async () => {
     render(
       <>

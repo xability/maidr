@@ -1021,6 +1021,43 @@ describe('maidr_navigate', () => {
     expect(navigator).not.toHaveBeenCalled();
   });
 
+  it('should move the reader\'s focus for an agent at most once every 10 seconds', async () => {
+    inChart = false;
+    navigator.mockImplementation((_target, options) => {
+      inChart = options?.focus === true;
+      return true;
+    });
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: true, applied: 'now', focused: true });
+
+    // The reader leaves the chart, and the agent asks to take them back.
+    inChart = false;
+    clock += 1000;
+    const again = await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 2, focus: true });
+
+    expect(again).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('less than 10 seconds ago') });
+    expect(again.message).toContain('ask them first');
+    expect(again.message).toContain('The move is kept');
+    expect(navigator).toHaveBeenLastCalledWith({ layerId: 'bars', row: 0, col: 2 }, { byAgent: true, focus: false });
+    expect(inChart).toBe(false);
+    clock += 9000;
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 2, focus: true }))
+      .toEqual({ ok: true, applied: 'now', focused: true });
+  });
+
+  it('should not count a focus move that did not happen', async () => {
+    inChart = false;
+    expect((await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true })).focused).toBe(false);
+    navigator.mockImplementation((_target, options) => {
+      inChart = options?.focus === true;
+      return true;
+    });
+    clock += 500;
+
+    expect(await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 1, focus: true }))
+      .toEqual({ ok: true, applied: 'now', focused: true });
+  });
+
   it('should rate-limit a move that takes the reader in as any other', async () => {
     inChart = false;
     expect((await call(tools, TOOL_NAMES.NAVIGATE, { layerId: 'bars', row: 0, col: 0, focus: true })).ok).toBe(true);
@@ -1433,6 +1470,34 @@ describe('maidr_run_command', () => {
     expect(brought).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
     expect(brought.message).toContain('runs once they close braille');
     expect(brought.message).toContain('Tell them both');
+  });
+
+  it('should move focus at most once every 10 seconds across the page, moves included', async () => {
+    inChart = false;
+    channel.run.mockImplementation((_command, options) => {
+      inChart = options?.focus === true;
+      return inChart ? 'queued' : 'kept';
+    });
+    expect((await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true })).focused).toBe(true);
+
+    // A moment later, a move on another chart would bounce the reader there.
+    let otherInChart = false;
+    const navigator = jest.fn((_target: unknown, options?: LiveNavigateOptions) => {
+      otherInChart = options?.focus === true;
+      return true;
+    });
+    manager.register(barMaidr('other-chart'), jest.fn(), { navigator, probe: () => ({ inChart: otherInChart, position: null }) });
+    clock += 1000;
+    const bounced = await call(tools, TOOL_NAMES.NAVIGATE, { chartId: 'other-chart', layerId: 'bars', row: 0, col: 1, focus: true });
+    expect(bounced).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('less than 10 seconds ago') });
+    expect(navigator).toHaveBeenCalledWith({ layerId: 'bars', row: 0, col: 1 }, { byAgent: true, focus: false });
+
+    // Nor, once they left the first chart, back into that one.
+    inChart = false;
+    const again = await call(tools, TOOL_NAMES.RUN_COMMAND, { chartId: 'bar-chart', command: 'toggle_text', focus: true });
+    expect(again).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('less than 10 seconds ago') });
+    expect(again.message).toContain('The command is kept');
+    expect(channel.run).toHaveBeenLastCalledWith('TOGGLE_TEXT', { focus: false });
   });
 
   it('should refuse under a MAIDR dialog with focus as without it', async () => {
