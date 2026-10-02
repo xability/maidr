@@ -1172,6 +1172,7 @@ describe('maidr_run_command', () => {
       message: expect.stringContaining('do not claim it has happened'),
     });
     expect(result.message).toContain('steps the mode on from what it is');
+    expect(result.message).toContain('dropped if they switch agent access off');
     expect(channel.run).toHaveBeenCalledWith('TOGGLE_AUDIO');
   });
 

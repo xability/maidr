@@ -1170,7 +1170,7 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
           return {
             ok: true,
             applied: 'on-next-focus',
-            message: 'The reader is not in the chart, so the command is kept: it runs the next time they enter the chart, after any move kept for them and any command kept before it, and a toggle then steps the mode on from what it is at that moment. Tell them so, and do not claim it has happened.',
+            message: 'The reader is not in the chart, so the command is kept: it runs the next time they enter the chart, after any move kept for them and any command kept before it, and a toggle then steps the mode on from what it is at that moment. It is dropped if they switch agent access off before then. Tell them so, and do not claim it has happened.',
           };
         case 'blocked':
           // A dialog or text field is open in the chart: a command now would
