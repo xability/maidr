@@ -1416,6 +1416,24 @@ describe('maidr_run_command', () => {
     expect((await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' })).applied).toBe('now');
   });
 
+  it('should say a command waits behind a move the reader\'s braille field holds, and that focus moved when it did', async () => {
+    channel.run.mockReturnValue('held');
+    const held = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    expect(held).toEqual({ ok: true, applied: 'on-next-focus', message: expect.stringContaining('braille field holds a move') });
+    expect(held.message).toContain('runs once they close braille');
+    expect(held.message).toContain('do not claim it has happened');
+
+    inChart = false;
+    channel.run.mockImplementation(() => {
+      inChart = true;
+      return 'held';
+    });
+    const brought = await call(tools, TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+    expect(brought).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
+    expect(brought.message).toContain('runs once they close braille');
+    expect(brought.message).toContain('Tell them both');
+  });
+
   it('should refuse under a MAIDR dialog with focus as without it', async () => {
     inChart = false;
     channel.run.mockReturnValue('blocked');

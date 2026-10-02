@@ -15,6 +15,9 @@ import { Controller } from '../../controller';
 /** The most commands kept for a reader who is not in the chart. */
 const MAX_PENDING_COMMANDS = 8;
 
+/** The command that opens and closes the braille field. */
+const TOGGLE_BRAILLE = 'TOGGLE_BRAILLE' as Keys;
+
 /**
  * A dialog of any kind -- another chart's, or the page's own -- which keeps
  * the reader's focus until they close it, so nothing takes it from there.
@@ -186,19 +189,25 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
       keptCommandTimerRef.current = null;
       const controller = readerController();
       const commands = pendingCommandsRef.current;
-      // The reader left, or a kept target still waits -- braille reopened on
-      // their return holds it: the rest wait for the focus-in that applies
-      // it, so they still run after it.
-      if (controller === null || pendingTargetRef.current !== null || commands.length === 0) {
+      if (controller === null || commands.length === 0) {
+        return;
+      }
+      // While a kept target still waits -- braille reopened on their return
+      // holds it -- the rest wait for the focus-in that applies it, so they
+      // still run after it. All but a toggle of braille, which goes first:
+      // closing braille is what lets that focus-in come, and run after it,
+      // the toggle would open braille again behind the reader who closed it.
+      const index = pendingTargetRef.current === null ? 0 : commands.indexOf(TOGGLE_BRAILLE);
+      if (index < 0) {
         return;
       }
       // A dialog the reader opened meanwhile stops the run. Closing it hands
       // focus back to the plot, and that focus-in carries on.
-      if (controller.runCommand(commands[0]) === 'blocked') {
+      if (controller.runCommand(commands[index]) === 'blocked') {
         return;
       }
       // Run, or dropped as unavailable: its key would do nothing there either.
-      commands.shift();
+      commands.splice(index, 1);
       if (commands.length > 0) {
         keptCommandTimerRef.current = setTimeout(step, KEPT_COMMAND_INTERVAL_MS);
       }
@@ -441,8 +450,15 @@ export function useMaidrController(data: MaidrData, store: AppStore): UseMaidrCo
           bringReaderIn();
         }
         // A reader in the chart -- all along, or just brought in -- gets it
-        // in its turn; one who is not, when they next enter it.
-        return readerController() === null ? 'kept' : 'queued';
+        // in its turn; one who is not, when they next enter it. Its turn
+        // waits on the reader closing braille while braille holds a kept
+        // target, unless a toggle of braille waiting with it will close it.
+        const here = readerController();
+        if (here === null) {
+          return 'kept';
+        }
+        const held = pendingTargetRef.current !== null && here.isNavigationBlocked();
+        return held && !pendingCommandsRef.current.includes(TOGGLE_BRAILLE) ? 'held' : 'queued';
       },
       state: () => {
         const controller = controllerRef.current;

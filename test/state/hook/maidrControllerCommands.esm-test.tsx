@@ -540,6 +540,40 @@ describe('a command an agent runs for the reader', () => {
   });
 });
 
+describe('a braille toggle kept behind a target braille holds', () => {
+  it('should run first, closing braille, so the target is made and braille stays closed', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' });
+
+    focusIn();
+    expect(document.querySelector('textarea')).not.toBeNull();
+    // Its turn comes, ahead of the text toggle that waits behind the target.
+    wait(500);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    const charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
+    expect(charts.charts[0].reader.position).toContain('Category is C');
+    wait(500);
+
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ braille: false, text: 'terse' }));
+    expect(document.querySelector('textarea')).toBeNull();
+  });
+});
+
 describe('what an agent left for the reader when they switch agent access off', () => {
   const secure = window.isSecureContext;
 
@@ -900,6 +934,70 @@ describe('an agent taking the reader into the chart when they ask', () => {
     expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
     focusIn();
     expect((await reader()).position).toBeNull();
+  });
+
+  it('should say a command waits behind a kept move braille holds when it brings the reader back, and run it once they close braille', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    expect((await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 })).applied).toBe('on-next-focus');
+
+    const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
+    expect(result.message).toContain('runs once they close braille');
+    wait(1000);
+    expect(document.querySelector('textarea')).not.toBeNull();
+    let listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(1);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'verbose', braille: true }));
+
+    // Braille off hands focus back to the plot: the move, then the command.
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' })).applied).toBe('now');
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect((await reader()).position).toContain('Category is C');
+    wait(500);
+    listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'terse', braille: false }));
+  });
+
+  it('should let a braille toggle it brings the reader back for close braille, and then make the kept move', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 });
+
+    const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'queued', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(document.querySelector('textarea')).not.toBeNull();
+    wait(500);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect((await reader()).position).toContain('Category is C');
+    wait(1000);
+    expect(document.querySelector('textarea')).toBeNull();
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ braille: false }));
   });
 
   it('should take a reader who left braille open back into it, and make the move once they close it', async () => {

@@ -241,12 +241,16 @@ export interface LiveReaderModes {
  *   {@link LiveCommandOptions.focus} brought in. The command runs in turn,
  *   after any target kept for them and any command before it, half a second
  *   after the announcement before it.
+ * - `held`: as `queued`, but a target kept for the reader still waits --
+ *   their braille field, reopened on their return, holds it -- and the
+ *   command waits behind it, until they close braille. A toggle of braille
+ *   never waits so: it runs first, since it is what closes braille.
  * - `kept`: the reader is not in the chart. The command runs the next time
  *   they enter it, after any target kept for them and any command kept
  *   before it.
  * - `full`: as many commands as the chart keeps are already waiting.
  */
-export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'queued' | 'kept' | 'full';
+export type LiveCommandOutcome = 'now' | 'unavailable' | 'blocked' | 'queued' | 'held' | 'kept' | 'full';
 
 /**
  * How a caller asks a chart to run a command, as {@link LiveCommandChannel.run}

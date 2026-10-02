@@ -889,6 +889,9 @@ const MOVE_KEPT = 'Best effort: the reader should land here the next time they e
 /** What happens to a command kept for the reader's next visit, after a colon. */
 const COMMAND_KEPT = 'it runs the next time they enter the chart, after any move kept for them and any command kept before it, and a toggle then steps the mode on from what it is at that moment. It is dropped if they switch agent access off before then.';
 
+/** What happens to a command behind a move the reader's braille field holds, after "and". */
+const COMMAND_HELD = 'the command waits behind that move: it runs once they close braille -- toggle_braille does that -- half a second after the move is announced, and a toggle then steps the mode on from what it is at that moment. Until it has run, maidr_list_commands counts it in pending and gives the modes from before it.';
+
 /** The `focus` input both acting tools take. */
 const FOCUS_INPUT = {
   type: 'boolean',
@@ -1248,6 +1251,22 @@ export function buildWebMcpTools(manager: LiveDataManager, now = (): number => D
             applied: 'queued',
             ...(focus && !wasInChart && { focused: true }),
             message: 'The reader is in the chart, and the command waits its turn: it runs half a second after what they last heard, after any move kept for them and any command before it, and a toggle then steps the mode on from what it is at that moment. Until it has run, maidr_list_commands counts it in pending and gives the modes from before it. Do not claim it has happened yet.',
+          };
+        case 'held':
+          // In the chart, but behind a kept move their braille field holds, as
+          // a reader who Tabs in with braille on finds it.
+          if (focus && !wasInChart) {
+            return {
+              ok: true,
+              applied: 'on-next-focus',
+              focused: true,
+              message: `The reader's keyboard focus moved into the chart, but their braille field reopened there, as they had left it, and holds a move kept for them, and ${COMMAND_HELD} Tell them both, and do not claim it has happened.`,
+            };
+          }
+          return {
+            ok: true,
+            applied: 'on-next-focus',
+            message: `The reader is in the chart, but their braille field holds a move kept for them, and ${COMMAND_HELD} Tell them so, and do not claim it has happened.`,
           };
         case 'kept': {
           // Focus was asked of a reader who was away, and the chart could not
