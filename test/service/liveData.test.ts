@@ -940,7 +940,7 @@ describe('liveDataManager.navigateTo', () => {
 
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart' })).toBe(true);
 
-    expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false });
+    expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false, focus: false });
     navigator.mockReturnValue(false);
     expect(manager.navigateTo({ layerId: 'layer-0', row: 0, col: 9 }, { id: 'chart' })).toBe(false);
   });
@@ -951,7 +951,7 @@ describe('liveDataManager.navigateTo', () => {
 
     expect(manager.navigateTo(null, { id: 'chart' })).toBe(true);
 
-    expect(navigator).toHaveBeenCalledWith(null, { byAgent: false });
+    expect(navigator).toHaveBeenCalledWith(null, { byAgent: false, focus: false });
   });
 
   test('tells the chart when an agent asked, and only then', () => {
@@ -962,20 +962,34 @@ describe('liveDataManager.navigateTo', () => {
     manager.navigateTo({ layerId: 'layer-0', row: 0, col: 2 }, { id: 'chart' });
 
     expect(navigator.mock.calls).toEqual([
-      [{ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: true }],
-      [{ layerId: 'layer-0', row: 0, col: 2 }, { byAgent: false }],
+      [{ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: true, focus: false }],
+      [{ layerId: 'layer-0', row: 0, col: 2 }, { byAgent: false, focus: false }],
     ]);
   });
 
-  test('never marks a target from the page\'s own navigateMaidr as an agent\'s', () => {
+  test('tells the chart to take the reader there only when asked', () => {
+    const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
+    manager.register(createBarMaidr('chart'), jest.fn(), { navigator });
+
+    manager.navigateTo({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'chart', byAgent: true, focus: true });
+    // Anything but true is false, as a script page may pass anything.
+    manager.navigateTo({ layerId: 'layer-0', row: 0, col: 2 }, { id: 'chart', byAgent: true, focus: 'yes' as unknown as boolean });
+
+    expect(navigator.mock.calls).toEqual([
+      [{ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: true, focus: true }],
+      [{ layerId: 'layer-0', row: 0, col: 2 }, { byAgent: true, focus: false }],
+    ]);
+  });
+
+  test('never marks a target from the page\'s own navigateMaidr as an agent\'s, nor moves focus for it', () => {
     const navigator = jest.fn((_target: unknown, _options?: unknown) => true);
     const registration = liveDataManager.register(createBarMaidr('page-chart'), jest.fn(), { navigator });
     try {
       // A script page is not held to the types: whatever else it passes, the
       // target is the host's.
-      navigateMaidr({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'page-chart', byAgent: true } as { id: string });
+      navigateMaidr({ layerId: 'layer-0', row: 0, col: 1 }, { id: 'page-chart', byAgent: true, focus: true } as { id: string });
 
-      expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false });
+      expect(navigator).toHaveBeenCalledWith({ layerId: 'layer-0', row: 0, col: 1 }, { byAgent: false, focus: false });
     } finally {
       registration.dispose();
     }
@@ -1080,8 +1094,23 @@ describe('liveDataManager.runCommand and inspectCommands', () => {
 
     expect(manager.runCommand('chart', 'TOGGLE_TEXT' as Keys)).toBe('kept');
 
-    expect(run).toHaveBeenCalledWith('TOGGLE_TEXT');
+    expect(run).toHaveBeenCalledWith('TOGGLE_TEXT', { focus: false });
     expect(manager.inspectCommands('chart')).toEqual(state);
+  });
+
+  test('tells the chart to take the reader there only when asked', () => {
+    const run = jest.fn((_command: Keys, _options?: unknown): LiveCommandOutcome => 'kept');
+    manager.register(createBarMaidr('chart'), jest.fn(), {
+      commands: { run, state: () => ({ modes: null, blocked: false, pending: 0 }), clear: jest.fn() },
+    });
+
+    manager.runCommand('chart', 'TOGGLE_TEXT' as Keys, { focus: true });
+    manager.runCommand('chart', 'TOGGLE_TEXT' as Keys, { focus: 1 as unknown as boolean });
+
+    expect(run.mock.calls).toEqual([
+      ['TOGGLE_TEXT', { focus: true }],
+      ['TOGGLE_TEXT', { focus: false }],
+    ]);
   });
 
   test('answers null for an unknown chart and one with no command channel, and runs nothing', () => {

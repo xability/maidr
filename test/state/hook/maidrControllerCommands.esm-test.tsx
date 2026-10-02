@@ -18,6 +18,12 @@
  * kept as well, but never one the host page kept: whoever set the target
  * last owns it.
  *
+ * With `focus: true`, a move or command for a reader who is away is kept as
+ * ever, and then their keyboard focus is moved into the chart, whose entry --
+ * the one a Tab makes -- makes the move and runs the commands with the same
+ * announcements. Never from a MAIDR dialog, and never while the page does not
+ * have the browser's focus, when the request stays kept for their return.
+ *
  * An `esm-test` for the same reason the visibility test is: rendering `Maidr`
  * mounts the whole app, and the chat bubbles in it are ESM-only.
  */
@@ -29,6 +35,7 @@ import { liveDataManager, navigateMaidr } from '@service/liveData';
 import { buildWebMcpTools, resetWebMcpForTests, setWebMcpEnabled, TOOL_NAMES } from '@service/webMcp';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TraceType } from '@type/grammar';
+import { Controller } from '../../../src/controller';
 import { Maidr } from '../../../src/maidr-component';
 
 const DATA: MaidrData = {
@@ -336,6 +343,31 @@ describe('a command an agent runs for the reader', () => {
     ]);
   });
 
+  it('should queue a command asked for while the reader\'s entry still runs the kept ones, behind them', async () => {
+    renderChart();
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound' });
+    focusIn();
+    const heard = watchAnnouncements();
+
+    // In the chart, but not yet through what was kept: it waits its turn
+    // rather than cutting in, and has not run, so it has no modes.
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' }))
+      .toEqual({ ok: true, applied: 'queued', message: expect.stringContaining('waits its turn') });
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(3);
+    wait(500);
+    wait(500);
+    wait(500);
+
+    expect(heard()).toEqual([
+      expect.stringContaining('Text mode is terse'),
+      expect.stringContaining('Sound is off'),
+      expect.stringContaining('Text mode is off'),
+    ]);
+    // Once they have all run, a command runs at once again.
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound' })).applied).toBe('now');
+  });
+
   it('should report the modes the reader left with while they are away', async () => {
     renderChart();
     focusIn();
@@ -509,6 +541,40 @@ describe('a command an agent runs for the reader', () => {
   });
 });
 
+describe('a braille toggle kept behind a target braille holds', () => {
+  it('should run first, closing braille, so the target is made and braille stays closed', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text' });
+    await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' });
+
+    focusIn();
+    expect(document.querySelector('textarea')).not.toBeNull();
+    // Its turn comes, ahead of the text toggle that waits behind the target.
+    wait(500);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    const charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { position: string } }> };
+    expect(charts.charts[0].reader.position).toContain('Category is C');
+    wait(500);
+
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ braille: false, text: 'terse' }));
+    expect(document.querySelector('textarea')).toBeNull();
+  });
+});
+
 describe('what an agent left for the reader when they switch agent access off', () => {
   const secure = window.isSecureContext;
 
@@ -628,5 +694,377 @@ describe('what an agent left for the reader when they switch agent access off', 
     focusIn();
 
     expect(await readerPosition()).toContain('Category is C');
+  });
+});
+
+describe('an agent taking the reader into the chart when they ask', () => {
+  /**
+   * Puts the reader's focus on the button beside the chart, as if they had
+   * Tabbed there, without the chart ever having been entered.
+   * @returns The button.
+   */
+  function focusElsewhere(): HTMLElement {
+    const button = screen.getByRole('button', { name: 'Elsewhere' });
+    act(() => {
+      button.focus();
+      jest.runOnlyPendingTimers();
+    });
+    return button;
+  }
+
+  /**
+   * Where the reader is, as the chart reports it.
+   * @returns Whether they are in it, and what was last spoken for their point.
+   */
+  async function reader(): Promise<{ inChart: boolean; position: string | null }> {
+    const charts = (await call(TOOL_NAMES.LIST_CHARTS, {})).content as { charts: Array<{ reader: { inChart: boolean; position: string | null } }> };
+    return charts.charts[0].reader;
+  }
+
+  it('should move their focus to the chart and announce the move there at once', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusElsewhere();
+    const heard = watchAnnouncements();
+
+    const result = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'now', focused: true });
+    expect(document.activeElement).toBe(plot);
+    expect(heard()).toEqual([expect.stringContaining('Category is C')]);
+    expect(await reader()).toEqual({ inChart: true, position: expect.stringContaining('Category is C') });
+  });
+
+  it('should bring a returning reader back to their point, then run the command half a second later', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('ArrowRight', 'ArrowRight', 39);
+    tabOut();
+    const heard = watchAnnouncements();
+
+    const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'queued', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(document.activeElement).toBe(plot);
+    // Where they are first, on its own, as for a Tab in.
+    expect(heard()).toEqual([expect.stringContaining('Category is B')]);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
+    wait(500);
+
+    expect(heard()).toEqual([
+      expect.stringContaining('Category is B'),
+      expect.stringContaining('Text mode is terse'),
+    ]);
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'terse' }));
+  });
+
+  it('should run a first-time reader\'s command once they are in, and one asked for meanwhile after it', async () => {
+    renderChart();
+    focusElsewhere();
+
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true })).focused).toBe(true);
+    // They are in now, but the first is still waiting: the second waits
+    // behind it rather than cutting in, and focus is not asked for again.
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_sound', focus: true }))
+      .toEqual({ ok: true, applied: 'queued', message: expect.stringContaining('waits its turn') });
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(2);
+    const heard = watchAnnouncements();
+    wait(500);
+    expect(heard()).toEqual([expect.stringContaining('Text mode is terse')]);
+    wait(500);
+
+    expect(heard()).toEqual([
+      expect.stringContaining('Text mode is terse'),
+      expect.stringContaining('Sound is off'),
+    ]);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).modes).toEqual(expect.objectContaining({ text: 'terse', sound: false }));
+  });
+
+  it('should answer as without focus for a reader already in the chart', async () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+
+    expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true }))
+      .toEqual({ ok: true, applied: 'now' });
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true }))
+      .toEqual({ ok: true, applied: 'now', modes: expect.objectContaining({ text: 'terse' }) });
+  });
+
+  it('should refuse under a MAIDR dialog without moving focus, whether or not the page has the browser\'s', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    // The go-to-extremes dialog.
+    press('g', 'KeyG', 71);
+    const inDialog = document.activeElement;
+    expect(inDialog).not.toBe(plot);
+    const refused = { ok: false, applied: 'blocked', error: 'reader is in a MAIDR dialog' };
+
+    expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true })).toEqual(refused);
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true })).toEqual(refused);
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true })).toEqual(refused);
+      expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true })).toEqual(refused);
+    } finally {
+      hasFocus.mockRestore();
+    }
+
+    expect(document.activeElement).toBe(inDialog);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
+  });
+
+  it('should keep the request, and change, make and announce nothing, while the page does not have the browser\'s focus', async () => {
+    renderChart();
+    const button = focusElsewhere();
+    const heard = watchAnnouncements();
+    // The reader is talking to the agent in the browser's side panel, which
+    // the page cannot take focus from.
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      const moved = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+      expect(moved).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be moved') });
+      const ran = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+      expect(ran).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be moved') });
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      // The page's own focus stayed where the reader left it, and nothing
+      // was entered behind their back.
+      expect(document.activeElement).toBe(button);
+      expect(heard().filter(text => text !== '')).toEqual([]);
+      expect(await reader()).toEqual({ inChart: false, position: null });
+      expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(1);
+    } finally {
+      hasFocus.mockRestore();
+    }
+
+    // Back on the page, where they left it, they Tab into the chart, which
+    // makes the move and runs the command.
+    expect(document.activeElement).toBe(button);
+    focusIn();
+    expect(heard().filter(text => text !== '')).toEqual([expect.stringContaining('Category is C')]);
+    wait(500);
+
+    expect(heard().filter(text => text !== '')).toEqual([
+      expect.stringContaining('Category is C'),
+      expect.stringContaining('Text mode is terse'),
+    ]);
+  });
+
+  it('should say the reader is not in the chart when entering it fails, and enter afresh next time', async () => {
+    renderChart();
+    focusElsewhere();
+    const resume = jest.spyOn(Controller.prototype, 'resume').mockImplementationOnce(() => {
+      throw new Error('broken');
+    });
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+
+      expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be entered') });
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('[maidr] Could not enter the chart'), expect.any(Error));
+      expect(await reader()).toEqual({ inChart: false, position: null });
+    } finally {
+      resume.mockRestore();
+      error.mockRestore();
+    }
+
+    // The move was kept, and the next entry makes it.
+    tabOut();
+    focusIn();
+    expect((await reader()).position).toContain('Category is C');
+  });
+
+  it('should not pull a reader who left back in straight away, and keep the move for them', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    const button = focusElsewhere();
+    expect((await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true })).focused).toBe(true);
+    expect(document.activeElement).toBe(plot);
+
+    // They leave, on purpose, and the agent asks at once to take them back.
+    tabOut();
+    const again = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 0, focus: true });
+
+    expect(again).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('less than 10 seconds ago') });
+    expect(document.activeElement).toBe(button);
+    focusIn();
+    expect((await reader()).position).toContain('Category is A');
+  });
+
+  it('should not take focus from a dialog elsewhere on the page', async () => {
+    render(
+      <>
+        <Maidr data={DATA}>
+          <svg />
+        </Maidr>
+        <div role="dialog" aria-label="Cookies">
+          <button type="button">Accept</button>
+        </div>
+      </>,
+    );
+    const accept = screen.getByRole('button', { name: 'Accept' });
+    act(() => {
+      accept.focus();
+    });
+
+    const result = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be moved') });
+    expect(document.activeElement).toBe(accept);
+  });
+
+  it('should not move focus away from where the reader is in the chart', async () => {
+    renderChart();
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    const field = document.querySelector('textarea');
+    expect(document.activeElement).toBe(field);
+    // In the side panel, with the braille field still holding the page's focus.
+    const hasFocus = jest.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true }))
+        .toEqual({ ok: true, applied: 'on-next-focus', focused: false, message: expect.stringContaining('could not be moved') });
+    } finally {
+      hasFocus.mockRestore();
+    }
+
+    expect(document.activeElement).toBe(field);
+  });
+
+  it('should leave focus where it is without focus, or with focus false', async () => {
+    renderChart();
+    const button = focusElsewhere();
+
+    for (const input of [{}, { focus: false }]) {
+      expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, ...input }))
+        .toEqual({ ok: true, applied: 'on-next-focus', message: expect.stringContaining('Best effort') });
+      expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'announce_point', ...input }))
+        .toEqual({ ok: true, applied: 'on-next-focus', message: expect.stringContaining('do not claim it has happened') });
+    }
+
+    expect(document.activeElement).toBe(button);
+    expect(announcedText()).toBe('');
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(2);
+  });
+
+  it('should reject a focus that is not a boolean, moving and keeping nothing', async () => {
+    renderChart();
+    const button = focusElsewhere();
+
+    expect(await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: 'yes' }))
+      .toEqual({ ok: false, error: 'invalid focus' });
+    expect(await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: 1 }))
+      .toEqual({ ok: false, error: 'invalid focus' });
+
+    expect(document.activeElement).toBe(button);
+    expect((await call(TOOL_NAMES.LIST_COMMANDS, {})).pending).toBe(0);
+    focusIn();
+    expect((await reader()).position).toBeNull();
+  });
+
+  it('should say a command waits behind a kept move braille holds when it brings the reader back, and run it once they close braille', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    expect((await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 })).applied).toBe('on-next-focus');
+
+    const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_text', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
+    expect(result.message).toContain('runs once they close braille');
+    wait(1000);
+    expect(document.querySelector('textarea')).not.toBeNull();
+    let listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(1);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'verbose', braille: true }));
+
+    // Braille off hands focus back to the plot: the move, then the command.
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' })).applied).toBe('now');
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect((await reader()).position).toContain('Category is C');
+    wait(500);
+    listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ text: 'terse', braille: false }));
+  });
+
+  it('should let a braille toggle it brings the reader back for close braille, and then make the kept move', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+    await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2 });
+
+    const result = await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille', focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'queued', focused: true, message: expect.stringContaining('waits its turn') });
+    expect(document.querySelector('textarea')).not.toBeNull();
+    wait(500);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect((await reader()).position).toContain('Category is C');
+    wait(1000);
+    expect(document.querySelector('textarea')).toBeNull();
+    const listed = await call(TOOL_NAMES.LIST_COMMANDS, {});
+    expect(listed.pending).toBe(0);
+    expect(listed.modes).toEqual(expect.objectContaining({ braille: false }));
+  });
+
+  it('should take a reader who left braille open back into it, and make the move once they close it', async () => {
+    renderChart();
+    const plot = screen.getByRole('img');
+    focusIn();
+    press('ArrowRight', 'ArrowRight', 39);
+    press('b', 'KeyB', 66);
+    tabOut();
+
+    const result = await call(TOOL_NAMES.NAVIGATE, { layerId: 'bar-layer', row: 0, col: 2, focus: true });
+
+    expect(result).toEqual({ ok: true, applied: 'on-next-focus', focused: true, message: expect.stringContaining('braille field reopened') });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.querySelector('textarea')).not.toBeNull();
+    expect(await reader()).toEqual({ inChart: true, position: expect.stringContaining('Category is A') });
+
+    // Braille off hands focus back to the plot, which is a focus-in.
+    expect((await call(TOOL_NAMES.RUN_COMMAND, { command: 'toggle_braille' })).applied).toBe('now');
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(document.activeElement).toBe(plot);
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect((await reader()).position).toContain('Category is C');
   });
 });
